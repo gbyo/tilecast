@@ -6,19 +6,81 @@
   },
   "page": {
     "title": "Schedules",
-    "subtitle": "Higher priority wins. Screens in a Display Group always share the same schedule and fallback content.",
     "create": "Create schedule",
-    "timelineTitle": "Schedule timeline",
-    "timelineSummary_one": "{{count}} enabled among {{loaded}} loaded of {{total}} schedules · times evaluate in each schedule’s IANA timezone · overnight windows continue into the next day",
-    "timelineSummary_other": "{{count}} enabled among {{loaded}} loaded of {{total}} schedules · times evaluate in each schedule’s IANA timezone · overnight windows continue into the next day",
-    "loadMore": "Load more schedules",
+    "createShort": "Create",
+    "count_one": "{{count}} schedule",
+    "count_other": "{{count}} schedules",
     "loading": "Loading schedules",
-    "loadError": "Schedules could not be loaded. Try refreshing the page.",
+    "loadError": "Could not load schedules.",
     "enabled": "Enabled",
     "disabled": "Disabled",
-    "priorityBadge": "Priority {{priority}}",
+    "priorityValue": "Priority {{priority}}",
     "emptyTitle": "No schedules yet",
-    "emptyDescription": "Direct screen assignments will continue to play until a schedule is created."
+    "emptyDescription": "Schedules let content or display actions run on selected screens at specific times.",
+    "filteredEmptyTitle": "No schedules match",
+    "filteredEmptyDescription": "Try another search or change your filters.",
+    "clearSearchAndFilters": "Clear search and filters",
+    "deleteFailed": "Could not delete the schedule.",
+    "noTargets": "No targets",
+    "targetsMore": "{{names}} +{{count}}",
+    "priorityHelp": "Higher priority wins when eligible schedules overlap.",
+    "priorityHelpLabel": "About priority",
+    "targetsHelpLabel": "All targets: {{names}}",
+    "columns": {
+      "schedule": "Schedule",
+      "status": "Status",
+      "when": "When",
+      "presentation": "Presentation",
+      "targets": "Targets",
+      "priority": "Priority",
+      "updated": "Updated",
+      "actions": "Actions"
+    },
+    "timing": {
+      "everyDay": "Every day",
+      "overnight": "{{range}} next day",
+      "from": "From {{date}}",
+      "until": "Until {{date}}"
+    },
+    "actions": {
+      "edit": "Edit schedule",
+      "open": "Open schedule",
+      "delete": "Delete schedule",
+      "actionsFor": "Actions for {{name}}"
+    }
+  },
+  "toolbar": {
+    "groupLabel": "Search and filter schedules",
+    "search": "Search schedules",
+    "filters": "Filters",
+    "filtersActive": "Filters, {{count}} active",
+    "filtersTitle": "Filters",
+    "filtersDescription": "Narrow the schedules shown in this list.",
+    "filtersReset": "Reset filters",
+    "filtersDone": "Done",
+    "clearFilters": "Clear filters",
+    "filterAny": "Any",
+    "facets": {
+      "status": "Status",
+      "type": "Schedule type",
+      "presentation": "Presentation"
+    },
+    "sortShort": "Sort",
+    "sortButtonLabel": "Sort schedules: {{value}}",
+    "sortMenuTitle": "Sort by",
+    "sort": {
+      "updated": "Recently updated",
+      "name": "Name",
+      "priority": "Highest priority"
+    }
+  },
+  "options": {
+    "type": { "weekly": "Weekly", "oneTime": "One-time" },
+    "presentation": {
+      "playlist": "Playlist",
+      "layout": "Layout",
+      "displayControl": "Display control"
+    }
   },
   "editor": {
     "heading": "Schedule editor: {{name}}",

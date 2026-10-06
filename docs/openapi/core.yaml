@@ -5604,9 +5604,35 @@ paths:
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
         Requires an authenticated user with the read scope. Schedule list
-        with optional search and pagination.
+        with optional search, facet filters, sort, and pagination. Every
+        parameter is optional; a value outside its closed set is rejected with
+        400. The reported total describes the filtered result, not the whole
+        library. Every sort is deterministic, ending in the schedule id.
       parameters:
         - { in: query, name: search, required: false, schema: { type: string } }
+        - in: query
+          name: enabled
+          required: false
+          description: Only enabled or only disabled schedules.
+          schema: { type: string, enum: ["true", "false"] }
+        - in: query
+          name: type
+          required: false
+          description: Only weekly or only one-time schedules.
+          schema: { type: string, enum: [weekly, one_time] }
+        - in: query
+          name: presentationType
+          required: false
+          description: Only schedules that present this kind of content or action.
+          schema: { type: string, enum: [playlist, layout, display_control] }
+        - in: query
+          name: sort
+          required: false
+          description: >-
+            updated is most recently updated first (the default), name is
+            case-insensitive A to Z, and priority is highest priority first,
+            with the most recently updated first among equals.
+          schema: { type: string, enum: [updated, name, priority] }
         - {
             in: query,
             name: page,
@@ -5629,6 +5655,7 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/ScheduleList" }
+        "400": { description: A filter or sort value is not recognized }
         "401": { description: Dashboard authentication required }
     post:
       operationId: createSchedule

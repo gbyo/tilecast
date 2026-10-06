@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 )
@@ -250,7 +251,11 @@ func (s *server) unassignSyncGroupPlaylist(w http.ResponseWriter, r *http.Reques
 func (s *server) listSchedules(w http.ResponseWriter, r *http.Request) {
 	p, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	z, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
-	search := r.URL.Query().Get("search")
+	filter, err := scheduleListFilter(r.URL.Query())
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
@@ -262,7 +267,7 @@ func (s *server) listSchedules(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !scoped {
-		x, e := s.scheduling.List(r.Context(), search, p, z)
+		x, e := s.scheduling.List(r.Context(), filter, p, z)
 		s.scheduleResponse(w, r, x, e, http.StatusOK)
 		return
 	}
@@ -275,7 +280,7 @@ func (s *server) listSchedules(w http.ResponseWriter, r *http.Request) {
 	visible := []scheduling.Record{}
 	defaultTimezone := ""
 	for scanPage := 1; ; scanPage++ {
-		batch, e := s.scheduling.List(r.Context(), search, scanPage, 100)
+		batch, e := s.scheduling.List(r.Context(), filter, scanPage, 100)
 		if e != nil {
 			s.scheduleResponse(w, r, batch, e, http.StatusOK)
 			return
@@ -307,6 +312,29 @@ func (s *server) listSchedules(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": scheduling.List{
 		Items: visible[start:end], Total: len(visible), Page: p, PageSize: z, DefaultTimezone: defaultTimezone,
 	}})
+}
+
+// scheduleListFilter reads the optional library filters. Every parameter is
+// optional; a value outside its closed set is rejected rather than ignored.
+func scheduleListFilter(query url.Values) (scheduling.ListFilter, error) {
+	filter := scheduling.ListFilter{
+		Search:           query.Get("search"),
+		Type:             scheduling.Kind(query.Get("type")),
+		PresentationType: query.Get("presentationType"),
+		Sort:             query.Get("sort"),
+	}
+	switch query.Get("enabled") {
+	case "":
+	case "true":
+		enabled := true
+		filter.Enabled = &enabled
+	case "false":
+		enabled := false
+		filter.Enabled = &enabled
+	default:
+		return filter, errors.New("enabled must be true or false")
+	}
+	return filter, filter.Validate()
 }
 
 func scheduleTargetIDs(targets []scheduling.Target) ([]uuid.UUID, []uuid.UUID) {

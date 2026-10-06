@@ -1,19 +1,24 @@
-import { scheduleQueries } from "../data/schedules";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { Alert, AlertDescription } from "../components/ui/alert";
-import { Badge } from "../components/ui/badge";
-import { Button, buttonVariants } from "../components/ui/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "../components/ui/empty";
-import { Skeleton } from "../components/ui/skeleton";
+import { Plus } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
+import type { ScheduleListParams } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { useFormatLocale } from "../i18n";
+import { useNow } from "../components/overview/format";
+import { ScheduleResults } from "../components/schedules/ScheduleResults";
+import {
+  isScheduleListNarrowed,
+  scheduleFacets,
+  type ScheduleFacetKey,
+} from "../components/schedules/scheduleLibraryModel";
+import { SchedulesToolbar } from "../components/schedules/SchedulesToolbar";
+import { useScheduleDeletion } from "../components/schedules/useScheduleDeletion";
+import { buttonVariants } from "../components/ui/button";
+import { Separator } from "../components/ui/separator";
+import { Skeleton } from "../components/ui/skeleton";
+import { defaultScheduleListParams, scheduleQueries } from "../data/schedules";
+import { useCompactLayout } from "../hooks/use-compact-layout";
 
 const canManage = (role?: string) =>
   role === "owner" || role === "administrator";
@@ -21,99 +26,86 @@ const canManage = (role?: string) =>
 export function SchedulesPage() {
   const auth = useAuth();
   const { t } = useTranslation("schedules");
-  const formatLocale = useFormatLocale();
-  const q = useInfiniteQuery(scheduleQueries.pages());
-  const schedules = q.data?.pages.flatMap((page) => page.items) ?? [];
-  const enabledCount = schedules.filter((schedule) => schedule.enabled).length;
-  const totalSchedules = q.data?.pages[0]?.total ?? 0;
+  const compact = useCompactLayout();
+  const now = useNow();
+  const manager = canManage(auth.status?.user?.role);
+  const { requestDelete, deleting, dialog } = useScheduleDeletion();
+  // Search, every facet, and the sort are all server inputs and all restart
+  // paging, so they travel together as the query's params.
+  const [params, setParams] = useState<ScheduleListParams>(
+    defaultScheduleListParams,
+  );
+  const schedules = useInfiniteQuery(scheduleQueries.pages(params));
+  // The server total for this query, not the loaded count: paging may have
+  // fetched only part of it.
+  const total = schedules.data?.pages.at(-1)?.total;
+  const createLabel = t("page.create");
+
   return (
-    <section className="grid gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("page.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("page.subtitle")}
-          </p>
-        </div>
-        {canManage(auth.status?.user?.role) && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Link to="/schedules/new" className={buttonVariants()}>
-              {t("page.create")}
+    <section className="w-full min-w-0 space-y-5">
+      <h1 className="sr-only">{t("page.title")}</h1>
+      {dialog}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          {typeof total === "number" ? (
+            <p className="text-sm text-muted-foreground tabular-nums">
+              {t("page.count", { count: total })}
+            </p>
+          ) : schedules.isLoading ? (
+            <Skeleton className="h-5 w-24" />
+          ) : null}
+          {manager && (
+            <Link
+              className={buttonVariants({
+                variant: "default",
+                className: "ml-auto",
+              })}
+              to="/schedules/new"
+              aria-label={compact ? createLabel : undefined}
+            >
+              <Plus aria-hidden="true" />
+              {compact ? t("page.createShort") : createLabel}
             </Link>
-          </div>
-        )}
-      </header>
-      <section className="grid gap-1 rounded-xl border border-border p-4">
-        <h2 className="text-base font-semibold">{t("page.timelineTitle")}</h2>
-        <p className="text-sm text-muted-foreground">
-          {t("page.timelineSummary", {
-            count: enabledCount,
-            loaded: schedules.length,
-            total: totalSchedules,
-          })}
-        </p>
-      </section>
-      {q.isLoading && (
-        <div className="grid gap-2" aria-label={t("page.loading")}>
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-20 w-full" />
+          )}
         </div>
-      )}
-      {q.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{t("page.loadError")}</AlertDescription>
-        </Alert>
-      )}
-      <div className="grid gap-2">
-        {schedules.map((schedule) => (
-          <Link
-            className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 hover:bg-muted ${schedule.enabled ? "" : "opacity-60"}`}
-            to={`/schedules/${schedule.id}`}
-            key={schedule.id}
-          >
-            <span className="grid min-w-0 gap-0.5">
-              <strong className="truncate text-sm">{schedule.name}</strong>
-              <small className="truncate text-xs text-muted-foreground">
-                {schedule.enabled ? t("page.enabled") : t("page.disabled")}
-              </small>
-            </span>
-            <span className="text-sm">{schedule.playlistName}</span>
-            <span className="text-sm text-muted-foreground">
-              {schedule.targets.map((target) => target.name).join(", ")}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              {schedule.type === "weekly"
-                ? `${schedule.dailyStart}–${schedule.dailyEnd} · ${schedule.timezone}`
-                : `${new Date(schedule.oneTimeStart!).toLocaleString(formatLocale)}–${new Date(schedule.oneTimeEnd!).toLocaleString(formatLocale)}`}
-            </span>
-            <Badge variant="secondary">
-              {t("page.priorityBadge", { priority: schedule.priority })}
-            </Badge>
-          </Link>
-        ))}
-        {schedules.length === 0 && !q.isLoading && (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>{t("page.emptyTitle")}</EmptyTitle>
-              <EmptyDescription>{t("page.emptyDescription")}</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        )}
+        <Separator />
       </div>
-      {q.hasNextPage && (
-        <div className="flex justify-center">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={q.isFetchingNextPage}
-            onClick={() => void q.fetchNextPage()}
-          >
-            {q.isFetchingNextPage ? t("page.loading") : t("page.loadMore")}
-          </Button>
-        </div>
-      )}
+      <SchedulesToolbar
+        search={params.search}
+        onSearchChange={(search) =>
+          setParams((current) => ({ ...current, search }))
+        }
+        facets={scheduleFacets(params)}
+        onFacetChange={(key: ScheduleFacetKey, value) =>
+          setParams((current) => ({ ...current, [key]: value }))
+        }
+        onClearFacets={() =>
+          setParams((current) => ({
+            ...current,
+            enabled: "",
+            type: "",
+            presentationType: "",
+          }))
+        }
+        sort={params.sort}
+        onSortChange={(sort) => setParams((current) => ({ ...current, sort }))}
+      />
+      <ScheduleResults
+        query={schedules}
+        now={now}
+        narrowed={isScheduleListNarrowed(params)}
+        canManage={manager}
+        deleting={deleting}
+        onDelete={requestDelete}
+        // Sort is a presentation preference, not a narrowing condition, so
+        // the "nothing matches" reset keeps it.
+        onClearSearchAndFilters={() =>
+          setParams((current) => ({
+            ...defaultScheduleListParams,
+            sort: current.sort,
+          }))
+        }
+      />
     </section>
   );
 }

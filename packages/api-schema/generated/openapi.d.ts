@@ -3116,7 +3116,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Requires an authenticated user with the read scope. Schedule list with optional search and pagination. */
+    /** @description Requires an authenticated user with the read scope. Schedule list with optional search, facet filters, sort, and pagination. Every parameter is optional; a value outside its closed set is rejected with 400. The reported total describes the filtered result, not the whole library. Every sort is deterministic, ending in the schedule id. */
     get: operations["listSchedules"];
     put?: never;
     /** @description Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable. */
@@ -19646,6 +19646,14 @@ export interface operations {
     parameters: {
       query?: {
         search?: string;
+        /** @description Only enabled or only disabled schedules. */
+        enabled?: "true" | "false";
+        /** @description Only weekly or only one-time schedules. */
+        type?: "weekly" | "one_time";
+        /** @description Only schedules that present this kind of content or action. */
+        presentationType?: "playlist" | "layout" | "display_control";
+        /** @description updated is most recently updated first (the default), name is case-insensitive A to Z, and priority is highest priority first, with the most recently updated first among equals. */
+        sort?: "updated" | "name" | "priority";
         page?: number;
         pageSize?: number;
       };
@@ -19665,6 +19673,13 @@ export interface operations {
             data: components["schemas"]["ScheduleList"];
           };
         };
+      };
+      /** @description A filter or sort value is not recognized */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Dashboard authentication required */
       401: {

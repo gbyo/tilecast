@@ -5634,6 +5634,84 @@ func (e CreatePlaylistJSONBodySourceType) Valid() bool {
 	}
 }
 
+// Defines values for ListSchedulesParamsEnabled.
+const (
+	ListSchedulesParamsEnabledFalse ListSchedulesParamsEnabled = "false"
+	ListSchedulesParamsEnabledTrue  ListSchedulesParamsEnabled = "true"
+)
+
+// Valid indicates whether the value is a known member of the ListSchedulesParamsEnabled enum.
+func (e ListSchedulesParamsEnabled) Valid() bool {
+	switch e {
+	case ListSchedulesParamsEnabledFalse:
+		return true
+	case ListSchedulesParamsEnabledTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListSchedulesParamsType.
+const (
+	ListSchedulesParamsTypeOneTime ListSchedulesParamsType = "one_time"
+	ListSchedulesParamsTypeWeekly  ListSchedulesParamsType = "weekly"
+)
+
+// Valid indicates whether the value is a known member of the ListSchedulesParamsType enum.
+func (e ListSchedulesParamsType) Valid() bool {
+	switch e {
+	case ListSchedulesParamsTypeOneTime:
+		return true
+	case ListSchedulesParamsTypeWeekly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListSchedulesParamsPresentationType.
+const (
+	ListSchedulesParamsPresentationTypeDisplayControl ListSchedulesParamsPresentationType = "display_control"
+	ListSchedulesParamsPresentationTypeLayout         ListSchedulesParamsPresentationType = "layout"
+	ListSchedulesParamsPresentationTypePlaylist       ListSchedulesParamsPresentationType = "playlist"
+)
+
+// Valid indicates whether the value is a known member of the ListSchedulesParamsPresentationType enum.
+func (e ListSchedulesParamsPresentationType) Valid() bool {
+	switch e {
+	case ListSchedulesParamsPresentationTypeDisplayControl:
+		return true
+	case ListSchedulesParamsPresentationTypeLayout:
+		return true
+	case ListSchedulesParamsPresentationTypePlaylist:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListSchedulesParamsSort.
+const (
+	ListSchedulesParamsSortName     ListSchedulesParamsSort = "name"
+	ListSchedulesParamsSortPriority ListSchedulesParamsSort = "priority"
+	ListSchedulesParamsSortUpdated  ListSchedulesParamsSort = "updated"
+)
+
+// Valid indicates whether the value is a known member of the ListSchedulesParamsSort enum.
+func (e ListSchedulesParamsSort) Valid() bool {
+	switch e {
+	case ListSchedulesParamsSortName:
+		return true
+	case ListSchedulesParamsSortPriority:
+		return true
+	case ListSchedulesParamsSortUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApplyDisplayGroupControlJSONBodyCommandType.
 const (
 	ApplyDisplayGroupControlJSONBodyCommandTypeDisplayMute     ApplyDisplayGroupControlJSONBodyCommandType = "display_mute"
@@ -12451,10 +12529,34 @@ type StopPresentationOverrideParams struct {
 
 // ListSchedulesParams defines parameters for ListSchedules.
 type ListSchedulesParams struct {
-	Search   *string `form:"search,omitempty" json:"search,omitempty"`
-	Page     *int    `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *int    `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
+
+	// Enabled Only enabled or only disabled schedules.
+	Enabled *ListSchedulesParamsEnabled `form:"enabled,omitempty" json:"enabled,omitempty"`
+
+	// Type Only weekly or only one-time schedules.
+	Type *ListSchedulesParamsType `form:"type,omitempty" json:"type,omitempty"`
+
+	// PresentationType Only schedules that present this kind of content or action.
+	PresentationType *ListSchedulesParamsPresentationType `form:"presentationType,omitempty" json:"presentationType,omitempty"`
+
+	// Sort updated is most recently updated first (the default), name is case-insensitive A to Z, and priority is highest priority first, with the most recently updated first among equals.
+	Sort     *ListSchedulesParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+	Page     *int                     `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int                     `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
+
+// ListSchedulesParamsEnabled defines parameters for ListSchedules.
+type ListSchedulesParamsEnabled string
+
+// ListSchedulesParamsType defines parameters for ListSchedules.
+type ListSchedulesParamsType string
+
+// ListSchedulesParamsPresentationType defines parameters for ListSchedules.
+type ListSchedulesParamsPresentationType string
+
+// ListSchedulesParamsSort defines parameters for ListSchedules.
+type ListSchedulesParamsSort string
 
 // PreflightScheduleJSONBody defines parameters for PreflightSchedule.
 type PreflightScheduleJSONBody struct {
@@ -16202,7 +16304,7 @@ type ClientInterface interface {
 
 	// ListSchedules performs a GET /api/v1/schedules (the `ListSchedules` operationId) request.
 	//
-	// Requires an authenticated user with the read scope. Schedule list with optional search and pagination.
+	// Requires an authenticated user with the read scope. Schedule list with optional search, facet filters, sort, and pagination. Every parameter is optional; a value outside its closed set is rejected with 400. The reported total describes the filtered result, not the whole library. Every sort is deterministic, ending in the schedule id.
 	ListSchedules(ctx context.Context, params *ListSchedulesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateScheduleWithBody performs a POST /api/v1/schedules (the `CreateSchedule` operationId) request,
@@ -22771,7 +22873,7 @@ func (c *Client) ProviderCatalog(ctx context.Context, reqEditors ...RequestEdito
 
 // ListSchedules performs a GET /api/v1/schedules (the `ListSchedules` operationId) request.
 //
-// Requires an authenticated user with the read scope. Schedule list with optional search and pagination.
+// Requires an authenticated user with the read scope. Schedule list with optional search, facet filters, sort, and pagination. Every parameter is optional; a value outside its closed set is rejected with 400. The reported total describes the filtered result, not the whole library. Every sort is deterministic, ending in the schedule id.
 func (c *Client) ListSchedules(ctx context.Context, params *ListSchedulesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSchedulesRequest(c.Server, params)
 	if err != nil {
@@ -38341,6 +38443,54 @@ func NewListSchedulesRequest(server string, params *ListSchedulesParams) (*http.
 
 		}
 
+		if params.Enabled != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "enabled", *params.Enabled, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Type != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "type", *params.Type, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.PresentationType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "presentationType", *params.PresentationType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if params.Sort != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sort", *params.Sort, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
 		if params.Page != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
@@ -46053,7 +46203,7 @@ type ClientWithResponsesInterface interface {
 
 	// ListSchedulesWithResponse performs a GET /api/v1/schedules (the `ListSchedules` operationId) request.
 	//
-	// Requires an authenticated user with the read scope. Schedule list with optional search and pagination.
+	// Requires an authenticated user with the read scope. Schedule list with optional search, facet filters, sort, and pagination. Every parameter is optional; a value outside its closed set is rejected with 400. The reported total describes the filtered result, not the whole library. Every sort is deterministic, ending in the schedule id.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	ListSchedulesWithResponse(ctx context.Context, params *ListSchedulesParams, reqEditors ...RequestEditorFn) (*ListSchedulesResponse, error)
@@ -68263,7 +68413,7 @@ func (c *ClientWithResponses) ProviderCatalogWithResponse(ctx context.Context, r
 
 // ListSchedulesWithResponse performs a GET /api/v1/schedules (the `ListSchedules` operationId) request.
 //
-// Requires an authenticated user with the read scope. Schedule list with optional search and pagination.
+// Requires an authenticated user with the read scope. Schedule list with optional search, facet filters, sort, and pagination. Every parameter is optional; a value outside its closed set is rejected with 400. The reported total describes the filtered result, not the whole library. Every sort is deterministic, ending in the schedule id.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) ListSchedulesWithResponse(ctx context.Context, params *ListSchedulesParams, reqEditors ...RequestEditorFn) (*ListSchedulesResponse, error) {
@@ -77773,6 +77923,9 @@ func ParseListSchedulesResponse(rsp *http.Response) (*ListSchedulesResponse, err
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
 
 	case rsp.StatusCode == 401:
 		break // No content-type

@@ -1,4 +1,4 @@
-package scheduling
+package scheduling_test
 
 import (
 	"os"

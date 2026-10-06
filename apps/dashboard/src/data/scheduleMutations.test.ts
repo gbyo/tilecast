@@ -112,6 +112,28 @@ describe("Schedule mutation contracts", () => {
     }
   });
 
+  it("deletes any row by id, with the CSRF token, and invalidates every Schedule consumer", async () => {
+    const deleted: string[] = [];
+    server.use(
+      http.delete("*/api/v1/schedules/:id", ({ request, params }) => {
+        expect(request.headers.get("X-CSRF-Token")).toBe("test-csrf");
+        deleted.push(String(params.id));
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const client = new QueryClient();
+    const keys = populate(client);
+    try {
+      const options = scheduleMutations.removeById(client, "test-csrf");
+      await client.getMutationCache().build(client, options).execute("lunch");
+      expect(deleted).toEqual(["lunch"]);
+      for (const key of keys)
+        expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+    } finally {
+      client.clear();
+    }
+  });
+
   it("retains domain invalidation after the UI observer leaves, without stale feedback", async () => {
     let finish!: () => void;
     let started!: () => void;

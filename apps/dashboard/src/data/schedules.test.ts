@@ -3,7 +3,11 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import type { ScheduleInput } from "../api/types";
-import { scheduleKeys, scheduleQueries } from "./schedules";
+import {
+  defaultScheduleListParams,
+  scheduleKeys,
+  scheduleQueries,
+} from "./schedules";
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
@@ -141,6 +145,98 @@ describe("Schedule query contracts", () => {
         client.getQueryState(scheduleKeys.preview("lobby", first, proposed))
           ?.isInvalidated,
       ).toBe(true);
+    } finally {
+      client.clear();
+    }
+  });
+
+  it("keys the library on search, every facet, and sort, and restarts paging when any changes", async () => {
+    const seen: URL[] = [];
+    server.use(
+      http.get("*/api/v1/schedules", ({ request }) => {
+        const url = new URL(request.url);
+        seen.push(url);
+        return HttpResponse.json({
+          data: {
+            items: [],
+            total: 0,
+            page: Number(url.searchParams.get("page")),
+            pageSize: 100,
+            defaultTimezone: "UTC",
+          },
+        });
+      }),
+    );
+    const client = new QueryClient();
+    try {
+      const params = {
+        search: "lunch",
+        enabled: "false" as const,
+        type: "one_time" as const,
+        presentationType: "display_control" as const,
+        sort: "priority" as const,
+      };
+      await client.fetchInfiniteQuery(scheduleQueries.pages(params));
+      const query = seen.at(-1)!.searchParams;
+      expect(Object.fromEntries(query)).toEqual({
+        page: "1",
+        pageSize: "100",
+        search: "lunch",
+        enabled: "false",
+        type: "one_time",
+        presentationType: "display_control",
+        sort: "priority",
+      });
+
+      // Each input is its own cache entry, so a change cannot reuse or append
+      // to pages fetched for a different query.
+      const keys = [
+        scheduleKeys.pages(params),
+        scheduleKeys.pages({ ...params, search: "" }),
+        scheduleKeys.pages({ ...params, enabled: "true" }),
+        scheduleKeys.pages({ ...params, type: "weekly" }),
+        scheduleKeys.pages({ ...params, presentationType: "layout" }),
+        scheduleKeys.pages({ ...params, sort: "name" }),
+      ].map((key) => JSON.stringify(key));
+      expect(new Set(keys).size).toBe(keys.length);
+    } finally {
+      client.clear();
+    }
+  });
+
+  it("omits unset facets so existing callers keep the original request", async () => {
+    const seen: URL[] = [];
+    server.use(
+      http.get("*/api/v1/schedules", ({ request }) => {
+        seen.push(new URL(request.url));
+        return HttpResponse.json({
+          data: {
+            items: [],
+            total: 0,
+            page: 1,
+            pageSize: 100,
+            defaultTimezone: "UTC",
+          },
+        });
+      }),
+    );
+    const client = new QueryClient();
+    try {
+      await client.fetchInfiniteQuery(
+        scheduleQueries.pages(defaultScheduleListParams),
+      );
+      await client.fetchQuery(scheduleQueries.list("morning"));
+      const [library, legacy] = seen.map((url) =>
+        Object.fromEntries(url.searchParams),
+      );
+      // Only the default sort is named; no facet reaches the wire.
+      expect(library).toEqual({
+        page: "1",
+        pageSize: "100",
+        search: "",
+        sort: "updated",
+      });
+      expect(legacy).toEqual({ page: "1", pageSize: "100", search: "morning" });
     } finally {
       client.clear();
     }

@@ -1332,6 +1332,18 @@ export type SchedulePreflightCompetitor =
   components["schemas"]["SchedulePreflightCompetitor"];
 export type SchedulePreflightScreen =
   components["schemas"]["SchedulePreflightScreen"];
+export type ScheduleSort = "updated" | "name" | "priority";
+/**
+ * What the Schedules library asks the server for. Empty strings mean "any" and
+ * are never sent, so every facet and the sort stay optional on the wire.
+ */
+export type ScheduleListParams = {
+  search: string;
+  enabled: "" | "true" | "false";
+  type: "" | "weekly" | "one_time";
+  presentationType: "" | "playlist" | "layout" | "display_control";
+  sort: ScheduleSort;
+};
 export type SchedulePreview = {
   screenId: string;
   at: string;
