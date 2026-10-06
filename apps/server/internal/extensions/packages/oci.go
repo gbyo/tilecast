@@ -182,7 +182,10 @@ func readBlob(dir string, described descriptor, maxBytes int64) ([]byte, error) 
 	if !ok || algorithm != "sha256" {
 		return nil, fmt.Errorf("unsupported digest %q", described.Digest)
 	}
-	if len(encoded) != 64 {
+	if len(encoded) != 64 || encoded != strings.ToLower(encoded) {
+		return nil, fmt.Errorf("malformed digest %q", described.Digest)
+	}
+	if _, err := hex.DecodeString(encoded); err != nil {
 		return nil, fmt.Errorf("malformed digest %q", described.Digest)
 	}
 	path := filepath.Join(dir, "blobs", "sha256", encoded)
