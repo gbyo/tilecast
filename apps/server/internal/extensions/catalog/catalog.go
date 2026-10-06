@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
 	"github.com/tilecast/tilecast/apps/server/internal/version"
@@ -126,6 +127,8 @@ type Service struct {
 // URL disables the service: Refresh and Cached answer ErrDisabled and no
 // request ever leaves the server.
 func NewService(db *pgxpool.Pool, catalogURL string, verifier trust.Verifier) *Service {
+	catalogURL = strings.TrimSpace(catalogURL)
+	origin, _ := url.Parse(catalogURL)
 	client := &http.Client{Timeout: fetchTimeout}
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 3 {
@@ -134,9 +137,19 @@ func NewService(db *pgxpool.Pool, catalogURL string, verifier trust.Verifier) *S
 		if !fetchableURL(req.URL) {
 			return errors.New("catalog redirected to an unacceptable URL")
 		}
+		if origin == nil || !sameOrigin(origin, req.URL) {
+			return errors.New("catalog redirect changed origin")
+		}
 		return nil
 	}
-	return &Service{db: db, client: client, url: strings.TrimSpace(catalogURL), verifier: verifier}
+	return &Service{db: db, client: client, url: catalogURL, verifier: verifier}
+}
+
+func sameOrigin(left, right *url.URL) bool {
+	return left != nil &&
+		right != nil &&
+		strings.EqualFold(left.Scheme, right.Scheme) &&
+		strings.EqualFold(left.Host, right.Host)
 }
 
 // Enabled reports whether a catalog URL is configured.
@@ -170,7 +183,7 @@ func (s *Service) Refresh(ctx context.Context) error {
 	if err != nil || !fetchableURL(parsed) {
 		return fmt.Errorf("marketplace catalog URL is unacceptable: %w", ErrDisabled)
 	}
-	_, etag, err := s.cachedRow(ctx)
+	cached, etag, err := s.cachedRow(ctx)
 	if err != nil {
 		return err
 	}
@@ -180,7 +193,7 @@ func (s *Service) Refresh(ctx context.Context) error {
 	}
 	request.Header.Set("User-Agent", "Tilecast-Server/"+version.Display()+" (+https://github.com/gbyo/tilecast)")
 	request.Header.Set("Accept", "application/json")
-	if etag != "" {
+	if etag != "" && !cached.Stale(time.Now()) {
 		request.Header.Set("If-None-Match", etag)
 	}
 	response, err := s.client.Do(request)
@@ -189,6 +202,9 @@ func (s *Service) Refresh(ctx context.Context) error {
 	}
 	defer response.Body.Close()
 	if response.StatusCode == http.StatusNotModified {
+		if cached.Stale(time.Now()) {
+			return s.recordError(ctx, "catalog answered 304 for a stale cache")
+		}
 		return s.recordRefreshed(ctx)
 	}
 	if response.StatusCode != http.StatusOK {
@@ -258,23 +274,36 @@ func (s *Service) Cached(ctx context.Context) (Cached, error) {
 
 func (s *Service) cachedRow(ctx context.Context) (Cached, string, error) {
 	var cached Cached
-	var etag string
+	var etag, documentURL, keyID string
 	var payload []byte
-	var expiresAt time.Time
-	err := s.db.QueryRow(ctx, `SELECT payload,etag,fetched_at,expires_at,last_error
-		FROM marketplace_catalog_cache`).Scan(&payload, &etag, &cached.FetchedAt, &expiresAt, &cached.LastError)
+	var fetchedAt, expiresAt pgtype.Timestamptz
+	err := s.db.QueryRow(ctx, `SELECT document_url,key_id,payload,etag,
+		fetched_at,expires_at,last_error FROM marketplace_catalog_cache`).Scan(
+		&documentURL, &keyID, &payload, &etag, &fetchedAt, &expiresAt, &cached.LastError)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Cached{}, "", nil
 		}
 		return Cached{}, "", err
 	}
+	if documentURL != s.url || s.verifier == nil || keyID != s.verifier.KeyID() {
+		return Cached{}, "", nil
+	}
+	if len(payload) == 0 {
+		return cached, "", nil
+	}
+	if !fetchedAt.Valid || !expiresAt.Valid {
+		return Cached{}, "", errors.New("cached catalog metadata is incomplete")
+	}
 	decoder := json.NewDecoder(bytes.NewReader(payload))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&cached.Document); err != nil {
 		return Cached{}, "", fmt.Errorf("cached catalog is corrupt: %w", err)
 	}
-	cached.Document.ExpiresAt = expiresAt
+	if !cached.Document.ExpiresAt.Equal(expiresAt.Time) {
+		return Cached{}, "", errors.New("cached catalog expiry does not match verified payload")
+	}
+	cached.FetchedAt = fetchedAt.Time
 	return cached, etag, nil
 }
 
@@ -396,7 +425,32 @@ func (s *Service) recordError(ctx context.Context, message string) error {
 	if len(message) > 512 {
 		message = message[:512]
 	}
-	_, err := s.db.Exec(ctx, `UPDATE marketplace_catalog_cache SET last_error=$1`, message)
+	if s.verifier == nil {
+		return errors.New(message)
+	}
+	_, err := s.db.Exec(ctx, `INSERT INTO marketplace_catalog_cache(
+		organization_id,document_url,key_id,last_error)
+		SELECT id,$1,$2,$3 FROM organization_settings WHERE singleton
+		ON CONFLICT (organization_id) DO UPDATE SET
+			payload=CASE
+				WHEN marketplace_catalog_cache.document_url=EXCLUDED.document_url
+				 AND marketplace_catalog_cache.key_id=EXCLUDED.key_id
+				THEN marketplace_catalog_cache.payload ELSE NULL END,
+			etag=CASE
+				WHEN marketplace_catalog_cache.document_url=EXCLUDED.document_url
+				 AND marketplace_catalog_cache.key_id=EXCLUDED.key_id
+				THEN marketplace_catalog_cache.etag ELSE '' END,
+			fetched_at=CASE
+				WHEN marketplace_catalog_cache.document_url=EXCLUDED.document_url
+				 AND marketplace_catalog_cache.key_id=EXCLUDED.key_id
+				THEN marketplace_catalog_cache.fetched_at ELSE NULL END,
+			expires_at=CASE
+				WHEN marketplace_catalog_cache.document_url=EXCLUDED.document_url
+				 AND marketplace_catalog_cache.key_id=EXCLUDED.key_id
+				THEN marketplace_catalog_cache.expires_at ELSE NULL END,
+			document_url=EXCLUDED.document_url,key_id=EXCLUDED.key_id,
+			last_error=EXCLUDED.last_error`,
+		s.url, s.verifier.KeyID(), message)
 	if err != nil {
 		return err
 	}
