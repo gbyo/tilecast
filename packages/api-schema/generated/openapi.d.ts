@@ -6996,8 +6996,7 @@ export interface components {
     };
     /** @description Where a store entry comes from. Only "included" exists in this release; marketplace and custom sources join later with a catalog ID or repository. */
     PluginStoreSource: {
-      /** @enum {string} */
-      kind: "included";
+      kind: string;
       catalogId?: string;
       repository?: string;
     };
