@@ -20070,7 +20070,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description A referenced Playlist */
+      /** @description A referenced Playlist, Layout, or target was not found */
       404: {
         headers: {
           [name: string]: unknown;
