@@ -462,6 +462,30 @@ func (s *server) previewSchedule(w http.ResponseWriter, r *http.Request) {
 	x, e := s.scheduling.Preview(r.Context(), b.ScreenID, at, b.Proposed)
 	s.scheduleResponse(w, r, x, e, http.StatusOK)
 }
+
+// preflightSchedule inspects a draft schedule across every screen it targets.
+// It is read-only, so a viewer can read it too; target scope and presentation
+// checks are the ones a save applies.
+func (s *server) preflightSchedule(w http.ResponseWriter, r *http.Request) {
+	var b struct {
+		ScheduleID *uuid.UUID       `json:"scheduleId"`
+		Proposed   scheduling.Input `json:"proposedSchedule"`
+	}
+	if e := decodeJSON(w, r, &b); e != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
+		return
+	}
+	screens, groups := scheduleTargetIDs(b.Proposed.Targets)
+	if !s.authorizeScreenList(w, r, screens, groups) {
+		return
+	}
+	if err := s.validateSchedulePresentation(r, b.Proposed); err != nil {
+		s.writePlaylistError(w, r, err)
+		return
+	}
+	x, e := s.scheduling.Preflight(r.Context(), b.ScheduleID, b.Proposed)
+	s.scheduleResponse(w, r, x, e, http.StatusOK)
+}
 func (s *server) scheduleResponse(w http.ResponseWriter, r *http.Request, x any, e error, status int) {
 	if e != nil {
 		s.writeScheduleError(w, r, e)

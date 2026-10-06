@@ -472,6 +472,13 @@ func (s *Service) RemoveScreen(ctx context.Context, group, screen, user uuid.UUI
 }
 
 func (s *Service) validateInput(ctx context.Context, in Input) error {
+	return s.validateInputFor(ctx, in, true)
+}
+
+// validateInputFor validates a schedule. A read-only inspection passes
+// platformCheck=false so it can report unsupported display-control screens as
+// data instead of failing on the first one.
+func (s *Service) validateInputFor(ctx context.Context, in Input, platformCheck bool) error {
 	if len(strings.TrimSpace(in.Name)) < 1 || len(in.Name) > 180 {
 		return errors.New("schedule name must be between 1 and 180 characters")
 	}
@@ -520,7 +527,9 @@ func (s *Service) validateInput(ctx context.Context, in Input) error {
 	if !ok {
 		return errors.New("presentation is unpublished, deleted, or invalid")
 	}
-	if s.readiness != nil {
+	// A display action has no content to validate; readiness applies only to a
+	// Playlist or Layout.
+	if s.readiness != nil && in.DisplayAction == nil {
 		contentType, contentID := "layout", in.LayoutID
 		if in.PlaylistID != uuid.Nil {
 			contentType, contentID = "playlist", &in.PlaylistID
@@ -552,7 +561,7 @@ func (s *Service) validateInput(ctx context.Context, in Input) error {
 		if !targetOK {
 			return errors.New("schedule target is invalid or belongs to another organization")
 		}
-		if in.DisplayAction != nil {
+		if in.DisplayAction != nil && platformCheck {
 			var unsupported bool
 			if t.Type == "screen" {
 				if err := s.db.QueryRow(ctx, `SELECT platform<>'linux' FROM screens WHERE id=$1`, t.ID).Scan(&unsupported); err != nil {

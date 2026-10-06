@@ -3197,6 +3197,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/schedules/preflight": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time. */
+    post: operations["preflightSchedule"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/assets/websites": {
     parameters: {
       query?: never;
@@ -8861,6 +8878,55 @@ export interface components {
       /** Format: date-time */
       nextTransition?: string;
       conflicts: string[];
+    };
+    SchedulePreflight: {
+      draftEnabled: boolean;
+      /**
+       * Format: date-time
+       * @description The instant evaluated. Absent when the draft never runs again.
+       */
+      checkedAt?: string;
+      /** @description True when checkedAt is the current time inside an occurrence that has already started. */
+      running: boolean;
+      targetScreenCount: number;
+      winningScreenCount: number;
+      losingScreenCount: number;
+      unsupportedScreenCount: number;
+      competitors: components["schemas"]["SchedulePreflightCompetitor"][];
+      competitorsTruncated: boolean;
+      /** @description Screens where the draft does not win, bounded. Wins are counted in winningScreenCount, never listed. */
+      screens: components["schemas"]["SchedulePreflightScreen"][];
+      screensTruncated: boolean;
+      issues: components["schemas"]["SchedulePreflightIssue"][];
+    };
+    SchedulePreflightIssue: {
+      /** @enum {string} */
+      code: "display_control_unsupported" | "no_upcoming_run";
+      /** @enum {string} */
+      severity: "blocking" | "warning";
+      screenCount?: number;
+    };
+    SchedulePreflightScreen: {
+      /** Format: uuid */
+      screenId: string;
+      name: string;
+      /** @enum {string} */
+      outcome: "superseded" | "unsupported";
+      reason?: components["schemas"]["PlaybackPlanSelectionReason"];
+      /** Format: uuid */
+      winnerScheduleId?: string;
+      winnerName?: string;
+    };
+    SchedulePreflightCompetitor: {
+      /** Format: uuid */
+      scheduleId: string;
+      name: string;
+      priority: number;
+      /** @enum {string} */
+      presentationType: "playlist" | "layout" | "display_control";
+      affectedScreenCount: number;
+      outranksDraftScreenCount: number;
+      reason: components["schemas"]["PlaybackPlanSelectionReason"];
     };
     LoginRequest: {
       username: string;
@@ -19808,6 +19874,57 @@ export interface operations {
       };
       /** @description Scheduling access required */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  preflightSchedule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** Format: uuid */
+          scheduleId?: string;
+          proposedSchedule: components["schemas"]["ScheduleInput"];
+        };
+      };
+    };
+    responses: {
+      /** @description Aggregated next-occurrence precedence result */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["SchedulePreflight"];
+          };
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Scope or target scope requirement not met */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Schedule or target validation failed */
+      422: {
         headers: {
           [name: string]: unknown;
         };
