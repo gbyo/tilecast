@@ -2,7 +2,7 @@
  * Alert Banner V2: an urgent message designed for a shallow horizontal strip.
  *
  * The component is intentionally height-driven. A 1920x160 Layout band is its
- * natural frame, but it progressively removes optional label/severity chrome
+ * recommended frame, but it progressively removes optional label/severity chrome
  * before shrinking the message when a Layout makes the band shorter.
  */
 import { css, html, nothing, type TemplateResult } from "lit";
