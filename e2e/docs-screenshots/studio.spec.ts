@@ -95,7 +95,7 @@ for (const [name, route, ready] of [
       await expect(page.getByText("Saved", { exact: true })).toBeVisible();
     }
     if (name === "display-group") {
-      await page.getByRole("tab", { name: "Members", exact: true }).click();
+      await page.getByRole("tab", { name: "Screens", exact: true }).click();
       await expect(
         page.getByText("Cafeteria East", { exact: true }),
       ).toBeVisible();

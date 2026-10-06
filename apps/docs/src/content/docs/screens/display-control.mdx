@@ -26,7 +26,7 @@ Android Players do not provide Display Control.
 
 ## Apply a group action
 
-Open a Display Group and select **Display Control**. Review the capability counts, choose **Power on all**, **Power off all**, **Mute all**, or **Unmute all**, then select **Send to supported displays**. Tilecast sends the action only to screens that report the required capability. Offline screens may receive a queued command after they reconnect, before it expires.
+Open a Display Group, select the **Display** tab, and find **Display Control**. Choose **Power on**, **Power off**, **Mute**, or **Unmute**. A preview lists every screen and whether it can receive the command. Select the confirm button, for example **Power off 2 displays**, to send it. Tilecast sends the action only to screens that report the required capability. Offline screens may receive a queued command after they reconnect, before it expires.
 
 The group page offers Mute actions, but the current stable Linux providers do not report mute capability. Tilecast Edge can report mute only when the connected display exposes the corresponding DDC/CI feature. A screen without a reported capability is listed as unsupported.
 

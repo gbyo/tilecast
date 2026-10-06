@@ -5,10 +5,10 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, api } from "../api/client";
-import { GroupDetailPage } from "./SchedulesPage";
+import { ApiError, api } from "../../api/client";
+import { DisplayGroupDetailPage } from "./DisplayGroupDetailPage";
 
-vi.mock("../auth/AuthProvider", () => ({
+vi.mock("../../auth/AuthProvider", () => ({
   useAuth: () => ({
     status: {
       csrfToken: "csrf",
@@ -33,7 +33,7 @@ function renderGroupDetail() {
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={["/groups/group-1"]}>
         <Routes>
-          <Route path="/groups/:id" element={<GroupDetailPage />} />
+          <Route path="/groups/:id" element={<DisplayGroupDetailPage />} />
           <Route path="/groups" element={<h1>Display Groups index</h1>} />
         </Routes>
       </MemoryRouter>
@@ -46,7 +46,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("GroupDetailPage request states", () => {
+describe("DisplayGroupDetailPage request states", () => {
   it("keeps the skeleton while loading and offers retry after a failure", async () => {
     stubRelatedQueries();
     let rejectPending!: (reason: Error) => void;
