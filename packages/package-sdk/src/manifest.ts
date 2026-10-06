@@ -184,7 +184,7 @@ export const packageManifestSchema = z
     }
     const seen = new Set<string>();
     manifest.contributions.forEach((contribution, index) => {
-      const key = `${contribution.type}:${contribution.path}`;
+      const key = contribution.path;
       if (seen.has(key)) {
         context.addIssue({
           code: "custom",
