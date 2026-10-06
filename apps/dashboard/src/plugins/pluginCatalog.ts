@@ -111,9 +111,9 @@ export type StoreSourceFilter = string;
 
 /**
  * The Explore list: category and source narrow the list, while a search
- * matches names, descriptions, categories, capabilities, and publishers.
- * Installed entries stay out of the default list and reappear, marked, when
- * a search matches them.
+ * matches names, descriptions, categories, and capabilities. Installed
+ * entries remain browseable so their store detail, provenance, and future
+ * version/update information never disappear after installation.
  */
 export function filterStoreEntries(
   entries: PluginStoreEntry[],
@@ -126,7 +126,7 @@ export function filterStoreEntries(
     const plugin = entry.plugin;
     if (category !== "All" && plugin.category !== category) return false;
     if (source !== "all" && entry.source.kind !== source) return false;
-    if (!needle) return !plugin.installed;
+    if (!needle) return true;
     return [
       plugin.name,
       plugin.description,
