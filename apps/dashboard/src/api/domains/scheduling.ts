@@ -20,18 +20,33 @@ import type {
   EditorialContentType,
   PublicationHistoryItem,
   ScheduleInput,
+  ScheduleListParams,
   SchedulePreview,
   SubmissionFilter,
 } from "../types";
 
-export function listSchedulesPage(search = "", page = 1) {
+export function listSchedulesPage(
+  filters: Partial<ScheduleListParams> = {},
+  page = 1,
+) {
+  const { search = "", enabled, type, presentationType, sort } = filters;
   return apiGet("/api/v1/schedules", {
-    params: { query: { page, pageSize: 100, search } },
+    params: {
+      query: {
+        page,
+        pageSize: 100,
+        search,
+        ...(enabled ? { enabled } : {}),
+        ...(type ? { type } : {}),
+        ...(presentationType ? { presentationType } : {}),
+        ...(sort ? { sort } : {}),
+      },
+    },
   });
 }
 
 export function listSchedules(search = "") {
-  return fetchAllPages((page) => listSchedulesPage(search, page));
+  return fetchAllPages((page) => listSchedulesPage({ search }, page));
 }
 
 export function getSchedule(id: string) {

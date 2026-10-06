@@ -6,20 +6,82 @@
   },
   "page": {
     "title": "Programaciones",
-    "subtitle": "La prioridad más alta gana. Las pantallas de un grupo de pantallas siempre comparten la misma programación y el mismo contenido alternativo.",
     "create": "Crear programación",
-    "timelineTitle": "Línea de tiempo de las programaciones",
-    "timelineSummary_one": "{{count}} activa entre {{loaded}} de {{total}} programaciones cargadas · las horas se evalúan en la zona horaria IANA de cada programación · los intervalos nocturnos continúan al día siguiente",
-    "timelineSummary_many": "{{count}} activas entre {{loaded}} de {{total}} programaciones cargadas · las horas se evalúan en la zona horaria IANA de cada programación · los intervalos nocturnos continúan al día siguiente",
-    "timelineSummary_other": "{{count}} activas entre {{loaded}} de {{total}} programaciones cargadas · las horas se evalúan en la zona horaria IANA de cada programación · los intervalos nocturnos continúan al día siguiente",
-    "loadMore": "Cargar más programaciones",
+    "createShort": "Crear",
+    "count_one": "{{count}} programación",
+    "count_many": "{{count}} programaciones",
+    "count_other": "{{count}} programaciones",
     "loading": "Cargando programaciones",
-    "loadError": "No se pudieron cargar las programaciones. Intenta actualizar la página.",
+    "loadError": "No se pudieron cargar las programaciones.",
     "enabled": "Activada",
     "disabled": "Desactivada",
-    "priorityBadge": "Prioridad {{priority}}",
+    "priorityValue": "Prioridad {{priority}}",
     "emptyTitle": "No hay programaciones todavía",
-    "emptyDescription": "Las asignaciones directas de pantalla seguirán reproduciéndose hasta que se cree una programación."
+    "emptyDescription": "Las programaciones permiten que un contenido o una acción de pantalla se ejecute en pantallas concretas a ciertas horas.",
+    "filteredEmptyTitle": "Ninguna programación coincide",
+    "filteredEmptyDescription": "Prueba otra búsqueda o cambia los filtros.",
+    "clearSearchAndFilters": "Borrar búsqueda y filtros",
+    "deleteFailed": "No se pudo eliminar la programación.",
+    "noTargets": "Sin destinos",
+    "targetsMore": "{{names}} +{{count}}",
+    "priorityHelp": "Gana la prioridad más alta cuando se superponen programaciones aplicables.",
+    "priorityHelpLabel": "Acerca de la prioridad",
+    "targetsHelpLabel": "Todos los destinos: {{names}}",
+    "columns": {
+      "schedule": "Programación",
+      "status": "Estado",
+      "when": "Cuándo",
+      "presentation": "Presentación",
+      "targets": "Destinos",
+      "priority": "Prioridad",
+      "updated": "Actualizada",
+      "actions": "Acciones"
+    },
+    "timing": {
+      "everyDay": "Todos los días",
+      "overnight": "{{range}} del día siguiente",
+      "from": "Desde el {{date}}",
+      "until": "Hasta el {{date}}"
+    },
+    "actions": {
+      "edit": "Editar programación",
+      "open": "Abrir programación",
+      "delete": "Eliminar programación",
+      "actionsFor": "Acciones de {{name}}"
+    }
+  },
+  "toolbar": {
+    "groupLabel": "Buscar y filtrar programaciones",
+    "search": "Buscar programaciones",
+    "filters": "Filtros",
+    "filtersActive": "Filtros, {{count}} activos",
+    "filtersTitle": "Filtros",
+    "filtersDescription": "Acota las programaciones que se muestran en esta lista.",
+    "filtersReset": "Restablecer filtros",
+    "filtersDone": "Listo",
+    "clearFilters": "Borrar filtros",
+    "filterAny": "Cualquiera",
+    "facets": {
+      "status": "Estado",
+      "type": "Tipo de programación",
+      "presentation": "Presentación"
+    },
+    "sortShort": "Ordenar",
+    "sortButtonLabel": "Ordenar programaciones: {{value}}",
+    "sortMenuTitle": "Ordenar por",
+    "sort": {
+      "updated": "Actualizadas recientemente",
+      "name": "Nombre",
+      "priority": "Mayor prioridad"
+    }
+  },
+  "options": {
+    "type": { "weekly": "Semanal", "oneTime": "Única vez" },
+    "presentation": {
+      "playlist": "Lista de reproducción",
+      "layout": "Diseño",
+      "displayControl": "Control de pantalla"
+    }
   },
   "editor": {
     "createTitle": "Crear programación",

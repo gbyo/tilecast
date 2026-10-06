@@ -9,7 +9,7 @@ import darkScreenshot from "../../assets/screenshots/schedule-editor-dark.png";
 
 Create a weekly schedule to show a Playlist or Layout at the same local time on selected days. For example, use one to play a lunch menu from Monday through Friday, 10:30 to 13:00.
 
-The Schedules library loads up to 100 schedules at a time. Select **Load more** to browse later results. The presentation chooser supports server search and **Load more**, and target selectors include screens and Display Groups beyond the first page.
+The presentation chooser supports server search and **Load more**, and target selectors include screens and Display Groups beyond the first page. To find a schedule you already made, see [Find a schedule](#find-a-schedule).
 
 import { Steps } from "@astrojs/starlight/components";
 
@@ -55,6 +55,26 @@ Weekly times use the selected timezone, including daylight-saving changes. If th
 Players evaluate timing locally from the last schedule manifest they received. During a server or network outage, they can continue switching at schedule boundaries already in that manifest, but they can't receive schedule or content changes until they reconnect. Playback during an outage still depends on the needed content being available on the Player; content set to stream or not yet downloaded needs a network connection.
 
 Turning **Enabled** off keeps the schedule saved but stops it from affecting playback. Outside active windows, fallback content resumes.
+
+## Find a schedule
+
+**Operations** > **Schedules** lists every schedule with the count at the top. Each row answers what the schedule does, when it runs, and where:
+
+- **Schedule**: the name, which opens the schedule, and its description.
+- **Status**: **Enabled** or **Disabled**. This is the saved setting. It doesn't say whether the schedule is playing right now.
+- **When**: the days and hours, then any date range and the schedule's timezone. A window that ends the next day says so.
+- **Presentation**: the Playlist or Layout it shows, or the Display Control action it runs.
+- **Targets**: the first two screens or Display Groups, then a count such as **+3**. Hover or focus the count to see them all.
+- **Priority**: the exact number. A higher priority wins when eligible schedules overlap.
+- **Updated**: when the schedule last changed.
+
+Narrow screens drop the less important columns, and phones show a list instead of a table.
+
+Search matches schedule names. **Filters** narrows by **Status**, **Schedule type** (weekly or one-time), and **Presentation** (Playlist, Layout, or Display control). Active filters appear as chips under the toolbar. **Clear filters** removes them but keeps your search and sort. Use the sort menu to order by **Recently updated**, **Name**, or **Highest priority**.
+
+Search, filters, and sort run on the server, so they cover every schedule and not only the ones loaded so far. The list loads up to 100 schedules at a time; select **Load more** for the rest.
+
+The **⋯** menu on each row opens the schedule. **Owner** and **Administrator** accounts can also delete it there after confirming. Other roles can open a schedule but not change it.
 
 ## Next steps
 
