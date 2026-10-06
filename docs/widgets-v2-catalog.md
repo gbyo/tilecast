@@ -77,21 +77,28 @@ The fates are:
 | ---------------------- | -------------------- | -------- | ------------------ | --------------------------------------------------------------------------- |
 | `news`                 | News                 | V2       | `tilecast.news`    | Shipped in #731.                                                            |
 | `weather`              | Weather              | V2       | `tilecast.weather` | Shipped in #730.                                                            |
-| `status`               | Status               | V2       | `tilecast.status`  | New canonical provider. Panel and banner styles.                            |
+| `status`               | Status               | V2       | `tilecast.status`  | Current-status panel.                                                       |
 | `school-status-banner` | School Status Banner | Collapse | `tilecast.status`  | Panel style.                                                                |
-| `alert-banner`         | Alert Banner         | Collapse | `tilecast.status`  | Banner style.                                                               |
+| `alert-banner`         | Alert Banner         | V2       | `tilecast.alert-banner` | Strip-native urgent message; natural frame 1920×160.                    |
 | `agenda`               | Agenda               | V2       | `tilecast.agenda`  | Styles: agenda, now and next, schedule board.                               |
 | `now-and-next`         | Now and Next         | Collapse | `tilecast.agenda`  | Now and next style.                                                         |
 | `schedule-board`       | School Schedule      | Collapse | `tilecast.agenda`  | Schedule board style; old sizing and column keys stay in the fallback only. |
 
 Status reads any prepared object Data Source through explicit status,
-message, severity, and time-field mappings. Panel and banner are component
-styles. `school-status-banner` maps to panel; `alert-banner` maps to banner.
-Both provider IDs stay on saved Widgets, and their compiled template
-presentations remain available to Players without the component. CAP
-severities map as follows: Minor to accent, Moderate to warning, and Severe
-or Extreme to critical. A date-only effective time starts at midnight in the
-screen time zone. A date-only expiry stays active through that local day.
+message, severity, and time-field mappings and is the current-status panel.
+`school-status-banner` remains a saved alias of that panel.
+
+Alert Banner is a separate V2 visual purpose: one urgent message in a shallow
+horizontal strip. Its component is `tilecast.alert-banner`, its natural
+authoring frame is 1920×160, and it progressively removes optional
+label/severity chrome before reducing the message size in very short Layout
+bands. Saved `alert-banner` rows keep their provider ID. Migration 00115
+moves any canonical `status` row authored with `style: "banner"` to
+`alert-banner` without changing its asset ID. Both Status and Alert Banner
+retain template fallbacks for older Players. CAP severities map as follows:
+Minor to accent, Moderate to warning, and Severe or Extreme to critical. A
+date-only effective time starts at midnight in the screen time zone. A
+date-only expiry stays active through that local day.
 
 Agenda uses one component for three styles. `agenda` groups by local day and
 marks the current event. `now-next` shows the current and next event; when a
@@ -105,8 +112,8 @@ older Players. The component does not receive the legacy column or font-size
 controls.
 
 The Emergency Alerts plugin creates managed `alert-banner` Widgets for
-its built-in NWS presentation. The provider stays valid, so the plugin
-does not change.
+its built-in NWS presentation. The provider remains the stable storage/API
+identity, so the plugin does not need a provider migration.
 
 ### 3.3 Data display
 
