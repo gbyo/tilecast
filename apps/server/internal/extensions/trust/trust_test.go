@@ -42,6 +42,32 @@ func TestVerifyEnvelope(t *testing.T) {
 	}
 }
 
+func TestVerifyEnvelopeTriesAllMatchingSignatures(t *testing.T) {
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifier, err := NewEd25519Verifier("tilecast-marketplace-2026", public)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := json.RawMessage(`{"formatVersion":1,"listings":[]}`)
+	valid := ed25519.Sign(private, payload)
+	data, err := json.Marshal(Envelope{
+		Payload: payload,
+		Signatures: []Signature{
+			{KeyID: verifier.KeyID(), Signature: base64.StdEncoding.EncodeToString(make([]byte, ed25519.SignatureSize))},
+			{KeyID: verifier.KeyID(), Signature: base64.StdEncoding.EncodeToString(valid)},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := VerifyEnvelope(data, verifier); err != nil {
+		t.Fatalf("second valid signature was not accepted: %v", err)
+	}
+}
+
 func TestVerifyEnvelopeFailsClosed(t *testing.T) {
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
