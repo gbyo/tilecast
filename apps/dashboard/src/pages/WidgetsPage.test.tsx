@@ -528,7 +528,7 @@ describe("Widgets library", () => {
       const card = screen.getByRole("article", { name: "Lunch Countdown" });
       expect(card.querySelector("img")).toHaveAttribute(
         "src",
-        "/api/v1/assets/w-lunch/thumbnail?capture=3",
+        "/api/v1/assets/w-lunch/thumbnail?capture=4",
       );
       expect(within(card).getByText("Countdown")).toBeInTheDocument();
       expect(within(card).queryByText("COUNTDOWN")).not.toBeInTheDocument();
