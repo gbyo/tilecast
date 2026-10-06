@@ -17,6 +17,7 @@ import { captureWidgetPreview } from "@/content/widgetPreviewCapture";
 import {
   mockEditorApi,
   renderEditorRoute,
+  repositoryCatalog,
   savedWidget,
   useViewport,
 } from "./testing";
@@ -86,6 +87,33 @@ describe("Widget preview", () => {
       expect(frame.querySelector("tc-widget-text")).not.toBeNull(),
     );
     expect(api.compileWidgetPreview).not.toHaveBeenCalled();
+  });
+
+  it("starts strip-native Widgets at their recommended authoring frame", async () => {
+    const catalog = repositoryCatalog();
+    const definition = catalog.widgets.find(
+      (entry) => entry.id === "alert-banner",
+    );
+    expect(definition?.authoring?.recommendedFrame).toEqual({
+      width: 1920,
+      height: 160,
+    });
+    const alert = savedWidget(
+      "alert-banner",
+      structuredClone(definition?.defaultConfiguration ?? {}),
+    );
+    mockEditorApi({ catalog, asset: alert });
+    renderEditorRoute("/widgets/widget-1");
+    await screen.findByRole("button", { name: /Save changes/ });
+    const bar = toolbar();
+    expect(within(bar).getByRole("combobox", { name: "Preview frame" })).toHaveTextContent(
+      "Custom size",
+    );
+    expect(
+      within(bar).getByRole("button", {
+        name: "Custom size, 1920 by 160 pixels",
+      }),
+    ).toBeTruthy();
   });
 
   it("changes frame, size, zoom, and fullscreen without touching the draft", async () => {

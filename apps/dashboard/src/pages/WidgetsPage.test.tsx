@@ -109,7 +109,7 @@ const lunch = widget("w-lunch", "Lunch Countdown", {
   playlistUsage: 2,
   layoutUsage: [{ id: "l1", name: "Cafeteria", published: true }],
   thumbnailUrl: "/api/v1/assets/w-lunch/thumbnail",
-  metadata: { widgetPreviewCaptureVersion: 3 },
+  metadata: { widgetPreviewCaptureVersion: 4 },
 });
 const weather = widget("w-weather", "Weather Board", {
   widget: { provider: "weather" },
@@ -528,7 +528,7 @@ describe("Widgets library", () => {
       const card = screen.getByRole("article", { name: "Lunch Countdown" });
       expect(card.querySelector("img")).toHaveAttribute(
         "src",
-        "/api/v1/assets/w-lunch/thumbnail?capture=3",
+        "/api/v1/assets/w-lunch/thumbnail?capture=4",
       );
       expect(within(card).getByText("Countdown")).toBeInTheDocument();
       expect(within(card).queryByText("COUNTDOWN")).not.toBeInTheDocument();

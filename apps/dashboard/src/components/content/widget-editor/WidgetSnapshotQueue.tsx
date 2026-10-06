@@ -3,19 +3,20 @@
  *
  * Saving never waits for a thumbnail. After the Server accepts a save, the
  * editor queues the saved Widget here and this host, mounted once in the
- * Studio shell, renders the real component at the canonical 960x540 frame,
- * captures it, and uploads it. Living in the shell keeps a capture alive
+ * Studio shell, renders the real component at its recommended authoring frame
+ * (or the canonical 960x540 frame when none is declared), contains that render
+ * in the canonical library artwork, captures it, and uploads it. Living in the shell keeps a capture alive
  * when the editor route changes right after saving (a new Widget's route
  * becomes /widgets/<id>, or the author goes back).
  */
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import type { Asset } from "@/api/types";
 import { useAuth } from "@/auth/AuthProvider";
 import { V2ZonePreview } from "@/components/layout-editor/V2ZonePreview";
-import { contentKeys } from "@/data/content";
+import { contentKeys, contentQueries } from "@/data/content";
 import { useOrganizationRegionalProfile } from "@/settings/regionalProfile";
 import {
   captureWidgetPreview,
@@ -83,6 +84,12 @@ function SnapshotCapture({
   const auth = useAuth();
   const queryClient = useQueryClient();
   const regional = useOrganizationRegionalProfile();
+  const definitions = useQuery(contentQueries.definitions());
+  const provider = job.asset.widget?.provider ?? "";
+  const recommendedFrame = definitions.data?.widgets.find(
+    (definition) => definition.id === provider,
+  )?.authoring?.recommendedFrame;
+  const captureFrame = recommendedFrame ?? WIDGET_THUMBNAIL_FRAME;
   const frameRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"pending" | "settled" | "failed">(
     "pending",
@@ -144,10 +151,10 @@ function SnapshotCapture({
     <div className="widget-snapshot-backfill" aria-hidden="true">
       <div ref={frameRef}>
         <V2ZonePreview
-          provider={job.asset.widget?.provider ?? ""}
+          provider={provider}
           asset={job.asset}
-          width={WIDGET_THUMBNAIL_FRAME.width}
-          height={WIDGET_THUMBNAIL_FRAME.height}
+          width={captureFrame.width}
+          height={captureFrame.height}
           onState={(next) => {
             if (next.state === "ready" || next.state === "empty")
               setState((current) =>

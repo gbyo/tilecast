@@ -63,6 +63,24 @@ describe("Layout editor primitives", () => {
     expect(media.widgetId).toBeUndefined();
   });
 
+  it("uses a Widget's recommended frame instead of forcing the canvas aspect ratio", () => {
+    const alert = {
+      id: "alert",
+      name: "Emergency alert",
+      type: "widget",
+      widget: { provider: "alert-banner" },
+    } as Asset;
+    const placement = createContentPlacement(alert, canvas, undefined, {
+      width: 1920,
+      height: 160,
+    });
+    expect(placement.width).toBe(1536);
+    expect(placement.height).toBe(128);
+    expect(placement.width / placement.height).toBe(12);
+    expect(placement.x).toBe(192);
+    expect(placement.y).toBe(476);
+  });
+
   it("centres a dropped placement on the pointer and keeps it on the canvas", () => {
     const asset = { id: "poster", name: "Poster", type: "image" } as Asset;
     const centred = createContentPlacement(asset, canvas, { x: 960, y: 540 });

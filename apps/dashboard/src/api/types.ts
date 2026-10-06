@@ -1806,7 +1806,10 @@ export type WidgetDefinition = {
   /** An App that provisions one managed Data Source when it is saved. */
   recipe?: { dataSource: { provider: string; name: string } };
   /** Studio authoring capabilities; they never change playback. */
-  authoring?: { preview?: { time?: boolean } };
+  authoring?: {
+    preview?: { time?: boolean };
+    recommendedFrame?: { width: number; height: number };
+  };
 };
 export type ContentDefinitionSetup = {
   eyebrow?: string;

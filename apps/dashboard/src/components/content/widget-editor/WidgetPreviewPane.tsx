@@ -71,18 +71,19 @@ export const PREVIEW_FRAMES = [
 
 type FrameKey = (typeof PREVIEW_FRAMES)[number]["key"] | "custom";
 
-const CUSTOM_BOUNDS = { min: 120, max: 1920 };
+const CUSTOM_BOUNDS = {
+  width: { min: 120, max: 3840 },
+  height: { min: 48, max: 2160 },
+} as const;
 const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2] as const;
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 2;
 const STAGE_PADDING = 32;
 
-function clampSize(value: number) {
-  if (!Number.isFinite(value)) return CUSTOM_BOUNDS.min;
-  return Math.max(
-    CUSTOM_BOUNDS.min,
-    Math.min(CUSTOM_BOUNDS.max, Math.round(value)),
-  );
+function clampSize(value: number, axis: "width" | "height") {
+  const bounds = CUSTOM_BOUNDS[axis];
+  if (!Number.isFinite(value)) return bounds.min;
+  return Math.max(bounds.min, Math.min(bounds.max, Math.round(value)));
 }
 
 function useStageFit(frame: PreviewFrame) {
@@ -134,11 +135,13 @@ export function WidgetPreviewPane({
 }) {
   const { t } = useTranslation(["content", "common"]);
   const locale = useFormatLocale();
-  const [frameKey, setFrameKey] = useState<FrameKey>("landscape");
-  const [custom, setCustom] = useState<PreviewFrame>({
-    width: 960,
-    height: 540,
-  });
+  const recommendedFrame = session.definition.authoring?.recommendedFrame;
+  const [frameKey, setFrameKey] = useState<FrameKey>(() =>
+    recommendedFrame ? "custom" : "landscape",
+  );
+  const [custom, setCustom] = useState<PreviewFrame>(
+    recommendedFrame ?? { width: 960, height: 540 },
+  );
   const [zoom, setZoom] = useState<"fit" | number>("fit");
   const [previewTime, setPreviewTime] =
     useState<PreviewTime>(initialPreviewTime);
@@ -423,13 +426,13 @@ function CustomFrameControl({
             <Input
               id="widget-preview-width"
               type="number"
-              min={CUSTOM_BOUNDS.min}
-              max={CUSTOM_BOUNDS.max}
+              min={CUSTOM_BOUNDS.width.min}
+              max={CUSTOM_BOUNDS.width.max}
               value={value.width}
               onChange={(event) =>
                 onChange({
                   ...value,
-                  width: clampSize(Number(event.target.value)),
+                  width: clampSize(Number(event.target.value), "width"),
                 })
               }
             />
@@ -441,13 +444,13 @@ function CustomFrameControl({
             <Input
               id="widget-preview-height"
               type="number"
-              min={CUSTOM_BOUNDS.min}
-              max={CUSTOM_BOUNDS.max}
+              min={CUSTOM_BOUNDS.height.min}
+              max={CUSTOM_BOUNDS.height.max}
               value={value.height}
               onChange={(event) =>
                 onChange({
                   ...value,
-                  height: clampSize(Number(event.target.value)),
+                  height: clampSize(Number(event.target.value), "height"),
                 })
               }
             />

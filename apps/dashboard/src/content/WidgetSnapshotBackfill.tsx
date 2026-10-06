@@ -217,10 +217,17 @@ function WidgetSnapshotCapture({
   if (definitions.isError && !definitions.data)
     return <SnapshotSetupFailure onSettled={onSettled} />;
   const provider = asset.widget!.provider;
+  const definition = definitions.data?.widgets.find(
+    (candidate) => candidate.id === provider,
+  );
   // A Widgets V2 Widget is captured from its real element, the same one the
   // editor previews and the Player mounts.
   return studioWidgetComponent(definitions.data, provider) ? (
-    <V2SnapshotCapture asset={asset} onSettled={onSettled} />
+    <V2SnapshotCapture
+      asset={asset}
+      frame={definition?.authoring?.recommendedFrame}
+      onSettled={onSettled}
+    />
   ) : (
     <CompatibilitySnapshotCapture asset={asset} onSettled={onSettled} />
   );
@@ -238,9 +245,11 @@ function SnapshotSetupFailure({ onSettled }: { onSettled: () => void }) {
 
 function V2SnapshotCapture({
   asset,
+  frame = SNAPSHOT_FRAME,
   onSettled,
 }: {
   asset: Asset;
+  frame?: { width: number; height: number };
   onSettled: () => void;
 }) {
   const previewRef = useRef<HTMLDivElement>(null);
@@ -260,8 +269,8 @@ function V2SnapshotCapture({
         <V2ZonePreview
           provider={asset.widget!.provider}
           asset={asset}
-          width={SNAPSHOT_FRAME.width}
-          height={SNAPSHOT_FRAME.height}
+          width={frame.width}
+          height={frame.height}
           onState={(next) => {
             if (next.state === "ready" || next.state === "empty")
               setState("settled");

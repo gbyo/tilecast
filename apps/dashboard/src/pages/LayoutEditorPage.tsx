@@ -285,25 +285,51 @@ export async function flushLatestLayoutDraft(
 const selectedPlacements = (document: LayoutDocument, selection: Set<string>) =>
   document.placements.filter((item) => selection.has(item.id));
 
+type RecommendedWidgetFrame = { width: number; height: number };
+
 /**
- * Default geometry for anything dropped in from the library: 40% of the canvas, centred
- * on the pointer when there is one, otherwise parked in the upper left.
+ * Default geometry for library drops. Ordinary content keeps the long-standing
+ * 40%-of-canvas box. A Widget may declare its natural authoring frame; Studio
+ * preserves that aspect and fits it into a bounded part of the canvas instead
+ * of forcing every visual purpose into the canvas's aspect ratio.
  */
 function placementBox(
   canvas: LayoutDocument["canvas"],
   position?: { x: number; y: number },
+  recommendedFrame?: RecommendedWidgetFrame,
 ) {
-  const width = canvas.width * 0.4;
-  const height = canvas.height * 0.4;
+  const validFrame =
+    recommendedFrame &&
+    Number.isFinite(recommendedFrame.width) &&
+    Number.isFinite(recommendedFrame.height) &&
+    recommendedFrame.width > 0 &&
+    recommendedFrame.height > 0
+      ? recommendedFrame
+      : undefined;
+  const scale = validFrame
+    ? Math.min(
+        1,
+        (canvas.width * 0.8) / validFrame.width,
+        (canvas.height * 0.6) / validFrame.height,
+      )
+    : 1;
+  const width = validFrame ? validFrame.width * scale : canvas.width * 0.4;
+  const height = validFrame ? validFrame.height * scale : canvas.height * 0.4;
+  const defaultX = validFrame
+    ? (canvas.width - width) / 2
+    : canvas.width * 0.2;
+  const defaultY = validFrame
+    ? (canvas.height - height) / 2
+    : canvas.height * 0.2;
   return {
     width,
     height,
     x: position
       ? Math.max(0, Math.min(canvas.width - width, position.x - width / 2))
-      : canvas.width * 0.2,
+      : defaultX,
     y: position
       ? Math.max(0, Math.min(canvas.height - height, position.y - height / 2))
-      : canvas.height * 0.2,
+      : defaultY,
   };
 }
 
@@ -312,6 +338,7 @@ export function createContentPlacement(
   asset: Asset,
   canvas: LayoutDocument["canvas"],
   position?: { x: number; y: number },
+  recommendedFrame?: RecommendedWidgetFrame,
 ): LayoutPlacement {
   const isApp = asset.type === "widget";
   const variantId = isApp
@@ -325,7 +352,7 @@ export function createContentPlacement(
     id: crypto.randomUUID(),
     type: isApp ? "widget" : "asset",
     name: asset.name,
-    ...placementBox(canvas, position),
+    ...placementBox(canvas, position, isApp ? recommendedFrame : undefined),
     layer: 0,
     opacity: 1,
     visible: true,
@@ -1516,10 +1543,21 @@ export function LayoutEditorPage() {
       type: "success",
       actionProps: { children: t("editor.menuUndo"), onClick: () => undo() },
     });
+  const recommendedFrameFor = (asset: Asset) => {
+    if (asset.type !== "widget" || !asset.widget?.provider) return undefined;
+    return definitionsQuery.data?.widgets.find(
+      (definition) => definition.id === asset.widget?.provider,
+    )?.authoring?.recommendedFrame;
+  };
   const addContent = (asset: Asset, position?: { x: number; y: number }) => {
     if (!document) return;
     rememberAssets([asset]);
-    const item = createContentPlacement(asset, document.canvas, position);
+    const item = createContentPlacement(
+      asset,
+      document.canvas,
+      position,
+      recommendedFrameFor(asset),
+    );
     stack(item);
     setSelection(new Set([item.id]));
     announceAdded(asset.name);
@@ -1530,7 +1568,12 @@ export function LayoutEditorPage() {
     if (!current || !assets.length) return;
     rememberAssets(assets);
     const created = assets.map((asset, index) => {
-      const item = createContentPlacement(asset, current.canvas);
+      const item = createContentPlacement(
+        asset,
+        current.canvas,
+        undefined,
+        recommendedFrameFor(asset),
+      );
       item.x = Math.min(current.canvas.width - item.width, item.x + index * 24);
       item.y = Math.min(
         current.canvas.height - item.height,
