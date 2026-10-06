@@ -353,5 +353,4 @@ describe("captureWidgetPreview", () => {
     expect(drawImage).toHaveBeenCalledOnce();
     expect(drawImage.mock.calls[0]?.slice(1)).toEqual([0, 230, 960, 80]);
   });
-
 });

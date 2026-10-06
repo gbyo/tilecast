@@ -16,71 +16,45 @@
         "label": "Data Source",
         "description": "Choose an object source containing the alert message.",
         "control": "data_source",
-        "acceptedDataSourceKinds": [
-          "object"
-        ],
+        "acceptedDataSourceKinds": ["object"],
         "requiredFields": {
           "message": "text",
           "severity": "text"
         },
         "default": "",
-        "ui": {
-          "section": "data",
-          "order": 1
-        }
+        "ui": { "section": "data", "order": 1 }
       },
       {
         "key": "messageField",
         "label": "Message field",
         "control": "data_source_field",
-        "dataSourceFieldTypes": [
-          "text"
-        ],
+        "dataSourceFieldTypes": ["text"],
         "default": "message",
-        "ui": {
-          "section": "data",
-          "order": 2,
-          "semanticRole": "message"
-        }
+        "ui": { "section": "data", "order": 2, "semanticRole": "message" }
       },
       {
         "key": "severityField",
         "label": "Severity field",
         "control": "data_source_field",
-        "dataSourceFieldTypes": [
-          "text"
-        ],
+        "dataSourceFieldTypes": ["text"],
         "default": "severity",
-        "ui": {
-          "section": "data",
-          "order": 3,
-          "semanticRole": "severity"
-        }
+        "ui": { "section": "data", "order": 3, "semanticRole": "severity" }
       },
       {
         "key": "labelField",
         "label": "Label field",
         "description": "Optional short label shown before the message when there is room.",
         "control": "data_source_field",
-        "dataSourceFieldTypes": [
-          "text"
-        ],
+        "dataSourceFieldTypes": ["text"],
         "default": "",
-        "ui": {
-          "section": "data",
-          "order": 4,
-          "semanticRole": "status"
-        }
+        "ui": { "section": "data", "order": 4, "semanticRole": "status" }
       },
       {
         "key": "showSeverity",
         "label": "Show severity",
         "control": "boolean",
         "default": true,
-        "ui": {
-          "section": "content",
-          "order": 1
-        }
+        "ui": { "section": "content", "order": 1 }
       },
       {
         "key": "emptyState",
@@ -88,54 +62,33 @@
         "control": "text",
         "maxLength": 300,
         "default": "No active alerts",
-        "ui": {
-          "section": "content",
-          "order": 2
-        }
+        "ui": { "section": "content", "order": 2 }
       },
       {
         "key": "speed",
         "label": "Scroll speed",
         "control": "select",
         "options": [
-          {
-            "value": "slow",
-            "label": "Slow"
-          },
-          {
-            "value": "normal",
-            "label": "Normal"
-          },
-          {
-            "value": "fast",
-            "label": "Fast"
-          }
+          { "value": "slow", "label": "Slow" },
+          { "value": "normal", "label": "Normal" },
+          { "value": "fast", "label": "Fast" }
         ],
         "default": "normal",
-        "ui": {
-          "section": "behavior",
-          "order": 1
-        }
+        "ui": { "section": "behavior", "order": 1 }
       },
       {
         "key": "backgroundColor",
         "label": "Background color",
         "control": "color",
         "default": "#7a1f1f",
-        "ui": {
-          "section": "appearance",
-          "order": 1
-        }
+        "ui": { "section": "appearance", "order": 1 }
       },
       {
         "key": "foregroundColor",
         "label": "Text color",
         "control": "color",
         "default": "#ffffff",
-        "ui": {
-          "section": "appearance",
-          "order": 2
-        }
+        "ui": { "section": "appearance", "order": 2 }
       }
     ]
   },
@@ -150,9 +103,7 @@
     "backgroundColor": "#7a1f1f",
     "foregroundColor": "#ffffff"
   },
-  "acceptedDataSourceKinds": [
-    "object"
-  ],
+  "acceptedDataSourceKinds": ["object"],
   "requiredFieldTypes": {
     "message": "text",
     "severity": "text"
@@ -161,26 +112,20 @@
   "presentationTemplate": {
     "type": "surface",
     "props": {
-      "backgroundColor": {
-        "$config": "backgroundColor"
-      },
+      "backgroundColor": { "$config": "backgroundColor" },
       "padding": 10
     },
     "children": [
       {
         "type": "row",
-        "props": {
-          "gap": 14
-        },
+        "props": { "gap": 14 },
         "children": [
           {
             "$ifConfig": "showSeverity",
             "type": "badge",
             "props": {
               "role": "label",
-              "color": {
-                "$config": "foregroundColor"
-              }
+              "color": { "$config": "foregroundColor" }
             },
             "binding": {
               "source": "dataset",
@@ -188,21 +133,15 @@
                 "$config": "dataSourceId",
                 "suffix": ":object"
               },
-              "path": {
-                "$config": "severityField"
-              },
+              "path": { "$config": "severityField" },
               "fallback": "notice"
             }
           },
           {
             "type": "marquee",
             "props": {
-              "speed": {
-                "$config": "speed"
-              },
-              "color": {
-                "$config": "foregroundColor"
-              }
+              "speed": { "$config": "speed" },
+              "color": { "$config": "foregroundColor" }
             },
             "binding": {
               "source": "dataset",
@@ -210,12 +149,8 @@
                 "$config": "dataSourceId",
                 "suffix": ":object"
               },
-              "path": {
-                "$config": "messageField"
-              },
-              "fallback": {
-                "$config": "emptyState"
-              }
+              "path": { "$config": "messageField" },
+              "fallback": { "$config": "emptyState" }
             }
           }
         ]
@@ -232,10 +167,7 @@
   "emptyStateBehavior": "configured_text",
   "requiresManifestV13": true,
   "authoring": {
-    "recommendedFrame": {
-      "width": 1920,
-      "height": 160
-    }
+    "recommendedFrame": { "width": 1920, "height": 160 }
   },
   "setup": {
     "eyebrow": "Built for a Layout strip",
@@ -254,49 +186,18 @@
     "tagName": "tc-widget-alert-banner",
     "entrypoint": "./runtime/index.ts",
     "configTemplate": {
-      "dataSourceId": {
-        "$config": "dataSourceId",
-        "default": ""
-      },
-      "messageField": {
-        "$config": "messageField",
-        "default": "message"
-      },
-      "severityField": {
-        "$config": "severityField",
-        "default": "severity"
-      },
-      "labelField": {
-        "$config": "labelField",
-        "default": ""
-      },
-      "showSeverity": {
-        "$config": "showSeverity",
-        "default": true
-      },
-      "speed": {
-        "$config": "speed",
-        "default": "normal"
-      },
-      "emptyText": {
-        "$config": "emptyState",
-        "default": "No active alerts"
-      },
-      "background": {
-        "$config": "backgroundColor",
-        "default": "#7a1f1f"
-      },
-      "foreground": {
-        "$config": "foregroundColor",
-        "default": "#ffffff"
-      }
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "messageField": { "$config": "messageField", "default": "message" },
+      "severityField": { "$config": "severityField", "default": "severity" },
+      "labelField": { "$config": "labelField", "default": "" },
+      "showSeverity": { "$config": "showSeverity", "default": true },
+      "speed": { "$config": "speed", "default": "normal" },
+      "emptyText": { "$config": "emptyState", "default": "No active alerts" },
+      "background": { "$config": "backgroundColor", "default": "#7a1f1f" },
+      "foreground": { "$config": "foregroundColor", "default": "#ffffff" }
     },
-    "dataSourceFields": [
-      "dataSourceId"
-    ],
+    "dataSourceFields": ["dataSourceId"],
     "empty": "skip-eligible"
   },
-  "compatibility": {
-    "fallback": "template"
-  }
+  "compatibility": { "fallback": "template" }
 }

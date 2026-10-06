@@ -325,11 +325,7 @@ export class TilecastAlertBannerWidget extends TilecastWidgetElement<
     </div>`;
   }
 
-  private text(
-    data: AlertBannerData,
-    key: string,
-    maximum: number,
-  ): string {
+  private text(data: AlertBannerData, key: string, maximum: number): string {
     if (key === "") return "";
     return boundText(
       formatWidgetValue(data.values[key], data.fields[key], {

@@ -317,8 +317,12 @@ function placementBox(
     : 1;
   const width = validFrame ? validFrame.width * scale : canvas.width * 0.4;
   const height = validFrame ? validFrame.height * scale : canvas.height * 0.4;
-  const defaultX = validFrame ? (canvas.width - width) / 2 : canvas.width * 0.2;
-  const defaultY = validFrame ? (canvas.height - height) / 2 : canvas.height * 0.2;
+  const defaultX = validFrame
+    ? (canvas.width - width) / 2
+    : canvas.width * 0.2;
+  const defaultY = validFrame
+    ? (canvas.height - height) / 2
+    : canvas.height * 0.2;
   return {
     width,
     height,

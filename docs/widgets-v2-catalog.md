@@ -191,7 +191,7 @@ publishes the same typed object fields with semantic roles. Saved
 The gallery shows these groups:
 
 - **Essentials**: Text, Clock, Countdown, QR Code.
-- **Information**: News, Weather, Status, Agenda.
+- **Information**: News, Weather, Status, Alert Banner, Agenda.
 - **Data display**: List, Table, Cards, Menu Board, Ticker, Metrics,
   Progress, Spotlight, Chart, Timeline.
 - **Integrations**: the Web Integrations in §3.4.
