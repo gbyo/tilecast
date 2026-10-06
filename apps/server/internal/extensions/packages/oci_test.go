@@ -73,6 +73,13 @@ func corruptBlob(t *testing.T, dir, digest string) {
 	}
 }
 
+func TestStoreBlobReturnsWriteError(t *testing.T) {
+	dir := t.TempDir()
+	if _, err := storeBlob(dir, MediaTypePackageConfig, []byte("manifest")); err == nil {
+		t.Fatal("expected missing blob directory to fail")
+	}
+}
+
 func TestVerifyLayoutFailsClosed(t *testing.T) {
 	t.Run("missing directory", func(t *testing.T) {
 		if _, err := VerifyLayout(filepath.Join(t.TempDir(), "absent")); err == nil {
