@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { normalizePlayerCommand } from "./screens";
+import type { Screen } from "../types";
+import { normalizePlayerCommand, normalizeScreen } from "./screens";
 
 describe("normalizePlayerCommand", () => {
   it("maps wire nulls to absent optionals", () => {
@@ -40,5 +41,28 @@ describe("normalizePlayerCommand", () => {
     });
     expect(normalized.completedAt).toBe("2026-09-28T19:00:03.000Z");
     expect(normalized.resultCode).toBe("ok");
+  });
+});
+
+describe("normalizeScreen status", () => {
+  const screen = (status: string) =>
+    normalizeScreen({ status } as unknown as Screen).status;
+
+  it("keeps every status the Server names, including a Browser Player awaiting its launch", () => {
+    for (const status of [
+      "online",
+      "recent",
+      "stale",
+      "offline",
+      "disabled",
+      "revoked",
+      "awaiting_player",
+    ])
+      expect(screen(status)).toBe(status);
+  });
+
+  it("shows a status it does not know as offline", () => {
+    expect(screen("from_a_future_server")).toBe("offline");
+    expect(screen("")).toBe("offline");
   });
 });

@@ -9,7 +9,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/tilecast/tilecast/apps/server/internal/audit"
 )
+
+// browserPlayerClient names the Browser Player recovery path in audit rows. A
+// recovery is performed by a browser holding a one-time capability, not by a
+// signed-in person, so the row carries a client identity and no human actor.
+const browserPlayerClient = "tilecast-browser-player"
+
+// recordBrowserAudit writes an operator-attributed row through the shared audit
+// path. The calling surface and request come from the context.
+func recordBrowserAudit(ctx context.Context, tx pgx.Tx, userID uuid.UUID, action string, screenID uuid.UUID, summary string) error {
+	return audit.RecordTx(ctx, tx, audit.Event{
+		Action: action, ResourceType: "screen", ResourceID: screenID.String(),
+		Actor: &userID, Summary: summary,
+	})
+}
 
 type BrowserSlot struct {
 	ID              uuid.UUID  `json:"id"`
@@ -57,7 +73,7 @@ func (s *Service) CreateBrowserSlot(ctx context.Context, userID uuid.UUID, input
 	if err != nil {
 		return BrowserLaunch{}, err
 	}
-	if err := insertAudit(ctx, tx, userID, "screen.browser.created", screenID); err != nil {
+	if err := recordBrowserAudit(ctx, tx, userID, "screen.browser.created", screenID, "Created a Browser Player Screen"); err != nil {
 		return BrowserLaunch{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -115,11 +131,11 @@ func (s *Service) SetBrowserRecovery(ctx context.Context, screenID, userID uuid.
 	if err != nil {
 		return BrowserLaunch{}, err
 	}
-	action := "screen.browser.recovery_disabled"
+	action, summary := "screen.browser.recovery_disabled", "Disabled Browser Player recovery"
 	if enabled {
-		action = "screen.browser.recovery_regenerated"
+		action, summary = "screen.browser.recovery_regenerated", "Regenerated the Browser Player launch link"
 	}
-	if err := insertAudit(ctx, tx, userID, action, screenID); err != nil {
+	if err := recordBrowserAudit(ctx, tx, userID, action, screenID, summary); err != nil {
 		return BrowserLaunch{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -193,7 +209,11 @@ func (s *Service) RecoverBrowser(ctx context.Context, slotID uuid.UUID, recovery
 	if _, err := tx.Exec(ctx, `UPDATE browser_player_recovery_credentials SET last_used_at=now() WHERE id=$1`, recoveryID); err != nil {
 		return BrowserSession{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO audit_logs(id,action,resource_type,resource_id) VALUES($1,'screen.browser.recovered','screen',$2)`, uuid.New(), session.ScreenID.String()); err != nil {
+	if err := audit.RecordTx(ctx, tx, audit.Event{
+		Action: "screen.browser.recovered", ResourceType: "screen", ResourceID: session.ScreenID.String(),
+		Surface: audit.SurfaceSystem, ClientID: browserPlayerClient, Summary: "A Browser Player recovered its binding",
+		Metadata: map[string]any{"slotId": session.SlotID.String()},
+	}); err != nil {
 		return BrowserSession{}, err
 	}
 	session, err = s.bindBrowser(ctx, tx, session, credentialID, registration)

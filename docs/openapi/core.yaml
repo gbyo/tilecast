@@ -3723,7 +3723,7 @@ paths:
   /api/v1/player/browser/renew:
     post:
       operationId: renewBrowserPlayerSession
-      description: Consume the challenge before verification. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+      description: Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
       requestBody:
         required: true
         content:
@@ -3735,7 +3735,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/BrowserSessionResponse" }
-        "401": { description: Challenge, signature, or binding is invalid }
+        "401": { description: "Challenge, signature, or binding is invalid" }
         "403": { description: Same-origin HTTPS required }
         "429": { description: Rate limited }
   /api/v1/player/browser/session:
@@ -6037,9 +6037,7 @@ paths:
         "403": { description: Scope or target scope requirement not met }
         "404":
           {
-            description: A referenced Playlist,
-            Layout,
-            or target was not found,
+            description: "A referenced Playlist, Layout, or target was not found",
           }
         "409": { description: The presentation conflicts with a target }
         "422": { description: Schedule or target validation failed }
@@ -8821,8 +8819,10 @@ components:
       additionalProperties: false
       required: [nonce, message, expiresAt]
       properties:
-        nonce: { type: string }
-        message: { type: string }
+        nonce: { type: string, minLength: 43, maxLength: 43 }
+        message:
+          type: string
+          description: The complete text the device key signs, `tilecast-browser-player-v1:<slotId>:<bindingId>:<nonce>`. Signing the nonce alone is rejected.
         expiresAt: { type: string, format: date-time }
     BrowserSession:
       type: object
@@ -12084,7 +12084,7 @@ components:
         relationship: { type: string }
     PlayerFamily:
       type: string
-      x-extensible-enum: [android, electron-linux, edge, windows]
+      x-extensible-enum: [android, electron-linux, edge, windows, browser]
       description: >-
         The Player release family. A deployment reaches only screens of its
         release's family, and for `edge` and `windows` only screens of its
@@ -12092,7 +12092,7 @@ components:
         values they do not recognize.
     PlayerPlatform:
       type: string
-      x-extensible-enum: [android, linux, windows]
+      x-extensible-enum: [android, linux, windows, browser]
       description: >-
         The Player operating-system platform. The set grows with new players;
         clients must tolerate values they do not recognize.
@@ -15977,7 +15977,13 @@ components:
         total: { type: integer, minimum: 0 }
     ScreenStatus:
       type: string
-      enum: [online, recent, stale, offline, disabled, revoked, awaiting_player]
+      x-extensible-enum:
+        [online, recent, stale, offline, disabled, revoked, awaiting_player]
+      description: >-
+        The Server-computed Screen status. `awaiting_player` is a Browser
+        Player Screen whose managed launch link has not been used yet. The set
+        grows with new Player kinds; clients must tolerate values they do not
+        recognize.
     ScreenLocation:
       type: object
       additionalProperties: false

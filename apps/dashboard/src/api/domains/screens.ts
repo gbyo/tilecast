@@ -17,7 +17,9 @@ import type {
   ReliabilityStatus,
   Screen,
   ScreenSnapshotList,
+  ScreenStatus,
 } from "../types";
+import { SCREEN_STATUSES } from "../types";
 
 /** Wire shape of a screen from the generated contract. */
 export type WireScreen = components["schemas"]["Screen"];
@@ -34,8 +36,14 @@ export function normalizeScreen(
   // The server stores "" for an unknown player family; Studio models that
   // as absent, matching how the update tabs fall back to the platform.
   const family = (source as { playerFamily?: unknown }).playerFamily;
+  // The status set is extensible on the wire. Studio shows a status it does
+  // not know as offline rather than inventing a state the Server did not name.
+  const status = (SCREEN_STATUSES as readonly string[]).includes(source.status)
+    ? (source.status as ScreenStatus)
+    : "offline";
   return {
     ...source,
+    status,
     nowPlayingType,
     playerFamily:
       family === "android" ||

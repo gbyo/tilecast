@@ -1,7 +1,9 @@
 package web
 
 import (
+	"bytes"
 	"embed"
+	"encoding/json"
 	"io/fs"
 	"mime"
 	"net/http"
@@ -16,7 +18,37 @@ import (
 //go:embed player-static
 var playerFiles embed.FS
 
-var playerSlotPath = regexp.MustCompile(`^/player/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/?$`)
+const playerSlotID = `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`
+
+var (
+	playerSlotPath     = regexp.MustCompile(`^/player/(` + playerSlotID + `)/?$`)
+	playerSlotManifest = regexp.MustCompile(`^/player/(` + playerSlotID + `)/manifest\.webmanifest$`)
+)
+
+// The generic shell links the unmanaged Player's install manifest. A managed
+// slot links its own, so an installed Browser Player reopens that same Screen.
+const playerGenericManifestLink = `href="/player/manifest.webmanifest"`
+
+// SlotManifest is the install manifest for one managed Browser Player. Its
+// identity, scope and start URL are the stable, non-secret slot route. A
+// recovery capability is never part of it.
+func SlotManifest(slot string) ([]byte, error) {
+	route := "/player/" + slot + "/"
+	icons := []map[string]string{}
+	for _, size := range []string{"192", "512"} {
+		icons = append(icons, map[string]string{"src": "/player/icons/player-" + size + ".png", "sizes": size + "x" + size, "type": "image/png"})
+	}
+	return json.Marshal(map[string]any{
+		"id": route, "name": "Tilecast Browser Player", "short_name": "Tilecast Player",
+		"start_url": route, "scope": route, "display": "fullscreen",
+		"background_color": "#111827", "theme_color": "#111827", "icons": icons,
+	})
+}
+
+// ShellForSlot points a shell document at its slot's install manifest.
+func ShellForSlot(shell []byte, slot string) []byte {
+	return bytes.Replace(shell, []byte(playerGenericManifestLink), []byte(`href="/player/`+slot+`/manifest.webmanifest"`), 1)
+}
 
 const playerCSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-src https:; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'"
 
@@ -39,7 +71,21 @@ func PlayerHandler() http.Handler {
 			return
 		}
 		name := strings.TrimPrefix(r.URL.Path, "/player/")
-		if r.URL.Path == "/player" || r.URL.Path == "/player/" || playerSlotPath.MatchString(r.URL.Path) {
+		slot := ""
+		if match := playerSlotManifest.FindStringSubmatch(r.URL.Path); match != nil {
+			manifest, err := SlotManifest(match[1])
+			if err != nil {
+				http.Error(w, "Manifest unavailable", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/manifest+json")
+			_, _ = w.Write(manifest)
+			return
+		}
+		if match := playerSlotPath.FindStringSubmatch(r.URL.Path); match != nil {
+			slot = match[1]
+		}
+		if r.URL.Path == "/player" || r.URL.Path == "/player/" || slot != "" {
 			name = "index.html"
 		} else if !strings.HasPrefix(r.URL.Path, "/player/") || strings.HasPrefix(name, "media/") {
 			http.NotFound(w, r)
@@ -57,6 +103,15 @@ func PlayerHandler() http.Handler {
 		}
 		if contentType := mime.TypeByExtension(path.Ext(name)); contentType != "" {
 			w.Header().Set("Content-Type", contentType)
+		}
+		if slot != "" {
+			shell, err := fs.ReadFile(static, name)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			_, _ = w.Write(ShellForSlot(shell, slot))
+			return
 		}
 		http.ServeFileFS(w, r, static, name)
 	})

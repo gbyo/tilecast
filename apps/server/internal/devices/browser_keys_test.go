@@ -9,8 +9,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func browserTestKey(t *testing.T) (*ecdsa.PrivateKey, BrowserPublicKey) {
@@ -83,6 +86,63 @@ func TestBrowserSessionSecretCannotEnterJSON(t *testing.T) {
 	for _, value := range []any{BrowserSession{SessionSecret: secret}, BrowserLaunch{RecoverySecret: secret}} {
 		if strings.Contains(fmt.Sprintf("%v %#v", value, value), secret) {
 			t.Fatal("browser secret entered formatted output")
+		}
+	}
+}
+
+// browserGolden is a signature produced by WebCrypto exactly as the Browser
+// Host signs (apps/player-web/scripts/generate-webcrypto-golden.mjs).
+type browserGolden struct {
+	PublicKey          BrowserPublicKey `json:"publicKey"`
+	SlotID             uuid.UUID        `json:"slotId"`
+	BindingID          uuid.UUID        `json:"bindingId"`
+	Nonce              string           `json:"nonce"`
+	Message            string           `json:"message"`
+	Signature          string           `json:"signature"`
+	NonceOnlySignature string           `json:"nonceOnlySignature"`
+}
+
+func loadBrowserGolden(t *testing.T) browserGolden {
+	t.Helper()
+	raw, err := os.ReadFile("testdata/browser_webcrypto_golden.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var golden browserGolden
+	if err := json.Unmarshal(raw, &golden); err != nil {
+		t.Fatal(err)
+	}
+	return golden
+}
+
+func TestBrowserWebCryptoGoldenSignatureIsAcceptedForTheServerMessage(t *testing.T) {
+	golden := loadBrowserGolden(t)
+	// The server rebuilds the message itself; it never trusts signing text
+	// the client supplies.
+	if want := browserChallengeMessage(golden.SlotID, golden.BindingID, golden.Nonce); golden.Message != want {
+		t.Fatalf("browser and server disagree on the challenge message:\nbrowser %q\nserver  %q", golden.Message, want)
+	}
+	if !verifyBrowserSignature(golden.PublicKey, browserChallengeMessage(golden.SlotID, golden.BindingID, golden.Nonce), golden.Signature) {
+		t.Fatal("a Chromium-compatible WebCrypto P-256 signature over the exact challenge message was rejected")
+	}
+	if verifyBrowserSignature(golden.PublicKey, golden.Nonce, golden.Signature) {
+		t.Fatal("a signature over the whole message verified as a nonce")
+	}
+}
+
+func TestBrowserSignatureBindsNonceSlotAndBinding(t *testing.T) {
+	golden := loadBrowserGolden(t)
+	message := browserChallengeMessage(golden.SlotID, golden.BindingID, golden.Nonce)
+	if verifyBrowserSignature(golden.PublicKey, message, golden.NonceOnlySignature) {
+		t.Fatal("the previous nonce-only signature was accepted")
+	}
+	for name, other := range map[string]string{
+		"slot":    browserChallengeMessage(uuid.New(), golden.BindingID, golden.Nonce),
+		"binding": browserChallengeMessage(golden.SlotID, uuid.New(), golden.Nonce),
+		"nonce":   browserChallengeMessage(golden.SlotID, golden.BindingID, strings.Repeat("A", 43)),
+	} {
+		if verifyBrowserSignature(golden.PublicKey, other, golden.Signature) {
+			t.Fatalf("a signature for another %s was accepted", name)
 		}
 	}
 }

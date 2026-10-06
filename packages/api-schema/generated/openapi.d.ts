@@ -2156,7 +2156,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Consume the challenge before verification. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch. */
+    /** @description Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch. */
     post: operations["renewBrowserPlayerSession"];
     delete?: never;
     options?: never;
@@ -5687,6 +5687,7 @@ export interface components {
     };
     BrowserChallenge: {
       nonce: string;
+      /** @description The complete text the device key signs, `tilecast-browser-player-v1:<slotId>:<bindingId>:<nonce>`. Signing the nonce alone is rejected. */
       message: string;
       /** Format: date-time */
       expiresAt: string;
@@ -10728,15 +10729,8 @@ export interface components {
       items: components["schemas"]["PairingRequest"][];
       total: number;
     };
-    /** @enum {string} */
-    ScreenStatus:
-      | "online"
-      | "recent"
-      | "stale"
-      | "offline"
-      | "disabled"
-      | "revoked"
-      | "awaiting_player";
+    /** @description The Server-computed Screen status. `awaiting_player` is a Browser Player Screen whose managed launch link has not been used yet. The set grows with new Player kinds; clients must tolerate values they do not recognize. */
+    ScreenStatus: string;
     ScreenLocation: {
       /** Format: uuid */
       id: string;
@@ -17236,7 +17230,7 @@ export interface operations {
           "application/json": components["schemas"]["BrowserSessionResponse"];
         };
       };
-      /** @description Challenge */
+      /** @description Challenge, signature, or binding is invalid */
       401: {
         headers: {
           [name: string]: unknown;
@@ -20559,7 +20553,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description A referenced Playlist */
+      /** @description A referenced Playlist, Layout, or target was not found */
       404: {
         headers: {
           [name: string]: unknown;

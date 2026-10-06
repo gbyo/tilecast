@@ -169,14 +169,17 @@ export type SetupInput = {
 
 export type LoginInput = { username: string; password: string };
 
-export type ScreenStatus =
-  | "online"
-  | "recent"
-  | "stale"
-  | "offline"
-  | "disabled"
-  | "revoked"
-  | "awaiting_player";
+export const SCREEN_STATUSES = [
+  "online",
+  "recent",
+  "stale",
+  "offline",
+  "disabled",
+  "revoked",
+  "awaiting_player",
+] as const;
+
+export type ScreenStatus = (typeof SCREEN_STATUSES)[number];
 
 export type Location = {
   id: string;

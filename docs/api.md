@@ -39,6 +39,8 @@ See [Browser Player architecture](browser-player.md) and the OpenAPI contract.
 An Owner or Administrator can create a Browser Player slot through
 `POST /api/v1/screens/browser`.
 The Screen remains `awaiting_player` until enrollment or recovery completes.
+A device-key challenge returns `nonce`, `message`, and `expiresAt`.
+The key signs the exact `message`. The Server rebuilds it and rejects a signature over the nonce alone.
 Recovery credentials authorize only that slot.
 Creation and regeneration return the recovery secret once.
 The Server stores only its SHA-256 digest.

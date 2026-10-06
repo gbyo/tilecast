@@ -4233,39 +4233,6 @@ func (e ScreenSnapshotTrigger) Valid() bool {
 	}
 }
 
-// Defines values for ScreenStatus.
-const (
-	ScreenStatusAwaitingPlayer ScreenStatus = "awaiting_player"
-	ScreenStatusDisabled       ScreenStatus = "disabled"
-	ScreenStatusOffline        ScreenStatus = "offline"
-	ScreenStatusOnline         ScreenStatus = "online"
-	ScreenStatusRecent         ScreenStatus = "recent"
-	ScreenStatusRevoked        ScreenStatus = "revoked"
-	ScreenStatusStale          ScreenStatus = "stale"
-)
-
-// Valid indicates whether the value is a known member of the ScreenStatus enum.
-func (e ScreenStatus) Valid() bool {
-	switch e {
-	case ScreenStatusAwaitingPlayer:
-		return true
-	case ScreenStatusDisabled:
-		return true
-	case ScreenStatusOffline:
-		return true
-	case ScreenStatusOnline:
-		return true
-	case ScreenStatusRecent:
-		return true
-	case ScreenStatusRevoked:
-		return true
-	case ScreenStatusStale:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ScreenTimelineDomain.
 const (
 	ScreenTimelineDomainAudit        ScreenTimelineDomain = "audit"
@@ -6312,8 +6279,10 @@ type BrowserBindingRequest struct {
 // BrowserChallenge defines model for BrowserChallenge.
 type BrowserChallenge struct {
 	ExpiresAt time.Time `json:"expiresAt"`
-	Message   string    `json:"message"`
-	Nonce     string    `json:"nonce"`
+
+	// Message The complete text the device key signs, `tilecast-browser-player-v1:<slotId>:<bindingId>:<nonce>`. Signing the nonce alone is rejected.
+	Message string `json:"message"`
+	Nonce   string `json:"nonce"`
 }
 
 // BrowserEnrollmentRequest defines model for BrowserEnrollmentRequest.
@@ -10145,16 +10114,18 @@ type Screen struct {
 	RoomNumber                string              `json:"roomNumber"`
 	ScreenHeight              int                 `json:"screenHeight"`
 	ScreenWidth               int                 `json:"screenWidth"`
-	Status                    ScreenStatus        `json:"status"`
-	SyncGroupId               *openapi_types.UUID `json:"syncGroupId,omitempty"`
-	SyncGroupName             *string             `json:"syncGroupName,omitempty"`
-	Timezone                  string              `json:"timezone"`
-	UpdateDownloadedBytes     *int64              `json:"updateDownloadedBytes,omitempty"`
-	UpdateError               *string             `json:"updateError,omitempty"`
-	UpdateExpectedBytes       *int64              `json:"updateExpectedBytes,omitempty"`
-	UpdateState               *string             `json:"updateState,omitempty"`
-	UpdatedAt                 time.Time           `json:"updatedAt"`
-	UptimeSeconds             *int64              `json:"uptimeSeconds,omitempty"`
+
+	// Status The Server-computed Screen status. `awaiting_player` is a Browser Player Screen whose managed launch link has not been used yet. The set grows with new Player kinds; clients must tolerate values they do not recognize.
+	Status                ScreenStatus        `json:"status"`
+	SyncGroupId           *openapi_types.UUID `json:"syncGroupId,omitempty"`
+	SyncGroupName         *string             `json:"syncGroupName,omitempty"`
+	Timezone              string              `json:"timezone"`
+	UpdateDownloadedBytes *int64              `json:"updateDownloadedBytes,omitempty"`
+	UpdateError           *string             `json:"updateError,omitempty"`
+	UpdateExpectedBytes   *int64              `json:"updateExpectedBytes,omitempty"`
+	UpdateState           *string             `json:"updateState,omitempty"`
+	UpdatedAt             time.Time           `json:"updatedAt"`
+	UptimeSeconds         *int64              `json:"uptimeSeconds,omitempty"`
 }
 
 // ScreenActivity defines model for ScreenActivity.
@@ -10449,8 +10420,8 @@ type ScreenSnapshotList struct {
 	RetentionDays int              `json:"retentionDays"`
 }
 
-// ScreenStatus defines model for ScreenStatus.
-type ScreenStatus string
+// ScreenStatus The Server-computed Screen status. `awaiting_player` is a Browser Player Screen whose managed launch link has not been used yet. The set grows with new Player kinds; clients must tolerate values they do not recognize.
+type ScreenStatus = string
 
 // ScreenTelemetry defines model for ScreenTelemetry.
 type ScreenTelemetry struct {
@@ -15997,13 +15968,13 @@ type ClientInterface interface {
 	// RenewBrowserPlayerSessionWithBody performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Consume the challenge before verification. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+	// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
 	RenewBrowserPlayerSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RenewBrowserPlayerSession performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Consume the challenge before verification. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+	// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
 	RenewBrowserPlayerSession(ctx context.Context, body RenewBrowserPlayerSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetBrowserPlayerSelection performs a GET /api/v1/player/browser/selection (the `GetBrowserPlayerSelection` operationId) request.
@@ -21883,7 +21854,7 @@ func (c *Client) RecoverBrowserPlayer(ctx context.Context, body RecoverBrowserPl
 // RenewBrowserPlayerSessionWithBody performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request,
 // with any type of body and a specified content type.
 //
-// Consume the challenge before verification. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
 func (c *Client) RenewBrowserPlayerSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRenewBrowserPlayerSessionRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -21899,7 +21870,7 @@ func (c *Client) RenewBrowserPlayerSessionWithBody(ctx context.Context, contentT
 // RenewBrowserPlayerSession performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Consume the challenge before verification. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
 func (c *Client) RenewBrowserPlayerSession(ctx context.Context, body RenewBrowserPlayerSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRenewBrowserPlayerSessionRequest(c.Server, body)
 	if err != nil {
@@ -46487,7 +46458,7 @@ type ClientWithResponsesInterface interface {
 	// RenewBrowserPlayerSessionWithBodyWithResponse performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Consume the challenge before verification. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+	// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	RenewBrowserPlayerSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenewBrowserPlayerSessionResponse, error)
@@ -46495,7 +46466,7 @@ type ClientWithResponsesInterface interface {
 	// RenewBrowserPlayerSessionWithResponse performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Consume the challenge before verification. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+	// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
 	RenewBrowserPlayerSessionWithResponse(ctx context.Context, body RenewBrowserPlayerSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*RenewBrowserPlayerSessionResponse, error)
 
 	// GetBrowserPlayerSelectionWithResponse performs a GET /api/v1/player/browser/selection (the `GetBrowserPlayerSelection` operationId) request.
@@ -68723,7 +68694,7 @@ func (c *ClientWithResponses) RecoverBrowserPlayerWithResponse(ctx context.Conte
 // RenewBrowserPlayerSessionWithBodyWithResponse performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request,
 // with any type of body and a specified content type.
 //
-// Consume the challenge before verification. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) RenewBrowserPlayerSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenewBrowserPlayerSessionResponse, error) {
@@ -68737,7 +68708,7 @@ func (c *ClientWithResponses) RenewBrowserPlayerSessionWithBodyWithResponse(ctx 
 // RenewBrowserPlayerSessionWithResponse performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Consume the challenge before verification. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
 func (c *ClientWithResponses) RenewBrowserPlayerSessionWithResponse(ctx context.Context, body RenewBrowserPlayerSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*RenewBrowserPlayerSessionResponse, error) {
 	rsp, err := c.RenewBrowserPlayerSession(ctx, body, reqEditors...)
 	if err != nil {
