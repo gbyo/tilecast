@@ -73,6 +73,24 @@ func corruptBlob(t *testing.T, dir, digest string) {
 	}
 }
 
+func TestReadBlobRejectsMalformedDescriptorBeforeFilesystemAccess(t *testing.T) {
+	malformed := descriptor{
+		Digest: "sha256:../" + strings.Repeat("a", 61),
+		Size:   0,
+	}
+	if _, err := readBlob(t.TempDir(), malformed, MaxContentBytes); err == nil {
+		t.Fatal("expected malformed digest to fail")
+	}
+
+	negative := descriptor{
+		Digest: "sha256:" + strings.Repeat("a", 64),
+		Size:   -1,
+	}
+	if _, err := readBlob(t.TempDir(), negative, MaxContentBytes); err == nil {
+		t.Fatal("expected negative descriptor size to fail")
+	}
+}
+
 func TestStoreBlobReturnsWriteError(t *testing.T) {
 	dir := t.TempDir()
 	if _, err := storeBlob(dir, MediaTypePackageConfig, []byte("manifest")); err == nil {
