@@ -1740,6 +1740,7 @@ export type ContentDefinitionField = {
     advanced?: boolean;
     semanticRole?: string;
     legacyKeys?: string[];
+    typeFallback?: boolean;
   };
   mediaTypes?: string[];
   maximumItems?: number;

@@ -1,210 +1,6 @@
 {
   "widgets": [
     {
-      "id": "alert-banner",
-      "version": 1,
-      "apiVersion": 1,
-      "name": "Alert Banner",
-      "description": "Show a severity badge and scrolling message from a status Data Source.",
-      "category": "Information",
-      "icon": "alert",
-      "thumbnail": "alert-banner",
-      "runtime": "native",
-      "configurationSchema": {
-        "fields": [
-          {
-            "key": "dataSourceId",
-            "label": "Data Source",
-            "control": "data_source",
-            "required": true,
-            "acceptedDataSourceKinds": ["object"],
-            "requiredFields": {
-              "message": "text",
-              "severity": "text"
-            }
-          },
-          {
-            "key": "messageField",
-            "label": "Message field",
-            "control": "data_source_field",
-            "required": true,
-            "dataSourceFieldTypes": ["text"],
-            "default": "message"
-          },
-          {
-            "key": "severityField",
-            "label": "Severity field",
-            "control": "data_source_field",
-            "required": true,
-            "dataSourceFieldTypes": ["text"],
-            "default": "severity"
-          },
-          {
-            "key": "speed",
-            "label": "Scroll speed",
-            "control": "select",
-            "required": true,
-            "default": "normal",
-            "options": [
-              { "value": "slow", "label": "Slow" },
-              { "value": "normal", "label": "Normal" },
-              { "value": "fast", "label": "Fast" }
-            ]
-          },
-          {
-            "key": "showSeverity",
-            "label": "Show severity badge",
-            "control": "boolean",
-            "default": true
-          },
-          {
-            "key": "foregroundColor",
-            "label": "Text color",
-            "control": "color",
-            "required": true,
-            "default": "#ffffff"
-          },
-          {
-            "key": "backgroundColor",
-            "label": "Background color",
-            "control": "color",
-            "required": true,
-            "default": "#7a1f1f"
-          },
-          {
-            "key": "emptyState",
-            "label": "Empty-state text",
-            "control": "multiline_text",
-            "required": true,
-            "maxLength": 300,
-            "default": "No active alerts"
-          }
-        ]
-      },
-      "defaultConfiguration": {
-        "dataSourceId": "",
-        "messageField": "message",
-        "severityField": "severity",
-        "speed": "normal",
-        "showSeverity": true,
-        "foregroundColor": "#ffffff",
-        "backgroundColor": "#7a1f1f",
-        "emptyState": "No active alerts"
-      },
-      "acceptedDataSourceKinds": ["object"],
-      "requiredFieldTypes": {
-        "message": "text",
-        "severity": "text"
-      },
-      "presentationSchemaVersion": 1,
-      "presentationTemplate": {
-        "type": "surface",
-        "props": {
-          "backgroundColor": { "$config": "backgroundColor" },
-          "padding": 10
-        },
-        "children": [
-          {
-            "type": "row",
-            "props": { "gap": 14 },
-            "children": [
-              {
-                "$ifConfig": "showSeverity",
-                "type": "badge",
-                "props": {
-                  "role": "label",
-                  "color": { "$config": "foregroundColor" }
-                },
-                "binding": {
-                  "source": "dataset",
-                  "dataset": {
-                    "$config": "dataSourceId",
-                    "suffix": ":object"
-                  },
-                  "path": { "$config": "severityField" },
-                  "fallback": "notice"
-                }
-              },
-              {
-                "type": "marquee",
-                "props": {
-                  "speed": { "$config": "speed" },
-                  "color": { "$config": "foregroundColor" }
-                },
-                "binding": {
-                  "source": "dataset",
-                  "dataset": {
-                    "$config": "dataSourceId",
-                    "suffix": ":object"
-                  },
-                  "path": { "$config": "messageField" },
-                  "fallback": { "$config": "emptyState" }
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "requiredCapabilities": {
-        "layout.surface": 1,
-        "layout.row": 1,
-        "content.badge": 1,
-        "content.marquee": 1,
-        "binding.core": 2
-      },
-      "emptyStateBehavior": "configured_text",
-      "requiresManifestV13": true,
-      "setup": {
-        "eyebrow": "Needs a status Data Source",
-        "tip": "Place this in a Layout strip along the top or bottom so the rest of the screen keeps its normal content.",
-        "steps": [
-          "Choose or create an Emergency Message or School Status Data Source.",
-          "Confirm which fields hold the message and severity.",
-          "Add the Widget to a Layout band rather than fullscreen."
-        ]
-      },
-      "legacyEditor": false,
-      "component": {
-        "type": "tilecast.status",
-        "version": 1,
-        "tagName": "tc-widget-status",
-        "entrypoint": "./runtime/index.ts",
-        "configTemplate": {
-          "dataSourceId": { "$config": "dataSourceId", "default": "" },
-          "style": "banner",
-          "heading": "",
-          "statusField": "",
-          "messageField": { "$config": "messageField", "default": "message" },
-          "severityField": {
-            "$config": "severityField",
-            "default": "severity"
-          },
-          "updatedAtField": "",
-          "effectiveAtField": "",
-          "expiresAtField": "",
-          "showSeverity": { "$config": "showSeverity", "default": true },
-          "showUpdatedTime": false,
-          "speed": { "$config": "speed", "default": "normal" },
-          "emptyText": {
-            "$config": "emptyState",
-            "default": "No active alerts"
-          },
-          "background": { "$config": "backgroundColor", "default": "#7a1f1f" },
-          "foreground": { "$config": "foregroundColor", "default": "#ffffff" },
-          "accent": ""
-        },
-        "dataSourceFields": ["dataSourceId"],
-        "empty": "skip-eligible"
-      },
-      "compatibility": { "fallback": "template" },
-      "authoring": { "preview": { "time": true } },
-      "deprecation": {
-        "deprecated": true,
-        "replacement": "status",
-        "message": "Use Status with the Banner style for new Widgets."
-      }
-    },
-    {
       "id": "fundraising-thermometer",
       "version": 1,
       "apiVersion": 1,
@@ -221,7 +17,9 @@
             "label": "Data Source",
             "control": "data_source",
             "required": true,
-            "acceptedDataSourceKinds": ["object"],
+            "acceptedDataSourceKinds": [
+              "object"
+            ],
             "requiredFields": {
               "current": "number",
               "target": "number"
@@ -232,7 +30,11 @@
             "label": "Raised-so-far field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": ["number", "integer", "currency"],
+            "dataSourceFieldTypes": [
+              "number",
+              "integer",
+              "currency"
+            ],
             "default": "current"
           },
           {
@@ -240,7 +42,11 @@
             "label": "Goal field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": ["number", "integer", "currency"],
+            "dataSourceFieldTypes": [
+              "number",
+              "integer",
+              "currency"
+            ],
             "default": "target"
           },
           {
@@ -259,9 +65,18 @@
             "required": true,
             "default": "currency",
             "options": [
-              { "value": "currency", "label": "Currency" },
-              { "value": "number", "label": "Number" },
-              { "value": "integer", "label": "Whole number" }
+              {
+                "value": "currency",
+                "label": "Currency"
+              },
+              {
+                "value": "number",
+                "label": "Number"
+              },
+              {
+                "value": "integer",
+                "label": "Whole number"
+              }
             ]
           },
           {
@@ -305,7 +120,9 @@
         "foregroundColor": "#ffffff",
         "backgroundColor": "#123b2c"
       },
-      "acceptedDataSourceKinds": ["object"],
+      "acceptedDataSourceKinds": [
+        "object"
+      ],
       "requiredFieldTypes": {
         "current": "number",
         "target": "number"
@@ -314,24 +131,33 @@
       "presentationTemplate": {
         "type": "surface",
         "props": {
-          "backgroundColor": { "$config": "backgroundColor" },
+          "backgroundColor": {
+            "$config": "backgroundColor"
+          },
           "padding": 16
         },
         "children": [
           {
             "type": "column",
-            "props": { "align": "center", "gap": 14 },
+            "props": {
+              "align": "center",
+              "gap": 14
+            },
             "children": [
               {
                 "type": "text",
                 "props": {
                   "role": "title",
                   "align": "center",
-                  "color": { "$config": "foregroundColor" }
+                  "color": {
+                    "$config": "foregroundColor"
+                  }
                 },
                 "binding": {
                   "source": "literal",
-                  "value": { "$config": "heading" }
+                  "value": {
+                    "$config": "heading"
+                  }
                 }
               },
               {
@@ -339,7 +165,9 @@
                 "props": {
                   "role": "metric",
                   "align": "center",
-                  "color": { "$config": "foregroundColor" }
+                  "color": {
+                    "$config": "foregroundColor"
+                  }
                 },
                 "binding": {
                   "source": "dataset",
@@ -347,8 +175,12 @@
                     "$config": "dataSourceId",
                     "suffix": ":object"
                   },
-                  "path": { "$config": "currentField" },
-                  "format": { "$config": "valueFormat" },
+                  "path": {
+                    "$config": "currentField"
+                  },
+                  "format": {
+                    "$config": "valueFormat"
+                  },
                   "fallback": "0"
                 }
               },
@@ -356,10 +188,18 @@
                 "type": "progress",
                 "props": {
                   "targetIsField": true,
-                  "target": { "$config": "targetField" },
-                  "showPercent": { "$config": "showPercent" },
-                  "completionText": { "$config": "completionText" },
-                  "color": { "$config": "foregroundColor" }
+                  "target": {
+                    "$config": "targetField"
+                  },
+                  "showPercent": {
+                    "$config": "showPercent"
+                  },
+                  "completionText": {
+                    "$config": "completionText"
+                  },
+                  "color": {
+                    "$config": "foregroundColor"
+                  }
                 },
                 "binding": {
                   "source": "dataset",
@@ -367,7 +207,9 @@
                     "$config": "dataSourceId",
                     "suffix": ":object"
                   },
-                  "path": { "$config": "currentField" },
+                  "path": {
+                    "$config": "currentField"
+                  },
                   "fallback": "0"
                 }
               }
@@ -405,24 +247,64 @@
         "tagName": "tc-widget-progress",
         "entrypoint": "./runtime/index.ts",
         "configTemplate": {
-          "dataSourceId": { "$config": "dataSourceId", "default": "" },
-          "valueField": { "$config": "currentField", "default": "current" },
-          "targetField": { "$config": "targetField", "default": "target" },
-          "label": { "$config": "heading", "default": "" },
-          "labelField": { "$config": "labelField", "default": "" },
-          "format": { "$config": "valueFormat", "default": "currency" },
-          "precision": { "$config": "precision", "default": 1 },
-          "showPercent": { "$config": "showPercent", "default": true },
-          "completionText": { "$config": "completionText", "default": "" },
+          "dataSourceId": {
+            "$config": "dataSourceId",
+            "default": ""
+          },
+          "valueField": {
+            "$config": "currentField",
+            "default": "current"
+          },
+          "targetField": {
+            "$config": "targetField",
+            "default": "target"
+          },
+          "label": {
+            "$config": "heading",
+            "default": ""
+          },
+          "labelField": {
+            "$config": "labelField",
+            "default": ""
+          },
+          "format": {
+            "$config": "valueFormat",
+            "default": "currency"
+          },
+          "precision": {
+            "$config": "precision",
+            "default": 1
+          },
+          "showPercent": {
+            "$config": "showPercent",
+            "default": true
+          },
+          "completionText": {
+            "$config": "completionText",
+            "default": ""
+          },
           "style": "thermometer",
-          "emptyText": { "$config": "emptyText", "default": "" },
-          "background": { "$config": "backgroundColor", "default": "" },
-          "foreground": { "$config": "foregroundColor", "default": "" }
+          "emptyText": {
+            "$config": "emptyText",
+            "default": ""
+          },
+          "background": {
+            "$config": "backgroundColor",
+            "default": ""
+          },
+          "foreground": {
+            "$config": "foregroundColor",
+            "default": ""
+          }
         },
-        "dataSourceFields": ["dataSourceId"],
+        "dataSourceFields": [
+          "dataSourceId"
+        ],
         "empty": "skip-eligible"
       },
-      "compatibility": { "fallback": "template" }
+      "compatibility": {
+        "fallback": "template"
+      }
     },
     {
       "id": "now-and-next",
@@ -441,14 +323,18 @@
             "label": "Data Source",
             "control": "data_source",
             "required": true,
-            "acceptedDataSourceKinds": ["records"]
+            "acceptedDataSourceKinds": [
+              "records"
+            ]
           },
           {
             "key": "titleField",
             "label": "Title field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": ["text"],
+            "dataSourceFieldTypes": [
+              "text"
+            ],
             "default": "title"
           },
           {
@@ -456,7 +342,11 @@
             "label": "Detail field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": ["text", "date", "datetime"],
+            "dataSourceFieldTypes": [
+              "text",
+              "date",
+              "datetime"
+            ],
             "default": "start"
           },
           {
@@ -529,14 +419,20 @@
         "emptyState": "Nothing scheduled",
         "autoSkipWhenEmpty": false
       },
-      "acceptedDataSourceKinds": ["records"],
+      "acceptedDataSourceKinds": [
+        "records"
+      ],
       "presentationSchemaVersion": 1,
       "presentationTemplate": {
         "type": "surface",
         "props": {
-          "backgroundColor": { "$config": "backgroundColor" },
+          "backgroundColor": {
+            "$config": "backgroundColor"
+          },
           "padding": 16,
-          "autoSkipWhenEmpty": { "$config": "autoSkipWhenEmpty" },
+          "autoSkipWhenEmpty": {
+            "$config": "autoSkipWhenEmpty"
+          },
           "emptyCondition": {
             "binding": {
               "source": "dataset",
@@ -544,7 +440,9 @@
                 "$config": "dataSourceId",
                 "suffix": ":records"
               },
-              "path": { "$config": "titleField" }
+              "path": {
+                "$config": "titleField"
+              }
             },
             "op": "empty"
           }
@@ -552,24 +450,32 @@
         "children": [
           {
             "type": "column",
-            "props": { "gap": 10 },
+            "props": {
+              "gap": 10
+            },
             "children": [
               {
                 "type": "text",
                 "props": {
                   "role": "label",
-                  "color": { "$config": "foregroundColor" }
+                  "color": {
+                    "$config": "foregroundColor"
+                  }
                 },
                 "binding": {
                   "source": "literal",
-                  "value": { "$config": "nowLabel" }
+                  "value": {
+                    "$config": "nowLabel"
+                  }
                 }
               },
               {
                 "type": "text",
                 "props": {
                   "role": "metric",
-                  "color": { "$config": "foregroundColor" }
+                  "color": {
+                    "$config": "foregroundColor"
+                  }
                 },
                 "binding": {
                   "source": "dataset",
@@ -577,8 +483,12 @@
                     "$config": "dataSourceId",
                     "suffix": ":records"
                   },
-                  "path": { "$config": "titleField" },
-                  "fallback": { "$config": "emptyState" }
+                  "path": {
+                    "$config": "titleField"
+                  },
+                  "fallback": {
+                    "$config": "emptyState"
+                  }
                 }
               },
               {
@@ -586,7 +496,9 @@
                 "props": {
                   "role": "body",
                   "maxLines": 1,
-                  "color": { "$config": "foregroundColor" }
+                  "color": {
+                    "$config": "foregroundColor"
+                  }
                 },
                 "binding": {
                   "source": "dataset",
@@ -594,48 +506,68 @@
                     "$config": "dataSourceId",
                     "suffix": ":records"
                   },
-                  "path": { "$config": "detailField" },
+                  "path": {
+                    "$config": "detailField"
+                  },
                   "fallback": ""
                 }
               },
-              { "type": "divider" },
+              {
+                "type": "divider"
+              },
               {
                 "type": "text",
                 "props": {
                   "role": "label",
-                  "color": { "$config": "foregroundColor" }
+                  "color": {
+                    "$config": "foregroundColor"
+                  }
                 },
                 "binding": {
                   "source": "literal",
-                  "value": { "$config": "nextLabel" }
+                  "value": {
+                    "$config": "nextLabel"
+                  }
                 }
               },
               {
                 "type": "repeat",
-                "props": { "emptyState": { "$config": "emptyState" } },
+                "props": {
+                  "emptyState": {
+                    "$config": "emptyState"
+                  }
+                },
                 "repeat": {
                   "dataset": {
                     "$config": "dataSourceId",
                     "suffix": ":records"
                   },
-                  "limit": { "$config": "upcomingCount" },
+                  "limit": {
+                    "$config": "upcomingCount"
+                  },
                   "offset": 1
                 },
                 "children": [
                   {
                     "type": "row",
-                    "props": { "gap": 12 },
+                    "props": {
+                      "gap": 12
+                    },
                     "children": [
                       {
                         "type": "text",
                         "props": {
                           "role": "body",
                           "maxLines": 1,
-                          "color": { "$config": "foregroundColor" }
+                          "color": {
+                            "$config": "foregroundColor"
+                          }
                         },
                         "binding": {
                           "source": "repeat",
-                          "path": { "$config": "detailField" }
+                          "path": {
+                            "$config": "detailField"
+                          }
                         }
                       },
                       {
@@ -643,11 +575,15 @@
                         "props": {
                           "role": "body",
                           "maxLines": 1,
-                          "color": { "$config": "foregroundColor" }
+                          "color": {
+                            "$config": "foregroundColor"
+                          }
                         },
                         "binding": {
                           "source": "repeat",
-                          "path": { "$config": "titleField" }
+                          "path": {
+                            "$config": "titleField"
+                          }
                         }
                       }
                     ]
@@ -685,12 +621,21 @@
         "tagName": "tc-widget-agenda",
         "entrypoint": "./runtime/index.ts",
         "configTemplate": {
-          "dataSourceId": { "$config": "dataSourceId", "default": "" },
-          "titleField": { "$config": "titleField", "default": "title" },
+          "dataSourceId": {
+            "$config": "dataSourceId",
+            "default": ""
+          },
+          "titleField": {
+            "$config": "titleField",
+            "default": "title"
+          },
           "startField": "",
           "endField": "",
           "locationField": "",
-          "descriptionField": { "$config": "detailField", "default": "" },
+          "descriptionField": {
+            "$config": "detailField",
+            "default": ""
+          },
           "categoryField": "",
           "heading": "",
           "maximumItems": 100,
@@ -701,16 +646,33 @@
             "default": "Nothing scheduled"
           },
           "style": "now-next",
-          "nowLabel": { "$config": "nowLabel", "default": "Now" },
-          "nextLabel": { "$config": "nextLabel", "default": "Next" },
-          "upcomingCount": { "$config": "upcomingCount", "default": 3 },
+          "nowLabel": {
+            "$config": "nowLabel",
+            "default": "Now"
+          },
+          "nextLabel": {
+            "$config": "nextLabel",
+            "default": "Next"
+          },
+          "upcomingCount": {
+            "$config": "upcomingCount",
+            "default": 3
+          },
           "showCountdown": false,
           "showUpcomingTimeline": true,
-          "background": { "$config": "backgroundColor", "default": "#101f33" },
-          "foreground": { "$config": "foregroundColor", "default": "#ffffff" },
+          "background": {
+            "$config": "backgroundColor",
+            "default": "#101f33"
+          },
+          "foreground": {
+            "$config": "foregroundColor",
+            "default": "#ffffff"
+          },
           "accent": ""
         },
-        "dataSourceFields": ["dataSourceId"],
+        "dataSourceFields": [
+          "dataSourceId"
+        ],
         "empty": "skip-eligible"
       },
       "compatibility": { "fallback": "template" },
@@ -738,14 +700,18 @@
             "label": "Data Source",
             "control": "data_source",
             "required": true,
-            "acceptedDataSourceKinds": ["records"]
+            "acceptedDataSourceKinds": [
+              "records"
+            ]
           },
           {
             "key": "nameField",
             "label": "Name field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": ["text"],
+            "dataSourceFieldTypes": [
+              "text"
+            ],
             "default": "title"
           },
           {
@@ -753,7 +719,9 @@
             "label": "Note field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": ["text"],
+            "dataSourceFieldTypes": [
+              "text"
+            ],
             "default": "description"
           },
           {
@@ -826,14 +794,20 @@
         "emptyState": "No entries yet",
         "autoSkipWhenEmpty": false
       },
-      "acceptedDataSourceKinds": ["records"],
+      "acceptedDataSourceKinds": [
+        "records"
+      ],
       "presentationSchemaVersion": 1,
       "presentationTemplate": {
         "type": "surface",
         "props": {
-          "backgroundColor": { "$config": "backgroundColor" },
+          "backgroundColor": {
+            "$config": "backgroundColor"
+          },
           "padding": 16,
-          "autoSkipWhenEmpty": { "$config": "autoSkipWhenEmpty" },
+          "autoSkipWhenEmpty": {
+            "$config": "autoSkipWhenEmpty"
+          },
           "emptyCondition": {
             "binding": {
               "source": "dataset",
@@ -841,7 +815,9 @@
                 "$config": "dataSourceId",
                 "suffix": ":records"
               },
-              "path": { "$config": "nameField" }
+              "path": {
+                "$config": "nameField"
+              }
             },
             "op": "empty"
           }
@@ -849,51 +825,72 @@
         "children": [
           {
             "type": "column",
-            "props": { "gap": 12 },
+            "props": {
+              "gap": 12
+            },
             "children": [
               {
                 "type": "text",
                 "props": {
                   "role": "title",
-                  "color": { "$config": "foregroundColor" }
+                  "color": {
+                    "$config": "foregroundColor"
+                  }
                 },
                 "binding": {
                   "source": "literal",
-                  "value": { "$config": "heading" }
+                  "value": {
+                    "$config": "heading"
+                  }
                 }
               },
               {
                 "type": "grid",
                 "props": {
-                  "columns": { "$config": "columns" },
+                  "columns": {
+                    "$config": "columns"
+                  },
                   "gap": 12
                 },
                 "children": [
                   {
                     "type": "repeat",
-                    "props": { "emptyState": { "$config": "emptyState" } },
+                    "props": {
+                      "emptyState": {
+                        "$config": "emptyState"
+                      }
+                    },
                     "repeat": {
                       "dataset": {
                         "$config": "dataSourceId",
                         "suffix": ":records"
                       },
-                      "limit": { "$config": "maxItems" }
+                      "limit": {
+                        "$config": "maxItems"
+                      }
                     },
                     "children": [
                       {
                         "type": "column",
-                        "props": { "fill": false, "gap": 4 },
+                        "props": {
+                          "fill": false,
+                          "gap": 4
+                        },
                         "children": [
                           {
                             "type": "text",
                             "props": {
                               "role": "title",
                               "maxLines": 1,
-                              "color": { "$config": "foregroundColor" }
+                              "color": {
+                                "$config": "foregroundColor"
+                              }
                             },
                             "binding": {
                               "source": "repeat",
-                              "path": { "$config": "nameField" }
+                              "path": {
+                                "$config": "nameField"
+                              }
                             }
                           },
                           {
@@ -901,11 +898,15 @@
                             "props": {
                               "role": "body",
                               "maxLines": 3,
-                              "color": { "$config": "foregroundColor" }
+                              "color": {
+                                "$config": "foregroundColor"
+                              }
                             },
                             "binding": {
                               "source": "repeat",
-                              "path": { "$config": "noteField" }
+                              "path": {
+                                "$config": "noteField"
+                              }
                             }
                           }
                         ]
@@ -944,24 +945,52 @@
         "tagName": "tc-widget-cards",
         "entrypoint": "./runtime/index.ts",
         "configTemplate": {
-          "dataSourceId": { "$config": "dataSourceId", "default": "" },
-          "titleField": { "$config": "nameField", "default": "title" },
+          "dataSourceId": {
+            "$config": "dataSourceId",
+            "default": ""
+          },
+          "titleField": {
+            "$config": "nameField",
+            "default": "title"
+          },
           "subtitleField": "",
-          "bodyField": { "$config": "noteField", "default": "description" },
+          "bodyField": {
+            "$config": "noteField",
+            "default": "description"
+          },
           "imageField": "",
           "badgeField": "",
           "metadataField": "",
-          "heading": { "$config": "heading", "default": "Recognition" },
-          "maximumItems": { "$config": "maxItems", "default": 8 },
-          "emptyText": { "$config": "emptyState", "default": "No entries yet" },
+          "heading": {
+            "$config": "heading",
+            "default": "Recognition"
+          },
+          "maximumItems": {
+            "$config": "maxItems",
+            "default": 8
+          },
+          "emptyText": {
+            "$config": "emptyState",
+            "default": "No entries yet"
+          },
           "density": "comfortable",
-          "background": { "$config": "backgroundColor", "default": "#1b1733" },
-          "foreground": { "$config": "foregroundColor", "default": "#ffffff" }
+          "background": {
+            "$config": "backgroundColor",
+            "default": "#1b1733"
+          },
+          "foreground": {
+            "$config": "foregroundColor",
+            "default": "#ffffff"
+          }
         },
-        "dataSourceFields": ["dataSourceId"],
+        "dataSourceFields": [
+          "dataSourceId"
+        ],
         "empty": "skip-eligible"
       },
-      "compatibility": { "fallback": "template" },
+      "compatibility": {
+        "fallback": "template"
+      },
       "deprecation": {
         "deprecated": true,
         "replacement": "cards",
@@ -995,10 +1024,22 @@
             "required": true,
             "default": "normal",
             "options": [
-              { "value": "normal", "label": "Normal" },
-              { "value": "notice", "label": "Notice" },
-              { "value": "warning", "label": "Warning" },
-              { "value": "critical", "label": "Critical" }
+              {
+                "value": "normal",
+                "label": "Normal"
+              },
+              {
+                "value": "notice",
+                "label": "Notice"
+              },
+              {
+                "value": "warning",
+                "label": "Warning"
+              },
+              {
+                "value": "critical",
+                "label": "Critical"
+              }
             ]
           },
           {
@@ -1044,8 +1085,16 @@
             "type": "text",
             "required": true
           },
-          { "key": "instructions", "label": "Instructions", "type": "text" },
-          { "key": "contact", "label": "Contact", "type": "text" },
+          {
+            "key": "instructions",
+            "label": "Instructions",
+            "type": "text"
+          },
+          {
+            "key": "contact",
+            "label": "Contact",
+            "type": "text"
+          },
           {
             "key": "expiresAt",
             "label": "Expiration time",
@@ -1151,8 +1200,16 @@
             "type": "number",
             "required": true
           },
-          { "key": "note", "label": "Note", "type": "text" },
-          { "key": "deadline", "label": "Deadline", "type": "date" },
+          {
+            "key": "note",
+            "label": "Note",
+            "type": "text"
+          },
+          {
+            "key": "deadline",
+            "label": "Deadline",
+            "type": "date"
+          },
           {
             "key": "updatedAt",
             "label": "Updated time",
@@ -1247,7 +1304,11 @@
             "type": "number",
             "required": true
           },
-          { "key": "note", "label": "Note", "type": "text" },
+          {
+            "key": "note",
+            "label": "Note",
+            "type": "text"
+          },
           {
             "key": "updatedAt",
             "label": "Updated time",
@@ -1286,9 +1347,18 @@
             "required": true,
             "default": "open",
             "options": [
-              { "value": "open", "label": "Open" },
-              { "value": "limited", "label": "Limited hours" },
-              { "value": "closed", "label": "Closed" }
+              {
+                "value": "open",
+                "label": "Open"
+              },
+              {
+                "value": "limited",
+                "label": "Limited hours"
+              },
+              {
+                "value": "closed",
+                "label": "Closed"
+              }
             ]
           },
           {
@@ -1321,9 +1391,18 @@
             "required": true,
             "default": "normal",
             "options": [
-              { "value": "normal", "label": "Normal" },
-              { "value": "notice", "label": "Notice" },
-              { "value": "warning", "label": "Warning" }
+              {
+                "value": "normal",
+                "label": "Normal"
+              },
+              {
+                "value": "notice",
+                "label": "Notice"
+              },
+              {
+                "value": "warning",
+                "label": "Warning"
+              }
             ]
           }
         ]
@@ -1344,8 +1423,16 @@
             "type": "text",
             "required": true
           },
-          { "key": "opensAt", "label": "Opens at", "type": "text" },
-          { "key": "closesAt", "label": "Closes at", "type": "text" },
+          {
+            "key": "opensAt",
+            "label": "Opens at",
+            "type": "text"
+          },
+          {
+            "key": "closesAt",
+            "label": "Closes at",
+            "type": "text"
+          },
           {
             "key": "message",
             "label": "Message",

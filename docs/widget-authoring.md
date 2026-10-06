@@ -112,6 +112,7 @@ A field may declare a `ui` object. The vocabulary is closed:
 | `advanced`     | The field shows in the section's **Advanced** group.                                    |
 | `semanticRole` | The source field role that automatic mapping prefers.                                   |
 | `legacyKeys`   | Source field keys that automatic mapping tries after the role.                          |
+| `typeFallback` | `false` stops automatic mapping from guessing the field by compatible type.             |
 
 The inspector shows the sections as **Data**, **Content**, **Style**, and
 **Behavior**, in that order. The `appearance` section shows as **Style**. The
@@ -199,11 +200,12 @@ Studio uses the recommended frame in three places:
 
 A Widget without a recommendation previews at 960 × 540 (Landscape). The Ticker
 Widget declares a `1920` by `200` strip, which is the geometry its component is
-designed for. Studio compares no provider identifier to apply any of this.
+designed for. Alert Banner declares a `1920` by `160` strip. Studio compares no
+provider identifier to apply any of this.
 
 The current definitions that declare `authoring.preview.time` are `clock`,
 `countdown`, `agenda`, `status`, `date`, `world_clock`, `schedule-board`,
-`now-and-next`, `alert-banner`, and `school-status-banner`.
+`now-and-next`, and `school-status-banner`.
 
 ## Data Sources
 
@@ -218,7 +220,8 @@ editing session. For each `data_source_field` that reads the source:
 
 1. A current value that the new source still has stays.
 2. An empty or stale value receives the suggestion. The suggestion comes from
-   the declared role, then `legacyKeys`, then a compatible type.
+   the declared role, then `legacyKeys`, then a compatible type. A field with
+   `typeFallback: false` skips the compatible-type step and stays empty.
 3. A stale value without a suggestion is cleared.
 
 Studio does not map fields when it opens a saved Widget. Opening a Widget never

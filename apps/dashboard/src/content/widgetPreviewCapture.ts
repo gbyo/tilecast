@@ -19,7 +19,7 @@ export const WIDGET_THUMBNAIL_FRAME = {
 // representation changes in a way that requires existing thumbnails to be
 // regenerated. Keep in sync with WidgetPreviewCaptureVersion in
 // apps/server/internal/media/widgets.go.
-export const WIDGET_PREVIEW_CAPTURE_VERSION = 3;
+export const WIDGET_PREVIEW_CAPTURE_VERSION = 4;
 
 // The current Layout thumbnail pipeline: lifecycle-aware capture that waits
 // for embedded V2 Widgets to settle. Persisted beside each stored Layout

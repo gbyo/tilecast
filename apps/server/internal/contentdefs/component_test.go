@@ -315,3 +315,50 @@ func TestWidgetFixturesCompileInGo(t *testing.T) {
 		t.Fatalf("Clock default compiled to %s, want %s", encoded, want)
 	}
 }
+
+// Alert Banner is the only authorable horizontal alert strip. Status is a
+// panel: its manifest must not offer the banner style a second time.
+func TestAlertBannerAndStatusKeepDistinctPurposes(t *testing.T) {
+	catalog := MustLoad()
+	banner, ok := catalog.Widget("alert-banner")
+	if !ok || banner.Component == nil || banner.Component.Type != "tilecast.alert-banner" {
+		t.Fatalf("alert-banner is not a first-class component Widget: %+v", banner.Component)
+	}
+	if banner.Authoring == nil || banner.Authoring.Preview.RecommendedFrame == nil ||
+		*banner.Authoring.Preview.RecommendedFrame != (FrameSize{Width: 1920, Height: 160}) {
+		t.Fatalf("alert-banner natural frame = %+v, want 1920x160", banner.Authoring)
+	}
+	for _, field := range banner.ConfigurationSchema.Fields {
+		if field.Control != "data_source" {
+			continue
+		}
+		if len(field.RequiredFields) != 1 || field.RequiredFields["message"] != "text" {
+			t.Errorf("alert-banner requires %v from its Data Source; only message is required", field.RequiredFields)
+		}
+	}
+	if len(banner.RequiredFieldTypes) != 1 || banner.RequiredFieldTypes["message"] != "text" {
+		t.Errorf("alert-banner requiredFieldTypes = %v, want only message", banner.RequiredFieldTypes)
+	}
+
+	status, ok := catalog.Widget("status")
+	if !ok {
+		t.Fatal("status is missing")
+	}
+	var styles []string
+	for _, field := range status.ConfigurationSchema.Fields {
+		if field.Key == "style" {
+			for _, option := range field.Options {
+				styles = append(styles, option.Value)
+			}
+		}
+	}
+	if len(styles) != 1 || styles[0] != "panel" {
+		t.Errorf("status style options = %v, want only panel", styles)
+	}
+	if status.DefaultConfiguration["style"] != "panel" {
+		t.Errorf("status default style = %v, want panel", status.DefaultConfiguration["style"])
+	}
+	if status.Authoring != nil && status.Authoring.Preview.RecommendedFrame != nil {
+		t.Errorf("status must stay a panel without a strip frame: %+v", status.Authoring.Preview.RecommendedFrame)
+	}
+}

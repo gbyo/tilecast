@@ -171,7 +171,7 @@ test("backfills a real rendered Widget thumbnail for the library", async ({
   const stored = await page.request.get(`/api/v1/assets/${clockId}`);
   expect(stored.ok()).toBe(true);
   expect((await stored.json()).data.metadata.widgetPreviewCaptureVersion).toBe(
-    3,
+    4,
   );
 });
 

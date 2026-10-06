@@ -52,6 +52,13 @@ export interface WidgetAuthoringUi {
    */
   readonly legacyKeys?: readonly string[];
   /**
+   * `false` keeps automatic mapping from guessing this slot by compatible
+   * type. An optional slot (Alert Banner's severity) then stays unmapped
+   * unless the source declares its role or a legacy key, instead of
+   * borrowing an unrelated text column.
+   */
+  readonly typeFallback?: boolean;
+  /**
    * A retained key: validated and kept on save, never shown in the
    * inspector. Migrated providers use it for keys that compatibility
    * presentations still read (docs/widgets-v2-catalog.md §8).
@@ -79,6 +86,7 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
     advanced?: boolean;
     semanticRole?: string;
     legacyKeys?: readonly string[];
+    typeFallback?: boolean;
     hidden?: boolean;
   } = {};
   if (
@@ -111,6 +119,7 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
   if (record["slider"] === true) out.slider = true;
   if (record["advanced"] === true) out.advanced = true;
   if (record["hidden"] === true) out.hidden = true;
+  if (record["typeFallback"] === false) out.typeFallback = false;
   if (typeof record["semanticRole"] === "string") {
     out.semanticRole = record["semanticRole"];
   }

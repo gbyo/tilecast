@@ -106,7 +106,6 @@
       "pr": "A",
       "status": "done"
     },
-
     {
       "provider": "metric",
       "name": "Metrics",
@@ -173,7 +172,6 @@
       "pr": "B",
       "status": "done"
     },
-
     {
       "provider": "status",
       "name": "Status",
@@ -197,12 +195,10 @@
     {
       "provider": "alert-banner",
       "name": "Alert Banner",
-      "fate": "collapse",
-      "component": "tilecast.status",
-      "canonical": "status",
-      "style": "banner",
-      "creation": false,
-      "pr": "C",
+      "fate": "v2",
+      "component": "tilecast.alert-banner",
+      "creation": true,
+      "pr": "alert-banner-v2",
       "status": "done"
     },
     {
@@ -255,7 +251,6 @@
       "pr": "C",
       "status": "done"
     },
-
     {
       "provider": "list",
       "name": "List",
@@ -390,7 +385,6 @@
       "pr": "#731",
       "status": "done"
     },
-
     {
       "provider": "website",
       "name": "Website",

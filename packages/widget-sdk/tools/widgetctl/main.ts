@@ -140,6 +140,13 @@ export function authoringUiProblem(
   ) {
     return `${where} has an invalid semantic role`;
   }
+  if (
+    record["typeFallback"] !== undefined &&
+    record["typeFallback"] !== true &&
+    record["typeFallback"] !== false
+  ) {
+    return `${where} has a non-boolean type-fallback flag`;
+  }
   if (record["legacyKeys"] !== undefined) {
     const keys = record["legacyKeys"];
     if (

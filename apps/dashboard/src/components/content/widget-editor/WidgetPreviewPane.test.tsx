@@ -214,6 +214,47 @@ describe("Widget thumbnails", () => {
     expect(upload.mock.calls[0]![0]).toBe("widget-1");
   });
 
+  it("captures a strip Widget at its natural geometry, not a fake 16:9 frame", async () => {
+    const alert = savedWidget("alert-banner", {
+      dataSourceId: "",
+      messageField: "message",
+      severityField: "severity",
+      labelField: "",
+      showSeverity: true,
+      emptyState: "No active alerts",
+      speed: "normal",
+      backgroundColor: "#7a1f1f",
+      foregroundColor: "#ffffff",
+    });
+    await open(alert);
+    // The real Widget is laid out at the 1920x160 strip; the capture then
+    // contains that render in the 960x540 card. Read the geometry while the
+    // hidden capture surface is still mounted.
+    let geometry: { width: string; height: string } | undefined;
+    vi.mocked(captureWidgetPreview).mockImplementationOnce((element) => {
+      const surface = element.querySelector(
+        "tc-widget-alert-banner",
+      )?.parentElement;
+      geometry = surface
+        ? { width: surface.style.width, height: surface.style.height }
+        : undefined;
+      return Promise.resolve(new Blob(["preview"], { type: "image/jpeg" }));
+    });
+    vi.spyOn(api, "updateWidget").mockResolvedValue(alert);
+    const upload = vi
+      .spyOn(api, "uploadWidgetPreview")
+      .mockResolvedValue(undefined);
+    await userEvent.click(screen.getByRole("tab", { name: "Content" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Empty message/ }), {
+      target: { value: "All clear" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: /Save changes/ }));
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(1), {
+      timeout: 4000,
+    });
+    expect(geometry).toEqual({ width: "1920px", height: "160px" });
+  });
+
   it("keeps the save when the thumbnail cannot be captured", async () => {
     await open();
     vi.mocked(captureWidgetPreview).mockRejectedValueOnce(
@@ -292,6 +333,23 @@ describe("Preview geometry", () => {
     await open(ticker);
     expect(await frameSize()).toEqual({ width: 1920, height: 200 });
     expect(frameSelect()).toHaveTextContent("Recommended · 1920 × 200");
+  });
+
+  it("opens the Alert Banner strip at its shallow natural geometry", async () => {
+    const alert = savedWidget("alert-banner", {
+      dataSourceId: "",
+      messageField: "message",
+      severityField: "severity",
+      labelField: "",
+      showSeverity: true,
+      emptyState: "No active alerts",
+      speed: "normal",
+      backgroundColor: "#7a1f1f",
+      foregroundColor: "#ffffff",
+    });
+    await open(alert);
+    expect(await frameSize()).toEqual({ width: 1920, height: 160 });
+    expect(frameSelect()).toHaveTextContent("Recommended · 1920 × 160");
   });
 
   it("still lets the author look at any other frame, and come back", async () => {

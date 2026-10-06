@@ -676,5 +676,11 @@
     "file": "00114_windows_player_releases.sql",
     "owner": "core",
     "sha256": "77b774a7e400cb8833606e66aa6ae9a378d28487621c3558a4b411b98296d1a2"
+  },
+  {
+    "version": 115,
+    "file": "00115_alert_banner_v2.sql",
+    "owner": "core",
+    "sha256": "a5d997f023d32016f8adea211a6f069c80afb566cec224ea285bb3f587a2de1f"
   }
 ]

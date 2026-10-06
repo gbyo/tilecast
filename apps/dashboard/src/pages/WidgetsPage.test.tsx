@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "../api/client";
 import type { Asset, WidgetDefinition } from "../api/types";
 import { toast } from "../components/ui/toast";
+import { WIDGET_PREVIEW_CAPTURE_VERSION } from "../content/widgetPreviewCapture";
 import { WidgetsPage } from "./WidgetsPage";
 
 const auth = vi.hoisted(() => ({ role: "administrator" }));
@@ -109,7 +110,7 @@ const lunch = widget("w-lunch", "Lunch Countdown", {
   playlistUsage: 2,
   layoutUsage: [{ id: "l1", name: "Cafeteria", published: true }],
   thumbnailUrl: "/api/v1/assets/w-lunch/thumbnail",
-  metadata: { widgetPreviewCaptureVersion: 3 },
+  metadata: { widgetPreviewCaptureVersion: WIDGET_PREVIEW_CAPTURE_VERSION },
 });
 const weather = widget("w-weather", "Weather Board", {
   widget: { provider: "weather" },
@@ -528,7 +529,7 @@ describe("Widgets library", () => {
       const card = screen.getByRole("article", { name: "Lunch Countdown" });
       expect(card.querySelector("img")).toHaveAttribute(
         "src",
-        "/api/v1/assets/w-lunch/thumbnail?capture=3",
+        `/api/v1/assets/w-lunch/thumbnail?capture=${WIDGET_PREVIEW_CAPTURE_VERSION}`,
       );
       expect(within(card).getByText("Countdown")).toBeInTheDocument();
       expect(within(card).queryByText("COUNTDOWN")).not.toBeInTheDocument();

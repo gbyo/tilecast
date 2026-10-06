@@ -36,7 +36,7 @@ Data Sources appear under the Data tab of the Studio Content workspace, and are 
 A Widget owns how content appears. A Widget is either **standalone** or references exactly **one** Data Source. It owns visual settings, the selected Data Source, selected fields, labels, typography, colors, spacing, record count, empty-state presentation, and provider-specific behavior. It does **not** own fetching, parsing, source refresh, cached records, date selection, or source diagnostics — those belong to the Data Source.
 
 - Standalone providers: **Website, YouTube, Clock, QR Code, Countdown, and Text**. Date and World Clock are Clock modes, Text Notice maps into Text, and Image Notice is compatibility only. See [Widgets V2 final catalog](widgets-v2-catalog.md).
-- Data-driven providers: **Ticker, Menu / Price Board, List, Table, Agenda, Metric, Cards, Weather, Spotlight, Stat Grid, Chart, Progress, Timeline**, plus the release-defined **School Status Banner, Alert Banner, Fundraising Thermometer, Now and Next, Recognition Board, and School Schedule**.
+- Data-driven providers: **Ticker, Menu / Price Board, List, Table, Agenda, Metric, Cards, Weather, Status, Alert Banner, Spotlight, Chart, Progress, and Timeline**, plus saved compatibility identities such as **School Status Banner, Stat Grid, Fundraising Thermometer, Now and Next, Recognition Board, and School Schedule**.
 
 Studio also offers the guided presets **Leaderboard, Status Board, Queue Board, Schedule / Departures, Opening Hours, and Directory**. Presets persist authoring-only `presetId` metadata and compile through their underlying generic provider; the Player does not dispatch on preset identity.
 
@@ -75,7 +75,7 @@ The server validates that the selected Data Source provider is compatible with t
 
 | Now and Next | Any record-based Data Source |
 | Recognition Board | Any record-based Data Source |
-| Alert Banner | An object Data Source exposing message and severity |
+| Alert Banner | An object Data Source exposing a message; severity and a label are optional |
 | Fundraising Thermometer | An object Data Source exposing two numeric fields |
 | School Schedule | Calendar or another record Data Source exposing start and end fields |
 
@@ -142,7 +142,7 @@ Playlist-zone playback settings are part of the Player payload. The zone loop se
 
 Studio filters playlist-zone items with the same availability windows as the Player. It checks both the item and its Media asset at the selected Layout preview date, or at the current time when the date is not valid. A live preview reevaluates at the next availability boundary without a Layout edit.
 
-A Widget placement stores a Widget ID, bounds, layer, opacity, and visibility. Its appearance comes from the shared Widget. Studio does not expose placement-level overrides because the Player Runtime does not apply them. Existing saved override values remain accepted for compatibility but have no effect. Publishing permits at most one visible video-capable placement or zone and one audio-emitting placement or zone.
+A Widget placement stores a Widget ID, bounds, layer, opacity, and visibility. A Widget manifest may publish a Studio-only `authoring.preview.recommendedFrame` so new placements and previews start at geometry that matches the visual purpose instead of inheriting the Layout canvas aspect ratio. The frame is a preferred shape, not a maximum size: a new placement keeps the area of the default placement with the frame's aspect ratio, limited to 80 percent of the canvas on each side, centered when there is no drop position. The hint is never Player configuration; the placed bounds remain ordinary Layout geometry. Alert Banner uses 1920×160, so it places at 1536×128 on a 1920×1080 canvas and at 3072×256 on a 3840×2160 canvas. Its appearance comes from the shared Widget. Studio does not expose placement-level overrides because the Player Runtime does not apply them. Existing saved override values remain accepted for compatibility but have no effect. Publishing permits at most one visible video-capable placement or zone and one audio-emitting placement or zone.
 
 Custom text primitives may bind directly to a Data Source field using a safe typed binding model: the binding names a `dataSourceId` and one declared `field`, with optional prefix, suffix, bounded fallback text, hide-when-empty behavior, and fixed text/date/number/integer/currency formatting. Display syntax such as `{{lunch.option_1}}` is editor shorthand that compiles to a typed field reference; it is not a template language and cannot execute code. The bound Data Source is referenced directly — it is **not** placed in the Layout — and its bounded cached dataset and date policy are projected to the Player once and shared.
 

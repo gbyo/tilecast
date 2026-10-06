@@ -100,6 +100,7 @@ afterEach(() => document.body.replaceChildren());
 
 describe("Status configuration", () => {
   it.each(["panel", "banner"] as const)("accepts %s style", (style) => {
+    // "banner" is runtime-only compatibility for stale cached manifests.
     expect(parseStatusConfig({ dataSourceId: SOURCE, style })).toMatchObject({
       ok: true,
       config: { style },
