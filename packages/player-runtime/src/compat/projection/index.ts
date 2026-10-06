@@ -17,7 +17,27 @@
 export * from "./types";
 export * from "./content-types";
 export * from "./render-tree";
-export { projectManifestItems } from "./items";
+export { projectManifestItems, type ItemProjectionDefaults } from "./items";
+export {
+  brandingLogoUri,
+  layoutIdFromItemId,
+  layoutItemId,
+  planPresentation,
+  realizePresentation,
+  statusSurface,
+  type CompatibilityFailure,
+  type ConfigurationSections,
+  type MediaBinding,
+  type MediaRequirement,
+  type PresentationPlan,
+  type PresentationSelection,
+  type ResolveInput,
+  type ResolvedKind,
+  type ResolvedPresentation,
+  type SelectionFacts,
+  type StatusKind,
+  type StatusOverrides,
+} from "./resolve";
 export { renderLayout, spanViewport } from "./layout-render";
 export { renderWidget } from "./widget-render";
 export { isRemoteWebWidget, remoteWebForWidget } from "./web-widget";

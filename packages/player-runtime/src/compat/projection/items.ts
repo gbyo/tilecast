@@ -14,12 +14,37 @@ import {
   resolvePlaybackItemSettings,
 } from "./playback-defaults";
 
+/** Accepted player configuration sections that shape item projection. */
+export interface ItemProjectionDefaults {
+  /** `website` section of the accepted configuration. */
+  website?: Record<string, unknown>;
+}
+
+const numberConfig = (
+  values: Record<string, unknown> | undefined,
+  key: string,
+  fallback: number,
+): number => {
+  const value = Number(values?.[key]);
+  return Number.isFinite(value) ? value : fallback;
+};
+
+const stringConfig = (
+  values: Record<string, unknown> | undefined,
+  key: string,
+  fallback: string,
+): string => {
+  const value = values?.[key];
+  return typeof value === "string" && value.trim() !== "" ? value : fallback;
+};
+
 export function projectManifestItems(
   manifest: Manifest,
   items: readonly ManifestItem[],
   playback: Record<string, unknown> | undefined,
   at: Date,
-  media: ProjectionContextV1["media"],
+  media: Readonly<ProjectionContextV1["media"]>,
+  defaults: ItemProjectionDefaults = {},
 ): RuntimeItem[] {
   const grants = new Map(
     media.map((entry) => [`${entry.assetId}/${entry.variantId}`, entry.uri]),
@@ -84,6 +109,28 @@ export function projectManifestItems(
         src: website.url,
         website: {
           ...website,
+          // The accepted configuration's Website section supplies the same
+          // defaults the other production hosts apply to a Website asset.
+          loadTimeoutSeconds: numberConfig(
+            defaults.website,
+            "timeoutSeconds",
+            website.loadTimeoutSeconds > 0 ? website.loadTimeoutSeconds : 20,
+          ),
+          zoomPercent:
+            website.zoomPercent > 0
+              ? website.zoomPercent
+              : numberConfig(defaults.website, "defaultZoomPercent", 100),
+          cookiePolicy: stringConfig(
+            defaults.website,
+            "cookiePolicy",
+            website.cookiePolicy,
+          ),
+          reloadPolicy: website.reloadPolicy || "on_each_activation",
+          failureBehavior:
+            website.failureBehavior ||
+            String(
+              defaults.website?.["defaultFailureBehavior"] ?? "placeholder",
+            ),
           refreshIntervalSeconds: website.refreshIntervalSeconds ?? null,
           customUserAgent: website.customUserAgent ?? "",
           fallbackSrc: fallback
