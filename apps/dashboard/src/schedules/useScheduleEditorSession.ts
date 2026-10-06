@@ -13,13 +13,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useCallback,
+  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type SetStateAction,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import type { Schedule } from "../api/types";
 import { toast } from "../components/ui/toast";
 import { api } from "../api/client";
@@ -57,19 +59,109 @@ export type ScheduleEditorSessionOptions = {
   schedule?: Schedule;
   /** The draft to start from: a new schedule's defaults, or an unsaved edit carried over a create. */
   initial: ScheduleDraft;
+  /** The initial draft came from the route state of a create. */
+  carried?: boolean;
   csrf: string;
   readOnly: boolean;
 };
 
+function saveStateOf(
+  saving: boolean,
+  failed: boolean,
+  dirty: boolean,
+): ScheduleSaveState {
+  if (saving) return "saving";
+  if (!dirty) return "saved";
+  return failed ? "error" : "unsaved";
+}
+
+/**
+ * The save request. Its variables are the draft that was sent, so edits made
+ * while it was in flight can be told apart from what was saved. A create then
+ * keeps editing the schedule that now exists, carrying a newer draft over the
+ * route change so it is not replaced by what was just saved.
+ */
+function useSaveDraft({
+  scheduleId,
+  csrf,
+  draftRef,
+  leave,
+  onSaved,
+}: {
+  scheduleId: string | undefined;
+  csrf: string;
+  draftRef: { readonly current: ScheduleDraft };
+  leave: (to: string, options?: { replace?: boolean; state?: unknown }) => void;
+  /** The server's normalized schedule, and the draft that was sent. */
+  onSaved: (next: ScheduleDraft, sent: ScheduleDraft) => void;
+}) {
+  const { t } = useTranslation("schedules");
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (sent: ScheduleDraft) =>
+      scheduleId
+        ? api.updateSchedule(scheduleId, draftToInput(sent), csrf)
+        : api.createSchedule(draftToInput(sent), csrf),
+    onSuccess: (saved, sent) => {
+      rememberSavedSchedule(queryClient, saved);
+      const edited = !sameDraft(draftRef.current, sent);
+      onSaved(draftFromSchedule(saved), sent);
+      toast.add({
+        title: scheduleId
+          ? t("notifications.updated")
+          : t("notifications.created"),
+        type: "success",
+      });
+      if (!scheduleId) {
+        const carried: ScheduleCarriedDraft | undefined = edited
+          ? { scheduleDraft: draftRef.current }
+          : undefined;
+        leave(`/schedules/${saved.id}`, { replace: true, state: carried });
+      }
+    },
+  });
+}
+
+/**
+ * The editor's own departures (after a create or a delete), which must not ask
+ * to discard what was just saved or deliberately removed. It also spends a
+ * carried draft: left in the history entry, a reload would bring it back over
+ * what was saved since. That replace is a departure too, so the unsaved-change
+ * blocker ignores it.
+ */
+function useEditorDeparture(carried: boolean) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const bypass = useRef(false);
+  const leave = useCallback(
+    (to: string, options?: { replace?: boolean; state?: unknown }) => {
+      bypass.current = true;
+      void Promise.resolve(navigate(to, options)).finally(() => {
+        bypass.current = false;
+      });
+    },
+    [navigate],
+  );
+  const spent = useRef(false);
+  useEffect(() => {
+    if (!carried || spent.current) return;
+    spent.current = true;
+    leave(`${location.pathname}${location.search}`, {
+      replace: true,
+      state: null,
+    });
+  }, [carried, leave, location.pathname, location.search]);
+  return { leave, shouldBlock: () => !bypass.current };
+}
+
 export function useScheduleEditorSession({
   schedule,
   initial,
+  carried = false,
   csrf,
   readOnly,
 }: ScheduleEditorSessionOptions) {
   const { t } = useTranslation(["schedules", "common"]);
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const isNew = !schedule;
   const scheduleId = schedule?.id;
 
@@ -80,8 +172,12 @@ export function useScheduleEditorSession({
     schedule ? draftFromSchedule(schedule) : initial,
   );
   const [draft, setDraft] = useState<ScheduleDraft>(initial);
+  // Handlers that outlive a render (a save that finishes later) read the
+  // latest draft here.
   const draftRef = useRef(draft);
-  draftRef.current = draft;
+  useLayoutEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
 
   const changed = !sameDraft(baseline, draft);
   // A new schedule needs saving even before it is edited.
@@ -94,25 +190,14 @@ export function useScheduleEditorSession({
     null,
   );
 
-  // One pass for the editor's own departures (after a create or a delete),
-  // which must not ask to discard what was just saved or deliberately removed.
-  const bypass = useRef(false);
-  const leave = useCallback(
-    (to: string, options?: { replace?: boolean; state?: unknown }) => {
-      bypass.current = true;
-      void Promise.resolve(navigate(to, options)).finally(() => {
-        bypass.current = false;
-      });
-    },
-    [navigate],
-  );
+  const { leave, shouldBlock } = useEditorDeparture(carried);
   const displayName = draft.name.trim() || t("editor.newName");
   const navigationDialog = useNavigationWarning({
     dirty: changed && !readOnly,
     title: t("editor.discard.title"),
     body: t("editor.discard.body", { name: displayName }),
     cancel: t("editor.discard.keepEditing"),
-    shouldBlock: () => !bypass.current,
+    shouldBlock,
   });
 
   const edit = useCallback(
@@ -129,34 +214,15 @@ export function useScheduleEditorSession({
 
   const preflight = useSchedulePreflight(draft, scheduleId);
 
-  // The mutation's variables are the draft that was sent, so edits made while
-  // the request was in flight can be told apart from what was saved.
-  const saveDraft = useMutation({
-    mutationFn: (sent: ScheduleDraft) =>
-      scheduleId
-        ? api.updateSchedule(scheduleId, draftToInput(sent), csrf)
-        : api.createSchedule(draftToInput(sent), csrf),
-    onSuccess: (saved, sent) => {
-      rememberSavedSchedule(queryClient, saved);
-      // The server's normalized schedule is the new baseline. Edits made while
-      // the request was in flight stay in the draft as changes.
-      const next = draftFromSchedule(saved);
-      const edited = !sameDraft(draftRef.current, sent);
+  const saveDraft = useSaveDraft({
+    scheduleId,
+    csrf,
+    draftRef,
+    leave,
+    onSaved: (next, sent) => {
       setBaseline(next);
       setDraft((current) => (sameDraft(current, sent) ? next : current));
       setRevealed(false);
-      toast.add({
-        title: isNew ? t("notifications.created") : t("notifications.updated"),
-        type: "success",
-      });
-      if (isNew) {
-        // Keep editing the schedule that now exists. A newer draft rides the
-        // route change so it is not replaced by what was just saved.
-        const carried: ScheduleCarriedDraft | undefined = edited
-          ? { scheduleDraft: draftRef.current }
-          : undefined;
-        leave(`/schedules/${saved.id}`, { replace: true, state: carried });
-      }
     },
   });
   const saving = saveDraft.isPending;
@@ -190,14 +256,7 @@ export function useScheduleEditorSession({
     !saving &&
     !(revealed && hasProblems) &&
     !preflightBlocking;
-
-  const saveState: ScheduleSaveState = saving
-    ? "saving"
-    : saveDraft.isError && dirty
-      ? "error"
-      : dirty
-        ? "unsaved"
-        : "saved";
+  const saveState = saveStateOf(saving, saveDraft.isError, dirty);
 
   return {
     schedule,

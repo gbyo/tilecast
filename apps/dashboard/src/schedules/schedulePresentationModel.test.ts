@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Playlist } from "../api/types";
 import { i18n } from "../i18n";
-import { playlistDuration } from "./SchedulePresentationSection";
+import { playlistDuration } from "./schedulePresentationModel";
 
 const t = i18n.getFixedT("en", "schedules");
 const playlist = (...durationMs: number[]) =>

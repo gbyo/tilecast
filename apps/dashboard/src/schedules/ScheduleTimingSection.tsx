@@ -126,53 +126,85 @@ function WeeklyFields({
     dateRange: string | null;
   };
 }) {
+  return (
+    <div className="grid gap-4">
+      <WeekdayToggles session={session} message={messages.days} />
+      <DailyTimes session={session} message={messages.time} />
+      <DateRangeFields
+        session={session}
+        open={dateRangeOpen}
+        onOpenChange={onDateRangeOpenChange}
+        message={messages.dateRange}
+      />
+    </div>
+  );
+}
+
+function WeekdayToggles({
+  session,
+  message,
+}: {
+  session: ScheduleEditorSession;
+  message: string | null;
+}) {
+  const { t } = useTranslation("schedules");
+  const { draft, update, readOnly } = session;
+  return (
+    <Field data-invalid={message ? true : undefined}>
+      <FieldLabel id="schedule-days-label">
+        {t("timing.weekdaysLabel")}
+      </FieldLabel>
+      <ToggleGroup
+        variant="outline"
+        spacing={1}
+        multiple
+        aria-labelledby="schedule-days-label"
+        aria-describedby={message ? "schedule-days-error" : undefined}
+        className="grid w-full max-w-md grid-cols-7"
+        value={draft.daysOfWeek.map(String)}
+        disabled={readOnly}
+        onValueChange={(next) =>
+          update({ daysOfWeek: next.map(Number).sort((a, b) => a - b) })
+        }
+      >
+        {scheduleWeekdays.map((day) => {
+          const labels = scheduleWeekdayLabels(day.value, t);
+          return (
+            <ToggleGroupItem
+              key={day.value}
+              id={`schedule-day-${day.value}`}
+              value={String(day.value)}
+              aria-label={labels.long}
+              className="h-11 min-w-0 flex-col gap-0.5 px-1 data-pressed:border-primary"
+            >
+              <span>{labels.short}</span>
+              <Check
+                aria-hidden="true"
+                className="hidden size-3 in-data-pressed:block"
+              />
+            </ToggleGroupItem>
+          );
+        })}
+      </ToggleGroup>
+      {message && <FieldError id="schedule-days-error">{message}</FieldError>}
+    </Field>
+  );
+}
+
+function DailyTimes({
+  session,
+  message,
+}: {
+  session: ScheduleEditorSession;
+  message: string | null;
+}) {
   const { t } = useTranslation("schedules");
   const { draft, update, readOnly } = session;
   const overnight = draft.dailyEnd <= draft.dailyStart;
   return (
-    <div className="grid gap-4">
-      <Field data-invalid={messages.days ? true : undefined}>
-        <FieldLabel id="schedule-days-label">
-          {t("timing.weekdaysLabel")}
-        </FieldLabel>
-        <ToggleGroup
-          variant="outline"
-          spacing={1}
-          multiple
-          aria-labelledby="schedule-days-label"
-          aria-describedby={messages.days ? "schedule-days-error" : undefined}
-          className="grid w-full max-w-md grid-cols-7"
-          value={draft.daysOfWeek.map(String)}
-          disabled={readOnly}
-          onValueChange={(next) =>
-            update({ daysOfWeek: next.map(Number).sort((a, b) => a - b) })
-          }
-        >
-          {scheduleWeekdays.map((day) => {
-            const labels = scheduleWeekdayLabels(day.value, t);
-            return (
-              <ToggleGroupItem
-                key={day.value}
-                id={`schedule-day-${day.value}`}
-                value={String(day.value)}
-                aria-label={labels.long}
-                className="h-11 min-w-0 flex-col gap-0.5 px-1 data-pressed:border-primary"
-              >
-                <span>{labels.short}</span>
-                <Check
-                  aria-hidden="true"
-                  className="hidden size-3 in-data-pressed:block"
-                />
-              </ToggleGroupItem>
-            );
-          })}
-        </ToggleGroup>
-        {messages.days && (
-          <FieldError id="schedule-days-error">{messages.days}</FieldError>
-        )}
-      </Field>
+    <>
       <div className="grid max-w-md gap-4 sm:grid-cols-2">
-        <Field data-invalid={messages.time ? true : undefined}>
+        <Field data-invalid={message ? true : undefined}>
           <FieldLabel htmlFor="schedule-daily-start">
             {t("timing.starts")}
           </FieldLabel>
@@ -182,12 +214,12 @@ function WeeklyFields({
             value={draft.dailyStart}
             required
             readOnly={readOnly}
-            aria-invalid={messages.time ? true : undefined}
-            aria-describedby={messages.time ? "schedule-time-error" : undefined}
+            aria-invalid={message ? true : undefined}
+            aria-describedby={message ? "schedule-time-error" : undefined}
             onChange={(event) => update({ dailyStart: event.target.value })}
           />
         </Field>
-        <Field data-invalid={messages.time ? true : undefined}>
+        <Field data-invalid={message ? true : undefined}>
           <FieldLabel htmlFor="schedule-daily-end">
             {t("timing.ends")}
           </FieldLabel>
@@ -197,15 +229,13 @@ function WeeklyFields({
             value={draft.dailyEnd}
             required
             readOnly={readOnly}
-            aria-invalid={messages.time ? true : undefined}
-            aria-describedby={messages.time ? "schedule-time-error" : undefined}
+            aria-invalid={message ? true : undefined}
+            aria-describedby={message ? "schedule-time-error" : undefined}
             onChange={(event) => update({ dailyEnd: event.target.value })}
           />
         </Field>
       </div>
-      {messages.time && (
-        <FieldError id="schedule-time-error">{messages.time}</FieldError>
-      )}
+      {message && <FieldError id="schedule-time-error">{message}</FieldError>}
       {overnight && draft.dailyStart && draft.dailyEnd && (
         <FieldDescription>
           {draft.dailyEnd === draft.dailyStart
@@ -213,77 +243,92 @@ function WeeklyFields({
             : t("timing.overnightNote")}
         </FieldDescription>
       )}
-      <Collapsible open={dateRangeOpen} onOpenChange={onDateRangeOpenChange}>
-        <CollapsibleTrigger
-          render={
-            <Button type="button" variant="ghost" size="sm" className="-ms-2" />
-          }
-        >
-          <ChevronRight
-            aria-hidden="true"
-            className="transition-transform in-data-panel-open:rotate-90"
-          />
-          {t("timing.limitDateRange")}
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="grid gap-3 pt-3">
-            <div className="grid gap-4 sm:grid-cols-2 sm:max-w-md">
-              <Field data-invalid={messages.dateRange ? true : undefined}>
-                <FieldLabel htmlFor="schedule-start-date">
-                  {t("timing.startsOn")}
-                </FieldLabel>
-                <DateInput
-                  id="schedule-start-date"
-                  value={draft.startDate}
-                  max={draft.endDate || undefined}
-                  disabled={readOnly}
-                  aria-invalid={messages.dateRange ? true : undefined}
-                  aria-describedby={
-                    messages.dateRange ? "schedule-date-range-error" : undefined
-                  }
-                  onChange={(startDate) => update({ startDate })}
-                />
-              </Field>
-              <Field data-invalid={messages.dateRange ? true : undefined}>
-                <FieldLabel htmlFor="schedule-end-date">
-                  {t("timing.endsOn")}
-                </FieldLabel>
-                <DateInput
-                  id="schedule-end-date"
-                  value={draft.endDate}
-                  min={draft.startDate || undefined}
-                  disabled={readOnly}
-                  aria-invalid={messages.dateRange ? true : undefined}
-                  aria-describedby={
-                    messages.dateRange ? "schedule-date-range-error" : undefined
-                  }
-                  onChange={(endDate) => update({ endDate })}
-                />
-              </Field>
-            </div>
-            {messages.dateRange && (
-              <FieldError id="schedule-date-range-error">
-                {messages.dateRange}
-              </FieldError>
-            )}
-            {!readOnly && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-fit"
-                onClick={() => {
-                  update({ startDate: "", endDate: "" });
-                  onDateRangeOpenChange(false);
-                }}
-              >
-                {t("timing.removeDateRange")}
-              </Button>
-            )}
+    </>
+  );
+}
+
+function DateRangeFields({
+  session,
+  open,
+  onOpenChange,
+  message,
+}: {
+  session: ScheduleEditorSession;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  message: string | null;
+}) {
+  const { t } = useTranslation("schedules");
+  const { draft, update, readOnly } = session;
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <CollapsibleTrigger
+        render={
+          <Button type="button" variant="ghost" size="sm" className="-ms-2" />
+        }
+      >
+        <ChevronRight
+          aria-hidden="true"
+          className="transition-transform in-data-panel-open:rotate-90"
+        />
+        {t("timing.limitDateRange")}
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="grid gap-3 pt-3">
+          <div className="grid gap-4 sm:grid-cols-2 sm:max-w-md">
+            <Field data-invalid={message ? true : undefined}>
+              <FieldLabel htmlFor="schedule-start-date">
+                {t("timing.startsOn")}
+              </FieldLabel>
+              <DateInput
+                id="schedule-start-date"
+                value={draft.startDate}
+                max={draft.endDate || undefined}
+                disabled={readOnly}
+                aria-invalid={message ? true : undefined}
+                aria-describedby={
+                  message ? "schedule-date-range-error" : undefined
+                }
+                onChange={(startDate) => update({ startDate })}
+              />
+            </Field>
+            <Field data-invalid={message ? true : undefined}>
+              <FieldLabel htmlFor="schedule-end-date">
+                {t("timing.endsOn")}
+              </FieldLabel>
+              <DateInput
+                id="schedule-end-date"
+                value={draft.endDate}
+                min={draft.startDate || undefined}
+                disabled={readOnly}
+                aria-invalid={message ? true : undefined}
+                aria-describedby={
+                  message ? "schedule-date-range-error" : undefined
+                }
+                onChange={(endDate) => update({ endDate })}
+              />
+            </Field>
           </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+          {message && (
+            <FieldError id="schedule-date-range-error">{message}</FieldError>
+          )}
+          {!readOnly && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => {
+                update({ startDate: "", endDate: "" });
+                onOpenChange(false);
+              }}
+            >
+              {t("timing.removeDateRange")}
+            </Button>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 

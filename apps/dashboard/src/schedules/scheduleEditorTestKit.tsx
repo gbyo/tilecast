@@ -170,6 +170,8 @@ const away = <Link to="/elsewhere">away</Link>;
 const listPage = <p>Schedule list</p>;
 // i18n-ignore: router fixtures for tests, never shown to a person
 const elsewherePage = <p>Elsewhere</p>;
+// i18n-ignore: router fixtures for tests, never shown to a person
+const failedPage = <p>Route failed</p>;
 
 export function renderEditor(initialEntry: string) {
   const client = new QueryClient({
@@ -183,10 +185,15 @@ export function renderEditor(initialEntry: string) {
   );
   const router = createMemoryRouter(
     [
-      { path: "/schedules/new", element: editor },
-      { path: "/schedules/:id", element: editor },
-      { path: "/schedules", element: listPage },
-      { path: "/elsewhere", element: elsewherePage },
+      {
+        errorElement: failedPage,
+        children: [
+          { path: "/schedules/new", element: editor },
+          { path: "/schedules/:id", element: editor },
+          { path: "/schedules", element: listPage },
+          { path: "/elsewhere", element: elsewherePage },
+        ],
+      },
     ],
     { initialEntries: [initialEntry] },
   );

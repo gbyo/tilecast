@@ -70,3 +70,10 @@ export function useSchedulePreflight(
       Boolean(query.data?.issues.some((i) => i.severity === "blocking")),
   };
 }
+
+/** How many things the next-run check wants the author to look at. */
+export function attentionCount(preflight: SchedulePreflightState) {
+  if (preflight.status === "incomplete" || !preflight.result) return 0;
+  const { issues, losingScreenCount } = preflight.result;
+  return issues.length + (losingScreenCount > 0 ? 1 : 0);
+}

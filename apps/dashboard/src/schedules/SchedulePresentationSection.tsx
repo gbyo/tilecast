@@ -1,25 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
 import { LayoutTemplate, ListVideo, Tags } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import type {
-  DisplayControlAction,
-  LayoutSummary,
-  Playlist,
-} from "../api/types";
 import {
   PlaylistPicker,
   type PlaylistPickerChoice,
 } from "../components/content-picker";
-import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-} from "../components/ui/field";
-import { Input } from "../components/ui/input";
+import { Field, FieldError } from "../components/ui/field";
 import {
   Item,
   ItemActions,
@@ -29,25 +16,17 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { RadioGroup } from "../components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
-import { layoutQueries } from "../data/layouts";
-import { playlistQueries } from "../data/playlists";
-import { displayActionOptions, type SchedulesT } from "./scheduleBuilderModel";
 import {
-  DISPLAY_INPUT_MAX,
   problemMessage,
   withPresentationMode,
   type PresentationChoice,
   type PresentationMode,
 } from "./scheduleEditorModel";
 import { ChoiceCard, EditorSection } from "./scheduleEditorParts";
+import { ScheduleDisplayControlFields } from "./ScheduleDisplayControlFields";
+import { presentationMeta } from "./schedulePresentationModel";
+import { useSelectedPresentation } from "./useSelectedPresentation";
 import type { ScheduleEditorSession } from "./useScheduleEditorSession";
 
 /** What happens when this schedule wins: show content, or drive the display. */
@@ -92,7 +71,7 @@ export function SchedulePresentationSection({
       {draft.presentationMode === "content" ? (
         <ContentSelection session={session} />
       ) : (
-        <DisplayControlFields session={session} />
+        <ScheduleDisplayControlFields session={session} />
       )}
     </EditorSection>
   );
@@ -194,31 +173,11 @@ function SelectedPresentation({
 }) {
   const { t } = useTranslation("schedules");
   const isPlaylist = content.kind === "playlist";
-  // The picker's rows are list summaries: enough to show the choice now, but a
-  // playlist's length needs its own items, so that one playlist is read.
-  const pickedPlaylist =
-    picked?.kind === "playlist" && picked.playlist.id === content.id
-      ? picked.playlist
-      : undefined;
-  const pickedLayout =
-    picked?.kind === "layout" && picked.layout.id === content.id
-      ? picked.layout
-      : undefined;
-  const playlist = useQuery({
-    ...playlistQueries.detail(content.id),
-    enabled: isPlaylist,
-    placeholderData: pickedPlaylist,
-  });
-  const layout = useQuery({
-    ...layoutQueries.detail(content.id),
-    enabled: !isPlaylist && !pickedLayout,
-  });
-  const playlistData = isPlaylist ? playlist.data : undefined;
-  const layoutData = !isPlaylist ? (pickedLayout ?? layout.data) : undefined;
-  const loading = isPlaylist
-    ? !playlistData && playlist.isLoading
-    : !layoutData && layout.isLoading;
-  const measuring = isPlaylist && playlist.isPlaceholderData;
+  const {
+    playlist: playlistData,
+    layout: layoutData,
+    pending,
+  } = useSelectedPresentation(content, picked);
   const thumbnail =
     playlistData?.previewItems?.[0]?.thumbnailUrl ??
     playlistData?.items?.[0]?.thumbnailUrl;
@@ -238,7 +197,7 @@ function SelectedPresentation({
       </ItemMedia>
       <ItemContent>
         <ItemTitle>{content.name}</ItemTitle>
-        {loading || measuring ? (
+        {pending ? (
           <Skeleton className="h-4 w-40" />
         ) : (
           <ItemDescription>
@@ -259,165 +218,5 @@ function SelectedPresentation({
         </Button>
       </ItemActions>
     </Item>
-  );
-}
-
-function presentationMeta(
-  kind: PresentationChoice["kind"],
-  playlist: Playlist | undefined,
-  layout: LayoutSummary | undefined,
-  t: SchedulesT,
-) {
-  if (kind === "layout") {
-    return layout?.publishedRevision
-      ? t("editor.presentation.layoutMeta", {
-          revision: layout.publishedRevision,
-        })
-      : t("editor.presentation.layoutKind");
-  }
-  if (!playlist) return t("editor.presentation.playlistKind");
-  if (!playlist.itemCount) return t("editor.presentation.playlistEmpty");
-  return t("editor.presentation.playlistMeta", {
-    count: playlist.itemCount,
-    duration: playlistDuration(playlist, t),
-  });
-}
-
-/** "4 min 20 sec", or why there is no total: nothing in it, or live-length items. */
-export function playlistDuration(playlist: Playlist, t: SchedulesT) {
-  if (!playlist.items?.length) return t("editor.presentation.durationVaries");
-  const seconds = playlist.items.reduce(
-    (total, item) =>
-      total +
-      (item.durationMs
-        ? item.durationMs / 1000
-        : (item.assetDurationSeconds ?? 0)),
-    0,
-  );
-  if (!seconds) return t("editor.presentation.durationVaries");
-  // Round first, so 59.6 seconds is a minute and not "0 min 60 sec".
-  const total = Math.round(seconds);
-  const minutes = Math.floor(total / 60);
-  const remainder = total % 60;
-  return minutes
-    ? `${t("duration.minutes", { count: minutes })}${remainder ? ` ${t("duration.seconds", { count: remainder })}` : ""}`
-    : t("duration.seconds", { count: remainder });
-}
-
-function DisplayControlFields({ session }: { session: ScheduleEditorSession }) {
-  const { t } = useTranslation("schedules");
-  const { draft, update, errors, readOnly } = session;
-  const action = draft.displayAction;
-  const problem = errors.displayAction
-    ? problemMessage(errors.displayAction, t)
-    : null;
-  const setAction = (next: DisplayControlAction) =>
-    update({ displayAction: next });
-  const options = displayActionOptions.map((option) => ({
-    value: option.value,
-    label: t(option.labelKey),
-  }));
-  const level =
-    action.type === "display_set_volume"
-      ? action.volume
-      : action.type === "display_set_brightness"
-        ? action.brightness
-        : undefined;
-  return (
-    <div className="grid gap-4">
-      <Field>
-        <FieldLabel htmlFor="schedule-display-action">
-          {t("displayAction.actionLabel")}
-        </FieldLabel>
-        <Select
-          items={options}
-          value={action.type}
-          disabled={readOnly}
-          onValueChange={(next) => {
-            if (next) setAction({ type: next });
-          }}
-        >
-          <SelectTrigger
-            id="schedule-display-action"
-            className="w-full sm:w-64"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Field>
-      {action.type === "display_set_input" && (
-        <Field data-invalid={problem ? true : undefined}>
-          <FieldLabel htmlFor="schedule-display-value">
-            {t("displayAction.inputLabel")}
-          </FieldLabel>
-          <Input
-            id="schedule-display-value"
-            value={action.input ?? ""}
-            maxLength={DISPLAY_INPUT_MAX}
-            required
-            readOnly={readOnly}
-            className="sm:w-64"
-            aria-invalid={problem ? true : undefined}
-            aria-describedby={
-              problem ? "schedule-display-error" : "schedule-display-hint"
-            }
-            onChange={(event) =>
-              setAction({ ...action, input: event.target.value })
-            }
-          />
-          <FieldDescription id="schedule-display-hint">
-            {t("displayAction.inputHint")}
-          </FieldDescription>
-        </Field>
-      )}
-      {(action.type === "display_set_volume" ||
-        action.type === "display_set_brightness") && (
-        <Field data-invalid={problem ? true : undefined}>
-          <FieldLabel htmlFor="schedule-display-value">
-            {action.type === "display_set_volume"
-              ? t("displayAction.volumeLabel")
-              : t("displayAction.brightnessLabel")}
-          </FieldLabel>
-          <Input
-            id="schedule-display-value"
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={100}
-            step={1}
-            value={level ?? ""}
-            required
-            readOnly={readOnly}
-            className="sm:w-32"
-            aria-invalid={problem ? true : undefined}
-            aria-describedby={problem ? "schedule-display-error" : undefined}
-            onChange={(event) => {
-              const value =
-                event.target.value === ""
-                  ? undefined
-                  : Number(event.target.value);
-              setAction(
-                action.type === "display_set_volume"
-                  ? { type: action.type, volume: value }
-                  : { type: action.type, brightness: value },
-              );
-            }}
-          />
-        </Field>
-      )}
-      {problem && (
-        <FieldError id="schedule-display-error">{problem}</FieldError>
-      )}
-      <Alert>
-        <AlertDescription>{t("displayAction.note")}</AlertDescription>
-      </Alert>
-    </div>
   );
 }

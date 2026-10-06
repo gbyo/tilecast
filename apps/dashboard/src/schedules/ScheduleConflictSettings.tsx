@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "../components/ui/badge";
 import {
@@ -142,13 +142,10 @@ function CustomPriority({
   // The field keeps what was typed, including a half-typed "-", and tells the
   // draft only when that is a number (or NaN, which fails validation).
   const [text, setText] = useState(Number.isNaN(value) ? "" : String(value));
-  useEffect(() => {
-    // Follow outside changes, such as discarding edits.
-    if (!Number.isNaN(value))
-      setText((current) =>
-        Number(current) === value ? current : String(value),
-      );
-  }, [value]);
+  // An outside change, such as discarding edits, shows through; what was
+  // typed shows while it still means the same number.
+  const shown =
+    Number.isNaN(value) || Number(text) === value ? text : String(value);
   return (
     <Field data-invalid={problem ? true : undefined}>
       <FieldContent>
@@ -166,7 +163,7 @@ function CustomPriority({
         min={-999}
         max={999}
         step={1}
-        value={text}
+        value={shown}
         readOnly={readOnly}
         required
         className="w-32"

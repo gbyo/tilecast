@@ -3,7 +3,6 @@
  * when it has no pane of its own, save state, Save, and the schedule's other
  * actions. The header's last breadcrumb shows the draft name.
  */
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ListChecks } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -15,39 +14,20 @@ import {
   useEditorHeaderTitle,
 } from "../components/studio/EditorHeaderSlots";
 import { EditorSaveStatus } from "../components/studio/EditorSaveStatus";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../components/ui/alert-dialog";
 import { Badge } from "../components/ui/badge";
-import { Button, buttonVariants } from "../components/ui/button";
+import { Button } from "../components/ui/button";
 import { Kbd } from "../components/ui/kbd";
 import { Spinner } from "../components/ui/spinner";
-import { toast } from "../components/ui/toast";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "../components/ui/tooltip";
 import { useNarrowHeader } from "../components/content/widget-editor/header/useNarrowHeader";
-import { scheduleMutations } from "../data/schedules";
 import { shortcutLabel } from "../hooks/use-save-shortcut";
-import { apiErrorMessage } from "../i18n";
+import { ScheduleDeleteDialog } from "./ScheduleDeleteDialog";
 import type { ScheduleEditorSession } from "./useScheduleEditorSession";
-
-/** How many things the next-run check wants the author to look at. */
-export function attentionCount(session: ScheduleEditorSession) {
-  const { preflight } = session;
-  if (preflight.status === "incomplete" || !preflight.result) return 0;
-  const result = preflight.result;
-  return result.issues.length + (result.losingScreenCount > 0 ? 1 : 0);
-}
+import { attentionCount } from "./useSchedulePreflight";
 
 export function ScheduleEditorHeader({
   session,
@@ -67,41 +47,18 @@ export function ScheduleEditorHeader({
 }) {
   const { t } = useTranslation("schedules");
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   // Compact forms apply on a phone, and wherever the header itself is too
   // narrow for the full controls (a tablet with the sidebar open).
   const narrowHeader = useNarrowHeader();
   const compact = phone || narrowHeader;
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const attention = attentionCount(session);
+  const attention = attentionCount(session.preflight);
 
   useEditorHeaderTitle(session.displayName);
   useEditorHeaderRename(
     useCallback(() => document.getElementById("schedule-name")?.focus(), []),
   );
 
-  const remove = useMutation({
-    ...scheduleMutations.remove(queryClient, csrf, session.scheduleId ?? ""),
-    onSuccess: () => {
-      toast.add({ title: t("notifications.deleted"), type: "success" });
-      // Deleting deliberately discards the draft; there is nothing to keep.
-      session.leave("/schedules");
-    },
-    onError: (error) => {
-      setDeleteOpen(false);
-      toast.add({
-        title: t("editor.delete.failed"),
-        description: apiErrorMessage(error),
-        type: "error",
-      });
-    },
-  });
-
-  const saveLabel = compact
-    ? t("editor.header.saveShort")
-    : session.isNew
-      ? t("editor.header.create")
-      : t("editor.header.save");
   const menu = [
     {
       actions:
@@ -161,90 +118,14 @@ export function ScheduleEditorHeader({
         right={
           <div className="flex shrink-0 items-center gap-2 max-[360px]:gap-1">
             {showReview && (
-              <Button
-                type="button"
-                variant="outline"
-                size={compact ? "icon-sm" : "sm"}
-                className="relative"
-                aria-haspopup="dialog"
-                aria-label={reviewLabel}
-                onClick={onReview}
-              >
-                <ListChecks aria-hidden="true" />
-                {!compact && t("editor.header.review")}
-                {attention > 0 &&
-                  (compact ? (
-                    // Beside the icon, not inside it: a phone has no room for
-                    // a second inline control.
-                    <Badge
-                      aria-hidden="true"
-                      className="absolute -end-1.5 -top-1.5 h-4 min-w-4 justify-center px-1 text-[10px]"
-                    >
-                      {attention}
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary">{attention}</Badge>
-                  ))}
-              </Button>
-            )}
-            {session.readOnly ? (
-              <EditorSaveStatus
-                state="readOnly"
+              <ReviewButton
+                attention={attention}
                 compact={compact}
-                labels={{
-                  saved: t("editor.status.saved"),
-                  readOnly: t("editor.status.viewOnly"),
-                }}
+                label={reviewLabel}
+                onClick={onReview}
               />
-            ) : (
-              <>
-                {compact && session.saveState !== "error" ? (
-                  // The Save button already shows clean, dirty, and saving, and
-                  // a phone has no room for a second indicator. Assistive
-                  // technology still hears the state.
-                  <span role="status" className="sr-only">
-                    {t(`editor.status.${session.saveState}`)}
-                  </span>
-                ) : (
-                  <EditorSaveStatus
-                    state={session.saveState}
-                    compact={compact}
-                    onRetry={session.save}
-                    labels={{
-                      saved: t("editor.status.saved"),
-                      unsaved: t("editor.status.unsaved"),
-                      saving: t("editor.status.saving"),
-                      error: t("editor.status.failed"),
-                    }}
-                  />
-                )}
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="max-[360px]:px-2"
-                        disabled={!session.canSave}
-                        aria-busy={session.saveState === "saving" || undefined}
-                        aria-keyshortcuts="Control+S Meta+S"
-                        onClick={session.save}
-                      />
-                    }
-                  >
-                    {session.saveState === "saving" && (
-                      <Spinner aria-hidden="true" />
-                    )}
-                    {session.saveState === "saving"
-                      ? t("editor.status.saving")
-                      : saveLabel}
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {saveLabel} <Kbd>{shortcutLabel()}</Kbd>
-                  </TooltipContent>
-                </Tooltip>
-              </>
             )}
+            <SaveControls session={session} compact={compact} />
             {hasMenu && (
               <ActionMenuButton
                 label={t("editor.header.more")}
@@ -256,29 +137,128 @@ export function ScheduleEditorHeader({
           </div>
         }
       />
-      {session.schedule && (
-        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t("editor.delete.title", { name: session.schedule.name })}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("editor.delete.body")}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t("editor.delete.keep")}</AlertDialogCancel>
-              <AlertDialogAction
-                className={buttonVariants({ variant: "destructive" })}
-                disabled={remove.isPending}
-                onClick={() => remove.mutate()}
-              >
-                {t("editor.delete.confirm")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      <ScheduleDeleteDialog
+        session={session}
+        csrf={csrf}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+      />
+    </>
+  );
+}
+
+function ReviewButton({
+  attention,
+  compact,
+  label,
+  onClick,
+}: {
+  attention: number;
+  compact: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation("schedules");
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size={compact ? "icon-sm" : "sm"}
+      className="relative"
+      aria-haspopup="dialog"
+      aria-label={label}
+      onClick={onClick}
+    >
+      <ListChecks aria-hidden="true" />
+      {!compact && t("editor.header.review")}
+      {attention > 0 &&
+        (compact ? (
+          // Beside the icon, not inside it: a phone has no room for
+          // a second inline control.
+          <Badge
+            aria-hidden="true"
+            className="absolute -end-1.5 -top-1.5 h-4 min-w-4 justify-center px-1 text-[10px]"
+          >
+            {attention}
+          </Badge>
+        ) : (
+          <Badge variant="secondary">{attention}</Badge>
+        ))}
+    </Button>
+  );
+}
+
+/** Save state and the Save button, or the view-only note. */
+function SaveControls({
+  session,
+  compact,
+}: {
+  session: ScheduleEditorSession;
+  compact: boolean;
+}) {
+  const { t } = useTranslation("schedules");
+  const saveLabel = compact
+    ? t("editor.header.saveShort")
+    : session.isNew
+      ? t("editor.header.create")
+      : t("editor.header.save");
+  return (
+    <>
+      {session.readOnly ? (
+        <EditorSaveStatus
+          state="readOnly"
+          compact={compact}
+          labels={{
+            saved: t("editor.status.saved"),
+            readOnly: t("editor.status.viewOnly"),
+          }}
+        />
+      ) : (
+        <>
+          {compact && session.saveState !== "error" ? (
+            // The Save button already shows clean, dirty, and saving, and
+            // a phone has no room for a second indicator. Assistive
+            // technology still hears the state.
+            <span role="status" className="sr-only">
+              {t(`editor.status.${session.saveState}`)}
+            </span>
+          ) : (
+            <EditorSaveStatus
+              state={session.saveState}
+              compact={compact}
+              onRetry={session.save}
+              labels={{
+                saved: t("editor.status.saved"),
+                unsaved: t("editor.status.unsaved"),
+                saving: t("editor.status.saving"),
+                error: t("editor.status.failed"),
+              }}
+            />
+          )}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  size="sm"
+                  className="max-[360px]:px-2"
+                  disabled={!session.canSave}
+                  aria-busy={session.saveState === "saving" || undefined}
+                  aria-keyshortcuts="Control+S Meta+S"
+                  onClick={session.save}
+                />
+              }
+            >
+              {session.saveState === "saving" && <Spinner aria-hidden="true" />}
+              {session.saveState === "saving"
+                ? t("editor.status.saving")
+                : saveLabel}
+            </TooltipTrigger>
+            <TooltipContent>
+              {saveLabel} <Kbd>{shortcutLabel()}</Kbd>
+            </TooltipContent>
+          </Tooltip>
+        </>
       )}
     </>
   );

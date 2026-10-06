@@ -126,8 +126,8 @@ function WhenValue({ draft }: { draft: ScheduleDraft }) {
   const { lines, timezone } = describeScheduleWhen(draft, t, formatLocale);
   return (
     <>
-      {lines.map((line, index) => (
-        <span key={index} className="block">
+      {lines.map((line) => (
+        <span key={line} className="block">
           {line}
         </span>
       ))}

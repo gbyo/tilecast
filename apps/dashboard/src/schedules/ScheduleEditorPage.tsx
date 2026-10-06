@@ -5,7 +5,7 @@
  * underneath the person using it.
  */
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
@@ -88,41 +88,53 @@ function ExistingSchedule({ id }: { id: string }) {
       query.error instanceof ApiError &&
       (query.error.status === 404 || query.error.code === "schedule_not_found");
     return missing ? (
-      <EditorMessage>
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>{t("editor.notFound.title")}</EmptyTitle>
-            <EmptyDescription>{t("editor.notFound.body")}</EmptyDescription>
-          </EmptyHeader>
-          <Link
-            to="/schedules"
-            className={buttonVariants({ variant: "outline" })}
-          >
-            {t("editor.notFound.back")}
-          </Link>
-        </Empty>
-      </EditorMessage>
+      <EditorEmpty
+        title={t("editor.notFound.title")}
+        body={t("editor.notFound.body")}
+      />
     ) : (
-      <EditorMessage>
-        <Alert variant="destructive">
-          <AlertTitle>{t("editor.loadFailed.title")}</AlertTitle>
-          <AlertDescription className="grid gap-2">
-            <span>{apiErrorMessage(query.error)}</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              onClick={() => void query.refetch()}
-            >
-              {t("editor.loadFailed.retry")}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </EditorMessage>
+      <EditorLoadFailed
+        error={query.error}
+        retry={() => void query.refetch()}
+      />
     );
   }
   return <EditorSkeleton />;
+}
+
+/**
+ * The one screen or Display Group a new schedule was opened from. A grouped
+ * screen schedules through its group, as the server normalizes it. A lookup
+ * that failed (the screen is gone, or out of scope) just means there is
+ * nothing to preselect.
+ */
+function usePrefillTarget(screenId: string, groupId: string) {
+  const screen = useQuery({
+    ...screenQueries.detail(screenId),
+    enabled: Boolean(screenId),
+    retry: false,
+  });
+  const group = useQuery({
+    queryKey: ["screen-groups", groupId],
+    queryFn: () => api.screenGroup(groupId),
+    enabled: Boolean(groupId) && !screenId,
+    retry: false,
+  });
+  const pending =
+    (Boolean(screenId) && screen.isPending) ||
+    (Boolean(groupId) && !screenId && group.isPending);
+  let target: ScheduleTarget | null = null;
+  if (screenId && screen.data)
+    target = screen.data.syncGroupId
+      ? {
+          type: "group",
+          id: screen.data.syncGroupId,
+          name: screen.data.syncGroupName,
+        }
+      : { type: "screen", id: screen.data.id, name: screen.data.name };
+  else if (!screenId && groupId && group.data)
+    target = { type: "group", id: group.data.id, name: group.data.name };
+  return { pending, target };
 }
 
 /**
@@ -135,79 +147,32 @@ function NewSchedule() {
   const { t } = useTranslation("schedules");
   const { csrf, canManage } = useEditorAuth();
   const [params] = useSearchParams();
-  const screenId = params.get("screen") ?? "";
-  const groupId = params.get("group") ?? "";
+  const prefill = usePrefillTarget(
+    params.get("screen") ?? "",
+    params.get("group") ?? "",
+  );
   const defaults = useQuery(scheduleQueries.defaults());
-  const screen = useQuery({
-    ...screenQueries.detail(screenId),
-    enabled: Boolean(screenId),
-    retry: false,
-  });
-  const group = useQuery({
-    queryKey: ["screen-groups", groupId],
-    queryFn: () => api.screenGroup(groupId),
-    enabled: Boolean(groupId) && !screenId,
-    retry: false,
-  });
   const [initial, setInitial] = useState<ScheduleDraft | null>(null);
   if (!canManage)
     return (
-      <EditorMessage>
-        <Empty>
-          <EmptyHeader>
-            <EmptyTitle>{t("editor.cannotCreate.title")}</EmptyTitle>
-            <EmptyDescription>{t("editor.cannotCreate.body")}</EmptyDescription>
-          </EmptyHeader>
-          <Link
-            to="/schedules"
-            className={buttonVariants({ variant: "outline" })}
-          >
-            {t("editor.notFound.back")}
-          </Link>
-        </Empty>
-      </EditorMessage>
+      <EditorEmpty
+        title={t("editor.cannotCreate.title")}
+        body={t("editor.cannotCreate.body")}
+      />
     );
   if (defaults.isError)
     return (
-      <EditorMessage>
-        <Alert variant="destructive">
-          <AlertTitle>{t("editor.loadFailed.title")}</AlertTitle>
-          <AlertDescription className="grid gap-2">
-            <span>{apiErrorMessage(defaults.error)}</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-fit"
-              onClick={() => void defaults.refetch()}
-            >
-              {t("editor.loadFailed.retry")}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      </EditorMessage>
+      <EditorLoadFailed
+        error={defaults.error}
+        retry={() => void defaults.refetch()}
+      />
     );
-  const targetPending =
-    (Boolean(screenId) && screen.isPending) ||
-    (Boolean(groupId) && !screenId && group.isPending);
   const timezone = defaults.data?.defaultTimezone;
-  if (initial === null && timezone && !targetPending) {
-    // A lookup that failed (the screen is gone, or out of scope) just means
-    // there is nothing to preselect.
-    const target: ScheduleTarget | null = screenId
-      ? screen.data
-        ? screen.data.syncGroupId
-          ? {
-              type: "group",
-              id: screen.data.syncGroupId,
-              name: screen.data.syncGroupName,
-            }
-          : { type: "screen", id: screen.data.id, name: screen.data.name }
-        : null
-      : groupId && group.data
-        ? { type: "group", id: group.data.id, name: group.data.name }
-        : null;
-    setInitial({ ...emptyDraft(timezone), targets: target ? [target] : [] });
+  if (initial === null && timezone && !prefill.pending) {
+    setInitial({
+      ...emptyDraft(timezone),
+      targets: prefill.target ? [prefill.target] : [],
+    });
   }
   if (!initial) return <EditorSkeleton />;
   return <SessionHost initial={initial} csrf={csrf} canManage={canManage} />;
@@ -230,30 +195,67 @@ function SessionHost({
   const session = useScheduleEditorSession({
     schedule,
     initial,
+    carried,
     csrf,
     readOnly: !canManage,
   });
-  // The carried draft is spent once the session holds it. Left in the history
-  // entry, a reload would bring the old draft back over what was saved since.
-  // The replace is the editor's own departure, so the unsaved-change blocker
-  // does not intercept it.
-  const { leave } = session;
-  const location = useLocation();
-  const spent = useRef(false);
-  useEffect(() => {
-    if (!carried || spent.current) return;
-    spent.current = true;
-    leave(`${location.pathname}${location.search}`, {
-      replace: true,
-      state: null,
-    });
-  }, [carried, leave, location.pathname, location.search]);
   return (
     <ScheduleEditorWorkspace
       session={session}
       csrf={csrf}
       canManage={canManage}
     />
+  );
+}
+
+/** An empty state with the way back to the list. */
+function EditorEmpty({ title, body }: { title: string; body: string }) {
+  const { t } = useTranslation("schedules");
+  return (
+    <EditorMessage>
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>{title}</EmptyTitle>
+          <EmptyDescription>{body}</EmptyDescription>
+        </EmptyHeader>
+        <Link
+          to="/schedules"
+          className={buttonVariants({ variant: "outline" })}
+        >
+          {t("editor.notFound.back")}
+        </Link>
+      </Empty>
+    </EditorMessage>
+  );
+}
+
+/** A read that failed, with its reason and a retry. */
+function EditorLoadFailed({
+  error,
+  retry,
+}: {
+  error: Error | null;
+  retry: () => void;
+}) {
+  const { t } = useTranslation("schedules");
+  return (
+    <EditorMessage>
+      <Alert variant="destructive">
+        <AlertTitle>{t("editor.loadFailed.title")}</AlertTitle>
+        <AlertDescription className="grid gap-2">
+          <span>{apiErrorMessage(error)}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-fit"
+            onClick={retry}
+          >
+            {t("editor.loadFailed.retry")}
+          </Button>
+        </AlertDescription>
+      </Alert>
+    </EditorMessage>
   );
 }
 
