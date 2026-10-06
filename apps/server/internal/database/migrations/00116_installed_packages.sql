@@ -41,11 +41,10 @@ CREATE TABLE installed_packages (
         REFERENCES users(id)
         ON DELETE SET NULL,
     activated_at timestamptz NOT NULL DEFAULT now(),
-    -- Snapshot of the activation this one replaced: digest, version, source,
-    -- registry reference, signer/trust provenance, manifest document, and
-    -- contribution rows. Rollback restores it as a unit, so one previous
-    -- activation survives every update. NULL when there is nothing to roll
-    -- back to.
+    -- Snapshot of the activation this one replaced: digest, version, manifest
+    -- document, and contribution rows. Rollback restores from it, so one
+    -- previous activation survives every update. NULL when there is nothing
+    -- to roll back to.
     previous_activation jsonb,
     PRIMARY KEY (organization_id, package_id)
 );
