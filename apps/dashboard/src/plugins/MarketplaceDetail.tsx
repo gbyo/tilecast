@@ -1,17 +1,8 @@
 import { useTranslation } from "react-i18next";
-import { CircleAlert, Puzzle } from "lucide-react";
-import type { PluginStoreMarketplace, PluginStoreSource } from "../api/types";
+import { CircleAlert } from "lucide-react";
+import type { PluginStoreMarketplace } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Badge } from "../components/ui/badge";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "../components/ui/item";
 import { Separator } from "../components/ui/separator";
-import { StoreProvenanceBadge } from "./StoreProvenance";
 
 /**
  * One marketplace listing: what it is, who publishes it, which Tilecast
@@ -21,10 +12,8 @@ import { StoreProvenanceBadge } from "./StoreProvenance";
  */
 export function MarketplaceDetail({
   listing,
-  source,
 }: {
   listing: PluginStoreMarketplace;
-  source: PluginStoreSource;
 }) {
   const { t } = useTranslation("plugins");
   const links = [
@@ -54,31 +43,6 @@ export function MarketplaceDetail({
   ];
   return (
     <div className="grid gap-5 pr-2">
-      <Item className="px-0 py-0">
-        <ItemMedia variant="image" className="size-12 bg-muted">
-          <Puzzle aria-hidden="true" />
-        </ItemMedia>
-        <ItemContent>
-          <ItemTitle className="text-base">
-            {listing.name}
-            {listing.installed && (
-              <Badge variant="secondary">{t("catalog.installed")}</Badge>
-            )}
-            {listing.updateAvailable && (
-              <Badge variant="secondary">
-                {t("store.detail.updateAvailable")}
-              </Badge>
-            )}
-          </ItemTitle>
-          <ItemDescription className="flex flex-wrap items-center gap-1.5">
-            <StoreProvenanceBadge source={source} />
-            <span>{listing.publisherName}</span>
-          </ItemDescription>
-        </ItemContent>
-      </Item>
-      {listing.description && (
-        <p className="text-sm text-muted-foreground">{listing.description}</p>
-      )}
       {!listing.compatible && (
         <Alert>
           <CircleAlert aria-hidden="true" />
