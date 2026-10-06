@@ -99,6 +99,7 @@ func testActivation(version, digest string) Activation {
 		SignerIdentity:    "https://github.com/acme/tilecast-athletics/.github/workflows/release.yml",
 		Trust:             TrustVerified,
 		Contributions: []Contribution{
+			{Kind: "plugin", ID: "acme.athletics", Path: "./plugin"},
 			{Kind: "widget", ID: "acme.athletics.scoreboard", Path: "./widgets/scoreboard"},
 			{Kind: "dataSource", ID: "acme.athletics.schedule", Path: "./data-sources/schedule"},
 		},
@@ -106,7 +107,7 @@ func testActivation(version, digest string) Activation {
 }
 
 func TestActivateInstallUpdateRollbackRemove(t *testing.T) {
-	f := newInstallerFixture(t)
+	f := newInstallerFixture(t, WithUnsignedDevelopmentAllowed())
 	ctx := context.Background()
 
 	installed, err := f.service.Activate(ctx, testActivation("2.4.1", testDigestV1))
@@ -120,15 +121,23 @@ func TestActivateInstallUpdateRollbackRemove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(contributions) != 2 {
-		t.Fatalf("contributions = %d, want 2", len(contributions))
+	if len(contributions) != 3 {
+		t.Fatalf("contributions = %d, want 3", len(contributions))
 	}
 
-	updated, err := f.service.Activate(ctx, testActivation("2.5.0", testDigestV2))
+	update := testActivation("2.5.0", testDigestV2)
+	update.SourceKind = SourceMarketplace
+	update.SourceReference = "marketplace:acme.athletics"
+	update.RegistryReference = "registry.example.test/acme/athletics"
+	update.SignerIdentity = ""
+	update.Trust = TrustUnsignedDevelopment
+	updated, err := f.service.Activate(ctx, update)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Version != "2.5.0" || !updated.HasPrevious {
+	if updated.Version != "2.5.0" || !updated.HasPrevious ||
+		updated.SourceKind != SourceMarketplace ||
+		updated.Trust != TrustUnsignedDevelopment {
 		t.Fatalf("update = %+v", updated)
 	}
 
@@ -136,14 +145,21 @@ func TestActivateInstallUpdateRollbackRemove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rolledBack.Version != "2.4.1" || rolledBack.Digest != testDigestV1 || rolledBack.HasPrevious {
-		t.Fatalf("rollback = %+v", rolledBack)
+	if rolledBack.Version != "2.4.1" ||
+		rolledBack.Digest != testDigestV1 ||
+		rolledBack.HasPrevious ||
+		rolledBack.SourceKind != SourceCustom ||
+		rolledBack.SourceReference != "https://github.com/acme/tilecast-athletics" ||
+		rolledBack.RegistryReference != "ghcr.io/acme/tilecast-athletics" ||
+		rolledBack.SignerIdentity != "https://github.com/acme/tilecast-athletics/.github/workflows/release.yml" ||
+		rolledBack.Trust != TrustVerified {
+		t.Fatalf("rollback did not restore full provenance: %+v", rolledBack)
 	}
 	contributions, err = f.service.Contributions(ctx, "acme.athletics")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(contributions) != 2 || contributions[0].ID != "acme.athletics.schedule" {
+	if len(contributions) != 3 {
 		t.Fatalf("contributions after rollback = %+v", contributions)
 	}
 
@@ -181,6 +197,7 @@ func TestActivateRefusesIncompatibleUnsignedForeignAndColliding(t *testing.T) {
 	// Unsigned without the development allowance.
 	activation = testActivation("2.4.1", testDigestV1)
 	activation.Trust = TrustUnsignedDevelopment
+	activation.SignerIdentity = ""
 	if _, err := f.service.Activate(ctx, activation); !errors.Is(err, ErrUnsignedRejected) {
 		t.Fatalf("unsigned = %v, want ErrUnsignedRejected", err)
 	}
@@ -213,6 +230,47 @@ func TestActivateRefusesIncompatibleUnsignedForeignAndColliding(t *testing.T) {
 	}
 	if len(listed) != 0 {
 		t.Fatalf("List after refused activations = %d, want 0", len(listed))
+	}
+}
+
+func TestActivateBindsDerivedContributionsToManifest(t *testing.T) {
+	f := newInstallerFixture(t)
+	ctx := context.Background()
+
+	missing := testActivation("2.4.1", testDigestV1)
+	missing.Contributions = missing.Contributions[1:]
+	if _, err := f.service.Activate(ctx, missing); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("missing declaration = %v, want ErrInvalid", err)
+	}
+
+	undeclared := testActivation("2.4.1", testDigestV1)
+	undeclared.Contributions[1].Path = "./widgets/other"
+	if _, err := f.service.Activate(ctx, undeclared); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("undeclared path = %v, want ErrInvalid", err)
+	}
+
+	wrongKind := testActivation("2.4.1", testDigestV1)
+	wrongKind.Contributions[1].Kind = "dataSource"
+	if _, err := f.service.Activate(ctx, wrongKind); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("undeclared kind/path pair = %v, want ErrInvalid", err)
+	}
+}
+
+func TestActivateEnforcesTrustSignerConsistency(t *testing.T) {
+	ctx := context.Background()
+
+	verified := newInstallerFixture(t)
+	activation := testActivation("2.4.1", testDigestV1)
+	activation.SignerIdentity = ""
+	if _, err := verified.service.Activate(ctx, activation); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("verified without signer = %v, want ErrInvalid", err)
+	}
+
+	development := newInstallerFixture(t, WithUnsignedDevelopmentAllowed())
+	activation = testActivation("2.4.1", testDigestV1)
+	activation.Trust = TrustUnsignedDevelopment
+	if _, err := development.service.Activate(ctx, activation); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("unsigned with signer = %v, want ErrInvalid", err)
 	}
 }
 
