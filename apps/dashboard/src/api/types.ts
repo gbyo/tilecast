@@ -1797,6 +1797,10 @@ export type WidgetDefinition = {
   emptyStateBehavior: string;
   legacyEditor?: boolean;
   requiresManifestV13?: boolean;
+  /** Studio-only natural authoring geometry; never Player configuration. */
+  authoring?: {
+    recommendedFrame?: { width: number; height: number };
+  };
   setup?: ContentDefinitionSetup;
 };
 export type ContentDefinitionSetup = {

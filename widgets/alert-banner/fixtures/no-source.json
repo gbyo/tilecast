@@ -1,0 +1,15 @@
+{
+  "name": "No source",
+  "configuration": {
+    "dataSourceId": "",
+    "messageField": "message",
+    "severityField": "severity",
+    "labelField": "",
+    "showSeverity": true,
+    "emptyState": "No active alerts",
+    "speed": "normal",
+    "backgroundColor": "#7a1f1f",
+    "foregroundColor": "#ffffff"
+  },
+  "expect": "empty"
+}

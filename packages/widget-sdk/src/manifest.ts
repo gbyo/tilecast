@@ -183,6 +183,19 @@ export const widgetManifestSchema = z
     emptyStateBehavior: z.string().min(1),
     legacyEditor: z.boolean().optional(),
     requiresManifestV13: z.boolean().optional(),
+    authoring: z
+      .object({
+        recommendedFrame: z
+          .object({
+            width: z.number().int().min(120).max(3840),
+            height: z.number().int().min(48).max(2160),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional()
+      .describe("Studio authoring hints that never change Player rendering."),
     setup: z.record(z.string(), jsonValue).optional(),
     deprecation: z.record(z.string(), jsonValue),
     component: componentSchema,

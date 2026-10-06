@@ -166,6 +166,17 @@ type Setup struct {
 	EmptyState string   `json:"emptyState,omitempty"`
 }
 
+// WidgetAuthoring carries Studio-only layout hints. It is catalog metadata,
+// never persisted into Widget configuration and never projected to Players.
+type WidgetAuthoring struct {
+	RecommendedFrame *WidgetFrame `json:"recommendedFrame,omitempty"`
+}
+
+type WidgetFrame struct {
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
 type ConfigurationSchema struct {
 	Fields []FieldDefinition `json:"fields"`
 }
@@ -296,6 +307,7 @@ type WidgetDefinition struct {
 	EmptyStateBehavior        string              `json:"emptyStateBehavior"`
 	LegacyEditor              bool                `json:"legacyEditor,omitempty"`
 	RequiresManifestV13       bool                `json:"requiresManifestV13,omitempty"`
+	Authoring                 *WidgetAuthoring    `json:"authoring,omitempty"`
 	Setup                     Setup               `json:"setup,omitempty"`
 	Recipe                    *AppRecipe          `json:"recipe,omitempty"`
 	WebIntegration            *WebIntegration     `json:"webIntegration,omitempty"`
