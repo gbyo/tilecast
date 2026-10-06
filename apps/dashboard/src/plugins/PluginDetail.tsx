@@ -1,50 +1,17 @@
 import { useTranslation } from "react-i18next";
 import { CircleAlert } from "lucide-react";
-import type { PluginStoreSource, PluginSummary } from "../api/types";
+import type { PluginSummary } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
-import { Badge } from "../components/ui/badge";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "../components/ui/item";
 import { Separator } from "../components/ui/separator";
-import { PluginIcon } from "./PluginIcon";
-import { StoreProvenanceBadge } from "./StoreProvenance";
 
 /**
- * What a plugin is, what it needs, and what it touches, shown before it is
- * installed. Everything here comes from the server's registry.
+ * Requirements, capabilities, and attention state for a store entry. The
+ * route page owns the plugin identity, provenance, description, and actions.
  */
-export function PluginDetail({
-  plugin,
-  source,
-}: {
-  plugin: PluginSummary;
-  source?: PluginStoreSource;
-}) {
+export function PluginDetail({ plugin }: { plugin: PluginSummary }) {
   const { t } = useTranslation("plugins");
   return (
-    <div className="grid gap-5 pr-2">
-      <Item className="px-0 py-0">
-        <ItemMedia variant="image" className="size-12 bg-muted">
-          <PluginIcon pluginId={plugin.id} />
-        </ItemMedia>
-        <ItemContent>
-          <ItemTitle className="text-base">{plugin.name}</ItemTitle>
-          <ItemDescription className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline">{plugin.category}</Badge>
-            {source ? (
-              <StoreProvenanceBadge source={source} />
-            ) : (
-              <span>{t("detail.builtIn")}</span>
-            )}
-          </ItemDescription>
-        </ItemContent>
-      </Item>
-      <p className="text-sm text-muted-foreground">{plugin.description}</p>
+    <div className="grid gap-5">
       {plugin.attention.map((note) => (
         <Alert key={note.code}>
           <CircleAlert aria-hidden="true" />
