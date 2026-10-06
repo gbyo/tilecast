@@ -1,0 +1,107 @@
+---
+import catalog from "../../../../marketplace/catalog.json";
+
+type Listing = {
+  packageId: string;
+  version: string;
+  name: string;
+  description: string;
+  publisher: { id: string; name: string };
+  license: string;
+  tilecastRange: string;
+  repository: string;
+  documentation?: string;
+};
+
+const listings = [...(catalog.listings as Listing[])].sort((a, b) =>
+  a.name.localeCompare(b.name),
+);
+---
+
+{listings.length === 0 ? (
+  <p class="empty">
+    No community Marketplace listings have been published yet.
+  </p>
+) : (
+  <div class="catalog">
+    {listings.map((listing) => (
+      <article>
+        <div class="heading">
+          <h3>{listing.name}</h3>
+          <code>{listing.version}</code>
+        </div>
+        <p>{listing.description}</p>
+        <dl>
+          <div>
+            <dt>Publisher</dt>
+            <dd>{listing.publisher.name}</dd>
+          </div>
+          <div>
+            <dt>Requires</dt>
+            <dd>Tilecast {listing.tilecastRange}</dd>
+          </div>
+          <div>
+            <dt>License</dt>
+            <dd>{listing.license}</dd>
+          </div>
+        </dl>
+        <div class="links">
+          <a href={listing.repository}>Source</a>
+          {listing.documentation && <a href={listing.documentation}>Documentation</a>}
+        </div>
+      </article>
+    ))}
+  </div>
+)}
+
+<style>
+  .catalog {
+    display: grid;
+    gap: 1rem;
+  }
+
+  article {
+    padding: 1rem;
+    border: 1px solid var(--tc-border-default);
+    border-radius: var(--tc-radius-panel);
+  }
+
+  .heading,
+  .links,
+  dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    align-items: baseline;
+  }
+
+  h3,
+  p,
+  dl {
+    margin: 0;
+  }
+
+  article > * + * {
+    margin-top: 0.75rem;
+  }
+
+  dl > div {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  dt {
+    color: var(--tc-text-secondary);
+  }
+
+  dd {
+    margin: 0;
+  }
+
+  .empty {
+    padding: 1rem;
+    border: 1px dashed var(--tc-border-default);
+    border-radius: var(--tc-radius-panel);
+    color: var(--tc-text-secondary);
+  }
+</style>
