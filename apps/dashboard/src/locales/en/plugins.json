@@ -31,18 +31,43 @@
   },
   "store": {
     "title": "Explore plugins",
-    "description": "Browse optional features and integrations for Tilecast.",
+    "description": "Plugins included with Tilecast and listings from the configured marketplace.",
     "sourceLabel": "Source",
     "loadError": "This plugin could not be loaded.",
     "emptyTitle": "No plugins available",
     "emptyDescription": "No plugins are available from the configured sources.",
     "sources": {
       "all": "All sources",
-      "included": "Included with Tilecast"
+      "included": "Included with Tilecast",
+      "marketplace": "Marketplace"
     },
     "notFoundTitle": "Plugin not found",
-    "notFoundDescription": "This store entry is not part of this Tilecast release.",
-    "backToExplore": "Back to Explore"
+    "notFoundDescription": "This store entry is not available from the configured sources.",
+    "backToExplore": "Back to Explore",
+    "marketplace": {
+      "staleTitle": "Marketplace catalog is stale",
+      "staleDescription": "Showing the last verified listings.",
+      "errorTitle": "Marketplace refresh failed",
+      "refresh": "Refresh catalog",
+      "refreshing": "Refreshing…"
+    },
+    "detail": {
+      "version": "Version {{version}}",
+      "installedVersion": "Installed {{version}}",
+      "updateAvailable": "Update available",
+      "requires": "Requires Tilecast {{range}}",
+      "incompatible": "This listing requires Tilecast {{range}}, which this release does not satisfy.",
+      "publisher": "Publisher",
+      "license": "License",
+      "links": "Links",
+      "repository": "Repository",
+      "documentation": "Documentation",
+      "issues": "Issue tracker",
+      "signedCatalog": "Listed in this installation's signed marketplace catalog.",
+      "installUnavailable": "Installing marketplace listings is not available yet.",
+      "versionLabel": "Version",
+      "requiresLabel": "Requires"
+    }
   },
   "catalog": {
     "back": "All plugins",
