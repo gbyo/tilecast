@@ -23,17 +23,6 @@ export const AUTHORING_SECTIONS: readonly WidgetAuthoringSection[] = [
   "behavior",
 ];
 
-/**
- * The pixel range a Widget manifest's `authoring.recommendedFrame` may
- * declare. The manifest schema and Studio's custom preview size both read
- * it, so every valid recommended frame can be shown and edited in Studio.
- * The Server repeats the range in contentdefs (component.go).
- */
-export const RECOMMENDED_FRAME_BOUNDS = {
-  width: { min: 120, max: 3840 },
-  height: { min: 48, max: 2160 },
-} as const;
-
 /** Show a control only when another configuration value matches. */
 export interface WidgetVisibleWhen {
   /** The other configuration key to compare. */

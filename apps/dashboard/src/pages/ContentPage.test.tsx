@@ -427,7 +427,9 @@ describe("content library", () => {
           category: "Web and video",
           icon: "youtube",
           runtime: "web",
-          configurationSchema: { fields: [] },
+          configurationSchema: {
+            fields: [{ key: "url", label: "Web address", control: "url" }],
+          },
           defaultConfiguration: {},
           presentationSchemaVersion: 1,
           requiredCapabilities: {},
@@ -442,7 +444,9 @@ describe("content library", () => {
           category: "Web and video",
           icon: "globe",
           runtime: "web",
-          configurationSchema: { fields: [] },
+          configurationSchema: {
+            fields: [{ key: "url", label: "Web address", control: "url" }],
+          },
           defaultConfiguration: {},
           presentationSchemaVersion: 1,
           requiredCapabilities: {},
@@ -457,6 +461,16 @@ describe("content library", () => {
           category: "News",
           icon: "espn",
           runtime: "native",
+          // The gallery lists only Widgets the one editor can author, and a
+          // native Widget does that by naming its component.
+          component: {
+            type: "tilecast.espn",
+            version: 1,
+            tagName: "tc-widget-espn",
+            entrypoint: "./runtime/index.ts",
+            configTemplate: {},
+            empty: "render",
+          },
           configurationSchema: { fields: [] },
           defaultConfiguration: {},
           presentationSchemaVersion: 1,

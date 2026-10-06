@@ -191,6 +191,9 @@
   },
   "emptyStateBehavior": "text",
   "legacyEditor": true,
+  "authoring": {
+    "preview": { "recommendedFrame": { "width": 1920, "height": 200 } }
+  },
   "deprecation": {},
   "component": {
     "type": "tilecast.ticker",

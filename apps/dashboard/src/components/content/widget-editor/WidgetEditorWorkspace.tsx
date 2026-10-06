@@ -7,7 +7,7 @@
  * the inspector, each scrolling on its own. Only one arrangement is
  * mounted, so no control exists twice.
  */
-import { useRef } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -63,7 +63,9 @@ export function WidgetEditorWorkspace({
   const { t } = useTranslation(["content", "common"]);
   const desktop = useDesktopLayout();
   const compact = useCompactLayout();
-  const inspectorSize = useRef(readInspectorSize());
+  // Read once: React keeps only the first value, so only the first render
+  // should touch browser storage.
+  const [inspectorSize] = useState(readInspectorSize);
   useAutomaticFieldMapping({
     fields: session.definition.configurationSchema.fields,
     configuration: session.draft.configuration,
@@ -128,7 +130,7 @@ export function WidgetEditorWorkspace({
           <ResizableHandle withHandle aria-label={t("widgets.editor.resize")} />
           <ResizablePanel
             id="widget-inspector"
-            defaultSize={`${inspectorSize.current}%`}
+            defaultSize={`${inspectorSize}%`}
             minSize="24%"
             maxSize="50%"
           >

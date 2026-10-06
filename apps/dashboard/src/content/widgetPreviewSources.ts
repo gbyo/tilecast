@@ -1,5 +1,5 @@
 import type { ContentDefinitionField } from "../api/types";
-import { dataSourceKeysIn } from "./DefinitionForm";
+import { dataSourceKeysIn } from "./dataSourceBindings";
 
 /**
  * App Recipes deliberately keep their managed Data Source out of the author-facing schema.

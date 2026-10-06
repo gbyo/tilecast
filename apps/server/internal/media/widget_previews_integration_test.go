@@ -184,7 +184,7 @@ func TestDuplicatedWidgetKeepsTheSnapshotItDepicts(t *testing.T) {
 		t.Error("the duplicate should carry the original's snapshot image")
 	}
 	version, err := json.Marshal(copied.Metadata["widgetPreviewCaptureVersion"])
-	if err != nil || string(version) != "3" {
+	if err != nil || string(version) != "4" {
 		t.Fatalf("duplicate should keep capture version %d: %s %v", WidgetPreviewCaptureVersion, version, err)
 	}
 

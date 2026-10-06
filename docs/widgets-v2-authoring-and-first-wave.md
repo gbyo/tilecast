@@ -1377,7 +1377,7 @@ shift; the dependency order does not.
 
 Build the new authoring foundation before migrating more Widgets:
 
-- `V2WidgetEditor` full-page shell;
+- the full-page Widget editor shell;
 - preview-dominant layout;
 - generic Data/Content/Appearance/Behavior inspector;
 - `WidgetPreviewHost`;

@@ -117,30 +117,49 @@ Each feature area has its own namespace, so separate conversions touch
 separate JSON files and rarely conflict. Add strings to the namespace of the
 feature that owns them; a reused string goes in `common`.
 
-| Namespace    | Covers                                                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `common`     | Generic verbs and states shared everywhere: Save, Cancel, Loading…, item counts. Keep it small.                                       |
-| `navigation` | `AppSidebar`, `StudioTopbar`, command palette, `navigation/studioRoutes.tsx`, `PageHeader`, route error boundary                      |
-| `auth`       | `AuthPage`, `SetupFlow`, `EnrollmentWizard`, `auth/schemas.ts`, WebAuthn prompts                                                      |
-| `errors`     | Generic error text and `codes.<api_error_code>` translations                                                                          |
-| `account`    | `MyAccountPage`, `PreferencesPage`, `UsersPage`, `SecurityPage`                                                                       |
-| `settings`   | `SettingsPage`, everything in `src/settings/`, and the server setting titles (`definitions.*`)                                        |
-| `screens`    | `ScreensPage`, screen detail, pairing, `ArchivedScreensPage`, `FleetBulkPage`, `ScreenScopeEditor`, display groups, screen components |
-| `content`    | `ContentPage` (media), `WidgetsPage`, `DataSourcesPage`, `src/content/`, content picker, `DependencyGraphPage`                        |
-| `review`     | `ApprovalsPage`, `ContentReviewPage`, `ContentSubmissionInboxPage`                                                                    |
-| `playlists`  | Playlist pages, `components/playlist-editor/`, `PlaylistRevisionsPanel`                                                               |
-| `layouts`    | `LayoutsPage`, `LayoutEditorPage`, `components/layout-editor/`, `SpanWallEditor`                                                      |
-| `schedules`  | `SchedulesPage`, `src/schedules/`, `TimeRangePicker`, date picker                                                                     |
-| `activity`   | `Activity*` pages, `OperationsDashboard`, `FleetUptimePanel`, `MetricTile`, `src/notifications/`                                      |
-| `forms`      | `Forms*` pages, `FormDataSourcePage`, `CreateFormDataSourcePage`, `src/forms/`                                                        |
-| `plugins`    | `PluginsPage`, `src/plugins/`, `BrandBugsPage`, `CountdownBarsPage`, `NoiseMeter*` pages                                              |
-| `alerts`     | `EmergencyAlertsPage`, `CampaignsPage`, `QuickPresentDialog`, `AirPlayPresentDialog`, `LiveStreamDialog`, presentations               |
+| Namespace     | Covers                                                                                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `common`      | Generic verbs and states shared everywhere: Save, Cancel, Loading…, item counts. Keep it small.                                                                                      |
+| `navigation`  | `AppSidebar`, `StudioTopbar`, command palette, `navigation/studioRoutes.tsx`, `PageHeader`, route error boundary                                                                     |
+| `auth`        | `AuthPage`, `SetupFlow`, `EnrollmentWizard`, `auth/schemas.ts`, WebAuthn prompts                                                                                                     |
+| `errors`      | Generic error text and `codes.<api_error_code>` translations                                                                                                                         |
+| `account`     | `MyAccountPage`, `PreferencesPage`, `UsersPage`, `SecurityPage`                                                                                                                      |
+| `settings`    | `SettingsPage`, everything in `src/settings/`, and the server setting titles (`definitions.*`)                                                                                       |
+| `screens`     | `ScreensPage`, screen detail, pairing, `ArchivedScreensPage`, `FleetBulkPage`, `ScreenScopeEditor`, display groups, screen components                                                |
+| `content`     | `ContentPage` (media), `WidgetsPage`, `DataSourcesPage`, `src/content/`, content picker, `DependencyGraphPage`                                                                       |
+| `review`      | `ApprovalsPage`, `ContentReviewPage`, `ContentSubmissionInboxPage`                                                                                                                   |
+| `playlists`   | Playlist pages, `components/playlist-editor/`, `PlaylistRevisionsPanel`                                                                                                              |
+| `layouts`     | `LayoutsPage`, `LayoutEditorPage`, `components/layout-editor/`, `SpanWallEditor`                                                                                                     |
+| `schedules`   | `SchedulesPage`, `src/schedules/`, `TimeRangePicker`, date picker                                                                                                                    |
+| `activity`    | `Activity*` pages, `OperationsDashboard`, `FleetUptimePanel`, `MetricTile`, `src/notifications/`                                                                                     |
+| `forms`       | `Forms*` pages, `FormDataSourcePage`, `CreateFormDataSourcePage`, `src/forms/`                                                                                                       |
+| `plugins`     | `PluginsPage`, `src/plugins/`, `BrandBugsPage`, `CountdownBarsPage`, `NoiseMeter*` pages                                                                                             |
+| `alerts`      | `EmergencyAlertsPage`, `CampaignsPage`, `QuickPresentDialog`, `AirPlayPresentDialog`, `LiveStreamDialog`, presentations                                                              |
+| `definitions` | Author-facing text of Tilecast's own Widget definitions (Website, YouTube): labels, descriptions, and select options. Not a page namespace; see [Definition text](#definition-text). |
 
 `components/ui/` primitives contain a few screen-reader strings ("Close",
 "More"). Put those in `common`.
 
 To add a namespace, create `<name>.json` in **every** locale directory. Then
 register it in `src/i18n/resources.ts`.
+
+### Definition text
+
+The `definitions` namespace is different from the others. Its strings are not
+used by a component. A Widget definition in the Server catalog names them with
+`labelKey`, `descriptionKey`, and an option `labelKey`. Keys have the form
+`definitions:<widget>.fields.<field>.label`, `...description`, and
+`...options.<value>`.
+
+`definitionText` in `src/content/definitionText.ts` resolves them. It shows the
+translation when the key is in this namespace and has text. Otherwise it shows
+the literal that the definition declares. Plugins and external definitions use
+literals only and never add keys here. Studio ignores a key in any other
+namespace, so a definition cannot read other Studio strings.
+
+When you add a field to a Tilecast definition, add the literal, the three keys,
+and the English, Spanish, and Russian strings in the same change. The English
+string must equal the literal. A test enforces this.
 
 ## Keys
 

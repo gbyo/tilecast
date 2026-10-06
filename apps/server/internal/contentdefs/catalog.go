@@ -171,9 +171,15 @@ type ConfigurationSchema struct {
 }
 
 type FieldDefinition struct {
-	Key                     string            `json:"key"`
-	Label                   string            `json:"label"`
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	// LabelKey and DescriptionKey name Studio translation keys for Label and
+	// Description (docs/widget-authoring.md, Localized authoring text). The
+	// literal text always stays the English source and the fallback, so a
+	// client that does not know a key still has readable words.
+	LabelKey                string            `json:"labelKey,omitempty"`
 	Description             string            `json:"description,omitempty"`
+	DescriptionKey          string            `json:"descriptionKey,omitempty"`
 	Control                 string            `json:"control"`
 	Required                bool              `json:"required,omitempty"`
 	Default                 any               `json:"default,omitempty"`
@@ -199,6 +205,8 @@ type FieldDefinition struct {
 type SelectOption struct {
 	Value string `json:"value"`
 	Label string `json:"label"`
+	// LabelKey names the Studio translation key for Label.
+	LabelKey string `json:"labelKey,omitempty"`
 }
 
 type OutputSchema struct {
@@ -312,18 +320,7 @@ type WidgetDefinition struct {
 // Authoring is the closed set of Studio authoring capabilities a Widget
 // definition may declare (docs/widget-authoring.md).
 type Authoring struct {
-	Preview *AuthoringPreview `json:"preview,omitempty"`
-	// RecommendedFrame is the Widget's preferred shape: the reference
-	// geometry Studio opens its preview at and the aspect ratio a Layout
-	// keeps when the Widget is placed. It is a reference size, not a maximum,
-	// and it is never persisted into configuration or projected to Players.
-	RecommendedFrame *WidgetFrame `json:"recommendedFrame,omitempty"`
-}
-
-// WidgetFrame is a width and height in CSS pixels.
-type WidgetFrame struct {
-	Width  int `json:"width"`
-	Height int `json:"height"`
+	Preview AuthoringPreview `json:"preview"`
 }
 
 // AuthoringPreview describes what the Studio preview can usefully vary.
@@ -331,7 +328,25 @@ type AuthoringPreview struct {
 	// Time says the rendered result depends on the current instant, so
 	// Studio offers preview-time controls.
 	Time bool `json:"time,omitempty"`
+	// RecommendedFrame is the geometry, in pixels, the Widget is designed
+	// for. Studio opens the preview at it, renders library thumbnails at
+	// it, and gives a new Layout placement its aspect ratio. It is an
+	// authoring hint only: it never reaches the Player, validation, or
+	// playback, and authors can still preview any other size.
+	RecommendedFrame *FrameSize `json:"recommendedFrame,omitempty"`
 }
+
+// FrameSize is a width and height in pixels.
+type FrameSize struct {
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
+// Bounds of a recommended frame. They match the Studio preview's range.
+const (
+	MinRecommendedFrameSide = 32
+	MaxRecommendedFrameSide = 3840
+)
 
 // PersistedConfigVersion returns the version of the stored Widget configuration.
 // Definitions that omit the field keep the legacy version 1 behavior.

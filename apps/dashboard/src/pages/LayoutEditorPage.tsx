@@ -119,6 +119,11 @@ import {
   layoutPreviewNeedsCapture,
 } from "../components/layout-editor/layoutCaptureReadiness";
 import { studioWidgetComponent } from "../content/studioWidgets";
+import {
+  placementSizeForFrame,
+  recommendedFrameForAsset,
+  type WidgetFrame,
+} from "../content/widgetGeometry";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlignCenterHorizontal,
@@ -285,49 +290,27 @@ export async function flushLatestLayoutDraft(
 const selectedPlacements = (document: LayoutDocument, selection: Set<string>) =>
   document.placements.filter((item) => selection.has(item.id));
 
-type RecommendedWidgetFrame = { width: number; height: number };
-
 /**
- * Default geometry for library drops. Ordinary content keeps the long-standing
- * 40%-of-canvas box. A Widget may declare a recommended frame: its preferred
- * shape, a reference geometry rather than a size limit. Studio keeps that
- * aspect ratio and scales it up or down so it fills up to 80% of the canvas
- * width and 60% of the canvas height, centred when there is no drop point.
+ * Default geometry for anything dropped in from the library: 40% of the canvas, centred
+ * on the pointer when there is one, otherwise centred on the canvas. A Widget that declares
+ * a recommended frame passes the size that keeps its shape (placementSizeForFrame).
  */
 function placementBox(
   canvas: LayoutDocument["canvas"],
   position?: { x: number; y: number },
-  recommendedFrame?: RecommendedWidgetFrame,
+  size?: { width: number; height: number },
 ) {
-  const validFrame =
-    recommendedFrame &&
-    Number.isFinite(recommendedFrame.width) &&
-    Number.isFinite(recommendedFrame.height) &&
-    recommendedFrame.width > 0 &&
-    recommendedFrame.height > 0
-      ? recommendedFrame
-      : undefined;
-  const scale = validFrame
-    ? Math.min(
-        (canvas.width * 0.8) / validFrame.width,
-        (canvas.height * 0.6) / validFrame.height,
-      )
-    : 1;
-  const width = validFrame ? validFrame.width * scale : canvas.width * 0.4;
-  const height = validFrame ? validFrame.height * scale : canvas.height * 0.4;
-  const defaultX = validFrame ? (canvas.width - width) / 2 : canvas.width * 0.2;
-  const defaultY = validFrame
-    ? (canvas.height - height) / 2
-    : canvas.height * 0.2;
+  const width = size?.width ?? canvas.width * 0.4;
+  const height = size?.height ?? canvas.height * 0.4;
   return {
     width,
     height,
     x: position
       ? Math.max(0, Math.min(canvas.width - width, position.x - width / 2))
-      : defaultX,
+      : (canvas.width - width) / 2,
     y: position
       ? Math.max(0, Math.min(canvas.height - height, position.y - height / 2))
-      : defaultY,
+      : (canvas.height - height) / 2,
   };
 }
 
@@ -336,7 +319,8 @@ export function createContentPlacement(
   asset: Asset,
   canvas: LayoutDocument["canvas"],
   position?: { x: number; y: number },
-  recommendedFrame?: RecommendedWidgetFrame,
+  /** The Widget's recommended frame, when its definition declares one. */
+  frame?: WidgetFrame | null,
 ): LayoutPlacement {
   const isApp = asset.type === "widget";
   const variantId = isApp
@@ -350,7 +334,11 @@ export function createContentPlacement(
     id: crypto.randomUUID(),
     type: isApp ? "widget" : "asset",
     name: asset.name,
-    ...placementBox(canvas, position, isApp ? recommendedFrame : undefined),
+    ...placementBox(
+      canvas,
+      position,
+      isApp && frame ? placementSizeForFrame(frame, canvas) : undefined,
+    ),
     layer: 0,
     opacity: 1,
     visible: true,
@@ -1541,12 +1529,6 @@ export function LayoutEditorPage() {
       type: "success",
       actionProps: { children: t("editor.menuUndo"), onClick: () => undo() },
     });
-  const recommendedFrameFor = (asset: Asset) => {
-    if (asset.type !== "widget" || !asset.widget?.provider) return undefined;
-    return definitionsQuery.data?.widgets.find(
-      (definition) => definition.id === asset.widget?.provider,
-    )?.authoring?.recommendedFrame;
-  };
   const addContent = (asset: Asset, position?: { x: number; y: number }) => {
     if (!document) return;
     rememberAssets([asset]);
@@ -1554,7 +1536,7 @@ export function LayoutEditorPage() {
       asset,
       document.canvas,
       position,
-      recommendedFrameFor(asset),
+      recommendedFrameForAsset(definitionsQuery.data, asset),
     );
     stack(item);
     setSelection(new Set([item.id]));
@@ -1570,7 +1552,7 @@ export function LayoutEditorPage() {
         asset,
         current.canvas,
         undefined,
-        recommendedFrameFor(asset),
+        recommendedFrameForAsset(definitionsQuery.data, asset),
       );
       item.x = Math.min(current.canvas.width - item.width, item.x + index * 24);
       item.y = Math.min(

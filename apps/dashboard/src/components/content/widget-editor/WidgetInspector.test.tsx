@@ -201,14 +201,20 @@ const configuration = {
   itemField: "",
 };
 
-function kitchenSink(): ContentDefinitionCatalog {
+function kitchenSink(maximumStops?: number): ContentDefinitionCatalog {
   const catalog = repositoryCatalog();
   const text = definitionFrom(catalog, "text");
   const sink: WidgetDefinition = {
     ...text,
     id: "kitchen-sink",
     name: "Kitchen Sink",
-    configurationSchema: { fields },
+    configurationSchema: {
+      fields: fields.map((field) =>
+        field.key === "stops" && maximumStops
+          ? { ...field, maximumItems: maximumStops }
+          : field,
+      ),
+    },
     defaultConfiguration: configuration,
     authoring: undefined,
   };
@@ -248,10 +254,16 @@ function source(id: string, name: string, provider = "menu-test"): DataSource {
   };
 }
 
-async function openSink(role: "owner" | "viewer" = "owner") {
+async function openSink(
+  role: "owner" | "viewer" = "owner",
+  options: {
+    saved?: Record<string, unknown>;
+    maximumStops?: number;
+  } = {},
+) {
   mockEditorApi({
-    catalog: kitchenSink(),
-    asset: savedWidget("kitchen-sink", configuration),
+    catalog: kitchenSink(options.maximumStops),
+    asset: savedWidget("kitchen-sink", options.saved ?? configuration),
     role,
   });
   vi.spyOn(api, "listDataSources").mockResolvedValue({
@@ -503,6 +515,262 @@ describe("Widget inspector", () => {
       );
       expect(mapping).toHaveTextContent("Notes");
       expect(mapping).toHaveAccessibleDescription("Custom");
+    });
+  });
+
+  describe("Data on open", () => {
+    const connected = { ...configuration, dataSourceId: "s-menu" };
+
+    async function settled() {
+      const panel = await tab("Data");
+      await within(panel).findByText(/Ready · 32 records/);
+      await waitFor(() => expect(api.getDataSource).toHaveBeenCalled());
+      // Give an automatic mapping every chance to run.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return panel;
+    }
+
+    it("leaves a saved Widget unmapped and unedited", async () => {
+      await openSink("owner", { saved: { ...connected, itemField: "" } });
+      const panel = await settled();
+      expect(
+        within(panel).getByRole("combobox", { name: "Item name" }),
+      ).not.toHaveTextContent("Dish");
+      expect(screen.queryByText("Unsaved changes")).toBeNull();
+      expect(
+        screen.getByRole("button", { name: /Save changes/ }),
+      ).toBeDisabled();
+    });
+
+    it("keeps a saved custom mapping and a stale one exactly as stored", async () => {
+      await openSink("owner", { saved: { ...connected, itemField: "notes" } });
+      const panel = await settled();
+      expect(
+        within(panel).getByRole("combobox", { name: "Item name" }),
+      ).toHaveTextContent("Notes");
+      expect(screen.queryByText("Unsaved changes")).toBeNull();
+      cleanup();
+      vi.restoreAllMocks();
+
+      await openSink("owner", { saved: { ...connected, itemField: "gone" } });
+      await settled();
+      expect(screen.queryByText("Unsaved changes")).toBeNull();
+      expect(
+        screen.getByRole("button", { name: /Save changes/ }),
+      ).toBeDisabled();
+    });
+
+    it("marks the Widget edited once the author connects a source", async () => {
+      await openSink();
+      const panel = await tab("Data");
+      expect(screen.queryByText("Unsaved changes")).toBeNull();
+      await userEvent.click(
+        within(panel).getByRole("combobox", { name: "Choose Menu data" }),
+      );
+      await userEvent.click(
+        await screen.findByRole("option", { name: /Lunch Menu/ }),
+      );
+      expect(await screen.findByText("Unsaved changes")).toBeTruthy();
+    });
+  });
+
+  describe("repeating group rows", () => {
+    const stops = [
+      { name: "Alpha", minutes: 1 },
+      { name: "Beta", minutes: 2 },
+      { name: "Gamma", minutes: 3 },
+    ];
+    const open = async () => {
+      await openSink("owner", {
+        saved: { ...configuration, stops },
+        maximumStops: 5,
+      });
+      return tab("Content");
+    };
+    const expand = (panel: HTMLElement, name: string) =>
+      userEvent.click(within(panel).getByRole("button", { name }));
+
+    it("keeps each value with its item when a middle item is removed", async () => {
+      const panel = await open();
+      await expand(panel, "Alpha");
+      await expand(panel, "Gamma");
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Remove Gamma" }),
+      );
+      expect(within(panel).queryByRole("button", { name: "Gamma" })).toBeNull();
+      // Alpha is still the open item with its own value.
+      expect(
+        within(panel).getByRole("textbox", { name: "Stop name" }),
+      ).toHaveValue("Alpha");
+      await expand(panel, "Beta");
+      const names = within(panel)
+        .getAllByRole("textbox", { name: "Stop name" })
+        .map((input) => (input as HTMLInputElement).value);
+      expect(names).toEqual(["Alpha", "Beta"]);
+    });
+
+    it("keeps the open item open when an item before it is removed", async () => {
+      const panel = await open();
+      await expand(panel, "Alpha");
+      await expand(panel, "Gamma");
+      expect(
+        within(panel).getAllByRole("textbox", { name: "Stop name" }),
+      ).toHaveLength(2);
+      const gamma = within(panel).getByRole("button", { name: "Gamma" });
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Remove Alpha" }),
+      );
+      // The same element, not another one rewritten to look like it.
+      expect(within(panel).getByRole("button", { name: "Gamma" })).toBe(gamma);
+      // Gamma moved up one place but is still the one that is open; Beta,
+      // which now sits where Alpha was, did not inherit the open state.
+      const inputs = within(panel).getAllByRole("textbox", {
+        name: "Stop name",
+      });
+      expect(inputs.map((input) => (input as HTMLInputElement).value)).toEqual([
+        "Gamma",
+      ]);
+      expect(
+        within(panel).getByRole("button", { name: "Beta" }),
+      ).toHaveAttribute("aria-expanded", "false");
+      expect(
+        within(panel).getByRole("button", { name: "Gamma" }),
+      ).toHaveAttribute("aria-expanded", "true");
+    });
+
+    it("lands focus on a neighbouring item after a removal", async () => {
+      const panel = await open();
+      await expand(panel, "Beta");
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Remove Beta" }),
+      );
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          within(panel).getByRole("button", { name: "Gamma" }),
+        ),
+      );
+    });
+
+    it("lands focus on Add when the last item is removed", async () => {
+      await openSink("owner", {
+        saved: { ...configuration, stops: [stops[0]] },
+        maximumStops: 5,
+      });
+      const panel = await tab("Content");
+      await expand(panel, "Alpha");
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Remove Alpha" }),
+      );
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          within(panel).getByRole("button", { name: "Add item" }),
+        ),
+      );
+    });
+
+    it("opens a new item ready to fill in, without disturbing the others", async () => {
+      const panel = await open();
+      await expand(panel, "Beta");
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Add item" }),
+      );
+      const inputs = within(panel).getAllByRole("textbox", {
+        name: "Stop name",
+      });
+      expect(inputs.map((input) => (input as HTMLInputElement).value)).toEqual([
+        "Beta",
+        "",
+      ]);
+    });
+  });
+
+  describe("string list rows", () => {
+    const open = async (hosts: string[]) => {
+      await openSink("owner", { saved: { ...configuration, hosts } });
+      const panel = await tab("Behavior");
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Advanced" }),
+      );
+      return panel;
+    };
+    const values = (panel: HTMLElement) =>
+      within(panel)
+        .getAllByRole("textbox", { name: /^Hosts \d$/ })
+        .map((input) => (input as HTMLInputElement).value);
+
+    it("adds several entries and keeps each one's text", async () => {
+      const panel = await open(["a.example"]);
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Add entry" }),
+      );
+      await userEvent.type(
+        within(panel).getByRole("textbox", { name: "Hosts 2" }),
+        "b.example",
+      );
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Add entry" }),
+      );
+      await userEvent.type(
+        within(panel).getByRole("textbox", { name: "Hosts 3" }),
+        "c.example",
+      );
+      expect(values(panel)).toEqual(["a.example", "b.example", "c.example"]);
+      expect(
+        within(panel).queryByRole("button", { name: "Add entry" }),
+      ).toBeNull();
+    });
+
+    it("removes a middle entry and keeps the others' text", async () => {
+      const panel = await open(["a.example", "b.example", "c.example"]);
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Remove Hosts 2" }),
+      );
+      expect(values(panel)).toEqual(["a.example", "c.example"]);
+    });
+
+    it("moves focus to the entry that took the removed one's place", async () => {
+      const panel = await open(["a.example", "b.example", "c.example"]);
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Remove Hosts 2" }),
+      );
+      await waitFor(() =>
+        expect(document.activeElement).toBe(
+          within(panel).getByRole("textbox", { name: "Hosts 2" }),
+        ),
+      );
+      expect((document.activeElement as HTMLInputElement).value).toBe(
+        "c.example",
+      );
+    });
+
+    it("moves focus to the previous entry after removing the last", async () => {
+      const panel = await open(["a.example", "b.example"]);
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Remove Hosts 2" }),
+      );
+      await waitFor(() =>
+        expect((document.activeElement as HTMLInputElement).value).toBe(
+          "a.example",
+        ),
+      );
+    });
+
+    it("does not carry a typed edit into the row that takes its place", async () => {
+      const panel = await open(["a.example", "b.example", "c.example"]);
+      const second = within(panel).getByRole("textbox", { name: "Hosts 2" });
+      const third = within(panel).getByRole("textbox", { name: "Hosts 3" });
+      await userEvent.type(second, "-edited");
+      await userEvent.click(
+        within(panel).getByRole("button", { name: "Remove Hosts 1" }),
+      );
+      expect(values(panel)).toEqual(["b.example-edited", "c.example"]);
+      // Each entry kept its own input, so focus and caret travel with it.
+      expect(within(panel).getByRole("textbox", { name: "Hosts 1" })).toBe(
+        second,
+      );
+      expect(within(panel).getByRole("textbox", { name: "Hosts 2" })).toBe(
+        third,
+      );
     });
   });
 });

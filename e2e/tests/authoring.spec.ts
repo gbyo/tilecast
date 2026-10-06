@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { ids, resetDemo } from "../support/demo";
+import { csrfToken, ids, resetDemo } from "../support/demo";
+import {
+  choosePreviewFrame,
+  expectWidgetRendered,
+  openWidgetEditor,
+  widgetFrameSize,
+  widgetMount,
+  widgetText,
+} from "../support/widget-editor";
 
 test.beforeEach(async ({ page }) => {
   await resetDemo(page.request);
@@ -191,27 +199,243 @@ test("renders the real V2 Widget on the editable Layout canvas", async ({
     .toEqual({ width: 1080, height: 480 });
 });
 
-test("save a Widget through the real authoring form and renderer", async ({
-  page,
-}) => {
+test("edit, save, and reopen a Widget in the one editor", async ({ page }) => {
   const clockId = "de30000a-0000-4000-8000-000000000009";
-  await page.goto(`/widgets/${clockId}`);
-  await expect(page.getByText("Preview ready.", { exact: true })).toBeVisible();
-  await expect(page.locator("[data-tilecast-widget]")).toHaveCount(1);
-  await page.getByLabel("Widget name", { exact: true }).fill("Browser Clock");
-  const savedResponse = page.waitForResponse(
+  const mount = await openWidgetEditor(page, `/widgets/${clockId}`);
+  // The shared Widget component is what the preview shows. Mark it so the
+  // edit below can prove the preview updated in place instead of remounting.
+  await mount.evaluate((element) => {
+    (window as unknown as { previewMount: Element }).previewMount = element;
+  });
+  // The seeded clock is a 12-hour time; seconds follow the AM/PM marker.
+  const withSeconds = /\d{1,2}\s*:\s*\d{2}\s*(AM|PM)\s*\d{2}$/i;
+  await expect.poll(() => widgetText(mount)).toMatch(/(AM|PM)$/i);
+
+  // Change a real authoring field; the preview follows without saving.
+  const toggle = page.getByRole("switch", { name: "Show seconds" });
+  await expect(toggle).not.toBeChecked();
+  await toggle.click();
+  await expect.poll(() => widgetText(mount)).toMatch(withSeconds);
+  expect(
+    await page.evaluate(
+      () =>
+        (window as unknown as { previewMount: Element }).previewMount ===
+        document.querySelector("[data-tilecast-widget]"),
+    ),
+  ).toBe(true);
+  await expect(
+    page.getByText("Unsaved changes", { exact: true }),
+  ).toBeVisible();
+
+  // Save first. The thumbnail is captured afterward and never decides the save.
+  const saved = page.waitForResponse(
     (response) =>
       response.url().endsWith(`/api/v1/widgets/${clockId}`) &&
       response.request().method() === "PATCH",
   );
-  await page.getByRole("button", { name: "Save Widget", exact: true }).click();
-  const response = await savedResponse;
-  expect(response.ok(), await response.text()).toBe(true);
-  await page.goto(`/widgets/${clockId}`);
-  await expect(page.getByLabel("Widget name", { exact: true })).toHaveValue(
-    "Browser Clock",
+  const thumbnail = page.waitForResponse((response) =>
+    response.url().endsWith(`/api/v1/widgets/${clockId}/preview-image`),
   );
-  await expect(page.getByText("Preview ready.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  const response = await saved;
+  expect(response.ok(), await response.text()).toBe(true);
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  expect((await thumbnail).ok()).toBe(true);
+
+  // The Server holds the new configuration...
+  const stored = await page.request.get(`/api/v1/assets/${clockId}`);
+  expect((await stored.json()).data.widget.configuration.showSeconds).toBe(
+    true,
+  );
+
+  // ...and a fresh editor shows it again.
+  await page.reload();
+  const reopened = await expectWidgetRendered(page);
+  await expect(
+    page.getByRole("switch", { name: "Show seconds" }),
+  ).toBeChecked();
+  await expect.poll(() => widgetText(reopened)).toMatch(withSeconds);
+  await expect(
+    page.getByRole("button", { name: "Save changes", exact: true }),
+  ).toBeDisabled();
+});
+
+test("a new Layout placement takes the shape its Widget recommends", async ({
+  page,
+}) => {
+  const hallwaySplit = "de300006-0000-4000-8000-000000000001";
+  const csrf = await csrfToken(page.request);
+  const source = await page.request.post("/api/v1/data-sources", {
+    headers: { "X-CSRF-Token": csrf },
+    data: {
+      provider: "announcements",
+      name: "Notices",
+      description: "",
+      configuration: { records: [] },
+    },
+  });
+  expect(source.ok(), await source.text()).toBe(true);
+  const ticker = await page.request.post("/api/v1/widgets", {
+    headers: { "X-CSRF-Token": csrf },
+    data: {
+      provider: "ticker",
+      name: "Headline Ticker",
+      description: "",
+      configuration: {
+        dataSourceId: (await source.json()).data.id,
+        primaryField: "",
+        secondaryField: "",
+        leadingLabel: "News",
+        separator: " • ",
+        fieldSeparator: " — ",
+        maxItems: 15,
+        direction: "left",
+        speed: "normal",
+        emptyText: "No news",
+        backgroundColor: "",
+        foregroundColor: "",
+      },
+    },
+  });
+  expect(ticker.ok(), await ticker.text()).toBe(true);
+
+  await page.goto(`/layouts/${hallwaySplit}`);
+  await expect(page.locator(".layout-canvas")).toBeVisible();
+  const before = await page
+    .locator(".layout-canvas [data-tilecast-widget]")
+    .count();
+  await page.getByRole("button", { name: "Add to canvas" }).click();
+  await page.getByText("Headline Ticker", { exact: true }).first().click();
+  const added = page.locator(".layout-canvas [data-tilecast-widget]");
+  await expect(added).toHaveCount(before + 1);
+  // The manifest declares a 1920 x 200 strip, so the placement on this
+  // 1920 x 1080 canvas is wide and shallow, not 40% of the canvas (768 x 432).
+  await expect
+    .poll(() =>
+      added.evaluateAll((elements) =>
+        elements
+          .map((element) => ({
+            width: (element as HTMLElement).offsetWidth,
+            height: (element as HTMLElement).offsetHeight,
+          }))
+          .find((box) => box.width / box.height > 5),
+      ),
+    )
+    .toEqual({ width: 1536, height: 160 });
+});
+
+test("a strip Widget's library thumbnail is still 960 x 540", async ({
+  page,
+}) => {
+  const csrf = await csrfToken(page.request);
+  const source = await page.request.post("/api/v1/data-sources", {
+    headers: { "X-CSRF-Token": csrf },
+    data: {
+      provider: "announcements",
+      name: "Notices",
+      description: "",
+      configuration: { records: [] },
+    },
+  });
+  expect(source.ok(), await source.text()).toBe(true);
+  const created = await page.request.post("/api/v1/widgets", {
+    headers: { "X-CSRF-Token": csrf },
+    data: {
+      provider: "ticker",
+      name: "Strip Ticker",
+      description: "",
+      configuration: {
+        dataSourceId: (await source.json()).data.id,
+        primaryField: "",
+        secondaryField: "",
+        leadingLabel: "News",
+        separator: " • ",
+        fieldSeparator: " — ",
+        maxItems: 15,
+        direction: "left",
+        speed: "normal",
+        emptyText: "No news",
+        backgroundColor: "",
+        foregroundColor: "",
+      },
+    },
+  });
+  expect(created.ok(), await created.text()).toBe(true);
+
+  // The library captures a missing thumbnail from the real component. The
+  // Ticker renders at its 1920 x 200 strip and is fitted into the canonical
+  // frame, so the stored image keeps the canonical size.
+  await page.goto("/widgets");
+  const card = page
+    .getByRole("article")
+    .filter({ hasText: "Strip Ticker" })
+    .first();
+  const image = card.locator("img");
+  await expect(image).toBeVisible({ timeout: 30_000 });
+  await expect
+    .poll(() =>
+      image.evaluate((element: HTMLImageElement) => ({
+        width: element.naturalWidth,
+        height: element.naturalHeight,
+      })),
+    )
+    .toEqual({ width: 960, height: 540 });
+});
+
+test("rename a Widget through its details and find the name saved", async ({
+  page,
+}) => {
+  const clockId = "de30000a-0000-4000-8000-000000000009";
+  await openWidgetEditor(page, `/widgets/${clockId}`);
+  await page.getByRole("button", { name: "Lobby Clock", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "Widget details" });
+  await details.getByRole("textbox", { name: "Name" }).fill("Browser Clock");
+  await details.getByRole("button", { name: "Apply", exact: true }).click();
+  const saved = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/v1/widgets/${clockId}`) &&
+      response.request().method() === "PATCH",
+  );
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  const response = await saved;
+  expect(response.ok(), await response.text()).toBe(true);
+  await openWidgetEditor(page, `/widgets/${clockId}`);
+  await expect(
+    page.getByRole("button", { name: "Browser Clock", exact: true }),
+  ).toBeVisible();
+});
+
+test("a Widget that declares a recommended frame opens at it", async ({
+  page,
+}) => {
+  // The Ticker's manifest declares a 1920 x 200 strip. The Server serves it
+  // in the catalog and Studio opens the preview at it; any other Widget
+  // keeps the 960 x 540 default.
+  await openWidgetEditor(page, "/widgets/new/ticker");
+  await expect(
+    page.getByRole("combobox", { name: "Preview frame" }),
+  ).toContainText("Recommended · 1920 × 200");
+  await expect
+    .poll(() => widgetFrameSize(widgetMount(page)))
+    .toEqual({ width: 1920, height: 200 });
+
+  await choosePreviewFrame(page, "Landscape · 16:9");
+  await expect
+    .poll(() => widgetFrameSize(widgetMount(page)))
+    .toEqual({ width: 960, height: 540 });
+  // Looking at another frame is not an edit.
+  await expect(page.getByText("Unsaved changes", { exact: true })).toHaveCount(
+    0,
+  );
+
+  const clockId = "de30000a-0000-4000-8000-000000000009";
+  await openWidgetEditor(page, `/widgets/${clockId}`);
+  await expect(
+    page.getByRole("combobox", { name: "Preview frame" }),
+  ).toContainText("Landscape · 16:9");
+  await expect
+    .poll(() => widgetFrameSize(widgetMount(page)))
+    .toEqual({ width: 960, height: 540 });
 });
 
 test("author a typed Data Source and retrieve its saved rows", async ({
@@ -249,7 +473,15 @@ test("save organization settings and restore them with demo-reset", async ({
     exact: true,
   });
   await organization.fill("Browser test district");
+  // Wait for the Server to accept the save. The button also disappears while
+  // the request is in flight, so a reload right after it would cancel the save.
+  const saved = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/v1/settings" &&
+      response.request().method() === "PATCH",
+  );
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  expect((await saved).ok()).toBe(true);
   await expect(
     page.getByRole("button", { name: "Save changes", exact: true }),
   ).toHaveCount(0);

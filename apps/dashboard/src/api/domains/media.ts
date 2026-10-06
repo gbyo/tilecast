@@ -97,6 +97,10 @@ export function normalizeContentDefinitionCatalog(
     widgets: (Array.isArray(source.widgets) ? source.widgets : []).map(
       (widget) => ({
         ...widget,
+        // `control` is an extensible enum on the wire; the Studio view
+        // models the controls it renders.
+        configurationSchema:
+          widget.configurationSchema as ContentDefinitionCatalog["widgets"][number]["configurationSchema"],
         defaultConfiguration: widget.defaultConfiguration ?? {},
       }),
     ),
@@ -105,6 +109,8 @@ export function normalizeContentDefinitionCatalog(
       : []
     ).map((definition) => ({
       ...definition,
+      configurationSchema:
+        definition.configurationSchema as ContentDefinitionCatalog["dataSources"][number]["configurationSchema"],
       defaultConfiguration: definition.defaultConfiguration ?? {},
     })),
   };

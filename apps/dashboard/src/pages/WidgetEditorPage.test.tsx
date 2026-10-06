@@ -19,7 +19,7 @@ import {
   repositoryCatalog,
   savedWidget,
 } from "../components/content/widget-editor/testing";
-import { resetWidgetSnapshotQueue } from "../components/content/widget-editor/WidgetSnapshotQueue";
+import { resetWidgetSnapshotQueue } from "../components/content/widget-editor/snapshotQueue";
 
 vi.mock("../content/widgetPreviewCapture", async (importOriginal) => {
   const actual =

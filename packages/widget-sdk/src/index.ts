@@ -79,7 +79,6 @@ export {
 } from "./source.ts";
 export {
   AUTHORING_SECTIONS,
-  RECOMMENDED_FRAME_BOUNDS,
   authoringUiOf,
   groupAuthoringFields,
   visibleAuthoringFields,

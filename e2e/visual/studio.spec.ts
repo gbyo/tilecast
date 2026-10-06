@@ -2,6 +2,10 @@ import { expect, test } from "@playwright/test";
 import { ids, resetDemo } from "../support/demo";
 import { snapshot, snapshotRegion } from "./support";
 import { inspectFuturePlayback } from "../support/playback-plan";
+import {
+  expectWidgetRendered,
+  openWidgetEditor,
+} from "../support/widget-editor";
 
 const hallwaySplit = "de300006-0000-4000-8000-000000000001";
 const lobbyPortrait = "de300006-0000-4000-8000-000000000002";
@@ -37,7 +41,7 @@ const states = [
   ["layout-editor", `/layouts/${hallwaySplit}`, "Go Falcons!"],
   ["content", "/assets", "Welcome Back, Falcons"],
   ["widgets", "/widgets", "Lobby Clock"],
-  ["widget-editor", `/widgets/${lobbyClock}`, "Preview ready."],
+  ["widget-editor", `/widgets/${lobbyClock}`, "Show seconds"],
   ["data-sources", "/data-sources", "No Data Sources yet"],
   ["schedules", "/schedules", "Morning Broadcast"],
   ["users", "/settings/users", "Marcus Reyes"],
@@ -84,9 +88,10 @@ for (const [name, path, ready] of states) {
         .toBe(true);
     }
     if (name === "widget-editor") {
-      await page
-        .getByRole("button", { name: "Small zone", exact: true })
-        .click();
+      // The healthy preview is silent; the shared Widget mount is the proof
+      // that it rendered. The default frame fits the stage, so no preset
+      // is needed to keep the whole frame visible.
+      await expectWidgetRendered(page);
     }
     if (name.startsWith("screen-")) {
       await inspectFuturePlayback(page);
@@ -230,11 +235,33 @@ for (const [name, path, ready] of [states[5], states[10]]) {
     await page.goto(path);
     await expect(page.getByText(ready, { exact: true }).first()).toBeVisible();
     await expect(page.locator("html")).toHaveClass(/dark/);
-    if (name === "widget-editor") {
-      await page
-        .getByRole("button", { name: "Small zone", exact: true })
-        .click();
-    }
+    if (name === "widget-editor") await expectWidgetRendered(page);
     await snapshot(page, `${name}-dark`);
   });
 }
+
+// The one Widget editor with a data Widget: Data authoring, the Widget's
+// recommended strip frame, and the compact toolbar, none of which the clock
+// shows.
+test("widget-editor-data", async ({ page }) => {
+  await openWidgetEditor(page, "/widgets/new/ticker");
+  await expect(
+    page.getByText("No data connected", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Connect new data" }),
+  ).toBeVisible();
+  await snapshot(page, "widget-editor-data");
+});
+
+// Problems appear after a save attempt, beside the field and in the tab that
+// holds it; the Widget keeps its last good preview.
+test("widget-editor-validation", async ({ page }) => {
+  await page.goto("/widgets/new/website");
+  await expect(page.getByRole("tab", { name: "Content" })).toBeVisible();
+  await page.getByRole("button", { name: "Save Widget", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: /Web address/ }),
+  ).toHaveAttribute("aria-invalid", "true");
+  await snapshot(page, "widget-editor-validation");
+});

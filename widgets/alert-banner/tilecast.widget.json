@@ -225,9 +225,11 @@
   "emptyStateBehavior": "configured_text",
   "requiresManifestV13": true,
   "authoring": {
-    "recommendedFrame": {
-      "width": 1920,
-      "height": 160
+    "preview": {
+      "recommendedFrame": {
+        "width": 1920,
+        "height": 160
+      }
     }
   },
   "setup": {

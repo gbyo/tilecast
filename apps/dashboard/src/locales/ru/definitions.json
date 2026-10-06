@@ -1,0 +1,126 @@
+{
+  "website": {
+    "fields": {
+      "url": {
+        "label": "Веб-адрес",
+        "description": "Публичная страница для показа. Используйте HTTPS; обычный HTTP работает только для частных адресов, если установка это разрешает."
+      },
+      "backgroundColor": {
+        "label": "Цвет фона",
+        "description": "Отображается за страницей, пока она загружается."
+      },
+      "zoomPercent": {
+        "label": "Масштаб в процентах"
+      },
+      "scrollX": {
+        "label": "Горизонтальная прокрутка (px)"
+      },
+      "scrollY": {
+        "label": "Вертикальная прокрутка (px)"
+      },
+      "reloadPolicy": {
+        "label": "Правило перезагрузки",
+        "options": {
+          "load_once": "Загрузить один раз на время показа",
+          "on_each_activation": "Перезагружать при каждом показе",
+          "interval": "Перезагружать по интервалу"
+        }
+      },
+      "refreshIntervalSeconds": {
+        "label": "Интервал обновления (секунды)"
+      },
+      "failureBehavior": {
+        "label": "Поведение при сбое",
+        "options": {
+          "placeholder": "Показать заглушку Tilecast",
+          "last_success": "Оставить последнюю загруженную страницу",
+          "fallback_image": "Показать резервное изображение",
+          "skip": "Пропустить элемент"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Резервное изображение"
+      },
+      "loadTimeoutSeconds": {
+        "label": "Время ожидания загрузки (секунды)"
+      },
+      "allowedHosts": {
+        "label": "Разрешённые узлы",
+        "description": "Точные имена узлов, на которые страница может переходить. Узел самой страницы разрешён всегда. Ограничение действует на переходы верхнего уровня, но не на все сторонние ресурсы."
+      },
+      "javascriptEnabled": {
+        "label": "JavaScript включён"
+      },
+      "domStorageEnabled": {
+        "label": "Хранилище DOM включено"
+      },
+      "cookiePolicy": {
+        "label": "Файлы cookie",
+        "options": {
+          "disabled": "Отключён",
+          "first_party": "Только собственные",
+          "first_and_third_party": "Собственные и сторонние"
+        }
+      },
+      "customUserAgent": {
+        "label": "Пользовательский User-Agent",
+        "description": "Оставьте пустым для стандартного User-Agent проигрывателя. Изменение может нарушить работу сайтов."
+      }
+    }
+  },
+  "youtube": {
+    "fields": {
+      "url": {
+        "label": "URL видео или плейлиста YouTube",
+        "description": "Tilecast определяет, видео это или плейлист. Ключ API YouTube не требуется."
+      },
+      "startSeconds": {
+        "label": "Время начала (секунды)"
+      },
+      "endSeconds": {
+        "label": "Время окончания (секунды)",
+        "description": "Оставьте пустым, чтобы воспроизвести до конца."
+      },
+      "captions": {
+        "label": "Показывать субтитры"
+      },
+      "captionLanguage": {
+        "label": "Язык субтитров",
+        "description": "Код языка, например en или es. Оставьте пустым, чтобы использовать язык YouTube по умолчанию."
+      },
+      "muted": {
+        "label": "Выключить звук"
+      },
+      "volume": {
+        "label": "Громкость (%)"
+      },
+      "loop": {
+        "label": "Повторять"
+      },
+      "controls": {
+        "label": "Показывать элементы управления YouTube"
+      },
+      "playlistPlaybackMode": {
+        "label": "Поведение элемента плейлиста",
+        "options": {
+          "until_end": "Воспроизводить до конца видео",
+          "fixed_duration": "Воспроизводить заданное время"
+        }
+      },
+      "fixedDurationSeconds": {
+        "label": "Заданная длительность (секунды)"
+      },
+      "failureBehavior": {
+        "label": "При сбое",
+        "options": {
+          "placeholder": "Показать заглушку Tilecast",
+          "fallback_image": "Показать резервное изображение",
+          "skip": "Пропустить элемент плейлиста"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Резервное изображение"
+      }
+    }
+  }
+}

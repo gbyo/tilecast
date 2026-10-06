@@ -20,6 +20,7 @@ import {
   useOrganizationRegionalProfile,
 } from "../settings/regionalProfile";
 import { DefinitionForm } from "./DefinitionForm";
+import { useLocalizedDefinitionFields } from "./useLocalizedDefinitionFields";
 
 // The generic Data Source editor. Widgets author in the Widget editor
 // (components/content/widget-editor); this shell serves Data Sources only.
@@ -77,6 +78,9 @@ export function GenericDataSourceEditor({
         ? configuration.priceCurrency
         : "",
     );
+  const localizedFields = useLocalizedDefinitionFields(
+    definition.configurationSchema.fields,
+  );
   const save = useMutation({
     mutationFn: () => {
       const input = {
@@ -119,7 +123,7 @@ export function GenericDataSourceEditor({
       saveLabel={t("widgets.editors.generic.saveDataSource")}
     >
       <DefinitionForm
-        fields={definition.configurationSchema.fields}
+        fields={localizedFields}
         value={configuration}
         onChange={setConfiguration}
         readOnly={readOnly}

@@ -10,6 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type {
@@ -24,11 +25,11 @@ import {
   rfc3339ToLocalDateTime,
 } from "../lib/dateTime";
 import {
-  DefinitionForm,
   dataFormatGuideFor,
   dataSourceKeysIn,
   resolveDataSourceKey,
-} from "./DefinitionForm";
+} from "./dataSourceBindings";
+import { DefinitionForm } from "./DefinitionForm";
 
 vi.mock("../components/content-picker", () => ({
   ContentPicker: (props: {
@@ -976,5 +977,55 @@ describe("DefinitionForm large libraries", () => {
     expect(
       screen.getByRole("button", { name: "Clear media selection" }),
     ).toBeTruthy();
+  });
+});
+
+describe("DefinitionForm repeating groups", () => {
+  const fields: ContentDefinitionField[] = [
+    {
+      key: "stops",
+      label: "Stops",
+      control: "repeating_group",
+      maximumItems: 4,
+      itemFields: [{ key: "name", label: "Stop name", control: "text" }],
+    },
+  ];
+
+  function Host() {
+    const [value, setValue] = useState<Record<string, unknown>>({
+      stops: [{ name: "Alpha" }, { name: "Beta" }, { name: "Gamma" }],
+    });
+    return (
+      <QueryClientProvider client={new QueryClient()}>
+        <DefinitionForm fields={fields} value={value} onChange={setValue} />
+      </QueryClientProvider>
+    );
+  }
+
+  it("keeps each item's own input when an earlier item is removed", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog([]));
+    render(<Host />);
+    const [, beta, gamma] = screen.getAllByRole("textbox");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Remove Stops item 1" }),
+    );
+    const remaining = screen.getAllByRole("textbox");
+    expect(remaining.map((input) => (input as HTMLInputElement).value)).toEqual(
+      ["Beta", "Gamma"],
+    );
+    // The same elements, not other inputs rewritten to look like them.
+    expect(remaining[0]).toBe(beta);
+    expect(remaining[1]).toBe(gamma);
+  });
+
+  it("adds an empty item without disturbing the others", async () => {
+    vi.spyOn(api, "contentDefinitions").mockResolvedValue(catalog([]));
+    render(<Host />);
+    const before = screen.getAllByRole("textbox");
+    await userEvent.click(screen.getByRole("button", { name: "Add item" }));
+    const after = screen.getAllByRole("textbox");
+    expect(after).toHaveLength(4);
+    before.forEach((input, index) => expect(after[index]).toBe(input));
+    expect((after[3] as HTMLInputElement).value).toBe("");
   });
 });

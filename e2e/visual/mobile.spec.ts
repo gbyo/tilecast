@@ -1,7 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ids, resetDemo } from "../support/demo";
 import { inspectFuturePlayback } from "../support/playback-plan";
-import { snapshotRegion } from "./support";
+import { snapshot, snapshotRegion } from "./support";
+import { openWidgetEditor } from "../support/widget-editor";
 
 const hallwaySplit = "de300006-0000-4000-8000-000000000001";
 
@@ -182,4 +183,22 @@ test("mobile Account routes stay inside the viewport", async ({ page }) => {
     page.getByRole("heading", { level: 3, name: "Personal access tokens" }),
   ).toBeVisible();
   await expectNoPageOverflow(page);
+});
+
+test("mobile Widget editor keeps the preview first and every control reachable", async ({
+  page,
+}) => {
+  await openWidgetEditor(page, "/widgets/de30000a-0000-4000-8000-000000000009");
+  await expectNoPageOverflow(page);
+  // Preview controls stay on one compact row: frame, time, fullscreen.
+  const toolbar = page.getByRole("toolbar", { name: "Preview controls" });
+  await expect(toolbar).toBeVisible();
+  const bounds = await toolbar.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(375);
+  await expect(page.getByRole("tab", { name: "Content" })).toBeVisible();
+  await expect(
+    page.getByRole("switch", { name: "Show seconds" }),
+  ).toBeVisible();
+  await snapshot(page, "widget-editor-mobile");
 });

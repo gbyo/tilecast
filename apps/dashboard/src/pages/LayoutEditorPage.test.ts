@@ -63,131 +63,6 @@ describe("Layout editor primitives", () => {
     expect(media.widgetId).toBeUndefined();
   });
 
-  describe("a Widget's recommended frame", () => {
-    const widget = (provider: string) =>
-      ({
-        id: provider,
-        name: provider,
-        type: "widget",
-        widget: { provider },
-      }) as Asset;
-    const place = (
-      frame: { width: number; height: number },
-      onCanvas: Parameters<typeof createContentPlacement>[1] = canvas,
-      position?: { x: number; y: number },
-    ) => createContentPlacement(widget("probe"), onCanvas, position, frame);
-    const aspect = (box: { width: number; height: number }) =>
-      box.width / box.height;
-
-    it("fits a wide strip into the canvas and keeps its aspect ratio", () => {
-      const placement = place({ width: 1920, height: 160 });
-      expect(placement.width).toBe(1536);
-      expect(placement.height).toBe(128);
-      expect(aspect(placement)).toBe(12);
-    });
-
-    it("scales a strip up on a larger canvas instead of capping it at its reference size", () => {
-      const placement = place(
-        { width: 1920, height: 160 },
-        { ...canvas, width: 3840, height: 2160 },
-      );
-      expect(placement.width).toBeCloseTo(3072, 6);
-      expect(placement.height).toBeCloseTo(256, 6);
-      expect(aspect(placement)).toBeCloseTo(12, 9);
-    });
-
-    it("scales down when the canvas is smaller than the reference frame", () => {
-      const placement = place(
-        { width: 1920, height: 160 },
-        { ...canvas, width: 1280, height: 720 },
-      );
-      expect(placement.width).toBeCloseTo(1024, 6);
-      expect(placement.height).toBeCloseTo(85.333333, 5);
-      expect(aspect(placement)).toBeCloseTo(12, 9);
-    });
-
-    it("scales a small frame up to the bounded share of the canvas", () => {
-      const placement = place({ width: 320, height: 180 });
-      // The 60% height limit binds first: 648 of 1080.
-      expect(placement.height).toBeCloseTo(648, 6);
-      expect(placement.width).toBeCloseTo(1152, 6);
-      expect(aspect(placement)).toBeCloseTo(320 / 180, 9);
-    });
-
-    it("fits a narrow portrait frame by height and keeps it inside the canvas", () => {
-      const placement = place({ width: 360, height: 960 });
-      expect(placement.height).toBeCloseTo(648, 6);
-      expect(placement.width).toBeCloseTo(243, 6);
-      expect(aspect(placement)).toBeCloseTo(360 / 960, 9);
-      expect(placement.width).toBeLessThanOrEqual(canvas.width * 0.8);
-      expect(placement.height).toBeLessThanOrEqual(canvas.height * 0.6);
-    });
-
-    it("fits on a portrait canvas by whichever axis binds first", () => {
-      const portrait = {
-        ...canvas,
-        width: 1080,
-        height: 1920,
-        orientation: "portrait" as const,
-      };
-      const placement = place({ width: 1920, height: 160 }, portrait);
-      expect(placement.width).toBeCloseTo(864, 6);
-      expect(placement.height).toBeCloseTo(72, 6);
-    });
-
-    it("centres the placement when there is no drop position", () => {
-      const placement = place({ width: 1920, height: 160 });
-      expect(placement.x).toBe(192);
-      expect(placement.y).toBe(476);
-      expect(placement.x + placement.width / 2).toBe(canvas.width / 2);
-      expect(placement.y + placement.height / 2).toBe(canvas.height / 2);
-    });
-
-    it("centres on the drop point and clamps to the canvas", () => {
-      const dropped = place({ width: 1920, height: 160 }, canvas, {
-        x: 960,
-        y: 200,
-      });
-      expect(dropped.x).toBe(192);
-      expect(dropped.y).toBe(136);
-      const corner = place({ width: 1920, height: 160 }, canvas, {
-        x: 5000,
-        y: 5000,
-      });
-      expect(corner.x + corner.width).toBe(canvas.width);
-      expect(corner.y + corner.height).toBe(canvas.height);
-    });
-
-    it.each([
-      ["zero width", { width: 0, height: 160 }],
-      ["negative height", { width: 1920, height: -1 }],
-      ["a non-finite size", { width: Number.NaN, height: 160 }],
-    ])("ignores a frame with %s", (_name, frame) => {
-      const placement = place(frame);
-      expect(placement.width).toBe(canvas.width * 0.4);
-      expect(placement.height).toBe(canvas.height * 0.4);
-    });
-
-    it("keeps the 40% box for a Widget with no recommended frame", () => {
-      const placement = createContentPlacement(widget("clock"), canvas);
-      expect(placement.width).toBe(768);
-      expect(placement.height).toBe(432);
-      expect(placement.x).toBe(384);
-      expect(placement.y).toBe(216);
-    });
-
-    it("never applies a frame to media", () => {
-      const placement = createContentPlacement(
-        { id: "poster", name: "Poster", type: "image" } as Asset,
-        canvas,
-        undefined,
-        { width: 1920, height: 160 },
-      );
-      expect(placement.width).toBe(768);
-      expect(placement.height).toBe(432);
-    });
-  });
-
   it("centres a dropped placement on the pointer and keeps it on the canvas", () => {
     const asset = { id: "poster", name: "Poster", type: "image" } as Asset;
     const centred = createContentPlacement(asset, canvas, { x: 960, y: 540 });
@@ -528,5 +403,98 @@ describe("Layout autosave", () => {
     expect(persistedVersions).toEqual([1, 2]);
     expect(savedChangeVersion).toBe(2);
     expect(revision).toBe(6);
+  });
+});
+
+describe("Recommended geometry for new Widget placements", () => {
+  const strip = { width: 1920, height: 200 };
+  const widgetAsset = { id: "ticker", name: "News", type: "widget" } as Asset;
+
+  it("starts a strip Widget wide and shallow instead of 40% of the canvas", () => {
+    const placement = createContentPlacement(
+      widgetAsset,
+      canvas,
+      undefined,
+      strip,
+    );
+    expect(placement.width).toBe(1536);
+    expect(placement.height).toBe(160);
+    expect(placement.width / placement.height).toBeCloseTo(
+      strip.width / strip.height,
+      1,
+    );
+    // Centred and inside the canvas.
+    expect(placement.x).toBe((1920 - 1536) / 2);
+    expect(placement.y).toBe((1080 - 160) / 2);
+  });
+
+  it("keeps a 16:9 recommendation exactly where the default always landed", () => {
+    const placement = createContentPlacement(widgetAsset, canvas, undefined, {
+      width: 960,
+      height: 540,
+    });
+    expect(placement).toMatchObject({
+      width: 768,
+      height: 432,
+      x: 576,
+      y: 324,
+    });
+  });
+
+  it("keeps a tall recommendation inside the canvas with its shape", () => {
+    const placement = createContentPlacement(widgetAsset, canvas, undefined, {
+      width: 360,
+      height: 1920,
+    });
+    expect(placement.height).toBeLessThanOrEqual(1080 * 0.8 + 1);
+    expect(placement.width / placement.height).toBeCloseTo(360 / 1920, 1);
+    expect(placement.y).toBeGreaterThanOrEqual(0);
+    expect(placement.y + placement.height).toBeLessThanOrEqual(1080);
+  });
+
+  it("scales the same frame to a different canvas", () => {
+    const portrait = { ...canvas, width: 1080, height: 1920 };
+    const placement = createContentPlacement(
+      widgetAsset,
+      portrait,
+      undefined,
+      strip,
+    );
+    expect(placement.width).toBeLessThanOrEqual(1080 * 0.8 + 1);
+    expect(placement.width / placement.height).toBeCloseTo(9.6, 0);
+  });
+
+  it("clamps a dropped strip onto the canvas at the pointer", () => {
+    const placement = createContentPlacement(
+      widgetAsset,
+      canvas,
+      { x: 1900, y: 1070 },
+      strip,
+    );
+    expect(placement.x + placement.width).toBeLessThanOrEqual(1920);
+    expect(placement.y + placement.height).toBeLessThanOrEqual(1080);
+  });
+
+  it("changes nothing for a Widget without a recommendation", () => {
+    const placement = createContentPlacement(widgetAsset, canvas);
+    expect(placement).toMatchObject({
+      width: 768,
+      height: 432,
+      x: 576,
+      y: 324,
+    });
+    expect(
+      createContentPlacement(widgetAsset, canvas, undefined, null),
+    ).toMatchObject({ width: 768, height: 432 });
+  });
+
+  it("never applies a Widget frame to media", () => {
+    const media = createContentPlacement(
+      { id: "poster", name: "Poster", type: "image" } as Asset,
+      canvas,
+      undefined,
+      strip,
+    );
+    expect(media).toMatchObject({ width: 768, height: 432 });
   });
 });

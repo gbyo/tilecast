@@ -28,9 +28,14 @@ import {
 } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLocalizedDefinitionFields } from "@/content/useLocalizedDefinitionFields";
 import { WidgetInspectorField } from "./fields/WidgetInspectorField";
 import { fieldDomId, type InspectorFieldProps } from "./fields/fieldContext";
-import type { WidgetEditorSession } from "./useWidgetEditorSession";
+import { RowIdentityEpoch } from "./fields/rowIdentity";
+import type {
+  WidgetEditorSession,
+  WidgetFocusRequest,
+} from "./useWidgetEditorSession";
 
 const FOCUSABLE =
   'input:not([type="hidden"]):not(:disabled), button:not(:disabled), textarea:not(:disabled), [role="combobox"], [role="radio"], [tabindex]:not([tabindex="-1"])';
@@ -46,7 +51,19 @@ function focusField(path: string) {
   target?.focus({ preventScroll: true });
 }
 
-export function WidgetInspector({
+export function WidgetInspector(props: {
+  session: WidgetEditorSession;
+  csrf: string;
+}) {
+  // Discarding replaces the draft wholesale, so list rows start over.
+  return (
+    <RowIdentityEpoch value={props.session.draftEpoch}>
+      <InspectorSections {...props} />
+    </RowIdentityEpoch>
+  );
+}
+
+function InspectorSections({
   session,
   csrf,
 }: {
@@ -54,7 +71,9 @@ export function WidgetInspector({
   csrf: string;
 }) {
   const { t } = useTranslation("content");
-  const fields = session.definition.configurationSchema.fields;
+  const fields = useLocalizedDefinitionFields(
+    session.definition.configurationSchema.fields,
+  );
   const configuration = session.draft.configuration;
   const groups = groupAuthoringFields(
     visibleAuthoringFields(fields, configuration),
@@ -66,10 +85,21 @@ export function WidgetInspector({
     chosen && sections.includes(chosen) ? chosen : (sections[0] ?? null);
   const request = session.focusRequest;
   const focusPath = request?.target === "field" ? (request.path ?? null) : null;
+  const focusNonce = request?.target === "field" ? request.nonce : 0;
+
+  // A request to show a problem selects the tab that holds it. This is
+  // state derived from a changing prop, so it is adjusted while rendering
+  // rather than corrected after a paint of the wrong tab.
+  const [handledRequest, setHandledRequest] =
+    useState<WidgetFocusRequest | null>(null);
+  if (request !== handledRequest) {
+    setHandledRequest(request);
+    if (request?.target === "field" && request.section)
+      setChosen(request.section);
+  }
 
   useEffect(() => {
     if (request?.target !== "field" || !request.path) return;
-    if (request.section) setChosen(request.section);
     // Wait for the tab, Advanced group, or Accordion item to open.
     const frame = requestAnimationFrame(() =>
       requestAnimationFrame(() => focusField(request.path!)),
@@ -96,6 +126,7 @@ export function WidgetInspector({
     csrf,
     errorFor,
     focusPath,
+    focusNonce,
   });
   const sectionLabel = (section: WidgetAuthoringSection) =>
     t(`widgets.editor.sections.${section}`);
@@ -223,10 +254,14 @@ function AdvancedFields({
   children: ReactNode;
 }) {
   const { t } = useTranslation("content");
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
+  const [open, setOpen] = useState(forceOpen);
+  // A problem inside the group opens it. Adjusted while rendering, since
+  // it is state derived from a prop.
+  const [wasForced, setWasForced] = useState(forceOpen);
+  if (forceOpen !== wasForced) {
+    setWasForced(forceOpen);
     if (forceOpen) setOpen(true);
-  }, [forceOpen]);
+  }
   return (
     <Collapsible
       open={open}

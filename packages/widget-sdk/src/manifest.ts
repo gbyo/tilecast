@@ -13,7 +13,6 @@
  * checks that can run without Go.
  */
 import { z } from "zod";
-import { RECOMMENDED_FRAME_BOUNDS } from "./authoring.ts";
 import {
   componentCapability,
   COMPONENT_TYPE_PATTERN,
@@ -143,6 +142,19 @@ const componentSchema = z
   })
   .strict();
 
+/** Bounds, in pixels, of a recommended frame side. The Server enforces the same range. */
+export const RECOMMENDED_FRAME_BOUNDS = { min: 32, max: 3840 } as const;
+
+const frameSide = z
+  .number()
+  .int()
+  .min(RECOMMENDED_FRAME_BOUNDS.min)
+  .max(RECOMMENDED_FRAME_BOUNDS.max);
+
+const recommendedFrameSchema = z
+  .object({ width: frameSide, height: frameSide })
+  .strict();
+
 export const widgetManifestSchema = z
   .object({
     $schema: z.string().optional(),
@@ -196,27 +208,13 @@ export const widgetManifestSchema = z
               .describe(
                 "The rendered result depends on the current instant, so Studio offers preview-time controls.",
               ),
+            recommendedFrame: recommendedFrameSchema
+              .optional()
+              .describe(
+                "The pixel geometry the Widget is designed for. Studio opens the preview at it, renders library thumbnails at it, and gives a new Layout placement its aspect ratio. An authoring hint only: it never reaches the Player and never changes validation or playback.",
+              ),
           })
-          .strict()
-          .optional(),
-        recommendedFrame: z
-          .object({
-            width: z
-              .number()
-              .int()
-              .min(RECOMMENDED_FRAME_BOUNDS.width.min)
-              .max(RECOMMENDED_FRAME_BOUNDS.width.max),
-            height: z
-              .number()
-              .int()
-              .min(RECOMMENDED_FRAME_BOUNDS.height.min)
-              .max(RECOMMENDED_FRAME_BOUNDS.height.max),
-          })
-          .strict()
-          .optional()
-          .describe(
-            "The Widget's preferred shape in CSS pixels: a reference geometry for Studio previews and Layout placement, not a maximum size.",
-          ),
+          .strict(),
       })
       .strict()
       .optional()

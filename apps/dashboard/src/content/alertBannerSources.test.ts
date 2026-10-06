@@ -8,9 +8,9 @@ import type {
   DataSourceField,
   WidgetDefinition,
 } from "@/api/types";
-import { suggestedSourceField } from "@/components/content/widget-editor/fields/WidgetFieldMapping";
+import { suggestedSourceField } from "@/components/content/widget-editor/fields/fieldMapping";
 import alertBannerManifest from "../../../../widgets/alert-banner/tilecast.widget.json";
-import { compatibleSources, dataFormatGuideFor } from "./DefinitionForm";
+import { compatibleSources, dataFormatGuideFor } from "./dataSourceBindings";
 
 const alertBanner = alertBannerManifest as unknown as WidgetDefinition;
 const fields = alertBanner.configurationSchema.fields;

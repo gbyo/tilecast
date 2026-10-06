@@ -972,6 +972,7 @@
           "strip": "Wide strip",
           "sidebar": "Tall sidebar",
           "small": "Small zone",
+          "recommended": "Recommended · {{width}} × {{height}}",
           "custom": "Custom size"
         },
         "customSize": "{{width}} × {{height}}",
@@ -999,6 +1000,7 @@
         "configurationProblem": "The preview can't show this configuration yet.",
         "renderFailed": "This Widget couldn't render in the preview.",
         "webInvalid": "Studio can't preview this address.",
+        "webNoAddress": "Enter a web address to see it here.",
         "webUnavailable": "Preview unavailable. Screens show this integration in an isolated player view.",
         "webViewOnly": "Live web previews need permission to edit Widgets. Screens show this page in an isolated player view."
       },

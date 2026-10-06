@@ -20,8 +20,7 @@ import {
   savedWidget,
   useViewport,
 } from "./testing";
-import { resetWidgetSnapshotQueue } from "./WidgetSnapshotQueue";
-import { RECOMMENDED_FRAME_BOUNDS } from "@tilecast/widget-sdk";
+import { resetWidgetSnapshotQueue } from "./snapshotQueue";
 
 vi.mock("@/content/widgetPreviewCapture", async (importOriginal) => {
   const actual =
@@ -127,82 +126,6 @@ describe("Widget preview", () => {
     await userEvent.keyboard("{Escape}");
     expect(screen.getByText("Saved")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Save changes/ })).toBeDisabled();
-  });
-
-  it("opens a Widget with a recommended frame at that natural size", async () => {
-    await open(
-      savedWidget("alert-banner", {
-        dataSourceId: "",
-        messageField: "message",
-        severityField: "severity",
-        labelField: "",
-        showSeverity: true,
-        emptyState: "No active alerts",
-        speed: "normal",
-        backgroundColor: "#7a1f1f",
-        foregroundColor: "#ffffff",
-      }),
-    );
-    const bar = toolbar();
-    expect(
-      within(bar).getByRole("combobox", { name: "Preview frame" }),
-    ).toHaveTextContent("Custom size");
-    expect(
-      within(bar).getByRole("button", {
-        name: "Custom size, 1920 by 160 pixels",
-      }),
-    ).toBeTruthy();
-  });
-
-  it("keeps the landscape frame for a Widget without a recommended frame", async () => {
-    await open();
-    expect(
-      within(toolbar()).getByRole("combobox", { name: "Preview frame" }),
-    ).toHaveTextContent("Landscape");
-  });
-
-  it("accepts every frame size a manifest may recommend, and clamps beyond it", async () => {
-    await open();
-    const bar = toolbar();
-    await userEvent.click(
-      within(bar).getByRole("combobox", { name: "Preview frame" }),
-    );
-    await userEvent.click(
-      await screen.findByRole("option", { name: "Custom size" }),
-    );
-    await userEvent.click(
-      within(bar).getByRole("button", {
-        name: "Custom size, 960 by 540 pixels",
-      }),
-    );
-    const { width, height } = RECOMMENDED_FRAME_BOUNDS;
-    const widthInput = await screen.findByRole("spinbutton", {
-      name: "Width (px)",
-    });
-    const heightInput = screen.getByRole("spinbutton", { name: "Height (px)" });
-    expect(widthInput).toHaveAttribute("min", String(width.min));
-    expect(widthInput).toHaveAttribute("max", String(width.max));
-    expect(heightInput).toHaveAttribute("min", String(height.min));
-    expect(heightInput).toHaveAttribute("max", String(height.max));
-
-    fireEvent.change(widthInput, { target: { value: String(width.max) } });
-    fireEvent.change(heightInput, { target: { value: String(height.max) } });
-    expect(widthInput).toHaveValue(width.max);
-    expect(heightInput).toHaveValue(height.max);
-
-    fireEvent.change(widthInput, {
-      target: { value: String(width.max + 500) },
-    });
-    fireEvent.change(heightInput, {
-      target: { value: String(height.max + 500) },
-    });
-    expect(widthInput).toHaveValue(width.max);
-    expect(heightInput).toHaveValue(height.max);
-
-    fireEvent.change(widthInput, { target: { value: "10" } });
-    fireEvent.change(heightInput, { target: { value: "10" } });
-    expect(widthInput).toHaveValue(width.min);
-    expect(heightInput).toHaveValue(height.min);
   });
 
   it("offers preview time only for Widgets that depend on it", async () => {
@@ -356,5 +279,138 @@ describe("Widget thumbnails", () => {
     );
     expect(upload).not.toHaveBeenCalled();
     expect(screen.getByText("Saved")).toBeTruthy();
+  });
+});
+
+describe("Preview geometry", () => {
+  const ticker = savedWidget("ticker", {
+    dataSourceId: "",
+    primaryField: "",
+    secondaryField: "",
+    leadingLabel: "News",
+    separator: " • ",
+    fieldSeparator: " — ",
+    maxItems: 15,
+    direction: "left",
+    speed: "normal",
+    emptyText: "",
+    backgroundColor: "",
+    foregroundColor: "",
+  });
+
+  /** The pixel geometry the Widget is laid out at inside the preview. */
+  async function frameSize() {
+    const preview = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    const sized = await waitFor(() => {
+      const element = [...preview.querySelectorAll<HTMLElement>("div")].find(
+        (candidate) =>
+          candidate.style.width.endsWith("px") &&
+          candidate.style.height.endsWith("px"),
+      );
+      expect(element).toBeTruthy();
+      return element!;
+    });
+    return {
+      width: Number.parseInt(sized.style.width, 10),
+      height: Number.parseInt(sized.style.height, 10),
+    };
+  }
+
+  const frameSelect = () =>
+    within(toolbar()).getByRole("combobox", { name: "Preview frame" });
+
+  it("opens a Widget with no recommendation at the 960 x 540 Landscape default", async () => {
+    await open(clock);
+    expect(await frameSize()).toEqual({ width: 960, height: 540 });
+    expect(frameSelect()).toHaveTextContent("Landscape · 16:9");
+    await userEvent.click(frameSelect());
+    expect(screen.queryByRole("option", { name: /^Recommended/ })).toBeNull();
+  });
+
+  it("opens a Widget at the frame its definition recommends", async () => {
+    await open(ticker);
+    expect(await frameSize()).toEqual({ width: 1920, height: 200 });
+    expect(frameSelect()).toHaveTextContent("Recommended · 1920 × 200");
+  });
+
+  it("opens the Alert Banner strip at its shallow natural geometry", async () => {
+    const alert = savedWidget("alert-banner", {
+      dataSourceId: "",
+      messageField: "message",
+      severityField: "severity",
+      labelField: "",
+      showSeverity: true,
+      emptyState: "No active alerts",
+      speed: "normal",
+      backgroundColor: "#7a1f1f",
+      foregroundColor: "#ffffff",
+    });
+    await open(alert);
+    expect(await frameSize()).toEqual({ width: 1920, height: 160 });
+    expect(frameSelect()).toHaveTextContent("Recommended · 1920 × 160");
+  });
+
+  it("still lets the author look at any other frame, and come back", async () => {
+    await open(ticker);
+    await userEvent.click(frameSelect());
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Landscape · 16:9" }),
+    );
+    await waitFor(async () =>
+      expect(await frameSize()).toEqual({ width: 960, height: 540 }),
+    );
+    await userEvent.click(frameSelect());
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Recommended · 1920 × 200" }),
+    );
+    await waitFor(async () =>
+      expect(await frameSize()).toEqual({ width: 1920, height: 200 }),
+    );
+  });
+
+  it("never marks the Widget edited when the frame changes", async () => {
+    await open(ticker);
+    expect(screen.getByRole("button", { name: /Save changes/ })).toBeDisabled();
+    await userEvent.click(frameSelect());
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Portrait · 9:16" }),
+    );
+    expect(screen.getByText("Saved")).toBeTruthy();
+    expect(screen.queryByText("Unsaved changes")).toBeNull();
+    expect(screen.getByRole("button", { name: /Save changes/ })).toBeDisabled();
+  });
+
+  it("keeps the geometry out of the saved configuration", async () => {
+    await open(ticker);
+    await userEvent.click(screen.getByRole("tab", { name: "Content" }));
+    const update = vi.spyOn(api, "updateWidget").mockResolvedValue(ticker);
+    fireEvent.change(screen.getByRole("textbox", { name: /Leading label/ }), {
+      target: { value: "Headlines" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: /Save changes/ }));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    const saved = JSON.stringify(update.mock.calls[0]![1]);
+    expect(saved).toContain("Headlines");
+    expect(saved).not.toMatch(/recommendedFrame|1920|"frame"/);
+  });
+
+  it("hands the recommended frame to the thumbnail capture", async () => {
+    await open(ticker);
+    await userEvent.click(screen.getByRole("tab", { name: "Content" }));
+    vi.spyOn(api, "updateWidget").mockResolvedValue(ticker);
+    vi.spyOn(api, "uploadWidgetPreview").mockResolvedValue();
+    fireEvent.change(screen.getByRole("textbox", { name: /Leading label/ }), {
+      target: { value: "Headlines" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: /Save changes/ }));
+    await waitFor(() => expect(captureWidgetPreview).toHaveBeenCalled(), {
+      timeout: 4000,
+    });
+    expect(vi.mocked(captureWidgetPreview).mock.calls.at(-1)![2]).toEqual({
+      width: 1920,
+      height: 200,
+    });
   });
 });

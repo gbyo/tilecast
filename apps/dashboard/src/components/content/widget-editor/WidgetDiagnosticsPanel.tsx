@@ -7,28 +7,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
 import { contentKeys } from "@/data/content";
-import type { Asset, WidgetDefinition } from "@/api/types";
+import type { Asset } from "@/api/types";
 import { useFormatLocale } from "@/i18n";
 import { EditorSidePanel } from "./EditorSidePanel";
-
-export type WidgetDiagnosticsKind = "website" | "managedSource";
-
-// Website Widgets report player load results through their own endpoint.
-const providerDiagnostics: Record<string, WidgetDiagnosticsKind> = {
-  website: "website",
-};
-
-export function widgetDiagnosticsKind(
-  definition: WidgetDefinition,
-  asset: Asset | undefined,
-): WidgetDiagnosticsKind | null {
-  if (!asset) return null;
-  if (providerDiagnostics[definition.id])
-    return providerDiagnostics[definition.id]!;
-  if (definition.recipe && asset.widget?.managedDataSourceId)
-    return "managedSource";
-  return null;
-}
+import type { WidgetDiagnosticsKind } from "./widgetDiagnostics";
 
 export function WidgetDiagnosticsPanel({
   kind,

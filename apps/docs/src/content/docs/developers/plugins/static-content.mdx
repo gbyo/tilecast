@@ -35,6 +35,25 @@ The Player applies dataset date-selection rules before it gives resources to a W
 
 When no records match, `last_known_good` selects all records from the latest cached date before the requested day. For a tomorrow preview, that can include today's records. The default empty policy keeps past records out. The native server preview and Player projection share the [date-selection conformance corpus](https://github.com/gbyo/tilecast/blob/main/packages/manifest-schema/date-selection-fixtures.json).
 
+### Describe how Studio edits the Widget
+
+Studio has one Widget editor, and your manifest drives it. You don't write an editor. The `configurationSchema` is the inspector, and an optional `authoring` object adds hints for the preview.
+
+- **Labels.** Write each field's `label`, `description`, and select options as plain text in your own language. That is all Studio needs. You don't register anything in Tilecast's translation files.
+- **Translation keys.** `labelKey`, `descriptionKey`, and an option's `labelKey` are optional. They name strings in Tilecast's own `definitions` namespace, which only the built-in Widgets use. A key that Studio can't find shows your plain text instead, so a missing translation never leaves a control without a label.
+- **Recommended frame.** If your Widget is built for a shape, such as a strip, set `authoring.preview.recommendedFrame` to a `width` and `height` in pixels, from 32 to 3840. Studio opens the preview at that size, draws the library thumbnail from it, and gives a new Layout placement the same shape. Nothing reaches the Player.
+
+```json
+"authoring": {
+  "preview": {
+    "time": true,
+    "recommendedFrame": { "width": 1920, "height": 200 }
+  }
+}
+```
+
+The [Widget authoring contract](https://github.com/gbyo/tilecast/blob/main/docs/widget-authoring.md) has every control and hint.
+
 ## Bundle a declarative Data Source
 
 Scaffold the module inside the plugin directory:
