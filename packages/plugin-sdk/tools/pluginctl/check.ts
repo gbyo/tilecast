@@ -178,25 +178,6 @@ export async function check(repo: Repo): Promise<Problem[]> {
   problems.push(...checkFragmentOperationIds(fragments));
   problems.push(...checkAutomationFiles(repo, fragments));
 
-  // TEMP diagnostic for PR #1339: expose only the small generated store
-  // schema excerpt when the composed contract is stale. Remove after syncing.
-  const committedComposedPath = join(repo.root, COMPOSED_OPENAPI);
-  if (
-    composed !== undefined &&
-    existsSync(committedComposedPath) &&
-    readFileSync(committedComposedPath, "utf8") !== composed
-  ) {
-    const marker = "    PluginStoreSource:";
-    const start = composed.indexOf(marker);
-    if (start >= 0) {
-      console.error(
-        "PR1339_EXPECTED_STORE_SCHEMA\n" +
-          composed.slice(start, start + 1800) +
-          "\nPR1339_END_EXPECTED_STORE_SCHEMA",
-      );
-    }
-  }
-
   for (const path of stale(repo, generated.files)) {
     problems.push({
       file: path,
