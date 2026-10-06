@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
-import type { RouteObject } from "react-router";
+import { matchRoutes, type RouteObject } from "react-router";
 import type { User } from "../api/types";
 import type { StudioNavigationMetadata } from "./studioNavigation";
 
@@ -39,6 +39,11 @@ export type StudioRouteHandle = {
    */
   breadcrumbKey?: { ns: string; key: string };
   resource?: BreadcrumbResource | BreadcrumbResourceLoader;
+  /**
+   * A full-bleed editor workspace: no page padding, the compact editor
+   * header that hosts the page's controls, and no page heading of its own.
+   */
+  immersiveEditor?: boolean;
   /** Roles that can discover this route through command search. */
   searchAllowedRoles?: readonly User["role"][];
   search?: {
@@ -77,4 +82,16 @@ export function useStudioRoutes() {
 
 export function studioRouteHandle(route: RouteObject): StudioRouteHandle {
   return (route.handle ?? {}) as StudioRouteHandle;
+}
+
+/** Whether the deepest route matching a path is an immersive editor. */
+export function isImmersiveEditorRoute(
+  routes: readonly RouteObject[],
+  pathname: string,
+): boolean {
+  const matches = matchRoutes([...routes], pathname) ?? [];
+  const deepest = matches.at(-1);
+  return deepest
+    ? studioRouteHandle(deepest.route).immersiveEditor === true
+    : false;
 }

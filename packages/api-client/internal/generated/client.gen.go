@@ -706,11 +706,13 @@ const (
 	ContentDefinitionFieldControlDate            ContentDefinitionFieldControl = "date"
 	ContentDefinitionFieldControlDatetime        ContentDefinitionFieldControl = "datetime"
 	ContentDefinitionFieldControlInteger         ContentDefinitionFieldControl = "integer"
+	ContentDefinitionFieldControlLocalDatetime   ContentDefinitionFieldControl = "local_datetime"
 	ContentDefinitionFieldControlMediaAsset      ContentDefinitionFieldControl = "media_asset"
 	ContentDefinitionFieldControlMultilineText   ContentDefinitionFieldControl = "multiline_text"
 	ContentDefinitionFieldControlNumber          ContentDefinitionFieldControl = "number"
 	ContentDefinitionFieldControlRepeatingGroup  ContentDefinitionFieldControl = "repeating_group"
 	ContentDefinitionFieldControlSelect          ContentDefinitionFieldControl = "select"
+	ContentDefinitionFieldControlStringList      ContentDefinitionFieldControl = "string_list"
 	ContentDefinitionFieldControlText            ContentDefinitionFieldControl = "text"
 	ContentDefinitionFieldControlTimezone        ContentDefinitionFieldControl = "timezone"
 	ContentDefinitionFieldControlUrl             ContentDefinitionFieldControl = "url"
@@ -735,6 +737,8 @@ func (e ContentDefinitionFieldControl) Valid() bool {
 		return true
 	case ContentDefinitionFieldControlInteger:
 		return true
+	case ContentDefinitionFieldControlLocalDatetime:
+		return true
 	case ContentDefinitionFieldControlMediaAsset:
 		return true
 	case ContentDefinitionFieldControlMultilineText:
@@ -744,6 +748,8 @@ func (e ContentDefinitionFieldControl) Valid() bool {
 	case ContentDefinitionFieldControlRepeatingGroup:
 		return true
 	case ContentDefinitionFieldControlSelect:
+		return true
+	case ContentDefinitionFieldControlStringList:
 		return true
 	case ContentDefinitionFieldControlText:
 		return true
@@ -6617,6 +6623,14 @@ type ContentDefinitionAppRecipe struct {
 	} `json:"dataSource"`
 }
 
+// ContentDefinitionAuthoring Studio authoring capabilities. They never change validation, projection, or playback.
+type ContentDefinitionAuthoring struct {
+	Preview struct {
+		// Time The rendered result depends on the current instant, so Studio offers preview-time controls.
+		Time *bool `json:"time,omitempty"`
+	} `json:"preview"`
+}
+
 // ContentDefinitionAvailability defines model for ContentDefinitionAvailability.
 type ContentDefinitionAvailability struct {
 	Enabled *bool   `json:"enabled,omitempty"`
@@ -6971,12 +6985,15 @@ type ContentTagInput struct {
 
 // ContentWidgetDefinition defines model for ContentWidgetDefinition.
 type ContentWidgetDefinition struct {
-	AcceptedDataSourceKinds *[]string                       `json:"acceptedDataSourceKinds,omitempty"`
-	ApiVersion              *int                            `json:"apiVersion,omitempty"`
-	Availability            *ContentDefinitionAvailability  `json:"availability,omitempty"`
-	Category                string                          `json:"category"`
-	Compatibility           *ContentDefinitionCompatibility `json:"compatibility,omitempty"`
-	Component               *ContentDefinitionComponent     `json:"component,omitempty"`
+	AcceptedDataSourceKinds *[]string `json:"acceptedDataSourceKinds,omitempty"`
+	ApiVersion              *int      `json:"apiVersion,omitempty"`
+
+	// Authoring Studio authoring capabilities. They never change validation, projection, or playback.
+	Authoring     *ContentDefinitionAuthoring     `json:"authoring,omitempty"`
+	Availability  *ContentDefinitionAvailability  `json:"availability,omitempty"`
+	Category      string                          `json:"category"`
+	Compatibility *ContentDefinitionCompatibility `json:"compatibility,omitempty"`
+	Component     *ContentDefinitionComponent     `json:"component,omitempty"`
 
 	// ConfigVersion Version of the persisted Widget configuration; omission means version 1.
 	ConfigVersion       *int                                 `json:"configVersion,omitempty"`

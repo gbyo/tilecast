@@ -1,6 +1,6 @@
 /**
- * The one Studio preview for migrated V2 Widgets
- * (docs/widgets-v2-authoring-and-first-wave.md).
+ * The one Studio preview for component Widgets
+ * (docs/widget-authoring.md).
  *
  * React owns this chrome; the Widget owns everything inside the frame.
  * The real Web Component renders through the shared WidgetMount from the
@@ -31,6 +31,7 @@ export function WidgetPreviewHost({
   label,
   onState,
   fit = "shrink",
+  scale,
 }: {
   /** Compiled component config; form edits update it in place. */
   component: WidgetComponentRef;
@@ -47,6 +48,11 @@ export function WidgetPreviewHost({
    * while the Widget keeps its logical intrinsic geometry).
    */
   fit?: PreviewFit;
+  /**
+   * An exact scale chosen by the host (the Widget editor's Fit and zoom
+   * controls). The surface is sized to the scaled frame; `fit` is ignored.
+   */
+  scale?: number;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -84,7 +90,7 @@ export function WidgetPreviewHost({
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
-    if (!viewport) return;
+    if (!viewport || scale !== undefined) return;
 
     const fitToWidth = (availableWidth: number) => {
       if (availableWidth <= 0) return;
@@ -111,7 +117,7 @@ export function WidgetPreviewHost({
     });
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [frame.width, fit]);
+  }, [frame.width, fit, scale]);
 
   // Keep the Widget at the selected intrinsic frame size so its container
   // queries match playback, then scale that whole surface down when the Studio
@@ -119,35 +125,44 @@ export function WidgetPreviewHost({
   // inside a ~600px editor column. Fill mode instead stretches the outer box
   // to the displayed zone and scales both ways, so a Layout shown above 100%
   // zoom still fills its placement.
+  const appliedScale = scale ?? previewScale;
   return (
     <div
       ref={viewportRef}
       role="img"
       aria-label={label}
       style={
-        fit === "fill"
+        scale !== undefined
           ? {
-              width: "100%",
-              aspectRatio: `${frame.width} / ${frame.height}`,
+              width: `${frame.width * scale}px`,
+              height: `${frame.height * scale}px`,
               overflow: "hidden",
               position: "relative",
               background: "#000",
             }
-          : {
-              width: `${frame.width}px`,
-              maxWidth: "100%",
-              aspectRatio: `${frame.width} / ${frame.height}`,
-              overflow: "hidden",
-              position: "relative",
-              background: "#000",
-            }
+          : fit === "fill"
+            ? {
+                width: "100%",
+                aspectRatio: `${frame.width} / ${frame.height}`,
+                overflow: "hidden",
+                position: "relative",
+                background: "#000",
+              }
+            : {
+                width: `${frame.width}px`,
+                maxWidth: "100%",
+                aspectRatio: `${frame.width} / ${frame.height}`,
+                overflow: "hidden",
+                position: "relative",
+                background: "#000",
+              }
       }
     >
       <div
         style={{
           width: `${frame.width}px`,
           height: `${frame.height}px`,
-          transform: `scale(${previewScale})`,
+          transform: `scale(${appliedScale})`,
           transformOrigin: "top left",
         }}
       >

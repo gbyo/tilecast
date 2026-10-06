@@ -1,0 +1,19 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`every shipped Widget type > are mostly ready to save as created 1`] = `
+[
+  "airtable",
+  "canva",
+  "google-sheets-display",
+  "google-slides",
+  "grafana",
+  "looker-studio",
+  "power-bi",
+  "smartsheet",
+  "spotlight",
+  "tableau-public",
+  "timeline",
+  "website",
+  "youtube",
+]
+`;

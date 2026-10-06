@@ -381,6 +381,27 @@ func (normalizer definitionConfigNormalizer) normalizeField(ctx context.Context,
 			}
 		}
 		return nil, fmt.Errorf("%s has an invalid selection", field.Label)
+	case "string_list":
+		items, ok := value.([]any)
+		if !ok || len(items) > field.MaximumItems {
+			return nil, fmt.Errorf("%s exceeds its bounded item limit", field.Label)
+		}
+		normalized := make([]string, 0, len(items))
+		for _, item := range items {
+			text, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("%s must contain only text", field.Label)
+			}
+			text = strings.TrimSpace(text)
+			if text == "" {
+				continue
+			}
+			if field.MinLength > 0 && len(text) < field.MinLength || field.MaxLength > 0 && len(text) > field.MaxLength {
+				return nil, fmt.Errorf("%s contains an entry outside the allowed length", field.Label)
+			}
+			normalized = append(normalized, text)
+		}
+		return normalized, nil
 	case "repeating_group":
 		items, ok := value.([]any)
 		if !ok || len(items) > field.MaximumItems {

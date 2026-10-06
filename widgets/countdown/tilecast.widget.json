@@ -202,6 +202,7 @@
   },
   "emptyStateBehavior": "text",
   "legacyEditor": true,
+  "authoring": { "preview": { "time": true } },
   "deprecation": {},
   "component": {
     "type": "tilecast.countdown",
