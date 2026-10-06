@@ -11,7 +11,4 @@ export function originOf(returnTo: string | null): Origin | null {
   return null;
 }
 
-export function shortcutLabel() {
-  if (typeof navigator === "undefined") return "Ctrl S";
-  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? "⌘ S" : "Ctrl S";
-}
+export { shortcutLabel } from "@/hooks/use-save-shortcut";

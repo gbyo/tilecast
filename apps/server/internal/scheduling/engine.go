@@ -112,15 +112,86 @@ func Resolve(at time.Time, schedules []Schedule) Result {
 			}
 		}
 	}
-	sort.Slice(active, func(i, j int) bool {
-		before, _ := precedes(active[i], active[j])
-		return before
-	})
+	Rank(active)
 	var winner *Active
 	if len(active) > 0 {
 		winner = &active[0]
 	}
 	return Result{Winner: winner, Applicable: active, NextTransition: next}
+}
+
+// Rank orders simultaneously active schedules by precedence, first winning.
+// Resolve and every read-only inspection of a draft share this one ordering.
+func Rank(active []Active) {
+	sort.Slice(active, func(i, j int) bool {
+		before, _ := precedes(active[i], active[j])
+		return before
+	})
+}
+
+// ActiveAt reports the interval of one schedule that contains at. A disabled
+// schedule never participates in Resolve; callers that simulate a draft as
+// enabled set Enabled before calling.
+func ActiveAt(s Schedule, at time.Time) (Active, bool) {
+	a, _ := intervalAt(s, at)
+	if a == nil {
+		return Active{}, false
+	}
+	return *a, true
+}
+
+// nextIntervalHorizonDays bounds the search for a recurring schedule's next
+// occurrence, so a date range that opens far ahead is still found.
+const nextIntervalHorizonDays = 400
+
+// NextInterval returns the first interval of s that has not ended by from,
+// using the same wall-clock and daylight-saving rules as Resolve. It does not
+// consider Enabled. It reports false for a one-time schedule already over and
+// for a recurring one with no occurrence inside the search horizon.
+func NextInterval(s Schedule, from time.Time) (Active, bool) {
+	if s.Type == OneTime {
+		if s.OneTimeStart == nil || s.OneTimeEnd == nil || !s.OneTimeEnd.After(from) {
+			return Active{}, false
+		}
+		return Active{s, *s.OneTimeStart, *s.OneTimeEnd}, true
+	}
+	if s.DailyStart == nil || s.DailyEnd == nil {
+		return Active{}, false
+	}
+	loc, err := time.LoadLocation(s.Timezone)
+	if err != nil {
+		return Active{}, false
+	}
+	// Noon keeps date arithmetic away from daylight-saving gaps at midnight.
+	y, m, d := from.In(loc).Date()
+	date := time.Date(y, m, d-1, 12, 0, 0, 0, loc)
+	if s.StartDate != nil {
+		if first, parseErr := time.Parse("2006-01-02", *s.StartDate); parseErr == nil {
+			fy, fm, fd := first.Date()
+			if candidate := time.Date(fy, fm, fd, 12, 0, 0, 0, loc); candidate.After(date) {
+				date = candidate
+			}
+		}
+	}
+	for offset := 0; offset < nextIntervalHorizonDays; offset++ {
+		day := date.AddDate(0, 0, offset)
+		if s.EndDate != nil && day.Format("2006-01-02") > *s.EndDate {
+			break
+		}
+		if !containsDay(s.DaysOfWeek, int(day.Weekday())) || !dateAllowed(s, day) {
+			continue
+		}
+		start := resolveLocal(day, *s.DailyStart, loc, false)
+		endDate := day
+		if *s.DailyEnd <= *s.DailyStart {
+			endDate = day.AddDate(0, 0, 1)
+		}
+		end := resolveLocal(endDate, *s.DailyEnd, loc, true)
+		if end.After(from) {
+			return Active{s, start, end}, true
+		}
+	}
+	return Active{}, false
 }
 
 func intervalAt(s Schedule, at time.Time) (*Active, []time.Time) {

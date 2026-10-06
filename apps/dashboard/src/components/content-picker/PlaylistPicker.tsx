@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Check, LayoutTemplate, ListVideo, Tags } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { hasNextPage } from "../../api/pagination";
@@ -114,6 +114,9 @@ export function PlaylistPicker({
       : t("picker.playlist.clearSearchPlaylists");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState(selectedId);
+  // Focus opens on the search field through the dialog, not `autoFocus`, so
+  // closing returns focus to whatever opened the picker.
+  const searchRef = useRef<HTMLInputElement>(null);
   const playlists = useInfiniteQuery({
     queryKey: ["playlist-picker", "playlists", search],
     initialPageParam: 1,
@@ -166,13 +169,16 @@ export function PlaylistPicker({
         if (!nextOpen) onCloseComplete?.();
       }}
     >
-      <DialogContent className="flex max-h-[min(90dvh,45rem)] max-w-xl flex-col gap-3 overflow-hidden">
+      <DialogContent
+        initialFocus={searchRef}
+        className="flex max-h-[min(90dvh,45rem)] max-w-xl flex-col gap-3 overflow-hidden"
+      >
         <DialogHeader>
           <DialogTitle>{title ?? defaultTitle}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <DashboardSearch
-          autoFocus
+          inputRef={searchRef}
           value={search}
           onValueChange={setSearch}
           label={searchCopy}

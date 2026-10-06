@@ -35,7 +35,7 @@ import {
   type WidgetConfiguration,
   type WidgetDraft,
 } from "./widgetEditorModel";
-import { useSaveShortcut } from "./useSaveShortcut";
+import { useSaveShortcut } from "@/hooks/use-save-shortcut";
 import {
   firstProblemFocus,
   validateWidgetDraft,

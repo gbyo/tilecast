@@ -373,8 +373,8 @@ the browser when an overlay workflow changes.
 
 #### Authoring workspaces
 
-The Playlist Editor, Content Picker, media uploader, and Layout Editor are
-composed from the generated components by these rules:
+The Playlist Editor, Content Picker, media uploader, Layout Editor, and
+Schedule Editor are composed from the generated components by these rules:
 
 | Need                                        | Component                                                           |
 | ------------------------------------------- | ------------------------------------------------------------------- |
@@ -420,6 +420,39 @@ composed from the generated components by these rules:
   The desktop library, canvas, and inspector panes keep their sizes when the
   selection changes: the inspector shows Layout settings when nothing is
   selected.
+
+- **Schedule Editor.** The editor is an immersive route (`immersiveEditor`)
+  that uses the Studio editor header. The header holds the save state, Save
+  changes (Create schedule for a new one), a Review button when the outcome has
+  no pane of its own, and a More menu with Discard and Delete. Saving is
+  explicit and never automatic, because a saved schedule can change what
+  screens play. The Enabled switch is part of the draft and applies on Save; the
+  editor has no second, immediate enable control. The form is one continuous
+  document: Schedule, Presentation, Timing, Targets, and Conflict handling. It
+  uses headings and `Separator`, not `Tabs`, `Card`, a wizard, or a sticky
+  footer, because the sections are parts of one rule and an administrator
+  checks them together. Exclusive choices that are saved with the schedule
+  (Content or Display control, Weekly or One-time, the priority presets) are a
+  `RadioGroup` of described choices; the seven weekdays are a multiple
+  `ToggleGroup`. The optional date range and Conflict handling use
+  `Collapsible`. Conflict handling stays folded at normal priority and opens
+  itself only to show a problem. The selected Playlist or Layout is an `Item`
+  with a separate Change button, and the picker loads the library only when it
+  opens. Targets use a popup `Combobox` that groups Display Groups before
+  screens, and the selected targets are rows of an `ItemGroup`. A persistent
+  Outcome pane on the right (about 22 rem, not resizable) reads the draft back
+  as What, When, Where, and Priority, then shows the server's next-run check.
+  The same `ScheduleOutcomeContent` appears in a `Sheet` on a tablet and a
+  `Drawer` on a phone, opened by Review, and only one of the three is mounted.
+  The pane needs room, so the workspace measures itself rather than trusting the
+  viewport: an open sidebar can leave a wide window with a narrow editor. The
+  editor never works out recurrence or precedence in the browser. One
+  aggregate server request (`POST /api/v1/schedules/preflight`) covers every
+  targeted screen at the next occurrence. The pane keeps the last answer while
+  a new one loads and marks it as checking, because an old green result must
+  not read as current. The wording says "next run", never "no conflicts", since
+  later runs can differ. A check that fails never blocks Save, but a check that
+  finds screens that cannot run display control does.
 
 Page CSS in these workspaces is limited to what the components do not own:
 canvas geometry, guides, resize handles, placement outlines, and preview

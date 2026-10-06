@@ -506,3 +506,90 @@ test("installed plugin content opens through Studio discovery", async ({
     page.getByRole("textbox", { name: "Name", exact: true }),
   ).toHaveValue("Lunch ends");
 });
+
+test("create, check, edit, and delete a schedule in the unified editor", async ({
+  page,
+}) => {
+  await page.goto("/schedules/new");
+  const outcome = page.getByRole("complementary", {
+    name: "Schedule outcome",
+  });
+  await expect(outcome).toBeVisible();
+  // Nothing is checked until the draft can be.
+  await expect(
+    outcome.getByText(
+      "Choose a presentation and at least one target to check this schedule.",
+    ),
+  ).toBeVisible();
+
+  // The editor is a workspace: the form scrolls on its own beside the outcome
+  // pane, and the page does not (the shell's 16 px inset margin is the only
+  // slack), so the header and the pane stay in view.
+  const overflow = await page.evaluate(
+    () => document.scrollingElement!.scrollHeight - window.innerHeight,
+  );
+  expect(overflow).toBeLessThanOrEqual(16);
+  const formViewport = page.locator("[data-slot=scroll-area-viewport]").first();
+  expect(
+    await formViewport.evaluate((el) => el.scrollHeight > el.clientHeight),
+  ).toBe(true);
+
+  await page.getByLabel("Name", { exact: true }).fill("Browser schedule");
+  await page
+    .getByRole("button", { name: "Choose a Playlist or Layout" })
+    .click();
+  const picker = page.getByRole("dialog", { name: "Choose presentation" });
+  await picker.getByRole("button", { name: /Morning Announcements/ }).click();
+  await picker.getByRole("button", { name: "Use this presentation" }).click();
+  await page.getByRole("combobox", { name: "Add targets" }).click();
+  await page.getByRole("option", { name: /Cafeteria Displays/ }).click();
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("button", { name: "Remove Cafeteria Displays" }),
+  ).toBeVisible();
+
+  // One aggregate answer covers every screen in the Display Group.
+  await expect(outcome.getByText(/Checked for|Running now/)).toBeVisible();
+  await expect(outcome.getByText(/\d+ screens?$/).first()).toBeVisible();
+  await expect(outcome.getByText("Checking…")).toBeHidden();
+
+  await page.getByRole("button", { name: "Create schedule" }).click();
+  await expect(page).toHaveURL(/\/schedules\/[0-9a-f-]+$/);
+  const scheduleId = new URL(page.url()).pathname.split("/").at(-1)!;
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  const created = (
+    await (await page.request.get(`/api/v1/schedules/${scheduleId}`)).json()
+  ).data;
+  expect(created).toMatchObject({
+    name: "Browser schedule",
+    type: "weekly",
+    enabled: true,
+    priority: 0,
+  });
+
+  // An edit is not saved until Save is used, and undoing it is clean again.
+  const name = page.getByLabel("Name", { exact: true });
+  await name.press("End");
+  await name.pressSequentially("!");
+  await expect(page.getByText("Unsaved", { exact: true })).toBeVisible();
+  await name.press("Backspace");
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: /Conflict handling/ }).click();
+  await page.getByRole("radio", { name: /Important/ }).click();
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  const updated = (
+    await (await page.request.get(`/api/v1/schedules/${scheduleId}`)).json()
+  ).data;
+  expect(updated.priority).toBe(100);
+
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Delete schedule" }).click();
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm).toContainText("Delete “Browser schedule”?");
+  await confirm.getByRole("button", { name: "Delete schedule" }).click();
+  await expect(page).toHaveURL(/\/schedules$/);
+  const gone = await page.request.get(`/api/v1/schedules/${scheduleId}`);
+  expect(gone.status()).toBe(404);
+});

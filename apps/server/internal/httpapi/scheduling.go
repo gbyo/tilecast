@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -489,6 +490,102 @@ func (s *server) previewSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 	x, e := s.scheduling.Preview(r.Context(), b.ScreenID, at, b.Proposed)
 	s.scheduleResponse(w, r, x, e, http.StatusOK)
+}
+
+// preflightSchedule inspects a draft schedule across every screen it targets.
+// It is read-only, so a viewer can read it too; target scope and presentation
+// checks are the ones a save applies.
+func (s *server) preflightSchedule(w http.ResponseWriter, r *http.Request) {
+	var b struct {
+		ScheduleID *uuid.UUID       `json:"scheduleId"`
+		Proposed   scheduling.Input `json:"proposedSchedule"`
+	}
+	if e := decodeJSON(w, r, &b); e != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
+		return
+	}
+	screens, groups := scheduleTargetIDs(b.Proposed.Targets)
+	if !s.authorizeScreenList(w, r, screens, groups) {
+		return
+	}
+	if err := s.validateSchedulePresentation(r, b.Proposed); err != nil {
+		s.writePlaylistError(w, r, err)
+		return
+	}
+	x, e := s.scheduling.Preflight(r.Context(), b.ScheduleID, b.Proposed)
+	if e == nil {
+		principal, ok := principalOf(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+			return
+		}
+		if e = s.redactHiddenSchedules(r.Context(), principal.User.ID, principal.User.Role, &x); e != nil {
+			s.internalError(w, r, e)
+			return
+		}
+	}
+	s.scheduleResponse(w, r, x, e, http.StatusOK)
+}
+
+// redactHiddenSchedules applies the visibility rule of the schedule list to
+// the schedules a preflight names. A scoped account sees a schedule only when
+// every one of its targets is inside that scope. A schedule it may not see
+// keeps its counts and reasons but loses its name and ID, so the check cannot
+// reveal what runs on screens the account cannot reach.
+func (s *server) redactHiddenSchedules(ctx context.Context, user uuid.UUID, role string, result *scheduling.PreflightResult) error {
+	scoped, err := s.devices.Scoped(ctx, user, role)
+	if err != nil || !scoped {
+		return err
+	}
+	type verdict struct {
+		hidden bool
+		alias  uuid.UUID
+	}
+	known := map[uuid.UUID]verdict{}
+	check := func(id uuid.UUID) (verdict, error) {
+		if v, ok := known[id]; ok {
+			return v, nil
+		}
+		record, err := s.scheduling.Get(ctx, id)
+		if errors.Is(err, scheduling.ErrNotFound) {
+			// Removed since the check read it; nothing left to reveal.
+			known[id] = verdict{hidden: true, alias: uuid.New()}
+			return known[id], nil
+		}
+		if err != nil {
+			return verdict{}, err
+		}
+		screens, groups := scheduleTargetIDs(record.Targets)
+		allowed, err := s.screenTargetsWithinScope(ctx, user, role, screens, groups)
+		if err != nil {
+			return verdict{}, err
+		}
+		known[id] = verdict{hidden: !allowed, alias: uuid.New()}
+		return known[id], nil
+	}
+	for i := range result.Competitors {
+		v, err := check(result.Competitors[i].ScheduleID)
+		if err != nil {
+			return err
+		}
+		if v.hidden {
+			result.Competitors[i].ScheduleID, result.Competitors[i].Name = v.alias, ""
+		}
+	}
+	for i := range result.Screens {
+		if result.Screens[i].WinnerScheduleID == nil {
+			continue
+		}
+		v, err := check(*result.Screens[i].WinnerScheduleID)
+		if err != nil {
+			return err
+		}
+		if v.hidden {
+			alias := v.alias
+			result.Screens[i].WinnerScheduleID, result.Screens[i].WinnerName = &alias, ""
+		}
+	}
+	return nil
 }
 func (s *server) scheduleResponse(w http.ResponseWriter, r *http.Request, x any, e error, status int) {
 	if e != nil {
