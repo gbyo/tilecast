@@ -232,7 +232,7 @@ func TestPluginStoreMarketplaceError(t *testing.T) {
 		if marketplace["configured"] != true || marketplace["stale"] != true {
 			t.Fatalf("marketplace status = %v", marketplace)
 		}
-		if marketplace["error"] != "catalog unreachable" {
+		if marketplace["error"] != "The marketplace catalog cache could not be read." {
 			t.Fatalf("marketplace error = %v", marketplace["error"])
 		}
 	})
