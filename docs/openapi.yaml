@@ -11518,6 +11518,7 @@ components:
                 color,
                 date,
                 datetime,
+                local_datetime,
                 timezone,
                 currency_code,
                 url,
@@ -11525,6 +11526,7 @@ components:
                 data_source_field,
                 media_asset,
                 repeating_group,
+                string_list,
               ],
           }
         required: { type: boolean }
@@ -11550,6 +11552,19 @@ components:
           additionalProperties: true
           type: object
           description: Release-owned authoring hints of any JSON shape.
+    ContentDefinitionAuthoring:
+      type: object
+      additionalProperties: false
+      description: Studio authoring capabilities. They never change validation, projection, or playback.
+      required: [preview]
+      properties:
+        preview:
+          type: object
+          additionalProperties: false
+          properties:
+            time:
+              type: boolean
+              description: The rendered result depends on the current instant, so Studio offers preview-time controls.
     ContentDefinitionConfigurationSchema:
       type: object
       additionalProperties: false
@@ -11713,6 +11728,7 @@ components:
           { $ref: "#/components/schemas/ContentDefinitionWebIntegration" }
         deprecation:
           { $ref: "#/components/schemas/ContentDefinitionDeprecation" }
+        authoring: { $ref: "#/components/schemas/ContentDefinitionAuthoring" }
         component: { $ref: "#/components/schemas/ContentDefinitionComponent" }
         compatibility:
           { $ref: "#/components/schemas/ContentDefinitionCompatibility" }

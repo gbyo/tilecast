@@ -185,6 +185,24 @@ export const widgetManifestSchema = z
     requiresManifestV13: z.boolean().optional(),
     setup: z.record(z.string(), jsonValue).optional(),
     deprecation: z.record(z.string(), jsonValue),
+    authoring: z
+      .object({
+        preview: z
+          .object({
+            time: z
+              .boolean()
+              .optional()
+              .describe(
+                "The rendered result depends on the current instant, so Studio offers preview-time controls.",
+              ),
+          })
+          .strict(),
+      })
+      .strict()
+      .optional()
+      .describe(
+        "Studio authoring capabilities. They never change validation, projection, or playback.",
+      ),
     component: componentSchema,
     compatibility: z
       .object({

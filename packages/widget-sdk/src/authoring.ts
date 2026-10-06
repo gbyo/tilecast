@@ -1,14 +1,15 @@
 /**
- * Config-authoring metadata for V2 Widget manifests
- * (docs/widgets-v2-authoring-and-first-wave.md).
+ * Config-authoring metadata for Widget definitions
+ * (docs/widget-authoring.md).
  *
- * The manifest's `configurationSchema` fields may carry a small `ui` object
- * with the hints the generic Studio inspector needs: which section a
- * control belongs to, its order, when it is visible, whether a select
- * renders as visual style cards, and which semantic field it suggests.
- * Everything else (control type, label, help text, compatible Data Source
- * kinds) already lives on the field itself. Studio renders one generic
- * inspector from this metadata; Widgets never get one-off React editors.
+ * A definition's `configurationSchema` fields may carry a small `ui` object
+ * with the hints the Studio inspector needs: which section a control
+ * belongs to, its order, when it is visible, whether a select renders as
+ * visual choices, whether a bounded number is better as a slider, whether
+ * a rare setting belongs under Advanced, and which semantic field it
+ * suggests. Everything else (control type, label, help text, compatible
+ * Data Source kinds) already lives on the field itself. Studio renders one
+ * inspector from this metadata; Widgets never get their own React editors.
  */
 
 export type WidgetAuthoringSection =
@@ -37,8 +38,12 @@ export interface WidgetAuthoringUi {
   readonly order?: number;
   /** One rule, or a list of rules that must all match. */
   readonly visibleWhen?: WidgetVisibleWhen | readonly WidgetVisibleWhen[];
-  /** Render a select's options as visual cards instead of a dropdown. */
+  /** Render a select's options as visible choices instead of a dropdown. */
   readonly styleCard?: boolean;
+  /** Render a bounded number or integer as a slider beside its input. */
+  readonly slider?: boolean;
+  /** A rarely changed setting, shown under the section's Advanced group. */
+  readonly advanced?: boolean;
   /** The semantic field role this control suggests, if any. */
   readonly semanticRole?: string;
   /**
@@ -70,6 +75,8 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
     order?: number;
     visibleWhen?: WidgetVisibleWhen | readonly WidgetVisibleWhen[];
     styleCard?: boolean;
+    slider?: boolean;
+    advanced?: boolean;
     semanticRole?: string;
     legacyKeys?: readonly string[];
     hidden?: boolean;
@@ -101,6 +108,8 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
     out.visibleWhen = visibleWhen as WidgetVisibleWhen[];
   }
   if (record["styleCard"] === true) out.styleCard = true;
+  if (record["slider"] === true) out.slider = true;
+  if (record["advanced"] === true) out.advanced = true;
   if (record["hidden"] === true) out.hidden = true;
   if (typeof record["semanticRole"] === "string") {
     out.semanticRole = record["semanticRole"];

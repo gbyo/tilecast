@@ -23,6 +23,8 @@ export type ConfirmRequest = {
   title: string;
   body?: ReactNode;
   action?: string;
+  /** The dismissing choice. "Cancel" by default. */
+  cancel?: string;
   destructive?: boolean;
 };
 
@@ -65,7 +67,7 @@ export function useConfirm() {
                   actions: [
                     {
                       id: "cancel",
-                      label: t("actions.cancel"),
+                      label: request.cancel ?? t("actions.cancel"),
                       role: "cancel",
                     },
                     {
@@ -139,7 +141,7 @@ export function useConfirm() {
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => pending && settle(pending, false)}>
-            {t("actions.cancel")}
+            {pending?.request.cancel ?? t("actions.cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             className={

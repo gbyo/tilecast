@@ -4,6 +4,11 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router";
 import { SidebarProvider } from "../ui/sidebar";
+import {
+  EditorHeaderProvider,
+  useEditorHeaderRename,
+  useEditorHeaderTitle,
+} from "./EditorHeaderSlots";
 import { SiteHeader, type StudioBreadcrumb } from "./SiteHeader";
 
 afterEach(cleanup);
@@ -59,5 +64,39 @@ describe("SiteHeader", () => {
     expect(
       screen.getByRole("button", { name: /Search Tilecast/ }),
     ).toBeTruthy();
+  });
+
+  it("shows an editor's draft name in the last breadcrumb only", async () => {
+    function Draft({ title }: { title: string }) {
+      useEditorHeaderTitle(title);
+      useEditorHeaderRename(() => {});
+      return null;
+    }
+    const breadcrumbs = [
+      { label: "Widgets", to: "/widgets" },
+      { label: "Create widget", to: "/widgets/new/countdown" },
+    ];
+    const view = render(
+      <MemoryRouter>
+        <SidebarProvider>
+          <EditorHeaderProvider>
+            <SiteHeader
+              editor
+              breadcrumbs={breadcrumbs}
+              notifications={{ count: 0, items: [], topPriority: null }}
+              onSearch={() => {}}
+            />
+            <Draft title="New Countdown" />
+          </EditorHeaderProvider>
+        </SidebarProvider>
+      </MemoryRouter>,
+    );
+    const nav = screen.getByRole("navigation", { name: "breadcrumb" });
+    expect(
+      await screen.findByRole("button", { name: "New Countdown" }),
+    ).toBeTruthy();
+    expect(nav.querySelector("a")?.textContent).toBe("Widgets");
+    expect(breadcrumbs[1]!.label).toBe("Create widget");
+    view.unmount();
   });
 });

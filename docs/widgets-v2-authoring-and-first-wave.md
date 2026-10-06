@@ -1,6 +1,8 @@
 # Widgets V2 authoring and first-wave migration
 
-**Status:** accepted implementation plan.
+**Status:** accepted implementation plan. The editor parts of this plan are
+complete and are superseded by [Widget authoring](widget-authoring.md), which
+is the current contract.
 
 This document defines the first major Widgets V2 migration after the Clock
 foundation. It covers the Studio Widget authoring redesign, the move from
@@ -1204,23 +1206,12 @@ platform support/migration policy allows it.
 
 The new editor and real preview land before the first-wave visual redesigns.
 
-### 10.1 Transitional routing
+### 10.1 Routing
 
-During migration:
-
-```text
-V2 definition
-  -> V2WidgetEditor
-  -> WidgetPreviewHost / WidgetMount
-
-legacy definition
-  -> current editor
-  -> current compatibility preview
-```
-
-Do not add new provider branches to `NativeAppEditor`.
-
-Every migrated provider removes one old editor branch.
+The migration is complete. Studio has one Widget editor for every Widget type.
+[Widget authoring](widget-authoring.md) defines the editor and the authoring
+contract. A definition that does not satisfy the contract opens an unsupported
+state. Studio has no transitional or fallback editor.
 
 ### 10.2 Delete duplicate preview code as families migrate
 
@@ -1247,14 +1238,15 @@ at different geometries, so the thumbnail must be its own real render.
 Distinguish failure from emptiness. A Widget with no connected source, or
 with a source that returns a valid empty dataset, keeps its defined empty
 state and stays capturable. A granted connected source that cannot be
-loaded is a preview error: it blocks save and capture, and it is never
-stored as a blank Widget.
+loaded is a preview error. It blocks capture, and it is never stored as a
+blank Widget. It does not block a save.
 
 Do not capture while source previews are loading.
 
-The V2 editor waits for the organization regional profile to load before it
-enables Save or starts a thumbnail capture. Do not use the temporary locale
-and timezone fallbacks in a stored thumbnail.
+The editor captures the thumbnail after the Server accepts a save, from the
+saved Widget (see [Widget authoring](widget-authoring.md#thumbnails)). The
+capture waits for the organization regional profile. Do not use the temporary
+locale and timezone fallbacks in a stored thumbnail.
 
 When a content manager opens the Widgets library, Studio discovers capture
 candidates with sequential, unfiltered pages. Process at most one Widget

@@ -26,7 +26,6 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { signalColors } from "@tilecast/design-tokens/values";
 import {
   useEffect,
   useMemo,
@@ -36,6 +35,7 @@ import {
   type DragEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import { useConfirm } from "../components/ConfirmDialog";
 import {
   presentationPath,
@@ -77,12 +77,6 @@ import { AspectRatio } from "../components/ui/aspect-ratio";
 import { Button } from "../components/ui/button";
 import { Checkbox } from "../components/ui/checkbox";
 import { DateTimeInput } from "../components/date-picker";
-import {
-  Collapsible,
-  CollapsibleChevron,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "../components/studio/StudioCollapsible";
 import {
   ActionContextMenu,
   ActionMenuButton,
@@ -149,7 +143,6 @@ import {
 import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
-import { Switch } from "../components/ui/switch";
 import { Textarea } from "../components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import type {
@@ -157,17 +150,11 @@ import type {
   AssetStatus,
   BulkOrganizeInput,
   User,
-  WebsiteInput,
   ContentFolder,
   ContentCollection,
   ContentTag,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
-import { FallbackImagePicker } from "../content/FallbackImagePicker";
-import { EditorHeaderActions } from "../content/EditorHeaderActions";
-import { useNavigationWarning } from "../settings/useNavigationWarning";
-import { YouTubeSourceEditor } from "../content/SourceEditors";
-import { V2WidgetEditor } from "../content/V2WidgetEditor";
 import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
 import { UsedByPanel } from "../content/UsedByPanel";
@@ -311,6 +298,7 @@ export function ContentPage() {
   const locale = useFormatLocale();
   const { t: tErrors } = useTranslation("errors");
   const auth = useAuth();
+  const navigate = useNavigate();
   const canManage = canManageContent(auth.status?.user);
   const csrf = auth.status?.csrfToken ?? "";
   const queryClient = useQueryClient();
@@ -479,18 +467,23 @@ export function ContentPage() {
     setCollectionFilter("");
     setTagFilter("");
   };
-  // A native host shows a media asset's details in its own sheet. Widgets
-  // and websites edit in Studio, and a browser always uses the Sheet or
-  // Drawer.
+  // A native host shows a media asset's details in its own sheet, and a
+  // browser always uses the Sheet or Drawer.
   const openAssetDetails = async (asset: Asset) => {
+    // A Widget has one editor; Media sends it there and back.
+    if (asset.type === "widget") {
+      void navigate(
+        `/widgets/${asset.id}?returnTo=${encodeURIComponent("/assets")}`,
+      );
+      return;
+    }
     if (
-      asset.type !== "widget" &&
-      (await openNativePresentation({
+      await openNativePresentation({
         path: presentationPath("asset", asset.id),
         title: asset.name,
         subtitle: t("media.details.eyebrow"),
         size: "compact",
-      }))
+      })
     ) {
       return;
     }
@@ -2274,52 +2267,9 @@ function AssetDetails(props: {
   onOpenChangeComplete: (open: boolean) => void;
   onChanged: (asset: Asset) => void;
 }) {
-  const definitions = useQuery({
-    ...contentQueries.definitions(),
-    staleTime: 5 * 60_000,
-  });
-  const definition =
-    props.asset.type === "widget" && props.asset.widget
-      ? definitions.data?.widgets.find(
-          (candidate) => candidate.id === props.asset.widget?.provider,
-        )
-      : undefined;
-  return props.asset.type === "widget" &&
-    props.asset.widget?.provider === "website" ? (
-    <WebsiteEditor
-      asset={props.asset}
-      csrf={props.csrf}
-      readOnly={!props.canManage}
-      onClose={props.onDismiss}
-      onSaved={props.onChanged}
-    />
-  ) : props.asset.type === "widget" &&
-    props.asset.widget &&
-    definition?.component ? (
-    // Migrated V2 Widgets author through the generic V2 editor wherever
-    // content is edited; component presence is the routing rule, matching
-    // the Widgets page.
-    <V2WidgetEditor
-      definition={definition}
-      catalog={definitions.data}
-      asset={props.asset}
-      csrf={props.csrf}
-      readOnly={!props.canManage}
-      onClose={props.onDismiss}
-      onSaved={props.onChanged}
-    />
-  ) : props.asset.type === "widget" &&
-    props.asset.widget?.provider === "youtube" ? (
-    <YouTubeSourceEditor
-      asset={props.asset}
-      csrf={props.csrf}
-      readOnly={!props.canManage}
-      onClose={props.onDismiss}
-      onSaved={props.onChanged}
-    />
-  ) : (
-    <MediaAssetDetails {...props} />
-  );
+  // Widgets edit in the Widget editor; an archived Widget only shows its
+  // details here, where it can be restored.
+  return <MediaAssetDetails {...props} />;
 }
 export function AssetOrganization({
   asset,
@@ -2844,587 +2794,5 @@ function MediaAssetDetails({
         {archiveConfirmation}
       </DrawerContent>
     </Drawer>
-  );
-}
-
-const defaultWebsite: WebsiteInput = {
-  name: "",
-  description: "",
-  url: "https://",
-  allowedHosts: [],
-  javascriptEnabled: true,
-  domStorageEnabled: true,
-  cookiePolicy: "first_party",
-  reloadPolicy: "on_each_activation",
-  loadTimeoutSeconds: 20,
-  zoomPercent: 100,
-  scrollX: 0,
-  scrollY: 0,
-  customUserAgent: "",
-  backgroundColor: signalColors.playerBackground,
-  failureBehavior: "placeholder",
-};
-export function WebsiteEditor({
-  asset,
-  csrf,
-  readOnly = false,
-  onClose,
-  onSaved,
-  page = false,
-}: {
-  asset?: Asset;
-  csrf: string;
-  readOnly?: boolean;
-  onClose: () => void;
-  onSaved: (asset: Asset) => void;
-  page?: boolean;
-}) {
-  const { t } = useTranslation(["content", "common"]);
-  const locale = useFormatLocale();
-  const initial: WebsiteInput = asset?.website
-    ? {
-        name: asset.name,
-        description: asset.description,
-        url: asset.website.url,
-        allowedHosts: asset.website.allowedHosts,
-        javascriptEnabled: asset.website.javascriptEnabled,
-        domStorageEnabled: asset.website.domStorageEnabled,
-        cookiePolicy: asset.website.cookiePolicy,
-        reloadPolicy: asset.website.reloadPolicy,
-        refreshIntervalSeconds: asset.website.refreshIntervalSeconds,
-        loadTimeoutSeconds: asset.website.loadTimeoutSeconds,
-        zoomPercent: asset.website.zoomPercent,
-        scrollX: asset.website.scrollX,
-        scrollY: asset.website.scrollY,
-        customUserAgent: asset.website.customUserAgent,
-        backgroundColor: asset.website.backgroundColor,
-        failureBehavior: asset.website.failureBehavior,
-        fallbackImageAssetId: asset.website.fallbackImageAssetId,
-      }
-    : defaultWebsite;
-  const [input, setInput] = useState(initial),
-    [dirty, setDirty] = useState(false);
-  const set = <K extends keyof WebsiteInput>(
-    key: K,
-    value: WebsiteInput[K],
-  ) => {
-    setInput((current) => ({ ...current, [key]: value }));
-    setDirty(true);
-  };
-  // The host navigates synchronously inside onSaved, so the post-save
-  // departure consumes a pass instead of racing the dirty reset.
-  const departing = useRef(false);
-  const navigationDialog = useNavigationWarning({
-    dirty,
-    title: t("media.website.discardTitle"),
-    body: t("media.website.discardDescription"),
-    shouldBlock: () => {
-      if (departing.current) {
-        departing.current = false;
-        return false;
-      }
-      return true;
-    },
-  });
-  const diagnostics = useQuery({
-    queryKey: ["assets", asset?.id, "website-diagnostics"],
-    queryFn: () => api.websiteDiagnostics(asset!.id),
-    enabled: !!asset,
-  });
-  const save = useMutation({
-    mutationFn: () => {
-      const { name, description, ...configuration } = input;
-      const sourceInput = {
-        provider: "website" as const,
-        name,
-        description,
-        configuration,
-      };
-      return asset
-        ? api.updateWidget(asset.id, sourceInput, csrf)
-        : api.createWidget(sourceInput, csrf);
-    },
-    onSuccess: (value) => {
-      toast.add({
-        title: asset ? "Website App updated." : "Website App created.",
-        type: "success",
-      });
-      setDirty(false);
-      departing.current = true;
-      onSaved(value);
-    },
-  });
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const [confirmDeleteWebsite, setConfirmDeleteWebsite] = useState(false);
-  const requestClose = () => {
-    if (dirty) setConfirmDiscard(true);
-    else onClose();
-  };
-  const title = asset
-    ? t("media.website.editTitle")
-    : t("media.website.createTitle");
-  const subtitle = t("media.website.subtitle");
-  const form = (
-    <div className="grid gap-4">
-      <Field>
-        <FieldLabel htmlFor="website-name">
-          {t("media.details.nameField")}
-        </FieldLabel>
-        <Input
-          id="website-name"
-          disabled={readOnly}
-          value={input.name}
-          onChange={(event) => set("name", event.target.value)}
-        />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="website-description">
-          {t("media.details.descriptionField")}
-        </FieldLabel>
-        <Textarea
-          id="website-description"
-          disabled={readOnly}
-          value={input.description}
-          onChange={(event) => set("description", event.target.value)}
-        />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="website-url">
-          {t("media.website.urlField")}
-        </FieldLabel>
-        <Input
-          id="website-url"
-          disabled={readOnly}
-          value={input.url}
-          onChange={(event) => set("url", event.target.value)}
-        />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="website-reload">
-          {t("media.website.reloadPolicy")}
-        </FieldLabel>
-        <FilterSelect
-          id="website-reload"
-          label={t("media.website.reloadPolicy")}
-          disabled={readOnly}
-          value={input.reloadPolicy}
-          onChange={(value) =>
-            set("reloadPolicy", value as WebsiteInput["reloadPolicy"])
-          }
-          options={[
-            { value: "load_once", label: t("media.website.reloadOnce") },
-            {
-              value: "on_each_activation",
-              label: t("media.website.reloadEach"),
-            },
-            { value: "interval", label: t("media.website.reloadInterval") },
-          ]}
-        />
-      </Field>
-      {input.reloadPolicy === "interval" && (
-        <Field>
-          <FieldLabel htmlFor="website-refresh">
-            {t("media.website.refreshInterval")}
-          </FieldLabel>
-          <Input
-            id="website-refresh"
-            disabled={readOnly}
-            type="number"
-            min={30}
-            value={input.refreshIntervalSeconds ?? 30}
-            onChange={(event) =>
-              set("refreshIntervalSeconds", Number(event.target.value))
-            }
-          />
-        </Field>
-      )}
-      <Field>
-        <FieldLabel htmlFor="website-failure">
-          {t("media.website.failureBehavior")}
-        </FieldLabel>
-        <FilterSelect
-          id="website-failure"
-          label={t("media.website.failureBehavior")}
-          disabled={readOnly}
-          value={input.failureBehavior}
-          onChange={(value) =>
-            set("failureBehavior", value as WebsiteInput["failureBehavior"])
-          }
-          options={[
-            {
-              value: "placeholder",
-              label: t("media.website.failPlaceholder"),
-            },
-            {
-              value: "last_success",
-              label: t("media.website.failLastPage"),
-            },
-            {
-              value: "fallback_image",
-              label: t("media.website.failFallback"),
-            },
-            { value: "skip", label: t("media.website.failSkip") },
-          ]}
-        />
-      </Field>
-      <Field>
-        <FieldLabel htmlFor="website-fallback">
-          {t("media.website.fallbackImage")}
-        </FieldLabel>
-        <FallbackImagePicker
-          id="website-fallback"
-          label={t("media.website.fallbackImage")}
-          value={input.fallbackImageAssetId}
-          onChange={(next) => set("fallbackImageAssetId", next)}
-          disabled={readOnly}
-          csrf={csrf}
-          noneLabel={t("media.website.noneOption")}
-          clearLabel={t("common:actions.remove")}
-          pickerTitle={t("widgets.editors.shared.fallbackPickerTitle")}
-          pickerDescription={t(
-            "widgets.editors.shared.fallbackPickerDescription",
-          )}
-          pickerConfirm={t("common:actions.confirm")}
-        />
-      </Field>
-      <Collapsible>
-        <CollapsibleTrigger className="flex cursor-pointer items-center gap-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          {t("media.website.advancedSettings")}
-          <CollapsibleChevron size={16} />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="grid gap-4 pt-3">
-          <Field>
-            <FieldLabel htmlFor="website-hosts">
-              {t("media.website.allowedHostsField")}
-            </FieldLabel>
-            <Input
-              id="website-hosts"
-              disabled={readOnly}
-              value={input.allowedHosts.join(", ")}
-              onChange={(event) =>
-                set(
-                  "allowedHosts",
-                  event.target.value
-                    .split(",")
-                    .map((entry) => entry.trim())
-                    .filter(Boolean),
-                )
-              }
-            />
-            <p className="text-sm text-muted-foreground">
-              {t("media.website.allowedHostsHint")}
-            </p>
-          </Field>
-          <Field orientation="horizontal">
-            <Switch
-              id="website-js"
-              aria-label={t("media.website.javascriptEnabled")}
-              disabled={readOnly}
-              checked={input.javascriptEnabled}
-              onCheckedChange={(checked) => set("javascriptEnabled", checked)}
-            />
-            <FieldLabel htmlFor="website-js">
-              {t("media.website.javascriptEnabled")}
-            </FieldLabel>
-          </Field>
-          <Field orientation="horizontal">
-            <Switch
-              id="website-dom"
-              aria-label={t("media.website.domStorage")}
-              disabled={readOnly}
-              checked={input.domStorageEnabled}
-              onCheckedChange={(checked) => set("domStorageEnabled", checked)}
-            />
-            <FieldLabel htmlFor="website-dom">
-              {t("media.website.domStorage")}
-            </FieldLabel>
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="website-cookies">
-              {t("media.website.cookies")}
-            </FieldLabel>
-            <FilterSelect
-              id="website-cookies"
-              label={t("media.website.cookies")}
-              disabled={readOnly}
-              value={input.cookiePolicy}
-              onChange={(value) =>
-                set("cookiePolicy", value as WebsiteInput["cookiePolicy"])
-              }
-              options={[
-                {
-                  value: "disabled",
-                  label: t("media.website.cookiesDisabled"),
-                },
-                {
-                  value: "first_party",
-                  label: t("media.website.cookiesFirstParty"),
-                },
-                {
-                  value: "first_and_third_party",
-                  label: t("media.website.cookiesAll"),
-                },
-              ]}
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="website-timeout">
-              {t("media.website.loadTimeout")}
-            </FieldLabel>
-            <Input
-              id="website-timeout"
-              disabled={readOnly}
-              type="number"
-              min={1}
-              max={120}
-              value={input.loadTimeoutSeconds}
-              onChange={(event) =>
-                set("loadTimeoutSeconds", Number(event.target.value))
-              }
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="website-zoom">
-              {t("media.website.zoom")}
-            </FieldLabel>
-            <Input
-              id="website-zoom"
-              disabled={readOnly}
-              type="number"
-              min={50}
-              max={200}
-              value={input.zoomPercent}
-              onChange={(event) =>
-                set("zoomPercent", Number(event.target.value))
-              }
-            />
-          </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="website-scroll-x">
-                {t("media.website.scrollX")}
-              </FieldLabel>
-              <Input
-                id="website-scroll-x"
-                disabled={readOnly}
-                type="number"
-                min={0}
-                value={input.scrollX}
-                onChange={(event) => set("scrollX", Number(event.target.value))}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="website-scroll-y">
-                {t("media.website.scrollY")}
-              </FieldLabel>
-              <Input
-                id="website-scroll-y"
-                disabled={readOnly}
-                type="number"
-                min={0}
-                value={input.scrollY}
-                onChange={(event) => set("scrollY", Number(event.target.value))}
-              />
-            </Field>
-          </div>
-          <Field>
-            <FieldLabel htmlFor="website-agent">
-              {t("media.website.userAgent")}
-            </FieldLabel>
-            <Input
-              id="website-agent"
-              disabled={readOnly}
-              maxLength={512}
-              value={input.customUserAgent}
-              onChange={(event) => set("customUserAgent", event.target.value)}
-            />
-            <p className="text-sm text-muted-foreground">
-              {t("media.website.userAgentHint")}
-            </p>
-          </Field>
-        </CollapsibleContent>
-      </Collapsible>
-      {diagnostics.data && (
-        <section
-          className="grid gap-1 text-sm"
-          aria-label={t("media.website.diagnosticsTitle")}
-        >
-          <h3 className="text-sm font-medium">
-            {t("media.website.diagnosticsTitle")}
-          </h3>
-          <p className="text-muted-foreground">
-            {t("media.website.diagHosts", {
-              value: diagnostics.data.allowedHosts.join(", "),
-            })}
-          </p>
-          <p className="text-muted-foreground">
-            {t("media.website.diagLastLoad", {
-              value: diagnostics.data.lastSuccessfulLoad
-                ? new Date(diagnostics.data.lastSuccessfulLoad).toLocaleString(
-                    locale,
-                  )
-                : t("media.website.notReported"),
-            })}
-          </p>
-          <p className="text-muted-foreground">
-            {t("media.website.diagLastFailure", {
-              value:
-                diagnostics.data.lastFailureCategory ??
-                t("media.website.notReported"),
-            })}
-          </p>
-          <p className="text-muted-foreground">
-            {t("media.website.diagScreens", {
-              value:
-                diagnostics.data.reportingScreens
-                  .map((screen) => `${screen.name} (${screen.state})`)
-                  .join(", ") || t("media.website.noneValue"),
-            })}
-          </p>
-        </section>
-      )}
-      {save.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{apiErrorMessage(save.error)}</AlertDescription>
-        </Alert>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        {!readOnly && !page && (
-          <Button disabled={save.isPending} onClick={() => save.mutate()}>
-            {save.isPending && <Spinner aria-hidden="true" />}
-            {t("media.website.save")}
-          </Button>
-        )}
-        <Button variant="outline" onClick={requestClose}>
-          {t("common:actions.cancel")}
-        </Button>
-        {asset && !readOnly && (
-          <Button
-            variant="destructive"
-            onClick={() => setConfirmDeleteWebsite(true)}
-          >
-            {t("media.website.deleteWebsite")}
-          </Button>
-        )}
-      </div>
-      <AlertDialog open={confirmDiscard} onOpenChange={setConfirmDiscard}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("media.website.discardTitle")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("media.website.discardDescription")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t("media.website.keepEditing")}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={onClose}>
-              {t("media.website.discardChanges")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      <AlertDialog
-        open={confirmDeleteWebsite}
-        onOpenChange={setConfirmDeleteWebsite}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("media.manage.deleteTitle", { name: asset?.name ?? "" })}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("media.dialog.cannotUndo")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t("media.website.keepWebsite")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (asset)
-                  void api.deleteAsset(asset.id, csrf).then(
-                    () => {
-                      toast.add({
-                        title: t("media.website.deleted"),
-                        type: "success",
-                      });
-                      onClose();
-                    },
-                    (error: unknown) => {
-                      toast.add({
-                        title: t("media.website.deleteFailed"),
-                        description: apiErrorMessage(error),
-                        type: "error",
-                      });
-                    },
-                  );
-              }}
-            >
-              {t("media.website.deleteWebsite")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      {navigationDialog}
-    </div>
-  );
-  if (page) {
-    return (
-      <section className="w-full min-w-0 space-y-5" aria-label={title}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold">{title}</h1>
-            <p className="text-sm text-muted-foreground">{subtitle}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {!readOnly && (
-              <EditorHeaderActions
-                dirty={dirty}
-                dirtyLabel={t("widgets.editors.v2.unsaved")}
-                onSave={() => save.mutate()}
-                saveDisabled={save.isPending}
-                saveLabel={
-                  <>
-                    {save.isPending && <Spinner aria-hidden="true" />}
-                    {t("media.website.save")}
-                  </>
-                }
-              />
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={t("common:actions.close")}
-              onClick={requestClose}
-            >
-              <X aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-        {form}
-      </section>
-    );
-  }
-  return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) requestClose();
-      }}
-    >
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{subtitle}</DialogDescription>
-        </DialogHeader>
-        {form}
-      </DialogContent>
-    </Dialog>
   );
 }

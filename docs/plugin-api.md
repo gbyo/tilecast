@@ -92,7 +92,10 @@ Vitest besides relative files inside the plugin; every other plugin
 directory keeps the usual Studio/runtime import rules. `plugins:check`
 validates each nested manifest against the portable Widget schema, and
 `widgets:check` runs the full Widget conformance over the same
-directories.
+directories. A plugin Widget opens in the one Studio Widget editor and uses
+the same configuration controls and authoring hints as a core Widget. A
+plugin cannot contribute a Widget editor; see
+[Widget authoring](widget-authoring.md).
 
 A bundled plugin may own declarative Data Sources beneath
 `data-sources/<source>/`. A nested Data Source is an ordinary declarative

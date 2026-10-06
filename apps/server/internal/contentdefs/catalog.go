@@ -23,7 +23,7 @@ var supportedControls = map[string]bool{
 	"text": true, "multiline_text": true, "number": true, "integer": true,
 	"boolean": true, "select": true, "color": true, "date": true,
 	"datetime": true, "local_datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
-	"data_source_field": true, "media_asset": true, "repeating_group": true,
+	"data_source_field": true, "media_asset": true, "repeating_group": true, "string_list": true,
 }
 
 var supportedNodes = map[string]bool{
@@ -300,10 +300,26 @@ type WidgetDefinition struct {
 	Recipe                    *AppRecipe          `json:"recipe,omitempty"`
 	WebIntegration            *WebIntegration     `json:"webIntegration,omitempty"`
 	Deprecation               Deprecation         `json:"deprecation"`
+	// Authoring carries optional Studio authoring capabilities. It never
+	// changes validation, projection, or playback.
+	Authoring *Authoring `json:"authoring,omitempty"`
 	// Component is the Widget's first-class component (docs/widgets-v2.md),
 	// declared by a Widget module below widgets/.
 	Component     *ComponentSpec `json:"component,omitempty"`
 	Compatibility *Compatibility `json:"compatibility,omitempty"`
+}
+
+// Authoring is the closed set of Studio authoring capabilities a Widget
+// definition may declare (docs/widget-authoring.md).
+type Authoring struct {
+	Preview AuthoringPreview `json:"preview"`
+}
+
+// AuthoringPreview describes what the Studio preview can usefully vary.
+type AuthoringPreview struct {
+	// Time says the rendered result depends on the current instant, so
+	// Studio offers preview-time controls.
+	Time bool `json:"time,omitempty"`
 }
 
 // PersistedConfigVersion returns the version of the stored Widget configuration.
@@ -1000,6 +1016,9 @@ func validateSchemaFields(fields []FieldDefinition) error {
 				return fmt.Errorf("required field %q declares an empty default", field.Key)
 			}
 		}
+		if field.Control == "string_list" && (field.MaximumItems < 1 || field.MaximumItems > 100) {
+			return fmt.Errorf("string list %q has invalid bounds", field.Key)
+		}
 		if field.Control == "repeating_group" {
 			if field.MaximumItems < 1 || field.MaximumItems > 100 {
 				return fmt.Errorf("repeating group %q has invalid bounds", field.Key)
@@ -1146,6 +1165,16 @@ func validateDefaults(schema ConfigurationSchema, defaults map[string]any) error
 		case "repeating_group":
 			if _, ok := value.([]any); !ok {
 				return fmt.Errorf("default %q must be a list", key)
+			}
+		case "string_list":
+			items, ok := value.([]any)
+			if !ok {
+				return fmt.Errorf("default %q must be a list", key)
+			}
+			for _, item := range items {
+				if _, ok := item.(string); !ok {
+					return fmt.Errorf("default %q must be a list of text", key)
+				}
 			}
 		default:
 			if _, ok := value.(string); !ok {

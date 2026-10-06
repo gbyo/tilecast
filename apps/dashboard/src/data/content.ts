@@ -12,6 +12,8 @@ function assetFilters(params: URLSearchParams): string {
 export const contentKeys = {
   assets: ["assets"] as const,
   asset: (id: string) => [...contentKeys.assets, id] as const,
+  websiteDiagnostics: (id: string) =>
+    [...contentKeys.assets, id, "website-diagnostics"] as const,
   assetPages: (params: URLSearchParams) =>
     [...contentKeys.assets, "pages", assetFilters(params)] as const,
   definitions: ["content-definitions"] as const,

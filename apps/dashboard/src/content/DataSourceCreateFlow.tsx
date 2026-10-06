@@ -20,6 +20,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "../components/ui/drawer";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "../components/ui/sheet";
+import { useCompactLayout } from "../hooks/use-compact-layout";
 import { DataSourceEditor } from "./data-sources/dispatcher";
 import {
   galleryDescriptionText,
@@ -280,6 +295,7 @@ export function ConnectDataFlow({
   providers,
   exclude,
   csrf,
+  presentation = "dialog",
   onChooseProvider,
   onBack,
   onClose,
@@ -290,12 +306,19 @@ export function ConnectDataFlow({
   providers?: DataSourceProvider[];
   exclude?: DataSourceProvider[];
   csrf: string;
+  /**
+   * A centered dialog, or a side panel beside the work it serves (a Sheet
+   * on wide screens, a Drawer on compact ones) so an author keeps seeing
+   * the Widget they are connecting data to.
+   */
+  presentation?: "dialog" | "panel";
   onChooseProvider: (provider: DataSourceProvider) => void;
   onBack: () => void;
   onClose: () => void;
   onCreated: (id: string) => void;
 }) {
   const { t } = useTranslation(["content", "common"]);
+  const compact = useCompactLayout();
   const definitions = useDataSourceDefinitions(providers, exclude);
   const definition = definitions.all.find(
     (candidate) => candidate.id === provider,
@@ -318,13 +341,68 @@ export function ConnectDataFlow({
       ?.focus();
   }, [provider]);
   const dialogDescription = t("dataSources.createFlow.connectDescription");
+  const title =
+    provider === undefined
+      ? t("dataSources.createFlow.galleryTitle")
+      : t("dataSources.createFlow.createTitle", {
+          label: dialogLabel,
+        });
+  const body =
+    provider === undefined ? (
+      <DataSourceProviderGallery
+        providers={providers}
+        exclude={exclude}
+        description={dialogDescription}
+        onChoose={onChooseProvider}
+        onClose={onClose}
+      />
+    ) : (
+      <DataSourceCreateShell
+        provider={provider}
+        definition={definition}
+        csrf={csrf}
+        backLabel={t("dataSources.createFlow.backAll")}
+        onClose={onBack}
+        onSaved={(created) => onCreated(created.id)}
+      />
+    );
+  const onOpenChange = (open: boolean) => {
+    if (!open) onClose();
+  };
+  if (presentation === "panel" && compact)
+    return (
+      <Drawer open onOpenChange={onOpenChange}>
+        <DrawerContent
+          ref={dialogContentRef}
+          className="max-h-[calc(100dvh-2rem)]"
+        >
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>{title}</DrawerTitle>
+            <DrawerDescription>{dialogDescription}</DrawerDescription>
+          </DrawerHeader>
+          <div className="min-h-0 overflow-y-auto px-4 pb-4">{body}</div>
+        </DrawerContent>
+      </Drawer>
+    );
+  if (presentation === "panel")
+    return (
+      <Sheet open onOpenChange={onOpenChange}>
+        <SheetContent
+          ref={dialogContentRef}
+          side="right"
+          showCloseButton={provider !== undefined}
+          className="w-full overflow-y-auto p-6 sm:max-w-3xl"
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>{title}</SheetTitle>
+            <SheetDescription>{dialogDescription}</SheetDescription>
+          </SheetHeader>
+          {body}
+        </SheetContent>
+      </Sheet>
+    );
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent
         ref={dialogContentRef}
         showCloseButton={provider !== undefined}
@@ -335,33 +413,10 @@ export function ConnectDataFlow({
         }
       >
         <DialogHeader className="sr-only">
-          <DialogTitle render={<div />}>
-            {provider === undefined
-              ? t("dataSources.createFlow.galleryTitle")
-              : t("dataSources.createFlow.createTitle", {
-                  label: dialogLabel,
-                })}
-          </DialogTitle>
+          <DialogTitle render={<div />}>{title}</DialogTitle>
           <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
-        {provider === undefined ? (
-          <DataSourceProviderGallery
-            providers={providers}
-            exclude={exclude}
-            description={dialogDescription}
-            onChoose={onChooseProvider}
-            onClose={onClose}
-          />
-        ) : (
-          <DataSourceCreateShell
-            provider={provider}
-            definition={definition}
-            csrf={csrf}
-            backLabel={t("dataSources.createFlow.backAll")}
-            onClose={onBack}
-            onSaved={(created) => onCreated(created.id)}
-          />
-        )}
+        {body}
       </DialogContent>
     </Dialog>
   );

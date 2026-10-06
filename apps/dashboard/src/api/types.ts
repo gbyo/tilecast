@@ -1703,7 +1703,8 @@ export type ContentDefinitionField = {
     | "data_source"
     | "data_source_field"
     | "media_asset"
-    | "repeating_group";
+    | "repeating_group"
+    | "string_list";
   required?: boolean;
   default?: unknown;
   minimum?: number;
@@ -1719,9 +1720,9 @@ export type ContentDefinitionField = {
   // it. Required to disambiguate when a definition references more than one Data Source.
   dataSourceKey?: string;
   /**
-   * V2 authoring hints driving the generic Widget inspector: inspector
-   * section, ordering, conditional visibility, visual style-card
-   * presentation, and semantic-field suggestion.
+   * Authoring hints driving the Widget inspector (docs/widget-authoring.md):
+   * section, ordering, conditional visibility, visible-choice and slider
+   * presentation, Advanced grouping, and semantic-field suggestion.
    */
   ui?: {
     section?: "data" | "content" | "appearance" | "behavior";
@@ -1731,6 +1732,8 @@ export type ContentDefinitionField = {
       | { key: string; equals?: unknown; notEquals?: unknown }[];
     hidden?: boolean;
     styleCard?: boolean;
+    slider?: boolean;
+    advanced?: boolean;
     semanticRole?: string;
     legacyKeys?: string[];
   };
@@ -1798,6 +1801,12 @@ export type WidgetDefinition = {
   legacyEditor?: boolean;
   requiresManifestV13?: boolean;
   setup?: ContentDefinitionSetup;
+  /** A release-owned remote web App: where its address lives. */
+  webIntegration?: { urlField: string };
+  /** An App that provisions one managed Data Source when it is saved. */
+  recipe?: { dataSource: { provider: string; name: string } };
+  /** Studio authoring capabilities; they never change playback. */
+  authoring?: { preview?: { time?: boolean } };
 };
 export type ContentDefinitionSetup = {
   eyebrow?: string;

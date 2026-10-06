@@ -74,7 +74,7 @@ export function SiteHeader({
   breadcrumbs: StudioBreadcrumb[];
   notifications: NotificationFeed;
   onSearch: () => void;
-  /** Layout editor: one compact header that also hosts the editor's controls. */
+  /** An immersive editor: one compact header that also hosts its controls. */
   editor?: boolean;
   demoMode?: boolean;
   /** False when a native host provides navigation instead of the sidebar. */
@@ -137,10 +137,10 @@ export function SiteHeader({
                           className="max-w-full truncate rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                           onClick={slots.rename}
                         >
-                          {item.label}
+                          {(editor && slots.title) || item.label}
                         </button>
                       ) : (
-                        item.label
+                        (editor && slots?.title) || item.label
                       )}
                     </BreadcrumbPage>
                   ) : (

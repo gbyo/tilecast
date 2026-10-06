@@ -48,8 +48,8 @@ function fieldText(value: unknown) {
 // `data_source` sibling, so a keyless nested field falls back to the root's single source.
 export function resolveDataSourceKey(
   field: ContentDefinitionField,
-  fields: ContentDefinitionField[],
-  rootFields?: ContentDefinitionField[],
+  fields: readonly ContentDefinitionField[],
+  rootFields?: readonly ContentDefinitionField[],
 ): string | undefined {
   if (field.dataSourceKey) return field.dataSourceKey;
   const sourceFields = fields.filter(
@@ -59,7 +59,7 @@ export function resolveDataSourceKey(
   if (sourceFields.length === 0 && rootFields) {
     // Collect nested sources too: a group may itself declare the source.
     const collectNested = (
-      list: ContentDefinitionField[],
+      list: readonly ContentDefinitionField[],
     ): ContentDefinitionField[] => {
       const found: ContentDefinitionField[] = [];
       for (const candidate of list) {
@@ -82,7 +82,7 @@ export function resolveDataSourceKey(
 // one. Missing those would under-count the sources a Widget depends on, so preview and save gating
 // would pass while data was still in flight.
 export function dataSourceKeysIn(
-  fields: ContentDefinitionField[],
+  fields: readonly ContentDefinitionField[],
   value: Values,
 ): string[] {
   const ids: string[] = [];
@@ -187,10 +187,10 @@ function acceptsDefinition(
   );
 }
 
-function compatibleSources(
+export function compatibleSources(
   field: ContentDefinitionField,
-  dataSources: DataSource[],
-  dataSourceDefinitions: DataSourceDefinition[],
+  dataSources: readonly DataSource[],
+  dataSourceDefinitions: readonly DataSourceDefinition[],
 ) {
   return dataSources.filter((source) => {
     const definition = dataSourceDefinitions.find(
@@ -202,9 +202,9 @@ function compatibleSources(
 
 // creatableProviders narrows what the picker's Connect flow offers to providers this field would
 // actually accept, so an author cannot create a Data Source the field then rejects.
-function creatableProviders(
+export function creatableProviders(
   field: ContentDefinitionField,
-  dataSourceDefinitions: DataSourceDefinition[],
+  dataSourceDefinitions: readonly DataSourceDefinition[],
 ) {
   return dataSourceDefinitions
     .filter((definition) => acceptsDefinition(field, definition))
@@ -250,15 +250,15 @@ type WidgetsT = TFunction<["content", "common"], undefined>;
 // Source control is unambiguous, mirroring resolveDataSourceKey. A keyless
 // nested field with no local source falls back to the root single source.
 function collectSelectableFields(
-  fields: ContentDefinitionField[],
+  fields: readonly ContentDefinitionField[],
   sourceKey: string,
-  rootFields: ContentDefinitionField[] = fields,
+  rootFields: readonly ContentDefinitionField[] = fields,
 ): ContentDefinitionField[] {
   const sourceFields = fields.filter(
     (candidate) => candidate.control === "data_source",
   );
   const rootSources: ContentDefinitionField[] = [];
-  const collectSources = (list: ContentDefinitionField[]): void => {
+  const collectSources = (list: readonly ContentDefinitionField[]): void => {
     for (const candidate of list) {
       if (candidate.control === "data_source") rootSources.push(candidate);
       if (candidate.itemFields?.length) collectSources(candidate.itemFields);
@@ -292,7 +292,7 @@ function collectSelectableFields(
 
 export function dataFormatGuideFor(
   sourceField: ContentDefinitionField,
-  fields: ContentDefinitionField[],
+  fields: readonly ContentDefinitionField[],
   t?: WidgetsT,
 ): DataFormatGuide {
   const selectableFields = collectSelectableFields(fields, sourceField.key);

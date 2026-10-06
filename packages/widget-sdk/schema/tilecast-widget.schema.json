@@ -81,6 +81,24 @@
       "propertyNames": { "type": "string" },
       "additionalProperties": { "$ref": "#/$defs/__schema0" }
     },
+    "authoring": {
+      "description": "Studio authoring capabilities. They never change validation, projection, or playback.",
+      "type": "object",
+      "properties": {
+        "preview": {
+          "type": "object",
+          "properties": {
+            "time": {
+              "description": "The rendered result depends on the current instant, so Studio offers preview-time controls.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["preview"],
+      "additionalProperties": false
+    },
     "component": {
       "type": "object",
       "properties": {
