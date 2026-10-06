@@ -91,6 +91,13 @@ func TestPluginStoreAPI(t *testing.T) {
 		if _, ok := data["unsupportedInstallations"]; !ok {
 			t.Fatal("store omits unsupportedInstallations")
 		}
+		marketplace, ok := data["marketplace"].(map[string]any)
+		if !ok {
+			t.Fatal("store omits marketplace status")
+		}
+		if marketplace["configured"] != false {
+			t.Fatalf("marketplace configured = %v without a catalog", marketplace["configured"])
+		}
 
 		// One entry, and an unknown one.
 		if status, body = call("viewer", http.MethodGet, "/api/v1/plugin-store/countdown_bar", false, ""); status != http.StatusOK {

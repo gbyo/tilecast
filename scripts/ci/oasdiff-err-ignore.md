@@ -19,7 +19,10 @@ after the Player reports the required presentation schema and capability.
 Older Player profiles retain their previous versions. PostgreSQL coverage in
 `TestClockComponentChosenForEachPlayer` and
 `TestEmptyComponentPolicyPreservesOlderPlayerAutoSkip` verifies that boundary.
-Other new findings describe behavior changes and must be fixed.
+Unreleased-stack entries name endpoints that are new in the same unmerged PR
+stack as the change: no release has ever served the base contract, so no
+released client can break, and the only consumer (Studio) moves in the same
+change. Other new findings describe behavior changes and must be fixed.
 
 GET /api/v1/player/manifest added the new `16.00` enum value to the `data/schemaVersion` response property for the response status `200`: correct the released component version; only Players with presentation schema 2 and the required Widget capability receive it.
 GET /api/v1/player/manifest added the new `17.00` enum value to the `data/schemaVersion` response property for the response status `200`: schema 3 is explicitly negotiated; older Players keep schema 2 or the compatibility presentation.
@@ -108,3 +111,5 @@ POST /api/v1/playlists/{id}/items removed `subschema #1, subschema #2` from the 
 PUT /api/v1/playlists/{id}/items/bulk removed `subschema #1, subschema #2` from the request body `oneOf` list: PlaylistBulkItemInput restates the same oneOf branches without `not`; transition-only and duration-only still validate, and both or neither still fail.
 PATCH /api/v1/playlists/{id}/items/{itemId} the request body dependentRequired was added: when `layoutId` is present, `durationMs` are required: PlaylistItemInput restates the same rule without `not` for the Swift generator; layout items still need a duration and asset items are unchanged.
 PATCH /api/v1/playlists/{id}/items/{itemId} removed `subschema #1, subschema #2` from the request body `oneOf` list: PlaylistItemInput restates the same oneOf branches without `not`; asset-only and layout-with-duration still validate, and neither, both, or layout-without-duration still fail.
+GET /api/v1/plugin-store the response property `data/items/items/plugin` became optional for the status `200`: unreleased stack; the endpoint is new in PR #1339 and no release has served the base contract, so exactly-one-of plugin and marketplace can take its designed shape before merge.
+GET /api/v1/plugin-store/{packageId} the response property `data/plugin` became optional for the status `200`: unreleased stack; the endpoint is new in PR #1339 and no release has served the base contract, so exactly-one-of plugin and marketplace can take its designed shape before merge.

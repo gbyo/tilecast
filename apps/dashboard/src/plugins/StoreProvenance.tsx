@@ -13,7 +13,9 @@ export function StoreProvenanceBadge({
   source: PluginStoreSource;
 }) {
   const { t } = useTranslation("plugins");
-  const label =
-    source.kind === "included" ? t("store.sources.included") : source.kind;
-  return <Badge variant="outline">{label}</Badge>;
+  const labels: Record<string, string> = {
+    included: t("store.sources.included"),
+    marketplace: t("store.sources.marketplace"),
+  };
+  return <Badge variant="outline">{labels[source.kind] ?? source.kind}</Badge>;
 }

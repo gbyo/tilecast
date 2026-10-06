@@ -1,4 +1,4 @@
-import type { PluginSummary } from "../api/types";
+import type { PluginStoreMarketplace, PluginSummary } from "../api/types";
 
 /** A catalog entry in the server's shape, for tests. */
 export function catalogPlugin(
@@ -24,6 +24,35 @@ export function catalogPlugin(
     instanceCount: 0,
     attention: [],
     ...base,
+    ...overrides,
+  };
+}
+
+/** A marketplace listing in the server's shape, for tests. */
+export function marketplaceListing(
+  overrides: Partial<PluginStoreMarketplace> = {},
+): PluginStoreMarketplace {
+  return {
+    version: "1.0.0",
+    // i18n-ignore: development fixture label, not Studio copy
+    name: "Weather",
+    // i18n-ignore: development fixture label, not Studio copy
+    description: "Current conditions.",
+    publisherId: "acme",
+    // i18n-ignore: development fixture label, not Studio copy
+    publisherName: "Acme",
+    // i18n-ignore: development fixture value, not Studio copy
+    license: "MIT",
+    tilecastRange: ">=0.0.0",
+    // i18n-ignore: development fixture value, not Studio copy
+    digest:
+      "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    repository: "https://github.com/acme/tilecast-weather",
+    documentation: "https://example.com/acme/weather/docs",
+    issues: "https://github.com/acme/tilecast-weather/issues",
+    compatible: true,
+    installed: false,
+    updateAvailable: false,
     ...overrides,
   };
 }

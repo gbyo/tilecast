@@ -31,6 +31,19 @@ placeholder for clarity. The database stores only AES-256-GCM ciphertext, so a
 database restore without the same external key requires every saved Wi-Fi
 credential to be entered again in Studio. See [Presentation Networks](presentation-networks.md).
 
+## Marketplace
+
+To show marketplace listings in Explore, set
+`TILECAST_MARKETPLACE_CATALOG_URL` and `TILECAST_MARKETPLACE_PUBLIC_KEY`
+together in the server environment. The Server refuses to start when
+only one value is set. The catalog URL must use https, except on
+loopback addresses for development. The public key must be a base64
+Ed25519 public key of 32 bytes. The example environment file includes
+empty placeholders. The Server fetches the signed catalog
+automatically, refreshes it while it is stale, and keeps serving the
+last verified listings during an outage. See
+[Marketplace](marketplace.md).
+
 ## Server releases
 
 Tilecast Server ships two release channels. Stable is the recommended channel for normal self-hosted installs. Development tracks `main` and may change frequently or break. Tilecast as a whole is still pre-1.0, so Stable means stable relative to Development, not a maturity claim. There are no other channels.

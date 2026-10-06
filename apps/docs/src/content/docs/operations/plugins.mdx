@@ -38,6 +38,14 @@ The built-in catalog includes:
 | **Emergency Alerts** <Badge text="US" variant="note" /> | Automatic response to matching National Weather Service alerts.            | Covers U.S. alerts and needs outbound server access to the NWS service.      |
 | **Forms**                                               | Submission and approval workflows whose approved records can feed Widgets. | Forms are managed from their plugin page, not from the Data Sources library. |
 
+## Marketplace listings
+
+When the server operator configures a marketplace catalog, **Explore** also shows marketplace listings next to the built-in plugins. Each listing names its publisher and version, states which Tilecast releases it supports, and links to its source repository. Listings come from a signed catalog the server verifies; a listing is not a security review of the package.
+
+Tilecast cannot install marketplace listings yet, so their pages describe the listing and its state without an **Install** button. If the catalog goes stale or a refresh fails, Studio says so and keeps showing the last verified listings. An Owner or Administrator can fetch the catalog again from the notice.
+
+See the [marketplace contract](https://github.com/gbyo/tilecast/blob/main/docs/marketplace.md) for the catalog format, signature checks, and caching behavior.
+
 Removing a plugin is blocked while its instances or other plugin-owned resources remain. Remove those through the plugin's own page first. Removal does not delete those resources.
 
 You can also list, install, and remove plugins with `tilecast plugin` in the [command-line interface](../../integrations/cli/). Some installed plugins add their own CLI commands and MCP tools.

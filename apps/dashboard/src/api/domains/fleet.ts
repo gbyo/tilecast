@@ -12,6 +12,7 @@ import type {
   AirplaySession,
   DependencyGraph,
   DisplayControlGroupApplyResult,
+  PluginMarketplaceStatus,
   PluginStore,
   PluginStoreEntry,
   DisplayControlGroupPreview,
@@ -190,6 +191,13 @@ export function removePlugin(id: string, csrfToken: string): Promise<void> {
     params: { path: { pluginId: id } },
     csrfToken,
   });
+}
+
+/** Fetch the signed marketplace catalog now; answers its cache status. */
+export function refreshMarketplaceCatalog(
+  csrfToken: string,
+): Promise<{ marketplace: PluginMarketplaceStatus }> {
+  return apiPost("/api/v1/plugin-store/marketplace/refresh", { csrfToken });
 }
 
 export function getDependencyGraph(): Promise<DependencyGraph> {

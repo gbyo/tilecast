@@ -45,6 +45,9 @@ type Service struct {
 	bundle      []plugin.Plugin
 	definitions []Definition
 	hosted      []hostedPlugin
+	// marketplace joins cached marketplace listings into the store. Nil
+	// disables marketplace entries.
+	marketplace MarketplaceSource
 	// content is the release content catalog static contributions are
 	// read from. It defaults to the embedded catalog; tests inject a
 	// synthetic one through SetContentDefinitions.
@@ -81,6 +84,12 @@ func NewService(db *pgxpool.Pool, notifier Notifier, options ...Option) *Service
 
 func (s *Service) SetManifestInvalidator(invalidator ManifestInvalidator) {
 	s.invalidator = invalidator
+}
+
+// SetMarketplaceSource joins cached marketplace listings into the store.
+// A nil source disables marketplace entries.
+func (s *Service) SetMarketplaceSource(source MarketplaceSource) {
+	s.marketplace = source
 }
 
 // CatalogPlugin is one registry definition joined with this installation's
