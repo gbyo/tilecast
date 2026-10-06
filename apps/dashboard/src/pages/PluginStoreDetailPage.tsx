@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, CircleAlert, Puzzle } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
+import { cn } from "cn";
 import { ApiError } from "../api/client";
 import { apiErrorMessage } from "../i18n";
 import { useAuth } from "../auth/AuthProvider";
@@ -106,7 +107,7 @@ export function PluginStoreDetailPage() {
         </Alert>
         <Link
           to="/plugins/store"
-          className={buttonVariants({ variant: "outline", className: "w-fit" })}
+          className={cn(buttonVariants({ variant: "outline" }), "w-fit")}
         >
           <ArrowLeft data-icon="inline-start" aria-hidden="true" />
           {t("store.backToExplore")}
@@ -172,10 +173,7 @@ export function PluginStoreDetailPage() {
 
       <Link
         to="/plugins/store"
-        className={buttonVariants({
-          variant: "outline",
-          className: "w-fit",
-        })}
+        className={cn(buttonVariants({ variant: "outline" }), "w-fit")}
       >
         <ArrowLeft data-icon="inline-start" aria-hidden="true" />
         {t("store.backToExplore")}
