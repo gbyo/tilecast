@@ -75,14 +75,26 @@ func (s *Service) Store(ctx context.Context) (Store, error) {
 // StoreEntry reports one store entry. Unknown IDs answer ErrPluginNotFound,
 // which the API renders as 404 plugin_not_found.
 func (s *Service) StoreEntry(ctx context.Context, id string) (StoreEntry, error) {
-	store, err := s.Store(ctx)
-	if err != nil {
-		return StoreEntry{}, err
-	}
-	for _, item := range store.Items {
-		if item.PackageID == id {
-			return item, nil
+	for _, hosted := range s.hosted {
+		if hosted.manifest.ID != id {
+			continue
 		}
+		installed, _, err := s.installations(ctx)
+		if err != nil {
+			return StoreEntry{}, err
+		}
+		status, reported, err := reportedStatus(ctx, hosted)
+		if err != nil {
+			return StoreEntry{}, err
+		}
+		if !reported {
+			status = pluginStatus{}
+		}
+		return StoreEntry{
+			PackageID: hosted.manifest.ID,
+			Source:    StoreSource{Kind: StoreSourceIncluded},
+			Plugin:    catalogEntry(hosted.definition, installed[hosted.manifest.ID], status),
+		}, nil
 	}
 	return StoreEntry{}, ErrPluginNotFound
 }
