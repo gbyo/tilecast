@@ -10696,10 +10696,7 @@ components:
       description: Where a store entry comes from. Only "included" exists in this release; marketplace and custom sources join later with a catalog ID or repository.
       properties:
         kind:
-          {
-            type: string,
-            x-extensible-enum: [included, marketplace, github],
-          }
+          { type: string, x-extensible-enum: [included, marketplace, github] }
         catalogId: { type: string }
         repository: { type: string }
     PluginStoreEntry:
