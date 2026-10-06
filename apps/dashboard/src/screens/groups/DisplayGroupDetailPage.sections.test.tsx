@@ -168,6 +168,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   vi.resetAllMocks();
 });
 
@@ -446,6 +447,20 @@ describe("Overview", () => {
     );
   });
 
+  it("lists its rows as a native list of tab buttons", async () => {
+    renderGroupDetail();
+    await screen.findByText("Mirror · synchronized playback");
+    const list = screen.getByRole("list");
+    expect(list.tagName).toBe("UL");
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      const button = within(row).getByRole("button");
+      expect(button.closest("a")).toBeNull();
+      expect(button.querySelector("button, a")).toBeNull();
+    }
+  });
+
   it("offers setup instead of empty rows for a group with no screens", async () => {
     const user = userEvent.setup();
     vi.mocked(api.screenGroup).mockResolvedValue(emptyGroup);
@@ -480,6 +495,29 @@ describe("Screens tab", () => {
     expect(within(row).getByText("Library")).toBeInTheDocument();
   });
 
+  it("keeps compact rows navigable with a separate action menu", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query.includes("max-width"),
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => true,
+    }));
+    renderGroupDetail(["/groups/group-1?tab=members"]);
+    const link = await screen.findByRole("link", { name: "Hall screen" });
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    const row = link.closest("li") as HTMLElement;
+    expect(row.closest("ul")).not.toBeNull();
+    const menu = within(row).getByRole("button", {
+      name: "Actions for Hall screen",
+    });
+    expect(link.contains(menu)).toBe(false);
+    expect(link).toHaveAttribute("href", "/screens/screen-1");
+  });
+
   it("filters the group's own screens", async () => {
     const user = userEvent.setup();
     renderGroupDetail(["/groups/group-1?tab=members"]);
@@ -489,116 +527,6 @@ describe("Screens tab", () => {
     );
     expect(
       await screen.findByText("No screens in this group match your search."),
-    ).toBeInTheDocument();
-  });
-});
-
-describe("Add screens picker", () => {
-  it("lists available screens and explains screens owned by another group", async () => {
-    const user = userEvent.setup();
-    renderGroupDetail(["/groups/group-1?tab=members"]);
-    await user.click(
-      await screen.findByRole("button", { name: "Add screens" }),
-    );
-
-    const dialog = await screen.findByRole("dialog", { name: "Add screens" });
-    expect(
-      await within(dialog).findByRole("checkbox", { name: /^Free screen/ }),
-    ).not.toHaveAttribute("aria-disabled", "true");
-    expect(
-      within(dialog).queryByRole("checkbox", { name: /^Hall screen/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      within(dialog).getByText("Already in another Display Group"),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("checkbox", { name: /^Lobby TV/ }),
-    ).toHaveAttribute("aria-disabled", "true");
-    expect(within(dialog).getByText("In “Lobby Displays”")).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("link", { name: "View group" }),
-    ).toHaveAttribute("href", "/groups/group-2");
-  });
-
-  it("adds every selected screen and closes when all succeed", async () => {
-    const user = userEvent.setup();
-    renderGroupDetail(["/groups/group-1?tab=members"]);
-    await user.click(
-      await screen.findByRole("button", { name: "Add screens" }),
-    );
-    const dialog = await screen.findByRole("dialog", { name: "Add screens" });
-
-    expect(
-      await within(dialog).findByRole("button", { name: "Add screens" }),
-    ).toBeDisabled();
-    await user.click(
-      await within(dialog).findByRole("checkbox", { name: /^Free screen/ }),
-    );
-    await user.click(
-      within(dialog).getByRole("checkbox", { name: /^Second free/ }),
-    );
-    await user.click(
-      within(dialog).getByRole("button", { name: "Add 2 screens" }),
-    );
-
-    await waitFor(() => expect(api.addScreenToGroup).toHaveBeenCalledTimes(2));
-    expect(api.addScreenToGroup).toHaveBeenCalledWith(
-      "group-1",
-      "screen-2",
-      "csrf-token",
-    );
-    expect(api.addScreenToGroup).toHaveBeenCalledWith(
-      "group-1",
-      "screen-3",
-      "csrf-token",
-    );
-    await waitFor(() =>
-      expect(mocks.toastAdd).toHaveBeenCalledWith({
-        title: "2 screens added.",
-        type: "success",
-      }),
-    );
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "Add screens" })).toBeNull(),
-    );
-  });
-
-  it("keeps failed screens selected and says which ones failed", async () => {
-    const user = userEvent.setup();
-    vi.mocked(api.addScreenToGroup).mockImplementation(
-      (_group: string, screenId: string) =>
-        screenId === "screen-3"
-          ? Promise.reject(new Error("conflict"))
-          : Promise.resolve(group),
-    );
-    renderGroupDetail(["/groups/group-1?tab=members"]);
-    await user.click(
-      await screen.findByRole("button", { name: "Add screens" }),
-    );
-    const dialog = await screen.findByRole("dialog", { name: "Add screens" });
-    await user.click(
-      await within(dialog).findByRole("checkbox", { name: /^Free screen/ }),
-    );
-    await user.click(
-      within(dialog).getByRole("checkbox", { name: /^Second free/ }),
-    );
-    await user.click(
-      within(dialog).getByRole("button", { name: "Add 2 screens" }),
-    );
-
-    expect(
-      await within(dialog).findByText(
-        "Some screens could not be added: Second free. They are still selected; try again.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(dialog).getByRole("checkbox", { name: /^Second free/ }),
-    ).toBeChecked();
-    expect(
-      within(dialog).getByRole("checkbox", { name: /^Free screen/ }),
-    ).not.toBeChecked();
-    expect(
-      screen.getByRole("dialog", { name: "Add screens" }),
     ).toBeInTheDocument();
   });
 });

@@ -279,7 +279,9 @@
       "layoutsGroup": "Layouts",
       "fallbackSearch": "Search Playlists and Layouts…",
       "fallbackNoMatch": "No matching presentations",
-      "fallbackHint": "Choose “No fallback presentation” to remove the assignment."
+      "fallbackHint": "Choose “No fallback presentation” to remove the assignment.",
+      "discardWallTitle": "Discard unsaved wall changes?",
+      "discardWallBody": "Your Display Group wall configuration has changes that haven't been saved."
     },
     "createShort": "Create group",
     "updated": "Display Group updated.",
@@ -368,7 +370,8 @@
       "add_other": "Add {{count}} screens",
       "added_one": "{{count}} screen added.",
       "added_other": "{{count}} screens added.",
-      "addNone": "Add screens"
+      "addNone": "Add screens",
+      "selectScreen": "Select {{name}}"
     },
     "display": {
       "modeTitle": "Display mode",

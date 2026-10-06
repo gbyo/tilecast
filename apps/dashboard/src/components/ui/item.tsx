@@ -6,18 +6,28 @@ import { cn } from "cn";
 
 import { Separator } from "@/components/ui/separator";
 
-function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      role="list"
-      data-slot="item-group"
-      className={cn(
-        "group/item-group flex w-full flex-col gap-4 has-data-[size=sm]:gap-2.5 has-data-[size=xs]:gap-2",
-        className,
-      )}
-      {...props}
-    />
-  );
+function ItemGroup({
+  className,
+  render,
+  ...props
+}: useRender.ComponentProps<"div">) {
+  // A group rendered as a native list (`render={<ul />}`) keeps its own
+  // semantics. The default div still needs an explicit list role.
+  return useRender({
+    defaultTagName: "div",
+    props: mergeProps<"div">(
+      {
+        ...(render ? {} : { role: "list" }),
+        className: cn(
+          "group/item-group flex w-full flex-col gap-4 has-data-[size=sm]:gap-2.5 has-data-[size=xs]:gap-2",
+          className,
+        ),
+      },
+      props,
+    ),
+    render,
+    state: { slot: "item-group" },
+  });
 }
 
 function ItemSeparator({

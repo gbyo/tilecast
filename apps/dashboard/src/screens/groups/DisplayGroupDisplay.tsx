@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { ScreenGroup } from "../../api/types";
@@ -16,6 +16,7 @@ import {
 } from "../../components/ui/field";
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
 import { Separator } from "../../components/ui/separator";
+import { DiscardChangesDialog } from "./DiscardChangesDialog";
 
 type Mode = ScreenGroup["displayMode"];
 
@@ -27,15 +28,33 @@ export function DisplayGroupDisplay({
   group,
   manageable,
   csrfToken,
+  onDirtyChange,
 }: {
   group: ScreenGroup;
   manageable: boolean;
   csrfToken: string;
+  /** Whether the wall has unsaved changes, for the page's navigation guard. */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { t } = useTranslation(["screens", "layouts", "common"]);
   const client = useQueryClient();
   const [draftMode, setDraftMode] = useState<Mode>(group.displayMode);
   useEffect(() => setDraftMode(group.displayMode), [group.displayMode]);
+  // Read only when the mode changes, so it never needs to re-render.
+  const wallDirty = useRef(false);
+  const [confirmMirror, setConfirmMirror] = useState(false);
+  const reportWallDirty = useCallback(
+    (dirty: boolean) => {
+      wallDirty.current = dirty;
+      onDirtyChange?.(dirty);
+    },
+    [onDirtyChange],
+  );
+  const chooseMode = (next: Mode) => {
+    // Leaving Span would drop the wall draft, so ask before it is lost.
+    if (next === "mirror" && wallDirty.current) setConfirmMirror(true);
+    else setDraftMode(next);
+  };
 
   const returnToMirror = useMutation({
     mutationFn: () =>
@@ -63,7 +82,7 @@ export function DisplayGroupDisplay({
           aria-label={t("groups.display.modeTitle")}
           value={draftMode}
           disabled={!manageable}
-          onValueChange={(next) => setDraftMode(next as Mode)}
+          onValueChange={(next) => chooseMode(next as Mode)}
         >
           <FieldLabel htmlFor="display-mode-mirror">
             <Field orientation="horizontal">
@@ -138,6 +157,7 @@ export function DisplayGroupDisplay({
             manageable={manageable}
             csrfToken={csrfToken}
             onDiscardNewWall={() => setDraftMode("mirror")}
+            onDirtyChange={reportWallDirty}
           />
         </>
       )}
@@ -153,6 +173,16 @@ export function DisplayGroupDisplay({
           />
         </>
       )}
+      <DiscardChangesDialog
+        open={confirmMirror}
+        title={t("groups.detail.discardWallTitle")}
+        description={t("groups.detail.discardWallBody")}
+        onKeepEditing={() => setConfirmMirror(false)}
+        onDiscard={() => {
+          setConfirmMirror(false);
+          setDraftMode("mirror");
+        }}
+      />
     </div>
   );
 }
