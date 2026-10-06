@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -246,25 +247,19 @@ func (s *Service) Activate(ctx context.Context, activation Activation) (Installe
 	default:
 		return InstalledPackage{}, fmt.Errorf("%w: unknown source kind", ErrInvalid)
 	}
-	if activation.SourceReference == "" || len(activation.SourceReference) > 512 {
-		return InstalledPackage{}, fmt.Errorf("%w: source reference must be 1 to 512 characters", ErrInvalid)
-	}
-	if activation.RegistryReference == "" || len(activation.RegistryReference) > 255 {
-		return InstalledPackage{}, fmt.Errorf("%w: registry reference must be 1 to 255 characters", ErrInvalid)
-	}
-	switch activation.Trust {
-	case TrustVerified:
-	case TrustUnsignedDevelopment:
-		if !s.allowUnsigned {
-			return InstalledPackage{}, ErrUnsignedRejected
-		}
-	default:
-		return InstalledPackage{}, fmt.Errorf("%w: unknown trust state", ErrInvalid)
+	if err := s.validateProvenance(
+		activation.SourceKind,
+		activation.SourceReference,
+		activation.RegistryReference,
+		activation.SignerIdentity,
+		activation.Trust,
+	); err != nil {
+		return InstalledPackage{}, err
 	}
 	if !packagemanifest.SatisfiesTilecastRange(manifest.Tilecast.Version, s.tilecastVersion) {
 		return InstalledPackage{}, fmt.Errorf("package requires Tilecast %s: %w", manifest.Tilecast.Version, ErrIncompatible)
 	}
-	if err := checkContributions(manifest.PackageID, activation.Contributions); err != nil {
+	if err := checkContributions(manifest, activation.Contributions); err != nil {
 		return InstalledPackage{}, err
 	}
 	if err := s.checkReserved(activation.Contributions); err != nil {
@@ -348,7 +343,19 @@ func (s *Service) Rollback(ctx context.Context, packageID string, userID uuid.UU
 	if !packagemanifest.SatisfiesTilecastRange(snapshot.Manifest.Tilecast.Version, s.tilecastVersion) {
 		return InstalledPackage{}, fmt.Errorf("package requires Tilecast %s: %w", snapshot.Manifest.Tilecast.Version, ErrIncompatible)
 	}
-	if err := checkContributions(packageID, snapshot.Contributions); err != nil {
+	if snapshot.Manifest.PackageID != packageID {
+		return InstalledPackage{}, fmt.Errorf("%w: rollback package identity changed", ErrInvalid)
+	}
+	if err := s.validateProvenance(
+		snapshot.SourceKind,
+		snapshot.SourceReference,
+		snapshot.RegistryReference,
+		snapshot.SignerIdentity,
+		snapshot.Trust,
+	); err != nil {
+		return InstalledPackage{}, fmt.Errorf("previous activation provenance: %w", err)
+	}
+	if err := checkContributions(snapshot.Manifest, snapshot.Contributions); err != nil {
 		return InstalledPackage{}, err
 	}
 	if err := s.checkReserved(snapshot.Contributions); err != nil {
@@ -401,11 +408,23 @@ func (s *Service) Remove(ctx context.Context, packageID string, userID uuid.UUID
 	return tx.Commit(ctx)
 }
 
-func checkContributions(packageID string, contributions []Contribution) error {
-	if len(contributions) == 0 {
-		return fmt.Errorf("%w: at least one contribution is required", ErrInvalid)
+func checkContributions(manifest packagemanifest.Manifest, contributions []Contribution) error {
+	if len(contributions) != len(manifest.Contributions) {
+		return fmt.Errorf(
+			"%w: package declares %d contributions but activation derived %d",
+			ErrInvalid,
+			len(manifest.Contributions),
+			len(contributions),
+		)
 	}
-	seen := make(map[string]bool, len(contributions))
+
+	declared := make(map[string]struct{}, len(manifest.Contributions))
+	for _, contribution := range manifest.Contributions {
+		declared[contribution.Type+"\x00"+contribution.Path] = struct{}{}
+	}
+
+	seenIDs := make(map[string]bool, len(contributions))
+	seenDeclarations := make(map[string]bool, len(contributions))
 	for _, contribution := range contributions {
 		switch contribution.Kind {
 		case packagemanifest.ContributionPlugin, packagemanifest.ContributionWidget, packagemanifest.ContributionDataSource:
@@ -415,14 +434,72 @@ func checkContributions(packageID string, contributions []Contribution) error {
 		if contribution.ID == "" || len(contribution.ID) > 128 || contribution.Path == "" {
 			return fmt.Errorf("%w: contributions need an identity and path", ErrInvalid)
 		}
-		if !packagemanifest.InNamespace(contribution.ID, packageID) {
-			return fmt.Errorf("contribution %q is outside package %s: %w", contribution.ID, packageID, ErrNamespace)
+		if !packagemanifest.InNamespace(contribution.ID, manifest.PackageID) {
+			return fmt.Errorf("contribution %q is outside package %s: %w", contribution.ID, manifest.PackageID, ErrNamespace)
 		}
-		key := contribution.Kind + ":" + contribution.ID
-		if seen[key] {
-			return fmt.Errorf("%w: duplicate contribution %q", ErrInvalid, key)
+
+		declarationKey := contribution.Kind + "\x00" + contribution.Path
+		if _, ok := declared[declarationKey]; !ok {
+			return fmt.Errorf(
+				"%w: contribution %s at %s is not declared by the package manifest",
+				ErrInvalid,
+				contribution.Kind,
+				contribution.Path,
+			)
 		}
-		seen[key] = true
+		if seenDeclarations[declarationKey] {
+			return fmt.Errorf("%w: package declaration %s at %s was derived more than once", ErrInvalid, contribution.Kind, contribution.Path)
+		}
+		seenDeclarations[declarationKey] = true
+
+		identityKey := contribution.Kind + ":" + contribution.ID
+		if seenIDs[identityKey] {
+			return fmt.Errorf("%w: duplicate contribution %q", ErrInvalid, identityKey)
+		}
+		seenIDs[identityKey] = true
+	}
+
+	if len(seenDeclarations) != len(declared) {
+		return fmt.Errorf("%w: not every package contribution was derived", ErrInvalid)
+	}
+	return nil
+}
+
+func (s *Service) validateProvenance(
+	sourceKind SourceKind,
+	sourceReference string,
+	registryReference string,
+	signerIdentity string,
+	trust TrustState,
+) error {
+	switch sourceKind {
+	case SourceMarketplace, SourceCustom, SourceLocal:
+	default:
+		return fmt.Errorf("%w: unknown source kind", ErrInvalid)
+	}
+	if strings.TrimSpace(sourceReference) == "" || len(sourceReference) > 512 {
+		return fmt.Errorf("%w: source reference must be 1 to 512 characters", ErrInvalid)
+	}
+	if strings.TrimSpace(registryReference) == "" || len(registryReference) > 255 {
+		return fmt.Errorf("%w: registry reference must be 1 to 255 characters", ErrInvalid)
+	}
+	if len(signerIdentity) > 512 {
+		return fmt.Errorf("%w: signer identity must not exceed 512 characters", ErrInvalid)
+	}
+	switch trust {
+	case TrustVerified:
+		if strings.TrimSpace(signerIdentity) == "" {
+			return fmt.Errorf("%w: verified packages require a signer identity", ErrInvalid)
+		}
+	case TrustUnsignedDevelopment:
+		if signerIdentity != "" {
+			return fmt.Errorf("%w: unsigned development packages cannot carry a signer identity", ErrInvalid)
+		}
+		if !s.allowUnsigned {
+			return ErrUnsignedRejected
+		}
+	default:
+		return fmt.Errorf("%w: unknown trust state", ErrInvalid)
 	}
 	return nil
 }
@@ -441,20 +518,27 @@ func (s *Service) checkReserved(contributions []Contribution) error {
 
 // installedRow is the locked database row an activation updates.
 type installedRow struct {
-	organizationID uuid.UUID
-	packageID      string
-	version        string
-	digest         string
-	manifest       []byte
-	previous       []byte
+	organizationID    uuid.UUID
+	packageID         string
+	version           string
+	digest            string
+	sourceKind        SourceKind
+	sourceReference   string
+	registryReference string
+	signerIdentity    string
+	trust             TrustState
+	manifest          []byte
+	previous          []byte
 }
 
 func lockRow(ctx context.Context, tx pgx.Tx, packageID string) (*installedRow, error) {
 	var row installedRow
 	err := tx.QueryRow(ctx, `SELECT organization_id,package_id,package_version,digest,
+		source_kind,source_reference,registry_reference,signer_identity,trust_state,
 		manifest,previous_activation FROM installed_packages WHERE package_id=$1 FOR UPDATE`, packageID).Scan(
 		&row.organizationID, &row.packageID, &row.version, &row.digest,
-		&row.manifest, &row.previous)
+		&row.sourceKind, &row.sourceReference, &row.registryReference,
+		&row.signerIdentity, &row.trust, &row.manifest, &row.previous)
 	if err != nil {
 		return nil, err
 	}
@@ -463,10 +547,15 @@ func lockRow(ctx context.Context, tx pgx.Tx, packageID string) (*installedRow, e
 
 // activationSnapshot is the rollback target: the full prior activation.
 type activationSnapshot struct {
-	Digest        string                   `json:"digest"`
-	Version       string                   `json:"version"`
-	Manifest      packagemanifest.Manifest `json:"manifest"`
-	Contributions []Contribution           `json:"contributions"`
+	Digest            string                   `json:"digest"`
+	Version           string                   `json:"version"`
+	SourceKind        SourceKind               `json:"sourceKind"`
+	SourceReference   string                   `json:"sourceReference"`
+	RegistryReference string                   `json:"registryReference"`
+	SignerIdentity    string                   `json:"signerIdentity,omitempty"`
+	Trust             TrustState               `json:"trustState"`
+	Manifest          packagemanifest.Manifest `json:"manifest"`
+	Contributions     []Contribution           `json:"contributions"`
 }
 
 func snapshotPrevious(ctx context.Context, tx pgx.Tx, current *installedRow) ([]byte, error) {
@@ -494,10 +583,15 @@ func snapshotPrevious(ctx context.Context, tx pgx.Tx, current *installedRow) ([]
 		return nil, fmt.Errorf("active manifest is corrupt: %w", err)
 	}
 	return json.Marshal(activationSnapshot{
-		Digest:        current.digest,
-		Version:       current.version,
-		Manifest:      manifest,
-		Contributions: contributions,
+		Digest:            current.digest,
+		Version:           current.version,
+		SourceKind:        current.sourceKind,
+		SourceReference:   current.sourceReference,
+		RegistryReference: current.registryReference,
+		SignerIdentity:    current.signerIdentity,
+		Trust:             current.trust,
+		Manifest:          manifest,
+		Contributions:     contributions,
 	})
 }
 
@@ -557,12 +651,16 @@ func restoreRow(ctx context.Context, tx pgx.Tx, current *installedRow, snapshot 
 	}
 	var installed InstalledPackage
 	err = tx.QueryRow(ctx, `UPDATE installed_packages SET package_version=$1,
-		digest=$2,manifest=$3,activated_at=now(),previous_activation=NULL
-		WHERE organization_id=$4 AND package_id=$5
+		digest=$2,source_kind=$3,source_reference=$4,registry_reference=$5,
+		signer_identity=$6,trust_state=$7,manifest=$8,activated_at=now(),
+		previous_activation=NULL
+		WHERE organization_id=$9 AND package_id=$10
 		RETURNING package_id,package_version,digest,source_kind,source_reference,
 		registry_reference,signer_identity,trust_state,installed_at,installed_by,
 		activated_at,previous_activation IS NOT NULL`,
-		snapshot.Version, snapshot.Digest, manifestJSON,
+		snapshot.Version, snapshot.Digest, string(snapshot.SourceKind),
+		snapshot.SourceReference, snapshot.RegistryReference,
+		snapshot.SignerIdentity, string(snapshot.Trust), manifestJSON,
 		current.organizationID, current.packageID).Scan(
 		&installed.PackageID, &installed.Version, &installed.Digest,
 		&installed.SourceKind, &installed.SourceReference, &installed.RegistryReference,
