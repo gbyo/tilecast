@@ -1,0 +1,44 @@
+---
+title: Tilecast Marketplace
+description: Browse community extensions listed in the official Tilecast Marketplace.
+---
+
+import MarketplaceCatalog from "../../../components/MarketplaceCatalog.astro";
+
+The Tilecast Marketplace is the public directory of independently distributed
+Tilecast packages. Listings are reviewed as changes to the
+[Marketplace catalog on GitHub](https://github.com/gbyo/tilecast/blob/main/marketplace/catalog.json),
+so every addition and update has a visible history.
+
+A Marketplace listing tells Tilecast where a package comes from and which
+immutable OCI digest it refers to. **Listing is not a security audit.** Package
+signatures establish provenance and integrity; downloaded executable
+contributions still use Tilecast's external runtime boundaries.
+
+## Available packages
+
+<MarketplaceCatalog />
+
+## How the catalog works
+
+The GitHub catalog above is the source of truth for listing metadata. Release
+automation turns that stable source into a short-lived signed catalog by adding
+publication timestamps and signing the exact runtime payload. Tilecast Server
+verifies that signed document before any listing reaches Studio.
+
+The docs page and the signed runtime catalog therefore come from the same
+reviewed listing data, but the docs site is never a trust source for a Tilecast
+Server.
+
+Package files are stored in OCI registries, not in the Marketplace catalog.
+
+## Get a package listed
+
+Marketplace submissions are ordinary pull requests that add or update listing
+metadata in `marketplace/catalog.json`. A listing identifies the publisher,
+repository, supported Tilecast versions, package registry, and immutable
+package digest.
+
+The package itself must follow the Tilecast extension package contract. See
+[Plugins](./plugins/) for the administrator experience and
+[Plugin development](../../developers/plugins/) for extension authoring.
