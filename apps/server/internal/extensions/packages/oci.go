@@ -188,6 +188,9 @@ func readBlob(dir string, described descriptor, maxBytes int64) ([]byte, error) 
 	if _, err := hex.DecodeString(encoded); err != nil {
 		return nil, fmt.Errorf("malformed digest %q", described.Digest)
 	}
+	if described.Size < 0 {
+		return nil, fmt.Errorf("blob %s has a negative size", described.Digest)
+	}
 	path := filepath.Join(dir, "blobs", "sha256", encoded)
 	info, err := os.Stat(path)
 	if err != nil {
@@ -196,7 +199,7 @@ func readBlob(dir string, described descriptor, maxBytes int64) ([]byte, error) 
 	if info.Size() > maxBytes {
 		return nil, fmt.Errorf("blob %s exceeds %d bytes", described.Digest, maxBytes)
 	}
-	if described.Size >= 0 && info.Size() != described.Size {
+	if info.Size() != described.Size {
 		return nil, fmt.Errorf("blob %s size mismatch", described.Digest)
 	}
 	data, err := os.ReadFile(path)
