@@ -35,7 +35,7 @@
     "sourceLabel": "Source",
     "loadError": "This plugin could not be loaded.",
     "emptyTitle": "No plugins available",
-    "emptyDescription": "No plugins are available from the configured sources."
+    "emptyDescription": "No plugins are available from the configured sources.",
     "sources": {
       "all": "All sources",
       "included": "Included with Tilecast"
