@@ -290,7 +290,7 @@ function collectActionResults(t: NavigationT, permissions: CommandPermissions) {
 /**
  * Plugins come from the server catalog rather than static routes. An installed
  * plugin is an ordinary destination; an uninstalled one is offered as a
- * discovery result that opens Add plugin on it, never as its management page.
+ * discovery result that opens its store page, never its management page.
  */
 function collectPluginResults(t: NavigationT, plugins: PluginSummary[]) {
   return plugins.map((plugin) => ({
@@ -304,7 +304,7 @@ function collectPluginResults(t: NavigationT, plugins: PluginSummary[]) {
         ? plugin.managementPath
         : plugin.installed
           ? "/plugins"
-          : `/plugins?add=${encodeURIComponent(plugin.id)}`,
+          : `/plugins/store/${encodeURIComponent(plugin.id)}`,
     category: "navigation" as const,
     Icon: Puzzle,
     keywords: [plugin.category, plugin.description, ...plugin.capabilities],

@@ -18,6 +18,30 @@ func (s *server) listPlugins(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": catalog})
 }
 
+// listPluginStore serves the normalized plugin store: every plugin source
+// Studio can browse, joined with this installation's state. Readable by any
+// signed-in account. In this release every entry is compiled into the
+// release; marketplace and custom entries join this list later.
+func (s *server) listPluginStore(w http.ResponseWriter, r *http.Request) {
+	store, err := s.plugins.Store(r.Context())
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": store})
+}
+
+// getPluginStoreEntry serves one store entry. Unknown package IDs answer 404
+// plugin_not_found.
+func (s *server) getPluginStoreEntry(w http.ResponseWriter, r *http.Request) {
+	entry, err := s.plugins.StoreEntry(r.Context(), chi.URLParam(r, "packageId"))
+	if err != nil {
+		s.writePluginError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": entry})
+}
+
 // installPlugin records a release-owned plugin as installed. The first
 // installation answers 201; repeating it answers 200 with the same current
 // representation.

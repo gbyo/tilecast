@@ -15,16 +15,28 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { studioRoutes } from "../App";
 import type {
+  PluginStoreEntry,
   PluginSummary,
   UnsupportedPluginInstallation,
 } from "../api/types";
 import { buildCommandResults } from "../components/StudioTopbar";
 import { i18n } from "../i18n";
 import { PluginsPage } from "../pages/PluginsPage";
+import { PluginStoreDetailPage } from "../pages/PluginStoreDetailPage";
+import { PluginStorePage } from "../pages/PluginStorePage";
 import { catalogPlugin } from "./catalogFixtures";
 import { PluginActionsMenu, blockerInstruction } from "./PluginActionsMenu";
-import { filterCatalog } from "./PluginCatalogDialog";
+import { filterStoreEntries } from "./pluginCatalog";
 import { PluginRouteGate } from "./PluginRouteGate";
+
+/** A store entry in the server's shape, wrapping a catalog fixture. */
+function storeEntry(item: PluginSummary): PluginStoreEntry {
+  return {
+    packageId: item.id,
+    source: { kind: "included" },
+    plugin: item,
+  };
+}
 
 const auth = vi.hoisted(() => ({ role: "owner" }));
 vi.mock("../auth/AuthProvider", () => ({
@@ -111,6 +123,26 @@ beforeEach(() => {
             data: { items: catalog, unsupportedInstallations: unsupported },
           }),
         );
+      if (path === "/plugin-store")
+        return Promise.resolve(
+          json(200, {
+            data: {
+              items: catalog.map(storeEntry),
+              unsupportedInstallations: unsupported,
+            },
+          }),
+        );
+      if (path.startsWith("/plugin-store/")) {
+        const id = decodeURIComponent(path.split("/")[2] ?? "");
+        const item = catalog.find((plugin) => plugin.id === id);
+        if (!item)
+          return Promise.resolve(
+            json(404, {
+              error: { code: "plugin_not_found", message: "Not found." },
+            }),
+          );
+        return Promise.resolve(json(200, { data: storeEntry(item) }));
+      }
       return Promise.resolve(json(200, { data: { items: [], total: 0 } }));
     }),
   );
@@ -151,6 +183,18 @@ function renderPlugins(path = "/plugins") {
     path,
     <>
       <Route path="/plugins" element={<PluginsPage />} />
+      <Route path="/plugins/:page" element={<p>Management page</p>} />
+    </>,
+  );
+}
+
+function renderStore(path = "/plugins/store") {
+  return renderAt(
+    path,
+    <>
+      <Route path="/plugins" element={<PluginsPage />} />
+      <Route path="/plugins/store" element={<PluginStorePage />} />
+      <Route path="/plugins/store/:id" element={<PluginStoreDetailPage />} />
       <Route path="/plugins/:page" element={<p>Management page</p>} />
     </>,
   );
@@ -206,7 +250,10 @@ describe("Installed plugins list", () => {
     catalog = catalog.map((item) => ({ ...item, installed: false }));
     renderPlugins();
     expect(await screen.findByText("No plugins installed")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Add plugin" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Add plugin" })).toHaveAttribute(
+      "href",
+      "/plugins/store",
+    );
   });
 
   it("renders only the load error when the catalog query fails", async () => {
@@ -240,19 +287,17 @@ describe("Installed plugins list", () => {
   });
 });
 
-describe("Add plugin", () => {
-  it("opens a searchable, filterable catalog of uninstalled plugins", async () => {
+describe("Plugin store", () => {
+  it("explores uninstalled plugins with search and category filters", async () => {
     const user = userEvent.setup();
-    renderPlugins();
-    await user.click(await screen.findByRole("button", { name: "Add plugin" }));
-    const dialog = await screen.findByRole("dialog", { name: "Add a plugin" });
-    expect(dialog).toHaveTextContent("Countdown Bar");
-    expect(dialog).toHaveTextContent("Emergency Alerts");
-    expect(dialog).not.toHaveTextContent("Transit Alerts");
+    renderStore();
+    expect(await screen.findByText("Countdown Bar")).toBeVisible();
+    expect(screen.getByText("Emergency Alerts")).toBeVisible();
+    expect(screen.queryByText("Transit Alerts")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Automation" }));
-    expect(dialog).toHaveTextContent("Emergency Alerts");
-    expect(dialog).not.toHaveTextContent("Countdown Bar");
+    expect(screen.getByText("Emergency Alerts")).toBeVisible();
+    expect(screen.queryByText("Countdown Bar")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "All" }));
     await user.type(
@@ -260,19 +305,34 @@ describe("Add plugin", () => {
       "transit",
     );
     // An installed plugin reappears when a search matches it, marked.
-    expect(dialog).toHaveTextContent("Transit Alerts");
-    expect(dialog).toHaveTextContent("Installed");
-    expect(dialog).not.toHaveTextContent("Countdown Bar");
+    expect(screen.getByText("Transit Alerts")).toBeVisible();
+    expect(screen.getByText("Installed")).toBeVisible();
+    expect(screen.queryByText("Countdown Bar")).toBeNull();
+  });
+
+  it("links each entry to its detail page", async () => {
+    const user = userEvent.setup();
+    renderStore();
+    await user.click(
+      await screen.findByRole("link", { name: /Emergency Alerts/ }),
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText("Current route")).toHaveTextContent(
+        "/plugins/store/emergency_alerts",
+      ),
+    );
+    expect(await screen.findByText("Requirements")).toBeVisible();
   });
 
   it("shows requirements before installing and opens the management page after", async () => {
     const user = userEvent.setup();
-    renderPlugins("/plugins?add=emergency_alerts");
+    renderStore("/plugins/store/emergency_alerts");
     expect(await screen.findByText("Requirements")).toBeVisible();
     expect(screen.getByText("United States")).toBeVisible();
     expect(
       screen.getByText("Internet access from Tilecast Server"),
     ).toBeVisible();
+    expect(screen.getByText("Included with Tilecast")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Install" }));
     await waitFor(() =>
       expect(screen.getByLabelText("Current route")).toHaveTextContent(
@@ -285,27 +345,62 @@ describe("Add plugin", () => {
     });
   });
 
+  it("explains an unknown store entry instead of installing", async () => {
+    renderStore("/plugins/store/no_such_plugin");
+    expect(await screen.findByText("Plugin not found")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
+  });
+
+  it("redirects legacy ?add= addresses to the store", async () => {
+    renderStore("/plugins?add=emergency_alerts");
+    await waitFor(() =>
+      expect(screen.getByLabelText("Current route")).toHaveTextContent(
+        "/plugins/store/emergency_alerts",
+      ),
+    );
+    expect(await screen.findByText("Requirements")).toBeVisible();
+  });
+
+  it("redirects a bare ?add= to Explore", async () => {
+    renderStore("/plugins?add=1");
+    await waitFor(() =>
+      expect(screen.getByLabelText("Current route")).toHaveTextContent(
+        "/plugins/store",
+      ),
+    );
+    expect(await screen.findByText("Explore plugins")).toBeVisible();
+  });
+
   it("does not offer Install to someone who cannot install", async () => {
     auth.role = "editor";
-    renderPlugins("/plugins?add=countdown_bar");
+    renderStore("/plugins/store/countdown_bar");
     expect(
       await screen.findByText("An Owner or Administrator can install plugins."),
     ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
   });
 
-  it("filters by name, description, and category", () => {
-    expect(filterCatalog(catalog, "", "All").map((item) => item.id)).toEqual([
-      "countdown_bar",
-      "emergency_alerts",
-      "lobby_signs",
-    ]);
+  it("filters by name, description, category, and source", () => {
+    const entries = catalog.map(storeEntry);
     expect(
-      filterCatalog(catalog, "", "Display").map((item) => item.id),
+      filterStoreEntries(entries, "", "All").map((entry) => entry.packageId),
+    ).toEqual(["countdown_bar", "emergency_alerts", "lobby_signs"]);
+    expect(
+      filterStoreEntries(entries, "", "Display").map(
+        (entry) => entry.packageId,
+      ),
     ).toEqual(["countdown_bar", "lobby_signs"]);
     expect(
-      filterCatalog(catalog, "weather", "All").map((item) => item.id),
+      filterStoreEntries(entries, "weather", "All").map(
+        (entry) => entry.packageId,
+      ),
     ).toEqual(["emergency_alerts"]);
+    expect(
+      filterStoreEntries(entries, "", "All", "included").map(
+        (entry) => entry.packageId,
+      ),
+    ).toEqual(["countdown_bar", "emergency_alerts", "lobby_signs"]);
+    expect(filterStoreEntries(entries, "", "All", "marketplace")).toEqual([]);
   });
 });
 
@@ -514,7 +609,7 @@ describe("Plugin navigation", () => {
     ).find((result) => result.id === "plugin:countdown_bar");
     expect(countdown).toMatchObject({
       description: "Plugin · Not installed",
-      to: "/plugins?add=countdown_bar",
+      to: "/plugins/store/countdown_bar",
     });
   });
 });

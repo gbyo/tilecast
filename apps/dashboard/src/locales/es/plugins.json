@@ -26,6 +26,22 @@
     "configured": "Configurado",
     "needsSetup": "Requiere configuración"
   },
+  "tabs": {
+    "installed": "Instalados",
+    "explore": "Explorar",
+    "viewsLabel": "Vistas de complementos"
+  },
+  "store": {
+    "title": "Explorar complementos",
+    "sourceLabel": "Origen",
+    "sources": {
+      "all": "Todos los orígenes",
+      "included": "Incluido con Tilecast"
+    },
+    "notFoundTitle": "Complemento no encontrado",
+    "notFoundDescription": "Esta entrada no forma parte de esta versión de Tilecast.",
+    "backToExplore": "Volver a Explorar"
+  },
   "catalog": {
     "back": "Todos los complementos",
     "reviewDescription": "Revisa {{name}} antes de instalarlo.",
