@@ -78,7 +78,7 @@ last verified document with its age and error. The automatic refresh
 waits 15 minutes after a failure before it tries again. A manual
 refresh always attempts and ignores that wait.
 
-The fetch sends `If-None-Match` when the cache holds an ETag. A `304`
+The fetch sends `If-None-Match` when the cache holds an ETag and the cached document is still fresh. Once the cached document is expired, refresh sends an unconditional request. A `304`
 answer keeps the document and clears the error. The fetch follows at
 most three redirects, and only to acceptable URLs. The fetch caps the
 envelope at 5 MiB.
