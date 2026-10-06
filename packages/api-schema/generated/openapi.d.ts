@@ -5730,6 +5730,39 @@ export interface components {
       roomNumber?: string;
       description?: string;
     };
+    /** @description Facts only a Browser Player can measure. A Browser Player also reports the generic reliability fields where their meaning matches: `foregroundState` (`foreground`, `background`, `frozen` or `recovering`), `immersiveModeActive` (the effective unattended presentation: fullscreen or an installed app), `keepScreenOn`, `activeHoursState` (`active` or `off_hours`) and `cachedFallbackAvailable`. Every value is a measurement. The server draws the health conclusions. The Browser Player sends no identifier that could single out one browser. */
+    BrowserPlayerStatus: {
+      /** @enum {string} */
+      browserName?: "chrome" | "edge" | "chromium" | "other";
+      browserMajorVersion?: number;
+      /**
+       * @description `standalone_pwa` when the page runs as an installed app, otherwise `browser_tab`.
+       * @enum {string}
+       */
+      displayMode?: "browser_tab" | "standalone_pwa";
+      fullscreenActive?: boolean;
+      /** @description Whether the browser allows audible playback now. */
+      audioUnlocked?: boolean;
+      /** @enum {string} */
+      wakeLock?: "active" | "released" | "denied" | "unsupported";
+      /**
+       * @description `persistent` only when the browser said so. `best_effort` means the browser may remove downloaded content under storage pressure.
+       * @enum {string}
+       */
+      storagePersistence?: "persistent" | "best_effort" | "unknown";
+      /** Format: int64 */
+      storageUsageBytes?: number;
+      /** Format: int64 */
+      storageQuotaBytes?: number;
+      /** @enum {string} */
+      offlineContent?: "ready" | "repairing" | "not_prepared";
+      /** @enum {string} */
+      serviceWorker?:
+        "controlling" | "update_waiting" | "installing" | "unavailable";
+      serviceWorkerVersion?: string;
+      /** @description True when the browser discarded this page and the Player restarted it. */
+      wasDiscarded?: boolean;
+    };
     AirplaySessionScreenState: {
       /** Format: uuid */
       screenId: string;
@@ -8230,10 +8263,11 @@ export interface components {
     };
     /** @description The Player status document. Only the release family fields are described here; the remaining fields are the existing heartbeat contract and are additive. */
     PlayerHeartbeat: {
-      /** @description `android`, `electron-linux`, `edge` or `windows`. The server keeps only these values; another value is recorded as absent. */
+      /** @description `android`, `electron-linux`, `edge`, `windows` or `browser`. The server keeps only these values; another value is recorded as absent. */
       playerFamily?: string;
       /** @description `x86_64` or `aarch64`, kept only with `playerFamily: edge` or `playerFamily: windows`. An Edge or Windows screen without a known architecture is `incompatible` for its family's deployments. */
       playerArchitecture?: string;
+      browser?: components["schemas"]["BrowserPlayerStatus"];
     };
     MultiFactorVerifyRequest: {
       challengeToken: string;

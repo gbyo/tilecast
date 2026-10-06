@@ -357,6 +357,138 @@ func (e BackupJobKind) Valid() bool {
 	}
 }
 
+// Defines values for BrowserPlayerStatusBrowserName.
+const (
+	Chrome   BrowserPlayerStatusBrowserName = "chrome"
+	Chromium BrowserPlayerStatusBrowserName = "chromium"
+	Edge     BrowserPlayerStatusBrowserName = "edge"
+	Other    BrowserPlayerStatusBrowserName = "other"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusBrowserName enum.
+func (e BrowserPlayerStatusBrowserName) Valid() bool {
+	switch e {
+	case Chrome:
+		return true
+	case Chromium:
+		return true
+	case Edge:
+		return true
+	case Other:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPlayerStatusDisplayMode.
+const (
+	BrowserTab    BrowserPlayerStatusDisplayMode = "browser_tab"
+	StandalonePwa BrowserPlayerStatusDisplayMode = "standalone_pwa"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusDisplayMode enum.
+func (e BrowserPlayerStatusDisplayMode) Valid() bool {
+	switch e {
+	case BrowserTab:
+		return true
+	case StandalonePwa:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPlayerStatusOfflineContent.
+const (
+	BrowserPlayerStatusOfflineContentNotPrepared BrowserPlayerStatusOfflineContent = "not_prepared"
+	BrowserPlayerStatusOfflineContentReady       BrowserPlayerStatusOfflineContent = "ready"
+	BrowserPlayerStatusOfflineContentRepairing   BrowserPlayerStatusOfflineContent = "repairing"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusOfflineContent enum.
+func (e BrowserPlayerStatusOfflineContent) Valid() bool {
+	switch e {
+	case BrowserPlayerStatusOfflineContentNotPrepared:
+		return true
+	case BrowserPlayerStatusOfflineContentReady:
+		return true
+	case BrowserPlayerStatusOfflineContentRepairing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPlayerStatusServiceWorker.
+const (
+	BrowserPlayerStatusServiceWorkerControlling   BrowserPlayerStatusServiceWorker = "controlling"
+	BrowserPlayerStatusServiceWorkerInstalling    BrowserPlayerStatusServiceWorker = "installing"
+	BrowserPlayerStatusServiceWorkerUnavailable   BrowserPlayerStatusServiceWorker = "unavailable"
+	BrowserPlayerStatusServiceWorkerUpdateWaiting BrowserPlayerStatusServiceWorker = "update_waiting"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusServiceWorker enum.
+func (e BrowserPlayerStatusServiceWorker) Valid() bool {
+	switch e {
+	case BrowserPlayerStatusServiceWorkerControlling:
+		return true
+	case BrowserPlayerStatusServiceWorkerInstalling:
+		return true
+	case BrowserPlayerStatusServiceWorkerUnavailable:
+		return true
+	case BrowserPlayerStatusServiceWorkerUpdateWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPlayerStatusStoragePersistence.
+const (
+	BrowserPlayerStatusStoragePersistenceBestEffort BrowserPlayerStatusStoragePersistence = "best_effort"
+	BrowserPlayerStatusStoragePersistencePersistent BrowserPlayerStatusStoragePersistence = "persistent"
+	BrowserPlayerStatusStoragePersistenceUnknown    BrowserPlayerStatusStoragePersistence = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusStoragePersistence enum.
+func (e BrowserPlayerStatusStoragePersistence) Valid() bool {
+	switch e {
+	case BrowserPlayerStatusStoragePersistenceBestEffort:
+		return true
+	case BrowserPlayerStatusStoragePersistencePersistent:
+		return true
+	case BrowserPlayerStatusStoragePersistenceUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPlayerStatusWakeLock.
+const (
+	BrowserPlayerStatusWakeLockActive      BrowserPlayerStatusWakeLock = "active"
+	BrowserPlayerStatusWakeLockDenied      BrowserPlayerStatusWakeLock = "denied"
+	BrowserPlayerStatusWakeLockReleased    BrowserPlayerStatusWakeLock = "released"
+	BrowserPlayerStatusWakeLockUnsupported BrowserPlayerStatusWakeLock = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusWakeLock enum.
+func (e BrowserPlayerStatusWakeLock) Valid() bool {
+	switch e {
+	case BrowserPlayerStatusWakeLockActive:
+		return true
+	case BrowserPlayerStatusWakeLockDenied:
+		return true
+	case BrowserPlayerStatusWakeLockReleased:
+		return true
+	case BrowserPlayerStatusWakeLockUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BrowserPublicKeyCrv.
 const (
 	P256 BrowserPublicKeyCrv = "P-256"
@@ -6303,6 +6435,48 @@ type BrowserLaunchResponse struct {
 	} `json:"data"`
 }
 
+// BrowserPlayerStatus Facts only a Browser Player can measure. A Browser Player also reports the generic reliability fields where their meaning matches: `foregroundState` (`foreground`, `background`, `frozen` or `recovering`), `immersiveModeActive` (the effective unattended presentation: fullscreen or an installed app), `keepScreenOn`, `activeHoursState` (`active` or `off_hours`) and `cachedFallbackAvailable`. Every value is a measurement. The server draws the health conclusions. The Browser Player sends no identifier that could single out one browser.
+type BrowserPlayerStatus struct {
+	// AudioUnlocked Whether the browser allows audible playback now.
+	AudioUnlocked       *bool                           `json:"audioUnlocked,omitempty"`
+	BrowserMajorVersion *int                            `json:"browserMajorVersion,omitempty"`
+	BrowserName         *BrowserPlayerStatusBrowserName `json:"browserName,omitempty"`
+
+	// DisplayMode `standalone_pwa` when the page runs as an installed app, otherwise `browser_tab`.
+	DisplayMode          *BrowserPlayerStatusDisplayMode    `json:"displayMode,omitempty"`
+	FullscreenActive     *bool                              `json:"fullscreenActive,omitempty"`
+	OfflineContent       *BrowserPlayerStatusOfflineContent `json:"offlineContent,omitempty"`
+	ServiceWorker        *BrowserPlayerStatusServiceWorker  `json:"serviceWorker,omitempty"`
+	ServiceWorkerVersion *string                            `json:"serviceWorkerVersion,omitempty"`
+
+	// StoragePersistence `persistent` only when the browser said so. `best_effort` means the browser may remove downloaded content under storage pressure.
+	StoragePersistence *BrowserPlayerStatusStoragePersistence `json:"storagePersistence,omitempty"`
+	StorageQuotaBytes  *int64                                 `json:"storageQuotaBytes,omitempty"`
+	StorageUsageBytes  *int64                                 `json:"storageUsageBytes,omitempty"`
+	WakeLock           *BrowserPlayerStatusWakeLock           `json:"wakeLock,omitempty"`
+
+	// WasDiscarded True when the browser discarded this page and the Player restarted it.
+	WasDiscarded *bool `json:"wasDiscarded,omitempty"`
+}
+
+// BrowserPlayerStatusBrowserName defines model for BrowserPlayerStatus.BrowserName.
+type BrowserPlayerStatusBrowserName string
+
+// BrowserPlayerStatusDisplayMode `standalone_pwa` when the page runs as an installed app, otherwise `browser_tab`.
+type BrowserPlayerStatusDisplayMode string
+
+// BrowserPlayerStatusOfflineContent defines model for BrowserPlayerStatus.OfflineContent.
+type BrowserPlayerStatusOfflineContent string
+
+// BrowserPlayerStatusServiceWorker defines model for BrowserPlayerStatus.ServiceWorker.
+type BrowserPlayerStatusServiceWorker string
+
+// BrowserPlayerStatusStoragePersistence `persistent` only when the browser said so. `best_effort` means the browser may remove downloaded content under storage pressure.
+type BrowserPlayerStatusStoragePersistence string
+
+// BrowserPlayerStatusWakeLock defines model for BrowserPlayerStatus.WakeLock.
+type BrowserPlayerStatusWakeLock string
+
 // BrowserPublicKey defines model for BrowserPublicKey.
 type BrowserPublicKey struct {
 	Crv    BrowserPublicKeyCrv      `json:"crv"`
@@ -8923,10 +9097,13 @@ type PlayerFamily = string
 
 // PlayerHeartbeat The Player status document. Only the release family fields are described here; the remaining fields are the existing heartbeat contract and are additive.
 type PlayerHeartbeat struct {
+	// Browser Facts only a Browser Player can measure. A Browser Player also reports the generic reliability fields where their meaning matches: `foregroundState` (`foreground`, `background`, `frozen` or `recovering`), `immersiveModeActive` (the effective unattended presentation: fullscreen or an installed app), `keepScreenOn`, `activeHoursState` (`active` or `off_hours`) and `cachedFallbackAvailable`. Every value is a measurement. The server draws the health conclusions. The Browser Player sends no identifier that could single out one browser.
+	Browser *BrowserPlayerStatus `json:"browser,omitempty"`
+
 	// PlayerArchitecture `x86_64` or `aarch64`, kept only with `playerFamily: edge` or `playerFamily: windows`. An Edge or Windows screen without a known architecture is `incompatible` for its family's deployments.
 	PlayerArchitecture *string `json:"playerArchitecture,omitempty"`
 
-	// PlayerFamily `android`, `electron-linux`, `edge` or `windows`. The server keeps only these values; another value is recorded as absent.
+	// PlayerFamily `android`, `electron-linux`, `edge`, `windows` or `browser`. The server keeps only these values; another value is recorded as absent.
 	PlayerFamily *string `json:"playerFamily,omitempty"`
 }
 

@@ -8869,6 +8869,57 @@ components:
         roomName: { type: string, maxLength: 120 }
         roomNumber: { type: string, maxLength: 80 }
         description: { type: string, maxLength: 1000 }
+    BrowserPlayerStatus:
+      type: object
+      additionalProperties: false
+      description: >-
+        Facts only a Browser Player can measure. A Browser Player also reports
+        the generic reliability fields where their meaning matches:
+        `foregroundState` (`foreground`, `background`, `frozen` or
+        `recovering`), `immersiveModeActive` (the effective unattended
+        presentation: fullscreen or an installed app), `keepScreenOn`,
+        `activeHoursState` (`active` or `off_hours`) and
+        `cachedFallbackAvailable`. Every value is a measurement. The server
+        draws the health conclusions. The Browser Player sends no
+        identifier that could single out one browser.
+      properties:
+        browserName:
+          type: string
+          enum: [chrome, edge, chromium, other]
+        browserMajorVersion: { type: integer, minimum: 0, maximum: 9999 }
+        displayMode:
+          type: string
+          description: >-
+            `standalone_pwa` when the page runs as an installed app, otherwise
+            `browser_tab`.
+          enum: [browser_tab, standalone_pwa]
+        fullscreenActive: { type: boolean }
+        audioUnlocked:
+          type: boolean
+          description: Whether the browser allows audible playback now.
+        wakeLock:
+          type: string
+          enum: [active, released, denied, unsupported]
+        storagePersistence:
+          type: string
+          description: >-
+            `persistent` only when the browser said so. `best_effort` means
+            the browser may remove downloaded content under storage pressure.
+          enum: [persistent, best_effort, unknown]
+        storageUsageBytes: { type: integer, format: int64, minimum: 0 }
+        storageQuotaBytes: { type: integer, format: int64, minimum: 0 }
+        offlineContent:
+          type: string
+          enum: [ready, repairing, not_prepared]
+        serviceWorker:
+          type: string
+          enum: [controlling, update_waiting, installing, unavailable]
+        serviceWorkerVersion: { type: string, maxLength: 64 }
+        wasDiscarded:
+          type: boolean
+          description: >-
+            True when the browser discarded this page and the Player
+            restarted it.
     AirplaySessionScreenState:
       type: object
       additionalProperties: false
@@ -12494,7 +12545,7 @@ components:
         playerFamily:
           type: string
           description: >-
-            `android`, `electron-linux`, `edge` or `windows`. The server keeps
+            `android`, `electron-linux`, `edge`, `windows` or `browser`. The server keeps
             only these values; another value is recorded as absent.
         playerArchitecture:
           type: string
@@ -12502,6 +12553,8 @@ components:
             `x86_64` or `aarch64`, kept only with `playerFamily: edge` or
             `playerFamily: windows`. An Edge or Windows screen without a
             known architecture is `incompatible` for its family's deployments.
+        browser:
+          $ref: "#/components/schemas/BrowserPlayerStatus"
     MultiFactorVerifyRequest:
       type: object
       additionalProperties: false

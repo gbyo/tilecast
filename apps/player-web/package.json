@@ -5,8 +5,11 @@
   "type": "module",
   "license": "AGPL-3.0-only",
   "scripts": {
-    "build": "npm run build:node --workspace @tilecast/player-runtime && npm run build:runtime --workspace @tilecast/player-runtime && node scripts/build.mjs",
+    "deps": "npm run build:node --workspace @tilecast/player-runtime",
+    "build": "npm run deps && npm run build:runtime --workspace @tilecast/player-runtime && node scripts/build.mjs",
+    "pretypecheck": "npm run deps",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run deps",
     "test": "vitest run",
     "test:e2e": "npm run build && playwright test -c e2e/playwright.config.ts"
   },

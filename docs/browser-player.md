@@ -182,19 +182,54 @@ The unmanaged `/player/` route keeps its own manifest and identity.
 
 ## Capabilities
 
-| Capability                              | Browser Player v1                                           |
-| --------------------------------------- | ----------------------------------------------------------- |
-| Image, video, Layout, Widget, status    | Supported through the shared Runtime                        |
-| Server-selected schedule and takeover   | Supported. The Server selects.                              |
-| Offline continuation of last activation | Supported                                                   |
-| Offline schedule evaluation             | Not supported                                               |
-| Active hours and outside-hours display  | Not supported. The Host has no power policy.                |
-| Synchronized playback                   | Not supported. `synchronizedPlayback` is `false`.           |
-| Remote Website surface                  | Not supported. The browser iframe boundary is not weakened. |
-| Watch Live and capture                  | Not supported                                               |
-| CEC, DDC, reboot, power                 | Not supported                                               |
-| Native Player update                    | Not supported. Native update targeting excludes `browser`.  |
-| Native network configuration            | Not supported                                               |
+`apps/player-web/capabilities.json` is the one source of this matrix.
+`node scripts/generate-browser-capabilities.mjs` generates the Host, server, Studio, and these tables from it.
+`npm run player-contracts:check` fails when a generated file is stale.
+
+<!-- browser-capabilities:start -->
+
+| Capability                                | Browser Player v1 | Detail                                                                                                                                                                |
+| ----------------------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Image and video playback                  | Supported         | The shared Player Runtime plays them.                                                                                                                                 |
+| Playlists and transitions                 | Supported         | The shared Player Runtime advances items and runs transitions.                                                                                                        |
+| Layouts                                   | Supported         | Layout zones render in the shared Player Runtime.                                                                                                                     |
+| Widgets                                   | Supported         | Widgets and Widget components render in the shared Player Runtime.                                                                                                    |
+| Content schedules chosen by the server    | Supported         | The server selects the content. The Browser Player does not rank schedules.                                                                                           |
+| Takeovers                                 | Supported         | The server selects a Takeover like any other content.                                                                                                                 |
+| Active hours and rest                     | Supported         | The shared active-hours policy runs in the browser, including while the server is unreachable. The browser shows the rest surface. It does not power off the display. |
+| Last verified content offline             | Supported         | The last completely prepared activation continues while the server is unreachable.                                                                                    |
+| Choosing future content schedules offline | Not supported     | The server chooses content. The Browser Player waits for the server to choose again.                                                                                  |
+| Persistent media cache                    | Conditional       | Supported when the browser grants persistent storage. Otherwise the browser can remove downloaded content.                                                            |
+| Activity and proof of play                | Supported         | The Browser Player reports the same Activity events as other Players. It keeps them in a durable local queue until the server accepts them.                           |
+| Identify, retry, skip, sync and reload    | Supported         | The Browser Player runs the commands listed under Commands.                                                                                                           |
+| Installed app                             | Supported         | Chrome and Microsoft Edge can install each Browser Player as its own app.                                                                                             |
+| Synchronized playback                     | Not supported     | The Browser Player does not produce shared timeline anchors.                                                                                                          |
+| Watch Live and screenshots                | Not supported     | A browser cannot capture its own display without a user prompt.                                                                                                       |
+| Websites and YouTube                      | Not supported     | Browser Player v1 has no isolated Website surface. The browser frame boundary is not weakened.                                                                        |
+| Display control (CEC and DDC)             | Not supported     | A web page cannot control the display.                                                                                                                                |
+| Device restart                            | Not supported     | A web page cannot restart the device.                                                                                                                                 |
+| Player updates                            | Not applicable    | The server supplies the Browser Player. Update targeting excludes it.                                                                                                 |
+| Operating system network setup            | Not supported     | A web page cannot change the network.                                                                                                                                 |
+
+<!-- browser-capabilities:end -->
+
+## Commands
+
+A Browser Player runs only the command types in this table.
+The server refuses every other command type for a Browser Screen.
+Studio offers only these command types for a Browser Screen.
+
+<!-- browser-commands:start -->
+
+| Command                                   | Detail                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------- |
+| `sync_now` (Sync now)                     | Refreshes the manifest, the configuration and the server selection. |
+| `reload_playback` (Reload playback)       | Activates the current content again from the start.                 |
+| `identify_screen` (Identify screen)       | Shows the Screen name through the shared Runtime.                   |
+| `retry_current_item` (Retry current item) | Asks the shared Runtime to restart the item on screen.              |
+| `skip_current_item` (Skip current item)   | Asks the shared Runtime to advance to the next item.                |
+
+<!-- browser-commands:end -->
 
 ## Validation
 
