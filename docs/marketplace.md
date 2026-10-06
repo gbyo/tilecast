@@ -113,6 +113,12 @@ An installed package keeps working when the marketplace is
 unreachable. The store shows the last valid listings with the error
 and the age. Playback never depends on marketplace availability.
 
+Operator note: installing a listing adds its Widgets and Data Sources
+to the Studio catalog under the package namespace, and removing the
+package is refused while any of them remain in use. Plan content
+cleanup before removal: delete the package-built Widgets and Data
+Sources first, then remove the package.
+
 ## Audit
 
 A manual refresh writes an audit event. A successful refresh uses

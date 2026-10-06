@@ -262,10 +262,47 @@ export function useRefreshMarketplaceCatalog(csrfToken: string) {
   });
 }
 
-/** The plugin-owned resources a 409 plugin_in_use response says remain. */
+/**
+ * The owned resources a 409 in-use response says remain. Plugins and
+ * packages share the details shape; only the code differs.
+ */
 export function inUseResources(error: unknown): PluginInUseResource[] | null {
-  if (!(error instanceof ApiError) || error.code !== "plugin_in_use")
+  if (
+    !(error instanceof ApiError) ||
+    (error.code !== "plugin_in_use" && error.code !== "package_in_use")
+  )
     return null;
   const resources = error.details?.resources;
   return Array.isArray(resources) ? (resources as PluginInUseResource[]) : [];
+}
+
+/** One contribution an update adds or drops, by kind and package path. */
+export type ContributionChange = { kind: string; path: string };
+
+/**
+ * What an update changes about contributions: the review's (type, path)
+ * pairs against the installed (kind, path) rows. Paths normalize a
+ * leading ./, since manifests and rows spell it differently.
+ */
+export function diffContributions(
+  current: { kind: string; path: string }[],
+  next: { type: string; path: string }[],
+): { added: ContributionChange[]; removed: ContributionChange[] } {
+  const key = (kind: string, path: string) =>
+    `${kind} ${path.replace(/^\.\//, "")}`;
+  const before = new Map(
+    current.map((item) => [key(item.kind, item.path), item] as const),
+  );
+  const after = new Map(
+    next.map((item) => [key(item.type, item.path), item] as const),
+  );
+  const added: ContributionChange[] = [];
+  for (const [id, item] of after) {
+    if (!before.has(id)) added.push({ kind: item.type, path: item.path });
+  }
+  const removed: ContributionChange[] = [];
+  for (const [id, item] of before) {
+    if (!after.has(id)) removed.push({ kind: item.kind, path: item.path });
+  }
+  return { added, removed };
 }

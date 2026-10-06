@@ -39,6 +39,7 @@ import {
   marketplaceListing,
   updateCheck,
 } from "./catalogFixtures";
+import { diffContributions } from "./pluginCatalog";
 import { PluginActionsMenu, blockerInstruction } from "./PluginActionsMenu";
 import { filterStoreEntries } from "./pluginCatalog";
 import { PluginRouteGate } from "./PluginRouteGate";
@@ -1351,6 +1352,105 @@ describe("Package management", () => {
       screen.queryByRole("button", { name: "Check for update" }),
     ).toBeNull();
     expect(screen.queryByRole("button", { name: "Remove package" })).toBeNull();
+  });
+
+  it("names the remaining content when removal is blocked", async () => {
+    const user = userEvent.setup();
+    renderStore("/plugins/store/acme.kiosk");
+    const remove = await screen.findByRole("button", {
+      name: "Remove package",
+    });
+    override = ({ method }) =>
+      method === "DELETE"
+        ? json(409, {
+            error: {
+              code: "package_in_use",
+              message: "Lobby Kiosk cannot be removed while 1 Widget remains.",
+              details: {
+                packageId: "acme.kiosk",
+                resources: [
+                  {
+                    kind: "widget",
+                    count: 1,
+                    label: "Widget",
+                    resolution: "delete",
+                  },
+                ],
+              },
+            },
+          })
+        : json(500, { error: "offline" });
+    await user.click(remove);
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Remove package" }),
+    );
+    expect(
+      await screen.findByText(
+        "Lobby Kiosk cannot be removed while 1 Widget remains.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("1 Widget")).toBeVisible();
+    expect(
+      screen.getByText("Delete the remaining content, then try again."),
+    ).toBeVisible();
+  });
+
+  it("shows what an update adds and drops", async () => {
+    const user = userEvent.setup();
+    check = updateCheck({
+      installed: installedPackage(),
+      available: true,
+      upToDate: false,
+      latest: installReview({
+        version: "1.3.0",
+        contributions: [
+          { type: "widget", path: "concierge" },
+          { type: "dataSource", path: "schedule" },
+        ],
+      }),
+    });
+    renderStore("/plugins/store/acme.kiosk");
+    await user.click(
+      await screen.findByRole("button", { name: "Check for update" }),
+    );
+    expect(await screen.findByText("New in this version")).toBeVisible();
+    expect(screen.getByText("widget · concierge")).toBeVisible();
+    expect(screen.getByText("Removed in this version")).toBeVisible();
+    expect(screen.getByText("widget · lobby")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Updating deletes nothing: if anything still uses a removed contribution, the update waits until you delete it.",
+      ),
+    ).toBeVisible();
+  });
+});
+
+describe("Contribution diffs", () => {
+  it("matches kinds and paths with ./ normalization", () => {
+    const { added, removed } = diffContributions(
+      [
+        { kind: "widget", path: "./widgets/lobby" },
+        { kind: "dataSource", path: "./data-sources/schedule" },
+      ],
+      [
+        { type: "widget", path: "widgets/lobby" },
+        { type: "widget", path: "./widgets/concierge" },
+      ],
+    );
+    expect(added).toEqual([{ kind: "widget", path: "./widgets/concierge" }]);
+    expect(removed).toEqual([
+      { kind: "dataSource", path: "./data-sources/schedule" },
+    ]);
+  });
+
+  it("reports nothing when contributions match", () => {
+    const { added, removed } = diffContributions(
+      [{ kind: "widget", path: "lobby" }],
+      [{ type: "widget", path: "./lobby" }],
+    );
+    expect(added).toEqual([]);
+    expect(removed).toEqual([]);
   });
 });
 

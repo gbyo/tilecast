@@ -288,6 +288,11 @@
     "rollback": "Restaurar versión anterior",
     "remove": "Eliminar paquete",
     "removeConfirmTitle": "¿Eliminar este paquete?",
-    "removeConfirmBody": "Esto elimina la instalación de {{packageId}} y sus aportaciones. Un enlace de repositorio personalizado se conserva para reinstalarlo."
+    "removeConfirmBody": "Esto elimina la instalación de {{packageId}} y sus aportaciones. Un enlace de repositorio personalizado se conserva para reinstalarlo.",
+    "blockedResource": "{{count}} {{label}}",
+    "blockedInstruction": "Elimina el contenido restante e inténtalo de nuevo.",
+    "addedContributions": "Novedades de esta versión",
+    "removedContributions": "Eliminado en esta versión",
+    "removedWarning": "Actualizar no elimina nada: si algo sigue usando una aportación eliminada, la actualización espera hasta que la elimines."
   }
 }

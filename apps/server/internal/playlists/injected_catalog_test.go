@@ -99,7 +99,7 @@ func TestInjectedCatalogDrivesCompilationAndDiscovery(t *testing.T) {
 	}
 
 	// Fingerprint reconciliation reads the injected catalog fingerprint.
-	if service.definitions.Fingerprint != catalog.Fingerprint || catalog.Fingerprint == "" {
+	if service.definitions.CatalogFingerprint() != catalog.Fingerprint || catalog.Fingerprint == "" {
 		t.Fatal("service did not expose the injected catalog fingerprint")
 	}
 	embedded := contentdefs.MustLoad()

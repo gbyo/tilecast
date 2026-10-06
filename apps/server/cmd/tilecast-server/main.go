@@ -26,6 +26,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/discovery"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/contributions"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/github"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
@@ -90,11 +91,15 @@ func serve() {
 		fail("database connection failed", err)
 	}
 	defer db.Close()
-	contentDefinitions, err := contentdefs.Load()
+	releaseDefinitions, err := contentdefs.Load()
 	if err != nil {
 		fail("content definition validation failed", err)
 	}
-	if err = media.ValidateContentAdapters(contentDefinitions); err != nil {
+	// The effective catalog starts as the release catalog. Installed
+	// package contributions join it once the contributions service
+	// rebuilds from retained bytes below.
+	contentDefinitions := contentdefs.NewProvider(releaseDefinitions)
+	if err = media.ValidateContentAdapters(contentDefinitions.Snapshot()); err != nil {
 		fail("content adapter validation failed", err)
 	}
 
@@ -193,6 +198,17 @@ func serve() {
 		pipelineOptions = append(pipelineOptions, pipeline.WithAllowUnsigned())
 	}
 	pipelineService := pipeline.NewService(db, installService, cfg.Packages.Root, version.Display(), pipelineOptions...)
+	contributionService := contributions.NewService(db, installService, releaseDefinitions, contentDefinitions,
+		pipelineService.ContentDir, media.RegisteredDataSourceAdapter, media.ValidateContentAdapters,
+		contributions.WithLogger(logger))
+	pipelineService.SetContributions(contributionService)
+	if err := contributionService.Rebuild(ctx); err != nil {
+		if contributions.SkipsOnly(err) {
+			logger.Warn("some package contributions did not join the catalog", "error", err)
+		} else {
+			fail("package contributions rebuild failed", err)
+		}
+	}
 	pluginService.SetCustomSource(func(ctx context.Context) ([]plugins.CustomSnapshot, error) {
 		sources, err := pipelineService.ListCustomSources(ctx)
 		if err != nil {

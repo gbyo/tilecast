@@ -4369,7 +4369,7 @@ paths:
     get:
       operationId: listPluginStore
       security: [{ sessionCookie: [] }, { userBearer: [] }]
-      description: The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Release-owned entries always appear; marketplace entries join the release-owned entries; custom entries join from bound repositories.
+      description: The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Release-owned entries always appear; marketplace entries join the list when a catalog is configured; custom entries join from bound repositories.
       responses:
         "200":
           description: Plugin store
@@ -4408,9 +4408,7 @@ paths:
       operationId: refreshMarketplaceCatalog
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
-        Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
-      parameters:
-        - { $ref: "#/components/parameters/CSRFToken" }
+        Fetch the signed marketplace catalog now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous verified cache keeps serving when the refresh fails.
       responses:
         "200":
           description: Marketplace cache status
@@ -4428,8 +4426,14 @@ paths:
                         { $ref: "#/components/schemas/PluginMarketplaceStatus" }
         "401": { description: Dashboard authentication required }
         "403": { description: Owner or Administrator role required }
+        "409":
+          {
+            description: marketplace_not_configured — no catalog URL is configured,
+          }
         "502":
-          { description: marketplace_refresh_failed — the catalog fetch failed }
+          {
+            description: marketplace_refresh_failed — the catalog fetch or signature check failed,
+          }
   /api/v1/plugin-store/resolve-github:
     post:
       operationId: resolveGitHubRepository
@@ -4471,33 +4475,6 @@ paths:
           description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_mismatch, or package_incompatible
         "502":
           description: upstream_unavailable — GitHub, the registry, or Sigstore is unreachable
-  /api/v1/plugin-store/{packageId}/resolve:
-    post:
-      operationId: resolveMarketplacePackage
-      security: [{ sessionCookie: [] }, { userBearer: [] }]
-      description: >-
-        Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a cached marketplace listing to its install review: the pinned artifact verifies provenance, pulls by digest, and reads the published manifest, which is authoritative for capabilities. Installs nothing; installing re-resolves fresh.
-      parameters:
-        - { $ref: "#/components/parameters/PackageID" }
-        - { $ref: "#/components/parameters/CSRFToken" }
-      responses:
-        "200":
-          description: Install review
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data: { $ref: "#/components/schemas/GitHubInstallReview" }
-        "401": { description: Dashboard authentication required }
-        "403": { description: Owner or Administrator role required }
-        "404":
-          { description: plugin_not_found — no listing carries this package ID }
-        "422":
-          description: repository_not_supported, no_published_package, package_unsigned, artifact_invalid, package_mismatch, or package_incompatible
-        "502":
-          description: upstream_unavailable — the catalog, the registry, or Sigstore is unreachable
   /api/v1/plugin-store/{packageId}/install:
     post:
       operationId: installStorePackage
@@ -4533,7 +4510,7 @@ paths:
         "403": { description: Owner or Administrator role required }
         "404": { description: repository_not_found or plugin_not_found }
         "409":
-          description: package_mismatch, package_installed, contribution_collision, or source_conflict
+          description: marketplace_not_configured, package_mismatch, package_installed, contribution_collision, or source_conflict
         "422":
           description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation
         "502":
@@ -4588,6 +4565,11 @@ paths:
         "401": { description: Dashboard authentication required }
         "403": { description: Owner or Administrator role required }
         "404": { description: package_not_installed }
+        "409":
+          description: package_in_use — contributed content still exists; remaining resources are listed in error.details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PackageInUseError" }
   /api/v1/packages/{packageId}/update-check:
     post:
       operationId: checkPackageUpdate
@@ -4610,6 +4592,10 @@ paths:
         "401": { description: Dashboard authentication required }
         "403": { description: Owner or Administrator role required }
         "404": { description: package_not_installed }
+        "409":
+          {
+            description: marketplace_not_configured — the package came from a catalog that is no longer configured,
+          }
         "422":
           description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_mismatch, or package_incompatible
         "502":
@@ -4656,7 +4642,7 @@ paths:
         "403": { description: Owner or Administrator role required }
         "404": { description: package_not_installed }
         "409":
-          description: update_check_expired, package_mismatch, contribution_collision, or source_conflict
+          description: update_check_expired, marketplace_not_configured, package_mismatch, contribution_collision, source_conflict, or package_in_use — the update drops a contribution persisted content still uses; remaining resources are listed in error.details
         "422":
           description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation
         "502":
@@ -4684,7 +4670,7 @@ paths:
         "403": { description: Owner or Administrator role required }
         "404": { description: package_not_installed }
         "409":
-          description: no_rollback — the package has no previous activation
+          description: no_rollback — the package has no previous activation — or package_in_use — the rollback drops a contribution persisted content still uses; remaining resources are listed in error.details
   /api/v1/screens/pairing/{id}/reject:
     post:
       operationId: rejectPairing
@@ -11738,7 +11724,7 @@ components:
     PluginStoreSource:
       type: object
       required: [kind]
-      description: Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID; "custom" entries come from a bound repository and carry its URL. Clients must tolerate values they do not know.
+      description: Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the configured catalog and carry its catalog ID; "custom" entries come from a bound repository and carry its URL. Clients must tolerate values they do not know.
       properties:
         kind:
           type: string
@@ -11808,22 +11794,21 @@ components:
           {
             type: string,
             format: uri,
-            description: "Public source repository as a github.com https URL with an owner and name.",
+            description: "Public source repository as an https URL with a host and path.",
           }
         documentation: { type: string, format: uri }
         issues: { type: string, format: uri }
-        categories: { type: array, items: { type: string } }
-        featured: { type: boolean }
         compatible: { type: boolean }
         installed: { type: boolean }
         installedVersion: { type: string }
         updateAvailable: { type: boolean }
     PluginMarketplaceStatus:
       type: object
-      required: [stale]
-      description: The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here.
+      required: [configured, stale]
+      description: The cached catalog behind marketplace entries. Fetch failures keep serving the last verified cache and record the error here.
       properties:
-        lastFetchedAt: { type: string, format: date-time }
+        configured: { type: boolean }
+        fetchedAt: { type: string, format: date-time }
         stale: { type: boolean }
         error: { type: string }
     PluginStoreEntry:
@@ -12016,6 +12001,32 @@ components:
                       kind: { type: string }
                       count: { type: integer, minimum: 1 }
                       label: { type: string }
+    PackageInUseError:
+      type: object
+      required: [error]
+      description: A removal, update, or rollback blocked by contributed content the operation would strand. The operation deletes installation state only, never content, so the operator deletes the listed content first.
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code: { type: string, const: package_in_use }
+            message: { type: string }
+            details:
+              type: object
+              required: [packageId, resources]
+              properties:
+                packageId: { type: string }
+                resources:
+                  type: array
+                  items:
+                    type: object
+                    required: [kind, count, label, resolution]
+                    properties:
+                      kind: { type: string }
+                      count: { type: integer, minimum: 1 }
+                      label: { type: string }
+                      resolution: { type: string }
     PresentationNetworkSecurity:
       type: string
       enum: [wpa_psk, wpa_eap_peap_mschapv2]

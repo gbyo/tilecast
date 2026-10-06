@@ -64,6 +64,8 @@ See the [package contract](https://github.com/gbyo/tilecast/blob/main/docs/packa
 
 Removing a plugin is blocked while its instances or other plugin-owned resources remain. Remove those through the plugin's own page first. Removal does not delete those resources.
 
+The same holds for extension packages: installing one adds its Widgets and Data Sources to the Studio libraries under the package name, and removing, updating, or restoring it is refused while any of those remain in use. The refusal names what still uses the package, so delete those Widgets and Data Sources first, then retry.
+
 You can also list, install, and remove plugins with `tilecast plugin` in the [command-line interface](../../integrations/cli/). Some installed plugins add their own CLI commands and MCP tools.
 
 See [Configure Emergency Alerts](../emergency-alerts/) for coverage, matching rules, display modes, and poll health.

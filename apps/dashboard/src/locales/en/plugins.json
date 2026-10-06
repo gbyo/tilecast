@@ -285,6 +285,11 @@
     "rollback": "Restore previous version",
     "remove": "Remove package",
     "removeConfirmTitle": "Remove this package?",
-    "removeConfirmBody": "This deletes the installation of {{packageId}} and its contributions. A custom repository binding survives for reinstall."
+    "removeConfirmBody": "This deletes the installation of {{packageId}} and its contributions. A custom repository binding survives for reinstall.",
+    "blockedResource": "{{count}} {{label}}",
+    "blockedInstruction": "Delete the remaining content, then try again.",
+    "addedContributions": "New in this version",
+    "removedContributions": "Removed in this version",
+    "removedWarning": "Updating deletes nothing: if anything still uses a removed contribution, the update waits until you delete it."
   }
 }

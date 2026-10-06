@@ -191,9 +191,19 @@ type Service struct {
 	registry        Registry
 	attest          AttestationVerifier
 	catalog         Catalog
+	contributions   Contributions
 	packagesRoot    string
 	tilecastVersion string
 	allowUnsigned   bool
+}
+
+// Contributions joins installed package definitions into the effective
+// content catalog. *contributions.Service satisfies it; a nil
+// Contributions leaves package rows inert, as before external
+// contributions existed.
+type Contributions interface {
+	Validate(contentDir string, manifest packagemanifest.Manifest, digest string) error
+	Rebuild(ctx context.Context) error
 }
 
 // Option configures a Service.
@@ -224,6 +234,22 @@ func WithCatalog(catalog Catalog) Option {
 // configuration, honored on development builds only.
 func WithAllowUnsigned() Option {
 	return func(s *Service) { s.allowUnsigned = true }
+}
+
+// WithContributions joins installed package definitions into the
+// effective catalog after every mutation, and validates definitions
+// before activation. Omit it where contributions stay inert.
+func WithContributions(contributions Contributions) Option {
+	return func(s *Service) { s.contributions = contributions }
+}
+
+// SetContributions wires definition validation and catalog resync after
+// construction. Main uses it because the pipeline and the contributions
+// service reference each other: the pipeline validates through the
+// contributions service, which reads retained bytes through the
+// pipeline.
+func (s *Service) SetContributions(contributions Contributions) {
+	s.contributions = contributions
 }
 
 // NewService orchestrates package resolution into installer activation.
@@ -365,6 +391,10 @@ func (s *Service) InstallCustom(ctx context.Context, repoURL string, userID uuid
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
 	}
+	// The activation committed; a resync failure degrades the effective
+	// catalog, which the contributions service already logged per
+	// package, so it never fails the request.
+	_ = s.resync(ctx)
 	return installed, nil
 }
 
@@ -463,6 +493,13 @@ func (s *Service) materialize(ctx context.Context, resolution Resolution) (packa
 	if err != nil {
 		return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
 	}
+	// Definitions validate before activation: an invalid Widget or Data
+	// Source fails the install instead of installing an inert package.
+	if s.contributions != nil {
+		if err := s.contributions.Validate(contentDir, verified.Manifest, resolution.Digest); err != nil {
+			return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
+		}
+	}
 	return verified.Manifest, contributions, nil
 }
 
@@ -479,6 +516,16 @@ func (s *Service) ContentDir(ctx context.Context, ref, digest string) (string, e
 		return "", fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
 	}
 	return contentDir, nil
+}
+
+// resync recomposes the effective catalog after a mutation. The
+// contributions service logs what it skips; a failure here cannot undo
+// the committed activation, so the caller reports it alongside success.
+func (s *Service) resync(ctx context.Context) error {
+	if s.contributions == nil {
+		return nil
+	}
+	return s.contributions.Rebuild(ctx)
 }
 
 // ensureContent returns the verified layout and extracted content
@@ -582,6 +629,10 @@ func (s *Service) InstallMarketplace(ctx context.Context, packageID string, user
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
 	}
+	// The activation committed; a resync failure degrades the effective
+	// catalog, which the contributions service already logged per
+	// package, so it never fails the request.
+	_ = s.resync(ctx)
 	return installed, nil
 }
 
@@ -664,6 +715,7 @@ func (s *Service) ApplyUpdate(ctx context.Context, packageID, digest string, use
 	if err != nil {
 		return UpdateResult{}, mapActivationError(err)
 	}
+	_ = s.resync(ctx)
 	return UpdateResult{Installed: installed, Updated: true}, nil
 }
 
@@ -673,6 +725,7 @@ func (s *Service) Rollback(ctx context.Context, packageID string, userID uuid.UU
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
 	}
+	_ = s.resync(ctx)
 	return installed, nil
 }
 
@@ -683,6 +736,7 @@ func (s *Service) Remove(ctx context.Context, packageID string, userID uuid.UUID
 	if err := s.installer.Remove(ctx, packageID, userID); err != nil {
 		return mapActivationError(err)
 	}
+	_ = s.resync(ctx)
 	return nil
 }
 

@@ -17,14 +17,14 @@ import (
 // The caller supplies content, but never writes these core tables itself.
 type Service struct {
 	db          *pgxpool.Pool
-	definitions *contentdefs.Catalog
+	definitions contentdefs.Catalogs
 }
 
 func NewService(db *pgxpool.Pool) *Service {
 	return &Service{db: db, definitions: contentdefs.MustLoad()}
 }
 
-func (s *Service) SetContentDefinitions(catalog *contentdefs.Catalog) {
+func (s *Service) SetContentDefinitions(catalog contentdefs.Catalogs) {
 	s.definitions = catalog
 }
 

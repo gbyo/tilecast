@@ -2638,7 +2638,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Release-owned entries always appear; marketplace entries join the release-owned entries; custom entries join from bound repositories. */
+    /** @description The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Release-owned entries always appear; marketplace entries join the list when a catalog is configured; custom entries join from bound repositories. */
     get: operations["listPluginStore"];
     put?: never;
     post?: never;
@@ -2674,7 +2674,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails. */
+    /** @description Fetch the signed marketplace catalog now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous verified cache keeps serving when the refresh fails. */
     post: operations["refreshMarketplaceCatalog"];
     delete?: never;
     options?: never;
@@ -7440,7 +7440,7 @@ export interface components {
         installedAt: string;
       }[];
     };
-    /** @description Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID; "custom" entries come from a bound repository and carry its URL. Clients must tolerate values they do not know. */
+    /** @description Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the configured catalog and carry its catalog ID; "custom" entries come from a bound repository and carry its URL. Clients must tolerate values they do not know. */
     PluginStoreSource: {
       kind: string;
       catalogId?: string;
@@ -7474,24 +7474,23 @@ export interface components {
       digest: string;
       /**
        * Format: uri
-       * @description Public source repository as a github.com https URL with an owner and name.
+       * @description Public source repository as an https URL with a host and path.
        */
       repository: string;
       /** Format: uri */
       documentation?: string;
       /** Format: uri */
       issues?: string;
-      categories?: string[];
-      featured?: boolean;
       compatible: boolean;
       installed: boolean;
       installedVersion?: string;
       updateAvailable: boolean;
     };
-    /** @description The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here. */
+    /** @description The cached catalog behind marketplace entries. Fetch failures keep serving the last verified cache and record the error here. */
     PluginMarketplaceStatus: {
+      configured: boolean;
       /** Format: date-time */
-      lastFetchedAt?: string;
+      fetchedAt?: string;
       stale: boolean;
       error?: string;
     };
@@ -7609,6 +7608,23 @@ export interface components {
             kind: string;
             count: number;
             label: string;
+          }[];
+        };
+      };
+    };
+    /** @description A removal, update, or rollback blocked by contributed content the operation would strand. The operation deletes installation state only, never content, so the operator deletes the listed content first. */
+    PackageInUseError: {
+      error: {
+        /** @constant */
+        code: "package_in_use";
+        message: string;
+        details: {
+          packageId: string;
+          resources: {
+            kind: string;
+            count: number;
+            label: string;
+            resolution: string;
           }[];
         };
       };
@@ -18958,7 +18974,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description marketplace_refresh_failed — the catalog fetch failed */
+      /** @description marketplace_not_configured — no catalog URL is configured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description marketplace_refresh_failed — the catalog fetch or signature check failed */
       502: {
         headers: {
           [name: string]: unknown;
@@ -19164,7 +19187,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description package_mismatch, package_installed, contribution_collision, or source_conflict */
+      /** @description marketplace_not_configured, package_mismatch, package_installed, contribution_collision, or source_conflict */
       409: {
         headers: {
           [name: string]: unknown;
@@ -19298,6 +19321,15 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description package_in_use — contributed content still exists; remaining resources are listed in error.details */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PackageInUseError"];
+        };
+      };
     };
   };
   checkPackageUpdate: {
@@ -19342,6 +19374,13 @@ export interface operations {
       };
       /** @description package_not_installed */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description marketplace_not_configured — the package came from a catalog that is no longer configured */
+      409: {
         headers: {
           [name: string]: unknown;
         };
@@ -19427,7 +19466,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description update_check_expired, package_mismatch, contribution_collision, or source_conflict */
+      /** @description update_check_expired, marketplace_not_configured, package_mismatch, contribution_collision, source_conflict, or package_in_use — the update drops a contribution persisted content still uses; remaining resources are listed in error.details */
       409: {
         headers: {
           [name: string]: unknown;
@@ -19497,7 +19536,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description no_rollback — the package has no previous activation */
+      /** @description no_rollback — the package has no previous activation — or package_in_use — the rollback drops a contribution persisted content still uses; remaining resources are listed in error.details */
       409: {
         headers: {
           [name: string]: unknown;

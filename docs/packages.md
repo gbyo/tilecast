@@ -116,6 +116,28 @@ Install, update, rollback, and removal each write one audit record with
 resource type `package` and the version, digest, and trust state in the
 metadata.
 
+## External content contributions
+
+Activation makes a package's declarative `widget` and `data_source`
+contributions effective. The contributions service
+(`internal/extensions/contributions`) reads the installed manifests after
+every install, update, rollback, and removal, decodes the contributed
+definitions through the same validators as built-in definitions, and swaps
+the result into the services as one immutable snapshot. There is no partial
+read: every request sees the definitions from one complete rebuild. A
+package whose contribution fails to decode is skipped and logged; the
+remaining packages still compose. Boot warns on skips and fails fast on a
+rebuild that is not skip-only.
+
+Each nested definition ID is qualified under its package ID, so a Data
+Source provider reads `<package-id>.<nested-id>` (migration `00119` widens
+the provider checks to accept dots). Qualification keeps provenance inside
+the provider string: refresh states, error codes, and audit records name
+the supplying package without a further lookup. External definitions use
+the definition-keyed adapters only (`http_records`, `manual_object`,
+`manual_records`); provider-keyed native adapters stay unavailable to
+packages. External plugin behavior stays inert: no executor runs it yet.
+
 ## Sources
 
 A package installs from exactly one source kind:
@@ -182,6 +204,15 @@ confirm the new digest. Rollback restores the previous activation
 (`no_rollback` when there is none). Removal deletes the installation
 and its contribution rows; the custom binding, when any, survives.
 
+Removal, update, and rollback are refused with `package_in_use` (HTTP
+409) while content still uses a contribution the operation would drop.
+The error names the package, the action, and each blocking resource with
+its count, so the operator deletes the listed Widgets or Data Sources
+first. Removal is therefore never a way to delete a site's content:
+delete the content, then remove the package. Update answers the same
+error when the new version drops a contribution that content still
+uses; rollback answers it when the restored version would.
+
 Reads (`GET /api/v1/packages`, `GET /api/v1/packages/{packageId}`)
 answer any signed-in role. Resolution, install, update, rollback, and
 removal require Owner or Administrator with a CSRF token. The store
@@ -212,9 +243,10 @@ valid.
 
 This stage builds the package format, validation, installed state, OCI
 layout verification, registry fetching, Sigstore provenance verification,
-activation with rollback, backup metadata, package HTTP endpoints, custom
-repository bindings, and Studio package management. It does not add
-private registry authentication, content extraction to players, removal
-blockers against installed content, or a package-bytes collector. Those
-arrive with the sandbox and runtime stages behind the contracts defined
-here.
+activation with rollback, effective external content contributions,
+removal/update/rollback blockers, backup metadata, package HTTP
+endpoints, custom repository bindings, and Studio package management. It
+does not add private registry authentication, content extraction to
+players, sandboxed execution, or a package-bytes collector. Those arrive
+with the player-delivery, sandbox, and runtime stages behind the
+contracts defined here.

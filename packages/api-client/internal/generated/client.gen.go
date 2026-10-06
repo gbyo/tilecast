@@ -2268,6 +2268,21 @@ func (e OAuthTokensTokenType) Valid() bool {
 	}
 }
 
+// Defines values for PackageInUseErrorErrorCode.
+const (
+	PackageInUse PackageInUseErrorErrorCode = "package_in_use"
+)
+
+// Valid indicates whether the value is a known member of the PackageInUseErrorErrorCode enum.
+func (e PackageInUseErrorErrorCode) Valid() bool {
+	switch e {
+	case PackageInUse:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PairingRequestPairingMode.
 const (
 	CredentialRepair    PairingRequestPairingMode = "credential_repair"
@@ -8723,6 +8738,26 @@ type PackageContribution struct {
 	Kind string `json:"kind"`
 	Path string `json:"path"`
 }
+
+// PackageInUseError A removal, update, or rollback blocked by contributed content the operation would strand. The operation deletes installation state only, never content, so the operator deletes the listed content first.
+type PackageInUseError struct {
+	Error struct {
+		Code    PackageInUseErrorErrorCode `json:"code"`
+		Details struct {
+			PackageId string `json:"packageId"`
+			Resources []struct {
+				Count      int    `json:"count"`
+				Kind       string `json:"kind"`
+				Label      string `json:"label"`
+				Resolution string `json:"resolution"`
+			} `json:"resources"`
+		} `json:"details"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// PackageInUseErrorErrorCode defines model for PackageInUseError.Error.Code.
+type PackageInUseErrorErrorCode string
 
 // PackageManifestSummary The human-readable face of an installed or resolved package manifest.
 type PackageManifestSummary struct {
@@ -57764,6 +57799,13 @@ func (r ListPackagesResponse) ContentType() string {
 type RemovePackageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *PackageInUseError
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r RemovePackageResponse) GetJSON409() *PackageInUseError {
+	return r.JSON409
 }
 
 // GetBody returns the raw response body bytes
@@ -79471,6 +79513,28 @@ func ParseRemovePackageResponse(rsp *http.Response) (*RemovePackageResponse, err
 	response := &RemovePackageResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PackageInUseError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil

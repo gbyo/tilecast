@@ -419,7 +419,14 @@ func (s *server) removePackage(w http.ResponseWriter, r *http.Request) {
 // writePackageError maps pipeline, installer, and catalog failures to
 // API errors. Anything unmapped is a server bug and answers 500.
 func (s *server) writePackageError(w http.ResponseWriter, r *http.Request, err error) {
+	var inUse *installer.InUseError
 	switch {
+	case errors.As(err, &inUse):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": map[string]any{
+			"code":    "package_in_use",
+			"message": inUse.Error(),
+			"details": map[string]any{"packageId": inUse.PackageID, "resources": inUse.Resources},
+		}})
 	case errors.Is(err, pipeline.ErrInvalidRepository):
 		writeError(w, http.StatusBadRequest, "invalid_repository", "That is not a GitHub repository URL.")
 	case errors.Is(err, pipeline.ErrRepositoryPrivate):
