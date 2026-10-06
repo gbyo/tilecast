@@ -66,9 +66,10 @@ A package travels as a standard OCI image, version 1:
 `VerifyLayout` in `internal/extensions/packages` opens an OCI image layout,
 verifies every digest it follows, and returns the validated manifest with
 the artifact digest the installer pins. A missing file, digest mismatch,
-wrong media type, invalid manifest, oversized blob, or write failure fails
-closed with no partial result. Limits are 1 MiB for layout documents and
-the manifest, 256 MiB per content blob.
+wrong media type, invalid manifest, or oversized blob fails closed with no
+partial result. `WriteLayout` likewise propagates every filesystem write
+failure instead of returning a usable artifact digest. Limits are 1 MiB
+for layout documents and the manifest, 256 MiB per content blob.
 
 At this stage, content blobs are integrity-checked opaque bytes after their
 Tilecast tar+gzip media type is verified. Safe gzip/tar parsing and
