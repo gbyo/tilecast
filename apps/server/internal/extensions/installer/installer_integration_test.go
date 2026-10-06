@@ -304,6 +304,7 @@ func TestActivateRefusesPackageToPackageCollision(t *testing.T) {
 			SourceKind:        SourceCustom,
 			SourceReference:   "https://github.com/other/tilecast-club",
 			RegistryReference: "ghcr.io/other/tilecast-club",
+			SignerIdentity:    "https://github.com/other/tilecast-club/.github/workflows/release.yml",
 			Trust:             TrustVerified,
 			Contributions: []Contribution{
 				{Kind: "widget", ID: "other.club.scoreboard", Path: "./widgets/scoreboard"},
@@ -335,6 +336,7 @@ func TestActivateRefusesPackageToPackageCollision(t *testing.T) {
 		SourceKind:        SourceCustom,
 		SourceReference:   "https://github.com/other/tilecast-club",
 		RegistryReference: "ghcr.io/other/tilecast-club",
+		SignerIdentity:    "https://github.com/other/tilecast-club/.github/workflows/release.yml",
 		Trust:             TrustVerified,
 		Contributions: []Contribution{
 			{Kind: "widget", ID: "other.club.scoreboard", Path: "./widgets/scoreboard"},
