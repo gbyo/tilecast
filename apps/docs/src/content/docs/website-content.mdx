@@ -13,11 +13,14 @@ import { Steps } from "@astrojs/starlight/components";
 
 1. In Studio, open **Content** > **Widgets** and select **Create Widget**.
 2. Choose **Website** from the catalog.
-3. Enter a **Name** and the public website address in **HTTPS URL**. Set **Reload policy**, **Load timeout (seconds)**, and **Failure behavior**.
-4. Open **Advanced website settings** and review **Allowed top-level hosts (comma separated)**. The URL's host is included automatically. Add other hosts only when the site needs to navigate to them.
-5. Select **Save website**.
+3. Under **Content**, enter the public address in **Web address**.
+4. Under **Behavior**, set **Reload** and **If the page cannot load**. Open **Advanced** to set the **Load timeout (seconds)**, **Allowed hosts**, JavaScript, storage, cookies, and the user agent. The page's own host is always allowed; add other hosts only when the site needs to navigate to them.
+5. Under **Style**, set the zoom, scroll position, and background color if the page needs them.
+6. Select the name in the header to rename the Widget, then select **Save Widget**.
 
 </Steps>
+
+The editor previews the page in a browser frame. Some sites refuse to appear inside another page; screens show them in their own isolated player view. To see what screens report when they load the page, select **⋯** > **Diagnostics**.
 
 The Website App appears in the Media library's **Websites** filter and in the content picker. Add it to a Playlist as fullscreen content or place it in a Layout with other content.
 
@@ -29,7 +32,7 @@ The allowed-host list limits top-level navigation. It does not block every third
 
 ## Plan for interruptions
 
-Website playback needs a network connection from the Player. If the site cannot load, choose the Website App's failure behavior: keep the last rendered page, show a fallback image, show Tilecast's placeholder, or skip the item. Set the **Load timeout (seconds)** and **Reload policy** to match the site. The Playlist item duration controls how long the website plays.
+Website playback needs a network connection from the Player. If the site cannot load, choose what **If the page cannot load** does: keep the last page that loaded, show a fallback image, show the Tilecast placeholder, or skip the item. Set the **Load timeout (seconds)** and **Reload** to match the site. The Playlist item duration controls how long the website plays.
 
 Check that the exact display can reach the site. A page can work in your browser but fail on a TV or Linux Player because of DNS, network filtering, unsupported site behavior, or a site that blocks embedded browsers.
 

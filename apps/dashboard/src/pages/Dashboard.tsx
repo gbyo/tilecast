@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  matchPath,
-  NavLink,
-  Outlet,
-  useLocation,
-  useNavigate,
-} from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { accountQueries } from "@/data/account";
 import type { User } from "@/api/types";
@@ -18,11 +12,16 @@ import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { DemoModeBanner } from "@/components/DemoModeBanner";
 import { StudioTopbar } from "@/components/StudioTopbar";
 import { EditorHeaderProvider } from "@/components/studio/EditorHeaderSlots";
+import { WidgetSnapshotQueue } from "@/components/content/widget-editor/WidgetSnapshotQueue";
 import {
   StudioNavigationProvider,
   useStudioNavigation,
 } from "@/navigation/studioNavigation";
 import { useNativeNavigation } from "@/native-host/useNativeNavigation";
+import {
+  isImmersiveEditorRoute,
+  useStudioRoutes,
+} from "@/navigation/studioRoutes";
 import {
   LANGUAGE_PREFERENCE_KEY,
   applyLanguagePreference,
@@ -185,8 +184,10 @@ function StudioChrome({
   const location = useLocation();
   const navigation = useStudioNavigation();
   const hosted = useNativeNavigation(navigation) !== "browser";
-  // The Layout editor is a full-bleed workspace with one merged header.
-  const editorRoute = Boolean(matchPath("/layouts/:id", location.pathname));
+  // Immersive editors (Layouts, Widgets) are full-bleed workspaces with one
+  // merged header; their routes say so in their handle.
+  const routes = useStudioRoutes();
+  const editorRoute = isImmersiveEditorRoute(routes, location.pathname);
   const signOut = () => void auth.logout();
 
   return (
@@ -221,6 +222,9 @@ function StudioChrome({
               <Outlet />
             </RouteErrorBoundary>
           </div>
+          {/* Saved Widgets capture their thumbnails here, outside any one
+              route, so leaving the editor never cancels a capture. */}
+          <WidgetSnapshotQueue />
         </EditorHeaderProvider>
       </SidebarInset>
     </SidebarProvider>

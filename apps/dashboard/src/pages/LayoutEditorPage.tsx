@@ -11,6 +11,7 @@ import {
 import { Button, buttonVariants } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Toggle } from "../components/ui/toggle";
+import { EditorSaveStatus } from "../components/studio/EditorSaveStatus";
 import {
   EditorHeaderPortal,
   useEditorHeaderRename,
@@ -144,9 +145,6 @@ import {
   ArrowUpToLine,
   BoxSelect,
   Circle,
-  CircleAlert,
-  CircleDot,
-  CloudCheck,
   ClipboardPaste,
   Copy,
   CopyPlus,
@@ -4429,61 +4427,17 @@ function LayoutSaveStatus({
   compact?: boolean;
 }) {
   const { t } = useTranslation(["layouts", "common"]);
-  const label =
-    state === "saving"
-      ? t("common:actions.saving")
-      : state === "unsaved"
-        ? t("editor.saveUnsaved")
-        : state === "error"
-          ? t("editor.saveFailed")
-          : state === "conflict"
-            ? t("editor.saveConflict")
-            : t("editor.saveSaved");
   return (
-    <div className="flex items-center gap-2">
-      <span
-        role="status"
-        aria-label={compact ? label : undefined}
-        title={compact ? label : undefined}
-        className={cn(
-          "flex items-center gap-1.5 text-xs text-muted-foreground [&_svg]:size-3.5",
-          (state === "error" || state === "conflict") && "text-destructive",
-        )}
-      >
-        {state === "saving" ? (
-          <>
-            <Spinner aria-hidden="true" />
-            <span className={compact ? "sr-only" : undefined}>{label}</span>
-          </>
-        ) : state === "unsaved" ? (
-          <>
-            <CircleDot aria-hidden="true" />
-            <span className={compact ? "sr-only" : undefined}>{label}</span>
-          </>
-        ) : state === "error" ? (
-          <>
-            <CircleAlert aria-hidden="true" />
-            <span className={compact ? "sr-only" : undefined}>{label}</span>
-          </>
-        ) : state === "conflict" ? (
-          <>
-            <TriangleAlert aria-hidden="true" />
-            <span className={compact ? "sr-only" : undefined}>{label}</span>
-          </>
-        ) : (
-          <>
-            <CloudCheck aria-hidden="true" />
-            <span className={compact ? "sr-only" : "max-xl:sr-only"}>
-              {label}
-            </span>
-          </>
-        )}
-      </span>
-      {!compact && state === "error" && (
-        <Button type="button" variant="outline" size="xs" onClick={onRetry}>
-          {t("common:actions.retry")}
-        </Button>
-      )}
-    </div>
+    <EditorSaveStatus
+      state={state}
+      onRetry={onRetry}
+      compact={compact}
+      labels={{
+        saved: t("editor.saveSaved"),
+        unsaved: t("editor.saveUnsaved"),
+        error: t("editor.saveFailed"),
+        conflict: t("editor.saveConflict"),
+      }}
+    />
   );
 }

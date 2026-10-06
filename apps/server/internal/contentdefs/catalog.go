@@ -23,7 +23,7 @@ var supportedControls = map[string]bool{
 	"text": true, "multiline_text": true, "number": true, "integer": true,
 	"boolean": true, "select": true, "color": true, "date": true,
 	"datetime": true, "local_datetime": true, "timezone": true, "currency_code": true, "url": true, "data_source": true,
-	"data_source_field": true, "media_asset": true, "repeating_group": true,
+	"data_source_field": true, "media_asset": true, "repeating_group": true, "string_list": true,
 }
 
 var supportedNodes = map[string]bool{
@@ -166,17 +166,6 @@ type Setup struct {
 	EmptyState string   `json:"emptyState,omitempty"`
 }
 
-// WidgetAuthoring carries Studio-only layout hints. It is catalog metadata,
-// never persisted into Widget configuration and never projected to Players.
-type WidgetAuthoring struct {
-	RecommendedFrame *WidgetFrame `json:"recommendedFrame,omitempty"`
-}
-
-type WidgetFrame struct {
-	Width  int `json:"width"`
-	Height int `json:"height"`
-}
-
 type ConfigurationSchema struct {
 	Fields []FieldDefinition `json:"fields"`
 }
@@ -307,15 +296,41 @@ type WidgetDefinition struct {
 	EmptyStateBehavior        string              `json:"emptyStateBehavior"`
 	LegacyEditor              bool                `json:"legacyEditor,omitempty"`
 	RequiresManifestV13       bool                `json:"requiresManifestV13,omitempty"`
-	Authoring                 *WidgetAuthoring    `json:"authoring,omitempty"`
 	Setup                     Setup               `json:"setup,omitempty"`
 	Recipe                    *AppRecipe          `json:"recipe,omitempty"`
 	WebIntegration            *WebIntegration     `json:"webIntegration,omitempty"`
 	Deprecation               Deprecation         `json:"deprecation"`
+	// Authoring carries optional Studio authoring capabilities. It never
+	// changes validation, projection, or playback.
+	Authoring *Authoring `json:"authoring,omitempty"`
 	// Component is the Widget's first-class component (docs/widgets-v2.md),
 	// declared by a Widget module below widgets/.
 	Component     *ComponentSpec `json:"component,omitempty"`
 	Compatibility *Compatibility `json:"compatibility,omitempty"`
+}
+
+// Authoring is the closed set of Studio authoring capabilities a Widget
+// definition may declare (docs/widget-authoring.md).
+type Authoring struct {
+	Preview *AuthoringPreview `json:"preview,omitempty"`
+	// RecommendedFrame is the Widget's preferred shape: the reference
+	// geometry Studio opens its preview at and the aspect ratio a Layout
+	// keeps when the Widget is placed. It is a reference size, not a maximum,
+	// and it is never persisted into configuration or projected to Players.
+	RecommendedFrame *WidgetFrame `json:"recommendedFrame,omitempty"`
+}
+
+// WidgetFrame is a width and height in CSS pixels.
+type WidgetFrame struct {
+	Width  int `json:"width"`
+	Height int `json:"height"`
+}
+
+// AuthoringPreview describes what the Studio preview can usefully vary.
+type AuthoringPreview struct {
+	// Time says the rendered result depends on the current instant, so
+	// Studio offers preview-time controls.
+	Time bool `json:"time,omitempty"`
 }
 
 // PersistedConfigVersion returns the version of the stored Widget configuration.
@@ -1012,6 +1027,9 @@ func validateSchemaFields(fields []FieldDefinition) error {
 				return fmt.Errorf("required field %q declares an empty default", field.Key)
 			}
 		}
+		if field.Control == "string_list" && (field.MaximumItems < 1 || field.MaximumItems > 100) {
+			return fmt.Errorf("string list %q has invalid bounds", field.Key)
+		}
 		if field.Control == "repeating_group" {
 			if field.MaximumItems < 1 || field.MaximumItems > 100 {
 				return fmt.Errorf("repeating group %q has invalid bounds", field.Key)
@@ -1158,6 +1176,16 @@ func validateDefaults(schema ConfigurationSchema, defaults map[string]any) error
 		case "repeating_group":
 			if _, ok := value.([]any); !ok {
 				return fmt.Errorf("default %q must be a list", key)
+			}
+		case "string_list":
+			items, ok := value.([]any)
+			if !ok {
+				return fmt.Errorf("default %q must be a list", key)
+			}
+			for _, item := range items {
+				if _, ok := item.(string); !ok {
+					return fmt.Errorf("default %q must be a list of text", key)
+				}
 			}
 		default:
 			if _, ok := value.(string); !ok {

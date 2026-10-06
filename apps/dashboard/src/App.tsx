@@ -42,7 +42,8 @@ import { SecurityPage } from "./pages/SecurityPage";
 import { LayoutsPage } from "./pages/LayoutsPage";
 import { LayoutEditorPage } from "./pages/LayoutEditorPage";
 import { LayoutPreviewPage } from "./pages/LayoutPreviewPage";
-import { WidgetEditorPage, WidgetsPage } from "./pages/WidgetsPage";
+import { WidgetsPage } from "./pages/WidgetsPage";
+import { WidgetEditorPage } from "./pages/WidgetEditorPage";
 import { DataSourceEditorPage, DataSourcesPage } from "./pages/DataSourcesPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { PluginsPage } from "./pages/PluginsPage";
@@ -305,12 +306,16 @@ export const studioRoutes: RouteObject[] = [
           {
             path: "new/:provider",
             element: <WidgetEditorPage />,
-            handle: { breadcrumb: "Create widget" },
+            handle: { breadcrumb: "Create widget", immersiveEditor: true },
           },
           {
             path: ":id",
             element: <WidgetEditorPage />,
-            handle: { breadcrumb: "Widget", resource: "widget" },
+            handle: {
+              breadcrumb: "Widget",
+              resource: "widget",
+              immersiveEditor: true,
+            },
           },
         ],
       },
@@ -421,7 +426,11 @@ export const studioRoutes: RouteObject[] = [
           {
             path: ":id",
             element: <LayoutEditorPage />,
-            handle: { breadcrumb: "Layout", resource: "layout" },
+            handle: {
+              breadcrumb: "Layout",
+              resource: "layout",
+              immersiveEditor: true,
+            },
           },
         ],
       },

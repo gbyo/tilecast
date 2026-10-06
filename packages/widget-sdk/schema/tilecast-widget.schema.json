@@ -71,11 +71,32 @@
     "emptyStateBehavior": { "type": "string", "minLength": 1 },
     "legacyEditor": { "type": "boolean" },
     "requiresManifestV13": { "type": "boolean" },
+    "setup": {
+      "type": "object",
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "$ref": "#/$defs/__schema0" }
+    },
+    "deprecation": {
+      "type": "object",
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "$ref": "#/$defs/__schema0" }
+    },
     "authoring": {
-      "description": "Studio authoring hints that never change Player rendering.",
+      "description": "Studio authoring capabilities. They never change validation, projection, or playback.",
       "type": "object",
       "properties": {
+        "preview": {
+          "type": "object",
+          "properties": {
+            "time": {
+              "description": "The rendered result depends on the current instant, so Studio offers preview-time controls.",
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
         "recommendedFrame": {
+          "description": "The Widget's preferred shape in CSS pixels: a reference geometry for Studio previews and Layout placement, not a maximum size.",
           "type": "object",
           "properties": {
             "width": { "type": "integer", "minimum": 120, "maximum": 3840 },
@@ -86,16 +107,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "setup": {
-      "type": "object",
-      "propertyNames": { "type": "string" },
-      "additionalProperties": { "$ref": "#/$defs/__schema0" }
-    },
-    "deprecation": {
-      "type": "object",
-      "propertyNames": { "type": "string" },
-      "additionalProperties": { "$ref": "#/$defs/__schema0" }
     },
     "component": {
       "type": "object",

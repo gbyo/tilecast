@@ -25,12 +25,15 @@ export function useNavigationWarning({
   dirty,
   title,
   body,
+  cancel,
   allowPrefix,
   shouldBlock,
 }: {
   dirty: boolean;
   title: string;
   body?: string;
+  /** The choice that stays on the page. "Cancel" by default. */
+  cancel?: string;
   /** Warn unless the destination starts with this prefix. Ignored when shouldBlock is given. */
   allowPrefix?: string;
   /** Full control over which destinations warn; evaluated live on every navigation. */
@@ -72,14 +75,14 @@ export function useNavigationWarning({
   useEffect(() => {
     if (blocker.state !== "blocked" || asking.current) return;
     asking.current = true;
-    void confirm({ title, body, action: discardAction }).then((ok) => {
+    void confirm({ title, body, cancel, action: discardAction }).then((ok) => {
       asking.current = false;
       const current = blockerRef.current;
       if (current.state !== "blocked") return;
       if (ok) current.proceed();
       else current.reset();
     });
-  }, [blocker.state, body, confirm, discardAction, title]);
+  }, [blocker.state, body, cancel, confirm, discardAction, title]);
 
   useEffect(() => {
     const unload = (event: BeforeUnloadEvent) => {
@@ -121,22 +124,24 @@ export function useNavigationWarning({
         return;
       }
       event.preventDefault();
-      void confirm({ title, body, action: discardAction }).then((ok) => {
-        if (!ok) return;
-        if (
-          url.origin === window.location.origin &&
-          (url.protocol === "http:" || url.protocol === "https:")
-        ) {
-          confirmed.current = true;
-          void Promise.resolve(
-            navigate(`${url.pathname}${url.search}${url.hash}`),
-          ).finally(() => {
-            confirmed.current = false;
-          });
-        } else {
-          window.location.assign(link.href);
-        }
-      });
+      void confirm({ title, body, cancel, action: discardAction }).then(
+        (ok) => {
+          if (!ok) return;
+          if (
+            url.origin === window.location.origin &&
+            (url.protocol === "http:" || url.protocol === "https:")
+          ) {
+            confirmed.current = true;
+            void Promise.resolve(
+              navigate(`${url.pathname}${url.search}${url.hash}`),
+            ).finally(() => {
+              confirmed.current = false;
+            });
+          } else {
+            window.location.assign(link.href);
+          }
+        },
+      );
     };
     addEventListener("beforeunload", unload);
     document.addEventListener("click", click, true);
@@ -144,7 +149,7 @@ export function useNavigationWarning({
       removeEventListener("beforeunload", unload);
       document.removeEventListener("click", click, true);
     };
-  }, [body, confirm, discardAction, navigate, title]);
+  }, [body, cancel, confirm, discardAction, navigate, title]);
 
   return dialog;
 }

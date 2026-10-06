@@ -1,14 +1,15 @@
 /**
- * Config-authoring metadata for V2 Widget manifests
- * (docs/widgets-v2-authoring-and-first-wave.md).
+ * Config-authoring metadata for Widget definitions
+ * (docs/widget-authoring.md).
  *
- * The manifest's `configurationSchema` fields may carry a small `ui` object
- * with the hints the generic Studio inspector needs: which section a
- * control belongs to, its order, when it is visible, whether a select
- * renders as visual style cards, and which semantic field it suggests.
- * Everything else (control type, label, help text, compatible Data Source
- * kinds) already lives on the field itself. Studio renders one generic
- * inspector from this metadata; Widgets never get one-off React editors.
+ * A definition's `configurationSchema` fields may carry a small `ui` object
+ * with the hints the Studio inspector needs: which section a control
+ * belongs to, its order, when it is visible, whether a select renders as
+ * visual choices, whether a bounded number is better as a slider, whether
+ * a rare setting belongs under Advanced, and which semantic field it
+ * suggests. Everything else (control type, label, help text, compatible
+ * Data Source kinds) already lives on the field itself. Studio renders one
+ * inspector from this metadata; Widgets never get their own React editors.
  */
 
 export type WidgetAuthoringSection =
@@ -21,6 +22,17 @@ export const AUTHORING_SECTIONS: readonly WidgetAuthoringSection[] = [
   "appearance",
   "behavior",
 ];
+
+/**
+ * The pixel range a Widget manifest's `authoring.recommendedFrame` may
+ * declare. The manifest schema and Studio's custom preview size both read
+ * it, so every valid recommended frame can be shown and edited in Studio.
+ * The Server repeats the range in contentdefs (component.go).
+ */
+export const RECOMMENDED_FRAME_BOUNDS = {
+  width: { min: 120, max: 3840 },
+  height: { min: 48, max: 2160 },
+} as const;
 
 /** Show a control only when another configuration value matches. */
 export interface WidgetVisibleWhen {
@@ -37,8 +49,12 @@ export interface WidgetAuthoringUi {
   readonly order?: number;
   /** One rule, or a list of rules that must all match. */
   readonly visibleWhen?: WidgetVisibleWhen | readonly WidgetVisibleWhen[];
-  /** Render a select's options as visual cards instead of a dropdown. */
+  /** Render a select's options as visible choices instead of a dropdown. */
   readonly styleCard?: boolean;
+  /** Render a bounded number or integer as a slider beside its input. */
+  readonly slider?: boolean;
+  /** A rarely changed setting, shown under the section's Advanced group. */
+  readonly advanced?: boolean;
   /** The semantic field role this control suggests, if any. */
   readonly semanticRole?: string;
   /**
@@ -46,6 +62,13 @@ export interface WidgetAuthoringUi {
    * case-insensitively after declared roles (§4.1 step 2).
    */
   readonly legacyKeys?: readonly string[];
+  /**
+   * `false` keeps automatic mapping from guessing this slot by compatible
+   * type. An optional slot (Alert Banner's severity) then stays unmapped
+   * unless the source declares its role or a legacy key, instead of
+   * borrowing an unrelated text column.
+   */
+  readonly typeFallback?: boolean;
   /**
    * A retained key: validated and kept on save, never shown in the
    * inspector. Migrated providers use it for keys that compatibility
@@ -70,8 +93,11 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
     order?: number;
     visibleWhen?: WidgetVisibleWhen | readonly WidgetVisibleWhen[];
     styleCard?: boolean;
+    slider?: boolean;
+    advanced?: boolean;
     semanticRole?: string;
     legacyKeys?: readonly string[];
+    typeFallback?: boolean;
     hidden?: boolean;
   } = {};
   if (
@@ -101,7 +127,10 @@ export function authoringUiOf(field: AuthoringField): WidgetAuthoringUi {
     out.visibleWhen = visibleWhen as WidgetVisibleWhen[];
   }
   if (record["styleCard"] === true) out.styleCard = true;
+  if (record["slider"] === true) out.slider = true;
+  if (record["advanced"] === true) out.advanced = true;
   if (record["hidden"] === true) out.hidden = true;
+  if (record["typeFallback"] === false) out.typeFallback = false;
   if (typeof record["semanticRole"] === "string") {
     out.semanticRole = record["semanticRole"];
   }

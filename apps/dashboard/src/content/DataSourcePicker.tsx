@@ -214,10 +214,16 @@ function dataTypeLabel(type: string, t: ContentT) {
   }
 }
 
-function DataFormatGuidePanel({ guide }: { guide: DataFormatGuide }) {
+export function DataFormatGuidePanel({
+  guide,
+  defaultOpen = true,
+}: {
+  guide: DataFormatGuide;
+  defaultOpen?: boolean;
+}) {
   const { t } = useTranslation(["content", "common"]);
   return (
-    <Collapsible defaultOpen>
+    <Collapsible defaultOpen={defaultOpen}>
       <CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 rounded-xl border border-border bg-card p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <span aria-hidden="true">
           <Database size={18} />
@@ -284,7 +290,7 @@ export function SourceStatus({ status }: { status: unknown }) {
   return <Badge variant="outline">{statusLabel(status, t)}</Badge>;
 }
 
-function statusLabel(status: unknown, t: ContentT) {
+export function statusLabel(status: unknown, t: ContentT) {
   if (status === "error") return t("dataSources.status.error");
   if (typeof status !== "string" || status.length === 0)
     return t("dataSources.status.unknown");
@@ -292,7 +298,7 @@ function statusLabel(status: unknown, t: ContentT) {
   return status.replaceAll("_", " ");
 }
 
-function recordCountLabel(recordCount: unknown, t: ContentT) {
+export function recordCountLabel(recordCount: unknown, t: ContentT) {
   if (typeof recordCount !== "number") return undefined;
   return t("dataSources.picker.recordCount", { count: recordCount });
 }

@@ -7333,13 +7333,15 @@ export interface components {
         | "color"
         | "date"
         | "datetime"
+        | "local_datetime"
         | "timezone"
         | "currency_code"
         | "url"
         | "data_source"
         | "data_source_field"
         | "media_asset"
-        | "repeating_group";
+        | "repeating_group"
+        | "string_list";
       required?: boolean;
       /** @description Release-owned default value of any JSON type. */
       default?: unknown;
@@ -7359,6 +7361,18 @@ export interface components {
       /** @description Release-owned authoring hints of any JSON shape. */
       ui?: {
         [key: string]: unknown;
+      };
+    };
+    /** @description Studio authoring capabilities. They never change validation, projection, or playback. */
+    ContentDefinitionAuthoring: {
+      preview?: {
+        /** @description The rendered result depends on the current instant, so Studio offers preview-time controls. */
+        time?: boolean;
+      };
+      /** @description The Widget's preferred shape in CSS pixels. A reference geometry for Studio previews and Layout placement, not a maximum size. */
+      recommendedFrame?: {
+        width: number;
+        height: number;
       };
     };
     ContentDefinitionConfigurationSchema: {
@@ -7473,6 +7487,7 @@ export interface components {
       recipe?: components["schemas"]["ContentDefinitionAppRecipe"];
       webIntegration?: components["schemas"]["ContentDefinitionWebIntegration"];
       deprecation: components["schemas"]["ContentDefinitionDeprecation"];
+      authoring?: components["schemas"]["ContentDefinitionAuthoring"];
       component?: components["schemas"]["ContentDefinitionComponent"];
       compatibility?: components["schemas"]["ContentDefinitionCompatibility"];
     };

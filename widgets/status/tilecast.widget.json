@@ -171,6 +171,7 @@
     "binding.core": 2
   },
   "emptyStateBehavior": "text",
+  "authoring": { "preview": { "time": true } },
   "deprecation": {},
   "component": {
     "type": "tilecast.status",

@@ -8,8 +8,187 @@
       "category": "Web and video",
       "icon": "globe",
       "runtime": "web",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "url",
+            "label": "Web address",
+            "description": "The public page to show. Use HTTPS; plain HTTP works only for private addresses when this installation allows it.",
+            "control": "url",
+            "required": true,
+            "maxLength": 2048,
+            "ui": { "section": "content", "order": 1 }
+          },
+          {
+            "key": "backgroundColor",
+            "label": "Background color",
+            "description": "Shown behind the page while it loads.",
+            "control": "color",
+            "default": "#0E141B",
+            "ui": { "section": "appearance", "order": 1 }
+          },
+          {
+            "key": "zoomPercent",
+            "label": "Zoom (%)",
+            "control": "integer",
+            "default": 100,
+            "minimum": 50,
+            "maximum": 200,
+            "ui": { "section": "appearance", "order": 2, "slider": true }
+          },
+          {
+            "key": "scrollX",
+            "label": "Horizontal scroll (px)",
+            "control": "integer",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 100000,
+            "ui": { "section": "appearance", "order": 3 }
+          },
+          {
+            "key": "scrollY",
+            "label": "Vertical scroll (px)",
+            "control": "integer",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 100000,
+            "ui": { "section": "appearance", "order": 4 }
+          },
+          {
+            "key": "reloadPolicy",
+            "label": "Reload",
+            "control": "select",
+            "default": "on_each_activation",
+            "options": [
+              { "value": "load_once", "label": "Load once while active" },
+              {
+                "value": "on_each_activation",
+                "label": "Reload each time it appears"
+              },
+              { "value": "interval", "label": "Reload on an interval" }
+            ],
+            "ui": { "section": "behavior", "order": 1 }
+          },
+          {
+            "key": "refreshIntervalSeconds",
+            "label": "Reload every (seconds)",
+            "control": "integer",
+            "default": 300,
+            "minimum": 30,
+            "maximum": 86400,
+            "ui": {
+              "section": "behavior",
+              "order": 2,
+              "visibleWhen": { "key": "reloadPolicy", "equals": "interval" }
+            }
+          },
+          {
+            "key": "failureBehavior",
+            "label": "If the page cannot load",
+            "control": "select",
+            "default": "placeholder",
+            "options": [
+              {
+                "value": "placeholder",
+                "label": "Show the Tilecast placeholder"
+              },
+              {
+                "value": "last_success",
+                "label": "Keep the last page that loaded"
+              },
+              { "value": "fallback_image", "label": "Show a fallback image" },
+              { "value": "skip", "label": "Skip this item" }
+            ],
+            "ui": { "section": "behavior", "order": 3 }
+          },
+          {
+            "key": "fallbackImageAssetId",
+            "label": "Fallback image",
+            "control": "media_asset",
+            "mediaTypes": ["image"],
+            "ui": {
+              "section": "behavior",
+              "order": 4,
+              "visibleWhen": {
+                "key": "failureBehavior",
+                "equals": "fallback_image"
+              }
+            }
+          },
+          {
+            "key": "loadTimeoutSeconds",
+            "label": "Load timeout (seconds)",
+            "control": "integer",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 600,
+            "ui": { "section": "behavior", "order": 5, "advanced": true }
+          },
+          {
+            "key": "allowedHosts",
+            "label": "Allowed hosts",
+            "description": "Exact host names the page may navigate to. The page's own host is always allowed. This limits top-level navigation, not every third-party resource.",
+            "control": "string_list",
+            "default": [],
+            "maxLength": 253,
+            "maximumItems": 100,
+            "ui": { "section": "behavior", "order": 6, "advanced": true }
+          },
+          {
+            "key": "javascriptEnabled",
+            "label": "Run JavaScript",
+            "control": "boolean",
+            "default": true,
+            "ui": { "section": "behavior", "order": 7, "advanced": true }
+          },
+          {
+            "key": "domStorageEnabled",
+            "label": "Allow DOM storage",
+            "control": "boolean",
+            "default": true,
+            "ui": { "section": "behavior", "order": 8, "advanced": true }
+          },
+          {
+            "key": "cookiePolicy",
+            "label": "Cookies",
+            "control": "select",
+            "default": "first_party",
+            "options": [
+              { "value": "disabled", "label": "Disabled" },
+              { "value": "first_party", "label": "First-party only" },
+              {
+                "value": "first_and_third_party",
+                "label": "First- and third-party"
+              }
+            ],
+            "ui": { "section": "behavior", "order": 9, "advanced": true }
+          },
+          {
+            "key": "customUserAgent",
+            "label": "Custom user agent",
+            "description": "Leave blank for the Player's standard user agent. Overrides can break sites.",
+            "control": "text",
+            "default": "",
+            "maxLength": 512,
+            "ui": { "section": "behavior", "order": 10, "advanced": true }
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "backgroundColor": "#0E141B",
+        "zoomPercent": 100,
+        "scrollX": 0,
+        "scrollY": 0,
+        "reloadPolicy": "on_each_activation",
+        "refreshIntervalSeconds": 300,
+        "failureBehavior": "placeholder",
+        "loadTimeoutSeconds": 20,
+        "allowedHosts": [],
+        "javascriptEnabled": true,
+        "domStorageEnabled": true,
+        "cookiePolicy": "first_party",
+        "customUserAgent": ""
+      },
       "presentationSchemaVersion": 1,
       "requiredCapabilities": { "web.remote": 1 },
       "emptyStateBehavior": "placeholder",
@@ -27,8 +206,163 @@
       "featured": true,
       "keywords": ["video", "playlist", "live", "stream"],
       "runtime": "web",
-      "configurationSchema": { "fields": [] },
-      "defaultConfiguration": {},
+      "configurationSchema": {
+        "fields": [
+          {
+            "key": "url",
+            "label": "YouTube video or playlist URL",
+            "description": "Tilecast detects whether this is a video or a playlist. No YouTube API key is required.",
+            "control": "url",
+            "required": true,
+            "maxLength": 2048,
+            "ui": { "section": "content", "order": 1 }
+          },
+          {
+            "key": "startSeconds",
+            "label": "Start at (seconds)",
+            "control": "integer",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 86400,
+            "ui": { "section": "content", "order": 2 }
+          },
+          {
+            "key": "endSeconds",
+            "label": "End at (seconds)",
+            "description": "Leave blank to play to the end.",
+            "control": "integer",
+            "minimum": 1,
+            "maximum": 86400,
+            "ui": { "section": "content", "order": 3 }
+          },
+          {
+            "key": "captions",
+            "label": "Show captions",
+            "control": "boolean",
+            "default": false,
+            "ui": { "section": "content", "order": 4 }
+          },
+          {
+            "key": "captionLanguage",
+            "label": "Caption language",
+            "description": "A language code such as en or es. Leave blank for YouTube's default.",
+            "control": "text",
+            "default": "",
+            "maxLength": 6,
+            "ui": {
+              "section": "content",
+              "order": 5,
+              "visibleWhen": { "key": "captions", "equals": true }
+            }
+          },
+          {
+            "key": "muted",
+            "label": "Mute audio",
+            "control": "boolean",
+            "default": false,
+            "ui": { "section": "behavior", "order": 1 }
+          },
+          {
+            "key": "volume",
+            "label": "Volume (%)",
+            "control": "integer",
+            "default": 100,
+            "minimum": 0,
+            "maximum": 100,
+            "ui": {
+              "section": "behavior",
+              "order": 2,
+              "slider": true,
+              "visibleWhen": { "key": "muted", "equals": false }
+            }
+          },
+          {
+            "key": "loop",
+            "label": "Loop playback",
+            "control": "boolean",
+            "default": false,
+            "ui": { "section": "behavior", "order": 3 }
+          },
+          {
+            "key": "controls",
+            "label": "Show YouTube controls",
+            "control": "boolean",
+            "default": false,
+            "ui": { "section": "behavior", "order": 4 }
+          },
+          {
+            "key": "playlistPlaybackMode",
+            "label": "Playlist item length",
+            "control": "select",
+            "default": "until_end",
+            "options": [
+              { "value": "until_end", "label": "Play until the video ends" },
+              {
+                "value": "fixed_duration",
+                "label": "Play for a fixed duration"
+              }
+            ],
+            "ui": { "section": "behavior", "order": 5 }
+          },
+          {
+            "key": "fixedDurationSeconds",
+            "label": "Fixed duration (seconds)",
+            "control": "integer",
+            "default": 30,
+            "minimum": 1,
+            "maximum": 86400,
+            "ui": {
+              "section": "behavior",
+              "order": 6,
+              "visibleWhen": {
+                "key": "playlistPlaybackMode",
+                "equals": "fixed_duration"
+              }
+            }
+          },
+          {
+            "key": "failureBehavior",
+            "label": "If the video cannot play",
+            "control": "select",
+            "default": "placeholder",
+            "options": [
+              {
+                "value": "placeholder",
+                "label": "Show the Tilecast placeholder"
+              },
+              { "value": "fallback_image", "label": "Show a fallback image" },
+              { "value": "skip", "label": "Skip this item" }
+            ],
+            "ui": { "section": "behavior", "order": 7 }
+          },
+          {
+            "key": "fallbackImageAssetId",
+            "label": "Fallback image",
+            "control": "media_asset",
+            "mediaTypes": ["image"],
+            "ui": {
+              "section": "behavior",
+              "order": 8,
+              "visibleWhen": {
+                "key": "failureBehavior",
+                "equals": "fallback_image"
+              }
+            }
+          }
+        ]
+      },
+      "defaultConfiguration": {
+        "startSeconds": 0,
+        "captions": false,
+        "captionLanguage": "",
+        "muted": false,
+        "volume": 100,
+        "loop": false,
+        "controls": false,
+        "playlistPlaybackMode": "until_end",
+        "fixedDurationSeconds": 30,
+        "failureBehavior": "placeholder"
+      },
       "presentationSchemaVersion": 1,
       "requiredCapabilities": { "web.remote": 1 },
       "emptyStateBehavior": "placeholder",
@@ -114,6 +448,7 @@
       },
       "emptyStateBehavior": "text",
       "legacyEditor": true,
+      "authoring": { "preview": { "time": true } },
       "deprecation": {
         "deprecated": true,
         "replacement": "clock",
@@ -429,6 +764,7 @@
       "emptyStateBehavior": "text",
       "legacyEditor": true,
       "requiresManifestV13": true,
+      "authoring": { "preview": { "time": true } },
       "deprecation": {
         "deprecated": true,
         "replacement": "clock",
@@ -914,6 +1250,7 @@
         "empty": "render"
       },
       "compatibility": { "fallback": "template" },
+      "authoring": { "preview": { "time": true } },
       "deprecation": {
         "deprecated": true,
         "replacement": "status",

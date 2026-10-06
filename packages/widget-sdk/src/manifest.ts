@@ -13,6 +13,7 @@
  * checks that can run without Go.
  */
 import { z } from "zod";
+import { RECOMMENDED_FRAME_BOUNDS } from "./authoring.ts";
 import {
   componentCapability,
   COMPONENT_TYPE_PATTERN,
@@ -183,21 +184,45 @@ export const widgetManifestSchema = z
     emptyStateBehavior: z.string().min(1),
     legacyEditor: z.boolean().optional(),
     requiresManifestV13: z.boolean().optional(),
+    setup: z.record(z.string(), jsonValue).optional(),
+    deprecation: z.record(z.string(), jsonValue),
     authoring: z
       .object({
-        recommendedFrame: z
+        preview: z
           .object({
-            width: z.number().int().min(120).max(3840),
-            height: z.number().int().min(48).max(2160),
+            time: z
+              .boolean()
+              .optional()
+              .describe(
+                "The rendered result depends on the current instant, so Studio offers preview-time controls.",
+              ),
           })
           .strict()
           .optional(),
+        recommendedFrame: z
+          .object({
+            width: z
+              .number()
+              .int()
+              .min(RECOMMENDED_FRAME_BOUNDS.width.min)
+              .max(RECOMMENDED_FRAME_BOUNDS.width.max),
+            height: z
+              .number()
+              .int()
+              .min(RECOMMENDED_FRAME_BOUNDS.height.min)
+              .max(RECOMMENDED_FRAME_BOUNDS.height.max),
+          })
+          .strict()
+          .optional()
+          .describe(
+            "The Widget's preferred shape in CSS pixels: a reference geometry for Studio previews and Layout placement, not a maximum size.",
+          ),
       })
       .strict()
       .optional()
-      .describe("Studio authoring hints that never change Player rendering."),
-    setup: z.record(z.string(), jsonValue).optional(),
-    deprecation: z.record(z.string(), jsonValue),
+      .describe(
+        "Studio authoring capabilities. They never change validation, projection, or playback.",
+      ),
     component: componentSchema,
     compatibility: z
       .object({

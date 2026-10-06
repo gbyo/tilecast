@@ -30,6 +30,15 @@ describe("authoring metadata", () => {
     ).toEqual({ section: "data", order: 2 });
   });
 
+  it("reads slider and advanced hints only when they are true", () => {
+    expect(
+      authoringUiOf({ key: "a", ui: { slider: true, advanced: true } }),
+    ).toEqual({ slider: true, advanced: true });
+    expect(
+      authoringUiOf({ key: "a", ui: { slider: "yes", advanced: 1 } }),
+    ).toEqual({});
+  });
+
   it("hides conditionally invisible controls and keeps manifest order", () => {
     expect(
       visibleAuthoringFields(fields, { style: "minimal" }).map((f) => f.key),

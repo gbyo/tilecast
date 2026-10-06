@@ -56,14 +56,17 @@ An Owner, Administrator, or Editor can create and edit Widgets.
 
 1. Open **Content** > **Widgets**, then select **Create Widget**.
 2. Search the catalog or choose a category, then select the Widget that matches what the screen should show. A disabled catalog item shows why it isn't available.
-3. For a Widget that shows data, open the **Data Source** control under **Data**. The **Choose data** list shows only the sources this Widget can use. Select one, or select **Connect new data** to create a Data Source without leaving the editor.
-4. Check the fields under **Data**. Studio fills them in from the source, and you can change each one.
-5. Set the options under **Content** and **Appearance**, such as a heading, the maximum number of items, a style, or colors.
-6. Check the live preview. Under **Widget details**, enter a **Widget name**, then select **Save Widget**.
+3. The editor opens with a live preview and the Widget's settings beside it. The new Widget starts with a name such as **New Countdown**; select the name in the header, or **⋯** > **Edit details**, to rename it.
+4. For a Widget that shows data, open **Data**. Select **Choose** to pick one of the sources this Widget can use, or select **Connect new data** to create a Data Source without leaving the editor.
+5. Check the field mapping under **Data**. Studio fills it in from the source, and you can change each field.
+6. Set the options under **Content**, **Style**, and **Behavior**. The preview updates as you change them.
+7. Select **Save Widget**, or press Ctrl+S (Command+S on a Mac).
 
 </Steps>
 
-If **Choose data** lists no sources, create one with **Connect new data**, or create it from **Content** > **Data Sources**. The list offers only sources whose data this Widget can show.
+Studio shows only the setting groups a Widget has. A Widget with one group shows its settings without tabs. Rarely changed settings sit under **Advanced**.
+
+If **Choose** lists no sources, create one with **Connect new data**, or create it from **Content** > **Data Sources**. The list offers only sources whose data this Widget can show.
 
 ### How Studio fills the fields
 
@@ -73,14 +76,14 @@ When you connect a source, Studio chooses a field for each empty field control:
 2. It then uses fields with a familiar name, such as `title`, `price`, or `start`.
 3. It then offers any field of a compatible type, such as a date for an Agenda's **Start field**.
 
-Change any field Studio chose. If you switch to another source, Studio keeps your choices that the new source also has and fills in the rest.
+Each mapped field says **Auto** when it uses Studio's choice and **Custom** when you picked another field. If you switch to another source, Studio keeps your choices that the new source also has and fills in the rest. Opening a saved Widget never changes its mapping.
 
 Some Widgets need your choices. A Table shows only the **Columns** you add. An Agenda can't place an event without a **Start field**. News and Weather read their source's fields directly and have no field controls.
 
 <Screenshot
   src={screenshot}
   darkSrc={darkScreenshot}
-  alt="Lobby Clock editor with timezone and appearance controls beside a ready live preview at the Small zone size."
+  alt="Clock Widget editor with the live preview beside its settings."
 />
 
 ## Find a Widget in the library
@@ -96,25 +99,42 @@ The toolbar keeps the controls you use most in one row:
 
 If a search or type matches nothing, select **Clear search and type** to see the full library again. Clearing doesn't change your sort or view. On a phone, the type filter stays under the search field and **View options** holds the sort and view choices.
 
+## Edit and save a Widget
+
+Open a Widget from the library, or from the Layout or Playlist that uses it. The editor header shows:
+
+- **Back**, which returns to where you opened the Widget, such as **Back to Layout**.
+- **Used by**, which lists every Playlist and Layout that shows this Widget. Saving changes the Widget everywhere it appears, so check this before you save a shared Widget.
+- The save state: **Saved**, **Unsaved changes**, **Saving…**, or **Save failed**. When a save fails, Studio keeps your changes and shows **Retry**.
+- **Save changes**, which stays unavailable until you change something.
+- **⋯**, with **Edit details**, **Duplicate**, **Discard unsaved changes**, and **Delete Widget**. Studio doesn't delete a Widget that a Playlist or Layout still uses.
+
+Studio doesn't save Widgets automatically. If you leave with unsaved changes, Studio asks whether to discard them. If a setting needs a value, Studio shows the problem next to that setting when you save.
+
+A Viewer can open a Widget, use the preview, and see its settings and where it's used, but can't change or save it.
+
 ## Check the live preview
 
 The preview in the Widget editor uses the same Widget renderer as current Linux and Tilecast Edge Players. What you see there is what those screens show.
 
-- **Preview size** switches between **Landscape 16:9**, **Portrait 9:16**, **Wide strip**, **Tall sidebar**, **Small zone**, and a **Custom** size. Widgets arrange themselves for the space they have, so check the sizes where you plan to use the Widget.
-- **Preview time** is **Live** by default. Select **At a time** to see how a Clock, Agenda, or other time-based Widget looks at a chosen date and time. The selected calendar date also drives time-sensitive Data Source previews, so both use the same day.
+- The frame list switches between **Landscape · 16:9**, **Portrait · 9:16**, **Wide strip**, **Tall sidebar**, **Small zone**, and **Custom size**. Widgets arrange themselves for the space they have, so check the sizes where you plan to use the Widget.
+- **Fit** scales the frame to the window. Use the zoom buttons to look closer, and the fullscreen button to see the preview on its own.
+- **Time** appears for Widgets that change with time, such as a Clock, Countdown, or Agenda, and for Widgets whose data source selects records by date. Select **At a time** to see the Widget at a chosen date and time. The selected calendar date also drives time-sensitive Data Source previews, so both use the same day.
 - In **Live** mode, the preview uses the Data Source's current data. If the source has no data yet, the preview shows the Widget's empty message.
 
-Changing the preview time keeps the saved data and update time of manual objects and approved Form snapshots. It does not retrieve historical source data.
+Changing the preview frame, zoom, or time never changes the Widget. Changing the preview time keeps the saved data and update time of manual objects and approved Form snapshots. It does not retrieve historical source data.
 
 For Widgets that chart time-series data, Studio uses the same points, timezone, and units as the Player.
 
-Below the preview, Studio reports whether the preview is ready, empty, or can't render, with the reason. If a connected Data Source fails to load, saving stays disabled until the source works or you disconnect it. Studio also waits for [organization regional settings](../administration/language-regional/) before it enables **Save Widget**, so the thumbnail uses the configured date and time formats. When you save, Studio stores a 16:9 render as the Widget's thumbnail, no matter which preview size you had selected. If Studio can't capture or upload the thumbnail, it still saves the Widget and shows a warning. Visit the Widgets library later to retry the missing preview.
+A healthy preview shows only the Widget. When the preview is loading, waiting for data, empty, or can't render, a short note under it says so. A preview problem doesn't stop you from saving.
+
+After a save, Studio renders the saved Widget at 16:9 and stores it as the Widget's thumbnail, no matter which frame you had selected. If Studio can't capture or upload the thumbnail, the Widget stays saved and Studio shows a warning. The Widgets library tries the thumbnail again later.
 
 When a content manager opens **Widgets**, Studio checks the full library for missing or outdated thumbnails in the background. Search and provider filters do not limit this check, and Studio captures one Widget at a time.
 
 ## Choose a Clock style
 
-The Clock Widget has three styles. Pick one under **Appearance**:
+The Clock Widget has three styles. Pick one under **Style**:
 
 - **Standard**: the time in large type, with the seconds and AM/PM beside it. Turn on **Show date** to add the day and date below.
 - **Minimal**: the time alone, as large as it fits.

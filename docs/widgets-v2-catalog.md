@@ -20,7 +20,8 @@ This document completes
    keeps its provider ID and keeps working. Tilecast does not rewrite
    persisted rows to change an ID.
 4. A superseded provider is hidden from new creation. Studio opens saved
-   content of that provider in the generic V2 editor.
+   content of that provider in the Widget editor
+   ([Widget authoring](widget-authoring.md)).
 5. Each superseded provider maps into one V2 component through its own
    `component.configTemplate`. The component receives normalized V2
    configuration.

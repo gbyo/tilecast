@@ -679,6 +679,7 @@
         "empty": "skip-eligible"
       },
       "compatibility": { "fallback": "template" },
+      "authoring": { "preview": { "time": true } },
       "deprecation": {
         "deprecated": true,
         "replacement": "agenda",
