@@ -357,7 +357,9 @@ describe("Plugin store", () => {
     override = () =>
       json(500, { error: { code: "internal_error", message: "Offline." } });
     renderStore("/plugins/store/emergency_alerts");
-    expect(await screen.findByText("This plugin could not be loaded.")).toBeVisible();
+    expect(
+      await screen.findByText("This plugin could not be loaded."),
+    ).toBeVisible();
     expect(screen.queryByText("Plugin not found")).toBeNull();
   });
 
