@@ -29,7 +29,8 @@
           { "value": "banner", "label": "Banner" }
         ],
         "default": "panel",
-        "ui": { "section": "appearance", "order": 1, "styleCard": true }
+        "ui": { "hidden": true },
+        "description": "Status is a panel. Older saved banner-mode Status Widgets are migrated to Alert Banner."
       },
       {
         "key": "heading",
@@ -111,7 +112,8 @@
           { "value": "fast", "label": "Fast" }
         ],
         "default": "normal",
-        "ui": { "section": "behavior", "order": 1 }
+        "ui": { "hidden": true },
+        "description": "Retained only for pre-migration banner-mode Status configurations."
       },
       {
         "key": "emptyText",

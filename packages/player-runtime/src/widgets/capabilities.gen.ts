@@ -10,6 +10,7 @@
 export const WIDGET_COMPONENT_CAPABILITIES: Readonly<Record<string, number>> =
   Object.freeze({
     "widget.tilecast.agenda": 1,
+    "widget.tilecast.alert-banner": 1,
     "widget.tilecast.cards": 1,
     "widget.tilecast.chart": 1,
     "widget.tilecast.clock": 2,
