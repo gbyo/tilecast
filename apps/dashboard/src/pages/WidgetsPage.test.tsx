@@ -109,7 +109,7 @@ const lunch = widget("w-lunch", "Lunch Countdown", {
   playlistUsage: 2,
   layoutUsage: [{ id: "l1", name: "Cafeteria", published: true }],
   thumbnailUrl: "/api/v1/assets/w-lunch/thumbnail",
-  metadata: { widgetPreviewCaptureVersion: 3 },
+  metadata: { widgetPreviewCaptureVersion: 4 },
 });
 const weather = widget("w-weather", "Weather Board", {
   widget: { provider: "weather" },

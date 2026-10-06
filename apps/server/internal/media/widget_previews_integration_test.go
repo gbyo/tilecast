@@ -92,7 +92,7 @@ func TestWidgetPreviewSurvivesEditsThatDoNotChangeWhatItDepicts(t *testing.T) {
 		t.Fatalf("stored snapshot should be reported as a thumbnail: %#v %v", stored, err)
 	}
 	version, err := json.Marshal(stored.Metadata["widgetPreviewCaptureVersion"])
-	if err != nil || string(version) != "3" {
+	if err != nil || string(version) != "4" {
 		t.Fatalf("stored snapshot should record capture version %d: %s %v", WidgetPreviewCaptureVersion, version, err)
 	}
 

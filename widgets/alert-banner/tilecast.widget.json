@@ -16,7 +16,6 @@
         "label": "Data Source",
         "description": "Choose an object source containing the alert message.",
         "control": "data_source",
-        "required": true,
         "acceptedDataSourceKinds": [
           "object"
         ],
@@ -34,7 +33,6 @@
         "key": "messageField",
         "label": "Message field",
         "control": "data_source_field",
-        "required": true,
         "dataSourceFieldTypes": [
           "text"
         ],

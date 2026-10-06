@@ -173,13 +173,13 @@ export function V2WidgetEditor({
   };
   const [previewTime, setPreviewTime] =
     useState<PreviewTime>(initialPreviewTime);
+  const recommendedFrame = definition.authoring?.recommendedFrame;
   const [sizeKey, setSizeKey] = useState<PreviewSizeKey | "custom">(
-    "landscape",
+    recommendedFrame ? "custom" : "landscape",
   );
-  const [customSize, setCustomSize] = useState<PreviewFrame>({
-    width: 960,
-    height: 540,
-  });
+  const [customSize, setCustomSize] = useState<PreviewFrame>(
+    recommendedFrame ?? { width: 960, height: 540 },
+  );
   const frame =
     PREVIEW_SIZES.find((size) => size.key === sizeKey)?.frame ?? customSize;
   const [mountState, setMountState] = useState<WidgetMountState>({
@@ -365,11 +365,11 @@ export function V2WidgetEditor({
     previewState.state === "error" ||
     !name.trim();
 
-  // Save captures the canonical thumbnail frame, never the author's
-  // selected preview size: a hidden surface renders the real Widget AT
-  // 960x540 (container queries included) so a portrait/strip/custom
-  // selection cannot stretch the stored library artwork. The visible
-  // preview is untouched — no jump, no remount.
+  // Save captures a hidden real Widget at its natural authoring geometry.
+  // captureWidgetPreview then contains that surface inside the canonical
+  // 960x540 library artwork, so strip-native Widgets keep their real container
+  // queries instead of pretending to be fullscreen.
+  const canonicalFrame = recommendedFrame ?? WIDGET_THUMBNAIL_FRAME;
   const [canonicalCapture, setCanonicalCapture] = useState(false);
   const canonicalRef = useRef<HTMLDivElement>(null);
   const captureStarted = useRef(false);
@@ -625,8 +625,8 @@ export function V2WidgetEditor({
             <V2ZonePreview
               provider={definition.id}
               asset={canonicalAsset}
-              width={WIDGET_THUMBNAIL_FRAME.width}
-              height={WIDGET_THUMBNAIL_FRAME.height}
+              width={canonicalFrame.width}
+              height={canonicalFrame.height}
               onState={handleCanonicalState}
             />
           </div>

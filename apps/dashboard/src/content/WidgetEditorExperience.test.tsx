@@ -22,6 +22,7 @@ import * as widgetPreviewCapture from "./widgetPreviewCapture";
 import clockManifest from "../../../../widgets/clock/tilecast.widget.json";
 import qrManifest from "../../../../widgets/qr-code/tilecast.widget.json";
 import menuManifest from "../../../../widgets/menu-board/tilecast.widget.json";
+import alertBannerManifest from "../../../../widgets/alert-banner/tilecast.widget.json";
 
 afterEach(() => {
   cleanup();
@@ -310,35 +311,36 @@ describe("Widget editor experience", () => {
           requiredCapabilities: {},
           emptyStateBehavior: "text",
         },
-        ...["school-status-banner", "alert-banner"].map(
-          (id): WidgetDefinition => ({
-            id,
+        {
+          id: "school-status-banner",
+          version: 1,
+          apiVersion: 1,
+          name: "School Status Banner",
+          description: "Saved alias.",
+          category: "Information",
+          icon: "school-status-banner",
+          runtime: "native",
+          configurationSchema: { fields: [] },
+          defaultConfiguration: {},
+          component: {
+            type: "tilecast.status",
             version: 1,
-            apiVersion: 1,
-            name:
-              id === "alert-banner" ? "Alert Banner" : "School Status Banner",
-            description: "Saved alias.",
-            category: "Information",
-            icon: id,
-            runtime: "native",
-            configurationSchema: { fields: [] },
-            defaultConfiguration: {},
-            component: {
-              type: "tilecast.status",
-              version: 1,
-              tagName: "tc-widget-status",
-              entrypoint: "./runtime/index.ts",
-              configTemplate: {},
-              dataSourceFields: [],
-              empty: "render",
-            },
-            compatibility: { fallback: "template" },
-            deprecation: { deprecated: true, replacement: "status" },
-            presentationSchemaVersion: 1,
-            requiredCapabilities: {},
-            emptyStateBehavior: "text",
-          }),
-        ),
+            tagName: "tc-widget-status",
+            entrypoint: "./runtime/index.ts",
+            configTemplate: {},
+            dataSourceFields: [],
+            empty: "render",
+          },
+          compatibility: { fallback: "template" },
+          deprecation: { deprecated: true, replacement: "status" },
+          presentationSchemaVersion: 1,
+          requiredCapabilities: {},
+          emptyStateBehavior: "text",
+        },
+        {
+          ...(alertBannerManifest as unknown as WidgetDefinition),
+          apiVersion: 1,
+        },
         {
           id: "metric",
           version: 1,
@@ -414,7 +416,7 @@ describe("Widget editor experience", () => {
       await screen.findByRole("heading", { name: "Information" }),
     ).toBeTruthy();
     expect(screen.getAllByRole("button", { name: /Status/ })).toHaveLength(1);
-    expect(screen.queryByRole("button", { name: /Alert Banner/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /Alert Banner/ })).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: /School Status Banner/ }),
     ).toBeNull();
@@ -510,84 +512,12 @@ describe("Widget editor experience", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("opens a saved Alert Banner in the generic Status component editor", async () => {
-    const definition: WidgetDefinition = {
-      id: "alert-banner",
-      version: 1,
-      apiVersion: 1,
-      name: "Alert Banner",
-      description: "Show an alert message.",
-      category: "Information",
-      icon: "alert",
-      runtime: "native",
-      configurationSchema: {
-        fields: [
-          { key: "dataSourceId", label: "Data Source", control: "data_source" },
-          {
-            key: "messageField",
-            label: "Message field",
-            control: "data_source_field",
-            dataSourceFieldTypes: ["text"],
-          },
-          {
-            key: "severityField",
-            label: "Severity field",
-            control: "data_source_field",
-            dataSourceFieldTypes: ["text"],
-          },
-          {
-            key: "speed",
-            label: "Speed",
-            control: "select",
-            options: [{ value: "normal", label: "Normal" }],
-          },
-        ],
-      },
-      defaultConfiguration: {
-        dataSourceId: "",
-        messageField: "message",
-        severityField: "severity",
-        speed: "normal",
-        showSeverity: true,
-        foregroundColor: "#ffffff",
-        backgroundColor: "#7a1f1f",
-        emptyState: "No active alerts",
-      },
-      component: {
-        type: "tilecast.status",
-        version: 1,
-        tagName: "tc-widget-status",
-        entrypoint: "./runtime/index.ts",
-        configTemplate: {
-          dataSourceId: { $config: "dataSourceId", default: "" },
-          style: "banner",
-          heading: "",
-          statusField: "",
-          messageField: { $config: "messageField", default: "message" },
-          severityField: { $config: "severityField", default: "severity" },
-          updatedAtField: "",
-          effectiveAtField: "",
-          expiresAtField: "",
-          showSeverity: { $config: "showSeverity", default: true },
-          showUpdatedTime: false,
-          speed: { $config: "speed", default: "normal" },
-          emptyText: { $config: "emptyState", default: "No active alerts" },
-          background: { $config: "backgroundColor", default: "#7a1f1f" },
-          foreground: { $config: "foregroundColor", default: "#ffffff" },
-          accent: "",
-        },
-        dataSourceFields: ["dataSourceId"],
-        empty: "skip-eligible",
-      },
-      compatibility: { fallback: "template" },
-      deprecation: { deprecated: true, replacement: "status" },
-      presentationSchemaVersion: 1,
-      requiredCapabilities: {},
-      emptyStateBehavior: "text",
-    };
+  it("opens Alert Banner in its own strip-native component and natural frame", async () => {
+    const definition = alertBannerManifest as unknown as WidgetDefinition;
     const asset = {
       id: "asset-alert",
       name: "Weather alert",
+      type: "widget",
       widget: {
         provider: "alert-banner",
         configuration: definition.defaultConfiguration,
@@ -613,8 +543,10 @@ describe("Widget editor experience", () => {
     expect(
       screen.getByRole("heading", { name: /Edit Alert Banner/ }),
     ).toBeTruthy();
+    expect(screen.getByLabelText("Custom width (px)")).toHaveValue(1920);
+    expect(screen.getByLabelText("Custom height (px)")).toHaveValue(160);
     const preview = await screen.findByRole("img", { name: "Live preview" });
-    expect(preview.querySelector("tc-widget-status")).toBeTruthy();
+    expect(preview.querySelector("tc-widget-alert-banner")).toBeTruthy();
   });
 
   it("edits saved legacy QR content through the generic V2 editor", async () => {

@@ -19,7 +19,7 @@ export const WIDGET_THUMBNAIL_FRAME = {
 // representation changes in a way that requires existing thumbnails to be
 // regenerated. Keep in sync with WidgetPreviewCaptureVersion in
 // apps/server/internal/media/widgets.go.
-export const WIDGET_PREVIEW_CAPTURE_VERSION = 3;
+export const WIDGET_PREVIEW_CAPTURE_VERSION = 4;
 
 // The current Layout thumbnail pipeline: lifecycle-aware capture that waits
 // for embedded V2 Widgets to settle. Persisted beside each stored Layout
@@ -221,6 +221,7 @@ async function captureRenderPreview(
   snapshotHeight: number,
   exclude: string[] = [],
   t: CaptureT,
+  fit: "stretch" | "contain" = "stretch",
 ): Promise<Blob> {
   await document.fonts.ready;
   const bounds = element.getBoundingClientRect();
@@ -249,10 +250,10 @@ async function captureRenderPreview(
   clone.style.border = "0";
   clone.style.borderRadius = "0";
   const markup = new XMLSerializer().serializeToString(clone);
-  // `preserveAspectRatio="none"` keeps the frame mapped edge to edge onto the
-  // snapshot. Rounding up above shifts the aspect ratio by well under a pixel,
-  // so nothing visibly stretches, but letterbox bars can no longer appear.
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${snapshotWidth}" height="${snapshotHeight}" viewBox="0 0 ${frameWidth} ${frameHeight}" preserveAspectRatio="none"><foreignObject width="${frameWidth}" height="${frameHeight}">${markup}</foreignObject></svg>`;
+  // Rasterize the source at its real geometry. Widget thumbnails may contain
+  // that result inside a 16:9 library card; Layout captures still stretch to
+  // their output canvas because their source geometry already matches it.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${frameWidth}" height="${frameHeight}" viewBox="0 0 ${frameWidth} ${frameHeight}"><foreignObject width="${frameWidth}" height="${frameHeight}">${markup}</foreignObject></svg>`;
   // Dashboard CSP intentionally excludes blob: images. An encoded data URL is
   // already permitted and keeps this temporary SVG local to the browser.
   const image = await loadImage(
@@ -267,9 +268,26 @@ async function captureRenderPreview(
     throw new Error(
       t?.("preview.capture.noCanvas") ?? "Preview canvas is unavailable.",
     );
-  context.fillStyle = background || "#000";
+  context.fillStyle =
+    !background || background === "rgba(0, 0, 0, 0)" ? "#000" : background;
   context.fillRect(0, 0, snapshotWidth, snapshotHeight);
-  context.drawImage(image, 0, 0, snapshotWidth, snapshotHeight);
+  if (fit === "contain") {
+    const scale = Math.min(
+      snapshotWidth / frameWidth,
+      snapshotHeight / frameHeight,
+    );
+    const width = frameWidth * scale;
+    const height = frameHeight * scale;
+    context.drawImage(
+      image,
+      (snapshotWidth - width) / 2,
+      (snapshotHeight - height) / 2,
+      width,
+      height,
+    );
+  } else {
+    context.drawImage(image, 0, 0, snapshotWidth, snapshotHeight);
+  }
   for (const quality of [0.82, 0.68, 0.52]) {
     const snapshot = await encodeJPEG(canvas, quality, t);
     if (snapshot.size <= 500 * 1024) return snapshot;
@@ -290,6 +308,7 @@ export function captureWidgetPreview(
     WIDGET_SNAPSHOT_HEIGHT,
     [],
     t,
+    "contain",
   );
 }
 

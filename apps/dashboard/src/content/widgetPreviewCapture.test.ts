@@ -308,4 +308,50 @@ describe("captureWidgetPreview", () => {
     expect(markup).toContain("12:34 PM from Shadow DOM");
     expect(markup).toContain("clock-value");
   });
+
+  it("contains a strip-native Widget inside the 16:9 library snapshot", async () => {
+    Object.defineProperty(document, "fonts", {
+      configurable: true,
+      value: { ready: Promise.resolve() },
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      width: 960,
+      height: 80,
+      top: 0,
+      right: 960,
+      bottom: 80,
+      left: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const drawImage = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      fillStyle: "",
+      fillRect: vi.fn(),
+      drawImage,
+    } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(
+      (callback) => callback(new Blob(["jpeg"], { type: "image/jpeg" })),
+    );
+    vi.stubGlobal(
+      "Image",
+      class {
+        onload: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        set src(_value: string) {
+          queueMicrotask(() => this.onload?.());
+        }
+      },
+    );
+
+    const preview = document.createElement("div");
+    preview.textContent = "Tornado warning";
+
+    await captureWidgetPreview(preview);
+
+    expect(drawImage).toHaveBeenCalledOnce();
+    expect(drawImage.mock.calls[0]?.slice(1)).toEqual([0, 230, 960, 80]);
+  });
+
 });
