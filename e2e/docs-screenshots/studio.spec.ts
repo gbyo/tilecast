@@ -26,7 +26,7 @@ for (const [name, route, ready] of [
   ["playlist-editor", `/playlists/${ids.morningAnnouncements}`, "Add content"],
   ["layout-editor", `/layouts/${hallwaySplit}`, "Go Falcons!"],
   ["campaign-editor", `/campaigns/${homecomingWeek}`, "Content blocks"],
-  ["schedule-editor", `/schedules/${morningBroadcast}`, "Edit schedule"],
+  ["schedule-editor", `/schedules/${morningBroadcast}`, "Presentation"],
   [
     "display-group",
     `/groups/${ids.cafeteriaDisplays}`,
@@ -98,9 +98,14 @@ for (const [name, route, ready] of [
       ).toBeVisible();
     }
     if (name === "schedule-editor") {
-      await expect(
-        page.getByRole("complementary", { name: "Schedule summary" }),
-      ).toBeVisible();
+      // The outcome pane appears beside the form and finishes its next-run
+      // check before the capture, so the screenshot shows a settled answer.
+      const outcome = page.getByRole("complementary", {
+        name: "Schedule outcome",
+      });
+      await expect(outcome).toBeVisible();
+      await expect(outcome.getByText("Next-run check")).toBeVisible();
+      await expect(outcome.getByText("Checking…")).toBeHidden();
     }
     await capture(page, name);
   });

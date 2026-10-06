@@ -10,6 +10,7 @@ import {
 const hallwaySplit = "de300006-0000-4000-8000-000000000001";
 const lobbyPortrait = "de300006-0000-4000-8000-000000000002";
 const lobbyClock = "de30000a-0000-4000-8000-000000000009";
+const morningBroadcast = "de300007-0000-4000-8000-000000000003";
 
 test.beforeEach(async ({ page }) => {
   await resetDemo(page.request);
@@ -44,6 +45,7 @@ const states = [
   ["widget-editor", `/widgets/${lobbyClock}`, "Show seconds"],
   ["data-sources", "/data-sources", "No Data Sources yet"],
   ["schedules", "/schedules", "Morning Broadcast"],
+  ["schedule-editor", `/schedules/${morningBroadcast}`, "Presentation"],
   ["users", "/settings/users", "Marcus Reyes"],
   ["settings", "/settings/general", "Organization name"],
   ["plugins", "/plugins", "Countdown Bar"],
@@ -86,6 +88,15 @@ for (const [name, path, ready] of states) {
           ),
         )
         .toBe(true);
+    }
+    if (name === "schedule-editor") {
+      // The server's answer is part of the editor. Wait for it so the capture
+      // never records the checking state.
+      const outcome = page.getByRole("complementary", {
+        name: "Schedule outcome",
+      });
+      await expect(outcome.getByText(/wins on/)).toBeVisible();
+      await expect(outcome.getByText("Checking…")).toBeHidden();
     }
     if (name === "widget-editor") {
       // The healthy preview is silent; the shared Widget mount is the proof

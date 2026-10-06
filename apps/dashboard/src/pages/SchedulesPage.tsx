@@ -110,4 +110,4 @@ export function SchedulesPage() {
   );
 }
 
-export { ScheduleEditorPage } from "../schedules/ScheduleBuilder";
+export { ScheduleEditorPage } from "../schedules/ScheduleEditorPage";

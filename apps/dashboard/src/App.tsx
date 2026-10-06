@@ -487,12 +487,16 @@ export const studioRoutes: RouteObject[] = [
           {
             path: "new",
             element: <ScheduleEditorPage />,
-            handle: { breadcrumb: "Create schedule" },
+            handle: { breadcrumb: "Create schedule", immersiveEditor: true },
           },
           {
             path: ":id",
             element: <ScheduleEditorPage />,
-            handle: { breadcrumb: "Schedule", resource: "schedule" },
+            handle: {
+              breadcrumb: "Schedule",
+              resource: "schedule",
+              immersiveEditor: true,
+            },
           },
         ],
       },

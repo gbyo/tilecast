@@ -35,3 +35,9 @@ export function useSaveShortcut(save: () => void, readOnly: boolean) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [readOnly]);
 }
+
+/** The platform's name for the save chord, for tooltips: "⌘ S" or "Ctrl S". */
+export function shortcutLabel() {
+  if (typeof navigator === "undefined") return "Ctrl S";
+  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? "⌘ S" : "Ctrl S";
+}

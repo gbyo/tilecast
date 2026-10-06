@@ -310,6 +310,8 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireScheduleScope, s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Post("/schedules/{id}/enable", s.enableSchedule)
 			dashboard.With(s.requireScheduleScope, s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Post("/schedules/{id}/disable", s.disableSchedule)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireScope("write")).Post("/schedules/preview", s.previewSchedule)
+			// Read-only: a viewer inspects a schedule's outcome too.
+			dashboard.With(s.requireScope("read")).Post("/schedules/preflight", s.preflightSchedule)
 			dashboard.With(s.requireScope("read")).Get("/assets", s.listAssets)
 			dashboard.With(s.requireScope("read")).Get("/assets/{id}", s.getAsset)
 			dashboard.With(s.requireScope("read")).Get("/assets/{id}/website/diagnostics", s.websiteDiagnostics)

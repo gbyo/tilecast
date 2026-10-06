@@ -76,7 +76,10 @@
     }
   },
   "options": {
-    "type": { "weekly": "Semanal", "oneTime": "Única vez" },
+    "type": {
+      "weekly": "Semanal",
+      "oneTime": "Única vez"
+    },
     "presentation": {
       "playlist": "Lista de reproducción",
       "layout": "Diseño",
@@ -84,63 +87,87 @@
     }
   },
   "editor": {
-    "createTitle": "Crear programación",
-    "editTitle": "Editar programación",
-    "subtitle": "Crea la regla de reproducción y revisa su efecto antes de guardar.",
+    "heading": "Editor de programación: {{name}}",
+    "formLabel": "Ajustes de la programación",
+    "newName": "Nueva programación",
     "loading": "Cargando programación",
-    "content": "Contenido",
-    "contentTypeLabel": "Tipo de contenido de la programación",
-    "displayControl": "Control de pantalla",
-    "scheduleTypeLabel": "Tipo de programación",
-    "typeWeekly": "Recurrente semanal",
-    "typeOneTime": "Evento único",
-    "nameLabel": "Nombre de la programación",
-    "namePlaceholder": "Anuncios matutinos",
-    "enabledLabel": "Activada",
-    "enabledHint": "Las programaciones desactivadas se conservan pero no afectan la reproducción.",
-    "descriptionLabel": "Descripción",
-    "descriptionHint": "Nota interna opcional visible en Studio.",
-    "save": "Guardar programación",
-    "deleteTitle": "¿Eliminar {{name}}?",
-    "discardTitle": "¿Descartar los cambios sin guardar de la programación?",
-    "presentationLabel": "Presentación",
-    "presentationLayoutFallback": "Diseño",
-    "presentationPlaylistFallback": "Lista de reproducción",
-    "presentationLayoutMeta": "{{width}} × {{height}} · revisión {{revision}}",
-    "presentationPlaylistMeta_one": "{{count}} elemento · {{duration}}",
-    "presentationPlaylistMeta_many": "{{count}} de elementos · {{duration}}",
-    "presentationPlaylistMeta_other": "{{count}} elementos · {{duration}}",
-    "choosePresentation": "Elegir presentación",
-    "change": "Cambiar",
-    "useSelected": "Usar esta presentación",
-    "noSelection": "Sin presentación seleccionada",
-    "durationVaries": "La duración varía",
-    "emptyPlaylist": "Lista de reproducción vacía",
-    "sections": {
-      "content": {
-        "description": "Nombra esta programación y elige qué debe reproducir."
-      },
-      "timing": {
-        "title": "Horario",
-        "description": "Elige cuándo tiene prioridad este contenido."
-      },
-      "targets": {
-        "title": "Destinos",
-        "description": "Selecciona pantallas independientes o grupos sincronizados. Las pantallas agrupadas se programan juntas."
-      },
-      "advanced": {
-        "title": "Opciones avanzadas",
-        "description": "Controla la disponibilidad, la precedencia y las notas del administrador."
-      }
+    "discard": {
+      "title": "¿Descartar los cambios sin guardar?",
+      "body": "Los cambios en «{{name}}» no se han guardado.",
+      "keepEditing": "Seguir editando"
+    },
+    "details": {
+      "title": "Programación",
+      "name": "Nombre",
+      "namePlaceholder": "Anuncios matutinos",
+      "enabled": "Activada",
+      "enabledHint": "Una vez guardada, esta programación puede afectar la reproducción en sus horarios.",
+      "description": "Descripción (opcional)",
+      "descriptionHint": "Una nota interna, visible solo en Studio."
+    },
+    "presentation": {
+      "title": "Presentación",
+      "description": "¿Qué debe ocurrir cuando esta programación gane?",
+      "modeLabel": "Tipo de presentación",
+      "content": "Contenido",
+      "contentHint": "Reproducir una lista de reproducción o un diseño publicado.",
+      "displayControl": "Control de pantalla",
+      "displayControlHint": "Cambiar encendido, entrada, volumen, silencio o brillo.",
+      "choose": "Elegir una lista de reproducción o un diseño",
+      "change": "Cambiar",
+      "use": "Usar esta presentación",
+      "playlistKind": "Lista de reproducción",
+      "layoutKind": "Diseño",
+      "playlistMeta_one": "Lista de reproducción · {{count}} elemento · {{duration}}",
+      "playlistMeta_many": "Lista de reproducción · {{count}} de elementos · {{duration}}",
+      "playlistMeta_other": "Lista de reproducción · {{count}} elementos · {{duration}}",
+      "playlistEmpty": "Lista de reproducción · Aún sin elementos",
+      "layoutMeta": "Diseño · Revisión publicada {{revision}}",
+      "durationVaries": "la duración varía"
+    },
+    "header": {
+      "back": "Volver a Programaciones",
+      "save": "Guardar cambios",
+      "create": "Crear programación",
+      "saveShort": "Guardar",
+      "review": "Revisar",
+      "reviewIssues_one": "Revisar, {{count}} elemento requiere atención",
+      "reviewIssues_many": "Revisar, {{count}} de elementos requieren atención",
+      "reviewIssues_other": "Revisar, {{count}} elementos requieren atención",
+      "discard": "Descartar los cambios sin guardar",
+      "delete": "Eliminar programación",
+      "more": "Más acciones"
     },
     "status": {
-      "unsaved": "Cambios sin guardar",
-      "saved": "Todos los cambios guardados",
-      "incomplete": "Completa los campos obligatorios"
-    }
+      "saved": "Guardado",
+      "unsaved": "Sin guardar",
+      "saving": "Guardando…",
+      "failed": "Error al guardar",
+      "viewOnly": "Solo lectura"
+    },
+    "delete": {
+      "title": "¿Eliminar «{{name}}»?",
+      "body": "Esta programación dejará de reproducirse. Sus pantallas usarán otra programación aplicable o su contenido de reserva habitual.",
+      "keep": "Conservar programación",
+      "confirm": "Eliminar programación",
+      "failed": "No se pudo eliminar la programación."
+    },
+    "notFound": {
+      "title": "Programación no encontrada",
+      "body": "Puede que se haya eliminado o que no tengas acceso a ella.",
+      "back": "Volver a Programaciones"
+    },
+    "cannotCreate": {
+      "title": "No puedes crear programaciones",
+      "body": "Los propietarios y administradores gestionan las programaciones. Aún puedes abrir las que existen."
+    },
+    "loadFailed": {
+      "title": "No se pudo cargar la programación",
+      "retry": "Intentar de nuevo"
+    },
+    "deleteTitle": "¿Eliminar {{name}}?"
   },
   "displayAction": {
-    "label": "Acción de pantalla",
     "actionLabel": "Acción",
     "inputLabel": "Identificador de entrada",
     "inputHint": "Para HDMI-CEC, usa una dirección física como 1.0.0.0.",
@@ -168,13 +195,34 @@
     }
   },
   "weekdays": {
-    "monday": { "short": "lun.", "long": "lunes" },
-    "tuesday": { "short": "mar.", "long": "martes" },
-    "wednesday": { "short": "mié.", "long": "miércoles" },
-    "thursday": { "short": "jue.", "long": "jueves" },
-    "friday": { "short": "vie.", "long": "viernes" },
-    "saturday": { "short": "sáb.", "long": "sábado" },
-    "sunday": { "short": "dom.", "long": "domingo" }
+    "monday": {
+      "short": "lun.",
+      "long": "lunes"
+    },
+    "tuesday": {
+      "short": "mar.",
+      "long": "martes"
+    },
+    "wednesday": {
+      "short": "mié.",
+      "long": "miércoles"
+    },
+    "thursday": {
+      "short": "jue.",
+      "long": "jueves"
+    },
+    "friday": {
+      "short": "vie.",
+      "long": "viernes"
+    },
+    "saturday": {
+      "short": "sáb.",
+      "long": "sábado"
+    },
+    "sunday": {
+      "short": "dom.",
+      "long": "domingo"
+    }
   },
   "timing": {
     "weekdaysLabel": "Días activos de la semana",
@@ -182,31 +230,38 @@
     "ends": "Fin",
     "startsTimeLabel": "Hora de inicio",
     "endsTimeLabel": "Hora de fin",
-    "overnight24h": "Intervalo de 24 horas",
-    "overnightTitle": "Programación nocturna",
-    "overnightHint": "La reproducción termina al día siguiente.",
-    "addDateRange": "Agregar intervalo de fechas",
-    "firstDate": "Primera fecha activa",
-    "lastDate": "Última fecha activa",
     "removeDateRange": "Quitar intervalo de fechas",
     "timezoneLabel": "Zona horaria",
     "timezoneSearch": "Buscar ciudad o región",
     "timezoneEmpty": "Ninguna zona horaria coincide con esta búsqueda.",
     "clockNotSet": "Sin definir",
     "daysSummary": {
-      "weekdays": "De lunes a viernes",
-      "everyDay": "todos los días",
       "none": "ningún día seleccionado",
-      "single": "todos los {{day}}"
+      "everyDayShort": "Todos los días"
     },
     "summary": {
-      "weeklyRange": "{{days}} de {{start}} a {{end}}",
-      "overnightSuffix": " del día siguiente",
-      "rangeStart": ", desde el {{start}}",
-      "rangeThrough": " hasta el {{end}}",
-      "oneTimeRange": "{{start}} a {{end}}",
-      "chooseOneTime": "Elige la hora de inicio y de fin."
-    }
+      "oneTimeRange": "{{start}} – {{end}}",
+      "chooseOneTime": "Elige la hora de inicio y de fin",
+      "nextDaySuffix": " (día siguiente)",
+      "rangeBetween": "{{start}} – {{end}}",
+      "rangeFrom": "desde el {{start}}",
+      "rangeUntil": "hasta el {{end}}"
+    },
+    "title": "Horario",
+    "description": "Cuándo se ejecuta esta programación, en su propia zona horaria.",
+    "typeLabel": "Tipo de programación",
+    "typeWeekly": "Semanal",
+    "typeWeeklyHint": "Se repite en los días y horas elegidos.",
+    "typeOneTime": "Una sola vez",
+    "typeOneTimeHint": "Se ejecuta una vez entre dos fechas y horas.",
+    "overnightNote": "Termina al día siguiente.",
+    "fullDayNote": "Se ejecuta durante 24 horas.",
+    "limitDateRange": "Limitar a un intervalo de fechas",
+    "startsOn": "Empieza el",
+    "endsOn": "Termina el",
+    "organizationDefault": "Predeterminada de la organización",
+    "timezoneHint": "Las horas usan esta zona horaria, estés donde estés al editar.",
+    "timezoneHintOther": "Las horas usan esta zona horaria, estés donde estés al editar. La predeterminada de tu organización es {{timezone}}."
   },
   "duration": {
     "days_one": "{{count}} día",
@@ -219,29 +274,32 @@
     "invalidOrder": "El fin debe ser posterior al inicio."
   },
   "targets": {
-    "tabLabel": "Tipo de destino",
-    "screensTab": "Pantallas",
-    "groupsTab": "Grupos de pantallas",
-    "searchScreens": "Buscar pantallas",
-    "searchGroups": "Buscar grupos de pantallas",
-    "selectedLabel": "Destinos seleccionados",
-    "removeOption": "Quitar {{name}}",
-    "selectedMark": "Seleccionado",
-    "addMark": "Agregar",
-    "emptyScreens": "Ninguna pantalla coincide con esta búsqueda.",
-    "emptyGroups": "Ningún grupo coincide con esta búsqueda.",
-    "groupDetail": "Grupo de pantallas: {{name}}",
-    "noLocation": "Sin ubicación",
-    "unknownTarget": "Destino seleccionado",
-    "groupCount_one": "{{count}} pantalla",
-    "groupCount_many": "{{count}} de pantallas",
-    "groupCount_other": "{{count}} pantallas"
+    "title": "Destinos",
+    "description": "Dónde se aplica esta programación.",
+    "add": "Agregar destinos",
+    "search": "Buscar pantallas y grupos de pantallas",
+    "loading": "Cargando pantallas y grupos…",
+    "loadError": "No se pudieron cargar las pantallas y los grupos de pantallas.",
+    "retry": "Intentar de nuevo",
+    "empty": "Ninguna pantalla ni grupo de pantallas coincide.",
+    "groupedHint": "Una pantalla de un grupo de pantallas se agrega a través de su grupo.",
+    "selectedLabel_one": "{{count}} destino seleccionado",
+    "selectedLabel_many": "{{count}} de destinos seleccionados",
+    "selectedLabel_other": "{{count}} destinos seleccionados",
+    "remove": "Quitar {{name}}",
+    "groups": "Grupos de pantallas",
+    "screens": "Pantallas",
+    "groupDetail_one": "Grupo de pantallas · {{count}} pantalla",
+    "groupDetail_many": "Grupo de pantallas · {{count}} de pantallas",
+    "groupDetail_other": "Grupo de pantallas · {{count}} pantallas",
+    "screenDetail": "Pantalla · {{location}}",
+    "kindGroup": "Grupo de pantallas",
+    "kindScreen": "Pantalla",
+    "none": "Aún no hay destinos.",
+    "sharedNote": "Las pantallas de un grupo de pantallas siempre comparten una programación y su contenido de reserva.",
+    "unknown": "Destino seleccionado"
   },
   "priority": {
-    "label": "Prioridad",
-    "hint": "Las programaciones de mayor prioridad ganan cuando los horarios y destinos se superponen.",
-    "controlLabel": "Prioridad de la programación",
-    "customLabel": "Prioridad personalizada",
     "customValue": "Personalizada ({{priority}})",
     "presets": {
       "normal": "Normal",
@@ -249,33 +307,6 @@
       "special": "Evento especial",
       "custom": "Personalizada"
     }
-  },
-  "summary": {
-    "title": "Resumen de la programación",
-    "when": "Cuándo",
-    "showsLayout": "Muestra el diseño {{name}}",
-    "playsPlaylist": "Reproduce {{name}}",
-    "targetCount_one": "En {{count}} pantalla",
-    "targetCount_many": "En {{count}} de pantallas",
-    "targetCount_other": "En {{count}} pantallas",
-    "noTargets": "Ningún destino seleccionado",
-    "conflictTitle": "Vista previa de conflictos",
-    "conflictHint": "Elige contenido y destinos para comprobar conflictos.",
-    "checking": "Comprobando programaciones aplicables…",
-    "unavailable": "Comprobación de conflictos no disponible",
-    "noConflicts": "Sin conflictos",
-    "noOverlap": "Ninguna otra programación se superpone con esta hora de vista previa.",
-    "overlapCount_one": "{{count}} programación superpuesta",
-    "overlapCount_many": "{{count}} de programaciones superpuestas",
-    "overlapCount_other": "{{count}} programaciones superpuestas",
-    "winner": "{{name}} gana porque {{reason}}.",
-    "reasonHighest": "tiene la prioridad más alta",
-    "reasonDirect": "está dirigida directamente a la pantalla",
-    "reasonLater": "empieza más tarde según las reglas de precedencia",
-    "fallbackNote": "El contenido alternativo directo se reproduce cuando no hay ninguna programación activa.",
-    "directTarget": "Destino directo de pantalla",
-    "groupTarget": "Destino de grupo",
-    "note": "Las asignaciones directas de pantalla siguen siendo contenido alternativo cuando no hay ninguna programación activa."
   },
   "validation": {
     "nameRequired": "Escribe el nombre de la programación.",
@@ -285,7 +316,7 @@
     "brightnessRange": "El brillo debe estar entre 0 y 100.",
     "timezoneRequired": "Elige una zona horaria.",
     "targetsRequired": "Selecciona al menos una pantalla o un grupo.",
-    "priorityRange": "La prioridad debe estar entre -999 y 999.",
+    "priorityRange": "La prioridad debe ser un número entero entre -999 y 999.",
     "daysRequired": "Selecciona al menos un día de la semana.",
     "timeRequired": "Elige las horas de inicio y fin.",
     "dateRangeInvalid": "La fecha de fin no debe ser anterior a la fecha de inicio.",
@@ -311,5 +342,117 @@
     "previewTime": "Hora de vista previa",
     "fromTime": "Hora de inicio",
     "toTime": "Hora de fin"
+  },
+  "conflict": {
+    "title": "Gestión de conflictos",
+    "hint": "Se prefiere la prioridad más alta cuando varias programaciones compiten por una pantalla. La comprobación de la próxima ejecución muestra el resultado.",
+    "groupLabel": "Prioridad",
+    "presets": {
+      "normal": "Precedencia estándar.",
+      "important": "Se prefiere sobre las programaciones normales.",
+      "special": "Para contenido excepcional que debe imponerse.",
+      "custom": "Elige una prioridad exacta de −999 a 999."
+    },
+    "customLabel": "Valor de prioridad",
+    "customHint": "Un número entero de −999 a 999. Se prefiere el más alto.",
+    "overlapBadge_one": "{{count}} solapamiento",
+    "overlapBadge_many": "{{count}} de solapamientos",
+    "overlapBadge_other": "{{count}} solapamientos"
+  },
+  "outcome": {
+    "title": "Resultado de la programación",
+    "description": "Lo que hará este borrador una vez guardado.",
+    "enabled": "Activada",
+    "disabled": "Desactivada",
+    "viewOnly": "Solo lectura",
+    "what": "Qué",
+    "when": "Cuándo",
+    "where": "Dónde",
+    "priority": "Prioridad",
+    "priorityInvalid": "Sin definir",
+    "noPresentation": "Aún no hay nada elegido",
+    "noTargets": "Aún no hay destinos",
+    "targetCount_one": "{{count}} destino",
+    "targetCount_many": "{{count}} de destinos",
+    "targetCount_other": "{{count}} destinos",
+    "screenCount_one": "{{count}} pantalla",
+    "screenCount_many": "{{count}} de pantallas",
+    "screenCount_other": "{{count}} pantallas",
+    "viaTargets_one": "mediante {{count}} destino",
+    "viaTargets_many": "mediante {{count}} de destinos",
+    "viaTargets_other": "mediante {{count}} destinos",
+    "checkTitle": "Comprobación de la próxima ejecución",
+    "checking": "Comprobando…",
+    "checkFailed": "No se pudo realizar la comprobación",
+    "checkFailedSave": "Aún puedes guardar esta programación.",
+    "retry": "Intentar de nuevo",
+    "incompleteBoth": "Elige una presentación y al menos un destino para comprobar esta programación.",
+    "incompletePresentation": "Elige una presentación para comprobar esta programación.",
+    "incompleteTargets": "Elige al menos un destino para comprobar esta programación.",
+    "incompleteTiming": "Termina el horario para comprobar esta programación.",
+    "simulatedEnabled": "La comprobación siguiente simula esta programación como activada.",
+    "unsupportedTitle_one": "{{count}} pantalla de destino no puede ejecutar el control de pantalla",
+    "unsupportedTitle_many": "{{count}} de pantallas de destino no pueden ejecutar el control de pantalla",
+    "unsupportedTitle_other": "{{count}} pantallas de destino no pueden ejecutar el control de pantalla",
+    "unsupportedBody": "Solo los reproductores Linux ejecutan el control de pantalla. Quita esas pantallas o elige contenido.",
+    "noRunTitle": "No hay próxima ejecución",
+    "noRunBody": "Esta programación no volverá a ejecutarse tal como está, así que no hay nada que comprobar.",
+    "checkedAt": "Comprobado para {{when}}",
+    "checkedNow": "En ejecución ahora · comprobado a las {{when}}",
+    "winsAll_one": "Esta programación gana en la pantalla de destino.",
+    "winsAll_many": "Esta programación gana en las {{count}} de pantallas de destino.",
+    "winsAll_other": "Esta programación gana en las {{count}} pantallas de destino.",
+    "winsNone_one": "Esta programación pierde en la pantalla de destino.",
+    "winsNone_many": "Esta programación pierde en las {{count}} de pantallas de destino.",
+    "winsNone_other": "Esta programación pierde en las {{count}} pantallas de destino.",
+    "winsAllRunnable_one": "Esta programación gana en la pantalla que puede ejecutarla.",
+    "winsAllRunnable_many": "Esta programación gana en las {{count}} de pantallas que pueden ejecutarla.",
+    "winsAllRunnable_other": "Esta programación gana en las {{count}} pantallas que pueden ejecutarla.",
+    "winsSome_one": "Esta programación gana en {{wins}} de {{count}} pantalla.",
+    "winsSome_many": "Esta programación gana en {{wins}} de {{count}} de pantallas.",
+    "winsSome_other": "Esta programación gana en {{wins}} de {{count}} pantallas.",
+    "competitors": "Programaciones que se solapan",
+    "moreCompetitors": "No se muestran más programaciones solapadas.",
+    "otherScreens": "Pantallas que muestran otra cosa",
+    "showsInstead": "Muestra {{name}} en su lugar",
+    "andMore_one": "y {{count}} pantalla más",
+    "andMore_many": "y {{count}} de pantallas más",
+    "andMore_other": "y {{count}} pantallas más",
+    "scopeNote": "Solo comprueba la próxima ejecución. Las siguientes pueden diferir.",
+    "competitor": {
+      "mixed_one": "Prevalece sobre esta programación en {{outranks}} de {{count}} pantalla",
+      "mixed_many": "Prevalece sobre esta programación en {{outranks}} de {{count}} de pantallas",
+      "mixed_other": "Prevalece sobre esta programación en {{outranks}} de {{count}} pantallas",
+      "outranks": {
+        "priority_one": "Mayor prioridad · {{count}} pantalla",
+        "priority_many": "Mayor prioridad · {{count}} de pantallas",
+        "priority_other": "Mayor prioridad · {{count}} pantallas",
+        "specific_one": "Apunta directamente a la pantalla · {{count}} pantalla",
+        "specific_many": "Apunta directamente a las pantallas · {{count}} de pantallas",
+        "specific_other": "Apunta directamente a las pantallas · {{count}} pantallas",
+        "start_one": "Empezó después · {{count}} pantalla",
+        "start_many": "Empezó después · {{count}} de pantallas",
+        "start_other": "Empezó después · {{count}} pantallas",
+        "tie_one": "Gana un empate total · {{count}} pantalla",
+        "tie_many": "Gana un empate total · {{count}} de pantallas",
+        "tie_other": "Gana un empate total · {{count}} pantallas"
+      },
+      "yields": {
+        "priority_one": "Menor prioridad · esta programación gana en {{count}} pantalla",
+        "priority_many": "Menor prioridad · esta programación gana en {{count}} de pantallas",
+        "priority_other": "Menor prioridad · esta programación gana en {{count}} pantallas",
+        "specific_one": "Menos específica · esta programación gana en {{count}} pantalla",
+        "specific_many": "Menos específica · esta programación gana en {{count}} de pantallas",
+        "specific_other": "Menos específica · esta programación gana en {{count}} pantallas",
+        "start_one": "Empezó antes · esta programación gana en {{count}} pantalla",
+        "start_many": "Empezó antes · esta programación gana en {{count}} de pantallas",
+        "start_other": "Empezó antes · esta programación gana en {{count}} pantallas",
+        "tie_one": "Pierde un empate total · {{count}} pantalla",
+        "tie_many": "Pierde un empate total · {{count}} de pantallas",
+        "tie_other": "Pierde un empate total · {{count}} pantallas"
+      }
+    },
+    "hiddenSchedule": "Otra programación",
+    "showsOther": "Muestra otra programación en su lugar"
   }
 }

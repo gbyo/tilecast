@@ -241,4 +241,65 @@ describe("Schedule query contracts", () => {
       client.clear();
     }
   });
+
+  it("asks the server once per scheduling-relevant draft, naming the saved schedule", async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      http.post("*/api/v1/schedules/preflight", async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({
+          data: {
+            draftEnabled: true,
+            running: false,
+            targetScreenCount: 2,
+            winningScreenCount: 2,
+            losingScreenCount: 0,
+            unsupportedScreenCount: 0,
+            competitors: [],
+            competitorsTruncated: false,
+            screens: [],
+            screensTruncated: false,
+            issues: [],
+          },
+        });
+      }),
+    );
+    const client = new QueryClient();
+    const body: ScheduleInput = {
+      name: "",
+      description: "",
+      type: "weekly",
+      timezone: "UTC",
+      priority: 1,
+      enabled: true,
+      daysOfWeek: [1],
+      targets: [{ type: "screen", id: "lobby" }],
+    };
+    try {
+      const options = scheduleQueries.preflight("s1", "signature-a", body);
+      const result = await client.fetchQuery(options);
+      expect(result.targetScreenCount).toBe(2);
+      // The same draft shares one answer; another draft or schedule asks again.
+      await client.fetchQuery(
+        scheduleQueries.preflight("s1", "signature-a", body),
+      );
+      await client.fetchQuery(
+        scheduleQueries.preflight("s1", "signature-b", {
+          ...body,
+          priority: 9,
+        }),
+      );
+      await client.fetchQuery(
+        scheduleQueries.preflight("", "signature-a", body),
+      );
+      expect(bodies).toHaveLength(3);
+      expect(bodies[0]).toEqual({ proposedSchedule: body, scheduleId: "s1" });
+      // A new schedule has no id to leave out.
+      expect(bodies[2]).toEqual({ proposedSchedule: body });
+      await client.invalidateQueries({ queryKey: scheduleKeys.preflights });
+      expect(client.getQueryState(options.queryKey)?.isInvalidated).toBe(true);
+    } finally {
+      client.clear();
+    }
+  });
 });

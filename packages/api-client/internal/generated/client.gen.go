@@ -3870,6 +3870,81 @@ func (e ScheduleInputType) Valid() bool {
 	}
 }
 
+// Defines values for SchedulePreflightCompetitorPresentationType.
+const (
+	SchedulePreflightCompetitorPresentationTypeDisplayControl SchedulePreflightCompetitorPresentationType = "display_control"
+	SchedulePreflightCompetitorPresentationTypeLayout         SchedulePreflightCompetitorPresentationType = "layout"
+	SchedulePreflightCompetitorPresentationTypePlaylist       SchedulePreflightCompetitorPresentationType = "playlist"
+)
+
+// Valid indicates whether the value is a known member of the SchedulePreflightCompetitorPresentationType enum.
+func (e SchedulePreflightCompetitorPresentationType) Valid() bool {
+	switch e {
+	case SchedulePreflightCompetitorPresentationTypeDisplayControl:
+		return true
+	case SchedulePreflightCompetitorPresentationTypeLayout:
+		return true
+	case SchedulePreflightCompetitorPresentationTypePlaylist:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchedulePreflightIssueCode.
+const (
+	DisplayControlUnsupported SchedulePreflightIssueCode = "display_control_unsupported"
+	NoUpcomingRun             SchedulePreflightIssueCode = "no_upcoming_run"
+)
+
+// Valid indicates whether the value is a known member of the SchedulePreflightIssueCode enum.
+func (e SchedulePreflightIssueCode) Valid() bool {
+	switch e {
+	case DisplayControlUnsupported:
+		return true
+	case NoUpcomingRun:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchedulePreflightIssueSeverity.
+const (
+	SchedulePreflightIssueSeverityBlocking SchedulePreflightIssueSeverity = "blocking"
+	SchedulePreflightIssueSeverityWarning  SchedulePreflightIssueSeverity = "warning"
+)
+
+// Valid indicates whether the value is a known member of the SchedulePreflightIssueSeverity enum.
+func (e SchedulePreflightIssueSeverity) Valid() bool {
+	switch e {
+	case SchedulePreflightIssueSeverityBlocking:
+		return true
+	case SchedulePreflightIssueSeverityWarning:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SchedulePreflightScreenOutcome.
+const (
+	SchedulePreflightScreenOutcomeSuperseded  SchedulePreflightScreenOutcome = "superseded"
+	SchedulePreflightScreenOutcomeUnsupported SchedulePreflightScreenOutcome = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the SchedulePreflightScreenOutcome enum.
+func (e SchedulePreflightScreenOutcome) Valid() bool {
+	switch e {
+	case SchedulePreflightScreenOutcomeSuperseded:
+		return true
+	case SchedulePreflightScreenOutcomeUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScheduleTargetType.
 const (
 	ScheduleTargetTypeGroup  ScheduleTargetType = "group"
@@ -9814,6 +9889,67 @@ type ScheduleList struct {
 	Total           int        `json:"total"`
 }
 
+// SchedulePreflight defines model for SchedulePreflight.
+type SchedulePreflight struct {
+	// CheckedAt The instant evaluated. Absent when the draft never runs again.
+	CheckedAt            *time.Time                    `json:"checkedAt,omitempty"`
+	Competitors          []SchedulePreflightCompetitor `json:"competitors"`
+	CompetitorsTruncated bool                          `json:"competitorsTruncated"`
+	DraftEnabled         bool                          `json:"draftEnabled"`
+	Issues               []SchedulePreflightIssue      `json:"issues"`
+	LosingScreenCount    int                           `json:"losingScreenCount"`
+
+	// Running True when checkedAt is the current time inside an occurrence that has already started.
+	Running bool `json:"running"`
+
+	// Screens Screens where the draft does not win, bounded. Wins are counted in winningScreenCount, never listed.
+	Screens                []SchedulePreflightScreen `json:"screens"`
+	ScreensTruncated       bool                      `json:"screensTruncated"`
+	TargetScreenCount      int                       `json:"targetScreenCount"`
+	UnsupportedScreenCount int                       `json:"unsupportedScreenCount"`
+	WinningScreenCount     int                       `json:"winningScreenCount"`
+}
+
+// SchedulePreflightCompetitor defines model for SchedulePreflightCompetitor.
+type SchedulePreflightCompetitor struct {
+	AffectedScreenCount      int                                         `json:"affectedScreenCount"`
+	Name                     string                                      `json:"name"`
+	OutranksDraftScreenCount int                                         `json:"outranksDraftScreenCount"`
+	PresentationType         SchedulePreflightCompetitorPresentationType `json:"presentationType"`
+	Priority                 int                                         `json:"priority"`
+	Reason                   PlaybackPlanSelectionReason                 `json:"reason"`
+	ScheduleId               openapi_types.UUID                          `json:"scheduleId"`
+}
+
+// SchedulePreflightCompetitorPresentationType defines model for SchedulePreflightCompetitor.PresentationType.
+type SchedulePreflightCompetitorPresentationType string
+
+// SchedulePreflightIssue defines model for SchedulePreflightIssue.
+type SchedulePreflightIssue struct {
+	Code        SchedulePreflightIssueCode     `json:"code"`
+	ScreenCount *int                           `json:"screenCount,omitempty"`
+	Severity    SchedulePreflightIssueSeverity `json:"severity"`
+}
+
+// SchedulePreflightIssueCode defines model for SchedulePreflightIssue.Code.
+type SchedulePreflightIssueCode string
+
+// SchedulePreflightIssueSeverity defines model for SchedulePreflightIssue.Severity.
+type SchedulePreflightIssueSeverity string
+
+// SchedulePreflightScreen defines model for SchedulePreflightScreen.
+type SchedulePreflightScreen struct {
+	Name             string                         `json:"name"`
+	Outcome          SchedulePreflightScreenOutcome `json:"outcome"`
+	Reason           *PlaybackPlanSelectionReason   `json:"reason,omitempty"`
+	ScreenId         openapi_types.UUID             `json:"screenId"`
+	WinnerName       *string                        `json:"winnerName,omitempty"`
+	WinnerScheduleId *openapi_types.UUID            `json:"winnerScheduleId,omitempty"`
+}
+
+// SchedulePreflightScreenOutcome defines model for SchedulePreflightScreen.Outcome.
+type SchedulePreflightScreenOutcome string
+
 // SchedulePreview defines model for SchedulePreview.
 type SchedulePreview struct {
 	ApplicableSchedules      []Schedule          `json:"applicableSchedules"`
@@ -12452,6 +12588,12 @@ type ListSchedulesParamsPresentationType string
 // ListSchedulesParamsSort defines parameters for ListSchedules.
 type ListSchedulesParamsSort string
 
+// PreflightScheduleJSONBody defines parameters for PreflightSchedule.
+type PreflightScheduleJSONBody struct {
+	ProposedSchedule ScheduleInput       `json:"proposedSchedule"`
+	ScheduleId       *openapi_types.UUID `json:"scheduleId,omitempty"`
+}
+
 // PreviewScheduleJSONBody defines parameters for PreviewSchedule.
 type PreviewScheduleJSONBody struct {
 	ProposedSchedule *ScheduleInput     `json:"proposedSchedule,omitempty"`
@@ -13142,6 +13284,9 @@ type StopPresentationOverrideJSONRequestBody StopPresentationOverrideJSONBody
 
 // CreateScheduleJSONRequestBody defines body for CreateSchedule for application/json ContentType.
 type CreateScheduleJSONRequestBody = ScheduleInput
+
+// PreflightScheduleJSONRequestBody defines body for PreflightSchedule for application/json ContentType.
+type PreflightScheduleJSONRequestBody PreflightScheduleJSONBody
 
 // PreviewScheduleJSONRequestBody defines body for PreviewSchedule for application/json ContentType.
 type PreviewScheduleJSONRequestBody PreviewScheduleJSONBody
@@ -16213,6 +16358,18 @@ type ClientInterface interface {
 	//
 	// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 	CreateSchedule(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreflightScheduleWithBody performs a POST /api/v1/schedules/preflight (the `PreflightSchedule` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. A scoped account sees a competing schedule's name and ID only when all of that schedule's targets are inside its scope; other competitors keep their counts and reasons but carry no name and a placeholder ID. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time.
+	PreflightScheduleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreflightSchedule performs a POST /api/v1/schedules/preflight (the `PreflightSchedule` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. A scoped account sees a competing schedule's name and ID only when all of that schedule's targets are inside its scope; other competitors keep their counts and reasons but carry no name and a placeholder ID. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time.
+	PreflightSchedule(ctx context.Context, body PreflightScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PreviewScheduleWithBody performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
 	// with any type of body and a specified content type.
@@ -22821,6 +22978,38 @@ func (c *Client) CreateScheduleWithBody(ctx context.Context, contentType string,
 // Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 func (c *Client) CreateSchedule(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateScheduleRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreflightScheduleWithBody performs a POST /api/v1/schedules/preflight (the `PreflightSchedule` operationId) request,
+// with any type of body and a specified content type.
+//
+// Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. A scoped account sees a competing schedule's name and ID only when all of that schedule's targets are inside its scope; other competitors keep their counts and reasons but carry no name and a placeholder ID. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time.
+func (c *Client) PreflightScheduleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreflightScheduleRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreflightSchedule performs a POST /api/v1/schedules/preflight (the `PreflightSchedule` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. A scoped account sees a competing schedule's name and ID only when all of that schedule's targets are inside its scope; other competitors keep their counts and reasons but carry no name and a placeholder ID. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time.
+func (c *Client) PreflightSchedule(ctx context.Context, body PreflightScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreflightScheduleRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -38511,6 +38700,46 @@ func NewCreateScheduleRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
+// NewPreflightScheduleRequest calls the generic PreflightSchedule builder with application/json body
+func NewPreflightScheduleRequest(server string, body PreflightScheduleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreflightScheduleRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPreflightScheduleRequestWithBody constructs an http.Request for the PreflightSchedule method, with any body, and a specified content type
+func NewPreflightScheduleRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/schedules/preflight")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewPreviewScheduleRequest calls the generic PreviewSchedule builder with application/json body
 func NewPreviewScheduleRequest(server string, body PreviewScheduleJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -46137,6 +46366,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Requires the Owner or Administrator role and an authenticated user with the write scope. Cookie requests also require CSRF. The request contains exactly one of playlistId, layoutId, or displayAction. Display Control actions use the closed typed command registry; display_probe is not schedulable.
 	CreateScheduleWithResponse(ctx context.Context, body CreateScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScheduleResponse, error)
+
+	// PreflightScheduleWithBodyWithResponse performs a POST /api/v1/schedules/preflight (the `PreflightSchedule` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. A scoped account sees a competing schedule's name and ID only when all of that schedule's targets are inside its scope; other competitors keep their counts and reasons but carry no name and a placeholder ID. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PreflightScheduleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreflightScheduleResponse, error)
+
+	// PreflightScheduleWithResponse performs a POST /api/v1/schedules/preflight (the `PreflightSchedule` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. A scoped account sees a competing schedule's name and ID only when all of that schedule's targets are inside its scope; other competitors keep their counts and reasons but carry no name and a placeholder ID. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time.
+	PreflightScheduleWithResponse(ctx context.Context, body PreflightScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*PreflightScheduleResponse, error)
 
 	// PreviewScheduleWithBodyWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
 	// with any type of body and a specified content type.
@@ -58552,6 +58795,51 @@ func (r CreateScheduleResponse) ContentType() string {
 	return ""
 }
 
+type PreflightScheduleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data SchedulePreflight `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreflightScheduleResponse) GetJSON200() *struct {
+	Data SchedulePreflight `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r PreflightScheduleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreflightScheduleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreflightScheduleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreflightScheduleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PreviewScheduleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -68425,6 +68713,32 @@ func (c *ClientWithResponses) CreateScheduleWithResponse(ctx context.Context, bo
 	return ParseCreateScheduleResponse(rsp)
 }
 
+// PreflightScheduleWithBodyWithResponse performs a POST /api/v1/schedules/preflight (the `PreflightSchedule` operationId) request,
+// with any type of body and a specified content type.
+//
+// Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. A scoped account sees a competing schedule's name and ID only when all of that schedule's targets are inside its scope; other competitors keep their counts and reasons but carry no name and a placeholder ID. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PreflightScheduleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreflightScheduleResponse, error) {
+	rsp, err := c.PreflightScheduleWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreflightScheduleResponse(rsp)
+}
+
+// PreflightScheduleWithResponse performs a POST /api/v1/schedules/preflight (the `PreflightSchedule` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Read-only inspection of a proposed schedule. Requires an authenticated user with the read scope; every role may call it, and the targets must be inside the caller's screen scope. The server expands every targeted screen and Display Group, finds the draft's next occurrence in its own timezone, and evaluates precedence on each screen at that instant with the same resolver Players use. A draft that is disabled is simulated as enabled; draftEnabled reports its real state. Counts describe the whole target set; the screens and competitors lists are bounded. Pass scheduleId when editing a saved schedule so its stored copy does not compete with the draft. A scoped account sees a competing schedule's name and ID only when all of that schedule's targets are inside its scope; other competitors keep their counts and reasons but carry no name and a placeholder ID. The result describes the next occurrence only, never every future occurrence. Use previewSchedule to inspect one exact screen at an exact time.
+func (c *ClientWithResponses) PreflightScheduleWithResponse(ctx context.Context, body PreflightScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*PreflightScheduleResponse, error) {
+	rsp, err := c.PreflightSchedule(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreflightScheduleResponse(rsp)
+}
+
 // PreviewScheduleWithBodyWithResponse performs a POST /api/v1/schedules/preview (the `PreviewSchedule` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -77977,6 +78291,52 @@ func ParseCreateScheduleResponse(rsp *http.Response) (*CreateScheduleResponse, e
 		break // No content-type
 
 	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParsePreflightScheduleResponse parses an HTTP response from a PreflightScheduleWithResponse call
+func ParsePreflightScheduleResponse(rsp *http.Response) (*PreflightScheduleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreflightScheduleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data SchedulePreflight `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
 		break // No content-type
 
 	case rsp.StatusCode == 422:
