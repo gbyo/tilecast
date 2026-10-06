@@ -215,8 +215,14 @@ func WriteLayout(dir string, manifestJSON, contentTarGzip []byte) (digest string
 	if err := os.MkdirAll(filepath.Join(dir, "blobs", "sha256"), 0o755); err != nil {
 		return "", err
 	}
-	config := storeBlob(dir, MediaTypePackageConfig, manifestJSON)
-	layer := storeBlob(dir, MediaTypePackageContent, contentTarGzip)
+	config, err := storeBlob(dir, MediaTypePackageConfig, manifestJSON)
+	if err != nil {
+		return "", err
+	}
+	layer, err := storeBlob(dir, MediaTypePackageContent, contentTarGzip)
+	if err != nil {
+		return "", err
+	}
 	image := imageManifest{
 		SchemaVersion: 2,
 		MediaType:     MediaTypeOCIManifest,
@@ -228,7 +234,10 @@ func WriteLayout(dir string, manifestJSON, contentTarGzip []byte) (digest string
 	if err != nil {
 		return "", err
 	}
-	imageDescriptor := storeBlob(dir, MediaTypeOCIManifest, imageJSON)
+	imageDescriptor, err := storeBlob(dir, MediaTypeOCIManifest, imageJSON)
+	if err != nil {
+		return "", err
+	}
 	imageDescriptor.ArtifactType = ArtifactTilecastPackage
 	index := index{
 		SchemaVersion: 2,
@@ -249,13 +258,16 @@ func WriteLayout(dir string, manifestJSON, contentTarGzip []byte) (digest string
 	return imageDescriptor.Digest, nil
 }
 
-func storeBlob(dir, mediaType string, data []byte) descriptor {
+func storeBlob(dir, mediaType string, data []byte) (descriptor, error) {
 	sum := sha256.Sum256(data)
 	encoded := hex.EncodeToString(sum[:])
-	_ = os.WriteFile(filepath.Join(dir, "blobs", "sha256", encoded), data, 0o644)
+	path := filepath.Join(dir, "blobs", "sha256", encoded)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return descriptor{}, fmt.Errorf("write blob %s: %w", encoded, err)
+	}
 	return descriptor{
 		MediaType: mediaType,
 		Digest:    "sha256:" + encoded,
 		Size:      int64(len(data)),
-	}
+	}, nil
 }
