@@ -75,7 +75,7 @@ The server validates that the selected Data Source provider is compatible with t
 
 | Now and Next | Any record-based Data Source |
 | Recognition Board | Any record-based Data Source |
-| Alert Banner | An object Data Source exposing message and severity |
+| Alert Banner | An object Data Source exposing a message; severity and a label are optional |
 | Fundraising Thermometer | An object Data Source exposing two numeric fields |
 | School Schedule | Calendar or another record Data Source exposing start and end fields |
 
@@ -142,7 +142,7 @@ Playlist-zone playback settings are part of the Player payload. The zone loop se
 
 Studio filters playlist-zone items with the same availability windows as the Player. It checks both the item and its Media asset at the selected Layout preview date, or at the current time when the date is not valid. A live preview reevaluates at the next availability boundary without a Layout edit.
 
-A Widget placement stores a Widget ID, bounds, layer, opacity, and visibility. A Widget manifest may publish a Studio-only `authoring.recommendedFrame` so new placements and previews start at geometry that matches the visual purpose instead of inheriting the Layout canvas aspect ratio. The hint is never Player configuration; the placed bounds remain ordinary Layout geometry. Alert Banner uses 1920×160. Its appearance comes from the shared Widget. Studio does not expose placement-level overrides because the Player Runtime does not apply them. Existing saved override values remain accepted for compatibility but have no effect. Publishing permits at most one visible video-capable placement or zone and one audio-emitting placement or zone.
+A Widget placement stores a Widget ID, bounds, layer, opacity, and visibility. A Widget manifest may publish a Studio-only `authoring.recommendedFrame` so new placements and previews start at geometry that matches the visual purpose instead of inheriting the Layout canvas aspect ratio. The frame is a preferred shape, not a maximum size: Studio keeps its aspect ratio and scales it up or down to fill at most 80 percent of the canvas width and 60 percent of the canvas height, centered when there is no drop position. The hint is never Player configuration; the placed bounds remain ordinary Layout geometry. Alert Banner uses 1920×160, so it places at 1536×128 on a 1920×1080 canvas and at 3072×256 on a 3840×2160 canvas. Its appearance comes from the shared Widget. Studio does not expose placement-level overrides because the Player Runtime does not apply them. Existing saved override values remain accepted for compatibility but have no effect. Publishing permits at most one visible video-capable placement or zone and one audio-emitting placement or zone.
 
 Custom text primitives may bind directly to a Data Source field using a safe typed binding model: the binding names a `dataSourceId` and one declared `field`, with optional prefix, suffix, bounded fallback text, hide-when-empty behavior, and fixed text/date/number/integer/currency formatting. Display syntax such as `{{lunch.option_1}}` is editor shorthand that compiles to a typed field reference; it is not a template language and cannot execute code. The bound Data Source is referenced directly — it is **not** placed in the Layout — and its bounded cached dataset and date policy are projected to the Player once and shared.
 

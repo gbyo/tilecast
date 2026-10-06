@@ -57,7 +57,10 @@ export function suggestedSourceField(
       [field.key]: {
         roles,
         legacyKeys,
-        types: field.dataSourceFieldTypes ?? [],
+        types:
+          field.ui?.typeFallback === false
+            ? []
+            : (field.dataSourceFieldTypes ?? []),
       },
     })[field.key] ?? ""
   );

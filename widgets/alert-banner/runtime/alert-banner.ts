@@ -2,7 +2,7 @@
  * Alert Banner V2: an urgent message designed for a shallow horizontal strip.
  *
  * The component is intentionally height-driven. A 1920x160 Layout band is its
- * recommended frame, but it progressively removes optional label/severity chrome
+ * natural frame, but it progressively removes optional label/severity chrome
  * before shrinking the message when a Layout makes the band shorter.
  */
 import { css, html, nothing, type TemplateResult } from "lit";
@@ -298,7 +298,10 @@ export class TilecastAlertBannerWidget extends TilecastWidgetElement<
     const message = this.text(data, this.config.messageField, 1600);
     const rawLabel = this.text(data, this.config.labelField, 120);
     const severity = this.text(data, this.config.severityField, 80);
+    // A label with no message becomes the message, so it is never drawn
+    // twice. A label that only repeats the severity adds nothing.
     const label =
+      message &&
       rawLabel &&
       (!severity ||
         rawLabel.toLocaleLowerCase() !== severity.toLocaleLowerCase())
@@ -309,10 +312,9 @@ export class TilecastAlertBannerWidget extends TilecastWidgetElement<
     return html`<div class="alert-banner">
       ${
         this.config.showSeverity && severity
-          ? html`<span class="severity">${badge(
-              severity,
-              alertSeverityTone(severity),
-            )}</span>`
+          ? html`<span class="severity"
+              >${badge(severity, alertSeverityTone(severity))}</span
+            >`
           : nothing
       }
       ${label ? html`<span class="label">${label}</span>` : nothing}
@@ -327,12 +329,14 @@ export class TilecastAlertBannerWidget extends TilecastWidgetElement<
 
   private text(data: AlertBannerData, key: string, maximum: number): string {
     if (key === "") return "";
+    // A missing key formats to "" and a whitespace-only value counts as
+    // absent, so an optional field never draws empty chrome.
     return boundText(
       formatWidgetValue(data.values[key], data.fields[key], {
         locale: this.context.locale,
         timeZone: this.context.timeZone,
       }),
       maximum,
-    );
+    ).trim();
   }
 }

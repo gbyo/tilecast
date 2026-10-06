@@ -289,9 +289,10 @@ type RecommendedWidgetFrame = { width: number; height: number };
 
 /**
  * Default geometry for library drops. Ordinary content keeps the long-standing
- * 40%-of-canvas box. A Widget may declare its natural authoring frame; Studio
- * preserves that aspect and fits it into a bounded part of the canvas instead
- * of forcing every visual purpose into the canvas's aspect ratio.
+ * 40%-of-canvas box. A Widget may declare a recommended frame: its preferred
+ * shape, a reference geometry rather than a size limit. Studio keeps that
+ * aspect ratio and scales it up or down so it fills up to 80% of the canvas
+ * width and 60% of the canvas height, centred when there is no drop point.
  */
 function placementBox(
   canvas: LayoutDocument["canvas"],
@@ -308,16 +309,13 @@ function placementBox(
       : undefined;
   const scale = validFrame
     ? Math.min(
-        1,
         (canvas.width * 0.8) / validFrame.width,
         (canvas.height * 0.6) / validFrame.height,
       )
     : 1;
   const width = validFrame ? validFrame.width * scale : canvas.width * 0.4;
   const height = validFrame ? validFrame.height * scale : canvas.height * 0.4;
-  const defaultX = validFrame
-    ? (canvas.width - width) / 2
-    : canvas.width * 0.2;
+  const defaultX = validFrame ? (canvas.width - width) / 2 : canvas.width * 0.2;
   const defaultY = validFrame
     ? (canvas.height - height) / 2
     : canvas.height * 0.2;

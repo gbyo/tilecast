@@ -21,6 +21,7 @@ import {
   useViewport,
 } from "./testing";
 import { resetWidgetSnapshotQueue } from "./WidgetSnapshotQueue";
+import { RECOMMENDED_FRAME_BOUNDS } from "@tilecast/widget-sdk";
 
 vi.mock("@/content/widgetPreviewCapture", async (importOriginal) => {
   const actual =
@@ -128,6 +129,82 @@ describe("Widget preview", () => {
     expect(screen.getByRole("button", { name: /Save changes/ })).toBeDisabled();
   });
 
+  it("opens a Widget with a recommended frame at that natural size", async () => {
+    await open(
+      savedWidget("alert-banner", {
+        dataSourceId: "",
+        messageField: "message",
+        severityField: "severity",
+        labelField: "",
+        showSeverity: true,
+        emptyState: "No active alerts",
+        speed: "normal",
+        backgroundColor: "#7a1f1f",
+        foregroundColor: "#ffffff",
+      }),
+    );
+    const bar = toolbar();
+    expect(
+      within(bar).getByRole("combobox", { name: "Preview frame" }),
+    ).toHaveTextContent("Custom size");
+    expect(
+      within(bar).getByRole("button", {
+        name: "Custom size, 1920 by 160 pixels",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("keeps the landscape frame for a Widget without a recommended frame", async () => {
+    await open();
+    expect(
+      within(toolbar()).getByRole("combobox", { name: "Preview frame" }),
+    ).toHaveTextContent("Landscape");
+  });
+
+  it("accepts every frame size a manifest may recommend, and clamps beyond it", async () => {
+    await open();
+    const bar = toolbar();
+    await userEvent.click(
+      within(bar).getByRole("combobox", { name: "Preview frame" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Custom size" }),
+    );
+    await userEvent.click(
+      within(bar).getByRole("button", {
+        name: "Custom size, 960 by 540 pixels",
+      }),
+    );
+    const { width, height } = RECOMMENDED_FRAME_BOUNDS;
+    const widthInput = await screen.findByRole("spinbutton", {
+      name: "Width (px)",
+    });
+    const heightInput = screen.getByRole("spinbutton", { name: "Height (px)" });
+    expect(widthInput).toHaveAttribute("min", String(width.min));
+    expect(widthInput).toHaveAttribute("max", String(width.max));
+    expect(heightInput).toHaveAttribute("min", String(height.min));
+    expect(heightInput).toHaveAttribute("max", String(height.max));
+
+    fireEvent.change(widthInput, { target: { value: String(width.max) } });
+    fireEvent.change(heightInput, { target: { value: String(height.max) } });
+    expect(widthInput).toHaveValue(width.max);
+    expect(heightInput).toHaveValue(height.max);
+
+    fireEvent.change(widthInput, {
+      target: { value: String(width.max + 500) },
+    });
+    fireEvent.change(heightInput, {
+      target: { value: String(height.max + 500) },
+    });
+    expect(widthInput).toHaveValue(width.max);
+    expect(heightInput).toHaveValue(height.max);
+
+    fireEvent.change(widthInput, { target: { value: "10" } });
+    fireEvent.change(heightInput, { target: { value: "10" } });
+    expect(widthInput).toHaveValue(width.min);
+    expect(heightInput).toHaveValue(height.min);
+  });
+
   it("offers preview time only for Widgets that depend on it", async () => {
     await open(text);
     expect(
@@ -212,6 +289,47 @@ describe("Widget thumbnails", () => {
     });
     expect(order).toEqual(["save", "upload"]);
     expect(upload.mock.calls[0]![0]).toBe("widget-1");
+  });
+
+  it("captures a strip Widget at its natural geometry, not a fake 16:9 frame", async () => {
+    const alert = savedWidget("alert-banner", {
+      dataSourceId: "",
+      messageField: "message",
+      severityField: "severity",
+      labelField: "",
+      showSeverity: true,
+      emptyState: "No active alerts",
+      speed: "normal",
+      backgroundColor: "#7a1f1f",
+      foregroundColor: "#ffffff",
+    });
+    await open(alert);
+    // The real Widget is laid out at the 1920x160 strip; the capture then
+    // contains that render in the 960x540 card. Read the geometry while the
+    // hidden capture surface is still mounted.
+    let geometry: { width: string; height: string } | undefined;
+    vi.mocked(captureWidgetPreview).mockImplementationOnce((element) => {
+      const surface = element.querySelector(
+        "tc-widget-alert-banner",
+      )?.parentElement;
+      geometry = surface
+        ? { width: surface.style.width, height: surface.style.height }
+        : undefined;
+      return Promise.resolve(new Blob(["preview"], { type: "image/jpeg" }));
+    });
+    vi.spyOn(api, "updateWidget").mockResolvedValue(alert);
+    const upload = vi
+      .spyOn(api, "uploadWidgetPreview")
+      .mockResolvedValue(undefined);
+    await userEvent.click(screen.getByRole("tab", { name: "Content" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Empty message/ }), {
+      target: { value: "All clear" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: /Save changes/ }));
+    await waitFor(() => expect(upload).toHaveBeenCalledTimes(1), {
+      timeout: 4000,
+    });
+    expect(geometry).toEqual({ width: "1920px", height: "160px" });
   });
 
   it("keeps the save when the thumbnail cannot be captured", async () => {

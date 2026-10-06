@@ -112,6 +112,7 @@ A field may declare a `ui` object. The vocabulary is closed:
 | `advanced`     | The field shows in the section's **Advanced** group.                                    |
 | `semanticRole` | The source field role that automatic mapping prefers.                                   |
 | `legacyKeys`   | Source field keys that automatic mapping tries after the role.                          |
+| `typeFallback` | `false` stops automatic mapping from guessing the field by compatible type.             |
 
 The inspector shows the sections as **Data**, **Content**, **Style**, and
 **Behavior**, in that order. The `appearance` section shows as **Style**. The
@@ -131,7 +132,28 @@ selection. `authoring` never changes validation, projection, or playback.
 
 The current definitions that declare `authoring.preview.time` are `clock`,
 `countdown`, `agenda`, `status`, `date`, `world_clock`, `schedule-board`,
-`now-and-next`, `alert-banner`, and `school-status-banner`.
+`now-and-next`, and `school-status-banner`.
+
+### Recommended frame
+
+A definition may declare `authoring.recommendedFrame` with a `width` of 120 to
+3840 and a `height` of 48 to 2160 pixels. It is the Widget's preferred shape: a
+reference geometry, not a maximum size. It exists for Widgets whose purpose is a
+shape, such as the 1920 by 160 strip of Alert Banner. Studio uses it in two
+places:
+
+- The Widget editor opens its preview, and captures the library thumbnail
+  render, at that size. Studio then contains the render inside the 960 by 540
+  library artwork. It never stretches the render.
+- A Layout keeps the frame's aspect ratio when the Widget is placed. It scales
+  the frame up or down to fill at most 80 percent of the canvas width and 60
+  percent of the canvas height. With no drop position, the placement is
+  centered. A Widget without a recommended frame keeps the 40 percent box.
+
+The editor's custom preview size accepts the same range, so a valid frame always
+fits it. The range is `RECOMMENDED_FRAME_BOUNDS` in the Widget SDK. The Server
+checks the same range when it loads the catalog. The hint never reaches the
+Player and never changes validation, projection, or playback.
 
 ## Data Sources
 
@@ -146,7 +168,8 @@ editing session. For each `data_source_field` that reads the source:
 
 1. A current value that the new source still has stays.
 2. An empty or stale value receives the suggestion. The suggestion comes from
-   the declared role, then `legacyKeys`, then a compatible type.
+   the declared role, then `legacyKeys`, then a compatible type. A field with
+   `typeFallback: false` skips the compatible-type step and stays empty.
 3. A stale value without a suggestion is cleared.
 
 Studio does not map fields when it opens a saved Widget. Opening a Widget never

@@ -315,3 +315,81 @@ func TestWidgetFixturesCompileInGo(t *testing.T) {
 		t.Fatalf("Clock default compiled to %s, want %s", encoded, want)
 	}
 }
+
+// The recommended-frame range is also written in the Widget SDK
+// (packages/widget-sdk/src/authoring.ts); Studio's custom preview size reads
+// that one. Both sides must accept exactly the same frames.
+func TestRecommendedFrameBounds(t *testing.T) {
+	frame := func(width, height int) func(*WidgetDefinition) {
+		return func(d *WidgetDefinition) {
+			d.Authoring = &Authoring{RecommendedFrame: &WidgetFrame{Width: width, Height: height}}
+		}
+	}
+	for name, size := range map[string][2]int{
+		"minimum":     {120, 48},
+		"maximum":     {3840, 2160},
+		"alert strip": {1920, 160},
+	} {
+		if _, err := New([]WidgetDefinition{componentDefinition(frame(size[0], size[1]))}, nil); err != nil {
+			t.Errorf("%s frame %v rejected: %v", name, size, err)
+		}
+	}
+	for name, size := range map[string][2]int{
+		"width above maximum":  {3841, 160},
+		"height above maximum": {1920, 2161},
+		"width below minimum":  {119, 160},
+		"height below minimum": {1920, 47},
+		"zero":                 {0, 0},
+	} {
+		if _, err := New([]WidgetDefinition{componentDefinition(frame(size[0], size[1]))}, nil); err == nil {
+			t.Errorf("%s frame %v accepted", name, size)
+		}
+	}
+}
+
+// Alert Banner is the only authorable horizontal alert strip. Status is a
+// panel: its manifest must not offer the banner style a second time.
+func TestAlertBannerAndStatusKeepDistinctPurposes(t *testing.T) {
+	catalog := MustLoad()
+	banner, ok := catalog.Widget("alert-banner")
+	if !ok || banner.Component == nil || banner.Component.Type != "tilecast.alert-banner" {
+		t.Fatalf("alert-banner is not a first-class component Widget: %+v", banner.Component)
+	}
+	if banner.Authoring == nil || banner.Authoring.RecommendedFrame == nil ||
+		*banner.Authoring.RecommendedFrame != (WidgetFrame{Width: 1920, Height: 160}) {
+		t.Fatalf("alert-banner natural frame = %+v, want 1920x160", banner.Authoring)
+	}
+	for _, field := range banner.ConfigurationSchema.Fields {
+		if field.Control != "data_source" {
+			continue
+		}
+		if len(field.RequiredFields) != 1 || field.RequiredFields["message"] != "text" {
+			t.Errorf("alert-banner requires %v from its Data Source; only message is required", field.RequiredFields)
+		}
+	}
+	if len(banner.RequiredFieldTypes) != 1 || banner.RequiredFieldTypes["message"] != "text" {
+		t.Errorf("alert-banner requiredFieldTypes = %v, want only message", banner.RequiredFieldTypes)
+	}
+
+	status, ok := catalog.Widget("status")
+	if !ok {
+		t.Fatal("status is missing")
+	}
+	var styles []string
+	for _, field := range status.ConfigurationSchema.Fields {
+		if field.Key == "style" {
+			for _, option := range field.Options {
+				styles = append(styles, option.Value)
+			}
+		}
+	}
+	if len(styles) != 1 || styles[0] != "panel" {
+		t.Errorf("status style options = %v, want only panel", styles)
+	}
+	if status.DefaultConfiguration["style"] != "panel" {
+		t.Errorf("status default style = %v, want panel", status.DefaultConfiguration["style"])
+	}
+	if status.Authoring != nil && status.Authoring.RecommendedFrame != nil {
+		t.Errorf("status must stay a panel without a strip frame: %+v", status.Authoring.RecommendedFrame)
+	}
+}

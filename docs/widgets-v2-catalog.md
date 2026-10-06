@@ -93,10 +93,18 @@ Alert Banner is a separate V2 visual purpose: one urgent message in a shallow
 horizontal strip. Its component is `tilecast.alert-banner`, its natural
 authoring frame is 1920×160, and it progressively removes optional
 label/severity chrome before reducing the message size in very short Layout
-bands. Saved `alert-banner` rows keep their provider ID. Migration 00115
-moves any canonical `status` row authored with `style: "banner"` to
-`alert-banner` without changing its asset ID. Both Status and Alert Banner
-retain template fallbacks for older Players. CAP severities map as follows:
+bands. Only `message` is required from its Data Source. `severity` and `label`
+are optional; with no severity value, no badge shows and `showSeverity` has no
+effect. Saved `alert-banner` rows keep their provider ID. Both Status and Alert
+Banner retain template fallbacks for older Players.
+
+Alert Banner is the only authorable banner. Status is a panel, and its `style`
+field accepts only `panel`; the Server refuses `banner` when a Status Widget is
+created or updated. Migration 00115 moved every saved `status` row authored with
+`style: "banner"` to `alert-banner` without changing its asset ID. The
+`TilecastStatusWidget` component still understands `style: "banner"`. That is
+runtime compatibility for a Player that holds a manifest compiled before the
+move, and it is not an authoring path. CAP severities map as follows:
 Minor to accent, Moderate to warning, and Severe or Extreme to critical. A
 date-only effective time starts at midnight in the screen time zone. A
 date-only expiry stays active through that local day.
@@ -192,7 +200,7 @@ publishes the same typed object fields with semantic roles. Saved
 The gallery shows these groups:
 
 - **Essentials**: Text, Clock, Countdown, QR Code.
-- **Information**: News, Weather, Status, Alert Banner, Agenda.
+- **Information**: News, Weather, Status, Agenda.
 - **Data display**: List, Table, Cards, Menu Board, Ticker, Metrics,
   Progress, Spotlight, Chart, Timeline.
 - **Integrations**: the Web Integrations in §3.4.

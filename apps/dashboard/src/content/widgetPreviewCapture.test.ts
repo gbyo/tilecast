@@ -309,17 +309,18 @@ describe("captureWidgetPreview", () => {
     expect(markup).toContain("clock-value");
   });
 
-  it("contains a strip-native Widget inside the 16:9 library snapshot", async () => {
+  /** Capture a Widget whose real render is `width` x `height`; return the drawImage rectangle. */
+  async function captureAt(width: number, height: number) {
     Object.defineProperty(document, "fonts", {
       configurable: true,
       value: { ready: Promise.resolve() },
     });
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
-      width: 960,
-      height: 80,
+      width,
+      height,
       top: 0,
-      right: 960,
-      bottom: 80,
+      right: width,
+      bottom: height,
       left: 0,
       x: 0,
       y: 0,
@@ -344,13 +345,36 @@ describe("captureWidgetPreview", () => {
         }
       },
     );
-
     const preview = document.createElement("div");
     preview.textContent = "Tornado warning";
-
     await captureWidgetPreview(preview);
-
     expect(drawImage).toHaveBeenCalledOnce();
-    expect(drawImage.mock.calls[0]?.slice(1)).toEqual([0, 230, 960, 80]);
+    return drawImage.mock.calls[0]!.slice(1) as number[];
+  }
+
+  it("contains a strip-native Widget inside the 16:9 library snapshot", async () => {
+    // The Widget rendered at its real 1920x160 geometry; the capture scales
+    // it to 960x80 and centres it vertically. It is never stretched.
+    expect(await captureAt(1920, 160)).toEqual([0, 230, 960, 80]);
+  });
+
+  it("keeps the strip's aspect ratio at any rendered size", async () => {
+    const [, , width, height] = await captureAt(3840, 320);
+    expect(width! / height!).toBeCloseTo(12, 9);
+    expect(width).toBe(960);
+  });
+
+  it("centres a tall Widget horizontally without stretching it", async () => {
+    // 360x960 contains at 960/960 = 1 of the height: 360x960 would overflow
+    // the 540 high card, so it scales to 202.5x540 and sits in the middle.
+    const [x, y, width, height] = await captureAt(360, 960);
+    expect(height).toBe(540);
+    expect(width).toBeCloseTo(202.5, 9);
+    expect(y).toBe(0);
+    expect(x).toBeCloseTo((960 - 202.5) / 2, 9);
+  });
+
+  it("fills the card for a 16:9 Widget", async () => {
+    expect(await captureAt(960, 540)).toEqual([0, 0, 960, 540]);
   });
 });

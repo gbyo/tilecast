@@ -30,7 +30,7 @@ Choose by what you want people to see. The **Works with** column says what kind 
 | **News**         | Feed headlines with an optional summary, publication time, and source name.                | An RSS / Atom Feed, or another source with headline fields.        |
 | **Menu Board**   | Items with descriptions and aligned prices, grouped into sections.                         | Menu Items, or another source with item names and prices.          |
 | **Status**       | A current status, severity, message, and optional effective or expiry time.                | An object source, such as Status Message.                          |
-| **Alert Banner** | One urgent message in a shallow horizontal strip, such as a closure or severe alert.       | An object source with message and severity fields.                 |
+| **Alert Banner** | One urgent message in a shallow horizontal strip, such as a closure or severe alert.       | An object source with a message field. Severity is optional.       |
 | **Agenda**       | Events shown as an agenda, a current and next view, or a schedule board.                   | A Calendar, Events, or another source with a start date or time.   |
 | **Weather**      | Current conditions and a forecast of several days.                                         | A Weather Data Source.                                             |
 
@@ -40,7 +40,7 @@ Cards can show a managed image when **Image field** uses an asset field and the 
 
 News shows text only. It doesn't show article images.
 
-Status is a panel. **Alert Banner** is a separate strip-native Widget for shallow horizontal Layout bands. Agenda has **Agenda**, **Now and next**, and **Schedule board** styles. A **web App** shows a page or a document as it appears online; see [Website Apps](../website-content/). The [content definition reference](../reference/content-definitions/) lists everything your Tilecast version includes. For the exact saved-provider mappings, see the [Widgets V2 catalog contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2-catalog.md).
+Status is a panel. **Alert Banner** is the Widget for shallow horizontal Layout bands. It needs only a message; a severity badge and a label appear when your source has them. When you place it in a Layout, Studio keeps its wide, shallow shape and sizes it to the canvas. Agenda has **Agenda**, **Now and next**, and **Schedule board** styles. A **web App** shows a page or a document as it appears online; see [Website Apps](../website-content/). The [content definition reference](../reference/content-definitions/) lists everything your Tilecast version includes. For the exact saved-provider mappings, see the [Widgets V2 catalog contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2-catalog.md).
 
 Status uses the screen's time zone for date-only effective and expiry fields. An expiry date stays active through that day. In Schedule board, the next event's start ends a current event that has no end time.
 

@@ -29,6 +29,14 @@ import {
   type Tone,
 } from "@tilecast/widget-kit";
 
+/**
+ * Status is authored as a panel only (the manifest and the Server accept
+ * nothing else); a horizontal strip is the Alert Banner Widget. "banner" stays
+ * here for playback only: a Player may still hold a cached manifest whose
+ * component configuration was compiled before banner-mode Status Widgets
+ * moved to Alert Banner, and it must keep rendering. It is not an authoring
+ * path.
+ */
 export const STATUS_STYLES = ["panel", "banner"] as const;
 export type StatusStyle = (typeof STATUS_STYLES)[number];
 export const STATUS_SPEEDS = ["slow", "normal", "fast"] as const;

@@ -12,6 +12,7 @@ import {
   TILECAST_DISPLAY_THEME,
   validTimeZone,
   WidgetRegistry,
+  RECOMMENDED_FRAME_BOUNDS,
   type WidgetDataDocument,
 } from "../src/index.ts";
 import {
@@ -447,6 +448,62 @@ describe("manifest", () => {
       renderer: "kotlin",
     };
     expect(widgetManifestSchema.safeParse(unknownKey).success).toBe(false);
+  });
+
+  it("accepts a recommended frame across the whole supported range and nothing beyond", () => {
+    const { width, height } = RECOMMENDED_FRAME_BOUNDS;
+    expect(width).toEqual({ min: 120, max: 3840 });
+    expect(height).toEqual({ min: 48, max: 2160 });
+    const withFrame = (frame: Record<string, unknown>) => ({
+      ...manifest("tilecast.clock", "tc-widget-clock"),
+      authoring: { recommendedFrame: frame },
+    });
+    const accepts = (frame: Record<string, unknown>) =>
+      widgetManifestSchema.safeParse(withFrame(frame)).success;
+    expect(accepts({ width: width.max, height: height.max })).toBe(true);
+    expect(accepts({ width: width.min, height: height.min })).toBe(true);
+    expect(accepts({ width: 1920, height: 160 })).toBe(true);
+    expect(accepts({ width: width.max + 1, height: 160 })).toBe(false);
+    expect(accepts({ width: 1920, height: height.max + 1 })).toBe(false);
+    expect(accepts({ width: width.min - 1, height: 160 })).toBe(false);
+    expect(accepts({ width: 1920, height: height.min - 1 })).toBe(false);
+    expect(accepts({ width: 1920.5, height: 160 })).toBe(false);
+    expect(accepts({ width: 1920 })).toBe(false);
+    // Preview-time and frame hints are independent.
+    expect(
+      widgetManifestSchema.safeParse({
+        ...manifest("tilecast.clock", "tc-widget-clock"),
+        authoring: { preview: { time: true } },
+      }).success,
+    ).toBe(true);
+  });
+
+  it("publishes the same recommended-frame range in the JSON Schema", () => {
+    const schema = JSON.parse(
+      readFileSync(
+        resolve(__dirname, "../schema/tilecast-widget.schema.json"),
+        "utf8",
+      ),
+    ) as {
+      properties: {
+        authoring: {
+          properties: {
+            recommendedFrame: {
+              properties: Record<string, { minimum: number; maximum: number }>;
+            };
+          };
+        };
+      };
+    };
+    const frame = schema.properties.authoring.properties.recommendedFrame;
+    expect(frame.properties["width"]).toMatchObject({
+      minimum: RECOMMENDED_FRAME_BOUNDS.width.min,
+      maximum: RECOMMENDED_FRAME_BOUNDS.width.max,
+    });
+    expect(frame.properties["height"]).toMatchObject({
+      minimum: RECOMMENDED_FRAME_BOUNDS.height.min,
+      maximum: RECOMMENDED_FRAME_BOUNDS.height.max,
+    });
   });
 
   it("accepts only positive persisted configuration versions", () => {

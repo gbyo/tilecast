@@ -1,0 +1,43 @@
+{
+  "name": "Message-only strip",
+  "description": "A source with only a message: no severity badge and no label.",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "messageField": "message",
+    "severityField": "",
+    "labelField": "",
+    "showSeverity": true,
+    "emptyState": "No active alerts",
+    "speed": "slow",
+    "backgroundColor": "#7a1f1f",
+    "foregroundColor": "#ffffff"
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "object",
+          "kind": "object",
+          "fields": [
+            {
+              "key": "message",
+              "label": "Message",
+              "type": "text"
+            }
+          ],
+          "value": {
+            "kind": "object",
+            "object": {
+              "message": {
+                "kind": "text",
+                "text": "Tornado warning for Greenwood County until 9:15 PM. Move indoors now."
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "expect": "ready"
+}
