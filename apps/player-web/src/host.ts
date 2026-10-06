@@ -6,6 +6,7 @@ import type {
   PlaybackErrorReportV1,
   PresentationResultV1,
 } from "@tilecast/player-runtime/host-contract";
+import { statusSurface } from "@tilecast/player-runtime/projection";
 
 /** A typed boundary only. The exact production Runtime owns every display surface. */
 export function runtimeHost(callbacks: {
@@ -19,11 +20,7 @@ export function runtimeHost(callbacks: {
   const listeners = new Set<(message: HostMessageV1) => void>();
   let presentation: HostMessageV1 = {
     type: "presentation",
-    presentation: {
-      state: "idle",
-      title: "Browser Player",
-      message: "Connecting to Tilecast…",
-    },
+    presentation: statusSurface("connecting", undefined),
   };
   let plugins: HostMessageV1 = {
     type: "plugins",
@@ -36,7 +33,9 @@ export function runtimeHost(callbacks: {
     info: callbacks.info,
     capabilities: {
       remoteWeb: callbacks.remoteWeb ? "host-view" : null,
-      synchronizedPlayback: true,
+      // Browser Player does not produce the shared timeline anchors, so it
+      // does not claim synchronized playback.
+      synchronizedPlayback: false,
       setup: false,
       discovery: false,
     },

@@ -15,8 +15,10 @@
     "@tilecast/player-runtime": "*"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.3",
     "fake-indexeddb": "^6.2.4",
+    "sharp": "0.35.4",
     "typescript": "~6.0.3",
     "vite": "^8.3.2",
     "vitest": "^5.0.2"

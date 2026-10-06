@@ -36,15 +36,16 @@ export async function loadIdentity(
   return identity;
 }
 
+/** Signs the complete server-issued message. The key never leaves WebCrypto. */
 export async function signChallenge(
   identity: BrowserIdentity,
-  challenge: string,
+  message: string,
 ): Promise<string> {
   const signature = new Uint8Array(
     await crypto.subtle.sign(
       { name: "ECDSA", hash: "SHA-256" },
       identity.privateKey,
-      new TextEncoder().encode(challenge),
+      new TextEncoder().encode(message),
     ),
   );
   return btoa(String.fromCharCode(...signature))

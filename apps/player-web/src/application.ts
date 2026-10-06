@@ -1,58 +1,57 @@
 import type {
-  HostMessageV1,
-  RuntimeReadyV1,
-  PresentationMessage,
   EvidenceReportV1,
+  HostMessageV1,
+  PresentationMessage,
+  RuntimeReadyV1,
 } from "@tilecast/player-runtime/host-contract";
 import {
-  projectManifestItems,
-  type Manifest,
-  type ManifestItem,
-  type PlayerConfig,
+  layoutIdFromItemId,
+  statusSurface,
   type DeviceMetadata,
+  type StatusKind,
 } from "@tilecast/player-runtime/projection";
 import { missingCapabilities } from "./compatibility";
 import { runtimeHost } from "./host";
-import { loadIdentity } from "./identity";
+import { loadIdentity, type BrowserIdentity } from "./identity";
 import {
+  assertSameServer,
   authenticate,
+  fetchServerIdentity,
   IdentityMismatch,
   pause,
-  type BrowserSession,
+  PairingEnded,
 } from "./authentication";
-import { PlayerAPI, PlayerAPIError } from "./api";
+import { PlayerAPI, PlayerAPIError, serverUnreachable } from "./api";
 import {
   clockDiscontinuity,
+  foregroundEligible,
+  initialHostState,
   meaningfulEvidence,
+  requireReconfirmation,
+  revokeLocalAuthority,
   runExclusive,
-  type EvidenceEnvironment,
 } from "./lifecycle";
 import { openDatabase } from "./storage/database";
 import { OPFSFiles } from "./storage/opfs";
 import { IndexedObjects } from "./storage/index";
 import { VerifiedStore } from "./storage/verified-store";
-import { prepareResources } from "./storage/preparation";
 import {
-  commitActivation,
-  loadActivation,
+  discardActivation,
   type PreparedActivation,
 } from "./storage/activation";
 import { installMediaAuthorization } from "./media-authorization";
 import { requestManagedStorage } from "./storage/persistence";
+import { restoreLocalActivation } from "./restore";
+import { reconcileSelection, type ReconcileMemory } from "./reconcile";
+import { heartbeatPayload } from "./heartbeat";
+import { loadRuntime, registerShell } from "./runtime-boot";
 
-declare const __RUNTIME_PATH__: string;
 declare const __HOST_VERSION__: string;
 
-interface Selection {
-  source: string;
-  contentType: string;
-  contentId: string;
-  selectionId?: string;
-}
-interface ServerSelection {
-  at: string;
-  current?: { selected?: Selection; nextEvaluationAt?: string };
-}
+const POLL_MS = 10_000;
+// A server that cannot be reached is retried sooner at first, then settles.
+const UNREACHABLE_FIRST_MS = 2_000;
+const MAX_BACKOFF_MS = 15_000;
 
 export async function start(recovery: string | null): Promise<void> {
   const missing = missingCapabilities();
@@ -67,7 +66,7 @@ export async function start(recovery: string | null): Promise<void> {
   )?.[1];
   const identitySlot = pathSlot ?? "unmanaged";
   const database = await openDatabase();
-  const identity = await navigator.locks.request(
+  let identity: BrowserIdentity = await navigator.locks.request(
     "tilecast-player-identity",
     () => loadIdentity(database, identitySlot),
   );
@@ -75,17 +74,12 @@ export async function start(recovery: string | null): Promise<void> {
     navigator.locks,
     identity.slotId ?? identitySlot,
     async () => {
-      const signal = new AbortController();
-      addEventListener("pagehide", () => signal.abort(), { once: true });
-      const environment: EvidenceEnvironment = {
-        visible: !document.hidden,
-        frozen: false,
-        reconciled: false,
-        bindingValid: false,
-        activationValid: false,
-      };
+      const abort = new AbortController();
+      addEventListener("pagehide", () => abort.abort(), { once: true });
+      const state = initialHostState(!document.hidden);
       let active: PreparedActivation | undefined;
       let currentItemId: string | undefined;
+      let lastPlaybackError: string | undefined;
       let ready: RuntimeReadyV1 | undefined;
       let resolveReady!: () => void;
       const readiness = new Promise<void>((resolve) => {
@@ -104,308 +98,292 @@ export async function start(recovery: string | null): Promise<void> {
           resolveReady();
         },
         result(value) {
-          if (value.activation?.activationId === active?.activationId)
-            environment.activationValid = value.outcome === "accepted";
+          if (value.activation?.activationId !== active?.activationId) return;
+          state.runtimeActivationAccepted = value.outcome === "accepted";
+          if (value.outcome !== "accepted")
+            lastPlaybackError = value.message ?? value.code;
         },
         evidence(value: EvidenceReportV1) {
           if (
             value.activation?.activationId !== active?.activationId ||
-            !meaningfulEvidence(environment)
+            !meaningfulEvidence(state)
           )
             return;
-          currentItemId = value.itemId ?? undefined;
+          currentItemId =
+            (value.itemId ? layoutIdFromItemId(value.itemId) : null) ??
+            value.itemId ??
+            undefined;
           // Runtime remains the evidence producer. Activity transport is wired
           // through the shared reporting contract, separately from this bridge.
         },
-        error() {
-          environment.activationValid = false;
+        error(value) {
+          if (value.activation?.activationId === active?.activationId)
+            state.runtimeActivationAccepted = false;
+          lastPlaybackError = value.message;
         },
       });
       (globalThis as Record<string, unknown>).tilecastRuntimeHost = bridge.host;
       const cleanMedia = installMediaAuthorization(
         database,
         () => active,
-        () => environment.bindingValid,
+        // Local media is served for any activation this page authorized, with
+        // or without the server. The server revokes it by saying so.
+        () => state.localActivationAuthorized,
       );
-      const register = await navigator.serviceWorker.register(
-        "/player/service-worker.js",
-        { scope: "/player", updateViaCache: "none" },
-      );
-      await navigator.serviceWorker.ready;
-      if (!navigator.serviceWorker.controller) {
-        await new Promise<void>((resolve) => {
-          navigator.serviceWorker.addEventListener(
-            "controllerchange",
-            () => resolve(),
-            { once: true },
-          );
+      // The status surface shown until an activation exists. It carries no
+      // content decision: connection wording belongs to the host, branding
+      // and layout of the surface belong to the shared resolver.
+      const surface = (
+        kind: StatusKind,
+        title?: string,
+        message?: string,
+      ): void =>
+        bridge.send({
+          type: "presentation",
+          presentation: statusSurface(kind, undefined, {
+            ...(title ? { title } : {}),
+            ...(message ? { message } : {}),
+          }),
         });
-      }
-      const base = document.createElement("base");
-      base.href = `${__RUNTIME_PATH__}/`;
-      document.head.append(base);
-      const css = document.createElement("link");
-      css.rel = "stylesheet";
-      css.href = `${__RUNTIME_PATH__}/runtime.css`;
-      document.head.append(css);
-      const script = document.createElement("script");
-      script.src = `${__RUNTIME_PATH__}/runtime.js`;
-      document.head.append(script);
-      await readiness;
+      surface("connecting");
+      const files = await OPFSFiles.open();
+      const index = new IndexedObjects(database);
+      const session = new Set<string>();
+      const exclusively = <T>(run: () => Promise<T>): Promise<T> =>
+        navigator.locks.request("tilecast-player-cas", run);
       const controls = platformControls(database, bridge.send);
-      let session: BrowserSession;
-      try {
-        const authenticated = await authenticate(
-          api,
-          database,
-          identity,
-          identitySlot,
-          recovery,
-          metadata(identity.installationId),
-          bridge.send,
-          signal.signal,
+      const restoreAtStartup = async (): Promise<void> => {
+        const restored = await exclusively(() =>
+          restoreLocalActivation(
+            database,
+            new VerifiedStore(index, files, Number.MAX_SAFE_INTEGER, Date.now, {
+              session,
+            }),
+            identity,
+          ),
         );
-        recovery = null;
-        session = authenticated.session;
-        environment.bindingValid = true;
-        const files = await OPFSFiles.open();
-        const index = new IndexedObjects(database);
-        const previous = await loadActivation(database, session.slotId);
-        let generation = previous?.generation ?? 0;
-        let acceptedKey = "";
-        let clockOffsetMs = 0;
-        const restore = async () =>
-          navigator.locks.request("tilecast-player-cas", async () => {
-            if (
-              !previous ||
-              previous.bindingId !== session.bindingId ||
-              previous.serverInstallationId !==
-                authenticated.server.installationId
-            )
-              return;
-            const store = new VerifiedStore(
-              index,
-              files,
-              Number.MAX_SAFE_INTEGER,
-            );
-            for (const resource of previous.resources)
-              if (!(await store.verified(resource))) return;
-            active = previous;
-            environment.activationValid = true;
-            bridge.send(previous.plugins);
-            bridge.send(previous.presentation);
-          });
-        await restore();
-        const reconcile = async () => {
-          const before = Date.now();
-          const [manifest, config, selection] = await Promise.all([
-            api.request<Manifest>("/api/v1/player/manifest"),
-            api.request<PlayerConfig>("/api/v1/player/config"),
-            api.request<ServerSelection>("/api/v1/player/browser/selection"),
-          ]);
-          clockOffsetMs =
-            Date.parse(manifest.serverTime) - (before + Date.now()) / 2;
-          const selected = selection.current?.selected;
-          const key = JSON.stringify([
-            manifest.manifestVersion,
-            config.configRevision,
-            selected,
-          ]);
-          if (key === acceptedKey && active && environment.reconciled) return;
-          const at = new Date(selection.at);
-          const items = selectedItems(manifest, selected);
-          const limit = Number(config.cache.maximumBytes ?? 2 * 1024 ** 3);
-          await navigator.locks.request("tilecast-player-cas", async () => {
-            await files.reconcile(
-              new Set((await index.list()).map((object) => object.digest)),
-            );
-            const store = new VerifiedStore(index, files, limit);
-            const resources = manifest.assets.map((asset) => ({
-              assetId: asset.assetId,
-              variantId: asset.variantId,
-              digest: asset.sha256,
-              size: asset.fileSize,
-              mimeType: asset.mimeType,
-            }));
-            const release = await prepareResources(
-              store,
-              index,
-              resources,
-              (claim) =>
-                api.media(
-                  manifest.assets.find(
-                    (asset) => asset.sha256 === claim.digest,
-                  )!.downloadPath,
-                  signal.signal,
-                ),
-            );
-            try {
-              const nextGeneration = ++generation;
-              const activationId = crypto.randomUUID();
-              active = await commitActivation(
-                database,
-                {
-                  slotId: session.slotId,
-                  bindingId: session.bindingId,
-                  serverInstallationId: authenticated.server.installationId,
-                  activationId,
-                  generation: nextGeneration,
-                  resources,
-                  presentation: {
-                    type: "presentation",
-                    presentation: { state: "idle" },
-                  },
-                  plugins: {
-                    type: "plugins",
-                    plugins: manifest.plugins ?? [],
-                    clockOffsetMs,
-                  },
-                },
-                (media): PresentationMessage => {
-                  const projected = projectManifestItems(
-                    manifest,
-                    items,
-                    config.playback,
-                    at,
-                    media,
-                  );
-                  return {
-                    type: "presentation",
-                    activation: { activationId, generation: nextGeneration },
-                    presentation: projected.length
-                      ? {
-                          state: "playing",
-                          items: projected,
-                          generation: nextGeneration,
-                          takeover: selected?.source === "takeover",
-                        }
-                      : {
-                          state: selected ? "unavailable" : "idle",
-                          title: selected
-                            ? "Content unavailable"
-                            : "No content assigned",
-                        },
-                    projection: {
-                      schema: manifest.schemaVersion,
-                      clockOffsetMs,
-                      manifest: manifest as unknown as Record<string, unknown>,
-                      media,
-                      playback: config.playback,
-                    },
-                  };
-                },
-              );
-              environment.reconciled = true;
-              // Publish before accepting evidence; Runtime acknowledges this ref.
-              environment.activationValid = false;
-              bridge.send(active.plugins);
-              bridge.send(active.presentation);
-              acceptedKey = key;
-            } finally {
-              await release();
-            }
-          });
+        if (restored) {
+          active = restored;
+          state.localActivationAuthorized = true;
+        }
+      };
+      const publish = (next: PreparedActivation): void => {
+        state.runtimeActivationAccepted = false;
+        bridge.send(next.plugins);
+        bridge.send(next.presentation);
+      };
+      let registration: ServiceWorkerRegistration | undefined;
+      try {
+        // Online and offline start share these steps. The Runtime starts and
+        // the last committed activation is revalidated before the network is
+        // consulted, so a server outage never prevents playback.
+        const [shell] = await Promise.all([
+          registerShell().then((value) => {
+            loadRuntime();
+            return value;
+          }),
+          restoreAtStartup(),
+        ]);
+        registration = shell;
+        await readiness;
+        if (active) publish(active);
+
+        const memory: ReconcileMemory = {
+          key: "",
+          generation: active?.generation ?? 0,
+          validUntilMs: null,
+          clockOffsetMs: 0,
         };
-        let sample = { wallMs: Date.now(), monotonicMs: performance.now() };
+        // Waking and connectivity events end the wait so the Host reconfirms
+        // with the server promptly instead of at the next poll.
+        const wake = new EventTarget();
+        const wakeNow = () => wake.dispatchEvent(new Event("wake"));
         const resume = () => {
-          environment.visible = !document.hidden;
-          environment.frozen = false;
-          environment.reconciled = false;
+          state.visible = !document.hidden;
+          state.frozen = false;
+          requireReconfirmation(state);
+          if (state.visible) wakeNow();
         };
+        addEventListener("online", wakeNow, { signal: abort.signal });
         document.addEventListener("visibilitychange", resume, {
-          signal: signal.signal,
+          signal: abort.signal,
         });
         document.addEventListener(
           "freeze",
           () => {
-            environment.frozen = true;
-            environment.reconciled = false;
+            state.frozen = true;
+            requireReconfirmation(state);
           },
-          { signal: signal.signal },
+          { signal: abort.signal },
         );
-        document.addEventListener("resume", resume, { signal: signal.signal });
-        while (!signal.signal.aborted) {
+        document.addEventListener("resume", resume, { signal: abort.signal });
+
+        let sample = { wallMs: Date.now(), monotonicMs: performance.now() };
+        let backoff = POLL_MS;
+        while (!abort.signal.aborted) {
           const now = { wallMs: Date.now(), monotonicMs: performance.now() };
-          if (clockDiscontinuity(sample, now)) environment.reconciled = false;
+          if (clockDiscontinuity(sample, now)) requireReconfirmation(state);
           sample = now;
           try {
-            await api.request("/api/v1/player/browser/session");
-            if (!document.hidden && !environment.frozen) await reconcile();
-            await api.request("/api/v1/player/heartbeat", {
-              screenWidth: Math.max(1, innerWidth),
-              screenHeight: Math.max(1, innerHeight),
-              playerVersion: __HOST_VERSION__,
-              playerFamily: "browser",
-              ...(currentItemId && /^[a-f0-9-]{36}$/.test(currentItemId)
-                ? { currentItemId }
-                : {}),
-              playbackState:
-                meaningfulEvidence(environment) &&
-                active?.presentation.presentation.state === "playing"
-                  ? "playing"
-                  : "idle",
-              presentationSchemaVersions: ready?.support?.presentationSchemas,
-              nativePresentationCapabilities: {
-                ...ready?.support?.declarativeCapabilities,
-                ...Object.fromEntries(
-                  Object.entries(ready?.support?.widgetComponents ?? {}).map(
-                    ([type, version]) => [`widget.${type}`, version],
-                  ),
-                ),
-              },
-              uptimeSeconds: Math.floor(performance.now() / 1000),
-            });
-          } catch (error) {
+            const server = await fetchServerIdentity(api);
+            assertSameServer(identity, server);
+            const authenticated = await authenticate(
+              api,
+              database,
+              server,
+              identity,
+              identitySlot,
+              recovery,
+              metadata(identity.installationId),
+              bridge.send,
+              abort.signal,
+            );
+            recovery = null;
+            identity = authenticated.identity;
+            const bound = authenticated.session;
             if (
-              error instanceof PlayerAPIError &&
-              [401, 403].includes(error.status)
+              active &&
+              (active.bindingId !== bound.bindingId ||
+                active.serverInstallationId !== server.installationId)
             ) {
-              environment.bindingValid = false;
-              environment.reconciled = false;
-              bridge.send({
-                type: "presentation",
-                presentation: {
-                  state: error.status === 403 ? "disabled" : "unavailable",
-                  title:
-                    error.status === 403
-                      ? "Screen disabled"
-                      : "Browser Player disconnected",
-                  message:
-                    "The administrator changed this Player's authorization. Reload to reconnect.",
-                },
-              });
-              break;
+              // A different binding must never inherit this one's content.
+              await discardActivation(database, active.slotId);
+              active = undefined;
+              revokeLocalAuthority(state);
+              memory.key = "";
+              surface("connecting");
             }
-            // Ordinary network loss retains the last completely verified activation.
+            state.serverBindingConfirmed = true;
+            if (foregroundEligible(state)) {
+              const result = await reconcileSelection(
+                {
+                  api,
+                  database,
+                  files,
+                  index,
+                  binding: {
+                    slotId: bound.slotId,
+                    bindingId: bound.bindingId,
+                    serverInstallationId: server.installationId,
+                  },
+                  support: () => ready?.support,
+                  signal: abort.signal,
+                  storeOptions: { session },
+                  exclusively,
+                },
+                memory,
+              );
+              if (result.changed) {
+                active = result.activation;
+                state.localActivationAuthorized = true;
+                publish(active);
+              }
+              state.selectionCurrent = true;
+            }
+            const plan = memory.plan;
+            await api.request(
+              "/api/v1/player/heartbeat",
+              heartbeatPayload({
+                screenWidth: innerWidth,
+                screenHeight: innerHeight,
+                hostVersion: __HOST_VERSION__,
+                uptimeSeconds: performance.now() / 1000,
+                ...(currentItemId ? { currentItemId } : {}),
+                playing:
+                  meaningfulEvidence(state) &&
+                  active?.presentation.presentation.state === "playing",
+                support: ready?.support,
+                selection: plan?.selection,
+                manifestVersion: memory.manifestVersion,
+                configRevision: memory.configRevision,
+                lastPlaybackError:
+                  lastPlaybackError ??
+                  plan?.compatibility.failures
+                    .map((failure) => failure.component)
+                    .join(", "),
+              }),
+            );
+            backoff = POLL_MS;
+          } catch (error) {
+            if (abort.signal.aborted) break;
+            // The server may be down; the last verified activation continues.
+            // While it is, nothing counts as confirmed against the server.
+            requireReconfirmation(state);
+            if (serverUnreachable(error)) {
+              if (!active)
+                surface(
+                  "connecting",
+                  "Waiting for the Tilecast server",
+                  "This Browser Player will connect when the server is available.",
+                );
+              backoff = Math.min(
+                MAX_BACKOFF_MS,
+                backoff === POLL_MS ? UNREACHABLE_FIRST_MS : backoff * 2,
+              );
+            } else if (
+              error instanceof IdentityMismatch ||
+              (error instanceof PlayerAPIError &&
+                [401, 403].includes(error.status))
+            ) {
+              // The server said this binding is revoked, replaced, disabled or
+              // is a different installation. Local content is no longer trusted.
+              revokeLocalAuthority(state);
+              const disabled =
+                error instanceof PlayerAPIError && error.status === 403;
+              if (!disabled && active) {
+                await discardActivation(database, active.slotId);
+                active = undefined;
+              }
+              memory.key = "";
+              surface(
+                disabled ? "disabled" : "unavailable",
+                disabled ? undefined : "Browser Player disconnected",
+                disabled
+                  ? undefined
+                  : error instanceof IdentityMismatch
+                    ? error.message
+                    : "The administrator changed this Player's authorization. Open a current launch link to reconnect.",
+              );
+              if (!disabled) break;
+              backoff = MAX_BACKOFF_MS;
+            } else if (error instanceof PairingEnded) {
+              surface("unavailable", "Pairing ended", error.message);
+              break;
+            } else {
+              lastPlaybackError =
+                error instanceof Error ? error.message : "Reconcile failed";
+              backoff = Math.min(MAX_BACKOFF_MS, backoff * 2);
+            }
           }
-          await pause(10_000, signal.signal);
+          try {
+            await Promise.race([
+              pause(backoff, abort.signal),
+              new Promise<void>((resolve) =>
+                wake.addEventListener("wake", () => resolve(), { once: true }),
+              ),
+            ]);
+          } catch {
+            break;
+          }
         }
         // Keep the slot lock while disconnected so a second window cannot act.
-        if (!signal.signal.aborted)
+        if (!abort.signal.aborted)
           await new Promise<void>((resolve) =>
-            signal.signal.addEventListener("abort", () => resolve(), {
+            abort.signal.addEventListener("abort", () => resolve(), {
               once: true,
             }),
           );
       } catch (error) {
         recovery = null;
-        environment.bindingValid = false;
-        bridge.send({
-          type: "presentation",
-          presentation: {
-            state: "unavailable",
-            title: "Browser Player could not connect",
-            message:
-              error instanceof PlayerAPIError
-                ? "Check the server connection and managed launch link, then reload."
-                : error instanceof IdentityMismatch
-                  ? error.message
-                  : "Reload this Browser Player to reconnect.",
-          },
-        });
-        if (!signal.signal.aborted)
+        revokeLocalAuthority(state);
+        surface(
+          "unavailable",
+          "Browser Player could not start",
+          "Reload this Browser Player to reconnect.",
+        );
+        if (!abort.signal.aborted)
           await new Promise<void>((resolve) =>
-            signal.signal.addEventListener("abort", () => resolve(), {
+            abort.signal.addEventListener("abort", () => resolve(), {
               once: true,
             }),
           );
@@ -415,7 +393,7 @@ export async function start(recovery: string | null): Promise<void> {
         database.close();
         // Waiting workers activate naturally when all old pages close. This Host
         // never replaces Runtime or requests worker activation during playback.
-        void register;
+        void registration;
       }
     },
     () =>
@@ -423,37 +401,6 @@ export async function start(recovery: string | null): Promise<void> {
         "This Browser Player is already running in another window.",
       ),
   );
-}
-
-function selectedItems(
-  manifest: Manifest,
-  selected?: Selection,
-): ManifestItem[] {
-  if (!selected) return [];
-  if (selected.contentType === "layout")
-    return [
-      {
-        id: `layout:${selected.contentId}`,
-        assetId: "",
-        layoutId: selected.contentId,
-        assetType: "layout",
-        fitMode: "contain",
-        transition: "none",
-        audioEnabled: false,
-        volume: 0,
-        deliveryPolicy: "download",
-      },
-    ];
-  if (selected.contentType === "playlist")
-    return (
-      [
-        manifest.playlist,
-        manifest.directFallbackPlaylist,
-        ...manifest.playlists,
-      ].find((playlist) => playlist?.id === selected.contentId)?.items ?? []
-    );
-  // Quick Present publishes its synthetic asset playlist in the same manifest.
-  return manifest.playlist?.items ?? [];
 }
 
 function metadata(installationId: string): DeviceMetadata {
@@ -502,3 +449,5 @@ function platformControls(
   document.body.append(button);
   return button;
 }
+
+export type { PresentationMessage };

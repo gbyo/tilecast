@@ -4,7 +4,7 @@ import { activeGrant } from "./storage/activation";
 import { OPFSFiles } from "./storage/opfs";
 import { IndexedObjects } from "./storage/index";
 import { VerifiedStore } from "./storage/verified-store";
-import { mediaResponse } from "./storage/range";
+import { serveLocalMedia } from "./media-service";
 
 declare const __SHELL_VERSION__: string;
 declare const __SHELL_FILES__: string[];
@@ -80,37 +80,34 @@ async function authorized(event: FetchEvent): Promise<boolean> {
 }
 
 async function localMedia(event: FetchEvent): Promise<Response> {
-  if (!(await authorized(event)))
-    return new Response(null, {
-      status: 404,
-      headers: { "Cache-Control": "no-store" },
-    });
   const database = await openDatabase();
   try {
-    const grant = await activeGrant(
-      database,
-      new URL(event.request.url).pathname,
-    );
-    if (!grant) return new Response(null, { status: 404 });
     const files = await OPFSFiles.open(worker.navigator.storage);
     const store = new VerifiedStore(
       new IndexedObjects(database),
       files,
       Number.MAX_SAFE_INTEGER,
     );
-    // Verify bytes again after browser restarts or external storage eviction.
-    const file = await worker.navigator.locks.request(
-      "tilecast-player-cas",
-      () => store.verified(grant),
-    );
-    if (!file) return new Response(null, { status: 404 });
-    // Recheck the grant after hashing: activation replacement can revoke it.
-    if (!(await activeGrant(database, new URL(event.request.url).pathname)))
-      return new Response(null, { status: 404 });
-    return mediaResponse(event.request, file, grant.mimeType);
+    return await serveLocalMedia(event.request, {
+      authorized: () => authorized(event),
+      grant: (uri) => activeGrant(database, uri),
+      // The page hashed this object when it committed or restored the
+      // activation. A range request checks metadata and size, never the bytes.
+      // Pinned objects are never evicted, so a read needs no CAS lock and
+      // is not delayed behind a download in progress.
+      read: (grant) => store.trusted(grant),
+    });
   } finally {
     database.close();
   }
+}
+
+async function slotShell(shell: Response, slot: string): Promise<Response> {
+  const text = (await shell.text()).replace(
+    'href="/player/manifest.webmanifest"',
+    `href="/player/${slot}/manifest.webmanifest"`,
+  );
+  return new Response(text, { status: 200, headers: shell.headers });
 }
 
 worker.addEventListener("fetch", (event) => {
@@ -139,12 +136,14 @@ worker.addEventListener("fetch", (event) => {
     /^\/player(?:\/[a-f0-9-]{36})?\/?$/.test(url.pathname)
   ) {
     event.respondWith(
-      caches
-        .open(CACHE)
-        .then(
-          async (cache) =>
-            (await cache.match("/player/")) ?? fetch(event.request),
-        ),
+      caches.open(CACHE).then(async (cache) => {
+        const shell = await cache.match("/player/");
+        if (!shell) return fetch(event.request);
+        // The cached shell links the generic install manifest. A managed slot
+        // reopens offline with its own, so installing it keeps that identity.
+        const slot = /^\/player\/([a-f0-9-]{36})\/?$/.exec(url.pathname)?.[1];
+        return slot ? slotShell(shell, slot) : shell;
+      }),
     );
   }
   // All API, Studio and unrelated requests use the normal network boundary.

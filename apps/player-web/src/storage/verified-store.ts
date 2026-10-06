@@ -31,6 +31,23 @@ export interface ObjectFiles {
   partial(): Promise<PartialObject>;
   read(digest: string): Promise<Blob | undefined>;
   remove(digest: string): Promise<void>;
+  /** Removes partial files and objects without index metadata. */
+  reconcile?(indexedDigests: ReadonlySet<string>): Promise<void>;
+}
+
+/** The streaming digest the store uses. Tests count instances to prove reuse. */
+export interface Hasher {
+  update(chunk: Uint8Array): unknown;
+  digest(): Uint8Array;
+}
+
+export interface StoreOptions {
+  hasher?: () => Hasher;
+  /**
+   * Digests this page load has already hashed. Share one set between stores so
+   * a later preparation does not rehash an object this session verified.
+   */
+  session?: Set<string>;
 }
 
 const hex = (bytes: Uint8Array) =>
@@ -48,14 +65,27 @@ function validateClaim(claim: ResourceClaim, limit: number): void {
   }
 }
 
-/** No activation consumes an object until prepare returns verified bytes. */
+/**
+ * No activation consumes an object until prepare returns verified bytes.
+ *
+ * Trust has distinct levels. `prepare` and `verified` hash the complete
+ * object. `trusted` is the cheap check an already-authorized read uses: the
+ * index and the stored size agree. It never hashes, so serving a byte range is
+ * proportional to the bytes served and not to the size of the object.
+ */
 export class VerifiedStore {
+  private readonly newHasher: () => Hasher;
+  private readonly session: Set<string>;
+
   constructor(
     private readonly index: ObjectIndex,
     private readonly files: ObjectFiles,
     readonly limitBytes: number,
     private readonly now: () => number = Date.now,
+    options: StoreOptions = {},
   ) {
+    this.newHasher = options.hasher ?? (() => sha256.create());
+    this.session = options.session ?? new Set();
     if (!Number.isSafeInteger(limitBytes) || limitBytes <= 0)
       throw new Error("Invalid cache limit");
   }
@@ -66,7 +96,8 @@ export class VerifiedStore {
     if (!object || object.size !== claim.size) return undefined;
     const file = await this.files.read(claim.digest);
     if (!file || file.size !== claim.size) return this.corrupt(claim.digest);
-    const hash = sha256.create();
+    if (this.session.has(claim.digest)) return file;
+    const hash = this.newHasher();
     const reader = file.stream().getReader();
     try {
       for (;;) {
@@ -79,8 +110,38 @@ export class VerifiedStore {
     } finally {
       reader.releaseLock();
     }
+    this.session.add(claim.digest);
     await this.index.put({ ...object, lastUsedAt: this.now() });
     return file;
+  }
+
+  /**
+   * The object for an already-authorized read, without hashing it. Metadata or
+   * stored bytes that no longer agree invalidate the object so it can never
+   * be served or counted as prepared again.
+   */
+  async trusted(claim: ResourceClaim): Promise<Blob | undefined> {
+    validateClaim(claim, Number.MAX_SAFE_INTEGER);
+    const object = await this.index.get(claim.digest);
+    if (!object) return undefined;
+    if (object.size !== claim.size) return this.corrupt(claim.digest);
+    const file = await this.files.read(claim.digest);
+    if (!file || file.size !== claim.size) return this.corrupt(claim.digest);
+    return file;
+  }
+
+  /**
+   * Startup reconciliation, under the CAS lock: drops index metadata whose
+   * bytes are gone or the wrong size, then bytes that have no metadata.
+   */
+  async reconcile(): Promise<void> {
+    for (const object of await this.index.list()) {
+      const file = await this.files.read(object.digest);
+      if (!file || file.size !== object.size) await this.corrupt(object.digest);
+    }
+    await this.files.reconcile?.(
+      new Set((await this.index.list()).map((object) => object.digest)),
+    );
   }
 
   /** Called under the CAS Web Lock. Network 206 responses are never complete. */
@@ -98,7 +159,7 @@ export class VerifiedStore {
       throw new Error("Complete media download is required");
     const partial = await this.files.partial();
     const reader = response.body.getReader();
-    const hash = sha256.create();
+    const hash = this.newHasher();
     let size = 0;
     try {
       for (;;) {
@@ -120,6 +181,7 @@ export class VerifiedStore {
       // Committed bytes can be orphaned by a crash here; metadata never gets
       // ahead of verified storage. Startup removes those unindexed objects.
       const now = this.now();
+      this.session.add(claim.digest);
       await this.index.put({
         ...claim,
         verifiedAt: now,
@@ -137,6 +199,7 @@ export class VerifiedStore {
   }
 
   private async corrupt(digest: string): Promise<undefined> {
+    this.session.delete(digest);
     await this.index.remove(digest);
     await this.files.remove(digest);
     return undefined;
@@ -155,6 +218,7 @@ export class VerifiedStore {
       if (used + required <= this.limitBytes) break;
       // A crash can leave bytes without metadata, never usable metadata
       // without bytes. Reconciliation removes orphaned objects on boot.
+      this.session.delete(object.digest);
       await this.index.remove(object.digest);
       await this.files.remove(object.digest);
       used -= object.size;

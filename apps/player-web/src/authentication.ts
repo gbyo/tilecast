@@ -18,12 +18,54 @@ export interface BrowserSession {
   expiresAt: string;
 }
 
+/** The server will not accept this binding again: stop trusting local content. */
 export class IdentityMismatch extends Error {}
+
+/** A rejected, expired or already-claimed pairing. A new page load starts over. */
+export class PairingEnded extends Error {}
+
+/** What the server returns for a device-key challenge. */
+export interface BrowserChallenge {
+  nonce: string;
+  /** The complete text the device key signs. The server rebuilds and checks it. */
+  message: string;
+  expiresAt: string;
+}
+
+/** The text the server asks this installation to sign, rebuilt locally. */
+export function challengeMessage(
+  slotId: string,
+  bindingId: string,
+  nonce: string,
+): string {
+  return `tilecast-browser-player-v1:${slotId}:${bindingId}:${nonce}`;
+}
+
+/** Fetches public installation identity. A failure here means "unreachable". */
+export function fetchServerIdentity(api: PlayerAPI): Promise<Identity> {
+  return api.request<Identity>("/api/v1/system/identity");
+}
+
+/** Refuses to adopt a server other than the one this browser was bound to. */
+export function assertSameServer(
+  identity: BrowserIdentity,
+  server: Identity,
+): void {
+  if (
+    identity.serverInstallationId &&
+    identity.serverInstallationId !== server.installationId
+  ) {
+    throw new IdentityMismatch(
+      "The server identity changed. Reset this Browser Player explicitly before reconnecting.",
+    );
+  }
+}
 
 /** Uses existing pairing and the browser-only credential boundary. No bearer is returned. */
 export async function authenticate(
   api: PlayerAPI,
   database: IDBDatabase,
+  server: Identity,
   identity: BrowserIdentity,
   identitySlot: string,
   recovery: string | null,
@@ -35,15 +77,9 @@ export async function authenticate(
   session: BrowserSession;
   server: Identity;
 }> {
-  const server = await api.request<Identity>("/api/v1/system/identity");
-  if (
-    identity.serverInstallationId &&
-    identity.serverInstallationId !== server.installationId
-  ) {
-    throw new IdentityMismatch(
-      "The server identity changed. Reset this Browser Player explicitly before reconnecting.",
-    );
-  }
+  // The server's identity is read first and must match before any request that
+  // could carry a session cookie or a signature.
+  assertSameServer(identity, server);
   api.slotId =
     identity.slotId ??
     (identitySlot === "unmanaged" ? undefined : identitySlot);
@@ -70,17 +106,24 @@ export async function authenticate(
   }
   if (!session && identity.slotId && identity.bindingId) {
     try {
-      const challenge = await api.request<{ nonce: string }>(
+      const challenge = await api.request<BrowserChallenge>(
         "/api/v1/player/browser/challenge",
         { slotId: identity.slotId, bindingId: identity.bindingId },
       );
+      // The device key signs only the exact message the server issued, and
+      // only when it names this installation's own slot and binding.
+      if (
+        challenge.message !==
+        challengeMessage(identity.slotId, identity.bindingId, challenge.nonce)
+      )
+        throw new Error("The server issued an unexpected signing challenge.");
       session = await api.request<BrowserSession>(
         "/api/v1/player/browser/renew",
         {
           slotId: identity.slotId,
           bindingId: identity.bindingId,
           nonce: challenge.nonce,
-          signature: await signChallenge(identity, challenge.nonce),
+          signature: await signChallenge(identity, challenge.message),
         },
       );
     } catch (error) {
@@ -131,7 +174,13 @@ export async function authenticate(
         undefined,
         `Pairing ${pairing.pollSecret}`,
       );
-      if (poll.status === "approved" && poll.enrollmentToken) {
+      // The first approved private poll atomically claims the session and
+      // returns the one-time enrollment token with status `claimed`.
+      if (poll.status === "claimed") {
+        if (!poll.enrollmentToken)
+          throw new PairingEnded(
+            "Pairing was claimed but its enrollment was lost. Reload this Browser Player to request a new code.",
+          );
         session = await api.request<BrowserSession>(
           "/api/v1/player/browser/enroll",
           {
@@ -142,8 +191,8 @@ export async function authenticate(
         );
         break;
       }
-      if (["rejected", "expired", "claimed"].includes(poll.status))
-        throw new Error(
+      if (["rejected", "expired"].includes(poll.status))
+        throw new PairingEnded(
           "Pairing ended. Reload this Browser Player to request a new code.",
         );
     }
@@ -156,8 +205,15 @@ export async function authenticate(
     slotId: session.slotId,
     bindingId: session.bindingId,
   };
-  await write(database, "identity", `device:${identitySlot}`, bound);
-  await write(database, "identity", `device:${session.slotId}`, bound);
+  // Only a changed binding is persisted; a routine renewal writes nothing.
+  if (
+    bound.serverInstallationId !== identity.serverInstallationId ||
+    bound.slotId !== identity.slotId ||
+    bound.bindingId !== identity.bindingId
+  ) {
+    await write(database, "identity", `device:${identitySlot}`, bound);
+    await write(database, "identity", `device:${session.slotId}`, bound);
+  }
   api.slotId = session.slotId;
   return { identity: bound, session, server };
 }
