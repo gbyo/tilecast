@@ -39,7 +39,8 @@
     "sources": {
       "all": "All sources",
       "included": "Included with Tilecast",
-      "marketplace": "Marketplace"
+      "marketplace": "Marketplace",
+      "custom": "Custom"
     },
     "notFoundTitle": "Plugin not found",
     "notFoundDescription": "This store entry is not available from these sources.",
@@ -67,9 +68,33 @@
       "featuredLabel": "Spotlight",
       "featured": "Featured listing",
       "categoriesLabel": "Categories",
-      "installUnavailable": "Installing marketplace listings is not available yet.",
       "versionLabel": "Version",
-      "requiresLabel": "Requires"
+      "requiresLabel": "Requires",
+      "digestLabel": "Digest",
+      "customNote": "Added from a repository you chose. Tilecast verifies its release provenance before installing.",
+      "incompatiblePackage": "This package requires Tilecast {{range}}, which this release does not satisfy."
+    },
+    "add": {
+      "action": "Add from GitHub",
+      "title": "Add a custom repository",
+      "description": "Look up a public GitHub repository and review its latest published release before installing.",
+      "urlLabel": "Repository URL",
+      "urlPlaceholder": "https://github.com/acme/tilecast-widget…",
+      "resolve": "Look up",
+      "resolving": "Looking up…",
+      "install": "Install package",
+      "installing": "Installing…"
+    },
+    "review": {
+      "release": "Release",
+      "published": "Published",
+      "provenance": "Provenance",
+      "signedBy": "Signed by {{signer}}",
+      "verified": "Verified",
+      "unsigned": "Unsigned — development installs only",
+      "contributions": "Contributions",
+      "noContributions": "None listed",
+      "installNote": "Installing binds this repository to the package, so update checks re-resolve it."
     }
   },
   "catalog": {
@@ -246,5 +271,18 @@
       "loudestLabel": "Loudest 15 minutes",
       "monitoredLabel": "Monitored time"
     }
+  },
+  "packages": {
+    "title": "Extension packages",
+    "manageTitle": "Installed package",
+    "loadError": "The installed package could not be loaded.",
+    "contributions": "Contributions",
+    "checkUpdate": "Check for update",
+    "upToDate": "This package is up to date.",
+    "updateTo": "Update to {{version}}",
+    "rollback": "Restore previous version",
+    "remove": "Remove package",
+    "removeConfirmTitle": "Remove this package?",
+    "removeConfirmBody": "This deletes the installation of {{packageId}} and its contributions. A custom repository binding survives for reinstall."
   }
 }

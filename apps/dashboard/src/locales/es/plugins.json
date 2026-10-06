@@ -41,7 +41,8 @@
     "sources": {
       "all": "Todos los orígenes",
       "included": "Incluido con Tilecast",
-      "marketplace": "Marketplace"
+      "marketplace": "Marketplace",
+      "custom": "Personalizado"
     },
     "notFoundTitle": "Complemento no encontrado",
     "notFoundDescription": "Esta entrada no está disponible en estos orígenes.",
@@ -69,9 +70,33 @@
       "featuredLabel": "Destacados",
       "featured": "Listado destacado",
       "categoriesLabel": "Categorías",
-      "installUnavailable": "La instalación de listados de Marketplace aún no está disponible.",
       "versionLabel": "Versión",
-      "requiresLabel": "Requiere"
+      "requiresLabel": "Requiere",
+      "digestLabel": "Resumen",
+      "customNote": "Añadido desde un repositorio que elegiste. Tilecast verifica la procedencia de su versión antes de instalarlo.",
+      "incompatiblePackage": "Este paquete requiere Tilecast {{range}}, que esta versión no cumple."
+    },
+    "add": {
+      "action": "Añadir desde GitHub",
+      "title": "Añadir un repositorio personalizado",
+      "description": "Busca un repositorio público de GitHub y revisa su última versión publicada antes de instalarlo.",
+      "urlLabel": "URL del repositorio",
+      "urlPlaceholder": "https://github.com/acme/tilecast-widget…",
+      "resolve": "Buscar",
+      "resolving": "Buscando…",
+      "install": "Instalar paquete",
+      "installing": "Instalando…"
+    },
+    "review": {
+      "release": "Versión",
+      "published": "Publicado",
+      "provenance": "Procedencia",
+      "signedBy": "Firmado por {{signer}}",
+      "verified": "Verificado",
+      "unsigned": "Sin firmar — solo instalaciones de desarrollo",
+      "contributions": "Aportaciones",
+      "noContributions": "Ninguna indicada",
+      "installNote": "La instalación vincula este repositorio al paquete, para que las comprobaciones de actualización lo vuelvan a resolver."
     }
   },
   "catalog": {
@@ -249,5 +274,18 @@
       "loudestLabel": "15 minutos más ruidosos",
       "monitoredLabel": "Tiempo supervisado"
     }
+  },
+  "packages": {
+    "title": "Paquetes de extensión",
+    "manageTitle": "Paquete instalado",
+    "loadError": "No se pudo cargar el paquete instalado.",
+    "contributions": "Aportaciones",
+    "checkUpdate": "Buscar actualización",
+    "upToDate": "Este paquete está actualizado.",
+    "updateTo": "Actualizar a {{version}}",
+    "rollback": "Restaurar versión anterior",
+    "remove": "Eliminar paquete",
+    "removeConfirmTitle": "¿Eliminar este paquete?",
+    "removeConfirmBody": "Esto elimina la instalación de {{packageId}} y sus aportaciones. Un enlace de repositorio personalizado se conserva para reinstalarlo."
   }
 }

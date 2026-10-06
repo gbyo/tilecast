@@ -48,6 +48,9 @@ type Service struct {
 	// marketplace joins cached marketplace listings into the store. Nil
 	// disables marketplace entries.
 	marketplace MarketplaceSource
+	// custom joins custom repository bindings into the store. Nil
+	// disables custom entries.
+	custom CustomSource
 	// content is the release content catalog static contributions are
 	// read from. It defaults to the embedded catalog; tests inject a
 	// synthetic one through SetContentDefinitions.
@@ -90,6 +93,11 @@ func (s *Service) SetManifestInvalidator(invalidator ManifestInvalidator) {
 // A nil source disables marketplace entries.
 func (s *Service) SetMarketplaceSource(source MarketplaceSource) {
 	s.marketplace = source
+}
+
+// SetCustomSource joins custom repository bindings into the store.
+func (s *Service) SetCustomSource(source CustomSource) {
+	s.custom = source
 }
 
 // CatalogPlugin is one registry definition joined with this installation's

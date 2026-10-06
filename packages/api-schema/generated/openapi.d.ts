@@ -2638,7 +2638,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later. */
+    /** @description The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Release-owned entries always appear; marketplace entries join the list when a catalog is configured; custom entries join from bound repositories. */
     get: operations["listPluginStore"];
     put?: never;
     post?: never;
@@ -2674,8 +2674,128 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails. */
+    /** @description Fetch the signed marketplace catalog now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous verified cache keeps serving when the refresh fails. */
     post: operations["refreshMarketplaceCatalog"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugin-store/resolve-github": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a public GitHub repository URL to its install review: the published manifest, the pinned digest, provenance, and installed state. Persists nothing; installing re-resolves fresh. */
+    post: operations["resolveGitHubRepository"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugin-store/{packageId}/install": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited. */
+    post: operations["installStorePackage"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Every installed extension package with its contributions and, for custom packages, the repository binding. Readable by any signed-in account. */
+    get: operations["listPackages"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages/{packageId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description One installed extension package. Readable by any signed-in account. Unknown package IDs answer package_not_installed. */
+    get: operations["getPackage"];
+    put?: never;
+    post?: never;
+    /** @description Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Deletes the installation and its contribution rows. The custom source, when any, survives for reinstall. Audited. */
+    delete: operations["removePackage"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages/{packageId}/update-check": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves the latest artifact for an installed package without activating anything. A custom package re-resolves its repository; a marketplace package refreshes the catalog first. */
+    post: operations["checkPackageUpdate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages/{packageId}/update": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Activates the digest an update check approved. The check re-resolves fresh, so a stale digest answers update_check_expired instead of installing old bytes. Audited. */
+    post: operations["applyPackageUpdate"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages/{packageId}/rollback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited. */
+    post: operations["rollbackPackage"];
     delete?: never;
     options?: never;
     head?: never;
@@ -7303,13 +7423,28 @@ export interface components {
         installedAt: string;
       }[];
     };
-    /** @description Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know. */
+    /** @description Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the configured catalog and carry its catalog ID; "custom" entries come from a bound repository and carry its URL. Clients must tolerate values they do not know. */
     PluginStoreSource: {
       kind: string;
       catalogId?: string;
       repository?: string;
     };
-    /** @description One marketplace listing joined with this installation's state. Exactly one of plugin and marketplace is present on a store entry. */
+    /** @description One custom-repository package joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry. Carries no update flag: freshness needs a live re-resolution through an update check. */
+    PluginStoreCustom: {
+      version: string;
+      name: string;
+      description?: string;
+      publisherId: string;
+      publisherName: string;
+      license?: string;
+      tilecastRange: string;
+      /** @description Last verified artifact digest as sha256 colon hex. */
+      digest: string;
+      compatible: boolean;
+      installed: boolean;
+      installedVersion?: string;
+    };
+    /** @description One marketplace listing joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry. */
     PluginStoreMarketplace: {
       version: string;
       name: string;
@@ -7322,33 +7457,33 @@ export interface components {
       digest: string;
       /**
        * Format: uri
-       * @description Public source repository as a github.com https URL with an owner and name.
+       * @description Public source repository as an https URL with a host and path.
        */
       repository: string;
       /** Format: uri */
       documentation?: string;
       /** Format: uri */
       issues?: string;
-      categories?: string[];
-      featured?: boolean;
       compatible: boolean;
       installed: boolean;
       installedVersion?: string;
       updateAvailable: boolean;
     };
-    /** @description The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here. */
+    /** @description The cached catalog behind marketplace entries. Fetch failures keep serving the last verified cache and record the error here. */
     PluginMarketplaceStatus: {
+      configured: boolean;
       /** Format: date-time */
-      lastFetchedAt?: string;
+      fetchedAt?: string;
       stale: boolean;
       error?: string;
     };
-    /** @description One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present. */
+    /** @description One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present. */
     PluginStoreEntry: {
       packageId: string;
       source: components["schemas"]["PluginStoreSource"];
       plugin?: components["schemas"]["CatalogPlugin"];
       marketplace?: components["schemas"]["PluginStoreMarketplace"];
+      custom?: components["schemas"]["PluginStoreCustom"];
     };
     PluginStore: {
       items: components["schemas"]["PluginStoreEntry"][];
@@ -7359,6 +7494,91 @@ export interface components {
         /** Format: date-time */
         installedAt: string;
       }[];
+    };
+    /** @description The human-readable face of an installed or resolved package manifest. */
+    PackageManifestSummary: {
+      name: string;
+      description: string;
+      publisherId: string;
+      publisherName: string;
+      license: string;
+      tilecastRange: string;
+    };
+    /** @description One activated contribution: its kind, its package-qualified identity, and its path inside the package. */
+    PackageContribution: {
+      kind: string;
+      id: string;
+      path: string;
+    };
+    /** @description The custom repository binding behind an installed custom package. */
+    PackageSourceBinding: {
+      owner: string;
+      name: string;
+      /** Format: uri */
+      repositoryUrl: string;
+      /** @description Last verified artifact digest as sha256 colon hex. */
+      resolvedDigest: string;
+      /** Format: date-time */
+      resolvedAt: string;
+      /** Format: date-time */
+      addedAt: string;
+    };
+    /** @description One installed extension package with its contributions and, for custom packages, the repository binding. */
+    InstalledPackage: {
+      packageId: string;
+      version: string;
+      manifest: components["schemas"]["PackageManifestSummary"];
+      /** @description Pinned artifact digest as sha256 colon hex. */
+      digest: string;
+      sourceKind: string;
+      sourceReference: string;
+      registryReference: string;
+      signerIdentity?: string;
+      trust: string;
+      /** Format: date-time */
+      installedAt: string;
+      /** Format: uuid */
+      installedBy: string | null;
+      /** Format: date-time */
+      activatedAt: string;
+      hasRollback: boolean;
+      contributions: components["schemas"]["PackageContribution"][];
+      source?: components["schemas"]["PackageSourceBinding"];
+    };
+    /** @description The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing. */
+    GitHubInstallReview: {
+      packageId: string;
+      version: string;
+      manifest: components["schemas"]["PackageManifestSummary"];
+      compatible: boolean;
+      contributions: {
+        type: string;
+        path: string;
+      }[];
+      /** @description Pinned artifact digest as sha256 colon hex. */
+      digest: string;
+      registry: string;
+      releaseTag: string;
+      releaseName?: string;
+      /** Format: date-time */
+      publishedAt?: string;
+      owner: string;
+      repo: string;
+      /** Format: uri */
+      repositoryUrl: string;
+      signer?: string;
+      trust: string;
+      installed: boolean;
+      installedVersion?: string;
+    };
+    /** @description The latest artifact for an installed package, resolved without activating anything. latest is present when available. */
+    PackageUpdateCheck: {
+      installed: components["schemas"]["InstalledPackage"];
+      available: boolean;
+      upToDate: boolean;
+      /** Format: date-time */
+      lastChecked: string;
+      latest?: components["schemas"]["GitHubInstallReview"];
     };
     PluginInUseError: {
       error: {
@@ -18720,8 +18940,498 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description marketplace_refresh_failed — the catalog fetch failed */
+      /** @description marketplace_not_configured — no catalog URL is configured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description marketplace_refresh_failed — the catalog fetch or signature check failed */
       502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  resolveGitHubRepository: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /**
+           * Format: uri
+           * @description Public GitHub repository URL.
+           */
+          repository: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Install review */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["GitHubInstallReview"];
+          };
+        };
+      };
+      /** @description invalid_repository — not a GitHub repository URL */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Owner or Administrator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description repository_not_found — GitHub has no such repository */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_mismatch, or package_incompatible */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description upstream_unavailable — GitHub, the registry, or Sigstore is unreachable */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  installStorePackage: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          /**
+           * Format: uri
+           * @description Custom repository URL. Omit for marketplace listings.
+           */
+          repository?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Package installed */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["InstalledPackage"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Owner or Administrator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description repository_not_found or plugin_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description marketplace_not_configured, package_mismatch, package_installed, contribution_collision, or source_conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description upstream_unavailable — GitHub, the registry, or Sigstore is unreachable */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listPackages: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Installed packages */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["InstalledPackage"][];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getPackage: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Installed package */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["InstalledPackage"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_not_installed */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  removePackage: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Package removed */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Owner or Administrator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_not_installed */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  checkPackageUpdate: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Update check */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PackageUpdateCheck"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Owner or Administrator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_not_installed */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description marketplace_not_configured — the package came from a catalog that is no longer configured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_mismatch, or package_incompatible */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description upstream_unavailable — GitHub, the registry, or Sigstore is unreachable */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  applyPackageUpdate: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Pinned artifact digest as sha256 colon hex. */
+          digest: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Update result */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              package: components["schemas"]["InstalledPackage"];
+              updated: boolean;
+            };
+          };
+        };
+      };
+      /** @description invalid_request — a digest is required */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Owner or Administrator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_not_installed */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description update_check_expired, marketplace_not_configured, package_mismatch, contribution_collision, or source_conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description upstream_unavailable — GitHub, the registry, or Sigstore is unreachable */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  rollbackPackage: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Restored package */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["InstalledPackage"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Owner or Administrator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_not_installed */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description no_rollback — the package has no previous activation */
+      409: {
         headers: {
           [name: string]: unknown;
         };

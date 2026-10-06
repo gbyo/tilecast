@@ -1250,8 +1250,7 @@ export type PluginStoreSource = {
 /**
  * One marketplace listing joined with this installation's state: the
  * listed version, compatibility with the running release, and whether an
- * update is available. Marketplace installs arrive with custom installs;
- * until then installed and updateAvailable describe package rows only.
+ * update is available.
  */
 export type PluginStoreMarketplace = {
   version: string;
@@ -1285,21 +1284,131 @@ export type PluginMarketplaceStatus = {
 };
 
 /**
+ * One custom-repository package joined with this installation's state.
+ * Carries no update flag: freshness needs a live re-resolution through
+ * an update check.
+ */
+export type PluginStoreCustom = {
+  version: string;
+  name: string;
+  description?: string;
+  publisherId: string;
+  publisherName: string;
+  license?: string;
+  tilecastRange: string;
+  digest: string;
+  compatible: boolean;
+  installed: boolean;
+  installedVersion?: string;
+};
+
+/**
  * One normalized plugin-store row: the package identity and provenance
  * every source shares, plus the source-owned detail. Exactly one of
- * plugin and marketplace is present.
+ * plugin, marketplace, and custom is present.
  */
 export type PluginStoreEntry = {
   packageId: string;
   source: PluginStoreSource;
   plugin?: PluginSummary;
   marketplace?: PluginStoreMarketplace;
+  custom?: PluginStoreCustom;
 };
 
 export type PluginStore = {
   items: PluginStoreEntry[];
   marketplace: PluginMarketplaceStatus;
   unsupportedInstallations: UnsupportedPluginInstallation[];
+};
+
+/** The human-readable face of an installed or resolved package manifest. */
+export type PackageManifestSummary = {
+  name: string;
+  description: string;
+  publisherId: string;
+  publisherName: string;
+  license: string;
+  tilecastRange: string;
+};
+
+/** One activated contribution: kind, package-qualified ID, package path. */
+export type PackageContribution = {
+  kind: string;
+  id: string;
+  path: string;
+};
+
+/** The custom repository binding behind an installed custom package. */
+export type PackageSourceBinding = {
+  owner: string;
+  name: string;
+  repositoryUrl: string;
+  resolvedDigest: string;
+  resolvedAt: string;
+  addedAt: string;
+};
+
+/**
+ * One installed extension package with its contributions and, for custom
+ * packages, the repository binding.
+ */
+export type InstalledPackage = {
+  packageId: string;
+  version: string;
+  manifest: PackageManifestSummary;
+  digest: string;
+  sourceKind: string;
+  sourceReference: string;
+  registryReference: string;
+  signerIdentity?: string;
+  trust: string;
+  installedAt: string;
+  installedBy: string | null;
+  activatedAt: string;
+  hasRollback: boolean;
+  contributions: PackageContribution[];
+  source?: PackageSourceBinding;
+};
+
+/**
+ * The install review for a resolved repository: identity, version,
+ * provenance, and installed state. Resolving persists nothing.
+ */
+export type GitHubInstallReview = {
+  packageId: string;
+  version: string;
+  manifest: PackageManifestSummary;
+  compatible: boolean;
+  contributions: { type: string; path: string }[];
+  digest: string;
+  registry: string;
+  releaseTag: string;
+  releaseName?: string;
+  publishedAt?: string;
+  owner: string;
+  repo: string;
+  repositoryUrl: string;
+  signer?: string;
+  trust: string;
+  installed: boolean;
+  installedVersion?: string;
+};
+
+/**
+ * The latest artifact for an installed package, resolved without
+ * activating anything. latest is present when available.
+ */
+export type PackageUpdateCheck = {
+  installed: InstalledPackage;
+  available: boolean;
+  upToDate: boolean;
+  lastChecked: string;
+  latest?: GitHubInstallReview;
+};
+
+export type PackageUpdateResult = {
+  package: InstalledPackage;
+  updated: boolean;
 };
 
 export type PluginInUseResource = {

@@ -16,6 +16,7 @@ export function StoreProvenanceBadge({
   const labels: Record<string, string> = {
     included: t("store.sources.included"),
     marketplace: t("store.sources.marketplace"),
+    custom: t("store.sources.custom"),
   };
   return <Badge variant="outline">{labels[source.kind] ?? source.kind}</Badge>;
 }

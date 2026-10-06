@@ -22,6 +22,7 @@ import (
 const (
 	StoreSourceIncluded    = "included"
 	StoreSourceMarketplace = "marketplace"
+	StoreSourceCustom      = "custom"
 )
 
 // MarketplaceCatalogID identifies the default Tilecast marketplace catalog
@@ -62,12 +63,13 @@ type MarketplaceEntry struct {
 
 // StoreEntry is one normalized plugin-store row: the package identity and
 // provenance every source shares, plus the source-owned detail. Exactly one
-// of Plugin and Marketplace is present.
+// of Plugin, Marketplace, and Custom is present.
 type StoreEntry struct {
 	PackageID   string            `json:"packageId"`
 	Source      StoreSource       `json:"source"`
 	Plugin      *CatalogPlugin    `json:"plugin,omitempty"`
 	Marketplace *MarketplaceEntry `json:"marketplace,omitempty"`
+	Custom      *CustomEntry      `json:"custom,omitempty"`
 }
 
 // MarketplaceStatus describes the cached catalog behind marketplace
@@ -89,6 +91,38 @@ type MarketplaceSnapshot struct {
 // disables marketplace entries; the store shows release-owned entries only.
 type MarketplaceSource func(ctx context.Context) (MarketplaceSnapshot, error)
 
+// CustomSnapshot is one custom repository binding: the last verified
+// manifest and digest. Installation state joins in the store, next to the
+// marketplace join, so both external sources read one versions map.
+type CustomSnapshot struct {
+	PackageID     string
+	Manifest      packagemanifest.Manifest
+	RepositoryURL string
+	Digest        string
+}
+
+// CustomEntry is one custom-repository package joined with this
+// installation's state. Unlike a marketplace entry it carries no curated
+// listing metadata and no update flag: freshness needs a live
+// re-resolution, which an update check performs on demand.
+type CustomEntry struct {
+	Version          string `json:"version"`
+	Name             string `json:"name"`
+	Description      string `json:"description"`
+	PublisherID      string `json:"publisherId"`
+	PublisherName    string `json:"publisherName"`
+	License          string `json:"license"`
+	TilecastRange    string `json:"tilecastRange"`
+	Digest           string `json:"digest"`
+	Compatible       bool   `json:"compatible"`
+	Installed        bool   `json:"installed"`
+	InstalledVersion string `json:"installedVersion,omitempty"`
+}
+
+// CustomSource serves the custom repository bindings. A nil source
+// disables custom entries.
+type CustomSource func(ctx context.Context) ([]CustomSnapshot, error)
+
 // Store is every plugin source Studio can browse, joined with this
 // installation's state.
 type Store struct {
@@ -103,6 +137,11 @@ type Store struct {
 // WithMarketplaceSource joins cached marketplace listings into the store.
 func WithMarketplaceSource(source MarketplaceSource) Option {
 	return func(s *Service) { s.marketplace = source }
+}
+
+// WithCustomSource joins custom repository bindings into the store.
+func WithCustomSource(source CustomSource) Option {
+	return func(s *Service) { s.custom = source }
 }
 
 // MarketplaceSnapshotFrom adapts the cached marketplace document to the
@@ -125,7 +164,9 @@ func MarketplaceSnapshotFrom(cached catalog.Cached, now time.Time) MarketplaceSn
 // appears: the store is the list of what Tilecast can do, and Studio
 // decides how to separate installed from available. Marketplace failures
 // never fail the store: the release-owned entries still serve, with the
-// failure recorded on the marketplace status.
+// failure recorded on the marketplace status. Custom bindings are local
+// database rows, so a custom failure fails the store like any other local
+// read.
 func (s *Service) Store(ctx context.Context) (Store, error) {
 	installed, unsupported, err := s.installations(ctx)
 	if err != nil {
@@ -151,27 +192,55 @@ func (s *Service) Store(ctx context.Context) (Store, error) {
 		})
 	}
 	store := Store{Items: items, UnsupportedInstallations: unsupported}
-	if s.marketplace == nil {
-		return store, nil
-	}
-	snapshot, err := s.marketplace(ctx)
-	if err != nil {
-		s.logger.ErrorContext(ctx, "marketplace snapshot failed", "error", err)
-		store.Marketplace = MarketplaceStatus{
-			Stale: true,
-			Error: "The marketplace catalog cache could not be read.",
+	var versions map[string]string
+	versionMap := func() (map[string]string, error) {
+		if versions == nil {
+			loaded, err := s.installedPackageVersions(ctx)
+			if err != nil {
+				return nil, err
+			}
+			versions = loaded
 		}
-		return store, nil
+		return versions, nil
 	}
-	store.Marketplace = snapshot.Status
-	if len(snapshot.Listings) == 0 {
-		return store, nil
+	if s.marketplace != nil {
+		snapshot, err := s.marketplace(ctx)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "marketplace snapshot failed", "error", err)
+			store.Marketplace = MarketplaceStatus{
+				Stale: true,
+				Error: "The marketplace catalog cache could not be read.",
+			}
+		} else {
+			store.Marketplace = snapshot.Status
+			if len(snapshot.Listings) > 0 {
+				versions, err = versionMap()
+				if err != nil {
+					return Store{}, err
+				}
+				items = appendMarketplaceItems(items, versions, snapshot.Listings)
+			}
+		}
 	}
-	versions, err := s.installedPackageVersions(ctx)
-	if err != nil {
-		return Store{}, err
+	if s.custom != nil {
+		snapshots, err := s.custom(ctx)
+		if err != nil {
+			return Store{}, err
+		}
+		if len(snapshots) > 0 {
+			versions, err = versionMap()
+			if err != nil {
+				return Store{}, err
+			}
+			items = appendCustomItems(items, versions, snapshots)
+		}
 	}
-	for _, listing := range snapshot.Listings {
+	store.Items = items
+	return store, nil
+}
+
+func appendMarketplaceItems(items []StoreEntry, versions map[string]string, listings []catalog.Listing) []StoreEntry {
+	for _, listing := range listings {
 		installedVersion, ok := versions[listing.PackageID]
 		entry := marketplaceEntry(listing, installedVersion, ok)
 		items = append(items, StoreEntry{
@@ -180,8 +249,36 @@ func (s *Service) Store(ctx context.Context) (Store, error) {
 			Marketplace: &entry,
 		})
 	}
-	store.Items = items
-	return store, nil
+	return items
+}
+
+func appendCustomItems(items []StoreEntry, versions map[string]string, snapshots []CustomSnapshot) []StoreEntry {
+	for _, snapshot := range snapshots {
+		installedVersion, ok := versions[snapshot.PackageID]
+		entry := customEntry(snapshot, installedVersion, ok)
+		items = append(items, StoreEntry{
+			PackageID: snapshot.PackageID,
+			Source:    StoreSource{Kind: StoreSourceCustom, Repository: snapshot.RepositoryURL},
+			Custom:    &entry,
+		})
+	}
+	return items
+}
+
+func customEntry(snapshot CustomSnapshot, installedVersion string, installed bool) CustomEntry {
+	return CustomEntry{
+		Version:          snapshot.Manifest.PackageVersion,
+		Name:             snapshot.Manifest.Name,
+		Description:      snapshot.Manifest.Description,
+		PublisherID:      snapshot.Manifest.Publisher.ID,
+		PublisherName:    snapshot.Manifest.Publisher.Name,
+		License:          snapshot.Manifest.License,
+		TilecastRange:    snapshot.Manifest.Tilecast.Version,
+		Digest:           snapshot.Digest,
+		Compatible:       packagemanifest.SatisfiesTilecastRange(snapshot.Manifest.Tilecast.Version, version.Display()),
+		Installed:        installed,
+		InstalledVersion: installedVersion,
+	}
 }
 
 // installedPackageVersions maps installed package IDs to versions.
@@ -229,28 +326,50 @@ func (s *Service) StoreEntry(ctx context.Context, id string) (StoreEntry, error)
 		}, nil
 	}
 
-	if s.marketplace == nil {
-		return StoreEntry{}, ErrPluginNotFound
-	}
-	snapshot, err := s.marketplace(ctx)
-	if err != nil {
-		return StoreEntry{}, err
-	}
-	for _, listing := range snapshot.Listings {
-		if listing.PackageID != id {
-			continue
-		}
-		versions, err := s.installedPackageVersions(ctx)
+	if s.marketplace != nil {
+		snapshot, err := s.marketplace(ctx)
 		if err != nil {
 			return StoreEntry{}, err
 		}
-		installedVersion, ok := versions[id]
-		entry := marketplaceEntry(listing, installedVersion, ok)
-		return StoreEntry{
-			PackageID:   listing.PackageID,
-			Source:      StoreSource{Kind: StoreSourceMarketplace, CatalogID: MarketplaceCatalogID},
-			Marketplace: &entry,
-		}, nil
+		for _, listing := range snapshot.Listings {
+			if listing.PackageID != id {
+				continue
+			}
+			versions, err := s.installedPackageVersions(ctx)
+			if err != nil {
+				return StoreEntry{}, err
+			}
+			installedVersion, ok := versions[id]
+			entry := marketplaceEntry(listing, installedVersion, ok)
+			return StoreEntry{
+				PackageID:   listing.PackageID,
+				Source:      StoreSource{Kind: StoreSourceMarketplace, CatalogID: MarketplaceCatalogID},
+				Marketplace: &entry,
+			}, nil
+		}
+	}
+
+	if s.custom != nil {
+		snapshots, err := s.custom(ctx)
+		if err != nil {
+			return StoreEntry{}, err
+		}
+		for _, snapshot := range snapshots {
+			if snapshot.PackageID != id {
+				continue
+			}
+			versions, err := s.installedPackageVersions(ctx)
+			if err != nil {
+				return StoreEntry{}, err
+			}
+			installedVersion, ok := versions[id]
+			entry := customEntry(snapshot, installedVersion, ok)
+			return StoreEntry{
+				PackageID: snapshot.PackageID,
+				Source:    StoreSource{Kind: StoreSourceCustom, Repository: snapshot.RepositoryURL},
+				Custom:    &entry,
+			}, nil
+		}
 	}
 	return StoreEntry{}, ErrPluginNotFound
 }

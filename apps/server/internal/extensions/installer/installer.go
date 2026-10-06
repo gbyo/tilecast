@@ -206,6 +206,23 @@ func (s *Service) Get(ctx context.Context, packageID string) (InstalledPackage, 
 	return item, nil
 }
 
+// Manifest reports the active manifest document of an installed package.
+func (s *Service) Manifest(ctx context.Context, packageID string) (packagemanifest.Manifest, error) {
+	var raw []byte
+	err := s.db.QueryRow(ctx, `SELECT manifest FROM installed_packages WHERE package_id=$1`, packageID).Scan(&raw)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return packagemanifest.Manifest{}, ErrNotFound
+		}
+		return packagemanifest.Manifest{}, err
+	}
+	var manifest packagemanifest.Manifest
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		return packagemanifest.Manifest{}, fmt.Errorf("active manifest is corrupt: %w", err)
+	}
+	return manifest, nil
+}
+
 // Contributions reports what one activated package owns.
 func (s *Service) Contributions(ctx context.Context, packageID string) ([]Contribution, error) {
 	if _, err := s.Get(ctx, packageID); err != nil {

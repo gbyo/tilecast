@@ -1,12 +1,12 @@
 // Package registry fetches extension package artifacts from OCI
-// registries by immutable digest.
+// registries.
 //
-// A pull resolves a registry reference plus a catalog-pinned digest into
-// an OCI layout directory, which the layout verifier in
-// internal/extensions/packages then checks before anything activates.
-// Tags are never resolved here: the digest selects the manifest, and every
-// blob verifies against its descriptor. Catalog signatures decide which
-// digests are worth fetching; registry bytes stay untrusted until the
+// A pull starts from a registry reference plus an immutable digest and
+// copies the artifact into an OCI layout directory, which the layout
+// verifier in internal/extensions/packages then checks before anything
+// activates. Tags resolve to digests first, and everything downstream
+// pins the resolved digest: a floating tag is never executed or stored
+// as the active address. Registry bytes stay untrusted until the
 // verifier approves them.
 package registry
 
@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -45,7 +46,18 @@ const (
 	tlsHandshakeTimeout   = 10 * time.Second
 	responseHeaderTimeout = 30 * time.Second
 	idleConnTimeout       = 90 * time.Second
+	// resolveTimeout bounds one tag resolution: a single manifest fetch.
+	resolveTimeout = 30 * time.Second
 )
+
+// ErrUnknownTag answers a tag the registry does not have.
+var ErrUnknownTag = errors.New("registry has no such tag")
+
+// ErrInvalidTag answers a tag that cannot name an OCI artifact, such as
+// a release tag with path separators.
+var ErrInvalidTag = errors.New("tag is not a usable OCI tag")
+
+var tagPattern = regexp.MustCompile(`^[\w][\w.-]{0,127}$`)
 
 // Fetcher pulls artifacts. The production implementation is Repository;
 // tests substitute fakes.
@@ -84,6 +96,40 @@ func NewRepository(options ...Option) *Repository {
 // config and bounded package-content layers are fetched. This keeps indexes,
 // referrers, subjects, and other graph edges from expanding one install into
 // unbounded network or disk work.
+// Resolve maps a tag to the immutable digest it names now. Callers pin
+// the answer and never store the tag: resolution is the one moment a
+// floating reference is accepted. An unknown tag answers ErrUnknownTag.
+func (r *Repository) Resolve(ctx context.Context, ref, tag string) (string, error) {
+	if !packagemanifest.ValidOCIReference(ref) {
+		return "", fmt.Errorf("registry reference %q is invalid", ref)
+	}
+	if !tagPattern.MatchString(tag) {
+		return "", fmt.Errorf("tag %q: %w", tag, ErrInvalidTag)
+	}
+	repository, err := r.remote(ref, resolveTimeout)
+	if err != nil {
+		return "", err
+	}
+	descriptor, err := repository.Resolve(ctx, tag)
+	if err != nil {
+		return "", fmt.Errorf("resolve %s:%s: %w", ref, tag, ErrUnknownTag)
+	}
+	if !packagemanifest.ValidDigest(descriptor.Digest.String()) {
+		return "", fmt.Errorf("resolve %s:%s: registry answered an unusable digest", ref, tag)
+	}
+	return descriptor.Digest.String(), nil
+}
+
+func (r *Repository) remote(ref string, timeout time.Duration) (*remote.Repository, error) {
+	repository, err := remote.NewRepository(ref)
+	if err != nil {
+		return nil, fmt.Errorf("registry reference %q: %w", ref, err)
+	}
+	repository.PlainHTTP = r.plainHTTP
+	repository.Client = &auth.Client{Client: &http.Client{Timeout: timeout}}
+	return repository, nil
+}
+
 func (r *Repository) Pull(ctx context.Context, ref, artifactDigest, targetDir string) error {
 	if !packagemanifest.ValidOCIReference(ref) {
 		return fmt.Errorf("registry reference %q is invalid", ref)
@@ -97,7 +143,7 @@ func (r *Repository) Pull(ctx context.Context, ref, artifactDigest, targetDir st
 
 	repository, err := remote.NewRepository(ref)
 	if err != nil {
-		return fmt.Errorf("registry reference %q: %w", ref, err)
+		return err
 	}
 	repository.PlainHTTP = r.plainHTTP
 	repository.Client = &auth.Client{Client: registryHTTPClient()}

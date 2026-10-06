@@ -43,7 +43,8 @@
     "sources": {
       "all": "Все источники",
       "included": "Входит в Tilecast",
-      "marketplace": "Каталог"
+      "marketplace": "Каталог",
+      "custom": "Свой"
     },
     "notFoundTitle": "Плагин не найден",
     "notFoundDescription": "Эта запись недоступна из этих источников.",
@@ -71,9 +72,33 @@
       "featuredLabel": "Подборка",
       "featured": "В подборке каталога",
       "categoriesLabel": "Категории",
-      "installUnavailable": "Установка записей каталога пока недоступна.",
       "versionLabel": "Версия",
-      "requiresLabel": "Требования"
+      "requiresLabel": "Требования",
+      "digestLabel": "Дайджест",
+      "customNote": "Добавлено из выбранного вами репозитория. Перед установкой Tilecast проверяет происхождение выпуска.",
+      "incompatiblePackage": "Этому пакету требуется Tilecast {{range}}, который не поддерживается этим выпуском."
+    },
+    "add": {
+      "action": "Добавить с GitHub",
+      "title": "Добавить свой репозиторий",
+      "description": "Найдите публичный репозиторий GitHub и проверьте его последний опубликованный выпуск перед установкой.",
+      "urlLabel": "URL репозитория",
+      "urlPlaceholder": "https://github.com/acme/tilecast-widget…",
+      "resolve": "Найти",
+      "resolving": "Поиск…",
+      "install": "Установить пакет",
+      "installing": "Установка…"
+    },
+    "review": {
+      "release": "Выпуск",
+      "published": "Опубликован",
+      "provenance": "Происхождение",
+      "signedBy": "Подписал {{signer}}",
+      "verified": "Проверено",
+      "unsigned": "Без подписи — только установка для разработки",
+      "contributions": "Вклады",
+      "noContributions": "Не указаны",
+      "installNote": "Установка привязывает этот репозиторий к пакету, чтобы проверка обновлений повторно его находила."
     }
   },
   "catalog": {
@@ -252,5 +277,18 @@
       "loudestLabel": "Самые шумные 15 минут",
       "monitoredLabel": "Время наблюдения"
     }
+  },
+  "packages": {
+    "title": "Пакеты расширений",
+    "manageTitle": "Установленный пакет",
+    "loadError": "Не удалось загрузить установленный пакет.",
+    "contributions": "Вклады",
+    "checkUpdate": "Проверить обновление",
+    "upToDate": "Пакет обновлён.",
+    "updateTo": "Обновить до {{version}}",
+    "rollback": "Восстановить предыдущую версию",
+    "remove": "Удалить пакет",
+    "removeConfirmTitle": "Удалить этот пакет?",
+    "removeConfirmBody": "Установка {{packageId}} и его вклады будут удалены. Привязка своего репозитория сохранится для переустановки."
   }
 }

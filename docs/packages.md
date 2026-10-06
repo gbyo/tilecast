@@ -76,11 +76,14 @@ Tilecast tar+gzip media type is verified. Safe gzip/tar parsing and
 extraction arrive with the external-runtime delivery stage; Stage 2 does
 not extract or execute package content.
 
-Remote registry transport arrives with the marketplace and
-custom-repository stages and feeds this same verifier, so local layouts,
-offline imports, and registry pulls share one digest-pinned activation
-path. The installer records the resolved digest; a floating tag is never
-executed or persisted as the active address.
+Remote registry transport resolves tags to digests, pulls the layout,
+and feeds this same verifier, so local layouts, offline imports, and
+registry pulls share one digest-pinned activation path. Retained package
+bytes are re-verified before every reuse. The installer records the
+resolved digest; a floating tag is never executed or persisted as the
+active address. Retained bytes have no collector: content stays on disk
+after removal, and the operator reclaims it by deleting the package
+directory under `TILECAST_PACKAGES_ROOT`.
 
 ## Installer lifecycle
 
@@ -113,6 +116,81 @@ Install, update, rollback, and removal each write one audit record with
 resource type `package` and the version, digest, and trust state in the
 metadata.
 
+## Sources
+
+A package installs from exactly one source kind:
+
+- `marketplace`: a listing in the signed Tilecast catalog. See
+  [Marketplace](marketplace.md). The listing pins identity, version, and
+  digest; the pipeline resolves the pinned digest through the same
+  registry and provenance path as a custom install.
+- `custom`: a public GitHub repository the operator added. The binding
+  persists in `custom_package_sources` (migration `00118`): one
+  repository supplies one package, enforced in both directions, and the
+  binding carries the last verified manifest and digest. Removing the
+  installation keeps the binding for reinstall.
+
+## GitHub resolution
+
+`POST /api/v1/plugin-store/resolve-github` resolves a repository URL to
+an install review and persists nothing:
+
+1. The URL parses as a public GitHub repository. Anything else answers
+   `invalid_repository`; private or missing repositories answer
+   `repository_private` or `repository_not_found`.
+2. The latest published release names the artifact: its tag must be a
+   usable OCI tag (`release_tag_unusable` otherwise).
+3. `tilecast.package.json` is read at that tag. A missing or invalid
+   manifest answers `manifest_not_found` or `manifest_invalid`.
+4. The registry resolves the manifest's OCI reference at the release tag
+   to an immutable digest (`no_published_package` when the tag carries
+   no artifact).
+5. Sigstore provenance for the digest is verified against the
+   repository's GitHub Actions identity. No verifying provenance answers
+   `package_unsigned`. Unreachable trust infrastructure fails closed
+   with `trust_unavailable`.
+
+The review shows identity, version, compatibility with the running
+release, contributions, digest, release, and provenance. Installing
+re-resolves fresh and cross-checks package ID, version, OCI reference,
+and Tilecast range between the review and the published artifact; a
+drift answers `package_mismatch` and installs nothing.
+
+Only GitHub repositories install in this release
+(`repository_not_supported` otherwise).
+
+## Update, rollback, and removal
+
+`POST /api/v1/packages/{packageId}/update-check` resolves the latest
+artifact without activating anything: a custom package re-resolves its
+repository, and a marketplace package refreshes the catalog first. The
+check answers the installed package plus the latest review when an
+update is available.
+
+`POST /api/v1/packages/{packageId}/update` takes the digest the check
+approved, re-resolves fresh, and activates only when the digest still
+matches. A stale digest answers `update_check_expired`: check again and
+confirm the new digest. Rollback restores the previous activation
+(`no_rollback` when there is none). Removal deletes the installation
+and its contribution rows; the custom binding, when any, survives.
+
+Reads (`GET /api/v1/packages`, `GET /api/v1/packages/{packageId}`)
+answer any signed-in role. Resolution, install, update, rollback, and
+removal require Owner or Administrator with a CSRF token. The store
+serves custom entries with source kind `custom` and the repository URL
+as provenance; they carry no curated listing metadata and no update
+flag, since freshness needs a live re-resolution.
+
+## Configuration
+
+- `TILECAST_PACKAGES_ROOT` (default `/data/packages`): retained package
+  bytes. Back this directory up with the database.
+- `TILECAST_ALLOW_UNSIGNED_EXTENSIONS` (default `false`): development
+  builds only. Stable releases refuse unsigned packages even when this
+  is set.
+- `TILECAST_GITHUB_TOKEN` (optional): raises GitHub API rate limits for
+  resolution. Never required for public repositories.
+
 ## Backup and restore
 
 The database snapshot carries the package tables like any other table, so
@@ -125,9 +203,10 @@ valid.
 ## Boundaries
 
 This stage builds the package format, validation, installed state, OCI
-layout verification, activation with rollback, and backup metadata. It
-does not add registry fetching, signature verification, package HTTP
-endpoints, Studio package UI beyond the store shell, content extraction to
-players, or removal blockers against installed content. Those arrive with
-the marketplace, custom-repository, sandbox, and runtime stages behind the
-contracts defined here.
+layout verification, registry fetching, Sigstore provenance verification,
+activation with rollback, backup metadata, package HTTP endpoints, custom
+repository bindings, and Studio package management. It does not add
+private registry authentication, content extraction to players, removal
+blockers against installed content, or a package-bytes collector. Those
+arrive with the sandbox and runtime stages behind the contracts defined
+here.
