@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { ids, resetDemo } from "../support/demo";
+import { expectWidgetRendered } from "../support/widget-editor";
 import { capture } from "./support";
 
 // Fixed identities from the Demo seed, not a second set of fixtures.
@@ -21,7 +22,7 @@ for (const [name, route, ready] of [
   ["studio-overview", "/", "Needs attention"],
   ["fleet", "/screens", "Cafeteria East"],
   ["media-library", "/assets", "Welcome Back, Falcons"],
-  ["widget-editor", `/widgets/${lobbyClock}`, "Preview ready."],
+  ["widget-editor", `/widgets/${lobbyClock}`, "Show seconds"],
   ["playlist-editor", `/playlists/${ids.morningAnnouncements}`, "Add content"],
   ["layout-editor", `/layouts/${hallwaySplit}`, "Go Falcons!"],
   ["campaign-editor", `/campaigns/${homecomingWeek}`, "Content blocks"],
@@ -51,12 +52,8 @@ for (const [name, route, ready] of [
       );
     }
     if (name === "widget-editor") {
-      await page
-        .getByRole("button", { name: "Small zone", exact: true })
-        .click();
-      await expect(
-        page.getByText("Preview ready.", { exact: true }),
-      ).toBeVisible();
+      // The healthy preview is silent; the shared Widget mount proves it.
+      await expectWidgetRendered(page);
     }
     if (name === "playlist-editor") {
       await page
