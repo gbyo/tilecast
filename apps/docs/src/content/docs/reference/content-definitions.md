@@ -32,7 +32,7 @@ Use the regular Widget and Data Source guides when you need setup instructions.
 | Notion                  | `notion`                  | app    | Design & Documents         | web     | `documents.json`       |
 | Google Sheets — Display | `google-sheets-display`   | app    | Google                     | web     | `google.json`          |
 | Google Slides           | `google-slides`           | app    | Google                     | web     | `google.json`          |
-| Alert Banner            | `alert-banner`            | widget | Information                | native  | `information.json`     |
+| Alert Banner            | `alert-banner`            | widget | Information                | native  | `widgets/alert-banner` |
 | Fundraising Thermometer | `fundraising-thermometer` | widget | Information                | native  | `information.json`     |
 | Now and Next            | `now-and-next`            | widget | Schedules                  | native  | `information.json`     |
 | Recognition Board       | `recognition-board`       | widget | Information                | native  | `information.json`     |

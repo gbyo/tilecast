@@ -122,16 +122,23 @@ inspector shows tabs.
 A hidden field and a field with a failed `visibleWhen` rule keep their values in
 the draft. Validation checks only the fields that the author can see.
 
-### Preview capabilities
+### Preview capabilities and recommended geometry
 
 A definition may declare `authoring.preview.time: true`. The rendered result of
 such a Widget depends on the current instant. Studio then shows the preview-time
 control. Studio also shows the control when a connected Data Source uses date
 selection. `authoring` never changes validation, projection, or playback.
 
+A visual purpose that is not naturally 16:9 may also declare
+`authoring.recommendedFrame` with a bounded width and height. Studio uses the
+hint as the initial preview geometry and as the starting aspect ratio for a
+new Layout placement. It remains a viewing/placement hint: it is never saved
+into Widget configuration and never constrains later Layout resizing. Alert
+Banner declares 1920×160.
+
 The current definitions that declare `authoring.preview.time` are `clock`,
 `countdown`, `agenda`, `status`, `date`, `world_clock`, `schedule-board`,
-`now-and-next`, `alert-banner`, and `school-status-banner`.
+`now-and-next`, and `school-status-banner`.
 
 ## Data Sources
 
@@ -239,9 +246,11 @@ diagnostics from the actions menu.
 The editor does not capture a thumbnail before a save. After the Server accepts
 a save of a component Widget, the editor queues the saved Widget in
 `WidgetSnapshotQueue`. The queue is mounted once in the Studio shell, so a route
-change does not cancel a capture. The queue renders the saved Widget at the
-canonical 960 × 540 frame, waits for the organization regional settings,
-captures the render, and uploads it.
+change does not cancel a capture. The queue renders the saved Widget at its declared
+`authoring.recommendedFrame` when present, otherwise at 960 × 540. The
+capture keeps that real source geometry for container-query behavior and
+contains it inside the canonical 960 × 540 library artwork. It waits for the
+organization regional settings, captures the render, and uploads it.
 
 When a capture or upload fails, Studio keeps the save and shows the warning
 "Preview thumbnail could not be updated." The Widgets library backfill tries
