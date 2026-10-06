@@ -86,7 +86,7 @@ export function PluginStorePage() {
     <main className="grid gap-4">
       <PageHeader
         title={t("store.title")}
-        description={t("catalog.description")}
+        description={t("store.description")}
       />
 
       {store.isError && (
@@ -174,12 +174,12 @@ export function PluginStorePage() {
             <EmptyTitle>
               {query || category !== "All" || source !== "all"
                 ? t("catalog.emptySearchTitle")
-                : t("catalog.emptyInstalledTitle")}
+                : t("store.emptyTitle")}
             </EmptyTitle>
             <EmptyDescription>
               {query || category !== "All" || source !== "all"
                 ? t("catalog.emptySearchDescription")
-                : t("catalog.emptyInstalledDescription")}
+                : t("store.emptyDescription")}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
