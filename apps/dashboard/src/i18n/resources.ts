@@ -16,6 +16,7 @@ import schedules from "../locales/en/schedules.json";
 import activity from "../locales/en/activity.json";
 import plugins from "../locales/en/plugins.json";
 import alerts from "../locales/en/alerts.json";
+import definitions from "../locales/en/definitions.json";
 import { pluginNamespaceFromPath } from "../plugin-host/translation";
 
 export const englishResources = {
@@ -34,6 +35,7 @@ export const englishResources = {
   activity,
   plugins,
   alerts,
+  definitions,
 } as const;
 
 export type Namespace = keyof typeof englishResources;

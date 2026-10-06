@@ -696,72 +696,6 @@ func (e ContentDefinitionFetchSpecFormat) Valid() bool {
 	}
 }
 
-// Defines values for ContentDefinitionFieldControl.
-const (
-	ContentDefinitionFieldControlBoolean         ContentDefinitionFieldControl = "boolean"
-	ContentDefinitionFieldControlColor           ContentDefinitionFieldControl = "color"
-	ContentDefinitionFieldControlCurrencyCode    ContentDefinitionFieldControl = "currency_code"
-	ContentDefinitionFieldControlDataSource      ContentDefinitionFieldControl = "data_source"
-	ContentDefinitionFieldControlDataSourceField ContentDefinitionFieldControl = "data_source_field"
-	ContentDefinitionFieldControlDate            ContentDefinitionFieldControl = "date"
-	ContentDefinitionFieldControlDatetime        ContentDefinitionFieldControl = "datetime"
-	ContentDefinitionFieldControlInteger         ContentDefinitionFieldControl = "integer"
-	ContentDefinitionFieldControlLocalDatetime   ContentDefinitionFieldControl = "local_datetime"
-	ContentDefinitionFieldControlMediaAsset      ContentDefinitionFieldControl = "media_asset"
-	ContentDefinitionFieldControlMultilineText   ContentDefinitionFieldControl = "multiline_text"
-	ContentDefinitionFieldControlNumber          ContentDefinitionFieldControl = "number"
-	ContentDefinitionFieldControlRepeatingGroup  ContentDefinitionFieldControl = "repeating_group"
-	ContentDefinitionFieldControlSelect          ContentDefinitionFieldControl = "select"
-	ContentDefinitionFieldControlStringList      ContentDefinitionFieldControl = "string_list"
-	ContentDefinitionFieldControlText            ContentDefinitionFieldControl = "text"
-	ContentDefinitionFieldControlTimezone        ContentDefinitionFieldControl = "timezone"
-	ContentDefinitionFieldControlUrl             ContentDefinitionFieldControl = "url"
-)
-
-// Valid indicates whether the value is a known member of the ContentDefinitionFieldControl enum.
-func (e ContentDefinitionFieldControl) Valid() bool {
-	switch e {
-	case ContentDefinitionFieldControlBoolean:
-		return true
-	case ContentDefinitionFieldControlColor:
-		return true
-	case ContentDefinitionFieldControlCurrencyCode:
-		return true
-	case ContentDefinitionFieldControlDataSource:
-		return true
-	case ContentDefinitionFieldControlDataSourceField:
-		return true
-	case ContentDefinitionFieldControlDate:
-		return true
-	case ContentDefinitionFieldControlDatetime:
-		return true
-	case ContentDefinitionFieldControlInteger:
-		return true
-	case ContentDefinitionFieldControlLocalDatetime:
-		return true
-	case ContentDefinitionFieldControlMediaAsset:
-		return true
-	case ContentDefinitionFieldControlMultilineText:
-		return true
-	case ContentDefinitionFieldControlNumber:
-		return true
-	case ContentDefinitionFieldControlRepeatingGroup:
-		return true
-	case ContentDefinitionFieldControlSelect:
-		return true
-	case ContentDefinitionFieldControlStringList:
-		return true
-	case ContentDefinitionFieldControlText:
-		return true
-	case ContentDefinitionFieldControlTimezone:
-		return true
-	case ContentDefinitionFieldControlUrl:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ContentDefinitionOutputSchemaKind.
 const (
 	List       ContentDefinitionOutputSchemaKind = "list"
@@ -6626,6 +6560,9 @@ type ContentDefinitionAppRecipe struct {
 // ContentDefinitionAuthoring Studio authoring capabilities. They never change validation, projection, or playback.
 type ContentDefinitionAuthoring struct {
 	Preview struct {
+		// RecommendedFrame A pixel geometry. Studio opens the preview at a Widget's recommended frame, renders library thumbnails at it, and gives a new Layout placement its aspect ratio. It is an authoring hint only; it never reaches the Player and never changes validation or playback.
+		RecommendedFrame *ContentDefinitionFrame `json:"recommendedFrame,omitempty"`
+
 		// Time The rendered result depends on the current instant, so Studio offers preview-time controls.
 		Time *bool `json:"time,omitempty"`
 	} `json:"preview"`
@@ -6697,16 +6634,24 @@ type ContentDefinitionFetchSpecFormat string
 
 // ContentDefinitionField defines model for ContentDefinitionField.
 type ContentDefinitionField struct {
-	AcceptedDataSourceKinds *[]string                     `json:"acceptedDataSourceKinds,omitempty"`
-	Control                 ContentDefinitionFieldControl `json:"control"`
-	DataSourceFieldTypes    *[]string                     `json:"dataSourceFieldTypes,omitempty"`
+	AcceptedDataSourceKinds *[]string `json:"acceptedDataSourceKinds,omitempty"`
+
+	// Control The authoring control. New definitions and plugins can introduce control types, so clients must tolerate values they do not know.
+	Control              string    `json:"control"`
+	DataSourceFieldTypes *[]string `json:"dataSourceFieldTypes,omitempty"`
 
 	// Default Release-owned default value of any JSON type.
-	Default        interface{}                      `json:"default,omitempty"`
-	Description    *string                          `json:"description,omitempty"`
-	ItemFields     *[]ContentDefinitionField        `json:"itemFields,omitempty"`
-	Key            string                           `json:"key"`
-	Label          string                           `json:"label"`
+	Default     interface{} `json:"default,omitempty"`
+	Description *string     `json:"description,omitempty"`
+
+	// DescriptionKey A Studio translation key in the definitions namespace for description. Optional; description is the literal fallback.
+	DescriptionKey *string                   `json:"descriptionKey,omitempty"`
+	ItemFields     *[]ContentDefinitionField `json:"itemFields,omitempty"`
+	Key            string                    `json:"key"`
+	Label          string                    `json:"label"`
+
+	// LabelKey A Studio translation key in the definitions namespace for label. Optional; label is the literal fallback and stays the English source.
+	LabelKey       *string                          `json:"labelKey,omitempty"`
 	MaxLength      *int                             `json:"maxLength,omitempty"`
 	Maximum        *float32                         `json:"maximum,omitempty"`
 	MaximumItems   *int                             `json:"maximumItems,omitempty"`
@@ -6721,8 +6666,11 @@ type ContentDefinitionField struct {
 	Ui *map[string]interface{} `json:"ui,omitempty"`
 }
 
-// ContentDefinitionFieldControl defines model for ContentDefinitionField.Control.
-type ContentDefinitionFieldControl string
+// ContentDefinitionFrame A pixel geometry. Studio opens the preview at a Widget's recommended frame, renders library thumbnails at it, and gives a new Layout placement its aspect ratio. It is an authoring hint only; it never reaches the Player and never changes validation or playback.
+type ContentDefinitionFrame struct {
+	Height int `json:"height"`
+	Width  int `json:"width"`
+}
 
 // ContentDefinitionOutputField defines model for ContentDefinitionOutputField.
 type ContentDefinitionOutputField struct {
@@ -6746,7 +6694,10 @@ type ContentDefinitionOutputSchemaKind string
 // ContentDefinitionSelectOption defines model for ContentDefinitionSelectOption.
 type ContentDefinitionSelectOption struct {
 	Label string `json:"label"`
-	Value string `json:"value"`
+
+	// LabelKey A Studio translation key in the definitions namespace for label. Optional; label is the fallback.
+	LabelKey *string `json:"labelKey,omitempty"`
+	Value    string  `json:"value"`
 }
 
 // ContentDefinitionSetup defines model for ContentDefinitionSetup.

@@ -7317,31 +7317,19 @@ export interface components {
     ContentDefinitionSelectOption: {
       value: string;
       label: string;
+      /** @description A Studio translation key in the definitions namespace for label. Optional; label is the fallback. */
+      labelKey?: string;
     };
     ContentDefinitionField: {
       key: string;
       label: string;
+      /** @description A Studio translation key in the definitions namespace for label. Optional; label is the literal fallback and stays the English source. */
+      labelKey?: string;
       description?: string;
-      /** @enum {string} */
-      control:
-        | "text"
-        | "multiline_text"
-        | "number"
-        | "integer"
-        | "boolean"
-        | "select"
-        | "color"
-        | "date"
-        | "datetime"
-        | "local_datetime"
-        | "timezone"
-        | "currency_code"
-        | "url"
-        | "data_source"
-        | "data_source_field"
-        | "media_asset"
-        | "repeating_group"
-        | "string_list";
+      /** @description A Studio translation key in the definitions namespace for description. Optional; description is the literal fallback. */
+      descriptionKey?: string;
+      /** @description The authoring control. New definitions and plugins can introduce control types, so clients must tolerate values they do not know. */
+      control: string;
       required?: boolean;
       /** @description Release-owned default value of any JSON type. */
       default?: unknown;
@@ -7368,7 +7356,13 @@ export interface components {
       preview: {
         /** @description The rendered result depends on the current instant, so Studio offers preview-time controls. */
         time?: boolean;
+        recommendedFrame?: components["schemas"]["ContentDefinitionFrame"];
       };
+    };
+    /** @description A pixel geometry. Studio opens the preview at a Widget's recommended frame, renders library thumbnails at it, and gives a new Layout placement its aspect ratio. It is an authoring hint only; it never reaches the Player and never changes validation or playback. */
+    ContentDefinitionFrame: {
+      width: number;
+      height: number;
     };
     ContentDefinitionConfigurationSchema: {
       fields: components["schemas"]["ContentDefinitionField"][];

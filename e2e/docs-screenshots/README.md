@@ -41,7 +41,7 @@ Failures produce traces and diagnostic screenshots under `test-results/`.
 | fleet                    | `/screens`, populated district Fleet                                                                               | Getting started, Studio, Screen status     |
 | media-library            | `/assets`, eight Ready images sorted by Name                                                                       | Media                                      |
 | data-source-providers    | `/data-sources/new`, provider catalog crop                                                                         | Data Sources                               |
-| widget-editor            | `/widgets/de30000a-0000-4000-8000-000000000009`, Lobby Clock ready at Small zone size                              | Widgets                                    |
+| widget-editor            | `/widgets/de30000a-0000-4000-8000-000000000009`, Lobby Clock with its Widget mounted                               | Widgets                                    |
 | playlist-editor          | `/playlists/de300005-0000-4000-8000-000000000001`, Morning Announcements with first item selected                  | Playlists                                  |
 | layout-editor            | `/layouts/de300006-0000-4000-8000-000000000001`, Hallway Split canvas                                              | Layouts                                    |
 | campaign-editor          | `/campaigns/de300008-0000-4000-8000-000000000001`, Homecoming Week draft                                           | Campaigns                                  |

@@ -13,15 +13,6 @@ import {
 } from "@/components/ui/item";
 import { EditorSidePanel } from "./EditorSidePanel";
 
-/** How many playlists and Layouts a save would change. */
-export function widgetUsageCount(asset: Asset | undefined) {
-  if (!asset) return 0;
-  return (
-    (asset.playlistsUsing?.length ?? asset.playlistUsage ?? 0) +
-    (asset.layoutUsage?.length ?? 0)
-  );
-}
-
 /**
  * Everything that shows this Widget, so an author sees what a save will
  * change before making it. Links leave the editor through the usual

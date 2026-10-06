@@ -63,6 +63,8 @@ An Owner, Administrator, or Editor can create and edit Widgets.
 
 </Steps>
 
+Every Widget type uses this one editor, including [Website](../website-content/) and YouTube. Their settings use the same controls, and Studio shows the labels and help text in your language.
+
 Studio shows only the setting groups a Widget has. A Widget with one group shows its settings without tabs. Rarely changed settings sit under **Advanced**.
 
 If **Choose** lists no sources, create one with **Connect new data**, or create it from **Content** > **Data Sources**. The list offers only sources whose data this Widget can show.
@@ -116,7 +118,7 @@ A Viewer can open a Widget, use the preview, and see its settings and where it's
 
 The preview in the Widget editor uses the same Widget renderer as current Linux and Tilecast Edge Players. What you see there is what those screens show.
 
-- The frame list switches between **Landscape · 16:9**, **Portrait · 9:16**, **Wide strip**, **Tall sidebar**, **Small zone**, and **Custom size**. Widgets arrange themselves for the space they have, so check the sizes where you plan to use the Widget.
+- The frame list switches between **Landscape · 16:9**, **Portrait · 9:16**, **Wide strip**, **Tall sidebar**, **Small zone**, and **Custom size**. Widgets arrange themselves for the space they have, so check the sizes where you plan to use the Widget. A Widget that is built for one shape, such as the Ticker, opens at that shape and lists it as **Recommended**.
 - **Fit** scales the frame to the window. Use the zoom buttons to look closer, and the fullscreen button to see the preview on its own.
 - **Time** appears for Widgets that change with time, such as a Clock, Countdown, or Agenda, and for Widgets whose data source selects records by date. Select **At a time** to see the Widget at a chosen date and time. The selected calendar date also drives time-sensitive Data Source previews, so both use the same day.
 - In **Live** mode, the preview uses the Data Source's current data. If the source has no data yet, the preview shows the Widget's empty message.
@@ -127,7 +129,11 @@ For Widgets that chart time-series data, Studio uses the same points, timezone, 
 
 A healthy preview shows only the Widget. When the preview is loading, waiting for data, empty, or can't render, a short note under it says so. A preview problem doesn't stop you from saving.
 
-After a save, Studio renders the saved Widget at 16:9 and stores it as the Widget's thumbnail, no matter which frame you had selected. If Studio can't capture or upload the thumbnail, the Widget stays saved and Studio shows a warning. The Widgets library tries the thumbnail again later.
+Studio saves the Widget first. Then it captures the Widget's thumbnail, no matter which frame you had selected. The thumbnail is always 16:9. A Widget with a recommended shape, such as a wide strip, appears whole in the middle of the thumbnail on a dark background. If Studio can't capture or upload the thumbnail, the Widget stays saved and Studio shows a warning. The Widgets library tries the thumbnail again later.
+
+### Recommended shape
+
+Some Widgets are built for a shape. The Ticker is a wide, shallow strip. When you add such a Widget to a [Layout](../layouts/), its placement starts with that shape instead of a 16:9 box, and you can resize it as usual. Existing Layouts don't change.
 
 When a content manager opens **Widgets**, Studio checks the full library for missing or outdated thumbnails in the background. Search and provider filters do not limit this check, and Studio captures one Widget at a time.
 

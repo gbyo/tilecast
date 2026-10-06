@@ -416,3 +416,16 @@ export function providerIcon(provider: DataSourceProvider, size = 28) {
   if (provider === "form") return <ClipboardList size={size} />;
   return <Rss size={size} />;
 }
+
+export function statusLabel(status: unknown, t: ContentT) {
+  if (status === "error") return t("dataSources.status.error");
+  if (typeof status !== "string" || status.length === 0)
+    return t("dataSources.status.unknown");
+  if (status === "ready") return t("dataSources.status.ready");
+  return status.replaceAll("_", " ");
+}
+
+export function recordCountLabel(recordCount: unknown, t: ContentT) {
+  if (typeof recordCount !== "number") return undefined;
+  return t("dataSources.picker.recordCount", { count: recordCount });
+}

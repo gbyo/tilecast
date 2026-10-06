@@ -4,7 +4,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { Asset, WidgetDefinition } from "../api/types";
@@ -24,6 +24,10 @@ import {
   WIDGET_PREVIEW_CAPTURE_VERSION,
   WIDGET_THUMBNAIL_FRAME,
 } from "./widgetPreviewCapture";
+import {
+  recommendedFrameForProvider,
+  type WidgetFrame,
+} from "./widgetGeometry";
 import {
   widgetPreviewConfiguration,
   widgetPreviewDataSourceIds,
@@ -148,6 +152,8 @@ function useSnapshotUpload(
   failed: boolean,
   previewRef: React.RefObject<HTMLDivElement | null>,
   onSettled: () => void,
+  /** The geometry the Widget rendered at, when it is not the canonical frame. */
+  renderFrame?: WidgetFrame,
 ) {
   const { t } = useTranslation(["content"]);
   const auth = useAuth();
@@ -158,17 +164,20 @@ function useSnapshotUpload(
   // readiness changes: cleanup would cancel an in-progress capture that is
   // never retried, after the image may already be stored. The library passes a
   // new onSettled on every render (it re-renders on each assets refetch), and
-  // the language and session token can change too, so all three live in refs
-  // that always carry the latest value.
-  const tRef = useRef(t);
-  tRef.current = t;
-  const onSettledRef = useRef(onSettled);
-  onSettledRef.current = onSettled;
-  const csrfRef = useRef(csrf);
-  csrfRef.current = csrf;
+  // the language and session token can change too.
+  // Effect Events read the latest language, session token, and callback
+  // without restarting the capture below.
+  const settle = useEffectEvent(onSettled);
+  const storeCapture = useEffectEvent(
+    async (element: HTMLElement, cancelled: () => boolean) => {
+      const image = await captureWidgetPreview(element, t, renderFrame);
+      if (cancelled()) return;
+      await api.uploadWidgetPreview(asset.id, image, csrf);
+    },
+  );
   useEffect(() => {
     if (failed) {
-      onSettledRef.current();
+      settle();
       return;
     }
     if (!ready || uploaded.current) return;
@@ -181,16 +190,14 @@ function useSnapshotUpload(
           try {
             const element = previewRef.current;
             if (cancelled || !element) return;
-            const image = await captureWidgetPreview(element, tRef.current);
-            if (cancelled) return;
-            await api.uploadWidgetPreview(asset.id, image, csrfRef.current);
+            await storeCapture(element, () => cancelled);
             if (!cancelled)
               await queryClient.invalidateQueries({ queryKey: ["assets"] });
           } catch {
             // A Widget that cannot be captured keeps its honest unavailable state. The list is not
             // blocked on it and it is not retried, so one bad Widget cannot stall the rest.
           } finally {
-            if (!cancelled) onSettledRef.current();
+            if (!cancelled) settle();
           }
         })();
       }),
@@ -220,7 +227,11 @@ function WidgetSnapshotCapture({
   // A Widgets V2 Widget is captured from its real element, the same one the
   // editor previews and the Player mounts.
   return studioWidgetComponent(definitions.data, provider) ? (
-    <V2SnapshotCapture asset={asset} onSettled={onSettled} />
+    <V2SnapshotCapture
+      asset={asset}
+      onSettled={onSettled}
+      renderFrame={recommendedFrameForProvider(definitions.data, provider)}
+    />
   ) : (
     <CompatibilitySnapshotCapture asset={asset} onSettled={onSettled} />
   );
@@ -239,10 +250,14 @@ function SnapshotSetupFailure({ onSettled }: { onSettled: () => void }) {
 function V2SnapshotCapture({
   asset,
   onSettled,
+  renderFrame,
 }: {
   asset: Asset;
   onSettled: () => void;
+  /** The Widget's own geometry; it renders there and is fitted into the thumbnail. */
+  renderFrame: WidgetFrame | null;
 }) {
+  const frame = renderFrame ?? SNAPSHOT_FRAME;
   const previewRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<"pending" | "settled" | "failed">(
     "pending",
@@ -253,15 +268,20 @@ function V2SnapshotCapture({
     state === "failed",
     previewRef,
     onSettled,
+    renderFrame ?? undefined,
   );
   return (
-    <div className="widget-snapshot-backfill" aria-hidden="true">
+    <div
+      className="widget-snapshot-backfill"
+      aria-hidden="true"
+      style={{ width: frame.width }}
+    >
       <div ref={previewRef}>
         <V2ZonePreview
           provider={asset.widget!.provider}
           asset={asset}
-          width={SNAPSHOT_FRAME.width}
-          height={SNAPSHOT_FRAME.height}
+          width={frame.width}
+          height={frame.height}
           onState={(next) => {
             if (next.state === "ready" || next.state === "empty")
               setState("settled");

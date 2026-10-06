@@ -1685,7 +1685,11 @@ export type DataSourceProvider = LegacyDataSourceProvider | (string & {});
 export type ContentDefinitionField = {
   key: string;
   label: string;
+  /** A Studio translation key for `label`; the literal text is the fallback. */
+  labelKey?: string;
   description?: string;
+  /** A Studio translation key for `description`. */
+  descriptionKey?: string;
   control:
     | "text"
     | "multiline_text"
@@ -1711,7 +1715,7 @@ export type ContentDefinitionField = {
   maximum?: number;
   minLength?: number;
   maxLength?: number;
-  options?: { value: string; label: string }[];
+  options?: { value: string; label: string; labelKey?: string }[];
   acceptedDataSourceKinds?: string[];
   requiredFields?: Record<string, string>;
   dataSourceFieldTypes?: string[];
@@ -1806,7 +1810,13 @@ export type WidgetDefinition = {
   /** An App that provisions one managed Data Source when it is saved. */
   recipe?: { dataSource: { provider: string; name: string } };
   /** Studio authoring capabilities; they never change playback. */
-  authoring?: { preview?: { time?: boolean } };
+  authoring?: {
+    preview?: {
+      time?: boolean;
+      /** The pixel geometry the Widget is designed for (authoring only). */
+      recommendedFrame?: { width: number; height: number };
+    };
+  };
 };
 export type ContentDefinitionSetup = {
   eyebrow?: string;

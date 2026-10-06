@@ -13,7 +13,9 @@
           {
             "key": "url",
             "label": "Web address",
+            "labelKey": "definitions:website.fields.url.label",
             "description": "The public page to show. Use HTTPS; plain HTTP works only for private addresses when this installation allows it.",
+            "descriptionKey": "definitions:website.fields.url.description",
             "control": "url",
             "required": true,
             "maxLength": 2048,
@@ -22,7 +24,9 @@
           {
             "key": "backgroundColor",
             "label": "Background color",
+            "labelKey": "definitions:website.fields.backgroundColor.label",
             "description": "Shown behind the page while it loads.",
+            "descriptionKey": "definitions:website.fields.backgroundColor.description",
             "control": "color",
             "default": "#0E141B",
             "ui": { "section": "appearance", "order": 1 }
@@ -30,6 +34,7 @@
           {
             "key": "zoomPercent",
             "label": "Zoom (%)",
+            "labelKey": "definitions:website.fields.zoomPercent.label",
             "control": "integer",
             "default": 100,
             "minimum": 50,
@@ -39,6 +44,7 @@
           {
             "key": "scrollX",
             "label": "Horizontal scroll (px)",
+            "labelKey": "definitions:website.fields.scrollX.label",
             "control": "integer",
             "default": 0,
             "minimum": 0,
@@ -48,6 +54,7 @@
           {
             "key": "scrollY",
             "label": "Vertical scroll (px)",
+            "labelKey": "definitions:website.fields.scrollY.label",
             "control": "integer",
             "default": 0,
             "minimum": 0,
@@ -57,21 +64,32 @@
           {
             "key": "reloadPolicy",
             "label": "Reload",
+            "labelKey": "definitions:website.fields.reloadPolicy.label",
             "control": "select",
             "default": "on_each_activation",
             "options": [
-              { "value": "load_once", "label": "Load once while active" },
+              {
+                "value": "load_once",
+                "label": "Load once while active",
+                "labelKey": "definitions:website.fields.reloadPolicy.options.load_once"
+              },
               {
                 "value": "on_each_activation",
-                "label": "Reload each time it appears"
+                "label": "Reload each time it appears",
+                "labelKey": "definitions:website.fields.reloadPolicy.options.on_each_activation"
               },
-              { "value": "interval", "label": "Reload on an interval" }
+              {
+                "value": "interval",
+                "label": "Reload on an interval",
+                "labelKey": "definitions:website.fields.reloadPolicy.options.interval"
+              }
             ],
             "ui": { "section": "behavior", "order": 1 }
           },
           {
             "key": "refreshIntervalSeconds",
             "label": "Reload every (seconds)",
+            "labelKey": "definitions:website.fields.refreshIntervalSeconds.label",
             "control": "integer",
             "default": 300,
             "minimum": 30,
@@ -85,25 +103,37 @@
           {
             "key": "failureBehavior",
             "label": "If the page cannot load",
+            "labelKey": "definitions:website.fields.failureBehavior.label",
             "control": "select",
             "default": "placeholder",
             "options": [
               {
                 "value": "placeholder",
-                "label": "Show the Tilecast placeholder"
+                "label": "Show the Tilecast placeholder",
+                "labelKey": "definitions:website.fields.failureBehavior.options.placeholder"
               },
               {
                 "value": "last_success",
-                "label": "Keep the last page that loaded"
+                "label": "Keep the last page that loaded",
+                "labelKey": "definitions:website.fields.failureBehavior.options.last_success"
               },
-              { "value": "fallback_image", "label": "Show a fallback image" },
-              { "value": "skip", "label": "Skip this item" }
+              {
+                "value": "fallback_image",
+                "label": "Show a fallback image",
+                "labelKey": "definitions:website.fields.failureBehavior.options.fallback_image"
+              },
+              {
+                "value": "skip",
+                "label": "Skip this item",
+                "labelKey": "definitions:website.fields.failureBehavior.options.skip"
+              }
             ],
             "ui": { "section": "behavior", "order": 3 }
           },
           {
             "key": "fallbackImageAssetId",
             "label": "Fallback image",
+            "labelKey": "definitions:website.fields.fallbackImageAssetId.label",
             "control": "media_asset",
             "mediaTypes": ["image"],
             "ui": {
@@ -118,6 +148,7 @@
           {
             "key": "loadTimeoutSeconds",
             "label": "Load timeout (seconds)",
+            "labelKey": "definitions:website.fields.loadTimeoutSeconds.label",
             "control": "integer",
             "default": 20,
             "minimum": 1,
@@ -127,7 +158,9 @@
           {
             "key": "allowedHosts",
             "label": "Allowed hosts",
+            "labelKey": "definitions:website.fields.allowedHosts.label",
             "description": "Exact host names the page may navigate to. The page's own host is always allowed. This limits top-level navigation, not every third-party resource.",
+            "descriptionKey": "definitions:website.fields.allowedHosts.description",
             "control": "string_list",
             "default": [],
             "maxLength": 253,
@@ -137,6 +170,7 @@
           {
             "key": "javascriptEnabled",
             "label": "Run JavaScript",
+            "labelKey": "definitions:website.fields.javascriptEnabled.label",
             "control": "boolean",
             "default": true,
             "ui": { "section": "behavior", "order": 7, "advanced": true }
@@ -144,6 +178,7 @@
           {
             "key": "domStorageEnabled",
             "label": "Allow DOM storage",
+            "labelKey": "definitions:website.fields.domStorageEnabled.label",
             "control": "boolean",
             "default": true,
             "ui": { "section": "behavior", "order": 8, "advanced": true }
@@ -151,14 +186,24 @@
           {
             "key": "cookiePolicy",
             "label": "Cookies",
+            "labelKey": "definitions:website.fields.cookiePolicy.label",
             "control": "select",
             "default": "first_party",
             "options": [
-              { "value": "disabled", "label": "Disabled" },
-              { "value": "first_party", "label": "First-party only" },
+              {
+                "value": "disabled",
+                "label": "Disabled",
+                "labelKey": "definitions:website.fields.cookiePolicy.options.disabled"
+              },
+              {
+                "value": "first_party",
+                "label": "First-party only",
+                "labelKey": "definitions:website.fields.cookiePolicy.options.first_party"
+              },
               {
                 "value": "first_and_third_party",
-                "label": "First- and third-party"
+                "label": "First- and third-party",
+                "labelKey": "definitions:website.fields.cookiePolicy.options.first_and_third_party"
               }
             ],
             "ui": { "section": "behavior", "order": 9, "advanced": true }
@@ -166,7 +211,9 @@
           {
             "key": "customUserAgent",
             "label": "Custom user agent",
+            "labelKey": "definitions:website.fields.customUserAgent.label",
             "description": "Leave blank for the Player's standard user agent. Overrides can break sites.",
+            "descriptionKey": "definitions:website.fields.customUserAgent.description",
             "control": "text",
             "default": "",
             "maxLength": 512,
@@ -211,7 +258,9 @@
           {
             "key": "url",
             "label": "YouTube video or playlist URL",
+            "labelKey": "definitions:youtube.fields.url.label",
             "description": "Tilecast detects whether this is a video or a playlist. No YouTube API key is required.",
+            "descriptionKey": "definitions:youtube.fields.url.description",
             "control": "url",
             "required": true,
             "maxLength": 2048,
@@ -220,6 +269,7 @@
           {
             "key": "startSeconds",
             "label": "Start at (seconds)",
+            "labelKey": "definitions:youtube.fields.startSeconds.label",
             "control": "integer",
             "default": 0,
             "minimum": 0,
@@ -229,7 +279,9 @@
           {
             "key": "endSeconds",
             "label": "End at (seconds)",
+            "labelKey": "definitions:youtube.fields.endSeconds.label",
             "description": "Leave blank to play to the end.",
+            "descriptionKey": "definitions:youtube.fields.endSeconds.description",
             "control": "integer",
             "minimum": 1,
             "maximum": 86400,
@@ -238,6 +290,7 @@
           {
             "key": "captions",
             "label": "Show captions",
+            "labelKey": "definitions:youtube.fields.captions.label",
             "control": "boolean",
             "default": false,
             "ui": { "section": "content", "order": 4 }
@@ -245,7 +298,9 @@
           {
             "key": "captionLanguage",
             "label": "Caption language",
+            "labelKey": "definitions:youtube.fields.captionLanguage.label",
             "description": "A language code such as en or es. Leave blank for YouTube's default.",
+            "descriptionKey": "definitions:youtube.fields.captionLanguage.description",
             "control": "text",
             "default": "",
             "maxLength": 6,
@@ -258,6 +313,7 @@
           {
             "key": "muted",
             "label": "Mute audio",
+            "labelKey": "definitions:youtube.fields.muted.label",
             "control": "boolean",
             "default": false,
             "ui": { "section": "behavior", "order": 1 }
@@ -265,6 +321,7 @@
           {
             "key": "volume",
             "label": "Volume (%)",
+            "labelKey": "definitions:youtube.fields.volume.label",
             "control": "integer",
             "default": 100,
             "minimum": 0,
@@ -279,6 +336,7 @@
           {
             "key": "loop",
             "label": "Loop playback",
+            "labelKey": "definitions:youtube.fields.loop.label",
             "control": "boolean",
             "default": false,
             "ui": { "section": "behavior", "order": 3 }
@@ -286,6 +344,7 @@
           {
             "key": "controls",
             "label": "Show YouTube controls",
+            "labelKey": "definitions:youtube.fields.controls.label",
             "control": "boolean",
             "default": false,
             "ui": { "section": "behavior", "order": 4 }
@@ -293,13 +352,19 @@
           {
             "key": "playlistPlaybackMode",
             "label": "Playlist item length",
+            "labelKey": "definitions:youtube.fields.playlistPlaybackMode.label",
             "control": "select",
             "default": "until_end",
             "options": [
-              { "value": "until_end", "label": "Play until the video ends" },
+              {
+                "value": "until_end",
+                "label": "Play until the video ends",
+                "labelKey": "definitions:youtube.fields.playlistPlaybackMode.options.until_end"
+              },
               {
                 "value": "fixed_duration",
-                "label": "Play for a fixed duration"
+                "label": "Play for a fixed duration",
+                "labelKey": "definitions:youtube.fields.playlistPlaybackMode.options.fixed_duration"
               }
             ],
             "ui": { "section": "behavior", "order": 5 }
@@ -307,6 +372,7 @@
           {
             "key": "fixedDurationSeconds",
             "label": "Fixed duration (seconds)",
+            "labelKey": "definitions:youtube.fields.fixedDurationSeconds.label",
             "control": "integer",
             "default": 30,
             "minimum": 1,
@@ -323,21 +389,32 @@
           {
             "key": "failureBehavior",
             "label": "If the video cannot play",
+            "labelKey": "definitions:youtube.fields.failureBehavior.label",
             "control": "select",
             "default": "placeholder",
             "options": [
               {
                 "value": "placeholder",
-                "label": "Show the Tilecast placeholder"
+                "label": "Show the Tilecast placeholder",
+                "labelKey": "definitions:youtube.fields.failureBehavior.options.placeholder"
               },
-              { "value": "fallback_image", "label": "Show a fallback image" },
-              { "value": "skip", "label": "Skip this item" }
+              {
+                "value": "fallback_image",
+                "label": "Show a fallback image",
+                "labelKey": "definitions:youtube.fields.failureBehavior.options.fallback_image"
+              },
+              {
+                "value": "skip",
+                "label": "Skip this item",
+                "labelKey": "definitions:youtube.fields.failureBehavior.options.skip"
+              }
             ],
             "ui": { "section": "behavior", "order": 7 }
           },
           {
             "key": "fallbackImageAssetId",
             "label": "Fallback image",
+            "labelKey": "definitions:youtube.fields.fallbackImageAssetId.label",
             "control": "media_asset",
             "mediaTypes": ["image"],
             "ui": {

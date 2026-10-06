@@ -203,3 +203,17 @@ export function validateWidgetDraft(
     valid: !nameProblem && !descriptionProblem && issues.length === 0,
   };
 }
+
+/** Where to move focus to show the first problem, or null when there is none. */
+export function firstProblemFocus(
+  validation: WidgetValidation,
+):
+  | { target: "details" }
+  | { target: "field"; path: string; section: WidgetAuthoringSection }
+  | null {
+  if (validation.name || validation.description) return { target: "details" };
+  const first = validation.issues[0];
+  return first
+    ? { target: "field", path: first.path, section: first.section }
+    : null;
+}

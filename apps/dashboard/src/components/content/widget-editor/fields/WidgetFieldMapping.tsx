@@ -4,12 +4,8 @@
  * then compatible types (suggestFieldMapping); the control says quietly
  * whether the current choice is that suggestion or the author's own.
  */
-import { useQuery } from "@tanstack/react-query";
-import { suggestFieldMapping } from "@tilecast/widget-kit";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "@/api/client";
-import type { ContentDefinitionField, DataSourceField } from "@/api/types";
 import {
   Combobox,
   ComboboxContent,
@@ -25,58 +21,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { resolveDataSourceKey } from "@/content/DefinitionForm";
 import { InspectorFieldFrame } from "./InspectorFieldFrame";
 import {
   controlAria,
   fieldText,
   type InspectorFieldProps,
 } from "./fieldContext";
+import {
+  mappingSourceId,
+  suggestedSourceField,
+  useSourceFields,
+} from "./fieldMapping";
 
 // Short lists read best as a plain list; long ones need search.
 const SEARCH_THRESHOLD = 12;
-
-export function useSourceFields(sourceId: string) {
-  return useQuery({
-    queryKey: ["definition-form-data-source", sourceId],
-    queryFn: () => api.getDataSource(sourceId),
-    enabled: Boolean(sourceId),
-    select: (source) => source.fields ?? [],
-  });
-}
-
-/** The suggested source field for a slot, or "" when nothing fits. */
-export function suggestedSourceField(
-  field: ContentDefinitionField,
-  sourceFields: readonly DataSourceField[],
-): string {
-  const roles = field.ui?.semanticRole ? [field.ui.semanticRole] : [];
-  const legacyKeys = field.ui?.legacyKeys ?? [];
-  return (
-    suggestFieldMapping([...sourceFields], {
-      [field.key]: {
-        roles,
-        legacyKeys,
-        types: field.dataSourceFieldTypes ?? [],
-      },
-    })[field.key] ?? ""
-  );
-}
-
-/** The Data Source a mapping control reads, from its siblings or the root. */
-export function mappingSourceId({
-  field,
-  values,
-  fields,
-  rootValues,
-  rootFields,
-}: Pick<
-  InspectorFieldProps,
-  "field" | "values" | "fields" | "rootValues" | "rootFields"
->) {
-  const key = resolveDataSourceKey(field, fields, rootFields);
-  return key ? fieldText(values[key]) || fieldText(rootValues[key]) : "";
-}
 
 export function WidgetFieldMapping(props: InspectorFieldProps) {
   const { field, path, value, onChange, readOnly, errorFor } = props;
@@ -85,17 +43,12 @@ export function WidgetFieldMapping(props: InspectorFieldProps) {
   const aria = controlAria(path, field, error);
   const sourceId = mappingSourceId(props);
   const sourceFields = useSourceFields(sourceId);
-  const options = useMemo(
-    () =>
-      (sourceFields.data ?? [])
-        .filter(
-          (entry) =>
-            !field.dataSourceFieldTypes?.length ||
-            field.dataSourceFieldTypes.includes(entry.type),
-        )
-        .map((entry) => ({ value: entry.key, label: entry.label })),
-    [sourceFields.data, field.dataSourceFieldTypes],
-  );
+  const options = useMemo(() => {
+    const accepted = new Set(field.dataSourceFieldTypes);
+    return (sourceFields.data ?? [])
+      .filter((entry) => accepted.size === 0 || accepted.has(entry.type))
+      .map((entry) => ({ value: entry.key, label: entry.label }));
+  }, [sourceFields.data, field.dataSourceFieldTypes]);
   const current = fieldText(value);
   const suggestion = sourceFields.data
     ? suggestedSourceField(field, sourceFields.data)

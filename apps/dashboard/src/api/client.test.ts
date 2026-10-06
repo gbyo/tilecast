@@ -370,6 +370,59 @@ describe("Widget preview snapshots", () => {
   });
 });
 
+describe("Widget preview snapshot requests", () => {
+  const image = new Blob(["jpeg"], { type: "image/jpeg" });
+
+  it("passes the abort signal so a superseded upload can be cancelled", async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, status: 204 });
+    vi.stubGlobal("fetch", fetch);
+    const controller = new AbortController();
+
+    await api.uploadWidgetPreview("widget-1", image, "csrf", controller.signal);
+
+    expect(fetch.mock.calls[0]![1]).toEqual(
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it("raises the Server's error, or a Widget-specific fallback", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 413,
+        json: () =>
+          Promise.resolve({
+            error: { code: "too_large", message: "The image is too large." },
+          }),
+      }),
+    );
+    await expect(
+      api.uploadWidgetPreview("widget-1", image, "csrf"),
+    ).rejects.toMatchObject({
+      message: "The image is too large.",
+      status: 413,
+      code: "too_large",
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.reject(new Error("not json")),
+      }),
+    );
+    await expect(
+      api.uploadWidgetPreview("widget-1", image, "csrf"),
+    ).rejects.toMatchObject({
+      message: "The Widget preview image could not be saved.",
+      status: 500,
+      code: "unknown_error",
+    });
+  });
+});
+
 describe("Layout preview snapshots", () => {
   it("uploads the frozen JPEG with CSRF protection", async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true, status: 204 });

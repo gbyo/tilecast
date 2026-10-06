@@ -54,6 +54,7 @@ import {
   type InspectorFieldProps,
 } from "./fieldContext";
 import { InspectorFieldFrame } from "./InspectorFieldFrame";
+import { useDeferredFocus, useStableRowIds } from "./rowIdentity";
 import { WidgetDataSourceField } from "./WidgetDataSourceField";
 import { WidgetFieldMapping } from "./WidgetFieldMapping";
 import { WidgetMediaField } from "./WidgetMediaField";
@@ -534,6 +535,9 @@ function StringListControl({
     : [];
   const id = fieldDomId(path);
   const limit = field.maximumItems ?? Infinity;
+  // Each entry keeps its input (focus, caret) when another is removed.
+  const rows = useStableRowIds(items.length);
+  const focusLater = useDeferredFocus();
   const describedBy =
     [field.description ? `${id}-description` : "", error ? `${id}-error` : ""]
       .filter(Boolean)
@@ -541,7 +545,7 @@ function StringListControl({
   return (
     <div className="grid gap-2" id={id} role="group">
       {items.map((entry, index) => (
-        <InputGroup key={index}>
+        <InputGroup key={rows.ids[index]}>
           <InputGroupInput
             id={`${id}-${index}`}
             aria-label={t("widgets.editor.fields.listEntry", {
@@ -570,9 +574,19 @@ function StringListControl({
                   label: field.label,
                   index: index + 1,
                 })}
-                onClick={() =>
-                  onChange(items.filter((_, position) => position !== index))
-                }
+                onClick={() => {
+                  rows.removeAt(index);
+                  onChange(items.filter((_, position) => position !== index));
+                  // The removed entry took focus with it: land on the entry
+                  // that moved into its place, or the one before it.
+                  focusLater(
+                    items.length > index + 1
+                      ? `${id}-${index}`
+                      : index > 0
+                        ? `${id}-${index - 1}`
+                        : `${id}-add`,
+                  );
+                }}
               >
                 <X aria-hidden="true" />
               </InputGroupButton>
@@ -586,8 +600,12 @@ function StringListControl({
           variant="outline"
           size="sm"
           className="justify-self-start"
-          id={items.length === 0 ? `${id}-0` : undefined}
-          onClick={() => onChange([...items, ""])}
+          id={`${id}-add`}
+          onClick={() => {
+            rows.append();
+            onChange([...items, ""]);
+            focusLater(`${id}-${items.length}`);
+          }}
         >
           <Plus aria-hidden="true" />
           {t("widgets.editor.fields.addEntry")}

@@ -91,6 +91,16 @@
             "time": {
               "description": "The rendered result depends on the current instant, so Studio offers preview-time controls.",
               "type": "boolean"
+            },
+            "recommendedFrame": {
+              "description": "The pixel geometry the Widget is designed for. Studio opens the preview at it, renders library thumbnails at it, and gives a new Layout placement its aspect ratio. An authoring hint only: it never reaches the Player and never changes validation or playback.",
+              "type": "object",
+              "properties": {
+                "width": { "type": "integer", "minimum": 32, "maximum": 3840 },
+                "height": { "type": "integer", "minimum": 32, "maximum": 3840 }
+              },
+              "required": ["width", "height"],
+              "additionalProperties": false
             }
           },
           "additionalProperties": false

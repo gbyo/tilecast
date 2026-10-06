@@ -13,6 +13,10 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
+import { i18n } from "@/i18n";
+import enDefinitions from "@/locales/en/definitions.json";
+import esDefinitions from "@/locales/es/definitions.json";
+import ruDefinitions from "@/locales/ru/definitions.json";
 import { youtubePreviewIds } from "./preview/webPreviewConfiguration";
 import {
   mockEditorApi,
@@ -23,6 +27,7 @@ import {
 
 beforeEach(() => useViewport("tablet"));
 afterEach(() => {
+  void i18n.changeLanguage("en");
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -409,5 +414,142 @@ describe("YouTube", () => {
     expect(
       youtubePreviewIds("https://example.com/watch?v=abcdefghijk"),
     ).toEqual({});
+  });
+});
+
+// Authoring text comes from the definition's translation keys, resolved by
+// the one generic inspector. There is no Website or YouTube editor to
+// translate separately.
+describe.each([
+  ["en", enDefinitions],
+  ["es", esDefinitions],
+  ["ru", ruDefinitions],
+] as const)("authoring text in %s", (language, words) => {
+  const accessibleName = (text: string) =>
+    new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+
+  it("localizes the Website settings, help text, and choices", async () => {
+    await i18n.changeLanguage(language);
+    mockEditorApi({ asset: savedWidget("website", website) });
+    renderEditorRoute("/widgets/widget-1");
+    const fields = words.website.fields;
+    const tabs = await screen.findAllByRole("tab");
+    let panel = await tab(tabs[0]!.textContent);
+    expect(
+      within(panel).getByRole("textbox", {
+        name: accessibleName(fields.url.label),
+      }),
+    ).toHaveValue(website.url);
+    expect(within(panel).getByText(fields.url.description)).toBeTruthy();
+    panel = await tab(tabs[1]!.textContent);
+    expect(
+      within(panel).getByRole("spinbutton", {
+        name: accessibleName(fields.zoomPercent.label),
+      }),
+    ).toHaveValue(125);
+    panel = await tab(tabs[2]!.textContent);
+    expect(
+      within(panel).getByRole("combobox", {
+        name: accessibleName(fields.reloadPolicy.label),
+      }),
+    ).toHaveTextContent(fields.reloadPolicy.options.interval);
+    expect(
+      within(panel).getByRole("spinbutton", {
+        name: accessibleName(fields.refreshIntervalSeconds.label),
+      }),
+    ).toHaveValue(600);
+    expect(
+      within(panel).getByRole("combobox", {
+        name: accessibleName(fields.failureBehavior.label),
+      }),
+    ).toHaveTextContent(fields.failureBehavior.options.last_success);
+    await userEvent.click(
+      within(panel).getByRole("button", {
+        name: /Advanced|Avanzado|Дополнительно/,
+      }),
+    );
+    for (const key of [
+      "loadTimeoutSeconds",
+      "javascriptEnabled",
+      "domStorageEnabled",
+      "customUserAgent",
+    ] as const)
+      expect(
+        within(panel).getByRole(
+          key === "loadTimeoutSeconds"
+            ? "spinbutton"
+            : key === "customUserAgent"
+              ? "textbox"
+              : "switch",
+          { name: accessibleName(fields[key].label) },
+        ),
+        key,
+      ).toBeTruthy();
+    expect(
+      within(panel).getByRole("combobox", {
+        name: accessibleName(fields.cookiePolicy.label),
+      }),
+    ).toHaveTextContent(fields.cookiePolicy.options.disabled);
+    expect(
+      within(panel).getByText(fields.customUserAgent.description),
+    ).toBeTruthy();
+  });
+
+  it("localizes the YouTube settings, help text, and choices", async () => {
+    await i18n.changeLanguage(language);
+    mockEditorApi({ asset: savedWidget("youtube", youtube) });
+    renderEditorRoute("/widgets/widget-1");
+    const fields = words.youtube.fields;
+    const tabs = await screen.findAllByRole("tab");
+    let panel = await tab(tabs[0]!.textContent);
+    expect(
+      within(panel).getByRole("textbox", {
+        name: accessibleName(fields.url.label),
+      }),
+    ).toHaveValue(youtube.url);
+    expect(within(panel).getByText(fields.url.description)).toBeTruthy();
+    for (const key of ["startSeconds", "endSeconds"] as const)
+      expect(
+        within(panel).getByRole("spinbutton", {
+          name: accessibleName(fields[key].label),
+        }),
+      ).toBeTruthy();
+    expect(
+      within(panel).getByRole("switch", {
+        name: accessibleName(fields.captions.label),
+      }),
+    ).toBeChecked();
+    expect(
+      within(panel).getByRole("textbox", {
+        name: accessibleName(fields.captionLanguage.label),
+      }),
+    ).toHaveValue("es");
+    panel = await tab(tabs[1]!.textContent);
+    expect(
+      within(panel).getByRole("spinbutton", {
+        name: accessibleName(fields.volume.label),
+      }),
+    ).toHaveValue(60);
+    for (const key of ["loop", "controls", "muted"] as const)
+      expect(
+        within(panel).getByRole("switch", {
+          name: accessibleName(fields[key].label),
+        }),
+      ).toBeTruthy();
+    expect(
+      within(panel).getByRole("combobox", {
+        name: accessibleName(fields.playlistPlaybackMode.label),
+      }),
+    ).toHaveTextContent(fields.playlistPlaybackMode.options.fixed_duration);
+    expect(
+      within(panel).getByRole("spinbutton", {
+        name: accessibleName(fields.fixedDurationSeconds.label),
+      }),
+    ).toHaveValue(45);
+    expect(
+      within(panel).getByRole("combobox", {
+        name: accessibleName(fields.failureBehavior.label),
+      }),
+    ).toHaveTextContent(fields.failureBehavior.options.fallback_image);
   });
 });

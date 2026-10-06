@@ -1,0 +1,126 @@
+{
+  "website": {
+    "fields": {
+      "url": {
+        "label": "Dirección web",
+        "description": "La página pública que se mostrará. Usa HTTPS; el HTTP simple solo funciona con direcciones privadas cuando esta instalación lo permite."
+      },
+      "backgroundColor": {
+        "label": "Color de fondo",
+        "description": "Se muestra detrás de la página mientras se carga."
+      },
+      "zoomPercent": {
+        "label": "Porcentaje de zoom"
+      },
+      "scrollX": {
+        "label": "Desplazamiento horizontal (px)"
+      },
+      "scrollY": {
+        "label": "Desplazamiento vertical (px)"
+      },
+      "reloadPolicy": {
+        "label": "Política de recarga",
+        "options": {
+          "load_once": "Cargar una vez mientras está activo",
+          "on_each_activation": "Recargar en cada activación",
+          "interval": "Recargar por intervalo"
+        }
+      },
+      "refreshIntervalSeconds": {
+        "label": "Intervalo de actualización (segundos)"
+      },
+      "failureBehavior": {
+        "label": "Comportamiento ante errores",
+        "options": {
+          "placeholder": "Mostrar marcador de posición de Tilecast",
+          "last_success": "Mantener la última página mostrada",
+          "fallback_image": "Mostrar imagen alternativa",
+          "skip": "Omitir elemento"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Imagen alternativa"
+      },
+      "loadTimeoutSeconds": {
+        "label": "Tiempo de espera de carga (segundos)"
+      },
+      "allowedHosts": {
+        "label": "Hosts permitidos",
+        "description": "Nombres de host exactos a los que la página puede navegar. El host de la propia página siempre se permite. Esto restringe la navegación de nivel superior, no todos los recursos de terceros."
+      },
+      "javascriptEnabled": {
+        "label": "JavaScript activado"
+      },
+      "domStorageEnabled": {
+        "label": "Almacenamiento DOM activado"
+      },
+      "cookiePolicy": {
+        "label": "Cookies",
+        "options": {
+          "disabled": "Desactivadas",
+          "first_party": "Solo propias",
+          "first_and_third_party": "Propias y de terceros"
+        }
+      },
+      "customUserAgent": {
+        "label": "Agente de usuario personalizado",
+        "description": "Déjalo en blanco para usar el agente de usuario estándar del reproductor. Los cambios pueden romper sitios."
+      }
+    }
+  },
+  "youtube": {
+    "fields": {
+      "url": {
+        "label": "URL de video o lista de YouTube",
+        "description": "Tilecast detecta si es un video o una lista. No necesitas una clave de API de YouTube."
+      },
+      "startSeconds": {
+        "label": "Inicio (segundos)"
+      },
+      "endSeconds": {
+        "label": "Fin (segundos)",
+        "description": "Déjalo en blanco para reproducir hasta el final."
+      },
+      "captions": {
+        "label": "Mostrar subtítulos"
+      },
+      "captionLanguage": {
+        "label": "Idioma de subtítulos",
+        "description": "Un código de idioma como en o es. Déjalo en blanco para usar el valor predeterminado de YouTube."
+      },
+      "muted": {
+        "label": "Silenciar audio"
+      },
+      "volume": {
+        "label": "Volumen (%)"
+      },
+      "loop": {
+        "label": "Repetir"
+      },
+      "controls": {
+        "label": "Mostrar controles de YouTube"
+      },
+      "playlistPlaybackMode": {
+        "label": "Comportamiento del elemento",
+        "options": {
+          "until_end": "Reproducir hasta el final del video",
+          "fixed_duration": "Reproducir duración fija"
+        }
+      },
+      "fixedDurationSeconds": {
+        "label": "Duración fija (segundos)"
+      },
+      "failureBehavior": {
+        "label": "En caso de error",
+        "options": {
+          "placeholder": "Mostrar marcador de Tilecast",
+          "fallback_image": "Mostrar imagen alternativa",
+          "skip": "Omitir elemento"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Imagen alternativa"
+      }
+    }
+  }
+}
