@@ -114,6 +114,7 @@ func VerifyEnvelope(data []byte, verifiers ...Verifier) (json.RawMessage, error)
 		byID[verifier.KeyID()] = verifier
 	}
 	var matched bool
+	var lastErr error
 	for _, signature := range envelope.Signatures {
 		verifier, ok := byID[signature.KeyID]
 		if !ok {
@@ -122,15 +123,20 @@ func VerifyEnvelope(data []byte, verifiers ...Verifier) (json.RawMessage, error)
 		matched = true
 		raw, err := base64.StdEncoding.DecodeString(signature.Signature)
 		if err != nil {
-			return nil, fmt.Errorf("signature from %s is not base64: %w", signature.KeyID, err)
+			lastErr = fmt.Errorf("signature from %s is not base64: %w", signature.KeyID, err)
+			continue
 		}
 		if err := verifier.Verify(envelope.Payload, raw); err != nil {
-			return nil, err
+			lastErr = err
+			continue
 		}
 		return envelope.Payload, nil
 	}
 	if !matched {
 		return nil, fmt.Errorf("signed envelope: %w", ErrUnknownKey)
+	}
+	if lastErr != nil {
+		return nil, lastErr
 	}
 	return nil, fmt.Errorf("signed envelope: %w", ErrNoSignature)
 }
