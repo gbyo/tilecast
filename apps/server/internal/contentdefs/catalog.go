@@ -312,7 +312,15 @@ type WidgetDefinition struct {
 // Authoring is the closed set of Studio authoring capabilities a Widget
 // definition may declare (docs/widget-authoring.md).
 type Authoring struct {
-	Preview AuthoringPreview `json:"preview"`
+	Preview          AuthoringPreview `json:"preview"`
+	RecommendedFrame *WidgetFrame     `json:"recommendedFrame,omitempty"`
+}
+
+// WidgetFrame is Studio-only natural authoring geometry. It is never persisted
+// into a Widget configuration or projected to Players.
+type WidgetFrame struct {
+	Width  int `json:"width"`
+	Height int `json:"height"`
 }
 
 // AuthoringPreview describes what the Studio preview can usefully vary.

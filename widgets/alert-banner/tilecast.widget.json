@@ -1,0 +1,204 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "alert-banner",
+  "version": 1,
+  "name": "Alert Banner",
+  "description": "Show one urgent or time-sensitive message in a compact horizontal strip.",
+  "category": "Information",
+  "icon": "alert",
+  "thumbnail": "alert-banner",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "description": "Choose an object source containing the alert message.",
+        "control": "data_source",
+        "acceptedDataSourceKinds": ["object"],
+        "requiredFields": {
+          "message": "text",
+          "severity": "text"
+        },
+        "default": "",
+        "ui": { "section": "data", "order": 1 }
+      },
+      {
+        "key": "messageField",
+        "label": "Message field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "message",
+        "ui": { "section": "data", "order": 2, "semanticRole": "message" }
+      },
+      {
+        "key": "severityField",
+        "label": "Severity field",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "severity",
+        "ui": { "section": "data", "order": 3, "semanticRole": "severity" }
+      },
+      {
+        "key": "labelField",
+        "label": "Label field",
+        "description": "Optional short label shown before the message when there is room.",
+        "control": "data_source_field",
+        "dataSourceFieldTypes": ["text"],
+        "default": "",
+        "ui": { "section": "data", "order": 4, "semanticRole": "status" }
+      },
+      {
+        "key": "showSeverity",
+        "label": "Show severity",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "emptyState",
+        "label": "Empty message",
+        "control": "text",
+        "maxLength": 300,
+        "default": "No active alerts",
+        "ui": { "section": "content", "order": 2 }
+      },
+      {
+        "key": "speed",
+        "label": "Scroll speed",
+        "control": "select",
+        "options": [
+          { "value": "slow", "label": "Slow" },
+          { "value": "normal", "label": "Normal" },
+          { "value": "fast", "label": "Fast" }
+        ],
+        "default": "normal",
+        "ui": { "section": "behavior", "order": 1 }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background color",
+        "control": "color",
+        "default": "#7a1f1f",
+        "ui": { "section": "appearance", "order": 1 }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Text color",
+        "control": "color",
+        "default": "#ffffff",
+        "ui": { "section": "appearance", "order": 2 }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "messageField": "message",
+    "severityField": "severity",
+    "labelField": "",
+    "showSeverity": true,
+    "emptyState": "No active alerts",
+    "speed": "normal",
+    "backgroundColor": "#7a1f1f",
+    "foregroundColor": "#ffffff"
+  },
+  "acceptedDataSourceKinds": ["object"],
+  "requiredFieldTypes": {
+    "message": "text",
+    "severity": "text"
+  },
+  "presentationSchemaVersion": 1,
+  "presentationTemplate": {
+    "type": "surface",
+    "props": {
+      "backgroundColor": { "$config": "backgroundColor" },
+      "padding": 10
+    },
+    "children": [
+      {
+        "type": "row",
+        "props": { "gap": 14 },
+        "children": [
+          {
+            "$ifConfig": "showSeverity",
+            "type": "badge",
+            "props": {
+              "role": "label",
+              "color": { "$config": "foregroundColor" }
+            },
+            "binding": {
+              "source": "dataset",
+              "dataset": {
+                "$config": "dataSourceId",
+                "suffix": ":object"
+              },
+              "path": { "$config": "severityField" },
+              "fallback": "notice"
+            }
+          },
+          {
+            "type": "marquee",
+            "props": {
+              "speed": { "$config": "speed" },
+              "color": { "$config": "foregroundColor" }
+            },
+            "binding": {
+              "source": "dataset",
+              "dataset": {
+                "$config": "dataSourceId",
+                "suffix": ":object"
+              },
+              "path": { "$config": "messageField" },
+              "fallback": { "$config": "emptyState" }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "requiredCapabilities": {
+    "layout.surface": 1,
+    "layout.row": 1,
+    "content.badge": 1,
+    "content.marquee": 1,
+    "binding.core": 2
+  },
+  "emptyStateBehavior": "configured_text",
+  "requiresManifestV13": true,
+  "authoring": {
+    "preview": {},
+    "recommendedFrame": { "width": 1920, "height": 160 }
+  },
+  "setup": {
+    "eyebrow": "Built for a Layout strip",
+    "tip": "Alert Banner is designed to stay readable in a shallow horizontal band instead of taking over a 16:9 region.",
+    "steps": [
+      "Choose or create a Status Message or Emergency Message Data Source.",
+      "Confirm the message and severity fields.",
+      "Place the Widget in a horizontal band near the top or bottom of a Layout."
+    ]
+  },
+  "legacyEditor": false,
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.alert-banner",
+    "version": 1,
+    "tagName": "tc-widget-alert-banner",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": { "$config": "dataSourceId", "default": "" },
+      "messageField": { "$config": "messageField", "default": "message" },
+      "severityField": { "$config": "severityField", "default": "severity" },
+      "labelField": { "$config": "labelField", "default": "" },
+      "showSeverity": { "$config": "showSeverity", "default": true },
+      "speed": { "$config": "speed", "default": "normal" },
+      "emptyText": { "$config": "emptyState", "default": "No active alerts" },
+      "background": { "$config": "backgroundColor", "default": "#7a1f1f" },
+      "foreground": { "$config": "foregroundColor", "default": "#ffffff" }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": { "fallback": "template" }
+}

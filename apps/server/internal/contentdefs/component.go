@@ -149,6 +149,12 @@ func validateComponent(definition WidgetDefinition) error {
 	if spec.Entrypoint != "./runtime/index.ts" {
 		return errors.New("component entrypoint must be ./runtime/index.ts")
 	}
+	if definition.Authoring != nil && definition.Authoring.RecommendedFrame != nil {
+		frame := definition.Authoring.RecommendedFrame
+		if frame.Width < 120 || frame.Width > 3840 || frame.Height < 48 || frame.Height > 2160 {
+			return errors.New("Widget recommended frame must be 120..3840 by 48..2160 pixels")
+		}
+	}
 	if spec.Empty != "render" && spec.Empty != "skip-eligible" {
 		return errors.New("component empty behavior must be render or skip-eligible")
 	}

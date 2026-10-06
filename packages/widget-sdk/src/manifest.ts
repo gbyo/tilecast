@@ -197,6 +197,16 @@ export const widgetManifestSchema = z
               ),
           })
           .strict(),
+        recommendedFrame: z
+          .object({
+            width: z.number().int().min(120).max(3840),
+            height: z.number().int().min(48).max(2160),
+          })
+          .strict()
+          .optional()
+          .describe(
+            "Studio-only starting geometry for previews and new Layout placements. It never changes Player rendering or placed bounds.",
+          ),
       })
       .strict()
       .optional()
