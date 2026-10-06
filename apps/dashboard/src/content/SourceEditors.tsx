@@ -13,6 +13,11 @@ import {
 } from "../components/ui/alert-dialog";
 import { Button } from "../components/ui/button";
 import { FallbackImagePicker } from "./FallbackImagePicker";
+import {
+  widgetCategories,
+  widgetCategoryLabel,
+  widgetCategoryOf,
+} from "./widgetCategories";
 
 import {
   Dialog,
@@ -86,23 +91,6 @@ export function widgetSaveErrorMessage(t: WidgetsT, error: unknown): string {
   return apiErrorMessage(error);
 }
 
-function galleryCategoryLabel(t: WidgetsT, name: string): string {
-  switch (name) {
-    case "All":
-      return t("widgets.gallery.categories.all");
-    case "Essentials":
-      return t("widgets.gallery.categories.essentials");
-    case "Information":
-      return t("widgets.gallery.categories.information");
-    case "Data display":
-      return t("widgets.gallery.categories.dataDisplay");
-    case "Integrations":
-      return t("widgets.gallery.categories.integrations");
-    default:
-      return name;
-  }
-}
-
 export function WidgetProviderGallery({
   onChoose,
   onClose,
@@ -153,20 +141,8 @@ export function WidgetProviderGallery({
       unavailable: null as string | null,
     };
   };
-  // The visual Widget catalog comes first, grouped by purpose; every Web
-  // Integration (runtime "web") shows remote content and sits apart from
-  // it (docs/widgets-v2-catalog.md §7).
-  const categories = [
-    "Essentials",
-    "Information",
-    "Data display",
-    "Integrations",
-  ];
-  const galleryCategory = (definition: (typeof catalog)[number]) => {
-    if (definition.runtime === "web") return "Integrations";
-    if (categories.includes(definition.category)) return definition.category;
-    return "Data display";
-  };
+  const categories = widgetCategories;
+  const galleryCategory = widgetCategoryOf;
   const needle = search.trim().toLowerCase();
   const visible = catalog.filter((definition) => {
     // Superseded providers remain editable for saved content but leave new
@@ -300,7 +276,7 @@ export function WidgetProviderGallery({
                 aria-pressed={category === name}
                 onClick={() => setCategory(name)}
               >
-                {galleryCategoryLabel(t, name)}
+                {widgetCategoryLabel(t, name)}
               </Button>
             ))}
           </div>
@@ -324,7 +300,7 @@ export function WidgetProviderGallery({
           {sections.map((section) => (
             <section className="grid gap-2" key={section.name}>
               <h3 className="text-sm font-semibold">
-                {galleryCategoryLabel(t, section.name)}
+                {widgetCategoryLabel(t, section.name)}
               </h3>
               {section.items.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

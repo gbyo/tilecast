@@ -431,17 +431,58 @@
     "list": {
       "title": "Widgets",
       "create": "Create Widget",
-      "subtitle": "Reusable visual content for playlists and Layouts.",
+      "createShort": "Create",
+      "count_one": "{{count}} Widget",
+      "count_other": "{{count}} Widgets",
       "search": "Search Widgets",
-      "filterProvider": "Filter by Widget provider",
+      "filterProvider": "Filter by Widget type",
       "allTypes": "All Widget types",
+      "noMatchingTypes": "No Widget types match.",
       "view": "View",
       "gridView": "Grid view",
       "listView": "List view",
+      "viewGrid": "Grid",
+      "viewList": "List",
+      "toolbar": {
+        "groupLabel": "Widget library controls",
+        "viewOptions": "View options"
+      },
+      "sort": {
+        "menuTitle": "Sort by",
+        "buttonLabel": "Sort Widgets: {{value}}",
+        "updated": "Recently updated",
+        "newest": "Newest",
+        "oldest": "Oldest",
+        "name": "Name"
+      },
+      "typeUnknown": "Widget",
+      "playlistUsage_one": "{{count}} playlist",
+      "playlistUsage_other": "{{count}} playlists",
+      "layoutUsage_one": "{{count}} Layout",
+      "layoutUsage_other": "{{count}} Layouts",
+      "usageBoth": "{{playlists}} · {{layouts}}",
+      "unused": "Not used yet",
+      "itemMeta": "{{usage}} · Updated {{updated}}",
+      "columns": {
+        "widget": "Widget",
+        "type": "Type",
+        "usedBy": "Used by",
+        "updated": "Updated",
+        "actions": "Actions"
+      },
+      "actionsFor": "Actions for {{name}}",
+      "actions": {
+        "open": "Open Widget",
+        "edit": "Edit Widget",
+        "duplicate": "Duplicate"
+      },
       "loadError": "Widgets could not be loaded.",
       "loading": "Loading Widgets",
       "emptyTitle": "No Widgets yet",
-      "emptyHint": "Create a reusable Widget for signage content."
+      "emptyHint": "Create reusable visual content for playlists and Layouts.",
+      "filteredEmptyTitle": "No Widgets match your search",
+      "filteredEmptyHint": "Try another search or choose another Widget type.",
+      "clearFilters": "Clear search and type"
     },
     "detail": {
       "loadingWidget": "Loading Widget",
