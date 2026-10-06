@@ -129,6 +129,12 @@ func Create(ctx context.Context, opts CreateOptions) (CreateResult, error) {
 		components = append(components, summary)
 	}
 
+	packages, err := snapshotPackages(ctx, opts.DB)
+	if err != nil {
+		cleanup()
+		return CreateResult{}, fmt.Errorf("package snapshot failed: %w", err)
+	}
+
 	manifest := Manifest{
 		FormatVersion:    FormatVersion,
 		TilecastVersion:  opts.Build.Version,
@@ -141,6 +147,7 @@ func Create(ctx context.Context, opts CreateOptions) (CreateResult, error) {
 		CreatedAt:        now,
 		Components:       components,
 		Database:         DatabaseManifest{Tables: snapshot.Tables, Sequences: snapshot.Sequences},
+		Packages:         packages,
 	}
 
 	opts.Progress("finalizing_archive", 85)
@@ -183,6 +190,32 @@ func Create(ctx context.Context, opts CreateOptions) (CreateResult, error) {
 		ArchiveSHA256: verified.ArchiveSHA256,
 		Manifest:      verified.Manifest,
 	}, nil
+}
+
+// snapshotPackages pins the activated extension packages into the backup
+// manifest: exact IDs, versions, digests, sources, and signer identities.
+// The full rows ride in the database snapshot; the summary names them
+// without a restore.
+func snapshotPackages(ctx context.Context, db *pgxpool.Pool) ([]PackageRecord, error) {
+	rows, err := db.Query(ctx, `SELECT package_id,package_version,digest,source_kind,
+		source_reference,registry_reference,signer_identity,trust_state
+		FROM installed_packages ORDER BY package_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []PackageRecord{}
+	for rows.Next() {
+		var record PackageRecord
+		if err := rows.Scan(&record.PackageID, &record.PackageVersion,
+			&record.Digest, &record.SourceKind, &record.SourceReference,
+			&record.RegistryReference, &record.SignerIdentity,
+			&record.TrustState); err != nil {
+			return nil, err
+		}
+		out = append(out, record)
+	}
+	return out, rows.Err()
 }
 
 func databaseComponent(files []ManifestFile) ManifestComponent {

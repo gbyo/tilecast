@@ -682,5 +682,11 @@
     "file": "00115_alert_banner_v2.sql",
     "owner": "core",
     "sha256": "a5d997f023d32016f8adea211a6f069c80afb566cec224ea285bb3f587a2de1f"
+  },
+  {
+    "version": 116,
+    "file": "00116_installed_packages.sql",
+    "owner": "core",
+    "sha256": "8e2a5fadf86d8a2a7b72703730a47a6a97acbfb9f81cab19c80cef7d2e9dae79"
   }
 ]

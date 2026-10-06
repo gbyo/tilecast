@@ -6,7 +6,7 @@ bootstrap:
 	cd apps/cli && go mod download
 
 gofmt-check:
-	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli ../../widgets ../../packages/api-client ../../data-sources)"
+	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../packages/package-sdk/go ../../apps/cli ../../widgets ../../packages/api-client ../../data-sources)"
 
 build:
 	npm run build
@@ -58,7 +58,7 @@ doctor:
 
 # Bundled plugins and the plugin SDK are separate Go modules in the go.work
 # workspace; the server's commands name them so one run covers all three.
-PLUGIN_GO_PACKAGES = github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... github.com/tilecast/tilecast/widgets/...
+PLUGIN_GO_PACKAGES = github.com/tilecast/tilecast/plugins/... github.com/tilecast/tilecast/packages/plugin-sdk/go/... github.com/tilecast/tilecast/packages/package-sdk/go/... github.com/tilecast/tilecast/widgets/...
 
 # The Official Tilecast Plugin Conformance checks that need no compiler:
 # manifests, generated files, boundaries, migrations, and OpenAPI fragments.
@@ -152,7 +152,7 @@ quick:
 
 format:
 	npm run format
-	cd apps/server && gofmt -w $$(find . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli -name '*.go' -type f)
+	cd apps/server && gofmt -w $$(find . ../../plugins ../../packages/plugin-sdk/go ../../packages/package-sdk/go ../../apps/cli -name '*.go' -type f)
 
 test:
 	npm test
