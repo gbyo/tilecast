@@ -11,7 +11,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @tilecast/dashboard && npm run build --workspace @tilecast/player-web",
+    "build": "npm run build --workspace @tilecast/dashboard",
+    "build:player-web": "npm run build --workspace @tilecast/player-web",
+    "build:all": "npm run build && npm run build:player-web",
     "dev": "npm run dev --workspace @tilecast/dashboard",
     "docs:dev": "npm run dev --workspace @tilecast/docs --",
     "docs:check": "npm run check --workspace @tilecast/docs",

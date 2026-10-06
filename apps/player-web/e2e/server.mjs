@@ -1,6 +1,7 @@
 // Real Go API and isolated PostgreSQL, behind a temporary local HTTPS origin.
 // Certificates, database and media are generated for this run and removed.
 import { createServer } from "node:https";
+import { createServer as createHttpServer } from "node:http";
 import { request as proxyRequest } from "node:http";
 import { spawn, execFileSync } from "node:child_process";
 import { mkdtemp, readFile, writeFile, cp, rm } from "node:fs/promises";
@@ -20,11 +21,13 @@ database.pathname = `/${dbName}`;
 const origin = "https://localhost:18981";
 let backend;
 let frontend;
+let control;
 let cleaned = false;
 async function cleanup() {
   if (cleaned) return;
   cleaned = true;
   frontend?.close();
+  control?.close();
   if (backend && backend.exitCode === null) {
     backend.kill("SIGTERM");
     await new Promise((resolve) => {
@@ -87,50 +90,98 @@ try {
   } finally {
     await writeFile(join(embed, "index.html"), fallback);
   }
-  backend = spawn(join(temporary, "tilecast-server"), [], {
-    cwd: join(root, "server"),
-    env: {
-      ...process.env,
-      TILECAST_ENV: "development",
-      TILECAST_HTTP_ADDR: "127.0.0.1:18982",
-      TILECAST_DATABASE_URL: database.toString(),
-      TILECAST_PUBLIC_URL: origin,
-      TILECAST_COOKIE_SECURE: "true",
-      TILECAST_MDNS_ENABLED: "false",
-      TILECAST_FFMPEG_PATH: execFileSync("which", ["ffmpeg"], {
-        encoding: "utf8",
-      }).trim(),
-      TILECAST_FFPROBE_PATH: execFileSync("which", ["ffprobe"], {
-        encoding: "utf8",
-      }).trim(),
-      TILECAST_MEDIA_ROOT: join(temporary, "media"),
-      TILECAST_UPDATE_ROOT: join(temporary, "updates"),
-      TILECAST_BACKUP_ROOT: join(temporary, "backups"),
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  let logBuffer = "";
-  backend.stdout.on("data", (chunk) => {
-    logBuffer += chunk.toString();
-    const lines = logBuffer.split("\n");
-    logBuffer = lines.pop() ?? "";
-    for (const line of lines) {
-      try {
-        if (JSON.parse(line).level === "ERROR")
-          process.stderr.write(line + "\n");
-      } catch {
-        /* Startup output is not a request record. */
+  const backendEnvironment = {
+    ...process.env,
+    TILECAST_ENV: "development",
+    TILECAST_HTTP_ADDR: "127.0.0.1:18982",
+    TILECAST_DATABASE_URL: database.toString(),
+    TILECAST_PUBLIC_URL: origin,
+    TILECAST_COOKIE_SECURE: "true",
+    TILECAST_MDNS_ENABLED: "false",
+    TILECAST_FFMPEG_PATH: execFileSync("which", ["ffmpeg"], {
+      encoding: "utf8",
+    }).trim(),
+    TILECAST_FFPROBE_PATH: execFileSync("which", ["ffprobe"], {
+      encoding: "utf8",
+    }).trim(),
+    TILECAST_MEDIA_ROOT: join(temporary, "media"),
+    TILECAST_UPDATE_ROOT: join(temporary, "updates"),
+    TILECAST_BACKUP_ROOT: join(temporary, "backups"),
+  };
+  // A planned stop is part of a test (a server outage), not a crash.
+  let plannedStop = false;
+  const startBackend = async () => {
+    // Starting a running server is a no-op, so a test can always restore it.
+    if (backend && backend.exitCode === null && !plannedStop) return;
+    plannedStop = false;
+    backend = spawn(join(temporary, "tilecast-server"), [], {
+      cwd: join(root, "server"),
+      env: backendEnvironment,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let logBuffer = "";
+    backend.stdout.on("data", (chunk) => {
+      logBuffer += chunk.toString();
+      const lines = logBuffer.split("\n");
+      logBuffer = lines.pop() ?? "";
+      for (const line of lines) {
+        try {
+          if (JSON.parse(line).level === "ERROR")
+            process.stderr.write(line + "\n");
+        } catch {
+          /* Startup output is not a request record. */
+        }
       }
+    });
+    backend.stderr.on("data", (chunk) => {
+      for (const line of chunk.toString().split("\n"))
+        if (line.includes("ERROR")) process.stderr.write(line + "\n");
+    });
+    backend.once("exit", (code) => {
+      if (!cleaned && !plannedStop && code !== 0)
+        void cleanup().then(() => process.exit(code ?? 1));
+    });
+    for (let attempt = 0; attempt < 100; attempt++) {
+      try {
+        if ((await fetch("http://127.0.0.1:18982/readyz")).ok) return;
+      } catch {
+        /* Still starting. */
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
+    throw new Error("The server did not become ready");
+  };
+  const stopBackend = async () => {
+    plannedStop = true;
+    if (backend && backend.exitCode === null) {
+      backend.kill("SIGTERM");
+      await new Promise((resolve) => {
+        backend.once("exit", resolve);
+        setTimeout(resolve, 5000);
+      });
+    }
+  };
+  // Test control: stop and start the real server process. The database, media
+  // and certificates stay, so a restart is a genuine outage and recovery.
+  control = createHttpServer((incoming, outgoing) => {
+    const done = (status, body = "ok") => {
+      outgoing.writeHead(status, { "Content-Type": "text/plain" });
+      outgoing.end(body);
+    };
+    const action =
+      incoming.method === "POST" && incoming.url === "/backend/stop"
+        ? stopBackend
+        : incoming.method === "POST" && incoming.url === "/backend/start"
+          ? startBackend
+          : null;
+    if (!action) return done(404, "unknown control request");
+    action().then(
+      () => done(200),
+      (error) => done(500, String(error)),
+    );
   });
-  backend.stderr.on("data", (chunk) => {
-    for (const line of chunk.toString().split("\n"))
-      if (line.includes("ERROR")) process.stderr.write(line + "\n");
-  });
-  backend.once("exit", (code) => {
-    if (!cleaned && code !== 0)
-      void cleanup().then(() => process.exit(code ?? 1));
-  });
+  control.listen(18983, "127.0.0.1");
+  await startBackend();
   frontend = createServer(
     {
       key: await readFile(join(temporary, "key.pem")),

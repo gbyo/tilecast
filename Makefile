@@ -9,7 +9,7 @@ gofmt-check:
 	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../apps/cli ../../widgets ../../packages/api-client ../../data-sources)"
 
 build:
-	npm run build
+	npm run build:all
 	rm -rf apps/server/internal/web/static
 	mkdir -p apps/server/internal/web/static
 	cp -R apps/dashboard/dist/. apps/server/internal/web/static/

@@ -157,6 +157,7 @@ test("installer runs Rust and migration without Studio", () => {
 });
 test("runtime semantics select both renderers but no migration", () => {
   assert.deepEqual(selected(["packages/player-runtime/src/widgets/host.ts"]), [
+    "browser_player",
     "edge_conformance",
     "edge_runtime",
     "edge_wpe",
@@ -178,6 +179,7 @@ test("the Presentation Model selects Studio and production runtime consumers", (
   assert.deepEqual(
     selected(["packages/presentation-model/src/availability.ts"]),
     [
+      "browser_player",
       "container",
       "dashboard",
       "e2e",
@@ -190,6 +192,7 @@ test("the Presentation Model selects Studio and production runtime consumers", (
     ],
   );
   assert.deepEqual(selected(["packages/presentation-model/package.json"]), [
+    "browser_player",
     "container",
     "dashboard",
     "e2e",
@@ -513,4 +516,42 @@ test("actual stacked base excludes base-only commits and retains rename/delete p
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
+});
+
+test("Browser Player has its own lane and follows the Runtime and the server code it uses", () => {
+  assert.ok(areas.includes("browser_player"));
+  assert.deepEqual(selected(["apps/player-web/src/application.ts"]), [
+    "browser_player",
+  ]);
+  for (const path of [
+    "apps/server/internal/web/player.go",
+    "apps/server/internal/httpapi/browser_player.go",
+    "apps/server/internal/devices/browser_sessions.go",
+  ]) {
+    const result = selected([path]);
+    assert.ok(result.includes("browser_player"), path);
+    assert.ok(result.includes("server"), path);
+  }
+  // The Runtime is bundled into the Browser Player, unchanged.
+  assert.ok(
+    selected([
+      "packages/player-runtime/src/compat/projection/resolve.ts",
+    ]).includes("browser_player"),
+  );
+  assert.ok(
+    selected(["packages/presentation-model/src/availability.ts"]).includes(
+      "browser_player",
+    ),
+  );
+  // Studio-only and unrelated Player changes do not run it.
+  assert.ok(
+    !selected(["apps/dashboard/src/pages/ScreensPage.tsx"]).includes(
+      "browser_player",
+    ),
+  );
+  assert.ok(
+    !selected(["apps/player-android/app/build.gradle.kts"]).includes(
+      "browser_player",
+    ),
+  );
 });
