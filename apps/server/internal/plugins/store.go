@@ -108,7 +108,10 @@ func WithMarketplaceSource(source MarketplaceSource) Option {
 // store's snapshot. Configured is always true here: an unconfigured
 // catalog is a nil marketplace source, never this adapter.
 func MarketplaceSnapshotFrom(cached catalog.Cached, now time.Time) MarketplaceSnapshot {
-	status := MarketplaceStatus{Configured: true, Stale: cached.Stale(now), Error: cached.LastError}
+	status := MarketplaceStatus{Configured: true, Stale: cached.Stale(now)}
+	if cached.LastError != "" {
+		status.Error = "The marketplace catalog could not be refreshed."
+	}
 	if !cached.FetchedAt.IsZero() {
 		fetched := cached.FetchedAt
 		status.FetchedAt = &fetched
@@ -152,7 +155,12 @@ func (s *Service) Store(ctx context.Context) (Store, error) {
 	}
 	snapshot, err := s.marketplace(ctx)
 	if err != nil {
-		store.Marketplace = MarketplaceStatus{Configured: true, Stale: true, Error: err.Error()}
+		s.logger.ErrorContext(ctx, "marketplace snapshot failed", "error", err)
+		store.Marketplace = MarketplaceStatus{
+			Configured: true,
+			Stale:      true,
+			Error:      "The marketplace catalog cache could not be read.",
+		}
 		return store, nil
 	}
 	store.Marketplace = snapshot.Status
