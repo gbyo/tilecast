@@ -26,7 +26,9 @@ h1,
 h2,
 h3,
 p {
-  text-wrap: pretty;
+  /* Longhand only: the text-wrap shorthand also sets text-wrap-mode, which would override the
+     white-space: nowrap from Tailwind's truncate on any <p> because this rule is unlayered. */
+  text-wrap-style: pretty;
 }
 
 .brand__logo {
