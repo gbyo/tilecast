@@ -3,18 +3,13 @@
   "$id": "https://github.com/gbyo/tilecast/packages/widget-sdk/schema/tilecast-widget.schema.json",
   "type": "object",
   "properties": {
-    "$schema": {
-      "type": "string"
-    },
+    "$schema": { "type": "string" },
     "apiVersion": {
       "type": "number",
       "const": 1,
       "description": "Manifest API version: the shape and semantics of tilecast.widget.json."
     },
-    "id": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9_-]{0,79}$"
-    },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{0,79}$" },
     "version": {
       "type": "integer",
       "minimum": 1,
@@ -27,136 +22,64 @@
       "minimum": 1,
       "maximum": 9007199254740991
     },
-    "name": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 80
-    },
-    "description": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 280
-    },
-    "category": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 40
-    },
-    "icon": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 40
-    },
-    "thumbnail": {
-      "type": "string",
-      "maxLength": 40
-    },
-    "kind": {
-      "type": "string",
-      "enum": [
-        "widget",
-        "app"
-      ]
-    },
-    "featured": {
-      "type": "boolean"
-    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 280 },
+    "category": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "icon": { "type": "string", "minLength": 1, "maxLength": 40 },
+    "thumbnail": { "type": "string", "maxLength": 40 },
+    "kind": { "type": "string", "enum": ["widget", "app"] },
+    "featured": { "type": "boolean" },
     "keywords": {
       "maxItems": 16,
       "type": "array",
-      "items": {
-        "type": "string",
-        "maxLength": 40
-      }
+      "items": { "type": "string", "maxLength": 40 }
     },
-    "runtime": {
-      "type": "string",
-      "const": "native"
-    },
+    "runtime": { "type": "string", "const": "native" },
     "configurationSchema": {
       "type": "object",
       "properties": {
-        "fields": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/__schema0"
-          }
-        }
+        "fields": { "type": "array", "items": { "$ref": "#/$defs/__schema0" } }
       },
-      "required": [
-        "fields"
-      ],
+      "required": ["fields"],
       "additionalProperties": false
     },
     "defaultConfiguration": {
       "type": "object",
-      "propertyNames": {
-        "type": "string"
-      },
-      "additionalProperties": {
-        "$ref": "#/$defs/__schema0"
-      }
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "$ref": "#/$defs/__schema0" }
     },
     "acceptedDataSourceKinds": {
       "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "items": { "type": "string" }
     },
     "requiredFieldTypes": {
       "type": "object",
-      "propertyNames": {
-        "type": "string"
-      },
-      "additionalProperties": {
-        "type": "string"
-      }
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "type": "string" }
     },
-    "presentationSchemaVersion": {
-      "type": "number",
-      "const": 1
-    },
-    "presentationTemplate": {
-      "$ref": "#/$defs/__schema0"
-    },
+    "presentationSchemaVersion": { "type": "number", "const": 1 },
+    "presentationTemplate": { "$ref": "#/$defs/__schema0" },
     "requiredCapabilities": {
       "type": "object",
-      "propertyNames": {
-        "type": "string"
-      },
+      "propertyNames": { "type": "string" },
       "additionalProperties": {
         "type": "integer",
         "minimum": 1,
         "maximum": 9007199254740991
       }
     },
-    "emptyStateBehavior": {
-      "type": "string",
-      "minLength": 1
-    },
-    "legacyEditor": {
-      "type": "boolean"
-    },
-    "requiresManifestV13": {
-      "type": "boolean"
-    },
+    "emptyStateBehavior": { "type": "string", "minLength": 1 },
+    "legacyEditor": { "type": "boolean" },
+    "requiresManifestV13": { "type": "boolean" },
     "setup": {
       "type": "object",
-      "propertyNames": {
-        "type": "string"
-      },
-      "additionalProperties": {
-        "$ref": "#/$defs/__schema0"
-      }
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "$ref": "#/$defs/__schema0" }
     },
     "deprecation": {
       "type": "object",
-      "propertyNames": {
-        "type": "string"
-      },
-      "additionalProperties": {
-        "$ref": "#/$defs/__schema0"
-      }
+      "propertyNames": { "type": "string" },
+      "additionalProperties": { "$ref": "#/$defs/__schema0" }
     },
     "authoring": {
       "description": "Studio authoring capabilities. They never change validation, projection, or playback.",
@@ -176,27 +99,14 @@
           "description": "Studio-only starting geometry for previews and new Layout placements. It never changes Player rendering or placed bounds.",
           "type": "object",
           "properties": {
-            "width": {
-              "type": "integer",
-              "minimum": 120,
-              "maximum": 3840
-            },
-            "height": {
-              "type": "integer",
-              "minimum": 48,
-              "maximum": 2160
-            }
+            "width": { "type": "integer", "minimum": 120, "maximum": 3840 },
+            "height": { "type": "integer", "minimum": 48, "maximum": 2160 }
           },
-          "required": [
-            "width",
-            "height"
-          ],
+          "required": ["width", "height"],
           "additionalProperties": false
         }
       },
-      "required": [
-        "preview"
-      ],
+      "required": ["preview"],
       "additionalProperties": false
     },
     "component": {
@@ -208,11 +118,7 @@
           "pattern": "^[a-z][a-z0-9]{1,31}(\\.[a-z][a-z0-9-]{0,47})+$",
           "description": "Qualified component type; the Player capability is widget.<type>."
         },
-        "version": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 100
-        },
+        "version": { "type": "integer", "minimum": 1, "maximum": 100 },
         "tagName": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)+$"
@@ -224,30 +130,19 @@
         },
         "configTemplate": {
           "type": "object",
-          "propertyNames": {
-            "type": "string"
-          },
-          "additionalProperties": {
-            "$ref": "#/$defs/__schema0"
-          },
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "$ref": "#/$defs/__schema0" },
           "description": "Compiles the persisted Widget configuration into the component config. Values may be {\"$config\": key, \"default\": value, \"when\": flag}."
         },
         "dataSourceFields": {
           "description": "Configuration keys that hold Data Source IDs the component may read.",
           "maxItems": 8,
           "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 80
-          }
+          "items": { "type": "string", "minLength": 1, "maxLength": 80 }
         },
         "empty": {
           "type": "string",
-          "enum": [
-            "render",
-            "skip-eligible"
-          ],
+          "enum": ["render", "skip-eligible"],
           "description": "render: an empty Widget shows its empty presentation. skip-eligible: a later release may skip it in unsynchronized playlists."
         }
       },
@@ -266,17 +161,11 @@
       "properties": {
         "fallback": {
           "type": "string",
-          "enum": [
-            "legacy",
-            "template",
-            "none"
-          ],
+          "enum": ["legacy", "template", "none"],
           "description": "How Players without the component render this Widget: the Server's built-in compiler (legacy), presentationTemplate (template), or not at all (none)."
         }
       },
-      "required": [
-        "fallback"
-      ],
+      "required": ["fallback"],
       "additionalProperties": false
     }
   },
@@ -303,32 +192,15 @@
   "$defs": {
     "__schema0": {
       "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "number"
-        },
-        {
-          "type": "boolean"
-        },
-        {
-          "type": "null"
-        },
-        {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/__schema0"
-          }
-        },
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" },
+        { "type": "array", "items": { "$ref": "#/$defs/__schema0" } },
         {
           "type": "object",
-          "propertyNames": {
-            "type": "string"
-          },
-          "additionalProperties": {
-            "$ref": "#/$defs/__schema0"
-          }
+          "propertyNames": { "type": "string" },
+          "additionalProperties": { "$ref": "#/$defs/__schema0" }
         }
       ]
     }
