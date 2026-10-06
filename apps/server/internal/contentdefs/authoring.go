@@ -1,14 +1,6 @@
 package contentdefs
 
-import (
-	"fmt"
-	"regexp"
-)
-
-// translationKeyPattern is the shape of a Studio translation key: a
-// namespace, a colon, and a dotted path (for example
-// "definitions:website.fields.url.label").
-var translationKeyPattern = regexp.MustCompile(`^[a-z][A-Za-z0-9]*:[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$`)
+import "fmt"
 
 // AuthoringProblem reports why Studio cannot author a Widget definition, or
 // "" when it can (docs/widget-authoring.md). Studio has one Widget editor

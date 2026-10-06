@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { suggestFieldMapping } from "@tilecast/widget-kit";
 import { api } from "@/api/client";
 import type { ContentDefinitionField, DataSourceField } from "@/api/types";
-import { resolveDataSourceKey } from "@/content/DefinitionForm";
+import { resolveDataSourceKey } from "@/content/dataSourceBindings";
 import { fieldText, type InspectorFieldProps } from "./fieldContext";
 
 export function useSourceFields(sourceId: string) {

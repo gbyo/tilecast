@@ -35,8 +35,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/studio/StudioCollapsible";
-import { recordCountLabel, statusLabel } from "@/content/DataSourcePicker";
-import { providerLabel, sourceIcon } from "@/content/dataSourceProviderMeta";
+import {
+  providerLabel,
+  recordCountLabel,
+  sourceIcon,
+  statusLabel,
+} from "@/content/dataSourceProviderMeta";
 import { previewRecordMaps } from "@/content/previewRecords";
 
 const SAMPLE_FIELD_LIMIT = 6;
@@ -100,7 +104,7 @@ export function SelectedSource({
   );
 }
 
-export function sourceSummary(
+function sourceSummary(
   source: DataSource,
   t: ReturnType<typeof useTranslation<["content", "common"]>>["t"],
 ) {

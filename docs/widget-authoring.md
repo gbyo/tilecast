@@ -122,12 +122,84 @@ inspector shows tabs.
 A hidden field and a field with a failed `visibleWhen` rule keep their values in
 the draft. Validation checks only the fields that the author can see.
 
+### Localized authoring text
+
+A field declares its words as English literals: `label`, `description`, and the
+`label` of each select option. Each literal can have a translation key beside
+it:
+
+| Literal           | Key                  |
+| ----------------- | -------------------- |
+| `label`           | `labelKey`           |
+| `description`     | `descriptionKey`     |
+| `options[].label` | `options[].labelKey` |
+
+A key names a string in the Studio `definitions` namespace, for example
+`definitions:website.fields.url.label`. The key is optional. The literal is
+always present and is the English source.
+
+Studio resolves each string in one place, `definitionText`
+(`apps/dashboard/src/content/definitionText.ts`). The rules are:
+
+1. When the key is in the `definitions` namespace and has a non-empty
+   translation in the active language, Studio shows the translation.
+2. In all other cases Studio shows the literal. This includes a missing key, an
+   unknown key, an empty translation, and a key in another namespace.
+
+A missing translation never leaves a control without a label. The inspector,
+the Data Source form, and every nested `repeating_group` item use the same
+resolver. No Studio component compares a provider identifier to choose a label.
+
+Tilecast definitions (Website, YouTube) declare keys for every string. English,
+Spanish, and Russian files in `apps/dashboard/src/locales/<language>/definitions.json`
+hold the translations. The English file repeats the literals. A test fails when
+a key is missing from a language, or when the English text differs from the
+literal in the catalog. The Server test
+`TestWebIntegrationAuthoringTextIsKeyed` checks that these definitions declare a
+key for each string.
+
+A plugin or an external definition supplies literals only. A plugin does not
+register keys in the Tilecast translation files and does not need to. A key from
+a plugin that Studio cannot resolve falls back to the literal. A plugin that
+wants a translated inspector ships a literal in its own language. Plugin Widget
+text is not yet localized by Studio.
+
 ### Preview capabilities
 
 A definition may declare `authoring.preview.time: true`. The rendered result of
 such a Widget depends on the current instant. Studio then shows the preview-time
 control. Studio also shows the control when a connected Data Source uses date
 selection. `authoring` never changes validation, projection, or playback.
+
+A definition may declare `authoring.preview.recommendedFrame` with an integer
+`width` and `height` in pixels. Each side is from 32 to 3840. The frame is the
+geometry that the Widget is designed for, for example `1920` by `200` for a
+strip. It is an authoring hint. It never reaches the Player and never changes
+validation, projection, or playback. The Server rejects a definition with an
+invalid frame (`contentdefs.AuthoringProblem`), and the Widget manifest schema
+rejects it as well.
+
+Studio uses the recommended frame in three places:
+
+- **Editor.** The preview opens at the frame. The frame selector lists it as
+  **Recommended** unless it equals a named preset. The author can still choose
+  any other frame. Choosing a frame never changes the draft.
+- **Thumbnails.** The queue renders the Widget at the frame, then fits the
+  render inside the canonical 960 × 540 thumbnail. The thumbnail keeps the
+  aspect ratio of the frame and sits on a neutral stage. The saved image is
+  always 960 × 540.
+- **Layout placement.** A new placement of the Widget in a Layout starts with the
+  aspect ratio of the frame. The placement keeps the area of the default
+  placement (40% of the canvas in each direction). A shape that would be larger
+  than 80% of the canvas on a side is reduced to 80% with the same aspect ratio.
+  A `1920` by `160` strip on a `1920` by `1080` canvas starts at `1536` by
+  `128`. Existing Layouts do not change. A Widget without a recommendation keeps
+  the default placement. The editor does not resize a placement after it is
+  created.
+
+A Widget without a recommendation previews at 960 × 540 (Landscape). The Ticker
+Widget declares a `1920` by `200` strip, which is the geometry its component is
+designed for. Studio compares no provider identifier to apply any of this.
 
 The current definitions that declare `authoring.preview.time` are `clock`,
 `countdown`, `agenda`, `status`, `date`, `world_clock`, `schedule-board`,
@@ -236,12 +308,24 @@ diagnostics from the actions menu.
 
 ## Thumbnails
 
-The editor does not capture a thumbnail before a save. After the Server accepts
-a save of a component Widget, the editor queues the saved Widget in
-`WidgetSnapshotQueue`. The queue is mounted once in the Studio shell, so a route
-change does not cancel a capture. The queue renders the saved Widget at the
-canonical 960 × 540 frame, waits for the organization regional settings,
-captures the render, and uploads it.
+The editor does not capture a thumbnail before a save. The save comes first.
+After the Server accepts a save of a component Widget, the editor queues the
+saved Widget in `WidgetSnapshotQueue`. The queue is mounted once in the Studio
+shell, so a route change does not cancel a capture. The queue renders the saved
+Widget at its recommended frame, or at the canonical 960 × 540 frame when the
+definition declares none. It waits for the organization regional settings,
+captures the render, fits it inside 960 × 540, and uploads it.
+
+The queue follows these rules:
+
+- A job has one deadline of 30 seconds. The deadline covers rendering, capture,
+  and upload. When it ends, the queue reports the failure and starts the next
+  job.
+- A newer save of the same Widget replaces an older job that waits in the queue.
+  The replaced job is dropped. It is not a failure.
+- When a newer save replaces a job that is running, the queue aborts the
+  upload of the older job. A stale thumbnail cannot overwrite a newer one.
+- A failure of the capture or the upload never changes the saved Widget.
 
 When a capture or upload fails, Studio keeps the save and shows the warning
 "Preview thumbnail could not be updated." The Widgets library backfill tries
@@ -259,6 +343,10 @@ Player behavior do not change.
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `website` | `url`, `backgroundColor`, `zoomPercent`, `scrollX`, `scrollY`, `reloadPolicy`, `refreshIntervalSeconds`, `failureBehavior`, `fallbackImageAssetId`, `loadTimeoutSeconds`, `allowedHosts`, `javascriptEnabled`, `domStorageEnabled`, `cookiePolicy`, `customUserAgent` |
 | `youtube` | `url`, `startSeconds`, `endSeconds`, `captions`, `captionLanguage`, `muted`, `volume`, `loop`, `controls`, `playlistPlaybackMode`, `fixedDurationSeconds`, `failureBehavior`, `fallbackImageAssetId`                                                                  |
+
+The definitions declare a translation key for every label, description, and
+select option. The inspector shows them in English, Spanish, and Russian through
+the same resolver as every other definition (see Localized authoring text).
 
 Studio does not send Server-derived values (`displayUrl`, `kind`, `videoId`,
 `playlistId`) back as author input. A cleared optional media field is omitted,

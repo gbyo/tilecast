@@ -38,6 +38,7 @@ export function useWebIntegrationPreview({
   csrf,
   canCompile,
   savedThumbnailUrl,
+  urlField = "url",
 }: {
   provider: string;
   configuration: Record<string, unknown>;
@@ -45,8 +46,14 @@ export function useWebIntegrationPreview({
   /** Compiling a preview needs permission to edit Widgets. */
   canCompile: boolean;
   savedThumbnailUrl?: string;
+  /** The configuration key that holds the address (webIntegration.urlField). */
+  urlField?: string;
 }) {
   const { t } = useTranslation("content");
+  // Without an address there is nothing to compile; asking the Server would
+  // only produce an internal error the author cannot act on.
+  const address = configuration[urlField];
+  const hasAddress = typeof address === "string" && address.trim() !== "";
   const previewConfiguration = useMemo(
     () => webPreviewConfiguration(provider, configuration),
     [provider, configuration],
@@ -59,7 +66,7 @@ export function useWebIntegrationPreview({
     queryKey: ["compiled-widget-preview", provider, settledKey],
     queryFn: () =>
       api.compileWidgetPreview(provider, JSON.parse(settledKey) as never, csrf),
-    enabled: canCompile,
+    enabled: canCompile && hasAddress,
     retry: false,
   });
   const presentation = useLastGood(compiled.data ?? null);
@@ -67,6 +74,7 @@ export function useWebIntegrationPreview({
   const status = webPreviewStatus(
     {
       canCompile,
+      hasAddress,
       hasSavedThumbnail: Boolean(savedThumbnailUrl),
       isPending: compiled.isPending,
       errorDetail: compiled.isError

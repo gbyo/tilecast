@@ -6560,6 +6560,9 @@ type ContentDefinitionAppRecipe struct {
 // ContentDefinitionAuthoring Studio authoring capabilities. They never change validation, projection, or playback.
 type ContentDefinitionAuthoring struct {
 	Preview struct {
+		// RecommendedFrame A pixel geometry. Studio opens the preview at a Widget's recommended frame, renders library thumbnails at it, and gives a new Layout placement its aspect ratio. It is an authoring hint only; it never reaches the Player and never changes validation or playback.
+		RecommendedFrame *ContentDefinitionFrame `json:"recommendedFrame,omitempty"`
+
 		// Time The rendered result depends on the current instant, so Studio offers preview-time controls.
 		Time *bool `json:"time,omitempty"`
 	} `json:"preview"`
@@ -6638,11 +6641,17 @@ type ContentDefinitionField struct {
 	DataSourceFieldTypes *[]string `json:"dataSourceFieldTypes,omitempty"`
 
 	// Default Release-owned default value of any JSON type.
-	Default        interface{}                      `json:"default,omitempty"`
-	Description    *string                          `json:"description,omitempty"`
-	ItemFields     *[]ContentDefinitionField        `json:"itemFields,omitempty"`
-	Key            string                           `json:"key"`
-	Label          string                           `json:"label"`
+	Default     interface{} `json:"default,omitempty"`
+	Description *string     `json:"description,omitempty"`
+
+	// DescriptionKey A Studio translation key in the definitions namespace for description. Optional; description is the literal fallback.
+	DescriptionKey *string                   `json:"descriptionKey,omitempty"`
+	ItemFields     *[]ContentDefinitionField `json:"itemFields,omitempty"`
+	Key            string                    `json:"key"`
+	Label          string                    `json:"label"`
+
+	// LabelKey A Studio translation key in the definitions namespace for label. Optional; label is the literal fallback and stays the English source.
+	LabelKey       *string                          `json:"labelKey,omitempty"`
 	MaxLength      *int                             `json:"maxLength,omitempty"`
 	Maximum        *float32                         `json:"maximum,omitempty"`
 	MaximumItems   *int                             `json:"maximumItems,omitempty"`
@@ -6655,6 +6664,12 @@ type ContentDefinitionField struct {
 
 	// Ui Release-owned authoring hints of any JSON shape.
 	Ui *map[string]interface{} `json:"ui,omitempty"`
+}
+
+// ContentDefinitionFrame A pixel geometry. Studio opens the preview at a Widget's recommended frame, renders library thumbnails at it, and gives a new Layout placement its aspect ratio. It is an authoring hint only; it never reaches the Player and never changes validation or playback.
+type ContentDefinitionFrame struct {
+	Height int `json:"height"`
+	Width  int `json:"width"`
 }
 
 // ContentDefinitionOutputField defines model for ContentDefinitionOutputField.
@@ -6679,7 +6694,10 @@ type ContentDefinitionOutputSchemaKind string
 // ContentDefinitionSelectOption defines model for ContentDefinitionSelectOption.
 type ContentDefinitionSelectOption struct {
 	Label string `json:"label"`
-	Value string `json:"value"`
+
+	// LabelKey A Studio translation key in the definitions namespace for label. Optional; label is the fallback.
+	LabelKey *string `json:"labelKey,omitempty"`
+	Value    string  `json:"value"`
 }
 
 // ContentDefinitionSetup defines model for ContentDefinitionSetup.

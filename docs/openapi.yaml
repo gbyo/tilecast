@@ -11496,6 +11496,9 @@ components:
       properties:
         value: { type: string }
         label: { type: string }
+        labelKey:
+          type: string
+          description: A Studio translation key in the definitions namespace for label. Optional; label is the fallback.
     ContentDefinitionField:
       type: object
       additionalProperties: false
@@ -11503,7 +11506,13 @@ components:
       properties:
         key: { type: string }
         label: { type: string }
+        labelKey:
+          type: string
+          description: A Studio translation key in the definitions namespace for label. Optional; label is the literal fallback and stays the English source.
         description: { type: string }
+        descriptionKey:
+          type: string
+          description: A Studio translation key in the definitions namespace for description. Optional; description is the literal fallback.
         control:
           {
             type: string,
@@ -11566,6 +11575,16 @@ components:
             time:
               type: boolean
               description: The rendered result depends on the current instant, so Studio offers preview-time controls.
+            recommendedFrame:
+              $ref: "#/components/schemas/ContentDefinitionFrame"
+    ContentDefinitionFrame:
+      type: object
+      additionalProperties: false
+      description: A pixel geometry. Studio opens the preview at a Widget's recommended frame, renders library thumbnails at it, and gives a new Layout placement its aspect ratio. It is an authoring hint only; it never reaches the Player and never changes validation or playback.
+      required: [width, height]
+      properties:
+        width: { type: integer, minimum: 32, maximum: 3840 }
+        height: { type: integer, minimum: 32, maximum: 3840 }
     ContentDefinitionConfigurationSchema:
       type: object
       additionalProperties: false

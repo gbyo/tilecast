@@ -57,7 +57,9 @@ import { previewRecordMaps } from "./previewRecords";
 import {
   galleryHiddenProviders,
   providerLabel,
+  recordCountLabel,
   sourceIcon,
+  statusLabel,
 } from "./dataSourceProviderMeta";
 
 // Studio shows at most this many sample values so a wide source cannot overflow the control.
@@ -288,19 +290,6 @@ export function DataFormatGuidePanel({
 export function SourceStatus({ status }: { status: unknown }) {
   const { t } = useTranslation(["content", "common"]);
   return <Badge variant="outline">{statusLabel(status, t)}</Badge>;
-}
-
-export function statusLabel(status: unknown, t: ContentT) {
-  if (status === "error") return t("dataSources.status.error");
-  if (typeof status !== "string" || status.length === 0)
-    return t("dataSources.status.unknown");
-  if (status === "ready") return t("dataSources.status.ready");
-  return status.replaceAll("_", " ");
-}
-
-export function recordCountLabel(recordCount: unknown, t: ContentT) {
-  if (typeof recordCount !== "number") return undefined;
-  return t("dataSources.picker.recordCount", { count: recordCount });
 }
 
 // useConnectDataFlow owns the two-step Connect state. Both the empty state and the picker

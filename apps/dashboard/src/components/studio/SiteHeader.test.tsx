@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 import { SidebarProvider } from "../ui/sidebar";
 import {
@@ -67,9 +68,12 @@ describe("SiteHeader", () => {
   });
 
   it("shows an editor's draft name in the last breadcrumb only", async () => {
+    // The rename handler must be stable: a new function on every render would
+    // re-register it on every render and never settle.
+    const rename = vi.fn();
     function Draft({ title }: { title: string }) {
       useEditorHeaderTitle(title);
-      useEditorHeaderRename(() => {});
+      useEditorHeaderRename(rename);
       return null;
     }
     const breadcrumbs = [
@@ -92,10 +96,17 @@ describe("SiteHeader", () => {
       </MemoryRouter>,
     );
     const nav = screen.getByRole("navigation", { name: "breadcrumb" });
-    expect(
-      await screen.findByRole("button", { name: "New Countdown" }),
-    ).toBeTruthy();
+    const title = await screen.findByRole("button", { name: "New Countdown" });
     expect(nav.querySelector("a")?.textContent).toBe("Widgets");
+    // The draft name is a real button that marks the current page. It is not
+    // inside the disabled link BreadcrumbPage renders, which would read as a
+    // disabled control and nest one interactive element in another.
+    expect(title).toHaveAttribute("aria-current", "page");
+    expect(title).toHaveAttribute("aria-haspopup", "dialog");
+    expect(title.closest("[aria-disabled]")).toBeNull();
+    expect(title.closest('[role="link"]')).toBeNull();
+    fireEvent.click(title);
+    expect(rename).toHaveBeenCalledTimes(1);
     expect(breadcrumbs[1]!.label).toBe("Create widget");
     view.unmount();
   });

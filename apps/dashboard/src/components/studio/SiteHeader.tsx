@@ -62,6 +62,49 @@ function shortcutLabel() {
   return /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? "⌘ K" : "Ctrl K";
 }
 
+/**
+ * The last breadcrumb: the current page. An editor that can rename its
+ * resource makes the name a button.
+ */
+function CurrentBreadcrumb({
+  label,
+  only,
+  onRename,
+}: {
+  label: string;
+  only: boolean;
+  onRename?: (() => void) | null;
+}) {
+  if (!onRename)
+    return (
+      <BreadcrumbPage className={cn("truncate", only && "font-semibold")}>
+        {label}
+      </BreadcrumbPage>
+    );
+  // BreadcrumbPage is an aria-disabled link, so a button inside it would read
+  // as disabled and nest controls. The same visual wrapper carries no role,
+  // and the button itself marks the current page.
+  return (
+    <span
+      data-slot="breadcrumb-page"
+      className={cn(
+        "truncate font-normal text-foreground",
+        only && "font-semibold",
+      )}
+    >
+      <button
+        type="button"
+        aria-current="page"
+        aria-haspopup="dialog"
+        className="max-w-full truncate rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        onClick={onRename}
+      >
+        {label}
+      </button>
+    </span>
+  );
+}
+
 export function SiteHeader({
   breadcrumbs,
   notifications,
@@ -88,7 +131,9 @@ export function SiteHeader({
     <header
       className={cn(
         "flex shrink-0 items-center border-b border-border",
-        editor ? "h-13 gap-2 pr-2.5 pl-3" : "h-14 gap-3 px-4 md:px-6",
+        editor
+          ? "h-13 gap-2 pr-2.5 pl-3 max-[360px]:gap-1 max-[360px]:pr-1.5 max-[360px]:pl-2"
+          : "h-14 gap-3 px-4 md:px-6",
       )}
     >
       {navigationTrigger && (
@@ -125,24 +170,11 @@ export function SiteHeader({
                   )}
                 >
                   {index === breadcrumbs.length - 1 ? (
-                    <BreadcrumbPage
-                      className={cn(
-                        "truncate",
-                        breadcrumbs.length === 1 && "font-semibold",
-                      )}
-                    >
-                      {editor && slots?.rename ? (
-                        <button
-                          type="button"
-                          className="max-w-full truncate rounded-sm hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                          onClick={slots.rename}
-                        >
-                          {(editor && slots.title) || item.label}
-                        </button>
-                      ) : (
-                        (editor && slots?.title) || item.label
-                      )}
-                    </BreadcrumbPage>
+                    <CurrentBreadcrumb
+                      label={(editor && slots?.title) || item.label}
+                      only={breadcrumbs.length === 1}
+                      onRename={editor ? slots?.rename : null}
+                    />
                   ) : (
                     <BreadcrumbLink
                       className="truncate"
@@ -166,7 +198,13 @@ export function SiteHeader({
               <Badge variant="outline" tabIndex={0} data-testid="demo-badge" />
             }
           >
-            {t("common:demo.badge")}
+            <FlaskConical
+              className="hidden size-3.5 max-[420px]:block"
+              aria-hidden="true"
+            />
+            <span className="max-[420px]:sr-only">
+              {t("common:demo.badge")}
+            </span>
           </TooltipTrigger>
           <TooltipContent className="max-w-64">
             <span className="flex items-start gap-2">

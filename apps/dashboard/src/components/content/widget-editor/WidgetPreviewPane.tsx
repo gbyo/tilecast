@@ -7,7 +7,7 @@ import { useQueries } from "@tanstack/react-query";
 import { useRef } from "react";
 import { cn } from "cn";
 import { api } from "@/api/client";
-import { dataSourceKeysIn } from "@/content/DefinitionForm";
+import { dataSourceKeysIn } from "@/content/dataSourceBindings";
 import { recommendedFrameOf } from "@/content/widgetGeometry";
 import { offersRecommendedFrame } from "./previewFrames";
 import {
@@ -85,6 +85,7 @@ export function WidgetPreviewPane({
           csrf={csrf}
           canCompile={!session.readOnly}
           savedThumbnailUrl={session.asset?.thumbnailUrl}
+          urlField={authoring.urlField}
         />
       )}
     </div>

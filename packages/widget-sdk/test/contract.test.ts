@@ -25,7 +25,9 @@ import { MAX_COMPONENT_TYPE_LENGTH } from "../src/identity.ts";
 import {
   compileComponentConfig,
   configLimitProblem,
+  RECOMMENDED_FRAME_BOUNDS,
   widgetManifestSchema,
+  widgetManifestJSONSchema,
 } from "../src/manifest.ts";
 
 const element = class extends HTMLElement {} as never;
@@ -462,6 +464,115 @@ describe("manifest", () => {
         configVersion: 0,
       }).success,
     ).toBe(false);
+  });
+
+  describe("authoring.preview.recommendedFrame", () => {
+    const withFrame = (recommendedFrame: unknown) => ({
+      ...manifest("tilecast.clock", "tc-widget-clock"),
+      authoring: { preview: { recommendedFrame } },
+    });
+
+    it("is optional", () => {
+      expect(
+        widgetManifestSchema.safeParse(
+          manifest("tilecast.clock", "tc-widget-clock"),
+        ).success,
+      ).toBe(true);
+      expect(
+        widgetManifestSchema.safeParse({
+          ...manifest("tilecast.clock", "tc-widget-clock"),
+          authoring: { preview: { time: true } },
+        }).success,
+      ).toBe(true);
+    });
+
+    it("accepts a positive width and height inside the bounds", () => {
+      const { min, max } = RECOMMENDED_FRAME_BOUNDS;
+      for (const frame of [
+        { width: 1920, height: 200 },
+        { width: min, height: min },
+        { width: max, height: max },
+      ])
+        expect(widgetManifestSchema.safeParse(withFrame(frame)).success).toBe(
+          true,
+        );
+    });
+
+    it("rejects missing, non-integer, and out-of-range dimensions", () => {
+      const { min, max } = RECOMMENDED_FRAME_BOUNDS;
+      for (const frame of [
+        { width: 1920 },
+        { height: 200 },
+        {},
+        { width: 0, height: 200 },
+        { width: -1920, height: 200 },
+        { width: min - 1, height: 200 },
+        { width: 1920, height: max + 1 },
+        { width: 19.2, height: 200 },
+        { width: "1920", height: 200 },
+        { width: 1920, height: 200, aspect: 9.6 },
+      ])
+        expect(widgetManifestSchema.safeParse(withFrame(frame)).success).toBe(
+          false,
+        );
+    });
+
+    it("is described in the published JSON Schema with the same bounds", () => {
+      const generated = widgetManifestJSONSchema() as {
+        properties: {
+          authoring: {
+            properties: {
+              preview: {
+                properties: { recommendedFrame: Record<string, unknown> };
+              };
+            };
+          };
+        };
+      };
+      const frame =
+        generated.properties.authoring.properties.preview.properties
+          .recommendedFrame;
+      expect(frame).toMatchObject({
+        type: "object",
+        required: ["width", "height"],
+        additionalProperties: false,
+        properties: {
+          width: { minimum: 32, maximum: 3840 },
+          height: { minimum: 32, maximum: 3840 },
+        },
+      });
+      const committed = JSON.parse(
+        readFileSync(
+          resolve(process.cwd(), "schema/tilecast-widget.schema.json"),
+          "utf8",
+        ),
+      ) as typeof generated;
+      expect(
+        committed.properties.authoring.properties.preview.properties
+          .recommendedFrame,
+      ).toEqual(frame);
+    });
+
+    it("is declared by the bundled Ticker, which stays a valid manifest", () => {
+      const ticker = JSON.parse(
+        readFileSync(
+          resolve(process.cwd(), "../../widgets/ticker/tilecast.widget.json"),
+          "utf8",
+        ),
+      ) as { authoring?: { preview?: { recommendedFrame?: unknown } } };
+      expect(ticker.authoring?.preview?.recommendedFrame).toEqual({
+        width: 1920,
+        height: 200,
+      });
+      const parsed = widgetManifestSchema.safeParse(ticker);
+      expect(parsed.success, JSON.stringify(parsed.error?.issues)).toBe(true);
+      const tooLarge = structuredClone(ticker);
+      tooLarge.authoring!.preview!.recommendedFrame = {
+        width: 4000,
+        height: 200,
+      };
+      expect(widgetManifestSchema.safeParse(tooLarge).success).toBe(false);
+    });
   });
 
   it("limits the component type so widget.<type> fits the capability bound", () => {

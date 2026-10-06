@@ -5,7 +5,11 @@
  * thumbnails at it, and gives a new Layout placement its aspect ratio. The
  * Player never sees it and nothing validates against it.
  */
-import type { ContentDefinitionCatalog, WidgetDefinition } from "@/api/types";
+import type {
+  Asset,
+  ContentDefinitionCatalog,
+  WidgetDefinition,
+} from "@/api/types";
 
 export interface WidgetFrame {
   readonly width: number;
@@ -48,6 +52,16 @@ export function recommendedFrameForProvider(
   );
 }
 
+/** The recommended frame of the Widget a library asset places, if it is one. */
+export function recommendedFrameForAsset(
+  catalog: ContentDefinitionCatalog | undefined,
+  asset: Pick<Asset, "type" | "widget">,
+): WidgetFrame | null {
+  return asset.type === "widget"
+    ? recommendedFrameForProvider(catalog, asset.widget?.provider)
+    : null;
+}
+
 export function sameFrame(a: WidgetFrame, b: WidgetFrame) {
   return a.width === b.width && a.height === b.height;
 }
@@ -77,5 +91,9 @@ export function placementSizeForFrame(
   );
   width *= shrink;
   height *= shrink;
-  return { width: Math.round(width), height: Math.round(height) };
+  // The layout editor never draws a placement smaller than 16 pixels.
+  return {
+    width: Math.max(16, Math.round(width)),
+    height: Math.max(16, Math.round(height)),
+  };
 }

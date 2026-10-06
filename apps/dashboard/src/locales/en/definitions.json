@@ -1,0 +1,126 @@
+{
+  "website": {
+    "fields": {
+      "url": {
+        "label": "Web address",
+        "description": "The public page to show. Use HTTPS; plain HTTP works only for private addresses when this installation allows it."
+      },
+      "backgroundColor": {
+        "label": "Background color",
+        "description": "Shown behind the page while it loads."
+      },
+      "zoomPercent": {
+        "label": "Zoom (%)"
+      },
+      "scrollX": {
+        "label": "Horizontal scroll (px)"
+      },
+      "scrollY": {
+        "label": "Vertical scroll (px)"
+      },
+      "reloadPolicy": {
+        "label": "Reload",
+        "options": {
+          "load_once": "Load once while active",
+          "on_each_activation": "Reload each time it appears",
+          "interval": "Reload on an interval"
+        }
+      },
+      "refreshIntervalSeconds": {
+        "label": "Reload every (seconds)"
+      },
+      "failureBehavior": {
+        "label": "If the page cannot load",
+        "options": {
+          "placeholder": "Show the Tilecast placeholder",
+          "last_success": "Keep the last page that loaded",
+          "fallback_image": "Show a fallback image",
+          "skip": "Skip this item"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Fallback image"
+      },
+      "loadTimeoutSeconds": {
+        "label": "Load timeout (seconds)"
+      },
+      "allowedHosts": {
+        "label": "Allowed hosts",
+        "description": "Exact host names the page may navigate to. The page's own host is always allowed. This limits top-level navigation, not every third-party resource."
+      },
+      "javascriptEnabled": {
+        "label": "Run JavaScript"
+      },
+      "domStorageEnabled": {
+        "label": "Allow DOM storage"
+      },
+      "cookiePolicy": {
+        "label": "Cookies",
+        "options": {
+          "disabled": "Disabled",
+          "first_party": "First-party only",
+          "first_and_third_party": "First- and third-party"
+        }
+      },
+      "customUserAgent": {
+        "label": "Custom user agent",
+        "description": "Leave blank for the Player's standard user agent. Overrides can break sites."
+      }
+    }
+  },
+  "youtube": {
+    "fields": {
+      "url": {
+        "label": "YouTube video or playlist URL",
+        "description": "Tilecast detects whether this is a video or a playlist. No YouTube API key is required."
+      },
+      "startSeconds": {
+        "label": "Start at (seconds)"
+      },
+      "endSeconds": {
+        "label": "End at (seconds)",
+        "description": "Leave blank to play to the end."
+      },
+      "captions": {
+        "label": "Show captions"
+      },
+      "captionLanguage": {
+        "label": "Caption language",
+        "description": "A language code such as en or es. Leave blank for YouTube's default."
+      },
+      "muted": {
+        "label": "Mute audio"
+      },
+      "volume": {
+        "label": "Volume (%)"
+      },
+      "loop": {
+        "label": "Loop playback"
+      },
+      "controls": {
+        "label": "Show YouTube controls"
+      },
+      "playlistPlaybackMode": {
+        "label": "Playlist item length",
+        "options": {
+          "until_end": "Play until the video ends",
+          "fixed_duration": "Play for a fixed duration"
+        }
+      },
+      "fixedDurationSeconds": {
+        "label": "Fixed duration (seconds)"
+      },
+      "failureBehavior": {
+        "label": "If the video cannot play",
+        "options": {
+          "placeholder": "Show the Tilecast placeholder",
+          "fallback_image": "Show a fallback image",
+          "skip": "Skip this item"
+        }
+      },
+      "fallbackImageAssetId": {
+        "label": "Fallback image"
+      }
+    }
+  }
+}

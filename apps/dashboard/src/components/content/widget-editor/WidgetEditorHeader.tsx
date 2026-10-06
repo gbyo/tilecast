@@ -14,6 +14,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { DeleteWidgetDialog } from "./header/DeleteWidgetDialog";
 import { useWidgetHeaderActions } from "./header/useWidgetHeaderActions";
+import { useNarrowHeader } from "./header/useNarrowHeader";
 import { WidgetHeaderNavigation } from "./header/WidgetHeaderNavigation";
 import {
   WidgetHeaderStatus,
@@ -29,7 +30,7 @@ export function WidgetEditorHeader({
   session,
   csrf,
   canManage,
-  compact,
+  compact: phone,
 }: {
   session: WidgetEditorSession;
   csrf: string;
@@ -37,6 +38,10 @@ export function WidgetEditorHeader({
   compact: boolean;
 }) {
   const { t } = useTranslation("content");
+  // Compact forms apply on a phone, and wherever the header itself is too
+  // narrow for the full controls (a tablet with the sidebar open).
+  const narrowHeader = useNarrowHeader();
+  const compact = phone || narrowHeader;
   const [usageOpen, setUsageOpen] = useState(false);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -74,7 +79,7 @@ export function WidgetEditorHeader({
       <EditorHeaderPortal
         left={<WidgetHeaderNavigation session={session} />}
         right={
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 max-[360px]:gap-1">
             {asset && !compact && (
               <WidgetUsageButton
                 label={usageLabel}

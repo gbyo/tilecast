@@ -149,7 +149,7 @@ describe("every shipped Widget type", () => {
       await waitFor(() =>
         expect(
           screen.queryByRole("img", { name: "Live Widget preview" }) ??
-            screen.queryByRole("status"),
+            screen.queryAllByRole("status")[0],
         ).toBeTruthy(),
       );
       await userEvent.click(save);

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/empty";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLocalizedDefinitionFields } from "@/content/useLocalizedDefinitionFields";
 import { WidgetInspectorField } from "./fields/WidgetInspectorField";
 import { fieldDomId, type InspectorFieldProps } from "./fields/fieldContext";
 import { RowIdentityEpoch } from "./fields/rowIdentity";
@@ -70,7 +71,9 @@ function InspectorSections({
   csrf: string;
 }) {
   const { t } = useTranslation("content");
-  const fields = session.definition.configurationSchema.fields;
+  const fields = useLocalizedDefinitionFields(
+    session.definition.configurationSchema.fields,
+  );
   const configuration = session.draft.configuration;
   const groups = groupAuthoringFields(
     visibleAuthoringFields(fields, configuration),

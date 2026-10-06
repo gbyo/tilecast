@@ -1033,6 +1033,7 @@
         "configurationProblem": "La vista previa todavía no puede mostrar esta configuración.",
         "renderFailed": "Este widget no se pudo mostrar en la vista previa.",
         "webInvalid": "Studio no puede previsualizar esta dirección.",
+        "webNoAddress": "Introduce una dirección web para verla aquí.",
         "webUnavailable": "Vista previa no disponible. Las pantallas muestran esta integración en una vista aislada del reproductor.",
         "webViewOnly": "Las vistas previas web en vivo requieren permiso para editar widgets. Las pantallas muestran esta página en una vista aislada del reproductor."
       },

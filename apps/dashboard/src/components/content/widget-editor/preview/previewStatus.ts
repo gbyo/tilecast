@@ -67,6 +67,7 @@ export function componentPreviewStatus(
 export function webPreviewStatus(
   input: {
     canCompile: boolean;
+    hasAddress: boolean;
     hasSavedThumbnail: boolean;
     isPending: boolean;
     errorDetail?: string;
@@ -81,6 +82,11 @@ export function webPreviewStatus(
           kind: "unavailable",
           message: t("widgets.editor.preview.webViewOnly"),
         };
+  if (!input.hasAddress)
+    return {
+      kind: "unavailable",
+      message: t("widgets.editor.preview.webNoAddress"),
+    };
   if (input.errorDetail !== undefined)
     return {
       kind: "error",

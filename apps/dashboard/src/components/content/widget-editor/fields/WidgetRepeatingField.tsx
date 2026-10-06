@@ -170,7 +170,7 @@ export function WidgetRepeatingField(props: InspectorFieldProps) {
           type="button"
           variant="outline"
           size="sm"
-          className="justify-self-start"
+          className="self-start"
           id={`${id}-add`}
           onClick={add}
         >

@@ -24,7 +24,7 @@ import {
   compatibleSources,
   creatableProviders,
   dataFormatGuideFor,
-} from "@/content/DefinitionForm";
+} from "@/content/dataSourceBindings";
 import { galleryHiddenProviders } from "@/content/dataSourceProviderMeta";
 import { useDataSourceLibrary } from "./dataSourceLibrary";
 import { SampleData, SelectedSource, SourceChooser } from "./DataSourceParts";
@@ -110,7 +110,7 @@ export function WidgetDataSourceField({
           type="button"
           variant="ghost"
           size="sm"
-          className="justify-self-start"
+          className="self-start"
           onClick={() => setConnecting("choose")}
         >
           <Plus aria-hidden="true" />

@@ -340,10 +340,13 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return ((await response.json()) as DataResponse<T>).data;
 }
 
-async function apiFailure(response: Response): Promise<never> {
+async function apiFailure(
+  response: Response,
+  fallback = "Tilecast could not complete the request.",
+): Promise<never> {
   const body = (await response.json().catch(() => ({}))) as ErrorResponse;
   throw new ApiError(
-    body.error?.message ?? "Tilecast could not complete the request.",
+    body.error?.message ?? fallback,
     response.status,
     body.error?.code ?? "unknown_error",
   );
@@ -385,14 +388,11 @@ export const api = {
         signal,
       },
     );
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as ErrorResponse;
-      throw new ApiError(
-        body.error?.message ?? "The Widget preview image could not be saved.",
-        response.status,
-        body.error?.code ?? "unknown_error",
+    if (!response.ok)
+      await apiFailure(
+        response,
+        "The Widget preview image could not be saved.",
       );
-    }
   },
   layouts: listLayouts,
   layoutPage: listLayoutsPage,

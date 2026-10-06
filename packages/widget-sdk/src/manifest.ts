@@ -142,6 +142,19 @@ const componentSchema = z
   })
   .strict();
 
+/** Bounds, in pixels, of a recommended frame side. The Server enforces the same range. */
+export const RECOMMENDED_FRAME_BOUNDS = { min: 32, max: 3840 } as const;
+
+const frameSide = z
+  .number()
+  .int()
+  .min(RECOMMENDED_FRAME_BOUNDS.min)
+  .max(RECOMMENDED_FRAME_BOUNDS.max);
+
+const recommendedFrameSchema = z
+  .object({ width: frameSide, height: frameSide })
+  .strict();
+
 export const widgetManifestSchema = z
   .object({
     $schema: z.string().optional(),
@@ -194,6 +207,11 @@ export const widgetManifestSchema = z
               .optional()
               .describe(
                 "The rendered result depends on the current instant, so Studio offers preview-time controls.",
+              ),
+            recommendedFrame: recommendedFrameSchema
+              .optional()
+              .describe(
+                "The pixel geometry the Widget is designed for. Studio opens the preview at it, renders library thumbnails at it, and gives a new Layout placement its aspect ratio. An authoring hint only: it never reaches the Player and never changes validation or playback.",
               ),
           })
           .strict(),

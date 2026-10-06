@@ -13,7 +13,7 @@ import { useQueries } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useRef } from "react";
 import { api } from "@/api/client";
 import type { ContentDefinitionField, DataSourceField } from "@/api/types";
-import { resolveDataSourceKey } from "@/content/DefinitionForm";
+import { resolveDataSourceKey } from "@/content/dataSourceBindings";
 import type { WidgetConfiguration } from "../widgetEditorModel";
 import { suggestedSourceField } from "./fieldMapping";
 

@@ -240,3 +240,119 @@ describe("Widget thumbnails", () => {
     expect(screen.getByText("Saved")).toBeTruthy();
   });
 });
+
+describe("Preview geometry", () => {
+  const ticker = savedWidget("ticker", {
+    dataSourceId: "",
+    primaryField: "",
+    secondaryField: "",
+    leadingLabel: "News",
+    separator: " • ",
+    fieldSeparator: " — ",
+    maxItems: 15,
+    direction: "left",
+    speed: "normal",
+    emptyText: "",
+    backgroundColor: "",
+    foregroundColor: "",
+  });
+
+  /** The pixel geometry the Widget is laid out at inside the preview. */
+  async function frameSize() {
+    const preview = await screen.findByRole("img", {
+      name: "Live Widget preview",
+    });
+    const sized = await waitFor(() => {
+      const element = [...preview.querySelectorAll<HTMLElement>("div")].find(
+        (candidate) =>
+          candidate.style.width.endsWith("px") &&
+          candidate.style.height.endsWith("px"),
+      );
+      expect(element).toBeTruthy();
+      return element!;
+    });
+    return {
+      width: Number.parseInt(sized.style.width, 10),
+      height: Number.parseInt(sized.style.height, 10),
+    };
+  }
+
+  const frameSelect = () =>
+    within(toolbar()).getByRole("combobox", { name: "Preview frame" });
+
+  it("opens a Widget with no recommendation at the 960 x 540 Landscape default", async () => {
+    await open(clock);
+    expect(await frameSize()).toEqual({ width: 960, height: 540 });
+    expect(frameSelect()).toHaveTextContent("Landscape · 16:9");
+    await userEvent.click(frameSelect());
+    expect(screen.queryByRole("option", { name: /^Recommended/ })).toBeNull();
+  });
+
+  it("opens a Widget at the frame its definition recommends", async () => {
+    await open(ticker);
+    expect(await frameSize()).toEqual({ width: 1920, height: 200 });
+    expect(frameSelect()).toHaveTextContent("Recommended · 1920 × 200");
+  });
+
+  it("still lets the author look at any other frame, and come back", async () => {
+    await open(ticker);
+    await userEvent.click(frameSelect());
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Landscape · 16:9" }),
+    );
+    await waitFor(async () =>
+      expect(await frameSize()).toEqual({ width: 960, height: 540 }),
+    );
+    await userEvent.click(frameSelect());
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Recommended · 1920 × 200" }),
+    );
+    await waitFor(async () =>
+      expect(await frameSize()).toEqual({ width: 1920, height: 200 }),
+    );
+  });
+
+  it("never marks the Widget edited when the frame changes", async () => {
+    await open(ticker);
+    expect(screen.getByRole("button", { name: /Save changes/ })).toBeDisabled();
+    await userEvent.click(frameSelect());
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Portrait · 9:16" }),
+    );
+    expect(screen.getByText("Saved")).toBeTruthy();
+    expect(screen.queryByText("Unsaved changes")).toBeNull();
+    expect(screen.getByRole("button", { name: /Save changes/ })).toBeDisabled();
+  });
+
+  it("keeps the geometry out of the saved configuration", async () => {
+    await open(ticker);
+    await userEvent.click(screen.getByRole("tab", { name: "Content" }));
+    const update = vi.spyOn(api, "updateWidget").mockResolvedValue(ticker);
+    fireEvent.change(screen.getByRole("textbox", { name: /Leading label/ }), {
+      target: { value: "Headlines" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: /Save changes/ }));
+    await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+    const saved = JSON.stringify(update.mock.calls[0]![1]);
+    expect(saved).toContain("Headlines");
+    expect(saved).not.toMatch(/recommendedFrame|1920|"frame"/);
+  });
+
+  it("hands the recommended frame to the thumbnail capture", async () => {
+    await open(ticker);
+    await userEvent.click(screen.getByRole("tab", { name: "Content" }));
+    vi.spyOn(api, "updateWidget").mockResolvedValue(ticker);
+    vi.spyOn(api, "uploadWidgetPreview").mockResolvedValue();
+    fireEvent.change(screen.getByRole("textbox", { name: /Leading label/ }), {
+      target: { value: "Headlines" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: /Save changes/ }));
+    await waitFor(() => expect(captureWidgetPreview).toHaveBeenCalled(), {
+      timeout: 4000,
+    });
+    expect(vi.mocked(captureWidgetPreview).mock.calls.at(-1)![2]).toEqual({
+      width: 1920,
+      height: 200,
+    });
+  });
+});

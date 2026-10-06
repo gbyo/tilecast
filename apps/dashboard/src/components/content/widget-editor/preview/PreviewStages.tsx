@@ -62,6 +62,7 @@ export function WebPreviewStage({
   csrf,
   canCompile,
   savedThumbnailUrl,
+  urlField,
 }: {
   view: PreviewView;
   provider: string;
@@ -69,6 +70,7 @@ export function WebPreviewStage({
   csrf: string;
   canCompile: boolean;
   savedThumbnailUrl?: string;
+  urlField: string;
 }) {
   const preview = useWebIntegrationPreview({
     provider,
@@ -76,6 +78,7 @@ export function WebPreviewStage({
     csrf,
     canCompile,
     savedThumbnailUrl,
+    urlField,
   });
   return (
     <PreviewStage stageRef={view.stageRef} status={preview.status}>

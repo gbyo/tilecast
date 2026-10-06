@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +43,10 @@ export function WidgetDetailsDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   const nameId = useId();
+  // Focus goes to the name through the dialog, not an autoFocus attribute:
+  // the attribute focuses the field before the dialog records which control
+  // had focus, so closing the dialog could not return there.
+  const nameRef = useRef<HTMLInputElement>(null);
   const descriptionId = useId();
   const trimmed = name.trim();
   const nameProblem = !trimmed
@@ -62,7 +66,7 @@ export function WidgetDetailsDialog({
   };
   return (
     <Dialog open={open} onOpenChange={session.setDetailsOpen}>
-      <DialogContent>
+      <DialogContent initialFocus={readOnly ? true : nameRef}>
         <form
           className="grid gap-4"
           onSubmit={(event) => {
@@ -85,6 +89,7 @@ export function WidgetDetailsDialog({
               </FieldLabel>
               <Input
                 id={nameId}
+                ref={nameRef}
                 value={name}
                 disabled={readOnly}
                 required
@@ -93,7 +98,6 @@ export function WidgetDetailsDialog({
                 aria-describedby={
                   showNameProblem ? `${nameId}-error` : undefined
                 }
-                autoFocus={!readOnly}
                 onChange={(event) => setName(event.target.value)}
               />
               {showNameProblem && (

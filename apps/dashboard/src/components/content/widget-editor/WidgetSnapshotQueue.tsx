@@ -69,6 +69,7 @@ function SnapshotCapture({ job }: { job: WidgetSnapshotJob }) {
       const image = await captureWidgetPreview(element, t, frame);
       if (signal.aborted) return;
       await api.uploadWidgetPreview(job.asset.id, image, csrf, signal);
+      if (signal.aborted) return;
       void queryClient.invalidateQueries({ queryKey: contentKeys.assets });
     },
   );

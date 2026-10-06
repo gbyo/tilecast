@@ -1,6 +1,7 @@
 package contentdefs
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -79,6 +80,12 @@ func TestAuthoringProblemChecksTheRecommendedFrame(t *testing.T) {
 	}
 }
 
+// translationKeyPattern is the shape of a definition translation key: the
+// definitions namespace, a colon, and a dotted path (for example
+// "definitions:website.fields.url.label"). Studio resolves no other
+// namespace for definition text (docs/widget-authoring.md).
+var translationKeyPattern = regexp.MustCompile(`^definitions:[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)+$`)
+
 // Translation keys are Studio resource paths. A malformed one would silently
 // fall back to the English text, so the shipped catalog must keep them
 // well-formed and paired with the literal fallback.
@@ -107,4 +114,55 @@ func TestCatalogTranslationKeysAreWellFormed(t *testing.T) {
 	for _, definition := range MustLoad().Widgets {
 		check(definition.ID, definition.ConfigurationSchema.Fields)
 	}
+}
+
+// Website and YouTube are authored only through the generic inspector, so
+// every author-facing string they declare must have a translation key.
+func TestWebIntegrationAuthoringTextIsKeyed(t *testing.T) {
+	seen := 0
+	for _, definition := range MustLoad().Widgets {
+		if definition.ID != "website" && definition.ID != "youtube" {
+			continue
+		}
+		seen++
+		for _, field := range definition.ConfigurationSchema.Fields {
+			where := definition.ID + "." + field.Key
+			if field.LabelKey == "" {
+				t.Errorf("%s has no labelKey", where)
+			}
+			if field.Description != "" && field.DescriptionKey == "" {
+				t.Errorf("%s has a description without a descriptionKey", where)
+			}
+			for _, option := range field.Options {
+				if option.LabelKey == "" {
+					t.Errorf("%s option %q has no labelKey", where, option.Value)
+				}
+			}
+		}
+	}
+	if seen != 2 {
+		t.Fatalf("expected the Website and YouTube definitions, found %d", seen)
+	}
+}
+
+// A bundled Widget that declares a recommended frame proves the manifest
+// reaches the catalog the Server serves to Studio.
+func TestTickerDeclaresAStripFrame(t *testing.T) {
+	for _, definition := range MustLoad().Widgets {
+		if definition.ID != "ticker" {
+			continue
+		}
+		if definition.Authoring == nil || definition.Authoring.Preview.RecommendedFrame == nil {
+			t.Fatal("ticker should declare authoring.preview.recommendedFrame")
+		}
+		frame := definition.Authoring.Preview.RecommendedFrame
+		if frame.Width != 1920 || frame.Height != 200 {
+			t.Fatalf("ticker frame = %dx%d, want 1920x200", frame.Width, frame.Height)
+		}
+		if got := AuthoringProblem(definition); got != "" {
+			t.Fatalf("ticker must stay authorable, got %q", got)
+		}
+		return
+	}
+	t.Fatal("ticker is not in the catalog")
 }
