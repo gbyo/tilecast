@@ -31,7 +31,11 @@
   },
   "store": {
     "title": "Explore plugins",
+    "description": "Browse optional features and integrations for Tilecast.",
     "sourceLabel": "Source",
+    "loadError": "This plugin could not be loaded.",
+    "emptyTitle": "No plugins available",
+    "emptyDescription": "No plugins are available from the configured sources."
     "sources": {
       "all": "All sources",
       "included": "Included with Tilecast"
