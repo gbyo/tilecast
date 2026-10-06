@@ -12,6 +12,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -36,7 +37,7 @@ import {
   type WidgetDraft,
 } from "./widgetEditorModel";
 import { validateWidgetDraft } from "./widgetEditorValidation";
-import { enqueueWidgetSnapshot } from "./WidgetSnapshotQueue";
+import { enqueueWidgetSnapshot } from "./snapshotQueue";
 
 export type WidgetSaveState = "saved" | "unsaved" | "saving" | "error";
 
@@ -101,6 +102,9 @@ export function useWidgetEditorSession({
     null,
   );
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // Counts wholesale replacements of the draft (Discard), so list rows in
+  // the inspector start over instead of inheriting the old rows' identity.
+  const [draftEpoch, setDraftEpoch] = useState(0);
 
   // One pass for the editor's own departures (after create, delete), which
   // must not ask to discard what was just saved or deliberately removed.
@@ -219,8 +223,7 @@ export function useWidgetEditorSession({
 
   // Ctrl/Command+S saves from anywhere in the editor except an open
   // dialog, which owns its own keys. The browser's own Save Page never runs.
-  const requestSaveRef = useRef(requestSave);
-  requestSaveRef.current = requestSave;
+  const saveFromShortcut = useEffectEvent(requestSave);
   useEffect(() => {
     if (readOnly) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -234,7 +237,7 @@ export function useWidgetEditorSession({
         return;
       if (isShortcutTargetInDialog(event.target)) return;
       event.preventDefault();
-      requestSaveRef.current();
+      saveFromShortcut();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -242,6 +245,7 @@ export function useWidgetEditorSession({
 
   const discard = useCallback(() => {
     setDraft(baseline);
+    setDraftEpoch((current) => current + 1);
     setRevealed(false);
     save.reset();
   }, [baseline, save]);
@@ -274,6 +278,7 @@ export function useWidgetEditorSession({
     readOnly,
     baseline,
     draft,
+    draftEpoch,
     displayName,
     changed,
     dirty,

@@ -1005,6 +1005,7 @@
           "strip": "Franja ancha",
           "sidebar": "Barra lateral alta",
           "small": "Zona pequeña",
+          "recommended": "Recomendado · {{width}} × {{height}}",
           "custom": "Tamaño personalizado"
         },
         "customSize": "{{width}} × {{height}}",

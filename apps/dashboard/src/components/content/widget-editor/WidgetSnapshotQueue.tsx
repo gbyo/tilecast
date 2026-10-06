@@ -9,10 +9,15 @@
  * becomes /widgets/<id>, or the author goes back).
  */
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "@/api/client";
-import type { Asset } from "@/api/types";
 import { useAuth } from "@/auth/AuthProvider";
 import { V2ZonePreview } from "@/components/layout-editor/V2ZonePreview";
 import { contentKeys } from "@/data/content";
@@ -21,78 +26,58 @@ import {
   captureWidgetPreview,
   WIDGET_THUMBNAIL_FRAME,
 } from "@/content/widgetPreviewCapture";
-
-export type WidgetSnapshotJob = {
-  /** The Widget as the Server saved it. */
-  readonly asset: Asset;
-  /** Called once when the thumbnail could not be captured or stored. */
-  readonly onFailed: () => void;
-};
+import {
+  finishWidgetSnapshot,
+  subscribeToWidgetSnapshots,
+  widgetSnapshotJobs,
+  type WidgetSnapshotJob,
+} from "./snapshotQueue";
 
 // A capture that never settles must not hold the queue forever.
 const CAPTURE_TIMEOUT_MS = 30_000;
 
-let jobs: readonly WidgetSnapshotJob[] = [];
-const listeners = new Set<() => void>();
-
-function publish(next: readonly WidgetSnapshotJob[]) {
-  jobs = next;
-  for (const listener of listeners) listener();
-}
-
-/** Queue a saved Widget's thumbnail. A newer save of the same Widget replaces an older one. */
-export function enqueueWidgetSnapshot(job: WidgetSnapshotJob) {
-  publish([...jobs.filter((entry) => entry.asset.id !== job.asset.id), job]);
-}
-
-function finish(job: WidgetSnapshotJob) {
-  publish(jobs.filter((entry) => entry !== job));
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-/** Test seam: forget queued work between tests. */
-export function resetWidgetSnapshotQueue() {
-  publish([]);
-}
-
 export function WidgetSnapshotQueue() {
-  const queued = useSyncExternalStore(subscribe, () => jobs);
+  const queued = useSyncExternalStore(
+    subscribeToWidgetSnapshots,
+    widgetSnapshotJobs,
+  );
   const job = queued[0];
   if (!job) return null;
+  // The key restarts the capture when a newer save of the same Widget
+  // takes this job's place, so a stale capture never reaches the Server.
   return (
-    <SnapshotCapture
-      key={`${job.asset.id}:${job.asset.updatedAt}`}
-      job={job}
-      onDone={() => finish(job)}
-    />
+    <SnapshotCapture key={`${job.asset.id}:${job.asset.updatedAt}`} job={job} />
   );
 }
 
-function SnapshotCapture({
-  job,
-  onDone,
-}: {
-  job: WidgetSnapshotJob;
-  onDone: () => void;
-}) {
+function SnapshotCapture({ job }: { job: WidgetSnapshotJob }) {
   const { t } = useTranslation("content");
   const auth = useAuth();
+  const csrf = auth.status?.csrfToken ?? "";
   const queryClient = useQueryClient();
   const regional = useOrganizationRegionalProfile();
   const frameRef = useRef<HTMLDivElement>(null);
+  const frame = job.renderFrame ?? WIDGET_THUMBNAIL_FRAME;
   const [state, setState] = useState<"pending" | "settled" | "failed">(
     "pending",
   );
-  const latest = useRef({ t, csrf: auth.status?.csrfToken ?? "", onDone });
-  latest.current = { t, csrf: auth.status?.csrfToken ?? "", onDone };
 
+  // The language and session token can change while a capture runs; the
+  // capture reads them when it needs them without restarting.
+  const storeThumbnail = useEffectEvent(
+    async (element: HTMLElement, signal: AbortSignal) => {
+      const image = await captureWidgetPreview(element, t, frame);
+      if (signal.aborted) return;
+      await api.uploadWidgetPreview(job.asset.id, image, csrf, signal);
+      void queryClient.invalidateQueries({ queryKey: contentKeys.assets });
+    },
+  );
+
+  // One deadline covers the whole job, rendering and upload included, so a
+  // capture that never settles cannot hold the queue.
   useEffect(() => {
     const timer = window.setTimeout(
-      () => setState((current) => (current === "pending" ? "failed" : current)),
+      () => setState("failed"),
       CAPTURE_TIMEOUT_MS,
     );
     return () => window.clearTimeout(timer);
@@ -102,52 +87,49 @@ function SnapshotCapture({
     if (state === "pending") return;
     if (state === "failed") {
       job.onFailed();
-      latest.current.onDone();
+      finishWidgetSnapshot(job);
       return;
     }
-    let cancelled = false;
+    const abort = new AbortController();
     // Two frames, so the browser has laid out and painted the Widget.
-    const frame = requestAnimationFrame(() =>
+    const raf = requestAnimationFrame(() =>
       requestAnimationFrame(() => {
         void (async () => {
           try {
             const element = frameRef.current;
             if (!element) throw new Error("Preview is not ready yet.");
-            const image = await captureWidgetPreview(element, latest.current.t);
-            if (cancelled) return;
-            await api.uploadWidgetPreview(
-              job.asset.id,
-              image,
-              latest.current.csrf,
-            );
-            void queryClient.invalidateQueries({
-              queryKey: contentKeys.assets,
-            });
+            await storeThumbnail(element, abort.signal);
           } catch {
-            if (!cancelled) job.onFailed();
+            if (!abort.signal.aborted) job.onFailed();
           } finally {
-            if (!cancelled) latest.current.onDone();
+            if (!abort.signal.aborted) finishWidgetSnapshot(job);
           }
         })();
       }),
     );
     return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
+      abort.abort();
+      cancelAnimationFrame(raf);
     };
-  }, [state, job, queryClient]);
+  }, [state, job]);
 
   // Locale, time zone, and hour cycle shape the rendered Widget, so the
   // capture waits for the organization's regional settings.
   if (!regional.ready) return null;
   return (
-    <div className="widget-snapshot-backfill" aria-hidden="true">
+    <div
+      className="widget-snapshot-backfill"
+      aria-hidden="true"
+      // The Widget renders at the width it is designed for, so its own
+      // container queries see the geometry it was built to handle.
+      style={{ width: frame.width }}
+    >
       <div ref={frameRef}>
         <V2ZonePreview
           provider={job.asset.widget?.provider ?? ""}
           asset={job.asset}
-          width={WIDGET_THUMBNAIL_FRAME.width}
-          height={WIDGET_THUMBNAIL_FRAME.height}
+          width={frame.width}
+          height={frame.height}
           onState={(next) => {
             if (next.state === "ready" || next.state === "empty")
               setState((current) =>

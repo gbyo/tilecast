@@ -20,6 +20,8 @@ export type InspectorFieldProps = {
   readonly errorFor: (path: string) => string | undefined;
   /** A path the editor wants focused; containers holding it open. */
   readonly focusPath: string | null;
+  /** Distinguishes one focus request from the next for the same path. */
+  readonly focusNonce: number;
 };
 
 /** A DOM id for a field path that is safe in selectors and htmlFor. */

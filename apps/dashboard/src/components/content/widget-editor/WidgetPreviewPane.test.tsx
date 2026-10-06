@@ -20,7 +20,7 @@ import {
   savedWidget,
   useViewport,
 } from "./testing";
-import { resetWidgetSnapshotQueue } from "./WidgetSnapshotQueue";
+import { resetWidgetSnapshotQueue } from "./snapshotQueue";
 
 vi.mock("@/content/widgetPreviewCapture", async (importOriginal) => {
   const actual =

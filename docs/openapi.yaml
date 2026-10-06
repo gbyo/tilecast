@@ -11507,7 +11507,8 @@ components:
         control:
           {
             type: string,
-            enum:
+            description: "The authoring control. New definitions and plugins can introduce control types, so clients must tolerate values they do not know.",
+            x-extensible-enum:
               [
                 text,
                 multiline_text,

@@ -4,10 +4,14 @@
  * and the Widget context. It is the same contract Layout zones and the
  * Player use; the editor only adds a preview clock the author can move.
  */
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { resolveTheme, type WidgetContext } from "@tilecast/widget-sdk";
 import { compileComponentConfig } from "@tilecast/widget-sdk/manifest";
-import type { WidgetComponentRef } from "@tilecast/widget-sdk/mount";
+import type {
+  WidgetComponentRef,
+  WidgetMountState,
+} from "@tilecast/widget-sdk/mount";
 import type { ContentDefinitionField } from "@/api/types";
 import type { StudioWidgetComponent } from "@/content/studioWidgets";
 import { PreviewClock } from "@/content/previewClock";
@@ -25,6 +29,8 @@ import {
 } from "@/content/widgetPreviewSources";
 import { useOrganizationRegionalProfile } from "@/settings/regionalProfile";
 import { apiErrorMessage } from "@/i18n";
+import { componentPreviewStatus } from "./previewStatus";
+import { useLastGood } from "./useLastGood";
 
 function hourCycleFor(timeFormat: string | undefined) {
   if (timeFormat === "12-hour") return "h12" as const;
@@ -39,6 +45,7 @@ function prefersReducedMotion() {
   );
 }
 
+/** Compile the draft and report how the real Widget is doing. */
 export function useComponentPreview({
   component,
   fields,
@@ -98,29 +105,26 @@ export function useComponentPreview({
   // Edits compile locally and update the mounted element in place; the
   // Server is not involved until Save. A configuration the template cannot
   // compile keeps showing the last good render beside the problem.
-  const lastGood = useRef<WidgetComponentRef | null>(null);
-  const compiled = useMemo((): {
+  const attempt = useMemo((): {
     ref: WidgetComponentRef | null;
     problem?: string;
   } => {
     try {
-      const ref = {
-        type: component.type,
-        version: component.version,
-        config: compileComponentConfig(
-          component.configTemplate,
-          previewConfiguration,
-        ),
-      };
-      lastGood.current = ref;
-      return { ref };
-    } catch (error) {
       return {
-        ref: lastGood.current,
-        problem: apiErrorMessage(error),
+        ref: {
+          type: component.type,
+          version: component.version,
+          config: compileComponentConfig(
+            component.configTemplate,
+            previewConfiguration,
+          ),
+        },
       };
+    } catch (error) {
+      return { ref: null, problem: apiErrorMessage(error) };
     }
   }, [component, previewConfiguration]);
+  const componentRef = useLastGood(attempt.ref);
 
   const reducedMotion = prefersReducedMotion();
   const background = configuration["backgroundColor"];
@@ -151,14 +155,26 @@ export function useComponentPreview({
     ],
   );
 
+  const { t } = useTranslation("content");
+  const [mount, setMount] = useState<WidgetMountState>({ state: "pending" });
+  const status = componentPreviewStatus(
+    {
+      ready: regional.ready,
+      sourcesFailed: failedIds.length > 0,
+      sourcesLoading: loading,
+      compileProblem: attempt.problem,
+      mount,
+    },
+    t,
+  );
+
   return {
-    ready: regional.ready,
-    componentRef: compiled.ref,
-    compileProblem: compiled.problem,
-    resources,
-    context,
+    status,
+    /** What the host mounts; null until there is something to show. */
+    host:
+      regional.ready && componentRef
+        ? { component: componentRef, resources, context, onState: setMount }
+        : null,
     dataSourceIds,
-    sourcesLoading: loading,
-    sourcesFailed: failedIds.length > 0,
   };
 }

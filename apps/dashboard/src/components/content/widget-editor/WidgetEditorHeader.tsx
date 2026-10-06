@@ -42,11 +42,10 @@ import {
 import { contentKeys } from "@/data/content";
 import { apiErrorMessage } from "@/i18n";
 import type { WidgetEditorSession } from "./useWidgetEditorSession";
-import {
-  WidgetDiagnosticsPanel,
-  widgetDiagnosticsKind,
-} from "./WidgetDiagnosticsPanel";
-import { WidgetUsagePanel, widgetUsageCount } from "./WidgetUsagePanel";
+import { WidgetDiagnosticsPanel } from "./WidgetDiagnosticsPanel";
+import { widgetDiagnosticsKind } from "./widgetDiagnostics";
+import { WidgetUsagePanel } from "./WidgetUsagePanel";
+import { widgetUsageCount } from "./widgetUsage";
 
 type Origin = "layout" | "playlist" | "media" | "dataSources" | "screen";
 

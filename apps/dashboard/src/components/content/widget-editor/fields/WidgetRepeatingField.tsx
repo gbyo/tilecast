@@ -5,7 +5,7 @@
  */
 import { visibleAuthoringFields } from "@tilecast/widget-sdk";
 import { Plus, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Accordion,
@@ -24,6 +24,7 @@ import type { ContentDefinitionField } from "@/api/types";
 import type { WidgetConfiguration } from "../widgetEditorModel";
 import { WidgetInspectorField } from "./WidgetInspectorField";
 import { fieldDomId, type InspectorFieldProps } from "./fieldContext";
+import { useDeferredFocus, useStableRowIds } from "./rowIdentity";
 
 const summaryControls = new Set(["text", "multiline_text", "url"]);
 
@@ -39,11 +40,9 @@ function itemSummary(
   return null;
 }
 
-let nextKey = 0;
-const newKey = () => `item-${++nextKey}`;
-
 export function WidgetRepeatingField(props: InspectorFieldProps) {
-  const { field, path, value, onChange, readOnly, errorFor, focusPath } = props;
+  const { field, path, value, onChange, readOnly, errorFor } = props;
+  const { focusPath, focusNonce } = props;
   const { t } = useTranslation("content");
   const id = fieldDomId(path);
   const error = errorFor(path);
@@ -55,35 +54,38 @@ export function WidgetRepeatingField(props: InspectorFieldProps) {
       )
     : [];
   const itemFields = field.itemFields ?? [];
-  // Stable keys keep an item's open state and focus while others are
-  // added or removed. A list replaced from outside (discard) gets new ones.
-  const keys = useRef<string[]>([]);
-  if (keys.current.length !== items.length)
-    keys.current = items.map((_, index) => keys.current[index] ?? newKey());
-  const [open, setOpen] = useState<string[]>([]);
   const limit = field.maximumItems ?? 0;
+  // Row ids keep an item's open state and focus with the right item while
+  // others are added or removed. They are editor-only (see rowIdentity).
+  const rows = useStableRowIds(items.length);
+  const focusLater = useDeferredFocus();
+  const [open, setOpen] = useState<string[]>([]);
 
-  // Open the item that holds a problem the editor wants to show.
-  useEffect(() => {
-    if (!focusPath?.startsWith(`${path}.`)) return;
-    const index = Number(focusPath.slice(path.length + 1).split(".")[0]);
-    const key = keys.current[index];
-    if (key)
-      setOpen((current) =>
-        current.includes(key) ? current : [...current, key],
-      );
-  }, [focusPath, path]);
+  // Open the item that holds a problem the editor wants to show. Adjusted
+  // while rendering, so a newly mounted field opens it on its first paint.
+  const [handledFocus, setHandledFocus] = useState(0);
+  if (handledFocus !== focusNonce) {
+    setHandledFocus(focusNonce);
+    if (focusPath?.startsWith(`${path}.`)) {
+      const index = Number(focusPath.slice(path.length + 1).split(".")[0]);
+      const rowId = rows.ids[index];
+      if (rowId && !open.includes(rowId)) setOpen([...open, rowId]);
+    }
+  }
 
   const update = (index: number, next: WidgetConfiguration) =>
     onChange(items.map((item, position) => (position === index ? next : item)));
   const remove = (index: number) => {
-    keys.current = keys.current.filter((_, position) => position !== index);
+    rows.removeAt(index);
     onChange(items.filter((_, position) => position !== index));
+    // The Remove button leaves with its item. Hand focus to a neighbor, or
+    // to Add when no item is left.
+    const neighbor = rows.ids[index + 1] ?? rows.ids[index - 1];
+    focusLater(neighbor ? `${id}-trigger-${neighbor}` : `${id}-add`);
   };
   const add = () => {
-    const key = newKey();
-    keys.current = [...keys.current, key];
-    setOpen((current) => [...current, key]);
+    const rowId = rows.append();
+    setOpen((current) => [...current, rowId]);
     const defaults = Object.fromEntries(
       itemFields
         .filter((entry) => entry.default !== undefined)
@@ -109,15 +111,18 @@ export function WidgetRepeatingField(props: InspectorFieldProps) {
           className="rounded-md border border-border"
         >
           {items.map((item, index) => {
-            const key = keys.current[index]!;
+            const rowId = rows.ids[index]!;
             const name =
               itemSummary(item, itemFields) ??
               t("widgets.editor.repeat.item", { index: index + 1 });
             const itemPath = `${path}.${index}`;
             const visible = visibleAuthoringFields(itemFields, item);
             return (
-              <AccordionItem key={key} value={key} className="px-3">
-                <AccordionTrigger className="py-3">
+              <AccordionItem key={rowId} value={rowId} className="px-3">
+                <AccordionTrigger
+                  id={`${id}-trigger-${rowId}`}
+                  className="py-3"
+                >
                   <span className="min-w-0 truncate">{name}</span>
                 </AccordionTrigger>
                 <AccordionContent className="grid gap-5 pb-4">
@@ -166,6 +171,7 @@ export function WidgetRepeatingField(props: InspectorFieldProps) {
           variant="outline"
           size="sm"
           className="justify-self-start"
+          id={`${id}-add`}
           onClick={add}
         >
           <Plus aria-hidden="true" />

@@ -972,6 +972,7 @@
           "strip": "Wide strip",
           "sidebar": "Tall sidebar",
           "small": "Small zone",
+          "recommended": "Recommended · {{width}} × {{height}}",
           "custom": "Custom size"
         },
         "customSize": "{{width}} × {{height}}",

@@ -1,6 +1,14 @@
 package contentdefs
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+)
+
+// translationKeyPattern is the shape of a Studio translation key: a
+// namespace, a colon, and a dotted path (for example
+// "definitions:website.fields.url.label").
+var translationKeyPattern = regexp.MustCompile(`^[a-z][A-Za-z0-9]*:[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$`)
 
 // AuthoringProblem reports why Studio cannot author a Widget definition, or
 // "" when it can (docs/widget-authoring.md). Studio has one Widget editor
@@ -17,6 +25,9 @@ import "fmt"
 func AuthoringProblem(definition WidgetDefinition) string {
 	if !definition.Availability.IsEnabled() {
 		return ""
+	}
+	if problem := recommendedFrameProblem(definition); problem != "" {
+		return problem
 	}
 	switch definition.Runtime {
 	case "native":
@@ -46,4 +57,17 @@ func hasField(fields []FieldDefinition, key string) bool {
 		}
 	}
 	return false
+}
+
+func recommendedFrameProblem(definition WidgetDefinition) string {
+	if definition.Authoring == nil || definition.Authoring.Preview.RecommendedFrame == nil {
+		return ""
+	}
+	frame := definition.Authoring.Preview.RecommendedFrame
+	for _, side := range []int{frame.Width, frame.Height} {
+		if side < MinRecommendedFrameSide || side > MaxRecommendedFrameSide {
+			return fmt.Sprintf("declares a recommended frame %dx%d outside %d-%d pixels", frame.Width, frame.Height, MinRecommendedFrameSide, MaxRecommendedFrameSide)
+		}
+	}
+	return ""
 }

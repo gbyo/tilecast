@@ -366,7 +366,12 @@ export const api = {
   providerCatalog: getProviderCatalog,
   contentDefinitions: getContentDefinitions,
   compileWidgetPreview,
-  uploadWidgetPreview: async (id: string, image: Blob, csrfToken: string) => {
+  uploadWidgetPreview: async (
+    id: string,
+    image: Blob,
+    csrfToken: string,
+    signal?: AbortSignal,
+  ) => {
     const response = await fetch(
       `/api/v1/widgets/${encodeURIComponent(id)}/preview-image`,
       {
@@ -377,6 +382,7 @@ export const api = {
           "X-CSRF-Token": csrfToken,
         },
         body: image,
+        signal,
       },
     );
     if (!response.ok) {

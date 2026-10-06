@@ -61,3 +61,50 @@ func TestAuthoringProblemRejectsUndescribedDefinitions(t *testing.T) {
 		t.Fatalf("a server-validated web integration with a url field is authorable, got %q", got)
 	}
 }
+
+func TestAuthoringProblemChecksTheRecommendedFrame(t *testing.T) {
+	withFrame := func(width, height int) WidgetDefinition {
+		return WidgetDefinition{
+			ID: "strip", Runtime: "native", Component: &ComponentSpec{Type: "example.strip"},
+			Authoring: &Authoring{Preview: AuthoringPreview{RecommendedFrame: &FrameSize{Width: width, Height: height}}},
+		}
+	}
+	if got := AuthoringProblem(withFrame(1920, 160)); got != "" {
+		t.Fatalf("a strip frame is valid, got %q", got)
+	}
+	for _, size := range [][2]int{{0, 160}, {1920, 0}, {31, 160}, {3841, 160}, {1920, -1}} {
+		if got := AuthoringProblem(withFrame(size[0], size[1])); !strings.Contains(got, "recommended frame") {
+			t.Errorf("frame %v: got %q, want a recommended frame problem", size, got)
+		}
+	}
+}
+
+// Translation keys are Studio resource paths. A malformed one would silently
+// fall back to the English text, so the shipped catalog must keep them
+// well-formed and paired with the literal fallback.
+func TestCatalogTranslationKeysAreWellFormed(t *testing.T) {
+	var check func(owner string, fields []FieldDefinition)
+	check = func(owner string, fields []FieldDefinition) {
+		for _, field := range fields {
+			where := owner + "." + field.Key
+			if field.LabelKey != "" && !translationKeyPattern.MatchString(field.LabelKey) {
+				t.Errorf("%s labelKey %q is malformed", where, field.LabelKey)
+			}
+			if field.DescriptionKey != "" && (field.Description == "" || !translationKeyPattern.MatchString(field.DescriptionKey)) {
+				t.Errorf("%s descriptionKey %q needs a literal description and a well-formed key", where, field.DescriptionKey)
+			}
+			if field.LabelKey != "" && field.Label == "" {
+				t.Errorf("%s labelKey needs a literal label as the fallback", where)
+			}
+			for _, option := range field.Options {
+				if option.LabelKey != "" && (option.Label == "" || !translationKeyPattern.MatchString(option.LabelKey)) {
+					t.Errorf("%s option %q labelKey %q needs a literal label and a well-formed key", where, option.Value, option.LabelKey)
+				}
+			}
+			check(where, field.ItemFields)
+		}
+	}
+	for _, definition := range MustLoad().Widgets {
+		check(definition.ID, definition.ConfigurationSchema.Fields)
+	}
+}

@@ -7,7 +7,13 @@
  * Studio registry — the same element the Player mounts. There are no
  * Studio-only Widget renderers on this path.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   WidgetMount,
   type WidgetComponentRef,
@@ -58,8 +64,11 @@ export function WidgetPreviewHost({
   const containerRef = useRef<HTMLDivElement>(null);
   const mountRef = useRef<WidgetMount | null>(null);
   const [previewScale, setPreviewScale] = useState(1);
-  const stateRef = useRef(onState);
-  stateRef.current = onState;
+  // The mount outlives renders, so it reports through an Effect Event that
+  // always reaches the latest callback.
+  const reportState = useEffectEvent((state: WidgetMountState) =>
+    onState?.(state),
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -70,7 +79,7 @@ export function WidgetPreviewHost({
       component,
       resources,
       context,
-      onState: (state) => stateRef.current?.(state),
+      onState: (state) => reportState(state),
     });
     mountRef.current = mount;
     return () => {

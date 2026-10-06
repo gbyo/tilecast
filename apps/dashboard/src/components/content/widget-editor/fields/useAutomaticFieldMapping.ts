@@ -10,12 +10,12 @@
  * slot in another inspector tab is mapped even while it is not mounted.
  */
 import { useQueries } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useEffectEvent, useRef } from "react";
 import { api } from "@/api/client";
 import type { ContentDefinitionField, DataSourceField } from "@/api/types";
 import { resolveDataSourceKey } from "@/content/DefinitionForm";
 import type { WidgetConfiguration } from "../widgetEditorModel";
-import { suggestedSourceField } from "./WidgetFieldMapping";
+import { suggestedSourceField } from "./fieldMapping";
 
 type SourceSelection = {
   /** "dataSourceId", or "items.2.dataSourceId" inside a group. */
@@ -171,27 +171,32 @@ export function useAutomaticFieldMapping({
     }),
   );
   // What each source control held when the editor opened, or after the
-  // last mapping. Only a change from this triggers mapping.
+  // last mapping. Only a change from this triggers mapping, so opening a
+  // saved Widget never changes it. It is recorded by the first effect run,
+  // after the first commit and before anyone can have edited anything.
   const seen = useRef<Map<string, string> | null>(null);
-  if (seen.current === null)
-    seen.current = new Map(selections.map((entry) => [entry.path, entry.id]));
 
   const selectionKey = JSON.stringify(selections);
   const loadedKey = [...sourceFields.keys()].join(",");
-  useEffect(() => {
-    if (readOnly) return;
+  // An Effect Event always reads the latest fields and loaded sources
+  // without making the effect below re-run for them.
+  const mapChangedSelections = useEffectEvent(() => {
     const current = JSON.parse(selectionKey) as SourceSelection[];
+    if (seen.current === null) {
+      seen.current = new Map(current.map((entry) => [entry.path, entry.id]));
+      return;
+    }
+    const memory = seen.current;
     // Disconnecting is remembered too, so reconnecting the same source maps.
-    for (const entry of current)
-      if (!entry.id) seen.current!.set(entry.path, "");
+    for (const entry of current) if (!entry.id) memory.set(entry.path, "");
     const pending = current.filter(
       (entry) =>
         entry.id &&
-        seen.current!.get(entry.path) !== entry.id &&
+        memory.get(entry.path) !== entry.id &&
         sourceFields.has(entry.id),
     );
     if (pending.length === 0) return;
-    for (const entry of pending) seen.current!.set(entry.path, entry.id);
+    for (const entry of pending) memory.set(entry.path, entry.id);
     updateConfiguration((configuration) =>
       pending.reduce(
         (next, entry) =>
@@ -199,7 +204,8 @@ export function useAutomaticFieldMapping({
         configuration,
       ),
     );
-    // sourceFields is rebuilt each render; loadedKey tracks its contents.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectionKey, loadedKey, readOnly, fields, updateConfiguration]);
+  });
+  useEffect(() => {
+    if (!readOnly) mapChangedSelections();
+  }, [selectionKey, loadedKey, readOnly]);
 }

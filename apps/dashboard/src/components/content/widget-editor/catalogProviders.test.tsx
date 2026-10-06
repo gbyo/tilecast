@@ -22,7 +22,7 @@ import {
   repositoryCatalog,
   savedWidget,
 } from "./testing";
-import { resetWidgetSnapshotQueue } from "./WidgetSnapshotQueue";
+import { resetWidgetSnapshotQueue } from "./snapshotQueue";
 
 vi.mock("@/content/widgetPreviewCapture", async (importOriginal) => {
   const actual =
@@ -131,11 +131,10 @@ describe("every shipped Widget type", () => {
       const create = vi
         .spyOn(api, "createWidget")
         .mockImplementation((input) => {
-          saved = savedWidget(
-            id,
-            input.configuration,
-            { id: "widget-9", name: input.name },
-          );
+          saved = savedWidget(id, input.configuration, {
+            id: "widget-9",
+            name: input.name,
+          });
           return Promise.resolve(saved);
         });
       vi.spyOn(api, "asset").mockImplementation(() => Promise.resolve(saved!));
