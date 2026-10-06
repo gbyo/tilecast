@@ -242,11 +242,6 @@ func (s *Service) Activate(ctx context.Context, activation Activation) (Installe
 	if !digestPattern.MatchString(activation.Digest) {
 		return InstalledPackage{}, fmt.Errorf("%w: digest must be a sha256 digest", ErrInvalid)
 	}
-	switch activation.SourceKind {
-	case SourceMarketplace, SourceCustom, SourceLocal:
-	default:
-		return InstalledPackage{}, fmt.Errorf("%w: unknown source kind", ErrInvalid)
-	}
 	if err := s.validateProvenance(
 		activation.SourceKind,
 		activation.SourceReference,
@@ -345,6 +340,12 @@ func (s *Service) Rollback(ctx context.Context, packageID string, userID uuid.UU
 	}
 	if snapshot.Manifest.PackageID != packageID {
 		return InstalledPackage{}, fmt.Errorf("%w: rollback package identity changed", ErrInvalid)
+	}
+	if snapshot.Version != snapshot.Manifest.PackageVersion {
+		return InstalledPackage{}, fmt.Errorf("%w: rollback package version does not match its manifest", ErrInvalid)
+	}
+	if !digestPattern.MatchString(snapshot.Digest) {
+		return InstalledPackage{}, fmt.Errorf("%w: rollback digest must be a sha256 digest", ErrInvalid)
 	}
 	if err := s.validateProvenance(
 		snapshot.SourceKind,
