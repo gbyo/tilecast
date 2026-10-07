@@ -1276,8 +1276,8 @@ export type PluginStoreMarketplace = {
 };
 
 /**
- * Presentation artwork a marketplace listing declares, as Tilecast Server
- * paths. Studio loads images only from these paths, never from the
+ * Presentation artwork a marketplace listing or an included plugin
+ * declares, as Tilecast Server paths. Studio loads images only from these paths, never from the
  * addresses the catalog names. Artwork never affects identity, trust, or
  * install, and any image may fail to load.
  */
@@ -1323,14 +1323,31 @@ export type PluginStoreCustom = {
 };
 
 /**
+ * Presentation of an included plugin, from the release's own Store
+ * metadata: who builds it, an optional longer description, and artwork as
+ * Tilecast Server paths. It never affects identity, installation,
+ * capabilities, requirements, or trust.
+ */
+export type PluginStoreIncluded = {
+  publisherName: string;
+  /** An https address for the publisher, when the release names one. */
+  publisherUrl?: string;
+  /** Optional plain text for the detail page; never markup. */
+  longDescription?: string;
+  artwork?: PluginStoreArtwork;
+};
+
+/**
  * One normalized plugin-store row: the package identity and provenance
  * every source shares, plus the source-owned detail. Exactly one of
- * plugin, marketplace, and custom is present.
+ * plugin, marketplace, and custom is present; an included plugin also
+ * carries its presentation in `included`.
  */
 export type PluginStoreEntry = {
   packageId: string;
   source: PluginStoreSource;
   plugin?: PluginSummary;
+  included?: PluginStoreIncluded;
   marketplace?: PluginStoreMarketplace;
   custom?: PluginStoreCustom;
 };

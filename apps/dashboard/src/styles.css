@@ -3,6 +3,10 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
+/* Bundled plugins live outside this package; scan them so their utility
+   classes are generated. */
+@source "../../../plugins";
+
 @custom-variant dark (&:is(.dark *));
 
 .import-export {

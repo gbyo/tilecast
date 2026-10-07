@@ -1,0 +1,7 @@
+{
+  "publisher": {
+    "name": "Tilecast",
+    "url": "https://tilecast.org"
+  },
+  "longDescription": "Emergency Alerts monitors official National Weather Service alerts for the states and zones you choose. Create rules by event, severity, and urgency, then decide whether matching alerts should trigger a fullscreen takeover or a ticker across selected screens and groups.\n\nTilecast polls the National Weather Service in the background and automatically starts and clears responses as alerts change. Use the built-in alert presentation or an existing playlist for your response while retaining Tilecast's normal manual takeover controls."
+}

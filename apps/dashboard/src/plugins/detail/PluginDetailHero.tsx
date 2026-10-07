@@ -30,7 +30,7 @@ export function PluginDetailHero({
   action?: ReactNode;
 }) {
   const { t } = useTranslation("plugins");
-  const publisherHref = publisherDestination(view);
+  const publisherLink = publisherDestination(view);
   return (
     <header
       data-source={view.sourceKind}
@@ -48,7 +48,7 @@ export function PluginDetailHero({
         </h1>
         {view.publisher && (
           <p className="truncate text-sm text-muted-foreground">
-            <PublisherLine publisher={view.publisher} href={publisherHref} />
+            <PublisherLine publisher={view.publisher} link={publisherLink} />
           </p>
         )}
       </div>
@@ -94,15 +94,18 @@ export function PluginDetailHero({
 }
 
 /**
- * Where a publisher name can lead. The listing names a repository, not a
- * publisher profile, so the name links to the package's own repository and
- * only when that is a plain https address. Included plugins have none.
+ * Where a publisher name can lead. An included plugin's release may name a
+ * publisher address; a marketplace listing names a repository, not a
+ * publisher profile, so its publisher links to the package's own repository.
+ * Either only when it is a plain https address.
  */
 function publisherDestination(view: PluginDetailViewModel) {
-  if (!view.repository) return undefined;
+  const kind: "site" | "repository" = view.publisherUrl ? "site" : "repository";
+  const destination = view.publisherUrl ?? view.repository;
+  if (!destination) return undefined;
   try {
-    return new URL(view.repository).protocol === "https:"
-      ? view.repository
+    return new URL(destination).protocol === "https:"
+      ? { href: destination, kind }
       : undefined;
   } catch {
     return undefined;
@@ -111,13 +114,13 @@ function publisherDestination(view: PluginDetailViewModel) {
 
 function PublisherLine({
   publisher,
-  href,
+  link,
 }: {
   publisher: string;
-  href: string | undefined;
+  link: { href: string; kind: "site" | "repository" } | undefined;
 }) {
   const { t } = useTranslation("plugins");
-  if (!href) return <>{t("storeDetail.by", { publisher })}</>;
+  if (!link) return <>{t("storeDetail.by", { publisher })}</>;
   return (
     <Trans
       i18nKey="storeDetail.byLinked"
@@ -126,10 +129,15 @@ function PublisherLine({
       components={{
         publisher: (
           <a
-            href={href}
+            href={link.href}
             target="_blank"
             rel="noreferrer"
-            aria-label={t("storeDetail.publisherLinkLabel", { publisher })}
+            aria-label={t(
+              link.kind === "site"
+                ? "storeDetail.publisherSiteLinkLabel"
+                : "storeDetail.publisherLinkLabel",
+              { publisher },
+            )}
             className="rounded-sm text-foreground/80 underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
           />
         ),

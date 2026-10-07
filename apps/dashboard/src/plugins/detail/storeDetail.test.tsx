@@ -272,11 +272,30 @@ const customEntry = (
 
 const includedEntry = (
   overrides: Parameters<typeof catalogPlugin>[0] = { id: "emergency_alerts" },
+  included: PluginStoreEntry["included"] | null = {
+    publisherName: "Tilecast",
+  },
 ): PluginStoreEntry => ({
   packageId: overrides.id,
   source: { kind: "included" },
   plugin: catalogPlugin(overrides),
+  ...(included ? { included } : {}),
 });
+
+const includedScreenshots = [
+  {
+    url: "/api/v1/plugin-store/countdown_bar/artwork/screenshots/0?v=aaa",
+    alt: "A hallway display with a countdown bar along the bottom",
+  },
+  {
+    url: "/api/v1/plugin-store/countdown_bar/artwork/screenshots/1?v=bbb",
+    alt: "The countdown scheduling controls",
+  },
+  {
+    url: "/api/v1/plugin-store/countdown_bar/artwork/screenshots/2?v=ccc",
+    alt: "Three urgency stages",
+  },
+];
 
 const screenshots = [
   { url: "/api/v1/marketplace/artwork/acme.weather/shot-1", alt: "Forecast" },
@@ -366,6 +385,105 @@ describe("Included detail page", () => {
       name: "Included with Tilecast",
     });
     expect(within(about).getByText("Tilecast")).toBeVisible();
+  });
+
+  describe("first-party Store presentation", () => {
+    const presentation = {
+      publisherName: "Tilecast",
+      publisherUrl: "https://tilecast.org",
+      longDescription:
+        "Countdown Bar adds a live countdown along the bottom of your screens.\n\nUrgency stages move it from a quiet reminder to a final call.",
+      artwork: {
+        iconUrl: "/api/v1/plugin-store/countdown_bar/artwork/icon?v=iii",
+        screenshots: includedScreenshots,
+      },
+    };
+
+    beforeEach(() => {
+      entries["countdown_bar"] = includedEntry(
+        { id: "countdown_bar", installed: false },
+        presentation,
+      );
+    });
+
+    it("reads like any other Store entry: icon, publisher, and long description", async () => {
+      renderDetail("countdown_bar");
+      const link = await screen.findByRole("link", {
+        name: "Tilecast, website (opens in a new tab)",
+      });
+      expect(link).toHaveAttribute("href", "https://tilecast.org");
+      expect(link.closest("p")).toHaveTextContent("by Tilecast");
+      const icon = document.querySelector(
+        "header [data-slot='plugin-artwork'] img",
+      );
+      expect(icon).toHaveAttribute(
+        "src",
+        "/api/v1/plugin-store/countdown_bar/artwork/icon?v=iii",
+      );
+      expect(screen.getByText(/adds a live countdown/)).toBeVisible();
+      expect(screen.getByText(/Urgency stages move it/)).toBeVisible();
+      const badges = screen.getByRole("list", { name: "Plugin details" });
+      expect(within(badges).getByText("Included")).toBeVisible();
+    });
+
+    it("renders the screenshots in the shared carousel", async () => {
+      renderDetail("countdown_bar");
+      const carousel = await screen.findByRole("region", {
+        name: "Screenshots",
+      });
+      expect(within(carousel).getAllByRole("group")).toHaveLength(3);
+      const images = carousel.querySelectorAll("img");
+      expect(images[0]).toHaveAttribute("src", includedScreenshots[0]?.url);
+      expect(images[0]).toHaveAttribute("loading", "lazy");
+      expect(
+        within(carousel).getByRole("button", {
+          name: `Enlarge screenshot: ${includedScreenshots[1]?.alt}`,
+        }),
+      ).toBeVisible();
+    });
+
+    it("falls back to the built-in glyph when the icon fails to load", async () => {
+      renderDetail("countdown_bar");
+      await screen.findByRole("heading", { level: 1, name: "Countdown Bar" });
+      const icon = document.querySelector(
+        "header [data-slot='plugin-artwork'] img",
+      ) as HTMLElement;
+      icon.dispatchEvent(new Event("error"));
+      await waitFor(() =>
+        expect(
+          document.querySelector("header [data-slot='plugin-artwork'] img"),
+        ).toBeNull(),
+      );
+      expect(
+        document.querySelector("header [data-slot='plugin-artwork'] svg"),
+      ).not.toBeNull();
+    });
+
+    it("degrades safely when the release ships only the publisher", async () => {
+      entries["countdown_bar"] = includedEntry(
+        { id: "countdown_bar", installed: false },
+        { publisherName: "Tilecast" },
+      );
+      renderDetail("countdown_bar");
+      expect(await screen.findByText(/^by Tilecast$/)).toBeVisible();
+      expect(screen.queryByRole("region", { name: "Screenshots" })).toBeNull();
+      expect(
+        document.querySelector("header [data-slot='plugin-artwork'] img"),
+      ).toBeNull();
+      expect(
+        document.querySelector("header [data-slot='plugin-artwork'] svg"),
+      ).not.toBeNull();
+    });
+
+    it("shows no publisher line when the response carries no presentation", async () => {
+      entries["countdown_bar"] = includedEntry(
+        { id: "countdown_bar", installed: false },
+        null,
+      );
+      renderDetail("countdown_bar");
+      await screen.findByRole("heading", { level: 1, name: "Countdown Bar" });
+      expect(screen.queryByText(/^by /)).toBeNull();
+    });
   });
 
   it("installs and opens the management page", async () => {

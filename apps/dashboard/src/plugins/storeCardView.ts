@@ -12,12 +12,12 @@ export type StoreCardView = {
   to: string;
   name: string;
   description: string;
-  /** Present for external sources; included plugins have no publisher line. */
+  /** Who builds it. Included plugins name the publisher their release declares. */
   publisher?: string;
   source: PluginStoreSource;
-  /** Present for included plugins, whose icon Studio ships. */
+  /** Present for included plugins, whose built-in glyph is the fallback icon. */
   pluginId?: string;
-  /** Tilecast-owned path to marketplace artwork, when the listing has any. */
+  /** Tilecast-owned path to the entry's icon artwork, when it has any. */
   iconUrl?: string;
   /** Category identifiers, in display order. */
   categories: string[];
@@ -29,7 +29,7 @@ export type StoreCardView = {
 
 /** Entries without any detail block carry nothing to show. */
 export function storeCardView(entry: PluginStoreEntry): StoreCardView | null {
-  const { plugin, marketplace, custom } = entry;
+  const { plugin, included, marketplace, custom } = entry;
   const external = marketplace ?? custom;
   if (!plugin && !external) return null;
 
@@ -38,10 +38,12 @@ export function storeCardView(entry: PluginStoreEntry): StoreCardView | null {
     to: `/plugins/store/${encodeURIComponent(entry.packageId)}`,
     name: plugin?.name ?? external?.name ?? entry.packageId,
     description: plugin?.description ?? external?.description ?? "",
-    publisher: plugin ? undefined : external?.publisherName,
+    publisher: plugin ? included?.publisherName : external?.publisherName,
     source: entry.source,
     pluginId: plugin?.id,
-    iconUrl: plugin ? undefined : marketplace?.artwork?.iconUrl,
+    iconUrl: plugin
+      ? included?.artwork?.iconUrl
+      : marketplace?.artwork?.iconUrl,
     categories: plugin ? [plugin.category] : (marketplace?.categories ?? []),
     installed: plugin?.installed ?? external?.installed ?? false,
     updateAvailable: marketplace?.updateAvailable ?? false,

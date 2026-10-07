@@ -322,6 +322,7 @@
     "by": "by {{publisher}}",
     "byLinked": "by <publisher>{{publisher}}</publisher>",
     "publisherLinkLabel": "{{publisher}}, repository (opens in a new tab)",
+    "publisherSiteLinkLabel": "{{publisher}}, website (opens in a new tab)",
     "badgesLabel": "Plugin details",
     "sourceBadge": {
       "included": "Included",

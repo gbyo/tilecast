@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -71,20 +72,43 @@ func (s *server) serveMarketplaceArtwork(w http.ResponseWriter, r *http.Request,
 	_, _ = w.Write(artwork.Body)
 }
 
-// getMarketplaceIcon serves a marketplace listing's icon.
+// serveIncludedArtwork answers one image of an included plugin straight
+// from the release. Included artwork is trusted, release-owned content, so
+// it never passes through the marketplace fetcher. The headers match the
+// marketplace artwork's.
+func (s *server) serveIncludedArtwork(w http.ResponseWriter, r *http.Request, artwork plugins.IncludedArtwork, ok bool) {
+	s.serveMarketplaceArtwork(w, r, func() (catalog.Artwork, error) {
+		if !ok {
+			return catalog.Artwork{}, errors.New("artwork not declared")
+		}
+		return catalog.Artwork{Body: artwork.Body, ContentType: artwork.ContentType, ETag: artwork.ETag}, nil
+	})
+}
+
+// getMarketplaceIcon serves a store entry's icon: an included plugin's
+// release-owned image, or a marketplace listing's verified cached image.
 func (s *server) getMarketplaceIcon(w http.ResponseWriter, r *http.Request) {
 	packageID := chi.URLParam(r, "packageId")
+	if artwork, known, ok := s.plugins.IncludedIcon(packageID); known {
+		s.serveIncludedArtwork(w, r, artwork, ok)
+		return
+	}
 	s.serveMarketplaceArtwork(w, r, func() (catalog.Artwork, error) {
 		return s.marketplace.IconArtwork(r.Context(), packageID)
 	})
 }
 
-// getMarketplaceScreenshot serves one marketplace listing screenshot.
+// getMarketplaceScreenshot serves one store entry screenshot under the same
+// rules as the icon.
 func (s *server) getMarketplaceScreenshot(w http.ResponseWriter, r *http.Request) {
 	packageID := chi.URLParam(r, "packageId")
 	index, err := strconv.Atoi(chi.URLParam(r, "index"))
 	if err != nil {
 		index = -1
+	}
+	if artwork, known, ok := s.plugins.IncludedScreenshot(packageID, index); known {
+		s.serveIncludedArtwork(w, r, artwork, ok)
+		return
 	}
 	s.serveMarketplaceArtwork(w, r, func() (catalog.Artwork, error) {
 		return s.marketplace.ScreenshotArtwork(r.Context(), packageID, index)

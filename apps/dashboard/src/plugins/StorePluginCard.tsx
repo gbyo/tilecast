@@ -82,7 +82,7 @@ export function StorePluginCard({
             </CardTitle>
             {view.publisher && (
               <CardDescription className="truncate text-xs">
-                {view.publisher}
+                {t("storeDetail.by", { publisher: view.publisher })}
               </CardDescription>
             )}
           </div>
@@ -133,9 +133,10 @@ export function StorePluginCard({
 }
 
 /**
- * The plugin's mark. Included plugins use the icon Studio ships;
- * marketplace artwork loads from the server's own path and gives way to
- * the generic icon on any failure, so a broken image never leaves a hole.
+ * The plugin's mark. Store artwork loads from the server's own path. On any
+ * failure, or without artwork, an included plugin shows the glyph Studio
+ * ships and every other entry shows the generic icon, so a broken image
+ * never leaves a hole.
  */
 function StoreCardIcon({
   view,
@@ -158,9 +159,7 @@ function StoreCardIcon({
         className,
       )}
     >
-      {view.pluginId ? (
-        <PluginIcon pluginId={view.pluginId} className={glyph} />
-      ) : artwork ? (
+      {artwork ? (
         <img
           src={artwork}
           alt=""
@@ -171,6 +170,8 @@ function StoreCardIcon({
           className="size-full object-contain"
           onError={() => setFailedUrl(artwork)}
         />
+      ) : view.pluginId ? (
+        <PluginIcon pluginId={view.pluginId} className={glyph} />
       ) : (
         <Puzzle className={glyph} aria-hidden="true" />
       )}

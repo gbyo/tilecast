@@ -57,6 +57,7 @@ apps/cli/                    remote management CLI (Cobra, no server internals)
   internal/cli/              handwritten command tree
 plugins/                     bundled first-party plugins, one directory each
   <name>/tilecast.plugin.json  the plugin manifest (see docs/plugin-api.md)
+  <name>/tilecast.store.json   optional Plugin Store presentation: publisher, long description, static artwork in store/
   registry_gen.go            generated Go registry; never edit
 apps/dashboard/              React, TypeScript, Vite, TanStack Query
   src/api/                   public browser contract types and fetch client
@@ -248,6 +249,7 @@ A bundled plugin is a directory below `plugins/`. Read [`docs/plugin-api.md`](do
 
 - Keep everything unique to a plugin in its directory. Do not add a plugin identifier to core code; extend the SDK contribution interfaces instead.
 - Plugins import only the plugin SDK, `@tilecast/studio`, and their own files. `npm run plugins:check` enforces this.
+- `tilecast.store.json` is presentation only. It must never carry identity, capabilities, requirements, or trust, which stay in the manifest. Store artwork is static WebP checked into the plugin's `store/` directory; do not add an artwork generator.
 - Never edit generated files: `plugins/registry_gen.go`, `.github/CODEOWNERS`, `docs/openapi.yaml`, `packages/plugin-sdk/schema/tilecast-plugin.schema.json`, and `apps/server/internal/database/migrations.lock.json`. Run `npm run plugins:generate`.
 
 ### Database migrations

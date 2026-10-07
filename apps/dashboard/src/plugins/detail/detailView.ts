@@ -27,11 +27,14 @@ export type PluginDetailViewModel = {
    */
   longDescription?: string;
   /**
-   * Who builds it. Included plugins are built by Tilecast; an external
-   * package names only the publisher its catalog or manifest gives.
+   * Who builds it. An included plugin names the publisher its release
+   * declares; an external package names only the publisher its catalog or
+   * manifest gives.
    */
   publisher?: string;
-  /** Present for included plugins, whose icon Studio ships. */
+  /** An https address for the publisher, when the release names one. */
+  publisherUrl?: string;
+  /** Present for included plugins, whose built-in glyph is the fallback icon. */
   plugin?: PluginSummary;
   iconUrl?: string;
   screenshots: PluginStoreScreenshot[];
@@ -55,7 +58,7 @@ export type PluginDetailViewModel = {
 export function buildDetailView(
   entry: PluginStoreEntry,
 ): PluginDetailViewModel | null {
-  const { plugin, marketplace, custom } = entry;
+  const { plugin, included, marketplace, custom } = entry;
   if (plugin) {
     return {
       packageId: entry.packageId,
@@ -63,10 +66,12 @@ export function buildDetailView(
       source: entry.source,
       name: plugin.name,
       description: plugin.description,
-      // i18n-ignore: product name, not translated copy
-      publisher: "Tilecast",
+      longDescription: included?.longDescription,
+      publisher: included?.publisherName,
+      publisherUrl: included?.publisherUrl,
       plugin,
-      screenshots: [],
+      iconUrl: included?.artwork?.iconUrl,
+      screenshots: included?.artwork?.screenshots ?? [],
       categories: [plugin.category],
       installed: plugin.installed,
       updateAvailable: false,

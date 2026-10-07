@@ -509,7 +509,6 @@ func TestMarketplaceArtworkServedThroughServer(t *testing.T) {
 			"non-numeric index":  "/api/v1/plugin-store/acme.weather/artwork/screenshots/https:%2F%2Fevil.example.com",
 			"no icon declared":   "/api/v1/plugin-store/acme.plain/artwork/icon",
 			"unknown package":    "/api/v1/plugin-store/acme.unknown/artwork/icon",
-			"included plugin":    "/api/v1/plugin-store/countdown_bar/artwork/icon",
 		} {
 			status, _, body := client.raw("viewer", path, nil)
 			if status != http.StatusNotFound || !strings.Contains(string(body), "artwork_unavailable") {

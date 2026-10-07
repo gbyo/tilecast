@@ -1,0 +1,7 @@
+{
+  "publisher": {
+    "name": "Tilecast",
+    "url": "https://tilecast.org"
+  },
+  "longDescription": "Countdown Bar adds a live, scheduled countdown along the bottom of your screens without interrupting what is already playing. Create weekly or one-time countdowns, target all screens or specific screens, groups, or locations, and control how the bar looks and behaves.\n\nOptional progress fill, urgency stages, completion text, and confetti let the same countdown move naturally from a quiet reminder to a final call. When multiple countdowns overlap, Tilecast automatically chooses the right one using priority and target time."
+}

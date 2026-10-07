@@ -1,0 +1,7 @@
+{
+  "publisher": {
+    "name": "Tilecast",
+    "url": "https://tilecast.org"
+  },
+  "longDescription": "Forms lets your organization collect structured submissions, review them, and publish approved records back into Tilecast. Build forms in Studio, share them through My Forms, and route responses through an approval workflow before they become reusable signage data.\n\nApproved records can feed Widgets and Layout bindings just like other Tilecast data, making it possible to connect announcements, directories, menus, event listings, and other displays to a controlled submission process."
+}

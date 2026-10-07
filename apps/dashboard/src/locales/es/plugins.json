@@ -325,6 +325,7 @@
     "by": "por {{publisher}}",
     "byLinked": "por <publisher>{{publisher}}</publisher>",
     "publisherLinkLabel": "{{publisher}}, repositorio (se abre en una pestaña nueva)",
+    "publisherSiteLinkLabel": "{{publisher}}, sitio web (se abre en una pestaña nueva)",
     "badgesLabel": "Detalles del complemento",
     "sourceBadge": {
       "included": "Incluido",

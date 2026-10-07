@@ -6,7 +6,7 @@ Tilecast plugins are release-owned optional capabilities. Installing one activat
 
 The catalog at `GET /api/v1/plugins` lists the plugins available in this release. Each definition has a stable ID, a version, requirements, and capabilities. Installation state is stored in `plugin_installations`; configuration stays in the plugin's own tables. Installation is the runtime gate: uninstalled plugins contribute no manifest entries or background work.
 
-The plugin store at `GET /api/v1/plugin-store` presents the same release-owned plugins as normalized store entries with provenance. `GET /api/v1/plugin-store/{packageId}` returns one entry. In this release every entry is included with Tilecast. Studio browses the store; installation and removal still use the catalog endpoints.
+The plugin store at `GET /api/v1/plugin-store` presents the same release-owned plugins as normalized store entries with provenance. `GET /api/v1/plugin-store/{packageId}` returns one entry. In this release every entry is included with Tilecast. An included entry also carries an `included` block with its publisher, an optional long description, and artwork paths. The release supplies this block from the plugin's `tilecast.store.json` (see [Plugin API](plugin-api.md#plugin-store-presentation)). The block is presentation only. Studio browses the store; installation and removal still use the catalog endpoints.
 
 | Plugin           | Configured                         | Active                        | Instances   |
 | ---------------- | ---------------------------------- | ----------------------------- | ----------- |

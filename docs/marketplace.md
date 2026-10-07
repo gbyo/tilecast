@@ -99,6 +99,11 @@ The catalog validation rules for artwork are:
 
 ### Artwork serving
 
+The same two paths also serve the artwork of included plugins. An included
+plugin ships its images in the release. The server reads them from its own
+binary and serves them directly, without the fetch rules below. The
+included entry carries the paths in `included.artwork`.
+
 Studio never loads an image from the address the catalog names. The
 server fetches each image, checks it, and serves it from its own path.
 The store response gives Studio only these server paths, in an

@@ -51,6 +51,8 @@ plugins/
   review-eligibility.json     handles that GitHub can request for review
   <name>/                     name = plugin ID with "_" replaced by "-"
     tilecast.plugin.json      manifest
+    tilecast.store.json       optional Plugin Store presentation (see below)
+    store/                    optional Store artwork: icon and screenshots
     plugin.go                 Go entry point: embeds the manifest, func New()
     plugin_test.go            plugintest.Conformance
     server/                   optional Go packages
@@ -178,6 +180,57 @@ requests review only from a handle that has write access. Thus the generator
 writes only the handles in `plugins/review-eligibility.json` as owners. It
 writes the other maintainers in a comment. A handle without write access is
 still a maintainer.
+
+### Plugin Store presentation
+
+A bundled plugin can ship `tilecast.store.json` and image files in `store/`.
+These files control only how the plugin looks on its Plugin Store page. They
+are not part of the manifest, and they never change:
+
+- plugin identity
+- installation
+- capabilities and requirements
+- runtime behavior
+- trust
+- Player manifests
+
+The file is small on purpose:
+
+```json
+{
+  "publisher": { "name": "Tilecast", "url": "https://tilecast.org" },
+  "longDescription": "Plain text. Separate paragraphs with a blank line.",
+  "artwork": {
+    "icon": "./store/icon.webp",
+    "screenshots": [
+      { "src": "./store/01-overview.webp", "alt": "What the image shows." }
+    ]
+  }
+}
+```
+
+Rules:
+
+- `publisher.name` is required. `publisher.url` is optional and must be a plain `https` address.
+- `longDescription` is optional plain text of at most 4000 characters. It is never markup.
+- Each artwork path is relative to the plugin directory. It must name an existing `.webp` or `.png` file below that directory. A path with `..`, a leading `/`, or a backslash is invalid.
+- A plugin can declare at most five screenshots. Each screenshot needs alternative text of at most 300 characters.
+- Keep all screenshots at one exact size and aspect ratio (16:9, about 1920 by 1080). Keep icons square.
+
+The plugin embeds the file and the images and attaches them with
+`plugin.NewBundle(...).WithStore(storeJSON, storeFiles)`. Pass `nil` for `storeFiles` when the plugin ships no artwork. `WithStore` panics on
+invalid metadata, like `NewBundle` does for an invalid manifest, because the
+files are compiled into the release. A plugin without the file still works.
+Its Store entry then shows the default publisher `Tilecast`, the built-in
+glyph, and no screenshots.
+
+The server reads the images from the binary and serves them from
+`GET /api/v1/plugin-store/{packageId}/artwork/icon` and
+`GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index}`. Included
+images are trusted release files, so they do not pass through the Marketplace
+artwork fetcher. The store entry carries only these server paths in
+`included.artwork`, each with a content-hash version token, and never a file
+system path.
 
 ## Server contract
 
