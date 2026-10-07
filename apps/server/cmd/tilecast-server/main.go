@@ -171,7 +171,7 @@ func serve() {
 	}
 	allowUnsigned := cfg.Packages.AllowUnsigned
 	if allowUnsigned && version.Channel == version.ChannelStable {
-		logger.Warn("unsigned extension packages are disabled on stable releases", "flag", "TILECAST_PACKAGES_ALLOW_UNSIGNED")
+		logger.Warn("unsigned extension packages are disabled on stable releases", "flag", "TILECAST_ALLOW_UNSIGNED_EXTENSIONS")
 		allowUnsigned = false
 	}
 	installerOptions := []installer.Option{installer.WithReserved(reservedIdentities)}
