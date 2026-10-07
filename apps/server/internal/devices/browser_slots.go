@@ -226,3 +226,15 @@ func (s *Service) RecoverBrowser(ctx context.Context, slotID uuid.UUID, recovery
 	s.presence.Disconnect(session.ScreenID)
 	return session, nil
 }
+
+// PlatformSupportsCommand reports whether a Screen of this platform can
+// perform a command type. Every platform but the browser accepts every type
+// the server defines, and answers `unsupported_command` for one it cannot run.
+// A Browser Screen is checked here, before a command is queued, so an operator
+// is told at once instead of after a Player rejects it.
+func PlatformSupportsCommand(platform, commandType string) bool {
+	if platform == "browser" {
+		return BrowserSupportsCommand(commandType)
+	}
+	return true
+}

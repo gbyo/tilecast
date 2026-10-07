@@ -7801,6 +7801,10 @@ paths:
         display_power_off, display_set_input, display_set_volume,
         display_mute, display_unmute, display_set_brightness, and
         display_probe. They are capability-gated by the target Player.
+        A Browser Player runs only `sync_now`, `reload_playback`,
+        `identify_screen`, `retry_current_item` and `skip_current_item`; any
+        other command type for a Browser Screen is refused with
+        `command_not_supported_by_player`.
         Requires an Owner or Administrator with the write scope.
         Cookie-authenticated unsafe requests require X-CSRF-Token.
       requestBody:
@@ -7818,6 +7822,11 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/QueuedPlayerCommand" }
+        "422":
+          description: >-
+            The payload is invalid (`command_invalid_payload`), or the Screen's
+            player cannot run this command type
+            (`command_not_supported_by_player`).
         "429": { description: Pending command limit reached }
   /api/v1/player/commands:
     get:
@@ -8110,6 +8119,9 @@ paths:
                       Player-reported diagnostics bag. Fields vary by
                       player state and caller role (managers see package
                       details viewers do not); every field is optional.
+                      A Browser Player's facts are under `browser`
+                      (`BrowserPlayerStatus`), which is null for every
+                      other player.
         "404": { description: Screen not found }
   /api/v1/screens/{id}/power-assist:
     put:

@@ -67,6 +67,9 @@ import {
   AddBrowserPlayer,
   BrowserRecoveryPanel,
 } from "../screens/browser/BrowserPlayerControls";
+import { BrowserCommandPanel } from "../screens/browser/BrowserCommandPanel";
+import { BrowserPlayerDiagnostics } from "../screens/browser/BrowserPlayerDiagnostics";
+import { screenRunsBrowserPlayer } from "../screens/commandApplicability";
 import { PendingPairings } from "../pairing/PendingPairings";
 import { useNativePairScreen } from "../pairing/useNativePairScreen";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
@@ -2640,6 +2643,8 @@ export function ScreenDetailPage() {
         <AlertDescription>{t("detail.loadError")}</AlertDescription>
       </Alert>
     );
+  // Which controls make sense for this Player is one question, answered once.
+  const isBrowserPlayer = screenRunsBrowserPlayer(screen);
   const displayCapabilities =
     reliability.data?.displayControlCapabilities ?? {};
   const hasDisplayControl = Object.keys(displayCapabilities).length > 0;
@@ -3122,6 +3127,15 @@ export function ScreenDetailPage() {
                 </Card>
               </div>
 
+              {isBrowserPlayer && (
+                <BrowserPlayerDiagnostics
+                  screenId={id}
+                  screenStatus={screen.status}
+                  playbackState={assignment.data?.playbackState}
+                  lastPlaybackError={assignment.data?.lastPlaybackError}
+                  reliability={reliability.data}
+                />
+              )}
               {screen.platform === "browser" &&
                 canManageScreens(auth.status?.user) && (
                   <BrowserRecoveryPanel
@@ -3275,7 +3289,28 @@ export function ScreenDetailPage() {
               </section>
             )}
 
-            {manageSection === "health" && (
+            {manageSection === "health" && isBrowserPlayer && (
+              <section
+                className="space-y-3"
+                aria-labelledby="browser-health-heading"
+              >
+                <h3
+                  id="browser-health-heading"
+                  className="text-sm font-semibold"
+                >
+                  {t("detail.healthTitle")}
+                </h3>
+                <BrowserPlayerDiagnostics
+                  screenId={id}
+                  screenStatus={screen.status}
+                  playbackState={assignment.data?.playbackState}
+                  lastPlaybackError={assignment.data?.lastPlaybackError}
+                  reliability={reliability.data}
+                />
+              </section>
+            )}
+
+            {manageSection === "health" && !isBrowserPlayer && (
               <section
                 className="space-y-3"
                 aria-labelledby="reliability-heading"
@@ -3991,6 +4026,50 @@ export function ScreenDetailPage() {
             )}
 
             {manageSection === "maintenance" &&
+              isBrowserPlayer &&
+              canManageScreens(auth.status?.user) && (
+                <div className="space-y-4">
+                  <BrowserCommandPanel
+                    pending={command.isPending}
+                    onCommand={(type, payload) =>
+                      command.mutate({ type, payload })
+                    }
+                  />
+                  {command.isSuccess && (
+                    <p className="text-sm text-muted-foreground">
+                      {t("detail.commandQueued")}
+                    </p>
+                  )}
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">
+                      {t("detail.recentOps")}
+                    </h3>
+                    <div className="grid gap-2">
+                      {commands.data?.items?.map((c) => (
+                        <div
+                          key={c.id}
+                          className="space-y-0.5 rounded-lg border border-border px-3 py-2"
+                        >
+                          <p className="text-sm font-medium">
+                            {c.type?.replaceAll("_", " ") ??
+                              t("detail.unknownCommand")}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {c.state} ·{" "}
+                            {new Date(c.createdAt).toLocaleString(formatLocale)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {c.resultCode?.replaceAll("_", " ") ??
+                              t("detail.noResult")}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              )}
+            {manageSection === "maintenance" &&
+              !isBrowserPlayer &&
               canManageScreens(auth.status?.user) && (
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold">

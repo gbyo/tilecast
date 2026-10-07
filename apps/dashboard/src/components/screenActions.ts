@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import type { NavigateFunction } from "react-router";
 import { api } from "../api/client";
 import type { Screen } from "../api/types";
+import { screenSupportsCommand } from "../screens/commandApplicability";
 import type { StudioActionGroup } from "./studio/ActionMenu";
 
 type ScreensT = TFunction<"screens", undefined>;
@@ -36,9 +37,10 @@ export function screenRowActionGroups({
       onSelect: () => void navigate(`/screens/${screen.id}`),
     },
   ];
-  if (canManage)
-    primary.push(
-      {
+  if (canManage) {
+    // A Player that cannot restart itself is not offered a restart.
+    if (screenSupportsCommand(screen, "restart_player_process"))
+      primary.push({
         id: "restart",
         label: t("grid.restartPlayer"),
         icon: "refresh",
@@ -49,7 +51,8 @@ export function screenRowActionGroups({
             {},
             csrfToken,
           ),
-      },
+      });
+    primary.push(
       {
         id: "edit-details",
         label: t("grid.editDetails"),
@@ -68,6 +71,7 @@ export function screenRowActionGroups({
         onSelect: () => void navigate(`/screens/${screen.id}?present=1`),
       },
     );
+  }
   const group: StudioActionGroup["actions"] = canManage
     ? [
         {

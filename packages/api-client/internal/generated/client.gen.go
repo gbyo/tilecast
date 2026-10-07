@@ -17046,7 +17046,7 @@ type ClientInterface interface {
 
 	// SendScreenCommandWithBody Queue a typed operational, Display Control, or bounded player-recovery command
 	//
-	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -17055,7 +17055,7 @@ type ClientInterface interface {
 
 	// SendScreenCommand Queue a typed operational, Display Control, or bounded player-recovery command
 	//
-	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -24402,7 +24402,7 @@ func (c *Client) ListScreenCommands(ctx context.Context, id ResourceID, reqEdito
 
 // SendScreenCommandWithBody Queue a typed operational, Display Control, or bounded player-recovery command
 //
-// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Takes any type of body and a specified content type.
 //
@@ -24421,7 +24421,7 @@ func (c *Client) SendScreenCommandWithBody(ctx context.Context, id ResourceID, c
 
 // SendScreenCommand Queue a typed operational, Display Control, or bounded player-recovery command
 //
-// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -47726,7 +47726,7 @@ type ClientWithResponsesInterface interface {
 
 	// SendScreenCommandWithBodyWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
 	//
-	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -47735,7 +47735,7 @@ type ClientWithResponsesInterface interface {
 
 	// SendScreenCommandWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
 	//
-	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -62661,14 +62661,14 @@ type GetScreenReliabilityResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
-		// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
+		// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. A Browser Player's facts are under `browser` (`BrowserPlayerStatus`), which is null for every other player.
 		Data map[string]interface{} `json:"data"`
 	}
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetScreenReliabilityResponse) GetJSON200() *struct {
-	// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
+	// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. A Browser Player's facts are under `browser` (`BrowserPlayerStatus`), which is null for every other player.
 	Data map[string]interface{} `json:"data"`
 } {
 	return r.JSON200
@@ -70844,7 +70844,7 @@ func (c *ClientWithResponses) ListScreenCommandsWithResponse(ctx context.Context
 
 // SendScreenCommandWithBodyWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
 //
-// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -70859,7 +70859,7 @@ func (c *ClientWithResponses) SendScreenCommandWithBodyWithResponse(ctx context.
 
 // SendScreenCommandWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
 //
-// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -81083,6 +81083,9 @@ func ParseSendScreenCommandResponse(rsp *http.Response) (*SendScreenCommandRespo
 		}
 		response.JSON202 = &dest
 
+	case rsp.StatusCode == 422:
+		break // No content-type
+
 	case rsp.StatusCode == 429:
 		break // No content-type
 
@@ -81785,7 +81788,7 @@ func ParseGetScreenReliabilityResponse(rsp *http.Response) (*GetScreenReliabilit
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
+			// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. A Browser Player's facts are under `browser` (`BrowserPlayerStatus`), which is null for every other player.
 			Data map[string]interface{} `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

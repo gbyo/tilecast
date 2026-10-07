@@ -688,5 +688,11 @@
     "file": "00116_browser_player_identity.sql",
     "owner": "core",
     "sha256": "85597ce22dcd068a3474396cc7c62c186ebd8d2094376b7130bd6e984101493d"
+  },
+  {
+    "version": 117,
+    "file": "00117_browser_player_status.sql",
+    "owner": "core",
+    "sha256": "608ca553afa863d1698196868e5de68a24fc2ac631b3be59d7a67d494754558e"
   }
 ]

@@ -317,7 +317,9 @@ func (s *server) recordHeartbeatStateTransitions(r *http.Request, tx pgx.Tx, scr
 		}
 		s.recordServerTransition(r, tx, screenID, playerActivityEventInput{ID: uuid.New(), EventType: eventType, Category: "reliability", Severity: severity, OccurredAt: now, Result: result, Priority: 9})
 	}
-	if before.ForegroundState != after.ForegroundState && after.ForegroundState != "" && after.ForegroundState != "foreground" {
+	// `recovering` is a Player restoring itself after the platform discarded
+	// it. It is on its way back to the foreground, so it is not a loss.
+	if before.ForegroundState != after.ForegroundState && after.ForegroundState != "" && after.ForegroundState != "foreground" && after.ForegroundState != "recovering" {
 		s.recordServerTransition(r, tx, screenID, playerActivityEventInput{ID: uuid.New(), EventType: "foreground_playback.lost", Category: "reliability", Severity: "warning", OccurredAt: now, Result: "failed", FailureCode: after.ForegroundState, Priority: 8})
 	}
 	if before.WatchdogRecoveryAt == nil && after.WatchdogRecoveryAt != nil || before.WatchdogRecoveryAt != nil && after.WatchdogRecoveryAt != nil && !before.WatchdogRecoveryAt.Equal(*after.WatchdogRecoveryAt) {

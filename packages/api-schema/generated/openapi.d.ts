@@ -4430,7 +4430,7 @@ export interface paths {
     put?: never;
     /**
      * Queue a typed operational, Display Control, or bounded player-recovery command
-     * @description Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+     * @description Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
      */
     post: operations["sendScreenCommand"];
     delete?: never;
@@ -23311,6 +23311,13 @@ export interface operations {
           };
         };
       };
+      /** @description The payload is invalid (`command_invalid_payload`), or the Screen's player cannot run this command type (`command_not_supported_by_player`). */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description Pending command limit reached */
       429: {
         headers: {
@@ -23773,7 +23780,7 @@ export interface operations {
         };
         content: {
           "application/json": {
-            /** @description Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. */
+            /** @description Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. A Browser Player's facts are under `browser` (`BrowserPlayerStatus`), which is null for every other player. */
             data: {
               [key: string]: unknown;
             };

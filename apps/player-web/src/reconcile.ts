@@ -8,6 +8,7 @@ import {
 } from "@tilecast/player-runtime/projection";
 import type { RuntimeSupportV1 } from "@tilecast/player-runtime/host-contract";
 import type { PlayerAPI } from "./api";
+import { policyFromConfig } from "./policy";
 import {
   commitActivation,
   type PreparedActivation,
@@ -139,6 +140,14 @@ export async function reconcileSelection(
           ...binding,
           activationId,
           generation,
+          // The accepted rest policy and the server's selection commit with
+          // the activation, so a restart without the server reads both.
+          policy: policyFromConfig(
+            config,
+            plan.selection,
+            manifest.manifestVersion,
+            clockOffsetMs,
+          ),
           resources: plan.requirements.map((requirement) => ({
             assetId: requirement.assetId,
             variantId: requirement.variantId,

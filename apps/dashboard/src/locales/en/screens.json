@@ -30,7 +30,163 @@
     "recoveryFailed": "Could not load or update managed recovery. Check your connection and try again.",
     "monitorTitle": "Browser Player monitoring",
     "captureUnsupported": "Watch Live and screenshots are unavailable in Browser Player. Playback status and Activity remain available.",
-    "serverUpdates": "Managed by server"
+    "serverUpdates": "Managed by server",
+    "diagnostics": {
+      "title": "Browser Player",
+      "body": "What this Player reports about its browser and display. These are measurements, not conclusions.",
+      "findingsLabel": "Browser Player recommendations",
+      "notReported": "Not reported",
+      "facts": {
+        "browser": "Browser",
+        "display": "Display",
+        "playerState": "Player state",
+        "fullscreen": "Fullscreen",
+        "awake": "Screen awake",
+        "sound": "Sound",
+        "storage": "Storage",
+        "offline": "Offline content",
+        "worker": "Player version",
+        "recovery": "Managed recovery",
+        "updates": "Updates"
+      },
+      "names": {
+        "chrome": "Chrome {{version}}",
+        "edge": "Microsoft Edge {{version}}",
+        "chromium": "Chromium {{version}}",
+        "other": "Another browser"
+      },
+      "displayMode": {
+        "standalone_pwa": "Installed app",
+        "browser_tab": "Browser tab"
+      },
+      "playerState": {
+        "foreground": "Foreground",
+        "background": "Background",
+        "frozen": "Frozen",
+        "recovering": "Recovering",
+        "unknown": "Unknown"
+      },
+      "fullscreen": {
+        "active": "Active",
+        "inactive": "Not active",
+        "notRequired": "Not required in an installed app"
+      },
+      "awake": {
+        "active": "Active",
+        "needsAttention": "Needs attention",
+        "unsupported": "Unsupported",
+        "resting": "Released while the screen rests"
+      },
+      "sound": {
+        "allowed": "Allowed",
+        "needsInteraction": "Needs one interaction on the display"
+      },
+      "storage": {
+        "persistent": "Persistent",
+        "persistentMeasured": "Persistent · {{used}} used of {{quota}}",
+        "bestEffort": "Best effort",
+        "bestEffortMeasured": "Best effort · {{used}} used of {{quota}}"
+      },
+      "offline": {
+        "ready": "Ready",
+        "repairing": "Repairing",
+        "not_prepared": "Not prepared"
+      },
+      "worker": {
+        "controlling": "Current",
+        "update_waiting": "Update waiting",
+        "installing": "Installing",
+        "unavailable": "Unavailable"
+      },
+      "recovery": {
+        "enabled": "Enabled",
+        "disabled": "Disabled"
+      },
+      "updates": {
+        "managed": "Managed by server"
+      },
+      "severity": {
+        "info": "Information",
+        "setup": "Recommended",
+        "degraded": "Affects playback"
+      },
+      "findings": {
+        "background": {
+          "title": "Player is in the background",
+          "body": "A Browser Player cannot confirm playback while its tab or window is hidden. Bring it to the foreground, or run it in a dedicated window or as an installed app."
+        },
+        "frozen": {
+          "title": "Player is frozen",
+          "body": "The browser paused this page to save resources, so nothing is on screen. Install the Player as an app and keep the display awake."
+        },
+        "repairing": {
+          "title": "Offline content is being repaired",
+          "body": "The browser removed some downloaded content. The Player is downloading it again."
+        },
+        "notPrepared": {
+          "title": "Content is not prepared",
+          "body": "This Player has no complete content to show without the server. It prepares content when it is connected."
+        },
+        "playbackError": {
+          "title": "Playback reported an error",
+          "body": "Check the current content in the Playback section."
+        },
+        "noProgress": {
+          "title": "No confirmed playback",
+          "body": "The Player is online and in the foreground but has not confirmed playback recently. Check what the display shows."
+        },
+        "tab": {
+          "title": "Running in a browser tab",
+          "body": "An installed app is more reliable for an unattended display. Install the Player as an app."
+        },
+        "bestEffort": {
+          "title": "Downloaded content may be removed",
+          "body": "The browser has not made this storage persistent, so it may remove downloaded content. Install the Player as an app, then use the control on the display."
+        },
+        "fullscreen": {
+          "title": "Fullscreen is off",
+          "body": "Use the control on the display to enter fullscreen, or install the Player as an app."
+        },
+        "wakeLock": {
+          "title": "The screen may sleep",
+          "body": "The browser is not keeping the screen awake. Check the device's power and sleep settings."
+        },
+        "sound": {
+          "title": "Sound needs one interaction",
+          "body": "Chrome and Microsoft Edge allow sound only after someone interacts with the page. Use the control on the display once."
+        },
+        "updateWaiting": {
+          "title": "A Player update is waiting",
+          "body": "It starts when this page next loads, or while the screen rests outside active hours. It never replaces the Player during playback."
+        },
+        "installed": {
+          "title": "Running as an installed app",
+          "body": "This is the recommended setup for an unattended display."
+        },
+        "watchLive": {
+          "title": "Watch Live is not available",
+          "body": "A browser cannot capture its own display. Playback status and Activity remain available."
+        }
+      }
+    },
+    "commands": {
+      "title": "Player commands",
+      "body": "A Browser Player runs these commands. Commands for other kinds of Player, such as restart, display control, or clearing the cache, do not apply.",
+      "labels": {
+        "sync_now": "Sync now",
+        "reload_playback": "Reload playback",
+        "identify_screen": "Identify screen",
+        "retry_current_item": "Retry current item",
+        "skip_current_item": "Skip current item"
+      },
+      "details": {
+        "sync_now": "Refreshes the manifest, configuration, and content the server selected.",
+        "reload_playback": "Starts the current content again.",
+        "identify_screen": "Shows the Screen name on the display for 30 seconds.",
+        "retry_current_item": "Restarts the item on screen.",
+        "skip_current_item": "Moves to the next item."
+      }
+    }
   },
   "playbackPlan": {
     "title": "Expected presentation",

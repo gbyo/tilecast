@@ -2,12 +2,32 @@ import type {
   PresentationMessage,
   PluginsMessage,
 } from "@tilecast/player-runtime/host-contract";
+import type { SelectionFacts } from "@tilecast/player-runtime/projection";
 import { completed, read, result } from "./database";
 import type { ResourceClaim, VerifiedObject } from "./verified-store";
 
 export interface ActivationResource extends ResourceClaim {
   assetId: string;
   variantId: string;
+}
+
+/**
+ * What a restarted browser needs to behave correctly without the server: the
+ * server's own selection facts for the content, and the few accepted
+ * configuration values the rest policy reads. It commits and is discarded
+ * with its activation, so it can never describe different content.
+ */
+export interface ActivationPolicy {
+  configRevision: number;
+  manifestVersion: number | undefined;
+  /** The server's selection facts. Null when nothing is selected. */
+  selection: SelectionFacts | null;
+  /** Only the `power` values the active-hours policy reads. */
+  power: Record<string, unknown>;
+  /** Only the `branding` values the rest surface uses. */
+  branding: Record<string, unknown>;
+  /** Corrected-minus-device wall offset when the policy was accepted. */
+  clockOffsetMs: number;
 }
 
 export interface PreparedActivation {
@@ -19,6 +39,8 @@ export interface PreparedActivation {
   resources: ActivationResource[];
   presentation: PresentationMessage;
   plugins: PluginsMessage;
+  /** Absent only on an activation committed before the policy existed. */
+  policy?: ActivationPolicy;
 }
 
 /**

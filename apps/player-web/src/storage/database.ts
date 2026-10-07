@@ -5,16 +5,21 @@ export const STORES = [
   "activations",
   "grants",
   "outbox",
+  "commands",
 ] as const;
+/** Version 2 added the `commands` store. An upgrade only creates what is missing. */
+export const DATABASE_VERSION = 2;
 export type Store = (typeof STORES)[number];
 
 export function openDatabase(
   factory: IDBFactory = indexedDB,
 ): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = factory.open(DATABASE_NAME, 1);
+    const request = factory.open(DATABASE_NAME, DATABASE_VERSION);
     request.onupgradeneeded = () => {
-      for (const name of STORES) request.result.createObjectStore(name);
+      for (const name of STORES)
+        if (!request.result.objectStoreNames.contains(name))
+          request.result.createObjectStore(name);
     };
     request.onerror = () => reject(request.error);
     request.onblocked = () =>

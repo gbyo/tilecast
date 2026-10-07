@@ -314,3 +314,67 @@ func TestBrowserAuditRowsUseTheSharedAttributionPath(t *testing.T) {
 		t.Fatalf("recovery is attributed to %v", got["screen.browser.recovered"])
 	}
 }
+
+func TestBrowserHeartbeatStoresItsBoundedSectionAndNoOneElsesDoes(t *testing.T) {
+	ctx, pool, owner, service := browserEnvironment(t)
+	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Status"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, public := browserTestKey(t)
+	installation := uuid.New()
+	session, err := service.RecoverBrowser(ctx, launch.ID, launch.RecoverySecret, BrowserRegistration{InstallationID: installation, PublicKey: public}, browserTestMetadata(installation))
+	if err != nil {
+		t.Fatal(err)
+	}
+	principal, _, err := service.AuthenticateBrowser(ctx, session.SessionSecret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored := func() (string, string, bool) {
+		var section *string
+		var foreground *string
+		var keepAwake *bool
+		if err := pool.QueryRow(ctx, `SELECT browser_status::text,foreground_state,keep_screen_on FROM screen_player_status WHERE screen_id=$1`, principal.ScreenID).Scan(&section, &foreground, &keepAwake); err != nil {
+			t.Fatal(err)
+		}
+		value, state := "", ""
+		if section != nil {
+			value = *section
+		}
+		if foreground != nil {
+			state = *foreground
+		}
+		return value, state, keepAwake != nil && *keepAwake
+	}
+	heartbeat := Heartbeat{
+		ScreenWidth: 1280, ScreenHeight: 720, PlayerVersion: "0.1.0", PlayerFamily: "browser", PlaybackState: "idle",
+		SafeMode: ptr(false), ForegroundState: "background", KeepScreenOn: ptr(false), ActiveHoursState: "active",
+		Browser: &BrowserStatus{BrowserName: "chrome", BrowserMajorVersion: ptr(154), DisplayMode: "browser_tab", StoragePersistence: "best_effort", WakeLock: "released", OfflineContent: "ready"},
+	}
+	if err := service.Heartbeat(ctx, principal, heartbeat, "127.0.0.1:1"); err != nil {
+		t.Fatal(err)
+	}
+	section, foreground, _ := stored()
+	if foreground != "background" || !strings.Contains(section, `"storagePersistence": "best_effort"`) || !strings.Contains(section, `"browserMajorVersion": 154`) {
+		t.Fatalf("browser section or generic fact not stored: %q %q", section, foreground)
+	}
+	// A later heartbeat replaces the section instead of merging into it.
+	heartbeat.Browser = &BrowserStatus{BrowserName: "edge", StoragePersistence: "persistent"}
+	heartbeat.ForegroundState = "foreground"
+	if err := service.Heartbeat(ctx, principal, heartbeat, "127.0.0.1:1"); err != nil {
+		t.Fatal(err)
+	}
+	section, foreground, _ = stored()
+	if strings.Contains(section, "chrome") || strings.Contains(section, "best_effort") || foreground != "foreground" {
+		t.Fatalf("section was merged rather than replaced: %q", section)
+	}
+	// A Screen that stops reporting itself as a browser stops showing the section.
+	heartbeat.PlayerFamily = "electron-linux"
+	if err := service.Heartbeat(ctx, principal, heartbeat, "127.0.0.1:1"); err != nil {
+		t.Fatal(err)
+	}
+	if section, _, _ = stored(); section != "" {
+		t.Fatalf("a non-browser heartbeat left a Browser section: %q", section)
+	}
+}

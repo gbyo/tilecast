@@ -24,9 +24,12 @@ const sources = (directory) =>
   });
 const text = (path) => readFileSync(path, "utf8");
 const host = sources("apps/player-web/src");
+// Generated data is checked against its source by `player-contracts:check`.
+const hostCode = host.filter((path) => !/\.gen\.ts$/.test(path));
+const inside = (path, directory) => path.includes(`/${directory}/`);
 
 test("Browser Host makes no presentation decision of its own", () => {
-  assert.ok(host.length > 5);
+  assert.ok(hostCode.length > 5);
   const forbidden = [
     // A presentation document is built only by the shared resolver.
     [
@@ -44,7 +47,7 @@ test("Browser Host makes no presentation decision of its own", () => {
       "schedule evaluation",
     ],
   ];
-  for (const path of host)
+  for (const path of hostCode)
     for (const [pattern, name] of forbidden)
       assert.doesNotMatch(
         text(path),
@@ -60,7 +63,7 @@ test("Browser Host imports only the shared resolver surface from the projection 
     "realizePresentation",
     "statusSurface",
   ]);
-  for (const path of host) {
+  for (const path of hostCode) {
     for (const match of text(path).matchAll(
       /import\s*(type\s*)?\{([^}]*)\}\s*from\s*["']@tilecast\/player-runtime\/projection["']/g,
     )) {
@@ -89,10 +92,10 @@ test("Browser Host never claims a native or privileged capability", () => {
   assert.match(bridge, /synchronizedPlayback:\s*false/);
   assert.match(bridge, /setup:\s*false/);
   assert.match(bridge, /discovery:\s*false/);
-  for (const path of host)
+  for (const path of hostCode)
     assert.doesNotMatch(
       text(path),
-      /getDisplayMedia|navigator\.usb|navigator\.serial|\blocalStorage\b|\bsessionStorage\b/,
+      /getDisplayMedia|navigator\.usb|navigator\.serial|\blocalStorage\b|\bsessionStorage\b|\bdocument\.cookie\b/,
       path,
     );
 });
@@ -115,4 +118,123 @@ test("Browser is excluded from native update targeting", () => {
     "utf8",
   );
   assert.match(updates, /browser/i);
+});
+
+test("Browser Host never selects behavior by browser or platform name", () => {
+  // Only diagnostics names the browser, and only to report it. The modules
+  // that decide behavior must not know what browser they run in.
+  const behavior = hostCode.filter((path) =>
+    /\/(?:reconcile|host|policy|commands|lifecycle|display|runtime-boot)\.ts$|\/activity\//.test(
+      path,
+    ),
+  );
+  assert.ok(behavior.length >= 8);
+  for (const path of behavior)
+    assert.doesNotMatch(
+      text(path),
+      /browserName|userAgent|navigator\.platform|\bplatform\s*[=!]==?|["']browser["']\s*[=!]==?|[=!]==?\s*["']browser["']/,
+      `${path}: behavior follows capabilities, never a browser or platform name`,
+    );
+  for (const path of hostCode.filter(
+    (value) => !/\/(?:diagnostics|player)\.ts$/.test(value),
+  ))
+    assert.doesNotMatch(
+      text(path),
+      /\buserAgent\b|userAgentData/,
+      `${path}: only diagnostics reads the user agent`,
+    );
+});
+
+test("Browser Host ranks no schedule and projects no content", () => {
+  for (const path of hostCode) {
+    assert.doesNotMatch(
+      text(path),
+      /\bpriority\b|oneTimeStart|oneTimeEnd|\brecurrence\b|\bweekly\b|\bsortSchedules|\bscheduleRank/,
+      `${path}: schedule precedence belongs to the server`,
+    );
+    assert.doesNotMatch(
+      text(path),
+      /\b(?:projectManifestItems|createProjector|presentationNeedsProjection|layoutRender|widgetRender)\b/,
+      `${path}: content projection belongs to the shared Runtime`,
+    );
+  }
+});
+
+test("Pure shared policy stays in its package, and the Host consumes it", () => {
+  const defined =
+    /(?:function|class|const)\s+(?:evaluateActiveHours|activeHoursFromConfig|parseClockMinutes|overridesActiveHours|buildOutsideActiveHoursPresentation|PlaybackSessionTracker|buildActivityRecord|applyRendererEvent|presentationContextFor|replacementReasonFor|contentContextFor|stopForState|playbackFailureEvent)\b/;
+  for (const path of hostCode)
+    assert.doesNotMatch(
+      text(path),
+      defined,
+      `${path}: this policy already has a shared owner`,
+    );
+  const all = hostCode.map(text).join("\n");
+  assert.match(all, /@tilecast\/player-active-hours/);
+  assert.match(all, /@tilecast\/player-activity/);
+  // The packages never import the Host back.
+  for (const directory of ["player-activity", "player-active-hours"])
+    for (const path of sources(`packages/${directory}/src`))
+      assert.doesNotMatch(
+        text(path),
+        /player-web|@tilecast\/player-runtime|from\s+["']\.\.\/\.\.\/\.\.\//,
+        `${path}: shared policy knows no host`,
+      );
+});
+
+test("Browser Host keeps credentials and the recovery secret out of storage", () => {
+  for (const path of hostCode) {
+    if (inside(path, "storage") || /\/identity\.ts$/.test(path))
+      assert.doesNotMatch(
+        text(path),
+        /recovery/i,
+        `${path}: the recovery secret is never persisted`,
+      );
+  }
+  // The bootstrap hands the secret over once and keeps no copy.
+  assert.doesNotMatch(
+    text("apps/player-web/src/bootstrap.ts"),
+    /indexedDB|\.put\(|\.setItem\(|caches\./,
+  );
+  // The secret only ever goes to the recover request, never to a write.
+  assert.doesNotMatch(
+    text("apps/player-web/src/authentication.ts"),
+    /write\([^)]*recovery/,
+  );
+});
+
+test("Browser Host offers no arbitrary-script or generic command bridge", () => {
+  for (const path of hostCode)
+    assert.doesNotMatch(
+      text(path),
+      /\beval\s*\(|new\s+Function\s*\(|\bexecuteJavascript\b|\bbrowserRpc\b|\bbrowserCommand\b|javascript:|importScripts\s*\(\s*[^"')]/,
+      `${path}: no generic script or command escape hatch`,
+    );
+  // Every command is a typed server command type from the generated matrix.
+  const matrix = JSON.parse(text("apps/player-web/capabilities.json"));
+  const native = [
+    /^display_/,
+    /^install_/,
+    /^power_assist_/,
+    /^(?:clear_media_cache|clear_website_data|disable_playback|enable_playback)$/,
+    /^(?:restart_player_process|restart_activity|recreate_renderer|recreate_playback_session)$/,
+    /^(?:exit_safe_mode|retry_player_recovery|run_player_self_test|resynchronize_player)$/,
+    /airplay|presentation_network|autostart/,
+  ];
+  for (const { type } of matrix.commands.supported)
+    for (const pattern of native)
+      assert.doesNotMatch(
+        type,
+        pattern,
+        `${type}: a native-only command must not be advertised by Browser Player`,
+      );
+});
+
+test("Browser Player stays out of native Player release targeting", () => {
+  const players = readFileSync("apps/dashboard/src/playerPlatform.ts", "utf8");
+  assert.match(players, /platform === "browser"[\s\S]{0,120}return undefined/);
+  const hosts = text("apps/player-web/src/heartbeat.ts");
+  // It reports its own family, and no native release channel.
+  assert.match(hosts, /playerFamily:\s*"browser"/);
+  assert.doesNotMatch(hosts, /installerSource|playerVersionCode|updateState/);
 });

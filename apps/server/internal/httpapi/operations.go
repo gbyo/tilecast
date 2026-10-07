@@ -342,6 +342,10 @@ func (s *server) createPlayerCommand(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 429, "command_limit_reached", "This screen has reached its pending-command limit.")
 		return
 	}
+	if errors.Is(err, errCommandUnsupported) {
+		writeError(w, 422, "command_not_supported_by_player", "This player cannot run that command.")
+		return
+	}
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -678,6 +682,9 @@ func (s *server) expireCommands(r *http.Request) {
 var (
 	errScreenNotFound = errors.New("screen not found")
 	errCommandLimit   = errors.New("pending command limit reached")
+	// errCommandUnsupported means the screen's player cannot run this command
+	// type. It is refused before anything is queued.
+	errCommandUnsupported = errors.New("the player does not support this command")
 )
 
 func (s *server) queueCommand(ctx context.Context, screen, user uuid.UUID, commandType string, payload []byte, idempotencyKey uuid.UUID) (uuid.UUID, time.Time, error) {
@@ -695,10 +702,16 @@ func (s *server) queueCommand(ctx context.Context, screen, user uuid.UUID, comma
 	}
 
 	var org uuid.UUID
-	if err = tx.QueryRow(ctx, `SELECT organization_id FROM screens WHERE id=$1`, screen).Scan(&org); errors.Is(err, pgx.ErrNoRows) {
+	var platform string
+	if err = tx.QueryRow(ctx, `SELECT organization_id,platform FROM screens WHERE id=$1`, screen).Scan(&org, &platform); errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, time.Time{}, errScreenNotFound
 	} else if err != nil {
 		return uuid.Nil, time.Time{}, err
+	}
+	// One check for every way a command is queued. A Browser Player performs
+	// only the command types its capability matrix lists.
+	if !devices.PlatformSupportsCommand(platform, commandType) {
+		return uuid.Nil, time.Time{}, errCommandUnsupported
 	}
 
 	// Idempotent retries return the original command even when the queue is now

@@ -81,6 +81,9 @@ type Service struct {
 	enabler      EnabledSetter
 	commands     CommandEnqueuer
 	approvalGate func(ctx context.Context, contentType string, id uuid.UUID) error
+	// commandSupported says whether a screen's platform can run a command type.
+	// It is injected so this package stays free of the devices service.
+	commandSupported func(platform, commandType string) bool
 	// scopes enforces the caller's screen scope. It is applied to the
 	// operation-id paths as well as to preview and apply, so an operation id
 	// cannot be used to reach a screen the caller may not touch.
@@ -116,6 +119,12 @@ func (s *Service) SetApprovalGate(gate func(ctx context.Context, contentType str
 // SetCommandEnqueuer installs the command path. Bulk commands are unavailable
 // until it is set.
 func (s *Service) SetCommandEnqueuer(enqueuer CommandEnqueuer) { s.commands = enqueuer }
+
+// SetCommandApplicability installs the check that skips a screen whose player
+// cannot run the command, so the preview says so instead of a failure later.
+func (s *Service) SetCommandApplicability(supported func(platform, commandType string) bool) {
+	s.commandSupported = supported
+}
 
 // Request is one bulk operation.
 type Request struct {
@@ -214,6 +223,7 @@ type screenRow struct {
 	enabled      bool
 	archived     bool
 	revoked      bool
+	platform     string
 	groupID      *uuid.UUID
 	groupName    string
 	playlistID   *uuid.UUID
@@ -295,6 +305,9 @@ func (s *Service) Build(ctx context.Context, request Request) (Preview, error) {
 		}
 		change.Blocked = blockedReason(row, request)
 		if change.Blocked == "" {
+			change.Blocked = s.unsupportedReason(row, request)
+		}
+		if change.Blocked == "" {
 			change.Changes = changes(row, request)
 		}
 		switch {
@@ -352,6 +365,7 @@ func (s *Service) expand(ctx context.Context, selected []uuid.UUID) ([]screenRow
 		       sc.archived_at IS NOT NULL,
 		       NOT EXISTS(SELECT 1 FROM device_credentials c
 		                  WHERE c.screen_id=sc.id AND c.revoked_at IS NULL),
+		       sc.platform,
 		       m.screen_group_id, COALESCE(g.name,''),
 		       COALESCE(sa.playlist_id, ga.playlist_id),
 		       COALESCE(sp.name, gp.name, ''),
@@ -382,7 +396,7 @@ func (s *Service) expand(ctx context.Context, selected []uuid.UUID) ([]screenRow
 	for rows.Next() {
 		var row screenRow
 		if err := rows.Scan(&row.id, &row.name, &row.location, &row.enabled,
-			&row.archived, &row.revoked, &row.groupID, &row.groupName,
+			&row.archived, &row.revoked, &row.platform, &row.groupID, &row.groupName,
 			&row.playlistID, &row.playlistName, &row.layoutID, &row.layoutName,
 			&row.selected); err != nil {
 			return nil, err
@@ -448,6 +462,16 @@ func blockedReason(row screenRow, request Request) string {
 	}
 	if request.Action == ActionSendCommand && !row.enabled {
 		return "Playback is disabled"
+	}
+	return ""
+}
+
+// unsupportedReason skips a screen whose player cannot run the command, so the
+// preview says so before anything is queued.
+func (s *Service) unsupportedReason(row screenRow, request Request) string {
+	if request.Action == ActionSendCommand && s.commandSupported != nil &&
+		!s.commandSupported(row.platform, request.CommandType) {
+		return "This player cannot run that command"
 	}
 	return ""
 }

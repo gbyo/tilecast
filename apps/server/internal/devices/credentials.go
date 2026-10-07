@@ -298,6 +298,10 @@ func (s *Service) Heartbeat(ctx context.Context, principal DevicePrincipal, hear
 	// An unknown value is dropped, not rejected, like other optional status.
 	family, architecture := knownPlayerFamily(heartbeat.PlayerFamily, heartbeat.PlayerArchitecture)
 	_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET player_version_code=$2,android_sdk=$3,installer_source=NULLIF($4,''),install_permission_status=NULLIF($5,''),current_update_deployment_id=$6,update_state=NULLIF($7,''),update_downloaded_bytes=$8,update_expected_bytes=$9,update_error=NULLIF($10,''),player_family=NULLIF($11,''),player_architecture=NULLIF($12,'') WHERE screen_id=$1`, principal.ScreenID, heartbeat.PlayerVersionCode, heartbeat.AndroidSDK, heartbeat.InstallerSource, heartbeat.InstallPermissionStatus, heartbeat.CurrentUpdateDeploymentID, heartbeat.UpdateState, heartbeat.UpdateDownloadedBytes, heartbeat.UpdateExpectedBytes, heartbeat.UpdateError, family, architecture)
+	// The Browser section is the Browser Player's own facts. It follows the
+	// reported family, so a screen that stops being a Browser Player stops
+	// showing them. Failing to store it never costs the heartbeat.
+	_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET browser_status=$2::jsonb WHERE screen_id=$1`, principal.ScreenID, browserStatusJSON(family, heartbeat.Browser))
 	// Linux autostart. Recorded outside the reliability block below because it
 	// is reported on its own cadence (at startup and after each autostart
 	// command) rather than alongside the Android reliability fields.

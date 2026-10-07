@@ -30,7 +30,163 @@
     "recoveryFailed": "No se pudo cargar o actualizar la recuperación administrada. Comprueba la conexión e inténtalo de nuevo.",
     "monitorTitle": "Supervisión de Browser Player",
     "captureUnsupported": "La vista en directo y las capturas no están disponibles en Browser Player. El estado de reproducción y la actividad siguen disponibles.",
-    "serverUpdates": "Administrado por el servidor"
+    "serverUpdates": "Administrado por el servidor",
+    "diagnostics": {
+      "title": "Browser Player",
+      "body": "Lo que este reproductor informa sobre su navegador y su pantalla. Son mediciones, no conclusiones.",
+      "findingsLabel": "Recomendaciones de Browser Player",
+      "notReported": "Sin informar",
+      "facts": {
+        "browser": "Navegador",
+        "display": "Visualización",
+        "playerState": "Estado del reproductor",
+        "fullscreen": "Pantalla completa",
+        "awake": "Pantalla activa",
+        "sound": "Sonido",
+        "storage": "Almacenamiento",
+        "offline": "Contenido sin conexión",
+        "worker": "Versión del reproductor",
+        "recovery": "Recuperación administrada",
+        "updates": "Actualizaciones"
+      },
+      "names": {
+        "chrome": "Chrome {{version}}",
+        "edge": "Microsoft Edge {{version}}",
+        "chromium": "Chromium {{version}}",
+        "other": "Otro navegador"
+      },
+      "displayMode": {
+        "standalone_pwa": "Aplicación instalada",
+        "browser_tab": "Pestaña del navegador"
+      },
+      "playerState": {
+        "foreground": "Primer plano",
+        "background": "Segundo plano",
+        "frozen": "Congelado",
+        "recovering": "Recuperándose",
+        "unknown": "Desconocido"
+      },
+      "fullscreen": {
+        "active": "Activa",
+        "inactive": "No activa",
+        "notRequired": "No es necesaria en una aplicación instalada"
+      },
+      "awake": {
+        "active": "Activa",
+        "needsAttention": "Requiere atención",
+        "unsupported": "No compatible",
+        "resting": "Liberada mientras la pantalla descansa"
+      },
+      "sound": {
+        "allowed": "Permitido",
+        "needsInteraction": "Requiere una interacción en la pantalla"
+      },
+      "storage": {
+        "persistent": "Persistente",
+        "persistentMeasured": "Persistente · {{used}} usados de {{quota}}",
+        "bestEffort": "Mejor esfuerzo",
+        "bestEffortMeasured": "Mejor esfuerzo · {{used}} usados de {{quota}}"
+      },
+      "offline": {
+        "ready": "Listo",
+        "repairing": "Reparando",
+        "not_prepared": "Sin preparar"
+      },
+      "worker": {
+        "controlling": "Actual",
+        "update_waiting": "Actualización en espera",
+        "installing": "Instalando",
+        "unavailable": "No disponible"
+      },
+      "recovery": {
+        "enabled": "Activada",
+        "disabled": "Desactivada"
+      },
+      "updates": {
+        "managed": "Administradas por el servidor"
+      },
+      "severity": {
+        "info": "Información",
+        "setup": "Recomendado",
+        "degraded": "Afecta a la reproducción"
+      },
+      "findings": {
+        "background": {
+          "title": "El reproductor está en segundo plano",
+          "body": "Browser Player no puede confirmar la reproducción mientras su pestaña o ventana está oculta. Tráelo al primer plano o ejecútalo en una ventana propia o como aplicación instalada."
+        },
+        "frozen": {
+          "title": "El reproductor está congelado",
+          "body": "El navegador pausó esta página para ahorrar recursos, así que no hay nada en pantalla. Instala el reproductor como aplicación y mantén la pantalla activa."
+        },
+        "repairing": {
+          "title": "Se está reparando el contenido sin conexión",
+          "body": "El navegador eliminó parte del contenido descargado. El reproductor lo está descargando de nuevo."
+        },
+        "notPrepared": {
+          "title": "El contenido no está preparado",
+          "body": "Este reproductor no tiene contenido completo para mostrar sin el servidor. Lo prepara cuando está conectado."
+        },
+        "playbackError": {
+          "title": "La reproducción informó de un error",
+          "body": "Revisa el contenido actual en la sección Reproducción."
+        },
+        "noProgress": {
+          "title": "Sin reproducción confirmada",
+          "body": "El reproductor está en línea y en primer plano, pero no ha confirmado la reproducción recientemente. Comprueba lo que muestra la pantalla."
+        },
+        "tab": {
+          "title": "Se ejecuta en una pestaña del navegador",
+          "body": "Una aplicación instalada es más fiable para una pantalla desatendida. Instala el reproductor como aplicación."
+        },
+        "bestEffort": {
+          "title": "El contenido descargado puede eliminarse",
+          "body": "El navegador no ha hecho persistente este almacenamiento, por lo que puede eliminar el contenido descargado. Instala el reproductor como aplicación y usa el control de la pantalla."
+        },
+        "fullscreen": {
+          "title": "La pantalla completa está desactivada",
+          "body": "Usa el control de la pantalla para entrar en pantalla completa o instala el reproductor como aplicación."
+        },
+        "wakeLock": {
+          "title": "La pantalla puede suspenderse",
+          "body": "El navegador no mantiene la pantalla activa. Revisa los ajustes de energía y suspensión del dispositivo."
+        },
+        "sound": {
+          "title": "El sonido requiere una interacción",
+          "body": "Chrome y Microsoft Edge solo permiten sonido después de que alguien interactúe con la página. Usa el control de la pantalla una vez."
+        },
+        "updateWaiting": {
+          "title": "Hay una actualización del reproductor en espera",
+          "body": "Se inicia la próxima vez que se cargue esta página o mientras la pantalla descansa fuera del horario activo. Nunca sustituye el reproductor durante la reproducción."
+        },
+        "installed": {
+          "title": "Se ejecuta como aplicación instalada",
+          "body": "Es la configuración recomendada para una pantalla desatendida."
+        },
+        "watchLive": {
+          "title": "Ver en directo no está disponible",
+          "body": "Un navegador no puede capturar su propia pantalla. El estado de reproducción y la actividad siguen disponibles."
+        }
+      }
+    },
+    "commands": {
+      "title": "Comandos del reproductor",
+      "body": "Browser Player ejecuta estos comandos. Los comandos de otros tipos de reproductor, como reiniciar, controlar la pantalla o borrar la caché, no se aplican.",
+      "labels": {
+        "sync_now": "Sincronizar ahora",
+        "reload_playback": "Recargar reproducción",
+        "identify_screen": "Identificar pantalla",
+        "retry_current_item": "Reintentar elemento actual",
+        "skip_current_item": "Omitir elemento actual"
+      },
+      "details": {
+        "sync_now": "Actualiza el manifiesto, la configuración y el contenido que seleccionó el servidor.",
+        "reload_playback": "Inicia de nuevo el contenido actual.",
+        "identify_screen": "Muestra el nombre de la pantalla durante 30 segundos.",
+        "retry_current_item": "Reinicia el elemento en pantalla.",
+        "skip_current_item": "Pasa al siguiente elemento."
+      }
+    }
   },
   "playbackPlan": {
     "title": "Presentación esperada",

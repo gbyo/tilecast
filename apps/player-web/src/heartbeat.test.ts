@@ -58,3 +58,56 @@ it("repeats the server's selection and omits what it does not know", () => {
   expect(payload).not.toHaveProperty("currentItemId");
   expect(payload).not.toHaveProperty("activeManifestVersion");
 });
+
+it("reports a resting screen as asleep, never as playing", () => {
+  const payload = heartbeatPayload({
+    screenWidth: 1280,
+    screenHeight: 720,
+    hostVersion: "0.1.0",
+    uptimeSeconds: 1,
+    playing: true,
+    resting: true,
+    support,
+  });
+  expect(payload.playbackState).toBe("sleep");
+});
+
+it("sends generic reliability facts and the bounded browser section", () => {
+  const payload = heartbeatPayload({
+    screenWidth: 1280,
+    screenHeight: 720,
+    hostVersion: "0.1.0",
+    uptimeSeconds: 1,
+    playing: false,
+    support,
+    reliability: {
+      foregroundState: "background",
+      immersiveModeActive: true,
+      keepScreenOn: false,
+      activeHoursState: "off_hours",
+      cachedFallbackAvailable: true,
+      lastHealthyPlaybackAt: "2026-10-01T11:00:00.000Z",
+      cacheUsedBytes: 10.9,
+      deviceClockOffsetSeconds: -3.4,
+      browser: {
+        browserName: "edge",
+        browserMajorVersion: 154,
+        wakeLock: "released",
+      },
+    },
+  });
+  expect(payload).toMatchObject({
+    safeMode: false,
+    foregroundState: "background",
+    immersiveModeActive: true,
+    keepScreenOn: false,
+    activeHoursState: "off_hours",
+    cachedFallbackAvailable: true,
+    lastHealthyPlaybackAt: "2026-10-01T11:00:00.000Z",
+    cacheUsedBytes: 10,
+    deviceClockOffsetSeconds: -3,
+    browser: { browserName: "edge", wakeLock: "released" },
+  });
+  expect(payload).not.toHaveProperty("availableStorageBytes");
+  expect(payload).not.toHaveProperty("lastSuccessfulSyncAt");
+});

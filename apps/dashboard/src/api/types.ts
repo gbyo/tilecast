@@ -1,6 +1,7 @@
 import type { components } from "@tilecast/api-schema/generated/openapi";
 
 export type BrowserSlot = components["schemas"]["BrowserSlot"];
+export type BrowserPlayerStatus = components["schemas"]["BrowserPlayerStatus"];
 export type BrowserLaunch =
   components["schemas"]["BrowserLaunchResponse"]["data"];
 export type BrowserScreenInput = components["schemas"]["BrowserScreenRequest"];
@@ -684,6 +685,8 @@ export type PlayerCommand = {
 };
 
 export type ReliabilityStatus = {
+  /** Facts only a Browser Player reports. Null for every other player. */
+  browser?: BrowserPlayerStatus | null;
   configuredMode?: string;
   effectiveMode?: string;
   foregroundState?: string;

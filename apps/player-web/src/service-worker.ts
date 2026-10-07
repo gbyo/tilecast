@@ -37,6 +37,9 @@ worker.addEventListener("message", (event) => {
     requestId?: string;
     allowed?: boolean;
   };
+  // The Host asks for a waiting update only while its screen rests, and
+  // reloads when the new worker takes over.
+  if (message?.type === "skip-waiting") void worker.skipWaiting();
   if (message?.type === "media-authorization" && message.requestId) {
     const pending = authorizations.get(message.requestId);
     if (
