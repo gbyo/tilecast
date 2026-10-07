@@ -79,16 +79,23 @@ describe("Widget host parity", () => {
     }
   });
 
-  it("keeps one production WidgetMount adapter per host", () => {
+  it("keeps one production Widget mount adapter per host", () => {
     // Workspace scripts run this package with packages/widget-sdk as cwd.
     // Avoid import.meta.url here because Vitest rewrites imported modules to
     // its Vite URL scheme rather than a file: URL.
     const dashboardRoot = resolve(process.cwd(), "../../apps/dashboard/src");
     const playerRuntimeRoot = resolve(process.cwd(), "../player-runtime/src");
 
-    expect(filesContaining(dashboardRoot, "new WidgetMount({")).toEqual([
-      "content/WidgetPreviewHost.tsx",
-    ]);
+    // Studio mounts through the executor pair behind the one preview host:
+    // trusted registry Widgets in-document, package Widgets sandboxed. No
+    // other Studio file may construct mounts or executors directly.
+    expect(filesContaining(dashboardRoot, "new WidgetMount({")).toEqual([]);
+    expect(
+      filesContaining(dashboardRoot, "new TrustedWidgetExecutor("),
+    ).toEqual(["content/WidgetPreviewHost.tsx"]);
+    expect(
+      filesContaining(dashboardRoot, "new SandboxedWidgetExecutor("),
+    ).toEqual(["content/WidgetPreviewHost.tsx"]);
     expect(filesContaining(playerRuntimeRoot, "new WidgetMount({")).toEqual([
       "widgets/host.ts",
     ]);

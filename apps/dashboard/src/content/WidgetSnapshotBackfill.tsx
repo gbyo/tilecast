@@ -224,8 +224,10 @@ function WidgetSnapshotCapture({
   if (definitions.isError && !definitions.data)
     return <SnapshotSetupFailure onSettled={onSettled} />;
   const provider = asset.widget!.provider;
-  // A Widgets V2 Widget is captured from its real element, the same one the
-  // editor previews and the Player mounts.
+  // A trusted V2 Widget is captured from its real element, the same one
+  // the editor previews and the Player mounts. Package-source Widgets
+  // stay on the compatibility path: an opaque-origin frame has no
+  // DOM-capturable element.
   return studioWidgetComponent(definitions.data, provider) ? (
     <V2SnapshotCapture
       asset={asset}

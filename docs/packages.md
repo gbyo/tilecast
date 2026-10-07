@@ -155,6 +155,15 @@ SHA-256 and size, so the Player verifies the download before activation.
 Bundle bytes are content-addressed and pinned like media; removal of the
 package invalidates the route.
 
+Studio previews the same contribution through
+`GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame`, readable by
+any signed-in account. The endpoint interpolates the verified bundle
+into the generated sandbox frame template and serves the document with
+a `sandbox` response policy, so the external code runs at an opaque
+origin even when opened top-level. Unknown packages and missing
+bundles share one `package_widget_unavailable` 404, mirroring the
+player endpoint.
+
 ## Sources
 
 A package installs from exactly one source kind:

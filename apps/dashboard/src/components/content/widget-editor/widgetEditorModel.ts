@@ -92,9 +92,13 @@ export function initialConfiguration(
   const saved = savedConfiguration(asset);
   let configuration: WidgetConfiguration;
   if (authoring.kind === "component") {
+    const shape =
+      authoring.component.kind === "trusted"
+        ? authoring.component.component
+        : authoring.component.sandbox;
     configuration = upgradeAuthorConfiguration(
       fields,
-      authoring.component.configTemplate,
+      shape.configTemplate,
       saved,
       { dropUnknown: true },
     ).configuration;

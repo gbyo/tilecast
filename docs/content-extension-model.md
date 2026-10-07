@@ -1174,8 +1174,11 @@ Filters/badges may show:
 The editor is chosen by the definition contract, not by source kind.
 
 For V2 Widgets, Studio preview uses the real Widget through `WidgetMount`
-for trusted source-built Widgets and the same sandbox executor used by the
-Player for future external Widgets.
+for trusted source-built Widgets and through `SandboxedWidgetExecutor`
+for package-source Widgets. The sandboxed preview loads a Server-built
+frame document for the verified bundle; the bundle is never imported
+into the Studio document. Player execution of external Widgets stays
+future work until the per-target isolation gates in §12 pass.
 
 ## 18. Compatibility and migration
 

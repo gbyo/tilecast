@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import type { WidgetPresentation } from "@/api/types";
-import type { StudioWidgetComponent } from "@/content/studioWidgets";
+import type { StudioPreviewComponent } from "@/content/studioWidgets";
 import { useComponentPreview } from "./useComponentPreview";
 import { useLastGood } from "./useLastGood";
 import { useWebIntegrationPreview } from "./useWebIntegrationPreview";
@@ -62,12 +62,15 @@ describe("useLastGood", () => {
 
 describe("a native component preview", () => {
   const component = {
-    definition: {},
-    type: "example.note",
-    version: 1,
-    configTemplate: { text: { $config: "text" } },
-    dataSourceFields: [],
-  } as unknown as StudioWidgetComponent;
+    kind: "trusted",
+    component: {
+      definition: {},
+      type: "example.note",
+      version: 1,
+      configTemplate: { text: { $config: "text" } },
+      dataSourceFields: [],
+    },
+  } as unknown as StudioPreviewComponent;
 
   const preview = (configuration: Record<string, unknown>) =>
     renderHook(

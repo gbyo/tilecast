@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+  Sandbox spike harness. The parent policy below is byte-identical to the
+  Player Runtime policy in packages/player-runtime/static/index.html: the
+  spike measures the sandboxed executor under the real CSP, not a
+  permissive stand-in. run.mjs fails the run when they drift apart.
+-->
+    <meta http-equiv="Content-Security-Policy" content="__RUNTIME_CSP__" />
+    <title>SPIKE_RUNNING</title>
+    <link rel="stylesheet" href="./harness.css" />
+  </head>
+  <body>
+    <main id="stage"></main>
+    <div id="log"></div>
+    <div id="results"></div>
+    <!--FIXTURES-->
+    <script src="./driver.bundle.js"></script>
+  </body>
+</html>

@@ -118,7 +118,7 @@ import {
   LAYOUT_CAPTURE_SETTLE_TIMEOUT_MS,
   layoutPreviewNeedsCapture,
 } from "../components/layout-editor/layoutCaptureReadiness";
-import { studioWidgetComponent } from "../content/studioWidgets";
+import { studioPreviewComponent } from "../content/studioWidgets";
 import {
   placementSizeForFrame,
   recommendedFrameForAsset,
@@ -719,7 +719,7 @@ export function LayoutEditorPage() {
             : undefined;
           return (
             provider != null &&
-            studioWidgetComponent(definitionsQuery.data, provider) != null
+            studioPreviewComponent(definitionsQuery.data, provider) != null
           );
         })
         .map((item) => item.id);

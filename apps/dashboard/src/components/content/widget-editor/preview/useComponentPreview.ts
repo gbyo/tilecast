@@ -13,7 +13,7 @@ import type {
   WidgetMountState,
 } from "@tilecast/widget-sdk/mount";
 import type { ContentDefinitionField } from "@/api/types";
-import type { StudioWidgetComponent } from "@/content/studioWidgets";
+import type { StudioPreviewComponent } from "@/content/studioWidgets";
 import { PreviewClock } from "@/content/previewClock";
 import {
   parsePreviewTimeInput,
@@ -53,12 +53,14 @@ export function useComponentPreview({
   managedDataSourceId,
   previewTime,
 }: {
-  component: StudioWidgetComponent;
+  component: StudioPreviewComponent;
   fields: readonly ContentDefinitionField[];
   configuration: Record<string, unknown>;
   managedDataSourceId?: string;
   previewTime: PreviewTime;
 }) {
+  const shape =
+    component.kind === "trusted" ? component.component : component.sandbox;
   const regional = useOrganizationRegionalProfile();
   const clock = useMemo(() => new PreviewClock(), []);
   // A fixed preview instant freezes the Widget's own clock; live follows
@@ -112,10 +114,10 @@ export function useComponentPreview({
     try {
       return {
         ref: {
-          type: component.type,
-          version: component.version,
+          type: shape.type,
+          version: shape.version,
           config: compileComponentConfig(
-            component.configTemplate,
+            shape.configTemplate,
             previewConfiguration,
           ),
         },
@@ -123,7 +125,7 @@ export function useComponentPreview({
     } catch (error) {
       return { ref: null, problem: apiErrorMessage(error) };
     }
-  }, [component, previewConfiguration]);
+  }, [shape, previewConfiguration]);
   const componentRef = useLastGood(attempt.ref);
 
   const reducedMotion = prefersReducedMotion();
@@ -168,12 +170,32 @@ export function useComponentPreview({
     t,
   );
 
+  // The sandbox bridge carries exactly the grants the trusted mount
+  // resolves: the same Data Source ids and media refs. Memoized so the
+  // host updates in place instead of remounting per render.
+  const declared = useMemo(
+    () => ({ dataSources: dataSourceIds, media: media.media }),
+    [dataSourceIds, media.media],
+  );
+  const frameUrl =
+    component.kind === "sandbox" ? component.sandbox.frameUrl : undefined;
+  const sandbox = useMemo(
+    () => (frameUrl ? { frameUrl, declared } : undefined),
+    [frameUrl, declared],
+  );
+
   return {
     status,
     /** What the host mounts; null until there is something to show. */
     host:
       regional.ready && componentRef
-        ? { component: componentRef, resources, context, onState: setMount }
+        ? {
+            component: componentRef,
+            resources,
+            context,
+            onState: setMount,
+            sandbox,
+          }
         : null,
     dataSourceIds,
   };

@@ -16421,6 +16421,11 @@ type ClientInterface interface {
 	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves the latest artifact for an installed package without activating anything. A custom package re-resolves its repository; a marketplace package refreshes the catalog first.
 	CheckPackageUpdate(ctx context.Context, packageId PackageID, params *CheckPackageUpdateParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PreviewPackageWidgetFrame performs a GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame (the `PreviewPackageWidgetFrame` operationId) request.
+	//
+	// Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404.
+	PreviewPackageWidgetFrame(ctx context.Context, packageId PackageID, widgetId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListPlayerReleases List fixed-repository Tilecast Player releases and verification state
 	//
 	// Requires an authenticated dashboard user.
@@ -22248,6 +22253,21 @@ func (c *Client) ApplyPackageUpdate(ctx context.Context, packageId PackageID, pa
 // Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves the latest artifact for an installed package without activating anything. A custom package re-resolves its repository; a marketplace package refreshes the catalog first.
 func (c *Client) CheckPackageUpdate(ctx context.Context, packageId PackageID, params *CheckPackageUpdateParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCheckPackageUpdateRequest(c.Server, packageId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewPackageWidgetFrame performs a GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame (the `PreviewPackageWidgetFrame` operationId) request.
+//
+// Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404.
+func (c *Client) PreviewPackageWidgetFrame(ctx context.Context, packageId PackageID, widgetId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewPackageWidgetFrameRequest(c.Server, packageId, widgetId)
 	if err != nil {
 		return nil, err
 	}
@@ -36970,6 +36990,47 @@ func NewCheckPackageUpdateRequest(server string, packageId PackageID, params *Ch
 	return req, nil
 }
 
+// NewPreviewPackageWidgetFrameRequest constructs an http.Request for the PreviewPackageWidgetFrame method
+func NewPreviewPackageWidgetFrameRequest(server string, packageId PackageID, widgetId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "widgetId", widgetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/widgets/%s/frame", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListPlayerReleasesRequest constructs an http.Request for the ListPlayerReleases method
 func NewListPlayerReleasesRequest(server string) (*http.Request, error) {
 	var err error
@@ -47907,6 +47968,13 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	CheckPackageUpdateWithResponse(ctx context.Context, packageId PackageID, params *CheckPackageUpdateParams, reqEditors ...RequestEditorFn) (*CheckPackageUpdateResponse, error)
 
+	// PreviewPackageWidgetFrameWithResponse performs a GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame (the `PreviewPackageWidgetFrame` operationId) request.
+	//
+	// Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PreviewPackageWidgetFrameWithResponse(ctx context.Context, packageId PackageID, widgetId string, reqEditors ...RequestEditorFn) (*PreviewPackageWidgetFrameResponse, error)
+
 	// ListPlayerReleasesWithResponse List fixed-repository Tilecast Player releases and verification state
 	//
 	// Requires an authenticated dashboard user.
@@ -58299,6 +58367,40 @@ func (r CheckPackageUpdateResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r CheckPackageUpdateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewPackageWidgetFrameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewPackageWidgetFrameResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewPackageWidgetFrameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewPackageWidgetFrameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewPackageWidgetFrameResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -70824,6 +70926,19 @@ func (c *ClientWithResponses) CheckPackageUpdateWithResponse(ctx context.Context
 	return ParseCheckPackageUpdateResponse(rsp)
 }
 
+// PreviewPackageWidgetFrameWithResponse performs a GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame (the `PreviewPackageWidgetFrame` operationId) request.
+//
+// Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PreviewPackageWidgetFrameWithResponse(ctx context.Context, packageId PackageID, widgetId string, reqEditors ...RequestEditorFn) (*PreviewPackageWidgetFrameResponse, error) {
+	rsp, err := c.PreviewPackageWidgetFrame(ctx, packageId, widgetId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewPackageWidgetFrameResponse(rsp)
+}
+
 // ListPlayerReleasesWithResponse List fixed-repository Tilecast Player releases and verification state
 //
 // Requires an authenticated dashboard user.
@@ -80084,6 +80199,22 @@ func ParseCheckPackageUpdateResponse(rsp *http.Response) (*CheckPackageUpdateRes
 	case rsp.StatusCode == 502:
 		break // No content-type
 
+	}
+
+	return response, nil
+}
+
+// ParsePreviewPackageWidgetFrameResponse parses an HTTP response from a PreviewPackageWidgetFrameWithResponse call
+func ParsePreviewPackageWidgetFrameResponse(rsp *http.Response) (*PreviewPackageWidgetFrameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewPackageWidgetFrameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil

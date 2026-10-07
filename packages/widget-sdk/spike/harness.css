@@ -1,0 +1,16 @@
+body {
+  margin: 0;
+  background: #111;
+  color: #eee;
+  font: 14px system-ui;
+}
+#stage section {
+  margin: 8px;
+}
+#log {
+  white-space: pre-wrap;
+  padding: 8px;
+}
+#results {
+  display: none;
+}
