@@ -226,7 +226,7 @@ func (s *server) resolveGitHubRepository(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "invalid_request", "A repository URL is required.")
 		return
 	}
-	resolution, err := s.packages.ResolveCustom(r.Context(), input.Repository)
+	resolution, resolveErr := s.packages.ResolveCustom(r.Context(), input.Repository)
 	if err != nil {
 		s.writePackageError(w, r, err)
 		return
@@ -287,8 +287,8 @@ func (s *server) installStorePackage(w http.ResponseWriter, r *http.Request) {
 		// install re-resolves fresh; a mismatch must fail without
 		// installing anything.
 		resolution, err := s.packages.ResolveCustom(r.Context(), input.Repository)
-		if err != nil {
-			s.writePackageError(w, r, err)
+		if resolveErr != nil {
+			s.writePackageError(w, r, resolveErr)
 			return
 		}
 		if resolution.Manifest.PackageID != packageID {
@@ -423,7 +423,7 @@ func (s *server) writePackageError(w http.ResponseWriter, r *http.Request, err e
 	case errors.Is(err, pipeline.ErrInvalidRepository):
 		writeError(w, http.StatusBadRequest, "invalid_repository", "That is not a GitHub repository URL.")
 	case errors.Is(err, pipeline.ErrRepositoryPrivate):
-		writeError(w, http.StatusBadRequest, "repository_private", "The repository must be public.")
+		writeError(w, http.StatusUnprocessableEntity, "repository_private", "The repository must be public.")
 	case errors.Is(err, pipeline.ErrRepositoryNotFound):
 		writeError(w, http.StatusNotFound, "repository_not_found", "GitHub has no such repository.")
 	case errors.Is(err, pipeline.ErrNoRelease):
