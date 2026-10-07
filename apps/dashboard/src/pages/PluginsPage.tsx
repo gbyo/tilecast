@@ -1,13 +1,12 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CircleAlert, Plus, Puzzle } from "lucide-react";
-import { Link, useNavigate, useSearchParams } from "react-router";
-import type { PluginSummary } from "../api/types";
+import { Link, Navigate, useSearchParams } from "react-router";
+import type { PluginStoreEntry, PluginSummary } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
-import { Button, buttonVariants } from "../components/ui/button";
+import { buttonVariants } from "../components/ui/button";
 import {
   Empty,
   EmptyContent,
@@ -27,71 +26,54 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Skeleton } from "../components/ui/skeleton";
-import { apiErrorMessage } from "../i18n";
-import { PluginCatalogDialog } from "../plugins/PluginCatalogDialog";
 import {
   hasStudioRoute,
   instanceSummary,
   pluginStatusKey,
-  usePluginCatalog,
-  usePluginLifecycle,
+  usePluginStore,
 } from "../plugins/pluginCatalog";
 import { PluginIcon } from "../plugins/PluginIcon";
+import { StoreProvenanceBadge } from "../plugins/StoreProvenance";
 import { canManage } from "../plugins/shared";
 
 /**
- * Plugins lists what this installation has chosen to add. Everything else the
- * release offers lives behind Add plugin. `?add=<plugin id>` opens the catalog
- * on that plugin, which is how global search reaches an uninstalled one.
+ * Installed plugins: what this installation has chosen to add. Everything
+ * else lives on the Explore route. `?add=<package id>` redirects there, so
+ * bookmarks and older global-search results keep working.
  */
 export function PluginsPage() {
   const { t } = useTranslation(["plugins", "common"]);
   const auth = useAuth();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const catalog = usePluginCatalog();
-  const { install } = usePluginLifecycle(auth.status?.csrfToken ?? "");
+  const [searchParams] = useSearchParams();
+  const store = usePluginStore();
   const canInstall = canManage(auth.status?.user?.role);
   const addParam = searchParams.get("add");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const dialogOpen = addParam !== null;
-  const focusedId =
-    selectedId ?? (addParam && addParam !== "1" ? addParam : null);
 
-  const plugins = catalog.data?.items ?? [];
-  const installed = plugins.filter((plugin) => plugin.installed);
+  if (addParam !== null) {
+    return (
+      <Navigate
+        to={
+          addParam && addParam !== "1"
+            ? `/plugins/store/${encodeURIComponent(addParam)}`
+            : "/plugins/store"
+        }
+        replace
+      />
+    );
+  }
+
+  const entries = store.data?.items ?? [];
+  const installed = entries.filter((entry) => entry.plugin.installed);
   // A failed load with no usable data owns the content area: the alert is
   // the state, not a companion to an empty list. Stale data still renders
   // alongside the alert.
-  const loadFailed = catalog.isError && !catalog.data;
-  const unsupported = (catalog.data?.unsupportedInstallations ?? []).filter(
+  const loadFailed = store.isError && !store.data;
+  const unsupported = (store.data?.unsupportedInstallations ?? []).filter(
     (item) => !item.retired,
   );
-  const retired = (catalog.data?.unsupportedInstallations ?? []).filter(
+  const retired = (store.data?.unsupportedInstallations ?? []).filter(
     (item) => item.retired,
   );
-
-  const openCatalog = () => {
-    install.reset();
-    setSearchParams({ add: "1" });
-  };
-  const closeCatalog = () => {
-    setSelectedId(null);
-    install.reset();
-    setSearchParams({});
-  };
-  const onInstall = (plugin: PluginSummary) => {
-    install.mutate(plugin.id, {
-      onSuccess: () => {
-        setSelectedId(null);
-        if (hasStudioRoute(plugin.managementPath)) {
-          void navigate(plugin.managementPath);
-        } else {
-          setSearchParams({});
-        }
-      },
-    });
-  };
 
   return (
     <main className="grid gap-4">
@@ -100,15 +82,18 @@ export function PluginsPage() {
         description={t("list.subtitle")}
         actions={
           installed.length > 0 ? (
-            <Button onClick={openCatalog}>
+            <Link
+              to="/plugins/store"
+              className={buttonVariants({ variant: "default" })}
+            >
               <Plus data-icon="inline-start" aria-hidden="true" />
-              {t("list.addAction")}
-            </Button>
+              {canInstall ? t("list.addAction") : t("list.browseAction")}
+            </Link>
           ) : undefined
         }
       />
 
-      {catalog.isError && (
+      {store.isError && (
         <Alert variant="destructive">
           <CircleAlert aria-hidden="true" />
           <AlertDescription>{t("list.loadError")}</AlertDescription>
@@ -141,13 +126,13 @@ export function PluginsPage() {
         </Alert>
       )}
 
-      {catalog.isLoading ? (
+      {store.isLoading ? (
         <ItemGroup className="gap-2" aria-label={t("list.loading")}>
           {[0, 1].map((key) => (
             <Skeleton key={key} className="h-24 rounded-xl" />
           ))}
         </ItemGroup>
-      ) : installed.length === 0 && !catalog.isError ? (
+      ) : installed.length === 0 && !store.isError ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -157,43 +142,29 @@ export function PluginsPage() {
             <EmptyDescription>{t("list.emptyDescription")}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button onClick={openCatalog}>
+            <Link
+              to="/plugins/store"
+              className={buttonVariants({ variant: "default" })}
+            >
               <Plus data-icon="inline-start" aria-hidden="true" />
               {canInstall ? t("list.addAction") : t("list.browseAction")}
-            </Button>
+            </Link>
           </EmptyContent>
         </Empty>
       ) : loadFailed ? null : (
         <ItemGroup className="gap-2" aria-label={t("list.installedLabel")}>
-          {installed.map((plugin) => (
-            <InstalledPlugin key={plugin.id} plugin={plugin} />
+          {installed.map((entry) => (
+            <InstalledPlugin key={entry.packageId} entry={entry} />
           ))}
         </ItemGroup>
       )}
-
-      <PluginCatalogDialog
-        open={dialogOpen}
-        onOpenChange={(open) => (open ? openCatalog() : closeCatalog())}
-        plugins={plugins}
-        selectedId={focusedId}
-        onSelect={(id) => {
-          install.reset();
-          setSelectedId(id);
-          if (!id) setSearchParams({ add: "1" });
-        }}
-        canInstall={canInstall}
-        installing={install.isPending}
-        installError={
-          install.error ? apiErrorMessage(install.error) : undefined
-        }
-        onInstall={onInstall}
-      />
     </main>
   );
 }
 
-function InstalledPlugin({ plugin }: { plugin: PluginSummary }) {
+function InstalledPlugin({ entry }: { entry: PluginStoreEntry }) {
   const { t } = useTranslation("plugins");
+  const plugin: PluginSummary = entry.plugin;
   const statusKey = pluginStatusKey(plugin);
   return (
     <Item variant="outline">
@@ -216,6 +187,7 @@ function InstalledPlugin({ plugin }: { plugin: PluginSummary }) {
         )}
       </ItemActions>
       <ItemFooter className="justify-start gap-2 text-sm text-muted-foreground">
+        <StoreProvenanceBadge source={entry.source} />
         <span className="tabular-nums">{instanceSummary(plugin)}</span>
         <span aria-hidden="true">·</span>
         <Badge

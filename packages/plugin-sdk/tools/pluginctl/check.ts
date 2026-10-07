@@ -177,6 +177,7 @@ export async function check(repo: Repo): Promise<Problem[]> {
   const fragments = readApiFragments(repo);
   problems.push(...checkFragmentOperationIds(fragments));
   problems.push(...checkAutomationFiles(repo, fragments));
+
   for (const path of stale(repo, generated.files)) {
     problems.push({
       file: path,

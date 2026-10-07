@@ -1,4 +1,5 @@
 import { Navigate, useRoutes, type RouteObject } from "react-router";
+import { api } from "./api/client";
 import { Toaster } from "./components/ui/toast";
 import { GitHubOAuthSetupPortal } from "./components/GitHubOAuthSetupPortal";
 import { StudioRoutesProvider } from "./navigation/studioRoutes";
@@ -47,6 +48,9 @@ import { WidgetEditorPage } from "./pages/WidgetEditorPage";
 import { DataSourceEditorPage, DataSourcesPage } from "./pages/DataSourcesPage";
 import { ActivityPage } from "./pages/ActivityPage";
 import { PluginsPage } from "./pages/PluginsPage";
+import { PluginStoreDetailPage } from "./pages/PluginStoreDetailPage";
+import { PluginStorePage } from "./pages/PluginStorePage";
+import { PluginsLayout } from "./plugins/PluginsLayout";
 import {
   assertStudioRouteCollisions,
   pluginRouteObjects,
@@ -515,7 +519,42 @@ export const studioRoutes: RouteObject[] = [
           ),
         },
         children: [
-          { index: true, element: <PluginsPage /> },
+          {
+            // The Installed and Explore workspace. Plugin management pages
+            // below stay outside the tabbed layout.
+            element: <PluginsLayout />,
+            children: [
+              { index: true, element: <PluginsPage /> },
+              {
+                path: "store",
+                element: <PluginStorePage />,
+                handle: {
+                  breadcrumb: "Explore",
+                  search: search(
+                    "Plugins: Explore",
+                    "Browse optional Tilecast plugins and integrations",
+                    "/plugins/store",
+                    ["add plugin", "plugin store", "integrations"],
+                  ),
+                },
+              },
+              {
+                path: "store/:id",
+                element: <PluginStoreDetailPage />,
+                handle: {
+                  breadcrumb: "Plugin",
+                  // The detail page caches the full store entry; the
+                  // breadcrumb caches the plugin it names under its own key.
+                  resource: {
+                    queryKey: (id: string) =>
+                      ["plugin-store-entry-name", id] as const,
+                    load: (id: string) =>
+                      api.pluginStoreEntry(id).then((entry) => entry.plugin),
+                  },
+                },
+              },
+            ],
+          },
           // Dependency Graph is a system tool, not a plugin. The old address
           // keeps working for bookmarks for at least one release.
           {

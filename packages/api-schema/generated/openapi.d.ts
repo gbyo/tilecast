@@ -2478,6 +2478,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/plugin-store": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later. */
+    get: operations["listPluginStore"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugin-store/{packageId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found. */
+    get: operations["getPluginStoreEntry"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/screens/pairing/{id}/reject": {
     parameters: {
       query?: never;
@@ -6977,6 +7011,27 @@ export interface components {
         installedAt: string;
       }[];
     };
+    /** @description Where a store entry comes from. Only "included" exists in this release; marketplace and custom sources join later with a catalog ID or repository. */
+    PluginStoreSource: {
+      kind: string;
+      catalogId?: string;
+      repository?: string;
+    };
+    /** @description One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes. */
+    PluginStoreEntry: {
+      packageId: string;
+      source: components["schemas"]["PluginStoreSource"];
+      plugin: components["schemas"]["CatalogPlugin"];
+    };
+    PluginStore: {
+      items: components["schemas"]["PluginStoreEntry"][];
+      /** @description Installation rows naming plugins this release does not know. Preserved and inert. */
+      unsupportedInstallations: {
+        pluginId: string;
+        /** Format: date-time */
+        installedAt: string;
+      }[];
+    };
     PluginInUseError: {
       error: {
         /** @constant */
@@ -10818,6 +10873,8 @@ export interface components {
   parameters: {
     /** @description Registry identifier such as countdown_bar. */
     PluginID: string;
+    /** @description Store package identifier such as countdown_bar. */
+    PackageID: string;
     ResourceID: string;
     /** @description Fixed safe maintenance action accepted by the server. */
     MaintenanceAction:
@@ -17861,6 +17918,74 @@ export interface operations {
       };
     };
   };
+  listPluginStore: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Plugin store */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginStore"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getPluginStoreEntry: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Plugin store entry */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PluginStoreEntry"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found — no store entry carries this package ID */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   rejectPairing: {
     parameters: {
       query?: never;
@@ -19945,7 +20070,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description A referenced Playlist */
+      /** @description A referenced Playlist, Layout, or target was not found */
       404: {
         headers: {
           [name: string]: unknown;
