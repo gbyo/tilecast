@@ -714,8 +714,8 @@
     "sha256": "5701ec4687219acdefd3ef923d8110719190ebe9d1f10fd7f5d360fd79cf33c0"
   },
   {
-    "version": 119,
-    "file": "00119_dotted_provider_ids.sql",
+    "version": 121,
+    "file": "00121_dotted_provider_ids.sql",
     "owner": "core",
     "sha256": "02f5441db08807a46e64478b050b3ab0511ac67d8e8ff126e1ef1a4e9df559f7"
   }

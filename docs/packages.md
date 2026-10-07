@@ -130,7 +130,7 @@ remaining packages still compose. Boot warns on skips and fails fast on a
 rebuild that is not skip-only.
 
 Each nested definition ID is qualified under its package ID, so a Data
-Source provider reads `<package-id>.<nested-id>` (migration `00119` widens
+Source provider reads `<package-id>.<nested-id>` (migration `00121` widens
 the provider checks to accept dots). Qualification keeps provenance inside
 the provider string: refresh states, error codes, and audit records name
 the supplying package without a further lookup. External definitions use
