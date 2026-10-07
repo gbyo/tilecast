@@ -104,7 +104,6 @@ let marketplaceResolveError:
   { status: number; code: string; message: string } | undefined;
 let check: PackageUpdateCheck | undefined;
 let marketplaceStatus: PluginMarketplaceStatus = {
-  configured: false,
   stale: false,
 };
 let unsupported: UnsupportedPluginInstallation[] = [];
@@ -215,10 +214,10 @@ beforeEach(() => {
                 version: listed.listing.version,
                 manifest: {
                   name: listed.listing.name,
-                  description: listed.listing.description,
+                  description: listed.listing.description ?? "",
                   publisherId: listed.listing.publisherId,
                   publisherName: listed.listing.publisherName,
-                  license: listed.listing.license,
+                  license: listed.listing.license ?? "",
                   tilecastRange: listed.listing.tilecastRange,
                 },
                 compatible: listed.listing.compatible,
