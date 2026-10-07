@@ -326,12 +326,14 @@ func (s *Service) StoreEntry(ctx context.Context, id string) (StoreEntry, error)
 		}, nil
 	}
 
+	var marketplaceErr error
 	if s.marketplace != nil {
 		snapshot, err := s.marketplace(ctx)
 		if err != nil {
-			return StoreEntry{}, err
-		}
-		for _, listing := range snapshot.Listings {
+			s.logger.ErrorContext(ctx, "marketplace snapshot failed", "error", err)
+			marketplaceErr = err
+		} else {
+			for _, listing := range snapshot.Listings {
 			if listing.PackageID != id {
 				continue
 			}
@@ -341,11 +343,12 @@ func (s *Service) StoreEntry(ctx context.Context, id string) (StoreEntry, error)
 			}
 			installedVersion, ok := versions[id]
 			entry := marketplaceEntry(listing, installedVersion, ok)
-			return StoreEntry{
-				PackageID:   listing.PackageID,
-				Source:      StoreSource{Kind: StoreSourceMarketplace, CatalogID: MarketplaceCatalogID},
-				Marketplace: &entry,
-			}, nil
+				return StoreEntry{
+					PackageID:   listing.PackageID,
+					Source:      StoreSource{Kind: StoreSourceMarketplace, CatalogID: MarketplaceCatalogID},
+					Marketplace: &entry,
+				}, nil
+			}
 		}
 	}
 
@@ -370,6 +373,9 @@ func (s *Service) StoreEntry(ctx context.Context, id string) (StoreEntry, error)
 				Custom:    &entry,
 			}, nil
 		}
+	}
+	if marketplaceErr != nil {
+		return StoreEntry{}, marketplaceErr
 	}
 	return StoreEntry{}, ErrPluginNotFound
 }
