@@ -421,11 +421,16 @@ describe("WidgetPreviewHost", () => {
         expect(found).not.toBeNull();
         return found!;
       });
-      const posted: Array<{ message: unknown; transfer: unknown }> = [];
-      vi.spyOn(frame.contentWindow!, "postMessage").mockImplementation(
-        (message: unknown, _origin: unknown, transfer: unknown) =>
-          void posted.push({ message, transfer }),
-      );
+      const spy = vi
+        .spyOn(frame.contentWindow!, "postMessage")
+        .mockImplementation(() => {});
+      // The spy types the two-argument overload; the transfer rides
+      // the third argument the handshake passes.
+      const posted = () =>
+        (spy.mock.calls as unknown[][]).map((call) => ({
+          message: call[0],
+          transfer: call[2],
+        }));
       // The frame hello drives the handshake; the transfer carries the
       // port the frame reports on.
       const frameOrigin = new URL(sandbox.frameUrl, window.location.href)
@@ -443,10 +448,10 @@ describe("WidgetPreviewHost", () => {
           }),
         );
       });
-      await waitFor(() => expect(posted).toHaveLength(1));
-      const init = posted[0]?.message as { nonce?: unknown };
+      await waitFor(() => expect(posted()).toHaveLength(1));
+      const init = posted()[0]?.message as { nonce?: unknown };
       expect(typeof init.nonce).toBe("string");
-      const framePort = (posted[0]?.transfer as unknown[])[0] as MessagePort;
+      const framePort = (posted()[0]?.transfer as unknown[])[0] as MessagePort;
       act(() => {
         framePort.postMessage({
           protocol: "tilecast.widget.bridge/1",
