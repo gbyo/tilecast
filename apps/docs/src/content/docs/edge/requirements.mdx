@@ -15,6 +15,16 @@ These are the minimums the Edge software needs. A computer that meets them isn't
 
 Debian 12 and later meet the kernel and systemd minimums. Treat another distribution as supported only when the Tilecast release notes list it.
 
+## Operating system packages
+
+Edge brings its own copy of WPE WebKit and the libraries that only WebKit needs, so you don't install them. It expects the usual Debian 13 libraries from the operating system, which keeps them patched. A Debian 13 desktop install has them. A minimal install may not.
+
+- the runtime packages listed in [`system-baseline.txt`](https://github.com/gbyo/tilecast/blob/main/apps/edge/release/system-baseline.txt) (GLib, GStreamer, libsoup, Mesa's GBM and DRM libraries, ICU, and similar);
+- `bubblewrap` and `xdg-dbus-proxy`, which WebKit starts to sandbox web content;
+- the GStreamer plugin sets and Mesa drivers for the video formats and graphics hardware you use.
+
+Edge also needs the kernel to allow unprivileged user namespaces, which is the Debian default.
+
 ## Display
 
 Edge draws with WPE WebKit instead of Electron. The installer and the migration run Edge directly on the display (DRM/KMS) on the first console, without a desktop session. A computer that must keep its desktop session can't use this release of Edge.

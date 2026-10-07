@@ -18,7 +18,7 @@ sed -i -E 's/(scram-sha-256|md5|peer)$/trust/' "/etc/postgresql/$cluster/main/pg
 pg_ctlcluster "$cluster" main start
 sudo -u postgres createuser --superuser "$(id -un)" 2>/dev/null || true
 cd /src/apps/edge
-cmake -S renderer-wpe -B /target/renderer -G Ninja >/dev/null
+cmake -S renderer-wpe -B /target/renderer -G Ninja -DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON >/dev/null
 cmake --build /target/renderer
 renderer-wpe/assemble-runtime.sh /target/runtime
 cd /src

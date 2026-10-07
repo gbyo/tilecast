@@ -315,3 +315,14 @@ M11 is not complete until the physical-device ledger records the reference hardw
 - a long-running mixed-content soak that exercises native content, Layouts, Widgets, Website/YouTube, network loss/recovery and renderer/helper restarts.
 
 Until those results are recorded, Edge remains unqualified for production screens and M12 does not start.
+
+### 11.1 Edge 0.2.1 hardening and the two release flows
+
+Edge 0.2.1 fixes the failures that 0.2.0 showed on the first real Debian 13 screens: a missing `libwpe` in the release, a renderer `HOME` inside the hidden state directory, WebKit's own sandbox that the unit sandbox stopped, a self-test content store that needed 1 GiB free in `/run`, and failure reasons that named the wrong layer. The causes, the fixes and the remaining security boundary are in [`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md). It also removes the 0.2.0 emergency field workaround, by exact digest, after an update is final.
+
+The 0.2.1 release is ready for a physical screen when both flows pass with a stock signed artifact and no manual step:
+
+1. **Fresh migration** of an unmigrated Debian 13 Electron player. Install the signed release. The DRM probe passes. The self-test passes with bubblewrap on. The compatibility check passes. The legacy state imports. The production DRM renderer starts, the screen reconnects to the server and shows playback evidence, and the migration reaches `accepted`. After a reboot all Edge services start, and `tilecastctl status` reports paired, a connected server link and a healthy DRM renderer, with fresh render evidence.
+2. **Update of a screen that has the 0.2.0 field workaround.** Deploy 0.2.1 through the normal update. The candidate runs with the real WebKit sandbox, becomes healthy, shows fresh evidence and is confirmed. The 0.2.1 helper then removes the exact field files (`tilecast-edge-update overrides` shows none and `field-workaround.json` lists five removals) and no `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS` remains. A reboot succeeds. Run the rollback variant too: a forced failure returns to 0.2.0 with the field files byte-identical and a healthy 0.2.0 renderer.
+
+The container tests (`ci/run-migrate-e2e.sh`, `release/run-closure-check.sh`, `release/run-sandbox-check.sh`) prove these flows on real systemd with headless output. They do not replace the physical run. The qualification that exists is recorded in [`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §8: Edge 0.2.0 with the field workaround on Debian 13, systemd 257, Intel i915 over HDMI at 1920×1080 and 60 Hz.

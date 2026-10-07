@@ -5,6 +5,14 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 add_compile_options(-Wall -Wextra -Werror=implicit-function-declaration -Wformat=2 -Wno-unused-parameter)
 
+# Release builds always keep WebKit's bubblewrap sandbox: they clear
+# WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS at startup. Only development and CI
+# containers that cannot create user namespaces turn this on.
+option(TILECAST_ALLOW_UNSANDBOXED_WEBKIT "Honor WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS (development and CI only)" OFF)
+if(TILECAST_ALLOW_UNSANDBOXED_WEBKIT)
+  add_compile_definitions(TILECAST_ALLOW_UNSANDBOXED_WEBKIT=1)
+endif()
+
 find_package(PkgConfig REQUIRED)
 # WPEPlatform only: no libwpe, no WPEBackend-fdo, no Cog (docs/tilecast-edge.md §10.1).
 pkg_check_modules(WPE REQUIRED IMPORTED_TARGET

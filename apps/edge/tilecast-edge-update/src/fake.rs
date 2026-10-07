@@ -34,6 +34,8 @@ pub struct FakeState {
     pub active: BTreeSet<String>,
     pub guard_armed_for: Option<String>,
     pub reloads: u32,
+    /// `daemon-reload` fails.
+    pub fail_reload: bool,
     pub configuration_runs: u32,
     pub restarts: HashMap<String, u64>,
     /// Units systemd gave up on.
@@ -59,6 +61,7 @@ impl FakeHost {
                 active: [EDGE_DAEMON, EDGE_WEB, EDGE_RENDERER].iter().map(|u| (*u).to_owned()).collect(),
                 guard_armed_for: None,
                 reloads: 0,
+                fail_reload: false,
                 configuration_runs: 0,
                 restarts: HashMap::new(),
                 failed: BTreeSet::new(),
@@ -168,6 +171,9 @@ impl UpdateHost for FakeHost {
     }
 
     async fn reload(&self) -> Result<(), HostError> {
+        if self.with(|s| s.fail_reload) {
+            return Err(HostError::failed("daemon-reload failed"));
+        }
         self.with(|s| s.reloads += 1);
         Ok(())
     }

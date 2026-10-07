@@ -1,0 +1,30 @@
+# Real systemd on a clean Debian 13 with only the operating system baseline
+# (system-baseline.txt) plus what a signage screen needs at run time: systemd,
+# bubblewrap and xdg-dbus-proxy (WebKit's sandbox starts them), the GStreamer
+# plugins and a software GL stack. run-sandbox-check.sh starts the packaged
+# self-test units on a finished release tree here and fails unless the release
+# passes its self-test with WebKit's bubblewrap sandbox on.
+#
+#   docker build -t tilecast-edge-sandbox -f apps/edge/release/Dockerfile.sandbox apps/edge/release
+FROM debian:trixie@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
+ARG SNAPSHOT=20260920T000000Z
+ENV DEBIAN_FRONTEND=noninteractive
+RUN rm -f /etc/apt/sources.list.d/debian.sources \
+    && printf '%s\n' \
+      "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/${SNAPSHOT} trixie main" \
+      "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian/${SNAPSHOT} trixie-updates main" \
+      "deb [check-valid-until=no] http://snapshot.debian.org/archive/debian-security/${SNAPSHOT} trixie-security main" \
+      > /etc/apt/sources.list
+COPY system-baseline.txt /tmp/system-baseline.txt
+RUN apt-get update \
+    && grep -v '^[[:space:]]*#' /tmp/system-baseline.txt | grep -v '^[[:space:]]*$' > /tmp/baseline.list \
+    && xargs apt-get install -y --no-install-recommends < /tmp/baseline.list \
+    && apt-get install -y --no-install-recommends \
+      systemd systemd-sysv dbus bubblewrap xdg-dbus-proxy procps python3-minimal ca-certificates \
+      gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav \
+      gstreamer1.0-gl libgl1-mesa-dri libegl1-mesa-dev fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/* /tmp/system-baseline.txt /tmp/baseline.list \
+    && systemctl mask getty@tty1.service console-getty.service systemd-firstboot.service \
+    && systemctl set-default multi-user.target
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]

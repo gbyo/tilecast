@@ -249,7 +249,18 @@ The helper unit is not enabled and has no dependency on `tilecast-edge.service`,
 - Two programs: `/usr/bin/systemd-sysusers /usr/lib/sysusers.d/tilecast-edge.conf` and `/usr/bin/systemd-tmpfiles --create /usr/lib/tmpfiles.d/tilecast-edge.conf`, with fixed absolute paths, fixed arguments, a cleared environment (`LANG=C` only), no standard input, and a 120 s timeout. There is no shell.
 - Nothing else. No request, release, server string or daemon status becomes a unit name, a path to execute, an argument or an environment variable. The guard units' `ExecStart=` contains a version name that passed `is_version_name` (digits, dots and an optional `-` suffix of `[0-9A-Za-z.]`).
 
-### 7.3 Secrets that the helper does not have
+### 7.3 Removal of the Edge 0.2.0 field workaround
+
+The 0.2.1 helper removes the five files of the Edge 0.2.0 field workaround after an update is final. The files, their digests and the full behavior are in [`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §7. This section records the privilege effect.
+
+- The helper reads and removes files below `/etc/systemd/system` and `/etc/tilecast-edge`. It may write both already (`ReadWritePaths=/etc`). It gains no capability, no operation and no request field.
+- The paths and digests are constants in the binary. A file is removed only when its path is listed and its SHA-256 equals the listed value. It opens a listed path with the no-link open, reads at most 16 KiB, and compares the digest again immediately before it removes the file.
+- It acts only when the helper belongs to the current release, no update transaction is open, and no migration is settling. During an update from 0.2.0 the 0.2.0 helper runs the transaction, so the cleanup cannot run before the candidate starts, and a rollback leaves the files exactly as they were.
+- A backup (manifest written last) is kept until `daemon-reload` succeeds, so a crash or a failed reload loses nothing.
+- Another file at a listed path is an unknown administrator override. It is not changed and is reported.
+- `tilecastd` sends the existing `status` request 90 s after it starts and every 15 minutes, so that the socket-activated helper starts. The helper's five operations do not change.
+
+### 7.4 Secrets that the helper does not have
 
 - the device credential (not present in its mount namespace);
 - the pairing secrets (in the same identity directory);
@@ -305,3 +316,4 @@ How the limitation is reduced and reported:
 - A new read of `tilecast`-owned data uses the no-link, owner-checked open, and root uses only a private copy that it verified.
 - The guard stays independent of the candidate: its binary is the previous release's, and its units are not release files.
 - The helper's sandbox changes only with a real-systemd test run that shows why.
+- A new path that the helper removes or rewrites by itself is a constant with an exact digest, is applied only when no rollback can need it, and is added to [`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §7.

@@ -12,6 +12,11 @@ Usage:
                    --web-renderer PATH --session-bridge PATH --gst-plugin-dir DIR --runtime-dir DIR --sbom PATH
                    --wpe-version V --base-distribution NAME
                    [--wpe-lib-dir DIR]
+
+With --wpe-lib-dir the staged tree is also made dependency closed: every shared
+library its binaries need that the operating system baseline
+(system-baseline.txt) does not provide is carried under lib/wpe/lib. See
+runtime_closure.py.
 """
 import argparse
 import hashlib
@@ -23,7 +28,10 @@ import shutil
 import subprocess
 import sys
 
+import runtime_closure
+
 EDGE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SYSTEM_BASELINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "system-baseline.txt")
 UNITS = [
     "tilecast-edge.service",
     "tilecast-renderer.service",
@@ -137,6 +145,9 @@ def main():
             copy(source, out, f"share/tilecast/renderer-web/{relative}", 0o644)
     if args.wpe_lib_dir:
         copy_wpe(args.wpe_lib_dir, out)
+        # The renderer binaries are already staged: their NEEDED libraries
+        # and those of the private WebKit decide what else must travel.
+        runtime_closure.carry(out, SYSTEM_BASELINE)
     for unit in UNITS:
         copy(os.path.join(EDGE, "packaging", "systemd", unit), out, f"packaging/systemd/{unit}", 0o644)
     for unit in USER_UNITS:

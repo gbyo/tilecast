@@ -83,9 +83,27 @@ create_display (TcPlatform platform)
   }
 }
 
+/* WebKit's own bubblewrap sandbox is never switched off in a release build.
+ * 0.2.0 field workarounds set this variable in systemd drop-ins; a release
+ * binary clears it before WebKit can read it. Development and CI containers
+ * that cannot create user namespaces build with
+ * -DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON, which no release script sets. */
+static void
+enforce_webkit_sandbox (void)
+{
+#ifndef TILECAST_ALLOW_UNSANDBOXED_WEBKIT
+  if (g_getenv ("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS") != NULL) {
+    g_unsetenv ("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS");
+    g_printerr ("%s: ignoring WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS; WebKit's sandbox stays on\n",
+                "tilecast-renderer-wpe");
+  }
+#endif
+}
+
 int
 main (int argc, char **argv)
 {
+  enforce_webkit_sandbox ();
   g_autofree char *platform = NULL;
   g_autofree char *socket_path = NULL;
   g_autofree char *runtime_dir = NULL;

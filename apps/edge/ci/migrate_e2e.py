@@ -17,6 +17,14 @@ against real units, a real user manager and real files:
                   then kills the container (a power loss)
   after-reboot    the boot recovery rolled the interrupted settlement back
   accept          a full migration is accepted; the rollback window has ended
+  accepted-reboot the accepted Edge survives a power loss: every unit starts,
+                  the daemon gets a renderer session, renderer_ready and fresh
+                  presentation evidence
+
+WebKit's bubblewrap sandbox is on in every phase: the production units run
+unmodified except for the headless output, and `preflight` proves the host can
+create the user namespaces that sandbox needs (E2E_DISABLE_WEBKIT_SANDBOX=1 is
+the explicit, never-default opt-out for a host that cannot).
 """
 import base64
 import hashlib
@@ -144,6 +152,76 @@ def migrate(expect_code, settle=120):
     return attempt(), time.monotonic() - started
 
 
+SANDBOX_PROBE = ("bwrap", "--die-with-parent", "--unshare-pid", "--proc", "/proc", "--dev", "/dev",
+                 "--ro-bind", "/usr", "/usr", "--symlink", "usr/lib", "/lib", "--symlink", "usr/bin", "/bin",
+                 "--ro-bind", "/etc", "/etc", "--tmpfs", "/tmp", "true")
+
+
+def preflight():
+    """The host can run WebKit's own sandbox: an unprivileged bubblewrap that
+    mounts /proc in a user namespace. Without it every later failure would look
+    like a Tilecast bug. Ubuntu 24.04 runners restrict unprivileged user
+    namespaces for unconfined programs (kernel.apparmor_restrict_unprivileged_userns)."""
+    if os.environ.get("E2E_DISABLE_WEBKIT_SANDBOX") == "1":
+        print("preflight: WebKit sandbox deliberately disabled for this run")
+        return
+    result = subprocess.run(["runuser", "-u", "nobody", "--", *SANDBOX_PROBE], capture_output=True, text=True)
+    assert result.returncode == 0, (
+        "this host cannot create the user namespaces that WebKit's bubblewrap sandbox needs "
+        "(on Ubuntu: sysctl kernel.apparmor_restrict_unprivileged_userns=0): " + result.stderr.strip())
+    print("preflight: an unprivileged bubblewrap can mount /proc here")
+
+
+def process_table():
+    table = {}
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            with open(f"/proc/{entry}/stat") as handle:
+                stat = handle.read()
+            with open(f"/proc/{entry}/cmdline", "rb") as handle:
+                cmdline = handle.read().replace(b"\0", b" ").decode(errors="replace").strip()
+        except OSError:
+            continue
+        comm = stat[stat.index("(") + 1:stat.rindex(")")]
+        parent = int(stat[stat.rindex(")") + 2:].split()[1])
+        table[int(entry)] = (comm, parent, cmdline)
+    return table
+
+
+def check_webkit_sandbox(leftover_workaround=False):
+    """WebKit's web process runs inside bubblewrap, under the production
+    systemd sandbox, with nothing that disables it. With leftover_workaround,
+    the 0.2.0 field drop-ins are still on the machine and still set the
+    variable that disables the sandbox; the release's renderers must clear it,
+    so the process check below is what proves the sandbox is on."""
+    for unit in ("tilecast-renderer.service", "tilecast-web-renderer.service", "tilecast-renderer-selftest.service"):
+        shown = output("systemctl", "show", "--property=Environment,ProtectKernelTunables,ProtectKernelLogs,"
+                       "RestrictSUIDSGID", unit)
+        assert ("WEBKIT_DISABLE_SANDBOX" not in shown or leftover_workaround
+                or os.environ.get("E2E_DISABLE_WEBKIT_SANDBOX") == "1"), (unit, shown)
+        assert "ProtectKernelTunables=no" in shown and "ProtectKernelLogs=no" in shown, (unit, shown)
+        assert "RestrictSUIDSGID=no" in shown, (unit, shown)
+    if os.environ.get("E2E_DISABLE_WEBKIT_SANDBOX") == "1":
+        return
+    table = process_table()
+    web = [pid for pid, (_, _, cmdline) in table.items() if "WPEWebProcess" in cmdline]
+    assert web, "the renderer's web process is running"
+
+    def under_bwrap(pid):
+        while pid in table:
+            comm, parent, _ = table[pid]
+            if comm == "bwrap":
+                return True
+            pid = parent
+        return False
+
+    unsandboxed = [pid for pid in web if not under_bwrap(pid)]
+    assert not unsandboxed, f"web processes outside bubblewrap: {unsandboxed}"
+    print(f"webkit sandbox: {len(web)} web process(es) run inside bubblewrap under the production unit sandbox")
+
+
 def setup():
     os.makedirs(WORK, exist_ok=True)
     environment = env()
@@ -152,14 +230,21 @@ def setup():
     # TILECAST_EDGE_VERSION is unset, which breaks every release bump.
     base = dict(environment, TILECAST_EDGE_VERSION="0.1.0")
     # The update helper as it ships, without the integration-test feature.
-    run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", "-p", "tilecast-edge-update",
+    # The base release stands for Edge 0.2.0, whose update helper does not
+    # know the field-workaround cleanup, so it is built to behave like it.
+    run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", cwd=EDGE, env=base)
+    run("cargo", "build", "-q", "--locked", "-p", "tilecast-edge-update", "--features", "legacy-helper-emulation",
         cwd=EDGE, env=base)
     run("cargo", "build", "-q", "--locked", "-p", "tilecast-edge-migrate", "--features", "integration-test",
         cwd=EDGE, env=base)
-    run("cmake", "-S", os.path.join(EDGE, "renderer-wpe"), "-B", RENDERER_BUILD, "-G", "Ninja",
+    # The release configuration: these binaries clear WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS. The build
+    # directories are shared with the other scripts, which turn that off for containers without user
+    # namespaces, so the option is set explicitly.
+    unsandboxed = "-DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=OFF"
+    run("cmake", "-S", os.path.join(EDGE, "renderer-wpe"), "-B", RENDERER_BUILD, "-G", "Ninja", unsandboxed,
         stdout=subprocess.DEVNULL)
     run("cmake", "--build", RENDERER_BUILD)
-    run("cmake", "-S", os.path.join(EDGE, "web-renderer-wpe"), "-B", WEB_BUILD, "-G", "Ninja",
+    run("cmake", "-S", os.path.join(EDGE, "web-renderer-wpe"), "-B", WEB_BUILD, "-G", "Ninja", unsandboxed,
         stdout=subprocess.DEVNULL)
     run("cmake", "--build", WEB_BUILD)
     run("cmake", "-S", os.path.join(EDGE, "session-bridge"), "-B", BRIDGE_BUILD, "-G", "Ninja",
@@ -206,19 +291,26 @@ def setup():
     assert unit_state("tilecast-edge.service")[0] == "disabled", "installed, not enabled"
     print("setup: the signed release installed; a tampered copy was refused")
 
-    # Test-only drop-ins: the headless output, and no bubblewrap sandbox in a
-    # container. Production units use DRM and keep the sandbox.
+    # Test-only drop-in: the headless output instead of DRM. The production
+    # units keep WebKit's bubblewrap sandbox and every systemd restriction;
+    # nothing here disables either. E2E_DISABLE_WEBKIT_SANDBOX=1 restores the
+    # old escape hatch for a host that cannot create user namespaces, and no
+    # workflow sets it.
     for unit in ("tilecast-renderer.service", "tilecast-renderer-selftest.service", "tilecast-web-renderer.service"):
-        os.makedirs(f"{DROPINS}/{unit}.d", exist_ok=True)
-        with open(f"{DROPINS}/{unit}.d/50-e2e.conf", "w") as handle:
-            handle.write("[Service]\nEnvironment=WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1\n")
-            if unit == "tilecast-renderer.service":
-                handle.write(
-                    "ExecStart=\nExecStart=/opt/tilecast-edge/current/bin/tilecast-renderer-wpe --platform=headless"
-                    " --socket=/run/tilecast-edge/edge.sock --media-socket=/run/tilecast-edge/media.sock"
-                    " --runtime-dir=/opt/tilecast-edge/current/share/tilecast/renderer-web"
-                    " --gst-plugin-dir=/opt/tilecast-edge/current/lib/gstreamer-1.0\n"
-                    "TTYPath=\nStandardInput=null\nTTYReset=no\nTTYVHangup=no\n")
+        dropin = ""
+        if os.environ.get("E2E_DISABLE_WEBKIT_SANDBOX") == "1":
+            dropin += "Environment=WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1\n"
+        if unit == "tilecast-renderer.service":
+            dropin += (
+                "ExecStart=\nExecStart=/opt/tilecast-edge/current/bin/tilecast-renderer-wpe --platform=headless"
+                " --socket=/run/tilecast-edge/edge.sock --media-socket=/run/tilecast-edge/media.sock"
+                " --runtime-dir=/opt/tilecast-edge/current/share/tilecast/renderer-web"
+                " --gst-plugin-dir=/opt/tilecast-edge/current/lib/gstreamer-1.0\n"
+                "TTYPath=\nStandardInput=null\nTTYReset=no\nTTYVHangup=no\n")
+        if dropin:
+            os.makedirs(f"{DROPINS}/{unit}.d", exist_ok=True)
+            with open(f"{DROPINS}/{unit}.d/50-e2e.conf", "w") as handle:
+                handle.write("[Service]\n" + dropin)
     run("systemctl", "daemon-reload")
 
     # A real server with a published playlist.
@@ -439,6 +531,9 @@ def accept():
     status = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "status"))
     assert status["server"]["screenId"] == screen["screenId"] and status["link"]["state"] == "connected", status
     check_hardware_packaging()
+    check_webkit_sandbox()
+    save("accepted-status.json", {"startedAt": status["startedAt"],
+                                  "lastProgressAt": status["renderer"]["lastProgressAt"]})
     rollback = subprocess.run([MIGRATE, "rollback"], capture_output=True, text=True)
     assert rollback.returncode != 0 and "rollback window has ended" in rollback.stderr, rollback.stderr
     print(f"accept: accepted after {elapsed:.0f} s of migration; Edge plays the server presentation, the legacy "
@@ -669,8 +764,78 @@ def probe_helper_devices():
     print(f"accept: tilecast-web opens nothing beyond the nobody baseline ({len(web_readable)} shared nodes)")
 
 
-PHASES = {"setup": setup, "import-failure": import_failure, "crash": crash, "start-settling": start_settling,
-          "after-reboot": after_reboot, "accept": accept}
+def renderer_restart_after_daemon_restart():
+    """WebKit's sandbox binds the media socket that existed when the web
+    process started, so a daemon restart (which replaces the socket) would
+    leave video unable to reach the daemon. The renderer restarts instead, and
+    the screen shows the server's presentation again with fresh evidence."""
+    def main_pid(unit):
+        return output("systemctl", "show", "--property=MainPID", "--value", unit).strip()
+
+    before = main_pid("tilecast-renderer.service")
+    progress = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "status"))["renderer"]
+    run("systemctl", "restart", "tilecast-edge.service")
+
+    def restarted():
+        if main_pid("tilecast-renderer.service") in (before, "0"):
+            return None
+        try:
+            status = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "status"))
+        except (subprocess.CalledProcessError, ValueError):
+            return None
+        renderer, presentation = status["renderer"], status.get("presentation") or {}
+        fresh = renderer.get("lastProgressAt") and renderer["lastProgressAt"] != progress.get("lastProgressAt")
+        return status if (renderer["connected"] and renderer["state"] == "healthy" and presentation.get("accepted")
+                          and presentation.get("evidence") and fresh) else None
+
+    e2e.wait_for(restarted, "the renderer to restart after the daemon restarted and show the presentation again", 240)
+    check_webkit_sandbox()
+    print("accepted-reboot: a daemon restart replaced the media socket; the renderer restarted and plays again")
+
+
+def accepted_reboot():
+    """After a power loss, the accepted Edge starts by itself and proves a
+    working screen again: its units run, the daemon has a renderer session that
+    reported ready, and the renderer shows the server's presentation with
+    evidence newer than anything from before the power loss."""
+    start_server()
+    before = load("accepted-status.json")
+    screen = load("screen.json")
+    units = ("tilecast-edge.service", "tilecast-web-renderer.service", "tilecast-renderer.service")
+    for unit in units:
+        e2e.wait_for(lambda unit=unit: unit_state(unit) == ("enabled", "active"), f"{unit} after the reboot", 120)
+    assert unit_state("tilecast-edge-migrate-recover.service")[0] == "disabled", "no recovery pending after acceptance"
+    assert legacy_state() == ("disabled", "inactive"), legacy_state()
+
+    def healthy():
+        try:
+            status = json.loads(output("/opt/tilecast-edge/current/bin/tilecastctl", "--json", "status"))
+        except (subprocess.CalledProcessError, ValueError):
+            return None
+        renderer, link = status["renderer"], status["link"]
+        presentation = status.get("presentation") or {}
+        progress = renderer.get("lastProgressAt")
+        ready = (renderer["connected"] and renderer["state"] == "healthy" and renderer.get("platform") == "headless"
+                 and link["state"] == "connected" and status["server"]["hasDeviceCredential"]
+                 and presentation.get("source") == "server_manifest" and presentation.get("accepted")
+                 and presentation.get("evidence") and progress and progress > before["lastProgressAt"])
+        return status if ready else None
+
+    status = e2e.wait_for(healthy, "paired, connected, renderer healthy and fresh evidence after the reboot", 240)
+    assert status["startedAt"] != before["startedAt"], "a new daemon process, not the pre-reboot one"
+    assert status["server"]["screenId"] == screen["screenId"], status["server"]
+    text = output("/opt/tilecast-edge/current/bin/tilecastctl", "status")
+    for expected in ("server link: connected", "renderer: healthy"):
+        assert expected in text, (expected, text)
+    check_webkit_sandbox()
+    renderer_restart_after_daemon_restart()
+    print("accepted-reboot: after a power loss all Edge units run, the server link is connected, the renderer "
+          "is healthy with a ready session, and presentation evidence is fresher than before the power loss")
+
+
+PHASES = {"preflight": preflight, "setup": setup, "import-failure": import_failure, "crash": crash,
+          "start-settling": start_settling, "after-reboot": after_reboot, "accept": accept,
+          "accepted-reboot": accepted_reboot}
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(line_buffering=True)

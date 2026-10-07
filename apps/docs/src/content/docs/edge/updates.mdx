@@ -66,6 +66,8 @@ Until the new release confirms, the previous one stays installed:
 
 After a confirmation, Edge keeps the confirmed release and the one before it, and removes older releases.
 
+Updating from Edge 0.2.0 to 0.2.1 also cleans up the hand-made `edge-0.2.0-field-fix.conf` service files that some early screens needed. Edge removes them only after the update is confirmed, and only if they are byte for byte the files the Tilecast field script wrote. If the update rolls back, they stay exactly as they were. See [Troubleshoot Tilecast Edge](../troubleshooting/#leftover-020-workaround-files).
+
 ## When Edge rolls back
 
 Edge returns to the previous release when the new one:

@@ -36,6 +36,24 @@ pub enum Edge {
     Unpaired,
 }
 
+/// How the probe unit ends when it does not report normally.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Broken {
+    pub exit_status: i32,
+    pub signaled: bool,
+    pub diagnostic: Option<String>,
+}
+
+/// What the self-test renderer unit does.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SelfTestRenderer {
+    Healthy,
+    /// It has already ended when the migrator starts it.
+    FailsToStart(Broken),
+    /// It ends while the self-test host waits for it.
+    EndsEarly(Broken),
+}
+
 #[derive(Debug, Clone, Copy, Default)]
 struct Unit {
     enabled: bool,
@@ -53,7 +71,19 @@ pub struct World {
     pub violations: Vec<String>,
     pub edge: Edge,
     pub probe_usable: bool,
+    /// The probe ends abnormally (a loader error, a crash) instead of
+    /// reporting.
+    pub probe_broken: Option<Broken>,
     pub self_test_passes: bool,
+    /// The reason the self-test host reports when it fails.
+    pub self_test_reason: &'static str,
+    pub self_test_renderer: SelfTestRenderer,
+    /// The self-test host would run to its timeout; set when it ran.
+    pub self_test_host_ran: bool,
+    /// Stopping the legacy player leaves its unit `failed`.
+    pub legacy_stop_leaves_failed: bool,
+    pub legacy_failed: bool,
+    pub legacy_reset_failed_calls: usize,
     pub compat_exit: i32,
     pub import_exit: i32,
     pub imports: usize,
@@ -90,7 +120,14 @@ impl FakeHost {
                 violations: vec![],
                 edge: Edge::Healthy,
                 probe_usable: true,
+                probe_broken: None,
                 self_test_passes: true,
+                self_test_reason: "evidence_timeout",
+                self_test_renderer: SelfTestRenderer::Healthy,
+                self_test_host_ran: false,
+                legacy_stop_leaves_failed: false,
+                legacy_failed: false,
+                legacy_reset_failed_calls: 0,
                 compat_exit: 0,
                 import_exit: 0,
                 imports: 0,
@@ -246,6 +283,9 @@ impl Host for FakeHost {
 
     async fn start(&self, unit: &str) -> Result<(), HostError> {
         let mut world = self.world();
+        if unit == SELFTEST_RENDERER_UNIT && matches!(world.self_test_renderer, SelfTestRenderer::FailsToStart(_)) {
+            return Err(HostError::failed(format!("{unit} did not start")));
+        }
         if unit == EDGE_DAEMON {
             world.daemon_started_ms = world.now_ms;
         }
@@ -274,12 +314,23 @@ impl Host for FakeHost {
     async fn run_task(&self, unit: &str, _output: &str, _timeout: Duration) -> Result<TaskResult, HostError> {
         let mut world = self.world();
         let (exit_status, output) = match unit {
-            DRM_PROBE_UNIT => (if world.probe_usable { 0 } else { 5 }, json!({"usable": world.probe_usable})),
+            DRM_PROBE_UNIT => {
+                if let Some(broken) = world.probe_broken.clone() {
+                    return Ok(TaskResult {
+                        exit_status: broken.exit_status,
+                        signaled: broken.signaled,
+                        output: None,
+                        diagnostic: broken.diagnostic,
+                    });
+                }
+                (if world.probe_usable { 0 } else { 5 }, json!({"usable": world.probe_usable}))
+            }
             SELFTEST_HOST_UNIT => {
+                world.self_test_host_ran = true;
                 if world.self_test_passes {
                     (0, json!({"outcome": "passed"}))
                 } else {
-                    (1, json!({"outcome": "failed", "reason": "evidence_timeout"}))
+                    (1, json!({"outcome": "failed", "reason": world.self_test_reason}))
                 }
             }
             COMPAT_UNIT => (world.compat_exit, json!({"outcome": "compatible"})),
@@ -295,7 +346,48 @@ impl Host for FakeHost {
             }
             other => return Err(HostError::failed(format!("unexpected task {other}"))),
         };
-        Ok(TaskResult { exit_status, output: Some(output) })
+        Ok(TaskResult::exited(exit_status, Some(output)))
+    }
+
+    async fn run_task_watched(
+        &self,
+        unit: &str,
+        output: &str,
+        timeout: Duration,
+        companion: &str,
+    ) -> Result<Watched, HostError> {
+        let ended = {
+            let world = self.world();
+            match &world.self_test_renderer {
+                SelfTestRenderer::EndsEarly(broken) => Some(broken.clone()),
+                _ => None,
+            }
+        };
+        if companion == SELFTEST_RENDERER_UNIT
+            && let Some(broken) = ended
+        {
+            self.world().units.entry(resolve(companion).to_owned()).or_default().active = false;
+            return Ok(Watched::CompanionStopped(UnitExit {
+                exit_status: broken.exit_status,
+                signaled: broken.signaled,
+                diagnostic: broken.diagnostic,
+            }));
+        }
+        self.run_task(unit, output, timeout).await.map(Watched::Finished)
+    }
+
+    async fn unit_exit(&self, unit: &str) -> Result<Option<UnitExit>, HostError> {
+        let world = self.world();
+        Ok(match (unit, &world.self_test_renderer) {
+            (SELFTEST_RENDERER_UNIT, SelfTestRenderer::FailsToStart(broken) | SelfTestRenderer::EndsEarly(broken)) => {
+                Some(UnitExit {
+                    exit_status: broken.exit_status,
+                    signaled: broken.signaled,
+                    diagnostic: broken.diagnostic.clone(),
+                })
+            }
+            _ => None,
+        })
     }
 
     async fn resolve_kiosk(&self, user: &str) -> Result<KioskRecord, HostError> {
@@ -337,7 +429,16 @@ impl Host for FakeHost {
     }
 
     async fn legacy_stop(&self, _kiosk: &KioskRecord) -> Result<(), HostError> {
-        self.world().legacy.1 = false;
+        let mut world = self.world();
+        world.legacy.1 = false;
+        world.legacy_failed = world.legacy_stop_leaves_failed;
+        Ok(())
+    }
+
+    async fn legacy_reset_failed(&self, _kiosk: &KioskRecord) -> Result<(), HostError> {
+        let mut world = self.world();
+        world.legacy_failed = false;
+        world.legacy_reset_failed_calls += 1;
         Ok(())
     }
 

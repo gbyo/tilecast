@@ -20,6 +20,7 @@ This directory has the system integration files for Tilecast Edge. `tilecast-edg
 | `systemd/tilecast-edge-update.socket`           | `/etc/systemd/system/`                   | by the migrator, at the cutover, with Edge                                                       |
 | `systemd/tilecast-edge-update.service`          | `/etc/systemd/system/`                   | never (started by its socket)                                                                    |
 | `systemd/tilecast-web-renderer.service`         | `/etc/systemd/system/`                   | by the migrator, at the cutover, with Edge                                                       |
+| `tilecast-edge-update overrides`                | (command)                                | prints the 0.2.0 field-workaround files that are present, unknown overrides and the last cleanup |
 | `sysusers.d/tilecast-edge.conf`                 | `/usr/lib/sysusers.d/tilecast-edge.conf` |                                                                                                  |
 | `tmpfiles.d/tilecast-edge.conf`                 | `/usr/lib/tmpfiles.d/tilecast-edge.conf` |                                                                                                  |
 | `udev/70-tilecast-display.rules`                | `/usr/lib/udev/rules.d/`                 |                                                                                                  |
@@ -33,6 +34,7 @@ While an update is provisional, the helper also writes `tilecast-edge-update-gua
 
 ## Requirements
 
+- The operating system packages in [`release/system-baseline.txt`](../release/system-baseline.txt) (Debian 13 package names), and the programs `bubblewrap` and `xdg-dbus-proxy`, which WebKit starts for its own sandbox. Everything else a binary of the release loads, including `libwpe-1.0.so.1`, is inside the release: `release/runtime_closure.py` carries it, and `release/run-closure-check.sh` fails the release if a library does not resolve on a clean Debian 13. The user namespaces that WebKit's sandbox needs must be allowed (the Debian default).
 - Linux 5.6 or later (`openat2`), systemd 248 or later (`systemctl --machine=<user>@.host` and `StandardOutput=truncate:`). Debian 12 and later meet both.
 - On a machine with the Electron player: the kiosk account's user manager runs at boot. The Electron player's installer turns on lingering for the account; if it is off, run `loginctl enable-linger <account>`.
 - The screen's Tilecast Server is reachable during the migration. The import checks the installation identity before it keeps the credential.
@@ -94,6 +96,10 @@ The migration follows the binding sequence. It stops at the first failure:
 | 11   | Accept: release Edge's commands, disable the boot recovery.                                                                                |             |
 
 "Refused" means nothing was changed. "Rolled back" means: Edge is disabled and confirmed stopped, then the display session and the legacy unit are restored exactly as they were, and the legacy files are compared with their digests. The attempt's record, with the reason, is in `tilecast-edge-migrate status`.
+
+A refusal or rollback names the layer that failed, and keeps at most 320 characters of what the machine said. Examples: `drm_probe_failed: exit status 127: error while loading shared libraries: ...` (the probe could not start), `self_test_failed: renderer_exited: signal 5: ...` (the renderer ended while the self-test host waited; the migrator stops at once, not after 120 s) and `self_test_failed: fixture_import_failed: ...`. The full list is in [`docs/tilecast-edge-sandbox-review.md`](../../../docs/tilecast-edge-sandbox-review.md) §6. The probe, the self-test host and the self-test renderer write standard error to `.err` files in `/run/tilecast-edge-migrate`, not to the journal. After acceptance, the stopped Electron player unit shows `disabled` and `inactive` (its `failed` state is cleared).
+
+The self-test keeps its state in `/run/tilecast-edge-selftest` and uses a small content store of its own (16 MiB, no reserved free space), so a small `/run` does not fail it. The renderers set `HOME` and the `XDG_*` directories to their own `/var/cache` trees; the account's home, `/var/lib/tilecast-edge`, stays hidden from them.
 
 Settlement has a deadline (`--settle-seconds`, default 600, from 120 to 3600). Some conditions roll back at once because waiting cannot help: a rejected credential, a presentation that the renderer cannot show, safe mode, or the legacy player running again.
 

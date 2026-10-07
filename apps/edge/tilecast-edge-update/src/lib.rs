@@ -13,6 +13,8 @@
 //! * [`evidence`]: what the helper checks itself before it confirms.
 //! * [`server`]: the socket and its peer policy.
 //! * [`host`] and `linux`: everything the helper does to the machine.
+//! * [`field_workaround`]: removal of the 0.2.0 field drop-ins, by exact
+//!   digest, once the current release is confirmed.
 //! * [`guard_units`]: the boot and timer guard that rolls back a candidate
 //!   that does not confirm.
 //!
@@ -22,6 +24,7 @@
 //! `tilecast-edge-migrate`.
 
 pub mod evidence;
+pub mod field_workaround;
 pub mod guard_units;
 pub mod host;
 #[cfg(target_os = "linux")]

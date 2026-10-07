@@ -36,9 +36,9 @@ use std::time::Duration;
 use serde_json::Value;
 
 use crate::host::{
-    COMPAT_OUTPUT, COMPAT_UNIT, CONSOLE_UNIT, DISPLAY_MANAGER_UNIT, DRM_PROBE_OUTPUT, DRM_PROBE_UNIT, EDGE_DAEMON,
-    EDGE_ENABLED_UNITS, EDGE_RENDERER, EDGE_UNITS, EDGE_WEB, Host, HostError, IMPORT_OUTPUT, IMPORT_UNIT,
-    SELFTEST_HOST_UNIT, SELFTEST_OUTPUT, SELFTEST_RENDERER_UNIT, UPDATE_SOCKET,
+    COMPAT_OUTPUT, COMPAT_UNIT, CONSOLE_UNIT, DIAGNOSTIC_LIMIT, DISPLAY_MANAGER_UNIT, DRM_PROBE_OUTPUT, DRM_PROBE_UNIT,
+    EDGE_DAEMON, EDGE_ENABLED_UNITS, EDGE_RENDERER, EDGE_UNITS, EDGE_WEB, Host, HostError, IMPORT_OUTPUT, IMPORT_UNIT,
+    SELFTEST_HOST_UNIT, SELFTEST_OUTPUT, SELFTEST_RENDERER_UNIT, UPDATE_SOCKET, Watched,
 };
 use crate::settle::{Expectation, Verdict, evaluate, summary};
 use crate::state::{Attempt, Backend, Kind, Phase, SCHEMA_VERSION, StateError, StateStore, UnitRecord};
@@ -238,6 +238,27 @@ fn host_reason(prefix: &str, error: &HostError) -> String {
     format!("{prefix}: {detail}")
 }
 
+/// The longest reason the attempt record keeps. The leading token is the
+/// stable part (`drm_probe_failed`, `self_test_failed: renderer_exited`); what
+/// follows is a bounded account of what the machine said.
+const REASON_LIMIT: usize = 320;
+
+/// The probe's exit status when no connected output has a usable mode.
+const DRM_PROBE_NO_OUTPUT: i32 = 5;
+
+fn bounded_reason(prefix: &str, detail: &str) -> String {
+    let reason = if detail.is_empty() { prefix.to_owned() } else { format!("{prefix}: {detail}") };
+    reason.chars().take(REASON_LIMIT).collect()
+}
+
+/// A self-test failure the migrator found itself, recorded in the same shape
+/// as the host's own report so that the attempt shows one kind of record.
+fn self_test_failure(attempt: &mut Attempt, reason: &str, detail: &str) -> Stop {
+    let detail: String = detail.chars().take(DIAGNOSTIC_LIMIT).collect();
+    attempt.self_test = Some(serde_json::json!({"outcome": "failed", "reason": reason, "detail": detail}));
+    refuse(bounded_reason(&format!("self_test_failed: {reason}"), &detail))
+}
+
 impl<'a, H: Host> Migrator<'a, H> {
     pub fn new(host: &'a H, store: StateStore) -> Self {
         Self { host, store, timing: Timing::default(), crash_at: None }
@@ -395,21 +416,55 @@ impl<'a, H: Host> Migrator<'a, H> {
                 .await
                 .map_err(|e| refuse(host_reason("drm_probe_failed", &e)))?;
             let usable = probe.output.as_ref().and_then(|o| o.get("usable")).and_then(Value::as_bool);
-            attempt.drm_probe = probe.output;
-            if probe.exit_status != 0 || usable != Some(true) {
+            attempt.drm_probe = probe.output.clone();
+            if probe.exit_status == 0 && !probe.signaled && usable == Some(true) {
+                // Usable output.
+            } else if !probe.signaled && probe.exit_status == DRM_PROBE_NO_OUTPUT && usable == Some(false) {
+                // The probe ran and reported that no connected output has a mode.
                 return Err(refuse("drm_output_unavailable"));
+            } else {
+                // The probe did not run to a report: a missing shared library
+                // (the dynamic loader exits 127), a crash or a bad exit.
+                return Err(refuse(bounded_reason("drm_probe_failed", &probe.describe())));
             }
         }
-        // The renderer waits for the host's socket, so it can start first.
-        let _ = self.host.start_detached(SELFTEST_RENDERER_UNIT).await;
-        let result = self.host.run_task(SELFTEST_HOST_UNIT, SELFTEST_OUTPUT, self.timing.self_test_timeout).await;
+        // The renderer waits for the host's socket, so it starts first. It is
+        // started and confirmed running before the host begins, then watched
+        // while the host waits for it: a renderer that cannot start or that
+        // dies ends the self-test at once, not at the host's timeout.
+        if let Err(error) = self.host.start(SELFTEST_RENDERER_UNIT).await {
+            let exit = self.host.unit_exit(SELFTEST_RENDERER_UNIT).await.ok().flatten();
+            let detail = exit.map_or_else(|| error.to_string(), |exit| exit.describe());
+            return Err(self_test_failure(attempt, "renderer_start_failed", &detail));
+        }
+        let result = self
+            .host
+            .run_task_watched(
+                SELFTEST_HOST_UNIT,
+                SELFTEST_OUTPUT,
+                self.timing.self_test_timeout,
+                SELFTEST_RENDERER_UNIT,
+            )
+            .await;
         let _ = self.host.stop(SELFTEST_RENDERER_UNIT).await;
-        let result = result.map_err(|e| refuse(host_reason("self_test_failed", &e)))?;
+        let result = match result.map_err(|e| refuse(host_reason("self_test_failed", &e)))? {
+            Watched::Finished(result) => result,
+            Watched::CompanionStopped(exit) => {
+                return Err(self_test_failure(attempt, "renderer_exited", &exit.describe()));
+            }
+        };
         let passed = result.output.as_ref().and_then(|o| o.get("outcome")).and_then(Value::as_str) == Some("passed");
         let reason = result.output.as_ref().and_then(|o| o.get("reason")).and_then(Value::as_str).map(str::to_owned);
-        attempt.self_test = result.output;
+        let detail = result.output.as_ref().and_then(|o| o.get("detail")).and_then(Value::as_str).map(str::to_owned);
+        attempt.self_test = result.output.clone();
         if result.exit_status != 0 || !passed {
-            return Err(refuse(format!("self_test_failed: {}", reason.unwrap_or_else(|| "no report".into()))));
+            let detail = match (&reason, detail) {
+                (Some(_), Some(detail)) => detail,
+                (Some(_), None) => String::new(),
+                (None, _) => result.describe(),
+            };
+            let reason = reason.unwrap_or_else(|| "no_report".into());
+            return Err(refuse(bounded_reason(&format!("self_test_failed: {reason}"), &detail)));
         }
         self.save(attempt, Phase::SelfTested, "self-test passed")?;
         self.crash(CrashPoint::AfterSelfTest)?;
@@ -639,6 +694,14 @@ impl<'a, H: Host> Migrator<'a, H> {
         self.host.disarm_recovery().await.map_err(|e| MigrateError::AcceptIncomplete(e.to_string()))?;
         self.crash(CrashPoint::AfterRecoverDisabled)?;
         self.save(attempt, Phase::Accepted, "migration accepted; the rollback window has ended")?;
+        // Stopping the Electron player can leave its unit `failed`. It is
+        // disabled and stopped on purpose, so show it as inactive. The
+        // unit, its files and its data stay; this only clears the state.
+        if let Some(kiosk) = attempt.kiosk.clone()
+            && let Err(error) = self.host.legacy_reset_failed(&kiosk).await
+        {
+            tracing::warn!(component = "migrate", event = "legacy_reset_failed_error", error = %error);
+        }
         Ok(())
     }
 

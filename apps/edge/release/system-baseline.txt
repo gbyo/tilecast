@@ -1,0 +1,63 @@
+# The Debian packages a Tilecast Edge release expects from the operating system
+# (docs/tilecast-edge-sandbox-review.md, "Runtime dependency closure").
+#
+# A shared library that a binary in the release loads is taken from the
+# operating system when its package is listed here, or is a dependency of a
+# listed package. Every other library is carried inside the release
+# (lib/wpe/lib) by runtime_closure.py, so the operator never installs one by
+# hand. libwpe-1.0-1 is deliberately absent: the private WPE WebKit links it,
+# a Debian 13 installation does not have to provide it, and the release
+# carries it.
+#
+# One package per line. This is the list that the clean-image closure check
+# installs (Dockerfile.closure) and that the Edge requirements page publishes,
+# so a package added here is a new requirement for every screen.
+#
+# C and C++ runtime
+libc6
+libgcc-s1
+libstdc++6
+# GLib and GStreamer
+libglib2.0-0t64
+libjson-glib-1.0-0
+libgstreamer1.0-0
+libgstreamer-plugins-base1.0-0
+libgstreamer-gl1.0-0
+# Graphics and input
+libdrm2
+libgbm1
+libegl1
+libepoxy0
+libwayland-client0
+libwayland-server0
+libwayland-egl1
+libxkbcommon0
+libinput10
+# Networking
+libsoup-3.0-0
+# Text, fonts, images and documents
+libicu76
+libfreetype6
+libfontconfig1
+libharfbuzz0b
+libharfbuzz-icu0
+libpng16-16t64
+libjpeg62-turbo
+libwebp7
+libwebpmux3
+libwebpdemux2
+libjxl0.11
+libavif16
+liblcms2-2
+libxml2
+libxslt1.1
+libexpat1
+libhyphen0
+libenchant-2-2
+libflite1
+# Cryptography and accessibility
+libgcrypt20
+libgpg-error0
+libtasn1-6
+libatk1.0-0t64
+libatk-bridge2.0-0t64

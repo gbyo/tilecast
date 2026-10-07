@@ -47,6 +47,15 @@ pub const PASS_INTERVAL: Duration = Duration::from_secs(10);
 const FRESH_CONTACT_MS: i64 = 120_000;
 const STAGE_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 const HELPER_TIMEOUT: Duration = Duration::from_secs(60);
+/// The helper exits after a minute without a request and is socket-activated,
+/// so the daemon asks for its status once, after that minute has passed, and
+/// then periodically. The release's own helper then starts and settles what
+/// the previous release's helper could not, such as removing the Edge 0.2.0
+/// field workaround once the update is confirmed
+/// (`tilecast-edge-update/src/field_workaround.rs`). It is an ordinary
+/// `status` request: the helper gains no operation.
+const HELPER_WAKE_DELAY: Duration = Duration::from_secs(90);
+const HELPER_WAKE_INTERVAL: Duration = Duration::from_secs(15 * 60);
 const MAX_ATTEMPTS: u32 = 12;
 
 /// This build's version code, by the release build's formula.
@@ -898,6 +907,20 @@ pub async fn run(context: Arc<crate::daemon::DaemonContext>) {
             .clone()
             .unwrap_or_else(|| PathBuf::from(edge_release::protocol::DEFAULT_SOCKET)),
     );
+    tokio::spawn({
+        let (helper, shutdown) = (helper.clone(), context.shutdown.clone());
+        async move {
+            let mut delay = HELPER_WAKE_DELAY;
+            loop {
+                tokio::select! {
+                    _ = shutdown.cancelled() => return,
+                    _ = tokio::time::sleep(delay) => {}
+                }
+                let _ = helper.call(HelperRequest::Status {}, HELPER_TIMEOUT).await;
+                delay = HELPER_WAKE_INTERVAL;
+            }
+        }
+    });
     let started = std::time::Instant::now();
     let mut interval = tokio::time::interval(PASS_INTERVAL);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

@@ -15,6 +15,8 @@ The visible pairing code is separate from the private pairing secret and the one
 
 The WPE renderer doesn't hold the Player credential or pairing secrets, and it can't read the Edge data directory. `tilecastd` gives it only the presentation and the media files it needs, one grant at a time.
 
+WebKit's own sandbox is always on. Every web process runs inside `bubblewrap`, and the renderer ignores `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS` even if a service file sets it. The renderer's service files leave out a few systemd restrictions that stop that sandbox from starting. The renderer still runs as an unprivileged account with no capabilities. The [sandbox review](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-sandbox-review.md) explains each one.
+
 ## Downloads and permissions
 
 Edge checks every downloaded file against its expected size and SHA-256 before it uses it. An incomplete or damaged download never reaches the screen.

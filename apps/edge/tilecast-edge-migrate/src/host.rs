@@ -46,6 +46,10 @@ pub const CONSOLE_UNIT: &str = "getty@tty1.service";
 /// Output files the task units write, under the run directory.
 pub const DRM_PROBE_OUTPUT: &str = "drm-probe.json";
 pub const SELFTEST_OUTPUT: &str = "selftest.json";
+/// Standard error files of the units whose failure the migrator explains.
+pub const DRM_PROBE_STDERR: &str = "drm-probe.err";
+pub const SELFTEST_STDERR: &str = "selftest.err";
+pub const SELFTEST_RENDERER_STDERR: &str = "selftest-renderer.err";
 pub const COMPAT_OUTPUT: &str = "compat.json";
 pub const IMPORT_OUTPUT: &str = "import.json";
 
@@ -76,12 +80,80 @@ pub struct UnitState {
     pub active: bool,
 }
 
-/// A finished task unit: its main process exit status and its bounded
-/// output file.
+/// The longest diagnostic the migrator keeps from a unit's standard error.
+pub const DIAGNOSTIC_LIMIT: usize = 240;
+
+/// A finished task unit: its main process exit status, its bounded output
+/// file and the end of its standard error.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TaskResult {
     pub exit_status: i32,
+    /// The main process was killed by a signal; `exit_status` is its number.
+    pub signaled: bool,
     pub output: Option<Value>,
+    /// The tail of the unit's standard error: one printable line of at most
+    /// [`DIAGNOSTIC_LIMIT`] characters. `None` when it wrote nothing or the
+    /// host cannot read it.
+    pub diagnostic: Option<String>,
+}
+
+impl TaskResult {
+    /// A process that exited with `exit_status`.
+    pub fn exited(exit_status: i32, output: Option<Value>) -> Self {
+        Self { exit_status, signaled: false, output, diagnostic: None }
+    }
+
+    /// `exit status 127` or `signal 5`, then the diagnostic if there is one.
+    pub fn describe(&self) -> String {
+        describe_exit(self.exit_status, self.signaled, self.diagnostic.as_deref())
+    }
+}
+
+/// How a unit's main process ended, for a unit that is not a task.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnitExit {
+    pub exit_status: i32,
+    pub signaled: bool,
+    pub diagnostic: Option<String>,
+}
+
+impl UnitExit {
+    pub fn describe(&self) -> String {
+        describe_exit(self.exit_status, self.signaled, self.diagnostic.as_deref())
+    }
+}
+
+/// A task unit run beside a companion service that it depends on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Watched {
+    Finished(TaskResult),
+    /// The companion stopped or failed before the task finished. The task was
+    /// stopped.
+    CompanionStopped(UnitExit),
+}
+
+fn describe_exit(status: i32, signaled: bool, diagnostic: Option<&str>) -> String {
+    let how = if signaled { format!("signal {status}") } else { format!("exit status {status}") };
+    match diagnostic {
+        Some(text) if !text.is_empty() => format!("{how}: {text}"),
+        _ => how,
+    }
+}
+
+/// One printable line of at most [`DIAGNOSTIC_LIMIT`] characters, taken from
+/// the end of `text` (the last lines of a unit's standard error say why it
+/// ended). Control characters become spaces, so a diagnostic cannot carry a
+/// terminal escape or a second record into the attempt record.
+pub fn diagnostic_tail(text: &str) -> Option<String> {
+    let lines: Vec<&str> = text.lines().map(str::trim).filter(|line| !line.is_empty()).collect();
+    let tail = lines.iter().rev().take(3).rev().copied().collect::<Vec<_>>().join(" | ");
+    let line: String = tail.chars().map(|c| if c.is_control() { ' ' } else { c }).collect();
+    let chars: Vec<char> = line.trim().chars().collect();
+    if chars.is_empty() {
+        return None;
+    }
+    let start = chars.len().saturating_sub(DIAGNOSTIC_LIMIT);
+    Some(chars[start..].iter().collect())
 }
 
 /// What the migrator copied for the import unit.
@@ -114,6 +186,18 @@ pub trait Host: Send + Sync {
     /// Starts a task unit, waits at most `timeout` for it to finish, and
     /// reads its output file.
     async fn run_task(&self, unit: &str, output: &str, timeout: Duration) -> Result<TaskResult, HostError>;
+    /// [`Host::run_task`] while `companion` (already started) runs beside it.
+    /// Returns as soon as the companion stops or fails, without waiting for
+    /// `timeout`.
+    async fn run_task_watched(
+        &self,
+        unit: &str,
+        output: &str,
+        timeout: Duration,
+        companion: &str,
+    ) -> Result<Watched, HostError>;
+    /// How a service's main process last ended, or `None` if it has not run.
+    async fn unit_exit(&self, unit: &str) -> Result<Option<UnitExit>, HostError>;
 
     // The kiosk account's legacy player.
     async fn resolve_kiosk(&self, user: &str) -> Result<KioskRecord, HostError>;
@@ -122,6 +206,9 @@ pub trait Host: Send + Sync {
     async fn legacy_disable(&self, kiosk: &KioskRecord) -> Result<(), HostError>;
     async fn legacy_start(&self, kiosk: &KioskRecord) -> Result<(), HostError>;
     async fn legacy_stop(&self, kiosk: &KioskRecord) -> Result<(), HostError>;
+    /// Clears the legacy unit's `failed` state, which stopping a player that
+    /// does not exit cleanly can leave behind.
+    async fn legacy_reset_failed(&self, kiosk: &KioskRecord) -> Result<(), HostError>;
     /// Running processes of the legacy player (read-only `/proc` scan).
     fn legacy_processes(&self, kiosk: Option<&KioskRecord>) -> Result<usize, HostError>;
     /// Size and SHA-256 of the legacy state files, to prove they never change.

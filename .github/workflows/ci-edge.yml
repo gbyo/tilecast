@@ -246,7 +246,11 @@ jobs:
         uses: ./.github/actions/edge-images
         with:
           targets: migration
-      - name: Install, import failure, crash, power loss and acceptance
+      - name: Allow user namespaces for WebKit's own sandbox
+        # The migration runs with WebKit's bubblewrap sandbox on. Ubuntu 24.04
+        # restricts unprivileged user namespaces for unconfined programs.
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Install, import failure, crash, power loss, acceptance and updates
         run: |
           mkdir -p "$RUNNER_TEMP/edge-target"
           apps/edge/ci/run-migrate-e2e.sh "$RUNNER_TEMP/edge-target"

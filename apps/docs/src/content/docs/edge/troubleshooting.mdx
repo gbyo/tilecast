@@ -21,7 +21,11 @@ journalctl -u tilecast-renderer.service
 - **Presentation unavailable:** the content needs something Edge can't show, such as AirPlay Present, or it includes a Website or YouTube item while Edge's web helper is unavailable. Check [content compatibility](../compatibility/) and the [capability matrix](../capabilities/).
 - **Renderer keeps restarting:** check Activity and safe mode before you delete any Player data.
 - **Display Control unavailable:** check the reason in `tilecastctl capabilities`, such as missing hardware, a missing permission, a disconnected display, no DDC/CI response, or an unsupported control. See [Display Control troubleshooting](../../troubleshooting/display-control/).
-- **Migration refused or rolled back:** run `sudo /opt/tilecast-edge/current/bin/tilecast-edge-migrate status` for the reason, fix it, and migrate again. See [Migrate](../migrate/#automatic-rollback).
+- **Migration refused or rolled back:** run `sudo /opt/tilecast-edge/current/bin/tilecast-edge-migrate status` for the reason, fix it, and migrate again. See [Migrate](../migrate/#automatic-rollback). The reason starts with the layer that failed:
+  - `drm_probe_failed` means the display probe couldn't run. The text after it says why, such as `error while loading shared libraries`. Check the [requirements](../requirements/).
+  - `drm_output_unavailable` means the probe ran but found no connected display with a mode.
+  - `self_test_failed: renderer_start_failed` or `renderer_exited` means the test renderer didn't start or stopped. The text after it has the exit status or signal and the last line it printed. A message that mentions `bwrap` points to missing `bubblewrap` or blocked user namespaces.
+  - `self_test_failed: fixture_import_failed` means the built-in test content couldn't be stored, for example because the disk is full.
 
 ## Updates
 
@@ -33,6 +37,16 @@ journalctl -u tilecast-edge-update.service -u tilecast-edge-update-guard.service
 `status` shows the installed releases, the current one, and the last update with its result and reason. [Update Tilecast Edge](../updates/#when-edge-rolls-back) explains each rollback reason. For deployment problems in Studio, see [Player update troubleshooting](../../troubleshooting/player-updates/).
 
 If the screen shows its recovery screen after an update and `tilecastctl status` reports `state_db_newer_schema`, follow [Recover after a rollback](../updates/#recover-after-a-rollback-to-an-older-state-database).
+
+## Leftover 0.2.0 workaround files
+
+If you worked around Edge 0.2.0 by hand with `edge-0.2.0-field-fix.conf` files in `/etc/systemd/system/*.service.d/`, Edge 0.2.1 removes them for you after an update is confirmed, but only the exact files that the Tilecast field script wrote. To see what is there:
+
+```sh title="On the Edge computer"
+sudo /opt/tilecast-edge/current/bin/tilecast-edge-update overrides
+```
+
+A file at one of those paths that you edited stays where it is, and the command lists it as an unknown override. Edge 0.2.1 ignores `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS`, so such a file can't turn the web sandbox off.
 
 ## What not to do
 

@@ -10,7 +10,7 @@
 set -euo pipefail
 ulimit -c 0
 cd /src/apps/edge
-cmake -S renderer-wpe -B /target/renderer -G Ninja >/dev/null
+cmake -S renderer-wpe -B /target/renderer -G Ninja -DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON >/dev/null
 cmake --build /target/renderer --target tilecast-runtime-conformance gsttcmedia
 pkg-config --modversion wpe-webkit-2.0 wpe-platform-2.0 gstreamer-1.0 >/results/wpe-engine-versions.txt
 args=(--engine wpe --out /results --wpe-runner /target/renderer/tilecast-runtime-conformance

@@ -14,10 +14,10 @@ mkdir -p "$CARGO_HOME"
 ln -sf /opt/cargo/bin "$CARGO_HOME/bin" 2>/dev/null || true
 cd /src/apps/edge
 cargo build --locked -p tilecastd -p tilecastctl
-cmake -S renderer-wpe -B /target/renderer -G Ninja >/dev/null
+cmake -S renderer-wpe -B /target/renderer -G Ninja -DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON >/dev/null
 cmake --build /target/renderer
 ctest --test-dir /target/renderer --output-on-failure
-cmake -S web-renderer-wpe -B /target/web-renderer -G Ninja >/dev/null
+cmake -S web-renderer-wpe -B /target/web-renderer -G Ninja -DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON >/dev/null
 cmake --build /target/web-renderer
 ctest --test-dir /target/web-renderer --output-on-failure
 WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 \

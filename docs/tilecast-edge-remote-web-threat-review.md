@@ -80,6 +80,8 @@ The helper is treated as compromised in the analysis below. B4 and the systemd s
 
 The helper never receives a path. Every path it opens comes from its own command line (fixed in the unit) or from a capability that it generated itself.
 
+The helper's unit does not set `ProtectKernelTunables=`, `ProtectKernelLogs=` or `RestrictSUIDSGID=`. Each one stops WebKit's bubblewrap sandbox from starting a web process, and that sandbox is the boundary that matters most for remote pages. The helper is an ordinary account with an empty capability set and `NoNewPrivileges=yes`, so it cannot write `/proc/sys` or `/sys`, read the kernel log or use a setuid file. The evidence and the full list of directives that were tested are in [`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §4. The helper clears `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS` at start in every release build.
+
 ## 5. Unix sockets
 
 | Socket                                       | Owner and mode                   | Listener              | Allowed peer                                                                  |

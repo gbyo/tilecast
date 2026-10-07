@@ -21,11 +21,11 @@ pg_ctlcluster "$cluster" main start
 sudo -u postgres createuser --superuser "$(id -un)" 2>/dev/null || true
 
 cd /src/apps/edge
-cmake -S renderer-wpe -B /target/renderer -G Ninja >/dev/null
+cmake -S renderer-wpe -B /target/renderer -G Ninja -DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON >/dev/null
 cmake --build /target/renderer
 # The isolated remote web helper (M11): the same private WPE WebKit as the
 # trusted renderer, started by e2e_server.py as an unprivileged account.
-cmake -S web-renderer-wpe -B /target/web-renderer -G Ninja >/dev/null
+cmake -S web-renderer-wpe -B /target/web-renderer -G Ninja -DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON >/dev/null
 cmake --build /target/web-renderer
 runtime=/target/runtime
 renderer-wpe/assemble-runtime.sh "$runtime"

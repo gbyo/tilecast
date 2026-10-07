@@ -51,6 +51,16 @@ cmake -S "$edge/web-renderer-wpe" -B /cache/web-renderer -G Ninja -DCMAKE_BUILD_
 cmake --build /cache/web-renderer
 ctest --test-dir /cache/web-renderer --output-on-failure
 
+# A release renderer clears WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS at start
+# (TILECAST_ALLOW_UNSANDBOXED_WEBKIT is off); only that build carries the
+# message it prints.
+for binary in /cache/renderer/tilecast-renderer-wpe /cache/web-renderer/tilecast-web-renderer-wpe; do
+  if ! grep -q "ignoring WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS" "$binary"; then
+    echo "$binary honors the variable that disables WebKit's sandbox" >&2
+    exit 1
+  fi
+done
+
 # 2c. The session bridge (system GStreamer and WirePlumber).
 cmake -S "$edge/session-bridge" -B /cache/bridge -G Ninja -DCMAKE_BUILD_TYPE=Release >/dev/null
 cmake --build /cache/bridge
