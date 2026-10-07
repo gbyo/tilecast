@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { accountQueries } from "@/data/account";
 import type { User } from "@/api/types";
 import { useAuth } from "@/auth/AuthProvider";
+import { authReturnTo } from "@/auth/returnTo";
 import { AppSidebar } from "@/components/studio/AppSidebar";
 import { ThemeProvider } from "@/components/studio/ThemeProvider";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
@@ -124,14 +125,22 @@ export function DashboardShell() {
   }, [serverLanguage]);
   useEffect(() => {
     if (!auth.isLoading && !auth.status?.authenticated) {
+      const returnTo = authReturnTo(location);
       void navigate(
         auth.status?.setupRequired
           ? "/setup"
-          : `/login?returnTo=${encodeURIComponent(location.pathname)}`,
+          : `/login?returnTo=${encodeURIComponent(returnTo)}`,
         { replace: true },
       );
     }
-  }, [auth.isLoading, auth.status, navigate, location.pathname]);
+  }, [
+    auth.isLoading,
+    auth.status,
+    navigate,
+    location.pathname,
+    location.search,
+    location.hash,
+  ]);
   useEffect(() => {
     if (auth.status?.mfaEnrollmentRequired && !enrollmentFinished.current) {
       setEnrolling(true);
