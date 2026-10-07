@@ -89,7 +89,7 @@ jobs:
         run: python3 apps/player-android/ci/check-native-alignment.py apps/player-android/app/build/outputs/apk/debug/app-debug.apk
       - name: Test Reporter
         if: ${{ !cancelled() }}
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         with:
           name: Android tests
           path: apps/player-android/app/build/test-results/testDebugUnitTest/*.xml

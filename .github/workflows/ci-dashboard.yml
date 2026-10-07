@@ -59,7 +59,7 @@ jobs:
           npm run i18n:scan -- --check --base "$BASE_SHA" "${files[@]}"
           npm run architecture:scan -- --check --base "$BASE_SHA" "${files[@]}"
       - name: Restore ESLint cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: apps/dashboard/.cache/eslint
           key: eslint-${{ runner.os }}-${{ hashFiles('package-lock.json', 'apps/dashboard/eslint.config.js', 'apps/dashboard/tsconfig*.json') }}
@@ -138,7 +138,7 @@ jobs:
           fi
       - name: Test Reporter
         if: ${{ !cancelled() }}
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         with:
           name: Dashboard tests (shard ${{ matrix.shard }}/2)
           path: apps/dashboard/test-results/vitest-${{ matrix.shard }}.xml
