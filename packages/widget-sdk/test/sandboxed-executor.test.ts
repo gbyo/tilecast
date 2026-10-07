@@ -57,23 +57,28 @@ afterEach(() => {
 
 describe("sandbox frame document", () => {
   it("carries the protocol constants the parent enforces", () => {
-    const document = buildSandboxFrameDocument(BUNDLE.javaScript);
+    const document = buildSandboxFrameDocument(BUNDLE.javaScript, "hello-1");
     expect(document).toContain(SANDBOX_BRIDGE_PROTOCOL);
     expect(document).toContain(SANDBOX_DEFINITION_GLOBAL);
+    expect(document).toContain("frame-hello");
+    expect(document).toContain("hello-1");
     expect(document).toContain("tilecast-widget-ready");
     expect(document).toContain("tilecast-widget-empty");
     expect(document).toContain("tilecast-widget-error");
-    // Bootstrap first so the handshake listener exists before the bundle runs.
-    expect(document.indexOf('addEventListener("message"')).toBeLessThan(
+    // Bootstrap first so the hello posts before the bundle runs.
+    expect(document.indexOf("frame-hello")).toBeLessThan(
       document.indexOf(BUNDLE.javaScript),
     );
   });
 
   it("reserves a single bundle slot for the server template", () => {
-    const bootstrap = sandboxFrameBootstrap();
+    const bootstrap = sandboxFrameBootstrap("hello-1");
     expect(bootstrap).not.toContain(SANDBOX_BUNDLE_PLACEHOLDER);
     const template = buildSandboxFrameDocument(SANDBOX_BUNDLE_PLACEHOLDER);
     expect(template.split(SANDBOX_BUNDLE_PLACEHOLDER).length - 1).toBe(1);
+    // The server template carries no per-attach token; hosted hellos
+    // authenticate by frame origin instead.
+    expect(template).toContain('var HELLO_TOKEN = ""');
   });
 
   it("keeps a hostile bundle inside its own script block", () => {
@@ -107,6 +112,55 @@ describe("sandbox context snapshot", () => {
     expect(snapshot.mode).toBe("playback");
   });
 });
+
+/** Read the per-attach token the executor embedded in the document. */
+function helloTokenFrom(frame: HTMLIFrameElement): string {
+  const match = /var HELLO_TOKEN = "([^"]*)"/.exec(frame.srcdoc);
+  if (!match) throw new Error("hello token missing from frame document");
+  return match[1]!;
+}
+
+/** Post a frame hello on the window bus, as the bootstrap does. */
+function hello(
+  frame: HTMLIFrameElement,
+  token: string,
+  overrides: { origin?: string; source?: unknown; data?: unknown } = {},
+): void {
+  window.dispatchEvent(
+    new MessageEvent("message", {
+      origin: overrides.origin ?? "null",
+      source: (overrides.source ?? frame.contentWindow) as Window,
+      data:
+        "data" in overrides
+          ? overrides.data
+          : {
+              protocol: SANDBOX_BRIDGE_PROTOCOL,
+              kind: "frame-hello",
+              helloToken: token,
+            },
+    }),
+  );
+}
+
+interface PostedInit {
+  message: {
+    kind?: unknown;
+    nonce?: unknown;
+    snapshot?: { component?: { config?: unknown } };
+  };
+  origin: unknown;
+  transfer: unknown;
+}
+
+function postedInits(spy: { mock: { calls: unknown[][] } }): PostedInit[] {
+  return spy.mock.calls.map((call) => ({
+    message: call[0] as PostedInit["message"],
+    origin: call[1],
+    transfer: call[2],
+  }));
+}
+
+const flushPorts = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("SandboxedWidgetExecutor", () => {
   it("mounts a locked-down frame and reports pending first", () => {
@@ -191,39 +245,7 @@ describe("SandboxedWidgetExecutor", () => {
     ]);
   });
 
-  it("reposts init on frame load for asynchronously navigated frames", () => {
-    const executor = new SandboxedWidgetExecutor();
-    const container = document.createElement("div");
-    document.body.appendChild(container);
-    const execution = executor.mount(
-      container,
-      requestFor(() => {}, {
-        embedding: "hosted",
-        frameUrl: "https://frames.example/f/ok.html",
-      }),
-    );
-    const frame = container.querySelector("iframe");
-    expect(frame?.getAttribute("src")).toBe("https://frames.example/f/ok.html");
-    const posted: Array<{ kind?: unknown; nonce?: unknown }> = [];
-    vi.spyOn(frame!.contentWindow!, "postMessage").mockImplementation(
-      (message: unknown) =>
-        void posted.push(message as { kind?: unknown; nonce?: unknown }),
-    );
-    // The mount-time post predates the spy; only the load repost is visible.
-    frame!.dispatchEvent(new Event("load"));
-    expect(posted).toHaveLength(1);
-    expect(posted[0]?.kind).toBe("init");
-    expect(typeof posted[0]?.nonce).toBe("string");
-    // A disposed placement stays silent on late load events. dispose()
-    // posts its own best-effort message; the late load must add nothing.
-    execution.dispose();
-    const settled = posted.length;
-    frame!.dispatchEvent(new Event("load"));
-    expect(posted).toHaveLength(settled);
-    expect(posted.filter((message) => message.kind === "init")).toHaveLength(1);
-  });
-
-  it("settles frames that report through the bridge and ignores the rest", () => {
+  it("answers the frame hello with init and the port, exactly once", async () => {
     const executor = new SandboxedWidgetExecutor();
     const states: WidgetMountState[] = [];
     const container = document.createElement("div");
@@ -232,35 +254,349 @@ describe("SandboxedWidgetExecutor", () => {
       container,
       requestFor((state) => states.push(state)),
     );
-    const frame = container.querySelector("iframe");
-    const posted: Array<{ nonce?: unknown }> = [];
-    vi.spyOn(frame!.contentWindow!, "postMessage").mockImplementation(
-      (message: unknown) => void posted.push(message as { nonce?: unknown }),
+    const frame = container.querySelector("iframe")!;
+    const spy = vi
+      .spyOn(frame.contentWindow!, "postMessage")
+      .mockImplementation(() => {});
+    // Mounting sends nothing: the hello drives the handshake.
+    expect(spy).not.toHaveBeenCalled();
+    hello(frame, helloTokenFrom(frame));
+    const inits = postedInits(spy);
+    expect(inits).toHaveLength(1);
+    expect(inits[0]?.message.kind).toBe("init");
+    expect(typeof inits[0]?.message.nonce).toBe("string");
+    expect(inits[0]?.message.snapshot?.component?.config).toEqual({
+      label: "probe",
+    });
+    // Opaque targets cannot name an origin, so the single-shot transfer
+    // is the one parent-to-frame post allowed a wildcard.
+    expect(inits[0]?.origin).toBe("*");
+    const transfer = inits[0]?.transfer as unknown[];
+    expect(transfer).toHaveLength(1);
+    expect(transfer[0]).toBeInstanceOf(MessagePort);
+    // A duplicate hello answers nothing: one document, one channel.
+    hello(frame, helloTokenFrom(frame));
+    expect(spy).toHaveBeenCalledTimes(1);
+    const framePort = transfer[0] as MessagePort;
+    framePort.postMessage({
+      protocol: SANDBOX_BRIDGE_PROTOCOL,
+      nonce: inits[0]?.message.nonce,
+      state: { state: "ready" },
+    });
+    await flushPorts();
+    expect(states.at(-1)).toEqual({ state: "ready" });
+    expect(execution.state).toEqual({ state: "ready" });
+    execution.dispose();
+  });
+
+  it("ignores hellos from foreign windows, origins, or documents", () => {
+    const executor = new SandboxedWidgetExecutor();
+    const states: WidgetMountState[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const execution = executor.mount(
+      container,
+      requestFor((state) => states.push(state)),
     );
-    // Drive an update so the posted message is captured deterministically.
-    execution.update(requestFor((state) => states.push(state)));
-    const nonce = posted[0]?.nonce;
-    expect(typeof nonce).toBe("string");
-    const report = (data: unknown, origin = "null") =>
-      window.dispatchEvent(new MessageEvent("message", { origin, data }));
-    // Foreign origins and nonces never touch placement state.
-    report(
-      { protocol: SANDBOX_BRIDGE_PROTOCOL, nonce, state: { state: "ready" } },
-      "https://evil.example",
+    const frame = container.querySelector("iframe")!;
+    const token = helloTokenFrom(frame);
+    const spy = vi
+      .spyOn(frame.contentWindow!, "postMessage")
+      .mockImplementation(() => {});
+    // A foreign window, even with the token, is not our document.
+    hello(frame, token, { source: window });
+    // A navigated document reports its own origin, not the opaque one.
+    hello(frame, token, { origin: "https://evil.example" });
+    // A substituted opaque document never learned the token.
+    hello(frame, "wrong");
+    hello(frame, token, { data: { protocol: SANDBOX_BRIDGE_PROTOCOL } });
+    hello(frame, token, { data: null });
+    expect(spy).not.toHaveBeenCalled();
+    expect(states).toEqual([{ state: "pending" }]);
+    // None of the forgeries consumed the handshake: the real hello
+    // still answers.
+    hello(frame, token);
+    expect(spy).toHaveBeenCalledTimes(1);
+    execution.dispose();
+  });
+
+  it("ignores window reports once traffic moves to the port", async () => {
+    const executor = new SandboxedWidgetExecutor();
+    const states: WidgetMountState[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const execution = executor.mount(
+      container,
+      requestFor((state) => states.push(state)),
     );
-    report({
+    const frame = container.querySelector("iframe")!;
+    const spy = vi
+      .spyOn(frame.contentWindow!, "postMessage")
+      .mockImplementation(() => {});
+    hello(frame, helloTokenFrom(frame));
+    const nonce = postedInits(spy)[0]?.message.nonce;
+    // A well-formed report on the window bus is a forgery after the
+    // handshake: only the port settles placement state.
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: "null",
+        source: frame.contentWindow,
+        data: {
+          protocol: SANDBOX_BRIDGE_PROTOCOL,
+          nonce,
+          state: { state: "ready" },
+        },
+      }),
+    );
+    await flushPorts();
+    expect(states).toEqual([{ state: "pending" }]);
+    execution.dispose();
+  });
+
+  it("ignores forged and malformed port reports", async () => {
+    const executor = new SandboxedWidgetExecutor();
+    const states: WidgetMountState[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const execution = executor.mount(
+      container,
+      requestFor((state) => states.push(state)),
+    );
+    const frame = container.querySelector("iframe")!;
+    const spy = vi
+      .spyOn(frame.contentWindow!, "postMessage")
+      .mockImplementation(() => {});
+    hello(frame, helloTokenFrom(frame));
+    const inits = postedInits(spy);
+    const nonce = inits[0]?.message.nonce;
+    const framePort = (inits[0]?.transfer as unknown[])[0] as MessagePort;
+    framePort.postMessage({
       protocol: SANDBOX_BRIDGE_PROTOCOL,
       nonce: "wrong",
       state: { state: "ready" },
     });
-    expect(states).toEqual([{ state: "pending" }, { state: "pending" }]);
-    report({
+    framePort.postMessage(null);
+    framePort.postMessage({ protocol: SANDBOX_BRIDGE_PROTOCOL, nonce });
+    await flushPorts();
+    expect(states).toEqual([{ state: "pending" }]);
+    framePort.postMessage({
       protocol: SANDBOX_BRIDGE_PROTOCOL,
       nonce,
       state: { state: "ready" },
     });
+    await flushPorts();
     expect(states.at(-1)).toEqual({ state: "ready" });
-    expect(execution.state).toEqual({ state: "ready" });
+    execution.dispose();
+  });
+
+  it("never resends init to a reloaded document", async () => {
+    const executor = new SandboxedWidgetExecutor();
+    const states: WidgetMountState[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const execution = executor.mount(
+      container,
+      requestFor((state) => states.push(state)),
+    );
+    const frame = container.querySelector("iframe")!;
+    const spy = vi
+      .spyOn(frame.contentWindow!, "postMessage")
+      .mockImplementation(() => {});
+    hello(frame, helloTokenFrom(frame));
+    const inits = postedInits(spy);
+    expect(inits).toHaveLength(1);
+    const framePort = (inits[0]?.transfer as unknown[])[0] as MessagePort;
+    const frameReceived: unknown[] = [];
+    framePort.onmessage = (event: MessageEvent) =>
+      void frameReceived.push(event.data);
+    // The initial navigation's load is expected and changes nothing.
+    frame.dispatchEvent(new Event("load"));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(states).toEqual([{ state: "pending" }]);
+    // The reload kills the connection: no resend, no fresh channel for
+    // the replacement document, and the placement fails loudly.
+    frame.dispatchEvent(new Event("load"));
+    expect(states.at(-1)).toEqual({ state: "error", code: "frame_error" });
+    expect(spy).toHaveBeenCalledTimes(1);
+    hello(frame, helloTokenFrom(frame));
+    expect(spy).toHaveBeenCalledTimes(1);
+    // Updates send nothing and the dead port settles nothing.
+    execution.update(
+      requestFor((state) => states.push(state), {
+        component: {
+          type: "acme.probe",
+          version: 2,
+          config: { label: "again" },
+        },
+      }),
+    );
+    framePort.postMessage({
+      protocol: SANDBOX_BRIDGE_PROTOCOL,
+      nonce: inits[0]?.message.nonce,
+      state: { state: "ready" },
+    });
+    await flushPorts();
+    expect(frameReceived).toHaveLength(0);
+    expect(states.at(-1)).toEqual({ state: "error", code: "frame_error" });
+    execution.dispose();
+  });
+
+  it("dies when the frame navigates before the handshake", () => {
+    const executor = new SandboxedWidgetExecutor();
+    const states: WidgetMountState[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const execution = executor.mount(
+      container,
+      requestFor((state) => states.push(state)),
+    );
+    const frame = container.querySelector("iframe")!;
+    const spy = vi
+      .spyOn(frame.contentWindow!, "postMessage")
+      .mockImplementation(() => {});
+    // Two loads without a hello: the original document never announced
+    // and the replacement must never receive the channel.
+    frame.dispatchEvent(new Event("load"));
+    frame.dispatchEvent(new Event("load"));
+    expect(states.at(-1)).toEqual({ state: "error", code: "frame_error" });
+    expect(spy).not.toHaveBeenCalled();
+    hello(frame, helloTokenFrom(frame));
+    expect(spy).not.toHaveBeenCalled();
+    execution.dispose();
+  });
+
+  it("authenticates hosted hellos by frame origin and names it on transfer", async () => {
+    const executor = new SandboxedWidgetExecutor();
+    const states: WidgetMountState[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const execution = executor.mount(
+      container,
+      requestFor((state) => states.push(state), {
+        embedding: "hosted",
+        frameUrl: "https://frames.example/f/ok.html",
+      }),
+    );
+    const frame = container.querySelector("iframe")!;
+    const spy = vi
+      .spyOn(frame.contentWindow!, "postMessage")
+      .mockImplementation(() => {});
+    // The server template carries no token; the origin is the check.
+    hello(frame, "", { origin: "null" });
+    hello(frame, "", { origin: "https://evil.example" });
+    expect(spy).not.toHaveBeenCalled();
+    hello(frame, "", { origin: "https://frames.example" });
+    const inits = postedInits(spy);
+    expect(inits).toHaveLength(1);
+    expect(inits[0]?.origin).toBe("https://frames.example");
+    const framePort = (inits[0]?.transfer as unknown[])[0] as MessagePort;
+    framePort.postMessage({
+      protocol: SANDBOX_BRIDGE_PROTOCOL,
+      nonce: inits[0]?.message.nonce,
+      state: { state: "ready" },
+    });
+    await flushPorts();
+    expect(states.at(-1)).toEqual({ state: "ready" });
+    execution.dispose();
+  });
+
+  it("sends updates and dispose over the port after the handshake", async () => {
+    const channel = new MessageChannel();
+    const closeSpy = vi.spyOn(channel.port1, "close");
+    const executor = new SandboxedWidgetExecutor({
+      createChannel: () => channel,
+    });
+    const states: WidgetMountState[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const execution = executor.mount(
+      container,
+      requestFor((state) => states.push(state)),
+    );
+    const frame = container.querySelector("iframe")!;
+    // An update before the hello sends nothing; the init answers with
+    // the latest snapshot instead of racing the navigation.
+    execution.update(
+      requestFor((state) => states.push(state), {
+        component: {
+          type: "acme.probe",
+          version: 2,
+          config: { label: "again" },
+        },
+      }),
+    );
+    const spy = vi
+      .spyOn(frame.contentWindow!, "postMessage")
+      .mockImplementation(() => {});
+    hello(frame, helloTokenFrom(frame));
+    const inits = postedInits(spy);
+    expect(inits).toHaveLength(1);
+    expect(inits[0]?.message.snapshot?.component?.config).toEqual({
+      label: "again",
+    });
+    const framePort = (inits[0]?.transfer as unknown[])[0] as MessagePort;
+    const frameReceived: Array<{ kind?: unknown }> = [];
+    framePort.onmessage = (event: MessageEvent) =>
+      void frameReceived.push(event.data as { kind?: unknown });
+    execution.update(
+      requestFor((state) => states.push(state), {
+        component: {
+          type: "acme.probe",
+          version: 2,
+          config: { label: "third" },
+        },
+      }),
+    );
+    await flushPorts();
+    expect(frameReceived.map((message) => message.kind)).toEqual(["update"]);
+    expect(spy).toHaveBeenCalledTimes(1);
+    execution.dispose();
+    await flushPorts();
+    expect(frameReceived.map((message) => message.kind)).toEqual([
+      "update",
+      "dispose",
+    ]);
+    expect(closeSpy).toHaveBeenCalled();
+  });
+
+  it("closes the port on remount and re-handshakes the new document", () => {
+    const channels: MessageChannel[] = [];
+    const executor = new SandboxedWidgetExecutor({
+      createChannel: () => {
+        const channel = new MessageChannel();
+        channels.push(channel);
+        return channel;
+      },
+    });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const base = requestFor(() => {});
+    const execution = executor.mount(container, base);
+    const first = container.querySelector("iframe")!;
+    const firstToken = helloTokenFrom(first);
+    const firstSpy = vi
+      .spyOn(first.contentWindow!, "postMessage")
+      .mockImplementation(() => {});
+    hello(first, firstToken);
+    expect(firstSpy).toHaveBeenCalledTimes(1);
+    const closeSpy = vi.spyOn(channels[0]!.port1, "close");
+    execution.update({
+      ...base,
+      component: { ...base.component, version: 3 },
+    });
+    expect(closeSpy).toHaveBeenCalled();
+    const second = container.querySelector("iframe")!;
+    expect(second).not.toBe(first);
+    const secondToken = helloTokenFrom(second);
+    expect(secondToken).not.toBe(firstToken);
+    const secondSpy = vi
+      .spyOn(second.contentWindow!, "postMessage")
+      .mockImplementation(() => {});
+    // The old document's token buys nothing on the new frame.
+    hello(second, firstToken);
+    expect(secondSpy).not.toHaveBeenCalled();
+    hello(second, secondToken);
+    expect(secondSpy).toHaveBeenCalledTimes(1);
     execution.dispose();
   });
 

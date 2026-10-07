@@ -28,7 +28,8 @@ import type { WidgetContext } from "./context.ts";
 import {
   assertBridgeMessageSize,
   createBridgeNonce,
-  parseFrameMessage,
+  parseFrameHello,
+  parseFrameReport,
   SANDBOX_BRIDGE_PROTOCOL,
   SANDBOX_FRAME_TOKENS,
   snapshotDeclaredResources,
@@ -89,6 +90,8 @@ export interface SandboxedWidgetExecutorOptions {
   /** Seams for environments without blob URLs (jsdom). */
   readonly createObjectURL?: (document: string) => string;
   readonly revokeObjectURL?: (url: string) => void;
+  /** Seam for instrumenting the per-attach channel in tests. */
+  readonly createChannel?: () => MessageChannel;
 }
 
 /** The global a bundle assigns. Classic script, deterministic shape. */
@@ -110,9 +113,15 @@ export function escapeInlineScript(javaScript: string): string {
 /**
  * The frame bootstrap. Kept dependency-free ES2017: it runs from a
  * template string, not from the SDK bundle (see the spike note above).
- * Every interpolated value is a frozen protocol constant.
+ * Every interpolated value is a frozen protocol constant except the
+ * per-attach hello token, which binds the document to its placement.
+ *
+ * The bootstrap announces its document with a hello on the window bus,
+ * then speaks only through the port the parent's `init` transfers. A
+ * reloaded or navigated document holds no port, so it can neither
+ * report nor receive: the connection dies with the original document.
  */
-export function sandboxFrameBootstrap(): string {
+export function sandboxFrameBootstrap(helloToken: string): string {
   return `(function () {
   "use strict";
   var PROTOCOL = ${JSON.stringify(SANDBOX_BRIDGE_PROTOCOL)};
@@ -120,8 +129,9 @@ export function sandboxFrameBootstrap(): string {
   var EMPTY_EVENT = ${JSON.stringify(WIDGET_EMPTY_EVENT)};
   var ERROR_EVENT = ${JSON.stringify(WIDGET_ERROR_EVENT)};
   var DEFINITION_GLOBAL = ${JSON.stringify(SANDBOX_DEFINITION_GLOBAL)};
+  var HELLO_TOKEN = ${JSON.stringify(helloToken)};
   var nonce = null;
-  var parentSource = null;
+  var port = null;
   var element = null;
   var definition = null;
   var resources = null;
@@ -129,8 +139,8 @@ export function sandboxFrameBootstrap(): string {
   var disposed = false;
 
   function post(state) {
-    if (parentSource === null || nonce === null || disposed) return;
-    parentSource.postMessage({ protocol: PROTOCOL, nonce: nonce, state: state }, "*");
+    if (port === null || nonce === null || disposed) return;
+    port.postMessage({ protocol: PROTOCOL, nonce: nonce, state: state });
   }
   function fail(code) { post({ state: "error", code: code }); }
 
@@ -264,21 +274,9 @@ export function sandboxFrameBootstrap(): string {
     document.body.appendChild(element);
   }
 
-  window.addEventListener("message", function (event) {
+  function onPortMessage(event) {
     var message = event.data;
     if (!message || message.protocol !== PROTOCOL) return;
-    if (message.kind === "init") {
-      if (nonce !== null) return;
-      if (typeof message.nonce !== "string" || message.nonce === "") return;
-      nonce = message.nonce;
-      parentSource = event.source;
-      try {
-        boot(message.snapshot);
-      } catch (err) {
-        fail("frame_error");
-      }
-      return;
-    }
     if (message.nonce !== nonce) return;
     if (disposed) return;
     if (message.kind === "update") {
@@ -302,13 +300,42 @@ export function sandboxFrameBootstrap(): string {
       if (element && element.parentNode) element.parentNode.removeChild(element);
       element = null;
     }
+  }
+
+  // The window bus carries exactly one message per document: the init
+  // that transfers the port. Everything after it travels the port.
+  window.addEventListener("message", function (event) {
+    var message = event.data;
+    if (!message || message.protocol !== PROTOCOL) return;
+    if (message.kind !== "init") return;
+    if (nonce !== null) return;
+    if (typeof message.nonce !== "string" || message.nonce === "") return;
+    var framePort = event.ports && event.ports[0];
+    if (!framePort) return;
+    nonce = message.nonce;
+    port = framePort;
+    port.onmessage = onPortMessage;
+    try {
+      boot(message.snapshot);
+    } catch (err) {
+      fail("frame_error");
+    }
   });
+  window.parent.postMessage({ protocol: PROTOCOL, kind: "frame-hello", helloToken: HELLO_TOKEN }, "*");
 })();`;
 }
 
-/** The complete frame document: bootstrap first, verified bundle second. */
-export function buildSandboxFrameDocument(bundleJavaScript: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;color:#fff;font:12px/1.4 monospace}</style></head><body><script>${sandboxFrameBootstrap()}</script><script>${escapeInlineScript(bundleJavaScript)}</script></body></html>`;
+/**
+ * The complete frame document: bootstrap first, verified bundle second.
+ * Inline documents embed the per-attach hello token; the server-built
+ * `hosted` template leaves it empty and the parent authenticates those
+ * hellos by frame origin instead.
+ */
+export function buildSandboxFrameDocument(
+  bundleJavaScript: string,
+  helloToken = "",
+): string {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;color:#fff;font:12px/1.4 monospace}</style></head><body><script>${sandboxFrameBootstrap(helloToken)}</script><script>${escapeInlineScript(bundleJavaScript)}</script></body></html>`;
 }
 
 export function snapshotSandboxContext(
@@ -336,6 +363,7 @@ export class SandboxedWidgetExecutor implements WidgetExecutor {
   private readonly defaultEmbedding: SandboxEmbedding;
   private readonly createObjectURL: (document: string) => string;
   private readonly revokeObjectURL: (url: string) => void;
+  private readonly createChannel: () => MessageChannel;
 
   constructor(options: SandboxedWidgetExecutorOptions = {}) {
     this.defaultEmbedding = options.defaultEmbedding ?? "srcdoc";
@@ -345,6 +373,7 @@ export class SandboxedWidgetExecutor implements WidgetExecutor {
         URL.createObjectURL(new Blob([document], { type: "text/html" })));
     this.revokeObjectURL =
       options.revokeObjectURL ?? ((url: string) => URL.revokeObjectURL(url));
+    this.createChannel = options.createChannel ?? (() => new MessageChannel());
   }
 
   mount(
@@ -355,6 +384,7 @@ export class SandboxedWidgetExecutor implements WidgetExecutor {
       defaultEmbedding: this.defaultEmbedding,
       createObjectURL: this.createObjectURL,
       revokeObjectURL: this.revokeObjectURL,
+      createChannel: this.createChannel,
     });
   }
 }
@@ -363,6 +393,7 @@ interface ExecutionOptions {
   defaultEmbedding: SandboxEmbedding;
   createObjectURL: (document: string) => string;
   revokeObjectURL: (url: string) => void;
+  createChannel: () => MessageChannel;
 }
 
 class SandboxedWidgetExecution implements WidgetExecution {
@@ -371,9 +402,16 @@ class SandboxedWidgetExecution implements WidgetExecution {
   private iframe: HTMLIFrameElement | null = null;
   private blobURL: string | null = null;
   private nonce = "";
+  private helloToken = "";
+  private expectedOrigin = "";
+  private hosted = false;
+  private handshake = false;
+  private loadCount = 0;
+  private channel: MessageChannel | null = null;
   private timer: { cancel(): void } | null = null;
   private disposed = false;
   private readonly onMessage: (event: MessageEvent) => void;
+  private readonly onPortMessage: (event: MessageEvent) => void;
   private readonly container: HTMLElement;
   private readonly options: ExecutionOptions;
 
@@ -386,6 +424,7 @@ class SandboxedWidgetExecution implements WidgetExecution {
     this.options = options;
     this.request = request;
     this.onMessage = (event: MessageEvent) => this.handleMessage(event);
+    this.onPortMessage = (event: MessageEvent) => this.handlePortMessage(event);
     window.addEventListener("message", this.onMessage);
     this.report({ state: "pending" });
     this.attach();
@@ -410,6 +449,12 @@ class SandboxedWidgetExecution implements WidgetExecution {
       request.onState === undefined && this.request.onState !== undefined
         ? { ...request, onState: this.request.onState }
         : request;
+    if (!identityChanged && this.channel === null && this.handshake) {
+      // The connection died and this update does not remount: the
+      // placement stays failed instead of reporting a pending that can
+      // never settle. A remount re-handshakes a fresh document.
+      return;
+    }
     if (identityChanged || this.iframe === null) {
       this.detach();
       this.report({ state: "pending" });
@@ -459,7 +504,8 @@ class SandboxedWidgetExecution implements WidgetExecution {
 
   private attach(): void {
     const embedding = this.request.embedding ?? this.options.defaultEmbedding;
-    if (embedding === "hosted") {
+    const hosted = embedding === "hosted";
+    if (hosted) {
       if (
         typeof this.request.frameUrl !== "string" ||
         this.request.frameUrl === ""
@@ -475,6 +521,25 @@ class SandboxedWidgetExecution implements WidgetExecution {
       return;
     }
     this.nonce = createBridgeNonce();
+    this.helloToken = createBridgeNonce();
+    this.hosted = hosted;
+    this.handshake = false;
+    this.loadCount = 0;
+    if (hosted) {
+      let frameOrigin: string;
+      try {
+        frameOrigin = new URL(this.request.frameUrl!, window.location.href)
+          .origin;
+      } catch {
+        this.settle({ state: "error", code: "frame_error" });
+        return;
+      }
+      this.expectedOrigin = frameOrigin;
+    } else {
+      // Inline documents run at an opaque origin, so every legitimate
+      // hello carries the origin "null".
+      this.expectedOrigin = "null";
+    }
     const frame = document.createElement("iframe");
     frame.setAttribute("sandbox", SANDBOX_FRAME_TOKENS);
     frame.setAttribute("referrerpolicy", "no-referrer");
@@ -482,12 +547,13 @@ class SandboxedWidgetExecution implements WidgetExecution {
     frame.style.width = "100%";
     frame.style.height = "100%";
     frame.style.border = "0";
-    if (embedding === "hosted") {
+    if (hosted) {
       frame.src = this.request.frameUrl!;
     } else {
       // Validated above: inline embeddings always carry bundle bytes.
       const documentText = buildSandboxFrameDocument(
         this.request.bundle!.javaScript,
+        this.helloToken,
       );
       if (embedding === "blob") {
         this.blobURL = this.options.createObjectURL(documentText);
@@ -496,24 +562,34 @@ class SandboxedWidgetExecution implements WidgetExecution {
         frame.srcdoc = documentText;
       }
     }
+    const channel = this.options.createChannel();
+    channel.port1.onmessage = this.onPortMessage;
+    this.channel = channel;
     this.iframe = frame;
     this.container.appendChild(frame);
-    // A network-loaded frame navigates asynchronously: an init posted
-    // before the document exists is dropped, so repost on load. The
-    // bootstrap ignores the duplicate (the nonce is already set).
+    // The initial navigation fires exactly one load. A second load means
+    // the original document went away — reloaded or navigated — so the
+    // connection dies with it. In particular, init is never reposted:
+    // the replacement document must not receive the channel.
     frame.addEventListener("load", () => {
       if (this.disposed || this.iframe !== frame) return;
-      try {
-        this.post("init", this.snapshot(this.request));
-      } catch {
-        this.settle({ state: "error", code: "frame_error" });
-      }
+      this.loadCount += 1;
+      if (this.loadCount > 1) this.connectionDied();
     });
+    // No proactive init: the frame's hello answers when its bootstrap
+    // runs, however asynchronously the document navigated. A frame that
+    // never hellos trips the ready timeout below.
     try {
-      this.post("init", this.snapshot(this.request));
+      // Fail fast on a host bug: an unserializable config or an
+      // oversize snapshot errors the placement at mount instead of
+      // waiting for a hello that can never be answered.
+      assertBridgeMessageSize({
+        protocol: SANDBOX_BRIDGE_PROTOCOL,
+        nonce: this.nonce,
+        kind: "init",
+        snapshot: this.snapshot(this.request),
+      });
     } catch {
-      // An unserializable config or an oversize snapshot is a host bug,
-      // reported as a placement error rather than thrown.
       this.settle({ state: "error", code: "frame_error" });
       return;
     }
@@ -523,6 +599,12 @@ class SandboxedWidgetExecution implements WidgetExecution {
   private detach(): void {
     this.timer?.cancel();
     this.timer = null;
+    if (this.channel !== null) {
+      this.channel.port1.onmessage = null;
+      this.channel.port1.close();
+      this.channel = null;
+    }
+    this.handshake = false;
     if (this.iframe !== null) {
       this.iframe.remove();
       this.iframe = null;
@@ -533,11 +615,33 @@ class SandboxedWidgetExecution implements WidgetExecution {
     }
   }
 
+  /**
+   * The original document went away after the channel bound to it. Close
+   * the host port and fail the placement: anything the replacement
+   * document sends — over the window bus or a hello — is ignored from
+   * here on, and nothing is ever sent to it.
+   */
+  private connectionDied(): void {
+    if (this.channel !== null) {
+      this.channel.port1.onmessage = null;
+      this.channel.port1.close();
+      this.channel = null;
+    }
+    // The handshake stays spent: a hello from the replacement document
+    // must not mint a fresh channel for it.
+    this.handshake = true;
+    this.settle({ state: "error", code: "frame_error" });
+  }
+
   private post(
     kind: ParentToFrameMessage["kind"],
     snapshot?: SandboxSnapshot,
   ): void {
-    if (this.iframe === null) return;
+    const channel = this.channel;
+    // Before the handshake there is no document to address: the init
+    // answers the hello with the latest snapshot, so early updates wait
+    // for it instead of racing the navigation.
+    if (channel === null || !this.handshake) return;
     const message: ParentToFrameMessage = {
       protocol: SANDBOX_BRIDGE_PROTOCOL,
       nonce: this.nonce,
@@ -545,19 +649,55 @@ class SandboxedWidgetExecution implements WidgetExecution {
       ...(snapshot === undefined ? {} : { snapshot }),
     };
     assertBridgeMessageSize(message);
-    const target = this.iframe.contentWindow;
-    if (target === null) {
-      throw new Error("sandbox frame has no window");
-    }
-    target.postMessage(message, "*");
+    channel.port1.postMessage(message);
   }
 
+  /**
+   * Answer the frame bootstrap's hello with `init` and the frame's port,
+   * exactly once per attach. The hello must come from the placement's
+   * own frame window at the expected origin, and an inline document
+   * must echo the token embedded in it; anything else is dropped.
+   */
   private handleMessage(event: MessageEvent): void {
-    if (this.disposed || this.iframe === null) return;
-    const report = parseFrameMessage(
-      { origin: event.origin, data: event.data },
-      this.nonce,
-    );
+    if (this.disposed || this.iframe === null || this.handshake) return;
+    if (event.source === null || event.source !== this.iframe.contentWindow) {
+      return;
+    }
+    if (event.origin !== this.expectedOrigin) return;
+    const hello = parseFrameHello(event.data);
+    if (hello === null) return;
+    if (!this.hosted && hello.helloToken !== this.helloToken) return;
+    this.handshake = true;
+    const message: ParentToFrameMessage = {
+      protocol: SANDBOX_BRIDGE_PROTOCOL,
+      nonce: this.nonce,
+      kind: "init",
+      snapshot: this.snapshot(this.request),
+    };
+    try {
+      assertBridgeMessageSize(message);
+    } catch {
+      // An unserializable config or an oversize snapshot is a host bug,
+      // reported as a placement error rather than thrown.
+      this.settle({ state: "error", code: "frame_error" });
+      return;
+    }
+    const channel = this.channel;
+    if (channel === null) {
+      this.settle({ state: "error", code: "frame_error" });
+      return;
+    }
+    // Hosted frames name their origin. Inline documents run opaque, and
+    // the platform only delivers to an opaque target with "*": the hello
+    // checks above already authenticated this single-shot transfer, and
+    // every later message travels the transferred port instead.
+    const targetOrigin = this.hosted ? this.expectedOrigin : "*";
+    event.source.postMessage(message, targetOrigin, [channel.port2]);
+  }
+
+  private handlePortMessage(event: MessageEvent): void {
+    if (this.disposed || this.channel === null || !this.handshake) return;
+    const report = parseFrameReport(event.data, this.nonce);
     if (report === null) return;
     this.settle(report.state);
   }

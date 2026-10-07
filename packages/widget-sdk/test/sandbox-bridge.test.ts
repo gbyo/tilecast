@@ -3,7 +3,9 @@ import {
   assertBridgeMessageSize,
   createBridgeNonce,
   MAX_BRIDGE_MESSAGE_BYTES,
+  parseFrameHello,
   parseFrameMessage,
+  parseFrameReport,
   SANDBOX_BRIDGE_PROTOCOL,
   snapshotDeclaredResources,
   type ParentToFrameMessage,
@@ -74,6 +76,98 @@ describe("sandbox bridge", () => {
     expect(
       parseFrameMessage(
         { origin: "null", data: { ...good, state: { state: "melting" } } },
+        nonce,
+      ),
+    ).toBeNull();
+  });
+
+  it("parses hellos by shape; the executor checks source and origin", () => {
+    expect(
+      parseFrameHello({
+        protocol: SANDBOX_BRIDGE_PROTOCOL,
+        kind: "frame-hello",
+        helloToken: "token-1",
+      }),
+    ).toEqual({
+      protocol: SANDBOX_BRIDGE_PROTOCOL,
+      kind: "frame-hello",
+      helloToken: "token-1",
+    });
+    for (const data of [
+      null,
+      undefined,
+      "frame-hello",
+      { protocol: SANDBOX_BRIDGE_PROTOCOL },
+      {
+        protocol: SANDBOX_BRIDGE_PROTOCOL,
+        kind: "frame-hello",
+      },
+      {
+        protocol: SANDBOX_BRIDGE_PROTOCOL,
+        kind: "frame-hello",
+        helloToken: 42,
+      },
+      {
+        protocol: "tilecast.widget.bridge/2",
+        kind: "frame-hello",
+        helloToken: "token-1",
+      },
+      {
+        protocol: SANDBOX_BRIDGE_PROTOCOL,
+        kind: "init",
+        helloToken: "token-1",
+      },
+    ]) {
+      expect(parseFrameHello(data)).toBeNull();
+    }
+  });
+
+  it("parses port reports without an origin check", () => {
+    const nonce = createBridgeNonce();
+    expect(
+      parseFrameReport(
+        {
+          protocol: SANDBOX_BRIDGE_PROTOCOL,
+          nonce,
+          state: { state: "ready" },
+        },
+        nonce,
+      ),
+    ).toEqual({
+      protocol: SANDBOX_BRIDGE_PROTOCOL,
+      nonce,
+      state: { state: "ready" },
+    });
+    // The port is the authentication, but the body rules still hold:
+    // wrong protocol, wrong nonce, and malformed states stay dropped.
+    expect(
+      parseFrameReport(
+        {
+          protocol: "tilecast.widget.bridge/2",
+          nonce,
+          state: { state: "ready" },
+        },
+        nonce,
+      ),
+    ).toBeNull();
+    expect(
+      parseFrameReport(
+        {
+          protocol: SANDBOX_BRIDGE_PROTOCOL,
+          nonce: createBridgeNonce(),
+          state: { state: "ready" },
+        },
+        nonce,
+      ),
+    ).toBeNull();
+    expect(parseFrameReport(null, nonce)).toBeNull();
+    expect(
+      parseFrameReport(
+        {
+          protocol: SANDBOX_BRIDGE_PROTOCOL,
+          nonce,
+          state: { state: "melting" },
+        },
         nonce,
       ),
     ).toBeNull();

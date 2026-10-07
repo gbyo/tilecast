@@ -421,28 +421,38 @@ describe("WidgetPreviewHost", () => {
         expect(found).not.toBeNull();
         return found!;
       });
-      const posted: Array<{ nonce?: unknown }> = [];
+      const posted: Array<{ message: unknown; transfer: unknown }> = [];
       vi.spyOn(frame.contentWindow!, "postMessage").mockImplementation(
-        (message: unknown) => void posted.push(message as { nonce?: unknown }),
+        (message: unknown, _origin: unknown, transfer: unknown) =>
+          void posted.push({ message, transfer }),
       );
-      // The mount-time post predates the spy; the load repost carries the
-      // same nonce the parent accepts reports on.
-      act(() => {
-        frame.dispatchEvent(new Event("load"));
-      });
-      const nonce = posted[0]?.nonce;
-      expect(typeof nonce).toBe("string");
+      // The frame hello drives the handshake; the transfer carries the
+      // port the frame reports on.
+      const frameOrigin = new URL(sandbox.frameUrl, window.location.href)
+        .origin;
       act(() => {
         window.dispatchEvent(
           new MessageEvent("message", {
-            origin: "null",
+            origin: frameOrigin,
+            source: frame.contentWindow,
             data: {
               protocol: "tilecast.widget.bridge/1",
-              nonce,
-              state: { state: "ready" },
+              kind: "frame-hello",
+              helloToken: "",
             },
           }),
         );
+      });
+      await waitFor(() => expect(posted).toHaveLength(1));
+      const init = posted[0]?.message as { nonce?: unknown };
+      expect(typeof init.nonce).toBe("string");
+      const framePort = (posted[0]?.transfer as unknown[])[0] as MessagePort;
+      act(() => {
+        framePort.postMessage({
+          protocol: "tilecast.widget.bridge/1",
+          nonce: init.nonce,
+          state: { state: "ready" },
+        });
       });
       await waitFor(() =>
         expect(states.map((state) => state.state)).toContain("ready"),

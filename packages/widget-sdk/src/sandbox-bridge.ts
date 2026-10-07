@@ -7,10 +7,20 @@
  *
  * - The frame is sandboxed with exactly `allow-scripts`: no same-origin
  *   access, no forms, no popups, no downloads, no pointer lock, no
- *   top navigation. Its origin is opaque, so every legitimate inbound
- *   message event carries the origin `"null"`, and anything else is
- *   rejected before its body is read.
- * - Every placement mints a 128-bit nonce. The parent sends it once with
+ *   top navigation.
+ * - Traffic crosses a `MessageChannel` bound to the original frame
+ *   document, never the shared window bus. The bootstrap announces its
+ *   document with a hello; the parent answers once with `init` and the
+ *   frame's port. A reload or navigation destroys the document's port,
+ *   and the parent never sends the channel to a newly loaded document,
+ *   so the connection dies with the document it was bound to.
+ * - The hello is authenticated before the transfer: it must come from
+ *   the placement's own frame window, from the expected origin (the
+ *   frame origin for `hosted`, `"null"` for inline embeddings), and —
+ *   for inline documents the parent built — it must echo the per-attach
+ *   token embedded in that document. A substituted document cannot
+ *   hello its way to the init it never received.
+ * - Every placement also mints a 128-bit nonce. The parent sends it with
  *   `init`; the frame echoes it on every report, and the parent drops
  *   anything that does not match. A stale or foreign frame cannot drive
  *   another placement's state.
@@ -88,6 +98,32 @@ export interface ParentToFrameMessage {
   readonly nonce: string;
   readonly kind: ParentToFrameKind;
   readonly snapshot?: SandboxSnapshot;
+}
+
+/**
+ * The frame bootstrap's announcement, posted on the window bus before it
+ * holds the port. The parent answers at most once per attach, after the
+ * executor checks the event source, the expected origin, and — for
+ * inline documents — the token.
+ */
+export interface FrameHelloMessage {
+  readonly protocol: typeof SANDBOX_BRIDGE_PROTOCOL;
+  readonly kind: "frame-hello";
+  readonly helloToken: string;
+}
+
+/** Parse one hello body. Anything malformed answers null. */
+export function parseFrameHello(data: unknown): FrameHelloMessage | null {
+  if (typeof data !== "object" || data === null) return null;
+  const hello = data as Partial<FrameHelloMessage>;
+  if (hello.protocol !== SANDBOX_BRIDGE_PROTOCOL) return null;
+  if (hello.kind !== "frame-hello") return null;
+  if (typeof hello.helloToken !== "string") return null;
+  return {
+    protocol: SANDBOX_BRIDGE_PROTOCOL,
+    kind: "frame-hello",
+    helloToken: hello.helloToken,
+  };
 }
 
 export interface FrameStateReport {
@@ -170,7 +206,19 @@ export function parseFrameMessage(
   nonce: string,
 ): FrameStateReport | null {
   if (event.origin !== "null") return null;
-  const data = event.data;
+  return parseFrameReport(event.data, nonce);
+}
+
+/**
+ * Parse one report body without an origin check. Port traffic carries no
+ * origin — the transferred port is the authentication — so the executor
+ * parses what its own port delivers and still drops anything malformed
+ * or nonce-mismatched.
+ */
+export function parseFrameReport(
+  data: unknown,
+  nonce: string,
+): FrameStateReport | null {
   if (typeof data !== "object" || data === null) return null;
   const report = data as Partial<FrameStateReport>;
   if (report.protocol !== SANDBOX_BRIDGE_PROTOCOL) return null;

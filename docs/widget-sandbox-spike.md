@@ -18,10 +18,19 @@ gates each target must meet.
   snapshot with a projected wall-clock offset. Frames report only
   lifecycle states; reasons and codes pass through the trusted
   bounded-code rules.
-- Every placement mints a 128-bit nonce. The parent accepts reports only
-  from the opaque origin (`"null"`) with a matching nonce. Outbound
-  messages have a 4 MiB ceiling and cross by structured clone, which
-  rejects unserializable values instead of silently dropping them.
+- Every placement mints a 128-bit nonce and a per-attach hello token.
+  The bootstrap announces its document with a hello; the parent answers
+  once with `init` and the frame's `MessagePort`. The hello must come
+  from the placement's own frame window at the expected origin (the
+  frame origin for `hosted`, `"null"` for inline embeddings), and an
+  inline document must echo its embedded token. Reports cross the port
+  with a matching nonce; the parent drops anything else.
+- The channel binds to the original document. A reload or navigation
+  destroys the document's port, and the parent never sends `init` to a
+  newly loaded document, so the connection dies with its document and
+  the placement fails loudly. Outbound messages have a 4 MiB ceiling
+  and cross by structured clone, which rejects unserializable values
+  instead of silently dropping them.
 - The parent ready timeout (`widget_ready_timeout`) fires on the host
   clock, matching trusted semantics. A type or version change remounts
   the frame with a fresh nonce.
@@ -61,10 +70,13 @@ moves the frame by CSS alone and the placement reports nothing new.
 
 ## Security findings
 
-- The runner posts `init` when the frame loads, not only at mount. A
-  network-loaded frame navigates asynchronously, and the browser drops
-  a message that arrives before the frame document exists. The frame
-  bootstrap ignores a duplicate `init` after the nonce is set.
+- The parent never posts `init` on frame load. A network-loaded frame
+  navigates asynchronously, so the runner used to repost `init` when
+  the frame loaded — but a reload or navigation fires that same event,
+  and the replacement document must never receive the channel. The
+  frame's hello now drives the single-shot transfer instead: the
+  bootstrap announces whenever its document runs, however late the
+  navigation lands.
 - The frame reports the resolution outcome after an `update`. The
   element reports its own boot, but a synchronous fixture cannot
   re-fire lifecycle events on new inputs. Production must track input
