@@ -235,8 +235,8 @@ export class BrowserPlayer {
   /** Sends an activation to the Runtime and tells the proof what it presents. */
   private publish(next: PreparedActivation, restart?: "recovery_action"): void {
     this.state.runtimeActivationAccepted = false;
-    this.bridge.send(next.plugins);
-    this.bridge.send(next.presentation);
+    // The Runtime reports its first evidence while it handles the
+    // presentation, so the proof must know what is presented before it is sent.
     const presentation = next.presentation.presentation;
     if (presentation.state === "playing") {
       const items = presentation.items.map((item) => ({
@@ -254,6 +254,8 @@ export class BrowserPlayer {
       const stop = stopForState(presentation.state);
       this.activity?.proof.deactivate(stop.reason, stop.result);
     }
+    this.bridge.send(next.plugins);
+    this.bridge.send(next.presentation);
   }
 
   /** Shows the rest surface or the activation, whichever the policy says now. */

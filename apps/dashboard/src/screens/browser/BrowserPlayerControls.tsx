@@ -176,6 +176,9 @@ export function AddBrowserPlayer() {
                 form={form}
                 locations={locations.data?.items ?? []}
               />
+              <p className="text-sm text-muted-foreground">
+                {t("browser.experimentalNote")}
+              </p>
               {location.protocol !== "https:" && (
                 <Alert>
                   <AlertDescription>

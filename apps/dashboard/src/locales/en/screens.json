@@ -2,6 +2,7 @@
   "browser": {
     "add": "Add Browser Player",
     "createBody": "Connect a browser display to this Tilecast server.",
+    "experimentalNote": "Browser Player is experimental. It has been tested with Chromium, not yet with Chrome and Edge. Keep production displays on a native Player.",
     "readyTitle": "Browser Player ready to connect",
     "readyBody": "Open this link on the display:",
     "open": "Open player",

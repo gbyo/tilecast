@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { chromium, expect, test } from "@playwright/test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -155,8 +156,9 @@ test("a Layout is one presentation with one play, and a takeover ends it for the
     { width: 1280, height: 720, backgroundColor: "#000000" },
     [
       {
-        id: "full",
+        id: randomUUID(),
         type: "asset",
+        name: "Background",
         assetId: background,
         x: 0,
         y: 0,

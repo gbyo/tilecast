@@ -1,7 +1,9 @@
 # Browser Player architecture
 
-Browser Player is under implementation. It is not available for deployment.
+Browser Player is experimental. Tilecast does not claim that it is supported on Chrome or Microsoft Edge.
+Only the bundled Playwright Chromium has run the end-to-end tests.
 The implementation must meet this contract before release.
+See [Implementation status](#implementation-status) for what is and is not qualified.
 
 ## Ownership
 
@@ -237,8 +239,14 @@ Studio offers only these command types for a Browser Screen.
 It installs the whole workspace, because the production Runtime declares its own build dependencies.
 It runs unit tests, builds the exact Runtime and the Host, and runs Chromium end-to-end tests against the real Go server and PostgreSQL.
 The end-to-end tests cover authentication, replaced and revoked bindings, single ownership, media preparation, service worker range responses, a browser restart while the Server is stopped, and Runtime output for each representative presentation.
+The Activity tests read proof of play back from the Server.
+They cover an image playlist, a video that ends by itself, a manual skip, and a Layout that a takeover replaces.
 A Go test verifies a WebCrypto signature from `apps/server/internal/devices/testdata/browser_webcrypto_golden.json`.
 Regenerate it with `node apps/player-web/scripts/generate-webcrypto-golden.mjs`.
+
+The Runtime reports its first evidence while it handles a presentation.
+The Host must tell the proof tracker what it presents before it sends the presentation to the Runtime.
+If the order is reversed, the tracker drops the first `item-started` report and the first item has no recorded play.
 
 ## Origin and extensions
 
@@ -251,11 +259,28 @@ Browser Player v1 must report capture and Watch Live as unsupported.
 
 ## Implementation status
 
-The Host, the shared resolver, and the verified store are implemented.
-The Host starts the unchanged production Runtime and restores the last activation without the Server.
-Server endpoints support browser sessions, key challenges, managed slots, recovery, ordinary pairing enrollment, and current Server selection.
-Studio recognizes the browser family and the `awaiting_player` state.
-Studio provides Browser Player creation and one-time launch link controls.
+Implemented. Unit tests cover each item. Chromium end-to-end tests cover authentication, enrollment, offline restart, activation, and Activity:
+
+- The Host, the shared resolver, and the verified store.
+- Browser sessions, key challenges, managed slots, recovery, ordinary pairing enrollment, and current Server selection.
+- The typed commands in the command table, with at-most-once execution.
+- Activity and proof of play, with a durable outbox and the shared session tracker.
+- Active hours and rest, with the policy saved with each activation.
+- Lifecycle facts, the capability matrix, and Studio diagnostics.
+
+Not qualified:
+
+- Real Chrome and Microsoft Edge. No browser version is recorded as supported.
+- Lifecycle and reliability behavior in a real browser: a hidden page, a frozen page, wake lock, fullscreen, storage eviction, and a clock change.
+- Command end-to-end cases: duplicate delivery, a lost result, a replaced binding, and an offline Player.
+- Active hours, staged service worker updates, and long video playback.
+
+Not implemented:
+
+- A WebSocket push channel. The Host polls.
+- The `lastMeaningfulProgressAt` telemetry gauge.
+- Websites and YouTube.
+
+Studio labels Browser Player as experimental when an operator creates a Browser Screen.
+Do not remove the label until the qualification items above pass on recorded Chrome and Edge versions.
 Browser screens remain outside native update targets.
-Command and Activity integration, lifecycle diagnostics, and a WebSocket push channel remain incomplete.
-Browser Player is not available for deployment.

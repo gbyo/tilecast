@@ -2,6 +2,7 @@
   "browser": {
     "add": "Добавить Browser Player",
     "createBody": "Подключите экран в браузере к этому серверу Tilecast.",
+    "experimentalNote": "Browser Player пока экспериментальный. Его проверяли в Chromium, но ещё не в Chrome и Edge. Рабочие экраны лучше оставить на нативном Player.",
     "readyTitle": "Browser Player готов к подключению",
     "readyBody": "Откройте эту ссылку на экране:",
     "open": "Открыть плеер",
