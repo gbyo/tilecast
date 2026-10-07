@@ -102,7 +102,12 @@
  */
 .site-title::after {
   position: absolute;
-  inset: 0;
+  /*
+   * The animated SVG adds 25 viewBox units of bleed on every edge. Expand
+   * the overlay by the same visual amount so its 1157.43×245.25 artwork
+   * aligns exactly with the static 1.75rem-tall wordmark instead of shrinking.
+   */
+  inset: -0.1784rem;
   content: "";
   pointer-events: none;
   background: center / contain no-repeat
