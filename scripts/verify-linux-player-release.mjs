@@ -101,6 +101,29 @@ try {
       throw new Error(`Packaged Presentation Model is missing ${file}.`);
     }
   }
+  // The Linux Player records Activity through the shared session tracker.
+  const activityRoot = "node_modules/@tilecast/player-activity";
+  for (const file of [
+    "package.json",
+    "dist/index.js",
+    "dist/event.js",
+    "dist/sessions.js",
+  ]) {
+    if (extractFile(asarPath, `${activityRoot}/${file}`).byteLength === 0) {
+      throw new Error(`Packaged Activity package is missing ${file}.`);
+    }
+  }
+  const hoursRoot = "node_modules/@tilecast/player-active-hours";
+  for (const file of [
+    "package.json",
+    "dist/index.js",
+    "dist/active-hours.js",
+    "dist/outside-hours.js",
+  ]) {
+    if (extractFile(asarPath, `${hoursRoot}/${file}`).byteLength === 0) {
+      throw new Error(`Packaged active-hours package is missing ${file}.`);
+    }
+  }
   const manifestVersion = String(manifest.versionName ?? "");
   const artifact = readFileSync(appImage);
   const artifactSha256 = createHash("sha256").update(artifact).digest("hex");

@@ -233,6 +233,149 @@ describe("exact resource closure", () => {
     expect(plan.validUntil?.toISOString()).toBe("2026-10-01T13:00:00.000Z");
   });
 
+  it("is not bounded by availability windows of unrelated content", () => {
+    const unrelated = [
+      asset(3, "image/png", { availableFrom: "2026-10-01T12:10:00Z" }),
+      asset(4, "video/mp4", { expiresAt: "2026-10-01T12:20:00Z" }),
+      asset(5, "image/png", { availableFrom: "2026-10-01T12:30:00Z" }),
+    ];
+    const plan = planPresentation(
+      base({
+        manifest: manifest({
+          assets: [
+            asset(1),
+            asset(2, "video/mp4"),
+            ...unrelated,
+            asset(6),
+            asset(7),
+            asset(8),
+          ],
+        }),
+      }),
+    );
+    expect(plan.kind).toBe("playing");
+    expect(plan.validUntil).toBeNull();
+  });
+
+  it("is bounded by a window on media the selected presentation uses", () => {
+    const plan = planPresentation(
+      base({
+        manifest: manifest({
+          assets: [
+            asset(1, "image/png", { expiresAt: "2026-10-01T12:45:00Z" }),
+            asset(2, "video/mp4"),
+            asset(3, "image/png", { availableFrom: "2026-10-01T12:10:00Z" }),
+            asset(7),
+          ],
+        }),
+      }),
+    );
+    expect(plan.validUntil?.toISOString()).toBe("2026-10-01T12:45:00.000Z");
+  });
+
+  it("is bounded by a window on the branding logo and on plugin media", () => {
+    const logo = planPresentation(
+      base({
+        manifest: manifest({
+          assets: [
+            asset(1),
+            asset(2, "video/mp4"),
+            asset(7, "image/png", { expiresAt: "2026-10-01T12:40:00Z" }),
+          ],
+        }),
+      }),
+    );
+    expect(logo.validUntil?.toISOString()).toBe("2026-10-01T12:40:00.000Z");
+    const plugin = planPresentation(
+      base({
+        manifest: manifest({
+          assets: [
+            asset(1),
+            asset(2, "video/mp4"),
+            asset(7),
+            asset(8, "image/png", { availableFrom: "2026-10-01T12:20:00Z" }),
+          ],
+          plugins: [
+            {
+              id: id(70),
+              type: "brand_bug",
+              version: 1,
+              config: { imageAssetId: id(8), imageVariantId: id(108) },
+            },
+          ],
+        }),
+      }),
+    );
+    expect(plugin.validUntil?.toISOString()).toBe("2026-10-01T12:20:00.000Z");
+  });
+
+  it("is bounded by a Layout placement's media window and by an item window", () => {
+    const layout = {
+      id: LAYOUT,
+      document: {
+        schemaVersion: 2,
+        canvas: {
+          width: 1920,
+          height: 1080,
+          backgroundColor: "#000000",
+        },
+        placements: [
+          {
+            id: "zone",
+            type: "asset",
+            assetId: id(5),
+            variantId: id(105),
+            x: 0,
+            y: 0,
+            width: 960,
+            height: 1080,
+            layer: 0,
+            opacity: 1,
+            visible: true,
+          },
+        ],
+      },
+    };
+    const plan = planPresentation(
+      base({
+        manifest: manifest({
+          layouts: [layout],
+          assets: [
+            asset(5, "image/png", { expiresAt: "2026-10-01T14:00:00Z" }),
+            asset(3, "image/png", { expiresAt: "2026-10-01T12:15:00Z" }),
+            asset(7),
+          ],
+        }),
+        selection: {
+          source: "assignment",
+          contentType: "layout",
+          contentId: LAYOUT,
+        },
+      }),
+    );
+    expect(plan.validUntil?.toISOString()).toBe("2026-10-01T14:00:00.000Z");
+    const windowedItem = planPresentation(
+      base({
+        manifest: manifest({
+          playlists: [
+            {
+              id: PLAYLIST,
+              revision: 1,
+              name: "Selected",
+              items: [
+                item(1, { availableFrom: "2026-10-01T12:50:00Z" }),
+                item(2, { assetType: "video" }),
+              ],
+            },
+          ],
+        }),
+      }),
+    );
+    expect(windowedItem.validUntil?.toISOString()).toBe(
+      "2026-10-01T12:50:00.000Z",
+    );
+  });
+
   it("is bounded by the Server's next evaluation", () => {
     const plan = planPresentation(
       base({ nextEvaluationAt: new Date("2026-10-01T12:30:00Z") }),

@@ -1,26 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildOutsideActiveHoursPresentation } from "./outside-hours";
-import type { PlayerConfig } from "./types";
 
 function config(
   power: Record<string, unknown>,
   branding: Record<string, unknown> = {},
-): PlayerConfig {
-  return {
-    schemaVersion: 1,
-    configRevision: 1,
-    generatedAt: "2026-07-20T00:00:00Z",
-    branding,
-    playback: {},
-    cache: {},
-    sync: {},
-    website: {},
-    reliability: {},
-    power,
-    managedKiosk: {},
-    accessibility: {},
-    updates: {},
-  };
+) {
+  return { power, branding };
 }
 
 describe("buildOutsideActiveHoursPresentation", () => {

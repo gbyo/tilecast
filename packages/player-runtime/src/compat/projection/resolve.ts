@@ -31,6 +31,7 @@ import { createProjector } from "../projector";
 import {
   isAvailableAt,
   nextAvailabilityTransition,
+  type AvailabilityWindow,
 } from "./content-availability";
 import { projectManifestItems } from "./items";
 import type {
@@ -345,6 +346,7 @@ function build(
   input: ResolveInput,
   media: readonly MediaBinding[],
   generation: number,
+  ignoreItemWindows = false,
 ): Built {
   const { manifest, config, selection, at } = input;
   const logoSrc = brandingLogoUri(manifest, media, at);
@@ -408,7 +410,7 @@ function build(
   }
   const projected: RuntimeItem[] = projectManifestItems(
     manifest,
-    items,
+    ignoreItemWindows ? items.map(withoutWindow) : items,
     config.playback,
     at,
     media,
@@ -451,6 +453,54 @@ function projectionContext(
 // ---------------------------------------------------------------- closure
 
 const PLACEHOLDER = "tcreq:";
+
+function withoutWindow<T extends AvailabilityWindow>(value: T): T {
+  const { availableFrom: _from, expiresAt: _until, ...rest } = value;
+  return rest as T;
+}
+
+/** The manifest assets a scan of an emitted presentation names. */
+function placeholderIndices(emitted: unknown): Set<number> {
+  const found = new Set<number>();
+  for (const match of JSON.stringify(emitted).matchAll(
+    new RegExp(`${PLACEHOLDER}(\\d+)`, "g"),
+  )) {
+    found.add(Number(match[1]));
+  }
+  return found;
+}
+
+/**
+ * The assets this presentation could display if every availability window
+ * were open. Asset windows change the presentation only for these assets, so
+ * their boundaries bound the plan. A window on an asset the presentation can
+ * never reach changes nothing the viewer sees.
+ */
+function reachableAssets(
+  input: ResolveInput,
+  placeholders: readonly MediaBinding[],
+): Set<number> {
+  const manifest = {
+    ...input.manifest,
+    assets: input.manifest.assets.map(withoutWindow),
+  };
+  const probe = { ...input, manifest };
+  const built = build(probe, placeholders, 0, true);
+  const emitted: unknown[] = [built.presentation];
+  if (built.kind === "playing" && built.presentation.state === "playing") {
+    try {
+      emitted.push(
+        createProjector(projectionContext(probe, placeholders))?.project(
+          built.presentation,
+          input.at.getTime() - input.clockOffsetMs,
+        ),
+      );
+    } catch {
+      /* A reference the Runtime cannot project shows no media. */
+    }
+  }
+  return placeholderIndices(emitted);
+}
 
 /** Walks plugin configuration for `<name>AssetId` / `<name>VariantId` pairs. */
 function pluginMediaPairs(
@@ -538,11 +588,7 @@ export function planPresentation(input: ResolveInput): PresentationPlan {
       emitted.push(built.presentation);
     }
   }
-  const needed = new Set<number>();
-  const scan = JSON.stringify(emitted);
-  for (const match of scan.matchAll(new RegExp(`${PLACEHOLDER}(\\d+)`, "g"))) {
-    needed.add(Number(match[1]));
-  }
+  const needed = placeholderIndices(emitted);
   const logo = logoAsset(manifest, at);
   if (logo) needed.add(manifest.assets.indexOf(logo));
   const catalog = new Map(
@@ -591,8 +637,31 @@ export function planPresentation(input: ResolveInput): PresentationPlan {
     }
   }
 
+  const catalogIndex = (assetId: string, variantId: string) =>
+    catalog.get(assetKey(assetId, variantId));
+  const windowed: (AvailabilityWindow | undefined)[] = [...built.windowed];
+  if (nextAvailabilityTransition([...manifest.assets, ...built.windowed], at)) {
+    // Some window is still to come. Only the ones that can change what this
+    // presentation shows bound the plan.
+    const reachable = reachableAssets(input, placeholders);
+    const { logoAssetId, logoVariantId } = manifest.branding ?? {};
+    const logoIndex =
+      logoAssetId && logoVariantId
+        ? catalogIndex(logoAssetId, logoVariantId)
+        : undefined;
+    if (logoIndex !== undefined) reachable.add(logoIndex);
+    for (const plugin of manifest.plugins ?? []) {
+      for (const pair of pluginMediaPairs(
+        (plugin as { config?: unknown }).config,
+      )) {
+        const index = catalogIndex(pair.assetId, pair.variantId);
+        if (index !== undefined) reachable.add(index);
+      }
+    }
+    for (const index of reachable) windowed.push(manifest.assets[index]);
+  }
   const boundaries = [
-    nextAvailabilityTransition([...manifest.assets, ...built.windowed], at),
+    nextAvailabilityTransition(windowed, at),
     input.nextEvaluationAt && input.nextEvaluationAt.getTime() > at.getTime()
       ? input.nextEvaluationAt
       : null,

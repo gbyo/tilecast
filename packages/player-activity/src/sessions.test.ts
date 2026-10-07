@@ -1,11 +1,8 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { ActivityEventInput } from "./activity";
-import {
-  applyRendererEvent,
-  PlaybackSessionTracker,
-} from "./activity-sessions";
+import type { ActivityEventInput } from "./event";
+import { applyRendererEvent, PlaybackSessionTracker } from "./sessions";
 
 /**
  * The contract fixtures are shared with the Go server tests and the Kotlin
@@ -15,7 +12,7 @@ const fixtures = JSON.parse(
   readFileSync(
     fileURLToPath(
       new URL(
-        "../../../../packages/api-schema/activity/contract-v2-fixtures.json",
+        "../../api-schema/activity/contract-v2-fixtures.json",
         import.meta.url,
       ),
     ),

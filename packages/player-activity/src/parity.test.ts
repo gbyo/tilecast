@@ -9,7 +9,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { ActivityEventInput } from "./activity";
+import type { ActivityEventInput } from "./event";
 import {
   PlaybackSessionTracker,
   applyRendererEvent,
@@ -19,12 +19,9 @@ import {
   stopForState,
   type SessionItem,
   type SessionSelection,
-} from "./activity-sessions";
+} from "./sessions";
 
-const FILE = resolve(
-  __dirname,
-  "../../../../packages/api-schema/activity/player-parity.json",
-);
+const FILE = resolve(__dirname, "../../api-schema/activity/player-parity.json");
 
 interface Step {
   present?: {

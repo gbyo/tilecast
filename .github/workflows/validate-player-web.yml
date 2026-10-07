@@ -45,8 +45,17 @@ jobs:
       - run: npm ci
       - name: Browser Player architecture guard
         run: node --test scripts/ci/browser-player-architecture.test.mjs
+      # The typecheck and unit-test scripts build the Runtime's public node
+      # output themselves, so a clean checkout reaches this point unaided.
       - run: npm run typecheck --workspace @tilecast/player-web
       - run: npm test --workspace @tilecast/player-web
+      # Pure policy the Browser Player shares with the Linux Player.
+      - name: Shared Activity and active-hours policy
+        run: |
+          npm test --workspace @tilecast/player-activity
+          npm test --workspace @tilecast/player-active-hours
+      - name: Generated Browser Player contracts are current
+        run: node scripts/generate-browser-capabilities.mjs --check
       - name: Build the exact production Runtime and the Browser Player
         run: npm run build --workspace @tilecast/player-web
       - name: Install Chromium and the end-to-end tools

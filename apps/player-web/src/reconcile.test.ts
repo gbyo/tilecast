@@ -13,7 +13,8 @@ const id = (n: number) =>
 const bytes = (n: number) => `asset ${n} bytes`;
 const digestOf = (n: number) =>
   createHash("sha256").update(bytes(n)).digest("hex");
-const asset = (n: number, mimeType = "image/png") => ({
+const asset = (n: number, mimeType = "image/png", windows = {}) => ({
+  ...windows,
   assetId: id(n),
   variantId: id(n + 100),
   mimeType,
@@ -34,13 +35,15 @@ const item = (n: number) => ({
 });
 const PLAYLIST_A = id(901);
 const PLAYLIST_B = id(902);
-const manifest = (version = 1) => ({
+const clock = { ms: Date.now() };
+type Windows = Record<number, { availableFrom?: string; expiresAt?: string }>;
+const manifest = (version = 1, windows: Windows = {}) => ({
   schemaVersion: 17,
   manifestVersion: version,
   screenId: id(1),
   generatedAt: "2026-10-01T00:00:00Z",
   mode: "presentation",
-  serverTime: new Date().toISOString(),
+  serverTime: new Date(clock.ms).toISOString(),
   schedules: [],
   websites: [],
   widgets: [],
@@ -48,14 +51,16 @@ const manifest = (version = 1) => ({
   layouts: [],
   plugins: [],
   // Eight assets are in the manifest. A Screen shows one playlist at a time.
-  assets: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => asset(n)),
+  assets: [1, 2, 3, 4, 5, 6, 7, 8].map((n) =>
+    asset(n, "image/png", windows[n] ?? {}),
+  ),
   playlists: [
     { id: PLAYLIST_A, revision: 1, name: "A", items: [item(1), item(2)] },
     { id: PLAYLIST_B, revision: 1, name: "B", items: [item(3), item(4)] },
   ],
 });
 
-function server(selectedPlaylist: string | null) {
+function server(selectedPlaylist: string | null, windows: Windows = {}) {
   const downloads: string[] = [];
   let current = selectedPlaylist;
   let failing: string | undefined;
@@ -64,7 +69,7 @@ function server(selectedPlaylist: string | null) {
     const path = url.pathname;
     const ok = (data: unknown) =>
       new Response(JSON.stringify({ data }), { status: 200 });
-    if (path === "/api/v1/player/manifest") return ok(manifest());
+    if (path === "/api/v1/player/manifest") return ok(manifest(1, windows));
     if (path === "/api/v1/player/config")
       return ok({
         configRevision: 1,
@@ -75,7 +80,7 @@ function server(selectedPlaylist: string | null) {
       });
     if (path === "/api/v1/player/browser/selection")
       return ok({
-        at: new Date().toISOString(),
+        at: new Date(clock.ms).toISOString(),
         current: current
           ? {
               selected: {
@@ -102,10 +107,11 @@ function server(selectedPlaylist: string | null) {
   };
 }
 
-async function setup(selectedPlaylist: string | null) {
+async function setup(selectedPlaylist: string | null, windows: Windows = {}) {
+  clock.ms = Date.now();
   const database = await openDatabase(new IDBFactory());
   const memory = memoryStore();
-  const remote = server(selectedPlaylist);
+  const remote = server(selectedPlaylist, windows);
   const index = new IndexedObjects(database);
   const reconcileMemory: ReconcileMemory = {
     key: "",
@@ -129,6 +135,7 @@ async function setup(selectedPlaylist: string | null) {
         signal: new AbortController().signal,
         storeOptions: {},
         exclusively: (run) => run(),
+        now: () => clock.ms,
       },
       reconcileMemory,
     );
@@ -201,5 +208,36 @@ describe("exact-closure reconciliation", () => {
     const result = await h.reconcile();
     expect(result.changed && result.plan.kind).toBe("idle");
     expect(h.remote.downloads).toEqual([]);
+  });
+});
+
+describe("activation stability", () => {
+  it("keeps the same activation when unrelated content becomes available", async () => {
+    const opens = new Date(Date.now() + 60_000).toISOString();
+    // Playlist A shows image 1 and 2. Playlist B, which is not selected, uses
+    // image 3, which only becomes available in the future.
+    const h = await setup(PLAYLIST_A, { 3: { availableFrom: opens } });
+    const first = await h.reconcile();
+    expect(first.changed).toBe(true);
+    expect(first.plan.validUntil).toBeNull();
+    const before = await loadActivation(h.database, "slot");
+    clock.ms += 120_000;
+    h.remote.downloads.length = 0;
+    const second = await h.reconcile();
+    expect(second.changed).toBe(false);
+    expect(h.remote.downloads).toEqual([]);
+    const after = await loadActivation(h.database, "slot");
+    expect(after?.activationId).toBe(before?.activationId);
+    expect(after?.generation).toBe(before?.generation);
+  });
+
+  it("plans again when the window of the selected content opens", async () => {
+    const opens = new Date(Date.now() + 60_000).toISOString();
+    const h = await setup(PLAYLIST_A, { 2: { availableFrom: opens } });
+    const first = await h.reconcile();
+    expect(first.changed).toBe(true);
+    expect(first.plan.validUntil?.toISOString()).toBe(opens);
+    clock.ms += 120_000;
+    expect((await h.reconcile()).changed).toBe(true);
   });
 });

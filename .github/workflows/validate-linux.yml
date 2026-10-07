@@ -28,6 +28,9 @@ jobs:
       # The Linux Player imports the runtime's compiled Node entry points.
       - run: npm run build:node --workspace @tilecast/player-runtime
       - run: npm run player:linux:test
+      # Pure policy the Linux Player shares with the Browser Player.
+      - run: npm test --workspace @tilecast/player-activity
+      - run: npm test --workspace @tilecast/player-active-hours
       - run: npm run player:linux:build
 
   release_contract:

@@ -1,0 +1,522 @@
+{
+  "description": "Cross-player active-hours cases (docs/settings.md, docs/browser-player.md). Each case is a Player configuration `power` section, an instant, and the result of the active-hours policy at that instant. The shared TypeScript policy (packages/player-active-hours, used by the Linux Player and the Browser Player) and Player Core (crates/player-core/tests/active_hours_contract.rs) must both produce exactly `expected`. `msUntilTransition` counts minutes of the local clock, so across a daylight saving change it can be an hour from the real transition; the caller evaluates again when it expires. The cases cover the same-day and overnight windows, the half-open end, listed weekdays, every fail-open misconfiguration, and the daylight saving gap and overlap in both hemispheres. Regenerate `expected` from the TypeScript policy with `TILECAST_ACTIVE_HOURS_WRITE=1 npm test --workspace @tilecast/player-active-hours` then run `npx prettier --write` on this file and review the diff.",
+  "cases": [
+    {
+      "name": "same-day window, inside",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-24T13:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 32400000
+      }
+    },
+    {
+      "name": "same-day window, before the start",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-24T12:00:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 1800000
+      }
+    },
+    {
+      "name": "same-day window, the end is half-open",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-24T22:00:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 52200000
+      }
+    },
+    {
+      "name": "same-day window, the start is inclusive",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-24T12:30:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 34200000
+      }
+    },
+    {
+      "name": "a weekday that is not listed",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-26T15:00:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 25200000
+      }
+    },
+    {
+      "name": "overnight window, evening of the start day",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [5],
+        "activeHoursStart": "22:00",
+        "activeHoursEnd": "06:00"
+      },
+      "at": "2026-09-26T04:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 25200000
+      }
+    },
+    {
+      "name": "overnight window, morning after the start day",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [5],
+        "activeHoursStart": "22:00",
+        "activeHoursEnd": "06:00"
+      },
+      "at": "2026-09-26T10:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 3600000
+      }
+    },
+    {
+      "name": "overnight window, after its end",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [5],
+        "activeHoursStart": "22:00",
+        "activeHoursEnd": "06:00"
+      },
+      "at": "2026-09-26T11:00:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 57600000
+      }
+    },
+    {
+      "name": "overnight window, the next day is not listed",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [5],
+        "activeHoursStart": "22:00",
+        "activeHoursEnd": "06:00"
+      },
+      "at": "2026-09-27T04:00:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 25200000
+      }
+    },
+    {
+      "name": "equal start and end is a full overnight window",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "08:00",
+        "activeHoursEnd": "08:00"
+      },
+      "at": "2026-09-24T03:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 36000000
+      }
+    },
+    {
+      "name": "disabled active hours",
+      "power": {
+        "activeHoursEnabled": false,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-26T04:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": null
+      }
+    },
+    {
+      "name": "no listed weekday fails open",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-26T04:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": null
+      }
+    },
+    {
+      "name": "out-of-range weekdays are dropped",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2.5, 8, 7],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-27T15:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 25200000
+      }
+    },
+    {
+      "name": "an unreadable time fails open",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "7am",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-26T04:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": null
+      }
+    },
+    {
+      "name": "a minute with one digit fails open",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:5"
+      },
+      "at": "2026-09-26T04:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": null
+      }
+    },
+    {
+      "name": "an unknown timezone fails open",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "Mars/Olympus",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-26T04:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": null
+      }
+    },
+    {
+      "name": "a one-digit hour is accepted",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "7:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-24T12:30:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 34200000
+      }
+    },
+    {
+      "name": "the timezone is trimmed",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": " UTC ",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "09:00",
+        "activeHoursEnd": "10:00"
+      },
+      "at": "2026-09-24T09:30:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 1800000
+      }
+    },
+    {
+      "name": "the wait counts the seconds into the minute",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5],
+        "activeHoursStart": "07:30",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-24T12:00:30Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 1770000
+      }
+    },
+    {
+      "name": "a half-hour offset timezone opens on the local clock",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "Asia/Kolkata",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "09:00",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-24T03:30:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 28800000
+      }
+    },
+    {
+      "name": "a half-hour offset timezone is closed a minute earlier",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "Asia/Kolkata",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "09:00",
+        "activeHoursEnd": "17:00"
+      },
+      "at": "2026-09-24T03:29:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 60000
+      }
+    },
+    {
+      "name": "spring forward: before the skipped hour",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "02:30",
+        "activeHoursEnd": "04:00"
+      },
+      "at": "2026-03-08T07:59:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 1860000
+      }
+    },
+    {
+      "name": "spring forward: the start falls in the skipped hour, the window opens when the clock passes it",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "02:30",
+        "activeHoursEnd": "04:00"
+      },
+      "at": "2026-03-08T08:00:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 3600000
+      }
+    },
+    {
+      "name": "spring forward: the end after the skipped hour",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "02:30",
+        "activeHoursEnd": "04:00"
+      },
+      "at": "2026-03-08T09:00:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 81000000
+      }
+    },
+    {
+      "name": "spring forward: a window inside the skipped hour never opens",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "02:10",
+        "activeHoursEnd": "02:50"
+      },
+      "at": "2026-03-08T08:00:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 83400000
+      }
+    },
+    {
+      "name": "spring forward: the day before is unaffected",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "02:10",
+        "activeHoursEnd": "02:50"
+      },
+      "at": "2026-03-07T08:20:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 1800000
+      }
+    },
+    {
+      "name": "fall back: first pass through the repeated hour is active",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "01:30",
+        "activeHoursEnd": "01:45"
+      },
+      "at": "2026-11-01T06:30:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 900000
+      }
+    },
+    {
+      "name": "fall back: first pass is inactive after the end",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "01:30",
+        "activeHoursEnd": "01:45"
+      },
+      "at": "2026-11-01T06:45:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 85500000
+      }
+    },
+    {
+      "name": "fall back: second pass through the repeated hour is active again",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "01:30",
+        "activeHoursEnd": "01:45"
+      },
+      "at": "2026-11-01T07:30:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 900000
+      }
+    },
+    {
+      "name": "fall back: second pass is inactive after the end",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "01:30",
+        "activeHoursEnd": "01:45"
+      },
+      "at": "2026-11-01T07:45:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 85500000
+      }
+    },
+    {
+      "name": "fall back in the southern hemisphere: first pass",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "Australia/Sydney",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "02:15",
+        "activeHoursEnd": "02:45"
+      },
+      "at": "2026-04-04T15:30:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 900000
+      }
+    },
+    {
+      "name": "fall back in the southern hemisphere: second pass",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "Australia/Sydney",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "02:15",
+        "activeHoursEnd": "02:45"
+      },
+      "at": "2026-04-04T16:30:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 900000
+      }
+    },
+    {
+      "name": "fall back in the southern hemisphere: closed after the second pass",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "Australia/Sydney",
+        "activeHoursDays": [1, 2, 3, 4, 5, 6, 7],
+        "activeHoursStart": "02:15",
+        "activeHoursEnd": "02:45"
+      },
+      "at": "2026-04-04T16:45:00Z",
+      "expected": {
+        "active": false,
+        "msUntilTransition": 84600000
+      }
+    },
+    {
+      "name": "overnight window across the spring-forward night",
+      "power": {
+        "activeHoursEnabled": true,
+        "activeHoursTimezone": "America/Chicago",
+        "activeHoursDays": [6],
+        "activeHoursStart": "22:00",
+        "activeHoursEnd": "06:00"
+      },
+      "at": "2026-03-08T10:30:00Z",
+      "expected": {
+        "active": true,
+        "msUntilTransition": 1800000
+      }
+    }
+  ],
+  "overrides": {
+    "takeover": true,
+    "quick_present": true,
+    "schedule": false,
+    "direct": false,
+    "none": false
+  }
+}

@@ -24,6 +24,14 @@ module.exports = {
     "!node_modules/@tilecast/presentation-model/src/**",
     "!node_modules/@tilecast/presentation-model/*.{ts,json}",
     "node_modules/@tilecast/presentation-model/package.json",
+    // The Activity session tracker is shared with the Browser Player.
+    "!node_modules/@tilecast/player-activity/src/**",
+    "!node_modules/@tilecast/player-activity/*.{ts,json}",
+    "node_modules/@tilecast/player-activity/package.json",
+    // The active-hours policy is shared with the Browser Player.
+    "!node_modules/@tilecast/player-active-hours/src/**",
+    "!node_modules/@tilecast/player-active-hours/*.{ts,json}",
+    "node_modules/@tilecast/player-active-hours/package.json",
   ],
   linux: {
     target: ["AppImage"],

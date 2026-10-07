@@ -98,6 +98,24 @@ const rules = [
     ["browser_player"],
   ],
   [/^scripts\/ci\/browser-player-architecture\.test\.mjs$/, ["browser_player"]],
+  // The Browser Player capability matrix generates its Host, server, Studio
+  // and documentation consumers, and `player-contracts:check` verifies them.
+  [
+    /^(apps\/player-web\/capabilities\.json|scripts\/generate-browser-capabilities\.mjs)$/,
+    ["browser_player", "server", "dashboard", "docs", "ci"],
+  ],
+  // Pure Player policy shared by the TypeScript Players. The Activity package
+  // also drives the real Electron and Edge proof-of-play comparison. The
+  // active-hours cases are pinned against Player Core as well.
+  [
+    /^packages\/player-activity\//,
+    ["linux", "browser_player", "edge_activity"],
+  ],
+  [/^packages\/player-active-hours\//, ["linux", "browser_player"]],
+  [
+    /^packages\/settings-schema\/active-hours-fixtures\.json$/,
+    ["player_core", "linux", "browser_player"],
+  ],
   [/^apps\/ios\//, ["ios"]],
   // The iOS app runs the shared server-address corpus in its tests.
   [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],

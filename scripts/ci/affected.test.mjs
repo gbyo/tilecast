@@ -555,3 +555,35 @@ test("Browser Player has its own lane and follows the Runtime and the server cod
     ),
   );
 });
+
+test("shared Player policy selects its consumers and the cross-player pin", () => {
+  for (const path of [
+    "packages/player-activity/src/sessions.ts",
+    "packages/player-activity/package.json",
+  ]) {
+    const result = affected([path]);
+    for (const area of ["linux", "browser_player", "edge_activity"])
+      assert.equal(result[area], true, `${path} ${area}`);
+    assert.equal(result.android, false, path);
+  }
+  const hours = affected(["packages/player-active-hours/src/active-hours.ts"]);
+  assert.equal(hours.linux, true);
+  assert.equal(hours.browser_player, true);
+  assert.equal(hours.edge_activity, false);
+  const fixture = affected([
+    "packages/settings-schema/active-hours-fixtures.json",
+  ]);
+  for (const area of ["player_core", "linux", "browser_player"])
+    assert.equal(fixture[area], true, area);
+});
+
+test("the Browser capability matrix selects every generated consumer", () => {
+  for (const path of [
+    "apps/player-web/capabilities.json",
+    "scripts/generate-browser-capabilities.mjs",
+  ]) {
+    const result = affected([path]);
+    for (const area of ["browser_player", "server", "dashboard", "docs", "ci"])
+      assert.equal(result[area], true, `${path} ${area}`);
+  }
+});
