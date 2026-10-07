@@ -147,11 +147,15 @@ def migrate(expect_code, settle=120):
 def setup():
     os.makedirs(WORK, exist_ok=True)
     environment = env()
+    # The base release is staged below as 0.1.0, so its binaries must report
+    # 0.1.0 too. edge-platform/build.rs falls back to release/VERSION when
+    # TILECAST_EDGE_VERSION is unset, which breaks every release bump.
+    base = dict(environment, TILECAST_EDGE_VERSION="0.1.0")
     # The update helper as it ships, without the integration-test feature.
     run("cargo", "build", "-q", "--locked", "-p", "tilecastd", "-p", "tilecastctl", "-p", "tilecast-edge-update",
-        cwd=EDGE, env=environment)
+        cwd=EDGE, env=base)
     run("cargo", "build", "-q", "--locked", "-p", "tilecast-edge-migrate", "--features", "integration-test",
-        cwd=EDGE, env=environment)
+        cwd=EDGE, env=base)
     run("cmake", "-S", os.path.join(EDGE, "renderer-wpe"), "-B", RENDERER_BUILD, "-G", "Ninja",
         stdout=subprocess.DEVNULL)
     run("cmake", "--build", RENDERER_BUILD)
