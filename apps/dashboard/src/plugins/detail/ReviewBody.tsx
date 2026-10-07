@@ -4,20 +4,10 @@ import { ArrowRight, CircleAlert, CircleCheck } from "lucide-react";
 import type { GitHubInstallReview, InstalledPackage } from "../../api/types";
 import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
-import { ItemGroup } from "../../components/ui/item";
-import { diffContributions } from "../pluginCatalog";
-import { CapabilityItem, ContributionItem } from "./CapabilityItems";
-import {
-  capabilityRows,
-  contributionRows,
-  diffCapabilities,
-  type CapabilityRow,
-} from "./detailView";
-import {
-  TechnicalDetails,
-  technicalRows,
-  type TechnicalRow,
-} from "./TechnicalDetails";
+import { CapabilityReview, ContributionReview } from "./ReviewChanges";
+import { ReviewSection } from "./ReviewSection";
+import { TechnicalDetails } from "./TechnicalDetails";
+import { technicalRows, type TechnicalRow } from "./technicalDetailsModel";
 
 /** Wording shared by every place that explains an incompatible package. */
 export function IncompatibleAlert({
@@ -39,21 +29,6 @@ export function IncompatibleAlert({
   );
 }
 
-function ReviewSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="grid gap-2">
-      <h3 className="text-sm font-semibold">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
 function Line({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-4">
@@ -61,23 +36,6 @@ function Line({ label, children }: { label: string; children: ReactNode }) {
       <dd className="font-medium">{children}</dd>
     </div>
   );
-}
-
-/**
- * Which hosts or jobs a capability held before the update, as text, for the
- * "was" line of a changed capability.
- */
-function previousSummary(
-  row: CapabilityRow,
-  t: ReturnType<typeof useTranslation<"plugins">>["t"],
-) {
-  if (row.kind === "network") return row.hosts.join(", ");
-  if (row.kind === "background") {
-    return t("storeDetail.capabilities.background.body", {
-      count: row.jobs.length,
-    });
-  }
-  return "";
 }
 
 /**
@@ -99,20 +57,6 @@ export function ReviewBody({
   const { t, i18n } = useTranslation("plugins");
   const updating = installed !== undefined;
   const verified = review.trust === "verified";
-  const incoming = contributionRows(
-    review.contributions.map((contribution) => ({
-      kind: contribution.type,
-      path: contribution.path,
-      id: contribution.id,
-    })),
-  );
-  const capabilities = capabilityRows(review.capabilities);
-  const contributionDiff = installed
-    ? diffContributions(installed.contributions, review.contributions)
-    : undefined;
-  const capabilityDiff = installed
-    ? diffCapabilities(installed.capabilities, review.capabilities)
-    : undefined;
 
   const technical: TechnicalRow[] = technicalRows(
     {
@@ -203,156 +147,8 @@ export function ReviewBody({
         </dl>
       </ReviewSection>
 
-      {contributionDiff ? (
-        <ReviewSection title={t("storeDetail.review.contributionChanges")}>
-          {contributionDiff.added.length === 0 &&
-          contributionDiff.removed.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("storeDetail.review.noContributionChanges")}
-            </p>
-          ) : (
-            <div className="grid gap-3">
-              {contributionDiff.added.length > 0 && (
-                <div className="grid gap-2">
-                  <p className="text-sm font-medium">
-                    {t("packages.addedContributions")}
-                  </p>
-                  <ItemGroup render={<ul />} className="gap-2">
-                    {contributionRows(
-                      contributionDiff.added.map(({ kind, path, id }) => ({
-                        kind,
-                        path,
-                        id,
-                      })),
-                    ).map((row) => (
-                      <ContributionItem key={row.key} row={row} tone="added" />
-                    ))}
-                  </ItemGroup>
-                </div>
-              )}
-              {contributionDiff.removed.length > 0 && (
-                <div className="grid gap-2">
-                  <p className="text-sm font-medium">
-                    {t("packages.removedContributions")}
-                  </p>
-                  <ItemGroup render={<ul />} className="gap-2">
-                    {contributionRows(
-                      contributionDiff.removed.map(({ kind, path, id }) => ({
-                        kind,
-                        path,
-                        id,
-                      })),
-                    ).map((row) => (
-                      <ContributionItem
-                        key={row.key}
-                        row={row}
-                        tone="removed"
-                      />
-                    ))}
-                  </ItemGroup>
-                  <p className="text-sm text-muted-foreground">
-                    {t("packages.removedWarning")}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </ReviewSection>
-      ) : (
-        <ReviewSection title={t("storeDetail.adds.title")}>
-          {incoming.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("store.review.noContributions")}
-            </p>
-          ) : (
-            <ItemGroup render={<ul />} className="gap-2">
-              {incoming.map((row) => (
-                <ContributionItem key={row.key} row={row} />
-              ))}
-            </ItemGroup>
-          )}
-        </ReviewSection>
-      )}
-
-      {capabilityDiff ? (
-        <ReviewSection title={t("storeDetail.review.permissionChanges")}>
-          {capabilityDiff.added.length === 0 &&
-          capabilityDiff.removed.length === 0 &&
-          capabilityDiff.changed.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t("storeDetail.review.noPermissionChanges")}
-            </p>
-          ) : (
-            <div className="grid gap-3">
-              {capabilityDiff.added.length > 0 && (
-                <div className="grid gap-2">
-                  <p className="text-sm font-medium">
-                    {t("storeDetail.review.permissionsAdded")}
-                  </p>
-                  <ItemGroup render={<ul />} className="gap-2">
-                    {capabilityDiff.added.map((row) => (
-                      <CapabilityItem key={row.kind} row={row} />
-                    ))}
-                  </ItemGroup>
-                </div>
-              )}
-              {capabilityDiff.changed.length > 0 && (
-                <div className="grid gap-2">
-                  <p className="text-sm font-medium">
-                    {t("storeDetail.review.permissionsChanged")}
-                  </p>
-                  <div className="grid gap-2">
-                    {capabilityDiff.changed.map(({ before, after }) => (
-                      <div key={after.kind} className="grid gap-1">
-                        <ItemGroup render={<ul />}>
-                          <CapabilityItem row={after} />
-                        </ItemGroup>
-                        <p className="px-1 text-xs text-muted-foreground">
-                          {t("storeDetail.review.previously", {
-                            value: previousSummary(before, t),
-                          })}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {capabilityDiff.removed.length > 0 && (
-                <div className="grid gap-2">
-                  <p className="text-sm font-medium">
-                    {t("storeDetail.review.permissionsRemoved")}
-                  </p>
-                  <ItemGroup render={<ul />} className="gap-2">
-                    {capabilityDiff.removed.map((row) => (
-                      <CapabilityItem key={row.kind} row={row} />
-                    ))}
-                  </ItemGroup>
-                </div>
-              )}
-            </div>
-          )}
-        </ReviewSection>
-      ) : (
-        <ReviewSection title={t("storeDetail.permissions.title")}>
-          {capabilities.length === 0 ? (
-            <div className="grid gap-0.5 text-sm">
-              <p className="flex items-center gap-2 font-medium">
-                <CircleCheck className="size-4" aria-hidden="true" />
-                {t("storeDetail.permissions.noneTitle")}
-              </p>
-              <p className="text-muted-foreground">
-                {t("storeDetail.permissions.noneBody")}
-              </p>
-            </div>
-          ) : (
-            <ItemGroup render={<ul />} className="gap-2">
-              {capabilities.map((row) => (
-                <CapabilityItem key={row.kind} row={row} />
-              ))}
-            </ItemGroup>
-          )}
-        </ReviewSection>
-      )}
+      <ContributionReview review={review} installed={installed} />
+      <CapabilityReview review={review} installed={installed} />
 
       <TechnicalDetails rows={technical} />
 

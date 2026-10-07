@@ -36,7 +36,6 @@ export type PluginDetailViewModel = {
   iconUrl?: string;
   screenshots: PluginStoreScreenshot[];
   categories: string[];
-  featured: boolean;
   installed: boolean;
   installedVersion?: string;
   version?: string;
@@ -69,7 +68,6 @@ export function buildDetailView(
       plugin,
       screenshots: [],
       categories: [plugin.category],
-      featured: false,
       installed: plugin.installed,
       updateAvailable: false,
       compatible: true,
@@ -89,7 +87,6 @@ export function buildDetailView(
       iconUrl: marketplace.artwork?.iconUrl,
       screenshots: marketplace.artwork?.screenshots ?? [],
       categories: marketplace.categories ?? [],
-      featured: marketplace.featured ?? false,
       installed: marketplace.installed,
       installedVersion: marketplace.installedVersion,
       version: marketplace.version,
@@ -114,8 +111,6 @@ export function buildDetailView(
       publisher: custom.publisherName,
       screenshots: [],
       categories: [],
-      // A custom package never carries Marketplace curation.
-      featured: false,
       installed: custom.installed,
       installedVersion: custom.installedVersion,
       version: custom.version,
@@ -129,6 +124,28 @@ export function buildDetailView(
     };
   }
   return null;
+}
+
+/** Case, spacing, and trailing punctuation never make a description new. */
+function comparable(text: string) {
+  return text
+    .toLocaleLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[\s.!…。]+$/u, "")
+    .trim();
+}
+
+/**
+ * The paragraphs About shows. The hero already carries the short
+ * description, so About exists only for a long description that adds
+ * something to it; restating the short text would just repeat it.
+ */
+export function aboutParagraphs(view: PluginDetailViewModel): string[] {
+  const long = view.longDescription?.trim() ?? "";
+  if (long === "" || comparable(long) === comparable(view.description)) {
+    return [];
+  }
+  return long.split(/\n{2,}/).filter((part) => part.trim() !== "");
 }
 
 /**

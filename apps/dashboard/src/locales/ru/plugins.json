@@ -326,8 +326,9 @@
   },
   "storeDetail": {
     "by": "от {{publisher}}",
+    "byLinked": "от <publisher>{{publisher}}</publisher>",
+    "publisherLinkLabel": "{{publisher}}, репозиторий (открывается в новой вкладке)",
     "badgesLabel": "Сведения о плагине",
-    "featured": "Рекомендуемый",
     "sourceBadge": {
       "included": "Встроенный",
       "marketplace": "Каталог",
@@ -427,7 +428,10 @@
       "slide": "Снимок экрана {{current}} из {{total}}",
       "open": "Увеличить снимок экрана: {{alt}}",
       "unavailable": "Снимок экрана недоступен",
-      "lightboxTitle": "Снимок экрана {{current}} из {{total}}"
+      "lightboxTitle": "Снимок экрана {{current}} из {{total}}",
+      "previous": "Предыдущий снимок экрана",
+      "next": "Следующий снимок экрана",
+      "position": "{{current}} из {{total}}"
     },
     "review": {
       "installTitle": "Обзор: {{name}}",

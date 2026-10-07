@@ -4,7 +4,6 @@ import { CircleAlert, CircleCheck, Info } from "lucide-react";
 import type { PackageCapabilities } from "../../api/types";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import {
-  Item,
   ItemContent,
   ItemDescription,
   ItemGroup,
@@ -12,8 +11,9 @@ import {
   ItemTitle,
 } from "../../components/ui/item";
 import { Skeleton } from "../../components/ui/skeleton";
-import { CapabilityItem, ContributionItem } from "./CapabilityItems";
+import { CapabilityItem, ContributionItem, ItemRow } from "./CapabilityItems";
 import {
+  aboutParagraphs,
   capabilityRows,
   type ContributionRow,
   type PluginDetailViewModel,
@@ -56,17 +56,25 @@ function Pending({ children }: { children: ReactNode }) {
 }
 
 /**
- * What the plugin is, in its own words: the listing's long description when
- * it has one, and the short description otherwise. Where it comes from is
- * the sidebar card's job. Plain text only, so a description can never carry
- * markup into Studio.
+ * What the plugin is, in its own words: the listing's long description,
+ * shown only when it says more than the short description in the hero. Where
+ * it comes from is the sidebar card's job. Plain text only, so a description
+ * can never carry markup into Studio. Release notes about the installation
+ * (`attention`) stay visible even without a long description.
  */
 export function AboutSection({ view }: { view: PluginDetailViewModel }) {
   const { t } = useTranslation("plugins");
   const attention = view.plugin?.attention ?? [];
-  const text = (view.longDescription || view.description).trim();
-  const paragraphs = text.split(/\n{2,}/).filter((part) => part.trim() !== "");
-  if (paragraphs.length === 0 && attention.length === 0) return null;
+  const paragraphs = aboutParagraphs(view);
+  const notes = attention.map((note) => (
+    <Alert key={note.code}>
+      <CircleAlert aria-hidden="true" />
+      <AlertDescription>{note.message}</AlertDescription>
+    </Alert>
+  ));
+  if (paragraphs.length === 0) {
+    return notes.length > 0 ? <div className="grid gap-3">{notes}</div> : null;
+  }
   return (
     <DetailSection id="detail-about" title={t("storeDetail.about.title")}>
       <div className="grid max-w-prose gap-3">
@@ -79,12 +87,7 @@ export function AboutSection({ view }: { view: PluginDetailViewModel }) {
           </p>
         ))}
       </div>
-      {attention.map((note) => (
-        <Alert key={note.code}>
-          <CircleAlert aria-hidden="true" />
-          <AlertDescription>{note.message}</AlertDescription>
-        </Alert>
-      ))}
+      {notes}
     </DetailSection>
   );
 }
@@ -117,9 +120,9 @@ export function ContributionsSection({
           {t("storeDetail.adds.none")}
         </p>
       ) : (
-        <ItemGroup render={<ul />} className="gap-2">
-          {contributions.map((row) => (
-            <ContributionItem key={row.key} row={row} />
+        <ItemGroup render={<ul />} className="gap-0">
+          {contributions.map((row, index) => (
+            <ContributionItem key={row.key} row={row} separated={index > 0} />
           ))}
         </ItemGroup>
       )}
@@ -156,16 +159,16 @@ export function CapabilitiesSection({
         included.length === 0 ? (
           <NoSpecialPermissions />
         ) : (
-          <ItemGroup render={<ul />} className="gap-2">
-            {included.map((capability) => (
-              <Item key={capability} variant="muted" size="sm" render={<li />}>
+          <ItemGroup render={<ul />} className="gap-0">
+            {included.map((capability, index) => (
+              <ItemRow key={capability} separated={index > 0}>
                 <ItemMedia variant="icon">
                   <CircleCheck aria-hidden="true" />
                 </ItemMedia>
                 <ItemContent>
                   <ItemTitle>{capability}</ItemTitle>
                 </ItemContent>
-              </Item>
+              </ItemRow>
             ))}
           </ItemGroup>
         )
@@ -174,9 +177,9 @@ export function CapabilitiesSection({
       ) : rows.length === 0 ? (
         <NoSpecialPermissions />
       ) : (
-        <ItemGroup render={<ul />} className="gap-2">
-          {rows.map((row) => (
-            <CapabilityItem key={row.kind} row={row} />
+        <ItemGroup render={<ul />} className="gap-0">
+          {rows.map((row, index) => (
+            <CapabilityItem key={row.kind} row={row} separated={index > 0} />
           ))}
         </ItemGroup>
       )}
@@ -214,13 +217,11 @@ export function RequirementsSection({ view }: { view: PluginDetailViewModel }) {
       id="detail-requirements"
       title={t("storeDetail.requirements.title")}
     >
-      <ItemGroup render={<ul />} className="gap-2">
-        {requirements.map((requirement) => (
-          <Item
+      <ItemGroup render={<ul />} className="gap-0">
+        {requirements.map((requirement, index) => (
+          <ItemRow
             key={requirement.kind + requirement.label}
-            variant="muted"
-            size="sm"
-            render={<li />}
+            separated={index > 0}
           >
             <ItemMedia variant="icon">
               <CircleCheck aria-hidden="true" />
@@ -233,7 +234,7 @@ export function RequirementsSection({ view }: { view: PluginDetailViewModel }) {
                 </ItemDescription>
               )}
             </ItemContent>
-          </Item>
+          </ItemRow>
         ))}
       </ItemGroup>
     </DetailSection>

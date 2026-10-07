@@ -323,8 +323,9 @@
   },
   "storeDetail": {
     "by": "por {{publisher}}",
+    "byLinked": "por <publisher>{{publisher}}</publisher>",
+    "publisherLinkLabel": "{{publisher}}, repositorio (se abre en una pestaña nueva)",
     "badgesLabel": "Detalles del complemento",
-    "featured": "Destacado",
     "sourceBadge": {
       "included": "Incluido",
       "marketplace": "Marketplace",
@@ -423,7 +424,10 @@
       "slide": "Captura {{current}} de {{total}}",
       "open": "Ampliar captura: {{alt}}",
       "unavailable": "Captura no disponible",
-      "lightboxTitle": "Captura {{current}} de {{total}}"
+      "lightboxTitle": "Captura {{current}} de {{total}}",
+      "previous": "Captura anterior",
+      "next": "Captura siguiente",
+      "position": "{{current}} de {{total}}"
     },
     "review": {
       "installTitle": "Revisar {{name}}",

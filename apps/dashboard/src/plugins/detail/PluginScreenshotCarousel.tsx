@@ -9,13 +9,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "../../components/ui/carousel";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "../../components/ui/dialog";
+import { ScreenshotLightbox } from "./ScreenshotLightbox";
 
 /** Embla needs the document direction to page the right way in RTL. */
 function readingDirection() {
@@ -29,7 +23,7 @@ function readingDirection() {
  * A listing's screenshots. The carousel never advances on its own: several
  * slides show at once on wide viewports, and on a phone one slide leads with
  * the next peeking in so the row reads as swipeable. Selecting a slide opens
- * the full image in a dialog.
+ * the full image in a lightbox that steps through the rest.
  *
  * Slides are sized so a frame stays near 16:9 and under about 300px tall on
  * wide viewports; the page leads with the plugin, not with its pictures.
@@ -50,7 +44,6 @@ export function PluginScreenshotCarousel({
 
   const markFailed = (url: string) =>
     setFailed((current) => new Set(current).add(url));
-  const selected = openIndex === null ? undefined : screenshots[openIndex];
   const many = screenshots.length > 1;
 
   return (
@@ -121,33 +114,12 @@ export function PluginScreenshotCarousel({
           </>
         )}
       </Carousel>
-      <Dialog
-        open={selected !== undefined}
-        onOpenChange={(open) => {
-          if (!open) setOpenIndex(null);
-        }}
-      >
-        <DialogContent className="gap-3 p-3 sm:max-w-5xl">
-          <DialogHeader className="px-1 pr-8">
-            <DialogTitle className="sr-only">
-              {t("storeDetail.screenshots.lightboxTitle", {
-                current: (openIndex ?? 0) + 1,
-                total: screenshots.length,
-              })}
-            </DialogTitle>
-            <DialogDescription>{selected?.alt}</DialogDescription>
-          </DialogHeader>
-          {selected && (
-            <img
-              src={selected.url}
-              alt={selected.alt}
-              decoding="async"
-              referrerPolicy="no-referrer"
-              className="max-h-[75vh] w-full rounded-lg bg-muted object-contain"
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <ScreenshotLightbox
+        screenshots={screenshots}
+        index={openIndex}
+        onIndexChange={setOpenIndex}
+        onClose={() => setOpenIndex(null)}
+      />
     </section>
   );
 }

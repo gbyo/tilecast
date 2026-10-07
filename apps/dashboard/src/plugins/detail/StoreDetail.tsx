@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router";
 import type {
   GitHubInstallReview,
+  InstalledPackage,
   PluginStoreEntry,
   PluginSummary,
 } from "../../api/types";
@@ -21,7 +22,12 @@ import {
   RequirementsSection,
 } from "./DetailSections";
 import { PackageAboutCard, PackageStatusCard } from "./DetailSidebar";
-import { buildDetailView, contributionRows, primaryAction } from "./detailView";
+import {
+  buildDetailView,
+  contributionRows,
+  primaryAction,
+  type PluginDetailViewModel,
+} from "./detailView";
 import { OperationError } from "./OperationError";
 import { PackageDangerZone, PackageManagement } from "./PackageManagement";
 import { PackageReviewDialog } from "./PackageReviewDialog";
@@ -29,7 +35,8 @@ import { PluginDetailHero } from "./PluginDetailHero";
 import { PluginScreenshotCarousel } from "./PluginScreenshotCarousel";
 import { PrimaryActionControl } from "./PrimaryActionControl";
 import { IncompatibleAlert } from "./ReviewBody";
-import { TechnicalDetails, technicalRows } from "./TechnicalDetails";
+import { TechnicalDetails } from "./TechnicalDetails";
+import { technicalRows } from "./technicalDetailsModel";
 
 const incompatibleId = "detail-incompatible";
 
@@ -47,6 +54,103 @@ export function StoreBackLink() {
       <ArrowLeft data-icon="inline-start" aria-hidden="true" />
       {t("store.backToExplore")}
     </Link>
+  );
+}
+
+/**
+ * Everything that went wrong or blocks the action, in one place above the
+ * content. Renders nothing, not an empty row, when there is nothing to say.
+ */
+function DetailAlerts({
+  view,
+  installError,
+  operationError,
+  updateError,
+  packageLoadFailed,
+}: {
+  view: PluginDetailViewModel;
+  installError: unknown;
+  operationError: unknown;
+  updateError: unknown;
+  packageLoadFailed: boolean;
+}) {
+  const { t } = useTranslation("plugins");
+  const any =
+    !view.compatible ||
+    Boolean(installError) ||
+    Boolean(operationError) ||
+    Boolean(updateError) ||
+    packageLoadFailed;
+  if (!any) return null;
+  return (
+    <div className="order-2 grid gap-3 xl:order-none xl:-order-1 xl:col-span-2">
+      {!view.compatible && (
+        <IncompatibleAlert id={incompatibleId} range={view.tilecastRange} />
+      )}
+      <OperationError error={installError} />
+      <OperationError error={operationError} />
+      <OperationError error={updateError} />
+      {packageLoadFailed && (
+        <Alert variant="destructive">
+          <AlertDescription>{t("packages.loadError")}</AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The management column of an installed package: settings, jobs, rollback,
+ * and removal, in that order. Rollback and removal clear each other's error
+ * so only the latest operation speaks.
+ */
+function PackageManageBlock({
+  view,
+  installedPackage,
+  csrfToken,
+  showSettings,
+  showJobs,
+  packages,
+  onRemoved,
+}: {
+  view: PluginDetailViewModel;
+  installedPackage: InstalledPackage;
+  csrfToken: string;
+  showSettings: boolean;
+  showJobs: boolean;
+  packages: ReturnType<typeof usePackageLifecycle>;
+  onRemoved: () => void;
+}) {
+  const { rollback, remove } = packages;
+  return (
+    <div className="order-7 grid content-start gap-8 xl:order-none xl:col-start-1">
+      {showSettings && (
+        <PackageStudioUI packageId={view.packageId} csrfToken={csrfToken} />
+      )}
+      {showJobs && <PackageJobs packageId={view.packageId} />}
+      {installedPackage.hasRollback && (
+        <PackageManagement
+          name={view.name}
+          pending={rollback.isPending}
+          error={rollback.error}
+          onRollback={() => {
+            rollback.reset();
+            remove.reset();
+            rollback.mutate(view.packageId);
+          }}
+        />
+      )}
+      <PackageDangerZone
+        packageId={view.packageId}
+        pending={remove.isPending}
+        error={remove.error}
+        onRemove={() => {
+          rollback.reset();
+          remove.reset();
+          remove.mutate(view.packageId, { onSuccess: onRemoved });
+        }}
+      />
+    </div>
   );
 }
 
@@ -101,7 +205,7 @@ export function StoreDetail({
   if (!view) return null;
 
   const installedPackage = managed ? installedQuery.data : undefined;
-  const { checkUpdate, applyUpdate, rollback, remove } = packages;
+  const { checkUpdate, applyUpdate } = packages;
   const check =
     checkUpdate.data?.installed.packageId === view.packageId
       ? checkUpdate.data
@@ -171,28 +275,6 @@ export function StoreDetail({
   const jobs = manageable && installedPackage?.capabilities?.background;
   const hasManageBlock = manageable && installedPackage !== undefined;
 
-  const alerts = (
-    <>
-      {!view.compatible && (
-        <IncompatibleAlert id={incompatibleId} range={view.tilecastRange} />
-      )}
-      <OperationError error={installError} />
-      <OperationError error={marketplaceReview ? undefined : externalError} />
-      <OperationError error={checkUpdate.error} />
-      {managed && installedQuery.isError && (
-        <Alert variant="destructive">
-          <AlertDescription>{t("packages.loadError")}</AlertDescription>
-        </Alert>
-      )}
-    </>
-  );
-  const hasAlerts =
-    !view.compatible ||
-    Boolean(installError) ||
-    (!marketplaceReview && Boolean(externalError)) ||
-    Boolean(checkUpdate.error) ||
-    (managed && installedQuery.isError);
-
   return (
     <main className="mx-auto grid w-full max-w-6xl gap-6">
       <StoreBackLink />
@@ -203,11 +285,13 @@ export function StoreDetail({
       />
 
       <div className="grid gap-x-10 gap-y-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:gap-y-8">
-        {hasAlerts && (
-          <div className="order-2 grid gap-3 xl:order-none xl:-order-1 xl:col-span-2">
-            {alerts}
-          </div>
-        )}
+        <DetailAlerts
+          view={view}
+          installError={installError}
+          operationError={marketplaceReview ? undefined : externalError}
+          updateError={checkUpdate.error}
+          packageLoadFailed={managed && installedQuery.isError}
+        />
 
         {view.screenshots.length > 0 && (
           <div className="order-3 xl:order-none xl:col-span-2">
@@ -288,37 +372,15 @@ export function StoreDetail({
         </div>
 
         {hasManageBlock && installedPackage && (
-          <div className="order-7 grid content-start gap-8 xl:order-none xl:col-start-1">
-            {settings && (
-              <PackageStudioUI
-                packageId={view.packageId}
-                csrfToken={csrfToken}
-              />
-            )}
-            {jobs && <PackageJobs packageId={view.packageId} />}
-            {installedPackage.hasRollback && (
-              <PackageManagement
-                name={view.name}
-                pending={rollback.isPending}
-                error={rollback.error}
-                onRollback={() => {
-                  rollback.reset();
-                  remove.reset();
-                  rollback.mutate(view.packageId);
-                }}
-              />
-            )}
-            <PackageDangerZone
-              packageId={view.packageId}
-              pending={remove.isPending}
-              error={remove.error}
-              onRemove={() => {
-                rollback.reset();
-                remove.reset();
-                remove.mutate(view.packageId, { onSuccess: onRemoved });
-              }}
-            />
-          </div>
+          <PackageManageBlock
+            view={view}
+            installedPackage={installedPackage}
+            csrfToken={csrfToken}
+            showSettings={Boolean(settings)}
+            showJobs={Boolean(jobs)}
+            packages={packages}
+            onRemoved={onRemoved}
+          />
         )}
       </div>
 

@@ -10,16 +10,63 @@ import {
   LayoutPanelTop,
   Puzzle,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import {
   Item,
   ItemContent,
   ItemDescription,
   ItemMedia,
+  ItemSeparator,
   ItemTitle,
 } from "../../components/ui/item";
 import type { CapabilityRow, ContributionRow } from "./detailView";
 
 const noClamp = "line-clamp-none";
+
+/**
+ * How a row sits on the page. `default` is an open list row: no fill, flush
+ * with the section heading, and `separated` rows draw a hairline above them.
+ * `muted` is the contained row the review surface uses, where each row
+ * stands apart on its own.
+ */
+export type ItemRowVariant = "default" | "muted";
+
+export type RowPresentation = {
+  variant?: ItemRowVariant;
+  /** Draws a separator above the row; only the `default` list uses it. */
+  separated?: boolean;
+};
+
+const openRowClass = "px-0 py-3";
+
+/** One `li` of a structured list; every Item row on the detail page uses it. */
+export function ItemRow({
+  variant = "default",
+  separated = false,
+  tone,
+  status,
+  children,
+}: RowPresentation & {
+  tone?: "added" | "removed";
+  /** Marks a row whose state matters, such as a failed background job. */
+  status?: "failed";
+  children: ReactNode;
+}) {
+  return (
+    <li>
+      {separated && variant === "default" && <ItemSeparator className="my-0" />}
+      <Item
+        variant={variant}
+        size="sm"
+        data-tone={tone}
+        data-status={status}
+        className={variant === "default" ? openRowClass : undefined}
+      >
+        {children}
+      </Item>
+    </li>
+  );
+}
 
 type KnownContribution = "widget" | "dataSource" | "plugin";
 
@@ -38,22 +85,19 @@ const contributionKinds: Record<
  */
 export function ContributionItem({
   row,
-  tone = "default",
-}: {
+  tone,
+  variant,
+  separated,
+}: RowPresentation & {
   row: ContributionRow;
   /** Update review marks what changed. */
-  tone?: "default" | "added" | "removed";
+  tone?: "added" | "removed";
 }) {
   const { t } = useTranslation("plugins");
   const known = contributionKinds[row.kind];
   const Icon = known?.icon ?? Box;
   return (
-    <Item
-      variant="muted"
-      size="sm"
-      render={<li />}
-      data-tone={tone === "default" ? undefined : tone}
-    >
+    <ItemRow variant={variant} separated={separated} tone={tone}>
       <ItemMedia variant="icon">
         <Icon aria-hidden="true" />
       </ItemMedia>
@@ -70,7 +114,7 @@ export function ContributionItem({
           </span>
         </ItemDescription>
       </ItemContent>
-    </Item>
+    </ItemRow>
   );
 }
 
@@ -86,11 +130,15 @@ const capabilityIcons = {
  * many jobs run, not their schedule: the Background jobs section owns that
  * operational detail once the package is installed.
  */
-export function CapabilityItem({ row }: { row: CapabilityRow }) {
+export function CapabilityItem({
+  row,
+  variant,
+  separated,
+}: RowPresentation & { row: CapabilityRow }) {
   const { t } = useTranslation("plugins");
   const Icon = capabilityIcons[row.kind];
   return (
-    <Item variant="muted" size="sm" render={<li />}>
+    <ItemRow variant={variant} separated={separated}>
       <ItemMedia variant="icon">
         <Icon aria-hidden="true" />
       </ItemMedia>
@@ -129,6 +177,6 @@ export function CapabilityItem({ row }: { row: CapabilityRow }) {
           </ItemDescription>
         )}
       </ItemContent>
-    </Item>
+    </ItemRow>
   );
 }

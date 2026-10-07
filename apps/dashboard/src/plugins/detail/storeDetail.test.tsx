@@ -1,8 +1,10 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
 import "@testing-library/jest-dom/vitest";
 import {
+  act,
   cleanup,
   render,
   screen,
@@ -10,7 +12,13 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   GitHubInstallReview,
@@ -59,6 +67,8 @@ let check: PackageUpdateCheck | undefined;
 let removeError: unknown;
 let rollbackError: unknown;
 let calls: Call[] = [];
+/** Holds every review resolution until released, to settle it after a navigation. */
+let resolveGate: Promise<void> | undefined;
 let viewport: { compact: boolean; wide: boolean } = {
   compact: false,
   wide: false,
@@ -103,6 +113,7 @@ beforeEach(async () => {
   removeError = undefined;
   rollbackError = undefined;
   calls = [];
+  resolveGate = undefined;
   viewport = { compact: false, wide: false };
   stubViewport({});
   jobsStub.mockReset();
@@ -129,7 +140,15 @@ beforeEach(async () => {
       }
       if (path.endsWith("/resolve") && method === "POST") {
         const found = reviews[id];
-        return found ? Promise.resolve(json(200, { data: found })) : missing();
+        const respond = () =>
+          found
+            ? json(200, { data: found })
+            : json(404, {
+                error: { code: "plugin_not_found", message: "Gone." },
+              });
+        return resolveGate
+          ? resolveGate.then(respond)
+          : Promise.resolve(respond());
       }
       if (path.endsWith("/install") && method === "POST") {
         const entry = entries[id];
@@ -190,6 +209,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+let navigateTo: (to: string) => void = () => undefined;
+
+/** Lets a test move between detail routes while a modal holds the page. */
+function NavigationHandle() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigateTo = (to) => void navigate(to);
+  }, [navigate]);
+  return null;
+}
+
 function LocationValue() {
   const location = useLocation();
   return <output aria-label="Current route">{location.pathname}</output>;
@@ -212,6 +242,7 @@ function renderDetail(packageId: string) {
           <Route path="/plugins/:page" element={<p>Management page</p>} />
         </Routes>
         <LocationValue />
+        <NavigationHandle />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -407,13 +438,17 @@ describe("Marketplace detail page", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Weather" }),
     ).toBeVisible();
-    expect(screen.getByText("by Acme")).toBeVisible();
+    const publisher = screen.getByRole("link", {
+      name: "Acme, repository (opens in a new tab)",
+    });
+    expect(publisher.closest("p")).toHaveTextContent("by Acme");
     const badges = screen.getByRole("list", { name: "Plugin details" });
     expect(within(badges).getByText("Marketplace")).toBeVisible();
     expect(within(badges).getByText("data")).toBeVisible();
-    expect(within(badges).getByText("Featured")).toBeVisible();
-    // A package that is not installed shows no state badge at all.
-    expect(within(badges).getAllByRole("listitem")).toHaveLength(3);
+    // Featured is an Explore cue, not a detail-page badge. A package that is
+    // not installed shows no state badge at all.
+    expect(within(badges).queryByText("Featured")).toBeNull();
+    expect(within(badges).getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getAllByText("Current conditions.").length).toBeGreaterThan(
       0,
     );
@@ -1496,13 +1531,57 @@ describe("About and requirements", () => {
     ).toBeNull();
   });
 
-  it("falls back to the short description without a long one", async () => {
+  it("omits About rather than repeating the hero's short description", async () => {
     entries["acme.weather"] = marketplaceEntry();
+    renderDetail("acme.weather");
+    await screen.findByRole("region", { name: "Package status" });
+    expect(screen.queryByRole("heading", { name: "About" })).toBeNull();
+    // The hero is the one place the short description appears.
+    expect(screen.getAllByText("Current conditions.")).toHaveLength(1);
+  });
+
+  it.each([
+    ["case and spacing", "  current   CONDITIONS. "],
+    ["trailing punctuation", "Current conditions"],
+    ["an identical copy", "Current conditions."],
+  ])(
+    "treats a long description differing only in %s as a repeat",
+    async (_, longDescription) => {
+      entries["acme.weather"] = marketplaceEntry({ longDescription });
+      renderDetail("acme.weather");
+      await screen.findByRole("region", { name: "Package status" });
+      expect(screen.queryByRole("heading", { name: "About" })).toBeNull();
+    },
+  );
+
+  it("keeps About for a long description that says more", async () => {
+    entries["acme.weather"] = marketplaceEntry({
+      longDescription: "Current conditions. Updates every ten minutes.",
+    });
     renderDetail("acme.weather");
     const about = (
       await screen.findByRole("heading", { name: "About" })
     ).closest("section") as HTMLElement;
-    expect(within(about).getByText("Current conditions.")).toBeVisible();
+    expect(
+      within(about).getByText("Current conditions. Updates every ten minutes."),
+    ).toBeVisible();
+  });
+
+  it("omits About for an included plugin, which has no long description", async () => {
+    entries["emergency_alerts"] = includedEntry({ id: "emergency_alerts" });
+    renderDetail("emergency_alerts");
+    await screen.findByRole("region", { name: "Package status" });
+    expect(screen.queryByRole("heading", { name: "About" })).toBeNull();
+  });
+
+  it("still shows an included plugin's attention notes without an About heading", async () => {
+    entries["emergency_alerts"] = includedEntry({
+      id: "emergency_alerts",
+      attention: [{ code: "needs_region", message: "Choose a region first." }],
+    });
+    renderDetail("emergency_alerts");
+    expect(await screen.findByText("Choose a region first.")).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "About" })).toBeNull();
   });
 
   it("does not restate Tilecast compatibility as a Requirements section", async () => {
@@ -1656,6 +1735,7 @@ describe("Responsive layout", () => {
   it("orders the narrow reading order with the status card first", async () => {
     entries["acme.weather"] = marketplaceEntry({
       compatible: false,
+      longDescription: "More about the forecast.",
       artwork: { screenshots },
     });
     renderDetail("acme.weather");
@@ -1712,5 +1792,374 @@ describe("Unknown entries", () => {
     expect(
       screen.getByRole("link", { name: "Back to Explore" }),
     ).toHaveAttribute("href", "/plugins/store");
+  });
+});
+
+describe("Hero polish", () => {
+  it("leaves Featured to Explore, even for a featured listing", async () => {
+    entries["acme.weather"] = marketplaceEntry({ featured: true });
+    renderDetail("acme.weather");
+    await screen.findByRole("heading", { level: 1, name: "Weather" });
+    expect(screen.queryByText("Featured")).toBeNull();
+  });
+
+  it("links the publisher to the package repository, outside the page", async () => {
+    entries["acme.weather"] = marketplaceEntry();
+    renderDetail("acme.weather");
+    const link = await screen.findByRole("link", {
+      name: "Acme, repository (opens in a new tab)",
+    });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://github.com/acme/tilecast-weather",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", expect.stringContaining("noreferrer"));
+    // Directly under the title, and still in the package card.
+    const title = screen.getByRole("heading", { level: 1, name: "Weather" });
+    expect(title.nextElementSibling).toContainElement(link);
+    const about = screen.getByRole("region", { name: "About this package" });
+    expect(within(about).getByText("Acme")).toBeVisible();
+  });
+
+  it("links a custom package's publisher to the repository it came from", async () => {
+    entries["acme.kiosk"] = customEntry();
+    renderDetail("acme.kiosk");
+    expect(
+      await screen.findByRole("link", {
+        name: "Acme, repository (opens in a new tab)",
+      }),
+    ).toHaveAttribute("href", "https://github.com/acme/tilecast-kiosk");
+  });
+
+  it("names Tilecast as the publisher of an included plugin without a link", async () => {
+    entries["emergency_alerts"] = includedEntry({ id: "emergency_alerts" });
+    renderDetail("emergency_alerts");
+    const byline = await screen.findByText(/^by Tilecast$/);
+    expect(byline.querySelector("a")).toBeNull();
+  });
+
+  it("does not link a publisher to an address that is not https", async () => {
+    entries["acme.weather"] = marketplaceEntry({
+      repository: "http://example.com/acme/weather",
+    });
+    renderDetail("acme.weather");
+    const byline = await screen.findByText("by Acme");
+    expect(byline.querySelector("a")).toBeNull();
+  });
+});
+
+describe("Open structured lists", () => {
+  const openRows = (section: HTMLElement) => {
+    const rows = within(section).getAllByRole("listitem");
+    for (const row of rows) {
+      const item = row.querySelector("[data-slot='item']");
+      expect(item).not.toBeNull();
+      expect(item).toHaveAttribute("data-variant", "default");
+    }
+    return rows;
+  };
+
+  beforeEach(() => {
+    entries["acme.weather"] = marketplaceEntry({
+      installed: true,
+      installedVersion: "1.2.0",
+    });
+    packages["acme.weather"] = installedPackage({
+      packageId: "acme.weather",
+      sourceKind: "marketplace",
+      contributions: [
+        { kind: "widget", id: "acme.weather.a", path: "./widgets/scoreboard" },
+        { kind: "dataSource", id: "acme.weather.b", path: "./data/scores" },
+      ],
+      capabilities: richCapabilities,
+      runtime: { module: "./runtime/plugin.wasm" },
+    });
+  });
+
+  it("lists contributions and permissions as unfilled rows with separators", async () => {
+    renderDetail("acme.weather");
+    const adds = await screen.findByRole("region", {
+      name: "What this plugin adds",
+    });
+    await within(adds).findByText("Scoreboard");
+    expect(openRows(adds)).toHaveLength(2);
+    expect(adds.querySelectorAll("[data-slot='item-separator']")).toHaveLength(
+      1,
+    );
+    expect(adds.querySelector("[data-slot='card']")).toBeNull();
+
+    const permissions = screen.getByRole("region", {
+      name: "Permissions & behavior",
+    });
+    await within(permissions).findByText("Network access");
+    expect(openRows(permissions)).toHaveLength(4);
+    expect(
+      permissions.querySelectorAll("[data-slot='item-separator']"),
+    ).toHaveLength(3);
+    // The separator sits inside a list item, so the list stays valid.
+    for (const separator of permissions.querySelectorAll(
+      "[data-slot='item-separator']",
+    )) {
+      expect(separator.parentElement?.tagName).toBe("LI");
+    }
+  });
+
+  it("lists requirements as unfilled rows", async () => {
+    entries["emergency_alerts"] = includedEntry({
+      id: "emergency_alerts",
+      installed: false,
+    });
+    renderDetail("emergency_alerts");
+    const section = (
+      await screen.findByRole("heading", { name: "Requirements" })
+    ).closest("section") as HTMLElement;
+    expect(openRows(section).length).toBeGreaterThan(1);
+    expect(
+      section.querySelectorAll("[data-slot='item-separator']"),
+    ).toHaveLength(openRows(section).length - 1);
+  });
+
+  it("keeps a healthy job open and gives only a failed one a fill", async () => {
+    jobsStub.mockResolvedValue([
+      {
+        jobId: "refresh-scores",
+        intervalMinutes: 5,
+        nextRunAt: new Date(Date.now() + 3 * 60_000).toISOString(),
+        lastRunAt: new Date(Date.now() - 2 * 60_000).toISOString(),
+        lastStatus: "ok",
+        lastError: "",
+        consecutiveFailures: 0,
+      },
+      {
+        jobId: "sync-teams",
+        intervalMinutes: 60,
+        nextRunAt: new Date(Date.now() + 3_600_000).toISOString(),
+        lastRunAt: new Date(Date.now() - 600_000).toISOString(),
+        lastStatus: "error",
+        lastError: "boom",
+        consecutiveFailures: 1,
+      },
+    ]);
+    renderDetail("acme.weather");
+    const healthy = (await screen.findByText("Refresh scores")).closest(
+      "[data-slot='item']",
+    );
+    const failed = screen.getByText("Sync teams").closest("[data-slot='item']");
+    expect(healthy).toHaveAttribute("data-variant", "default");
+    expect(failed).toHaveAttribute("data-variant", "muted");
+    expect(failed).toHaveAttribute("data-status", "failed");
+  });
+});
+
+describe("Screenshot lightbox", () => {
+  beforeEach(() => {
+    entries["acme.weather"] = marketplaceEntry({ artwork: { screenshots } });
+  });
+
+  async function openShot(
+    user: ReturnType<typeof userEvent.setup>,
+    alt: string,
+  ) {
+    renderDetail("acme.weather");
+    const opener = await screen.findByRole("button", {
+      name: `Enlarge screenshot: ${alt}`,
+    });
+    await user.click(opener);
+    return { opener, dialog: await screen.findByRole("dialog") };
+  }
+
+  it("shows the position and steps with Previous and Next, without closing", async () => {
+    const user = userEvent.setup();
+    const { dialog } = await openShot(user, "Forecast");
+    expect(within(dialog).getByText("1 of 3")).toBeVisible();
+    expect(
+      within(dialog).getByRole("img", { name: "Forecast" }),
+    ).toHaveAttribute("src", screenshots[0]?.url);
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Next screenshot" }),
+    );
+    expect(within(dialog).getByText("2 of 3")).toBeVisible();
+    expect(
+      within(dialog).getByRole("img", { name: "Radar map" }),
+    ).toHaveAttribute("src", screenshots[1]?.url);
+    expect(screen.getByRole("dialog")).toBe(dialog);
+
+    await user.click(
+      within(dialog).getByRole("button", { name: "Previous screenshot" }),
+    );
+    expect(within(dialog).getByText("1 of 3")).toBeVisible();
+  });
+
+  it("disables the control at each end and keeps focus inside", async () => {
+    const user = userEvent.setup();
+    const { dialog } = await openShot(user, "Radar map");
+    const previous = within(dialog).getByRole("button", {
+      name: "Previous screenshot",
+    });
+    const next = within(dialog).getByRole("button", {
+      name: "Next screenshot",
+    });
+    expect(previous).toBeEnabled();
+    expect(next).toBeEnabled();
+
+    await user.click(next);
+    expect(within(dialog).getByText("3 of 3")).toBeVisible();
+    expect(next).toBeDisabled();
+    await waitFor(() => expect(previous).toHaveFocus());
+
+    await user.click(previous);
+    await user.click(previous);
+    expect(within(dialog).getByText("1 of 3")).toBeVisible();
+    expect(previous).toBeDisabled();
+    await waitFor(() => expect(next).toHaveFocus());
+  });
+
+  it("moves with the arrow keys and stops at the ends", async () => {
+    const user = userEvent.setup();
+    const { dialog } = await openShot(user, "Forecast");
+    await user.keyboard("{ArrowRight}");
+    expect(within(dialog).getByText("2 of 3")).toBeVisible();
+    await user.keyboard("{ArrowRight}{ArrowRight}");
+    expect(within(dialog).getByText("3 of 3")).toBeVisible();
+    await user.keyboard("{ArrowLeft}");
+    expect(within(dialog).getByText("2 of 3")).toBeVisible();
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(within(dialog).getByText("1 of 3")).toBeVisible();
+    expect(within(dialog).getByRole("img", { name: "Forecast" })).toBeVisible();
+  });
+
+  it("closes with Escape from a later screenshot and returns focus to its slide", async () => {
+    const user = userEvent.setup();
+    const { dialog } = await openShot(user, "Forecast");
+    await user.keyboard("{ArrowRight}");
+    expect(within(dialog).getByText("2 of 3")).toBeVisible();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    // Focus returns to the control that opened the dialog.
+    expect(
+      screen.getByRole("button", { name: "Enlarge screenshot: Forecast" }),
+    ).toHaveFocus();
+  });
+
+  it("offers no stepping for a single screenshot", async () => {
+    const user = userEvent.setup();
+    entries["acme.weather"] = marketplaceEntry({
+      artwork: { screenshots: [screenshots[0]!] },
+    });
+    const { dialog } = await openShot(user, "Forecast");
+    expect(
+      within(dialog).queryByRole("button", { name: "Next screenshot" }),
+    ).toBeNull();
+    expect(within(dialog).queryByText(/^\d+ of \d+$/)).toBeNull();
+    await user.keyboard("{ArrowRight}");
+    expect(within(dialog).getByRole("img", { name: "Forecast" })).toBeVisible();
+  });
+
+  it("reverses the arrow keys in a right-to-left document", async () => {
+    document.documentElement.setAttribute("dir", "rtl");
+    try {
+      const user = userEvent.setup();
+      const { dialog } = await openShot(user, "Forecast");
+      await user.keyboard("{ArrowLeft}");
+      expect(within(dialog).getByText("2 of 3")).toBeVisible();
+      await user.keyboard("{ArrowRight}");
+      expect(within(dialog).getByText("1 of 3")).toBeVisible();
+    } finally {
+      document.documentElement.removeAttribute("dir");
+    }
+  });
+});
+
+describe("Review state across listings", () => {
+  beforeEach(() => {
+    entries["acme.weather"] = marketplaceEntry();
+    entries["acme.clock"] = {
+      ...marketplaceEntry({ name: "Clock", description: "Tells the time." }),
+      packageId: "acme.clock",
+    };
+    for (const [id, name] of [
+      ["acme.weather", "Weather"],
+      ["acme.clock", "Clock"],
+    ] as const) {
+      reviews[id] = installReview({
+        packageId: id,
+        version: "1.0.0",
+        manifest: {
+          name,
+          description: "",
+          publisherId: "acme",
+          publisherName: "Acme",
+          license: "MIT",
+          tilecastRange: ">=0.0.0",
+        },
+      });
+    }
+  });
+
+  const installs = () => calls.filter((call) => call.path.endsWith("/install"));
+
+  it("never carries an open review to another listing", async () => {
+    const user = userEvent.setup();
+    renderDetail("acme.weather");
+    await user.click(
+      await screen.findByRole("button", { name: "Review & install" }),
+    );
+    expect(await screen.findByRole("dialog")).toBeVisible();
+
+    act(() => navigateTo("/plugins/store/acme.clock"));
+    await screen.findByRole("heading", { level: 1, name: "Clock" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const action = screen.getByRole("button", { name: "Review & install" });
+    expect(action).toBeEnabled();
+
+    // Back on the first listing the earlier review is gone, not resurrected.
+    act(() => navigateTo("/plugins/store/acme.weather"));
+    await screen.findByRole("heading", { level: 1, name: "Weather" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(installs()).toHaveLength(0);
+  });
+
+  it("drops a review that resolves after the person moved on", async () => {
+    const user = userEvent.setup();
+    let release: () => void = () => undefined;
+    resolveGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    renderDetail("acme.weather");
+    await user.click(
+      await screen.findByRole("button", { name: "Review & install" }),
+    );
+    act(() => navigateTo("/plugins/store/acme.clock"));
+    await screen.findByRole("heading", { level: 1, name: "Clock" });
+
+    await act(async () => {
+      release();
+      await resolveGate;
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // The new listing is not stuck on the old one's pending review.
+    expect(
+      screen.getByRole("button", { name: "Review & install" }),
+    ).toBeEnabled();
+    expect(installs()).toHaveLength(0);
+  });
+
+  it("confirms only the listing it was opened for", async () => {
+    const user = userEvent.setup();
+    renderDetail("acme.clock");
+    await user.click(
+      await screen.findByRole("button", { name: "Review & install" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Install plugin" }),
+    );
+    await waitFor(() =>
+      expect(installs()).toEqual([
+        { method: "POST", path: "/plugin-store/acme.clock/install" },
+      ]),
+    );
   });
 });
