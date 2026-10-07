@@ -1,8 +1,11 @@
 name: Android CodeQL
 
 on:
-  # Every pull request, including one stacked on another PR's branch.
+  # Every relevant pull request, including one stacked on another PR's branch.
   pull_request:
+    paths:
+      - "apps/player-android/**"
+      - ".github/workflows/codeql-android.yml"
   push:
     branches: [main]
     paths:
