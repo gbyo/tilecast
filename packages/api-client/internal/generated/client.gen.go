@@ -7873,6 +7873,34 @@ type GitHubDeviceStart struct {
 	VerificationUri     string             `json:"verificationUri"`
 }
 
+// GitHubInstallReview The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+type GitHubInstallReview struct {
+	Compatible    bool `json:"compatible"`
+	Contributions []struct {
+		Path string `json:"path"`
+		Type string `json:"type"`
+	} `json:"contributions"`
+
+	// Digest Pinned artifact digest as sha256 colon hex.
+	Digest           string  `json:"digest"`
+	Installed        bool    `json:"installed"`
+	InstalledVersion *string `json:"installedVersion,omitempty"`
+
+	// Manifest The human-readable face of an installed or resolved package manifest.
+	Manifest      PackageManifestSummary `json:"manifest"`
+	Owner         string                 `json:"owner"`
+	PackageId     string                 `json:"packageId"`
+	PublishedAt   *time.Time             `json:"publishedAt,omitempty"`
+	Registry      string                 `json:"registry"`
+	ReleaseName   *string                `json:"releaseName,omitempty"`
+	ReleaseTag    string                 `json:"releaseTag"`
+	Repo          string                 `json:"repo"`
+	RepositoryUrl string                 `json:"repositoryUrl"`
+	Signer        *string                `json:"signer,omitempty"`
+	Trust         string                 `json:"trust"`
+	Version       string                 `json:"version"`
+}
+
 // HeartbeatAccepted defines model for HeartbeatAccepted.
 type HeartbeatAccepted struct {
 	Accepted bool `json:"accepted"`
@@ -8078,6 +8106,31 @@ type InstallationIdentity struct {
 	OrganizationName string             `json:"organizationName"`
 	PairingEnabled   bool               `json:"pairingEnabled"`
 	Product          string             `json:"product"`
+}
+
+// InstalledPackage One installed extension package with its contributions and, for custom packages, the repository binding.
+type InstalledPackage struct {
+	ActivatedAt   time.Time             `json:"activatedAt"`
+	Contributions []PackageContribution `json:"contributions"`
+
+	// Digest Pinned artifact digest as sha256 colon hex.
+	Digest      string              `json:"digest"`
+	HasRollback bool                `json:"hasRollback"`
+	InstalledAt time.Time           `json:"installedAt"`
+	InstalledBy *openapi_types.UUID `json:"installedBy"`
+
+	// Manifest The human-readable face of an installed or resolved package manifest.
+	Manifest          PackageManifestSummary `json:"manifest"`
+	PackageId         string                 `json:"packageId"`
+	RegistryReference string                 `json:"registryReference"`
+	SignerIdentity    *string                `json:"signerIdentity,omitempty"`
+
+	// Source The custom repository binding behind an installed custom package.
+	Source          *PackageSourceBinding `json:"source,omitempty"`
+	SourceKind      string                `json:"sourceKind"`
+	SourceReference string                `json:"sourceReference"`
+	Trust           string                `json:"trust"`
+	Version         string                `json:"version"`
 }
 
 // IntegrationRowsResult defines model for IntegrationRowsResult.
@@ -8663,6 +8716,48 @@ type OAuthTokens struct {
 
 // OAuthTokensTokenType defines model for OAuthTokens.TokenType.
 type OAuthTokensTokenType string
+
+// PackageContribution One activated contribution: its kind, its package-qualified identity, and its path inside the package.
+type PackageContribution struct {
+	Id   string `json:"id"`
+	Kind string `json:"kind"`
+	Path string `json:"path"`
+}
+
+// PackageManifestSummary The human-readable face of an installed or resolved package manifest.
+type PackageManifestSummary struct {
+	Description   string `json:"description"`
+	License       string `json:"license"`
+	Name          string `json:"name"`
+	PublisherId   string `json:"publisherId"`
+	PublisherName string `json:"publisherName"`
+	TilecastRange string `json:"tilecastRange"`
+}
+
+// PackageSourceBinding The custom repository binding behind an installed custom package.
+type PackageSourceBinding struct {
+	AddedAt       time.Time `json:"addedAt"`
+	Name          string    `json:"name"`
+	Owner         string    `json:"owner"`
+	RepositoryUrl string    `json:"repositoryUrl"`
+	ResolvedAt    time.Time `json:"resolvedAt"`
+
+	// ResolvedDigest Last verified artifact digest as sha256 colon hex.
+	ResolvedDigest string `json:"resolvedDigest"`
+}
+
+// PackageUpdateCheck The latest artifact for an installed package, resolved without activating anything. latest is present when available.
+type PackageUpdateCheck struct {
+	Available bool `json:"available"`
+
+	// Installed One installed extension package with its contributions and, for custom packages, the repository binding.
+	Installed   InstalledPackage `json:"installed"`
+	LastChecked time.Time        `json:"lastChecked"`
+
+	// Latest The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+	Latest   *GitHubInstallReview `json:"latest,omitempty"`
+	UpToDate bool                 `json:"upToDate"`
+}
 
 // PairingRequest defines model for PairingRequest.
 type PairingRequest struct {
@@ -9632,18 +9727,38 @@ type PluginStore struct {
 	} `json:"unsupportedInstallations"`
 }
 
-// PluginStoreEntry One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present.
+// PluginStoreCustom One custom-repository package joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry. Carries no update flag: freshness needs a live re-resolution through an update check.
+type PluginStoreCustom struct {
+	Compatible  bool    `json:"compatible"`
+	Description *string `json:"description,omitempty"`
+
+	// Digest Last verified artifact digest as sha256 colon hex.
+	Digest           string  `json:"digest"`
+	Installed        bool    `json:"installed"`
+	InstalledVersion *string `json:"installedVersion,omitempty"`
+	License          *string `json:"license,omitempty"`
+	Name             string  `json:"name"`
+	PublisherId      string  `json:"publisherId"`
+	PublisherName    string  `json:"publisherName"`
+	TilecastRange    string  `json:"tilecastRange"`
+	Version          string  `json:"version"`
+}
+
+// PluginStoreEntry One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present.
 type PluginStoreEntry struct {
-	// Marketplace One marketplace listing joined with this installation's state. Exactly one of plugin and marketplace is present on a store entry.
+	// Custom One custom-repository package joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry. Carries no update flag: freshness needs a live re-resolution through an update check.
+	Custom *PluginStoreCustom `json:"custom,omitempty"`
+
+	// Marketplace One marketplace listing joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry.
 	Marketplace *PluginStoreMarketplace `json:"marketplace,omitempty"`
 	PackageId   string                  `json:"packageId"`
 	Plugin      *CatalogPlugin          `json:"plugin,omitempty"`
 
-	// Source Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know.
+	// Source Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID; "custom" entries come from a bound repository and carry its URL. Clients must tolerate values they do not know.
 	Source PluginStoreSource `json:"source"`
 }
 
-// PluginStoreMarketplace One marketplace listing joined with this installation's state. Exactly one of plugin and marketplace is present on a store entry.
+// PluginStoreMarketplace One marketplace listing joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry.
 type PluginStoreMarketplace struct {
 	Categories  *[]string `json:"categories,omitempty"`
 	Compatible  bool      `json:"compatible"`
@@ -9668,7 +9783,7 @@ type PluginStoreMarketplace struct {
 	Version         string `json:"version"`
 }
 
-// PluginStoreSource Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know.
+// PluginStoreSource Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID; "custom" entries come from a bound repository and carry its URL. Clients must tolerate values they do not know.
 type PluginStoreSource struct {
 	CatalogId  *string `json:"catalogId,omitempty"`
 	Kind       string  `json:"kind"`
@@ -12618,6 +12733,36 @@ type RevokeOAuthCredentialJSONBody struct {
 	Token string `json:"token"`
 }
 
+// RemovePackageParams defines parameters for RemovePackage.
+type RemovePackageParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// RollbackPackageParams defines parameters for RollbackPackage.
+type RollbackPackageParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// ApplyPackageUpdateJSONBody defines parameters for ApplyPackageUpdate.
+type ApplyPackageUpdateJSONBody struct {
+	// Digest Pinned artifact digest as sha256 colon hex.
+	Digest string `json:"digest"`
+}
+
+// ApplyPackageUpdateParams defines parameters for ApplyPackageUpdate.
+type ApplyPackageUpdateParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// CheckPackageUpdateParams defines parameters for CheckPackageUpdate.
+type CheckPackageUpdateParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // ConfigureGitHubReleasesJSONBody defines parameters for ConfigureGitHubReleases.
 type ConfigureGitHubReleasesJSONBody struct {
 	ClientId string `json:"clientId"`
@@ -12819,6 +12964,36 @@ type SetPlaylistTagRuleParams struct {
 
 // RefreshMarketplaceCatalogParams defines parameters for RefreshMarketplaceCatalog.
 type RefreshMarketplaceCatalogParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// ResolveGitHubRepositoryJSONBody defines parameters for ResolveGitHubRepository.
+type ResolveGitHubRepositoryJSONBody struct {
+	// Repository Public GitHub repository URL.
+	Repository string `json:"repository"`
+}
+
+// ResolveGitHubRepositoryParams defines parameters for ResolveGitHubRepository.
+type ResolveGitHubRepositoryParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// InstallStorePackageJSONBody defines parameters for InstallStorePackage.
+type InstallStorePackageJSONBody struct {
+	// Repository Custom repository URL. Omit for marketplace listings.
+	Repository *string `json:"repository,omitempty"`
+}
+
+// InstallStorePackageParams defines parameters for InstallStorePackage.
+type InstallStorePackageParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// ResolveMarketplacePackageParams defines parameters for ResolveMarketplacePackage.
+type ResolveMarketplacePackageParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
@@ -13557,6 +13732,9 @@ type RevokeOAuthCredentialJSONRequestBody RevokeOAuthCredentialJSONBody
 // IssueOAuthTokensJSONRequestBody defines body for IssueOAuthTokens for application/json ContentType.
 type IssueOAuthTokensJSONRequestBody = OAuthTokenRequest
 
+// ApplyPackageUpdateJSONRequestBody defines body for ApplyPackageUpdate for application/json ContentType.
+type ApplyPackageUpdateJSONRequestBody ApplyPackageUpdateJSONBody
+
 // ConfigureGitHubReleasesJSONRequestBody defines body for ConfigureGitHubReleases for application/json ContentType.
 type ConfigureGitHubReleasesJSONRequestBody ConfigureGitHubReleasesJSONBody
 
@@ -13628,6 +13806,12 @@ type PublishPlaylistJSONRequestBody PublishPlaylistJSONBody
 
 // SetPlaylistTagRuleJSONRequestBody defines body for SetPlaylistTagRule for application/json ContentType.
 type SetPlaylistTagRuleJSONRequestBody = PlaylistTagRuleInput
+
+// ResolveGitHubRepositoryJSONRequestBody defines body for ResolveGitHubRepository for application/json ContentType.
+type ResolveGitHubRepositoryJSONRequestBody ResolveGitHubRepositoryJSONBody
+
+// InstallStorePackageJSONRequestBody defines body for InstallStorePackage for application/json ContentType.
+type InstallStorePackageJSONRequestBody InstallStorePackageJSONBody
 
 // CreateCountdownBarInstanceJSONRequestBody defines body for CreateCountdownBarInstance for application/json ContentType.
 type CreateCountdownBarInstanceJSONRequestBody = CountdownBarInput
@@ -16078,6 +16262,43 @@ type ClientInterface interface {
 	// Public and rate-limited. Exchanges a single-use code with its PKCE verifier, or rotates a refresh token. PKCE is the client authentication for loopback clients. Reusing a rotated refresh token revokes the whole grant.
 	IssueOAuthTokens(ctx context.Context, body IssueOAuthTokensJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListPackages performs a GET /api/v1/packages (the `ListPackages` operationId) request.
+	//
+	// Every installed extension package with its contributions and, for custom packages, the repository binding. Readable by any signed-in account.
+	ListPackages(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemovePackage performs a DELETE /api/v1/packages/{packageId} (the `RemovePackage` operationId) request.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Deletes the installation and its contribution rows. The custom source, when any, survives for reinstall. Audited.
+	RemovePackage(ctx context.Context, packageId PackageID, params *RemovePackageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPackage performs a GET /api/v1/packages/{packageId} (the `GetPackage` operationId) request.
+	//
+	// One installed extension package. Readable by any signed-in account. Unknown package IDs answer package_not_installed.
+	GetPackage(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RollbackPackage performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
+	RollbackPackage(ctx context.Context, packageId PackageID, params *RollbackPackageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApplyPackageUpdateWithBody performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Activates the digest an update check approved. The check re-resolves fresh, so a stale digest answers update_check_expired instead of installing old bytes. Audited.
+	ApplyPackageUpdateWithBody(ctx context.Context, packageId PackageID, params *ApplyPackageUpdateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApplyPackageUpdate performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Activates the digest an update check approved. The check re-resolves fresh, so a stale digest answers update_check_expired instead of installing old bytes. Audited.
+	ApplyPackageUpdate(ctx context.Context, packageId PackageID, params *ApplyPackageUpdateParams, body ApplyPackageUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CheckPackageUpdate performs a POST /api/v1/packages/{packageId}/update-check (the `CheckPackageUpdate` operationId) request.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves the latest artifact for an installed package without activating anything. A custom package re-resolves its repository; a marketplace package refreshes the catalog first.
+	CheckPackageUpdate(ctx context.Context, packageId PackageID, params *CheckPackageUpdateParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListPlayerReleases List fixed-repository Tilecast Player releases and verification state
 	//
 	// Requires an authenticated dashboard user.
@@ -16572,7 +16793,7 @@ type ClientInterface interface {
 
 	// ListPluginStore performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
 	//
-	// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later.
+	// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Release-owned entries always appear; marketplace entries join the release-owned entries; custom entries join from bound repositories.
 	ListPluginStore(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RefreshMarketplaceCatalog performs a POST /api/v1/plugin-store/marketplace/refresh (the `RefreshMarketplaceCatalog` operationId) request.
@@ -16580,10 +16801,39 @@ type ClientInterface interface {
 	// Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
 	RefreshMarketplaceCatalog(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ResolveGitHubRepositoryWithBody performs a POST /api/v1/plugin-store/resolve-github (the `ResolveGitHubRepository` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a public GitHub repository URL to its install review: the published manifest, the pinned digest, provenance, and installed state. Persists nothing; installing re-resolves fresh.
+	ResolveGitHubRepositoryWithBody(ctx context.Context, params *ResolveGitHubRepositoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResolveGitHubRepository performs a POST /api/v1/plugin-store/resolve-github (the `ResolveGitHubRepository` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a public GitHub repository URL to its install review: the published manifest, the pinned digest, provenance, and installed state. Persists nothing; installing re-resolves fresh.
+	ResolveGitHubRepository(ctx context.Context, params *ResolveGitHubRepositoryParams, body ResolveGitHubRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetPluginStoreEntry performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
 	//
 	// One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
 	GetPluginStoreEntry(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InstallStorePackageWithBody performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
+	InstallStorePackageWithBody(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InstallStorePackage performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
+	InstallStorePackage(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, body InstallStorePackageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResolveMarketplacePackage performs a POST /api/v1/plugin-store/{packageId}/resolve (the `ResolveMarketplacePackage` operationId) request.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a cached marketplace listing to its install review: the pinned artifact verifies provenance, pulls by digest, and reads the published manifest, which is authoritative for capabilities. Installs nothing; installing re-resolves fresh.
+	ResolveMarketplacePackage(ctx context.Context, packageId PackageID, params *ResolveMarketplacePackageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPlugins performs a GET /api/v1/plugins (the `ListPlugins` operationId) request.
 	//
@@ -21769,6 +22019,113 @@ func (c *Client) IssueOAuthTokens(ctx context.Context, body IssueOAuthTokensJSON
 	return c.Client.Do(req)
 }
 
+// ListPackages performs a GET /api/v1/packages (the `ListPackages` operationId) request.
+//
+// Every installed extension package with its contributions and, for custom packages, the repository binding. Readable by any signed-in account.
+func (c *Client) ListPackages(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPackagesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RemovePackage performs a DELETE /api/v1/packages/{packageId} (the `RemovePackage` operationId) request.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Deletes the installation and its contribution rows. The custom source, when any, survives for reinstall. Audited.
+func (c *Client) RemovePackage(ctx context.Context, packageId PackageID, params *RemovePackageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemovePackageRequest(c.Server, packageId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPackage performs a GET /api/v1/packages/{packageId} (the `GetPackage` operationId) request.
+//
+// One installed extension package. Readable by any signed-in account. Unknown package IDs answer package_not_installed.
+func (c *Client) GetPackage(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPackageRequest(c.Server, packageId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RollbackPackage performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
+func (c *Client) RollbackPackage(ctx context.Context, packageId PackageID, params *RollbackPackageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRollbackPackageRequest(c.Server, packageId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApplyPackageUpdateWithBody performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Activates the digest an update check approved. The check re-resolves fresh, so a stale digest answers update_check_expired instead of installing old bytes. Audited.
+func (c *Client) ApplyPackageUpdateWithBody(ctx context.Context, packageId PackageID, params *ApplyPackageUpdateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplyPackageUpdateRequestWithBody(c.Server, packageId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ApplyPackageUpdate performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Activates the digest an update check approved. The check re-resolves fresh, so a stale digest answers update_check_expired instead of installing old bytes. Audited.
+func (c *Client) ApplyPackageUpdate(ctx context.Context, packageId PackageID, params *ApplyPackageUpdateParams, body ApplyPackageUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplyPackageUpdateRequest(c.Server, packageId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CheckPackageUpdate performs a POST /api/v1/packages/{packageId}/update-check (the `CheckPackageUpdate` operationId) request.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves the latest artifact for an installed package without activating anything. A custom package re-resolves its repository; a marketplace package refreshes the catalog first.
+func (c *Client) CheckPackageUpdate(ctx context.Context, packageId PackageID, params *CheckPackageUpdateParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCheckPackageUpdateRequest(c.Server, packageId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListPlayerReleases List fixed-repository Tilecast Player releases and verification state
 //
 // Requires an authenticated dashboard user.
@@ -23053,7 +23410,7 @@ func (c *Client) SetPlaylistTagRule(ctx context.Context, id ResourceID, params *
 
 // ListPluginStore performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
 //
-// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later.
+// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Release-owned entries always appear; marketplace entries join the release-owned entries; custom entries join from bound repositories.
 func (c *Client) ListPluginStore(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListPluginStoreRequest(c.Server)
 	if err != nil {
@@ -23081,11 +23438,90 @@ func (c *Client) RefreshMarketplaceCatalog(ctx context.Context, params *RefreshM
 	return c.Client.Do(req)
 }
 
+// ResolveGitHubRepositoryWithBody performs a POST /api/v1/plugin-store/resolve-github (the `ResolveGitHubRepository` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a public GitHub repository URL to its install review: the published manifest, the pinned digest, provenance, and installed state. Persists nothing; installing re-resolves fresh.
+func (c *Client) ResolveGitHubRepositoryWithBody(ctx context.Context, params *ResolveGitHubRepositoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResolveGitHubRepositoryRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ResolveGitHubRepository performs a POST /api/v1/plugin-store/resolve-github (the `ResolveGitHubRepository` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a public GitHub repository URL to its install review: the published manifest, the pinned digest, provenance, and installed state. Persists nothing; installing re-resolves fresh.
+func (c *Client) ResolveGitHubRepository(ctx context.Context, params *ResolveGitHubRepositoryParams, body ResolveGitHubRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResolveGitHubRepositoryRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetPluginStoreEntry performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
 //
 // One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
 func (c *Client) GetPluginStoreEntry(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPluginStoreEntryRequest(c.Server, packageId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// InstallStorePackageWithBody performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
+func (c *Client) InstallStorePackageWithBody(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInstallStorePackageRequestWithBody(c.Server, packageId, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// InstallStorePackage performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
+func (c *Client) InstallStorePackage(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, body InstallStorePackageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInstallStorePackageRequest(c.Server, packageId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ResolveMarketplacePackage performs a POST /api/v1/plugin-store/{packageId}/resolve (the `ResolveMarketplacePackage` operationId) request.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a cached marketplace listing to its install review: the pinned artifact verifies provenance, pulls by digest, and reads the published manifest, which is authoritative for capabilities. Installs nothing; installing re-resolves fresh.
+func (c *Client) ResolveMarketplacePackage(ctx context.Context, packageId PackageID, params *ResolveMarketplacePackageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResolveMarketplacePackageRequest(c.Server, packageId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -36102,6 +36538,276 @@ func NewIssueOAuthTokensRequestWithBody(server string, contentType string, body 
 	return req, nil
 }
 
+// NewListPackagesRequest constructs an http.Request for the ListPackages method
+func NewListPackagesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRemovePackageRequest constructs an http.Request for the RemovePackage method
+func NewRemovePackageRequest(server string, packageId PackageID, params *RemovePackageParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewGetPackageRequest constructs an http.Request for the GetPackage method
+func NewGetPackageRequest(server string, packageId PackageID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRollbackPackageRequest constructs an http.Request for the RollbackPackage method
+func NewRollbackPackageRequest(server string, packageId PackageID, params *RollbackPackageParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/rollback", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewApplyPackageUpdateRequest calls the generic ApplyPackageUpdate builder with application/json body
+func NewApplyPackageUpdateRequest(server string, packageId PackageID, params *ApplyPackageUpdateParams, body ApplyPackageUpdateJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApplyPackageUpdateRequestWithBody(server, packageId, params, "application/json", bodyReader)
+}
+
+// NewApplyPackageUpdateRequestWithBody constructs an http.Request for the ApplyPackageUpdate method, with any body, and a specified content type
+func NewApplyPackageUpdateRequestWithBody(server string, packageId PackageID, params *ApplyPackageUpdateParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/update", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewCheckPackageUpdateRequest constructs an http.Request for the CheckPackageUpdate method
+func NewCheckPackageUpdateRequest(server string, packageId PackageID, params *CheckPackageUpdateParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/update-check", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewListPlayerReleasesRequest constructs an http.Request for the ListPlayerReleases method
 func NewListPlayerReleasesRequest(server string) (*http.Request, error) {
 	var err error
@@ -38542,6 +39248,61 @@ func NewRefreshMarketplaceCatalogRequest(server string, params *RefreshMarketpla
 	return req, nil
 }
 
+// NewResolveGitHubRepositoryRequest calls the generic ResolveGitHubRepository builder with application/json body
+func NewResolveGitHubRepositoryRequest(server string, params *ResolveGitHubRepositoryParams, body ResolveGitHubRepositoryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewResolveGitHubRepositoryRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewResolveGitHubRepositoryRequestWithBody constructs an http.Request for the ResolveGitHubRepository method, with any body, and a specified content type
+func NewResolveGitHubRepositoryRequestWithBody(server string, params *ResolveGitHubRepositoryParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store/resolve-github")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewGetPluginStoreEntryRequest constructs an http.Request for the GetPluginStoreEntry method
 func NewGetPluginStoreEntryRequest(server string, packageId PackageID) (*http.Request, error) {
 	var err error
@@ -38571,6 +39332,117 @@ func NewGetPluginStoreEntryRequest(server string, packageId PackageID) (*http.Re
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewInstallStorePackageRequest calls the generic InstallStorePackage builder with application/json body
+func NewInstallStorePackageRequest(server string, packageId PackageID, params *InstallStorePackageParams, body InstallStorePackageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewInstallStorePackageRequestWithBody(server, packageId, params, "application/json", bodyReader)
+}
+
+// NewInstallStorePackageRequestWithBody constructs an http.Request for the InstallStorePackage method, with any body, and a specified content type
+func NewInstallStorePackageRequestWithBody(server string, packageId PackageID, params *InstallStorePackageParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store/%s/install", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewResolveMarketplacePackageRequest constructs an http.Request for the ResolveMarketplacePackage method
+func NewResolveMarketplacePackageRequest(server string, packageId PackageID, params *ResolveMarketplacePackageParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store/%s/resolve", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -46705,6 +47577,55 @@ type ClientWithResponsesInterface interface {
 	// Public and rate-limited. Exchanges a single-use code with its PKCE verifier, or rotates a refresh token. PKCE is the client authentication for loopback clients. Reusing a rotated refresh token revokes the whole grant.
 	IssueOAuthTokensWithResponse(ctx context.Context, body IssueOAuthTokensJSONRequestBody, reqEditors ...RequestEditorFn) (*IssueOAuthTokensResponse, error)
 
+	// ListPackagesWithResponse performs a GET /api/v1/packages (the `ListPackages` operationId) request.
+	//
+	// Every installed extension package with its contributions and, for custom packages, the repository binding. Readable by any signed-in account.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListPackagesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPackagesResponse, error)
+
+	// RemovePackageWithResponse performs a DELETE /api/v1/packages/{packageId} (the `RemovePackage` operationId) request.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Deletes the installation and its contribution rows. The custom source, when any, survives for reinstall. Audited.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	RemovePackageWithResponse(ctx context.Context, packageId PackageID, params *RemovePackageParams, reqEditors ...RequestEditorFn) (*RemovePackageResponse, error)
+
+	// GetPackageWithResponse performs a GET /api/v1/packages/{packageId} (the `GetPackage` operationId) request.
+	//
+	// One installed extension package. Readable by any signed-in account. Unknown package IDs answer package_not_installed.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetPackageWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetPackageResponse, error)
+
+	// RollbackPackageWithResponse performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	RollbackPackageWithResponse(ctx context.Context, packageId PackageID, params *RollbackPackageParams, reqEditors ...RequestEditorFn) (*RollbackPackageResponse, error)
+
+	// ApplyPackageUpdateWithBodyWithResponse performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Activates the digest an update check approved. The check re-resolves fresh, so a stale digest answers update_check_expired instead of installing old bytes. Audited.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ApplyPackageUpdateWithBodyWithResponse(ctx context.Context, packageId PackageID, params *ApplyPackageUpdateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyPackageUpdateResponse, error)
+
+	// ApplyPackageUpdateWithResponse performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Activates the digest an update check approved. The check re-resolves fresh, so a stale digest answers update_check_expired instead of installing old bytes. Audited.
+	ApplyPackageUpdateWithResponse(ctx context.Context, packageId PackageID, params *ApplyPackageUpdateParams, body ApplyPackageUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyPackageUpdateResponse, error)
+
+	// CheckPackageUpdateWithResponse performs a POST /api/v1/packages/{packageId}/update-check (the `CheckPackageUpdate` operationId) request.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves the latest artifact for an installed package without activating anything. A custom package re-resolves its repository; a marketplace package refreshes the catalog first.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CheckPackageUpdateWithResponse(ctx context.Context, packageId PackageID, params *CheckPackageUpdateParams, reqEditors ...RequestEditorFn) (*CheckPackageUpdateResponse, error)
+
 	// ListPlayerReleasesWithResponse List fixed-repository Tilecast Player releases and verification state
 	//
 	// Requires an authenticated dashboard user.
@@ -47305,7 +48226,7 @@ type ClientWithResponsesInterface interface {
 
 	// ListPluginStoreWithResponse performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
 	//
-	// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later.
+	// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Release-owned entries always appear; marketplace entries join the release-owned entries; custom entries join from bound repositories.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	ListPluginStoreWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPluginStoreResponse, error)
@@ -47317,12 +48238,47 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	RefreshMarketplaceCatalogWithResponse(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error)
 
+	// ResolveGitHubRepositoryWithBodyWithResponse performs a POST /api/v1/plugin-store/resolve-github (the `ResolveGitHubRepository` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a public GitHub repository URL to its install review: the published manifest, the pinned digest, provenance, and installed state. Persists nothing; installing re-resolves fresh.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ResolveGitHubRepositoryWithBodyWithResponse(ctx context.Context, params *ResolveGitHubRepositoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ResolveGitHubRepositoryResponse, error)
+
+	// ResolveGitHubRepositoryWithResponse performs a POST /api/v1/plugin-store/resolve-github (the `ResolveGitHubRepository` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a public GitHub repository URL to its install review: the published manifest, the pinned digest, provenance, and installed state. Persists nothing; installing re-resolves fresh.
+	ResolveGitHubRepositoryWithResponse(ctx context.Context, params *ResolveGitHubRepositoryParams, body ResolveGitHubRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*ResolveGitHubRepositoryResponse, error)
+
 	// GetPluginStoreEntryWithResponse performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
 	//
 	// One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetPluginStoreEntryWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetPluginStoreEntryResponse, error)
+
+	// InstallStorePackageWithBodyWithResponse performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	InstallStorePackageWithBodyWithResponse(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InstallStorePackageResponse, error)
+
+	// InstallStorePackageWithResponse performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
+	InstallStorePackageWithResponse(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, body InstallStorePackageJSONRequestBody, reqEditors ...RequestEditorFn) (*InstallStorePackageResponse, error)
+
+	// ResolveMarketplacePackageWithResponse performs a POST /api/v1/plugin-store/{packageId}/resolve (the `ResolveMarketplacePackage` operationId) request.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a cached marketplace listing to its install review: the pinned artifact verifies provenance, pulls by digest, and reads the published manifest, which is authoritative for capabilities. Installs nothing; installing re-resolves fresh.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ResolveMarketplacePackageWithResponse(ctx context.Context, packageId PackageID, params *ResolveMarketplacePackageParams, reqEditors ...RequestEditorFn) (*ResolveMarketplacePackageResponse, error)
 
 	// ListPluginsWithResponse performs a GET /api/v1/plugins (the `ListPlugins` operationId) request.
 	//
@@ -56760,6 +57716,279 @@ func (r IssueOAuthTokensResponse) ContentType() string {
 	return ""
 }
 
+type ListPackagesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []InstalledPackage `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPackagesResponse) GetJSON200() *struct {
+	Data []InstalledPackage `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPackagesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPackagesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPackagesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPackagesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RemovePackageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r RemovePackageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RemovePackageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemovePackageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RemovePackageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetPackageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data One installed extension package with its contributions and, for custom packages, the repository binding.
+		Data InstalledPackage `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPackageResponse) GetJSON200() *struct {
+	// Data One installed extension package with its contributions and, for custom packages, the repository binding.
+	Data InstalledPackage `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPackageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPackageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPackageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPackageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RollbackPackageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data One installed extension package with its contributions and, for custom packages, the repository binding.
+		Data InstalledPackage `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RollbackPackageResponse) GetJSON200() *struct {
+	// Data One installed extension package with its contributions and, for custom packages, the repository binding.
+	Data InstalledPackage `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r RollbackPackageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RollbackPackageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RollbackPackageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RollbackPackageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ApplyPackageUpdateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			// Package One installed extension package with its contributions and, for custom packages, the repository binding.
+			Package InstalledPackage `json:"package"`
+			Updated bool             `json:"updated"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ApplyPackageUpdateResponse) GetJSON200() *struct {
+	Data struct {
+		// Package One installed extension package with its contributions and, for custom packages, the repository binding.
+		Package InstalledPackage `json:"package"`
+		Updated bool             `json:"updated"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ApplyPackageUpdateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ApplyPackageUpdateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ApplyPackageUpdateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ApplyPackageUpdateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CheckPackageUpdateResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data The latest artifact for an installed package, resolved without activating anything. latest is present when available.
+		Data PackageUpdateCheck `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r CheckPackageUpdateResponse) GetJSON200() *struct {
+	// Data The latest artifact for an installed package, resolved without activating anything. latest is present when available.
+	Data PackageUpdateCheck `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r CheckPackageUpdateResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CheckPackageUpdateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CheckPackageUpdateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CheckPackageUpdateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListPlayerReleasesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -59326,19 +60555,66 @@ func (r RefreshMarketplaceCatalogResponse) ContentType() string {
 	return ""
 }
 
+type ResolveGitHubRepositoryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+		Data GitHubInstallReview `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ResolveGitHubRepositoryResponse) GetJSON200() *struct {
+	// Data The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+	Data GitHubInstallReview `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ResolveGitHubRepositoryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ResolveGitHubRepositoryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResolveGitHubRepositoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ResolveGitHubRepositoryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetPluginStoreEntryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
-		// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present.
+		// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present.
 		Data PluginStoreEntry `json:"data"`
 	}
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetPluginStoreEntryResponse) GetJSON200() *struct {
-	// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present.
+	// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present.
 	Data PluginStoreEntry `json:"data"`
 } {
 	return r.JSON200
@@ -59367,6 +60643,100 @@ func (r GetPluginStoreEntryResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetPluginStoreEntryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type InstallStorePackageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		// Data One installed extension package with its contributions and, for custom packages, the repository binding.
+		Data InstalledPackage `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r InstallStorePackageResponse) GetJSON201() *struct {
+	// Data One installed extension package with its contributions and, for custom packages, the repository binding.
+	Data InstalledPackage `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r InstallStorePackageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r InstallStorePackageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InstallStorePackageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InstallStorePackageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ResolveMarketplacePackageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+		Data GitHubInstallReview `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ResolveMarketplacePackageResponse) GetJSON200() *struct {
+	// Data The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+	Data GitHubInstallReview `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ResolveMarketplacePackageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ResolveMarketplacePackageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResolveMarketplacePackageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ResolveMarketplacePackageResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -68979,6 +70349,97 @@ func (c *ClientWithResponses) IssueOAuthTokensWithResponse(ctx context.Context, 
 	return ParseIssueOAuthTokensResponse(rsp)
 }
 
+// ListPackagesWithResponse performs a GET /api/v1/packages (the `ListPackages` operationId) request.
+//
+// Every installed extension package with its contributions and, for custom packages, the repository binding. Readable by any signed-in account.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListPackagesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPackagesResponse, error) {
+	rsp, err := c.ListPackages(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPackagesResponse(rsp)
+}
+
+// RemovePackageWithResponse performs a DELETE /api/v1/packages/{packageId} (the `RemovePackage` operationId) request.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Deletes the installation and its contribution rows. The custom source, when any, survives for reinstall. Audited.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) RemovePackageWithResponse(ctx context.Context, packageId PackageID, params *RemovePackageParams, reqEditors ...RequestEditorFn) (*RemovePackageResponse, error) {
+	rsp, err := c.RemovePackage(ctx, packageId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemovePackageResponse(rsp)
+}
+
+// GetPackageWithResponse performs a GET /api/v1/packages/{packageId} (the `GetPackage` operationId) request.
+//
+// One installed extension package. Readable by any signed-in account. Unknown package IDs answer package_not_installed.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetPackageWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetPackageResponse, error) {
+	rsp, err := c.GetPackage(ctx, packageId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPackageResponse(rsp)
+}
+
+// RollbackPackageWithResponse performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) RollbackPackageWithResponse(ctx context.Context, packageId PackageID, params *RollbackPackageParams, reqEditors ...RequestEditorFn) (*RollbackPackageResponse, error) {
+	rsp, err := c.RollbackPackage(ctx, packageId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRollbackPackageResponse(rsp)
+}
+
+// ApplyPackageUpdateWithBodyWithResponse performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Activates the digest an update check approved. The check re-resolves fresh, so a stale digest answers update_check_expired instead of installing old bytes. Audited.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ApplyPackageUpdateWithBodyWithResponse(ctx context.Context, packageId PackageID, params *ApplyPackageUpdateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ApplyPackageUpdateResponse, error) {
+	rsp, err := c.ApplyPackageUpdateWithBody(ctx, packageId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApplyPackageUpdateResponse(rsp)
+}
+
+// ApplyPackageUpdateWithResponse performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Activates the digest an update check approved. The check re-resolves fresh, so a stale digest answers update_check_expired instead of installing old bytes. Audited.
+func (c *ClientWithResponses) ApplyPackageUpdateWithResponse(ctx context.Context, packageId PackageID, params *ApplyPackageUpdateParams, body ApplyPackageUpdateJSONRequestBody, reqEditors ...RequestEditorFn) (*ApplyPackageUpdateResponse, error) {
+	rsp, err := c.ApplyPackageUpdate(ctx, packageId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseApplyPackageUpdateResponse(rsp)
+}
+
+// CheckPackageUpdateWithResponse performs a POST /api/v1/packages/{packageId}/update-check (the `CheckPackageUpdate` operationId) request.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves the latest artifact for an installed package without activating anything. A custom package re-resolves its repository; a marketplace package refreshes the catalog first.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CheckPackageUpdateWithResponse(ctx context.Context, packageId PackageID, params *CheckPackageUpdateParams, reqEditors ...RequestEditorFn) (*CheckPackageUpdateResponse, error) {
+	rsp, err := c.CheckPackageUpdate(ctx, packageId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCheckPackageUpdateResponse(rsp)
+}
+
 // ListPlayerReleasesWithResponse List fixed-repository Tilecast Player releases and verification state
 //
 // Requires an authenticated dashboard user.
@@ -70053,7 +71514,7 @@ func (c *ClientWithResponses) SetPlaylistTagRuleWithResponse(ctx context.Context
 
 // ListPluginStoreWithResponse performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
 //
-// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later.
+// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Release-owned entries always appear; marketplace entries join the release-owned entries; custom entries join from bound repositories.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) ListPluginStoreWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPluginStoreResponse, error) {
@@ -70077,6 +71538,32 @@ func (c *ClientWithResponses) RefreshMarketplaceCatalogWithResponse(ctx context.
 	return ParseRefreshMarketplaceCatalogResponse(rsp)
 }
 
+// ResolveGitHubRepositoryWithBodyWithResponse performs a POST /api/v1/plugin-store/resolve-github (the `ResolveGitHubRepository` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a public GitHub repository URL to its install review: the published manifest, the pinned digest, provenance, and installed state. Persists nothing; installing re-resolves fresh.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ResolveGitHubRepositoryWithBodyWithResponse(ctx context.Context, params *ResolveGitHubRepositoryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ResolveGitHubRepositoryResponse, error) {
+	rsp, err := c.ResolveGitHubRepositoryWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResolveGitHubRepositoryResponse(rsp)
+}
+
+// ResolveGitHubRepositoryWithResponse performs a POST /api/v1/plugin-store/resolve-github (the `ResolveGitHubRepository` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a public GitHub repository URL to its install review: the published manifest, the pinned digest, provenance, and installed state. Persists nothing; installing re-resolves fresh.
+func (c *ClientWithResponses) ResolveGitHubRepositoryWithResponse(ctx context.Context, params *ResolveGitHubRepositoryParams, body ResolveGitHubRepositoryJSONRequestBody, reqEditors ...RequestEditorFn) (*ResolveGitHubRepositoryResponse, error) {
+	rsp, err := c.ResolveGitHubRepository(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResolveGitHubRepositoryResponse(rsp)
+}
+
 // GetPluginStoreEntryWithResponse performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
 //
 // One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
@@ -70088,6 +71575,45 @@ func (c *ClientWithResponses) GetPluginStoreEntryWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetPluginStoreEntryResponse(rsp)
+}
+
+// InstallStorePackageWithBodyWithResponse performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
+// with any type of body and a specified content type.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) InstallStorePackageWithBodyWithResponse(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InstallStorePackageResponse, error) {
+	rsp, err := c.InstallStorePackageWithBody(ctx, packageId, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInstallStorePackageResponse(rsp)
+}
+
+// InstallStorePackageWithResponse performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
+func (c *ClientWithResponses) InstallStorePackageWithResponse(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, body InstallStorePackageJSONRequestBody, reqEditors ...RequestEditorFn) (*InstallStorePackageResponse, error) {
+	rsp, err := c.InstallStorePackage(ctx, packageId, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInstallStorePackageResponse(rsp)
+}
+
+// ResolveMarketplacePackageWithResponse performs a POST /api/v1/plugin-store/{packageId}/resolve (the `ResolveMarketplacePackage` operationId) request.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a cached marketplace listing to its install review: the pinned artifact verifies provenance, pulls by digest, and reads the published manifest, which is authoritative for capabilities. Installs nothing; installing re-resolves fresh.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ResolveMarketplacePackageWithResponse(ctx context.Context, packageId PackageID, params *ResolveMarketplacePackageParams, reqEditors ...RequestEditorFn) (*ResolveMarketplacePackageResponse, error) {
+	rsp, err := c.ResolveMarketplacePackage(ctx, packageId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResolveMarketplacePackageResponse(rsp)
 }
 
 // ListPluginsWithResponse performs a GET /api/v1/plugins (the `ListPlugins` operationId) request.
@@ -77903,6 +79429,226 @@ func ParseIssueOAuthTokensResponse(rsp *http.Response) (*IssueOAuthTokensRespons
 	return response, nil
 }
 
+// ParseListPackagesResponse parses an HTTP response from a ListPackagesWithResponse call
+func ParseListPackagesResponse(rsp *http.Response) (*ListPackagesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPackagesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []InstalledPackage `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseRemovePackageResponse parses an HTTP response from a RemovePackageWithResponse call
+func ParseRemovePackageResponse(rsp *http.Response) (*RemovePackageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemovePackageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetPackageResponse parses an HTTP response from a GetPackageWithResponse call
+func ParseGetPackageResponse(rsp *http.Response) (*GetPackageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPackageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data One installed extension package with its contributions and, for custom packages, the repository binding.
+			Data InstalledPackage `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseRollbackPackageResponse parses an HTTP response from a RollbackPackageWithResponse call
+func ParseRollbackPackageResponse(rsp *http.Response) (*RollbackPackageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RollbackPackageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data One installed extension package with its contributions and, for custom packages, the repository binding.
+			Data InstalledPackage `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseApplyPackageUpdateResponse parses an HTTP response from a ApplyPackageUpdateWithResponse call
+func ParseApplyPackageUpdateResponse(rsp *http.Response) (*ApplyPackageUpdateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ApplyPackageUpdateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				// Package One installed extension package with its contributions and, for custom packages, the repository binding.
+				Package InstalledPackage `json:"package"`
+				Updated bool             `json:"updated"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseCheckPackageUpdateResponse parses an HTTP response from a CheckPackageUpdateWithResponse call
+func ParseCheckPackageUpdateResponse(rsp *http.Response) (*CheckPackageUpdateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CheckPackageUpdateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data The latest artifact for an installed package, resolved without activating anything. latest is present when available.
+			Data PackageUpdateCheck `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseListPlayerReleasesResponse parses an HTTP response from a ListPlayerReleasesWithResponse call
 func ParseListPlayerReleasesResponse(rsp *http.Response) (*ListPlayerReleasesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -79698,6 +81444,53 @@ func ParseRefreshMarketplaceCatalogResponse(rsp *http.Response) (*RefreshMarketp
 	return response, nil
 }
 
+// ParseResolveGitHubRepositoryResponse parses an HTTP response from a ResolveGitHubRepositoryWithResponse call
+func ParseResolveGitHubRepositoryResponse(rsp *http.Response) (*ResolveGitHubRepositoryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResolveGitHubRepositoryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+			Data GitHubInstallReview `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseGetPluginStoreEntryResponse parses an HTTP response from a GetPluginStoreEntryWithResponse call
 func ParseGetPluginStoreEntryResponse(rsp *http.Response) (*GetPluginStoreEntryResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -79714,7 +81507,7 @@ func ParseGetPluginStoreEntryResponse(rsp *http.Response) (*GetPluginStoreEntryR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present.
+			// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present.
 			Data PluginStoreEntry `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -79726,6 +81519,97 @@ func ParseGetPluginStoreEntryResponse(rsp *http.Response) (*GetPluginStoreEntryR
 		break // No content-type
 
 	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseInstallStorePackageResponse parses an HTTP response from a InstallStorePackageWithResponse call
+func ParseInstallStorePackageResponse(rsp *http.Response) (*InstallStorePackageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InstallStorePackageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			// Data One installed extension package with its contributions and, for custom packages, the repository binding.
+			Data InstalledPackage `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseResolveMarketplacePackageResponse parses an HTTP response from a ResolveMarketplacePackageWithResponse call
+func ParseResolveMarketplacePackageResponse(rsp *http.Response) (*ResolveMarketplacePackageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResolveMarketplacePackageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+			Data GitHubInstallReview `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
 		break // No content-type
 
 	}

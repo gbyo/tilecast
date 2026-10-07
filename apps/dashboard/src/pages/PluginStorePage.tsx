@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   ChevronRight,
   CircleAlert,
+  Plus,
   Puzzle,
   SearchIcon,
   SearchX,
@@ -50,6 +51,7 @@ import {
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import { AddCustomRepositoryDialog } from "../plugins/AddCustomRepositoryDialog";
 import {
   filterStoreEntries,
   headlineRequirements,
@@ -75,6 +77,12 @@ const categoryLabelKeys = {
   `catalog.categories.${string}`
 >;
 
+/**
+ * Explore: the searchable plugin store. Release-owned, marketplace, and
+ * custom entries share one list; the marketplace joins it once the
+ * operator configures a catalog, and custom entries once a repository is
+ * added.
+ */
 export function PluginStorePage() {
   const { t } = useTranslation("plugins");
   const auth = useAuth();
@@ -83,6 +91,8 @@ export function PluginStorePage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<StoreCategoryFilter>("All");
   const [source, setSource] = useState<StoreSourceFilter>("all");
+  const [addOpen, setAddOpen] = useState(false);
+  const canRefresh = canManage(auth.status?.user?.role);
 
   const entries = useMemo(() => store.data?.items ?? [], [store.data]);
   const sourceKinds = useMemo(
@@ -99,6 +109,19 @@ export function PluginStorePage() {
       <PageHeader
         title={t("store.title")}
         description={t("store.description")}
+        actions={
+          canRefresh ? (
+            <Button variant="default" onClick={() => setAddOpen(true)}>
+              <Plus data-icon="inline-start" aria-hidden="true" />
+              {t("store.add.action")}
+            </Button>
+          ) : undefined
+        }
+      />
+      <AddCustomRepositoryDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        csrfToken={auth.status?.csrfToken ?? ""}
       />
 
       {store.isError && (
@@ -270,6 +293,7 @@ function StoreFilters({
 function sourceLabel(kind: string, t: PluginsT) {
   if (kind === "included") return t("store.sources.included");
   if (kind === "marketplace") return t("store.sources.marketplace");
+  if (kind === "custom") return t("store.sources.custom");
   return kind;
 }
 
@@ -355,12 +379,12 @@ function StoreRow({ entry }: { entry: PluginStoreEntry }) {
         <ItemDescription>{view.description}</ItemDescription>
         <div className="flex flex-wrap items-center gap-1.5">
           <StoreProvenanceBadge source={entry.source} />
-          {view.marketplaceMeta && (
+          {view.externalMeta && (
             <span className="text-xs text-muted-foreground">
-              {view.marketplaceMeta.publisher}
+              {view.externalMeta.publisher}
               {" · "}
               {t("store.detail.version", {
-                version: view.marketplaceMeta.version,
+                version: view.externalMeta.version,
               })}
             </span>
           )}
@@ -383,19 +407,21 @@ function StoreRow({ entry }: { entry: PluginStoreEntry }) {
 function storeRowView(entry: PluginStoreEntry) {
   const plugin = entry.plugin;
   const listing = entry.marketplace;
-  if (!plugin && !listing) return null;
+  const custom = entry.custom;
+  if (!plugin && !listing && !custom) return null;
+  const external = listing ?? custom;
 
   return {
     plugin,
-    name: plugin?.name ?? listing?.name ?? entry.packageId,
-    description: plugin?.description ?? listing?.description ?? "",
-    installed: plugin?.installed ?? listing?.installed ?? false,
+    name: plugin?.name ?? external?.name ?? entry.packageId,
+    description: plugin?.description ?? external?.description ?? "",
+    installed: plugin?.installed ?? external?.installed ?? false,
     updateAvailable: listing?.updateAvailable ?? false,
     requirementLabels: plugin
       ? headlineRequirements(plugin).map((requirement) => requirement.label)
       : [],
-    marketplaceMeta: listing
-      ? { publisher: listing.publisherName, version: listing.version }
+    externalMeta: external
+      ? { publisher: external.publisherName, version: external.version }
       : null,
   };
 }

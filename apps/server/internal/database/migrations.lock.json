@@ -706,5 +706,11 @@
     "file": "00119_marketplace_catalog.sql",
     "owner": "core",
     "sha256": "88d97f37f4e4ff4b66226d71e9c0ac6c738c58335962399855b66aa8e196e717"
+  },
+  {
+    "version": 120,
+    "file": "00120_custom_package_sources.sql",
+    "owner": "core",
+    "sha256": "5701ec4687219acdefd3ef923d8110719190ebe9d1f10fd7f5d360fd79cf33c0"
   }
 ]

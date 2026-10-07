@@ -12,6 +12,10 @@ import type {
   AirplaySession,
   DependencyGraph,
   DisplayControlGroupApplyResult,
+  GitHubInstallReview,
+  InstalledPackage,
+  PackageUpdateCheck,
+  PackageUpdateResult,
   PluginMarketplaceStatus,
   PluginStore,
   PluginStoreEntry,
@@ -198,6 +202,114 @@ export function refreshMarketplaceCatalog(
   csrfToken: string,
 ): Promise<{ marketplace: PluginMarketplaceStatus }> {
   return apiPost("/api/v1/plugin-store/marketplace/refresh", { csrfToken });
+}
+
+/**
+ * Resolve a public GitHub repository to its install review. Persists
+ * nothing; installing re-resolves fresh.
+ */
+export function resolveGitHubRepository(
+  repository: string,
+  csrfToken: string,
+): Promise<GitHubInstallReview> {
+  return apiPost("/api/v1/plugin-store/resolve-github", {
+    body: { repository },
+    csrfToken,
+  });
+}
+
+/**
+ * Resolve a cached marketplace listing to its install review. The
+ * pinned artifact verifies provenance and reads the published
+ * manifest; installing re-resolves fresh.
+ */
+export function resolveMarketplacePackage(
+  packageId: string,
+  csrfToken: string,
+): Promise<GitHubInstallReview> {
+  return apiPost("/api/v1/plugin-store/{packageId}/resolve", {
+    params: { path: { packageId } },
+    csrfToken,
+  });
+}
+
+/**
+ * Install the store entry. A marketplace entry installs with no body; a
+ * custom entry installs when the body names its repository.
+ */
+export function installStorePackage(
+  packageId: string,
+  csrfToken: string,
+  repository?: string,
+): Promise<InstalledPackage> {
+  return apiPost("/api/v1/plugin-store/{packageId}/install", {
+    params: { path: { packageId } },
+    body: repository === undefined ? undefined : { repository },
+    csrfToken,
+  });
+}
+
+/** Every installed extension package. */
+export function listPackages(): Promise<InstalledPackage[]> {
+  return apiGet("/api/v1/packages");
+}
+
+export function getPackage(packageId: string): Promise<InstalledPackage> {
+  return apiGet("/api/v1/packages/{packageId}", {
+    params: { path: { packageId } },
+  });
+}
+
+/**
+ * Resolve the latest artifact for an installed package without
+ * activating anything.
+ */
+export function checkPackageUpdate(
+  packageId: string,
+  csrfToken: string,
+): Promise<PackageUpdateCheck> {
+  return apiPost("/api/v1/packages/{packageId}/update-check", {
+    params: { path: { packageId } },
+    csrfToken,
+  });
+}
+
+/** Activate the digest an update check approved. */
+export function applyPackageUpdate(
+  packageId: string,
+  digest: string,
+  csrfToken: string,
+): Promise<PackageUpdateResult> {
+  return apiPost("/api/v1/packages/{packageId}/update", {
+    params: { path: { packageId } },
+    body: { digest },
+    csrfToken,
+  });
+}
+
+/** Restore the previous activation. */
+export function rollbackPackage(
+  packageId: string,
+  csrfToken: string,
+): Promise<InstalledPackage> {
+  return apiPost("/api/v1/packages/{packageId}/rollback", {
+    params: { path: { packageId } },
+    csrfToken,
+  });
+}
+
+/**
+ * Delete the installation and its contribution rows. The custom source,
+ * when any, survives for reinstall.
+ */
+export function removePackage(
+  packageId: string,
+  csrfToken: string,
+): Promise<void> {
+  return apiDelete("/api/v1/packages/{packageId}", {
+    params: { path: { packageId } },
+    csrfToken,
+  });
 }
 
 export function getDependencyGraph(): Promise<DependencyGraph> {

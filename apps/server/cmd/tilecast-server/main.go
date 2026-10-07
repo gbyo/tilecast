@@ -26,6 +26,11 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/discovery"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/github"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/registry"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 	"github.com/tilecast/tilecast/apps/server/internal/httpapi"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
@@ -142,6 +147,67 @@ func serve() {
 			return plugins.MarketplaceSnapshot{}, err
 		}
 		return plugins.MarketplaceSnapshotFrom(cached, time.Now()), nil
+	})
+	// Extension packages install through the installer and pipeline
+	// services. Release identities are reserved so a package can never
+	// shadow bundled behavior, and unsigned packages stay disabled on
+	// stable releases even when the development flag is set.
+	reservedIdentities := func(kind, id string) (string, bool) {
+		switch kind {
+		case "plugin":
+			if def, ok := plugins.Lookup(id); ok {
+				return "release plugin " + def.ID, true
+			}
+		case "widget":
+			if _, ok := contentDefinitions.Widget(id); ok {
+				return "release widget " + id, true
+			}
+		case "dataSource":
+			if _, ok := contentDefinitions.DataSource(id); ok {
+				return "release data source " + id, true
+			}
+		}
+		return "", false
+	}
+	allowUnsigned := cfg.Packages.AllowUnsigned
+	if allowUnsigned && version.Channel == version.ChannelStable {
+		logger.Warn("unsigned extension packages are disabled on stable releases", "flag", "TILECAST_ALLOW_UNSIGNED_EXTENSIONS")
+		allowUnsigned = false
+	}
+	installerOptions := []installer.Option{installer.WithReserved(reservedIdentities)}
+	if allowUnsigned {
+		installerOptions = append(installerOptions, installer.WithUnsignedDevelopmentAllowed())
+	}
+	installService := installer.NewService(db, version.Display(), installerOptions...)
+	gitHubClient, err := github.NewClient("", cfg.Updates.GitHubToken)
+	if err != nil {
+		fail("github client configuration failed", err)
+	}
+	pipelineOptions := []pipeline.Option{
+		pipeline.WithGitHub(gitHubClient),
+		pipeline.WithRegistry(registry.NewRepository()),
+		pipeline.WithAttestations(trust.NewAttestationVerifier()),
+		pipeline.WithCatalog(marketplaceCatalog),
+	}
+	if allowUnsigned {
+		pipelineOptions = append(pipelineOptions, pipeline.WithAllowUnsigned())
+	}
+	pipelineService := pipeline.NewService(db, installService, cfg.Packages.Root, version.Display(), pipelineOptions...)
+	pluginService.SetCustomSource(func(ctx context.Context) ([]plugins.CustomSnapshot, error) {
+		sources, err := pipelineService.ListCustomSources(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]plugins.CustomSnapshot, 0, len(sources))
+		for _, source := range sources {
+			out = append(out, plugins.CustomSnapshot{
+				PackageID:     source.PackageID,
+				Manifest:      source.Manifest,
+				RepositoryURL: source.RepositoryURL,
+				Digest:        source.ResolvedDigest,
+			})
+		}
+		return out, nil
 	})
 	// Data Source providers are discovered generically: every hosted plugin
 	// implementing plugin.DataSourceProvider contributes, and core never
@@ -329,6 +395,8 @@ func serve() {
 		Presentations:        presentationService,
 		Plugins:              pluginService,
 		Marketplace:          marketplaceCatalog,
+		Installer:            installService,
+		Packages:             pipelineService,
 		Layouts:              layoutService,
 		Scheduling:           schedulingService,
 		Settings:             settingsService,

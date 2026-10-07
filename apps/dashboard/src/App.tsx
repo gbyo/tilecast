@@ -551,7 +551,10 @@ export const studioRoutes: RouteObject[] = [
                     load: (id: string) =>
                       api
                         .pluginStoreEntry(id)
-                        .then((entry) => entry.plugin ?? entry.marketplace),
+                        .then(
+                          (entry) =>
+                            entry.plugin ?? entry.marketplace ?? entry.custom,
+                        ),
                   },
                 },
               },

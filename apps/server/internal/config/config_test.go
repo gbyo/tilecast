@@ -182,6 +182,47 @@ func TestDemoAllowsLoopbackAndExplicitRemote(t *testing.T) {
 	}
 }
 
+func TestPackagesConfig(t *testing.T) {
+	setup := func(t *testing.T) {
+		t.Helper()
+		t.Setenv("TILECAST_DATABASE_URL", "postgres://example")
+		t.Setenv("TILECAST_ENV", "development")
+		t.Setenv("TILECAST_COOKIE_SECURE", "false")
+	}
+
+	t.Run("defaults", func(t *testing.T) {
+		setup(t)
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("load config: %v", err)
+		}
+		if cfg.Packages.Root != "/data/packages" || cfg.Packages.AllowUnsigned {
+			t.Fatalf("packages = %+v", cfg.Packages)
+		}
+	})
+
+	t.Run("custom root and unsigned flag", func(t *testing.T) {
+		setup(t)
+		t.Setenv("TILECAST_PACKAGES_ROOT", "/tmp/packages")
+		t.Setenv("TILECAST_ALLOW_UNSIGNED_EXTENSIONS", "true")
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("load config: %v", err)
+		}
+		if cfg.Packages.Root != "/tmp/packages" || !cfg.Packages.AllowUnsigned {
+			t.Fatalf("packages = %+v", cfg.Packages)
+		}
+	})
+
+	t.Run("bad unsigned flag fails", func(t *testing.T) {
+		setup(t)
+		t.Setenv("TILECAST_ALLOW_UNSIGNED_EXTENSIONS", "sometimes")
+		if _, err := Load(); err == nil {
+			t.Fatal("expected malformed unsigned flag to fail")
+		}
+	})
+}
+
 func TestMarketplaceNeedsNoConfiguration(t *testing.T) {
 	setup := func(t *testing.T) {
 		t.Helper()

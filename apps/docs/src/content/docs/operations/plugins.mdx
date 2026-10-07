@@ -42,9 +42,25 @@ The built-in catalog includes:
 
 **Explore** also shows marketplace listings next to the built-in plugins. Each listing names its publisher and version, states which Tilecast releases it supports, and links to its source repository. The Tilecast project reviews every listing before it appears; a listing is not a security review of the package.
 
-Tilecast cannot install marketplace listings yet, so their pages describe the listing and its state without an **Install** button. If a refresh fails, Studio says so and keeps showing the last available catalog. An Owner or Administrator can fetch the catalog again from the notice.
+Only an Owner or Administrator can install a listing, from its page, after reading what it adds and which releases it supports. Installed listings appear under **Extension packages** on the Installed tab. If a refresh fails, Studio says so and keeps showing the last available catalog. An Owner or Administrator can fetch the catalog again from the notice.
 
 See the [marketplace contract](https://github.com/gbyo/tilecast/blob/main/docs/marketplace.md) for the catalog format and caching behavior.
+
+## Custom repositories
+
+An Owner or Administrator can add a package from any public GitHub repository with **Add from GitHub** on the **Explore** page. Studio looks up the repository's latest published release and shows a review before anything installs: the package identity and version, what it contains, the pinned artifact digest, and the release provenance that verified it. Installing binds the repository to the package, so update checks re-resolve that same repository.
+
+Custom entries are operator-chosen, not curated. Tilecast verifies the release provenance before installing, but adding a repository is still a trust decision: read the review and only install repositories you trust.
+
+## Manage installed packages
+
+Open an installed marketplace or custom package from **Extension packages** to manage it:
+
+- **Check for update** resolves the latest release without changing anything. When an update is available, the page shows its review and an **Update to 1.3.0** button for that exact version.
+- **Restore previous version** returns to the last activation when one exists.
+- **Remove package** deletes the installation and its contributions after confirmation. A custom repository binding survives, so the package can be reinstalled from **Explore**.
+
+See the [package contract](https://github.com/gbyo/tilecast/blob/main/docs/packages.md) for the manifest format, provenance rules, and lifecycle behavior.
 
 Removing a plugin is blocked while its instances or other plugin-owned resources remain. Remove those through the plugin's own page first. Removal does not delete those resources.
 

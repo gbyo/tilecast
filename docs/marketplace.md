@@ -99,9 +99,13 @@ the last error.
 A marketplace failure never fails the store. The release-owned entries
 still serve, with the failure recorded on the marketplace status.
 
-Marketplace listings are read-only in this release. Explore shows them,
-their detail page describes them, and installation arrives with custom
-repository installs.
+Owner or Administrator reviews a listing from its detail page with
+`POST /plugin-store/{packageId}/resolve`, then installs with
+`POST /plugin-store/{packageId}/install` and an empty body. The listing
+pins identity, version, and digest; the pipeline verifies provenance
+and reads the published manifest for review, and the install
+re-resolves and activates through the same path as a custom install.
+See [Extension packages](packages.md).
 
 ## Offline behavior
 

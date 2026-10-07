@@ -23,6 +23,8 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/demo"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
@@ -53,6 +55,8 @@ type Dependencies struct {
 	Presentations        *presentations.Service
 	Plugins              *plugins.Service
 	Marketplace          *catalog.Service
+	Installer            *installer.Service
+	Packages             *pipeline.Service
 	Layouts              *layouts.Service
 	Scheduling           *scheduling.Service
 	Settings             *settings.Service
@@ -100,6 +104,8 @@ type server struct {
 	presentations                 *presentations.Service
 	plugins                       *plugins.Service
 	marketplace                   *catalog.Service
+	installer                     *installer.Service
+	packages                      *pipeline.Service
 	layouts                       *layouts.Service
 	scheduling                    *scheduling.Service
 	db                            *pgxpool.Pool
@@ -164,6 +170,8 @@ func New(deps Dependencies) *API {
 		presentations:     deps.Presentations,
 		plugins:           deps.Plugins,
 		marketplace:       deps.Marketplace,
+		installer:         deps.Installer,
+		packages:          deps.Packages,
 		layouts:           deps.Layouts,
 		scheduling:        deps.Scheduling,
 		db:                deps.DB,

@@ -3,6 +3,7 @@ import type { TFunction } from "i18next";
 import { api, ApiError } from "../api/client";
 import type {
   PluginInUseResource,
+  PluginStoreCustom,
   PluginStoreEntry,
   PluginStoreMarketplace,
   PluginSummary,
@@ -112,9 +113,10 @@ export type StoreSourceFilter = string;
 
 /**
  * The Explore list: category and source narrow the list, while search matches
- * source-specific metadata. Marketplace listings do not have a plugin
- * category yet, so category filters intentionally show release-owned plugins.
- * Installed entries remain browseable for details, versions, and updates.
+ * source-specific metadata. Marketplace and custom entries do not have a
+ * plugin category yet, so category filters intentionally show release-owned
+ * plugins. Installed entries remain browseable for details, versions, and
+ * updates.
  */
 export function filterStoreEntries(
   entries: PluginStoreEntry[],
@@ -128,7 +130,8 @@ export function filterStoreEntries(
 
     const plugin = entry.plugin;
     const listing = entry.marketplace;
-    if (!plugin && !listing) return false;
+    const custom = entry.custom;
+    if (!plugin && !listing && !custom) return false;
     if (category !== "All" && plugin?.category !== category) return false;
     if (!needle) return true;
 
@@ -139,8 +142,9 @@ export function filterStoreEntries(
           plugin.category,
           ...plugin.capabilities,
         ]
-      : marketplaceHaystack(listing as PluginStoreMarketplace);
-
+      : listing != null
+        ? marketplaceHaystack(listing)
+        : customHaystack(custom as PluginStoreCustom);
     return haystack.join(" ").toLocaleLowerCase().includes(needle);
   });
 }
@@ -153,6 +157,99 @@ function marketplaceHaystack(listing: PluginStoreMarketplace) {
     listing.publisherId,
     ...(listing.categories ?? []),
   ];
+}
+
+function customHaystack(custom: PluginStoreCustom) {
+  return [
+    custom.name,
+    custom.description ?? "",
+    custom.publisherName,
+    custom.publisherId,
+  ];
+}
+
+export const packagesQueryKey = ["packages"] as const;
+
+export function packageQueryKey(packageId: string) {
+  return [...packagesQueryKey, packageId] as const;
+}
+
+export function usePackages() {
+  return useQuery({ queryKey: packagesQueryKey, queryFn: api.listPackages });
+}
+
+export function usePackage(packageId: string, enabled = true) {
+  return useQuery({
+    queryKey: packageQueryKey(packageId),
+    queryFn: () => api.getPackage(packageId),
+    enabled,
+  });
+}
+
+/**
+ * External package lifecycle: resolving a repository for review,
+ * installing it, and managing the installation. Every success settles
+ * both the packages and the store queries, since installation state
+ * renders in both places.
+ */
+export function usePackageLifecycle(csrfToken: string) {
+  const queryClient = useQueryClient();
+  const settle = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: packagesQueryKey }),
+      queryClient.invalidateQueries({ queryKey: pluginStoreQueryKey }),
+    ]);
+  const resolve = useMutation({
+    mutationFn: (repository: string) =>
+      api.resolveGitHubRepository(repository, csrfToken),
+  });
+  const resolveMarketplace = useMutation({
+    mutationFn: (packageId: string) =>
+      api.resolveMarketplacePackage(packageId, csrfToken),
+  });
+  const install = useMutation({
+    mutationFn: ({
+      packageId,
+      repository,
+    }: {
+      packageId: string;
+      repository?: string;
+    }) => api.installStorePackage(packageId, csrfToken, repository),
+    onSuccess: () => settle(),
+  });
+  const checkUpdate = useMutation({
+    mutationFn: (packageId: string) =>
+      api.checkPackageUpdate(packageId, csrfToken),
+    onSuccess: () => settle(),
+  });
+  const applyUpdate = useMutation({
+    mutationFn: ({
+      packageId,
+      digest,
+    }: {
+      packageId: string;
+      digest: string;
+    }) => api.applyPackageUpdate(packageId, digest, csrfToken),
+    onSuccess: () => settle(),
+  });
+  const rollback = useMutation({
+    mutationFn: (packageId: string) =>
+      api.rollbackPackage(packageId, csrfToken),
+    onSuccess: () => settle(),
+  });
+  const remove = useMutation({
+    mutationFn: (packageId: string) => api.removePackage(packageId, csrfToken),
+    onSuccess: () => settle(),
+  });
+  return {
+    resolve,
+    resolveMarketplace,
+    install,
+    checkUpdate,
+    applyUpdate,
+    rollback,
+    remove,
+  };
 }
 
 /** Refresh the official Tilecast marketplace and invalidate the store cache. */

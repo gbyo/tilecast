@@ -36,6 +36,7 @@ type Config struct {
 	// deliberately environment-only, like the SMTP password, so it never lands in
 	// the schema, a backup, or the configuration export.
 	PresentationNetworkKey string
+	Packages               PackagesConfig
 }
 
 // NotificationsConfig carries the SMTP relay. These are environment values
@@ -94,6 +95,14 @@ type OperationsConfig struct {
 	DefaultCommandExpiryMinutes int
 	MaxIdentifySeconds          int
 	CommandRetentionDays        int
+}
+
+// PackagesConfig locates retained package bytes and gates unsigned
+// development installs. The unsigned flag is honored on development
+// builds only; stable releases refuse unsigned packages outright.
+type PackagesConfig struct {
+	Root          string
+	AllowUnsigned bool
 }
 
 type WebsiteConfig struct {
@@ -326,6 +335,13 @@ func Load() (Config, error) {
 		return Config{}, errors.New("TILECAST_SESSION_TTL must be a duration of at least 15m")
 	}
 	cfg.SessionTTL = ttl
+
+	cfg.Packages.Root = get("TILECAST_PACKAGES_ROOT", "/data/packages")
+	allowUnsigned, err := strconv.ParseBool(get("TILECAST_ALLOW_UNSIGNED_EXTENSIONS", "false"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse TILECAST_ALLOW_UNSIGNED_EXTENSIONS: %w", err)
+	}
+	cfg.Packages.AllowUnsigned = allowUnsigned
 
 	// The marketplace needs no configuration: the server knows the
 	// official catalog address itself. The retired

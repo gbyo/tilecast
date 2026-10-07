@@ -1,8 +1,11 @@
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, CircleAlert, Puzzle } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { cn } from "cn";
 import type {
+  GitHubInstallReview,
+  PluginStoreCustom,
   PluginStoreEntry,
   PluginStoreMarketplace,
   PluginSummary,
@@ -10,6 +13,7 @@ import type {
 import { ApiError } from "../api/client";
 import { apiErrorMessage } from "../i18n";
 import { useAuth } from "../auth/AuthProvider";
+import { useConfirm } from "../components/ConfirmDialog";
 import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Badge } from "../components/ui/badge";
@@ -21,31 +25,54 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
+import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
 import {
   hasStudioRoute,
+  usePackage,
+  usePackageLifecycle,
   usePluginLifecycle,
   usePluginStoreEntry,
 } from "../plugins/pluginCatalog";
+import { CustomDetail } from "../plugins/CustomDetail";
+import { InstallReview } from "../plugins/InstallReview";
 import { MarketplaceDetail } from "../plugins/MarketplaceDetail";
 import { PluginDetail } from "../plugins/PluginDetail";
 import { PluginIcon } from "../plugins/PluginIcon";
 import { canManage } from "../plugins/shared";
 import { StoreProvenanceBadge } from "../plugins/StoreProvenance";
 
+/**
+ * One store entry: what the plugin or package is, what it needs, and the
+ * install action. Installing a release-owned plugin navigates to its
+ * management page, as the old Add plugin dialog did. Installed external
+ * packages manage here: update checks, rollback, and removal.
+ */
 export function PluginStoreDetailPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { id } = useParams();
   const entry = usePluginStoreEntry(id ?? "");
-  const { install } = usePluginLifecycle(auth.status?.csrfToken ?? "");
+  const csrfToken = auth.status?.csrfToken ?? "";
+  const { install } = usePluginLifecycle(csrfToken);
+  const packages = usePackageLifecycle(csrfToken);
+  const reviewMarketplaceMutation = packages.resolveMarketplace;
+  // The route reuses this page across listings; a review belongs to
+  // the listing that requested it. Reset through a ref so settling
+  // the mutation does not wipe its own result.
+  const reviewMutationRef = useRef(reviewMarketplaceMutation);
+  reviewMutationRef.current = reviewMarketplaceMutation;
+  useEffect(() => {
+    reviewMutationRef.current.reset();
+  }, [id]);
 
   if (entry.isLoading) return <StoreDetailLoading />;
   if (isPluginNotFound(entry.error)) return <StoreDetailNotFound />;
   if (entry.isError || !entry.data || !hasStoreDetail(entry.data)) {
     return <StoreDetailLoadError />;
   }
+  const data = entry.data;
 
   const installPlugin = (plugin: PluginSummary) => {
     install.reset();
@@ -59,19 +86,47 @@ export function PluginStoreDetailPage() {
     });
   };
 
+  const installExternal = () => {
+    packages.install.reset();
+    packages.install.mutate({
+      packageId: data.packageId,
+      repository:
+        data.source.kind === "custom" ? data.source.repository : undefined,
+    });
+  };
+
+  // Marketplace installs review first: resolve the pinned artifact,
+  // show the published manifest, and only activate on confirmation.
+  const reviewMarketplace = () => {
+    packages.install.reset();
+    reviewMarketplaceMutation.reset();
+    reviewMarketplaceMutation.mutate(data.packageId);
+  };
+
   return (
     <StoreDetailContent
-      entry={entry.data}
+      entry={data}
+      csrfToken={csrfToken}
       canInstall={canManage(auth.status?.user?.role)}
       installing={install.isPending}
-      installError={install.error}
+      installError={
+        install.error ??
+        packages.install.error ??
+        reviewMarketplaceMutation.error
+      }
       onInstall={installPlugin}
+      onInstallExternal={installExternal}
+      externalInstalling={packages.install.isPending}
+      marketplaceReview={reviewMarketplaceMutation.data}
+      reviewingMarketplace={reviewMarketplaceMutation.isPending}
+      onReviewMarketplace={reviewMarketplace}
+      onCancelReview={() => reviewMarketplaceMutation.reset()}
     />
   );
 }
 
 function hasStoreDetail(entry: PluginStoreEntry) {
-  return Boolean(entry.plugin || entry.marketplace);
+  return Boolean(entry.plugin || entry.marketplace || entry.custom);
 }
 
 function isPluginNotFound(error: unknown) {
@@ -84,22 +139,44 @@ function isPluginNotFound(error: unknown) {
 
 function StoreDetailContent({
   entry,
+  csrfToken,
   canInstall,
   installing,
   installError,
   onInstall,
+  onInstallExternal,
+  externalInstalling,
+  marketplaceReview,
+  reviewingMarketplace,
+  onReviewMarketplace,
+  onCancelReview,
 }: {
   entry: PluginStoreEntry;
+  csrfToken: string;
   canInstall: boolean;
   installing: boolean;
   installError: unknown;
   onInstall: (plugin: PluginSummary) => void;
+  onInstallExternal: () => void;
+  externalInstalling: boolean;
+  marketplaceReview: GitHubInstallReview | undefined;
+  reviewingMarketplace: boolean;
+  onReviewMarketplace: () => void;
+  onCancelReview: () => void;
 }) {
-  const { t } = useTranslation("plugins");
+  const { t } = useTranslation(["plugins", "common"]);
   const plugin = entry.plugin;
   const listing = entry.marketplace;
-  const title = plugin?.name ?? listing?.name ?? entry.packageId;
-  const description = plugin?.description ?? listing?.description ?? "";
+  const custom = entry.custom;
+  const external = listing ?? custom;
+  // A resolve in flight across navigation must never confirm another
+  // listing's install.
+  const review =
+    marketplaceReview?.packageId === entry.packageId
+      ? marketplaceReview
+      : undefined;
+  const title = plugin?.name ?? external?.name ?? entry.packageId;
+  const description = plugin?.description ?? external?.description ?? "";
 
   return (
     <main className="grid max-w-3xl gap-5">
@@ -129,6 +206,14 @@ function StoreDetailContent({
                 installing={installing}
                 onInstall={() => onInstall(plugin)}
               />
+            ) : external ? (
+              <ExternalPackageAction
+                external={external}
+                canInstall={canInstall}
+                installing={listing ? reviewingMarketplace : externalInstalling}
+                onInstall={listing ? onReviewMarketplace : onInstallExternal}
+                reviewFirst={Boolean(listing)}
+              />
             ) : undefined
           }
         />
@@ -136,8 +221,10 @@ function StoreDetailContent({
 
       {plugin ? (
         <PluginDetail plugin={plugin} />
+      ) : listing ? (
+        <MarketplaceDetail listing={listing} />
       ) : (
-        <MarketplaceDetail listing={listing as PluginStoreMarketplace} />
+        custom && <CustomDetail custom={custom} source={entry.source} />
       )}
 
       {installError ? (
@@ -147,15 +234,51 @@ function StoreDetailContent({
         </Alert>
       ) : null}
 
-      {listing && (
-        <p className="text-sm text-muted-foreground">
-          {t("store.detail.installUnavailable")}
-        </p>
+      {listing && !listing.installed && review && (
+        <div className="grid gap-3 rounded-xl border p-4">
+          <InstallReview review={review} updatePlane="catalog" />
+          {canInstall && (
+            <div className="flex gap-2">
+              <Button
+                disabled={externalInstalling || !review.compatible}
+                onClick={onInstallExternal}
+              >
+                {externalInstalling && (
+                  <Spinner data-icon="inline-start" aria-hidden="true" />
+                )}
+                {externalInstalling
+                  ? t("store.add.installing")
+                  : t("store.add.install")}
+              </Button>
+              <Button variant="outline" onClick={onCancelReview}>
+                {t("common:actions.cancel")}
+              </Button>
+            </div>
+          )}
+        </div>
       )}
+
+      {external &&
+        !external.installed &&
+        (!canInstall || !external.compatible) && (
+          <p className="text-sm text-muted-foreground">
+            {t("catalog.installNote")}
+          </p>
+        )}
       {plugin && !plugin.installed && (!canInstall || !plugin.installable) && (
         <p className="text-sm text-muted-foreground">
           {t("catalog.installNote")}
         </p>
+      )}
+      {external?.installed && (
+        <>
+          <Separator />
+          <PackageManagement
+            packageId={entry.packageId}
+            csrfToken={csrfToken}
+            canInstall={canInstall}
+          />
+        </>
       )}
 
       <StoreBackLink />
@@ -195,6 +318,33 @@ function IncludedPluginAction({
     <Button disabled={installing} onClick={onInstall}>
       {installing && <Spinner data-icon="inline-start" aria-hidden="true" />}
       {t("catalog.install")}
+    </Button>
+  );
+}
+
+function ExternalPackageAction({
+  external,
+  canInstall,
+  installing,
+  onInstall,
+  reviewFirst = false,
+}: {
+  external: PluginStoreMarketplace | PluginStoreCustom;
+  canInstall: boolean;
+  installing: boolean;
+  onInstall: () => void;
+  reviewFirst?: boolean;
+}) {
+  const { t } = useTranslation("plugins");
+
+  if (external.installed) {
+    return <Button disabled>{t("catalog.installed")}</Button>;
+  }
+  if (!canInstall || !external.compatible) return null;
+  return (
+    <Button disabled={installing} onClick={onInstall}>
+      {installing && <Spinner data-icon="inline-start" aria-hidden="true" />}
+      {reviewFirst ? t("catalog.reviewInstall") : t("catalog.install")}
     </Button>
   );
 }
@@ -252,5 +402,156 @@ function StoreBackLink() {
       <ArrowLeft data-icon="inline-start" aria-hidden="true" />
       {t("store.backToExplore")}
     </Link>
+  );
+}
+
+/**
+ * The installed package beneath its store entry: contributions, update
+ * checks, rollback, and removal. An update check resolves without
+ * activating; applying activates the checked digest, and a stale digest
+ * answers update_check_expired instead of installing old bytes.
+ */
+function PackageManagement({
+  packageId,
+  csrfToken,
+  canInstall,
+}: {
+  packageId: string;
+  csrfToken: string;
+  canInstall: boolean;
+}) {
+  const { t } = useTranslation(["plugins", "common"]);
+  const navigate = useNavigate();
+  const pkg = usePackage(packageId);
+  const { checkUpdate, applyUpdate, rollback, remove } =
+    usePackageLifecycle(csrfToken);
+  const { confirm, dialog: confirmDialog } = useConfirm();
+  const check = checkUpdate.data;
+  const latest = check?.available ? check.latest : undefined;
+  const mutationError =
+    checkUpdate.error ?? applyUpdate.error ?? rollback.error ?? remove.error;
+
+  const onRemove = async () => {
+    const confirmed = await confirm({
+      title: t("packages.removeConfirmTitle"),
+      body: t("packages.removeConfirmBody", { packageId }),
+      action: t("packages.remove"),
+      cancel: t("common:actions.cancel"),
+      destructive: true,
+    });
+    if (!confirmed) return;
+    remove.mutate(packageId, {
+      onSuccess: () => void navigate("/plugins/store"),
+    });
+  };
+
+  if (pkg.isLoading) {
+    return <Skeleton className="h-32 rounded-xl" />;
+  }
+  if (pkg.isError || !pkg.data) {
+    return (
+      <Alert variant="destructive">
+        <CircleAlert aria-hidden="true" />
+        <AlertDescription>{t("packages.loadError")}</AlertDescription>
+      </Alert>
+    );
+  }
+  const installed = pkg.data;
+  return (
+    <section aria-label={t("packages.manageTitle")} className="grid gap-4">
+      {confirmDialog}
+      <h2 className="text-base font-semibold">{t("packages.manageTitle")}</h2>
+      {mutationError && (
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertDescription>{apiErrorMessage(mutationError)}</AlertDescription>
+        </Alert>
+      )}
+      <dl className="grid gap-3 text-sm">
+        <div className="grid gap-1">
+          <dt className="font-medium">{t("store.detail.digestLabel")}</dt>
+          <dd className="font-mono text-xs break-all text-muted-foreground">
+            {installed.digest}
+          </dd>
+        </div>
+        <div className="grid gap-1">
+          <dt className="font-medium">{t("packages.contributions")}</dt>
+          <dd className="text-muted-foreground">
+            {installed.contributions.length === 0
+              ? t("store.review.noContributions")
+              : installed.contributions
+                  .map(
+                    (contribution) =>
+                      `${contribution.kind} · ${contribution.id}`,
+                  )
+                  .join(", ")}
+          </dd>
+        </div>
+      </dl>
+      {latest && (
+        <div className="grid gap-3 rounded-xl border p-4">
+          <InstallReview review={latest} />
+          {canInstall && (
+            <div>
+              <Button
+                disabled={applyUpdate.isPending || !latest.compatible}
+                onClick={() =>
+                  applyUpdate.mutate({
+                    packageId,
+                    digest: latest.digest,
+                  })
+                }
+              >
+                {applyUpdate.isPending && (
+                  <Spinner data-icon="inline-start" aria-hidden="true" />
+                )}
+                {t("packages.updateTo", { version: latest.version })}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {check && !check.available && (
+        <p className="text-sm text-muted-foreground">
+          {t("packages.upToDate")}
+        </p>
+      )}
+      {canInstall && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            disabled={checkUpdate.isPending}
+            onClick={() => {
+              applyUpdate.reset();
+              checkUpdate.mutate(packageId);
+            }}
+          >
+            {checkUpdate.isPending && (
+              <Spinner data-icon="inline-start" aria-hidden="true" />
+            )}
+            {t("packages.checkUpdate")}
+          </Button>
+          {installed.hasRollback && (
+            <Button
+              variant="outline"
+              disabled={rollback.isPending}
+              onClick={() => rollback.mutate(packageId)}
+            >
+              {rollback.isPending && (
+                <Spinner data-icon="inline-start" aria-hidden="true" />
+              )}
+              {t("packages.rollback")}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            disabled={remove.isPending}
+            onClick={() => void onRemove()}
+          >
+            {t("packages.remove")}
+          </Button>
+        </div>
+      )}
+    </section>
   );
 }

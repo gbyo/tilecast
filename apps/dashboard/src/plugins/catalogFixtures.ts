@@ -1,4 +1,11 @@
-import type { PluginStoreMarketplace, PluginSummary } from "../api/types";
+import type {
+  GitHubInstallReview,
+  InstalledPackage,
+  PackageUpdateCheck,
+  PluginStoreCustom,
+  PluginStoreMarketplace,
+  PluginSummary,
+} from "../api/types";
 
 /** A catalog entry in the server's shape, for tests. */
 export function catalogPlugin(
@@ -53,6 +60,129 @@ export function marketplaceListing(
     compatible: true,
     installed: false,
     updateAvailable: false,
+    ...overrides,
+  };
+}
+
+/** A custom store entry in the server's shape, for tests. */
+export function customPackage(
+  overrides: Partial<PluginStoreCustom> = {},
+): PluginStoreCustom {
+  return {
+    version: "1.2.0",
+    // i18n-ignore: development fixture label, not Studio copy
+    name: "Lobby Kiosk",
+    // i18n-ignore: development fixture label, not Studio copy
+    description: "A kiosk from your own repository.",
+    publisherId: "acme",
+    // i18n-ignore: development fixture label, not Studio copy
+    publisherName: "Acme",
+    // i18n-ignore: development fixture value, not Studio copy
+    license: "MIT",
+    tilecastRange: ">=0.0.0",
+    // i18n-ignore: development fixture value, not Studio copy
+    digest:
+      "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    compatible: true,
+    installed: false,
+    ...overrides,
+  };
+}
+
+/** An installed package in the server's shape, for tests. */
+export function installedPackage(
+  overrides: Partial<InstalledPackage> = {},
+): InstalledPackage {
+  return {
+    packageId: "acme.kiosk",
+    version: "1.2.0",
+    manifest: {
+      // i18n-ignore: development fixture label, not Studio copy
+      name: "Lobby Kiosk",
+      // i18n-ignore: development fixture label, not Studio copy
+      description: "A kiosk from your own repository.",
+      publisherId: "acme",
+      // i18n-ignore: development fixture label, not Studio copy
+      publisherName: "Acme",
+      // i18n-ignore: development fixture value, not Studio copy
+      license: "MIT",
+      tilecastRange: ">=0.0.0",
+    },
+    // i18n-ignore: development fixture value, not Studio copy
+    digest:
+      "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    sourceKind: "custom",
+    sourceReference: "https://github.com/acme/tilecast-kiosk",
+    registryReference: "ghcr.io/acme/tilecast-kiosk",
+    signerIdentity: "https://github.com/acme/tilecast-kiosk",
+    trust: "verified",
+    installedAt: "2026-09-01T12:00:00Z",
+    installedBy: null,
+    activatedAt: "2026-09-01T12:00:00Z",
+    hasRollback: false,
+    contributions: [{ kind: "widget", id: "acme.kiosk.lobby", path: "lobby" }],
+    source: {
+      owner: "acme",
+      name: "tilecast-kiosk",
+      repositoryUrl: "https://github.com/acme/tilecast-kiosk",
+      // i18n-ignore: development fixture value, not Studio copy
+      resolvedDigest:
+        "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      resolvedAt: "2026-09-01T12:00:00Z",
+      addedAt: "2026-09-01T12:00:00Z",
+    },
+    ...overrides,
+  };
+}
+
+/** An install review in the server's shape, for tests. */
+export function installReview(
+  overrides: Partial<GitHubInstallReview> = {},
+): GitHubInstallReview {
+  return {
+    packageId: "acme.kiosk",
+    version: "1.2.0",
+    manifest: {
+      // i18n-ignore: development fixture label, not Studio copy
+      name: "Lobby Kiosk",
+      // i18n-ignore: development fixture label, not Studio copy
+      description: "A kiosk from your own repository.",
+      publisherId: "acme",
+      // i18n-ignore: development fixture label, not Studio copy
+      publisherName: "Acme",
+      // i18n-ignore: development fixture value, not Studio copy
+      license: "MIT",
+      tilecastRange: ">=0.0.0",
+    },
+    compatible: true,
+    contributions: [{ type: "widget", path: "lobby" }],
+    // i18n-ignore: development fixture value, not Studio copy
+    digest:
+      "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+    registry: "ghcr.io/acme/tilecast-kiosk",
+    releaseTag: "v1.2.0",
+    // i18n-ignore: development fixture label, not Studio copy
+    releaseName: "Lobby Kiosk 1.2",
+    publishedAt: "2026-09-01T12:00:00Z",
+    owner: "acme",
+    repo: "tilecast-kiosk",
+    repositoryUrl: "https://github.com/acme/tilecast-kiosk",
+    signer: "https://github.com/acme/tilecast-kiosk",
+    trust: "verified",
+    installed: false,
+    ...overrides,
+  };
+}
+
+/** An update check in the server's shape, for tests. */
+export function updateCheck(
+  overrides: Partial<PackageUpdateCheck> = {},
+): PackageUpdateCheck {
+  return {
+    installed: installedPackage(),
+    available: false,
+    upToDate: true,
+    lastChecked: "2026-09-02T12:00:00Z",
     ...overrides,
   };
 }

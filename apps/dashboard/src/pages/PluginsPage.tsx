@@ -63,10 +63,13 @@ export function PluginsPage() {
   }
 
   const entries = store.data?.items ?? [];
-  // The Installed tab manages release-owned plugins. Marketplace entries
-  // carry no plugin detail until their packages install, so they never
-  // appear here.
+  // The Installed tab manages release-owned plugins below and installed
+  // external packages after them. Uninstalled marketplace and custom
+  // entries never appear here; they live on the Explore route.
   const installed = entries.filter((entry) => entry.plugin?.installed);
+  const installedPackages = entries.filter(
+    (entry) => entry.marketplace?.installed || entry.custom?.installed,
+  );
   // A failed load with no usable data owns the content area: the alert is
   // the state, not a companion to an empty list. Stale data still renders
   // alongside the alert.
@@ -84,7 +87,7 @@ export function PluginsPage() {
         title={t("list.title")}
         description={t("list.subtitle")}
         actions={
-          installed.length > 0 ? (
+          installed.length > 0 || installedPackages.length > 0 ? (
             <Link
               to="/plugins/store"
               className={buttonVariants({ variant: "default" })}
@@ -135,7 +138,9 @@ export function PluginsPage() {
             <Skeleton key={key} className="h-24 rounded-xl" />
           ))}
         </ItemGroup>
-      ) : installed.length === 0 && !store.isError ? (
+      ) : installed.length === 0 &&
+        installedPackages.length === 0 &&
+        !store.isError ? (
         <Empty className="border border-dashed">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -155,13 +160,64 @@ export function PluginsPage() {
           </EmptyContent>
         </Empty>
       ) : loadFailed ? null : (
-        <ItemGroup className="gap-2" aria-label={t("list.installedLabel")}>
-          {installed.map((entry) => (
-            <InstalledPlugin key={entry.packageId} entry={entry} />
-          ))}
-        </ItemGroup>
+        <>
+          <ItemGroup className="gap-2" aria-label={t("list.installedLabel")}>
+            {installed.map((entry) => (
+              <InstalledPlugin key={entry.packageId} entry={entry} />
+            ))}
+          </ItemGroup>
+          {installedPackages.length > 0 && (
+            <section aria-label={t("packages.title")} className="grid gap-2">
+              <h2 className="text-base font-semibold">{t("packages.title")}</h2>
+              <ItemGroup className="gap-2">
+                {installedPackages.map((entry) => (
+                  <InstalledPackageRow key={entry.packageId} entry={entry} />
+                ))}
+              </ItemGroup>
+            </section>
+          )}
+        </>
       )}
     </main>
+  );
+}
+
+/**
+ * One installed external package: its name, version, and provenance,
+ * linking to the store entry that manages it.
+ */
+function InstalledPackageRow({ entry }: { entry: PluginStoreEntry }) {
+  const { t } = useTranslation("plugins");
+  const external = entry.marketplace ?? entry.custom;
+  if (!external) return null;
+  return (
+    <Item
+      variant="outline"
+      size="sm"
+      render={
+        <Link to={`/plugins/store/${encodeURIComponent(entry.packageId)}`} />
+      }
+      className="text-left hover:bg-muted"
+    >
+      <ItemMedia variant="image" className="bg-muted">
+        <Puzzle aria-hidden="true" />
+      </ItemMedia>
+      <ItemContent>
+        <ItemTitle>{external.name}</ItemTitle>
+        <ItemDescription>{external.description}</ItemDescription>
+      </ItemContent>
+      <ItemFooter className="justify-start gap-2 text-sm text-muted-foreground">
+        <StoreProvenanceBadge source={entry.source} />
+        <span className="tabular-nums">
+          {t("store.detail.version", {
+            version: external.installedVersion ?? external.version,
+          })}
+        </span>
+        {entry.marketplace?.updateAvailable && (
+          <Badge variant="secondary">{t("store.detail.updateAvailable")}</Badge>
+        )}
+      </ItemFooter>
+    </Item>
   );
 }
 

@@ -2,6 +2,7 @@ package registry
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -31,10 +32,12 @@ const registryManifest = `{
 var registryContent = append([]byte{0x1f, 0x8b, 0x08, 0x00}, make([]byte, 128)...)
 
 // fakeRegistry serves one layout's blobs over the distribution endpoints
-// oras uses: the version ping, manifest fetch, and blob fetch.
+// oras uses: the version ping, manifest fetch, and blob fetch. Tags map to
+// the digest they name for resolution tests.
 type fakeRegistry struct {
 	t        *testing.T
 	layout   string
+	tags     map[string]string
 	blobGets int
 }
 
@@ -66,18 +69,23 @@ func (f *fakeRegistry) handler() http.Handler {
 
 func (f *fakeRegistry) serveBlob(w http.ResponseWriter, r *http.Request, reference, contentType string) {
 	f.t.Helper()
-	encoded, found := strings.CutPrefix(reference, "sha256:")
-	if !found {
-		http.NotFound(w, r)
-		return
+	digest := reference
+	if !strings.HasPrefix(reference, "sha256:") {
+		mapped, ok := f.tags[reference]
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		digest = mapped
 	}
+	encoded := strings.TrimPrefix(digest, "sha256:")
 	data, err := os.ReadFile(filepath.Join(f.layout, "blobs", "sha256", encoded))
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
 	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("Docker-Content-Digest", reference)
+	w.Header().Set("Docker-Content-Digest", digest)
 	w.Header().Set("Content-Length", fmt.Sprint(len(data)))
 	if r.Method == http.MethodHead {
 		w.WriteHeader(http.StatusOK)
@@ -283,5 +291,58 @@ func TestPullRejectsBadInput(t *testing.T) {
 	}
 	if err := repository.Pull(ctx, "example.com/acme/pkg", "v2.4.1", t.TempDir()); err == nil {
 		t.Fatal("expected a tag digest to fail")
+	}
+}
+
+func TestResolveRoundTrip(t *testing.T) {
+	ctx := t.Context()
+	source := t.TempDir()
+	digest, err := packages.WriteLayout(source, []byte(registryManifest), registryContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeRegistry{t: t, layout: source, tags: map[string]string{"v2.4.1": digest}}
+	server := httptest.NewServer(fake.handler())
+	defer server.Close()
+	host := strings.TrimPrefix(server.URL, "http://")
+
+	repository := NewRepository(WithPlainHTTP())
+	resolved, err := repository.Resolve(ctx, host+"/acme/tilecast-athletics", "v2.4.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved != digest {
+		t.Fatalf("resolved = %s, want %s", resolved, digest)
+	}
+}
+
+func TestResolveUnknownTag(t *testing.T) {
+	ctx := t.Context()
+	source := t.TempDir()
+	if _, err := packages.WriteLayout(source, []byte(registryManifest), registryContent); err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeRegistry{t: t, layout: source}
+	server := httptest.NewServer(fake.handler())
+	defer server.Close()
+	host := strings.TrimPrefix(server.URL, "http://")
+
+	repository := NewRepository(WithPlainHTTP())
+	_, err := repository.Resolve(ctx, host+"/acme/tilecast-athletics", "v9.9.9")
+	if !errors.Is(err, ErrUnknownTag) {
+		t.Fatalf("err = %v, want ErrUnknownTag", err)
+	}
+}
+
+func TestResolveRejectsBadInput(t *testing.T) {
+	ctx := t.Context()
+	repository := NewRepository(WithPlainHTTP())
+	for _, tag := range []string{"", "release/2.4.1", "-leading", strings.Repeat("t", 129)} {
+		if _, err := repository.Resolve(ctx, "example.com/acme/pkg", tag); err == nil {
+			t.Fatalf("tag %q: expected a refusal", tag)
+		}
+	}
+	if _, err := repository.Resolve(ctx, "not a reference", "v2.4.1"); err == nil {
+		t.Fatal("expected an invalid reference to fail")
 	}
 }

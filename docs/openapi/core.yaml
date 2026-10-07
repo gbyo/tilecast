@@ -4614,7 +4614,7 @@ paths:
     get:
       operationId: listPluginStore
       security: [{ sessionCookie: [] }, { userBearer: [] }]
-      description: The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later.
+      description: The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Release-owned entries always appear; marketplace entries join the release-owned entries; custom entries join from bound repositories.
       responses:
         "200":
           description: Plugin store
@@ -4677,6 +4677,288 @@ paths:
         "403": { description: Owner or Administrator role required }
         "502":
           { description: marketplace_refresh_failed — the catalog fetch failed }
+  /api/v1/plugin-store/resolve-github:
+    post:
+      operationId: resolveGitHubRepository
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires the Owner or Administrator role with the admin scope.
+        Cookie requests additionally require the X-CSRF-Token header.
+        Resolves a public GitHub repository URL to its install review:
+        the published manifest, the pinned digest, provenance, and
+        installed state. Persists nothing; installing re-resolves fresh.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repository]
+              properties:
+                repository:
+                  {
+                    type: string,
+                    format: uri,
+                    description: "Public GitHub repository URL.",
+                  }
+      responses:
+        "200":
+          description: Install review
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/GitHubInstallReview" }
+        "400": { description: invalid_repository — not a GitHub repository URL }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator role required }
+        "404":
+          { description: repository_not_found — GitHub has no such repository }
+        "422":
+          description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_mismatch, or package_incompatible
+        "502":
+          description: upstream_unavailable — GitHub, the registry, or Sigstore is unreachable
+  /api/v1/plugin-store/{packageId}/resolve:
+    post:
+      operationId: resolveMarketplacePackage
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires the Owner or Administrator role with the admin scope.
+        Cookie requests additionally require the X-CSRF-Token header.
+        Resolves a cached marketplace listing to its install review:
+        the pinned artifact verifies provenance, pulls by digest, and
+        reads the published manifest, which is authoritative for
+        capabilities. Installs nothing; installing re-resolves fresh.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200":
+          description: Install review
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/GitHubInstallReview" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator role required }
+        "404":
+          { description: plugin_not_found — no listing carries this package ID }
+        "422":
+          description: repository_not_supported, no_published_package, package_unsigned, artifact_invalid, package_mismatch, or package_incompatible
+        "502":
+          description: upstream_unavailable — the catalog, the registry, or Sigstore is unreachable
+  /api/v1/plugin-store/{packageId}/install:
+    post:
+      operationId: installStorePackage
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires the Owner or Administrator role with the admin scope.
+        Cookie requests additionally require the X-CSRF-Token header.
+        Installs the store entry. A marketplace entry installs from its
+        listing with an empty body; a custom entry installs when the body
+        names its repository. The package ID must match the resolved
+        manifest. Audited.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                repository:
+                  {
+                    type: string,
+                    format: uri,
+                    description: "Custom repository URL. Omit for marketplace listings.",
+                  }
+      responses:
+        "201":
+          description: Package installed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/InstalledPackage" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator role required }
+        "404": { description: repository_not_found or plugin_not_found }
+        "409":
+          description: package_mismatch, package_installed, contribution_collision, or source_conflict
+        "422":
+          description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation
+        "502":
+          description: upstream_unavailable — GitHub, the registry, or Sigstore is unreachable
+  /api/v1/packages:
+    get:
+      operationId: listPackages
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Every installed extension package with its contributions and, for custom packages, the repository binding. Readable by any signed-in account.
+      responses:
+        "200":
+          description: Installed packages
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/InstalledPackage" }
+        "401": { description: Dashboard authentication required }
+  /api/v1/packages/{packageId}:
+    get:
+      operationId: getPackage
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: One installed extension package. Readable by any signed-in account. Unknown package IDs answer package_not_installed.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+      responses:
+        "200":
+          description: Installed package
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/InstalledPackage" }
+        "401": { description: Dashboard authentication required }
+        "404": { description: package_not_installed }
+    delete:
+      operationId: removePackage
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires the Owner or Administrator role with the admin scope.
+        Cookie requests additionally require the X-CSRF-Token header.
+        Deletes the installation and its contribution rows. The custom
+        source, when any, survives for reinstall. Audited.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "204": { description: Package removed }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator role required }
+        "404": { description: package_not_installed }
+  /api/v1/packages/{packageId}/update-check:
+    post:
+      operationId: checkPackageUpdate
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires the Owner or Administrator role with the admin scope.
+        Cookie requests additionally require the X-CSRF-Token header.
+        Resolves the latest artifact for an installed package without
+        activating anything. A custom package re-resolves its repository;
+        a marketplace package refreshes the catalog first.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200":
+          description: Update check
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PackageUpdateCheck" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator role required }
+        "404": { description: package_not_installed }
+        "422":
+          description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_mismatch, or package_incompatible
+        "502":
+          description: upstream_unavailable — GitHub, the registry, or Sigstore is unreachable
+  /api/v1/packages/{packageId}/update:
+    post:
+      operationId: applyPackageUpdate
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires the Owner or Administrator role with the admin scope.
+        Cookie requests additionally require the X-CSRF-Token header.
+        Activates the digest an update check approved. The check
+        re-resolves fresh, so a stale digest answers update_check_expired
+        instead of installing old bytes. Audited.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [digest]
+              properties:
+                digest:
+                  {
+                    type: string,
+                    description: "Pinned artifact digest as sha256 colon hex.",
+                  }
+      responses:
+        "200":
+          description: Update result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [package, updated]
+                    properties:
+                      package: { $ref: "#/components/schemas/InstalledPackage" }
+                      updated: { type: boolean }
+        "400": { description: invalid_request — a digest is required }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator role required }
+        "404": { description: package_not_installed }
+        "409":
+          description: update_check_expired, package_mismatch, contribution_collision, or source_conflict
+        "422":
+          description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation
+        "502":
+          description: upstream_unavailable — GitHub, the registry, or Sigstore is unreachable
+  /api/v1/packages/{packageId}/rollback:
+    post:
+      operationId: rollbackPackage
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Requires the Owner or Administrator role with the admin scope.
+        Cookie requests additionally require the X-CSRF-Token header.
+        Restores the previous activation. Audited.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+        - { $ref: "#/components/parameters/CSRFToken" }
+      responses:
+        "200":
+          description: Restored package
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/InstalledPackage" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Owner or Administrator role required }
+        "404": { description: package_not_installed }
+        "409":
+          description: no_rollback — the package has no previous activation
   /api/v1/screens/pairing/{id}/reject:
     post:
       operationId: rejectPairing
@@ -11155,13 +11437,43 @@ components:
     PluginStoreSource:
       type: object
       required: [kind]
-      description: Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know.
+      description: Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID; "custom" entries come from a bound repository and carry its URL. Clients must tolerate values they do not know.
       properties:
         kind:
           type: string
-          x-extensible-enum: [included, marketplace]
+          x-extensible-enum: [included, marketplace, custom]
         catalogId: { type: string }
         repository: { type: string }
+    PluginStoreCustom:
+      type: object
+      required:
+        [
+          version,
+          name,
+          publisherId,
+          publisherName,
+          tilecastRange,
+          digest,
+          compatible,
+          installed,
+        ]
+      description: "One custom-repository package joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry. Carries no update flag: freshness needs a live re-resolution through an update check."
+      properties:
+        version: { type: string }
+        name: { type: string }
+        description: { type: string }
+        publisherId: { type: string }
+        publisherName: { type: string }
+        license: { type: string }
+        tilecastRange: { type: string }
+        digest:
+          {
+            type: string,
+            description: "Last verified artifact digest as sha256 colon hex.",
+          }
+        compatible: { type: boolean }
+        installed: { type: boolean }
+        installedVersion: { type: string }
     PluginStoreMarketplace:
       type: object
       required:
@@ -11177,7 +11489,7 @@ components:
           installed,
           updateAvailable,
         ]
-      description: One marketplace listing joined with this installation's state. Exactly one of plugin and marketplace is present on a store entry.
+      description: One marketplace listing joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry.
       properties:
         version: { type: string }
         name: { type: string }
@@ -11216,12 +11528,13 @@ components:
     PluginStoreEntry:
       type: object
       required: [packageId, source]
-      description: One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present.
+      description: One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present.
       properties:
         packageId: { type: string, pattern: "^[a-z][a-z0-9_.:-]{0,127}$" }
         source: { $ref: "#/components/schemas/PluginStoreSource" }
         plugin: { $ref: "#/components/schemas/CatalogPlugin" }
         marketplace: { $ref: "#/components/schemas/PluginStoreMarketplace" }
+        custom: { $ref: "#/components/schemas/PluginStoreCustom" }
     PluginStore:
       type: object
       required: [items, unsupportedInstallations, marketplace]
@@ -11241,6 +11554,143 @@ components:
             properties:
               pluginId: { type: string }
               installedAt: { type: string, format: date-time }
+    PackageManifestSummary:
+      type: object
+      required:
+        [name, description, publisherId, publisherName, license, tilecastRange]
+      description: The human-readable face of an installed or resolved package manifest.
+      properties:
+        name: { type: string }
+        description: { type: string }
+        publisherId: { type: string }
+        publisherName: { type: string }
+        license: { type: string }
+        tilecastRange: { type: string }
+    PackageContribution:
+      type: object
+      required: [kind, id, path]
+      description: "One activated contribution: its kind, its package-qualified identity, and its path inside the package."
+      properties:
+        kind: { type: string, x-extensible-enum: [plugin, widget, dataSource] }
+        id: { type: string }
+        path: { type: string }
+    PackageSourceBinding:
+      type: object
+      required:
+        [owner, name, repositoryUrl, resolvedDigest, resolvedAt, addedAt]
+      description: The custom repository binding behind an installed custom package.
+      properties:
+        owner: { type: string }
+        name: { type: string }
+        repositoryUrl: { type: string, format: uri }
+        resolvedDigest:
+          {
+            type: string,
+            description: "Last verified artifact digest as sha256 colon hex.",
+          }
+        resolvedAt: { type: string, format: date-time }
+        addedAt: { type: string, format: date-time }
+    InstalledPackage:
+      type: object
+      required:
+        [
+          packageId,
+          version,
+          manifest,
+          digest,
+          sourceKind,
+          sourceReference,
+          registryReference,
+          trust,
+          installedAt,
+          installedBy,
+          activatedAt,
+          hasRollback,
+          contributions,
+        ]
+      description: One installed extension package with its contributions and, for custom packages, the repository binding.
+      properties:
+        packageId: { type: string }
+        version: { type: string }
+        manifest: { $ref: "#/components/schemas/PackageManifestSummary" }
+        digest:
+          {
+            type: string,
+            description: "Pinned artifact digest as sha256 colon hex.",
+          }
+        sourceKind: { type: string, x-extensible-enum: [custom, marketplace] }
+        sourceReference: { type: string }
+        registryReference: { type: string }
+        signerIdentity: { type: string }
+        trust:
+          { type: string, x-extensible-enum: [verified, unsigned_development] }
+        installedAt: { type: string, format: date-time }
+        installedBy: { type: [string, "null"], format: uuid }
+        activatedAt: { type: string, format: date-time }
+        hasRollback: { type: boolean }
+        contributions:
+          type: array
+          items: { $ref: "#/components/schemas/PackageContribution" }
+        source: { $ref: "#/components/schemas/PackageSourceBinding" }
+    GitHubInstallReview:
+      type: object
+      required:
+        [
+          packageId,
+          version,
+          manifest,
+          compatible,
+          contributions,
+          digest,
+          registry,
+          releaseTag,
+          owner,
+          repo,
+          repositoryUrl,
+          trust,
+          installed,
+        ]
+      description: "The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing."
+      properties:
+        packageId: { type: string }
+        version: { type: string }
+        manifest: { $ref: "#/components/schemas/PackageManifestSummary" }
+        compatible: { type: boolean }
+        contributions:
+          type: array
+          items:
+            type: object
+            required: [type, path]
+            properties:
+              type: { type: string }
+              path: { type: string }
+        digest:
+          {
+            type: string,
+            description: "Pinned artifact digest as sha256 colon hex.",
+          }
+        registry: { type: string }
+        releaseTag: { type: string }
+        releaseName: { type: string }
+        publishedAt: { type: string, format: date-time }
+        owner: { type: string }
+        repo: { type: string }
+        repositoryUrl: { type: string, format: uri }
+        signer: { type: string }
+        trust:
+          { type: string, x-extensible-enum: [verified, unsigned_development] }
+        installed: { type: boolean }
+        installedVersion: { type: string }
+    PackageUpdateCheck:
+      type: object
+      required: [installed, available, upToDate, lastChecked]
+      description: The latest artifact for an installed package, resolved without activating anything. latest is present when available.
+      properties:
+        installed: { $ref: "#/components/schemas/InstalledPackage" }
+        available: { type: boolean }
+        upToDate: { type: boolean }
+        lastChecked: { type: string, format: date-time }
+        latest: { $ref: "#/components/schemas/GitHubInstallReview" }
     PluginInUseError:
       type: object
       required: [error]
