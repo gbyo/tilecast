@@ -371,7 +371,7 @@ fn migration_7_drops_noise_history_and_keeps_presentation_network_state() {
     let owned: Vec<Migration> =
         player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to latest");
-    assert_eq!(player_state::schema_version(&connection).expect("version"), 7);
+    assert_eq!(player_state::schema_version(&connection).expect("version"), 8);
     let noise: i64 = connection
         .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'noise_history'", [], |r| r.get(0))
         .expect("query");
@@ -380,4 +380,47 @@ fn migration_7_drops_noise_history_and_keeps_presentation_network_state() {
         .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'presentation_network_state'", [], |r| r.get(0))
         .expect("query");
     assert_eq!(network, 1, "presentation_network_state survives");
+}
+
+#[test]
+fn migration_8_keeps_cas_rows_and_admits_widget_bundles() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    // Simulate a device last migrated at version 7 with a cached object.
+    let v7: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 7)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v7).expect("migrate to v7");
+    let media = "ab".repeat(32);
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 12, 'media', 'image/png', 'origin', 'verified', 1, 1, 1)",
+            [&media],
+        )
+        .expect("seed cached object");
+    assert!(
+        connection
+            .execute(
+                "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_bundle', 'text/javascript', 'origin', 'verified', 1, 1, 1)",
+                ["cd".repeat(32)],
+            )
+            .is_err(),
+        "v7 rejects the new domain"
+    );
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), 8);
+    let domain: String = connection
+        .query_row("SELECT domain FROM cas_objects WHERE sha256 = ?1", [&media], |r| r.get(0))
+        .expect("cached object survives");
+    assert_eq!(domain, "media");
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_bundle', 'text/javascript', 'origin', 'verified', 1, 1, 1)",
+            ["cd".repeat(32)],
+        )
+        .expect("v8 admits widget bundles");
 }

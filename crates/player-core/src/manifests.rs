@@ -304,6 +304,102 @@ mod tests {
         value
     }
 
+    fn with_bundle(binding: &Binding, version: i64, bytes: &[u8]) -> Value {
+        let mut value = document(binding, version);
+        value["schemaVersion"] = json!(18);
+        let widget = uuid::Uuid::from_u128(10);
+        value["widgets"] = json!([{"assetId":widget,"name":"Scores","provider":"acme.athletics.scoreboard",
+            "presentation":{"schemaVersion":3,"kind":"component",
+                "requiredCapabilities":{"widget.external-runtime":1},
+                "component":{"type":"acme.athletics.scoreboard","version":2,
+                    "config":{},"dataSources":[],"media":[],"empty":"render",
+                    "package":{"packageId":"acme.athletics",
+                        "digest":format!("sha256:{}", Sha256Digest::of(b"package").to_hex()),
+                        "sha256":Sha256Digest::of(bytes),"fileSize":bytes.len(),
+                        "downloadPath":"/api/v1/player/packages/acme.athletics/widgets/scoreboard"}}}}]);
+        value
+    }
+
+    #[tokio::test]
+    async fn verified_preparation_fetches_required_widget_bundles() {
+        let (dir, core, binding) = fixture();
+        let store = content_store(&dir, &core).await;
+        let bytes = b"widget bundle fixture";
+        let path = dir.path().join("source");
+        std::fs::write(&path, bytes).unwrap();
+        let sources = Sources { path, supersede: None };
+        let target = core
+            .reconcile_with(&Api::modified(with_bundle(&binding, 1, bytes), "one"), &binding)
+            .await
+            .unwrap()
+            .unwrap();
+        let candidate = NativeManifest::parse(target.document.clone(), binding.screen_id, target.digest).unwrap();
+        assert_eq!(
+            core.prepare_target(&store, &sources, &target, &candidate).await.unwrap(),
+            ManifestPrepared::Pending
+        );
+        let pending = core
+            .dependencies
+            .state
+            .run({
+                let lookup = binding.clone();
+                move |connection| manifests::get_for(connection, Stage::Pending, &lookup)
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(pending.digest, target.digest);
+        assert_eq!(pending.document, target.document);
+        let digest = candidate.required_bundles[0].digest;
+        assert!(store.verified_path(&digest).await.unwrap().is_some());
+        assert!(
+            core.dependencies
+                .state
+                .run(move |connection| player_state::repo::cas::is_pinned(connection, &digest))
+                .await
+                .unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_bundle_fetch_keeps_the_previous_pending_manifest() {
+        let (dir, core, binding) = fixture();
+        let store = content_store(&dir, &core).await;
+        let bytes = b"playable widget bundle";
+        let path = dir.path().join("source");
+        std::fs::write(&path, bytes).unwrap();
+        let first = core
+            .reconcile_with(&Api::modified(with_bundle(&binding, 1, bytes), "one"), &binding)
+            .await
+            .unwrap()
+            .unwrap();
+        let first_candidate = NativeManifest::parse(first.document.clone(), binding.screen_id, first.digest).unwrap();
+        let sources = Sources { path: dir.path().join("source"), supersede: None };
+        assert_eq!(
+            core.prepare_target(&store, &sources, &first, &first_candidate).await.unwrap(),
+            ManifestPrepared::Pending
+        );
+        let missing = Sources { path: dir.path().join("absent"), supersede: None };
+        let next = core
+            .reconcile_with(&Api::modified(with_bundle(&binding, 2, b"unreachable bundle"), "two"), &binding)
+            .await
+            .unwrap()
+            .unwrap();
+        let candidate = NativeManifest::parse(next.document.clone(), binding.screen_id, next.digest).unwrap();
+        assert!(core.prepare_target(&store, &missing, &next, &candidate).await.is_err());
+        let pending = core
+            .dependencies
+            .state
+            .run({
+                let lookup = binding.clone();
+                move |connection| manifests::get_for(connection, Stage::Pending, &lookup)
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(pending.digest, first.digest);
+    }
+
     #[tokio::test]
     async fn verified_preparation_repairs_content_without_changing_the_persisted_stage() {
         let (dir, core, binding) = fixture();

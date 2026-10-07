@@ -12,6 +12,7 @@ pub enum Domain {
     Media,
     Update,
     RendererBundle,
+    WidgetBundle,
     LegacyState,
 }
 
@@ -21,6 +22,7 @@ impl Domain {
             Self::Media => "media",
             Self::Update => "update",
             Self::RendererBundle => "renderer_bundle",
+            Self::WidgetBundle => "widget_bundle",
             Self::LegacyState => "legacy_state",
         }
     }
@@ -29,6 +31,7 @@ impl Domain {
         match value {
             "update" => Self::Update,
             "renderer_bundle" => Self::RendererBundle,
+            "widget_bundle" => Self::WidgetBundle,
             "legacy_state" => Self::LegacyState,
             _ => Self::Media,
         }
@@ -40,6 +43,7 @@ impl Domain {
             Self::Media => 0,
             Self::LegacyState => 1,
             Self::RendererBundle => 2,
+            Self::WidgetBundle => 2,
             Self::Update => 3,
         }
     }

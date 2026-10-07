@@ -5141,6 +5141,62 @@ paths:
               description: "ETag, Content-Length, MIME type, and Accept-Ranges",
             },
         }
+  /api/v1/player/packages/{packageId}/widgets/{widgetId}:
+    parameters:
+      - {
+          in: path,
+          name: packageId,
+          required: true,
+          schema: { type: string, maxLength: 128 },
+        }
+      - {
+          in: path,
+          name: widgetId,
+          required: true,
+          schema: { type: string, maxLength: 80 },
+        }
+    get:
+      operationId: downloadPackageWidgetBundle
+      description: >-
+        Download a package Widget player bundle. Requires an authenticated player credential.
+      security: [{ deviceBearer: [] }]
+      parameters:
+        - {
+            in: header,
+            name: Range,
+            schema: { type: string, example: bytes=0-1048575 },
+          }
+        - { in: header, name: If-Range, schema: { type: string } }
+        - { in: header, name: If-None-Match, schema: { type: string } }
+      responses:
+        "200":
+          description: Complete Widget player bundle
+          content:
+            text/javascript:
+              schema: { type: string, format: binary }
+        "206":
+          description: Requested byte range
+          content:
+            text/javascript:
+              schema: { type: string, format: binary }
+        "304": { description: ETag matched }
+        "401": { description: Device credential invalid or revoked }
+        "403": { description: Screen disabled }
+        "404": { description: Package or bundle unavailable }
+        "416": { description: Range not satisfiable }
+    head:
+      operationId: inspectPackageWidgetBundle
+      description: >-
+        Inspect a package Widget player bundle. Requires an authenticated player credential.
+      security: [{ deviceBearer: [] }]
+      responses:
+        {
+          "200":
+            {
+              description: "ETag, Content-Length, MIME type, and Accept-Ranges",
+            },
+          "404": { description: Package or bundle unavailable },
+        }
   /api/v1/playlists:
     get:
       operationId: listPlaylists

@@ -35,6 +35,17 @@ func PackageSource(packageID, version, digest string) ExtensionSource {
 	}
 }
 
+// WidgetPayload is the verified player bundle of one package-contributed
+// Widget: the activated package digest it was built from plus the hash
+// and size of the served bytes. The contributions service snapshots one
+// per installed Widget contribution; manifest compilation reads the
+// snapshot, and the player delivery endpoint re-verifies the bytes.
+type WidgetPayload struct {
+	PackageDigest string
+	SHA256Hex     string
+	Size          int64
+}
+
 // DecodePackageWidget decodes one package Widget manifest into a catalog
 // definition. The nested manifest carries its package-relative identity;
 // the definition is qualified under the package ID. The manifest cannot

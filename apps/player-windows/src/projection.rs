@@ -866,6 +866,7 @@ mod tests {
             screen_id: player_types::ScreenId::from_uuid(uuid::Uuid::from_u128(3)),
             assets: Vec::new(),
             required_downloads: Vec::new(),
+            required_bundles: Vec::new(),
         }
     }
 

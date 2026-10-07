@@ -3089,6 +3089,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/player/packages/{packageId}/widgets/{widgetId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packageId: string;
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    /** @description Download a package Widget player bundle. Requires an authenticated player credential. */
+    get: operations["downloadPackageWidgetBundle"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    /** @description Inspect a package Widget player bundle. Requires an authenticated player credential. */
+    head: operations["inspectPackageWidgetBundle"];
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/playlists": {
     parameters: {
       query?: never;
@@ -20211,6 +20232,105 @@ export interface operations {
     responses: {
       /** @description ETag, Content-Length, MIME type, and Accept-Ranges */
       200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  downloadPackageWidgetBundle: {
+    parameters: {
+      query?: never;
+      header?: {
+        Range?: string;
+        "If-Range"?: string;
+        "If-None-Match"?: string;
+      };
+      path: {
+        packageId: string;
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Complete Widget player bundle */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/javascript": string;
+        };
+      };
+      /** @description Requested byte range */
+      206: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/javascript": string;
+        };
+      };
+      /** @description ETag matched */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Device credential invalid or revoked */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen disabled */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Package or bundle unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Range not satisfiable */
+      416: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  inspectPackageWidgetBundle: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packageId: string;
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description ETag, Content-Length, MIME type, and Accept-Ranges */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Package or bundle unavailable */
+      404: {
         headers: {
           [name: string]: unknown;
         };
