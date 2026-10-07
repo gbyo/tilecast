@@ -125,7 +125,11 @@ export function DashboardShell() {
   }, [serverLanguage]);
   useEffect(() => {
     if (!auth.isLoading && !auth.status?.authenticated) {
-      const returnTo = authReturnTo(location);
+      const returnTo = authReturnTo({
+        pathname: location.pathname,
+        search: location.search,
+        hash: location.hash,
+      });
       void navigate(
         auth.status?.setupRequired
           ? "/setup"
