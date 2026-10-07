@@ -11863,8 +11863,7 @@ components:
         intervalMinutes: { type: integer }
         nextRunAt: { type: string, format: date-time }
         lastRunAt: { type: string, format: date-time }
-        lastStatus:
-          { type: string, x-extensible-enum: [never, ok, error] }
+        lastStatus: { type: string, x-extensible-enum: [never, ok, error] }
         lastError: { type: string }
         consecutiveFailures: { type: integer }
     GitHubInstallReview:
@@ -11967,7 +11966,10 @@ components:
                   id: { type: string }
                   intervalMinutes: { type: integer }
         storage:
-          { type: boolean, description: "Request plugin-owned key/value storage." }
+          {
+            type: boolean,
+            description: "Request plugin-owned key/value storage.",
+          }
         studioUI:
           type: object
           required: [entry]
