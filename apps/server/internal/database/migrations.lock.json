@@ -720,8 +720,8 @@
     "sha256": "02f5441db08807a46e64478b050b3ab0511ac67d8e8ff126e1ef1a4e9df559f7"
   },
   {
-    "version": 120,
-    "file": "00120_external_plugin_state.sql",
+    "version": 122,
+    "file": "00122_external_plugin_state.sql",
     "owner": "core",
     "sha256": "0218ba51f80d13f720f771105f7d7309af7103530bf441f390014fe066ce0af5"
   }

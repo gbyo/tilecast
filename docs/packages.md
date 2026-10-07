@@ -214,7 +214,7 @@ out after 10 seconds. Log lines cap at a bounded length and carry the
 package ID. The clock is wall time in milliseconds.
 
 The scheduler runs declared jobs on their intervals
-(`external_plugin_jobs`, migration `00120`). It claims due rows with
+(`external_plugin_jobs`, migration `00122`). It claims due rows with
 one atomic update under `SELECT ... FOR UPDATE SKIP LOCKED`, so two
 server processes never run the same job twice. A claim holds a
 five-minute lease. Execution is at-least-once: a crash mid-run
