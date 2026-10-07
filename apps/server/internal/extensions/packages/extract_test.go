@@ -54,7 +54,7 @@ func tarGzip(t *testing.T, entries []tarEntry) []byte {
 		}); err != nil {
 			t.Fatal(err)
 		}
-		if flag == tar.TypeReg || flag == tar.TypeRegA {
+		if flag == tar.TypeReg {
 			if _, err := tarWriter.Write([]byte(entry.body)); err != nil {
 				t.Fatal(err)
 			}
