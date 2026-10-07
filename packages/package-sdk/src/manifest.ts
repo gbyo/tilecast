@@ -14,17 +14,21 @@
  * validator; the fixtures in `testdata/manifests/` keep the two in
  * agreement.
  *
- * A manifest is data. It declares no capabilities, no source, and no code
- * to download: contribution paths point inside the package, and the host
- * decides what an extension class may do.
+ * A manifest is data. Version 1 declares no capabilities, no source, and
+ * no code to download: contribution paths point inside the package, and
+ * the host decides what an extension class may do. Version 2 adds an
+ * optional server runtime module and the bounded capabilities it
+ * requests; the declarations are requests, never grants — the host
+ * decides what is supported and permitted, and installation review
+ * shows every requested capability before anything is installed.
  */
 import { z } from "zod";
 
-/** The Tilecast package manifest version this SDK implements. */
-export const PACKAGE_API_VERSION = 1;
+/** The latest Tilecast package manifest version this SDK implements. */
+export const PACKAGE_API_VERSION = 2;
 
 /** Package manifest versions this release can load. */
-export const SUPPORTED_PACKAGE_API_VERSIONS = [1] as const;
+export const SUPPORTED_PACKAGE_API_VERSIONS = [1, 2] as const;
 
 /**
  * A qualified package identity: at least two dot-separated segments of
@@ -90,11 +94,105 @@ const contributionSchema = z.strictObject({
   ),
 });
 
+/**
+ * A `./relative/file.wasm` module inside the package directory. The
+ * extension is part of the contract: only WebAssembly modules load.
+ */
+const wasmModulePath = packagePath
+  .refine((path) => path.endsWith(".wasm"), "must name a .wasm module file")
+  .describe("Package-relative WebAssembly module for server behavior.");
+
+/**
+ * A `./relative/page.html` entry inside the package directory. The frame
+ * serves the entry plus its directory's web assets, nothing else.
+ */
+const studioEntryPath = packagePath
+  .refine((path) => path.endsWith(".html"), "must name an .html entry page")
+  .describe("Package-relative entry page for the sandboxed Studio UI.");
+
+/**
+ * A lowercase DNS hostname without port or scheme. No wildcards, no IP
+ * literals: every approved origin is explicit. The Go validator enforces
+ * the same pattern plus the numeric-address rejection below.
+ */
+export const capabilityHostPattern =
+  /^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$/;
+
+const capabilityHost = z
+  .string()
+  .regex(capabilityHostPattern, "must be a lowercase DNS hostname")
+  .refine((host) => !/^[0-9.]+$/.test(host), "must not be an IP literal")
+  .describe("Approved outbound HTTPS origin.");
+
+/** A background job identity: one dotless segment, like a nested ID. */
+const capabilityJobId = z
+  .string()
+  .regex(
+    /^[a-z][a-z0-9_-]{0,79}$/,
+    "must be a lowercase job identity such as refresh",
+  );
+
+const backgroundJobSchema = z.strictObject({
+  id: capabilityJobId.describe("Stable job identity within the package."),
+  intervalMinutes: z
+    .number()
+    .int()
+    .min(5)
+    .max(1440)
+    .describe("How often the host runs the job, in minutes."),
+});
+
+const networkCapabilitySchema = z
+  .strictObject({
+    hosts: z
+      .array(capabilityHost)
+      .min(1)
+      .max(8)
+      .describe("Approved outbound HTTPS origins."),
+  })
+  .describe("Approved outbound network access.");
+
+const backgroundCapabilitySchema = z
+  .strictObject({
+    jobs: z
+      .array(backgroundJobSchema)
+      .min(1)
+      .max(4)
+      .describe("Package-owned background jobs the host runs."),
+  })
+  .describe("Package-owned background behavior.");
+
+const studioUICapabilitySchema = z
+  .strictObject({
+    entry: studioEntryPath,
+  })
+  .describe("Sandboxed Studio UI entry.");
+
+const capabilitiesSchema = z
+  .strictObject({
+    network: networkCapabilitySchema.optional(),
+    background: backgroundCapabilitySchema.optional(),
+    storage: z
+      .literal(true)
+      .optional()
+      .describe("Request plugin-owned key/value storage."),
+    studioUI: studioUICapabilitySchema.optional(),
+  })
+  .describe("Bounded capabilities the package requests.");
+
+const runtimeSchema = z
+  .strictObject({
+    module: wasmModulePath,
+  })
+  .describe("External server behavior module.");
+
 export const packageManifestSchema = z
   .strictObject({
     apiVersion: z
-      .literal(1)
-      .describe("Package manifest version. Only 1 exists."),
+      .union([z.literal(1), z.literal(2)])
+      .describe(
+        "Package manifest version. Only 2 declares runtime and capabilities.",
+      ),
     packageId: z
       .string()
       .max(128)
@@ -162,9 +260,52 @@ export const packageManifestSchema = z
     issues: httpsUrl("must be an https URL with a host and path")
       .optional()
       .describe("Issue tracker for the package."),
+    runtime: runtimeSchema
+      .optional()
+      .describe("External server behavior module (version 2 only)."),
+    capabilities: capabilitiesSchema
+      .optional()
+      .describe("Bounded capabilities the package requests (version 2 only)."),
   })
   .describe("Tilecast package manifest (tilecast.package.json).")
   .superRefine((manifest, context) => {
+    if (
+      manifest.apiVersion === 1 &&
+      (manifest.runtime ?? manifest.capabilities)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["apiVersion"],
+        message: "runtime and capabilities require apiVersion 2",
+      });
+    }
+    const executable = manifest.capabilities
+      ? (manifest.capabilities.network ??
+        manifest.capabilities.background ??
+        manifest.capabilities.storage)
+      : undefined;
+    if (executable !== undefined && !manifest.runtime) {
+      context.addIssue({
+        code: "custom",
+        path: ["capabilities"],
+        message:
+          "network, background, and storage capabilities require a runtime module",
+      });
+    }
+    const capabilities = manifest.capabilities;
+    if (
+      capabilities &&
+      capabilities.network === undefined &&
+      capabilities.background === undefined &&
+      capabilities.storage === undefined &&
+      capabilities.studioUI === undefined
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["capabilities"],
+        message: "capabilities must declare at least one capability",
+      });
+    }
     if (manifest.packageId.split(".")[0] === "tilecast") {
       context.addIssue({
         code: "custom",
@@ -193,6 +334,30 @@ export const packageManifestSchema = z
         });
       }
       seen.add(key);
+    });
+    const hosts = manifest.capabilities?.network?.hosts ?? [];
+    const seenHosts = new Set<string>();
+    hosts.forEach((host, index) => {
+      if (seenHosts.has(host)) {
+        context.addIssue({
+          code: "custom",
+          path: ["capabilities", "network", "hosts", index],
+          message: "capability hosts must be unique",
+        });
+      }
+      seenHosts.add(host);
+    });
+    const jobs = manifest.capabilities?.background?.jobs ?? [];
+    const seenJobs = new Set<string>();
+    jobs.forEach((job, index) => {
+      if (seenJobs.has(job.id)) {
+        context.addIssue({
+          code: "custom",
+          path: ["capabilities", "background", "jobs", index, "id"],
+          message: "background job ids must be unique",
+        });
+      }
+      seenJobs.add(job.id);
     });
   });
 

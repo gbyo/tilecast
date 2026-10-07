@@ -35,6 +35,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/registry"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
 
@@ -505,6 +506,11 @@ func (s *Service) materialize(ctx context.Context, resolution Resolution) (packa
 			return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
 		}
 	}
+	// The runtime module and Studio entry validate the same way: shape,
+	// bounds, and ABI before anything is retained or executed.
+	if err := wasm.ValidatePackageRuntime(contentDir, verified.Manifest); err != nil {
+		return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
+	}
 	return verified.Manifest, contributions, nil
 }
 
@@ -791,7 +797,8 @@ func (s *Service) resolveListing(ctx context.Context, listing catalog.Listing) (
 	}
 	return Resolution{
 		Manifest: packagemanifest.Manifest{
-			APIVersion:     packagemanifest.APIVersion,
+			// Listing-derived manifests declare no version 2 features.
+			APIVersion:     1,
 			PackageID:      listing.PackageID,
 			PackageVersion: listing.Version,
 			Name:           listing.Name,

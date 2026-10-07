@@ -1,12 +1,12 @@
 {
-  "apiVersion": 3,
+  "apiVersion": 2,
   "packageId": "acme.athletics",
   "packageVersion": "2.4.1",
   "name": "Athletics",
-  "description": "Scoreboards.",
+  "description": "Scoreboards and schedules.",
   "publisher": {
     "id": "acme",
-    "name": "Acme"
+    "name": "Acme Athletics"
   },
   "repository": "https://github.com/acme/tilecast-athletics",
   "license": "MIT",
@@ -21,5 +21,22 @@
       "type": "widget",
       "path": "./widgets/scoreboard"
     }
-  ]
+  ],
+  "runtime": {
+    "module": "./runtime/plugin.wasm"
+  },
+  "capabilities": {
+    "background": {
+      "jobs": [
+        {
+          "id": "refresh",
+          "intervalMinutes": 60
+        },
+        {
+          "id": "refresh",
+          "intervalMinutes": 120
+        }
+      ]
+    }
+  }
 }

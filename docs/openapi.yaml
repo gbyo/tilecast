@@ -12059,6 +12059,18 @@ components:
               id:
                 type: string
                 description: Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest.
+        runtime:
+          type: object
+          required: [module]
+          description: External server behavior module (manifest version 2 only).
+          properties:
+            module:
+              {
+                type: string,
+                description: "Package-relative WebAssembly module path.",
+              }
+        capabilities:
+          $ref: "#/components/schemas/PackageCapabilities"
         digest:
           {
             type: string,
@@ -12086,6 +12098,42 @@ components:
         upToDate: { type: boolean }
         lastChecked: { type: string, format: date-time }
         latest: { $ref: "#/components/schemas/GitHubInstallReview" }
+    PackageCapabilities:
+      type: object
+      description: Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself.
+      properties:
+        network:
+          type: object
+          required: [hosts]
+          description: Approved outbound HTTPS origins.
+          properties:
+            hosts:
+              type: array
+              items: { type: string }
+        background:
+          type: object
+          required: [jobs]
+          description: Package-owned background jobs the host runs.
+          properties:
+            jobs:
+              type: array
+              items:
+                type: object
+                required: [id, intervalMinutes]
+                properties:
+                  id: { type: string }
+                  intervalMinutes: { type: integer }
+        storage:
+          {
+            type: boolean,
+            description: "Request plugin-owned key/value storage.",
+          }
+        studioUI:
+          type: object
+          required: [entry]
+          description: Sandboxed Studio UI entry.
+          properties:
+            entry: { type: string }
     PluginInUseError:
       type: object
       required: [error]
