@@ -7,7 +7,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -256,6 +259,100 @@ func TestRebuildSkipsInvalidPackage(t *testing.T) {
 	}
 	if _, ok := f.provider.Widget("acme.athletics.scoreboard"); !ok {
 		t.Fatal("provider skipped the valid package with the invalid one")
+	}
+}
+
+func TestRebuildLocalNeverUsesThePullingLookup(t *testing.T) {
+	f := newContributionsFixture(t)
+	f.seedPackage(t, "acme.athletics", testDigestGood, testManifest("acme.athletics"), map[string]string{
+		"widgets/scoreboard/tilecast.widget.json":        releaseWidgetJSON(t, "acme.athletics", "scoreboard"),
+		"data-sources/schedule/tilecast.datasource.json": releaseDataSourceJSON(t, "schedule"),
+	})
+	f.seedPackage(t, "acme.unretained", testDigestBad, testManifest("acme.unretained"), map[string]string{})
+	delete(f.content, testDigestBad)
+	pulled := false
+	f.service.contentDir = func(context.Context, string, string) (string, error) {
+		pulled = true
+		return "", errors.New("must not be called at startup")
+	}
+	f.service.localContentDir = func(_ context.Context, _, digest string) (string, error) {
+		dir, ok := f.content[digest]
+		if !ok {
+			return "", errContentMissing
+		}
+		return dir, nil
+	}
+	err := f.service.RebuildLocal(context.Background())
+	var skip SkippedPackage
+	if !errors.As(err, &skip) || skip.PackageID != "acme.unretained" || !SkipsOnly(err) {
+		t.Fatalf("expected a skip for the unretained package, got %v", err)
+	}
+	if pulled {
+		t.Fatal("RebuildLocal used the pull-capable content lookup")
+	}
+	if _, ok := f.provider.Widget("acme.athletics.scoreboard"); !ok {
+		t.Fatal("retained package did not join the catalog")
+	}
+}
+
+func TestRebuildLocalNeedsALocalLookup(t *testing.T) {
+	f := newContributionsFixture(t)
+	if err := f.service.RebuildLocal(context.Background()); err == nil {
+		t.Fatal("expected an error when no local lookup is configured")
+	}
+}
+
+// TestRebuildsSerialize holds one rebuild inside its content lookup and
+// proves a second rebuild cannot start until the first finishes, so a
+// rebuild that listed packages before a mutation cannot replace the
+// catalog after the newer rebuild did.
+func TestRebuildsSerialize(t *testing.T) {
+	f := newContributionsFixture(t)
+	f.seedPackage(t, "acme.athletics", testDigestGood, testManifest("acme.athletics"), map[string]string{
+		"widgets/scoreboard/tilecast.widget.json":        releaseWidgetJSON(t, "acme.athletics", "scoreboard"),
+		"data-sources/schedule/tilecast.datasource.json": releaseDataSourceJSON(t, "schedule"),
+	})
+	inside := make(chan struct{})
+	release := make(chan struct{})
+	var active, peak atomic.Int32
+	var first sync.Once
+	dir := f.content[testDigestGood]
+	f.service.contentDir = func(context.Context, string, string) (string, error) {
+		now := active.Add(1)
+		for {
+			seen := peak.Load()
+			if now <= seen || peak.CompareAndSwap(seen, now) {
+				break
+			}
+		}
+		first.Do(func() {
+			close(inside)
+			<-release
+		})
+		active.Add(-1)
+		return dir, nil
+	}
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := f.service.Rebuild(context.Background()); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	<-inside
+	// The second rebuild is now contending for the lock. Give it time to
+	// enter the lookup if the lock were missing.
+	time.Sleep(100 * time.Millisecond)
+	close(release)
+	wg.Wait()
+	if peak.Load() != 1 {
+		t.Fatalf("%d rebuilds ran at once; they must serialize", peak.Load())
+	}
+	if _, ok := f.provider.Widget("acme.athletics.scoreboard"); !ok {
+		t.Fatal("catalog lost the package")
 	}
 }
 

@@ -4934,6 +4934,10 @@ paths:
         "404": { description: package_not_installed }
         "409":
           description: update_check_expired, package_mismatch, contribution_collision, source_conflict, or package_in_use — the update drops a contribution persisted content still uses; remaining resources are listed in error.details
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/PackageUpdateConflictError" }
         "422":
           description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation
         "502":
@@ -4964,6 +4968,10 @@ paths:
         "404": { description: package_not_installed }
         "409":
           description: no_rollback — the package has no previous activation — or package_in_use — the rollback drops a contribution persisted content still uses; remaining resources are listed in error.details
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/PackageRollbackConflictError" }
   /api/v1/screens/pairing/{id}/reject:
     post:
       operationId: rejectPairing
@@ -11669,6 +11677,9 @@ components:
             properties:
               type: { type: string }
               path: { type: string }
+              id:
+                type: string
+                description: Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest.
         digest:
           {
             type: string,
@@ -11720,6 +11731,22 @@ components:
                       kind: { type: string }
                       count: { type: integer, minimum: 1 }
                       label: { type: string }
+    PackageInUseDetails:
+      type: object
+      required: [packageId, resources]
+      description: The package and the contributed content that blocks the operation.
+      properties:
+        packageId: { type: string }
+        resources:
+          type: array
+          items:
+            type: object
+            required: [kind, count, label, resolution]
+            properties:
+              kind: { type: string }
+              count: { type: integer, minimum: 1 }
+              label: { type: string }
+              resolution: { type: string }
     PackageInUseError:
       type: object
       required: [error]
@@ -11731,21 +11758,40 @@ components:
           properties:
             code: { type: string, const: package_in_use }
             message: { type: string }
-            details:
-              type: object
-              required: [packageId, resources]
-              properties:
-                packageId: { type: string }
-                resources:
-                  type: array
-                  items:
-                    type: object
-                    required: [kind, count, label, resolution]
-                    properties:
-                      kind: { type: string }
-                      count: { type: integer, minimum: 1 }
-                      label: { type: string }
-                      resolution: { type: string }
+            details: { $ref: "#/components/schemas/PackageInUseDetails" }
+    PackageUpdateConflictError:
+      type: object
+      required: [error]
+      description: A 409 from applying a package update. Only package_in_use carries details, listing the content the update would strand.
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                [
+                  update_check_expired,
+                  package_mismatch,
+                  contribution_collision,
+                  source_conflict,
+                  package_in_use,
+                ]
+            message: { type: string }
+            details: { $ref: "#/components/schemas/PackageInUseDetails" }
+    PackageRollbackConflictError:
+      type: object
+      required: [error]
+      description: A 409 from restoring the previous package activation. Only package_in_use carries details, listing the content the rollback would strand.
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, enum: [no_rollback, package_in_use] }
+            message: { type: string }
+            details: { $ref: "#/components/schemas/PackageInUseDetails" }
     PresentationNetworkSecurity:
       type: string
       enum: [wpa_psk, wpa_eap_peap_mschapv2]

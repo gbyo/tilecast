@@ -605,8 +605,8 @@ function ContributionChanges({
   current,
   next,
 }: {
-  current: { kind: string; path: string }[];
-  next: { type: string; path: string }[];
+  current: { kind: string; path: string; id?: string }[];
+  next: { type: string; path: string; id?: string }[];
 }) {
   const { t } = useTranslation("plugins");
   const { added, removed } = diffContributions(current, next);
@@ -618,8 +618,11 @@ function ContributionChanges({
           <p className="font-medium">{t("packages.addedContributions")}</p>
           <ul className="list-disc pl-5 text-muted-foreground">
             {added.map((change) => (
-              <li key={`${change.kind} ${change.path}`}>
+              <li key={`${change.kind} ${change.path} ${change.id ?? ""}`}>
                 {change.kind} · {change.path}
+                {change.id && (
+                  <span className="block font-mono text-xs">{change.id}</span>
+                )}
               </li>
             ))}
           </ul>
@@ -630,8 +633,11 @@ function ContributionChanges({
           <p className="font-medium">{t("packages.removedContributions")}</p>
           <ul className="list-disc pl-5 text-muted-foreground">
             {removed.map((change) => (
-              <li key={`${change.kind} ${change.path}`}>
+              <li key={`${change.kind} ${change.path} ${change.id ?? ""}`}>
                 {change.kind} · {change.path}
+                {change.id && (
+                  <span className="block font-mono text-xs">{change.id}</span>
+                )}
               </li>
             ))}
           </ul>

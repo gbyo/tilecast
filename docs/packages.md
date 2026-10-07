@@ -195,7 +195,11 @@ Only GitHub repositories install in this release
 artifact without activating anything: a custom package re-resolves its
 repository, and a marketplace package refreshes the catalog first. The
 check answers the installed package plus the latest review when an
-update is available.
+update is available. When the check can read the artifact, each review
+contribution also carries its package-qualified `id`, so Studio shows an
+ID change even when the contribution path stays the same. A review that
+could not read the artifact omits `id`, and Studio then compares by type
+and path only.
 
 `POST /api/v1/packages/{packageId}/update` takes the digest the check
 approved, re-resolves fresh, and activates only when the digest still

@@ -1379,7 +1379,8 @@ export type GitHubInstallReview = {
   version: string;
   manifest: PackageManifestSummary;
   compatible: boolean;
-  contributions: { type: string; path: string }[];
+  /** id is the package-qualified identity, present on update checks. */
+  contributions: { type: string; path: string; id?: string }[];
   digest: string;
   registry: string;
   releaseTag: string;

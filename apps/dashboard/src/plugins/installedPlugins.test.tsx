@@ -1444,6 +1444,28 @@ describe("Contribution diffs", () => {
     ]);
   });
 
+  it("reports a changed qualified ID even when the path stays put", () => {
+    const { added, removed } = diffContributions(
+      [{ kind: "widget", path: "./widgets/lobby", id: "acme.lobby" }],
+      [{ type: "widget", path: "./widgets/lobby", id: "acme.lobby_v2" }],
+    );
+    expect(added).toEqual([
+      { kind: "widget", path: "./widgets/lobby", id: "acme.lobby_v2" },
+    ]);
+    expect(removed).toEqual([
+      { kind: "widget", path: "./widgets/lobby", id: "acme.lobby" },
+    ]);
+  });
+
+  it("compares by path alone when the review carries no ID", () => {
+    const { added, removed } = diffContributions(
+      [{ kind: "widget", path: "./widgets/lobby", id: "acme.lobby" }],
+      [{ type: "widget", path: "./widgets/lobby" }],
+    );
+    expect(added).toEqual([]);
+    expect(removed).toEqual([]);
+  });
+
   it("reports nothing when contributions match", () => {
     const { added, removed } = diffContributions(
       [{ kind: "widget", path: "lobby" }],

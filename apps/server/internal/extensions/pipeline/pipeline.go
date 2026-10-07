@@ -164,6 +164,11 @@ type UpdateCheck struct {
 	Resolution  Resolution
 	UpToDate    bool
 	LastChecked time.Time
+	// Contributions are the available update's nested contribution
+	// identities, read from the retained artifact. They stay nil when the
+	// artifact cannot be read for review; apply re-reads it and fails
+	// there with the real error.
+	Contributions []packages.NestedContribution
 }
 
 // UpdateResult is an applied update. Updated is false for an idempotent
@@ -518,6 +523,22 @@ func (s *Service) ContentDir(ctx context.Context, ref, digest string) (string, e
 	return contentDir, nil
 }
 
+// LocalContentDir returns the extracted content directory of a digest this
+// server already retains. It never reaches the registry, so callers that
+// must not block on the network, such as startup, use it instead of
+// ContentDir. An unretained digest is an error.
+func (s *Service) LocalContentDir(_ context.Context, _, digest string) (string, error) {
+	retained := filepath.Join(s.packagesRoot, strings.ReplaceAll(digest, ":", "-"))
+	if !complete(retained, digest) {
+		return "", fmt.Errorf("package content %s is not retained on this server", digest)
+	}
+	layoutDir := filepath.Join(retained, "layout")
+	if _, err := packages.VerifyLayout(layoutDir); err != nil {
+		return "", fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
+	}
+	return filepath.Join(retained, "content"), nil
+}
+
 // resync recomposes the effective catalog after a mutation. The
 // contributions service logs what it skips; a failure here cannot undo
 // the committed activation, so the caller reports it alongside success.
@@ -683,6 +704,14 @@ func (s *Service) UpdateCheck(ctx context.Context, packageID string) (UpdateChec
 	check.Available = compare > 0 || (compare == 0 && resolution.Digest != installed.Digest)
 	check.UpToDate = !check.Available
 	check.Resolution = resolution
+	if check.Available {
+		// Reading the artifact lets the review compare qualified
+		// contribution IDs, which can change while paths stay put. The
+		// bytes stay retained, so applying the update reuses them.
+		if _, nested, err := s.materialize(ctx, resolution); err == nil {
+			check.Contributions = nested
+		}
+	}
 	return check, nil
 }
 

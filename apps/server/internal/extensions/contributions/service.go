@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
@@ -38,11 +39,16 @@ var externalAdapters = map[string]bool{
 
 // Service rebuilds the effective catalog from installed packages.
 type Service struct {
+	// mu serializes Rebuild so a slow rebuild that listed packages before a
+	// concurrent mutation committed cannot replace the catalog after the
+	// newer rebuild already did.
+	mu               sync.Mutex
 	db               *pgxpool.Pool
 	installer        *installer.Service
 	release          *contentdefs.Catalog
 	provider         *contentdefs.Provider
 	contentDir       func(ctx context.Context, ref, digest string) (string, error)
+	localContentDir  func(ctx context.Context, ref, digest string) (string, error)
 	adapterAllowed   func(adapterID string) bool
 	validateAdapters func(catalog *contentdefs.Catalog) error
 	logger           *slog.Logger
@@ -54,6 +60,12 @@ type Option func(*Service)
 // WithLogger sets the rebuild skip log. The default discards it.
 func WithLogger(logger *slog.Logger) Option {
 	return func(s *Service) { s.logger = logger }
+}
+
+// WithLocalContentDir sets the content lookup RebuildLocal uses. It must
+// never reach the network.
+func WithLocalContentDir(lookup func(ctx context.Context, ref, digest string) (string, error)) Option {
+	return func(s *Service) { s.localContentDir = lookup }
 }
 
 // NewService composes installed package contributions over the release
@@ -137,6 +149,22 @@ func (s *Service) Validate(contentDir string, manifest packagemanifest.Manifest,
 // entry while every other package still joins. The returned error joins
 // the skips, or is nil when nothing skipped.
 func (s *Service) Rebuild(ctx context.Context) error {
+	return s.rebuild(ctx, s.contentDir)
+}
+
+// RebuildLocal is Rebuild restricted to retained bytes: a package whose
+// bytes this server does not hold is skipped, never pulled. Startup uses
+// it so the registry cannot block or fail boot.
+func (s *Service) RebuildLocal(ctx context.Context) error {
+	if s.localContentDir == nil {
+		return errors.New("contributions: no local content lookup configured")
+	}
+	return s.rebuild(ctx, s.localContentDir)
+}
+
+func (s *Service) rebuild(ctx context.Context, contentDir func(ctx context.Context, ref, digest string) (string, error)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	installed, err := s.installer.List(ctx)
 	if err != nil {
 		return err
@@ -144,7 +172,7 @@ func (s *Service) Rebuild(ctx context.Context) error {
 	composed := s.release
 	var skipped []error
 	for _, item := range installed {
-		packageWidgets, packageSources, err := s.loadPackage(ctx, item)
+		packageWidgets, packageSources, err := s.loadPackage(ctx, item, contentDir)
 		if err != nil {
 			skipped = append(skipped, err)
 			continue
@@ -168,12 +196,12 @@ func (s *Service) Rebuild(ctx context.Context) error {
 
 // loadPackage reads one installed package's Widget and Data Source
 // definitions from its retained bytes.
-func (s *Service) loadPackage(ctx context.Context, item installer.InstalledPackage) ([]contentdefs.WidgetDefinition, []contentdefs.DataSourceDefinition, error) {
+func (s *Service) loadPackage(ctx context.Context, item installer.InstalledPackage, contentDir func(ctx context.Context, ref, digest string) (string, error)) ([]contentdefs.WidgetDefinition, []contentdefs.DataSourceDefinition, error) {
 	manifest, err := s.installer.Manifest(ctx, item.PackageID)
 	if err != nil {
 		return nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}
-	dir, err := s.contentDir(ctx, item.RegistryReference, item.Digest)
+	dir, err := contentDir(ctx, item.RegistryReference, item.Digest)
 	if err != nil {
 		return nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}

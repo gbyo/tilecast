@@ -7572,6 +7572,8 @@ export interface components {
       contributions: {
         type: string;
         path: string;
+        /** @description Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest. */
+        id?: string;
       }[];
       /** @description Pinned artifact digest as sha256 colon hex. */
       digest: string;
@@ -7613,21 +7615,46 @@ export interface components {
         };
       };
     };
+    /** @description The package and the contributed content that blocks the operation. */
+    PackageInUseDetails: {
+      packageId: string;
+      resources: {
+        kind: string;
+        count: number;
+        label: string;
+        resolution: string;
+      }[];
+    };
     /** @description A removal, update, or rollback blocked by contributed content the operation would strand. The operation deletes installation state only, never content, so the operator deletes the listed content first. */
     PackageInUseError: {
       error: {
         /** @constant */
         code: "package_in_use";
         message: string;
-        details: {
-          packageId: string;
-          resources: {
-            kind: string;
-            count: number;
-            label: string;
-            resolution: string;
-          }[];
-        };
+        details: components["schemas"]["PackageInUseDetails"];
+      };
+    };
+    /** @description A 409 from applying a package update. Only package_in_use carries details, listing the content the update would strand. */
+    PackageUpdateConflictError: {
+      error: {
+        /** @enum {string} */
+        code:
+          | "update_check_expired"
+          | "package_mismatch"
+          | "contribution_collision"
+          | "source_conflict"
+          | "package_in_use";
+        message: string;
+        details?: components["schemas"]["PackageInUseDetails"];
+      };
+    };
+    /** @description A 409 from restoring the previous package activation. Only package_in_use carries details, listing the content the rollback would strand. */
+    PackageRollbackConflictError: {
+      error: {
+        /** @enum {string} */
+        code: "no_rollback" | "package_in_use";
+        message: string;
+        details?: components["schemas"]["PackageInUseDetails"];
       };
     };
     /**
@@ -19458,7 +19485,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["PackageUpdateConflictError"];
+        };
       };
       /** @description repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation */
       422: {
@@ -19528,7 +19557,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["PackageRollbackConflictError"];
+        };
       };
     };
   };

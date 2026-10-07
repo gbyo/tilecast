@@ -2270,13 +2270,58 @@ func (e OAuthTokensTokenType) Valid() bool {
 
 // Defines values for PackageInUseErrorErrorCode.
 const (
-	PackageInUse PackageInUseErrorErrorCode = "package_in_use"
+	PackageInUseErrorErrorCodePackageInUse PackageInUseErrorErrorCode = "package_in_use"
 )
 
 // Valid indicates whether the value is a known member of the PackageInUseErrorErrorCode enum.
 func (e PackageInUseErrorErrorCode) Valid() bool {
 	switch e {
-	case PackageInUse:
+	case PackageInUseErrorErrorCodePackageInUse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PackageRollbackConflictErrorErrorCode.
+const (
+	PackageRollbackConflictErrorErrorCodeNoRollback   PackageRollbackConflictErrorErrorCode = "no_rollback"
+	PackageRollbackConflictErrorErrorCodePackageInUse PackageRollbackConflictErrorErrorCode = "package_in_use"
+)
+
+// Valid indicates whether the value is a known member of the PackageRollbackConflictErrorErrorCode enum.
+func (e PackageRollbackConflictErrorErrorCode) Valid() bool {
+	switch e {
+	case PackageRollbackConflictErrorErrorCodeNoRollback:
+		return true
+	case PackageRollbackConflictErrorErrorCodePackageInUse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PackageUpdateConflictErrorErrorCode.
+const (
+	PackageUpdateConflictErrorErrorCodeContributionCollision PackageUpdateConflictErrorErrorCode = "contribution_collision"
+	PackageUpdateConflictErrorErrorCodePackageInUse          PackageUpdateConflictErrorErrorCode = "package_in_use"
+	PackageUpdateConflictErrorErrorCodePackageMismatch       PackageUpdateConflictErrorErrorCode = "package_mismatch"
+	PackageUpdateConflictErrorErrorCodeSourceConflict        PackageUpdateConflictErrorErrorCode = "source_conflict"
+	PackageUpdateConflictErrorErrorCodeUpdateCheckExpired    PackageUpdateConflictErrorErrorCode = "update_check_expired"
+)
+
+// Valid indicates whether the value is a known member of the PackageUpdateConflictErrorErrorCode enum.
+func (e PackageUpdateConflictErrorErrorCode) Valid() bool {
+	switch e {
+	case PackageUpdateConflictErrorErrorCodeContributionCollision:
+		return true
+	case PackageUpdateConflictErrorErrorCodePackageInUse:
+		return true
+	case PackageUpdateConflictErrorErrorCodePackageMismatch:
+		return true
+	case PackageUpdateConflictErrorErrorCodeSourceConflict:
+		return true
+	case PackageUpdateConflictErrorErrorCodeUpdateCheckExpired:
 		return true
 	default:
 		return false
@@ -7892,8 +7937,10 @@ type GitHubDeviceStart struct {
 type GitHubInstallReview struct {
 	Compatible    bool `json:"compatible"`
 	Contributions []struct {
-		Path string `json:"path"`
-		Type string `json:"type"`
+		// Id Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest.
+		Id   *string `json:"id,omitempty"`
+		Path string  `json:"path"`
+		Type string  `json:"type"`
 	} `json:"contributions"`
 
 	// Digest Pinned artifact digest as sha256 colon hex.
@@ -8739,20 +8786,25 @@ type PackageContribution struct {
 	Path string `json:"path"`
 }
 
+// PackageInUseDetails The package and the contributed content that blocks the operation.
+type PackageInUseDetails struct {
+	PackageId string `json:"packageId"`
+	Resources []struct {
+		Count      int    `json:"count"`
+		Kind       string `json:"kind"`
+		Label      string `json:"label"`
+		Resolution string `json:"resolution"`
+	} `json:"resources"`
+}
+
 // PackageInUseError A removal, update, or rollback blocked by contributed content the operation would strand. The operation deletes installation state only, never content, so the operator deletes the listed content first.
 type PackageInUseError struct {
 	Error struct {
-		Code    PackageInUseErrorErrorCode `json:"code"`
-		Details struct {
-			PackageId string `json:"packageId"`
-			Resources []struct {
-				Count      int    `json:"count"`
-				Kind       string `json:"kind"`
-				Label      string `json:"label"`
-				Resolution string `json:"resolution"`
-			} `json:"resources"`
-		} `json:"details"`
-		Message string `json:"message"`
+		Code PackageInUseErrorErrorCode `json:"code"`
+
+		// Details The package and the contributed content that blocks the operation.
+		Details PackageInUseDetails `json:"details"`
+		Message string              `json:"message"`
 	} `json:"error"`
 }
 
@@ -8768,6 +8820,20 @@ type PackageManifestSummary struct {
 	PublisherName string `json:"publisherName"`
 	TilecastRange string `json:"tilecastRange"`
 }
+
+// PackageRollbackConflictError A 409 from restoring the previous package activation. Only package_in_use carries details, listing the content the rollback would strand.
+type PackageRollbackConflictError struct {
+	Error struct {
+		Code PackageRollbackConflictErrorErrorCode `json:"code"`
+
+		// Details The package and the contributed content that blocks the operation.
+		Details *PackageInUseDetails `json:"details,omitempty"`
+		Message string               `json:"message"`
+	} `json:"error"`
+}
+
+// PackageRollbackConflictErrorErrorCode defines model for PackageRollbackConflictError.Error.Code.
+type PackageRollbackConflictErrorErrorCode string
 
 // PackageSourceBinding The custom repository binding behind an installed custom package.
 type PackageSourceBinding struct {
@@ -8793,6 +8859,20 @@ type PackageUpdateCheck struct {
 	Latest   *GitHubInstallReview `json:"latest,omitempty"`
 	UpToDate bool                 `json:"upToDate"`
 }
+
+// PackageUpdateConflictError A 409 from applying a package update. Only package_in_use carries details, listing the content the update would strand.
+type PackageUpdateConflictError struct {
+	Error struct {
+		Code PackageUpdateConflictErrorErrorCode `json:"code"`
+
+		// Details The package and the contributed content that blocks the operation.
+		Details *PackageInUseDetails `json:"details,omitempty"`
+		Message string               `json:"message"`
+	} `json:"error"`
+}
+
+// PackageUpdateConflictErrorErrorCode defines model for PackageUpdateConflictError.Error.Code.
+type PackageUpdateConflictErrorErrorCode string
 
 // PairingRequest defines model for PairingRequest.
 type PairingRequest struct {
@@ -57892,6 +57972,8 @@ type RollbackPackageResponse struct {
 		// Data One installed extension package with its contributions and, for custom packages, the repository binding.
 		Data InstalledPackage `json:"data"`
 	}
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *PackageRollbackConflictError
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -57900,6 +57982,11 @@ func (r RollbackPackageResponse) GetJSON200() *struct {
 	Data InstalledPackage `json:"data"`
 } {
 	return r.JSON200
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r RollbackPackageResponse) GetJSON409() *PackageRollbackConflictError {
+	return r.JSON409
 }
 
 // GetBody returns the raw response body bytes
@@ -57942,6 +58029,8 @@ type ApplyPackageUpdateResponse struct {
 			Updated bool             `json:"updated"`
 		} `json:"data"`
 	}
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *PackageUpdateConflictError
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -57953,6 +58042,11 @@ func (r ApplyPackageUpdateResponse) GetJSON200() *struct {
 	} `json:"data"`
 } {
 	return r.JSON200
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r ApplyPackageUpdateResponse) GetJSON409() *PackageUpdateConflictError {
+	return r.JSON409
 }
 
 // GetBody returns the raw response body bytes
@@ -79608,8 +79702,12 @@ func ParseRollbackPackageResponse(rsp *http.Response) (*RollbackPackageResponse,
 	case rsp.StatusCode == 404:
 		break // No content-type
 
-	case rsp.StatusCode == 409:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PackageRollbackConflictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
@@ -79655,8 +79753,12 @@ func ParseApplyPackageUpdateResponse(rsp *http.Response) (*ApplyPackageUpdateRes
 	case rsp.StatusCode == 404:
 		break // No content-type
 
-	case rsp.StatusCode == 409:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PackageUpdateConflictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case rsp.StatusCode == 422:
 		break // No content-type

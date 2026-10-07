@@ -276,17 +276,20 @@ export function inUseResources(error: unknown): PluginInUseResource[] | null {
   return Array.isArray(resources) ? (resources as PluginInUseResource[]) : [];
 }
 
-/** One contribution an update adds or drops, by kind and package path. */
-export type ContributionChange = { kind: string; path: string };
+/** One contribution an update adds or drops: kind, package path, qualified ID. */
+export type ContributionChange = { kind: string; path: string; id?: string };
 
 /**
- * What an update changes about contributions: the review's (type, path)
- * pairs against the installed (kind, path) rows. Paths normalize a
- * leading ./, since manifests and rows spell it differently.
+ * What an update changes about contributions: the review's (type, path, id)
+ * entries against the installed (kind, path, id) rows. Paths normalize a
+ * leading ./, since manifests and rows spell it differently. A nested
+ * manifest can change its ID while its path stays put, and content refers
+ * to the qualified ID, so a changed ID is both a drop and an addition.
+ * When the review carries no ID, entries compare by kind and path alone.
  */
 export function diffContributions(
-  current: { kind: string; path: string }[],
-  next: { type: string; path: string }[],
+  current: { kind: string; path: string; id?: string }[],
+  next: { type: string; path: string; id?: string }[],
 ): { added: ContributionChange[]; removed: ContributionChange[] } {
   const key = (kind: string, path: string) =>
     `${kind} ${path.replace(/^\.\//, "")}`;
@@ -297,12 +300,22 @@ export function diffContributions(
     next.map((item) => [key(item.type, item.path), item] as const),
   );
   const added: ContributionChange[] = [];
-  for (const [id, item] of after) {
-    if (!before.has(id)) added.push({ kind: item.type, path: item.path });
-  }
   const removed: ContributionChange[] = [];
+  for (const [id, item] of after) {
+    const previous = before.get(id);
+    if (!previous) {
+      added.push({ kind: item.type, path: item.path, id: item.id });
+    } else if (previous.id && item.id && previous.id !== item.id) {
+      added.push({ kind: item.type, path: item.path, id: item.id });
+    }
+  }
   for (const [id, item] of before) {
-    if (!after.has(id)) removed.push({ kind: item.kind, path: item.path });
+    const upcoming = after.get(id);
+    if (!upcoming) {
+      removed.push({ kind: item.kind, path: item.path, id: item.id });
+    } else if (item.id && upcoming.id && item.id !== upcoming.id) {
+      removed.push({ kind: item.kind, path: item.path, id: item.id });
+    }
   }
   return { added, removed };
 }
