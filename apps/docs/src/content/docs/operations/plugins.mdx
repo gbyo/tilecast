@@ -23,7 +23,7 @@ import { Badge, Steps } from "@astrojs/starlight/components";
 
 1. In Studio, open **Operations** > **Plugins**.
 2. Select **Explore** and choose a plugin to open its page.
-3. Read the listed requirements and capabilities, then select **Install**.
+3. Read the requirements and what the plugin can do, then select **Install**.
 4. Open the plugin's page from the installed list and configure its instances.
 
 </Steps>
@@ -54,15 +54,34 @@ An Owner or Administrator can add a package from any public GitHub repository wi
 
 Custom entries are operator-chosen, not curated. Tilecast verifies the release provenance before installing, but adding a repository is still a trust decision: read the review and only install repositories you trust.
 
+## A plugin's page
+
+Every entry in **Explore** opens the same page, whether it is built in, from the Marketplace, or a custom package. The top shows the plugin's icon, name, and who builds it (**by Acme Signage**, or **by Tilecast** for built-in plugins). A few badges say where it comes from, up to two categories, whether it is featured, and whether an update is available. The main action, such as **Install** or **Review & install**, is at the top right on a wide screen. On a phone or tablet it sits in the **Package status** card directly below the heading.
+
+Below the heading the page covers:
+
+- **Screenshots** from the Marketplace listing, when it has any. Swipe or use the arrows to browse, and select a screenshot to see it larger. Nothing advances on its own, and the section is left out when a listing has no screenshots.
+- **About**, a description of the plugin. A Marketplace listing can provide a longer description; without one, the page uses the short description.
+- **What this plugin adds**, such as Widgets and Data Sources, named by what they are rather than by file path.
+- **Permissions & behavior**, which says in plain words whether the plugin connects to the network (and to which hosts), stores its own data on the server, runs background jobs, or adds its own settings interface. A plugin with none of these says so.
+- **Requirements**, only when a plugin has requirements beyond the Tilecast release. A plugin that needs a newer release shows a notice at the top of the page and a disabled action instead.
+
+The sidebar holds two cards. **Package status** leads with the current state, such as **Update available** with `1.3.0 → 1.4.0`, then the action that follows, then version and compatibility details. **About this package** shows the publisher, license, source, and links to the repository, documentation, and issue tracker. Built-in plugins say they are included with Tilecast and download nothing. Custom packages say they are not curated by the Marketplace. A collapsed **Technical details** section keeps the package ID, digest, registry, signer, and exact file paths for anyone who needs them.
+
+A Marketplace package does not list what it adds or what it can do until you review it, because Tilecast reads that from the published package. Select **Review & install** to see it before anything installs. On a wide screen the review opens in a dialog; on a phone it opens as a sheet from the bottom. **Cancel** and **Install plugin** stay in view while you scroll.
+
 ## Manage installed packages
 
 Open an installed marketplace or custom package from **Extension packages** to manage it:
 
-- **Check for update** resolves the latest release without changing anything. When an update is available, the page shows its review and an **Update to 1.3.0** button for that exact version.
-- **Restore previous version** returns to the last activation when one exists.
-- **Remove package** deletes the installation and its contributions after confirmation. A custom repository binding survives, so the package can be reinstalled from **Explore**.
+- **Package status** shows what to do about updates. With no update known, **Check for updates** looks for one. When an update is available, the main action is **Review update**; select it to see the version change, what the update adds or removes, any permissions that change, and how the release was verified. **Update to 1.3.0** installs that exact version. After a check that finds nothing newer, the card says **Up to date**, and **Check again** is there if you want to look again.
+- **Plugin settings** appears for a package that ships its own settings interface. It runs isolated from the Studio page and grows to fit its content, up to a limit; taller content scrolls inside it.
+- **Background jobs** lists each scheduled job with its schedule, last result, and next run. A failed job shows a warning, how many times in a row it failed, and a short error.
 
-A package that ships server behavior shows a **Package interface** section with its own controls, running isolated from the Studio page, and a **Background jobs** section listing each scheduled job with its next run and last outcome.
+Recovery and removal are at the bottom of the page, apart from everyday actions:
+
+- **Package management** has **Restore previous version**, which returns to the last activation when one exists, after you confirm.
+- **Danger zone** has **Remove package**, which deletes the installation and its contributions after confirmation. A custom repository binding survives, so the package can be reinstalled from **Explore**.
 
 See the [package contract](https://github.com/gbyo/tilecast/blob/main/docs/packages.md) for the manifest format, provenance rules, and lifecycle behavior.
 

@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { callStudioBridge } from "../api/domains/fleet";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
 
 /**
  * The bridge call one sandboxed Studio UI frame sends over its port: a
@@ -15,7 +22,46 @@ export type StudioBridgeCall = {
 const bridgeSource = "tilecast-studio-ui";
 const helloKind = "studio-hello";
 const handshakeKind = "studio-handshake";
+const resizeKind = "studio-resize";
 const maxBridgeInputChars = 24 * 1024;
+
+/**
+ * The frame's height in CSS pixels. It starts at a modest default, follows
+ * the height the page reports over its port, and never leaves this range:
+ * a page taller than the maximum scrolls inside the frame instead of
+ * pushing the rest of Studio away.
+ */
+export const studioFrameHeight = { initial: 280, min: 200, max: 680 } as const;
+
+/** The largest report treated as a measurement at all; beyond it is noise. */
+const maxReportedHeight = 100_000;
+
+export function clampStudioHeight(height: number) {
+  return Math.min(
+    studioFrameHeight.max,
+    Math.max(studioFrameHeight.min, Math.round(height)),
+  );
+}
+
+/**
+ * A resize report: the frame page tells the parent how tall its content
+ * wants to be. Only this exact shape counts, and only a finite positive
+ * number within a sane bound; anything else is ignored rather than
+ * clamped, so a malformed message cannot move the layout at all.
+ */
+export function parseStudioResize(data: unknown): number | null {
+  if (typeof data !== "object" || data === null) return null;
+  const message = data as Record<string, unknown>;
+  const keys = Object.keys(message);
+  if (keys.length !== 3) return null;
+  if (message.source !== bridgeSource || message.kind !== resizeKind) {
+    return null;
+  }
+  const height = message.height;
+  if (typeof height !== "number" || !Number.isFinite(height)) return null;
+  if (height <= 0 || height > maxReportedHeight) return null;
+  return height;
+}
 
 export function parseStudioBridgeCall(data: unknown): StudioBridgeCall | null {
   if (typeof data !== "object" || data === null) return null;
@@ -65,6 +111,7 @@ export function PackageStudioUI({
   const { t } = useTranslation("plugins");
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [failed, setFailed] = useState(false);
+  const [height, setHeight] = useState<number>(studioFrameHeight.initial);
 
   useEffect(() => {
     const channel = new MessageChannel();
@@ -85,6 +132,11 @@ export function PackageStudioUI({
 
     channel.port1.onmessage = (event: MessageEvent) => {
       if (!alive) return;
+      const resize = parseStudioResize(event.data);
+      if (resize !== null) {
+        setHeight(clampStudioHeight(resize));
+        return;
+      }
       const call = parseStudioBridgeCall(event.data);
       if (!call) return;
       const port = channel.port1;
@@ -152,22 +204,37 @@ export function PackageStudioUI({
   }, [packageId, csrfToken]);
 
   return (
-    <section aria-label={t("packages.studioTitle")} className="grid gap-3">
-      <h3 className="text-sm font-semibold">{t("packages.studioTitle")}</h3>
-      {failed ? (
-        <p className="text-sm text-muted-foreground">
-          {t("packages.studioUnavailable")}
-        </p>
-      ) : (
-        <iframe
-          ref={frameRef}
-          src={`/api/v1/packages/${encodeURIComponent(packageId)}/studio/frame`}
-          sandbox="allow-scripts"
-          title={t("packages.studioTitle")}
-          onError={() => setFailed(true)}
-          className="h-96 w-full rounded-xl border"
-        />
-      )}
-    </section>
+    <Card role="region" aria-labelledby="package-settings-title">
+      <CardHeader>
+        <CardTitle
+          id="package-settings-title"
+          role="heading"
+          aria-level={2}
+          className="text-lg"
+        >
+          {t("storeDetail.settings.title")}
+        </CardTitle>
+        <CardDescription>
+          {t("storeDetail.settings.description")}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {failed ? (
+          <p className="text-sm text-muted-foreground">
+            {t("packages.studioUnavailable")}
+          </p>
+        ) : (
+          <iframe
+            ref={frameRef}
+            src={`/api/v1/packages/${encodeURIComponent(packageId)}/studio/frame`}
+            sandbox="allow-scripts"
+            title={t("packages.studioTitle")}
+            onError={() => setFailed(true)}
+            style={{ height }}
+            className="w-full rounded-lg bg-background ring-1 ring-foreground/10 transition-[height] duration-200 motion-reduce:transition-none"
+          />
+        )}
+      </CardContent>
+    </Card>
   );
 }

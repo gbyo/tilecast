@@ -817,7 +817,7 @@ describe("Marketplace", () => {
     renderStore("/plugins/store/acme.weather");
     expect(await screen.findByText("Weather")).toBeVisible();
     expect(screen.getByText("Acme")).toBeVisible();
-    expect(screen.getByText("Featured listing")).toBeVisible();
+    expect(screen.getByText("Featured")).toBeVisible();
     expect(screen.getByText("data")).toBeVisible();
     expect(
       screen.getByText("Listed in the official Tilecast Marketplace."),
@@ -998,7 +998,7 @@ describe("Marketplace store", () => {
     );
     expect(screen.getByText("MIT")).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Review install" }),
+      screen.getByRole("button", { name: "Review & install" }),
     ).toBeVisible();
   });
 
@@ -1006,30 +1006,35 @@ describe("Marketplace store", () => {
     const user = userEvent.setup();
     renderStore("/plugins/store/acme.weather");
     await user.click(
-      await screen.findByRole("button", { name: "Review install" }),
+      await screen.findByRole("button", { name: "Review & install" }),
     );
     // The review shows the published manifest: release, provenance,
     // contributions, and the catalog update plane.
-    expect(await screen.findByText("Release")).toBeVisible();
-    expect(screen.getByText("widget · lobby")).toBeVisible();
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Release")).toBeVisible();
+    expect(within(dialog).getByText("Lobby")).toBeVisible();
     expect(
-      screen.getByText(
+      within(dialog).getByText(
         "The Marketplace listing stays the update plane, so update checks re-read it.",
       ),
     ).toBeVisible();
     expect(calls.filter((call) => call.path.endsWith("/install"))).toHaveLength(
       0,
     );
-    await user.click(screen.getByRole("button", { name: "Install package" }));
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Installed" })).toBeVisible(),
+    await user.click(
+      within(dialog).getByRole("button", { name: "Install plugin" }),
     );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(
-      await screen.findByRole("heading", { name: "Installed package" }),
+      await screen.findByRole("heading", { name: "Danger zone" }),
     ).toBeVisible();
     expect(
-      screen.getByRole("button", { name: "Check for update" }),
+      screen.getByRole("button", { name: "Check for updates" }),
     ).toBeVisible();
+    // Installed packages show status, never a dead Install button.
+    expect(
+      screen.queryByRole("button", { name: "Review & install" }),
+    ).toBeNull();
   });
 
   it("explains a failed marketplace review without installing", async () => {
@@ -1041,12 +1046,12 @@ describe("Marketplace store", () => {
     };
     renderStore("/plugins/store/acme.weather");
     await user.click(
-      await screen.findByRole("button", { name: "Review install" }),
+      await screen.findByRole("button", { name: "Review & install" }),
     );
     expect(
       await screen.findByText("The package has no verifying provenance."),
     ).toBeVisible();
-    expect(screen.queryByText("Release")).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(calls.filter((call) => call.path.endsWith("/install"))).toHaveLength(
       0,
     );
@@ -1056,25 +1061,30 @@ describe("Marketplace store", () => {
     const user = userEvent.setup();
     renderStore("/plugins/store/acme.weather");
     await user.click(
-      await screen.findByRole("button", { name: "Review install" }),
+      await screen.findByRole("button", { name: "Review & install" }),
     );
-    expect(await screen.findByText("Release")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-    await waitFor(() => expect(screen.queryByText("Release")).toBeNull());
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Release")).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(calls.filter((call) => call.path.endsWith("/install"))).toHaveLength(
       0,
     );
   });
 
-  it("warns on incompatible listings instead of offering install", async () => {
+  it("explains incompatible listings and disables the action", async () => {
     renderStore("/plugins/store/acme.future");
     expect(
-      await screen.findByText(
-        "This listing requires Tilecast >=99.0.0, which this release does not satisfy.",
-      ),
+      await screen.findByText("Not compatible with this Tilecast version"),
     ).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Review install" })).toBeNull();
+    expect(
+      screen.getByText("This plugin requires Tilecast >=99.0.0."),
+    ).toBeVisible();
+    const action = screen.getByRole("button", { name: "Review & install" });
+    expect(action).toBeDisabled();
+    expect(action).toHaveAccessibleDescription(
+      /Not compatible with this Tilecast version/,
+    );
   });
 
   it("offers refresh while the catalog is stale and clears the banner after", async () => {
@@ -1194,7 +1204,7 @@ describe("Custom repositories", () => {
       ),
     );
     expect(
-      await screen.findByRole("button", { name: "Installed" }),
+      await screen.findByRole("heading", { name: "Danger zone" }),
     ).toBeVisible();
   });
 
@@ -1239,7 +1249,7 @@ describe("Custom repositories", () => {
     expect(screen.getByRole("button", { name: "Install" })).toBeVisible();
   });
 
-  it("warns on incompatible custom entries instead of offering install", async () => {
+  it("explains incompatible custom entries and disables the action", async () => {
     const bound = storeCustoms[0];
     if (!bound) throw new Error("custom fixture missing");
     bound.custom = customPackage({
@@ -1248,11 +1258,9 @@ describe("Custom repositories", () => {
     });
     renderStore("/plugins/store/acme.kiosk");
     expect(
-      await screen.findByText(
-        "This package requires Tilecast >=99.0.0, which this release does not satisfy.",
-      ),
+      await screen.findByText("This plugin requires Tilecast >=99.0.0."),
     ).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Install" })).toBeDisabled();
   });
 });
 
@@ -1294,14 +1302,19 @@ describe("Package management", () => {
     });
     renderStore("/plugins/store/acme.kiosk");
     await user.click(
-      await screen.findByRole("button", { name: "Check for update" }),
+      await screen.findByRole("button", { name: "Check for updates" }),
     );
-    expect(
-      await screen.findByRole("button", { name: "Update to 1.3.0" }),
-    ).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "Update to 1.3.0" }));
+    // A found update is reviewed in a dialog, never applied inline.
+    await user.click(
+      await screen.findByRole("button", { name: "Review update" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Update to 1.3.0" }),
+    );
     await waitFor(() => expect(packages["acme.kiosk"]?.version).toBe("1.3.0"));
     expect(packages["acme.kiosk"]?.hasRollback).toBe(true);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("says when the package is up to date", async () => {
@@ -1309,12 +1322,10 @@ describe("Package management", () => {
     check = updateCheck({ installed: installedPackage() });
     renderStore("/plugins/store/acme.kiosk");
     await user.click(
-      await screen.findByRole("button", { name: "Check for update" }),
+      await screen.findByRole("button", { name: "Check for updates" }),
     );
-    expect(
-      await screen.findByText("This package is up to date."),
-    ).toBeVisible();
-    expect(screen.queryByRole("button", { name: /Update to/ })).toBeNull();
+    expect(await screen.findByText("Up to date · 1.2.0")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Review update" })).toBeNull();
   });
 
   it("restores the previous activation when one exists", async () => {
@@ -1324,6 +1335,14 @@ describe("Package management", () => {
     await user.click(
       await screen.findByRole("button", { name: "Restore previous version" }),
     );
+    // Restoring asks first.
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      calls.filter((call) => call.path.endsWith("/rollback")),
+    ).toHaveLength(0);
+    await user.click(
+      within(dialog).getByRole("button", { name: "Restore previous version" }),
+    );
     await waitFor(() =>
       expect(packages["acme.kiosk"]?.hasRollback).toBe(false),
     );
@@ -1331,7 +1350,7 @@ describe("Package management", () => {
 
   it("hides rollback without a previous activation", async () => {
     renderStore("/plugins/store/acme.kiosk");
-    await screen.findByRole("button", { name: "Check for update" });
+    await screen.findByRole("button", { name: "Check for updates" });
     expect(
       screen.queryByRole("button", { name: "Restore previous version" }),
     ).toBeNull();
@@ -1359,11 +1378,12 @@ describe("Package management", () => {
   it("hides management actions from someone who cannot install", async () => {
     auth.role = "viewer";
     renderStore("/plugins/store/acme.kiosk");
-    await screen.findByText("Installed package");
+    await screen.findByRole("region", { name: "Package status" });
     expect(
-      screen.queryByRole("button", { name: "Check for update" }),
+      screen.queryByRole("button", { name: "Check for updates" }),
     ).toBeNull();
     expect(screen.queryByRole("button", { name: "Remove package" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Danger zone" })).toBeNull();
   });
 
   it("names the remaining content when removal is blocked", async () => {
@@ -1424,14 +1444,20 @@ describe("Package management", () => {
     });
     renderStore("/plugins/store/acme.kiosk");
     await user.click(
-      await screen.findByRole("button", { name: "Check for update" }),
+      await screen.findByRole("button", { name: "Check for updates" }),
     );
-    expect(await screen.findByText("New in this version")).toBeVisible();
-    expect(screen.getByText("widget · concierge")).toBeVisible();
-    expect(screen.getByText("Removed in this version")).toBeVisible();
-    expect(screen.getByText("widget · lobby")).toBeVisible();
+    await user.click(
+      await screen.findByRole("button", { name: "Review update" }),
+    );
+    const dialog = await screen.findByRole("dialog");
     expect(
-      screen.getByText(
+      await within(dialog).findByText("New in this version"),
+    ).toBeVisible();
+    expect(within(dialog).getByText("Concierge")).toBeVisible();
+    expect(within(dialog).getByText("Removed in this version")).toBeVisible();
+    expect(within(dialog).getByText("Lobby")).toBeVisible();
+    expect(
+      within(dialog).getByText(
         "Updating deletes nothing: if anything still uses a removed contribution, the update waits until you delete it.",
       ),
     ).toBeVisible();

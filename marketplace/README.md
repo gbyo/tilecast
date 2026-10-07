@@ -74,6 +74,10 @@ Each listing must carry these fields:
 
 Each listing may carry these fields:
 
+- `longDescription`: plain text of at most 2000 characters for the
+  plugin page. Line breaks are allowed. Studio shows it as text, never
+  as markup, and falls back to `description` without it. It never
+  affects package identity, the digest, provenance, or installation.
 - `documentation`: https link to package documentation.
 - `issues`: https link to the issue tracker.
 - `categories`: at most 5 lowercase slugs of letters, digits, and

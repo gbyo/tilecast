@@ -5,9 +5,12 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../i18n";
 import {
+  clampStudioHeight,
   isStudioHello,
   PackageStudioUI,
   parseStudioBridgeCall,
+  parseStudioResize,
+  studioFrameHeight,
 } from "./PackageStudioUI";
 
 vi.mock("../api/domains/fleet", async (importOriginal) => {
@@ -64,6 +67,47 @@ describe("isStudioHello", () => {
     ]) {
       expect(isStudioHello(data)).toBe(false);
     }
+  });
+});
+
+const resizeMessage = (height: unknown) => ({
+  source: "tilecast-studio-ui",
+  kind: "studio-resize",
+  height,
+});
+
+describe("parseStudioResize", () => {
+  it("accepts a finite positive height", () => {
+    expect(parseStudioResize(resizeMessage(320))).toBe(320);
+    expect(parseStudioResize(resizeMessage(412.6))).toBe(412.6);
+  });
+
+  it("ignores malformed or oversized reports", () => {
+    for (const data of [
+      null,
+      "studio-resize",
+      resizeMessage("320"),
+      resizeMessage(null),
+      resizeMessage(Number.NaN),
+      resizeMessage(Number.POSITIVE_INFINITY),
+      resizeMessage(0),
+      resizeMessage(-40),
+      resizeMessage(1_000_000),
+      { ...resizeMessage(300), source: "other" },
+      { ...resizeMessage(300), kind: "studio-hello" },
+      { ...resizeMessage(300), extra: true },
+      { source: "tilecast-studio-ui", kind: "studio-resize" },
+    ]) {
+      expect(parseStudioResize(data)).toBeNull();
+    }
+  });
+});
+
+describe("clampStudioHeight", () => {
+  it("keeps the frame between its minimum and maximum", () => {
+    expect(clampStudioHeight(10)).toBe(studioFrameHeight.min);
+    expect(clampStudioHeight(412.4)).toBe(412);
+    expect(clampStudioHeight(5_000)).toBe(studioFrameHeight.max);
   });
 });
 
@@ -244,5 +288,70 @@ describe("PackageStudioUI", () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(bridgeStub).not.toHaveBeenCalled();
+  });
+
+  it("starts at a modest height rather than a tall empty frame", async () => {
+    await i18n.changeLanguage("en");
+    render(<PackageStudioUI packageId="acme.kiosk" csrfToken="csrf" />);
+    expect(screen.getByTitle("Package interface")).toHaveStyle({
+      height: `${studioFrameHeight.initial}px`,
+    });
+  });
+
+  it("follows the height the frame reports over its port, clamped", async () => {
+    await i18n.changeLanguage("en");
+    render(<PackageStudioUI packageId="acme.kiosk" csrfToken="csrf" />);
+    const { frame, target } = frameOf();
+    const spy = vi.spyOn(target, "postMessage").mockImplementation(() => {});
+    hello(target);
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    const framePort = transfersOf(spy)[0]?.transfer[0] as MessagePort;
+
+    framePort.postMessage(resizeMessage(340));
+    await waitFor(() => expect(frame).toHaveStyle({ height: "340px" }));
+    framePort.postMessage(resizeMessage(40));
+    await waitFor(() =>
+      expect(frame).toHaveStyle({ height: `${studioFrameHeight.min}px` }),
+    );
+    framePort.postMessage(resizeMessage(9_000));
+    await waitFor(() =>
+      expect(frame).toHaveStyle({ height: `${studioFrameHeight.max}px` }),
+    );
+    // A resize is not a bridge call.
+    expect(bridgeStub).not.toHaveBeenCalled();
+  });
+
+  it("ignores malformed resize reports and the window bus", async () => {
+    await i18n.changeLanguage("en");
+    render(<PackageStudioUI packageId="acme.kiosk" csrfToken="csrf" />);
+    const { frame, target } = frameOf();
+    const spy = vi.spyOn(target, "postMessage").mockImplementation(() => {});
+    // A resize on the shared window bus never counts, hello or not.
+    const forged = new MessageEvent("message", {
+      origin: "null",
+      data: resizeMessage(500),
+    });
+    Object.defineProperty(forged, "source", { value: target });
+    window.dispatchEvent(forged);
+    hello(target);
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    const framePort = transfersOf(spy)[0]?.transfer[0] as MessagePort;
+
+    framePort.postMessage(resizeMessage("500"));
+    framePort.postMessage(resizeMessage(Number.NaN));
+    framePort.postMessage(resizeMessage(1_000_000));
+    framePort.postMessage({ ...resizeMessage(500), extra: 1 });
+    // A well-formed report afterwards proves the port is still live and
+    // that none of the earlier ones moved the frame.
+    framePort.postMessage(resizeMessage(300));
+    await waitFor(() => expect(frame).toHaveStyle({ height: "300px" }));
+  });
+
+  it("does not animate height for people who prefer reduced motion", async () => {
+    await i18n.changeLanguage("en");
+    render(<PackageStudioUI packageId="acme.kiosk" csrfToken="csrf" />);
+    const frame = screen.getByTitle("Package interface");
+    expect(frame.className).toContain("transition-[height]");
+    expect(frame.className).toContain("motion-reduce:transition-none");
   });
 });

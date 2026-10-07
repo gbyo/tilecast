@@ -149,8 +149,9 @@ func TestPluginStoreMarketplaceMerge(t *testing.T) {
 				Listings: []catalog.Listing{
 					{
 						PackageID: "acme.countdown-pro", Version: "2.0.0", Name: "Countdown Pro",
-						Description: "A bigger countdown.", Publisher: catalog.Publisher{ID: "acme", Name: "Acme"},
-						License: "AGPL-3.0-only", TilecastRange: ">=0.0.0",
+						Description: "A bigger countdown.", LongDescription: "A bigger countdown with room for a longer explanation.\n\nIt rotates between events.",
+						Publisher: catalog.Publisher{ID: "acme", Name: "Acme"},
+						License:   "AGPL-3.0-only", TilecastRange: ">=0.0.0",
 						OCI: "registry.example.com/acme/countdown-pro", Digest: marketplaceTestDigest,
 						Repository: "https://github.com/acme/tilecast-countdown-pro",
 						Categories: []string{"display"}, Featured: true,
@@ -196,6 +197,9 @@ func TestPluginStoreMarketplaceMerge(t *testing.T) {
 		if listing["installed"] != false {
 			t.Fatalf("uninstalled marketplace entry installed = %v", listing["installed"])
 		}
+		if listing["longDescription"] != "A bigger countdown with room for a longer explanation.\n\nIt rotates between events." {
+			t.Fatalf("marketplace entry longDescription = %v", listing["longDescription"])
+		}
 		if featured, _ := listing["featured"].(bool); !featured {
 			t.Fatalf("marketplace entry featured = %v, want true", listing["featured"])
 		}
@@ -210,6 +214,9 @@ func TestPluginStoreMarketplaceMerge(t *testing.T) {
 
 		weather := findStoreItem(t, items, "acme.weather")
 		weatherListing := weather["marketplace"].(map[string]any)
+		if _, ok := weatherListing["longDescription"]; ok {
+			t.Fatalf("a listing without longDescription carries one: %v", weatherListing)
+		}
 		if weatherListing["installed"] != true {
 			t.Fatalf("installed marketplace entry installed = %v", weatherListing["installed"])
 		}

@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -79,20 +81,24 @@ type Publisher struct {
 // links Studio shows. The link shapes mirror the package manifest so an
 // install can cross-check them later.
 type Listing struct {
-	PackageID     string    `json:"packageId"`
-	Version       string    `json:"version"`
-	Name          string    `json:"name"`
-	Description   string    `json:"description"`
-	Publisher     Publisher `json:"publisher"`
-	License       string    `json:"license"`
-	TilecastRange string    `json:"tilecastRange"`
-	OCI           string    `json:"oci"`
-	Digest        string    `json:"digest"`
-	Repository    string    `json:"repository"`
-	Documentation string    `json:"documentation,omitempty"`
-	Issues        string    `json:"issues,omitempty"`
-	Categories    []string  `json:"categories,omitempty"`
-	Featured      bool      `json:"featured,omitempty"`
+	PackageID   string `json:"packageId"`
+	Version     string `json:"version"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	// LongDescription is optional plain text for the listing page. It is
+	// presentation only: it never takes part in identity, digest, or
+	// installation, and Studio falls back to Description without it.
+	LongDescription string    `json:"longDescription,omitempty"`
+	Publisher       Publisher `json:"publisher"`
+	License         string    `json:"license"`
+	TilecastRange   string    `json:"tilecastRange"`
+	OCI             string    `json:"oci"`
+	Digest          string    `json:"digest"`
+	Repository      string    `json:"repository"`
+	Documentation   string    `json:"documentation,omitempty"`
+	Issues          string    `json:"issues,omitempty"`
+	Categories      []string  `json:"categories,omitempty"`
+	Featured        bool      `json:"featured,omitempty"`
 	// Icon and Screenshots are presentation metadata. They never take
 	// part in package identity, digest verification, provenance, or
 	// capabilities. Studio reaches them only through the artwork path
@@ -396,6 +402,9 @@ func validateListing(listing Listing) error {
 	if listing.Description == "" || len(listing.Description) > 500 {
 		return fmt.Errorf("description must be 1 to 500 characters")
 	}
+	if err := validateLongDescription(listing.LongDescription); err != nil {
+		return err
+	}
 	if !packagemanifest.ValidPublisherID(listing.Publisher.ID) {
 		return fmt.Errorf("publisher id %q is not one namespace segment", listing.Publisher.ID)
 	}
@@ -440,6 +449,37 @@ func validateListing(listing Listing) error {
 		seen[category] = true
 	}
 	return validateArtwork(listing)
+}
+
+// maxLongDescription bounds the optional listing text in characters.
+const maxLongDescription = 2000
+
+// validateLongDescription accepts plain text only: 1 to 2000 characters, with
+// line breaks allowed and every other control character refused. Studio
+// renders it as text, never as markup, so the rule keeps the field honest
+// about what it is.
+func validateLongDescription(text string) error {
+	if text == "" {
+		return nil
+	}
+	if utf8.RuneCountInString(text) > maxLongDescription {
+		return fmt.Errorf("longDescription must be at most %d characters", maxLongDescription)
+	}
+	if !utf8.ValidString(text) {
+		return fmt.Errorf("longDescription must be valid UTF-8")
+	}
+	if strings.TrimSpace(text) == "" {
+		return fmt.Errorf("longDescription must hold visible text")
+	}
+	for _, r := range text {
+		if r == '\n' {
+			continue
+		}
+		if unicode.IsControl(r) {
+			return fmt.Errorf("longDescription must be plain text without control characters")
+		}
+	}
+	return nil
 }
 
 // validGitHubRepository accepts a repository address the installer can

@@ -9954,9 +9954,12 @@ type PluginStoreMarketplace struct {
 	InstalledVersion *string `json:"installedVersion,omitempty"`
 	Issues           *string `json:"issues,omitempty"`
 	License          *string `json:"license,omitempty"`
-	Name             string  `json:"name"`
-	PublisherId      string  `json:"publisherId"`
-	PublisherName    string  `json:"publisherName"`
+
+	// LongDescription Optional plain text for the listing page. Presentation only: it never affects identity, digest, trust, or install. Studio falls back to description when absent.
+	LongDescription *string `json:"longDescription,omitempty"`
+	Name            string  `json:"name"`
+	PublisherId     string  `json:"publisherId"`
+	PublisherName   string  `json:"publisherName"`
 
 	// Repository Public source repository as a github.com https URL with an owner and name.
 	Repository      string `json:"repository"`

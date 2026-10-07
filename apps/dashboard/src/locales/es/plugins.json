@@ -121,7 +121,7 @@
     "reviewDescription": "Revisa {{name}} antes de instalarlo.",
     "installed": "Instalado",
     "install": "Instalar",
-    "reviewInstall": "Revisar instalación",
+    "reviewInstall": "Revisar e instalar",
     "installNote": "Un propietario o un administrador puede instalar complementos.",
     "title": "Añadir un complemento",
     "description": "Funciones opcionales incluidas en esta versión de Tilecast. Instalar una nunca descarga código.",
@@ -320,5 +320,155 @@
     "jobOk": "Correcta",
     "jobFailed": "Fallida",
     "jobFailures": "{{count}} fallos consecutivos"
+  },
+  "storeDetail": {
+    "by": "por {{publisher}}",
+    "badgesLabel": "Detalles del complemento",
+    "featured": "Destacado",
+    "sourceBadge": {
+      "included": "Incluido",
+      "marketplace": "Marketplace",
+      "custom": "Personalizado"
+    },
+    "incompatible": {
+      "title": "No es compatible con esta versión de Tilecast",
+      "body": "Este complemento requiere Tilecast {{range}}."
+    },
+    "about": {
+      "title": "Acerca de",
+      "cardTitle": "Acerca de este paquete",
+      "customTitle": "Paquete personalizado",
+      "customNotice": "El Marketplace no lo ha revisado ni seleccionado.",
+      "noDownload": "No se descarga ningún paquete externo. Este complemento viene incluido en esta versión de Tilecast.",
+      "source": "Origen",
+      "marketplaceSource": "Marketplace oficial de Tilecast",
+      "customSource": "Repositorio personalizado de GitHub",
+      "provenance": "Procedencia",
+      "verified": "Procedencia de la versión verificada",
+      "verifiedOnInstall": "Se verifica al instalar",
+      "reportIssue": "Informar de un problema"
+    },
+    "adds": {
+      "title": "Qué añade este complemento",
+      "pending": "Lo que añade aparece en la revisión de instalación, antes de instalar nada.",
+      "none": "Este paquete no añade nada a Studio."
+    },
+    "kinds": {
+      "widget": "Widget",
+      "dataSource": "Fuente de datos",
+      "plugin": "Complemento"
+    },
+    "kindDescriptions": {
+      "widget": "Añade un widget que puedes colocar en los diseños.",
+      "dataSource": "Proporciona datos a los widgets compatibles.",
+      "plugin": "Añade un complemento con sus propias páginas en Studio.",
+      "other": "Añade contenido a Studio."
+    },
+    "permissions": {
+      "title": "Permisos y comportamiento",
+      "pending": "Los permisos solicitados aparecen en la revisión de instalación, antes de instalar nada.",
+      "noneTitle": "Sin permisos especiales",
+      "noneBody": "Este complemento no solicita acceso a la red, almacenamiento local, tareas en segundo plano ni una interfaz de Studio propia."
+    },
+    "capabilities": {
+      "network": {
+        "title": "Acceso a la red",
+        "body": "Puede conectarse a:"
+      },
+      "storage": {
+        "title": "Almacenamiento local",
+        "body": "Guarda los datos propios de este complemento en el servidor de Tilecast."
+      },
+      "background": {
+        "title": "Actividad en segundo plano",
+        "body_one": "Ejecuta {{count}} tarea programada.",
+        "body_many": "Ejecuta {{count}} de tareas programadas.",
+        "body_other": "Ejecuta {{count}} tareas programadas."
+      },
+      "studioUI": {
+        "title": "Interfaz de Studio",
+        "body": "Añade su propia interfaz de configuración a Studio."
+      }
+    },
+    "requirements": {
+      "title": "Requisitos"
+    },
+    "status": {
+      "title": "Estado del paquete",
+      "compatible": "Compatible con este servidor",
+      "incompatible": "No compatible con este servidor",
+      "notCompatible": "No compatible",
+      "upToDate": "Al día · {{version}}",
+      "notInstalled": "No instalado",
+      "installedOn": "Instalado el {{date}}"
+    },
+    "update": {
+      "check": "Buscar actualizaciones",
+      "review": "Revisar actualización",
+      "checkAgain": "Buscar de nuevo"
+    },
+    "technical": {
+      "title": "Detalles técnicos",
+      "packageId": "ID del paquete",
+      "registry": "Registro",
+      "signer": "Firmante",
+      "releaseTag": "Etiqueta de versión",
+      "runtime": "Módulo de ejecución",
+      "source": "Origen",
+      "contributions": "Aportaciones",
+      "jobIds": "ID de tareas en segundo plano"
+    },
+    "screenshots": {
+      "title": "Capturas de pantalla",
+      "slide": "Captura {{current}} de {{total}}",
+      "open": "Ampliar captura: {{alt}}",
+      "unavailable": "Captura no disponible",
+      "lightboxTitle": "Captura {{current}} de {{total}}"
+    },
+    "review": {
+      "installTitle": "Revisar {{name}}",
+      "installDescription": "Comprueba qué añade este complemento y qué puede hacer antes de instalarlo.",
+      "updateTitle": "Actualizar {{name}}",
+      "updateDescription": "Revisa qué cambia en la versión {{version}} antes de aplicarla.",
+      "confirmInstall": "Instalar complemento",
+      "verification": "Verificación",
+      "contributionChanges": "Cambios en lo que añade",
+      "noContributionChanges": "Sin cambios en lo que añade este paquete.",
+      "permissionChanges": "Cambios en los permisos",
+      "noPermissionChanges": "Los permisos no cambian.",
+      "permissionsAdded": "Permisos nuevos",
+      "permissionsChanged": "Permisos modificados",
+      "permissionsRemoved": "Permisos eliminados",
+      "previously": "Antes: {{value}}",
+      "versionChange": "De {{from}} a {{to}}"
+    },
+    "settings": {
+      "title": "Ajustes del complemento",
+      "description": "Configura este complemento sin salir de Tilecast."
+    },
+    "jobs": {
+      "description": "Trabajo que este complemento ejecuta en el servidor de Tilecast según un horario.",
+      "lastRun": "Última ejecución {{when}} · {{status}}",
+      "lastFailed": "Última ejecución fallida {{when}}",
+      "successful": "Correcta",
+      "nextRun": "Próxima ejecución {{when}}"
+    },
+    "cadence": {
+      "minute": "Cada minuto",
+      "hour": "Cada hora",
+      "day": "Cada día",
+      "every": "Cada {{interval}}"
+    },
+    "danger": {
+      "title": "Zona de peligro",
+      "removeTitle": "Eliminar este complemento",
+      "removeBody": "Al eliminarlo se borra la instalación de este paquete y lo que añadió. Antes hay que quitar el contenido que aún lo usa."
+    },
+    "management": {
+      "title": "Gestión del paquete",
+      "rollbackBody": "Vuelve a la versión activa antes de la última actualización.",
+      "confirmTitle": "¿Restaurar la versión anterior?",
+      "confirmBody": "{{name}} vuelve a la versión que estaba activa antes de la última actualización. Si algún contenido aún usa algo que añadió la versión nueva, la restauración espera hasta que elimines ese contenido."
+    }
   }
 }
