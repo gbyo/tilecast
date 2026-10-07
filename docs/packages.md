@@ -120,7 +120,7 @@ metadata.
 
 A package installs from exactly one source kind:
 
-- `marketplace`: a listing in the signed Tilecast catalog. See
+- `marketplace`: a listing in the official Tilecast catalog. See
   [Marketplace](marketplace.md). The listing pins identity, version, and
   digest; the pipeline resolves the pinned digest through the same
   registry and provenance path as a custom install.

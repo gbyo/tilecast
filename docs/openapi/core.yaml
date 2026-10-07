@@ -4762,7 +4762,7 @@ paths:
         "403": { description: Owner or Administrator role required }
         "404": { description: repository_not_found or plugin_not_found }
         "409":
-          description: marketplace_not_configured, package_mismatch, package_installed, contribution_collision, or source_conflict
+          description: package_mismatch, package_installed, contribution_collision, or source_conflict
         "422":
           description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation
         "502":
@@ -4846,10 +4846,6 @@ paths:
         "401": { description: Dashboard authentication required }
         "403": { description: Owner or Administrator role required }
         "404": { description: package_not_installed }
-        "409":
-          {
-            description: marketplace_not_configured — the package came from a catalog that is no longer configured,
-          }
         "422":
           description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_mismatch, or package_incompatible
         "502":
@@ -4900,7 +4896,7 @@ paths:
         "403": { description: Owner or Administrator role required }
         "404": { description: package_not_installed }
         "409":
-          description: update_check_expired, marketplace_not_configured, package_mismatch, contribution_collision, or source_conflict
+          description: update_check_expired, package_mismatch, contribution_collision, or source_conflict
         "422":
           description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation
         "502":

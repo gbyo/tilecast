@@ -2,7 +2,7 @@ package plugins
 
 // Plugin store: the normalized, server-provided view of every plugin source
 // Studio can browse. Release-owned entries ("included") always appear;
-// marketplace entries join the same list once a catalog is configured, and
+// marketplace entries join the same list from the official catalog, and
 // Studio renders all sources through one shape. The store is a read
 // projection over the registry, the installation lifecycle, and the cached
 // marketplace: it changes nothing about what installing, configuring, or

@@ -972,7 +972,7 @@ describe("Marketplace store", () => {
     marketplaceStatus = { stale: true };
     renderStore();
     expect(
-      await screen.findByText("Marketplace catalog is stale"),
+      await screen.findByText("Marketplace catalog may be out of date"),
     ).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Refresh catalog" }));
     expect(
@@ -983,7 +983,7 @@ describe("Marketplace store", () => {
       ),
     ).toBe(true);
     await waitFor(() =>
-      expect(screen.queryByText("Marketplace catalog is stale")).toBeNull(),
+      expect(screen.queryByText("Marketplace catalog may be out of date")).toBeNull(),
     );
   });
 
@@ -1249,9 +1249,6 @@ describe("Package management", () => {
       screen.queryByRole("button", { name: "Check for update" }),
     ).toBeNull();
     expect(screen.queryByRole("button", { name: "Remove package" })).toBeNull();
-  });
-});
-
   });
 });
 

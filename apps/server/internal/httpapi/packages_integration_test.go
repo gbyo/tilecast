@@ -3,9 +3,11 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
@@ -19,10 +21,16 @@ import (
 func TestPackagesAPI(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		installService := installer.NewService(env.pool, version.Display())
-		// No network options: GitHub, registry, attestation, and catalog
-		// stay nil, so resolution answers upstream_unavailable and
-		// marketplace installs answer marketplace_not_configured.
-		pipelineService := pipeline.NewService(env.pool, installService, t.TempDir(), version.Display())
+		// No network options: GitHub, registry, and attestation stay nil,
+		// so resolution answers upstream_unavailable. The marketplace
+		// serves an empty test catalog.
+		emptyCatalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"formatVersion":1,"listings":[]}`))
+		}))
+		t.Cleanup(emptyCatalog.Close)
+		pipelineService := pipeline.NewService(env.pool, installService, t.TempDir(), version.Display(),
+			pipeline.WithCatalog(catalog.NewServiceWithURL(env.pool, emptyCatalog.URL)))
 		client := newMarketplaceTestClient(t, env, func() {
 			env.server.installer = installService
 			env.server.packages = pipelineService
@@ -88,13 +96,12 @@ func TestPackagesAPI(t *testing.T) {
 			t.Fatalf("viewer remove status = %d, want 403", status)
 		}
 
-		// Without a marketplace catalog, a bodiless install answers 409.
-		// Both an empty body and an explicit empty object take the
-		// marketplace path.
+		// An unlisted package answers 404 on the marketplace path. Both
+		// an empty body and an explicit empty object take that path.
 		for _, bodyText := range []string{"", "{}"} {
 			status, body := client.call("owner", http.MethodPost, "/api/v1/plugin-store/acme.market/install", true, bodyText)
-			if status != http.StatusConflict || errorCode(body) != "marketplace_not_configured" {
-				t.Fatalf("marketplace install body %q = %d %v, want 409 marketplace_not_configured", bodyText, status, body)
+			if status != http.StatusNotFound || errorCode(body) != "plugin_not_found" {
+				t.Fatalf("marketplace install body %q = %d %v, want 404 plugin_not_found", bodyText, status, body)
 			}
 		}
 	})

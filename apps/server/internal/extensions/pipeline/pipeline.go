@@ -113,7 +113,7 @@ type AttestationVerifier interface {
 }
 
 // Catalog looks up marketplace listings. *catalog.Service satisfies it;
-// a nil Catalog disables marketplace installs.
+// tests stub it.
 type Catalog interface {
 	ListingFor(ctx context.Context, packageID string) (catalog.Listing, catalog.Cached, error)
 	Refresh(ctx context.Context) error
@@ -214,8 +214,8 @@ func WithAttestations(verifier AttestationVerifier) Option {
 	return func(s *Service) { s.attest = verifier }
 }
 
-// WithCatalog sets the marketplace lookup. A nil catalog disables
-// marketplace installs.
+// WithCatalog sets the marketplace lookup. Production always sets the
+// official catalog service.
 func WithCatalog(catalog Catalog) Option {
 	return func(s *Service) { s.catalog = catalog }
 }
@@ -541,9 +541,6 @@ func complete(retained, digest string) bool {
 // the published manifest against the listing. Marketplace installs keep
 // no custom source: the catalog is the update plane.
 func (s *Service) InstallMarketplace(ctx context.Context, packageID string, userID uuid.UUID) (installer.InstalledPackage, error) {
-	if s.catalog == nil {
-		return installer.InstalledPackage{}, catalog.ErrDisabled
-	}
 	listing, _, err := s.catalog.ListingFor(ctx, packageID)
 	if err != nil {
 		return installer.InstalledPackage{}, err
@@ -592,9 +589,6 @@ func (s *Service) UpdateCheck(ctx context.Context, packageID string) (UpdateChec
 			return UpdateCheck{}, err
 		}
 	case installer.SourceMarketplace:
-		if s.catalog == nil {
-			return UpdateCheck{}, catalog.ErrDisabled
-		}
 		if err := s.catalog.Refresh(ctx); err != nil {
 			return UpdateCheck{}, fmt.Errorf("%w: marketplace refresh failed", ErrUpstream)
 		}

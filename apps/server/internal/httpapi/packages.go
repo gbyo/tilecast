@@ -448,8 +448,6 @@ func (s *server) writePackageError(w http.ResponseWriter, r *http.Request, err e
 		writeError(w, http.StatusUnprocessableEntity, "package_unsigned", "The package has no verifying provenance.")
 	case errors.Is(err, installer.ErrNoRollback):
 		writeError(w, http.StatusConflict, "no_rollback", "The package has no previous activation.")
-	case errors.Is(err, catalog.ErrDisabled):
-		writeError(w, http.StatusConflict, "marketplace_not_configured", "The marketplace catalog is not configured.")
 	case errors.Is(err, catalog.ErrUnknownPackage):
 		writeError(w, http.StatusNotFound, "plugin_not_found", "No store entry carries this package ID.")
 	default:
