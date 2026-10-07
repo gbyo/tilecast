@@ -245,6 +245,7 @@ export default defineConfig({
             // Each plugin's own guide is linked from this page, so a plugin
             // needs no entry here. See the plugin test in plugin-docs.test.mjs.
             { label: "Plugins", slug: "operations/plugins" },
+            { label: "Marketplace", slug: "operations/marketplace" },
           ],
         },
         { slug: "troubleshooting" },

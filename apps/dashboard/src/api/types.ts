@@ -1236,9 +1236,10 @@ export type PluginCatalog = {
 };
 
 /**
- * Where a store entry comes from. Only "included" exists in this release;
- * marketplace and custom sources join later with a catalog ID or
- * repository. Clients must tolerate kinds they do not know.
+ * Where a store entry comes from. "included" entries are compiled into the
+ * release; "marketplace" entries come from the official catalog and carry
+ * its catalog ID. Custom sources join later with a repository. Clients
+ * must tolerate kinds they do not know.
  */
 export type PluginStoreSource = {
   kind: string;
@@ -1247,18 +1248,57 @@ export type PluginStoreSource = {
 };
 
 /**
+ * One marketplace listing joined with this installation's state: the
+ * listed version, compatibility with the running release, and whether an
+ * update is available. Marketplace installs arrive with custom installs;
+ * until then installed and updateAvailable describe package rows only.
+ */
+export type PluginStoreMarketplace = {
+  version: string;
+  name: string;
+  description?: string;
+  publisherId: string;
+  publisherName: string;
+  license?: string;
+  tilecastRange: string;
+  digest: string;
+  repository: string;
+  documentation?: string;
+  issues?: string;
+  categories?: string[];
+  featured?: boolean;
+  compatible: boolean;
+  installed: boolean;
+  installedVersion?: string;
+  updateAvailable: boolean;
+};
+
+/**
+ * The cached catalog behind marketplace entries: when it last refreshed,
+ * whether it serves last-known-good data after a failed refresh, and the
+ * last refresh error, if any.
+ */
+export type PluginMarketplaceStatus = {
+  lastFetchedAt?: string;
+  stale: boolean;
+  error?: string;
+};
+
+/**
  * One normalized plugin-store row: the package identity and provenance
- * every source shares, plus the release-owned plugin detail this release
- * contributes.
+ * every source shares, plus the source-owned detail. Exactly one of
+ * plugin and marketplace is present.
  */
 export type PluginStoreEntry = {
   packageId: string;
   source: PluginStoreSource;
-  plugin: PluginSummary;
+  plugin?: PluginSummary;
+  marketplace?: PluginStoreMarketplace;
 };
 
 export type PluginStore = {
   items: PluginStoreEntry[];
+  marketplace: PluginMarketplaceStatus;
   unsupportedInstallations: UnsupportedPluginInstallation[];
 };
 

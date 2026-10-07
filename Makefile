@@ -44,6 +44,7 @@ generate:
 	npm run player-contracts:generate
 	npm run ios:icons:generate
 	npm run extensions:generate
+	./scripts/sync-marketplace-catalog.sh
 	cd packages/api-client && go generate ./...
 	npm run generate --workspace @tilecast/api-schema
 

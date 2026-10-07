@@ -1,0 +1,179 @@
+---
+import catalog from "../../../../marketplace/catalog.json";
+
+type Listing = {
+  packageId: string;
+  version: string;
+  name: string;
+  description: string;
+  publisher: { id: string; name: string };
+  license: string;
+  tilecastRange: string;
+  repository: string;
+  documentation?: string;
+  issues?: string;
+  categories?: string[];
+  featured?: boolean;
+};
+
+const byName = (a: Listing, b: Listing) => a.name.localeCompare(b.name);
+const listings = [...(catalog.listings as Listing[])].sort(byName);
+const featured = listings.filter((listing) => listing.featured);
+const rest = listings.filter((listing) => !listing.featured);
+---
+
+{listings.length === 0 ? (
+  <p class="empty">
+    No community Marketplace listings have been published yet.
+  </p>
+) : (
+  <>
+    {featured.length > 0 && (
+      <section aria-label="Featured packages">
+        <h3 class="section-title">Featured</h3>
+        <div class="catalog">
+          {featured.map((listing) => (
+            <article>
+              <div class="heading">
+                <h4>{listing.name}</h4>
+                <code>{listing.version}</code>
+                <span class="badge">Featured</span>
+              </div>
+              <p>{listing.description}</p>
+              <dl>
+                <div>
+                  <dt>Publisher</dt>
+                  <dd>{listing.publisher.name}</dd>
+                </div>
+                <div>
+                  <dt>Requires</dt>
+                  <dd>Tilecast {listing.tilecastRange}</dd>
+                </div>
+                <div>
+                  <dt>License</dt>
+                  <dd>{listing.license}</dd>
+                </div>
+                {listing.categories && listing.categories.length > 0 && (
+                  <div>
+                    <dt>Categories</dt>
+                    <dd>{listing.categories.join(", ")}</dd>
+                  </div>
+                )}
+              </dl>
+              <div class="links">
+                <a href={listing.repository}>Source</a>
+                {listing.documentation && <a href={listing.documentation}>Documentation</a>}
+                {listing.issues && <a href={listing.issues}>Issue tracker</a>}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    )}
+    <div class="catalog">
+      {rest.map((listing) => (
+        <article>
+          <div class="heading">
+            <h4>{listing.name}</h4>
+            <code>{listing.version}</code>
+          </div>
+          <p>{listing.description}</p>
+          <dl>
+            <div>
+              <dt>Publisher</dt>
+              <dd>{listing.publisher.name}</dd>
+            </div>
+            <div>
+              <dt>Requires</dt>
+              <dd>Tilecast {listing.tilecastRange}</dd>
+            </div>
+            <div>
+              <dt>License</dt>
+              <dd>{listing.license}</dd>
+            </div>
+            {listing.categories && listing.categories.length > 0 && (
+              <div>
+                <dt>Categories</dt>
+                <dd>{listing.categories.join(", ")}</dd>
+              </div>
+            )}
+          </dl>
+          <div class="links">
+            <a href={listing.repository}>Source</a>
+            {listing.documentation && <a href={listing.documentation}>Documentation</a>}
+            {listing.issues && <a href={listing.issues}>Issue tracker</a>}
+          </div>
+        </article>
+      ))}
+    </div>
+  </>
+)}
+
+<style>
+  .catalog {
+    display: grid;
+    gap: 1rem;
+  }
+
+  article {
+    padding: 1rem;
+    border: 1px solid var(--tc-border-default);
+    border-radius: var(--tc-radius-panel);
+  }
+
+  .heading,
+  .links,
+  dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    align-items: baseline;
+  }
+
+  h4,
+  p,
+  dl {
+    margin: 0;
+  }
+
+  .section-title {
+    margin: 0 0 0.75rem;
+  }
+
+  section {
+    margin-bottom: 1.5rem;
+  }
+
+  article > * + * {
+    margin-top: 0.75rem;
+  }
+
+  dl > div {
+    display: flex;
+    gap: 0.35rem;
+  }
+
+  dt {
+    color: var(--tc-text-secondary);
+  }
+
+  dd {
+    margin: 0;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid var(--tc-border-default);
+    border-radius: var(--tc-radius-panel);
+    color: var(--tc-text-secondary);
+  }
+
+  .empty {
+    padding: 1rem;
+    border: 1px dashed var(--tc-border-default);
+    border-radius: var(--tc-radius-panel);
+    color: var(--tc-text-secondary);
+  }
+</style>

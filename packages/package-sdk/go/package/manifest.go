@@ -31,6 +31,7 @@ var SupportedAPIVersions = []int{1}
 var (
 	packageIDPattern     = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$`)
 	publisherIDPattern   = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,62}$`)
+	digestPattern        = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	semverPattern        = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
 	tilecastRangePattern = regexp.MustCompile(`^(?:>=|<=|>|<|=)?\d{1,5}(?:\.\d{1,5}){0,2}(?: (?:>=|<=|>|<|=)?\d{1,5}(?:\.\d{1,5}){0,2})*$`)
 	ociReferencePattern  = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*(:[0-9]{1,5})?(\/[a-z0-9_][a-z0-9._-]{0,63})+$`)
@@ -153,7 +154,7 @@ func Validate(m Manifest) error {
 	if m.PackageID != m.Publisher.ID && !strings.HasPrefix(m.PackageID, m.Publisher.ID+".") {
 		return fmt.Errorf("package manifest: packageId must start with the publisher namespace")
 	}
-	if utf8.RuneCountInString(m.Repository) > 200 || !httpsURLPattern.MatchString(m.Repository) {
+	if !ValidHTTPSURL(m.Repository) {
 		return fmt.Errorf("package manifest: repository must be an https URL with a host and path")
 	}
 	if !boundedText(m.License, 32) {
@@ -184,10 +185,10 @@ func Validate(m Manifest) error {
 		}
 		seen[key] = true
 	}
-	if m.Documentation != "" && (utf8.RuneCountInString(m.Documentation) > 200 || !httpsURLPattern.MatchString(m.Documentation)) {
+	if m.Documentation != "" && !ValidHTTPSURL(m.Documentation) {
 		return fmt.Errorf("package manifest: documentation must be an https URL with a host and path")
 	}
-	if m.Issues != "" && (utf8.RuneCountInString(m.Issues) > 200 || !httpsURLPattern.MatchString(m.Issues)) {
+	if m.Issues != "" && !ValidHTTPSURL(m.Issues) {
 		return fmt.Errorf("package manifest: issues must be an https URL with a host and path")
 	}
 	return nil
@@ -196,6 +197,47 @@ func Validate(m Manifest) error {
 func boundedText(value string, max int) bool {
 	count := utf8.RuneCountInString(value)
 	return count >= 1 && count <= max
+}
+
+// ValidPackageID reports whether id is a loadable external package identity:
+// qualified, bounded, and outside the reserved tilecast namespace.
+func ValidPackageID(id string) bool {
+	return utf8.RuneCountInString(id) <= 128 && packageIDPattern.MatchString(id) &&
+		strings.Split(id, ".")[0] != "tilecast"
+}
+
+// ValidSemVer reports whether version is strict SemVer.
+func ValidSemVer(version string) bool {
+	return utf8.RuneCountInString(version) <= 64 && semverPattern.MatchString(version)
+}
+
+// ValidOCIReference reports whether ref is a tagless, digestless OCI
+// registry/repository the installer may resolve.
+func ValidOCIReference(ref string) bool {
+	return utf8.RuneCountInString(ref) <= 255 && ociReferencePattern.MatchString(ref)
+}
+
+// ValidDigest reports whether digest is a pinned sha256 content address.
+func ValidDigest(digest string) bool {
+	return digestPattern.MatchString(digest)
+}
+
+// ValidPublisherID reports whether id is one namespace segment.
+func ValidPublisherID(id string) bool {
+	return publisherIDPattern.MatchString(id)
+}
+
+// ValidHTTPSURL reports whether value is an https URL with a host and path,
+// the shape repository, documentation, and issue links take in manifests
+// and marketplace listings alike.
+func ValidHTTPSURL(value string) bool {
+	return utf8.RuneCountInString(value) <= 200 && httpsURLPattern.MatchString(value)
+}
+
+// ValidTilecastRange reports whether version is a space-separated set of
+// Tilecast compatibility clauses.
+func ValidTilecastRange(version string) bool {
+	return utf8.RuneCountInString(version) <= 128 && tilecastRangePattern.MatchString(version)
 }
 
 // InNamespace reports whether the contribution ID equals the package ID or
@@ -283,4 +325,144 @@ func compareVersions(left, right tilecastVersion) int {
 		}
 	}
 	return 0
+}
+
+// semverParts splits a validated SemVer into its core triple, prerelease
+// identifiers, and build metadata (which never affects precedence).
+type semverParts struct {
+	core       [3]int
+	prerelease []string
+}
+
+// CompareSemver orders two SemVer versions by semver.org precedence: core
+// triples numerically, a version without prerelease above one with it, and
+// prerelease identifiers numerically when both are numeric, lexically
+// otherwise. Build metadata is ignored. Either version malformed fails
+// closed as unordered.
+func CompareSemver(left, right string) (int, bool) {
+	l, ok := parseSemver(left)
+	if !ok {
+		return 0, false
+	}
+	r, ok := parseSemver(right)
+	if !ok {
+		return 0, false
+	}
+	for i := 0; i < 3; i++ {
+		if l.core[i] != r.core[i] {
+			if l.core[i] < r.core[i] {
+				return -1, true
+			}
+			return 1, true
+		}
+	}
+	if len(l.prerelease) == 0 && len(r.prerelease) == 0 {
+		return 0, true
+	}
+	if len(l.prerelease) == 0 {
+		return 1, true
+	}
+	if len(r.prerelease) == 0 {
+		return -1, true
+	}
+	for i := 0; i < len(l.prerelease) && i < len(r.prerelease); i++ {
+		order, done := comparePrereleaseID(l.prerelease[i], r.prerelease[i])
+		if done {
+			return order, true
+		}
+	}
+	switch {
+	case len(l.prerelease) < len(r.prerelease):
+		return -1, true
+	case len(l.prerelease) > len(r.prerelease):
+		return 1, true
+	default:
+		return 0, true
+	}
+}
+
+func parseSemver(version string) (semverParts, bool) {
+	var out semverParts
+	core, rest, hasPre := strings.Cut(version, "-")
+	if hasPre {
+		rest, _, _ = strings.Cut(rest, "+")
+		if rest == "" {
+			return out, false
+		}
+	} else if i := strings.Index(core, "+"); i >= 0 {
+		core = core[:i]
+	}
+	nums := strings.Split(core, ".")
+	if len(nums) != 3 {
+		return out, false
+	}
+	for i, num := range nums {
+		if num == "" || (len(num) > 1 && num[0] == '0') {
+			return out, false
+		}
+		n := 0
+		for _, digit := range num {
+			if digit < '0' || digit > '9' {
+				return out, false
+			}
+			n = n*10 + int(digit-'0')
+		}
+		out.core[i] = n
+	}
+	if rest != "" {
+		out.prerelease = strings.Split(rest, ".")
+		for _, id := range out.prerelease {
+			if id == "" {
+				return out, false
+			}
+			for _, r := range id {
+				if r != '-' && (r < '0' || r > '9') && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') {
+					return out, false
+				}
+			}
+			if len(id) > 1 && id[0] == '0' && isNumeric(id) {
+				return out, false
+			}
+		}
+	}
+	return out, true
+}
+
+func isNumeric(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return len(s) > 0
+}
+
+func comparePrereleaseID(left, right string) (int, bool) {
+	if left == right {
+		return 0, false
+	}
+	leftNum, rightNum := isNumeric(left), isNumeric(right)
+	switch {
+	case leftNum && rightNum:
+		// No leading zeros, so length orders first.
+		if len(left) != len(right) {
+			if len(left) < len(right) {
+				return -1, true
+			}
+			return 1, true
+		}
+		if left < right {
+			return -1, true
+		}
+		return 1, true
+	case leftNum:
+		return -1, true
+	case rightNum:
+		return 1, true
+	default:
+		if left < right {
+			return -1, true
+		}
+		return 1, true
+	}
 }

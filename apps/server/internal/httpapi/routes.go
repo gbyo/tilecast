@@ -179,6 +179,7 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireScope("read")).Get("/plugins/{pluginId}/automation", s.getPluginAutomation)
 			dashboard.With(s.requireScope("read")).Get("/plugin-store", s.listPluginStore)
 			dashboard.With(s.requireScope("read")).Get("/plugin-store/{packageId}", s.getPluginStoreEntry)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/plugin-store/marketplace/refresh", s.refreshMarketplaceCatalog)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Post("/locations", s.createLocation)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Patch("/locations/{id}", s.updateLocation)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Delete("/locations/{id}", s.deleteLocation)

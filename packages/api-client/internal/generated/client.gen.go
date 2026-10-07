@@ -9601,6 +9601,13 @@ type PluginInUseError struct {
 // PluginInUseErrorErrorCode defines model for PluginInUseError.Error.Code.
 type PluginInUseErrorErrorCode string
 
+// PluginMarketplaceStatus The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here.
+type PluginMarketplaceStatus struct {
+	Error         *string    `json:"error,omitempty"`
+	LastFetchedAt *time.Time `json:"lastFetchedAt,omitempty"`
+	Stale         bool       `json:"stale"`
+}
+
 // PluginRequirement defines model for PluginRequirement.
 type PluginRequirement struct {
 	Description *string               `json:"description,omitempty"`
@@ -9615,6 +9622,9 @@ type PluginRequirementKind string
 type PluginStore struct {
 	Items []PluginStoreEntry `json:"items"`
 
+	// Marketplace The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here.
+	Marketplace PluginMarketplaceStatus `json:"marketplace"`
+
 	// UnsupportedInstallations Installation rows naming plugins this release does not know. Preserved and inert.
 	UnsupportedInstallations []struct {
 		InstalledAt time.Time `json:"installedAt"`
@@ -9622,16 +9632,43 @@ type PluginStore struct {
 	} `json:"unsupportedInstallations"`
 }
 
-// PluginStoreEntry One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes.
+// PluginStoreEntry One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present.
 type PluginStoreEntry struct {
-	PackageId string        `json:"packageId"`
-	Plugin    CatalogPlugin `json:"plugin"`
+	// Marketplace One marketplace listing joined with this installation's state. Exactly one of plugin and marketplace is present on a store entry.
+	Marketplace *PluginStoreMarketplace `json:"marketplace,omitempty"`
+	PackageId   string                  `json:"packageId"`
+	Plugin      *CatalogPlugin          `json:"plugin,omitempty"`
 
-	// Source Where a store entry comes from. Only "included" exists in this release; marketplace and custom sources join later with a catalog ID or repository.
+	// Source Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know.
 	Source PluginStoreSource `json:"source"`
 }
 
-// PluginStoreSource Where a store entry comes from. Only "included" exists in this release; marketplace and custom sources join later with a catalog ID or repository.
+// PluginStoreMarketplace One marketplace listing joined with this installation's state. Exactly one of plugin and marketplace is present on a store entry.
+type PluginStoreMarketplace struct {
+	Categories  *[]string `json:"categories,omitempty"`
+	Compatible  bool      `json:"compatible"`
+	Description *string   `json:"description,omitempty"`
+
+	// Digest Pinned artifact digest as sha256 colon hex.
+	Digest           string  `json:"digest"`
+	Documentation    *string `json:"documentation,omitempty"`
+	Featured         *bool   `json:"featured,omitempty"`
+	Installed        bool    `json:"installed"`
+	InstalledVersion *string `json:"installedVersion,omitempty"`
+	Issues           *string `json:"issues,omitempty"`
+	License          *string `json:"license,omitempty"`
+	Name             string  `json:"name"`
+	PublisherId      string  `json:"publisherId"`
+	PublisherName    string  `json:"publisherName"`
+
+	// Repository Public source repository as a github.com https URL with an owner and name.
+	Repository      string `json:"repository"`
+	TilecastRange   string `json:"tilecastRange"`
+	UpdateAvailable bool   `json:"updateAvailable"`
+	Version         string `json:"version"`
+}
+
+// PluginStoreSource Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know.
 type PluginStoreSource struct {
 	CatalogId  *string `json:"catalogId,omitempty"`
 	Kind       string  `json:"kind"`
@@ -12776,6 +12813,12 @@ type RestorePlaylistRevisionParams struct {
 
 // SetPlaylistTagRuleParams defines parameters for SetPlaylistTagRule.
 type SetPlaylistTagRuleParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// RefreshMarketplaceCatalogParams defines parameters for RefreshMarketplaceCatalog.
+type RefreshMarketplaceCatalogParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
@@ -16529,8 +16572,13 @@ type ClientInterface interface {
 
 	// ListPluginStore performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
 	//
-	// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later.
+	// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later.
 	ListPluginStore(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RefreshMarketplaceCatalog performs a POST /api/v1/plugin-store/marketplace/refresh (the `RefreshMarketplaceCatalog` operationId) request.
+	//
+	// Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
+	RefreshMarketplaceCatalog(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPluginStoreEntry performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
 	//
@@ -23005,9 +23053,24 @@ func (c *Client) SetPlaylistTagRule(ctx context.Context, id ResourceID, params *
 
 // ListPluginStore performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
 //
-// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later.
+// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later.
 func (c *Client) ListPluginStore(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListPluginStoreRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RefreshMarketplaceCatalog performs a POST /api/v1/plugin-store/marketplace/refresh (the `RefreshMarketplaceCatalog` operationId) request.
+//
+// Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
+func (c *Client) RefreshMarketplaceCatalog(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefreshMarketplaceCatalogRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -38437,6 +38500,48 @@ func NewListPluginStoreRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewRefreshMarketplaceCatalogRequest constructs an http.Request for the RefreshMarketplaceCatalog method
+func NewRefreshMarketplaceCatalogRequest(server string, params *RefreshMarketplaceCatalogParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store/marketplace/refresh")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewGetPluginStoreEntryRequest constructs an http.Request for the GetPluginStoreEntry method
 func NewGetPluginStoreEntryRequest(server string, packageId PackageID) (*http.Request, error) {
 	var err error
@@ -47200,10 +47305,17 @@ type ClientWithResponsesInterface interface {
 
 	// ListPluginStoreWithResponse performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
 	//
-	// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later.
+	// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	ListPluginStoreWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPluginStoreResponse, error)
+
+	// RefreshMarketplaceCatalogWithResponse performs a POST /api/v1/plugin-store/marketplace/refresh (the `RefreshMarketplaceCatalog` operationId) request.
+	//
+	// Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	RefreshMarketplaceCatalogWithResponse(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error)
 
 	// GetPluginStoreEntryWithResponse performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
 	//
@@ -59163,19 +59275,70 @@ func (r ListPluginStoreResponse) ContentType() string {
 	return ""
 }
 
+type RefreshMarketplaceCatalogResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			// Marketplace The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here.
+			Marketplace PluginMarketplaceStatus `json:"marketplace"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RefreshMarketplaceCatalogResponse) GetJSON200() *struct {
+	Data struct {
+		// Marketplace The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here.
+		Marketplace PluginMarketplaceStatus `json:"marketplace"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r RefreshMarketplaceCatalogResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RefreshMarketplaceCatalogResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RefreshMarketplaceCatalogResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RefreshMarketplaceCatalogResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetPluginStoreEntryResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
-		// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes.
+		// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present.
 		Data PluginStoreEntry `json:"data"`
 	}
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetPluginStoreEntryResponse) GetJSON200() *struct {
-	// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes.
+	// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present.
 	Data PluginStoreEntry `json:"data"`
 } {
 	return r.JSON200
@@ -69890,7 +70053,7 @@ func (c *ClientWithResponses) SetPlaylistTagRuleWithResponse(ctx context.Context
 
 // ListPluginStoreWithResponse performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
 //
-// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later.
+// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) ListPluginStoreWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPluginStoreResponse, error) {
@@ -69899,6 +70062,19 @@ func (c *ClientWithResponses) ListPluginStoreWithResponse(ctx context.Context, r
 		return nil, err
 	}
 	return ParseListPluginStoreResponse(rsp)
+}
+
+// RefreshMarketplaceCatalogWithResponse performs a POST /api/v1/plugin-store/marketplace/refresh (the `RefreshMarketplaceCatalog` operationId) request.
+//
+// Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) RefreshMarketplaceCatalogWithResponse(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error) {
+	rsp, err := c.RefreshMarketplaceCatalog(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRefreshMarketplaceCatalogResponse(rsp)
 }
 
 // GetPluginStoreEntryWithResponse performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
@@ -79482,6 +79658,46 @@ func ParseListPluginStoreResponse(rsp *http.Response) (*ListPluginStoreResponse,
 	return response, nil
 }
 
+// ParseRefreshMarketplaceCatalogResponse parses an HTTP response from a RefreshMarketplaceCatalogWithResponse call
+func ParseRefreshMarketplaceCatalogResponse(rsp *http.Response) (*RefreshMarketplaceCatalogResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RefreshMarketplaceCatalogResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				// Marketplace The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here.
+				Marketplace PluginMarketplaceStatus `json:"marketplace"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseGetPluginStoreEntryResponse parses an HTTP response from a GetPluginStoreEntryWithResponse call
 func ParseGetPluginStoreEntryResponse(rsp *http.Response) (*GetPluginStoreEntryResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -79498,7 +79714,7 @@ func ParseGetPluginStoreEntryResponse(rsp *http.Response) (*GetPluginStoreEntryR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes.
+			// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin and marketplace is present.
 			Data PluginStoreEntry `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

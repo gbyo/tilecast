@@ -35,18 +35,46 @@
   },
   "store": {
     "title": "Обзор плагинов",
-    "description": "Просматривайте дополнительные функции и интеграции для Tilecast.",
+    "description": "Плагины, входящие в Tilecast, и записи официального каталога Tilecast.",
     "sourceLabel": "Источник",
     "loadError": "Не удалось загрузить этот плагин.",
     "emptyTitle": "Нет доступных плагинов",
-    "emptyDescription": "В настроенных источниках нет доступных плагинов.",
+    "emptyDescription": "В этих источниках нет доступных плагинов.",
     "sources": {
       "all": "Все источники",
-      "included": "Входит в Tilecast"
+      "included": "Входит в Tilecast",
+      "marketplace": "Каталог"
     },
     "notFoundTitle": "Плагин не найден",
-    "notFoundDescription": "Эта запись отсутствует в данном выпуске Tilecast.",
-    "backToExplore": "Назад к обзору"
+    "notFoundDescription": "Эта запись недоступна из этих источников.",
+    "backToExplore": "Назад к обзору",
+    "marketplace": {
+      "staleTitle": "Каталог может быть устаревшим",
+      "staleDescription": "Показан последний доступный каталог.",
+      "errorTitle": "Не удалось обновить каталог",
+      "refresh": "Обновить каталог",
+      "refreshing": "Обновление…"
+    },
+    "detail": {
+      "version": "Версия {{version}}",
+      "installedVersion": "Установлена {{version}}",
+      "updateAvailable": "Доступно обновление",
+      "requires": "Требуется Tilecast {{range}}",
+      "incompatible": "Для этой записи требуется Tilecast {{range}}, который не поддерживается этим выпуском.",
+      "publisher": "Издатель",
+      "license": "Лицензия",
+      "links": "Ссылки",
+      "repository": "Репозиторий",
+      "documentation": "Документация",
+      "issues": "Трекер ошибок",
+      "officialCatalog": "Запись официального каталога Tilecast.",
+      "featuredLabel": "Подборка",
+      "featured": "В подборке каталога",
+      "categoriesLabel": "Категории",
+      "installUnavailable": "Установка записей каталога пока недоступна.",
+      "versionLabel": "Версия",
+      "requiresLabel": "Требования"
+    }
   },
   "catalog": {
     "back": "Все плагины",

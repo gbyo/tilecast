@@ -327,6 +327,11 @@ func Load() (Config, error) {
 	}
 	cfg.SessionTTL = ttl
 
+	// The marketplace needs no configuration: the server knows the
+	// official catalog address itself. The retired
+	// TILECAST_MARKETPLACE_CATALOG_URL and TILECAST_MARKETPLACE_PUBLIC_KEY
+	// variables are ignored when present.
+
 	if cfg.DemoMode() {
 		if err := loadDemo(&cfg); err != nil {
 			return Config{}, err

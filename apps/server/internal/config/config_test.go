@@ -181,3 +181,28 @@ func TestDemoAllowsLoopbackAndExplicitRemote(t *testing.T) {
 		t.Fatalf("explicit remote demo host: %v", err)
 	}
 }
+
+func TestMarketplaceNeedsNoConfiguration(t *testing.T) {
+	setup := func(t *testing.T) {
+		t.Helper()
+		t.Setenv("TILECAST_DATABASE_URL", "postgres://example")
+		t.Setenv("TILECAST_ENV", "development")
+		t.Setenv("TILECAST_COOKIE_SECURE", "false")
+	}
+
+	t.Run("boots without marketplace variables", func(t *testing.T) {
+		setup(t)
+		if _, err := Load(); err != nil {
+			t.Fatalf("load config: %v", err)
+		}
+	})
+
+	t.Run("retired marketplace variables are ignored", func(t *testing.T) {
+		setup(t)
+		t.Setenv("TILECAST_MARKETPLACE_CATALOG_URL", "https://marketplace.example/catalog.json")
+		t.Setenv("TILECAST_MARKETPLACE_PUBLIC_KEY", "retired")
+		if _, err := Load(); err != nil {
+			t.Fatalf("load config: %v", err)
+		}
+	})
+}

@@ -549,7 +549,9 @@ export const studioRoutes: RouteObject[] = [
                     queryKey: (id: string) =>
                       ["plugin-store-entry-name", id] as const,
                     load: (id: string) =>
-                      api.pluginStoreEntry(id).then((entry) => entry.plugin),
+                      api
+                        .pluginStoreEntry(id)
+                        .then((entry) => entry.plugin ?? entry.marketplace),
                   },
                 },
               },

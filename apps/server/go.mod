@@ -14,6 +14,8 @@ require (
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/oklog/ulid/v2 v2.1.2
+	github.com/opencontainers/go-digest v1.0.0
+	github.com/opencontainers/image-spec v1.1.1
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/tilecast/tilecast/data-sources v0.0.0
 	github.com/tilecast/tilecast/packages/package-sdk/go v0.0.0
@@ -25,6 +27,7 @@ require (
 	golang.org/x/text v0.42.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
+	oras.land/oras-go/v2 v2.6.2
 )
 
 require (

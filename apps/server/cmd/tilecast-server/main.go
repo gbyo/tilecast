@@ -25,6 +25,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/demo"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/discovery"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 	"github.com/tilecast/tilecast/apps/server/internal/httpapi"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
@@ -131,6 +132,17 @@ func serve() {
 	takeoverService := takeovers.NewService(db, playlistService, deviceService, time.Duration(cfg.Operations.MaxTakeoverDurationHours)*time.Hour)
 	managedPresentationService := managedpresentations.NewService(db)
 	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL), plugins.WithDataSourceInvalidator(playlistService), plugins.WithAttachments(mediaService))
+	// The marketplace joins cached catalog listings into the plugin
+	// store. The server knows the official catalog address itself, so the
+	// marketplace is always on and needs no operator configuration.
+	marketplaceCatalog := catalog.NewService(db)
+	pluginService.SetMarketplaceSource(func(ctx context.Context) (plugins.MarketplaceSnapshot, error) {
+		cached, err := marketplaceCatalog.Cached(ctx)
+		if err != nil {
+			return plugins.MarketplaceSnapshot{}, err
+		}
+		return plugins.MarketplaceSnapshotFrom(cached, time.Now()), nil
+	})
 	// Data Source providers are discovered generically: every hosted plugin
 	// implementing plugin.DataSourceProvider contributes, and core never
 	// names a plugin to find them.
@@ -316,6 +328,7 @@ func serve() {
 		Campaigns:            campaignService,
 		Presentations:        presentationService,
 		Plugins:              pluginService,
+		Marketplace:          marketplaceCatalog,
 		Layouts:              layoutService,
 		Scheduling:           schedulingService,
 		Settings:             settingsService,
@@ -359,6 +372,14 @@ func serve() {
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// Refresh the marketplace in the background at startup so a fresh
+	// boot picks up the current catalog without delaying traffic. The
+	// bundled snapshot serves until the refresh lands.
+	go func() {
+		if err := marketplaceCatalog.RefreshIfStale(shutdownCtx); err != nil {
+			logger.Error("marketplace catalog refresh failed", "error", err)
+		}
+	}()
 	go func() {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
@@ -381,6 +402,12 @@ func serve() {
 				deviceService.ExpireAirplaySessions(shutdownCtx)
 				handler.ReconcileAirplaySessions(shutdownCtx)
 				updateService.Cleanup(shutdownCtx, cfg.Updates.RetentionDays)
+				// The catalog refreshes itself while stale; an
+				// operator's manual refresh stays available for
+				// fetching now.
+				if err := marketplaceCatalog.RefreshIfStale(shutdownCtx); err != nil {
+					logger.Error("marketplace catalog refresh failed", "error", err)
+				}
 				_, _ = db.Exec(shutdownCtx, `UPDATE player_commands SET state='expired',completed_at=now(),updated_at=now() WHERE state IN ('pending','delivered','acknowledged','running') AND expires_at<=now()`)
 				_, _ = db.Exec(shutdownCtx, `DELETE FROM player_commands WHERE completed_at<now()-make_interval(days=>COALESCE((SELECT (settings->>'retention.command_history_days')::int FROM organization_runtime_settings),$1))`, cfg.Operations.CommandRetentionDays)
 				_, _ = db.Exec(shutdownCtx, `DELETE FROM audit_logs WHERE created_at<now()-make_interval(days=>COALESCE((SELECT (settings->>'retention.audit_days')::int FROM organization_runtime_settings),365))`)

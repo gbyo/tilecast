@@ -63,7 +63,10 @@ export function PluginsPage() {
   }
 
   const entries = store.data?.items ?? [];
-  const installed = entries.filter((entry) => entry.plugin.installed);
+  // The Installed tab manages release-owned plugins. Marketplace entries
+  // carry no plugin detail until their packages install, so they never
+  // appear here.
+  const installed = entries.filter((entry) => entry.plugin?.installed);
   // A failed load with no usable data owns the content area: the alert is
   // the state, not a companion to an empty list. Stale data still renders
   // alongside the alert.
@@ -164,7 +167,8 @@ export function PluginsPage() {
 
 function InstalledPlugin({ entry }: { entry: PluginStoreEntry }) {
   const { t } = useTranslation("plugins");
-  const plugin: PluginSummary = entry.plugin;
+  const plugin: PluginSummary | undefined = entry.plugin;
+  if (!plugin) return null;
   const statusKey = pluginStatusKey(plugin);
   return (
     <Item variant="outline">

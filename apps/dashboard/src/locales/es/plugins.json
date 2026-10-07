@@ -33,18 +33,46 @@
   },
   "store": {
     "title": "Explorar complementos",
-    "description": "Explora funciones e integraciones opcionales para Tilecast.",
+    "description": "Complementos incluidos con Tilecast y listados del Marketplace oficial de Tilecast.",
     "sourceLabel": "Origen",
     "loadError": "No se pudo cargar este complemento.",
     "emptyTitle": "No hay complementos disponibles",
-    "emptyDescription": "No hay complementos disponibles en los orígenes configurados.",
+    "emptyDescription": "No hay complementos disponibles en estos orígenes.",
     "sources": {
       "all": "Todos los orígenes",
-      "included": "Incluido con Tilecast"
+      "included": "Incluido con Tilecast",
+      "marketplace": "Marketplace"
     },
     "notFoundTitle": "Complemento no encontrado",
-    "notFoundDescription": "Esta entrada no forma parte de esta versión de Tilecast.",
-    "backToExplore": "Volver a Explorar"
+    "notFoundDescription": "Esta entrada no está disponible en estos orígenes.",
+    "backToExplore": "Volver a Explorar",
+    "marketplace": {
+      "staleTitle": "El catálogo de Marketplace puede estar desactualizado",
+      "staleDescription": "Se muestra el último catálogo disponible.",
+      "errorTitle": "No se pudo actualizar Marketplace",
+      "refresh": "Actualizar catálogo",
+      "refreshing": "Actualizando…"
+    },
+    "detail": {
+      "version": "Versión {{version}}",
+      "installedVersion": "Instalado {{version}}",
+      "updateAvailable": "Actualización disponible",
+      "requires": "Requiere Tilecast {{range}}",
+      "incompatible": "Este listado requiere Tilecast {{range}}, que esta versión no cumple.",
+      "publisher": "Publicador",
+      "license": "Licencia",
+      "links": "Enlaces",
+      "repository": "Repositorio",
+      "documentation": "Documentación",
+      "issues": "Incidencias",
+      "officialCatalog": "Listado en el Marketplace oficial de Tilecast.",
+      "featuredLabel": "Destacados",
+      "featured": "Listado destacado",
+      "categoriesLabel": "Categorías",
+      "installUnavailable": "La instalación de listados de Marketplace aún no está disponible.",
+      "versionLabel": "Versión",
+      "requiresLabel": "Requiere"
+    }
   },
   "catalog": {
     "back": "Todos los complementos",

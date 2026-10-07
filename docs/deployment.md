@@ -31,6 +31,14 @@ placeholder for clarity. The database stores only AES-256-GCM ciphertext, so a
 database restore without the same external key requires every saved Wi-Fi
 credential to be entered again in Studio. See [Presentation Networks](presentation-networks.md).
 
+## Marketplace
+
+The marketplace needs no configuration. The Server fetches the official
+catalog automatically, refreshes it each hour, and keeps serving the
+last valid listings during an outage. A fresh installation serves the
+bundled catalog snapshot until the first refresh succeeds. See
+[Marketplace](marketplace.md).
+
 ## Server releases
 
 Tilecast Server ships two release channels. Stable is the recommended channel for normal self-hosted installs. Development tracks `main` and may change frequently or break. Tilecast as a whole is still pre-1.0, so Stable means stable relative to Development, not a maturity claim. There are no other channels.
