@@ -50,8 +50,10 @@ The Server rejects a document in these cases:
   rules in [Artwork](#artwork).
 
 `longDescription` is optional presentation text for the detail page.
-Studio shows it as plain text, never as markup. When it is absent, the
-page shows `description`. It has no effect on package identity, the
+Studio shows it as plain text, never as markup, in an About section below
+the heading. The heading already shows `description`, so Studio omits About
+when `longDescription` is absent or repeats `description` apart from case,
+spacing, and a final full stop. It has no effect on package identity, the
 digest, provenance, capabilities, or installation.
 
 A listing means the Tilecast project accepted the repository into the

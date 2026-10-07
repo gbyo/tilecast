@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { useTranslation } from "react-i18next";
-import { RefreshCw, Star } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
+import { RefreshCw } from "lucide-react";
 import { Badge } from "../../components/ui/badge";
 import { storeCategoryLabel } from "../storeCardView";
 import type { PluginDetailViewModel } from "./detailView";
@@ -15,9 +15,9 @@ const maxCategories = 2;
  * moves into the package status card, directly below, so exactly one copy of
  * it is ever in the page.
  *
- * Badges stay few: where it comes from, up to two categories, Featured where
- * it applies, and the one state worth an eye: an update. Whether a package
- * is installed is the status card's job.
+ * Badges stay few: where it comes from, up to two categories, and the one
+ * state worth an eye: an update. Featured is a discovery cue for Explore,
+ * and whether a package is installed is the status card's job.
  */
 export function PluginDetailHero({
   view,
@@ -30,6 +30,7 @@ export function PluginDetailHero({
   action?: ReactNode;
 }) {
   const { t } = useTranslation("plugins");
+  const publisherHref = publisherDestination(view);
   return (
     <header
       data-source={view.sourceKind}
@@ -47,7 +48,7 @@ export function PluginDetailHero({
         </h1>
         {view.publisher && (
           <p className="truncate text-sm text-muted-foreground">
-            {t("storeDetail.by", { publisher: view.publisher })}
+            <PublisherLine publisher={view.publisher} href={publisherHref} />
           </p>
         )}
       </div>
@@ -68,14 +69,6 @@ export function PluginDetailHero({
               </Badge>
             </li>
           ))}
-          {view.featured && (
-            <li>
-              <Badge variant="secondary">
-                <Star aria-hidden="true" data-icon="inline-start" />
-                {t("storeDetail.featured")}
-              </Badge>
-            </li>
-          )}
           {updateAvailable && (
             <li>
               <Badge>
@@ -97,5 +90,50 @@ export function PluginDetailHero({
         </div>
       )}
     </header>
+  );
+}
+
+/**
+ * Where a publisher name can lead. The listing names a repository, not a
+ * publisher profile, so the name links to the package's own repository and
+ * only when that is a plain https address. Included plugins have none.
+ */
+function publisherDestination(view: PluginDetailViewModel) {
+  if (!view.repository) return undefined;
+  try {
+    return new URL(view.repository).protocol === "https:"
+      ? view.repository
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function PublisherLine({
+  publisher,
+  href,
+}: {
+  publisher: string;
+  href: string | undefined;
+}) {
+  const { t } = useTranslation("plugins");
+  if (!href) return <>{t("storeDetail.by", { publisher })}</>;
+  return (
+    <Trans
+      i18nKey="storeDetail.byLinked"
+      ns="plugins"
+      values={{ publisher }}
+      components={{
+        publisher: (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={t("storeDetail.publisherLinkLabel", { publisher })}
+            className="rounded-sm text-foreground/80 underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          />
+        ),
+      }}
+    />
   );
 }

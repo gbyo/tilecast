@@ -5,7 +5,6 @@ import { listPackageJobs } from "../api/domains/fleet";
 import type { PackageJob } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
-  Item,
   ItemContent,
   ItemDescription,
   ItemGroup,
@@ -13,6 +12,7 @@ import {
   ItemTitle,
 } from "../components/ui/item";
 import { Skeleton } from "../components/ui/skeleton";
+import { ItemRow } from "./detail/CapabilityItems";
 import { DetailSection } from "./detail/DetailSections";
 import { jobName } from "./detail/detailView";
 import { formatCadence, formatRelativeTime } from "./detail/format";
@@ -48,16 +48,16 @@ export function PackageJobs({ packageId }: { packageId: string }) {
       title={t("packages.jobsTitle")}
       description={t("storeDetail.jobs.description")}
     >
-      <ItemGroup render={<ul />} className="gap-2">
-        {jobs.data.map((job) => (
-          <JobRow key={job.jobId} job={job} />
+      <ItemGroup render={<ul />} className="gap-0">
+        {jobs.data.map((job, index) => (
+          <JobRow key={job.jobId} job={job} separated={index > 0} />
         ))}
       </ItemGroup>
     </DetailSection>
   );
 }
 
-function JobRow({ job }: { job: PackageJob }) {
+function JobRow({ job, separated }: { job: PackageJob; separated: boolean }) {
   const { t, i18n } = useTranslation("plugins");
   const failed = job.lastStatus === "error";
   const never = job.lastStatus === "never" || !job.lastRunAt;
@@ -69,11 +69,11 @@ function JobRow({ job }: { job: PackageJob }) {
       ? `${job.lastError.slice(0, maxErrorChars)}…`
       : job.lastError;
   return (
-    <Item
-      variant="muted"
-      size="sm"
-      render={<li />}
-      data-status={failed ? "failed" : undefined}
+    // A failed job is the one state here that earns a filled row.
+    <ItemRow
+      variant={failed ? "muted" : "default"}
+      separated={separated}
+      status={failed ? "failed" : undefined}
     >
       <ItemMedia variant="icon">
         <JobStatusIcon failed={failed} ok={job.lastStatus === "ok"} />
@@ -117,7 +117,7 @@ function JobRow({ job }: { job: PackageJob }) {
           </span>
         </ItemDescription>
       </ItemContent>
-    </Item>
+    </ItemRow>
   );
 }
 

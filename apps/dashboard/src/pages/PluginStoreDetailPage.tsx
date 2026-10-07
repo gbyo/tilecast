@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { CircleAlert, Puzzle } from "lucide-react";
 import { useNavigate, useParams } from "react-router";
@@ -40,18 +40,22 @@ export function PluginStoreDetailPage() {
   const packages = usePackageLifecycle(csrfToken);
   const reviewMarketplaceMutation = packages.resolveMarketplace;
   // The route reuses this page across listings; a review or an update
-  // check belongs to the listing that requested it. Reset through a ref so
-  // settling a mutation does not wipe its own result.
-  const packagesRef = useRef(packages);
-  packagesRef.current = packages;
+  // check belongs to the listing that requested it, so every change of id
+  // clears them. react-query keeps each `reset` stable for the life of its
+  // mutation, so these dependencies change only with the id: settling a
+  // mutation never re-runs the effect, and nothing is written during render.
+  const resetResolve = reviewMarketplaceMutation.reset;
+  const resetCheck = packages.checkUpdate.reset;
+  const resetApply = packages.applyUpdate.reset;
+  const resetRollback = packages.rollback.reset;
+  const resetRemove = packages.remove.reset;
   useEffect(() => {
-    const current = packagesRef.current;
-    current.resolveMarketplace.reset();
-    current.checkUpdate.reset();
-    current.applyUpdate.reset();
-    current.rollback.reset();
-    current.remove.reset();
-  }, [id]);
+    resetResolve();
+    resetCheck();
+    resetApply();
+    resetRollback();
+    resetRemove();
+  }, [id, resetResolve, resetCheck, resetApply, resetRollback, resetRemove]);
 
   if (entry.isLoading) return <StoreDetailLoading />;
   if (isPluginNotFound(entry.error)) return <StoreDetailNotFound />;
@@ -99,6 +103,8 @@ export function PluginStoreDetailPage() {
 
   return (
     <StoreDetail
+      // Local state, such as an open update review, never outlives its listing.
+      key={data.packageId}
       entry={data}
       csrfToken={csrfToken}
       canInstall={canManage(auth.status?.user?.role)}

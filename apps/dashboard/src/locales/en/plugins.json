@@ -320,8 +320,9 @@
   },
   "storeDetail": {
     "by": "by {{publisher}}",
+    "byLinked": "by <publisher>{{publisher}}</publisher>",
+    "publisherLinkLabel": "{{publisher}}, repository (opens in a new tab)",
     "badgesLabel": "Plugin details",
-    "featured": "Featured",
     "sourceBadge": {
       "included": "Included",
       "marketplace": "Marketplace",
@@ -419,7 +420,10 @@
       "slide": "Screenshot {{current}} of {{total}}",
       "open": "Enlarge screenshot: {{alt}}",
       "unavailable": "Screenshot unavailable",
-      "lightboxTitle": "Screenshot {{current}} of {{total}}"
+      "lightboxTitle": "Screenshot {{current}} of {{total}}",
+      "previous": "Previous screenshot",
+      "next": "Next screenshot",
+      "position": "{{current}} of {{total}}"
     },
     "review": {
       "installTitle": "Review {{name}}",

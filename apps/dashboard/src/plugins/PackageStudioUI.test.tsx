@@ -4,14 +4,14 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../i18n";
+import { PackageStudioUI } from "./PackageStudioUI";
 import {
   clampStudioHeight,
   isStudioHello,
-  PackageStudioUI,
   parseStudioBridgeCall,
   parseStudioResize,
   studioFrameHeight,
-} from "./PackageStudioUI";
+} from "./studioBridge";
 
 vi.mock("../api/domains/fleet", async (importOriginal) => {
   const mod = await importOriginal<typeof import("../api/domains/fleet")>();

@@ -816,8 +816,9 @@ describe("Marketplace", () => {
     serveMarketplace({ stale: false });
     renderStore("/plugins/store/acme.weather");
     expect(await screen.findByText("Weather")).toBeVisible();
-    expect(screen.getByText("Acme")).toBeVisible();
-    expect(screen.getByText("Featured")).toBeVisible();
+    expect(screen.getAllByText("Acme").length).toBeGreaterThan(0);
+    // Featured is an Explore cue; the page itself is already the destination.
+    expect(screen.queryByText("Featured")).toBeNull();
     expect(screen.getByText("data")).toBeVisible();
     expect(
       screen.getByText("Listed in the official Tilecast Marketplace."),

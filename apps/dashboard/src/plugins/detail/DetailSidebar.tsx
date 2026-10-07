@@ -89,138 +89,23 @@ export function PackageStatusCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <div className="grid gap-1" aria-live="polite">
-          {!view.compatible ? (
-            <p className="flex items-center gap-2 text-base font-semibold">
-              <CircleAlert
-                className="size-5 text-destructive"
-                aria-hidden="true"
-              />
-              {t("storeDetail.status.notCompatible")}
-            </p>
-          ) : updateKnown ? (
-            <>
-              <p className="flex items-center gap-2 text-base font-semibold">
-                <RefreshCw className="size-5" aria-hidden="true" />
-                {t("store.detail.updateAvailable")}
-              </p>
-              <p className="flex items-center gap-2 text-sm text-muted-foreground tabular-nums">
-                <span className="sr-only">
-                  {t("storeDetail.review.versionChange", {
-                    from: installedVersion,
-                    to: latestVersion,
-                  })}
-                </span>
-                <span aria-hidden="true">{installedVersion}</span>
-                <ArrowRight className="size-3.5" aria-hidden="true" />
-                <span
-                  aria-hidden="true"
-                  className="font-medium text-foreground"
-                >
-                  {latestVersion}
-                </span>
-              </p>
-            </>
-          ) : current ? (
-            <p
-              role="status"
-              className="flex items-center gap-2 text-base font-semibold"
-            >
-              <CircleCheck className="size-5" aria-hidden="true" />
-              {t("storeDetail.status.upToDate", {
-                version: installedVersion ?? view.version,
-              })}
-            </p>
-          ) : view.installed ? (
-            <>
-              <p className="flex items-center gap-2 text-base font-semibold">
-                <CircleCheck className="size-5" aria-hidden="true" />
-                {t("catalog.installed")}
-              </p>
-              {view.external && (installedVersion ?? view.version) && (
-                <p className="text-sm text-muted-foreground tabular-nums">
-                  {t("store.detail.version", {
-                    version: installedVersion ?? view.version,
-                  })}
-                </p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="flex items-center gap-2 text-base font-semibold">
-                <CircleDashed className="size-5" aria-hidden="true" />
-                {t("storeDetail.status.notInstalled")}
-              </p>
-              {view.version && (
-                <p className="text-sm text-muted-foreground tabular-nums">
-                  {t("store.detail.version", { version: view.version })}
-                </p>
-              )}
-            </>
-          )}
-        </div>
+        <StatusSummary
+          view={view}
+          installedVersion={installedVersion}
+          latestVersion={latestVersion}
+          updateKnown={updateKnown}
+          current={current}
+        />
 
         {primaryAction}
         {update && (
-          <div className="grid gap-2">
-            {updateKnown ? (
-              <Button disabled={update.checking} onClick={update.onReview}>
-                {update.checking && (
-                  <Spinner data-icon="inline-start" aria-hidden="true" />
-                )}
-                {t("storeDetail.update.review")}
-              </Button>
-            ) : !current ? (
-              <Button
-                variant="outline"
-                disabled={update.checking}
-                onClick={update.onCheck}
-              >
-                {update.checking && (
-                  <Spinner data-icon="inline-start" aria-hidden="true" />
-                )}
-                {t("storeDetail.update.check")}
-              </Button>
-            ) : null}
-            {(updateKnown ? update.resolved : current) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={update.checking}
-                onClick={update.onCheck}
-              >
-                {update.checking && (
-                  <Spinner data-icon="inline-start" aria-hidden="true" />
-                )}
-                {t("storeDetail.update.checkAgain")}
-              </Button>
-            )}
-          </div>
+          <UpdateActions
+            update={update}
+            updateKnown={updateKnown}
+            current={current}
+          />
         )}
-
-        {view.external && (
-          <p className="flex items-start gap-2 text-sm text-muted-foreground">
-            {view.compatible ? (
-              <CircleCheck
-                className="mt-0.5 size-4 shrink-0"
-                aria-hidden="true"
-              />
-            ) : (
-              <CircleAlert
-                className="mt-0.5 size-4 shrink-0 text-destructive"
-                aria-hidden="true"
-              />
-            )}
-            <span>
-              {view.compatible
-                ? t("storeDetail.status.compatible")
-                : t("storeDetail.status.incompatible")}
-              <span className="block text-xs">
-                {t("store.detail.requires", { range: view.tilecastRange })}
-              </span>
-            </span>
-          </p>
-        )}
+        {view.external && <CompatibilityNote view={view} />}
       </CardContent>
       {installedOn && !Number.isNaN(installedOn.getTime()) && (
         <CardFooter className="text-xs text-muted-foreground">
@@ -232,6 +117,163 @@ export function PackageStatusCard({
         </CardFooter>
       )}
     </Card>
+  );
+}
+
+/** The current state in one line, with the version facts beneath it. */
+function StatusSummary({
+  view,
+  installedVersion,
+  latestVersion,
+  updateKnown,
+  current,
+}: {
+  view: PluginDetailViewModel;
+  installedVersion: string | undefined;
+  latestVersion: string | undefined;
+  updateKnown: boolean;
+  current: boolean;
+}) {
+  const { t } = useTranslation("plugins");
+  return (
+    <div className="grid gap-1" aria-live="polite">
+      {!view.compatible ? (
+        <p className="flex items-center gap-2 text-base font-semibold">
+          <CircleAlert className="size-5 text-destructive" aria-hidden="true" />
+          {t("storeDetail.status.notCompatible")}
+        </p>
+      ) : updateKnown ? (
+        <>
+          <p className="flex items-center gap-2 text-base font-semibold">
+            <RefreshCw className="size-5" aria-hidden="true" />
+            {t("store.detail.updateAvailable")}
+          </p>
+          <p className="flex items-center gap-2 text-sm text-muted-foreground tabular-nums">
+            <span className="sr-only">
+              {t("storeDetail.review.versionChange", {
+                from: installedVersion,
+                to: latestVersion,
+              })}
+            </span>
+            <span aria-hidden="true">{installedVersion}</span>
+            <ArrowRight className="size-3.5" aria-hidden="true" />
+            <span aria-hidden="true" className="font-medium text-foreground">
+              {latestVersion}
+            </span>
+          </p>
+        </>
+      ) : current ? (
+        <p
+          role="status"
+          className="flex items-center gap-2 text-base font-semibold"
+        >
+          <CircleCheck className="size-5" aria-hidden="true" />
+          {t("storeDetail.status.upToDate", {
+            version: installedVersion ?? view.version,
+          })}
+        </p>
+      ) : view.installed ? (
+        <>
+          <p className="flex items-center gap-2 text-base font-semibold">
+            <CircleCheck className="size-5" aria-hidden="true" />
+            {t("catalog.installed")}
+          </p>
+          {view.external && (installedVersion ?? view.version) && (
+            <p className="text-sm text-muted-foreground tabular-nums">
+              {t("store.detail.version", {
+                version: installedVersion ?? view.version,
+              })}
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="flex items-center gap-2 text-base font-semibold">
+            <CircleDashed className="size-5" aria-hidden="true" />
+            {t("storeDetail.status.notInstalled")}
+          </p>
+          {view.version && (
+            <p className="text-sm text-muted-foreground tabular-nums">
+              {t("store.detail.version", { version: view.version })}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Check, review, and re-check, depending on what the last check found. */
+function UpdateActions({
+  update,
+  updateKnown,
+  current,
+}: {
+  update: UpdateControls;
+  updateKnown: boolean;
+  current: boolean;
+}) {
+  const { t } = useTranslation("plugins");
+  return (
+    <div className="grid gap-2">
+      {updateKnown ? (
+        <Button disabled={update.checking} onClick={update.onReview}>
+          {update.checking && (
+            <Spinner data-icon="inline-start" aria-hidden="true" />
+          )}
+          {t("storeDetail.update.review")}
+        </Button>
+      ) : !current ? (
+        <Button
+          variant="outline"
+          disabled={update.checking}
+          onClick={update.onCheck}
+        >
+          {update.checking && (
+            <Spinner data-icon="inline-start" aria-hidden="true" />
+          )}
+          {t("storeDetail.update.check")}
+        </Button>
+      ) : null}
+      {(updateKnown ? update.resolved : current) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={update.checking}
+          onClick={update.onCheck}
+        >
+          {update.checking && (
+            <Spinner data-icon="inline-start" aria-hidden="true" />
+          )}
+          {t("storeDetail.update.checkAgain")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** Whether this server satisfies the package's Tilecast range, and the range. */
+function CompatibilityNote({ view }: { view: PluginDetailViewModel }) {
+  const { t } = useTranslation("plugins");
+  return (
+    <p className="flex items-start gap-2 text-sm text-muted-foreground">
+      {view.compatible ? (
+        <CircleCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      ) : (
+        <CircleAlert
+          className="mt-0.5 size-4 shrink-0 text-destructive"
+          aria-hidden="true"
+        />
+      )}
+      <span>
+        {view.compatible
+          ? t("storeDetail.status.compatible")
+          : t("storeDetail.status.incompatible")}
+        <span className="block text-xs">
+          {t("store.detail.requires", { range: view.tilecastRange })}
+        </span>
+      </span>
+    </p>
   );
 }
 
@@ -249,6 +291,43 @@ function ExternalLinkItem({ href, label }: { href: string; label: string }) {
       />
       {label}
     </a>
+  );
+}
+
+function SourceRows({
+  view,
+  installedPackage,
+}: {
+  view: PluginDetailViewModel;
+  installedPackage?: InstalledPackage;
+}) {
+  const { t } = useTranslation("plugins");
+  return (
+    <Rows>
+      {view.publisher && (
+        <Row label={t("store.detail.publisher")}>{view.publisher}</Row>
+      )}
+      {view.license && (
+        <Row label={t("store.detail.license")}>{view.license}</Row>
+      )}
+      {view.sourceKind === "marketplace" && (
+        <Row label={t("storeDetail.about.source")}>
+          {t("storeDetail.about.marketplaceSource")}
+        </Row>
+      )}
+      {view.sourceKind === "custom" && (
+        <>
+          <Row label={t("storeDetail.about.source")}>
+            {t("storeDetail.about.customSource")}
+          </Row>
+          <Row label={t("storeDetail.about.provenance")}>
+            {installedPackage?.trust === "verified"
+              ? t("storeDetail.about.verified")
+              : t("storeDetail.about.verifiedOnInstall")}
+          </Row>
+        </>
+      )}
+    </Rows>
   );
 }
 
@@ -304,31 +383,7 @@ export function PackageAboutCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
-        <Rows>
-          {view.publisher && (
-            <Row label={t("store.detail.publisher")}>{view.publisher}</Row>
-          )}
-          {view.license && (
-            <Row label={t("store.detail.license")}>{view.license}</Row>
-          )}
-          {view.sourceKind === "marketplace" && (
-            <Row label={t("storeDetail.about.source")}>
-              {t("storeDetail.about.marketplaceSource")}
-            </Row>
-          )}
-          {view.sourceKind === "custom" && (
-            <>
-              <Row label={t("storeDetail.about.source")}>
-                {t("storeDetail.about.customSource")}
-              </Row>
-              <Row label={t("storeDetail.about.provenance")}>
-                {installedPackage?.trust === "verified"
-                  ? t("storeDetail.about.verified")
-                  : t("storeDetail.about.verifiedOnInstall")}
-              </Row>
-            </>
-          )}
-        </Rows>
+        <SourceRows view={view} installedPackage={installedPackage} />
         {view.sourceKind === "custom" && (
           <p className="text-xs text-muted-foreground">
             {t("storeDetail.about.customNotice")}
