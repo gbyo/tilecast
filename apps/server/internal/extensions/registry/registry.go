@@ -30,6 +30,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
+	"oras.land/oras-go/v2/errdef"
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
 )
@@ -112,7 +113,10 @@ func (r *Repository) Resolve(ctx context.Context, ref, tag string) (string, erro
 	}
 	descriptor, err := repository.Resolve(ctx, tag)
 	if err != nil {
-		return "", fmt.Errorf("resolve %s:%s: %w", ref, tag, ErrUnknownTag)
+		if errors.Is(err, errdef.ErrNotFound) {
+			return "", fmt.Errorf("resolve %s:%s: %w", ref, tag, ErrUnknownTag)
+		}
+		return "", fmt.Errorf("resolve %s:%s: %w", ref, tag, err)
 	}
 	if !packagemanifest.ValidDigest(descriptor.Digest.String()) {
 		return "", fmt.Errorf("resolve %s:%s: registry answered an unusable digest", ref, tag)
