@@ -7,7 +7,7 @@ import { Separator } from "../components/ui/separator";
 /**
  * One marketplace listing: what it is, who publishes it, which Tilecast
  * releases it runs on, and where to read more. Everything here comes from
- * the server's verified catalog cache. Listing never implies a security
+ * the server's cached official catalog. Listing never implies a security
  * audit, so the page states the provenance it knows and nothing more.
  */
 export function MarketplaceDetail({
@@ -75,6 +75,18 @@ export function MarketplaceDetail({
             value={listing.license}
           />
         )}
+        {listing.featured && (
+          <DetailRow
+            label={t("store.detail.featuredLabel")}
+            value={t("store.detail.featured")}
+          />
+        )}
+        {listing.categories && listing.categories.length > 0 && (
+          <DetailRow
+            label={t("store.detail.categoriesLabel")}
+            value={listing.categories.join(", ")}
+          />
+        )}
         <DetailRow
           label={t("store.detail.requiresLabel")}
           value={listing.tilecastRange}
@@ -97,7 +109,7 @@ export function MarketplaceDetail({
         </div>
       </dl>
       <p className="text-sm text-muted-foreground">
-        {t("store.detail.signedCatalog")}
+        {t("store.detail.officialCatalog")}
       </p>
     </div>
   );

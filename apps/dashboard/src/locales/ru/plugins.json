@@ -35,22 +35,22 @@
   },
   "store": {
     "title": "Обзор плагинов",
-    "description": "Плагины, входящие в Tilecast, и записи настроенного каталога.",
+    "description": "Плагины, входящие в Tilecast, и записи официального каталога Tilecast.",
     "sourceLabel": "Источник",
     "loadError": "Не удалось загрузить этот плагин.",
     "emptyTitle": "Нет доступных плагинов",
-    "emptyDescription": "В настроенных источниках нет доступных плагинов.",
+    "emptyDescription": "В этих источниках нет доступных плагинов.",
     "sources": {
       "all": "Все источники",
       "included": "Входит в Tilecast",
       "marketplace": "Каталог"
     },
     "notFoundTitle": "Плагин не найден",
-    "notFoundDescription": "Эта запись недоступна из настроенных источников.",
+    "notFoundDescription": "Эта запись недоступна из этих источников.",
     "backToExplore": "Назад к обзору",
     "marketplace": {
-      "staleTitle": "Каталог устарел",
-      "staleDescription": "Показаны последние проверенные записи.",
+      "staleTitle": "Каталог может быть устаревшим",
+      "staleDescription": "Показан последний доступный каталог.",
       "errorTitle": "Не удалось обновить каталог",
       "refresh": "Обновить каталог",
       "refreshing": "Обновление…"
@@ -67,7 +67,10 @@
       "repository": "Репозиторий",
       "documentation": "Документация",
       "issues": "Трекер ошибок",
-      "signedCatalog": "Запись из подписанного каталога этой установки.",
+      "officialCatalog": "Запись официального каталога Tilecast.",
+      "featuredLabel": "Подборка",
+      "featured": "В подборке каталога",
+      "categoriesLabel": "Категории",
       "installUnavailable": "Установка записей каталога пока недоступна.",
       "versionLabel": "Версия",
       "requiresLabel": "Требования"

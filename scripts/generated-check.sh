@@ -14,6 +14,7 @@ set -- \
   packages/widget-sdk/schema/tilecast-widget.schema.json \
   packages/data-source-sdk/schema/tilecast-datasource.schema.json \
   apps/server/internal/database/migrations.lock.json \
+  apps/server/internal/extensions/catalog/bundled_catalog.json \
   'plugins/*/automation.gen.json' \
   widgets/plugin_widgets.gen.go \
   data-sources/plugin_sources.gen.go \

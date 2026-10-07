@@ -33,15 +33,10 @@ credential to be entered again in Studio. See [Presentation Networks](presentati
 
 ## Marketplace
 
-To show marketplace listings in Explore, set
-`TILECAST_MARKETPLACE_CATALOG_URL` and `TILECAST_MARKETPLACE_PUBLIC_KEY`
-together in the server environment. The Server refuses to start when
-only one value is set. The catalog URL must use https, except on
-loopback addresses for development. The public key must be a base64
-Ed25519 public key of 32 bytes. The example environment file includes
-empty placeholders. The Server fetches the signed catalog
-automatically, refreshes it while it is stale, and keeps serving the
-last verified listings during an outage. See
+The marketplace needs no configuration. The Server fetches the official
+catalog automatically, refreshes it each hour, and keeps serving the
+last valid listings during an outage. A fresh installation serves the
+bundled catalog snapshot until the first refresh succeeds. See
 [Marketplace](marketplace.md).
 
 ## Server releases

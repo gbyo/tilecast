@@ -1,27 +1,13 @@
 package config
 
 import (
-	"crypto/ed25519"
-	"encoding/base64"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 )
-
-// isLoopbackURL accepts plain-http catalog URLs on loopback only, so
-// development and tests can serve a catalog without TLS. Production
-// catalogs stay https-only.
-func isLoopbackURL(u *url.URL) bool {
-	if u.Scheme != "http" {
-		return false
-	}
-	host := strings.ToLower(u.Hostname())
-	return host == "localhost" || host == "127.0.0.1" || host == "::1"
-}
 
 type Config struct {
 	Environment   string
@@ -50,17 +36,6 @@ type Config struct {
 	// deliberately environment-only, like the SMTP password, so it never lands in
 	// the schema, a backup, or the configuration export.
 	PresentationNetworkKey string
-	Marketplace            MarketplaceConfig
-}
-
-// MarketplaceConfig points the server at the signed Tilecast marketplace
-// catalog. Both fields empty disables the marketplace: the server starts
-// normally and the store shows release-owned entries only. Exactly one set
-// is a configuration error, so an unsigned catalog is never fetched and a
-// key without a catalog verifies nothing.
-type MarketplaceConfig struct {
-	CatalogURL string
-	PublicKey  string
 }
 
 // NotificationsConfig carries the SMTP relay. These are environment values
@@ -352,28 +327,10 @@ func Load() (Config, error) {
 	}
 	cfg.SessionTTL = ttl
 
-	cfg.Marketplace = MarketplaceConfig{
-		CatalogURL: strings.TrimSpace(os.Getenv("TILECAST_MARKETPLACE_CATALOG_URL")),
-		PublicKey:  strings.TrimSpace(os.Getenv("TILECAST_MARKETPLACE_PUBLIC_KEY")),
-	}
-	if (cfg.Marketplace.CatalogURL == "") != (cfg.Marketplace.PublicKey == "") {
-		return Config{}, errors.New("TILECAST_MARKETPLACE_CATALOG_URL and TILECAST_MARKETPLACE_PUBLIC_KEY must be set together")
-	}
-	if cfg.Marketplace.CatalogURL != "" {
-		catalogURL, parseErr := url.Parse(cfg.Marketplace.CatalogURL)
-		if parseErr != nil || (catalogURL.Scheme != "https" && !isLoopbackURL(catalogURL)) || catalogURL.Hostname() == "" {
-			return Config{}, errors.New("TILECAST_MARKETPLACE_CATALOG_URL must be an https URL")
-		}
-		// Fetch errors and the cached error Studio shows name the catalog
-		// URL. Credentials there would surface to every signed-in role, so
-		// the URL must not carry any.
-		if catalogURL.User != nil {
-			return Config{}, errors.New("TILECAST_MARKETPLACE_CATALOG_URL must not carry credentials")
-		}
-		if decoded, decodeErr := base64.StdEncoding.DecodeString(cfg.Marketplace.PublicKey); decodeErr != nil || len(decoded) != ed25519.PublicKeySize {
-			return Config{}, errors.New("TILECAST_MARKETPLACE_PUBLIC_KEY must be a base64 Ed25519 public key")
-		}
-	}
+	// The marketplace needs no configuration: the server knows the
+	// official catalog address itself. The retired
+	// TILECAST_MARKETPLACE_CATALOG_URL and TILECAST_MARKETPLACE_PUBLIC_KEY
+	// variables are ignored when present.
 
 	if cfg.DemoMode() {
 		if err := loadDemo(&cfg); err != nil {

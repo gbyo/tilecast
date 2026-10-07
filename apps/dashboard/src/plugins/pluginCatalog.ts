@@ -151,10 +151,11 @@ function marketplaceHaystack(listing: PluginStoreMarketplace) {
     listing.description ?? "",
     listing.publisherName,
     listing.publisherId,
+    ...(listing.categories ?? []),
   ];
 }
 
-/** Refresh the signed marketplace catalog and invalidate the store cache. */
+/** Refresh the official Tilecast marketplace and invalidate the store cache. */
 export function useRefreshMarketplaceCatalog(csrfToken: string) {
   const queryClient = useQueryClient();
   return useMutation({

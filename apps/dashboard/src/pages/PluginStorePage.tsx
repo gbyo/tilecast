@@ -8,11 +8,7 @@ import {
   SearchX,
 } from "lucide-react";
 import { Link } from "react-router";
-import type {
-  PluginMarketplaceStatus,
-  PluginStoreEntry,
-  PluginSummary,
-} from "../api/types";
+import type { PluginMarketplaceStatus, PluginStoreEntry } from "../api/types";
 import { apiErrorMessage } from "../i18n";
 import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
@@ -102,11 +98,7 @@ export function PluginStorePage() {
     <main className="grid gap-4">
       <PageHeader
         title={t("store.title")}
-        description={
-          store.data?.marketplace.configured
-            ? t("store.description")
-            : t("catalog.description")
-        }
+        description={t("store.description")}
       />
 
       {store.isError && (
@@ -157,7 +149,7 @@ function MarketplaceStatusNotice({
   onRefresh: () => void;
 }) {
   const { t } = useTranslation("plugins");
-  if (!marketplace?.configured || (!marketplace.error && !marketplace.stale)) {
+  if (!marketplace?.error && !marketplace?.stale) {
     return null;
   }
 

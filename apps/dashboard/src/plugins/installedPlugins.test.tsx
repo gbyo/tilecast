@@ -24,7 +24,7 @@ import { i18n } from "../i18n";
 import { PluginsPage } from "../pages/PluginsPage";
 import { PluginStoreDetailPage } from "../pages/PluginStoreDetailPage";
 import { PluginStorePage } from "../pages/PluginStorePage";
-import { catalogPlugin } from "./catalogFixtures";
+import { catalogPlugin, marketplaceListing } from "./catalogFixtures";
 import { PluginActionsMenu, blockerInstruction } from "./PluginActionsMenu";
 import { filterStoreEntries } from "./pluginCatalog";
 import { PluginRouteGate } from "./PluginRouteGate";
@@ -425,6 +425,124 @@ describe("Plugin store", () => {
       "lobby_signs",
     ]);
     expect(filterStoreEntries(entries, "", "All", "marketplace")).toEqual([]);
+  });
+});
+
+describe("Marketplace", () => {
+  const weatherEntry: PluginStoreEntry = {
+    packageId: "acme.weather",
+    source: { kind: "marketplace", catalogId: "tilecast-marketplace" },
+    marketplace: marketplaceListing({
+      name: "Weather",
+      categories: ["data"],
+      featured: true,
+    }),
+  };
+
+  function serveMarketplace(marketplace: unknown) {
+    override = (request) => {
+      if (
+        request.method === "POST" &&
+        request.path === "/plugin-store/marketplace/refresh"
+      ) {
+        return json(200, { data: { marketplace: { stale: false } } });
+      }
+      if (request.method === "GET" && request.path === "/plugin-store") {
+        return json(200, {
+          data: {
+            items: [...catalog.map(storeEntry), weatherEntry],
+            unsupportedInstallations: [],
+            marketplace,
+          },
+        });
+      }
+      if (request.path === "/plugin-store/acme.weather") {
+        return json(200, { data: weatherEntry });
+      }
+      return json(200, { data: { items: [], total: 0 } });
+    };
+  }
+
+  it("lists marketplace entries beside included plugins without any setup state", async () => {
+    serveMarketplace({ stale: false });
+    renderStore();
+    expect(await screen.findByText("Weather")).toBeVisible();
+    expect(screen.getByText("Countdown Bar")).toBeVisible();
+    expect(screen.queryByText("Marketplace couldn't be refreshed")).toBeNull();
+    expect(screen.queryByText(/not configured/i)).toBeNull();
+  });
+
+  it("shows marketplace presentation metadata on the detail page", async () => {
+    serveMarketplace({ stale: false });
+    renderStore("/plugins/store/acme.weather");
+    expect(await screen.findByText("Weather")).toBeVisible();
+    expect(screen.getByText("Acme")).toBeVisible();
+    expect(screen.getByText("Featured listing")).toBeVisible();
+    expect(screen.getByText("data")).toBeVisible();
+    expect(
+      screen.getByText("Listed in the official Tilecast Marketplace."),
+    ).toBeVisible();
+  });
+
+  it("explains a failed refresh while installed packages keep working", async () => {
+    serveMarketplace({
+      stale: true,
+      error: "The marketplace catalog could not be refreshed.",
+    });
+    renderStore();
+    expect(
+      await screen.findByText("Marketplace couldn't be refreshed"),
+    ).toBeVisible();
+    expect(
+      screen.getByText("The marketplace catalog could not be refreshed."),
+    ).toBeVisible();
+    // Installed entries still render beside the notice.
+    expect(screen.getByText("Countdown Bar")).toBeVisible();
+    expect(screen.getByText("Weather")).toBeVisible();
+  });
+
+  it("lets managers refresh the catalog but not viewers", async () => {
+    serveMarketplace({
+      stale: true,
+      error: "The marketplace catalog could not be refreshed.",
+    });
+    const user = userEvent.setup();
+    renderStore();
+    const refresh = await screen.findByRole("button", {
+      name: "Refresh catalog",
+    });
+    await user.click(refresh);
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        method: "POST",
+        path: "/plugin-store/marketplace/refresh",
+      }),
+    );
+
+    cleanup();
+    auth.role = "viewer";
+    renderStore();
+    expect(
+      await screen.findByText("Marketplace couldn't be refreshed"),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Refresh catalog" }),
+    ).toBeNull();
+  });
+
+  it("filters marketplace entries by source and category text", () => {
+    const entries = [weatherEntry];
+    expect(
+      filterStoreEntries(entries, "", "All", "marketplace").map(
+        (entry) => entry.packageId,
+      ),
+    ).toEqual(["acme.weather"]);
+    expect(filterStoreEntries(entries, "", "All", "included")).toEqual([]);
+    expect(
+      filterStoreEntries(entries, "data", "All").map(
+        (entry) => entry.packageId,
+      ),
+    ).toEqual(["acme.weather"]);
   });
 });
 

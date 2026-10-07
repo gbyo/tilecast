@@ -21,14 +21,9 @@ contributions still use Tilecast's external runtime boundaries.
 
 ## How the catalog works
 
-The GitHub catalog above is the source of truth for listing metadata. Release
-automation turns that stable source into a short-lived signed catalog by adding
-publication timestamps and signing the exact runtime payload. Tilecast Server
-verifies that signed document before any listing reaches Studio.
-
-The docs page and the signed runtime catalog therefore come from the same
-reviewed listing data, but the docs site is never a trust source for a Tilecast
-Server.
+The GitHub catalog is the source of truth for listing metadata. Tilecast
+Server fetches that same file, validates it, and serves it to Studio, so
+this page and Studio always show the same reviewed listings.
 
 Package files are stored in OCI registries, not in the Marketplace catalog.
 

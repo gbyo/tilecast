@@ -4369,7 +4369,7 @@ paths:
     get:
       operationId: listPluginStore
       security: [{ sessionCookie: [] }, { userBearer: [] }]
-      description: The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later.
+      description: The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later.
       responses:
         "200":
           description: Plugin store
@@ -4408,7 +4408,7 @@ paths:
       operationId: refreshMarketplaceCatalog
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
-        Fetch the signed marketplace catalog now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous verified cache keeps serving when the refresh fails.
+        Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
       responses:
         "200":
           description: Marketplace cache status
@@ -4426,14 +4426,8 @@ paths:
                         { $ref: "#/components/schemas/PluginMarketplaceStatus" }
         "401": { description: Dashboard authentication required }
         "403": { description: Owner or Administrator role required }
-        "409":
-          {
-            description: marketplace_not_configured — no catalog URL is configured,
-          }
         "502":
-          {
-            description: marketplace_refresh_failed — the catalog fetch or signature check failed,
-          }
+          { description: marketplace_refresh_failed — the catalog fetch failed }
   /api/v1/screens/pairing/{id}/reject:
     post:
       operationId: rejectPairing
@@ -11487,7 +11481,7 @@ components:
     PluginStoreSource:
       type: object
       required: [kind]
-      description: Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the configured catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know.
+      description: Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know.
       properties:
         kind:
           type: string
@@ -11527,21 +11521,22 @@ components:
           {
             type: string,
             format: uri,
-            description: "Public source repository as an https URL with a host and path.",
+            description: "Public source repository as a github.com https URL with an owner and name.",
           }
         documentation: { type: string, format: uri }
         issues: { type: string, format: uri }
+        categories: { type: array, items: { type: string } }
+        featured: { type: boolean }
         compatible: { type: boolean }
         installed: { type: boolean }
         installedVersion: { type: string }
         updateAvailable: { type: boolean }
     PluginMarketplaceStatus:
       type: object
-      required: [configured, stale]
-      description: The cached catalog behind marketplace entries. Fetch failures keep serving the last verified cache and record the error here.
+      required: [stale]
+      description: The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here.
       properties:
-        configured: { type: boolean }
-        fetchedAt: { type: string, format: date-time }
+        lastFetchedAt: { type: string, format: date-time }
         stale: { type: boolean }
         error: { type: string }
     PluginStoreEntry:

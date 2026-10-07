@@ -182,71 +182,27 @@ func TestDemoAllowsLoopbackAndExplicitRemote(t *testing.T) {
 	}
 }
 
-func TestMarketplaceConfig(t *testing.T) {
+func TestMarketplaceNeedsNoConfiguration(t *testing.T) {
 	setup := func(t *testing.T) {
 		t.Helper()
 		t.Setenv("TILECAST_DATABASE_URL", "postgres://example")
 		t.Setenv("TILECAST_ENV", "development")
 		t.Setenv("TILECAST_COOKIE_SECURE", "false")
 	}
-	key := "pqsc4g9DNHwgHYeiqhbmjV9IFzkNPBy/WUbBRij4zdk="
 
-	t.Run("empty disables", func(t *testing.T) {
+	t.Run("boots without marketplace variables", func(t *testing.T) {
 		setup(t)
-		cfg, err := Load()
-		if err != nil {
+		if _, err := Load(); err != nil {
 			t.Fatalf("load config: %v", err)
 		}
-		if cfg.Marketplace.CatalogURL != "" || cfg.Marketplace.PublicKey != "" {
-			t.Fatalf("marketplace = %+v, want disabled", cfg.Marketplace)
-		}
 	})
 
-	t.Run("half configuration fails", func(t *testing.T) {
+	t.Run("retired marketplace variables are ignored", func(t *testing.T) {
 		setup(t)
 		t.Setenv("TILECAST_MARKETPLACE_CATALOG_URL", "https://marketplace.example/catalog.json")
-		if _, err := Load(); err == nil {
-			t.Fatal("expected URL without key to fail")
-		}
-	})
-
-	t.Run("non-https fails", func(t *testing.T) {
-		setup(t)
-		t.Setenv("TILECAST_MARKETPLACE_CATALOG_URL", "http://example.com/catalog.json")
-		t.Setenv("TILECAST_MARKETPLACE_PUBLIC_KEY", key)
-		if _, err := Load(); err == nil {
-			t.Fatal("expected cleartext catalog URL to fail")
-		}
-	})
-
-	t.Run("credentials in URL fail", func(t *testing.T) {
-		setup(t)
-		t.Setenv("TILECAST_MARKETPLACE_CATALOG_URL", "https://user:pass@marketplace.example/catalog.json")
-		t.Setenv("TILECAST_MARKETPLACE_PUBLIC_KEY", key)
-		if _, err := Load(); err == nil {
-			t.Fatal("expected catalog URL with credentials to fail")
-		}
-	})
-
-	t.Run("bad key fails", func(t *testing.T) {
-		setup(t)
-		t.Setenv("TILECAST_MARKETPLACE_CATALOG_URL", "https://marketplace.example/catalog.json")
-		t.Setenv("TILECAST_MARKETPLACE_PUBLIC_KEY", "not-a-key")
-		if _, err := Load(); err == nil {
-			t.Fatal("expected malformed key to fail")
-		}
-	})
-
-	t.Run("full configuration loads", func(t *testing.T) {
-		setup(t)
-		t.Setenv("TILECAST_MARKETPLACE_CATALOG_URL", "https://marketplace.example/catalog.json")
-		t.Setenv("TILECAST_MARKETPLACE_PUBLIC_KEY", key)
-		cfg, err := Load()
-		if err != nil {
+		t.Setenv("TILECAST_MARKETPLACE_PUBLIC_KEY", "retired")
+		if _, err := Load(); err != nil {
 			t.Fatalf("load config: %v", err)
-		}
-		if cfg.Marketplace.CatalogURL != "https://marketplace.example/catalog.json" || cfg.Marketplace.PublicKey != key {
-			t.Fatalf("marketplace = %+v", cfg.Marketplace)
 		}
 	})
 }

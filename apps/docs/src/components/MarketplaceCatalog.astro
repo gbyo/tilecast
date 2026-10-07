@@ -11,11 +11,15 @@ type Listing = {
   tilecastRange: string;
   repository: string;
   documentation?: string;
+  issues?: string;
+  categories?: string[];
+  featured?: boolean;
 };
 
-const listings = [...(catalog.listings as Listing[])].sort((a, b) =>
-  a.name.localeCompare(b.name),
-);
+const byName = (a: Listing, b: Listing) => a.name.localeCompare(b.name);
+const listings = [...(catalog.listings as Listing[])].sort(byName);
+const featured = listings.filter((listing) => listing.featured);
+const rest = listings.filter((listing) => !listing.featured);
 ---
 
 {listings.length === 0 ? (
@@ -23,35 +27,86 @@ const listings = [...(catalog.listings as Listing[])].sort((a, b) =>
     No community Marketplace listings have been published yet.
   </p>
 ) : (
-  <div class="catalog">
-    {listings.map((listing) => (
-      <article>
-        <div class="heading">
-          <h3>{listing.name}</h3>
-          <code>{listing.version}</code>
+  <>
+    {featured.length > 0 && (
+      <section aria-label="Featured packages">
+        <h3 class="section-title">Featured</h3>
+        <div class="catalog">
+          {featured.map((listing) => (
+            <article>
+              <div class="heading">
+                <h4>{listing.name}</h4>
+                <code>{listing.version}</code>
+                <span class="badge">Featured</span>
+              </div>
+              <p>{listing.description}</p>
+              <dl>
+                <div>
+                  <dt>Publisher</dt>
+                  <dd>{listing.publisher.name}</dd>
+                </div>
+                <div>
+                  <dt>Requires</dt>
+                  <dd>Tilecast {listing.tilecastRange}</dd>
+                </div>
+                <div>
+                  <dt>License</dt>
+                  <dd>{listing.license}</dd>
+                </div>
+                {listing.categories && listing.categories.length > 0 && (
+                  <div>
+                    <dt>Categories</dt>
+                    <dd>{listing.categories.join(", ")}</dd>
+                  </div>
+                )}
+              </dl>
+              <div class="links">
+                <a href={listing.repository}>Source</a>
+                {listing.documentation && <a href={listing.documentation}>Documentation</a>}
+                {listing.issues && <a href={listing.issues}>Issue tracker</a>}
+              </div>
+            </article>
+          ))}
         </div>
-        <p>{listing.description}</p>
-        <dl>
-          <div>
-            <dt>Publisher</dt>
-            <dd>{listing.publisher.name}</dd>
+      </section>
+    )}
+    <div class="catalog">
+      {rest.map((listing) => (
+        <article>
+          <div class="heading">
+            <h4>{listing.name}</h4>
+            <code>{listing.version}</code>
           </div>
-          <div>
-            <dt>Requires</dt>
-            <dd>Tilecast {listing.tilecastRange}</dd>
+          <p>{listing.description}</p>
+          <dl>
+            <div>
+              <dt>Publisher</dt>
+              <dd>{listing.publisher.name}</dd>
+            </div>
+            <div>
+              <dt>Requires</dt>
+              <dd>Tilecast {listing.tilecastRange}</dd>
+            </div>
+            <div>
+              <dt>License</dt>
+              <dd>{listing.license}</dd>
+            </div>
+            {listing.categories && listing.categories.length > 0 && (
+              <div>
+                <dt>Categories</dt>
+                <dd>{listing.categories.join(", ")}</dd>
+              </div>
+            )}
+          </dl>
+          <div class="links">
+            <a href={listing.repository}>Source</a>
+            {listing.documentation && <a href={listing.documentation}>Documentation</a>}
+            {listing.issues && <a href={listing.issues}>Issue tracker</a>}
           </div>
-          <div>
-            <dt>License</dt>
-            <dd>{listing.license}</dd>
-          </div>
-        </dl>
-        <div class="links">
-          <a href={listing.repository}>Source</a>
-          {listing.documentation && <a href={listing.documentation}>Documentation</a>}
-        </div>
-      </article>
-    ))}
-  </div>
+        </article>
+      ))}
+    </div>
+  </>
 )}
 
 <style>
@@ -75,10 +130,18 @@ const listings = [...(catalog.listings as Listing[])].sort((a, b) =>
     align-items: baseline;
   }
 
-  h3,
+  h4,
   p,
   dl {
     margin: 0;
+  }
+
+  .section-title {
+    margin: 0 0 0.75rem;
+  }
+
+  section {
+    margin-bottom: 1.5rem;
   }
 
   article > * + * {
@@ -96,6 +159,15 @@ const listings = [...(catalog.listings as Listing[])].sort((a, b) =>
 
   dd {
     margin: 0;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid var(--tc-border-default);
+    border-radius: var(--tc-radius-panel);
+    color: var(--tc-text-secondary);
   }
 
   .empty {

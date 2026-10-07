@@ -2,9 +2,6 @@ package catalog
 
 import (
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -13,24 +10,19 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
-	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
 )
 
 const (
-	catalogKeyID = "tilecast-marketplace-test"
-	catalogEtag  = `"catalog-v1"`
-	testDigest   = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	catalogEtag = `"catalog-v1"`
+	testDigest  = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 )
 
 type catalogFixture struct {
-	pool    *pgxpool.Pool
-	public  ed25519.PublicKey
-	private ed25519.PrivateKey
+	pool *pgxpool.Pool
 }
 
 func newCatalogFixture(t *testing.T) *catalogFixture {
@@ -68,28 +60,16 @@ func newCatalogFixture(t *testing.T) *catalogFixture {
 	if _, err = pool.Exec(ctx, `INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Catalog Test',$1)`, uuid.New()); err != nil {
 		t.Fatal(err)
 	}
-	public, private, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return &catalogFixture{pool: pool, public: public, private: private}
+	return &catalogFixture{pool: pool}
 }
 
-func (f *catalogFixture) service(t *testing.T, url string) *Service {
-	t.Helper()
-	verifier, err := trust.NewEd25519Verifier(catalogKeyID, f.public)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return NewService(f.pool, url, verifier)
+func (f *catalogFixture) service(url string) *Service {
+	return NewServiceWithURL(f.pool, url)
 }
 
-func (f *catalogFixture) document(expiresAt time.Time, mutate func(*Document)) json.RawMessage {
-	now := time.Now().UTC().Truncate(time.Second)
+func (f *catalogFixture) document(mutate func(*Document)) json.RawMessage {
 	document := Document{
 		FormatVersion: CatalogFormatVersion,
-		IssuedAt:      now,
-		ExpiresAt:     expiresAt,
 		Listings: []Listing{{
 			PackageID:     "acme.athletics",
 			Version:       "2.4.1",
@@ -101,6 +81,8 @@ func (f *catalogFixture) document(expiresAt time.Time, mutate func(*Document)) j
 			OCI:           "ghcr.io/acme/tilecast-athletics",
 			Digest:        testDigest,
 			Repository:    "https://github.com/acme/tilecast-athletics",
+			Categories:    []string{"sports", "data"},
+			Featured:      true,
 		}},
 	}
 	if mutate != nil {
@@ -113,21 +95,8 @@ func (f *catalogFixture) document(expiresAt time.Time, mutate func(*Document)) j
 	return payload
 }
 
-func (f *catalogFixture) envelope(t *testing.T, payload json.RawMessage) []byte {
-	t.Helper()
-	signature := ed25519.Sign(f.private, payload)
-	data, err := json.Marshal(trust.Envelope{
-		Payload:    payload,
-		Signatures: []trust.Signature{{KeyID: catalogKeyID, Signature: base64.StdEncoding.EncodeToString(signature)}},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
-}
-
-// marketplace serves one signed envelope, honoring If-None-Match.
-func (f *catalogFixture) marketplace(t *testing.T, envelope func() []byte) *httptest.Server {
+// marketplace serves one catalog document, honoring If-None-Match.
+func (f *catalogFixture) marketplace(t *testing.T, document func() []byte) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("If-None-Match") == catalogEtag {
@@ -136,18 +105,18 @@ func (f *catalogFixture) marketplace(t *testing.T, envelope func() []byte) *http
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("ETag", catalogEtag)
-		_, _ = w.Write(envelope())
+		_, _ = w.Write(document())
 	}))
 }
 
-func TestRefreshCachesVerifiedCatalog(t *testing.T) {
+func TestRefreshCachesCatalog(t *testing.T) {
 	f := newCatalogFixture(t)
 	ctx := context.Background()
-	payload := f.document(time.Now().Add(24*time.Hour), nil)
-	server := f.marketplace(t, func() []byte { return f.envelope(t, payload) })
+	payload := f.document(nil)
+	server := f.marketplace(t, func() []byte { return payload })
 	defer server.Close()
 
-	service := f.service(t, server.URL)
+	service := f.service(server.URL)
 	if err := service.Refresh(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +130,13 @@ func TestRefreshCachesVerifiedCatalog(t *testing.T) {
 	if len(cached.Document.Listings) != 1 || cached.Document.Listings[0].Digest != testDigest {
 		t.Fatalf("listings = %+v", cached.Document.Listings)
 	}
-	if cached.Stale(time.Now()) {
+	if got := cached.Document.Listings[0].Categories; len(got) != 2 || got[0] != "sports" {
+		t.Fatalf("categories = %v", got)
+	}
+	if !cached.Document.Listings[0].Featured {
+		t.Fatal("featured listing lost its flag")
+	}
+	if cached.Stale() {
 		t.Fatal("fresh cache reports stale")
 	}
 	listing, _, err := service.ListingFor(ctx, "acme.athletics")
@@ -188,48 +163,97 @@ func TestRefreshCachesVerifiedCatalog(t *testing.T) {
 	}
 }
 
-func TestRefreshFailsClosedAndKeepsCache(t *testing.T) {
+func TestRefreshRejectsMalformedCatalogs(t *testing.T) {
 	f := newCatalogFixture(t)
 	ctx := context.Background()
-	good := f.document(time.Now().Add(24*time.Hour), nil)
-	current := f.envelope(t, good)
-	server := f.marketplace(t, func() []byte { return current })
+	good := f.document(nil)
+	current := append([]byte(nil), good...)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write(current)
+	}))
 	defer server.Close()
-	service := f.service(t, server.URL)
+	service := f.service(server.URL)
 	if err := service.Refresh(ctx); err != nil {
 		t.Fatal(err)
 	}
 
-	// A broken signature fails verification; the cache keeps serving.
-	signed := f.envelope(t, good)
-	var decoded struct {
-		Payload    json.RawMessage `json:"payload"`
-		Signatures []struct {
-			KeyID     string `json:"keyId"`
-			Signature string `json:"signature"`
-		} `json:"signatures"`
+	for name, body := range map[string][]byte{
+		"not json":      []byte("{oops"),
+		"bad format":    f.document(func(d *Document) { d.FormatVersion = 999 }),
+		"unknown field": []byte(`{"formatVersion":1,"listings":[],"surprise":true}`),
+		"duplicate":     f.document(func(d *Document) { d.Listings = append(d.Listings, d.Listings[0]) }),
+		"unsorted": f.document(func(d *Document) {
+			d.Listings = append(d.Listings, d.Listings[0])
+			d.Listings[0].PackageID = "zzz.last"
+		}),
+		"bad package id":   f.document(func(d *Document) { d.Listings[0].PackageID = "tilecast.athletics" }),
+		"bad version":      f.document(func(d *Document) { d.Listings[0].Version = "2.4" }),
+		"bad digest":       f.document(func(d *Document) { d.Listings[0].Digest = "v2.4.1" }),
+		"http repository":  f.document(func(d *Document) { d.Listings[0].Repository = "http://github.com/acme/tilecast-athletics" }),
+		"wrong host":       f.document(func(d *Document) { d.Listings[0].Repository = "https://example.com/acme/tilecast-athletics" }),
+		"shallow path":     f.document(func(d *Document) { d.Listings[0].Repository = "https://github.com/acme" }),
+		"bad issues link":  f.document(func(d *Document) { d.Listings[0].Issues = "not a url" }),
+		"bad category":     f.document(func(d *Document) { d.Listings[0].Categories = []string{"Sports!"} }),
+		"duplicate cat":    f.document(func(d *Document) { d.Listings[0].Categories = []string{"data", "data"} }),
+		"namespace breach": f.document(func(d *Document) { d.Listings[0].PackageID = "other.athletics" }),
+	} {
+		t.Run(name, func(t *testing.T) {
+			current = body
+			if err := service.Refresh(ctx); err == nil {
+				t.Fatalf("%s: expected a rejection", name)
+			}
+			cached, err := service.Cached(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// The malformed catalog never replaces the last valid one.
+			if len(cached.Document.Listings) != 1 || cached.Document.Listings[0].PackageID != "acme.athletics" {
+				t.Fatalf("%s: cache = %+v, want last valid document", name, cached.Document)
+			}
+			if cached.LastError == "" || !cached.Stale() {
+				t.Fatalf("%s: cache records no failure: %+v", name, cached)
+			}
+		})
 	}
-	if err := json.Unmarshal(signed, &decoded); err != nil {
+
+	// A successful refresh replaces the failed document and clears the error.
+	current = good
+	if err := service.Refresh(ctx); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := base64.StdEncoding.DecodeString(decoded.Signatures[0].Signature)
+	cached, err := service.Cached(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw[0] ^= 0xff
-	decoded.Signatures[0].Signature = base64.StdEncoding.EncodeToString(raw)
-	broken, err := json.Marshal(decoded)
-	if err != nil {
-		t.Fatal(err)
+	if cached.LastError != "" || cached.Stale() {
+		t.Fatalf("last error after recovery = %q", cached.LastError)
 	}
-	current = broken
-	// Bypass the 304 path: the failure cases need fresh bodies.
-	server.Config.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+}
+
+func TestRefreshFailsClosedAndKeepsCache(t *testing.T) {
+	f := newCatalogFixture(t)
+	ctx := context.Background()
+	good := f.document(nil)
+	current := append([]byte(nil), good...)
+	var failing atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if failing.Load() {
+			http.Error(w, "down", http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(current)
-	})
+	}))
+	defer server.Close()
+	service := f.service(server.URL)
+	if err := service.Refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	failing.Store(true)
 	if err := service.Refresh(ctx); err == nil {
-		t.Fatal("expected a verification failure")
+		t.Fatal("expected a fetch failure")
 	}
 	cached, err := service.Cached(ctx)
 	if err != nil {
@@ -238,26 +262,11 @@ func TestRefreshFailsClosedAndKeepsCache(t *testing.T) {
 	if len(cached.Document.Listings) != 1 || cached.LastError == "" {
 		t.Fatalf("cache after failure = %+v", cached)
 	}
-	if !strings.Contains(cached.LastError, "does not verify") {
+	if !strings.Contains(cached.LastError, "HTTP 500") {
 		t.Fatalf("last error = %q", cached.LastError)
 	}
 
-	// An expired document is rejected the same way.
-	expired := f.document(time.Now().Add(-time.Hour), nil)
-	current = f.envelope(t, expired)
-	if err := service.Refresh(ctx); err == nil {
-		t.Fatal("expected an expiry failure")
-	}
-	cached, err = service.Cached(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(cached.Document.Listings) != 1 || !strings.Contains(cached.LastError, "expired") {
-		t.Fatalf("cache after expiry = %+v", cached)
-	}
-
-	// A successful refresh clears the recorded error.
-	current = f.envelope(t, good)
+	failing.Store(false)
 	if err := service.Refresh(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -270,77 +279,13 @@ func TestRefreshFailsClosedAndKeepsCache(t *testing.T) {
 	}
 }
 
-func TestRefreshRejectsBadListings(t *testing.T) {
+func TestUnacceptableURLs(t *testing.T) {
 	f := newCatalogFixture(t)
 	ctx := context.Background()
-	for name, mutate := range map[string]func(*Document){
-		"bad digest": func(d *Document) {
-			d.Listings[0].Digest = "v2.4.1"
-		},
-		"bad package id": func(d *Document) {
-			d.Listings[0].PackageID = "tilecast.athletics"
-		},
-		"bad version": func(d *Document) {
-			d.Listings[0].Version = "2.4"
-		},
-		"duplicate package": func(d *Document) {
-			d.Listings = append(d.Listings, d.Listings[0])
-		},
-		"missing repository": func(d *Document) {
-			d.Listings[0].Repository = ""
-		},
-		"http repository": func(d *Document) {
-			d.Listings[0].Repository = "http://github.com/acme/tilecast-athletics"
-		},
-		"bad issues link": func(d *Document) {
-			d.Listings[0].Issues = "not a url"
-		},
-	} {
-		t.Run(name, func(t *testing.T) {
-			payload := f.document(time.Now().Add(24*time.Hour), mutate)
-			server := f.marketplace(t, func() []byte { return f.envelope(t, payload) })
-			defer server.Close()
-			// Fresh database state per case would need a new fixture; the
-			// cases share one cache and each must fail without caching.
-			if _, err := f.pool.Exec(ctx, `TRUNCATE marketplace_catalog_cache`); err != nil {
-				t.Fatal(err)
-			}
-			service := f.service(t, server.URL)
-			if err := service.Refresh(ctx); err == nil {
-				t.Fatalf("%s: expected a rejection", name)
-			}
-			cached, err := service.Cached(ctx)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !cached.FetchedAt.IsZero() {
-				t.Fatalf("%s: bad document was cached", name)
-			}
-		})
-	}
-}
-
-func TestDisabledAndUnacceptableURLs(t *testing.T) {
-	f := newCatalogFixture(t)
-	ctx := context.Background()
-	disabled := f.service(t, "")
-	if disabled.Enabled() {
-		t.Fatal("empty URL service reports enabled")
-	}
-	if err := disabled.Refresh(ctx); !errors.Is(err, ErrDisabled) {
-		t.Fatalf("refresh = %v, want ErrDisabled", err)
-	}
-	cached, err := disabled.Cached(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !cached.FetchedAt.IsZero() || !cached.Stale(time.Now()) {
-		t.Fatalf("disabled cache = %+v", cached)
-	}
 	for _, raw := range []string{"ftp://example.com/catalog.json", "http://example.com/catalog.json", "://bad"} {
-		service := f.service(t, raw)
-		if err := service.Refresh(ctx); !errors.Is(err, ErrDisabled) {
-			t.Fatalf("%s: refresh = %v, want ErrDisabled", raw, err)
+		service := f.service(raw)
+		if err := service.Refresh(ctx); err == nil {
+			t.Fatalf("%s: expected an unacceptable-URL error", raw)
 		}
 	}
 }
@@ -348,16 +293,16 @@ func TestDisabledAndUnacceptableURLs(t *testing.T) {
 func TestRefreshIfStale(t *testing.T) {
 	f := newCatalogFixture(t)
 	ctx := context.Background()
-	payload := f.document(time.Now().Add(24*time.Hour), nil)
+	payload := f.document(nil)
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(f.envelope(t, payload))
+		_, _ = w.Write(payload)
 	}))
 	defer server.Close()
 
-	service := f.service(t, server.URL)
+	service := f.service(server.URL)
 
 	// A missing cache fetches.
 	if err := service.RefreshIfStale(ctx); err != nil {
@@ -373,14 +318,8 @@ func TestRefreshIfStale(t *testing.T) {
 	if requests.Load() != 1 {
 		t.Fatalf("requests = %d, want still 1", requests.Load())
 	}
-	// An expired row fetches again. The row is seeded directly: the
-	// refresh path itself would never cache an expired document. The
-	// payload expiry moves with the column so the integrity check keeps
-	// passing: only the instant changes, not their agreement.
-	if _, err := f.pool.Exec(ctx, `UPDATE marketplace_catalog_cache SET
-		expires_at='2000-01-01T00:00:00Z',
-		payload=convert_to(jsonb_set(convert_from(payload, 'UTF8')::jsonb,
-			'{expiresAt}', '"2000-01-01T00:00:00Z"')::text, 'UTF8')`); err != nil {
+	// An old cache fetches again.
+	if _, err := f.pool.Exec(ctx, `UPDATE marketplace_catalog_cache SET fetched_at = now() - make_interval(hours => 2)`); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.RefreshIfStale(ctx); err != nil {
@@ -399,7 +338,7 @@ func TestRefreshIfStale(t *testing.T) {
 	if _, err := f.pool.Exec(ctx, `TRUNCATE marketplace_catalog_cache`); err != nil {
 		t.Fatal(err)
 	}
-	broken := f.service(t, failing.URL)
+	broken := f.service(failing.URL)
 	if err := broken.RefreshIfStale(ctx); err == nil {
 		t.Fatal("expected a refresh error")
 	}
@@ -417,9 +356,62 @@ func TestRefreshIfStale(t *testing.T) {
 	if requests.Load() != before+1 {
 		t.Fatalf("requests = %d, want one manual attempt", requests.Load())
 	}
-	// Disabled services answer nil.
-	if err := f.service(t, "").RefreshIfStale(ctx); err != nil {
-		t.Fatalf("disabled RefreshIfStale = %v", err)
+}
+
+func TestBundledFallback(t *testing.T) {
+	f := newCatalogFixture(t)
+	ctx := context.Background()
+	bundled, err := Bundled()
+	if err != nil {
+		t.Fatalf("bundled snapshot is invalid: %v", err)
+	}
+
+	// No database cache: the bundled snapshot serves.
+	cached, err := f.service("http://127.0.0.1:1/catalog.json").Cached(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cached.FetchedAt.IsZero() || cached.LastError != "" {
+		t.Fatalf("bundled cache state = %+v", cached)
+	}
+	if len(cached.Document.Listings) != len(bundled.Listings) {
+		t.Fatalf("bundled listings = %d, want %d", len(cached.Document.Listings), len(bundled.Listings))
+	}
+
+	// A failed first refresh keeps serving the bundled listings with the
+	// failure recorded.
+	failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "down", http.StatusInternalServerError)
+	}))
+	defer failing.Close()
+	broken := f.service(failing.URL)
+	if err := broken.Refresh(ctx); err == nil {
+		t.Fatal("expected a refresh error")
+	}
+	cached, err = broken.Cached(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cached.Document.Listings) != len(bundled.Listings) {
+		t.Fatalf("listings after failed first refresh = %d, want bundled %d", len(cached.Document.Listings), len(bundled.Listings))
+	}
+	if cached.LastError == "" || !cached.Stale() {
+		t.Fatalf("failed first refresh records no failure: %+v", cached)
+	}
+
+	// A later successful refresh replaces the bundled snapshot.
+	payload := f.document(nil)
+	server := f.marketplace(t, func() []byte { return payload })
+	defer server.Close()
+	if err := f.service(server.URL).Refresh(ctx); err != nil {
+		t.Fatal(err)
+	}
+	cached, err = f.service(server.URL).Cached(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cached.Document.Listings) != 1 || cached.LastError != "" {
+		t.Fatalf("cache after refresh = %+v", cached)
 	}
 }
 

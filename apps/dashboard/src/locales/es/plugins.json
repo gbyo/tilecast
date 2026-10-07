@@ -33,23 +33,23 @@
   },
   "store": {
     "title": "Explorar complementos",
-    "description": "Complementos incluidos con Tilecast y listados del Marketplace configurado.",
+    "description": "Complementos incluidos con Tilecast y listados del Marketplace oficial de Tilecast.",
     "sourceLabel": "Origen",
     "loadError": "No se pudo cargar este complemento.",
     "emptyTitle": "No hay complementos disponibles",
-    "emptyDescription": "No hay complementos disponibles en los orígenes configurados.",
+    "emptyDescription": "No hay complementos disponibles en estos orígenes.",
     "sources": {
       "all": "Todos los orígenes",
       "included": "Incluido con Tilecast",
       "marketplace": "Marketplace"
     },
     "notFoundTitle": "Complemento no encontrado",
-    "notFoundDescription": "Esta entrada no está disponible en los orígenes configurados.",
+    "notFoundDescription": "Esta entrada no está disponible en estos orígenes.",
     "backToExplore": "Volver a Explorar",
     "marketplace": {
-      "staleTitle": "El catálogo de Marketplace no está actualizado",
-      "staleDescription": "Se muestran los últimos listados verificados.",
-      "errorTitle": "Error al actualizar Marketplace",
+      "staleTitle": "El catálogo de Marketplace puede estar desactualizado",
+      "staleDescription": "Se muestra el último catálogo disponible.",
+      "errorTitle": "No se pudo actualizar Marketplace",
       "refresh": "Actualizar catálogo",
       "refreshing": "Actualizando…"
     },
@@ -65,7 +65,10 @@
       "repository": "Repositorio",
       "documentation": "Documentación",
       "issues": "Incidencias",
-      "signedCatalog": "Listado en el catálogo firmado de Marketplace de esta instalación.",
+      "officialCatalog": "Listado en el Marketplace oficial de Tilecast.",
+      "featuredLabel": "Destacados",
+      "featured": "Listado destacado",
+      "categoriesLabel": "Categorías",
       "installUnavailable": "La instalación de listados de Marketplace aún no está disponible.",
       "versionLabel": "Versión",
       "requiresLabel": "Requiere"

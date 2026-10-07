@@ -1237,7 +1237,7 @@ export type PluginCatalog = {
 
 /**
  * Where a store entry comes from. "included" entries are compiled into the
- * release; "marketplace" entries come from the configured catalog and carry
+ * release; "marketplace" entries come from the official catalog and carry
  * its catalog ID. Custom sources join later with a repository. Clients
  * must tolerate kinds they do not know.
  */
@@ -1265,6 +1265,8 @@ export type PluginStoreMarketplace = {
   repository: string;
   documentation?: string;
   issues?: string;
+  categories?: string[];
+  featured?: boolean;
   compatible: boolean;
   installed: boolean;
   installedVersion?: string;
@@ -1272,13 +1274,12 @@ export type PluginStoreMarketplace = {
 };
 
 /**
- * The cached catalog behind marketplace entries: whether one is
- * configured, when it last refreshed, whether the document is stale, and
- * the last refresh error, if any.
+ * The cached catalog behind marketplace entries: when it last refreshed,
+ * whether it serves last-known-good data after a failed refresh, and the
+ * last refresh error, if any.
  */
 export type PluginMarketplaceStatus = {
-  configured: boolean;
-  fetchedAt?: string;
+  lastFetchedAt?: string;
   stale: boolean;
   error?: string;
 };

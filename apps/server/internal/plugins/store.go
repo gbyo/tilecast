@@ -41,21 +41,23 @@ type StoreSource struct {
 // installation's state: compatibility with the running release, whether it
 // is installed, and whether the listing carries a newer version.
 type MarketplaceEntry struct {
-	Version          string `json:"version"`
-	Name             string `json:"name"`
-	Description      string `json:"description"`
-	PublisherID      string `json:"publisherId"`
-	PublisherName    string `json:"publisherName"`
-	License          string `json:"license"`
-	TilecastRange    string `json:"tilecastRange"`
-	Digest           string `json:"digest"`
-	Repository       string `json:"repository"`
-	Documentation    string `json:"documentation,omitempty"`
-	Issues           string `json:"issues,omitempty"`
-	Compatible       bool   `json:"compatible"`
-	Installed        bool   `json:"installed"`
-	InstalledVersion string `json:"installedVersion,omitempty"`
-	UpdateAvailable  bool   `json:"updateAvailable"`
+	Version          string   `json:"version"`
+	Name             string   `json:"name"`
+	Description      string   `json:"description"`
+	PublisherID      string   `json:"publisherId"`
+	PublisherName    string   `json:"publisherName"`
+	License          string   `json:"license"`
+	TilecastRange    string   `json:"tilecastRange"`
+	Digest           string   `json:"digest"`
+	Repository       string   `json:"repository"`
+	Documentation    string   `json:"documentation,omitempty"`
+	Issues           string   `json:"issues,omitempty"`
+	Categories       []string `json:"categories,omitempty"`
+	Featured         bool     `json:"featured,omitempty"`
+	Compatible       bool     `json:"compatible"`
+	Installed        bool     `json:"installed"`
+	InstalledVersion string   `json:"installedVersion,omitempty"`
+	UpdateAvailable  bool     `json:"updateAvailable"`
 }
 
 // StoreEntry is one normalized plugin-store row: the package identity and
@@ -69,13 +71,12 @@ type StoreEntry struct {
 }
 
 // MarketplaceStatus describes the cached catalog behind marketplace
-// entries: whether one is configured, when it last refreshed, whether the
-// document is stale, and the last refresh error, if any.
+// entries: when it last refreshed, whether it serves last-known-good
+// data after a failed refresh, and the last refresh error, if any.
 type MarketplaceStatus struct {
-	Configured bool       `json:"configured"`
-	FetchedAt  *time.Time `json:"fetchedAt,omitempty"`
-	Stale      bool       `json:"stale"`
-	Error      string     `json:"error,omitempty"`
+	LastFetchedAt *time.Time `json:"lastFetchedAt,omitempty"`
+	Stale         bool       `json:"stale"`
+	Error         string     `json:"error,omitempty"`
 }
 
 // MarketplaceSnapshot is the cached listings plus their cache state.
@@ -105,16 +106,16 @@ func WithMarketplaceSource(source MarketplaceSource) Option {
 }
 
 // MarketplaceSnapshotFrom adapts the cached marketplace document to the
-// store's snapshot. Configured is always true here: an unconfigured
-// catalog is a nil marketplace source, never this adapter.
+// store's snapshot.
 func MarketplaceSnapshotFrom(cached catalog.Cached, now time.Time) MarketplaceSnapshot {
-	status := MarketplaceStatus{Configured: true, Stale: cached.Stale(now)}
+	_ = now
+	status := MarketplaceStatus{Stale: cached.Stale()}
 	if cached.LastError != "" {
 		status.Error = "The marketplace catalog could not be refreshed."
 	}
 	if !cached.FetchedAt.IsZero() {
 		fetched := cached.FetchedAt
-		status.FetchedAt = &fetched
+		status.LastFetchedAt = &fetched
 	}
 	return MarketplaceSnapshot{Listings: cached.Document.Listings, Status: status}
 }
@@ -157,9 +158,8 @@ func (s *Service) Store(ctx context.Context) (Store, error) {
 	if err != nil {
 		s.logger.ErrorContext(ctx, "marketplace snapshot failed", "error", err)
 		store.Marketplace = MarketplaceStatus{
-			Configured: true,
-			Stale:      true,
-			Error:      "The marketplace catalog cache could not be read.",
+			Stale: true,
+			Error: "The marketplace catalog cache could not be read.",
 		}
 		return store, nil
 	}
@@ -268,6 +268,8 @@ func marketplaceEntry(listing catalog.Listing, installedVersion string, installe
 		Repository:       listing.Repository,
 		Documentation:    listing.Documentation,
 		Issues:           listing.Issues,
+		Categories:       listing.Categories,
+		Featured:         listing.Featured,
 		Compatible:       packagemanifest.SatisfiesTilecastRange(listing.TilecastRange, version.Display()),
 		Installed:        installed,
 		InstalledVersion: installedVersion,

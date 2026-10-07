@@ -2,9 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -18,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
-	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
@@ -134,6 +130,7 @@ func TestPluginStoreMarketplaceMerge(t *testing.T) {
 						License: "AGPL-3.0-only", TilecastRange: ">=0.0.0",
 						OCI: "registry.example.com/acme/countdown-pro", Digest: marketplaceTestDigest,
 						Repository: "https://github.com/acme/tilecast-countdown-pro",
+						Categories: []string{"display"}, Featured: true,
 					},
 					{
 						PackageID: "acme.weather", Version: "1.0.0", Name: "Weather",
@@ -143,7 +140,7 @@ func TestPluginStoreMarketplaceMerge(t *testing.T) {
 						Repository: "https://github.com/acme/tilecast-weather",
 					},
 				},
-				Status: plugins.MarketplaceStatus{Configured: true, FetchedAt: &fetchedAt},
+				Status: plugins.MarketplaceStatus{LastFetchedAt: &fetchedAt},
 			}, nil
 		}
 		client := newMarketplaceTestClient(t, env, func() {
@@ -176,6 +173,12 @@ func TestPluginStoreMarketplaceMerge(t *testing.T) {
 		if listing["installed"] != false {
 			t.Fatalf("uninstalled marketplace entry installed = %v", listing["installed"])
 		}
+		if featured, _ := listing["featured"].(bool); !featured {
+			t.Fatalf("marketplace entry featured = %v, want true", listing["featured"])
+		}
+		if categories, _ := listing["categories"].([]any); len(categories) != 1 || categories[0] != "display" {
+			t.Fatalf("marketplace entry categories = %v", listing["categories"])
+		}
 		// Development builds report 0.0.0-dev, which is not a release
 		// triple, so compatibility fails closed in tests.
 		if listing["compatible"] != false {
@@ -195,11 +198,14 @@ func TestPluginStoreMarketplaceMerge(t *testing.T) {
 		}
 
 		marketplace := body["data"].(map[string]any)["marketplace"].(map[string]any)
-		if marketplace["configured"] != true || marketplace["stale"] != false {
+		if _, ok := marketplace["configured"]; ok {
+			t.Fatalf("marketplace status carries configured: %v", marketplace)
+		}
+		if marketplace["stale"] != false {
 			t.Fatalf("marketplace status = %v", marketplace)
 		}
-		if _, ok := marketplace["fetchedAt"]; !ok {
-			t.Fatal("marketplace status omits fetchedAt")
+		if _, ok := marketplace["lastFetchedAt"]; !ok {
+			t.Fatal("marketplace status omits lastFetchedAt")
 		}
 
 		// One marketplace entry through the detail route.
@@ -230,7 +236,7 @@ func TestPluginStoreMarketplaceError(t *testing.T) {
 			t.Fatalf("store items = %d, want 3 included", len(items))
 		}
 		marketplace := body["data"].(map[string]any)["marketplace"].(map[string]any)
-		if marketplace["configured"] != true || marketplace["stale"] != true {
+		if marketplace["stale"] != true {
 			t.Fatalf("marketplace status = %v", marketplace)
 		}
 		if marketplace["error"] != "The marketplace catalog cache could not be read." {
@@ -239,31 +245,10 @@ func TestPluginStoreMarketplaceError(t *testing.T) {
 	})
 }
 
-// signMarketplaceDocument serves payload bytes both as the JSON document the
-// catalog parses and as the exact bytes the test key signs.
-func signMarketplaceDocument(t *testing.T, private ed25519.PrivateKey, document catalog.Document) []byte {
+func marketplaceTestDocument(t *testing.T) []byte {
 	t.Helper()
-	payload, err := json.Marshal(document)
-	if err != nil {
-		t.Fatal(err)
-	}
-	signature := ed25519.Sign(private, payload)
-	envelope, err := json.Marshal(map[string]any{
-		"payload":    json.RawMessage(payload),
-		"signatures": []trust.Signature{{KeyID: trust.MarketplaceKeyID, Signature: base64.StdEncoding.EncodeToString(signature)}},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	return envelope
-}
-
-func marketplaceTestDocument() catalog.Document {
-	now := time.Now().UTC().Truncate(time.Second)
-	return catalog.Document{
+	payload, err := json.Marshal(catalog.Document{
 		FormatVersion: catalog.CatalogFormatVersion,
-		IssuedAt:      now,
-		ExpiresAt:     now.Add(24 * time.Hour),
 		Listings: []catalog.Listing{
 			{
 				PackageID: "acme.weather", Version: "1.0.0", Name: "Weather",
@@ -275,26 +260,22 @@ func marketplaceTestDocument() catalog.Document {
 				Issues:        "https://github.com/acme/tilecast-weather/issues",
 			},
 		},
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
+	return payload
 }
 
 // TestRefreshMarketplaceCatalog drives the refresh endpoint through the
-// production router: role and CSRF guards, the unconfigured answer, a
-// signed refresh that lands listings in the store, and a failed refresh
-// that answers 502 while the store keeps serving.
+// production router: role and CSRF guards, a refresh that lands listings
+// in the store, and a failed refresh that answers 502 while the store
+// keeps serving.
 func TestRefreshMarketplaceCatalog(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
-		public, private, err := ed25519.GenerateKey(rand.Reader)
-		if err != nil {
-			t.Fatal(err)
-		}
-		verifier, err := trust.NewEd25519Verifier(trust.MarketplaceKeyID, public)
-		if err != nil {
-			t.Fatal(err)
-		}
-		signed := signMarketplaceDocument(t, private, marketplaceTestDocument())
+		document := marketplaceTestDocument(t)
 		// The catalog fails in place: the URL stays fixed, as in
-		// production, so the verified cache keeps serving its document.
+		// production, so the cached document keeps serving.
 		var failing atomic.Bool
 		catalogServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if failing.Load() {
@@ -302,11 +283,11 @@ func TestRefreshMarketplaceCatalog(t *testing.T) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			w.Write(signed)
+			w.Write(document)
 		}))
 		t.Cleanup(catalogServer.Close)
 
-		marketplace := catalog.NewService(env.pool, catalogServer.URL, verifier)
+		marketplace := catalog.NewServiceWithURL(env.pool, catalogServer.URL)
 		client := newMarketplaceTestClient(t, env, func() {
 			env.server.marketplace = marketplace
 			service := plugins.NewService(env.pool, nil)
@@ -320,32 +301,25 @@ func TestRefreshMarketplaceCatalog(t *testing.T) {
 			env.server.plugins = service
 		})
 
-		// Role, CSRF, and configuration guards.
+		// Role and CSRF guards.
 		if status, body := client.call("viewer", http.MethodPost, "/api/v1/plugin-store/marketplace/refresh", true, ""); status != http.StatusForbidden {
 			t.Fatalf("viewer refresh status = %d, want 403 (%v)", status, body)
 		}
 		if status, body := client.call("owner", http.MethodPost, "/api/v1/plugin-store/marketplace/refresh", false, ""); status != http.StatusForbidden {
 			t.Fatalf("owner refresh without CSRF status = %d, want 403 (%v)", status, body)
 		}
-		env.server.marketplace = nil
-		if status, body := client.call("owner", http.MethodPost, "/api/v1/plugin-store/marketplace/refresh", true, ""); status != http.StatusConflict {
-			t.Fatalf("unconfigured refresh status = %d, want 409 (%v)", status, body)
-		} else if code := body["error"].(map[string]any)["code"]; code != "marketplace_not_configured" {
-			t.Fatalf("unconfigured refresh code = %v", code)
-		}
-		env.server.marketplace = marketplace
 
-		// A signed refresh lands the listing in the store.
+		// A refresh lands the listing in the store.
 		status, body := client.call("owner", http.MethodPost, "/api/v1/plugin-store/marketplace/refresh", true, "")
 		if status != http.StatusOK {
 			t.Fatalf("refresh status = %d (%v)", status, body)
 		}
 		refreshed := body["data"].(map[string]any)["marketplace"].(map[string]any)
-		if refreshed["configured"] != true || refreshed["stale"] != false {
+		if refreshed["stale"] != false {
 			t.Fatalf("refresh status = %v", refreshed)
 		}
-		if _, ok := refreshed["fetchedAt"]; !ok {
-			t.Fatal("refresh status omits fetchedAt")
+		if _, ok := refreshed["lastFetchedAt"]; !ok {
+			t.Fatal("refresh status omits lastFetchedAt")
 		}
 		status, body = client.call("viewer", http.MethodGet, "/api/v1/plugin-store", false, "")
 		if status != http.StatusOK {
@@ -360,7 +334,7 @@ func TestRefreshMarketplaceCatalog(t *testing.T) {
 			t.Fatalf("refreshed entry = %v", entry["marketplace"])
 		}
 
-		// A failed refresh answers 502; the verified cache keeps serving.
+		// A failed refresh answers 502; the cache keeps serving.
 		failing.Store(true)
 		if status, body = client.call("owner", http.MethodPost, "/api/v1/plugin-store/marketplace/refresh", true, ""); status != http.StatusBadGateway {
 			t.Fatalf("failed refresh status = %d, want 502 (%v)", status, body)
@@ -378,6 +352,9 @@ func TestRefreshMarketplaceCatalog(t *testing.T) {
 		cached := body["data"].(map[string]any)["marketplace"].(map[string]any)
 		if cached["error"] == "" || cached["error"] == nil {
 			t.Fatalf("marketplace status after failed refresh = %v, want the error recorded", cached)
+		}
+		if cached["stale"] != true {
+			t.Fatalf("marketplace stale after failed refresh = %v, want true", cached["stale"])
 		}
 	})
 }

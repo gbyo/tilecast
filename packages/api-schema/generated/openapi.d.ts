@@ -2638,7 +2638,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later. */
+    /** @description The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. Marketplace entries join the release-owned entries; custom entries join this list later. */
     get: operations["listPluginStore"];
     put?: never;
     post?: never;
@@ -2674,7 +2674,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Fetch the signed marketplace catalog now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous verified cache keeps serving when the refresh fails. */
+    /** @description Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails. */
     post: operations["refreshMarketplaceCatalog"];
     delete?: never;
     options?: never;
@@ -7303,7 +7303,7 @@ export interface components {
         installedAt: string;
       }[];
     };
-    /** @description Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the configured catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know. */
+    /** @description Where a store entry comes from. "included" entries are compiled into the release; "marketplace" entries come from the official catalog and carry its catalog ID. Custom sources join later with a repository, so clients must tolerate values they do not know. */
     PluginStoreSource: {
       kind: string;
       catalogId?: string;
@@ -7322,23 +7322,24 @@ export interface components {
       digest: string;
       /**
        * Format: uri
-       * @description Public source repository as an https URL with a host and path.
+       * @description Public source repository as a github.com https URL with an owner and name.
        */
       repository: string;
       /** Format: uri */
       documentation?: string;
       /** Format: uri */
       issues?: string;
+      categories?: string[];
+      featured?: boolean;
       compatible: boolean;
       installed: boolean;
       installedVersion?: string;
       updateAvailable: boolean;
     };
-    /** @description The cached catalog behind marketplace entries. Fetch failures keep serving the last verified cache and record the error here. */
+    /** @description The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here. */
     PluginMarketplaceStatus: {
-      configured: boolean;
       /** Format: date-time */
-      fetchedAt?: string;
+      lastFetchedAt?: string;
       stale: boolean;
       error?: string;
     };
@@ -18716,14 +18717,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description marketplace_not_configured — no catalog URL is configured */
-      409: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description marketplace_refresh_failed — the catalog fetch or signature check failed */
+      /** @description marketplace_refresh_failed — the catalog fetch failed */
       502: {
         headers: {
           [name: string]: unknown;

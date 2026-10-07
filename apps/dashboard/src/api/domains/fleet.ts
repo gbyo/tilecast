@@ -193,7 +193,7 @@ export function removePlugin(id: string, csrfToken: string): Promise<void> {
   });
 }
 
-/** Fetch the signed marketplace catalog now; answers its cache status. */
+/** Refresh the official Tilecast marketplace now; answers its cache status. */
 export function refreshMarketplaceCatalog(
   csrfToken: string,
 ): Promise<{ marketplace: PluginMarketplaceStatus }> {

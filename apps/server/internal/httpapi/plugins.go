@@ -44,15 +44,11 @@ func (s *server) getPluginStoreEntry(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": entry})
 }
 
-// refreshMarketplaceCatalog fetches the signed marketplace catalog now and
-// answers with its cache status. The full error stays in the server log
-// and the cache row; the API answers a generic failure so a catalog URL
-// carrying credentials never leaks through it.
+// refreshMarketplaceCatalog refreshes the official Tilecast marketplace
+// now and answers with its cache status. The full error stays in the
+// server log and the cache row; the API answers a generic failure while
+// the cached listings keep serving.
 func (s *server) refreshMarketplaceCatalog(w http.ResponseWriter, r *http.Request) {
-	if s.marketplace == nil || !s.marketplace.Enabled() {
-		writeError(w, http.StatusConflict, "marketplace_not_configured", "The marketplace catalog is not configured.")
-		return
-	}
 	if err := s.marketplace.Refresh(r.Context()); err != nil {
 		s.logger.Error("marketplace refresh failed", "error", err, "path", r.URL.Path)
 		_ = audit.Record(r.Context(), s.db, audit.Event{

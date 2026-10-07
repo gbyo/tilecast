@@ -95,8 +95,11 @@ func TestPluginStoreAPI(t *testing.T) {
 		if !ok {
 			t.Fatal("store omits marketplace status")
 		}
-		if marketplace["configured"] != false {
-			t.Fatalf("marketplace configured = %v without a catalog", marketplace["configured"])
+		if _, ok := marketplace["configured"]; ok {
+			t.Fatalf("marketplace status carries configured: %v", marketplace)
+		}
+		if marketplace["stale"] != false {
+			t.Fatalf("marketplace stale = %v without a catalog", marketplace["stale"])
 		}
 
 		// One entry, and an unknown one.

@@ -40,11 +40,11 @@ The built-in catalog includes:
 
 ## Marketplace listings
 
-When the server operator configures a marketplace catalog, **Explore** also shows marketplace listings next to the built-in plugins. Each listing names its publisher and version, states which Tilecast releases it supports, and links to its source repository. Listings come from a signed catalog the server verifies; a listing is not a security review of the package.
+**Explore** also shows marketplace listings next to the built-in plugins. Each listing names its publisher and version, states which Tilecast releases it supports, and links to its source repository. The Tilecast project reviews every listing before it appears; a listing is not a security review of the package.
 
-Tilecast cannot install marketplace listings yet, so their pages describe the listing and its state without an **Install** button. If the catalog goes stale or a refresh fails, Studio says so and keeps showing the last verified listings. An Owner or Administrator can fetch the catalog again from the notice.
+Tilecast cannot install marketplace listings yet, so their pages describe the listing and its state without an **Install** button. If a refresh fails, Studio says so and keeps showing the last available catalog. An Owner or Administrator can fetch the catalog again from the notice.
 
-See the [marketplace contract](https://github.com/gbyo/tilecast/blob/main/docs/marketplace.md) for the catalog format, signature checks, and caching behavior.
+See the [marketplace contract](https://github.com/gbyo/tilecast/blob/main/docs/marketplace.md) for the catalog format and caching behavior.
 
 Removing a plugin is blocked while its instances or other plugin-owned resources remain. Remove those through the plugin's own page first. Removal does not delete those resources.
 
