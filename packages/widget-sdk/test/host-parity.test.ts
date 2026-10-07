@@ -90,9 +90,9 @@ describe("Widget host parity", () => {
     // trusted registry Widgets in-document, package Widgets sandboxed. No
     // other Studio file may construct mounts or executors directly.
     expect(filesContaining(dashboardRoot, "new WidgetMount({")).toEqual([]);
-    expect(filesContaining(dashboardRoot, "new TrustedWidgetExecutor(")).toEqual(
-      ["content/WidgetPreviewHost.tsx"],
-    );
+    expect(
+      filesContaining(dashboardRoot, "new TrustedWidgetExecutor("),
+    ).toEqual(["content/WidgetPreviewHost.tsx"]);
     expect(
       filesContaining(dashboardRoot, "new SandboxedWidgetExecutor("),
     ).toEqual(["content/WidgetPreviewHost.tsx"]);
