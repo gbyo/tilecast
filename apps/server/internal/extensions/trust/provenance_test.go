@@ -50,6 +50,9 @@ func TestAttestationVerifies(t *testing.T) {
 	if signer != provenanceSigner {
 		t.Fatalf("signer = %s, want %s", signer, provenanceSigner)
 	}
+	if _, err := verifier.Verify(raw, provenanceDigest, "Sigstore", "Sigstore-JS"); err != nil {
+		t.Fatalf("case-insensitive repository identity: %v", err)
+	}
 }
 
 func TestAttestationRejects(t *testing.T) {
