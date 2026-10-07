@@ -12,6 +12,8 @@ import type {
   AirplaySession,
   DependencyGraph,
   DisplayControlGroupApplyResult,
+  PluginStore,
+  PluginStoreEntry,
   DisplayControlGroupPreview,
   EffectivePolicy,
   LocationInput,
@@ -152,6 +154,18 @@ export function testPresentationNetwork(
 
 export function listPlugins(): Promise<PluginCatalog> {
   return apiGet("/api/v1/plugins");
+}
+
+export function listPluginStore(): Promise<PluginStore> {
+  return apiGet("/api/v1/plugin-store");
+}
+
+export function getPluginStoreEntry(
+  packageId: string,
+): Promise<PluginStoreEntry> {
+  return apiGet("/api/v1/plugin-store/{packageId}", {
+    params: { path: { packageId } },
+  });
 }
 
 /**

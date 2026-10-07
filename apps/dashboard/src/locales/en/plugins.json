@@ -24,6 +24,26 @@
     "configured": "Configured",
     "needsSetup": "Needs setup"
   },
+  "tabs": {
+    "installed": "Installed",
+    "explore": "Explore",
+    "viewsLabel": "Plugin views"
+  },
+  "store": {
+    "title": "Explore plugins",
+    "description": "Browse optional features and integrations for Tilecast.",
+    "sourceLabel": "Source",
+    "loadError": "This plugin could not be loaded.",
+    "emptyTitle": "No plugins available",
+    "emptyDescription": "No plugins are available from the configured sources.",
+    "sources": {
+      "all": "All sources",
+      "included": "Included with Tilecast"
+    },
+    "notFoundTitle": "Plugin not found",
+    "notFoundDescription": "This store entry is not part of this Tilecast release.",
+    "backToExplore": "Back to Explore"
+  },
   "catalog": {
     "back": "All plugins",
     "reviewDescription": "Review {{name}} before installing it.",

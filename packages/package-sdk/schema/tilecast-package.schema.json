@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/gbyo/tilecast/packages/package-sdk/schema/tilecast-package.schema.json",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "type": "number",
+      "const": 1,
+      "description": "Package manifest version. Only 1 exists."
+    },
+    "packageId": {
+      "type": "string",
+      "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$",
+      "description": "Stable qualified package identity. Registry location is not identity."
+    },
+    "packageVersion": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+      "description": "Release version of this package. Independent of contribution versions."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "description": "Human-readable package name."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "description": "What the package adds."
+    },
+    "publisher": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$",
+          "description": "Publisher namespace. The package ID starts with it."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Human-readable publisher name."
+        }
+      },
+      "required": ["id", "name"],
+      "additionalProperties": false,
+      "description": "Who publishes this package."
+    },
+    "repository": {
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^https:\\/\\/[^/\\s]+\\/[^/\\s].{0,180}$",
+      "description": "Public source repository of the package."
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32,
+      "description": "SPDX license identifier such as MIT."
+    },
+    "tilecast": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^(?:>=|<=|>|<|=)?\\d{1,5}(?:\\.\\d{1,5}){0,2}(?: (?:>=|<=|>|<|=)?\\d{1,5}(?:\\.\\d{1,5}){0,2})*$",
+          "description": "Tilecast versions this package supports."
+        }
+      },
+      "required": ["version"],
+      "additionalProperties": false,
+      "description": "Compatibility of this package."
+    },
+    "distribution": {
+      "type": "object",
+      "properties": {
+        "oci": {
+          "type": "string",
+          "maxLength": 255,
+          "pattern": "^[a-z0-9][a-z0-9._-]*(:[0-9]{1,5})?(\\/[a-z0-9_][a-z0-9._-]{0,63})+$",
+          "description": "OCI artifact the installer resolves to a digest."
+        }
+      },
+      "required": ["oci"],
+      "additionalProperties": false,
+      "description": "Where the installer fetches package bytes."
+    },
+    "contributions": {
+      "minItems": 1,
+      "maxItems": 64,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["plugin", "widget", "dataSource"],
+            "description": "Which existing extension contract the nested manifest uses."
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$",
+            "description": "Directory inside the package holding the contribution manifest."
+          }
+        },
+        "required": ["type", "path"],
+        "additionalProperties": false
+      },
+      "description": "Extension contributions bundled in this package."
+    },
+    "documentation": {
+      "description": "Documentation page for the package.",
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^https:\\/\\/[^/\\s]+\\/[^/\\s].{0,180}$"
+    },
+    "issues": {
+      "description": "Issue tracker for the package.",
+      "type": "string",
+      "maxLength": 200,
+      "pattern": "^https:\\/\\/[^/\\s]+\\/[^/\\s].{0,180}$"
+    }
+  },
+  "required": [
+    "apiVersion",
+    "packageId",
+    "packageVersion",
+    "name",
+    "description",
+    "publisher",
+    "repository",
+    "license",
+    "tilecast",
+    "distribution",
+    "contributions"
+  ],
+  "additionalProperties": false,
+  "description": "Tilecast package manifest (tilecast.package.json)."
+}

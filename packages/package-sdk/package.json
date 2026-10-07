@@ -1,0 +1,26 @@
+{
+  "name": "@tilecast/package-sdk",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "description": "The Tilecast package manifest (tilecast.package.json): distribution, version, provenance, and contribution metadata. Validation only; a package manifest never grants capabilities.",
+  "type": "module",
+  "exports": {
+    "./manifest": "./src/manifest.ts",
+    "./schema/tilecast-package.schema.json": "./schema/tilecast-package.schema.json"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "generate": "node tools/generate-schema.ts"
+  },
+  "dependencies": {
+    "zod": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "prettier": "^3.9.9",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

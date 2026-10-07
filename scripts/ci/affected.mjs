@@ -206,6 +206,7 @@ const rules = [
       "cli",
     ],
   ],
+  [/^packages\/package-sdk\//, ["plugins", "server", "docs"]],
   [/^packages\/edge-protocol\//, edgeAreas],
   [/^apps\/player-windows\//, ["windows"]],
   [/^apps\/edge\/(tilecastd|tilecastctl|crates)\//, ["edge_rust"]],

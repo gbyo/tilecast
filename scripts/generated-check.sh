@@ -10,6 +10,7 @@ set -- \
   plugins/registry_gen.go \
   .github/CODEOWNERS \
   packages/plugin-sdk/schema/tilecast-plugin.schema.json \
+  packages/package-sdk/schema/tilecast-package.schema.json \
   packages/widget-sdk/schema/tilecast-widget.schema.json \
   packages/data-source-sdk/schema/tilecast-datasource.schema.json \
   apps/server/internal/database/migrations.lock.json \

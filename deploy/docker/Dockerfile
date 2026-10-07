@@ -13,6 +13,7 @@ COPY packages/manifest-schema/package.json packages/manifest-schema/package.json
 COPY packages/settings-schema/package.json packages/settings-schema/package.json
 COPY packages/layout-schema/package.json packages/layout-schema/package.json
 COPY packages/plugin-sdk/package.json packages/plugin-sdk/package.json
+COPY packages/package-sdk/package.json packages/package-sdk/package.json
 COPY packages/widget-kit/package.json packages/widget-kit/package.json
 COPY packages/widget-sdk/package.json packages/widget-sdk/package.json
 COPY packages/presentation-model/package.json packages/presentation-model/package.json
@@ -58,10 +59,12 @@ WORKDIR /src
 COPY apps/server/go.mod apps/server/go.sum apps/server/
 COPY plugins/go.mod plugins/go.sum plugins/
 COPY packages/plugin-sdk/go/go.mod packages/plugin-sdk/go/go.sum packages/plugin-sdk/go/
+COPY packages/package-sdk/go/go.mod packages/package-sdk/go/
 COPY widgets/go.mod widgets/
 COPY data-sources/go.mod data-sources/
 RUN cd apps/server && go mod download
 COPY packages/plugin-sdk/go packages/plugin-sdk/go
+COPY packages/package-sdk/go packages/package-sdk/go
 COPY plugins plugins
 COPY widgets widgets
 COPY data-sources data-sources

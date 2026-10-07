@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { api, ApiError } from "../api/client";
-import type { PluginInUseResource, PluginSummary } from "../api/types";
+import type {
+  PluginInUseResource,
+  PluginStoreEntry,
+  PluginSummary,
+} from "../api/types";
 import { toast } from "../components/ui/toast";
 
 export type PluginsT = TFunction<"plugins", undefined>;
@@ -60,10 +64,30 @@ export function usePluginCatalog() {
   return useQuery({ queryKey: pluginsQueryKey, queryFn: api.plugins });
 }
 
+export const pluginStoreQueryKey = ["plugin-store"] as const;
+
+export function pluginStoreEntryQueryKey(packageId: string) {
+  return [...pluginStoreQueryKey, packageId] as const;
+}
+
+export function usePluginStore() {
+  return useQuery({ queryKey: pluginStoreQueryKey, queryFn: api.pluginStore });
+}
+
+export function usePluginStoreEntry(packageId: string) {
+  return useQuery({
+    queryKey: pluginStoreEntryQueryKey(packageId),
+    queryFn: () => api.pluginStoreEntry(packageId),
+  });
+}
+
 export function usePluginLifecycle(csrfToken: string) {
   const queryClient = useQueryClient();
   const settle = () =>
-    queryClient.invalidateQueries({ queryKey: pluginsQueryKey });
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: pluginsQueryKey }),
+      queryClient.invalidateQueries({ queryKey: pluginStoreQueryKey }),
+    ]);
   const install = useMutation({
     mutationFn: (id: string) => api.installPlugin(id, csrfToken),
     onSuccess: () => {
@@ -79,6 +103,40 @@ export function usePluginLifecycle(csrfToken: string) {
     },
   });
   return { install, remove };
+}
+
+export type StoreCategoryFilter = "All" | (typeof pluginCategories)[number];
+/** "all" plus any source kind the server reports, including future ones. */
+export type StoreSourceFilter = string;
+
+/**
+ * The Explore list: category and source narrow the list, while a search
+ * matches names, descriptions, categories, and capabilities. Installed
+ * entries remain browseable so their store detail, provenance, and future
+ * version/update information never disappear after installation.
+ */
+export function filterStoreEntries(
+  entries: PluginStoreEntry[],
+  query: string,
+  category: StoreCategoryFilter,
+  source: StoreSourceFilter = "all",
+) {
+  const needle = query.trim().toLocaleLowerCase();
+  return entries.filter((entry) => {
+    const plugin = entry.plugin;
+    if (category !== "All" && plugin.category !== category) return false;
+    if (source !== "all" && entry.source.kind !== source) return false;
+    if (!needle) return true;
+    return [
+      plugin.name,
+      plugin.description,
+      plugin.category,
+      ...plugin.capabilities,
+    ]
+      .join(" ")
+      .toLocaleLowerCase()
+      .includes(needle);
+  });
 }
 
 /** The plugin-owned resources a 409 plugin_in_use response says remain. */

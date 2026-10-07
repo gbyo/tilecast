@@ -9611,6 +9611,33 @@ type PluginRequirement struct {
 // PluginRequirementKind defines model for PluginRequirement.Kind.
 type PluginRequirementKind string
 
+// PluginStore defines model for PluginStore.
+type PluginStore struct {
+	Items []PluginStoreEntry `json:"items"`
+
+	// UnsupportedInstallations Installation rows naming plugins this release does not know. Preserved and inert.
+	UnsupportedInstallations []struct {
+		InstalledAt time.Time `json:"installedAt"`
+		PluginId    string    `json:"pluginId"`
+	} `json:"unsupportedInstallations"`
+}
+
+// PluginStoreEntry One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes.
+type PluginStoreEntry struct {
+	PackageId string        `json:"packageId"`
+	Plugin    CatalogPlugin `json:"plugin"`
+
+	// Source Where a store entry comes from. Only "included" exists in this release; marketplace and custom sources join later with a catalog ID or repository.
+	Source PluginStoreSource `json:"source"`
+}
+
+// PluginStoreSource Where a store entry comes from. Only "included" exists in this release; marketplace and custom sources join later with a catalog ID or repository.
+type PluginStoreSource struct {
+	CatalogId  *string `json:"catalogId,omitempty"`
+	Kind       string  `json:"kind"`
+	Repository *string `json:"repository,omitempty"`
+}
+
 // PolicyDocument defines model for PolicyDocument.
 type PolicyDocument struct {
 	Priority      *int                   `json:"priority,omitempty"`
@@ -11625,6 +11652,9 @@ type CSRFToken = string
 
 // MaintenanceAction defines model for MaintenanceAction.
 type MaintenanceAction string
+
+// PackageID defines model for PackageID.
+type PackageID = string
 
 // PluginID defines model for PluginID.
 type PluginID = string
@@ -16496,6 +16526,16 @@ type ClientInterface interface {
 	//
 	// Set playlist tag rule. Requires an authenticated dashboard user.
 	SetPlaylistTagRule(ctx context.Context, id ResourceID, params *SetPlaylistTagRuleParams, body SetPlaylistTagRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListPluginStore performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
+	//
+	// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later.
+	ListPluginStore(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetPluginStoreEntry performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
+	//
+	// One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
+	GetPluginStoreEntry(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPlugins performs a GET /api/v1/plugins (the `ListPlugins` operationId) request.
 	//
@@ -22953,6 +22993,36 @@ func (c *Client) SetPlaylistTagRuleWithBody(ctx context.Context, id ResourceID, 
 // Set playlist tag rule. Requires an authenticated dashboard user.
 func (c *Client) SetPlaylistTagRule(ctx context.Context, id ResourceID, params *SetPlaylistTagRuleParams, body SetPlaylistTagRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetPlaylistTagRuleRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListPluginStore performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
+//
+// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later.
+func (c *Client) ListPluginStore(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListPluginStoreRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetPluginStoreEntry performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
+//
+// One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
+func (c *Client) GetPluginStoreEntry(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPluginStoreEntryRequest(c.Server, packageId)
 	if err != nil {
 		return nil, err
 	}
@@ -38340,6 +38410,67 @@ func NewSetPlaylistTagRuleRequestWithBody(server string, id ResourceID, params *
 	return req, nil
 }
 
+// NewListPluginStoreRequest constructs an http.Request for the ListPluginStore method
+func NewListPluginStoreRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetPluginStoreEntryRequest constructs an http.Request for the GetPluginStoreEntry method
+func NewGetPluginStoreEntryRequest(server string, packageId PackageID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListPluginsRequest constructs an http.Request for the ListPlugins method
 func NewListPluginsRequest(server string) (*http.Request, error) {
 	var err error
@@ -47066,6 +47197,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Set playlist tag rule. Requires an authenticated dashboard user.
 	SetPlaylistTagRuleWithResponse(ctx context.Context, id ResourceID, params *SetPlaylistTagRuleParams, body SetPlaylistTagRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetPlaylistTagRuleResponse, error)
+
+	// ListPluginStoreWithResponse performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
+	//
+	// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListPluginStoreWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPluginStoreResponse, error)
+
+	// GetPluginStoreEntryWithResponse performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
+	//
+	// One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetPluginStoreEntryWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetPluginStoreEntryResponse, error)
 
 	// ListPluginsWithResponse performs a GET /api/v1/plugins (the `ListPlugins` operationId) request.
 	//
@@ -58973,6 +59118,98 @@ func (r SetPlaylistTagRuleResponse) ContentType() string {
 	return ""
 }
 
+type ListPluginStoreResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PluginStore `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListPluginStoreResponse) GetJSON200() *struct {
+	Data PluginStore `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListPluginStoreResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListPluginStoreResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListPluginStoreResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListPluginStoreResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetPluginStoreEntryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes.
+		Data PluginStoreEntry `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetPluginStoreEntryResponse) GetJSON200() *struct {
+	// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes.
+	Data PluginStoreEntry `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetPluginStoreEntryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetPluginStoreEntryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetPluginStoreEntryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetPluginStoreEntryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListPluginsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -69651,6 +69888,32 @@ func (c *ClientWithResponses) SetPlaylistTagRuleWithResponse(ctx context.Context
 	return ParseSetPlaylistTagRuleResponse(rsp)
 }
 
+// ListPluginStoreWithResponse performs a GET /api/v1/plugin-store (the `ListPluginStore` operationId) request.
+//
+// The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListPluginStoreWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListPluginStoreResponse, error) {
+	rsp, err := c.ListPluginStore(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListPluginStoreResponse(rsp)
+}
+
+// GetPluginStoreEntryWithResponse performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
+//
+// One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetPluginStoreEntryWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetPluginStoreEntryResponse, error) {
+	rsp, err := c.GetPluginStoreEntry(ctx, packageId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetPluginStoreEntryResponse(rsp)
+}
+
 // ListPluginsWithResponse performs a GET /api/v1/plugins (the `ListPlugins` operationId) request.
 //
 // Every plugin the running release offers, joined with this installation's state. Readable by any signed-in account.
@@ -79181,6 +79444,72 @@ func ParseSetPlaylistTagRuleResponse(rsp *http.Response) (*SetPlaylistTagRuleRes
 		response.JSON200 = &dest
 
 	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseListPluginStoreResponse parses an HTTP response from a ListPluginStoreWithResponse call
+func ParseListPluginStoreResponse(rsp *http.Response) (*ListPluginStoreResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListPluginStoreResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PluginStore `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseGetPluginStoreEntryResponse parses an HTTP response from a GetPluginStoreEntryWithResponse call
+func ParseGetPluginStoreEntryResponse(rsp *http.Response) (*GetPluginStoreEntryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetPluginStoreEntryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes.
+			Data PluginStoreEntry `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
 		break // No content-type
 
 	}

@@ -1235,6 +1235,33 @@ export type PluginCatalog = {
   unsupportedInstallations: UnsupportedPluginInstallation[];
 };
 
+/**
+ * Where a store entry comes from. Only "included" exists in this release;
+ * marketplace and custom sources join later with a catalog ID or
+ * repository. Clients must tolerate kinds they do not know.
+ */
+export type PluginStoreSource = {
+  kind: string;
+  catalogId?: string;
+  repository?: string;
+};
+
+/**
+ * One normalized plugin-store row: the package identity and provenance
+ * every source shares, plus the release-owned plugin detail this release
+ * contributes.
+ */
+export type PluginStoreEntry = {
+  packageId: string;
+  source: PluginStoreSource;
+  plugin: PluginSummary;
+};
+
+export type PluginStore = {
+  items: PluginStoreEntry[];
+  unsupportedInstallations: UnsupportedPluginInstallation[];
+};
+
 export type PluginInUseResource = {
   kind: string;
   count: number;

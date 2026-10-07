@@ -28,6 +28,26 @@
     "configured": "Настроен",
     "needsSetup": "Требует настройки"
   },
+  "tabs": {
+    "installed": "Установленные",
+    "explore": "Обзор",
+    "viewsLabel": "Представления плагинов"
+  },
+  "store": {
+    "title": "Обзор плагинов",
+    "description": "Просматривайте дополнительные функции и интеграции для Tilecast.",
+    "sourceLabel": "Источник",
+    "loadError": "Не удалось загрузить этот плагин.",
+    "emptyTitle": "Нет доступных плагинов",
+    "emptyDescription": "В настроенных источниках нет доступных плагинов.",
+    "sources": {
+      "all": "Все источники",
+      "included": "Входит в Tilecast"
+    },
+    "notFoundTitle": "Плагин не найден",
+    "notFoundDescription": "Эта запись отсутствует в данном выпуске Tilecast.",
+    "backToExplore": "Назад к обзору"
+  },
   "catalog": {
     "back": "Все плагины",
     "reviewDescription": "Проверьте {{name}} перед установкой.",

@@ -4365,6 +4365,44 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/DependencyGraph" }
+  /api/v1/plugin-store:
+    get:
+      operationId: listPluginStore
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: The normalized plugin store. Every plugin source Studio can browse, joined with this installation's state. Readable by any signed-in account. In this release every entry is compiled into the release; marketplace and custom entries join this list later.
+      responses:
+        "200":
+          description: Plugin store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginStore" }
+        "401": { description: Dashboard authentication required }
+  /api/v1/plugin-store/{packageId}:
+    get:
+      operationId: getPluginStoreEntry
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+      responses:
+        "200":
+          description: Plugin store entry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PluginStoreEntry" }
+        "401": { description: Dashboard authentication required }
+        "404":
+          {
+            description: plugin_not_found — no store entry carries this package ID,
+          }
   /api/v1/screens/pairing/{id}/reject:
     post:
       operationId: rejectPairing
@@ -9097,6 +9135,12 @@ components:
       required: true
       schema: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
       description: Registry identifier such as countdown_bar.
+    PackageID:
+      in: path
+      name: packageId
+      required: true
+      schema: { type: string, pattern: "^[a-z][a-z0-9_.:-]{0,127}$" }
+      description: Store package identifier such as countdown_bar.
     ResourceID:
       in: path
       name: id
@@ -11400,6 +11444,41 @@ components:
       properties:
         items:
           { type: array, items: { $ref: "#/components/schemas/CatalogPlugin" } }
+        unsupportedInstallations:
+          type: array
+          description: Installation rows naming plugins this release does not know. Preserved and inert.
+          items:
+            type: object
+            required: [pluginId, installedAt]
+            properties:
+              pluginId: { type: string }
+              installedAt: { type: string, format: date-time }
+    PluginStoreSource:
+      type: object
+      required: [kind]
+      description: Where a store entry comes from. Only "included" exists in this release; marketplace and custom sources join later with a catalog ID or repository.
+      properties:
+        kind:
+          { type: string, x-extensible-enum: [included, marketplace, github] }
+        catalogId: { type: string }
+        repository: { type: string }
+    PluginStoreEntry:
+      type: object
+      required: [packageId, source, plugin]
+      description: One normalized plugin-store row. The package identity and provenance every source shares, plus the release-owned plugin detail this release contributes.
+      properties:
+        packageId: { type: string, pattern: "^[a-z][a-z0-9_.:-]{0,127}$" }
+        source: { $ref: "#/components/schemas/PluginStoreSource" }
+        plugin: { $ref: "#/components/schemas/CatalogPlugin" }
+    PluginStore:
+      type: object
+      required: [items, unsupportedInstallations]
+      properties:
+        items:
+          {
+            type: array,
+            items: { $ref: "#/components/schemas/PluginStoreEntry" },
+          }
         unsupportedInstallations:
           type: array
           description: Installation rows naming plugins this release does not know. Preserved and inert.
