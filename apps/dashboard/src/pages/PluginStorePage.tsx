@@ -60,6 +60,7 @@ import {
   pluginCategories,
   usePluginStore,
   useRefreshMarketplaceCatalog,
+  type PluginsT,
   type StoreCategoryFilter,
   type StoreSourceFilter,
 } from "../plugins/pluginCatalog";
@@ -274,7 +275,7 @@ function StoreFilters({
   );
 }
 
-function sourceLabel(kind: string, t: (key: string) => string) {
+function sourceLabel(kind: string, t: PluginsT) {
   if (kind === "included") return t("store.sources.included");
   if (kind === "marketplace") return t("store.sources.marketplace");
   return kind;

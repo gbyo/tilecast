@@ -140,12 +140,12 @@ function StoreDetailContent({
         <MarketplaceDetail listing={listing as PluginStoreMarketplace} />
       )}
 
-      {installError && (
+      {installError ? (
         <Alert variant="destructive">
           <CircleAlert aria-hidden="true" />
           <AlertDescription>{apiErrorMessage(installError)}</AlertDescription>
         </Alert>
-      )}
+      ) : null}
 
       {listing && (
         <p className="text-sm text-muted-foreground">
