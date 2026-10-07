@@ -6,6 +6,10 @@ name: Tilecast Edge Release
 # Each architecture builds natively on its own runner; emulation is never
 # ARM64 support. It uploads the artifacts and their build provenance
 # attestation. Publishing a GitHub release is a separate, human step.
+#
+# WPE WebKit arrives in three tiers: the published immutable prebuild
+# (wpe-prebuild.yml), the best-effort CI cache, then a from-scratch
+# compile. A missing prebuild slows a release but never blocks it.
 on:
   workflow_dispatch:
     inputs:
@@ -49,6 +53,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Fetch prebuilt WPE WebKit
+        id: wpe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/edge-release-cache"
+          echo "key=$(python3 apps/edge/release/inputs.py wpe-key)" >> "$GITHUB_OUTPUT"
+          tag=$(python3 apps/edge/release/inputs.py wpe-tag '${{ matrix.arch }}')
+          tar=$(python3 apps/edge/release/inputs.py wpe-tar '${{ matrix.arch }}')
+          if gh release download "$tag" --pattern "$tar" --dir "$RUNNER_TEMP/edge-release-cache"; then
+            echo "prebuilt WPE WebKit $tag restored"
+          else
+            echo "no prebuilt WPE WebKit $tag; falling back to the CI cache or a from-scratch compile" >&2
+          fi
+
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -91,8 +111,9 @@ jobs:
         with:
           path: ${{ runner.temp }}/edge-release-cache/wpe-*.tar
           # The architecture is part of the key: a WPE build for the other
-          # architecture must never be restored into this build.
-          key: edge-wpe-${{ matrix.arch }}-${{ hashFiles('apps/edge/release/Dockerfile.builder', 'apps/edge/release/build-wpe.sh') }}
+          # architecture must never be restored into this build. The inputs
+          # key ignores comments and whitespace, as the builder itself does.
+          key: edge-wpe-${{ matrix.arch }}-${{ steps.wpe.outputs.key }}
 
       - name: Build, sign and package
         env:
