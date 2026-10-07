@@ -204,8 +204,7 @@ confirm the new digest. Rollback restores the previous activation
 (`no_rollback` when there is none). Removal deletes the installation
 and its contribution rows; the custom binding, when any, survives.
 
-Removal, update, and rollback are refused with `package_in_use` (HTTP
-409) while content still uses a contribution the operation would drop.
+Removal, update, and rollback are refused with `package_in_use` (HTTP 409) while content still uses a contribution the operation would drop.
 The error names the package, the action, and each blocking resource with
 its count, so the operator deletes the listed Widgets or Data Sources
 first. Removal is therefore never a way to delete a site's content:
