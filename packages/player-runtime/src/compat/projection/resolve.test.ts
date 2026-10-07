@@ -659,3 +659,31 @@ describe("realization", () => {
     });
   });
 });
+
+describe("reported selection facts", () => {
+  it("reports a direct assignment the way every Player does", () => {
+    const plan = planPresentation(
+      base({
+        selection: {
+          source: "assignment",
+          contentType: "playlist",
+          contentId: PLAYLIST,
+        },
+      }),
+    );
+    expect(plan.selection?.source).toBe("direct");
+    // The Server's own word still decides which content to look up.
+    expect(required(plan)).toEqual([id(1), id(2), LOGO].sort());
+  });
+
+  it("leaves the other sources as the Server names them", () => {
+    for (const source of ["schedule", "takeover", "quick_present"]) {
+      const plan = planPresentation(
+        base({
+          selection: { source, contentType: "playlist", contentId: PLAYLIST },
+        }),
+      );
+      expect(plan.selection?.source).toBe(source);
+    }
+  });
+});

@@ -40,6 +40,11 @@ worker.addEventListener("message", (event) => {
   // The Host asks for a waiting update only while its screen rests, and
   // reloads when the new worker takes over.
   if (message?.type === "skip-waiting") void worker.skipWaiting();
+  // The page asks which shell it runs under, for diagnostics. The answer is
+  // this worker's own build identifier and nothing else.
+  if (message?.type === "version" && event.ports[0]) {
+    event.ports[0].postMessage({ shell: __SHELL_VERSION__ });
+  }
   if (message?.type === "media-authorization" && message.requestId) {
     const pending = authorizations.get(message.requestId);
     if (

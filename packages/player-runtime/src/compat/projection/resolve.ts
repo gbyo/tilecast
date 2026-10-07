@@ -81,7 +81,11 @@ export type MediaBinding = ProjectionContextV1["media"][number];
 
 export type ResolvedKind = "playing" | "idle" | "unavailable";
 
-/** Facts a host reports about the content the Server chose. */
+/**
+ * Facts a host reports about the content the Server chose, in the vocabulary
+ * every Player reports: `source` is `takeover`, `quick_present`, `schedule`
+ * or `direct`.
+ */
 export interface SelectionFacts {
   source: string;
   contentType: string;
@@ -275,13 +279,21 @@ function hasLayout(manifest: Manifest, layoutId: string): boolean {
   return layouts.some((layout) => layout?.id === layoutId);
 }
 
+/**
+ * The Server names a direct assignment `assignment`. Every Player reports it
+ * as `direct`: in the heartbeat's `selectionSource` and as the Activity
+ * `trigger`. Reporting is the one place the two vocabularies meet.
+ */
+const reportedSource = (source: string): string =>
+  source === "assignment" ? "direct" : source;
+
 function selectionFacts(
   selection: PresentationSelection,
   content: Content,
   nextTransitionAt: Date | null | undefined,
 ): SelectionFacts {
   return {
-    source: selection.source,
+    source: reportedSource(selection.source),
     contentType: selection.contentType,
     contentId: selection.contentId,
     selectionId: selection.selectionId ?? null,

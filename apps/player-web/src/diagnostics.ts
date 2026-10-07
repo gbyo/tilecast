@@ -116,3 +116,29 @@ export function browserStatus(input: BrowserStatusInput): BrowserPlayerStatus {
     wasDiscarded: input.wasDiscarded,
   };
 }
+
+/**
+ * The build identifier of the worker that controls this page, or nothing. It
+ * is the shell the page was served with, so an operator can tell whether a
+ * Player runs the version the server now offers.
+ */
+export function controllingShellVersion(
+  worker: Pick<ServiceWorker, "postMessage"> | null,
+  timeoutMs = 2_000,
+): Promise<string | undefined> {
+  if (!worker) return Promise.resolve(undefined);
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => resolve(undefined), timeoutMs);
+    channel.port1.onmessage = (event: MessageEvent<{ shell?: unknown }>) => {
+      clearTimeout(timer);
+      const shell = event.data?.shell;
+      resolve(
+        typeof shell === "string" && /^[A-Za-z0-9._+-]{1,64}$/.test(shell)
+          ? shell
+          : undefined,
+      );
+    };
+    worker.postMessage({ type: "version" }, [channel.port2]);
+  });
+}

@@ -28,6 +28,7 @@ import {
 } from "./commands";
 import {
   browserStatus,
+  controllingShellVersion,
   describeBrowser,
   serviceWorkerStatus,
   type OfflineContent,
@@ -135,6 +136,7 @@ export class BrowserPlayer {
   private lastSyncAtMs: number | undefined;
   private storage: StorageFacts | undefined;
   private storageReadAt = 0;
+  private shellVersion: string | undefined;
   private integrityCheckedAt = 0;
   private preparing = false;
   private activeHoursState: "active" | "off_hours" = "active";
@@ -382,7 +384,12 @@ export class BrowserPlayer {
         monotonicNow: () => performance.now() - start,
         offsetMs: () => this.memory.clockOffsetMs,
       },
-      { eligible: () => proofEligible(this.state) },
+      {
+        eligible: () => proofEligible(this.state),
+        // A write the browser refuses must be visible, not silent.
+        onStorageError: (error) =>
+          console.error("Browser Player could not store Activity", error),
+      },
     );
     this.commands = new CommandRunner(
       this.api,
@@ -579,6 +586,7 @@ export class BrowserPlayer {
       await this.reconcile(server, bound);
     }
     await this.refreshStorage();
+    await this.refreshShellVersion();
     await this.heartbeat();
     // Commands and Activity follow the heartbeat, so an operator sees the
     // Player's current state before its answer.
@@ -673,6 +681,13 @@ export class BrowserPlayer {
       : "not_prepared";
   }
 
+  private async refreshShellVersion(): Promise<void> {
+    if (this.shellVersion) return;
+    this.shellVersion = await controllingShellVersion(
+      navigator.serviceWorker.controller,
+    );
+  }
+
   private async refreshStorage(force = false): Promise<void> {
     if (!force && Date.now() - this.storageReadAt < STORAGE_REFRESH_MS) return;
     this.storageReadAt = Date.now();
@@ -733,7 +748,7 @@ export class BrowserPlayer {
               this.registration,
               navigator.serviceWorker.controller !== null,
             ),
-            hostVersion: __HOST_VERSION__,
+            hostVersion: this.shellVersion ?? __HOST_VERSION__,
             wasDiscarded:
               (document as { wasDiscarded?: boolean }).wasDiscarded === true,
           }),

@@ -79,6 +79,71 @@ export class Studio {
     ) as T;
   }
 
+  /** The normal proof-of-play report for one Screen, newest first. */
+  async proof(screenId: string): Promise<ProofSession[]> {
+    return (
+      await this.call<{ items: ProofSession[] }>(
+        "get",
+        `/api/v1/activity/proof-of-play?screen=${screenId}&limit=200`,
+      )
+    ).items;
+  }
+
+  /** The raw Activity events the server stored for one Screen. */
+  async screenEvents(screenId: string): Promise<ScreenEvent[]> {
+    return (
+      await this.call<{ items: ScreenEvent[] }>(
+        "get",
+        `/api/v1/activity/screen-events?screen=${screenId}&limit=200`,
+      )
+    ).items;
+  }
+
+  /** What the Screen detail and Studio's health view are built from. */
+  reliability(screenId: string): Promise<Record<string, unknown>> {
+    return this.call("get", `/api/v1/screens/${screenId}/reliability`);
+  }
+
+  incidents(screenId: string): Promise<{
+    items: { incidentType: string; status: string; title: string }[];
+  }> {
+    return this.call(
+      "get",
+      `/api/v1/activity/incidents?screen=${screenId}&limit=100`,
+    );
+  }
+
+  /** Queues a typed command, the way Studio's controls do. */
+  command(
+    screenId: string,
+    type: string,
+    payload: object = {},
+    idempotencyKey?: string,
+    expected: number[] = [202],
+  ): Promise<{ id: string; state: string }> {
+    return this.call(
+      "post",
+      `/api/v1/screens/${screenId}/commands`,
+      { type, payload, ...(idempotencyKey ? { idempotencyKey } : {}) },
+      expected,
+    );
+  }
+
+  commands(screenId: string): Promise<{ items: ListedCommand[] }> {
+    return this.call("get", `/api/v1/screens/${screenId}/commands`);
+  }
+
+  /** Sets, or with `null` clears, an asset's availability window. */
+  setAvailability(
+    assetId: string,
+    window: { availableFrom?: string; expiresAt?: string } | null,
+  ) {
+    return this.call("patch", `/api/v1/assets/${assetId}`, {
+      availabilitySet: true,
+      ...(window ?? {}),
+    });
+  }
+
   createSlot(name = "Browser qualification"): Promise<Launch> {
     return this.call("post", "/api/v1/screens/browser", {
       name,
@@ -348,6 +413,52 @@ export async function sessionOf(page: Page, slotId: string) {
   }, slotId);
 }
 
+export interface ProofSession {
+  id: string;
+  sessionType:
+    "presentation" | "content" | "layout_placement" | "playlist_item";
+  startedAt: string;
+  endedAt?: string;
+  result: string;
+  terminalReason?: string;
+  presentationType?: string;
+  presentationId?: string;
+  contentType?: string;
+  contentId?: string;
+  playlistItemId?: string;
+  trigger?: string;
+  takeoverId?: string;
+  actualDurationMs?: number;
+  expectedDurationMs?: number;
+  manifestVersion?: number;
+}
+
+export interface ScreenEvent {
+  eventType: string;
+  occurredAt: string;
+  category?: string;
+  severity?: string;
+}
+
+export interface ListedCommand {
+  id: string;
+  type: string;
+  state: string;
+  resultCode?: string;
+  resultMessage?: string;
+}
+
+/** The roots (whole presentations) and the plays inside them, oldest first. */
+export function playbackOf(sessions: ProofSession[]) {
+  const ordered = [...sessions].sort(
+    (a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt),
+  );
+  return {
+    roots: ordered.filter((session) => session.sessionType === "presentation"),
+    plays: ordered.filter((session) => session.sessionType !== "presentation"),
+  };
+}
+
 export type RGB = [number, number, number];
 
 /** One pixel of the page as the user sees it. */
@@ -441,3 +552,107 @@ export async function storage(page: Page) {
 
 export const sha256Hex = (bytes: Buffer) =>
   createHash("sha256").update(bytes).digest("hex");
+
+/** What the Browser Host queued for the server, read from its own storage. */
+export async function outbox(page: Page) {
+  return page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("tilecast-browser-player-v1");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const entries = await new Promise<
+      { sequence: number; record: Record<string, unknown> }[]
+    >((resolve) => {
+      const request = database
+        .transaction("outbox")
+        .objectStore("outbox")
+        .getAll();
+      request.onsuccess = () => resolve(request.result);
+    });
+    database.close();
+    return entries.map((entry) => ({
+      sequence: entry.sequence,
+      eventType: String(entry.record["eventType"]),
+      id: String(entry.record["id"]),
+      sessionId: entry.record["activitySessionId"] as string | undefined,
+      reason: entry.record["terminalReason"] as string | undefined,
+    }));
+  });
+}
+
+/**
+ * Hides or shows the page the way the browser reports it. The Host reads
+ * `document.visibilityState` and listens for `visibilitychange`, so this
+ * drives the same code path a minimized or covered window does.
+ */
+export async function setVisibility(
+  page: Page,
+  state: "hidden" | "visible",
+): Promise<void> {
+  await page.evaluate((next) => {
+    for (const name of ["visibilityState", "hidden"] as const) {
+      Object.defineProperty(document, name, {
+        configurable: true,
+        get: () => (name === "hidden" ? next === "hidden" : next),
+      });
+    }
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, state);
+}
+
+/** Freezes or resumes the page with the browser's own lifecycle states. */
+export async function setLifecycle(
+  page: Page,
+  state: "frozen" | "active",
+): Promise<void> {
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send("Page.setWebLifecycleState", { state });
+  } finally {
+    await session.detach().catch(() => undefined);
+  }
+}
+
+/** Waits for `check` to hold, polling the real server. */
+export async function eventually<T>(
+  check: () => Promise<T>,
+  message: string,
+  timeout = 45_000,
+): Promise<T> {
+  let last: T | undefined;
+  await expect
+    .poll(
+      async () => {
+        last = await check();
+        return Boolean(last);
+      },
+      { timeout, message },
+    )
+    .toBe(true);
+  return last as T;
+}
+
+/** Ends the Host's wait so its next cycle starts now. */
+export function nudge(page: Page): Promise<void> {
+  return page.evaluate(() => void dispatchEvent(new Event("online")));
+}
+
+/** A solid-color playlist of images, each shown for `seconds`. */
+export async function imagePlaylist(
+  studio: Studio,
+  name: string,
+  colors: string[],
+  seconds = 4,
+): Promise<{ playlist: string; assets: string[] }> {
+  const assets: string[] = [];
+  for (const color of colors)
+    assets.push(await studio.uploadAsset(colorImage(name, color), "image/png"));
+  return {
+    assets,
+    playlist: await studio.playlist(
+      name,
+      assets.map((assetId) => ({ assetId, durationMs: seconds * 1000 })),
+    ),
+  };
+}
