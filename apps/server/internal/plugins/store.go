@@ -334,15 +334,15 @@ func (s *Service) StoreEntry(ctx context.Context, id string) (StoreEntry, error)
 			marketplaceErr = err
 		} else {
 			for _, listing := range snapshot.Listings {
-			if listing.PackageID != id {
-				continue
-			}
-			versions, err := s.installedPackageVersions(ctx)
-			if err != nil {
-				return StoreEntry{}, err
-			}
-			installedVersion, ok := versions[id]
-			entry := marketplaceEntry(listing, installedVersion, ok)
+				if listing.PackageID != id {
+					continue
+				}
+				versions, err := s.installedPackageVersions(ctx)
+				if err != nil {
+					return StoreEntry{}, err
+				}
+				installedVersion, ok := versions[id]
+				entry := marketplaceEntry(listing, installedVersion, ok)
 				return StoreEntry{
 					PackageID:   listing.PackageID,
 					Source:      StoreSource{Kind: StoreSourceMarketplace, CatalogID: MarketplaceCatalogID},
