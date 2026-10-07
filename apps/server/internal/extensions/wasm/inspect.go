@@ -84,6 +84,8 @@ type Module struct {
 	Exports map[string]byte
 	// MemoryPages is the declared memory maximum, when present.
 	MemoryPages uint32
+	// MinMemoryPages is the declared memory minimum, when present.
+	MinMemoryPages uint32
 	// HasMemory reports whether the module defines linear memory.
 	HasMemory bool
 	// Size is the module file length in bytes.
@@ -143,7 +145,7 @@ func Parse(raw []byte) (Module, error) {
 		case 3:
 			funcTypes = readFuncTypes(section)
 		case 5:
-			module.HasMemory, module.MemoryPages = readMemory(section)
+			module.HasMemory, module.MinMemoryPages, module.MemoryPages = readMemory(section)
 		case 7:
 			exports = readExports(section)
 		case 8:
@@ -165,6 +167,9 @@ func Parse(raw []byte) (Module, error) {
 	}
 	if err := checkExports(exports, imports, funcTypes, types); err != nil {
 		return Module{}, err
+	}
+	if !module.HasMemory || module.MinMemoryPages < 1 {
+		return Module{}, errors.New("wasm: the module must define at least one memory page")
 	}
 	module.Exports = make(map[string]byte, len(exports))
 	for _, entry := range exports {
@@ -358,14 +363,14 @@ func readFuncTypes(c *cursor) []uint32 {
 	return indexes
 }
 
-func readMemory(c *cursor) (bool, uint32) {
+func readMemory(c *cursor) (bool, uint32, uint32) {
 	count := c.u32leb()
 	if count == 0 || c.err != nil {
-		return false, 0
+		return false, 0, 0
 	}
 	if count > 1 {
 		c.fail(errors.New("wasm: at most one memory"))
-		return false, 0
+		return false, 0, 0
 	}
 	flags := c.u32leb()
 	initial := c.u32leb()
@@ -375,24 +380,24 @@ func readMemory(c *cursor) (bool, uint32) {
 		maximum = c.u32leb()
 	}
 	if c.err != nil {
-		return false, 0
+		return false, 0, 0
 	}
 	if flags&0x02 != 0 {
 		c.fail(errors.New("wasm: shared memories are not allowed"))
-		return false, 0
+		return false, 0, 0
 	}
 	if flags&0x04 != 0 {
 		c.fail(errors.New("wasm: 64-bit memories are not allowed"))
-		return false, 0
+		return false, 0, 0
 	}
 	if initial > MaxMemoryPages || (hasMaximum && maximum > MaxMemoryPages) {
 		c.fail(fmt.Errorf("wasm: memory exceeds %d pages", MaxMemoryPages))
-		return false, 0
+		return false, 0, 0
 	}
 	if !hasMaximum {
 		maximum = initial
 	}
-	return true, maximum
+	return true, initial, maximum
 }
 
 func readExports(c *cursor) []wasmExport {

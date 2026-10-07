@@ -1338,6 +1338,40 @@ export type PackageContribution = {
   path: string;
 };
 
+/** The external server behavior module of a manifest version 2 package. */
+export type PackageRuntime = {
+  module: string;
+};
+
+/**
+ * Bounded capability requests from a manifest version 2 package. Every
+ * entry is a request the host reviews before installation; nothing here
+ * grants itself.
+ */
+export type PackageCapabilities = {
+  network?: { hosts: string[] };
+  background?: { jobs: { id: string; intervalMinutes: number }[] };
+  storage?: boolean;
+  studioUI?: { entry: string };
+};
+
+/** One declared package background job with the scheduler cursor. */
+export type PackageJob = {
+  jobId: string;
+  intervalMinutes: number;
+  nextRunAt: string;
+  lastRunAt?: string;
+  lastStatus: string;
+  lastError: string;
+  consecutiveFailures: number;
+};
+
+/** The guest answer to one Studio UI bridge call. */
+export type StudioBridgeAnswer = {
+  status: number;
+  output: string;
+};
+
 /** The custom repository binding behind an installed custom package. */
 export type PackageSourceBinding = {
   owner: string;
@@ -1367,6 +1401,8 @@ export type InstalledPackage = {
   activatedAt: string;
   hasRollback: boolean;
   contributions: PackageContribution[];
+  runtime?: PackageRuntime;
+  capabilities?: PackageCapabilities;
   source?: PackageSourceBinding;
 };
 
@@ -1381,6 +1417,8 @@ export type GitHubInstallReview = {
   compatible: boolean;
   /** id is the package-qualified identity, present on update checks. */
   contributions: { type: string; path: string; id?: string }[];
+  runtime?: PackageRuntime;
+  capabilities?: PackageCapabilities;
   digest: string;
   registry: string;
   releaseTag: string;

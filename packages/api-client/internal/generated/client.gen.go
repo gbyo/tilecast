@@ -7935,7 +7935,9 @@ type GitHubDeviceStart struct {
 
 // GitHubInstallReview The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
 type GitHubInstallReview struct {
-	Compatible    bool `json:"compatible"`
+	// Capabilities Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself.
+	Capabilities  *PackageCapabilities `json:"capabilities,omitempty"`
+	Compatible    bool                 `json:"compatible"`
 	Contributions []struct {
 		// Id Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest.
 		Id   *string `json:"id,omitempty"`
@@ -7958,9 +7960,15 @@ type GitHubInstallReview struct {
 	ReleaseTag    string                 `json:"releaseTag"`
 	Repo          string                 `json:"repo"`
 	RepositoryUrl string                 `json:"repositoryUrl"`
-	Signer        *string                `json:"signer,omitempty"`
-	Trust         string                 `json:"trust"`
-	Version       string                 `json:"version"`
+
+	// Runtime External server behavior module (manifest version 2 only).
+	Runtime *struct {
+		// Module Package-relative WebAssembly module path.
+		Module string `json:"module"`
+	} `json:"runtime,omitempty"`
+	Signer  *string `json:"signer,omitempty"`
+	Trust   string  `json:"trust"`
+	Version string  `json:"version"`
 }
 
 // HeartbeatAccepted defines model for HeartbeatAccepted.
@@ -8172,7 +8180,10 @@ type InstallationIdentity struct {
 
 // InstalledPackage One installed extension package with its contributions and, for custom packages, the repository binding.
 type InstalledPackage struct {
-	ActivatedAt   time.Time             `json:"activatedAt"`
+	ActivatedAt time.Time `json:"activatedAt"`
+
+	// Capabilities Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself.
+	Capabilities  *PackageCapabilities  `json:"capabilities,omitempty"`
 	Contributions []PackageContribution `json:"contributions"`
 
 	// Digest Pinned artifact digest as sha256 colon hex.
@@ -8185,7 +8196,13 @@ type InstalledPackage struct {
 	Manifest          PackageManifestSummary `json:"manifest"`
 	PackageId         string                 `json:"packageId"`
 	RegistryReference string                 `json:"registryReference"`
-	SignerIdentity    *string                `json:"signerIdentity,omitempty"`
+
+	// Runtime External server behavior module (manifest version 2 only).
+	Runtime *struct {
+		// Module Package-relative WebAssembly module path.
+		Module string `json:"module"`
+	} `json:"runtime,omitempty"`
+	SignerIdentity *string `json:"signerIdentity,omitempty"`
 
 	// Source The custom repository binding behind an installed custom package.
 	Source          *PackageSourceBinding `json:"source,omitempty"`
@@ -8779,6 +8796,30 @@ type OAuthTokens struct {
 // OAuthTokensTokenType defines model for OAuthTokens.TokenType.
 type OAuthTokensTokenType string
 
+// PackageCapabilities Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself.
+type PackageCapabilities struct {
+	// Background Package-owned background jobs the host runs.
+	Background *struct {
+		Jobs []struct {
+			Id              string `json:"id"`
+			IntervalMinutes int    `json:"intervalMinutes"`
+		} `json:"jobs"`
+	} `json:"background,omitempty"`
+
+	// Network Approved outbound HTTPS origins.
+	Network *struct {
+		Hosts []string `json:"hosts"`
+	} `json:"network,omitempty"`
+
+	// Storage Request plugin-owned key/value storage.
+	Storage *bool `json:"storage,omitempty"`
+
+	// StudioUI Sandboxed Studio UI entry.
+	StudioUI *struct {
+		Entry string `json:"entry"`
+	} `json:"studioUI,omitempty"`
+}
+
 // PackageContribution One activated contribution: its kind, its package-qualified identity, and its path inside the package.
 type PackageContribution struct {
 	Id   string `json:"id"`
@@ -8810,6 +8851,17 @@ type PackageInUseError struct {
 
 // PackageInUseErrorErrorCode defines model for PackageInUseError.Error.Code.
 type PackageInUseErrorErrorCode string
+
+// PackageJob One declared package background job with the scheduler cursor.
+type PackageJob struct {
+	ConsecutiveFailures int        `json:"consecutiveFailures"`
+	IntervalMinutes     int        `json:"intervalMinutes"`
+	JobId               string     `json:"jobId"`
+	LastError           string     `json:"lastError"`
+	LastRunAt           *time.Time `json:"lastRunAt,omitempty"`
+	LastStatus          string     `json:"lastStatus"`
+	NextRunAt           time.Time  `json:"nextRunAt"`
+}
 
 // PackageManifestSummary The human-readable face of an installed or resolved package manifest.
 type PackageManifestSummary struct {
@@ -12860,6 +12912,12 @@ type RollbackPackageParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// PackageStudioBridgeJSONBody defines parameters for PackageStudioBridge.
+type PackageStudioBridgeJSONBody struct {
+	// Input Base64 call payload, at most 16 KiB decoded.
+	Input []byte `json:"input"`
+}
+
 // ApplyPackageUpdateJSONBody defines parameters for ApplyPackageUpdate.
 type ApplyPackageUpdateJSONBody struct {
 	// Digest Pinned artifact digest as sha256 colon hex.
@@ -13853,6 +13911,9 @@ type RevokeOAuthCredentialJSONRequestBody RevokeOAuthCredentialJSONBody
 
 // IssueOAuthTokensJSONRequestBody defines body for IssueOAuthTokens for application/json ContentType.
 type IssueOAuthTokensJSONRequestBody = OAuthTokenRequest
+
+// PackageStudioBridgeJSONRequestBody defines body for PackageStudioBridge for application/json ContentType.
+type PackageStudioBridgeJSONRequestBody PackageStudioBridgeJSONBody
 
 // ApplyPackageUpdateJSONRequestBody defines body for ApplyPackageUpdate for application/json ContentType.
 type ApplyPackageUpdateJSONRequestBody ApplyPackageUpdateJSONBody
@@ -16399,10 +16460,32 @@ type ClientInterface interface {
 	// One installed extension package. Readable by any signed-in account. Unknown package IDs answer package_not_installed.
 	GetPackage(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PackageJobs performs a GET /api/v1/packages/{packageId}/jobs (the `PackageJobs` operationId) request.
+	//
+	// Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404.
+	PackageJobs(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// RollbackPackage performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
 	//
 	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
 	RollbackPackage(ctx context.Context, packageId PackageID, params *RollbackPackageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PackageStudioBridgeWithBody performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+	PackageStudioBridgeWithBody(ctx context.Context, packageId PackageID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PackageStudioBridge performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+	PackageStudioBridge(ctx context.Context, packageId PackageID, body PackageStudioBridgeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PackageStudioFrame performs a GET /api/v1/packages/{packageId}/studio/frame (the `PackageStudioFrame` operationId) request.
+	//
+	// Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404.
+	PackageStudioFrame(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ApplyPackageUpdateWithBody performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request,
 	// with any type of body and a specified content type.
@@ -22201,11 +22284,73 @@ func (c *Client) GetPackage(ctx context.Context, packageId PackageID, reqEditors
 	return c.Client.Do(req)
 }
 
+// PackageJobs performs a GET /api/v1/packages/{packageId}/jobs (the `PackageJobs` operationId) request.
+//
+// Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404.
+func (c *Client) PackageJobs(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPackageJobsRequest(c.Server, packageId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // RollbackPackage performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
 //
 // Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
 func (c *Client) RollbackPackage(ctx context.Context, packageId PackageID, params *RollbackPackageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRollbackPackageRequest(c.Server, packageId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PackageStudioBridgeWithBody performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request,
+// with any type of body and a specified content type.
+//
+// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+func (c *Client) PackageStudioBridgeWithBody(ctx context.Context, packageId PackageID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPackageStudioBridgeRequestWithBody(c.Server, packageId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PackageStudioBridge performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+func (c *Client) PackageStudioBridge(ctx context.Context, packageId PackageID, body PackageStudioBridgeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPackageStudioBridgeRequest(c.Server, packageId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PackageStudioFrame performs a GET /api/v1/packages/{packageId}/studio/frame (the `PackageStudioFrame` operationId) request.
+//
+// Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404.
+func (c *Client) PackageStudioFrame(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPackageStudioFrameRequest(c.Server, packageId)
 	if err != nil {
 		return nil, err
 	}
@@ -36830,6 +36975,40 @@ func NewGetPackageRequest(server string, packageId PackageID) (*http.Request, er
 	return req, nil
 }
 
+// NewPackageJobsRequest constructs an http.Request for the PackageJobs method
+func NewPackageJobsRequest(server string, packageId PackageID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewRollbackPackageRequest constructs an http.Request for the RollbackPackage method
 func NewRollbackPackageRequest(server string, packageId PackageID, params *RollbackPackageParams) (*http.Request, error) {
 	var err error
@@ -36874,6 +37053,87 @@ func NewRollbackPackageRequest(server string, packageId PackageID, params *Rollb
 			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewPackageStudioBridgeRequest calls the generic PackageStudioBridge builder with application/json body
+func NewPackageStudioBridgeRequest(server string, packageId PackageID, body PackageStudioBridgeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPackageStudioBridgeRequestWithBody(server, packageId, "application/json", bodyReader)
+}
+
+// NewPackageStudioBridgeRequestWithBody constructs an http.Request for the PackageStudioBridge method, with any body, and a specified content type
+func NewPackageStudioBridgeRequestWithBody(server string, packageId PackageID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/studio/bridge", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPackageStudioFrameRequest constructs an http.Request for the PackageStudioFrame method
+func NewPackageStudioFrameRequest(server string, packageId PackageID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/studio/frame", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -47940,12 +48200,40 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	GetPackageWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetPackageResponse, error)
 
+	// PackageJobsWithResponse performs a GET /api/v1/packages/{packageId}/jobs (the `PackageJobs` operationId) request.
+	//
+	// Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PackageJobsWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*PackageJobsResponse, error)
+
 	// RollbackPackageWithResponse performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
 	//
 	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	RollbackPackageWithResponse(ctx context.Context, packageId PackageID, params *RollbackPackageParams, reqEditors ...RequestEditorFn) (*RollbackPackageResponse, error)
+
+	// PackageStudioBridgeWithBodyWithResponse performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PackageStudioBridgeWithBodyWithResponse(ctx context.Context, packageId PackageID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PackageStudioBridgeResponse, error)
+
+	// PackageStudioBridgeWithResponse performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+	PackageStudioBridgeWithResponse(ctx context.Context, packageId PackageID, body PackageStudioBridgeJSONRequestBody, reqEditors ...RequestEditorFn) (*PackageStudioBridgeResponse, error)
+
+	// PackageStudioFrameWithResponse performs a GET /api/v1/packages/{packageId}/studio/frame (the `PackageStudioFrame` operationId) request.
+	//
+	// Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PackageStudioFrameWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*PackageStudioFrameResponse, error)
 
 	// ApplyPackageUpdateWithBodyWithResponse performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request,
 	// with any type of body and a specified content type.
@@ -58212,6 +58500,51 @@ func (r GetPackageResponse) ContentType() string {
 	return ""
 }
 
+type PackageJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []PackageJob `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PackageJobsResponse) GetJSON200() *struct {
+	Data []PackageJob `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r PackageJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PackageJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PackageJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PackageJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type RollbackPackageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -58260,6 +58593,97 @@ func (r RollbackPackageResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RollbackPackageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PackageStudioBridgeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			// Output Base64 guest output, at most 16 KiB.
+			Output []byte `json:"output"`
+
+			// Status Guest status code; negative values are guest errors.
+			Status int `json:"status"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PackageStudioBridgeResponse) GetJSON200() *struct {
+	Data struct {
+		// Output Base64 guest output, at most 16 KiB.
+		Output []byte `json:"output"`
+
+		// Status Guest status code; negative values are guest errors.
+		Status int `json:"status"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r PackageStudioBridgeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PackageStudioBridgeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PackageStudioBridgeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PackageStudioBridgeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PackageStudioFrameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r PackageStudioFrameResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PackageStudioFrameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PackageStudioFrameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PackageStudioFrameResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -70874,6 +71298,19 @@ func (c *ClientWithResponses) GetPackageWithResponse(ctx context.Context, packag
 	return ParseGetPackageResponse(rsp)
 }
 
+// PackageJobsWithResponse performs a GET /api/v1/packages/{packageId}/jobs (the `PackageJobs` operationId) request.
+//
+// Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PackageJobsWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*PackageJobsResponse, error) {
+	rsp, err := c.PackageJobs(ctx, packageId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePackageJobsResponse(rsp)
+}
+
 // RollbackPackageWithResponse performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
 //
 // Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
@@ -70885,6 +71322,45 @@ func (c *ClientWithResponses) RollbackPackageWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseRollbackPackageResponse(rsp)
+}
+
+// PackageStudioBridgeWithBodyWithResponse performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request,
+// with any type of body and a specified content type.
+//
+// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PackageStudioBridgeWithBodyWithResponse(ctx context.Context, packageId PackageID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PackageStudioBridgeResponse, error) {
+	rsp, err := c.PackageStudioBridgeWithBody(ctx, packageId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePackageStudioBridgeResponse(rsp)
+}
+
+// PackageStudioBridgeWithResponse performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+func (c *ClientWithResponses) PackageStudioBridgeWithResponse(ctx context.Context, packageId PackageID, body PackageStudioBridgeJSONRequestBody, reqEditors ...RequestEditorFn) (*PackageStudioBridgeResponse, error) {
+	rsp, err := c.PackageStudioBridge(ctx, packageId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePackageStudioBridgeResponse(rsp)
+}
+
+// PackageStudioFrameWithResponse performs a GET /api/v1/packages/{packageId}/studio/frame (the `PackageStudioFrame` operationId) request.
+//
+// Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PackageStudioFrameWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*PackageStudioFrameResponse, error) {
+	rsp, err := c.PackageStudioFrame(ctx, packageId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePackageStudioFrameResponse(rsp)
 }
 
 // ApplyPackageUpdateWithBodyWithResponse performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request,
@@ -80058,6 +80534,40 @@ func ParseGetPackageResponse(rsp *http.Response) (*GetPackageResponse, error) {
 	return response, nil
 }
 
+// ParsePackageJobsResponse parses an HTTP response from a PackageJobsWithResponse call
+func ParsePackageJobsResponse(rsp *http.Response) (*PackageJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PackageJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []PackageJob `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseRollbackPackageResponse parses an HTTP response from a RollbackPackageWithResponse call
 func ParseRollbackPackageResponse(rsp *http.Response) (*RollbackPackageResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -80098,6 +80608,65 @@ func ParseRollbackPackageResponse(rsp *http.Response) (*RollbackPackageResponse,
 		}
 		response.JSON409 = &dest
 
+	}
+
+	return response, nil
+}
+
+// ParsePackageStudioBridgeResponse parses an HTTP response from a PackageStudioBridgeWithResponse call
+func ParsePackageStudioBridgeResponse(rsp *http.Response) (*PackageStudioBridgeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PackageStudioBridgeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				// Output Base64 guest output, at most 16 KiB.
+				Output []byte `json:"output"`
+
+				// Status Guest status code; negative values are guest errors.
+				Status int `json:"status"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParsePackageStudioFrameResponse parses an HTTP response from a PackageStudioFrameWithResponse call
+func ParsePackageStudioFrameResponse(rsp *http.Response) (*PackageStudioFrameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PackageStudioFrameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil

@@ -96,6 +96,7 @@ require (
 	github.com/sigstore/sigstore v1.10.8 // indirect
 	github.com/sigstore/timestamp-authority/v2 v2.1.3 // indirect
 	github.com/teambition/rrule-go v1.8.2 // indirect
+	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/theupdateframework/go-tuf/v2 v2.4.2 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/transparency-dev/formats v0.1.1 // indirect

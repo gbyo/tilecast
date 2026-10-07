@@ -65,6 +65,11 @@ type testExport struct {
 	index uint32
 }
 
+type testData struct {
+	offset uint32
+	bytes  []byte
+}
+
 type testModule struct {
 	types   []testFuncType
 	imports []testImport
@@ -72,6 +77,7 @@ type testModule struct {
 	memory  *testMemory
 	exports []testExport
 	start   *uint32
+	data    []testData
 }
 
 var (
@@ -159,6 +165,19 @@ func assemble(spec testModule) []byte {
 		}
 		out = append(out, section(10, body)...)
 	}
+	if spec.data != nil {
+		body := uleb(uint32(len(spec.data)))
+		for _, segment := range spec.data {
+			// Active segment: flags, offset expression, bytes. The
+			// offset is a signed constant, like every i32.const.
+			body = append(body, 0x00, 0x41)
+			body = append(body, sleb(int32(segment.offset))...)
+			body = append(body, 0x0b)
+			body = append(body, uleb(uint32(len(segment.bytes)))...)
+			body = append(body, segment.bytes...)
+		}
+		out = append(out, section(11, body)...)
+	}
 	return out
 }
 
@@ -232,6 +251,9 @@ func TestParseRejects(t *testing.T) {
 		{"oversized memory", with(func(spec *testModule) {
 			spec.memory.max = 1024
 		}), "exceeds 256 pages"},
+		{"no memory", with(func(spec *testModule) {
+			spec.memory = nil
+		}), "at least one memory page"},
 		{"shared memory", with(func(spec *testModule) {
 			spec.memory.shared = true
 		}), "shared memories are not allowed"},

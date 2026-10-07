@@ -32,6 +32,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/registry"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 	"github.com/tilecast/tilecast/apps/server/internal/httpapi"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
@@ -185,6 +186,13 @@ func serve() {
 		pipelineOptions = append(pipelineOptions, pipeline.WithAllowUnsigned())
 	}
 	pipelineService := pipeline.NewService(db, installService, cfg.Packages.Root, version.Display(), pipelineOptions...)
+	wasmStore := wasm.NewPostgresKV(db)
+	wasmService, err := wasm.NewService(ctx, installService, pipelineService.ContentDir, wasmStore, logger)
+	if err != nil {
+		fail("wasm execution host failed", err)
+	}
+	defer wasmService.Close(ctx) //nolint:errcheck
+	pipelineService.SetWASM(wasmService, wasmStore)
 	contributionService := contributions.NewService(db, installService, releaseDefinitions, contentDefinitions,
 		pipelineService.ContentDir, media.RegisteredDataSourceAdapter, media.ValidateContentAdapters,
 		contributions.WithLogger(logger),
@@ -406,6 +414,7 @@ func serve() {
 		Marketplace:          marketplaceCatalog,
 		Installer:            installService,
 		Packages:             pipelineService,
+		WASM:                 wasmService,
 		Layouts:              layoutService,
 		Scheduling:           schedulingService,
 		Settings:             settingsService,
@@ -449,6 +458,9 @@ func serve() {
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// External package background jobs run on their declared intervals;
+	// the first overdue pass runs at startup so a restart loses no jobs.
+	go wasm.NewScheduler(db, wasmService.InvokeJob, time.Minute, logger).Run(shutdownCtx)
 	// Refresh the marketplace in the background at startup so a fresh
 	// boot picks up the current catalog without delaying traffic. The
 	// bundled snapshot serves until the refresh lands.

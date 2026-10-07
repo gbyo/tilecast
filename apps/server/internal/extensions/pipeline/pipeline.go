@@ -198,6 +198,8 @@ type Service struct {
 	attest          AttestationVerifier
 	catalog         Catalog
 	contributions   Contributions
+	wasm            *wasm.Service
+	wasmStore       wasm.KVStore
 	packagesRoot    string
 	tilecastVersion string
 	allowUnsigned   bool
@@ -256,6 +258,29 @@ func WithContributions(contributions Contributions) Option {
 // pipeline.
 func (s *Service) SetContributions(contributions Contributions) {
 	s.contributions = contributions
+}
+
+// SetWASM wires execution-state reconciliation after construction. Main
+// uses it because the wasm service resolves retained bytes through the
+// pipeline. A nil service leaves execution state untouched, for tests
+// that exercise activation without a runtime.
+func (s *Service) SetWASM(service *wasm.Service, store wasm.KVStore) {
+	s.wasm = service
+	s.wasmStore = store
+}
+
+// syncWASMJobs reconciles the scheduler rows for one activation. The
+// activation already committed, so a sync failure reports honestly
+// rather than claiming a half-wired install succeeded.
+func (s *Service) syncWASMJobs(ctx context.Context, packageID string, manifest packagemanifest.Manifest) error {
+	if s.wasm == nil {
+		return nil
+	}
+	var jobs []packagemanifest.BackgroundJob
+	if manifest.Capabilities != nil && manifest.Capabilities.Background != nil {
+		jobs = manifest.Capabilities.Background.Jobs
+	}
+	return wasm.SyncJobs(ctx, s.db, packageID, jobs)
 }
 
 // NewService orchestrates package resolution into installer activation.
@@ -396,6 +421,9 @@ func (s *Service) InstallCustom(ctx context.Context, repoURL string, userID uuid
 	installed, err := s.installer.Activate(ctx, Activation(resolution, ociManifest, contributions, userID))
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
+	}
+	if err := s.syncWASMJobs(ctx, installed.PackageID, ociManifest); err != nil {
+		return installer.InstalledPackage{}, err
 	}
 	// The activation committed; a resync failure degrades the effective
 	// catalog, which the contributions service already logged per
@@ -656,6 +684,9 @@ func (s *Service) InstallMarketplace(ctx context.Context, packageID string, user
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
 	}
+	if err := s.syncWASMJobs(ctx, installed.PackageID, ociManifest); err != nil {
+		return installer.InstalledPackage{}, err
+	}
 	// The activation committed; a resync failure degrades the effective
 	// catalog, which the contributions service already logged per
 	// package, so it never fails the request.
@@ -750,15 +781,35 @@ func (s *Service) ApplyUpdate(ctx context.Context, packageID, digest string, use
 	if err != nil {
 		return UpdateResult{}, mapActivationError(err)
 	}
+	if s.wasm != nil {
+		s.wasm.Evict(ctx, check.Installed.Digest)
+	}
+	if err := s.syncWASMJobs(ctx, installed.PackageID, ociManifest); err != nil {
+		return UpdateResult{}, err
+	}
 	_ = s.resync(ctx)
 	return UpdateResult{Installed: installed, Updated: true}, nil
 }
 
 // Rollback restores the previous activation.
 func (s *Service) Rollback(ctx context.Context, packageID string, userID uuid.UUID) (installer.InstalledPackage, error) {
+	previous, err := s.installer.Get(ctx, packageID)
+	if err != nil {
+		return installer.InstalledPackage{}, mapActivationError(err)
+	}
 	installed, err := s.installer.Rollback(ctx, packageID, userID)
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
+	}
+	if s.wasm != nil {
+		s.wasm.Evict(ctx, previous.Digest)
+	}
+	manifest, err := s.installer.Manifest(ctx, packageID)
+	if err != nil {
+		return installer.InstalledPackage{}, err
+	}
+	if err := s.syncWASMJobs(ctx, packageID, manifest); err != nil {
+		return installer.InstalledPackage{}, err
 	}
 	_ = s.resync(ctx)
 	return installed, nil
@@ -766,10 +817,24 @@ func (s *Service) Rollback(ctx context.Context, packageID string, userID uuid.UU
 
 // Remove deletes the installation and its contribution rows. Package
 // bytes stay retained: rollback snapshots and reinstalls reference them,
-// and no collector runs in this release.
+// and no collector runs in this release. Execution state does not
+// survive: the compiled module leaves the cache and the package's keys
+// and job rows are deleted, so a reinstall starts clean.
 func (s *Service) Remove(ctx context.Context, packageID string, userID uuid.UUID) error {
+	previous, err := s.installer.Get(ctx, packageID)
+	if err != nil {
+		return mapActivationError(err)
+	}
 	if err := s.installer.Remove(ctx, packageID, userID); err != nil {
 		return mapActivationError(err)
+	}
+	if s.wasm != nil {
+		if err := s.wasm.Remove(ctx, previous.Digest, packageID, s.wasmStore); err != nil {
+			return err
+		}
+		if err := wasm.SyncJobs(ctx, s.db, packageID, nil); err != nil {
+			return err
+		}
 	}
 	_ = s.resync(ctx)
 	return nil

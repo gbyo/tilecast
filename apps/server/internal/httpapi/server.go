@@ -25,6 +25,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
@@ -57,6 +58,7 @@ type Dependencies struct {
 	Marketplace          *catalog.Service
 	Installer            *installer.Service
 	Packages             *pipeline.Service
+	WASM                 *wasm.Service
 	Layouts              *layouts.Service
 	Scheduling           *scheduling.Service
 	Settings             *settings.Service
@@ -106,6 +108,7 @@ type server struct {
 	marketplace                   *catalog.Service
 	installer                     *installer.Service
 	packages                      *pipeline.Service
+	wasm                          *wasm.Service
 	layouts                       *layouts.Service
 	scheduling                    *scheduling.Service
 	db                            *pgxpool.Pool
@@ -172,6 +175,7 @@ func New(deps Dependencies) *API {
 		marketplace:       deps.Marketplace,
 		installer:         deps.Installer,
 		packages:          deps.Packages,
+		wasm:              deps.WASM,
 		layouts:           deps.Layouts,
 		scheduling:        deps.Scheduling,
 		db:                deps.DB,

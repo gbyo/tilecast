@@ -96,6 +96,13 @@
       "unsigned": "Sin firmar — solo instalaciones de desarrollo",
       "contributions": "Aportaciones",
       "noContributions": "Ninguna indicada",
+      "runtime": "Módulo del servidor",
+      "networkHosts": "Hosts HTTPS salientes",
+      "backgroundJobs": "Tareas en segundo plano",
+      "jobSchedule": "{{id}} · cada {{minutes}} min",
+      "storage": "Almacenamiento privado",
+      "storageGranted": "Concedido",
+      "studioInterface": "Interfaz de Studio",
       "installNote": "La instalación vincula este repositorio al paquete, para que las comprobaciones de actualización lo vuelvan a resolver.",
       "catalogInstallNote": "La ficha del Marketplace sigue siendo el plano de actualización, así que las comprobaciones la vuelven a leer."
     }
@@ -293,6 +300,16 @@
     "blockedInstruction": "Elimina el contenido restante e inténtalo de nuevo.",
     "addedContributions": "Novedades de esta versión",
     "removedContributions": "Eliminado en esta versión",
-    "removedWarning": "Actualizar no elimina nada: si algo sigue usando una aportación eliminada, la actualización espera hasta que la elimines."
+    "removedWarning": "Actualizar no elimina nada: si algo sigue usando una aportación eliminada, la actualización espera hasta que la elimines.",
+    "studioTitle": "Interfaz del paquete",
+    "studioUnavailable": "No se pudo cargar la interfaz del paquete.",
+    "jobsTitle": "Tareas en segundo plano",
+    "jobsLoadError": "No se pudieron cargar las tareas en segundo plano.",
+    "jobEvery": "Cada {{minutes}} min",
+    "jobNext": "Próxima ejecución",
+    "jobNever": "Nunca ejecutada",
+    "jobOk": "Correcta",
+    "jobFailed": "Fallida",
+    "jobFailures": "{{count}} fallos consecutivos"
   }
 }

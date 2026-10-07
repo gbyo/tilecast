@@ -59,6 +59,8 @@ type installedPackageResponse struct {
 	ActivatedAt       time.Time              `json:"activatedAt"`
 	HasRollback       bool                   `json:"hasRollback"`
 	Contributions     []packageContribution  `json:"contributions"`
+	Runtime           *reviewRuntime         `json:"runtime,omitempty"`
+	Capabilities      *reviewCapabilities    `json:"capabilities,omitempty"`
 	Source            *customSourceResponse  `json:"source,omitempty"`
 }
 
@@ -97,6 +99,10 @@ func (s *server) renderInstalledPackage(r *http.Request, item installer.Installe
 		ActivatedAt:       item.ActivatedAt,
 		HasRollback:       item.HasPrevious,
 		Contributions:     []packageContribution{},
+		Capabilities:      summarizeCapabilities(manifest),
+	}
+	if manifest.Runtime != nil {
+		rendered.Runtime = &reviewRuntime{Module: manifest.Runtime.Module}
 	}
 	for _, contribution := range contributions {
 		rendered.Contributions = append(rendered.Contributions, packageContribution{
@@ -160,6 +166,11 @@ type reviewContribution struct {
 	ID   string `json:"id,omitempty"`
 }
 
+// reviewRuntime names the external server behavior module.
+type reviewRuntime struct {
+	Module string `json:"module"`
+}
+
 // reviewCapabilities mirrors the manifest's bounded capability requests
 // for installation review: every grant the package asks for, shown
 // before anything is installed. The update check reuses the review, so
@@ -218,27 +229,25 @@ func summarizeCapabilities(manifest packagemanifest.Manifest) *reviewCapabilitie
 }
 
 type resolveReview struct {
-	PackageID     string                 `json:"packageId"`
-	Version       string                 `json:"version"`
-	Manifest      packageManifestSummary `json:"manifest"`
-	Compatible    bool                   `json:"compatible"`
-	Contributions []reviewContribution   `json:"contributions"`
-	Runtime       *struct {
-		Module string `json:"module"`
-	} `json:"runtime,omitempty"`
-	Capabilities     *reviewCapabilities `json:"capabilities,omitempty"`
-	Digest           string              `json:"digest"`
-	Registry         string              `json:"registry"`
-	ReleaseTag       string              `json:"releaseTag"`
-	ReleaseName      string              `json:"releaseName,omitempty"`
-	PublishedAt      *time.Time          `json:"publishedAt,omitempty"`
-	Owner            string              `json:"owner"`
-	Repo             string              `json:"repo"`
-	RepositoryURL    string              `json:"repositoryUrl"`
-	Signer           string              `json:"signer,omitempty"`
-	Trust            string              `json:"trust"`
-	Installed        bool                `json:"installed"`
-	InstalledVersion string              `json:"installedVersion,omitempty"`
+	PackageID        string                 `json:"packageId"`
+	Version          string                 `json:"version"`
+	Manifest         packageManifestSummary `json:"manifest"`
+	Compatible       bool                   `json:"compatible"`
+	Contributions    []reviewContribution   `json:"contributions"`
+	Runtime          *reviewRuntime         `json:"runtime,omitempty"`
+	Capabilities     *reviewCapabilities    `json:"capabilities,omitempty"`
+	Digest           string                 `json:"digest"`
+	Registry         string                 `json:"registry"`
+	ReleaseTag       string                 `json:"releaseTag"`
+	ReleaseName      string                 `json:"releaseName,omitempty"`
+	PublishedAt      *time.Time             `json:"publishedAt,omitempty"`
+	Owner            string                 `json:"owner"`
+	Repo             string                 `json:"repo"`
+	RepositoryURL    string                 `json:"repositoryUrl"`
+	Signer           string                 `json:"signer,omitempty"`
+	Trust            string                 `json:"trust"`
+	Installed        bool                   `json:"installed"`
+	InstalledVersion string                 `json:"installedVersion,omitempty"`
 }
 
 // renderReview builds the install review. nested are the contribution
@@ -276,9 +285,7 @@ func renderReview(resolution pipeline.Resolution, installed installer.InstalledP
 		review.Contributions = append(review.Contributions, entry)
 	}
 	if resolution.Manifest.Runtime != nil {
-		review.Runtime = &struct {
-			Module string `json:"module"`
-		}{Module: resolution.Manifest.Runtime.Module}
+		review.Runtime = &reviewRuntime{Module: resolution.Manifest.Runtime.Module}
 	}
 	review.Capabilities = summarizeCapabilities(resolution.Manifest)
 	if isInstalled {

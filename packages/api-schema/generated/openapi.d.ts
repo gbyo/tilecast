@@ -2789,6 +2789,66 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/packages/{packageId}/studio/frame": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    /** @description Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404. */
+    get: operations["packageStudioFrame"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages/{packageId}/studio/bridge": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation. */
+    post: operations["packageStudioBridge"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages/{packageId}/jobs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    /** @description Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404. */
+    get: operations["packageJobs"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/packages/{packageId}/update-check": {
     parameters: {
       query?: never;
@@ -7603,7 +7663,25 @@ export interface components {
       activatedAt: string;
       hasRollback: boolean;
       contributions: components["schemas"]["PackageContribution"][];
+      /** @description External server behavior module (manifest version 2 only). */
+      runtime?: {
+        /** @description Package-relative WebAssembly module path. */
+        module: string;
+      };
+      capabilities?: components["schemas"]["PackageCapabilities"];
       source?: components["schemas"]["PackageSourceBinding"];
+    };
+    /** @description One declared package background job with the scheduler cursor. */
+    PackageJob: {
+      jobId: string;
+      intervalMinutes: number;
+      /** Format: date-time */
+      nextRunAt: string;
+      /** Format: date-time */
+      lastRunAt?: string;
+      lastStatus: string;
+      lastError: string;
+      consecutiveFailures: number;
     };
     /** @description The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing. */
     GitHubInstallReview: {
@@ -7617,6 +7695,12 @@ export interface components {
         /** @description Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest. */
         id?: string;
       }[];
+      /** @description External server behavior module (manifest version 2 only). */
+      runtime?: {
+        /** @description Package-relative WebAssembly module path. */
+        module: string;
+      };
+      capabilities?: components["schemas"]["PackageCapabilities"];
       /** @description Pinned artifact digest as sha256 colon hex. */
       digest: string;
       registry: string;
@@ -7641,6 +7725,26 @@ export interface components {
       /** Format: date-time */
       lastChecked: string;
       latest?: components["schemas"]["GitHubInstallReview"];
+    };
+    /** @description Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself. */
+    PackageCapabilities: {
+      /** @description Approved outbound HTTPS origins. */
+      network?: {
+        hosts: string[];
+      };
+      /** @description Package-owned background jobs the host runs. */
+      background?: {
+        jobs: {
+          id: string;
+          intervalMinutes: number;
+        }[];
+      };
+      /** @description Request plugin-owned key/value storage. */
+      storage?: boolean;
+      /** @description Sandboxed Studio UI entry. */
+      studioUI?: {
+        entry: string;
+      };
     };
     PluginInUseError: {
       error: {
@@ -19425,6 +19529,146 @@ export interface operations {
         content?: never;
       };
       /** @description package_widget_unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  packageStudioFrame: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sandboxed Studio UI frame document */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_studio_unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  packageStudioBridge: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /**
+           * Format: byte
+           * @description Base64 call payload, at most 16 KiB decoded.
+           */
+          input: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Guest answer */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              /** @description Guest status code; negative values are guest errors. */
+              status: number;
+              /**
+               * Format: byte
+               * @description Base64 guest output, at most 16 KiB.
+               */
+              output: string;
+            };
+          };
+        };
+      };
+      /** @description invalid_bridge_input */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_studio_unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  packageJobs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Package background jobs */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PackageJob"][];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_not_installed */
       404: {
         headers: {
           [name: string]: unknown;

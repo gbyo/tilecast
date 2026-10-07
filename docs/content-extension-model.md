@@ -1396,20 +1396,20 @@ performance result is poor.
 
 ### Phase G — external Plugin runtime
 
-Only after a concrete integration needs executable third-party Server behavior,
-add the external plugin runtime.
+Implemented. A manifest version 2 package bundles external plugin
+behavior as a WebAssembly module with bounded capability requests. The
+server runs it in the capability-based Wasm host. Bundled Plugin API
+v1 stays out of this path: no package loads arbitrary code
+in-process.
 
-Prefer a capability-based Wasm host or another comparably strong isolation
-boundary. Do not reuse bundled Plugin API v1 as an in-process arbitrary-code
-loader.
-
-A package may then bundle:
+A package may bundle:
 
 - external plugin behavior;
 - Widgets;
 - declarative Data Sources.
 
-The Widget/Data Source contracts do not change.
+The Widget/Data Source contracts do not change. See
+[Extension packages](packages.md) for the runtime contract.
 
 ### Phase H — catalog and discovery service
 
