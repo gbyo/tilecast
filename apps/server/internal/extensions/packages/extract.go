@@ -26,6 +26,14 @@ const (
 	MaxExtractedFileBytes = 256 << 20
 	// MaxNestedManifestBytes caps one nested manifest document.
 	MaxNestedManifestBytes = 1 << 20
+	// MaxWidgetPayloadBytes caps one Widget player bundle served to
+	// Players. The bundle is opaque bytes to the Server: integrity is
+	// the digest claim, and safety is the Player sandbox.
+	MaxWidgetPayloadBytes = 1 << 20
+	// WidgetPayloadRel is the fixed path of the player bundle inside a
+	// Widget contribution directory. Fixed, never author-declared, so a
+	// manifest cannot steer the Server at an arbitrary package file.
+	WidgetPayloadRel = "runtime/index.js"
 )
 
 var (
@@ -115,9 +123,10 @@ func extractBlob(blob *os.File, destDir string, seen map[string]bool, files *int
 
 // cleanEntry resolves a tar entry name inside dest. Anything absolute,
 // traversing, or empty fails closed. The name cleans before joining so
-// a leading ".." is rejected, not collapsed against the destination,
-// and the joined path is rechecked against the destination so the
-// containment holds no matter how the join behaves.
+// a leading ".." is rejected, not collapsed against the destination.
+// The joined path then proves containment with a single prefix guard:
+// the cleaned name can never address the destination itself ("." is
+// rejected above), so the prefix check is the whole proof.
 func cleanEntry(destDir, name string) (string, error) {
 	if name == "" || filepath.IsAbs(name) {
 		return "", fmt.Errorf("package content: entry %q escapes the package", name)
@@ -127,8 +136,7 @@ func cleanEntry(destDir, name string) (string, error) {
 		return "", fmt.Errorf("package content: entry %q escapes the package", name)
 	}
 	joined := filepath.Join(destDir, cleaned)
-	prefix := filepath.Clean(destDir) + string(filepath.Separator)
-	if joined != filepath.Clean(destDir) && !strings.HasPrefix(joined, prefix) {
+	if !strings.HasPrefix(joined, filepath.Clean(destDir)+string(filepath.Separator)) {
 		return "", fmt.Errorf("package content: entry %q escapes the package", name)
 	}
 	return joined, nil
