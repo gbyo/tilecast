@@ -103,7 +103,7 @@ func extractBlob(blob *os.File, destDir string, seen map[string]bool, files *int
 			if err := extractDir(destDir, header.Name); err != nil {
 				return err
 			}
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg:
 			if err := extractFile(reader, destDir, header, seen, files, total); err != nil {
 				return err
 			}
