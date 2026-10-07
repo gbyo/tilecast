@@ -18,6 +18,8 @@ COPY packages/widget-kit/package.json packages/widget-kit/package.json
 COPY packages/widget-sdk/package.json packages/widget-sdk/package.json
 COPY packages/presentation-model/package.json packages/presentation-model/package.json
 COPY packages/native-bridge-schema/package.json packages/native-bridge-schema/package.json
+COPY packages/player-activity/package.json packages/player-activity/package.json
+COPY packages/player-active-hours/package.json packages/player-active-hours/package.json
 RUN npm ci
 COPY apps/dashboard apps/dashboard
 COPY apps/player-web apps/player-web
@@ -36,6 +38,10 @@ COPY packages/widget-sdk packages/widget-sdk
 COPY packages/presentation-model packages/presentation-model
 # Studio's native-host tests type-check against the shared bridge contract.
 COPY packages/native-bridge-schema packages/native-bridge-schema
+# Browser Player shares Activity and active-hours policy with the Linux Player.
+# Vite resolves both from src through the package's import condition.
+COPY packages/player-activity packages/player-activity
+COPY packages/player-active-hours packages/player-active-hours
 COPY widgets widgets
 COPY data-sources data-sources
 COPY plugins plugins
