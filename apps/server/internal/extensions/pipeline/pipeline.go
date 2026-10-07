@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -203,6 +204,12 @@ type Service struct {
 	packagesRoot    string
 	tilecastVersion string
 	allowUnsigned   bool
+	logger          *slog.Logger
+	// Failure-injection seams for post-commit reconciliation. A nil
+	// syncJobs runs wasm.SyncJobs; a nil removeExec runs the wasm
+	// service's Remove.
+	syncJobs   func(ctx context.Context, db *pgxpool.Pool, packageID string, jobs []packagemanifest.BackgroundJob) error
+	removeExec func(ctx context.Context, digest, packageID string, store wasm.KVStore) error
 }
 
 // Contributions joins installed package definitions into the effective
@@ -269,18 +276,54 @@ func (s *Service) SetWASM(service *wasm.Service, store wasm.KVStore) {
 	s.wasmStore = store
 }
 
-// syncWASMJobs reconciles the scheduler rows for one activation. The
-// activation already committed, so a sync failure reports honestly
-// rather than claiming a half-wired install succeeded.
-func (s *Service) syncWASMJobs(ctx context.Context, packageID string, manifest packagemanifest.Manifest) error {
+// reconcileWASMJobs syncs the scheduler rows for one activation after
+// the installer commit. Derived execution state must never turn a
+// committed activation into an API failure: the sync is idempotent,
+// reruns on every lifecycle mutation, and stale rows cannot execute
+// (the scheduler re-validates each job against the installed
+// manifest), so a failure logs loudly and the committed state stands.
+func (s *Service) reconcileWASMJobs(ctx context.Context, operation, packageID string, manifest packagemanifest.Manifest) {
 	if s.wasm == nil {
-		return nil
+		return
 	}
 	var jobs []packagemanifest.BackgroundJob
 	if manifest.Capabilities != nil && manifest.Capabilities.Background != nil {
 		jobs = manifest.Capabilities.Background.Jobs
 	}
-	return wasm.SyncJobs(ctx, s.db, packageID, jobs)
+	sync := s.syncJobs
+	if sync == nil {
+		sync = wasm.SyncJobs
+	}
+	if err := sync(ctx, s.db, packageID, jobs); err != nil {
+		s.log().ErrorContext(ctx, "package wasm job sync failed after commit",
+			"operation", operation, "package_id", packageID, "error", err)
+	}
+}
+
+// reconcileRemove clears execution state after the removal commit:
+// the compiled module leaves the cache, the package's keys are
+// deleted, and its job rows are removed. Like the job sync, a failure
+// logs and the committed removal stands.
+func (s *Service) reconcileRemove(ctx context.Context, packageID, digest string) {
+	if s.wasm == nil {
+		return
+	}
+	remove := s.removeExec
+	if remove == nil {
+		remove = s.wasm.Remove
+	}
+	if err := remove(ctx, digest, packageID, s.wasmStore); err != nil {
+		s.log().ErrorContext(ctx, "package execution-state removal failed after commit",
+			"operation", "remove", "package_id", packageID, "error", err)
+	}
+	s.reconcileWASMJobs(ctx, "remove", packageID, packagemanifest.Manifest{})
+}
+
+func (s *Service) log() *slog.Logger {
+	if s.logger == nil {
+		return slog.Default()
+	}
+	return s.logger
 }
 
 // NewService orchestrates package resolution into installer activation.
@@ -422,9 +465,7 @@ func (s *Service) InstallCustom(ctx context.Context, repoURL string, userID uuid
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
 	}
-	if err := s.syncWASMJobs(ctx, installed.PackageID, ociManifest); err != nil {
-		return installer.InstalledPackage{}, err
-	}
+	s.reconcileWASMJobs(ctx, "install", installed.PackageID, ociManifest)
 	// The activation committed; a resync failure degrades the effective
 	// catalog, which the contributions service already logged per
 	// package, so it never fails the request.
@@ -684,9 +725,7 @@ func (s *Service) InstallMarketplace(ctx context.Context, packageID string, user
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
 	}
-	if err := s.syncWASMJobs(ctx, installed.PackageID, ociManifest); err != nil {
-		return installer.InstalledPackage{}, err
-	}
+	s.reconcileWASMJobs(ctx, "install", installed.PackageID, resolution.Manifest)
 	// The activation committed; a resync failure degrades the effective
 	// catalog, which the contributions service already logged per
 	// package, so it never fails the request.
@@ -784,9 +823,7 @@ func (s *Service) ApplyUpdate(ctx context.Context, packageID, digest string, use
 	if s.wasm != nil {
 		s.wasm.Evict(ctx, check.Installed.Digest)
 	}
-	if err := s.syncWASMJobs(ctx, installed.PackageID, ociManifest); err != nil {
-		return UpdateResult{}, err
-	}
+	s.reconcileWASMJobs(ctx, "update", installed.PackageID, ociManifest)
 	_ = s.resync(ctx)
 	return UpdateResult{Installed: installed, Updated: true}, nil
 }
@@ -804,12 +841,15 @@ func (s *Service) Rollback(ctx context.Context, packageID string, userID uuid.UU
 	if s.wasm != nil {
 		s.wasm.Evict(ctx, previous.Digest)
 	}
+	// The rollback committed above; without its manifest the job sync
+	// cannot run, so a read failure logs and the restored activation
+	// stands. The next lifecycle mutation re-syncs.
 	manifest, err := s.installer.Manifest(ctx, packageID)
 	if err != nil {
-		return installer.InstalledPackage{}, err
-	}
-	if err := s.syncWASMJobs(ctx, packageID, manifest); err != nil {
-		return installer.InstalledPackage{}, err
+		s.log().ErrorContext(ctx, "package manifest read failed after rollback commit",
+			"operation", "rollback", "package_id", packageID, "error", err)
+	} else {
+		s.reconcileWASMJobs(ctx, "rollback", packageID, manifest)
 	}
 	_ = s.resync(ctx)
 	return installed, nil
@@ -828,14 +868,7 @@ func (s *Service) Remove(ctx context.Context, packageID string, userID uuid.UUID
 	if err := s.installer.Remove(ctx, packageID, userID); err != nil {
 		return mapActivationError(err)
 	}
-	if s.wasm != nil {
-		if err := s.wasm.Remove(ctx, previous.Digest, packageID, s.wasmStore); err != nil {
-			return err
-		}
-		if err := wasm.SyncJobs(ctx, s.db, packageID, nil); err != nil {
-			return err
-		}
-	}
+	s.reconcileRemove(ctx, packageID, previous.Digest)
 	_ = s.resync(ctx)
 	return nil
 }

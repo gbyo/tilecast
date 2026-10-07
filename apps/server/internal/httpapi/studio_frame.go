@@ -17,9 +17,10 @@ import (
 // from the operator's own origin, so the policy sandboxes it to an opaque
 // origin: no allow-same-origin, no network, no workers, no forms. Scripts
 // and styles must be inline; the entry cannot load subresources. The page
-// reaches its guest backend through postMessage to the Studio parent,
-// which relays calls over the bridge endpoint below with the dashboard
-// session the frame itself must never hold.
+// reaches its guest backend over a MessageChannel the Studio parent binds
+// to its document after a hello handshake, and the parent relays calls
+// over the bridge endpoint below with the dashboard session the frame
+// itself must never hold.
 const studioFramePolicy = "sandbox allow-scripts; default-src 'none'; " +
 	"script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
 	"connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';"

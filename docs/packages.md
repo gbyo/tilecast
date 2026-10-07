@@ -231,17 +231,26 @@ no subresource loads. The page must be self-contained. Unknown
 packages and packages without the capability share one
 `package_studio_unavailable` 404.
 
-The frame holds no credentials. It posts calls to the Studio parent,
-and the parent relays them with the dashboard session and CSRF token
-over `POST /api/v1/packages/{packageId}/studio/bridge`. Owner and
+The frame holds no credentials. It sends calls over a `MessageChannel`
+bound to its document, and the parent relays them with the dashboard
+session and CSRF token over
+`POST /api/v1/packages/{packageId}/studio/bridge`. Owner and
 Administrator only, like every package operation. The request carries
 base64 input over the 16 KiB call window. A successful invocation
 always answers 200 with the guest status code and base64 output.
 Negative status codes are guest errors. Transport and host failures
-become errors. The bridge frame protocol is `{source:
-"tilecast-studio-ui", id, input}` from the frame and `{source, id,
-status, output}` back. A failed relay answers `status: -1` with
-`error: "bridge_failed"`.
+become errors.
+
+The bridge frame protocol starts with a hello: the page posts
+`{source: "tilecast-studio-ui", kind: "studio-hello"}` to the Studio
+parent, which answers once with `{source, kind: "studio-handshake"}`
+and the frame's port. The hello must come from the frame's own window
+at the opaque origin. Calls then cross the port as `{source, id,
+input}` with answers as `{source, id, status, output}` back. A failed
+relay answers `status: -1` with `error: "bridge_failed"`. A reload or
+navigation destroys the document's port, and the parent never sends
+the channel to a newly loaded document: the connection dies with the
+original document, and the host reports the interface unavailable.
 
 `GET /api/v1/packages/{packageId}/jobs` reports the declared jobs
 with the scheduler cursor: next run, last outcome, and consecutive
@@ -253,6 +262,13 @@ digest from the compile cache and keep storage. Removal evicts the
 digest, deletes the package keys, and deletes the job rows, so a
 reinstall starts clean. Package bytes stay retained like any
 activation.
+
+The installer commit is the durability boundary: execution state
+reconciles after it, and a reconciliation failure logs loudly without
+failing the API. The job sync is idempotent and reruns on every
+lifecycle mutation, and stale rows cannot execute, because the
+scheduler re-validates each job against the installed manifest before
+it invokes the guest.
 
 ## Sources
 

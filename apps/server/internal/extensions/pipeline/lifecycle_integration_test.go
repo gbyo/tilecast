@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
@@ -90,8 +91,9 @@ func TestRemoveDeletesExecutionState(t *testing.T) {
 	if _, err := f.installer.Activate(ctx, lifecycleActivation(manifest, lifecycleDigest('a'), f)); err != nil {
 		t.Fatalf("activate: %v", err)
 	}
-	if err := f.service.syncWASMJobs(ctx, manifest.PackageID, manifest); err != nil {
-		t.Fatalf("sync jobs: %v", err)
+	f.service.reconcileWASMJobs(ctx, "test", manifest.PackageID, manifest)
+	if jobs, err := wasm.ListJobs(ctx, f.pool, manifest.PackageID); err != nil || len(jobs) != 1 {
+		t.Fatalf("jobs after sync = %d, %v", len(jobs), err)
 	}
 	if err := store.Set(ctx, manifest.PackageID, "theme", []byte("dark")); err != nil {
 		t.Fatalf("seed key: %v", err)
@@ -128,8 +130,9 @@ func TestRollbackRestoresPreviousJobs(t *testing.T) {
 	if _, err := f.installer.Activate(ctx, lifecycleActivation(withJobs, lifecycleDigest('c'), f)); err != nil {
 		t.Fatalf("activate v2: %v", err)
 	}
-	if err := f.service.syncWASMJobs(ctx, withJobs.PackageID, withJobs); err != nil {
-		t.Fatalf("sync jobs: %v", err)
+	f.service.reconcileWASMJobs(ctx, "test", withJobs.PackageID, withJobs)
+	if jobs, err := wasm.ListJobs(ctx, f.pool, withJobs.PackageID); err != nil || len(jobs) != 1 {
+		t.Fatalf("jobs after sync = %d, %v", len(jobs), err)
 	}
 
 	installed, err := f.service.Rollback(ctx, withJobs.PackageID, f.userID)
@@ -147,7 +150,156 @@ func TestRollbackRestoresPreviousJobs(t *testing.T) {
 
 func TestSyncWASMJobsWithoutRuntime(t *testing.T) {
 	service := &Service{}
-	if err := service.syncWASMJobs(context.Background(), "acme.lifecycle", packagemanifest.Manifest{}); err != nil {
-		t.Fatalf("nil runtime sync = %v, want nil", err)
+	// A nil runtime leaves execution state untouched: no sync, no log,
+	// no failure.
+	service.reconcileWASMJobs(context.Background(), "test", "acme.lifecycle", packagemanifest.Manifest{})
+	service.reconcileRemove(context.Background(), "acme.lifecycle", lifecycleDigest('z'))
+}
+
+// captureLifecycleLogs points the service at a buffer the test reads.
+func captureLifecycleLogs(f *pipelineFixture) *strings.Builder {
+	var logs strings.Builder
+	f.service.logger = slog.New(slog.NewTextHandler(&logs, nil))
+	return &logs
+}
+
+func injectSyncFailure(f *pipelineFixture, calls *int) {
+	f.service.syncJobs = func(ctx context.Context, db *pgxpool.Pool, packageID string, jobs []packagemanifest.BackgroundJob) error {
+		*calls++
+		return errors.New("job sync is down")
+	}
+}
+
+func TestInstallSucceedsWhenJobSyncFails(t *testing.T) {
+	f := newPipelineFixture(t)
+	ctx := context.Background()
+	service, store := lifecycleWASM(t, f)
+	f.service.SetWASM(service, store)
+	logs := captureLifecycleLogs(f)
+	var calls int
+	injectSyncFailure(f, &calls)
+
+	installed, err := f.service.InstallCustom(ctx, "https://github.com/acme/tilecast-athletics", f.userID)
+	if err != nil {
+		t.Fatalf("install with failing sync = %v, want success", err)
+	}
+	if installed.Version != "2.4.1" {
+		t.Fatalf("installed version = %q", installed.Version)
+	}
+	if calls != 1 {
+		t.Fatalf("sync calls = %d, want 1", calls)
+	}
+	if logged := logs.String(); !strings.Contains(logged, "package wasm job sync failed after commit") || !strings.Contains(logged, pipelinePID) {
+		t.Fatalf("logs = %q, want the sync failure for %s", logged, pipelinePID)
+	}
+}
+
+func TestMarketplaceInstallSucceedsWhenJobSyncFails(t *testing.T) {
+	f := newPipelineFixture(t)
+	ctx := context.Background()
+	service, store := lifecycleWASM(t, f)
+	f.service.SetWASM(service, store)
+	logs := captureLifecycleLogs(f)
+	var calls int
+	injectSyncFailure(f, &calls)
+	f.listing = f.catalogListing()
+
+	installed, err := f.service.InstallMarketplace(ctx, pipelinePID, f.userID)
+	if err != nil {
+		t.Fatalf("marketplace install with failing sync = %v, want success", err)
+	}
+	if installed.Version != "2.4.1" {
+		t.Fatalf("installed version = %q", installed.Version)
+	}
+	if calls != 1 {
+		t.Fatalf("sync calls = %d, want 1", calls)
+	}
+	if logged := logs.String(); !strings.Contains(logged, "package wasm job sync failed after commit") {
+		t.Fatalf("logs = %q, want the sync failure", logged)
+	}
+}
+
+func TestUpdateAndRollbackSucceedWhenJobSyncFails(t *testing.T) {
+	f := newPipelineFixture(t)
+	ctx := context.Background()
+	service, store := lifecycleWASM(t, f)
+	f.service.SetWASM(service, store)
+	if _, err := f.service.InstallCustom(ctx, "https://github.com/acme/tilecast-athletics", f.userID); err != nil {
+		t.Fatal(err)
+	}
+	f.rebuild(t, "2.5.0", "v2.5.0")
+	logs := captureLifecycleLogs(f)
+	var calls int
+	injectSyncFailure(f, &calls)
+
+	result, err := f.service.ApplyUpdate(ctx, pipelinePID, f.digest, f.userID)
+	if err != nil {
+		t.Fatalf("update with failing sync = %v, want success", err)
+	}
+	if !result.Updated || result.Installed.Version != "2.5.0" {
+		t.Fatalf("result = %+v", result)
+	}
+	installed, err := f.service.Rollback(ctx, pipelinePID, f.userID)
+	if err != nil {
+		t.Fatalf("rollback with failing sync = %v, want success", err)
+	}
+	if installed.Version != "2.4.1" {
+		t.Fatalf("version after rollback = %q", installed.Version)
+	}
+	if calls != 2 {
+		t.Fatalf("sync calls = %d, want 2", calls)
+	}
+	if logged := logs.String(); !strings.Contains(logged, "package wasm job sync failed after commit") {
+		t.Fatalf("logs = %q, want the sync failures", logged)
+	}
+}
+
+func TestRemoveSucceedsWhenExecutionCleanupFails(t *testing.T) {
+	f := newPipelineFixture(t)
+	ctx := context.Background()
+	service, store := lifecycleWASM(t, f)
+	f.service.SetWASM(service, store)
+	_ = wasm.SyncJobs(ctx, f.pool, "acme.lifecycle", nil) //nolint:errcheck
+	_ = store.RemovePackage(ctx, "acme.lifecycle")        //nolint:errcheck
+
+	manifest := lifecycleManifest("1.0.0", []packagemanifest.BackgroundJob{{ID: "refresh", IntervalMinutes: 15}})
+	if _, err := f.installer.Activate(ctx, lifecycleActivation(manifest, lifecycleDigest('a'), f)); err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	f.service.reconcileWASMJobs(ctx, "test", manifest.PackageID, manifest)
+	if err := store.Set(ctx, manifest.PackageID, "theme", []byte("dark")); err != nil {
+		t.Fatalf("seed key: %v", err)
+	}
+
+	logs := captureLifecycleLogs(f)
+	var syncCalls, removeCalls int
+	injectSyncFailure(f, &syncCalls)
+	f.service.removeExec = func(ctx context.Context, digest, packageID string, store wasm.KVStore) error {
+		removeCalls++
+		return errors.New("execution removal is down")
+	}
+	if err := f.service.Remove(ctx, manifest.PackageID, f.userID); err != nil {
+		t.Fatalf("remove with failing cleanup = %v, want success", err)
+	}
+	if _, err := f.installer.Get(ctx, manifest.PackageID); !errors.Is(err, installer.ErrNotFound) {
+		t.Fatalf("package after remove = %v, want ErrNotFound", err)
+	}
+	// Both cleanups ran and failed loudly: the rows and the key are
+	// still there, and the committed removal stands anyway.
+	if syncCalls != 1 || removeCalls != 1 {
+		t.Fatalf("sync calls = %d, remove calls = %d, want 1 each", syncCalls, removeCalls)
+	}
+	if jobs, err := wasm.ListJobs(ctx, f.pool, manifest.PackageID); err != nil || len(jobs) != 1 {
+		t.Fatalf("jobs after failed cleanup = %d, %v", len(jobs), err)
+	}
+	if _, err := store.Get(ctx, manifest.PackageID, "theme"); err != nil {
+		t.Fatalf("key after failed cleanup = %v, want it kept", err)
+	}
+	logged := logs.String()
+	if !strings.Contains(logged, "package execution-state removal failed after commit") {
+		t.Fatalf("logs = %q, want the removal failure", logged)
+	}
+	if !strings.Contains(logged, "package wasm job sync failed after commit") {
+		t.Fatalf("logs = %q, want the sync failure", logged)
 	}
 }
