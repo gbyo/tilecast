@@ -60,6 +60,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "drop_noise_history",
         sql: include_str!("../migrations/0007_drop_noise_history.sql"),
     },
+    Migration {
+        version: 8,
+        name: "widget_bundle_domain",
+        sql: include_str!("../migrations/0008_widget_bundle_domain.sql"),
+    },
 ];
 
 pub fn latest_schema_version() -> u32 {

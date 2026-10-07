@@ -314,6 +314,8 @@ Folders, collections, and tags are installation-scoped metadata. Authenticated u
 
 Responses include a hash-derived ETag, correct MIME type and length, and `Accept-Ranges: bytes`. Standard full, initial, middle, suffix, unsatisfiable, `If-Range`, and `If-None-Match` behavior is provided without loading the complete file into memory. Range reads are not audit events.
 
+`GET` and `HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId}` use the same device authentication and serve the installed, verified execution bundle for an external Widget contribution. Unknown packages, unknown Widgets, missing bundles, and malformed IDs return 404 `package_widget_unavailable`. See [Extension packages](packages.md) for the delivery rules.
+
 ## Playlists, assignments, and manifests
 
 Owner, Administrator, and Editor may create, edit, duplicate, reorder, or delete unassigned playlists; Viewer is read-only. `POST /api/v1/playlists` requires a `sourceType` of `static` or `tag`, so Studio can create a standard manual timeline or an initially empty tag-driven playlist in one operation. Items accept only ready image/video assets with a player-compatible variant. Images require a positive duration, video offsets must remain within trusted duration, and reordering must contain every item exactly once. An image item that omits `durationMs` without opting into Player defaults receives the `player.playback.default_image_duration_seconds` organization setting (10 seconds when unset); an explicit zero or negative duration is still rejected.

@@ -140,6 +140,8 @@ pub enum ManifestError {
     DeliveryPolicy,
     #[error("manifest schedule is invalid")]
     Schedule,
+    #[error("manifest contains an invalid Widget bundle claim")]
+    Bundle,
     #[error("presentation is incompatible with this renderer: {0}")]
     Incompatible(Incompatibility),
 }
@@ -155,6 +157,7 @@ impl ManifestError {
             Self::Reference => "manifest_reference_invalid",
             Self::DeliveryPolicy => "manifest_delivery_policy_invalid",
             Self::Schedule => "manifest_schedule_invalid",
+            Self::Bundle => "manifest_bundle_invalid",
             Self::Incompatible(reason) => reason.code(),
         }
     }
@@ -171,6 +174,7 @@ impl From<player_core::NativeManifestError> for ManifestError {
             player_core::NativeManifestError::Reference => Self::Reference,
             player_core::NativeManifestError::DeliveryPolicy => Self::DeliveryPolicy,
             player_core::NativeManifestError::Schedule => Self::Schedule,
+            player_core::NativeManifestError::Bundle => Self::Bundle,
         }
     }
 }
@@ -1128,12 +1132,12 @@ mod tests {
 
     #[test]
     fn accepts_every_schema_the_server_compiler_emits_and_nothing_else() {
-        for schema in [11, 12, 13, 14, 15, 16, 17] {
+        for schema in [11, 12, 13, 14, 15, 16, 17, 18] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert!(parse(value).is_ok(), "schema {schema}");
         }
-        for schema in [10, 18] {
+        for schema in [10, 19] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert_eq!(parse(value).unwrap_err(), ManifestError::Schema, "schema {schema}");
@@ -1418,7 +1422,7 @@ mod tests {
             let reasons = incompatibilities(&candidate.document, &candidate.assets);
             assert_eq!(reasons.first().map(Incompatibility::code), Some("presentation_incompatible_widget_capability"));
         }
-        value["schemaVersion"] = serde_json::json!(18);
+        value["schemaVersion"] = serde_json::json!(19);
         assert!(parse(value).is_err(), "a manifest schema from a later release is refused");
     }
 

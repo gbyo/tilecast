@@ -2,11 +2,14 @@ package contributions
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -196,6 +199,9 @@ func releaseDataSourceJSON(t *testing.T, nestedID string) string {
 const (
 	testDigestGood = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	testDigestBad  = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	// testWidgetBundle is a stand-in player bundle. The Server never
+	// executes it; tests only hash and serve it.
+	testWidgetBundle = `"use strict";export default function(){return null}`
 )
 
 func TestRebuildJoinsDefinitions(t *testing.T) {
@@ -204,6 +210,7 @@ func TestRebuildJoinsDefinitions(t *testing.T) {
 	manifest := testManifest("acme.athletics")
 	f.seedPackage(t, "acme.athletics", testDigestGood, manifest, map[string]string{
 		"widgets/scoreboard/tilecast.widget.json":        releaseWidgetJSON(t, "acme.athletics", "scoreboard"),
+		"widgets/scoreboard/runtime/index.js":            testWidgetBundle,
 		"data-sources/schedule/tilecast.datasource.json": releaseDataSourceJSON(t, "schedule"),
 	})
 	if err := f.service.Rebuild(context.Background()); err != nil {
@@ -236,11 +243,13 @@ func TestRebuildSkipsInvalidPackage(t *testing.T) {
 	good := testManifest("acme.athletics")
 	f.seedPackage(t, "acme.athletics", testDigestGood, good, map[string]string{
 		"widgets/scoreboard/tilecast.widget.json":        releaseWidgetJSON(t, "acme.athletics", "scoreboard"),
+		"widgets/scoreboard/runtime/index.js":            testWidgetBundle,
 		"data-sources/schedule/tilecast.datasource.json": releaseDataSourceJSON(t, "schedule"),
 	})
 	bad := testManifest("acme.broken")
 	f.seedPackage(t, "acme.broken", testDigestBad, bad, map[string]string{
 		"widgets/scoreboard/tilecast.widget.json":        releaseWidgetJSON(t, "acme.broken", "scoreboard"),
+		"widgets/scoreboard/runtime/index.js":            testWidgetBundle,
 		"data-sources/schedule/tilecast.datasource.json": `{"apiVersion": 1, "id": "schedule", "adapterId": "weather"}`,
 	})
 	err := f.service.Rebuild(context.Background())
@@ -266,6 +275,7 @@ func TestRebuildLocalNeverUsesThePullingLookup(t *testing.T) {
 	f := newContributionsFixture(t)
 	f.seedPackage(t, "acme.athletics", testDigestGood, testManifest("acme.athletics"), map[string]string{
 		"widgets/scoreboard/tilecast.widget.json":        releaseWidgetJSON(t, "acme.athletics", "scoreboard"),
+		"widgets/scoreboard/runtime/index.js":            testWidgetBundle,
 		"data-sources/schedule/tilecast.datasource.json": releaseDataSourceJSON(t, "schedule"),
 	})
 	f.seedPackage(t, "acme.unretained", testDigestBad, testManifest("acme.unretained"), map[string]string{})
@@ -310,6 +320,7 @@ func TestRebuildsSerialize(t *testing.T) {
 	f := newContributionsFixture(t)
 	f.seedPackage(t, "acme.athletics", testDigestGood, testManifest("acme.athletics"), map[string]string{
 		"widgets/scoreboard/tilecast.widget.json":        releaseWidgetJSON(t, "acme.athletics", "scoreboard"),
+		"widgets/scoreboard/runtime/index.js":            testWidgetBundle,
 		"data-sources/schedule/tilecast.datasource.json": releaseDataSourceJSON(t, "schedule"),
 	})
 	inside := make(chan struct{})
@@ -376,5 +387,102 @@ func TestSkipsOnly(t *testing.T) {
 	}
 	if SkipsOnly(sql.ErrNoRows) {
 		t.Fatal("a storage error reports skips-only")
+	}
+}
+
+func TestRebuildSnapshotsWidgetPayload(t *testing.T) {
+	f := newContributionsFixture(t)
+	manifest := testManifest("acme.athletics")
+	f.seedPackage(t, "acme.athletics", testDigestGood, manifest, map[string]string{
+		"widgets/scoreboard/tilecast.widget.json":        releaseWidgetJSON(t, "acme.athletics", "scoreboard"),
+		"widgets/scoreboard/runtime/index.js":            testWidgetBundle,
+		"data-sources/schedule/tilecast.datasource.json": releaseDataSourceJSON(t, "schedule"),
+	})
+	if err := f.service.Rebuild(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	payload, ok := f.service.WidgetPayload("acme.athletics", "scoreboard")
+	if !ok {
+		t.Fatal("rebuild did not snapshot the Widget bundle")
+	}
+	sum := sha256.Sum256([]byte(testWidgetBundle))
+	if payload.PackageDigest != testDigestGood {
+		t.Fatalf("package digest = %q", payload.PackageDigest)
+	}
+	if payload.SHA256Hex != hex.EncodeToString(sum[:]) {
+		t.Fatalf("bundle hash = %q", payload.SHA256Hex)
+	}
+	if payload.Size != int64(len(testWidgetBundle)) {
+		t.Fatalf("bundle size = %d", payload.Size)
+	}
+	if _, ok := f.service.WidgetPayload("acme.athletics", "missing"); ok {
+		t.Fatal("unknown contribution has a bundle")
+	}
+}
+
+func TestRebuildSkipsWidgetWithoutBundle(t *testing.T) {
+	f := newContributionsFixture(t)
+	good := testManifest("acme.athletics")
+	f.seedPackage(t, "acme.athletics", testDigestGood, good, map[string]string{
+		"widgets/scoreboard/tilecast.widget.json":        releaseWidgetJSON(t, "acme.athletics", "scoreboard"),
+		"widgets/scoreboard/runtime/index.js":            testWidgetBundle,
+		"data-sources/schedule/tilecast.datasource.json": releaseDataSourceJSON(t, "schedule"),
+	})
+	bad := testManifest("acme.bundless")
+	f.seedPackage(t, "acme.bundless", testDigestBad, bad, map[string]string{
+		"widgets/scoreboard/tilecast.widget.json":        releaseWidgetJSON(t, "acme.bundless", "scoreboard"),
+		"data-sources/schedule/tilecast.datasource.json": releaseDataSourceJSON(t, "schedule"),
+	})
+	err := f.service.Rebuild(context.Background())
+	if err == nil {
+		t.Fatal("expected the bundless package to be reported")
+	}
+	if !SkipsOnly(err) {
+		t.Fatalf("expected only skips, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "player bundle") {
+		t.Fatalf("skip does not name the bundle: %v", err)
+	}
+	if _, ok := f.provider.Widget("acme.bundless.scoreboard"); ok {
+		t.Fatal("provider serves the bundless package's Widget")
+	}
+	if _, ok := f.service.WidgetPayload("acme.bundless", "scoreboard"); ok {
+		t.Fatal("snapshot keeps the bundless package's payload")
+	}
+	if _, ok := f.provider.Widget("acme.athletics.scoreboard"); !ok {
+		t.Fatal("provider skipped the valid package with the bundless one")
+	}
+}
+
+func TestValidateRequiresWidgetBundle(t *testing.T) {
+	f := newContributionsFixture(t)
+	dir := t.TempDir()
+	parsed := testManifest("acme.athletics")
+	widgetDir := filepath.Join(dir, "widgets", "scoreboard")
+	if err := os.MkdirAll(widgetDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(widgetDir, "tilecast.widget.json"), []byte(releaseWidgetJSON(t, "acme.athletics", "scoreboard")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sourceDir := filepath.Join(dir, "data-sources", "schedule")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sourceDir, "tilecast.datasource.json"), []byte(releaseDataSourceJSON(t, "schedule")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.Validate(dir, parsed, testDigestGood); err == nil || !strings.Contains(err.Error(), "player bundle") {
+		t.Fatalf("Validate without a bundle = %v", err)
+	}
+	runtimeDir := filepath.Join(widgetDir, "runtime")
+	if err := os.MkdirAll(runtimeDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(runtimeDir, "index.js"), []byte(testWidgetBundle), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.Validate(dir, parsed, testDigestGood); err != nil {
+		t.Fatalf("Validate with a bundle = %v", err)
 	}
 }

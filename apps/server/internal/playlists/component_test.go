@@ -2,6 +2,7 @@ package playlists
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -387,5 +388,122 @@ func TestPresentationSupportedNeedsSchemaAndVersion(t *testing.T) {
 		if got, _ := presentationSupported(presentation, test.player); got != test.want {
 			t.Errorf("%s: supported = %v, want %v", test.name, got, test.want)
 		}
+	}
+}
+
+// stubPackagePayloads answers canned Widget bundles for external compile tests.
+type stubPackagePayloads map[[2]string]contentdefs.WidgetPayload
+
+func (s stubPackagePayloads) WidgetPayload(packageID, nestedID string) (contentdefs.WidgetPayload, bool) {
+	payload, ok := s[[2]string{packageID, nestedID}]
+	return payload, ok
+}
+
+// externalWidgetCatalog joins one package-contributed Widget over the
+// release catalog through the same composition installed packages use.
+func externalWidgetCatalog(t *testing.T) *contentdefs.Catalog {
+	t.Helper()
+	template := json.RawMessage(`{"type":"surface","children":[{"type":"text","binding":{"source":"literal","value":{"$config":"title"}}}]}`)
+	widgets := []contentdefs.WidgetDefinition{{
+		ID: "acme.athletics.scoreboard", Version: 1, APIVersion: 1,
+		Name: "Scoreboard", Category: "Test", Runtime: "native",
+		PresentationSchemaVersion: 1,
+		RequiredCapabilities:      map[string]int{"layout.surface": 1, "content.text": 1},
+		EmptyStateBehavior:        "text",
+		Source:                    contentdefs.PackageSource("acme.athletics", "1.0.0", "sha256:"+strings.Repeat("a", 64)),
+		ConfigurationSchema: contentdefs.ConfigurationSchema{Fields: []contentdefs.FieldDefinition{
+			{Key: "title", Label: "Title", Control: "text"},
+		}},
+		DefaultConfiguration: map[string]any{},
+		PresentationTemplate: template,
+		Component: &contentdefs.ComponentSpec{
+			Type: "acme.athletics.scoreboard", Version: 2, TagName: "pkg-scoreboard",
+			Entrypoint: "./runtime/index.ts", Empty: "render",
+			ConfigTemplate: json.RawMessage(`{"title":{"$config":"title","default":"Scoreboard"}}`),
+		},
+		Compatibility: &contentdefs.Compatibility{Fallback: "template"},
+	}}
+	catalog, err := contentdefs.MustLoad().WithExternal(widgets, nil)
+	if err != nil {
+		t.Fatalf("compose external Widget: %v", err)
+	}
+	return catalog
+}
+
+func TestExternalWidgetCompilesRuntimeCapability(t *testing.T) {
+	service := &Service{definitions: externalWidgetCatalog(t)}
+	service.SetPackagePayloads(stubPackagePayloads{
+		[2]string{"acme.athletics", "scoreboard"}: {
+			PackageDigest: "sha256:" + strings.Repeat("a", 64),
+			SHA256Hex:     strings.Repeat("b", 64),
+			Size:          42,
+		},
+	})
+	raw := json.RawMessage(`{"title":"Friday"}`)
+	component, err := service.compileWidgetComponent("acme.athletics.scoreboard", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component == nil {
+		t.Fatal("external Widget compiled no component")
+	}
+	if component.SchemaVersion != 3 || component.Kind != "component" {
+		t.Fatalf("unexpected presentation identity: %+v", component)
+	}
+	if len(component.RequiredCapabilities) != 1 || component.RequiredCapabilities[contentdefs.ExternalRuntimeCapability] != contentdefs.ExternalRuntimeVersion {
+		t.Fatalf("external Widget must require only the execution ABI: %+v", component.RequiredCapabilities)
+	}
+	ref := component.Component.Package
+	if ref == nil {
+		t.Fatal("external component names no package")
+	}
+	if ref.PackageID != "acme.athletics" || ref.Digest != "sha256:"+strings.Repeat("a", 64) {
+		t.Fatalf("package identity = %+v", ref)
+	}
+	if ref.SHA256 != strings.Repeat("b", 64) || ref.FileSize != 42 {
+		t.Fatalf("bundle claim = %+v", ref)
+	}
+	if ref.DownloadPath != "/api/v1/player/packages/acme.athletics/widgets/scoreboard" {
+		t.Fatalf("download path = %q", ref.DownloadPath)
+	}
+	if component.Component.Type != "acme.athletics.scoreboard" || component.Component.Version != 2 {
+		t.Fatalf("component contract = %s@%d", component.Component.Type, component.Component.Version)
+	}
+	if component.Component.Config["title"] != "Friday" {
+		t.Fatalf("component config = %+v", component.Component.Config)
+	}
+	// Legacy schema has no package block: external Widgets stay on the
+	// compatibility presentation there.
+	legacy, err := service.compileWidgetComponentForSchema("acme.athletics.scoreboard", raw, componentPresentationSchemaLegacy)
+	if err != nil || legacy != nil {
+		t.Fatalf("legacy external component = %+v, err %v", legacy, err)
+	}
+	// Capability selection keys on the execution ABI, never the component.
+	capable := playerPresentationCapabilities{Reported: true, SchemaVersions: []int32{1, 2, 3}, Native: map[string]int{contentdefs.ExternalRuntimeCapability: 1}}
+	if supported, _ := presentationSupported(component, capable); !supported {
+		t.Fatal("ABI-capable Player cannot select the external component")
+	}
+	bundled := playerPresentationCapabilities{Reported: true, SchemaVersions: []int32{1, 2, 3}, Native: map[string]int{"widget.acme.athletics.scoreboard": 2}}
+	if supported, _ := presentationSupported(component, bundled); supported {
+		t.Fatal("per-component capability selects the external component")
+	}
+}
+
+func TestExternalWidgetWithoutBundleCompilesNoComponent(t *testing.T) {
+	raw := json.RawMessage(`{"title":"Friday"}`)
+	unwired := &Service{definitions: externalWidgetCatalog(t)}
+	if component, err := unwired.compileWidgetComponent("acme.athletics.scoreboard", raw); err != nil || component != nil {
+		t.Fatalf("unwired external component = %+v, err %v", component, err)
+	}
+	skipped := &Service{definitions: externalWidgetCatalog(t)}
+	skipped.SetPackagePayloads(stubPackagePayloads{})
+	if component, err := skipped.compileWidgetComponent("acme.athletics.scoreboard", raw); err != nil || component != nil {
+		t.Fatalf("bundless external component = %+v, err %v", component, err)
+	}
+	// The compatibility presentation still compiles: incapable Players
+	// and missing bundles render the declared fallback.
+	fallback, err := skipped.compileWidgetPresentationForPreset("acme.athletics.scoreboard", nil, raw, false)
+	if err != nil || fallback == nil || fallback.Kind != "native" {
+		t.Fatalf("external fallback = %+v, err %v", fallback, err)
 	}
 }

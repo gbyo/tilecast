@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=17;
+pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=18;
 const MAX_ASSETS: usize = 1024;
 const MAX_PLAYLISTS: usize = 128;
 const MAX_ITEMS: usize = 4096;
@@ -13,6 +13,8 @@ const MAX_LAYOUTS: usize = 128;
 const MAX_WIDGETS: usize = 256;
 const MAX_DATA_SOURCES: usize = 256;
 const MAX_PLUGINS: usize = 64;
+/// Server bundle cap (`MaxWidgetPayloadBytes`); a larger claim is corrupt.
+const MAX_BUNDLE_BYTES: u64 = 1 << 20;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ManifestAsset {
     pub asset_id: uuid::Uuid,
@@ -20,6 +22,19 @@ pub struct ManifestAsset {
     pub digest: Sha256Digest,
     pub size_bytes: u64,
     pub mime_type: String,
+    pub download_path: String,
+}
+
+/// One external Widget player bundle claim: the verified package digest
+/// it was built from plus the bundle hash, size, and download path the
+/// Player verifies before activation. Presentation fields stay opaque;
+/// only this explicit resource metadata is extracted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManifestBundle {
+    pub package_id: String,
+    pub package_digest: Sha256Digest,
+    pub digest: Sha256Digest,
+    pub size_bytes: u64,
     pub download_path: String,
 }
 
@@ -33,6 +48,8 @@ pub struct NativeManifest {
     pub assets: Vec<ManifestAsset>,
     /// Every declared variant must be verified before this candidate is pending.
     pub required_downloads: Vec<ManifestAsset>,
+    /// Every claimed Widget bundle must be verified alongside the variants.
+    pub required_bundles: Vec<ManifestBundle>,
 }
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
@@ -53,6 +70,8 @@ pub enum NativeManifestError {
     DeliveryPolicy,
     #[error("manifest schedule is invalid")]
     Schedule,
+    #[error("manifest contains an invalid Widget bundle claim")]
+    Bundle,
 }
 
 impl NativeManifestError {
@@ -66,6 +85,7 @@ impl NativeManifestError {
             Self::Reference => "manifest_reference_invalid",
             Self::DeliveryPolicy => "manifest_delivery_policy_invalid",
             Self::Schedule => "manifest_schedule_invalid",
+            Self::Bundle => "manifest_bundle_invalid",
         }
     }
 }
@@ -133,6 +153,63 @@ fn exact_asset(
         .parse()
         .map_err(|_| NativeManifestError::Reference)?;
     catalog.get(&(asset, variant)).copied().map(Some).ok_or(NativeManifestError::Reference)
+}
+
+fn valid_package_id(value: &str) -> bool {
+    // Mirrors the server's qualified package identity loosely: bounded,
+    // dotted, dotless segments. The exact registry is the server's; Core
+    // only refuses what is structurally unusable as evidence.
+    if value.len() < 3 || value.len() > 128 || !value.contains('.') {
+        return false;
+    }
+    value.split('.').all(|segment| {
+        !segment.is_empty()
+            && segment.len() <= 64
+            && segment.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+            && segment.bytes().next().is_some_and(|byte| byte.is_ascii_alphanumeric())
+    })
+}
+
+/// Extracts one Widget's external bundle claim, if it carries a package
+/// block. Everything else about the presentation stays opaque. A
+/// malformed claim fails the manifest: a Player must never activate a
+/// component it cannot verify.
+fn extract_bundle(widget: &Value) -> Result<Option<ManifestBundle>, NativeManifestError> {
+    let Some(package) = widget.pointer("/presentation/component/package").filter(|value| !value.is_null()) else {
+        return Ok(None);
+    };
+    let object = package.as_object().ok_or(NativeManifestError::Bundle)?;
+    let package_id = object.get("packageId").and_then(Value::as_str).ok_or(NativeManifestError::Bundle)?;
+    if !valid_package_id(package_id) {
+        return Err(NativeManifestError::Bundle);
+    }
+    let package_digest = object
+        .get("digest")
+        .and_then(Value::as_str)
+        .and_then(|value| value.strip_prefix("sha256:"))
+        .ok_or(NativeManifestError::Bundle)
+        .and_then(|hex| Sha256Digest::parse(hex).map_err(|_| NativeManifestError::Bundle))?;
+    let digest = object
+        .get("sha256")
+        .and_then(Value::as_str)
+        .ok_or(NativeManifestError::Bundle)
+        .and_then(|hex| Sha256Digest::parse(hex).map_err(|_| NativeManifestError::Bundle))?;
+    let size_bytes = u64::try_from(object.get("fileSize").and_then(Value::as_i64).ok_or(NativeManifestError::Bundle)?)
+        .map_err(|_| NativeManifestError::Bundle)?;
+    if size_bytes == 0 || size_bytes > MAX_BUNDLE_BYTES {
+        return Err(NativeManifestError::Bundle);
+    }
+    let download_path = object.get("downloadPath").and_then(Value::as_str).ok_or(NativeManifestError::Bundle)?;
+    if crate::OriginBlobSource::validate_path(download_path).is_err() {
+        return Err(NativeManifestError::Bundle);
+    }
+    Ok(Some(ManifestBundle {
+        package_id: package_id.to_owned(),
+        package_digest,
+        digest,
+        size_bytes,
+        download_path: download_path.to_owned(),
+    }))
 }
 
 fn check_layout(
@@ -297,6 +374,24 @@ impl NativeManifest {
         }
         crate::resolve(&document, 0).map_err(|_| NativeManifestError::Schedule)?;
         crate::resolve_display_policy(&document, 0).map_err(|_| NativeManifestError::Schedule)?;
+        // Package blocks exist only from v18. An older document carrying
+        // one is corrupt: no released server emits that combination.
+        if wire.schema_version < 18
+            && wire.widgets.iter().any(|widget| widget.pointer("/presentation/component/package").is_some())
+        {
+            return Err(NativeManifestError::Schema);
+        }
+        let mut required_bundles = Vec::new();
+        let mut seen_bundle = BTreeSet::new();
+        for widget in &wire.widgets {
+            let Some(bundle) = extract_bundle(widget)? else { continue };
+            // One CAS object per bundle digest; the package digest is
+            // activation evidence, not a second fetch.
+            if !seen_bundle.insert(bundle.digest) {
+                continue;
+            }
+            required_bundles.push(bundle);
+        }
         let required_downloads = assets.clone();
         Ok(Self {
             digest,
@@ -305,6 +400,7 @@ impl NativeManifest {
             screen_id: wire.screen_id,
             assets,
             required_downloads,
+            required_bundles,
         })
     }
 }
@@ -342,5 +438,84 @@ mod tests {
         let mut invalid = document;
         invalid["layouts"][0]["document"]["canvas"]["backgroundVariantId"] = json!(uuid::Uuid::from_u128(99));
         assert!(matches!(NativeManifest::parse(invalid, screen, identity), Err(NativeManifestError::Reference)));
+    }
+
+    fn bundle_document(screen: ScreenId, schema: u32) -> Value {
+        let widget = uuid::Uuid::from_u128(10);
+        let bundle = Sha256Digest::of(b"widget code");
+        let package = Sha256Digest::of(b"package");
+        json!({
+            "schemaVersion":schema, "manifestVersion":3, "screenId":screen, "mode":"presentation",
+            "assets":[],
+            "playlist":{"id":uuid::Uuid::from_u128(5),"items":[{"id":uuid::Uuid::from_u128(6),
+                "assetId":widget,"assetType":"widget","deliveryPolicy":"download"}]},
+            "playlists":[],"schedules":[],"dataSources":[],"plugins":[],
+            "widgets":[{"assetId":widget,"name":"Scores","provider":"acme.athletics.scoreboard",
+                "presentation":{"schemaVersion":3,"kind":"component",
+                    "requiredCapabilities":{"widget.external-runtime":1},
+                    "component":{"type":"acme.athletics.scoreboard","version":2,
+                        "config":{},"dataSources":[],"media":[],"empty":"render",
+                        "package":{"packageId":"acme.athletics",
+                            "digest":format!("sha256:{}", package.to_hex()),
+                            "sha256":bundle.to_hex(),"fileSize":11,
+                            "downloadPath":"/api/v1/player/packages/acme.athletics/widgets/scoreboard"}}}}],
+        })
+    }
+
+    #[test]
+    fn external_bundle_claims_are_extracted_while_presentations_stay_opaque() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let bundle = Sha256Digest::of(b"widget code");
+        let package = Sha256Digest::of(b"package");
+        let document = bundle_document(screen, 18);
+        let identity = crate::manifest_digest(&document);
+        let prepared = NativeManifest::parse(document.clone(), screen, identity).unwrap();
+        assert_eq!(prepared.document, document);
+        assert_eq!(prepared.required_bundles.len(), 1);
+        let claim = &prepared.required_bundles[0];
+        assert_eq!(claim.package_id, "acme.athletics");
+        assert_eq!(claim.package_digest, package);
+        assert_eq!(claim.digest, bundle);
+        assert_eq!(claim.size_bytes, 11);
+        assert_eq!(claim.download_path, "/api/v1/player/packages/acme.athletics/widgets/scoreboard");
+        // One object per bundle digest no matter how many Widgets share it.
+        let mut shared = document.clone();
+        shared["widgets"] = json!([shared["widgets"][0].clone(), shared["widgets"][0].clone()]);
+        let identity = crate::manifest_digest(&shared);
+        let prepared = NativeManifest::parse(shared, screen, identity).unwrap();
+        assert_eq!(prepared.required_bundles.len(), 1);
+    }
+
+    #[test]
+    fn malformed_bundle_claims_fail_the_manifest() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let mutate = |key: &str, value: Value| {
+            let mut document = bundle_document(screen, 18);
+            document["widgets"][0]["presentation"]["component"]["package"][key] = value;
+            let identity = crate::manifest_digest(&document);
+            NativeManifest::parse(document, screen, identity)
+        };
+        for (key, value) in [
+            ("packageId", json!("not a package")),
+            ("packageId", json!("tilecast")),
+            ("digest", json!("deadbeef")),
+            ("digest", json!("sha256:xyz")),
+            ("sha256", json!("xyz")),
+            ("sha256", json!("00")),
+            ("fileSize", json!(0)),
+            ("fileSize", json!(2 * 1024 * 1024)),
+            ("downloadPath", json!("/api/v1/system/identity")),
+            ("downloadPath", json!("/api/v1/player/../escape")),
+        ] {
+            assert!(matches!(mutate(key, value), Err(NativeManifestError::Bundle)), "claim with bad {key} parsed");
+        }
+        let mut missing = bundle_document(screen, 18);
+        missing["widgets"][0]["presentation"]["component"]["package"].as_object_mut().unwrap().remove("sha256");
+        let identity = crate::manifest_digest(&missing);
+        assert!(matches!(NativeManifest::parse(missing, screen, identity), Err(NativeManifestError::Bundle)));
+        // A package block below v18 is corrupt: no server emits it there.
+        let older = bundle_document(screen, 17);
+        let identity = crate::manifest_digest(&older);
+        assert!(matches!(NativeManifest::parse(older, screen, identity), Err(NativeManifestError::Schema)));
     }
 }

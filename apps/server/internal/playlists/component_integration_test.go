@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	formsserver "github.com/tilecast/tilecast/plugins/forms/server"
 )
@@ -464,5 +465,81 @@ func TestComponentOnlyWidgetRefusedWithoutCapability(t *testing.T) {
 	}
 	if errors.Is(err, ErrConflict) {
 		t.Fatalf("the compatibility check itself should not classify the error: %v", err)
+	}
+}
+
+// TestExternalWidgetManifestVersion proves an installed package Widget
+// reaches a capable Player as a v18 component naming its verified
+// package digest and bundle download, while an incapable Player keeps
+// the declared compatibility presentation in the schema it used.
+func TestExternalWidgetManifestVersion(t *testing.T) {
+	f := setupCapabilityFixture(t)
+	catalog := externalWidgetCatalog(t)
+	f.service.SetContentDefinitions(catalog)
+	f.media.SetContentDefinitions(catalog)
+	f.service.SetPackagePayloads(stubPackagePayloads{
+		[2]string{"acme.athletics", "scoreboard"}: {
+			PackageDigest: "sha256:" + strings.Repeat("a", 64),
+			SHA256Hex:     strings.Repeat("b", 64),
+			Size:          42,
+		},
+	})
+	raw, _ := json.Marshal(map[string]any{"title": "Friday"})
+	widget, err := f.media.CreateWidget(f.ctx, f.user, media.WidgetInput{Provider: "acme.athletics.scoreboard", Name: "Scores", Configuration: raw})
+	if err != nil {
+		t.Fatalf("create external Widget: %v", err)
+	}
+	playlist, err := f.service.Create(f.ctx, f.user, "Scores rotation", "", "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration := int64(30_000)
+	if _, err := f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: widget.ID, DurationMS: &duration, DeliveryPolicy: "stream"}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+	if _, err := f.service.Assign(f.ctx, f.screen, playlist.ID, f.user); err != nil {
+		t.Fatal(err)
+	}
+
+	// Without the execution ABI the Player keeps compatibility.
+	f.reportCapabilities(t, "{1,2,3}", nil)
+	manifest, _, err := f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion == ManifestSchemaExternalComponents {
+		t.Fatalf("incapable Player received v%d", manifest.SchemaVersion)
+	}
+	served := onlyWidget(t, manifest)
+	if served.Presentation == nil || served.Presentation.Kind != "native" {
+		t.Fatalf("incapable Player did not receive compatibility: %+v", served.Presentation)
+	}
+
+	// With the ABI the same Widget arrives as a verified component.
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{contentdefs.ExternalRuntimeCapability: contentdefs.ExternalRuntimeVersion})
+	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion != ManifestSchemaExternalComponents {
+		t.Fatalf("manifest version = %d, want %d", manifest.SchemaVersion, ManifestSchemaExternalComponents)
+	}
+	served = onlyWidget(t, manifest)
+	if served.Presentation == nil || served.Presentation.Kind != "component" || served.Presentation.Component == nil {
+		t.Fatalf("capable Player did not receive a component: %+v", served.Presentation)
+	}
+	ref := served.Presentation.Component.Package
+	if ref == nil {
+		t.Fatal("external component names no package")
+	}
+	if ref.PackageID != "acme.athletics" || ref.Digest != "sha256:"+strings.Repeat("a", 64) {
+		t.Fatalf("package identity = %+v", ref)
+	}
+	if ref.SHA256 != strings.Repeat("b", 64) || ref.FileSize != 42 {
+		t.Fatalf("bundle claim = %+v", ref)
+	}
+	if ref.DownloadPath != "/api/v1/player/packages/acme.athletics/widgets/scoreboard" {
+		t.Fatalf("download path = %q", ref.DownloadPath)
 	}
 }

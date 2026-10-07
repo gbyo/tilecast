@@ -235,6 +235,7 @@ func serve() {
 	mediaService.SetPluginSourceGate(pluginService)
 	mediaService.SetContentDefinitions(contentDefinitions)
 	playlistService.SetContentDefinitions(contentDefinitions)
+	playlistService.SetPackagePayloads(contributionService)
 	pluginService.SetContentDefinitions(contentDefinitions)
 	managedPresentationService.SetContentDefinitions(contentDefinitions)
 	layoutService := layouts.NewService(db)

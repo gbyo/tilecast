@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -31,6 +33,9 @@ const (
 	pipelineRange = ">=1.2.0 <2.0.0"
 	pipelineTile  = "1.5.0"
 	pipelineSign  = "https://github.com/acme/tilecast-athletics/.github/workflows/release.yml@refs/tags/v2.4.1"
+	// pipelineWidgetBundle is the fixture Widget player bundle. Tests
+	// hash and serve it; nothing executes it.
+	pipelineWidgetBundle = `"use strict";export default function(){return null}`
 )
 
 func pipelineManifest(t *testing.T, oci, version string) string {
@@ -60,6 +65,7 @@ func pipelineContent(t *testing.T) []byte {
 	tarWriter := tar.NewWriter(gzipWriter)
 	for name, body := range map[string]string{
 		"widgets/scoreboard/tilecast.widget.json":        `{"apiVersion":1,"id":"scoreboard"}`,
+		"widgets/scoreboard/runtime/index.js":            pipelineWidgetBundle,
 		"data-sources/schedule/tilecast.datasource.json": `{"apiVersion":1,"id":"schedule"}`,
 	} {
 		if err := tarWriter.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(body))}); err != nil {
@@ -710,6 +716,56 @@ func TestRollbackAndRemove(t *testing.T) {
 	// available for reinstall.
 	if _, err := f.service.CustomSource(ctx, pipelinePID); err != nil {
 		t.Fatalf("source err = %v", err)
+	}
+}
+
+func TestWidgetBundleServesInstalledBundle(t *testing.T) {
+	f := newPipelineFixture(t)
+	ctx := context.Background()
+	installed, err := f.service.InstallCustom(ctx, "https://github.com/acme/tilecast-athletics", f.userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := f.service.WidgetBundle(ctx, pipelinePID, "scoreboard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.PackageID != pipelinePID || bundle.NestedID != "scoreboard" {
+		t.Fatalf("bundle identity = %+v", bundle)
+	}
+	if bundle.Digest != installed.Digest {
+		t.Fatalf("bundle digest = %q, want %q", bundle.Digest, installed.Digest)
+	}
+	raw, err := os.ReadFile(bundle.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != pipelineWidgetBundle {
+		t.Fatal("bundle bytes are not the installed Widget code")
+	}
+	sum := sha256.Sum256(raw)
+	if bundle.SHA256Hex != hex.EncodeToString(sum[:]) {
+		t.Fatalf("bundle hash = %q", bundle.SHA256Hex)
+	}
+	if bundle.Size != int64(len(raw)) {
+		t.Fatalf("bundle size = %d", bundle.Size)
+	}
+}
+
+func TestWidgetBundleNotFound(t *testing.T) {
+	f := newPipelineFixture(t)
+	ctx := context.Background()
+	if _, err := f.service.InstallCustom(ctx, "https://github.com/acme/tilecast-athletics", f.userID); err != nil {
+		t.Fatal(err)
+	}
+	for name, args := range map[string][2]string{
+		"unknown package":   {"acme.missing", "scoreboard"},
+		"unknown Widget":    {pipelinePID, "missing"},
+		"dataSource nested": {pipelinePID, "schedule"},
+	} {
+		if _, err := f.service.WidgetBundle(ctx, args[0], args[1]); !errors.Is(err, installer.ErrNotFound) {
+			t.Errorf("%s: err = %v, want ErrNotFound", name, err)
+		}
 	}
 }
 

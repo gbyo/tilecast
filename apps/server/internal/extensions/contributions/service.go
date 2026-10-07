@@ -8,6 +8,8 @@ package contributions
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -15,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
@@ -52,6 +55,20 @@ type Service struct {
 	adapterAllowed   func(adapterID string) bool
 	validateAdapters func(catalog *contentdefs.Catalog) error
 	logger           *slog.Logger
+	// payloads snapshots one verified player bundle per installed
+	// Widget contribution. Like the catalog it swaps atomically, so
+	// manifest compilation never blocks on a rebuild.
+	payloads atomic.Pointer[payloadSnapshot]
+}
+
+// payloadKey identifies one Widget contribution's player bundle.
+type payloadKey struct {
+	packageID string
+	nestedID  string
+}
+
+type payloadSnapshot struct {
+	bundles map[payloadKey]contentdefs.WidgetPayload
 }
 
 // Option configures a Service.
@@ -138,8 +155,20 @@ func SkipsOnly(err error) bool {
 // inert package. Plugin-kind contributions wait for the external plugin
 // runtime and validate as inert.
 func (s *Service) Validate(contentDir string, manifest packagemanifest.Manifest, digest string) error {
-	_, _, err := s.decode(contentDir, manifest, digest)
+	_, _, _, err := s.decode(contentDir, manifest, digest)
 	return err
+}
+
+// WidgetPayload answers the verified player bundle of one installed
+// Widget contribution, or false when the package is not installed, the
+// contribution is not a Widget, or the latest rebuild skipped it.
+func (s *Service) WidgetPayload(packageID, nestedID string) (contentdefs.WidgetPayload, bool) {
+	snapshot := s.payloads.Load()
+	if snapshot == nil {
+		return contentdefs.WidgetPayload{}, false
+	}
+	payload, ok := snapshot.bundles[payloadKey{packageID: packageID, nestedID: nestedID}]
+	return payload, ok
 }
 
 // Rebuild recomposes the effective catalog from every installed package.
@@ -170,9 +199,10 @@ func (s *Service) rebuild(ctx context.Context, contentDir func(ctx context.Conte
 		return err
 	}
 	composed := s.release
+	bundles := map[payloadKey]contentdefs.WidgetPayload{}
 	var skipped []error
 	for _, item := range installed {
-		packageWidgets, packageSources, err := s.loadPackage(ctx, item, contentDir)
+		packageWidgets, packageSources, packageBundles, err := s.loadPackage(ctx, item, contentDir)
 		if err != nil {
 			skipped = append(skipped, err)
 			continue
@@ -183,11 +213,15 @@ func (s *Service) rebuild(ctx context.Context, contentDir func(ctx context.Conte
 			continue
 		}
 		composed = next
+		for key, bundle := range packageBundles {
+			bundles[key] = bundle
+		}
 	}
 	if err := s.validateAdapters(composed); err != nil {
 		return err
 	}
 	s.provider.Replace(composed)
+	s.payloads.Store(&payloadSnapshot{bundles: bundles})
 	for _, skip := range skipped {
 		s.logger.Warn("package contributions skipped", "error", skip)
 	}
@@ -196,30 +230,33 @@ func (s *Service) rebuild(ctx context.Context, contentDir func(ctx context.Conte
 
 // loadPackage reads one installed package's Widget and Data Source
 // definitions from its retained bytes.
-func (s *Service) loadPackage(ctx context.Context, item installer.InstalledPackage, contentDir func(ctx context.Context, ref, digest string) (string, error)) ([]contentdefs.WidgetDefinition, []contentdefs.DataSourceDefinition, error) {
+func (s *Service) loadPackage(ctx context.Context, item installer.InstalledPackage, contentDir func(ctx context.Context, ref, digest string) (string, error)) ([]contentdefs.WidgetDefinition, []contentdefs.DataSourceDefinition, map[payloadKey]contentdefs.WidgetPayload, error) {
 	manifest, err := s.installer.Manifest(ctx, item.PackageID)
 	if err != nil {
-		return nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
+		return nil, nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}
 	dir, err := contentDir(ctx, item.RegistryReference, item.Digest)
 	if err != nil {
-		return nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
+		return nil, nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}
-	packageWidgets, packageSources, err := s.decode(dir, manifest, item.Digest)
+	packageWidgets, packageSources, packageBundles, err := s.decode(dir, manifest, item.Digest)
 	if err != nil {
-		return nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
+		return nil, nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}
-	return packageWidgets, packageSources, nil
+	return packageWidgets, packageSources, packageBundles, nil
 }
 
 // decode reads and validates one package's Widget and Data Source
 // definitions from extracted content. Contribution paths recheck
 // containment after joining; manifests recheck identity, API version,
-// and the adapter allowlist.
-func (s *Service) decode(contentDir string, manifest packagemanifest.Manifest, digest string) ([]contentdefs.WidgetDefinition, []contentdefs.DataSourceDefinition, error) {
+// and the adapter allowlist. Every Widget contribution also hashes its
+// player bundle: a Widget without deliverable code cannot join the
+// catalog as a component, so installs fail and rebuilds skip it.
+func (s *Service) decode(contentDir string, manifest packagemanifest.Manifest, digest string) ([]contentdefs.WidgetDefinition, []contentdefs.DataSourceDefinition, map[payloadKey]contentdefs.WidgetPayload, error) {
 	source := contentdefs.PackageSource(manifest.PackageID, manifest.PackageVersion, digest)
 	var widgets []contentdefs.WidgetDefinition
 	var sources []contentdefs.DataSourceDefinition
+	bundles := map[payloadKey]contentdefs.WidgetPayload{}
 	for _, contribution := range manifest.Contributions {
 		if contribution.Type == packagemanifest.ContributionPlugin {
 			// Plugin behavior waits for the external plugin
@@ -229,42 +266,69 @@ func (s *Service) decode(contentDir string, manifest packagemanifest.Manifest, d
 		}
 		file, ok := packages.NestedManifestFile(contribution.Type)
 		if !ok {
-			return nil, nil, fmt.Errorf("package %s: unknown contribution type %q", manifest.PackageID, contribution.Type)
+			return nil, nil, nil, fmt.Errorf("package %s: unknown contribution type %q", manifest.PackageID, contribution.Type)
 		}
 		joined := filepath.Join(contentDir, contribution.Path, file)
 		rel, err := filepath.Rel(contentDir, joined)
 		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return nil, nil, fmt.Errorf("package %s: contribution path %q escapes the package", manifest.PackageID, contribution.Path)
+			return nil, nil, nil, fmt.Errorf("package %s: contribution path %q escapes the package", manifest.PackageID, contribution.Path)
 		}
 		raw, err := os.ReadFile(joined)
 		if err != nil {
-			return nil, nil, fmt.Errorf("package %s: contribution %q has no readable %s", manifest.PackageID, contribution.Path, file)
+			return nil, nil, nil, fmt.Errorf("package %s: contribution %q has no readable %s", manifest.PackageID, contribution.Path, file)
 		}
 		if len(raw) > packages.MaxNestedManifestBytes {
-			return nil, nil, fmt.Errorf("package %s: contribution %q exceeds the manifest size limit", manifest.PackageID, contribution.Path)
+			return nil, nil, nil, fmt.Errorf("package %s: contribution %q exceeds the manifest size limit", manifest.PackageID, contribution.Path)
 		}
 		switch contribution.Type {
 		case packagemanifest.ContributionWidget:
 			definition, err := contentdefs.DecodePackageWidget(manifest.PackageID, raw, source)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
+			nestedID, _ := strings.CutPrefix(definition.ID, manifest.PackageID+".")
+			payload, err := hashWidgetPayload(contentDir, contribution.Path, manifest.PackageID, nestedID, digest)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			bundles[payloadKey{packageID: manifest.PackageID, nestedID: nestedID}] = payload
 			widgets = append(widgets, definition)
 		case packagemanifest.ContributionDataSource:
 			definition, err := contentdefs.DecodePackageDataSource(manifest.PackageID, raw, source)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			if !s.adapterAllowed(definition.AdapterID) {
-				return nil, nil, fmt.Errorf("package %s: Data Source %q uses unregistered adapter %q", manifest.PackageID, definition.ID, definition.AdapterID)
+				return nil, nil, nil, fmt.Errorf("package %s: Data Source %q uses unregistered adapter %q", manifest.PackageID, definition.ID, definition.AdapterID)
 			}
 			if !externalAdapters[definition.AdapterID] {
-				return nil, nil, fmt.Errorf("package %s: Data Source %q uses adapter %q, which cannot serve external definitions", manifest.PackageID, definition.ID, definition.AdapterID)
+				return nil, nil, nil, fmt.Errorf("package %s: Data Source %q uses adapter %q, which cannot serve external definitions", manifest.PackageID, definition.ID, definition.AdapterID)
 			}
 			sources = append(sources, definition)
 		default:
-			return nil, nil, fmt.Errorf("package %s: unknown contribution type %q", manifest.PackageID, contribution.Type)
+			return nil, nil, nil, fmt.Errorf("package %s: unknown contribution type %q", manifest.PackageID, contribution.Type)
 		}
 	}
-	return widgets, sources, nil
+	return widgets, sources, bundles, nil
+}
+
+// hashWidgetPayload reads and hashes one Widget contribution's fixed
+// player bundle. The bundle path is never author-declared, containment
+// is rechecked after joining, and an oversized bundle fails like a
+// missing one: the package cannot serve Players code it cannot name.
+func hashWidgetPayload(contentDir, contributionPath, packageID, nestedID, digest string) (contentdefs.WidgetPayload, error) {
+	joined := filepath.Join(contentDir, contributionPath, packages.WidgetPayloadRel)
+	rel, err := filepath.Rel(contentDir, joined)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return contentdefs.WidgetPayload{}, fmt.Errorf("package %s: contribution path %q escapes the package", packageID, contributionPath)
+	}
+	raw, err := os.ReadFile(joined)
+	if err != nil {
+		return contentdefs.WidgetPayload{}, fmt.Errorf("package %s: Widget %q has no player bundle at %s", packageID, nestedID, packages.WidgetPayloadRel)
+	}
+	if len(raw) == 0 || len(raw) > packages.MaxWidgetPayloadBytes {
+		return contentdefs.WidgetPayload{}, fmt.Errorf("package %s: Widget %q has an unusable player bundle", packageID, nestedID)
+	}
+	sum := sha256.Sum256(raw)
+	return contentdefs.WidgetPayload{PackageDigest: digest, SHA256Hex: hex.EncodeToString(sum[:]), Size: int64(len(raw))}, nil
 }

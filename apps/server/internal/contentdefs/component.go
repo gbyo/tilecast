@@ -19,7 +19,15 @@ const (
 	// kind "component" presentations. Schema 3 carries the declared empty
 	// policy; native and web presentations use schema 1.
 	ComponentPresentationSchemaVersion = 3
-	maxComponentVersion                = 100
+	// ExternalRuntimeCapability is the single capability a Player reports
+	// when it can fetch, verify, and sandbox external Widget code
+	// (docs/content-extension-model.md §16). External Widgets never
+	// advertise per-component capabilities: the presentation names the
+	// component contract, and the capability names the execution ABI.
+	ExternalRuntimeCapability = "widget.external-runtime"
+	// ExternalRuntimeVersion is the supported external execution ABI.
+	ExternalRuntimeVersion = 1
+	maxComponentVersion    = 100
 	// maxWidgetCapabilityLen is the heartbeat's capability-name bound. The
 	// full "widget.<type>" capability must fit within it.
 	maxWidgetCapabilityLen   = 80

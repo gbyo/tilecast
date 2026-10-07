@@ -138,6 +138,23 @@ the definition-keyed adapters only (`http_records`, `manual_object`,
 `manual_records`); provider-keyed native adapters stay unavailable to
 packages. External plugin behavior stays inert: no executor runs it yet.
 
+## Player bundle delivery
+
+A Widget contribution may ship an execution bundle at the fixed path
+`runtime/index.js` inside the package. The pipeline records the bundle SHA-256
+and size in the contribution snapshot at install time; a Widget presentation
+that names a bundle without one compiles to no component and never reaches a
+manifest.
+
+Device-authenticated Players fetch the bundle from
+`GET /api/v1/player/packages/{packageId}/widgets/{widgetId}`, with `HEAD`
+for inspection. The server serves only the installed, verified bundle bytes
+for an active credential; disabled screens and revoked credentials are
+rejected before file access. The manifest `package` block carries the same
+SHA-256 and size, so the Player verifies the download before activation.
+Bundle bytes are content-addressed and pinned like media; removal of the
+package invalidates the route.
+
 ## Sources
 
 A package installs from exactly one source kind:
