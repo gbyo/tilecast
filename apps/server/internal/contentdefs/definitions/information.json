@@ -17,9 +17,7 @@
             "label": "Data Source",
             "control": "data_source",
             "required": true,
-            "acceptedDataSourceKinds": [
-              "object"
-            ],
+            "acceptedDataSourceKinds": ["object"],
             "requiredFields": {
               "current": "number",
               "target": "number"
@@ -30,11 +28,7 @@
             "label": "Raised-so-far field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": [
-              "number",
-              "integer",
-              "currency"
-            ],
+            "dataSourceFieldTypes": ["number", "integer", "currency"],
             "default": "current"
           },
           {
@@ -42,11 +36,7 @@
             "label": "Goal field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": [
-              "number",
-              "integer",
-              "currency"
-            ],
+            "dataSourceFieldTypes": ["number", "integer", "currency"],
             "default": "target"
           },
           {
@@ -120,9 +110,7 @@
         "foregroundColor": "#ffffff",
         "backgroundColor": "#123b2c"
       },
-      "acceptedDataSourceKinds": [
-        "object"
-      ],
+      "acceptedDataSourceKinds": ["object"],
       "requiredFieldTypes": {
         "current": "number",
         "target": "number"
@@ -297,9 +285,7 @@
             "default": ""
           }
         },
-        "dataSourceFields": [
-          "dataSourceId"
-        ],
+        "dataSourceFields": ["dataSourceId"],
         "empty": "skip-eligible"
       },
       "compatibility": {
@@ -323,18 +309,14 @@
             "label": "Data Source",
             "control": "data_source",
             "required": true,
-            "acceptedDataSourceKinds": [
-              "records"
-            ]
+            "acceptedDataSourceKinds": ["records"]
           },
           {
             "key": "titleField",
             "label": "Title field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": [
-              "text"
-            ],
+            "dataSourceFieldTypes": ["text"],
             "default": "title"
           },
           {
@@ -342,11 +324,7 @@
             "label": "Detail field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": [
-              "text",
-              "date",
-              "datetime"
-            ],
+            "dataSourceFieldTypes": ["text", "date", "datetime"],
             "default": "start"
           },
           {
@@ -419,9 +397,7 @@
         "emptyState": "Nothing scheduled",
         "autoSkipWhenEmpty": false
       },
-      "acceptedDataSourceKinds": [
-        "records"
-      ],
+      "acceptedDataSourceKinds": ["records"],
       "presentationSchemaVersion": 1,
       "presentationTemplate": {
         "type": "surface",
@@ -670,9 +646,7 @@
           },
           "accent": ""
         },
-        "dataSourceFields": [
-          "dataSourceId"
-        ],
+        "dataSourceFields": ["dataSourceId"],
         "empty": "skip-eligible"
       },
       "compatibility": { "fallback": "template" },
@@ -700,18 +674,14 @@
             "label": "Data Source",
             "control": "data_source",
             "required": true,
-            "acceptedDataSourceKinds": [
-              "records"
-            ]
+            "acceptedDataSourceKinds": ["records"]
           },
           {
             "key": "nameField",
             "label": "Name field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": [
-              "text"
-            ],
+            "dataSourceFieldTypes": ["text"],
             "default": "title"
           },
           {
@@ -719,9 +689,7 @@
             "label": "Note field",
             "control": "data_source_field",
             "required": true,
-            "dataSourceFieldTypes": [
-              "text"
-            ],
+            "dataSourceFieldTypes": ["text"],
             "default": "description"
           },
           {
@@ -794,9 +762,7 @@
         "emptyState": "No entries yet",
         "autoSkipWhenEmpty": false
       },
-      "acceptedDataSourceKinds": [
-        "records"
-      ],
+      "acceptedDataSourceKinds": ["records"],
       "presentationSchemaVersion": 1,
       "presentationTemplate": {
         "type": "surface",
@@ -983,9 +949,7 @@
             "default": "#ffffff"
           }
         },
-        "dataSourceFields": [
-          "dataSourceId"
-        ],
+        "dataSourceFields": ["dataSourceId"],
         "empty": "skip-eligible"
       },
       "compatibility": {
