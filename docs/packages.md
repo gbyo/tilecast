@@ -125,7 +125,7 @@ A package installs from exactly one source kind:
   digest; the pipeline resolves the pinned digest through the same
   registry and provenance path as a custom install.
 - `custom`: a public GitHub repository the operator added. The binding
-  persists in `custom_package_sources` (migration `00118`): one
+  persists in `custom_package_sources` (migration `00120`): one
   repository supplies one package, enforced in both directions, and the
   binding carries the last verified manifest and digest. Removing the
   installation keeps the binding for reinstall.
