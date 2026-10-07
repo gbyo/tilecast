@@ -26,7 +26,7 @@ func TestRenderReviewIncludesRuntimeCapabilities(t *testing.T) {
 		},
 		Compatible: true,
 	}
-	review := renderReview(resolution, installer.InstalledPackage{}, false)
+	review := renderReview(resolution, installer.InstalledPackage{}, false, nil)
 	raw, err := json.Marshal(review)
 	if err != nil {
 		t.Fatalf("marshal review: %v", err)
@@ -80,7 +80,7 @@ func TestRenderReviewOmitsAbsentRuntime(t *testing.T) {
 		},
 		Compatible: true,
 	}
-	review := renderReview(resolution, installer.InstalledPackage{}, false)
+	review := renderReview(resolution, installer.InstalledPackage{}, false, nil)
 	raw, err := json.Marshal(review)
 	if err != nil {
 		t.Fatalf("marshal review: %v", err)
