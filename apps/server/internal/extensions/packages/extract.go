@@ -114,8 +114,10 @@ func extractBlob(blob *os.File, destDir string, seen map[string]bool, files *int
 }
 
 // cleanEntry resolves a tar entry name inside dest. Anything absolute,
-// traversing, or empty fails closed. The name cleans before joining: a
-// leading ".." must be rejected, not collapsed against the destination.
+// traversing, or empty fails closed. The name cleans before joining so
+// a leading ".." is rejected, not collapsed against the destination,
+// and the joined path is rechecked against the destination so the
+// containment holds no matter how the join behaves.
 func cleanEntry(destDir, name string) (string, error) {
 	if name == "" || filepath.IsAbs(name) {
 		return "", fmt.Errorf("package content: entry %q escapes the package", name)
@@ -124,7 +126,12 @@ func cleanEntry(destDir, name string) (string, error) {
 	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("package content: entry %q escapes the package", name)
 	}
-	return filepath.Join(destDir, cleaned), nil
+	joined := filepath.Join(destDir, cleaned)
+	prefix := filepath.Clean(destDir) + string(filepath.Separator)
+	if joined != filepath.Clean(destDir) && !strings.HasPrefix(joined, prefix) {
+		return "", fmt.Errorf("package content: entry %q escapes the package", name)
+	}
+	return joined, nil
 }
 
 func extractDir(destDir, name string) error {

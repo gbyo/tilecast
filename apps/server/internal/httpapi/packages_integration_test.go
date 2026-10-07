@@ -85,7 +85,19 @@ func TestPackagesAPI(t *testing.T) {
 			t.Fatalf("resolve unconfigured = %d %v, want 502 upstream_unavailable", status, body)
 		}
 
+		// Marketplace review reads the empty test catalog: an unlisted
+		// package answers 404 without touching the network.
+		if status, body := client.call("owner", http.MethodPost, "/api/v1/plugin-store/acme.market/resolve", true, ""); status != http.StatusNotFound || errorCode(body) != "plugin_not_found" {
+			t.Fatalf("marketplace resolve unknown = %d %v, want 404 plugin_not_found", status, body)
+		}
+
 		// Mutations need Owner or Administrator with a CSRF token.
+		if status, _ := client.call("viewer", http.MethodPost, "/api/v1/plugin-store/acme.market/resolve", true, ""); status != http.StatusForbidden {
+			t.Fatalf("viewer resolve status = %d, want 403", status)
+		}
+		if status, _ := client.call("owner", http.MethodPost, "/api/v1/plugin-store/acme.market/resolve", false, ""); status != http.StatusForbidden {
+			t.Fatalf("resolve without CSRF status = %d, want 403", status)
+		}
 		if status, _ := client.call("viewer", http.MethodPost, "/api/v1/plugin-store/acme.custom/install", true, ""); status != http.StatusForbidden {
 			t.Fatalf("viewer install status = %d, want 403", status)
 		}

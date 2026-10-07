@@ -219,6 +219,21 @@ export function resolveGitHubRepository(
 }
 
 /**
+ * Resolve a cached marketplace listing to its install review. The
+ * pinned artifact verifies provenance and reads the published
+ * manifest; installing re-resolves fresh.
+ */
+export function resolveMarketplacePackage(
+  packageId: string,
+  csrfToken: string,
+): Promise<GitHubInstallReview> {
+  return apiPost("/api/v1/plugin-store/{packageId}/resolve", {
+    params: { path: { packageId } },
+    csrfToken,
+  });
+}
+
+/**
  * Install the store entry. A marketplace entry installs with no body; a
  * custom entry installs when the body names its repository.
  */

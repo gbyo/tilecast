@@ -100,6 +100,8 @@ let storeCustoms: {
 }[] = [];
 let packages: Record<string, InstalledPackage> = {};
 let review: GitHubInstallReview | undefined;
+let marketplaceResolveError:
+  { status: number; code: string; message: string } | undefined;
 let check: PackageUpdateCheck | undefined;
 let marketplaceStatus: PluginMarketplaceStatus = {
   configured: false,
@@ -122,6 +124,7 @@ beforeEach(() => {
   storeCustoms = [];
   packages = {};
   review = undefined;
+  marketplaceResolveError = undefined;
   check = undefined;
   marketplaceStatus = { stale: false };
   calls = [];
@@ -177,6 +180,52 @@ beforeEach(() => {
             }),
           );
         return Promise.resolve(json(200, { data: review }));
+      }
+      if (
+        request.method === "POST" &&
+        path.startsWith("/plugin-store/") &&
+        path.endsWith("/resolve")
+      ) {
+        const id = decodeURIComponent(path.split("/")[2] ?? "");
+        if (marketplaceResolveError)
+          return Promise.resolve(
+            json(marketplaceResolveError.status, {
+              error: {
+                code: marketplaceResolveError.code,
+                message: marketplaceResolveError.message,
+              },
+            }),
+          );
+        const listed = storeListings.find(
+          (candidate) => candidate.packageId === id,
+        );
+        if (!listed)
+          return Promise.resolve(
+            json(404, {
+              error: { code: "plugin_not_found", message: "Not found." },
+            }),
+          );
+        // The review carries the published manifest, as the server's
+        // resolve does; the listing only names the artifact.
+        const data =
+          review?.packageId === id
+            ? review
+            : installReview({
+                packageId: id,
+                version: listed.listing.version,
+                manifest: {
+                  name: listed.listing.name,
+                  description: listed.listing.description,
+                  publisherId: listed.listing.publisherId,
+                  publisherName: listed.listing.publisherName,
+                  license: listed.listing.license,
+                  tilecastRange: listed.listing.tilecastRange,
+                },
+                compatible: listed.listing.compatible,
+                digest: listed.listing.digest,
+                repositoryUrl: listed.listing.repository,
+              });
+        return Promise.resolve(json(200, { data }));
       }
       if (
         request.method === "POST" &&
@@ -926,9 +975,7 @@ describe("Marketplace store", () => {
       ),
     );
     expect(
-      await screen.findByText(
-        "Listed in the official Tilecast Marketplace.",
-      ),
+      await screen.findByText("Listed in the official Tilecast Marketplace."),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "Repository" })).toHaveAttribute(
       "href",
@@ -939,13 +986,30 @@ describe("Marketplace store", () => {
       "https://example.com/acme/weather/docs",
     );
     expect(screen.getByText("MIT")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Install" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Review install" }),
+    ).toBeVisible();
   });
 
-  it("installs a marketplace listing from its detail page", async () => {
+  it("reviews a marketplace listing before installing it", async () => {
     const user = userEvent.setup();
     renderStore("/plugins/store/acme.weather");
-    await user.click(await screen.findByRole("button", { name: "Install" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Review install" }),
+    );
+    // The review shows the published manifest: release, provenance,
+    // contributions, and the catalog update plane.
+    expect(await screen.findByText("Release")).toBeVisible();
+    expect(screen.getByText("widget · lobby")).toBeVisible();
+    expect(
+      screen.getByText(
+        "The Marketplace listing stays the update plane, so update checks re-read it.",
+      ),
+    ).toBeVisible();
+    expect(calls.filter((call) => call.path.endsWith("/install"))).toHaveLength(
+      0,
+    );
+    await user.click(screen.getByRole("button", { name: "Install package" }));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Installed" })).toBeVisible(),
     );
@@ -957,6 +1021,40 @@ describe("Marketplace store", () => {
     ).toBeVisible();
   });
 
+  it("explains a failed marketplace review without installing", async () => {
+    const user = userEvent.setup();
+    marketplaceResolveError = {
+      status: 422,
+      code: "package_unsigned",
+      message: "The package has no verifying provenance.",
+    };
+    renderStore("/plugins/store/acme.weather");
+    await user.click(
+      await screen.findByRole("button", { name: "Review install" }),
+    );
+    expect(
+      await screen.findByText("The package has no verifying provenance."),
+    ).toBeVisible();
+    expect(screen.queryByText("Release")).toBeNull();
+    expect(calls.filter((call) => call.path.endsWith("/install"))).toHaveLength(
+      0,
+    );
+  });
+
+  it("cancels a marketplace review without installing", async () => {
+    const user = userEvent.setup();
+    renderStore("/plugins/store/acme.weather");
+    await user.click(
+      await screen.findByRole("button", { name: "Review install" }),
+    );
+    expect(await screen.findByText("Release")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByText("Release")).toBeNull());
+    expect(calls.filter((call) => call.path.endsWith("/install"))).toHaveLength(
+      0,
+    );
+  });
+
   it("warns on incompatible listings instead of offering install", async () => {
     renderStore("/plugins/store/acme.future");
     expect(
@@ -965,6 +1063,7 @@ describe("Marketplace store", () => {
       ),
     ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Install" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Review install" })).toBeNull();
   });
 
   it("offers refresh while the catalog is stale and clears the banner after", async () => {
@@ -983,7 +1082,9 @@ describe("Marketplace store", () => {
       ),
     ).toBe(true);
     await waitFor(() =>
-      expect(screen.queryByText("Marketplace catalog may be out of date")).toBeNull(),
+      expect(
+        screen.queryByText("Marketplace catalog may be out of date"),
+      ).toBeNull(),
     );
   });
 
@@ -994,7 +1095,9 @@ describe("Marketplace store", () => {
       error: "fetch answered HTTP 500",
     };
     renderStore();
-    expect(await screen.findByText("Marketplace couldn't be refreshed")).toBeVisible();
+    expect(
+      await screen.findByText("Marketplace couldn't be refreshed"),
+    ).toBeVisible();
     expect(screen.getByText("fetch answered HTTP 500")).toBeVisible();
     expect(
       screen.queryByRole("button", { name: "Refresh catalog" }),

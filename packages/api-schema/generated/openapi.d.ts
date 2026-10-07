@@ -2699,6 +2699,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/plugin-store/{packageId}/resolve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a cached marketplace listing to its install review: the pinned artifact verifies provenance, pulls by digest, and reads the published manifest, which is authoritative for capabilities. Installs nothing; installing re-resolves fresh. */
+    post: operations["resolveMarketplacePackage"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/plugin-store/{packageId}/install": {
     parameters: {
       query?: never;
@@ -19019,6 +19036,69 @@ export interface operations {
         content?: never;
       };
       /** @description upstream_unavailable — GitHub, the registry, or Sigstore is unreachable */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  resolveMarketplacePackage: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Install review */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["GitHubInstallReview"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Owner or Administrator role required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description plugin_not_found — no listing carries this package ID */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description repository_not_supported, no_published_package, package_unsigned, artifact_invalid, package_mismatch, or package_incompatible */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description upstream_unavailable — the catalog, the registry, or Sigstore is unreachable */
       502: {
         headers: {
           [name: string]: unknown;

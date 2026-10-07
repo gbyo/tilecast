@@ -156,6 +156,14 @@ re-resolves fresh and cross-checks package ID, version, OCI reference,
 and Tilecast range between the review and the published artifact; a
 drift answers `package_mismatch` and installs nothing.
 
+`POST /api/v1/plugin-store/{packageId}/resolve` gives a marketplace
+listing the same review step before activation. The listing digest is
+already pinned, so no tag resolves; the artifact still verifies
+provenance, pulls by digest, and reads the published manifest. The
+manifest — not the listing — is authoritative for capabilities, and
+Studio shows the same review and requires confirmation before the
+install activates. Unknown listings answer `plugin_not_found`.
+
 Only GitHub repositories install in this release
 (`repository_not_supported` otherwise).
 

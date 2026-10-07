@@ -22,13 +22,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tilecast/tilecast/apps/server/internal/ghrepo"
 	"github.com/tilecast/tilecast/apps/server/internal/version"
 )
 
 var (
 	// ErrRepositoryURL answers input that is not a public GitHub
-	// repository address.
-	ErrRepositoryURL = errors.New("not a GitHub repository URL")
+	// repository address. It aliases the shared parser error so
+	// errors.Is matches across both packages.
+	ErrRepositoryURL = ghrepo.ErrRepositoryURL
 	// ErrNotFound answers a repository, release, or file GitHub does
 	// not have.
 	ErrNotFound = errors.New("GitHub has no such repository, release, or file")
@@ -55,69 +57,15 @@ const (
 	maxBodyBytes = 1 << 20
 )
 
-// Repository is the address every other call resolves within. Owner and
-// Name are lowercase: GitHub treats them case-insensitively, and one
-// canonical identity keeps the same repository from registering twice.
-type Repository struct {
-	Owner string
-	Name  string
-}
+// Repository is the canonical parsed repository address. The parser lives
+// in internal/ghrepo so the marketplace catalog and the installer share
+// it; this package re-exports the shared names its callers use.
+type Repository = ghrepo.Repository
 
-// URL reports the canonical public address of the repository.
-func (r Repository) URL() string {
-	return "https://github.com/" + r.Owner + "/" + r.Name
-}
-
-// ParseRepositoryURL accepts a public GitHub repository address in the
-// shapes operators paste: with or without a trailing slash or a .git
-// suffix. Anything else answers ErrRepositoryURL. No request is made.
+// ParseRepositoryURL accepts a public GitHub repository address. See
+// internal/ghrepo for the accepted forms. No request is made.
 func ParseRepositoryURL(raw string) (Repository, error) {
-	trimmed := strings.TrimSpace(raw)
-	parsed, err := url.Parse(trimmed)
-	if err != nil {
-		return Repository{}, fmt.Errorf("%w: %q", ErrRepositoryURL, raw)
-	}
-	if parsed.Scheme != "https" || !strings.EqualFold(parsed.Hostname(), "github.com") || parsed.User != nil {
-		return Repository{}, fmt.Errorf("%w: %q", ErrRepositoryURL, raw)
-	}
-	path := strings.Trim(strings.TrimSuffix(parsed.Path, ".git"), "/")
-	segments := strings.Split(path, "/")
-	if len(segments) != 2 || segments[0] == "" || segments[1] == "" {
-		return Repository{}, fmt.Errorf("%w: %q", ErrRepositoryURL, raw)
-	}
-	owner, name := strings.ToLower(segments[0]), strings.ToLower(segments[1])
-	if !validOwner(owner) || !validName(name) {
-		return Repository{}, fmt.Errorf("%w: %q", ErrRepositoryURL, raw)
-	}
-	return Repository{Owner: owner, Name: name}, nil
-}
-
-func validOwner(value string) bool {
-	if len(value) < 1 || len(value) > 39 {
-		return false
-	}
-	for i := 0; i < len(value); i++ {
-		c := value[i]
-		if c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-' {
-			continue
-		}
-		return false
-	}
-	return value[0] != '-' && value[len(value)-1] != '-'
-}
-
-func validName(value string) bool {
-	if len(value) < 1 || len(value) > 100 {
-		return false
-	}
-	for i := 0; i < len(value); i++ {
-		c := value[i]
-		if c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '.' || c == '-' || c == '_' {
-			continue
-		}
-		return false
-	}
-	return true
+	return ghrepo.ParseRepositoryURL(raw)
 }
 
 // Release is the published release resolution pins: the tag that names

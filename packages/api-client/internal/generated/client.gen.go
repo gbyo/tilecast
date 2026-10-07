@@ -12962,6 +12962,12 @@ type SetPlaylistTagRuleParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// RefreshMarketplaceCatalogParams defines parameters for RefreshMarketplaceCatalog.
+type RefreshMarketplaceCatalogParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // ResolveGitHubRepositoryJSONBody defines parameters for ResolveGitHubRepository.
 type ResolveGitHubRepositoryJSONBody struct {
 	// Repository Public GitHub repository URL.
@@ -12982,6 +12988,12 @@ type InstallStorePackageJSONBody struct {
 
 // InstallStorePackageParams defines parameters for InstallStorePackage.
 type InstallStorePackageParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
+// ResolveMarketplacePackageParams defines parameters for ResolveMarketplacePackage.
+type ResolveMarketplacePackageParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
@@ -16787,7 +16799,7 @@ type ClientInterface interface {
 	// RefreshMarketplaceCatalog performs a POST /api/v1/plugin-store/marketplace/refresh (the `RefreshMarketplaceCatalog` operationId) request.
 	//
 	// Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
-	RefreshMarketplaceCatalog(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RefreshMarketplaceCatalog(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ResolveGitHubRepositoryWithBody performs a POST /api/v1/plugin-store/resolve-github (the `ResolveGitHubRepository` operationId) request,
 	// with any type of body and a specified content type.
@@ -16817,6 +16829,11 @@ type ClientInterface interface {
 	//
 	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
 	InstallStorePackage(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, body InstallStorePackageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ResolveMarketplacePackage performs a POST /api/v1/plugin-store/{packageId}/resolve (the `ResolveMarketplacePackage` operationId) request.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a cached marketplace listing to its install review: the pinned artifact verifies provenance, pulls by digest, and reads the published manifest, which is authoritative for capabilities. Installs nothing; installing re-resolves fresh.
+	ResolveMarketplacePackage(ctx context.Context, packageId PackageID, params *ResolveMarketplacePackageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPlugins performs a GET /api/v1/plugins (the `ListPlugins` operationId) request.
 	//
@@ -23409,8 +23426,8 @@ func (c *Client) ListPluginStore(ctx context.Context, reqEditors ...RequestEdito
 // RefreshMarketplaceCatalog performs a POST /api/v1/plugin-store/marketplace/refresh (the `RefreshMarketplaceCatalog` operationId) request.
 //
 // Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
-func (c *Client) RefreshMarketplaceCatalog(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRefreshMarketplaceCatalogRequest(c.Server)
+func (c *Client) RefreshMarketplaceCatalog(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefreshMarketplaceCatalogRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -23490,6 +23507,21 @@ func (c *Client) InstallStorePackageWithBody(ctx context.Context, packageId Pack
 // Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
 func (c *Client) InstallStorePackage(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, body InstallStorePackageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewInstallStorePackageRequest(c.Server, packageId, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ResolveMarketplacePackage performs a POST /api/v1/plugin-store/{packageId}/resolve (the `ResolveMarketplacePackage` operationId) request.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a cached marketplace listing to its install review: the pinned artifact verifies provenance, pulls by digest, and reads the published manifest, which is authoritative for capabilities. Installs nothing; installing re-resolves fresh.
+func (c *Client) ResolveMarketplacePackage(ctx context.Context, packageId PackageID, params *ResolveMarketplacePackageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewResolveMarketplacePackageRequest(c.Server, packageId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -39175,7 +39207,7 @@ func NewListPluginStoreRequest(server string) (*http.Request, error) {
 }
 
 // NewRefreshMarketplaceCatalogRequest constructs an http.Request for the RefreshMarketplaceCatalog method
-func NewRefreshMarketplaceCatalogRequest(server string) (*http.Request, error) {
+func NewRefreshMarketplaceCatalogRequest(server string, params *RefreshMarketplaceCatalogParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -39196,6 +39228,21 @@ func NewRefreshMarketplaceCatalogRequest(server string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -39333,6 +39380,55 @@ func NewInstallStorePackageRequestWithBody(server string, packageId PackageID, p
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewResolveMarketplacePackageRequest constructs an http.Request for the ResolveMarketplacePackage method
+func NewResolveMarketplacePackageRequest(server string, packageId PackageID, params *ResolveMarketplacePackageParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store/%s/resolve", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	if params != nil {
 
@@ -48140,7 +48236,7 @@ type ClientWithResponsesInterface interface {
 	// Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	RefreshMarketplaceCatalogWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error)
+	RefreshMarketplaceCatalogWithResponse(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error)
 
 	// ResolveGitHubRepositoryWithBodyWithResponse performs a POST /api/v1/plugin-store/resolve-github (the `ResolveGitHubRepository` operationId) request,
 	// with any type of body and a specified content type.
@@ -48176,6 +48272,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Installs the store entry. A marketplace entry installs from its listing with an empty body; a custom entry installs when the body names its repository. The package ID must match the resolved manifest. Audited.
 	InstallStorePackageWithResponse(ctx context.Context, packageId PackageID, params *InstallStorePackageParams, body InstallStorePackageJSONRequestBody, reqEditors ...RequestEditorFn) (*InstallStorePackageResponse, error)
+
+	// ResolveMarketplacePackageWithResponse performs a POST /api/v1/plugin-store/{packageId}/resolve (the `ResolveMarketplacePackage` operationId) request.
+	//
+	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a cached marketplace listing to its install review: the pinned artifact verifies provenance, pulls by digest, and reads the published manifest, which is authoritative for capabilities. Installs nothing; installing re-resolves fresh.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ResolveMarketplacePackageWithResponse(ctx context.Context, packageId PackageID, params *ResolveMarketplacePackageParams, reqEditors ...RequestEditorFn) (*ResolveMarketplacePackageResponse, error)
 
 	// ListPluginsWithResponse performs a GET /api/v1/plugins (the `ListPlugins` operationId) request.
 	//
@@ -60593,6 +60696,53 @@ func (r InstallStorePackageResponse) ContentType() string {
 	return ""
 }
 
+type ResolveMarketplacePackageResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+		Data GitHubInstallReview `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ResolveMarketplacePackageResponse) GetJSON200() *struct {
+	// Data The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+	Data GitHubInstallReview `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ResolveMarketplacePackageResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ResolveMarketplacePackageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ResolveMarketplacePackageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ResolveMarketplacePackageResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListPluginsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -71380,8 +71530,8 @@ func (c *ClientWithResponses) ListPluginStoreWithResponse(ctx context.Context, r
 // Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) RefreshMarketplaceCatalogWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error) {
-	rsp, err := c.RefreshMarketplaceCatalog(ctx, reqEditors...)
+func (c *ClientWithResponses) RefreshMarketplaceCatalogWithResponse(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error) {
+	rsp, err := c.RefreshMarketplaceCatalog(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -71451,6 +71601,19 @@ func (c *ClientWithResponses) InstallStorePackageWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseInstallStorePackageResponse(rsp)
+}
+
+// ResolveMarketplacePackageWithResponse performs a POST /api/v1/plugin-store/{packageId}/resolve (the `ResolveMarketplacePackage` operationId) request.
+//
+// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves a cached marketplace listing to its install review: the pinned artifact verifies provenance, pulls by digest, and reads the published manifest, which is authoritative for capabilities. Installs nothing; installing re-resolves fresh.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ResolveMarketplacePackageWithResponse(ctx context.Context, packageId PackageID, params *ResolveMarketplacePackageParams, reqEditors ...RequestEditorFn) (*ResolveMarketplacePackageResponse, error) {
+	rsp, err := c.ResolveMarketplacePackage(ctx, packageId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseResolveMarketplacePackageResponse(rsp)
 }
 
 // ListPluginsWithResponse performs a GET /api/v1/plugins (the `ListPlugins` operationId) request.
@@ -81397,6 +81560,50 @@ func ParseInstallStorePackageResponse(rsp *http.Response) (*InstallStorePackageR
 		break // No content-type
 
 	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	case rsp.StatusCode == 502:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseResolveMarketplacePackageResponse parses an HTTP response from a ResolveMarketplacePackageWithResponse call
+func ParseResolveMarketplacePackageResponse(rsp *http.Response) (*ResolveMarketplacePackageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ResolveMarketplacePackageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
+			Data GitHubInstallReview `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
 		break // No content-type
 
 	case rsp.StatusCode == 422:

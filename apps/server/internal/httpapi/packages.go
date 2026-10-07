@@ -240,6 +240,26 @@ func (s *server) resolveGitHubRepository(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]any{"data": renderReview(resolution, installed, isInstalled)})
 }
 
+// resolveMarketplacePackage resolves a cached marketplace listing to
+// the install review: the pinned artifact verifies provenance, pulls
+// by digest, and reads the published manifest, which is authoritative
+// for capabilities. It installs nothing; installing re-resolves fresh.
+func (s *server) resolveMarketplacePackage(w http.ResponseWriter, r *http.Request) {
+	packageID := chi.URLParam(r, "packageId")
+	resolution, err := s.packages.ResolveMarketplace(r.Context(), packageID)
+	if err != nil {
+		s.writePackageError(w, r, err)
+		return
+	}
+	installed, err := s.installer.Get(r.Context(), resolution.Manifest.PackageID)
+	isInstalled := err == nil
+	if err != nil && !errors.Is(err, installer.ErrNotFound) {
+		s.internalError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": renderReview(resolution, installed, isInstalled)})
+}
+
 // installStorePackage installs the store entry: a marketplace listing by
 // package ID, or a custom repository when the body names one. The
 // package ID must match the resolved manifest; the server re-resolves

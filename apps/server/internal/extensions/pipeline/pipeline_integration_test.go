@@ -628,6 +628,36 @@ func TestInstallMarketplace(t *testing.T) {
 	}
 }
 
+func TestResolveMarketplace(t *testing.T) {
+	f := newPipelineFixture(t)
+	ctx := context.Background()
+	f.listing = f.catalogListing()
+	resolution, err := f.service.ResolveMarketplace(ctx, pipelinePID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The review carries the published manifest, not the listing:
+	// real contributions, pinned digest, and verified trust.
+	if len(resolution.Manifest.Contributions) != 2 || resolution.Manifest.PackageVersion != "2.4.1" {
+		t.Fatalf("manifest = %+v", resolution.Manifest)
+	}
+	if resolution.Digest != f.digest {
+		t.Fatalf("digest = %s, want %s", resolution.Digest, f.digest)
+	}
+	if resolution.Signer != pipelineSign || resolution.Trust != installer.TrustVerified {
+		t.Fatalf("trust = %s %s", resolution.Signer, resolution.Trust)
+	}
+	if !resolution.Compatible {
+		t.Fatal("resolution should be compatible with Tilecast 1.5.0")
+	}
+	if _, err := f.service.CustomSource(ctx, pipelinePID); !errors.Is(err, ErrNotInstalled) {
+		t.Fatalf("review installed a source: %v", err)
+	}
+	if _, err := f.service.ResolveMarketplace(ctx, "other.package"); !errors.Is(err, catalog.ErrUnknownPackage) {
+		t.Fatalf("err = %v, want ErrUnknownPackage", err)
+	}
+}
+
 func TestMarketplaceListingNotGitHub(t *testing.T) {
 	f := newPipelineFixture(t)
 	ctx := context.Background()

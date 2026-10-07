@@ -181,6 +181,7 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireScope("read")).Get("/plugin-store/{packageId}", s.getPluginStoreEntry)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/plugin-store/marketplace/refresh", s.refreshMarketplaceCatalog)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/plugin-store/resolve-github", s.resolveGitHubRepository)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/plugin-store/{packageId}/resolve", s.resolveMarketplacePackage)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/plugin-store/{packageId}/install", s.installStorePackage)
 			dashboard.With(s.requireScope("read")).Get("/packages", s.listPackages)
 			dashboard.With(s.requireScope("read")).Get("/packages/{packageId}", s.getPackage)

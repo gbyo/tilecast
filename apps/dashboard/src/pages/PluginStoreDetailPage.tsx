@@ -1,8 +1,10 @@
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, CircleAlert, Puzzle } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { cn } from "cn";
 import type {
+  GitHubInstallReview,
   PluginStoreCustom,
   PluginStoreEntry,
   PluginStoreMarketplace,
@@ -55,6 +57,15 @@ export function PluginStoreDetailPage() {
   const csrfToken = auth.status?.csrfToken ?? "";
   const { install } = usePluginLifecycle(csrfToken);
   const packages = usePackageLifecycle(csrfToken);
+  const reviewMarketplaceMutation = packages.resolveMarketplace;
+  // The route reuses this page across listings; a review belongs to
+  // the listing that requested it. Reset through a ref so settling
+  // the mutation does not wipe its own result.
+  const reviewMutationRef = useRef(reviewMarketplaceMutation);
+  reviewMutationRef.current = reviewMarketplaceMutation;
+  useEffect(() => {
+    reviewMutationRef.current.reset();
+  }, [id]);
 
   if (entry.isLoading) return <StoreDetailLoading />;
   if (isPluginNotFound(entry.error)) return <StoreDetailNotFound />;
@@ -84,16 +95,32 @@ export function PluginStoreDetailPage() {
     });
   };
 
+  // Marketplace installs review first: resolve the pinned artifact,
+  // show the published manifest, and only activate on confirmation.
+  const reviewMarketplace = () => {
+    packages.install.reset();
+    reviewMarketplaceMutation.reset();
+    reviewMarketplaceMutation.mutate(data.packageId);
+  };
+
   return (
     <StoreDetailContent
       entry={data}
       csrfToken={csrfToken}
       canInstall={canManage(auth.status?.user?.role)}
       installing={install.isPending}
-      installError={install.error ?? packages.install.error}
+      installError={
+        install.error ??
+        packages.install.error ??
+        reviewMarketplaceMutation.error
+      }
       onInstall={installPlugin}
       onInstallExternal={installExternal}
       externalInstalling={packages.install.isPending}
+      marketplaceReview={reviewMarketplaceMutation.data}
+      reviewingMarketplace={reviewMarketplaceMutation.isPending}
+      onReviewMarketplace={reviewMarketplace}
+      onCancelReview={() => reviewMarketplaceMutation.reset()}
     />
   );
 }
@@ -119,6 +146,10 @@ function StoreDetailContent({
   onInstall,
   onInstallExternal,
   externalInstalling,
+  marketplaceReview,
+  reviewingMarketplace,
+  onReviewMarketplace,
+  onCancelReview,
 }: {
   entry: PluginStoreEntry;
   csrfToken: string;
@@ -128,12 +159,22 @@ function StoreDetailContent({
   onInstall: (plugin: PluginSummary) => void;
   onInstallExternal: () => void;
   externalInstalling: boolean;
+  marketplaceReview: GitHubInstallReview | undefined;
+  reviewingMarketplace: boolean;
+  onReviewMarketplace: () => void;
+  onCancelReview: () => void;
 }) {
-  const { t } = useTranslation("plugins");
+  const { t } = useTranslation(["plugins", "common"]);
   const plugin = entry.plugin;
   const listing = entry.marketplace;
   const custom = entry.custom;
   const external = listing ?? custom;
+  // A resolve in flight across navigation must never confirm another
+  // listing's install.
+  const review =
+    marketplaceReview?.packageId === entry.packageId
+      ? marketplaceReview
+      : undefined;
   const title = plugin?.name ?? external?.name ?? entry.packageId;
   const description = plugin?.description ?? external?.description ?? "";
 
@@ -169,8 +210,9 @@ function StoreDetailContent({
               <ExternalPackageAction
                 external={external}
                 canInstall={canInstall}
-                installing={externalInstalling}
-                onInstall={onInstallExternal}
+                installing={listing ? reviewingMarketplace : externalInstalling}
+                onInstall={listing ? onReviewMarketplace : onInstallExternal}
+                reviewFirst={Boolean(listing)}
               />
             ) : undefined
           }
@@ -191,6 +233,30 @@ function StoreDetailContent({
           <AlertDescription>{apiErrorMessage(installError)}</AlertDescription>
         </Alert>
       ) : null}
+
+      {listing && !listing.installed && review && (
+        <div className="grid gap-3 rounded-xl border p-4">
+          <InstallReview review={review} updatePlane="catalog" />
+          {canInstall && (
+            <div className="flex gap-2">
+              <Button
+                disabled={externalInstalling || !review.compatible}
+                onClick={onInstallExternal}
+              >
+                {externalInstalling && (
+                  <Spinner data-icon="inline-start" aria-hidden="true" />
+                )}
+                {externalInstalling
+                  ? t("store.add.installing")
+                  : t("store.add.install")}
+              </Button>
+              <Button variant="outline" onClick={onCancelReview}>
+                {t("common:actions.cancel")}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {external &&
         !external.installed &&
@@ -261,11 +327,13 @@ function ExternalPackageAction({
   canInstall,
   installing,
   onInstall,
+  reviewFirst = false,
 }: {
   external: PluginStoreMarketplace | PluginStoreCustom;
   canInstall: boolean;
   installing: boolean;
   onInstall: () => void;
+  reviewFirst?: boolean;
 }) {
   const { t } = useTranslation("plugins");
 
@@ -276,7 +344,7 @@ function ExternalPackageAction({
   return (
     <Button disabled={installing} onClick={onInstall}>
       {installing && <Spinner data-icon="inline-start" aria-hidden="true" />}
-      {t("catalog.install")}
+      {reviewFirst ? t("catalog.reviewInstall") : t("catalog.install")}
     </Button>
   );
 }

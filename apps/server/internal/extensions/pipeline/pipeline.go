@@ -535,30 +535,50 @@ func complete(retained, digest string) bool {
 	return string(raw) == digest
 }
 
+// ResolveMarketplace resolves a cached marketplace listing for review.
+// The pinned artifact verifies provenance, pulls by digest, and reads
+// the published manifest, so the returned manifest — not the listing —
+// is authoritative for capabilities. Review pulls into the local
+// content cache; it installs nothing.
+func (s *Service) ResolveMarketplace(ctx context.Context, packageID string) (Resolution, error) {
+	resolution, _, err := s.resolveMarketplace(ctx, packageID)
+	return resolution, err
+}
+
+func (s *Service) resolveMarketplace(ctx context.Context, packageID string) (Resolution, []packages.NestedContribution, error) {
+	listing, _, err := s.catalog.ListingFor(ctx, packageID)
+	if err != nil {
+		return Resolution{}, nil, err
+	}
+	resolution, err := s.resolveListing(ctx, listing)
+	if err != nil {
+		return Resolution{}, nil, err
+	}
+	ociManifest, contributions, err := s.materialize(ctx, resolution)
+	if err != nil {
+		return Resolution{}, nil, err
+	}
+	resolution.Manifest = ociManifest
+	resolution.Compatible = packagemanifest.SatisfiesTilecastRange(ociManifest.Tilecast.Version, s.tilecastVersion)
+	return resolution, contributions, nil
+}
+
 // InstallMarketplace installs a cached marketplace listing by package
 // ID. The listing digest is already pinned, so no tag resolves; the
 // artifact still verifies provenance, pulls by digest, and cross-checks
 // the published manifest against the listing. Marketplace installs keep
 // no custom source: the catalog is the update plane.
 func (s *Service) InstallMarketplace(ctx context.Context, packageID string, userID uuid.UUID) (installer.InstalledPackage, error) {
-	listing, _, err := s.catalog.ListingFor(ctx, packageID)
-	if err != nil {
-		return installer.InstalledPackage{}, err
-	}
 	if _, err := s.installer.Get(ctx, packageID); err == nil {
 		return installer.InstalledPackage{}, ErrAlreadyInstalled
 	} else if !errors.Is(err, installer.ErrNotFound) {
 		return installer.InstalledPackage{}, err
 	}
-	resolution, err := s.resolveListing(ctx, listing)
+	resolution, contributions, err := s.resolveMarketplace(ctx, packageID)
 	if err != nil {
 		return installer.InstalledPackage{}, err
 	}
-	ociManifest, contributions, err := s.materialize(ctx, resolution)
-	if err != nil {
-		return installer.InstalledPackage{}, err
-	}
-	installed, err := s.installer.Activate(ctx, Activation(resolution, ociManifest, contributions, userID))
+	installed, err := s.installer.Activate(ctx, Activation(resolution, resolution.Manifest, contributions, userID))
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
 	}

@@ -94,6 +94,7 @@ export function AddCustomRepositoryDialog({
                 value={repository}
                 onChange={(event) => setRepository(event.target.value)}
                 onKeyDown={(event) => {
+                  if (event.nativeEvent.isComposing) return;
                   if (event.key === "Enter" && repository.trim()) lookUp();
                 }}
               />

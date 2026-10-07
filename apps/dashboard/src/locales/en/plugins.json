@@ -94,7 +94,8 @@
       "unsigned": "Unsigned — development installs only",
       "contributions": "Contributions",
       "noContributions": "None listed",
-      "installNote": "Installing binds this repository to the package, so update checks re-resolve it."
+      "installNote": "Installing binds this repository to the package, so update checks re-resolve it.",
+      "catalogInstallNote": "The Marketplace listing stays the update plane, so update checks re-read it."
     }
   },
   "catalog": {
@@ -102,6 +103,7 @@
     "reviewDescription": "Review {{name}} before installing it.",
     "installed": "Installed",
     "install": "Install",
+    "reviewInstall": "Review install",
     "installNote": "An Owner or Administrator can install plugins.",
     "title": "Add a plugin",
     "description": "Optional features built into this Tilecast release. Installing one never downloads code.",

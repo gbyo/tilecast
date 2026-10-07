@@ -9,10 +9,18 @@ import { Separator } from "../components/ui/separator";
 /**
  * The install review: what the resolved repository supplies, which
  * release it comes from, and the provenance that verified it. Shared by
- * the add-from-GitHub flow and the update check, which both resolve
- * before they act.
+ * the add-from-GitHub flow, the marketplace install review, and the
+ * update check, which all resolve before they act. The update plane
+ * differs: custom packages re-resolve their bound repository while
+ * marketplace packages re-read the catalog listing.
  */
-export function InstallReview({ review }: { review: GitHubInstallReview }) {
+export function InstallReview({
+  review,
+  updatePlane = "repository",
+}: {
+  review: GitHubInstallReview;
+  updatePlane?: "repository" | "catalog";
+}) {
   const { t } = useTranslation("plugins");
   const verified = review.trust === "verified";
   return (
@@ -108,7 +116,9 @@ export function InstallReview({ review }: { review: GitHubInstallReview }) {
       </dl>
       <Separator />
       <p className="text-sm text-muted-foreground">
-        {t("store.review.installNote")}
+        {updatePlane === "catalog"
+          ? t("store.review.catalogInstallNote")
+          : t("store.review.installNote")}
       </p>
     </div>
   );

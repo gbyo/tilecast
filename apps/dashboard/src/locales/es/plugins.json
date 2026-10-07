@@ -96,7 +96,8 @@
       "unsigned": "Sin firmar — solo instalaciones de desarrollo",
       "contributions": "Aportaciones",
       "noContributions": "Ninguna indicada",
-      "installNote": "La instalación vincula este repositorio al paquete, para que las comprobaciones de actualización lo vuelvan a resolver."
+      "installNote": "La instalación vincula este repositorio al paquete, para que las comprobaciones de actualización lo vuelvan a resolver.",
+      "catalogInstallNote": "La ficha del Marketplace sigue siendo el plano de actualización, así que las comprobaciones la vuelven a leer."
     }
   },
   "catalog": {
@@ -104,6 +105,7 @@
     "reviewDescription": "Revisa {{name}} antes de instalarlo.",
     "installed": "Instalado",
     "install": "Instalar",
+    "reviewInstall": "Revisar instalación",
     "installNote": "Un propietario o un administrador puede instalar complementos.",
     "title": "Añadir un complemento",
     "description": "Funciones opcionales incluidas en esta versión de Tilecast. Instalar una nunca descarga código.",

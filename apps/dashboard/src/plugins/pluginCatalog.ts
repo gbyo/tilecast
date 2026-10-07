@@ -203,6 +203,10 @@ export function usePackageLifecycle(csrfToken: string) {
     mutationFn: (repository: string) =>
       api.resolveGitHubRepository(repository, csrfToken),
   });
+  const resolveMarketplace = useMutation({
+    mutationFn: (packageId: string) =>
+      api.resolveMarketplacePackage(packageId, csrfToken),
+  });
   const install = useMutation({
     mutationFn: ({
       packageId,
@@ -237,7 +241,15 @@ export function usePackageLifecycle(csrfToken: string) {
     mutationFn: (packageId: string) => api.removePackage(packageId, csrfToken),
     onSuccess: () => settle(),
   });
-  return { resolve, install, checkUpdate, applyUpdate, rollback, remove };
+  return {
+    resolve,
+    resolveMarketplace,
+    install,
+    checkUpdate,
+    applyUpdate,
+    rollback,
+    remove,
+  };
 }
 
 /** Refresh the official Tilecast marketplace and invalidate the store cache. */
