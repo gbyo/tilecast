@@ -108,7 +108,11 @@ import { QuickPresentDialog } from "../components/QuickPresentDialog";
 import { FireTvAccessibilityAdbPanel } from "../components/FireTvAccessibilityAdbPanel";
 import { PlayerPolicyEditor } from "../settings/PlayerPolicyEditor";
 import { formatLocationAddress } from "../settings/LocationsPanel";
-import { isAndroidScreen } from "../playerPlatform";
+import {
+  isAndroidScreen,
+  platformLabel,
+  screenPlayerLabel,
+} from "../playerPlatform";
 
 import {
   livePreviewState,
@@ -2088,16 +2092,6 @@ function updateLabel(value: string, t: ScreensT) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-export function platformLabel(value: string, t: ScreensT) {
-  const normalized = value.toLowerCase();
-  if (normalized === "browser") return t("platform.browser");
-  if (normalized === "linux") return t("platform.linux");
-  if (normalized.includes("fire")) return t("platform.fireTv");
-  if (normalized.includes("google")) return t("platform.googleTv");
-  if (normalized.includes("android")) return t("platform.androidTv");
-  return value || t("platform.unknown");
-}
-
 function statusLabel(value: string, t: ScreensT) {
   if (value === "attention") return t("status.attention");
   if (value === "updating") return t("status.updating");
@@ -2154,7 +2148,7 @@ function buildScreenGroups(
         : field === "status"
           ? left.status
           : field === "platform"
-            ? platformLabel(left.platform, t)
+            ? screenPlayerLabel(left, t)
             : left.name;
     const b =
       field === "location"
@@ -2162,7 +2156,7 @@ function buildScreenGroups(
         : field === "status"
           ? right.status
           : field === "platform"
-            ? platformLabel(right.platform, t)
+            ? screenPlayerLabel(right, t)
             : right.name;
     return a.localeCompare(b, locale, { sensitivity: "base" }) * descending;
   });
@@ -2764,7 +2758,7 @@ export function ScreenDetailPage() {
           </span>
         }
         description={[
-          platformLabel(screen.platform, t),
+          screenPlayerLabel(screen, t),
           [screen.deviceManufacturer, screen.deviceModel]
             .filter(Boolean)
             .join(" "),
@@ -4257,9 +4251,11 @@ export function ScreenDetailPage() {
                       <OverviewFact
                         label={t("detail.factPlatform")}
                         value={
-                          screen.platform === "linux"
-                            ? t("platform.linux")
-                            : `${formatReportedStatus(screen.platform, t)} ${screen.androidVersion ?? ""}`.trim()
+                          `${screenPlayerLabel(screen, t)} ${
+                            isAndroidScreen(screen.platform)
+                              ? (screen.androidVersion ?? "")
+                              : ""
+                          }`.trim()
                         }
                       />
                       <OverviewFact

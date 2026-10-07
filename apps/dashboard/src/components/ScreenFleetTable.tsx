@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import type { Screen, ScreenStatus } from "../api/types";
 import { useFormatLocale } from "../i18n";
+import { screenPlayerLabel } from "../playerPlatform";
 
 type ScreensT = TFunction<"screens", undefined>;
 import { Badge } from "./ui/badge";
@@ -200,7 +201,7 @@ export function ScreenFleetTable({
             return (
               <div className="min-w-0">
                 <div className="truncate">
-                  {platformLabel(row.original.platform, t)}
+                  {screenPlayerLabel(row.original, t)}
                   {row.original.playerVersion && (
                     <span className="2xl:hidden">
                       {" · "}
@@ -374,16 +375,6 @@ function StatusBadge({ status }: { status: ScreenStatus }) {
       {labelKey ? t(labelKey) : t("status.unknown")}
     </Badge>
   );
-}
-
-function platformLabel(value: string, t: ScreensT) {
-  const normalized = value.toLowerCase();
-  if (normalized === "browser") return t("platform.browser");
-  if (normalized === "linux") return t("platform.linux");
-  if (normalized.includes("fire")) return t("platform.fireTv");
-  if (normalized.includes("google")) return t("platform.googleTv");
-  if (normalized.includes("android")) return t("platform.androidTv");
-  return value || t("platform.unknown");
 }
 
 function humanize(value: string) {
