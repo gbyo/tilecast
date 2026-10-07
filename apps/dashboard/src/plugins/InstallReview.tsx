@@ -23,6 +23,13 @@ export function InstallReview({
 }) {
   const { t } = useTranslation("plugins");
   const verified = review.trust === "verified";
+  const capabilities = review.capabilities;
+  const hasServerBehavior =
+    review.runtime !== undefined ||
+    capabilities?.network !== undefined ||
+    capabilities?.background !== undefined ||
+    capabilities?.storage === true ||
+    capabilities?.studioUI !== undefined;
   return (
     <div className="grid gap-4">
       <div className="grid gap-1">
@@ -113,6 +120,49 @@ export function InstallReview({
                   .join(", ")
           }
         />
+        {hasServerBehavior && review.runtime && (
+          <ReviewRow
+            label={t("store.review.runtime")}
+            value={
+              <span className="font-mono text-xs">{review.runtime.module}</span>
+            }
+          />
+        )}
+        {hasServerBehavior && capabilities?.network && (
+          <ReviewRow
+            label={t("store.review.networkHosts")}
+            value={capabilities.network.hosts.join(", ")}
+          />
+        )}
+        {hasServerBehavior && capabilities?.background && (
+          <ReviewRow
+            label={t("store.review.backgroundJobs")}
+            value={capabilities.background.jobs
+              .map((job) =>
+                t("store.review.jobSchedule", {
+                  id: job.id,
+                  minutes: job.intervalMinutes,
+                }),
+              )
+              .join(", ")}
+          />
+        )}
+        {hasServerBehavior && capabilities?.storage === true && (
+          <ReviewRow
+            label={t("store.review.storage")}
+            value={t("store.review.storageGranted")}
+          />
+        )}
+        {hasServerBehavior && capabilities?.studioUI && (
+          <ReviewRow
+            label={t("store.review.studioInterface")}
+            value={
+              <span className="font-mono text-xs">
+                {capabilities.studioUI.entry}
+              </span>
+            }
+          />
+        )}
       </dl>
       <Separator />
       <p className="text-sm text-muted-foreground">

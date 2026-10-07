@@ -8,9 +8,13 @@
 // `../testdata/manifests/` run through both, so the two cannot drift apart
 // silently.
 //
-// A manifest is data. It declares no capabilities, no source, and no code
-// to download: unknown fields are rejected, contribution paths point inside
-// the package, and the host decides what an extension class may do.
+// A version 1 manifest is data. It declares no capabilities, no source,
+// and no code to download: unknown fields are rejected, contribution
+// paths point inside the package, and the host decides what an extension
+// class may do. Version 2 adds an optional server runtime module and the
+// bounded capabilities it requests; the declarations are requests, never
+// grants, and installation review shows every one before anything is
+// installed.
 package packagemanifest
 
 import (
@@ -22,11 +26,11 @@ import (
 	"unicode/utf8"
 )
 
-// APIVersion is the package manifest version this SDK implements.
-const APIVersion = 1
+// APIVersion is the latest package manifest version this SDK implements.
+const APIVersion = 2
 
 // SupportedAPIVersions lists the manifest versions this release can load.
-var SupportedAPIVersions = []int{1}
+var SupportedAPIVersions = []int{1, 2}
 
 var (
 	packageIDPattern     = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$`)
@@ -37,8 +41,14 @@ var (
 	ociReferencePattern  = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*(:[0-9]{1,5})?(\/[a-z0-9_][a-z0-9._-]{0,63})+$`)
 	httpsURLPattern      = regexp.MustCompile(`^https:\/\/[^\/\s]+\/[^\/\s].{0,180}$`)
 	packagePathPattern   = regexp.MustCompile(`^\.(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$`)
-	rangeClausePattern   = regexp.MustCompile(`^(>=|<=|>|<|=)?(\d{1,5}(?:\.\d{1,5}){0,2})$`)
-	versionPattern       = regexp.MustCompile(`^(\d{1,5})(?:\.(\d{1,5}))?(?:\.(\d{1,5}))?$`)
+	// capabilityHostPattern matches the TypeScript capabilityHostPattern
+	// without its length lookahead; Go's regexp has no lookahead, so
+	// Validate enforces the 253-octet ceiling separately.
+	capabilityHostPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$`)
+	capabilityJobPattern  = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,79}$`)
+	numericHostPattern    = regexp.MustCompile(`^[0-9.]+$`)
+	rangeClausePattern    = regexp.MustCompile(`^(>=|<=|>|<|=)?(\d{1,5}(?:\.\d{1,5}){0,2})$`)
+	versionPattern        = regexp.MustCompile(`^(\d{1,5})(?:\.(\d{1,5}))?(?:\.(\d{1,5}))?$`)
 )
 
 // Contribution types name the existing extension contract the nested
@@ -78,6 +88,48 @@ type Manifest struct {
 	Contributions  []Contribution `json:"contributions"`
 	Documentation  string         `json:"documentation,omitempty"`
 	Issues         string         `json:"issues,omitempty"`
+	Runtime        *Runtime       `json:"runtime,omitempty"`
+	Capabilities   *Capabilities  `json:"capabilities,omitempty"`
+}
+
+// Runtime declares the package's external server behavior module.
+// Version 2 only.
+type Runtime struct {
+	Module string `json:"module"`
+}
+
+// Capabilities declares the bounded capabilities the package requests.
+// Every entry is a request the host reviews; nothing here grants
+// itself. Version 2 only.
+type Capabilities struct {
+	Network    *NetworkCapability    `json:"network,omitempty"`
+	Background *BackgroundCapability `json:"background,omitempty"`
+	// Storage is a pointer so an explicit false is rejected, mirroring
+	// the TypeScript literal(true): the capability is requested by
+	// presence, never by value.
+	Storage  *bool               `json:"storage,omitempty"`
+	StudioUI *StudioUICapability `json:"studioUI,omitempty"`
+}
+
+// NetworkCapability approves outbound HTTPS origins, explicitly listed.
+type NetworkCapability struct {
+	Hosts []string `json:"hosts"`
+}
+
+// BackgroundJob is one package-owned job the host runs on an interval.
+type BackgroundJob struct {
+	ID              string `json:"id"`
+	IntervalMinutes int    `json:"intervalMinutes"`
+}
+
+// BackgroundCapability declares package-owned background behavior.
+type BackgroundCapability struct {
+	Jobs []BackgroundJob `json:"jobs"`
+}
+
+// StudioUICapability names the sandboxed Studio UI entry page.
+type StudioUICapability struct {
+	Entry string `json:"entry"`
 }
 
 // TilecastCompat carries the supported Tilecast version range.
@@ -92,7 +144,7 @@ type Distribution struct {
 
 // APIVersionNum decodes leniently on purpose: JSON has no integer type, so
 // 1 and 1.0 are the same document, and the TypeScript validator accepts
-// both. Anything that is not exactly the number 1 is rejected.
+// both. Anything that is not a supported version number is rejected.
 type APIVersionNum int
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -102,11 +154,16 @@ func (v *APIVersionNum) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	number, ok := value.(float64)
-	if !ok || number != APIVersion {
-		return fmt.Errorf("apiVersion must be %d", APIVersion)
+	if !ok {
+		return fmt.Errorf("apiVersion must be 1 or 2")
 	}
-	*v = APIVersionNum(APIVersion)
-	return nil
+	for _, supported := range SupportedAPIVersions {
+		if number == float64(supported) {
+			*v = APIVersionNum(supported)
+			return nil
+		}
+	}
+	return fmt.Errorf("apiVersion must be 1 or 2")
 }
 
 // Parse decodes and validates one package manifest document. Unknown fields
@@ -127,8 +184,15 @@ func Parse(data []byte) (Manifest, error) {
 
 // Validate checks every manifest rule the TypeScript schema enforces.
 func Validate(m Manifest) error {
-	if m.APIVersion != APIVersion {
-		return fmt.Errorf("package manifest: apiVersion must be %d", APIVersion)
+	supported := false
+	for _, version := range SupportedAPIVersions {
+		if m.APIVersion == APIVersionNum(version) {
+			supported = true
+			break
+		}
+	}
+	if !supported {
+		return fmt.Errorf("package manifest: apiVersion must be 1 or 2")
 	}
 	if utf8.RuneCountInString(m.PackageID) > 128 || !packageIDPattern.MatchString(m.PackageID) {
 		return fmt.Errorf("package manifest: packageId must be a qualified identity such as acme.athletics")
@@ -190,6 +254,74 @@ func Validate(m Manifest) error {
 	}
 	if m.Issues != "" && !ValidHTTPSURL(m.Issues) {
 		return fmt.Errorf("package manifest: issues must be an https URL with a host and path")
+	}
+	if m.APIVersion == 1 && (m.Runtime != nil || m.Capabilities != nil) {
+		return fmt.Errorf("package manifest: runtime and capabilities require apiVersion 2")
+	}
+	if m.Runtime != nil {
+		if !packagePathPattern.MatchString(m.Runtime.Module) || !strings.HasSuffix(m.Runtime.Module, ".wasm") {
+			return fmt.Errorf("package manifest: runtime module must be a ./relative .wasm path inside the package")
+		}
+	}
+	if m.Capabilities != nil {
+		if err := validateCapabilities(m.Capabilities, m.Runtime != nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateCapabilities checks the version 2 capability declarations:
+// bounded, typed, and explicit. Network, background, and storage act
+// through the runtime module, so they require one; a Studio UI may
+// stand alone.
+func validateCapabilities(caps *Capabilities, hasRuntime bool) error {
+	if caps.Network == nil && caps.Background == nil && caps.Storage == nil && caps.StudioUI == nil {
+		return fmt.Errorf("package manifest: capabilities must declare at least one capability")
+	}
+	if (caps.Network != nil || caps.Background != nil || caps.Storage != nil) && !hasRuntime {
+		return fmt.Errorf("package manifest: network, background, and storage capabilities require a runtime module")
+	}
+	if caps.Network != nil {
+		if len(caps.Network.Hosts) < 1 || len(caps.Network.Hosts) > 8 {
+			return fmt.Errorf("package manifest: network hosts must hold 1 to 8 origins")
+		}
+		seen := make(map[string]bool, len(caps.Network.Hosts))
+		for _, host := range caps.Network.Hosts {
+			if len(host) > 253 || !capabilityHostPattern.MatchString(host) || numericHostPattern.MatchString(host) {
+				return fmt.Errorf("package manifest: network host %q must be a lowercase DNS hostname", host)
+			}
+			if seen[host] {
+				return fmt.Errorf("package manifest: capability hosts must be unique")
+			}
+			seen[host] = true
+		}
+	}
+	if caps.Background != nil {
+		if len(caps.Background.Jobs) < 1 || len(caps.Background.Jobs) > 4 {
+			return fmt.Errorf("package manifest: background jobs must hold 1 to 4 entries")
+		}
+		seen := make(map[string]bool, len(caps.Background.Jobs))
+		for _, job := range caps.Background.Jobs {
+			if !capabilityJobPattern.MatchString(job.ID) {
+				return fmt.Errorf("package manifest: background job id %q must be a lowercase identity", job.ID)
+			}
+			if job.IntervalMinutes < 5 || job.IntervalMinutes > 1440 {
+				return fmt.Errorf("package manifest: background job %q interval must be 5 to 1440 minutes", job.ID)
+			}
+			if seen[job.ID] {
+				return fmt.Errorf("package manifest: background job ids must be unique")
+			}
+			seen[job.ID] = true
+		}
+	}
+	if caps.Storage != nil && !*caps.Storage {
+		return fmt.Errorf("package manifest: storage is requested by presence, never by value")
+	}
+	if caps.StudioUI != nil {
+		if !packagePathPattern.MatchString(caps.StudioUI.Entry) || !strings.HasSuffix(caps.StudioUI.Entry, ".html") {
+			return fmt.Errorf("package manifest: Studio UI entry must be a ./relative .html path inside the package")
+		}
 	}
 	return nil
 }

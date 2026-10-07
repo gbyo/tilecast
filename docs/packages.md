@@ -10,9 +10,11 @@ runtime exists) plugin behavior. The contribution contracts themselves
 
 ## Manifest
 
-`tilecast.package.json` version 1 is the manifest. Required fields:
+`tilecast.package.json` is the manifest. Required fields:
 
-- `apiVersion`: `1`. Only 1 exists.
+- `apiVersion`: `1` or `2`. Version 1 carries content contributions
+  only. Version 2 adds the external runtime module and capability
+  requests below.
 - `packageId`: qualified identity of two or more dot-separated segments,
   for example `acme.athletics`. The `tilecast` namespace is reserved for
   the release.
@@ -32,10 +34,29 @@ runtime exists) plugin behavior. The contribution contracts themselves
   `dataSource`) and `path` (a `./relative` directory inside the package).
 
 Optional fields are `documentation` and `issues` (https URLs). Unknown
-fields are rejected: a manifest cannot grant itself capabilities, declare
-a source, or name code to download. Contribution paths point inside the
-package and cannot escape it. Each contribution root is unique across the
-package, even when the contribution types differ.
+fields are rejected: a manifest cannot declare a source or name code to
+download. Contribution paths point inside the package and cannot escape
+it. Each contribution root is unique across the package, even when the
+contribution types differ.
+
+A version 2 manifest may add `runtime` and `capabilities`:
+
+- `runtime.module`: `./relative` path of the WebAssembly module inside
+  the package. The module holds the external server behavior.
+- `capabilities.network.hosts`: explicit HTTPS hosts the module may
+  fetch. No host outside the list is reachable.
+- `capabilities.background.jobs`: one to four jobs with `id` and
+  `intervalMinutes` (5 to 1440). The server runs each job on its
+  interval.
+- `capabilities.storage`: `true` requests package-owned key/value
+  storage.
+- `capabilities.studioUI.entry`: `./relative` self-contained HTML page
+  for the sandboxed Studio interface.
+
+Capabilities are requests, not grants. The install review shows every
+request before anything installs. Network, background, and storage
+requests require a runtime module. The Studio interface may stand
+alone. A version 1 manifest requests no capabilities.
 
 Two validators enforce the same rules: the TypeScript validator in
 `@tilecast/package-sdk` for authoring time, and the server-authoritative Go
@@ -136,7 +157,8 @@ the provider string: refresh states, error codes, and audit records name
 the supplying package without a further lookup. External definitions use
 the definition-keyed adapters only (`http_records`, `manual_object`,
 `manual_records`); provider-keyed native adapters stay unavailable to
-packages. External plugin behavior stays inert: no executor runs it yet.
+packages. External plugin behavior runs in the Wasm host below. It never
+joins the content catalog.
 
 ## Player bundle delivery
 
@@ -163,6 +185,90 @@ a `sandbox` response policy, so the external code runs at an opaque
 origin even when opened top-level. Unknown packages and missing
 bundles share one `package_widget_unavailable` 404, mirroring the
 player endpoint.
+
+## External runtime
+
+A version 2 package runs server behavior in a capability-based
+WebAssembly host (`internal/extensions/wasm`, engine wazero). The host
+imports one module, `tilecast`, with no WASI. The guest calls five host
+functions: key read, key write, approved HTTPS fetch, log line, and
+clock read. Nothing else is reachable. The call input window is 16 KiB. The
+output window is 16 KiB. A job call times out after 30 seconds. A
+Studio interface call times out after 5 seconds.
+
+Install validation inspects the module bytes before anything is
+retained or executed. The module must carry the Wasm magic and
+version, import only the `tilecast` host functions with the exact ABI
+signatures, declare bounded non-shared memory, define no start
+function, and export the entries its capabilities need: `run_job`
+for background jobs, `handle_ui_request` for Studio interface calls.
+Anything else fails closed. The Studio entry page must hold 1 byte to
+1 MiB.
+
+Grants derive from the install review. Key storage scopes to the
+package: 128-byte keys, 64 KiB values, 1 MiB total per package.
+Approved fetch allows HTTPS only, to listed hosts only, with private
+and link-local addresses refused. The host pins the resolved address
+for the request. One response body caps at 1 MiB. One request times
+out after 10 seconds. Log lines cap at a bounded length and carry the
+package ID. The clock is wall time in milliseconds.
+
+The scheduler runs declared jobs on their intervals
+(`external_plugin_jobs`, migration `00122`). It claims due rows with
+one atomic update under `SELECT ... FOR UPDATE SKIP LOCKED`, so two
+server processes never run the same job twice. A claim holds a
+five-minute lease. Execution is at-least-once: a crash mid-run
+re-runs the job after the lease expires. A guest failure records
+`last_status = error` with the message and reschedules on the same
+interval. The first overdue pass runs at startup, then the scheduler
+polls every minute.
+
+The Studio interface serves the entry page from
+`GET /api/v1/packages/{packageId}/studio/frame`, readable by any
+signed-in account. The response carries an opaque-origin `sandbox`
+policy with `allow-scripts` only: no network, no workers, no forms,
+no subresource loads. The page must be self-contained. Unknown
+packages and packages without the capability share one
+`package_studio_unavailable` 404.
+
+The frame holds no credentials. It sends calls over a `MessageChannel`
+bound to its document, and the parent relays them with the dashboard
+session and CSRF token over
+`POST /api/v1/packages/{packageId}/studio/bridge`. Owner and
+Administrator only, like every package operation. The request carries
+base64 input over the 16 KiB call window. A successful invocation
+always answers 200 with the guest status code and base64 output.
+Negative status codes are guest errors. Transport and host failures
+become errors.
+
+The bridge frame protocol starts with a hello: the page posts
+`{source: "tilecast-studio-ui", kind: "studio-hello"}` to the Studio
+parent, which answers once with `{source, kind: "studio-handshake"}`
+and the frame's port. The hello must come from the frame's own window
+at the opaque origin. Calls then cross the port as `{source, id,
+input}` with answers as `{source, id, status, output}` back. A failed
+relay answers `status: -1` with `error: "bridge_failed"`. A reload or
+navigation destroys the document's port, and the parent never sends
+the channel to a newly loaded document: the connection dies with the
+original document, and the host reports the interface unavailable.
+
+`GET /api/v1/packages/{packageId}/jobs` reports the declared jobs
+with the scheduler cursor: next run, last outcome, and consecutive
+failures. Any signed-in account may read it.
+
+Lifecycle keeps execution state aligned with activation. Install and
+update reconcile the job rows. Update and rollback evict the replaced
+digest from the compile cache and keep storage. Removal evicts the
+digest, deletes the package keys, and deletes the job rows, so a
+reinstall starts clean. Package bytes stay retained like any
+activation.
+
+The installer commit is the durability boundary: execution state
+reconciles after it, and a reconciliation failure logs loudly without
+failing the API. The job sync is idempotent and reruns on every
+lifecycle mutation, and stale rows cannot execute, because the
+scheduler re-validates each job against the installed manifest before
+it invokes the guest.
 
 ## Sources
 
@@ -199,7 +305,8 @@ an install review and persists nothing:
    with `trust_unavailable`.
 
 The review shows identity, version, compatibility with the running
-release, contributions, digest, release, and provenance. Installing
+release, contributions, the runtime module and capability requests of
+a version 2 package, digest, release, and provenance. Installing
 re-resolves fresh and cross-checks package ID, version, OCI reference,
 and Tilecast range between the review and the published artifact; a
 drift answers `package_mismatch` and installs nothing.
@@ -274,8 +381,7 @@ This stage builds the package format, validation, installed state, OCI
 layout verification, registry fetching, Sigstore provenance verification,
 activation with rollback, effective external content contributions,
 removal/update/rollback blockers, backup metadata, package HTTP
-endpoints, custom repository bindings, and Studio package management. It
-does not add private registry authentication, content extraction to
-players, sandboxed execution, or a package-bytes collector. Those arrive
-with the player-delivery, sandbox, and runtime stages behind the
-contracts defined here.
+endpoints, custom repository bindings, Studio package management,
+player bundle delivery, the Widget sandbox frame, and the external
+Wasm runtime with background jobs and the Studio interface. It does not
+add private registry authentication or a package-bytes collector.

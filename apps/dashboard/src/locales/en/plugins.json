@@ -94,6 +94,13 @@
       "unsigned": "Unsigned — development installs only",
       "contributions": "Contributions",
       "noContributions": "None listed",
+      "runtime": "Server module",
+      "networkHosts": "Outbound HTTPS hosts",
+      "backgroundJobs": "Background jobs",
+      "jobSchedule": "{{id}} · every {{minutes}} min",
+      "storage": "Private storage",
+      "storageGranted": "Granted",
+      "studioInterface": "Studio interface",
       "installNote": "Installing binds this repository to the package, so update checks re-resolve it.",
       "catalogInstallNote": "The Marketplace listing stays the update plane, so update checks re-read it."
     }
@@ -290,6 +297,16 @@
     "blockedInstruction": "Delete the remaining content, then try again.",
     "addedContributions": "New in this version",
     "removedContributions": "Removed in this version",
-    "removedWarning": "Updating deletes nothing: if anything still uses a removed contribution, the update waits until you delete it."
+    "removedWarning": "Updating deletes nothing: if anything still uses a removed contribution, the update waits until you delete it.",
+    "studioTitle": "Package interface",
+    "studioUnavailable": "The package interface could not be loaded.",
+    "jobsTitle": "Background jobs",
+    "jobsLoadError": "Background jobs could not be loaded.",
+    "jobEvery": "Every {{minutes}} min",
+    "jobNext": "Next run",
+    "jobNever": "Never run",
+    "jobOk": "Succeeded",
+    "jobFailed": "Failed",
+    "jobFailures": "{{count}} consecutive failures"
   }
 }

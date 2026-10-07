@@ -59,6 +59,8 @@ type installedPackageResponse struct {
 	ActivatedAt       time.Time              `json:"activatedAt"`
 	HasRollback       bool                   `json:"hasRollback"`
 	Contributions     []packageContribution  `json:"contributions"`
+	Runtime           *reviewRuntime         `json:"runtime,omitempty"`
+	Capabilities      *reviewCapabilities    `json:"capabilities,omitempty"`
 	Source            *customSourceResponse  `json:"source,omitempty"`
 }
 
@@ -97,6 +99,10 @@ func (s *server) renderInstalledPackage(r *http.Request, item installer.Installe
 		ActivatedAt:       item.ActivatedAt,
 		HasRollback:       item.HasPrevious,
 		Contributions:     []packageContribution{},
+		Capabilities:      summarizeCapabilities(manifest),
+	}
+	if manifest.Runtime != nil {
+		rendered.Runtime = &reviewRuntime{Module: manifest.Runtime.Module}
 	}
 	for _, contribution := range contributions {
 		rendered.Contributions = append(rendered.Contributions, packageContribution{
@@ -160,12 +166,76 @@ type reviewContribution struct {
 	ID   string `json:"id,omitempty"`
 }
 
+// reviewRuntime names the external server behavior module.
+type reviewRuntime struct {
+	Module string `json:"module"`
+}
+
+// reviewCapabilities mirrors the manifest's bounded capability requests
+// for installation review: every grant the package asks for, shown
+// before anything is installed. The update check reuses the review, so
+// capability changes surface on updates the same way.
+type reviewCapabilities struct {
+	Network *struct {
+		Hosts []string `json:"hosts"`
+	} `json:"network,omitempty"`
+	Background *struct {
+		Jobs []struct {
+			ID              string `json:"id"`
+			IntervalMinutes int    `json:"intervalMinutes"`
+		} `json:"jobs"`
+	} `json:"background,omitempty"`
+	Storage  bool `json:"storage,omitempty"`
+	StudioUI *struct {
+		Entry string `json:"entry"`
+	} `json:"studioUI,omitempty"`
+}
+
+func summarizeCapabilities(manifest packagemanifest.Manifest) *reviewCapabilities {
+	caps := manifest.Capabilities
+	if caps == nil {
+		return nil
+	}
+	review := &reviewCapabilities{}
+	if caps.Network != nil {
+		review.Network = &struct {
+			Hosts []string `json:"hosts"`
+		}{Hosts: append([]string{}, caps.Network.Hosts...)}
+	}
+	if caps.Background != nil {
+		background := &struct {
+			Jobs []struct {
+				ID              string `json:"id"`
+				IntervalMinutes int    `json:"intervalMinutes"`
+			} `json:"jobs"`
+		}{}
+		for _, job := range caps.Background.Jobs {
+			background.Jobs = append(background.Jobs, struct {
+				ID              string `json:"id"`
+				IntervalMinutes int    `json:"intervalMinutes"`
+			}{ID: job.ID, IntervalMinutes: job.IntervalMinutes})
+		}
+		review.Background = background
+	}
+	if caps.Storage != nil && *caps.Storage {
+		review.Storage = true
+	}
+	if caps.StudioUI != nil {
+		review.StudioUI = &struct {
+			Entry string `json:"entry"`
+		}{Entry: caps.StudioUI.Entry}
+	}
+	return review
+}
+
 type resolveReview struct {
 	PackageID        string                 `json:"packageId"`
 	Version          string                 `json:"version"`
 	Manifest         packageManifestSummary `json:"manifest"`
 	Compatible       bool                   `json:"compatible"`
 	Contributions    []reviewContribution   `json:"contributions"`
+	Runtime          *reviewRuntime         `json:"runtime,omitempty"`
+	Capabilities     *reviewCapabilities    `json:"capabilities,omitempty"`
 	Digest           string                 `json:"digest"`
 	Registry         string                 `json:"registry"`
 	ReleaseTag       string                 `json:"releaseTag"`
@@ -214,6 +284,10 @@ func renderReview(resolution pipeline.Resolution, installed installer.InstalledP
 		}
 		review.Contributions = append(review.Contributions, entry)
 	}
+	if resolution.Manifest.Runtime != nil {
+		review.Runtime = &reviewRuntime{Module: resolution.Manifest.Runtime.Module}
+	}
+	review.Capabilities = summarizeCapabilities(resolution.Manifest)
 	if isInstalled {
 		review.InstalledVersion = installed.Version
 	}

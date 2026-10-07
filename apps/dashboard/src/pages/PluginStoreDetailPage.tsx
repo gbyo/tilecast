@@ -40,6 +40,8 @@ import {
 import { CustomDetail } from "../plugins/CustomDetail";
 import { InstallReview } from "../plugins/InstallReview";
 import { MarketplaceDetail } from "../plugins/MarketplaceDetail";
+import { PackageJobs } from "../plugins/PackageJobs";
+import { PackageStudioUI } from "../plugins/PackageStudioUI";
 import { PluginDetail } from "../plugins/PluginDetail";
 import { PluginIcon } from "../plugins/PluginIcon";
 import { canManage } from "../plugins/shared";
@@ -523,6 +525,12 @@ function PackageManagement({
           </dd>
         </div>
       </dl>
+      {canInstall && installed.capabilities?.studioUI && (
+        <PackageStudioUI packageId={packageId} csrfToken={csrfToken} />
+      )}
+      {installed.capabilities?.background && (
+        <PackageJobs packageId={packageId} />
+      )}
       {latest && (
         <div className="grid gap-3 rounded-xl border p-4">
           <InstallReview review={latest} />

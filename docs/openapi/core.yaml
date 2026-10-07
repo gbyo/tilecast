@@ -4886,6 +4886,110 @@ paths:
               schema: { type: string }
         "401": { description: Dashboard authentication required }
         "404": { description: package_widget_unavailable }
+  /api/v1/packages/{packageId}/studio/frame:
+    parameters:
+      - { $ref: "#/components/parameters/PackageID" }
+    get:
+      operationId: packageStudioFrame
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Sandboxed Studio UI entry page for one installed package: the
+        package-authored self-contained HTML document with an opaque-origin
+        sandbox Content-Security-Policy, so the document cannot access
+        credentials even when opened top-level. Studio loads it in an
+        allow-scripts iframe and relays guest calls over the bridge
+        endpoint. Readable by any signed-in account. Unknown packages and
+        packages without a Studio UI capability share one
+        package_studio_unavailable 404.
+      responses:
+        "200":
+          description: Sandboxed Studio UI frame document
+          content:
+            text/html:
+              schema: { type: string }
+        "401": { description: Dashboard authentication required }
+        "404": { description: package_studio_unavailable }
+  /api/v1/packages/{packageId}/studio/bridge:
+    parameters:
+      - { $ref: "#/components/parameters/PackageID" }
+    post:
+      operationId: packageStudioBridge
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Invoke one Studio UI call in the package guest: the Studio parent
+        carries the dashboard session and CSRF token the sandboxed frame
+        cannot hold, and the host runs the package handle_ui_request
+        export with a five-second timeout. The input is base64 over the
+        16 KiB call window. A successful invocation always answers 200
+        with the guest status code and base64 output; only transport and
+        host failures become errors. Owner and Administrator only, like
+        every package operation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [input]
+              properties:
+                input:
+                  {
+                    type: string,
+                    format: byte,
+                    description: "Base64 call payload, at most 16 KiB decoded.",
+                  }
+      responses:
+        "200":
+          description: Guest answer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [status, output]
+                    properties:
+                      status:
+                        {
+                          type: integer,
+                          description: "Guest status code; negative values are guest errors.",
+                        }
+                      output:
+                        {
+                          type: string,
+                          format: byte,
+                          description: "Base64 guest output, at most 16 KiB.",
+                        }
+        "400": { description: invalid_bridge_input }
+        "401": { description: Dashboard authentication required }
+        "404": { description: package_studio_unavailable }
+  /api/v1/packages/{packageId}/jobs:
+    parameters:
+      - { $ref: "#/components/parameters/PackageID" }
+    get:
+      operationId: packageJobs
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Declared background jobs for one installed package with the
+        scheduler cursor: next run, last outcome, and consecutive
+        failures. Readable by any signed-in account. Unknown packages
+        answer package_not_installed 404.
+      responses:
+        "200":
+          description: Package background jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/PackageJob" }
+        "401": { description: Dashboard authentication required }
+        "404": { description: package_not_installed }
   /api/v1/packages/{packageId}/update-check:
     post:
       operationId: checkPackageUpdate
@@ -11729,7 +11833,39 @@ components:
         contributions:
           type: array
           items: { $ref: "#/components/schemas/PackageContribution" }
+        runtime:
+          type: object
+          required: [module]
+          description: External server behavior module (manifest version 2 only).
+          properties:
+            module:
+              {
+                type: string,
+                description: "Package-relative WebAssembly module path.",
+              }
+        capabilities:
+          $ref: "#/components/schemas/PackageCapabilities"
         source: { $ref: "#/components/schemas/PackageSourceBinding" }
+    PackageJob:
+      type: object
+      required:
+        [
+          jobId,
+          intervalMinutes,
+          nextRunAt,
+          lastStatus,
+          lastError,
+          consecutiveFailures,
+        ]
+      description: One declared package background job with the scheduler cursor.
+      properties:
+        jobId: { type: string }
+        intervalMinutes: { type: integer }
+        nextRunAt: { type: string, format: date-time }
+        lastRunAt: { type: string, format: date-time }
+        lastStatus: { type: string, x-extensible-enum: [never, ok, error] }
+        lastError: { type: string }
+        consecutiveFailures: { type: integer }
     GitHubInstallReview:
       type: object
       required:
@@ -11765,6 +11901,18 @@ components:
               id:
                 type: string
                 description: Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest.
+        runtime:
+          type: object
+          required: [module]
+          description: External server behavior module (manifest version 2 only).
+          properties:
+            module:
+              {
+                type: string,
+                description: "Package-relative WebAssembly module path.",
+              }
+        capabilities:
+          $ref: "#/components/schemas/PackageCapabilities"
         digest:
           {
             type: string,
@@ -11792,6 +11940,42 @@ components:
         upToDate: { type: boolean }
         lastChecked: { type: string, format: date-time }
         latest: { $ref: "#/components/schemas/GitHubInstallReview" }
+    PackageCapabilities:
+      type: object
+      description: Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself.
+      properties:
+        network:
+          type: object
+          required: [hosts]
+          description: Approved outbound HTTPS origins.
+          properties:
+            hosts:
+              type: array
+              items: { type: string }
+        background:
+          type: object
+          required: [jobs]
+          description: Package-owned background jobs the host runs.
+          properties:
+            jobs:
+              type: array
+              items:
+                type: object
+                required: [id, intervalMinutes]
+                properties:
+                  id: { type: string }
+                  intervalMinutes: { type: integer }
+        storage:
+          {
+            type: boolean,
+            description: "Request plugin-owned key/value storage.",
+          }
+        studioUI:
+          type: object
+          required: [entry]
+          description: Sandboxed Studio UI entry.
+          properties:
+            entry: { type: string }
     PluginInUseError:
       type: object
       required: [error]

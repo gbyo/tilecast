@@ -1,0 +1,28 @@
+{
+  "apiVersion": 2,
+  "packageId": "acme.athletics",
+  "packageVersion": "2.4.1",
+  "name": "Athletics",
+  "description": "Scoreboards and schedules.",
+  "publisher": {
+    "id": "acme",
+    "name": "Acme Athletics"
+  },
+  "repository": "https://github.com/acme/tilecast-athletics",
+  "license": "MIT",
+  "tilecast": {
+    "version": ">=1.2.0 <2.0.0"
+  },
+  "distribution": {
+    "oci": "ghcr.io/acme/tilecast-athletics"
+  },
+  "contributions": [
+    {
+      "type": "widget",
+      "path": "./widgets/scoreboard"
+    }
+  ],
+  "capabilities": {
+    "storage": true
+  }
+}
