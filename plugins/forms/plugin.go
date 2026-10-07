@@ -15,6 +15,13 @@ var manifest []byte
 //go:embed migrations/*.sql
 var migrations embed.FS
 
+// storeJSON is the Plugin Store presentation: curated metadata that changes
+// nothing the manifest declares. Static artwork joins it when the plugin
+// ships images in store/ and embeds them next to this file.
+//
+//go:embed tilecast.store.json
+var storeJSON []byte
+
 // Plugin is the Forms server contribution.
 type Plugin struct {
 	plugin.Bundle
@@ -22,5 +29,5 @@ type Plugin struct {
 }
 
 func New() plugin.Plugin {
-	return &Plugin{Bundle: plugin.NewBundle(manifest, migrations), Service: server.NewService()}
+	return &Plugin{Bundle: plugin.NewBundle(manifest, migrations).WithStore(storeJSON, nil), Service: server.NewService()}
 }

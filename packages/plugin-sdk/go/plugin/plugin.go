@@ -92,6 +92,12 @@ type Worker struct {
 type Bundle struct {
 	manifest   Manifest
 	migrations fs.FS
+	store      *storePresentation
+}
+
+type storePresentation struct {
+	listing StoreListing
+	assets  fs.FS
 }
 
 // NewBundle parses the embedded manifest. It panics on an invalid manifest:
@@ -128,3 +134,29 @@ func (b Bundle) Manifest() Manifest { return b.manifest }
 
 // Migrations returns the plugin's migration files, or nil when it has none.
 func (b Bundle) Migrations() fs.FS { return b.migrations }
+
+// WithStore attaches the plugin's tilecast.store.json and the embedded files
+// it names. assets is rooted at the plugin directory, for example
+//
+//	//go:embed tilecast.store.json store/*.webp
+//	var storeFiles embed.FS
+//
+// Like NewBundle it panics on invalid metadata, because the files are
+// compiled into the release. Store metadata is presentation only and changes
+// nothing the manifest declares.
+func (b Bundle) WithStore(storeJSON []byte, assets fs.FS) Bundle {
+	listing, err := ParseStoreListing(storeJSON, assets)
+	if err != nil {
+		panic("plugin " + b.manifest.ID + ": " + err.Error())
+	}
+	b.store = &storePresentation{listing: listing, assets: assets}
+	return b
+}
+
+// StoreListing returns the plugin's Store presentation, if it has any.
+func (b Bundle) StoreListing() (StoreListing, fs.FS, bool) {
+	if b.store == nil {
+		return StoreListing{}, nil, false
+	}
+	return b.store.listing, b.store.assets, true
+}

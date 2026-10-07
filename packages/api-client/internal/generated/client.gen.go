@@ -9894,7 +9894,7 @@ type PluginStore struct {
 	} `json:"unsupportedInstallations"`
 }
 
-// PluginStoreArtwork Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
+// PluginStoreArtwork Presentation artwork a marketplace listing or an included plugin declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
 type PluginStoreArtwork struct {
 	// IconUrl Server path that serves the listing icon. Absent when the listing declares no icon.
 	IconUrl     *string `json:"iconUrl,omitempty"`
@@ -9924,10 +9924,13 @@ type PluginStoreCustom struct {
 	Version          string  `json:"version"`
 }
 
-// PluginStoreEntry One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present.
+// PluginStoreEntry One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present. An included plugin also carries its presentation in included.
 type PluginStoreEntry struct {
 	// Custom One custom-repository package joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry. Carries no update flag: freshness needs a live re-resolution through an update check.
 	Custom *PluginStoreCustom `json:"custom,omitempty"`
+
+	// Included Presentation of an included plugin, from the release's own Store metadata. It is present only with plugin and never changes identity, installation, capabilities, requirements, trust, or Player manifests.
+	Included *PluginStoreIncluded `json:"included,omitempty"`
 
 	// Marketplace One marketplace listing joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry.
 	Marketplace *PluginStoreMarketplace `json:"marketplace,omitempty"`
@@ -9938,9 +9941,24 @@ type PluginStoreEntry struct {
 	Source PluginStoreSource `json:"source"`
 }
 
+// PluginStoreIncluded Presentation of an included plugin, from the release's own Store metadata. It is present only with plugin and never changes identity, installation, capabilities, requirements, trust, or Player manifests.
+type PluginStoreIncluded struct {
+	// Artwork Presentation artwork a marketplace listing or an included plugin declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
+	Artwork *PluginStoreArtwork `json:"artwork,omitempty"`
+
+	// LongDescription Optional plain text for the detail page; never markup.
+	LongDescription *string `json:"longDescription,omitempty"`
+
+	// PublisherName Who builds the plugin. Included plugins are built by Tilecast.
+	PublisherName string `json:"publisherName"`
+
+	// PublisherUrl Optional https address for the publisher.
+	PublisherUrl *string `json:"publisherUrl,omitempty"`
+}
+
 // PluginStoreMarketplace One marketplace listing joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry.
 type PluginStoreMarketplace struct {
-	// Artwork Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
+	// Artwork Presentation artwork a marketplace listing or an included plugin declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
 	Artwork     *PluginStoreArtwork `json:"artwork,omitempty"`
 	Categories  *[]string           `json:"categories,omitempty"`
 	Compatible  bool                `json:"compatible"`
@@ -17058,12 +17076,12 @@ type ClientInterface interface {
 
 	// GetMarketplaceIcon performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
 	//
-	// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+	// The icon of a store entry. For an included plugin the image is a release-owned file the server reads from its own binary and serves directly, as PNG or WebP. For a marketplace listing it is served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
 	GetMarketplaceIcon(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMarketplaceScreenshot performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
 	//
-	// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+	// One screenshot of a store entry, served under the same rules as the entry icon. Included plugins ship up to five screenshots.
 	GetMarketplaceScreenshot(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InstallStorePackageWithBody performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
@@ -23842,7 +23860,7 @@ func (c *Client) GetPluginStoreEntry(ctx context.Context, packageId PackageID, r
 
 // GetMarketplaceIcon performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
 //
-// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+// The icon of a store entry. For an included plugin the image is a release-owned file the server reads from its own binary and serves directly, as PNG or WebP. For a marketplace listing it is served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
 func (c *Client) GetMarketplaceIcon(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMarketplaceIconRequest(c.Server, packageId)
 	if err != nil {
@@ -23857,7 +23875,7 @@ func (c *Client) GetMarketplaceIcon(ctx context.Context, packageId PackageID, re
 
 // GetMarketplaceScreenshot performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
 //
-// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+// One screenshot of a store entry, served under the same rules as the entry icon. Included plugins ship up to five screenshots.
 func (c *Client) GetMarketplaceScreenshot(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetMarketplaceScreenshotRequest(c.Server, packageId, index)
 	if err != nil {
@@ -49045,14 +49063,14 @@ type ClientWithResponsesInterface interface {
 
 	// GetMarketplaceIconWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
 	//
-	// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+	// The icon of a store entry. For an included plugin the image is a release-owned file the server reads from its own binary and serves directly, as PNG or WebP. For a marketplace listing it is served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetMarketplaceIconWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetMarketplaceIconResponse, error)
 
 	// GetMarketplaceScreenshotWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
 	//
-	// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+	// One screenshot of a store entry, served under the same rules as the entry icon. Included plugins ship up to five screenshots.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetMarketplaceScreenshotWithResponse(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*GetMarketplaceScreenshotResponse, error)
@@ -61664,14 +61682,14 @@ type GetPluginStoreEntryResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
-		// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present.
+		// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present. An included plugin also carries its presentation in included.
 		Data PluginStoreEntry `json:"data"`
 	}
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetPluginStoreEntryResponse) GetJSON200() *struct {
-	// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present.
+	// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present. An included plugin also carries its presentation in included.
 	Data PluginStoreEntry `json:"data"`
 } {
 	return r.JSON200
@@ -72795,7 +72813,7 @@ func (c *ClientWithResponses) GetPluginStoreEntryWithResponse(ctx context.Contex
 
 // GetMarketplaceIconWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
 //
-// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+// The icon of a store entry. For an included plugin the image is a release-owned file the server reads from its own binary and serves directly, as PNG or WebP. For a marketplace listing it is served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) GetMarketplaceIconWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetMarketplaceIconResponse, error) {
@@ -72808,7 +72826,7 @@ func (c *ClientWithResponses) GetMarketplaceIconWithResponse(ctx context.Context
 
 // GetMarketplaceScreenshotWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
 //
-// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+// One screenshot of a store entry, served under the same rules as the entry icon. Included plugins ship up to five screenshots.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) GetMarketplaceScreenshotWithResponse(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*GetMarketplaceScreenshotResponse, error) {
@@ -82920,7 +82938,7 @@ func ParseGetPluginStoreEntryResponse(rsp *http.Response) (*GetPluginStoreEntryR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present.
+			// Data One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present. An included plugin also carries its presentation in included.
 			Data PluginStoreEntry `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

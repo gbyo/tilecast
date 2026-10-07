@@ -27,9 +27,28 @@ afterEach(cleanup);
 
 const iconUrl = "/api/v1/plugin-store/acme.weather/artwork/icon?v=abc123";
 
-function included(overrides = {}): PluginStoreEntry {
+const includedIconUrl =
+  "/api/v1/plugin-store/countdown_bar/artwork/icon?v=0123456789ab";
+
+function included(
+  overrides = {},
+  presentation?: PluginStoreEntry["included"],
+): PluginStoreEntry {
   const plugin = catalogPlugin({ id: "countdown_bar", ...overrides });
-  return { packageId: plugin.id, source: { kind: "included" }, plugin };
+  return {
+    packageId: plugin.id,
+    source: { kind: "included" },
+    plugin,
+    ...(presentation ? { included: presentation } : {}),
+  };
+}
+
+/** An included plugin whose release ships Store presentation. */
+function includedWithStore(overrides = {}): PluginStoreEntry {
+  return included(overrides, {
+    publisherName: "Tilecast",
+    artwork: { iconUrl: includedIconUrl },
+  });
 }
 
 function marketplace(
@@ -70,12 +89,12 @@ function renderCard(entry: PluginStoreEntry, variant?: "default" | "featured") {
 
 describe("storeCardView", () => {
   it("normalizes included, marketplace, and custom entries into one shape", () => {
-    expect(storeCardView(included())).toMatchObject({
+    expect(storeCardView(includedWithStore())).toMatchObject({
       packageId: "countdown_bar",
       to: "/plugins/store/countdown_bar",
       pluginId: "countdown_bar",
-      publisher: undefined,
-      iconUrl: undefined,
+      publisher: "Tilecast",
+      iconUrl: includedIconUrl,
       compatible: true,
       updateAvailable: false,
       source: { kind: "included" },
@@ -120,6 +139,14 @@ describe("storeCardView", () => {
     ).toBeNull();
   });
 
+  it("degrades to the built-in glyph without Store metadata", () => {
+    expect(storeCardView(included())).toMatchObject({
+      pluginId: "countdown_bar",
+      publisher: undefined,
+      iconUrl: undefined,
+    });
+  });
+
   it("never lets an included plugin take marketplace artwork", () => {
     const entry = included();
     entry.marketplace = marketplaceListing({ artwork: { iconUrl } });
@@ -128,19 +155,45 @@ describe("storeCardView", () => {
 });
 
 describe("StorePluginCard", () => {
-  it("renders an included plugin with its shipped icon and no publisher line", () => {
-    const { container } = renderCard(included({ category: "Display" }));
+  it("renders an included plugin with its first-party icon and publisher", () => {
+    const { container } = renderCard(
+      includedWithStore({ category: "Display" }),
+    );
     const card = container.querySelector("[data-slot='card']") as HTMLElement;
     expect(card).toHaveAttribute("data-source", "included");
     expect(
       within(card).getByRole("link", { name: "Countdown Bar" }),
     ).toBeInTheDocument();
+    expect(within(card).getByText("by Tilecast")).toBeVisible();
     expect(within(card).getByText("Included with Tilecast")).toBeVisible();
     expect(within(card).getByText("Display")).toBeVisible();
+    const image = card.querySelector(
+      "[data-slot='store-card-icon'] img",
+    ) as HTMLImageElement;
+    expect(image.getAttribute("src")).toBe(includedIconUrl);
+    expect(image).toHaveAttribute("alt", "");
+    // Cards never carry screenshot carousels.
+    expect(card.querySelectorAll("img")).toHaveLength(1);
+  });
+
+  it("shows the built-in glyph when an included plugin ships no artwork", () => {
+    const { container } = renderCard(included({ category: "Display" }));
+    const card = container.querySelector("[data-slot='card']") as HTMLElement;
     expect(card.querySelector("img")).toBeNull();
     expect(
       card.querySelector("[data-slot='store-card-icon'] svg"),
     ).not.toBeNull();
+    expect(within(card).queryByText(/^by /)).toBeNull();
+  });
+
+  it("falls back to the built-in glyph when included artwork fails to load", () => {
+    const { container } = renderCard(includedWithStore());
+    fireEvent.error(container.querySelector("img") as HTMLImageElement);
+    expect(container.querySelector("img")).toBeNull();
+    expect(
+      container.querySelector("[data-slot='store-card-icon'] svg"),
+    ).not.toBeNull();
+    expect(screen.getByText("by Tilecast")).toBeVisible();
   });
 
   it("renders a marketplace listing with publisher, provenance, and artwork", () => {
@@ -149,7 +202,7 @@ describe("StorePluginCard", () => {
     );
     const card = container.querySelector("[data-slot='card']") as HTMLElement;
     expect(card).toHaveAttribute("data-source", "marketplace");
-    expect(within(card).getByText("Acme")).toBeVisible();
+    expect(within(card).getByText("by Acme")).toBeVisible();
     expect(within(card).getByText("Marketplace")).toBeVisible();
     expect(within(card).getByText("data")).toBeVisible();
     const image = card.querySelector("img") as HTMLImageElement;
@@ -164,7 +217,7 @@ describe("StorePluginCard", () => {
     const card = container.querySelector("[data-slot='card']") as HTMLElement;
     expect(card).toHaveAttribute("data-source", "custom");
     expect(within(card).getByText("Custom")).toBeVisible();
-    expect(within(card).getByText("Acme")).toBeVisible();
+    expect(within(card).getByText("by Acme")).toBeVisible();
     expect(card.querySelector("img")).toBeNull();
     expect(card.querySelector("svg.lucide-puzzle")).not.toBeNull();
   });

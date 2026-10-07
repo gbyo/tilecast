@@ -2672,7 +2672,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable. */
+    /** @description The icon of a store entry. For an included plugin the image is a release-owned file the server reads from its own binary and serves directly, as PNG or WebP. For a marketplace listing it is served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable. */
     get: operations["getMarketplaceIcon"];
     put?: never;
     post?: never;
@@ -2689,7 +2689,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description One screenshot of a marketplace listing, served under the same rules as the listing icon. */
+    /** @description One screenshot of a store entry, served under the same rules as the entry icon. Included plugins ship up to five screenshots. */
     get: operations["getMarketplaceScreenshot"];
     put?: never;
     post?: never;
@@ -7627,7 +7627,7 @@ export interface components {
       installedVersion?: string;
       updateAvailable: boolean;
     };
-    /** @description Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install. */
+    /** @description Presentation artwork a marketplace listing or an included plugin declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install. */
     PluginStoreArtwork: {
       /** @description Server path that serves the listing icon. Absent when the listing declares no icon. */
       iconUrl?: string;
@@ -7645,13 +7645,24 @@ export interface components {
       stale: boolean;
       error?: string;
     };
-    /** @description One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present. */
+    /** @description One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present. An included plugin also carries its presentation in included. */
     PluginStoreEntry: {
       packageId: string;
       source: components["schemas"]["PluginStoreSource"];
       plugin?: components["schemas"]["CatalogPlugin"];
       marketplace?: components["schemas"]["PluginStoreMarketplace"];
       custom?: components["schemas"]["PluginStoreCustom"];
+      included?: components["schemas"]["PluginStoreIncluded"];
+    };
+    /** @description Presentation of an included plugin, from the release's own Store metadata. It is present only with plugin and never changes identity, installation, capabilities, requirements, trust, or Player manifests. */
+    PluginStoreIncluded: {
+      /** @description Who builds the plugin. Included plugins are built by Tilecast. */
+      publisherName: string;
+      /** @description Optional https address for the publisher. */
+      publisherUrl?: string;
+      /** @description Optional plain text for the detail page; never markup. */
+      longDescription?: string;
+      artwork?: components["schemas"]["PluginStoreArtwork"];
     };
     PluginStore: {
       items: components["schemas"]["PluginStoreEntry"][];
@@ -19195,7 +19206,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description artwork_unavailable — the listing has no such artwork or the server could not fetch it */
+      /** @description artwork_unavailable — the entry has no such artwork or the server could not fetch it */
       404: {
         headers: {
           [name: string]: unknown;
@@ -19244,7 +19255,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description artwork_unavailable — the listing has no such artwork or the server could not fetch it */
+      /** @description artwork_unavailable — the entry has no such artwork or the server could not fetch it */
       404: {
         headers: {
           [name: string]: unknown;

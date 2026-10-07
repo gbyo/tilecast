@@ -29,6 +29,8 @@ type hostedPlugin struct {
 	plugin     plugin.Plugin
 	manifest   plugin.Manifest
 	definition Definition
+	// presentation is the release-owned Store listing for this plugin.
+	presentation includedPresentation
 }
 
 // Option configures a Service.
@@ -93,7 +95,10 @@ func (s *Service) host() {
 		if err := plugin.CheckDeclarations(p); err != nil {
 			panic(err)
 		}
-		s.hosted = append(s.hosted, hostedPlugin{plugin: p, manifest: manifest, definition: byID[manifest.ID]})
+		s.hosted = append(s.hosted, hostedPlugin{
+			plugin: p, manifest: manifest, definition: byID[manifest.ID],
+			presentation: loadIncludedPresentation(p, manifest.ID),
+		})
 	}
 	// Catalog order, so every generic loop is deterministic.
 	sort.SliceStable(s.hosted, func(i, j int) bool {

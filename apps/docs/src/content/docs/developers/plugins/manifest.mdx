@@ -83,6 +83,27 @@ The server refuses route collisions with core or another plugin.
 
 Use `studio.additionalRoutes` when the plugin owns a separate Studio surface such as a portal or inbox. The Studio definition must contribute matching `standaloneRoutes`.
 
+## Store listing
+
+A plugin can dress up its Plugin Store page with a second file, `plugins/<name>/tilecast.store.json`. It holds presentation only:
+
+```json
+{
+  "publisher": { "name": "Tilecast", "url": "https://tilecast.org" },
+  "longDescription": "A few sentences for the page's About section.",
+  "artwork": {
+    "icon": "./store/icon.webp",
+    "screenshots": [
+      { "src": "./store/01-overview.webp", "alt": "What the screenshot shows." }
+    ]
+  }
+}
+```
+
+Keep the images in the plugin's `store/` folder as `.webp` or `.png`. Use up to five screenshots at one size, 16:9 (about 1920 × 1080), and write alternative text for each. Attach the file in `plugin.go` with `.WithStore(...)`. Tilecast checks the paths when the server starts, so a typo is a build failure rather than a broken image.
+
+The file never changes what the plugin is or does. Identity, requirements, capabilities, and trust all still come from `tilecast.plugin.json`. A plugin without a Store file still works and shows its built-in icon and no screenshots. See the [engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#plugin-store-presentation) for every rule.
+
 ## Public docs
 
 A plugin can publish pages from its own directory:

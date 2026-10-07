@@ -328,6 +328,7 @@
     "by": "от {{publisher}}",
     "byLinked": "от <publisher>{{publisher}}</publisher>",
     "publisherLinkLabel": "{{publisher}}, репозиторий (открывается в новой вкладке)",
+    "publisherSiteLinkLabel": "{{publisher}}, сайт (открывается в новой вкладке)",
     "badgesLabel": "Сведения о плагине",
     "sourceBadge": {
       "included": "Встроенный",

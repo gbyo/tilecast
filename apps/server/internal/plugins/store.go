@@ -62,34 +62,35 @@ type MarketplaceEntry struct {
 	// Artwork carries Tilecast-owned paths to the listing's icon and
 	// screenshots. It is presentation only; the catalog's image
 	// addresses never reach Studio.
-	Artwork          *MarketplaceArtwork `json:"artwork,omitempty"`
-	Compatible       bool                `json:"compatible"`
-	Installed        bool                `json:"installed"`
-	InstalledVersion string              `json:"installedVersion,omitempty"`
-	UpdateAvailable  bool                `json:"updateAvailable"`
+	Artwork          *StoreArtwork `json:"artwork,omitempty"`
+	Compatible       bool          `json:"compatible"`
+	Installed        bool          `json:"installed"`
+	InstalledVersion string        `json:"installedVersion,omitempty"`
+	UpdateAvailable  bool          `json:"updateAvailable"`
 }
 
-// MarketplaceArtwork lists the artwork a listing declares, as paths the
-// server serves.
-type MarketplaceArtwork struct {
-	IconURL     string                  `json:"iconUrl,omitempty"`
-	Screenshots []MarketplaceScreenshot `json:"screenshots,omitempty"`
+// StoreArtwork lists the artwork a listing declares, as paths the server
+// serves. Marketplace and included entries share it.
+type StoreArtwork struct {
+	IconURL     string            `json:"iconUrl,omitempty"`
+	Screenshots []StoreScreenshot `json:"screenshots,omitempty"`
 }
 
-// MarketplaceScreenshot is one served screenshot with its alternative
-// text.
-type MarketplaceScreenshot struct {
+// StoreScreenshot is one served screenshot with its alternative text.
+type StoreScreenshot struct {
 	URL string `json:"url"`
 	Alt string `json:"alt"`
 }
 
 // StoreEntry is one normalized plugin-store row: the package identity and
 // provenance every source shares, plus the source-owned detail. Exactly one
-// of Plugin, Marketplace, and Custom is present.
+// of Plugin, Marketplace, and Custom is present. Included carries the
+// presentation of an included Plugin and is present only with it.
 type StoreEntry struct {
 	PackageID   string            `json:"packageId"`
 	Source      StoreSource       `json:"source"`
 	Plugin      *CatalogPlugin    `json:"plugin,omitempty"`
+	Included    *IncludedListing  `json:"included,omitempty"`
 	Marketplace *MarketplaceEntry `json:"marketplace,omitempty"`
 	Custom      *CustomEntry      `json:"custom,omitempty"`
 }
@@ -207,10 +208,12 @@ func (s *Service) Store(ctx context.Context) (Store, error) {
 			status = pluginStatus{}
 		}
 		entry := catalogEntry(hosted.definition, installed[hosted.manifest.ID], status)
+		listing := hosted.presentation.listing
 		items = append(items, StoreEntry{
 			PackageID: hosted.manifest.ID,
 			Source:    StoreSource{Kind: StoreSourceIncluded},
 			Plugin:    &entry,
+			Included:  &listing,
 		})
 	}
 	store := Store{Items: items, UnsupportedInstallations: unsupported}
@@ -341,10 +344,12 @@ func (s *Service) StoreEntry(ctx context.Context, id string) (StoreEntry, error)
 			status = pluginStatus{}
 		}
 		entry := catalogEntry(hosted.definition, installed[hosted.manifest.ID], status)
+		listing := hosted.presentation.listing
 		return StoreEntry{
 			PackageID: hosted.manifest.ID,
 			Source:    StoreSource{Kind: StoreSourceIncluded},
 			Plugin:    &entry,
+			Included:  &listing,
 		}, nil
 	}
 
@@ -438,16 +443,16 @@ func artworkScreenshotPath(listing catalog.Listing, index int) string {
 		"?v=" + catalog.ArtworkToken(listing.Screenshots[index].Src)
 }
 
-func marketplaceArtwork(listing catalog.Listing) *MarketplaceArtwork {
+func marketplaceArtwork(listing catalog.Listing) *StoreArtwork {
 	if listing.Icon == "" && len(listing.Screenshots) == 0 {
 		return nil
 	}
-	artwork := &MarketplaceArtwork{}
+	artwork := &StoreArtwork{}
 	if listing.Icon != "" {
 		artwork.IconURL = artworkIconPath(listing)
 	}
 	for index, shot := range listing.Screenshots {
-		artwork.Screenshots = append(artwork.Screenshots, MarketplaceScreenshot{
+		artwork.Screenshots = append(artwork.Screenshots, StoreScreenshot{
 			URL: artworkScreenshotPath(listing, index), Alt: shot.Alt,
 		})
 	}

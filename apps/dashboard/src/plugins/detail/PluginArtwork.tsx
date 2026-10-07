@@ -4,10 +4,11 @@ import { cn } from "cn";
 import { PluginIcon } from "../PluginIcon";
 
 /**
- * The plugin's mark at hero size. Included plugins use the icon Studio
- * ships; marketplace artwork loads from the server's own path and gives way
- * to the generic icon on any failure, so a broken image never leaves a hole.
- * Custom packages have no artwork of their own and show the generic icon.
+ * The plugin's mark at hero size. Store artwork, whether an included
+ * plugin's or a marketplace listing's, loads from the server's own path.
+ * On any failure, or without artwork, an included plugin shows the glyph
+ * Studio ships and every other entry shows the generic icon, so a broken
+ * image never leaves a hole.
  */
 export function PluginArtwork({
   pluginId,
@@ -30,9 +31,7 @@ export function PluginArtwork({
         className,
       )}
     >
-      {pluginId ? (
-        <PluginIcon pluginId={pluginId} className={glyphClassName} />
-      ) : artwork ? (
+      {artwork ? (
         <img
           src={artwork}
           alt=""
@@ -42,6 +41,8 @@ export function PluginArtwork({
           className="size-full object-contain"
           onError={() => setFailedUrl(artwork)}
         />
+      ) : pluginId ? (
+        <PluginIcon pluginId={pluginId} className={glyphClassName} />
       ) : (
         <Puzzle className={glyphClassName} aria-hidden="true" />
       )}

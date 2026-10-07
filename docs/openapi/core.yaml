@@ -4652,7 +4652,7 @@ paths:
     get:
       operationId: getMarketplaceIcon
       security: [{ sessionCookie: [] }, { userBearer: [] }]
-      description: The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+      description: The icon of a store entry. For an included plugin the image is a release-owned file the server reads from its own binary and serves directly, as PNG or WebP. For a marketplace listing it is served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
       parameters:
         - { $ref: "#/components/parameters/PackageID" }
       responses:
@@ -4667,13 +4667,13 @@ paths:
         "401": { description: Dashboard authentication required }
         "404":
           {
-            description: artwork_unavailable — the listing has no such artwork or the server could not fetch it,
+            description: artwork_unavailable — the entry has no such artwork or the server could not fetch it,
           }
   /api/v1/plugin-store/{packageId}/artwork/screenshots/{index}:
     get:
       operationId: getMarketplaceScreenshot
       security: [{ sessionCookie: [] }, { userBearer: [] }]
-      description: One screenshot of a marketplace listing, served under the same rules as the listing icon.
+      description: One screenshot of a store entry, served under the same rules as the entry icon. Included plugins ship up to five screenshots.
       parameters:
         - { $ref: "#/components/parameters/PackageID" }
         - name: index
@@ -4693,7 +4693,7 @@ paths:
         "401": { description: Dashboard authentication required }
         "404":
           {
-            description: artwork_unavailable — the listing has no such artwork or the server could not fetch it,
+            description: artwork_unavailable — the entry has no such artwork or the server could not fetch it,
           }
   /api/v1/plugin-store/marketplace/refresh:
     post:
@@ -11775,7 +11775,7 @@ components:
         updateAvailable: { type: boolean }
     PluginStoreArtwork:
       type: object
-      description: Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
+      description: Presentation artwork a marketplace listing or an included plugin declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
       properties:
         iconUrl:
           {
@@ -11809,13 +11809,35 @@ components:
     PluginStoreEntry:
       type: object
       required: [packageId, source]
-      description: One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present.
+      description: One normalized plugin-store row. The package identity and provenance every source shares, plus the source-owned detail. Exactly one of plugin, marketplace, and custom is present. An included plugin also carries its presentation in included.
       properties:
         packageId: { type: string, pattern: "^[a-z][a-z0-9_.:-]{0,127}$" }
         source: { $ref: "#/components/schemas/PluginStoreSource" }
         plugin: { $ref: "#/components/schemas/CatalogPlugin" }
         marketplace: { $ref: "#/components/schemas/PluginStoreMarketplace" }
         custom: { $ref: "#/components/schemas/PluginStoreCustom" }
+        included: { $ref: "#/components/schemas/PluginStoreIncluded" }
+    PluginStoreIncluded:
+      type: object
+      required: [publisherName]
+      description: Presentation of an included plugin, from the release's own Store metadata. It is present only with plugin and never changes identity, installation, capabilities, requirements, trust, or Player manifests.
+      properties:
+        publisherName:
+          {
+            type: string,
+            description: "Who builds the plugin. Included plugins are built by Tilecast.",
+          }
+        publisherUrl:
+          {
+            type: string,
+            description: "Optional https address for the publisher.",
+          }
+        longDescription:
+          {
+            type: string,
+            description: "Optional plain text for the detail page; never markup.",
+          }
+        artwork: { $ref: "#/components/schemas/PluginStoreArtwork" }
     PluginStore:
       type: object
       required: [items, unsupportedInstallations, marketplace]
