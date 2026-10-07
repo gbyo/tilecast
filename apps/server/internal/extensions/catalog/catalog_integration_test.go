@@ -374,8 +374,13 @@ func TestRefreshIfStale(t *testing.T) {
 		t.Fatalf("requests = %d, want still 1", requests.Load())
 	}
 	// An expired row fetches again. The row is seeded directly: the
-	// refresh path itself would never cache an expired document.
-	if _, err := f.pool.Exec(ctx, `UPDATE marketplace_catalog_cache SET expires_at=now()-interval '1 hour'`); err != nil {
+	// refresh path itself would never cache an expired document. The
+	// payload expiry moves with the column so the integrity check keeps
+	// passing: only the instant changes, not their agreement.
+	if _, err := f.pool.Exec(ctx, `UPDATE marketplace_catalog_cache SET
+		expires_at='2000-01-01T00:00:00Z',
+		payload=convert_to(jsonb_set(convert_from(payload, 'UTF8')::jsonb,
+			'{expiresAt}', '"2000-01-01T00:00:00Z"')::text, 'UTF8')`); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.RefreshIfStale(ctx); err != nil {

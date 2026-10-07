@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -292,15 +293,18 @@ func TestRefreshMarketplaceCatalog(t *testing.T) {
 			t.Fatal(err)
 		}
 		signed := signMarketplaceDocument(t, private, marketplaceTestDocument())
+		// The catalog fails in place: the URL stays fixed, as in
+		// production, so the verified cache keeps serving its document.
+		var failing atomic.Bool
 		catalogServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if failing.Load() {
+				http.Error(w, "catalog down", http.StatusInternalServerError)
+				return
+			}
 			w.Header().Set("Content-Type", "application/json")
 			w.Write(signed)
 		}))
 		t.Cleanup(catalogServer.Close)
-		failingServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "catalog down", http.StatusInternalServerError)
-		}))
-		t.Cleanup(failingServer.Close)
 
 		marketplace := catalog.NewService(env.pool, catalogServer.URL, verifier)
 		client := newMarketplaceTestClient(t, env, func() {
@@ -357,7 +361,7 @@ func TestRefreshMarketplaceCatalog(t *testing.T) {
 		}
 
 		// A failed refresh answers 502; the verified cache keeps serving.
-		env.server.marketplace = catalog.NewService(env.pool, failingServer.URL, verifier)
+		failing.Store(true)
 		if status, body = client.call("owner", http.MethodPost, "/api/v1/plugin-store/marketplace/refresh", true, ""); status != http.StatusBadGateway {
 			t.Fatalf("failed refresh status = %d, want 502 (%v)", status, body)
 		} else if code := body["error"].(map[string]any)["code"]; code != "marketplace_refresh_failed" {
