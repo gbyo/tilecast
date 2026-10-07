@@ -27,10 +27,7 @@
   },
   "capabilities": {
     "network": {
-      "hosts": [
-        "api.example.com",
-        "stats.example.org"
-      ]
+      "hosts": ["api.example.com", "stats.example.org"]
     },
     "background": {
       "jobs": [

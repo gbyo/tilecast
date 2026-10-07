@@ -27,9 +27,7 @@
   },
   "capabilities": {
     "network": {
-      "hosts": [
-        "10.0.0.1"
-      ]
+      "hosts": ["10.0.0.1"]
     }
   }
 }

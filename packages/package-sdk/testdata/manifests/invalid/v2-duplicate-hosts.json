@@ -27,10 +27,7 @@
   },
   "capabilities": {
     "network": {
-      "hosts": [
-        "api.example.com",
-        "api.example.com"
-      ]
+      "hosts": ["api.example.com", "api.example.com"]
     }
   }
 }
