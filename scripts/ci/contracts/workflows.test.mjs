@@ -151,25 +151,29 @@ test("Linux release packaging is path-gated on PRs and full on main", () => {
   assert.ok(pr.jobs.required.needs.includes("linux_player_ci"));
 });
 
-test("Dashboard validation runs independently and keeps coverage across shards", () => {
+test("Dashboard validation runs independently and makes coverage optional", () => {
   const dashboard = parse(
     readFileSync(".github/workflows/ci-dashboard.yml", "utf8"),
   );
   const jobs = dashboard.jobs;
   assert.ok(jobs.lint && jobs.tests && jobs.build && jobs.coverage);
+  assert.equal(dashboard.on.workflow_call.inputs.coverage.type, "boolean");
+  assert.equal(dashboard.on.workflow_call.inputs.coverage.default, true);
   assert.equal(jobs.lint.needs, undefined);
   assert.equal(jobs.tests.needs, undefined);
   assert.equal(jobs.build.needs, undefined);
   assert.deepEqual(jobs.tests.strategy.matrix.shard, [1, 2]);
   assert.deepEqual(jobs.coverage.needs, "tests");
-  assert.equal(jobs.coverage.if, "always()");
+  assert.equal(jobs.coverage.if, "${{ always() && inputs.coverage }}");
 
   const shardRun = jobs.tests.steps.find((step) =>
-    /Run coverage-enabled Vitest shard/.test(step.name ?? ""),
+    /Run Vitest shard/.test(step.name ?? ""),
   );
   assert.match(shardRun?.run ?? "", /--shard=\$\{\{ matrix\.shard \}\}\/2/);
   assert.match(shardRun?.run ?? "", /--reporter=junit/);
   assert.match(shardRun?.run ?? "", /--reporter=blob/);
+  assert.match(shardRun?.run ?? "", /npm run coverage/);
+  assert.match(shardRun?.run ?? "", /npm test/);
   assert.match(shardRun?.run ?? "", /--outputFile\.junit=.*matrix\.shard/);
 
   const shardReporter = jobs.tests.steps.find((step) =>
@@ -327,6 +331,11 @@ test("pull requests run only the deterministic checks", () => {
     "no screenshots on pull requests",
   );
   assert.equal(
+    pr.jobs.dashboard_ci.with?.coverage,
+    "${{ github.event_name != 'pull_request' }}",
+    "coverage belongs on main/release validation, not the PR gate",
+  );
+  assert.equal(
     pr.jobs.android_ci.with?.conformance,
     false,
     "no emulator on pull requests",
@@ -347,6 +356,21 @@ test("pull requests run only the deterministic checks", () => {
       .env.CONFORMANCE_SELECTED,
     /github\.event_name != 'pull_request'/,
   );
+});
+
+test("CodeQL workflows do not start for unrelated pull requests", () => {
+  for (const file of [
+    "codeql-dashboard.yml",
+    "codeql-server.yml",
+    "codeql-android.yml",
+  ]) {
+    const codeql = workflow(file);
+    assert.ok(
+      Array.isArray(codeql.on.pull_request.paths) &&
+        codeql.on.pull_request.paths.length > 0,
+      `${file}: pull_request must be path-filtered`,
+    );
+  }
 });
 
 test("Extended validation runs on a schedule and on demand, and never gates", () => {

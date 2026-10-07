@@ -2,6 +2,10 @@ name: ci-dashboard
 
 on:
   workflow_call:
+    inputs:
+      coverage:
+        type: boolean
+        default: true
 
 permissions:
   actions: read
@@ -113,17 +117,25 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
-      - name: Run coverage-enabled Vitest shard
+      - name: Run Vitest shard
         working-directory: apps/dashboard
+        env:
+          COVERAGE: ${{ inputs.coverage }}
         run: |
           mkdir -p test-results vitest-reports
-          npm run coverage -- \
-            --shard=${{ matrix.shard }}/2 \
-            --reporter=default \
-            --reporter=junit \
-            --reporter=blob \
-            --outputFile.junit=test-results/vitest-${{ matrix.shard }}.xml \
-            --outputFile.blob=vitest-reports/blob-${{ matrix.shard }}.json
+          args=(
+            "--shard=${{ matrix.shard }}/2"
+            "--reporter=default"
+            "--reporter=junit"
+            "--outputFile.junit=test-results/vitest-${{ matrix.shard }}.xml"
+          )
+          if [ "$COVERAGE" = "true" ]; then
+            npm run coverage -- "${args[@]}" \
+              --reporter=blob \
+              --outputFile.blob=vitest-reports/blob-${{ matrix.shard }}.json
+          else
+            npm test -- "${args[@]}"
+          fi
       - name: Test Reporter
         if: ${{ !cancelled() }}
         uses: dorny/test-reporter@v3.0.0
@@ -133,7 +145,7 @@ jobs:
           reporter: java-junit
           fail-on-empty: false
       - uses: actions/upload-artifact@v7
-        if: ${{ !cancelled() }}
+        if: ${{ inputs.coverage && !cancelled() }}
         with:
           name: dashboard-vitest-shard-${{ matrix.shard }}
           path: |
@@ -150,7 +162,7 @@ jobs:
   coverage:
     name: Merge Dashboard coverage
     needs: tests
-    if: always()
+    if: ${{ always() && inputs.coverage }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

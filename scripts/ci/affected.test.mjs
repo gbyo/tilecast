@@ -363,6 +363,10 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
     "e2e",
     "server",
   ]);
+  assert.deepEqual(
+    selected(["packages/api-schema/generated/openapi.d.ts"]),
+    ["container", "dashboard", "e2e"],
+  );
   for (const path of [
     "packages/api-schema/README.md",
     "packages/manifest-schema/README.md",
@@ -391,15 +395,25 @@ test("documentation stays inexpensive", () => {
   ])
     assert.deepEqual(selected([path]), ["docs"], path);
 });
-test("graph, workflows, lockfiles and unknown shared packages fail conservative", () => {
+test("graph, workflows and lockfiles still select full validation", () => {
   for (const path of [
     "scripts/ci/affected.mjs",
     ".github/workflows/pr-validation.yml",
     "package-lock.json",
+  ])
+    assert.deepEqual(selected([path]), [...areas].sort());
+});
+
+test("unknown shared package paths fail with an ownership error", () => {
+  for (const path of [
     "packages/new-contract/index.ts",
     "packages/api-schema/new-contract.json",
   ])
-    assert.deepEqual(selected([path]), [...areas].sort());
+    assert.throws(
+      () => affected([path]),
+      /Unowned shared package path: .* Add its consumers to scripts\/ci\/affected\.mjs\./,
+      path,
+    );
 });
 test("full run and empty diff", () => {
   assert.deepEqual(

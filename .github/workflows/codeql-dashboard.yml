@@ -1,12 +1,22 @@
 name: Dashboard CodeQL
 
 on:
-  # Every pull request, including one stacked on another PR's branch.
+  # Every relevant pull request, including one stacked on another PR's branch.
   pull_request:
+    paths:
+      - "apps/dashboard/**"
+      - "apps/docs/**"
+      - "plugins/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/codeql-dashboard.yml"
   push:
     branches: [main]
     paths:
       - "apps/dashboard/**"
+      - "apps/docs/**"
+      - "plugins/**"
       - "packages/**"
       - "package.json"
       - "package-lock.json"

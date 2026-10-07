@@ -1,12 +1,25 @@
 name: Server CodeQL
 
 on:
-  # Every pull request, including one stacked on another PR's branch.
+  # Every relevant pull request, including one stacked on another PR's branch.
   pull_request:
+    paths:
+      - "apps/server/**"
+      - "plugins/**"
+      - "packages/plugin-sdk/go/**"
+      - "packages/package-sdk/go/**"
+      - "widgets/**"
+      - "go.work"
+      - ".github/workflows/codeql-server.yml"
   push:
     branches: [main]
     paths:
       - "apps/server/**"
+      - "plugins/**"
+      - "packages/plugin-sdk/go/**"
+      - "packages/package-sdk/go/**"
+      - "widgets/**"
+      - "go.work"
       - ".github/workflows/codeql-server.yml"
   schedule:
     - cron: "33 3 * * 1"

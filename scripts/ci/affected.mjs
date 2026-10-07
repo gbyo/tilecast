@@ -117,6 +117,10 @@ const rules = [
     ["server", "dashboard", "cli", "docs"],
   ],
   [/^packages\/api-schema\/activity\//, ["activity"]],
+  // Generated OpenAPI TypeScript is consumed by Studio. The source OpenAPI
+  // files have their own broader consumer rule below; generated output alone
+  // must not fan out to native Players.
+  [/^packages\/api-schema\/generated\//, ["dashboard"]],
   [
     /^apps\/server\/internal\/(devices|manifestchanges|previews|settings|presentnet)\//,
     ["protocol"],
@@ -281,9 +285,18 @@ export function affected(
       matched = true;
       for (const target of targets) selected.add(target);
     }
-    // New shared packages/plugins must get validation until their consumers
-    // have been added deliberately. Unknown documentation is inexpensive.
-    if (!matched && /^(crates|packages|plugins|apps\/edge)\//.test(path)) {
+    // A new shared package needs an explicit ownership rule. Failing the
+    // tiny classifier is safer than silently spending every platform runner:
+    // the author gets a direct instruction to register the package's actual
+    // consumers instead of an accidental all-repository validation fan-out.
+    if (!matched && /^packages\//.test(path)) {
+      throw new Error(
+        `Unowned shared package path: ${path}. Add its consumers to scripts/ci/affected.mjs.`,
+      );
+    }
+    // Native crates, plugins and Edge paths remain conservative until their
+    // dependency boundaries are registered more precisely.
+    if (!matched && /^(crates|plugins|apps\/edge)\//.test(path)) {
       for (const area of areas) selected.add(area);
     }
   }
