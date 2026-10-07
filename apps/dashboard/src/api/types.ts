@@ -1266,10 +1266,28 @@ export type PluginStoreMarketplace = {
   issues?: string;
   categories?: string[];
   featured?: boolean;
+  artwork?: PluginStoreArtwork;
   compatible: boolean;
   installed: boolean;
   installedVersion?: string;
   updateAvailable: boolean;
+};
+
+/**
+ * Presentation artwork a marketplace listing declares, as Tilecast Server
+ * paths. Studio loads images only from these paths, never from the
+ * addresses the catalog names. Artwork never affects identity, trust, or
+ * install, and any image may fail to load.
+ */
+export type PluginStoreArtwork = {
+  iconUrl?: string;
+  screenshots?: PluginStoreScreenshot[];
+};
+
+export type PluginStoreScreenshot = {
+  url: string;
+  /** Text that describes the screenshot. */
+  alt: string;
 };
 
 /**

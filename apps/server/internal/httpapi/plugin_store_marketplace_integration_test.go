@@ -23,6 +23,9 @@ import (
 // wire a catalog service and a marketplace-backed plugin service.
 type marketplaceTestClient struct {
 	call func(role, method, path string, csrf bool, body string) (int, map[string]any)
+	// raw issues a GET and returns the undecoded response. An empty role
+	// sends no session cookie.
+	raw func(role, path string, header http.Header) (int, http.Header, []byte)
 }
 
 func newMarketplaceTestClient(t *testing.T, env activityTestEnvironment, configure func()) marketplaceTestClient {
@@ -74,7 +77,27 @@ func newMarketplaceTestClient(t *testing.T, env activityTestEnvironment, configu
 		_ = json.Unmarshal(raw, &decoded)
 		return response.StatusCode, decoded
 	}
-	return marketplaceTestClient{call: call}
+	raw := func(role, path string, header http.Header) (int, http.Header, []byte) {
+		t.Helper()
+		request, err := http.NewRequest(http.MethodGet, router.URL+path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for name, values := range header {
+			request.Header[name] = values
+		}
+		if role != "" {
+			request.AddCookie(&http.Cookie{Name: "tilecast_session", Value: sessions[role].Token})
+		}
+		response, err := router.Client().Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		body, _ := io.ReadAll(response.Body)
+		return response.StatusCode, response.Header, body
+	}
+	return marketplaceTestClient{call: call, raw: raw}
 }
 
 func marketplaceStoreItems(t *testing.T, body map[string]any) []any {
@@ -355,6 +378,154 @@ func TestRefreshMarketplaceCatalog(t *testing.T) {
 		}
 		if cached["stale"] != true {
 			t.Fatalf("marketplace stale after failed refresh = %v, want true", cached["stale"])
+		}
+	})
+}
+
+type artworkRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f artworkRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
+
+// TestMarketplaceArtworkServedThroughServer drives the artwork routes
+// through the production router. Studio receives Tilecast paths, never the
+// catalog's image addresses, and the server fetches only what the cached
+// listing declares.
+func TestMarketplaceArtworkServedThroughServer(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		const iconSource = "https://images.example.com/acme/weather/icon.png"
+		const shotSource = "https://images.example.com/acme/weather/one.png"
+		listing := catalog.Listing{
+			PackageID: "acme.weather", Version: "1.0.0", Name: "Weather",
+			Description: "Current conditions.", Publisher: catalog.Publisher{ID: "acme", Name: "Acme"},
+			License: "AGPL-3.0-only", TilecastRange: ">=0.0.0",
+			OCI: "registry.example.com/acme/weather", Digest: marketplaceTestDigest,
+			Repository: "https://github.com/acme/tilecast-weather",
+			Icon:       iconSource,
+			Screenshots: []catalog.Screenshot{
+				{Src: shotSource, Alt: "Forecast on a lobby display."},
+				{Src: "https://images.example.com/acme/weather/missing.png", Alt: "A screenshot that fails."},
+			},
+		}
+		plain := listing
+		plain.PackageID, plain.Name, plain.Icon, plain.Screenshots = "acme.plain", "Plain", "", nil
+		document, err := json.Marshal(catalog.Document{FormatVersion: catalog.CatalogFormatVersion, Listings: []catalog.Listing{plain, listing}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		catalogServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(document) }))
+		t.Cleanup(catalogServer.Close)
+
+		png := []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89")
+		var fetched []string
+		var sawCredentials atomic.Bool
+		marketplace := catalog.NewServiceWithURL(env.pool, catalogServer.URL)
+		marketplace.SetArtworkTransport(artworkRoundTripper(func(request *http.Request) (*http.Response, error) {
+			fetched = append(fetched, request.URL.String())
+			if request.Header.Get("Cookie") != "" || request.Header.Get("Authorization") != "" || request.Header.Get("X-CSRF-Token") != "" {
+				sawCredentials.Store(true)
+			}
+			status := http.StatusOK
+			if strings.HasSuffix(request.URL.Path, "missing.png") {
+				status = http.StatusNotFound
+			}
+			return &http.Response{StatusCode: status, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(string(png))), ContentLength: int64(len(png))}, nil
+		}))
+		if err := marketplace.Refresh(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		client := newMarketplaceTestClient(t, env, func() {
+			env.server.marketplace = marketplace
+			service := plugins.NewService(env.pool, nil)
+			service.SetMarketplaceSource(func(ctx context.Context) (plugins.MarketplaceSnapshot, error) {
+				cached, err := marketplace.Cached(ctx)
+				if err != nil {
+					return plugins.MarketplaceSnapshot{}, err
+				}
+				return plugins.MarketplaceSnapshotFrom(cached, time.Now()), nil
+			})
+			env.server.plugins = service
+		})
+
+		// The store carries Tilecast paths and never the catalog addresses.
+		status, rawStore, storeBody := client.raw("viewer", "/api/v1/plugin-store", nil)
+		if status != http.StatusOK {
+			t.Fatalf("store status = %d (%s)", status, rawStore)
+		}
+		if strings.Contains(string(storeBody), "images.example.com") {
+			t.Fatal("the store response leaks the catalog's image address")
+		}
+		var store map[string]any
+		if err := json.Unmarshal(storeBody, &store); err != nil {
+			t.Fatal(err)
+		}
+		items := marketplaceStoreItems(t, store)
+		artwork := findStoreItem(t, items, "acme.weather")["marketplace"].(map[string]any)["artwork"].(map[string]any)
+		iconURL := artwork["iconUrl"].(string)
+		if !strings.HasPrefix(iconURL, "/api/v1/plugin-store/acme.weather/artwork/icon?v=") {
+			t.Fatalf("iconUrl = %q", iconURL)
+		}
+		shots := artwork["screenshots"].([]any)
+		if len(shots) != 2 || shots[0].(map[string]any)["alt"] != "Forecast on a lobby display." {
+			t.Fatalf("screenshots = %v", shots)
+		}
+		if _, ok := findStoreItem(t, items, "acme.plain")["marketplace"].(map[string]any)["artwork"]; ok {
+			t.Fatal("a listing without artwork carries an artwork block")
+		}
+
+		// The icon serves with defensive headers and honors validators.
+		status, header, body := client.raw("viewer", iconURL, nil)
+		if status != http.StatusOK || header.Get("Content-Type") != "image/png" || string(body) != string(png) {
+			t.Fatalf("icon status=%d type=%q", status, header.Get("Content-Type"))
+		}
+		if header.Get("X-Content-Type-Options") != "nosniff" || !strings.Contains(header.Get("Content-Security-Policy"), "default-src 'none'") {
+			t.Fatalf("icon headers = %v", header)
+		}
+		if status, _, _ = client.raw("viewer", iconURL, http.Header{"If-None-Match": {header.Get("ETag")}}); status != http.StatusNotModified {
+			t.Fatalf("conditional icon status = %d, want 304", status)
+		}
+		if status, _, _ = client.raw("", iconURL, nil); status != http.StatusUnauthorized {
+			t.Fatalf("anonymous icon status = %d, want 401", status)
+		}
+		if status, _, _ = client.raw("viewer", "/api/v1/plugin-store/acme.weather/artwork/screenshots/0", nil); status != http.StatusOK {
+			t.Fatalf("screenshot status = %d", status)
+		}
+
+		// Every unavailable case answers the same 404 and never reaches the
+		// network with a client-chosen address.
+		before := len(fetched)
+		for name, path := range map[string]string{
+			"origin failure":     "/api/v1/plugin-store/acme.weather/artwork/screenshots/1",
+			"index out of range": "/api/v1/plugin-store/acme.weather/artwork/screenshots/9",
+			"negative index":     "/api/v1/plugin-store/acme.weather/artwork/screenshots/-1",
+			"non-numeric index":  "/api/v1/plugin-store/acme.weather/artwork/screenshots/https:%2F%2Fevil.example.com",
+			"no icon declared":   "/api/v1/plugin-store/acme.plain/artwork/icon",
+			"unknown package":    "/api/v1/plugin-store/acme.unknown/artwork/icon",
+			"included plugin":    "/api/v1/plugin-store/countdown_bar/artwork/icon",
+		} {
+			status, _, body := client.raw("viewer", path, nil)
+			if status != http.StatusNotFound || !strings.Contains(string(body), "artwork_unavailable") {
+				t.Errorf("%s: status=%d body=%s", name, status, body)
+			}
+		}
+		for _, address := range fetched[before:] {
+			if address != "https://images.example.com/acme/weather/missing.png" {
+				t.Errorf("unexpected artwork fetch %q", address)
+			}
+		}
+		for _, address := range fetched {
+			if !strings.HasPrefix(address, "https://images.example.com/acme/weather/") {
+				t.Errorf("fetched an address the listing does not declare: %q", address)
+			}
+		}
+		if sawCredentials.Load() {
+			t.Fatal("an artwork fetch carried dashboard credentials")
+		}
+
+		// A failed image never breaks browsing.
+		if status, _, _ = client.raw("viewer", "/api/v1/plugin-store", nil); status != http.StatusOK {
+			t.Fatalf("store status after artwork failure = %d", status)
 		}
 	})
 }

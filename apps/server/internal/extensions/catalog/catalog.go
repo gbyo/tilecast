@@ -93,6 +93,19 @@ type Listing struct {
 	Issues        string    `json:"issues,omitempty"`
 	Categories    []string  `json:"categories,omitempty"`
 	Featured      bool      `json:"featured,omitempty"`
+	// Icon and Screenshots are presentation metadata. They never take
+	// part in package identity, digest verification, provenance, or
+	// capabilities. Studio reaches them only through the artwork path
+	// the server owns.
+	Icon        string       `json:"icon,omitempty"`
+	Screenshots []Screenshot `json:"screenshots,omitempty"`
+}
+
+// Screenshot is one listing image with the text a screen reader speaks
+// for it.
+type Screenshot struct {
+	Src string `json:"src"`
+	Alt string `json:"alt"`
 }
 
 // Document is one validated marketplace catalog.
@@ -119,9 +132,10 @@ func (c Cached) Stale() bool {
 
 // Service fetches and caches the marketplace catalog.
 type Service struct {
-	db     *pgxpool.Pool
-	client *http.Client
-	url    string
+	db      *pgxpool.Pool
+	client  *http.Client
+	url     string
+	artwork *artworkCache
 
 	// staleMu guards staleRetryAfter, the process-local backoff
 	// RefreshIfStale observes after a failed fetch.
@@ -152,7 +166,7 @@ func NewServiceWithURL(db *pgxpool.Pool, rawURL string) *Service {
 		}
 		return nil
 	}
-	return &Service{db: db, client: client, url: rawURL}
+	return &Service{db: db, client: client, url: rawURL, artwork: newArtworkCache()}
 }
 
 func sameOrigin(left, right *url.URL) bool {
@@ -425,7 +439,7 @@ func validateListing(listing Listing) error {
 		}
 		seen[category] = true
 	}
-	return nil
+	return validateArtwork(listing)
 }
 
 // validGitHubRepository accepts a repository address the installer can

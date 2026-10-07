@@ -121,6 +121,7 @@ Dashboard reads require a valid session. Mutations require Owner or Administrato
 - `GET /api/v1/plugins` — current catalog plus unsupported or retired installations
 - `GET /api/v1/plugin-store` — normalized store entries with provenance
 - `GET /api/v1/plugin-store/{packageId}` — one store entry
+- `GET /api/v1/plugin-store/{packageId}/artwork/icon` and `.../artwork/screenshots/{index}` — marketplace artwork from the server cache; see [Marketplace](marketplace.md#artwork)
 - `POST /api/v1/plugins/{pluginId}/install` — install a supported plugin
 - `DELETE /api/v1/plugins/{pluginId}/installation` — remove an installation row
 - `GET /api/v1/plugins/dependency-graph` — Dependency Explorer system tool

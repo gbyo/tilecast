@@ -46,6 +46,15 @@
       "marketplace": "Каталог",
       "custom": "Свой"
     },
+    "featured": {
+      "title": "Рекомендуемые",
+      "label": "Рекомендуемые плагины"
+    },
+    "allPlugins": "Все плагины",
+    "card": {
+      "incompatible": "Несовместим",
+      "moreCategories": "+{{count}}"
+    },
     "notFoundTitle": "Плагин не найден",
     "notFoundDescription": "Эта запись недоступна из этих источников.",
     "backToExplore": "Назад к обзору",

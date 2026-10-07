@@ -27,12 +27,29 @@ this page and Studio always show the same reviewed listings.
 
 Package files are stored in OCI registries, not in the Marketplace catalog.
 
+## Icons and screenshots
+
+A listing can include an icon and up to five screenshots. Studio shows the
+icon on the listing's card in **Explore**. Screenshots are part of the listing
+data for the plugin page.
+
+Artwork is for presentation only. It has no effect on what a package is,
+whether it is trusted, or how it installs.
+
+Your browser never loads these images from GitHub or from the publisher.
+Tilecast Server fetches each image, checks that it is a normal web image of
+1 MiB or less, and serves it to Studio. If an image is missing or fails to
+load, Studio shows the standard plugin icon instead. See
+[Marketplace](https://github.com/gbyo/tilecast/blob/main/docs/marketplace.md#artwork)
+for the exact rules.
+
 ## Get a package listed
 
 Marketplace submissions are ordinary pull requests that add or update listing
 metadata in `marketplace/catalog.json`. A listing identifies the publisher,
 repository, supported Tilecast versions, package registry, and immutable
-package digest.
+package digest. It can also include an icon and screenshots with a short
+description of each.
 
 The package itself must follow the Tilecast extension package contract. See
 [Plugins](../plugins/) for the administrator experience and

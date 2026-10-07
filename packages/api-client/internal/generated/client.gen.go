@@ -9894,6 +9894,19 @@ type PluginStore struct {
 	} `json:"unsupportedInstallations"`
 }
 
+// PluginStoreArtwork Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
+type PluginStoreArtwork struct {
+	// IconUrl Server path that serves the listing icon. Absent when the listing declares no icon.
+	IconUrl     *string `json:"iconUrl,omitempty"`
+	Screenshots *[]struct {
+		// Alt Text that describes the screenshot.
+		Alt string `json:"alt"`
+
+		// Url Server path that serves the screenshot.
+		Url string `json:"url"`
+	} `json:"screenshots,omitempty"`
+}
+
 // PluginStoreCustom One custom-repository package joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry. Carries no update flag: freshness needs a live re-resolution through an update check.
 type PluginStoreCustom struct {
 	Compatible  bool    `json:"compatible"`
@@ -9927,9 +9940,11 @@ type PluginStoreEntry struct {
 
 // PluginStoreMarketplace One marketplace listing joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry.
 type PluginStoreMarketplace struct {
-	Categories  *[]string `json:"categories,omitempty"`
-	Compatible  bool      `json:"compatible"`
-	Description *string   `json:"description,omitempty"`
+	// Artwork Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
+	Artwork     *PluginStoreArtwork `json:"artwork,omitempty"`
+	Categories  *[]string           `json:"categories,omitempty"`
+	Compatible  bool                `json:"compatible"`
+	Description *string             `json:"description,omitempty"`
 
 	// Digest Pinned artifact digest as sha256 colon hex.
 	Digest           string  `json:"digest"`
@@ -17038,6 +17053,16 @@ type ClientInterface interface {
 	// One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
 	GetPluginStoreEntry(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetMarketplaceIcon performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
+	//
+	// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+	GetMarketplaceIcon(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMarketplaceScreenshot performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
+	//
+	// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+	GetMarketplaceScreenshot(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// InstallStorePackageWithBody performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -23802,6 +23827,36 @@ func (c *Client) ResolveGitHubRepository(ctx context.Context, params *ResolveGit
 // One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
 func (c *Client) GetPluginStoreEntry(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPluginStoreEntryRequest(c.Server, packageId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMarketplaceIcon performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
+//
+// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+func (c *Client) GetMarketplaceIcon(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMarketplaceIconRequest(c.Server, packageId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMarketplaceScreenshot performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
+//
+// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+func (c *Client) GetMarketplaceScreenshot(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMarketplaceScreenshotRequest(c.Server, packageId, index)
 	if err != nil {
 		return nil, err
 	}
@@ -39939,6 +39994,81 @@ func NewGetPluginStoreEntryRequest(server string, packageId PackageID) (*http.Re
 	return req, nil
 }
 
+// NewGetMarketplaceIconRequest constructs an http.Request for the GetMarketplaceIcon method
+func NewGetMarketplaceIconRequest(server string, packageId PackageID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store/%s/artwork/icon", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMarketplaceScreenshotRequest constructs an http.Request for the GetMarketplaceScreenshot method
+func NewGetMarketplaceScreenshotRequest(server string, packageId PackageID, index int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "index", index, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store/%s/artwork/screenshots/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewInstallStorePackageRequest calls the generic InstallStorePackage builder with application/json body
 func NewInstallStorePackageRequest(server string, packageId PackageID, params *InstallStorePackageParams, body InstallStorePackageJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -48909,6 +49039,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetPluginStoreEntryWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetPluginStoreEntryResponse, error)
+
+	// GetMarketplaceIconWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
+	//
+	// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetMarketplaceIconWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetMarketplaceIconResponse, error)
+
+	// GetMarketplaceScreenshotWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
+	//
+	// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetMarketplaceScreenshotWithResponse(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*GetMarketplaceScreenshotResponse, error)
 
 	// InstallStorePackageWithBodyWithResponse performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
 	// with any type of body and a specified content type.
@@ -61559,6 +61703,74 @@ func (r GetPluginStoreEntryResponse) ContentType() string {
 	return ""
 }
 
+type GetMarketplaceIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMarketplaceIconResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMarketplaceIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMarketplaceIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMarketplaceIconResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMarketplaceScreenshotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMarketplaceScreenshotResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMarketplaceScreenshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMarketplaceScreenshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMarketplaceScreenshotResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type InstallStorePackageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -72578,6 +72790,32 @@ func (c *ClientWithResponses) GetPluginStoreEntryWithResponse(ctx context.Contex
 	return ParseGetPluginStoreEntryResponse(rsp)
 }
 
+// GetMarketplaceIconWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
+//
+// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetMarketplaceIconWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetMarketplaceIconResponse, error) {
+	rsp, err := c.GetMarketplaceIcon(ctx, packageId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMarketplaceIconResponse(rsp)
+}
+
+// GetMarketplaceScreenshotWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
+//
+// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetMarketplaceScreenshotWithResponse(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*GetMarketplaceScreenshotResponse, error) {
+	rsp, err := c.GetMarketplaceScreenshot(ctx, packageId, index, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMarketplaceScreenshotResponse(rsp)
+}
+
 // InstallStorePackageWithBodyWithResponse performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -82693,6 +82931,38 @@ func ParseGetPluginStoreEntryResponse(rsp *http.Response) (*GetPluginStoreEntryR
 	case rsp.StatusCode == 404:
 		break // No content-type
 
+	}
+
+	return response, nil
+}
+
+// ParseGetMarketplaceIconResponse parses an HTTP response from a GetMarketplaceIconWithResponse call
+func ParseGetMarketplaceIconResponse(rsp *http.Response) (*GetMarketplaceIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMarketplaceIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetMarketplaceScreenshotResponse parses an HTTP response from a GetMarketplaceScreenshotWithResponse call
+func ParseGetMarketplaceScreenshotResponse(rsp *http.Response) (*GetMarketplaceScreenshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMarketplaceScreenshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil

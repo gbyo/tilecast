@@ -117,7 +117,16 @@ function json(status: number, body: unknown) {
   });
 }
 
+// jsdom has no ResizeObserver, which Embla needs to measure the Featured
+// carousel. An idle one lets it mount; it never reports a resize.
+class IdleResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 beforeEach(() => {
+  vi.stubGlobal("ResizeObserver", IdleResizeObserver);
   auth.role = "owner";
   unsupported = [];
   storeListings = [];
@@ -796,7 +805,8 @@ describe("Marketplace", () => {
   it("lists marketplace entries beside included plugins without any setup state", async () => {
     serveMarketplace({ stale: false });
     renderStore();
-    expect(await screen.findByText("Weather")).toBeVisible();
+    // The featured listing appears in the carousel and in the full grid.
+    expect((await screen.findAllByText("Weather"))[0]).toBeVisible();
     expect(screen.getByText("Countdown Bar")).toBeVisible();
     expect(screen.queryByText("Marketplace couldn't be refreshed")).toBeNull();
     expect(screen.queryByText(/not configured/i)).toBeNull();
@@ -828,7 +838,7 @@ describe("Marketplace", () => {
     ).toBeVisible();
     // Installed entries still render beside the notice.
     expect(screen.getByText("Countdown Bar")).toBeVisible();
-    expect(screen.getByText("Weather")).toBeVisible();
+    expect(screen.getAllByText("Weather")[0]).toBeVisible();
   });
 
   it("lets managers refresh the catalog but not viewers", async () => {
@@ -941,7 +951,7 @@ describe("Marketplace store", () => {
     ]);
   });
 
-  it("lists marketplace entries with publisher, version, and provenance", async () => {
+  it("lists marketplace entries with publisher and provenance", async () => {
     renderStore();
     expect(await screen.findByText("Weather")).toBeVisible();
     expect(screen.getByText("Future Thing")).toBeVisible();
@@ -949,7 +959,8 @@ describe("Marketplace store", () => {
     expect(screen.getByText("Countdown Pro")).toBeVisible();
     expect(screen.getAllByText("Marketplace")[0]).toBeVisible();
     expect(screen.getAllByText(/Acme/)[0]).toBeVisible();
-    expect(screen.getAllByText(/Version 1\.0\.0/)[0]).toBeVisible();
+    // Version, digest, and requirements belong to the detail page.
+    expect(screen.queryByText(/Version 1\.0\.0/)).toBeNull();
   });
 
   it("marks installed marketplace listings with their update state on search", async () => {
@@ -1150,12 +1161,13 @@ describe("Custom repositories", () => {
     );
   });
 
-  it("lists custom entries with publisher, version, and provenance", async () => {
+  it("lists custom entries with publisher and provenance", async () => {
     renderStore();
-    const row = await screen.findByRole("link", { name: /Lobby Kiosk/ });
-    expect(row).toHaveTextContent("Acme");
-    expect(row).toHaveTextContent("Version 1.2.0");
-    expect(row).toHaveTextContent("Custom");
+    const link = await screen.findByRole("link", { name: "Lobby Kiosk" });
+    const card = link.closest("[data-slot='card']") as HTMLElement;
+    expect(card).toHaveTextContent("Acme");
+    expect(card).toHaveTextContent("Custom");
+    expect(card).not.toHaveTextContent("Version 1.2.0");
   });
 
   it("adds a repository through lookup, review, and install", async () => {
@@ -1683,5 +1695,286 @@ describe("Plugin navigation", () => {
       description: "Plugin · Not installed",
       to: "/plugins/store/countdown_bar",
     });
+  });
+});
+
+describe("Explore card grid", () => {
+  const artworkPath = "/api/v1/plugin-store/acme.weather/artwork/icon?v=abc123";
+
+  function serveStore(listings: PluginStoreMarketplace[]) {
+    const items = [
+      ...catalog.map(storeEntry),
+      ...listings.map((listing, index) =>
+        storeMarketplaceEntry(`acme.listing-${index}`, listing),
+      ),
+    ];
+    override = (request) => {
+      if (request.method === "GET" && request.path === "/plugin-store") {
+        return json(200, {
+          data: {
+            items,
+            unsupportedInstallations: [],
+            marketplace: { stale: false },
+          },
+        });
+      }
+      return json(200, { data: { items: [], total: 0 } });
+    };
+  }
+
+  const featuredListing = (name: string, extra = {}) =>
+    marketplaceListing({
+      name,
+      categories: ["data"],
+      featured: true,
+      ...extra,
+    });
+
+  it("renders every entry as a card in a responsive grid", async () => {
+    serveStore([marketplaceListing({ name: "Weather" })]);
+    renderStore();
+    expect(await screen.findByText("Weather")).toBeVisible();
+
+    const list = screen.getByRole("list");
+    // One column by default, two when medium, three when wide, measured on
+    // the space the page leaves the grid rather than on the viewport.
+    expect(list).toHaveClass("grid", "@lg:grid-cols-2", "@4xl:grid-cols-3");
+    expect(list.className).not.toMatch(/(^|\s)grid-cols-/);
+    expect(list.parentElement?.parentElement).toHaveClass("@container");
+
+    const items = within(list).getAllByRole("listitem");
+    expect(items).toHaveLength(catalog.length + 1);
+    for (const item of items) {
+      expect(item.querySelector("[data-slot='card']")).not.toBeNull();
+      expect(item.querySelector("[data-slot='item']")).toBeNull();
+    }
+  });
+
+  it("leads with a Featured carousel built from featured listings", async () => {
+    serveStore([
+      featuredListing("Weather"),
+      featuredListing("Scoreboard"),
+      marketplaceListing({ name: "Quiet Listing" }),
+    ]);
+    renderStore();
+
+    const region = await screen.findByRole("region", {
+      name: "Featured plugins",
+    });
+    expect(region).toHaveAttribute("aria-roledescription", "carousel");
+    expect(
+      within(region).getByRole("heading", { name: "Featured" }),
+    ).toBeVisible();
+    expect(
+      within(region).getByRole("button", { name: "Previous slide" }),
+    ).toBeVisible();
+    expect(
+      within(region).getByRole("button", { name: "Next slide" }),
+    ).toBeVisible();
+
+    const slides = within(region).getAllByRole("group");
+    expect(slides).toHaveLength(2);
+    expect(slides[0]).toHaveClass(
+      "basis-full",
+      "@lg:basis-1/2",
+      "@4xl:basis-1/3",
+    );
+    expect(
+      slides.map((slide) =>
+        slide.querySelector("[data-slot='card']")?.getAttribute("data-variant"),
+      ),
+    ).toEqual(["featured", "featured"]);
+    expect(within(region).queryByText("Quiet Listing")).toBeNull();
+
+    // The carousel never advances on its own.
+    expect(region.querySelector("[data-autoplay]")).toBeNull();
+
+    // The full grid below still lists everything, under its own heading.
+    expect(screen.getByRole("heading", { name: "All plugins" })).toBeVisible();
+    expect(
+      within(screen.getByRole("list")).getByText("Quiet Listing"),
+    ).toBeVisible();
+  });
+
+  it("shows no Featured section when nothing is featured", async () => {
+    serveStore([marketplaceListing({ name: "Weather" })]);
+    renderStore();
+    await screen.findByText("Weather");
+    expect(
+      screen.queryByRole("region", { name: "Featured plugins" }),
+    ).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Featured" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "All plugins" })).toBeNull();
+  });
+
+  it("drops the Featured section once the person searches or narrows filters", async () => {
+    const user = userEvent.setup();
+    serveStore([
+      featuredListing("Weather"),
+      marketplaceListing({ name: "Quiet" }),
+    ]);
+    renderStore();
+    const featured = () =>
+      screen.queryByRole("region", { name: "Featured plugins" });
+    expect(
+      await screen.findByRole("region", { name: "Featured plugins" }),
+    ).toBeVisible();
+
+    // Searching.
+    const search = screen.getByRole("textbox", { name: "Search plugins" });
+    await user.type(search, "weather");
+    await waitFor(() => expect(featured()).toBeNull());
+    // Results are the filtered grid alone: the listing and the included
+    // plugin whose description mentions weather, one card each.
+    expect(
+      within(screen.getByRole("list")).getAllByRole("listitem"),
+    ).toHaveLength(2);
+    expect(screen.queryByRole("heading", { name: "All plugins" })).toBeNull();
+
+    // Clearing the search brings it back.
+    await user.clear(search);
+    expect(
+      await screen.findByRole("region", { name: "Featured plugins" }),
+    ).toBeVisible();
+
+    // A whitespace-only search narrows nothing, so it keeps the section.
+    await user.type(search, "   ");
+    expect(featured()).not.toBeNull();
+    await user.clear(search);
+
+    // A category filter.
+    await user.click(screen.getByRole("button", { name: "Display" }));
+    await waitFor(() => expect(featured()).toBeNull());
+    await user.click(screen.getByRole("button", { name: "All" }));
+    expect(
+      await screen.findByRole("region", { name: "Featured plugins" }),
+    ).toBeVisible();
+
+    // A source filter.
+    await user.click(screen.getByRole("combobox", { name: "Source" }));
+    await user.click(
+      await screen.findByRole("option", { name: "Marketplace" }),
+    );
+    await waitFor(() => expect(featured()).toBeNull());
+    expect(screen.getAllByText("Weather").length).toBeGreaterThan(0);
+  });
+
+  it("filters the card grid by search, category, and source", async () => {
+    const user = userEvent.setup();
+    serveStore([marketplaceListing({ name: "Weather" })]);
+    renderStore();
+    await screen.findByText("Weather");
+    const cards = () =>
+      within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(cards()).toHaveLength(catalog.length + 1);
+
+    await user.click(screen.getByRole("button", { name: "Automation" }));
+    await waitFor(() => expect(cards()).toHaveLength(2));
+    expect(screen.getByText("Transit Alerts")).toBeVisible();
+    expect(screen.getByText("Emergency Alerts")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "All" }));
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Search plugins" }),
+      "zzz",
+    );
+    expect(await screen.findByText("No matching plugins")).toBeVisible();
+    expect(screen.queryByRole("list")).toBeNull();
+  });
+
+  it("shows card-shaped placeholders while the store loads", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise<Response>(() => undefined)),
+    );
+    renderStore();
+    const status = screen.getByRole("status", { name: "Loading plugins" });
+    expect(status).toHaveAttribute("aria-busy", "true");
+    expect(status).toHaveClass("grid", "@lg:grid-cols-2", "@4xl:grid-cols-3");
+    const placeholders = status.querySelectorAll("[data-slot='card']");
+    expect(placeholders).toHaveLength(6);
+    for (const placeholder of placeholders) {
+      expect(placeholder).toHaveAttribute("aria-hidden", "true");
+      expect(
+        placeholder.querySelector("[data-slot='card-footer']"),
+      ).not.toBeNull();
+    }
+    expect(status.querySelector("[data-slot='item']")).toBeNull();
+  });
+
+  it("shows marketplace artwork, and falls back when it fails to load", async () => {
+    serveStore([
+      marketplaceListing({
+        name: "Weather",
+        artwork: { iconUrl: artworkPath },
+      }),
+      marketplaceListing({ name: "Plain" }),
+    ]);
+    renderStore();
+    await screen.findByText("Weather");
+    const weather = screen
+      .getByRole("link", { name: "Weather" })
+      .closest("[data-slot='card']") as HTMLElement;
+    const image = weather.querySelector("img") as HTMLImageElement;
+    expect(image.getAttribute("src")).toBe(artworkPath);
+    // No page request ever targets an address the catalog named.
+    for (const img of document.querySelectorAll("img")) {
+      expect(img.getAttribute("src")?.startsWith("/api/v1/plugin-store/")).toBe(
+        true,
+      );
+    }
+
+    fireEvent.error(image);
+    expect(weather.querySelector("img")).toBeNull();
+    expect(weather.querySelector("svg.lucide-puzzle")).not.toBeNull();
+    // The rest of the store is unaffected.
+    expect(screen.getByRole("link", { name: "Plain" })).toBeVisible();
+    expect(screen.getByText("Countdown Bar")).toBeVisible();
+  });
+
+  it("marks installed, updatable, and incompatible listings on their cards", async () => {
+    serveStore([
+      marketplaceListing({
+        name: "Updatable",
+        installed: true,
+        installedVersion: "0.9.0",
+        updateAvailable: true,
+      }),
+      marketplaceListing({ name: "Too New", compatible: false }),
+    ]);
+    renderStore();
+    await screen.findByText("Updatable");
+    const card = (name: string) =>
+      screen
+        .getByRole("link", { name })
+        .closest("[data-slot='card']") as HTMLElement;
+    expect(within(card("Updatable")).getByText("Installed")).toBeVisible();
+    expect(
+      within(card("Updatable")).getByText("Update available"),
+    ).toBeVisible();
+    expect(within(card("Too New")).getByText("Incompatible")).toBeVisible();
+    expect(within(card("Too New")).queryByText("Installed")).toBeNull();
+  });
+
+  it("opens a plugin from the keyboard", async () => {
+    const user = userEvent.setup();
+    serveStore([]);
+    renderStore();
+    await screen.findByText("Countdown Bar");
+    const link = screen.getByRole("link", { name: "Countdown Bar" });
+    link.focus();
+    expect(link).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(await screen.findByText("Back to Explore")).toBeVisible();
+  });
+
+  it("gives each card one focus stop", async () => {
+    serveStore([marketplaceListing({ name: "Weather" })]);
+    renderStore();
+    await screen.findByText("Weather");
+    const list = screen.getByRole("list");
+    for (const item of within(list).getAllByRole("listitem")) {
+      expect(within(item).getAllByRole("link")).toHaveLength(1);
+    }
   });
 });

@@ -139,6 +139,8 @@ func TestValidateListingAcceptsMinimal(t *testing.T) {
 	listing.Issues = ""
 	listing.Categories = nil
 	listing.Featured = false
+	listing.Icon = ""
+	listing.Screenshots = nil
 	if err := validateListing(listing); err != nil {
 		t.Fatalf("minimal listing rejected: %v", err)
 	}

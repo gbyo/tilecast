@@ -44,6 +44,15 @@
       "marketplace": "Marketplace",
       "custom": "Personalizado"
     },
+    "featured": {
+      "title": "Destacados",
+      "label": "Plugins destacados"
+    },
+    "allPlugins": "Todos los plugins",
+    "card": {
+      "incompatible": "Incompatible",
+      "moreCategories": "+{{count}}"
+    },
     "notFoundTitle": "Complemento no encontrado",
     "notFoundDescription": "Esta entrada no está disponible en estos orígenes.",
     "backToExplore": "Volver a Explorar",

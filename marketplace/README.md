@@ -34,7 +34,14 @@ One file powers both surfaces:
       "digest": "sha256:...",
       "license": "MIT",
       "categories": ["sports", "data"],
-      "featured": false
+      "featured": false,
+      "icon": "https://raw.githubusercontent.com/acme/tilecast-athletics/main/icon.png",
+      "screenshots": [
+        {
+          "src": "https://raw.githubusercontent.com/acme/tilecast-athletics/main/scoreboard.png",
+          "alt": "A scoreboard on a lobby display."
+        }
+      ]
     }
   ]
 }
@@ -74,6 +81,17 @@ Each listing may carry these fields:
   not repeat.
 - `featured`: true marks a listing for the directory showcase. Omit the
   field or set false for a normal listing.
+- `icon`: https address of a square PNG, JPEG, GIF, or WebP icon.
+- `screenshots`: at most 5 entries. Each entry has `src`, an https image
+  address, and `alt`, text of 1 to 200 characters that describes the
+  image.
+
+Artwork is presentation only. It never affects package identity, the
+digest, provenance, or capabilities. Each artwork address must use
+https with a public host name, at most 512 characters, no credentials,
+and the default port. Each image must be at most 1 MiB. Studio does not
+load these addresses directly. Tilecast Server fetches, checks, and
+serves each image. See [Marketplace](../docs/marketplace.md#artwork).
 
 ## Listing rules
 
