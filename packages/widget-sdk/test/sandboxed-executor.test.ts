@@ -160,7 +160,31 @@ function postedInits(spy: { mock: { calls: unknown[][] } }): PostedInit[] {
   }));
 }
 
-const flushPorts = () => new Promise((resolve) => setTimeout(resolve, 0));
+// Port delivery and timers are separate task sources: a single tick does
+// not reliably flush a posted port message under load. Presence
+// assertions below wait for the expected state; absence assertions drain
+// several ticks so a promptly delivered message would have arrived.
+const flushPorts = async (ticks = 8): Promise<void> => {
+  for (let i = 0; i < ticks; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+};
+
+const waitForLastState = (
+  states: WidgetMountState[],
+  expected: WidgetMountState,
+): Promise<void> =>
+  vi.waitFor(() => {
+    expect(states.at(-1)).toEqual(expected);
+  });
+
+const waitForFrameKinds = (
+  frameReceived: Array<{ kind?: unknown }>,
+  kinds: string[],
+): Promise<void> =>
+  vi.waitFor(() => {
+    expect(frameReceived.map((message) => message.kind)).toEqual(kinds);
+  });
 
 describe("SandboxedWidgetExecutor", () => {
   it("mounts a locked-down frame and reports pending first", () => {
@@ -283,8 +307,7 @@ describe("SandboxedWidgetExecutor", () => {
       nonce: inits[0]?.message.nonce,
       state: { state: "ready" },
     });
-    await flushPorts();
-    expect(states.at(-1)).toEqual({ state: "ready" });
+    await waitForLastState(states, { state: "ready" });
     expect(execution.state).toEqual({ state: "ready" });
     execution.dispose();
   });
@@ -384,8 +407,7 @@ describe("SandboxedWidgetExecutor", () => {
       nonce,
       state: { state: "ready" },
     });
-    await flushPorts();
-    expect(states.at(-1)).toEqual({ state: "ready" });
+    await waitForLastState(states, { state: "ready" });
     execution.dispose();
   });
 
@@ -435,9 +457,8 @@ describe("SandboxedWidgetExecutor", () => {
       nonce: inits[0]?.message.nonce,
       state: { state: "ready" },
     });
-    await flushPorts();
+    await waitForLastState(states, { state: "error", code: "frame_error" });
     expect(frameReceived).toHaveLength(0);
-    expect(states.at(-1)).toEqual({ state: "error", code: "frame_error" });
     execution.dispose();
   });
 
@@ -495,8 +516,7 @@ describe("SandboxedWidgetExecutor", () => {
       nonce: inits[0]?.message.nonce,
       state: { state: "ready" },
     });
-    await flushPorts();
-    expect(states.at(-1)).toEqual({ state: "ready" });
+    await waitForLastState(states, { state: "ready" });
     execution.dispose();
   });
 
@@ -547,15 +567,10 @@ describe("SandboxedWidgetExecutor", () => {
         },
       }),
     );
-    await flushPorts();
-    expect(frameReceived.map((message) => message.kind)).toEqual(["update"]);
+    await waitForFrameKinds(frameReceived, ["update"]);
     expect(spy).toHaveBeenCalledTimes(1);
     execution.dispose();
-    await flushPorts();
-    expect(frameReceived.map((message) => message.kind)).toEqual([
-      "update",
-      "dispose",
-    ]);
+    await waitForFrameKinds(frameReceived, ["update", "dispose"]);
     expect(closeSpy).toHaveBeenCalled();
   });
 
