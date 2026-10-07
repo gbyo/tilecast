@@ -62,7 +62,7 @@ func TestAttestationRejects(t *testing.T) {
 			return raw, provenanceDigest, "other-owner", "sigstore-js"
 		},
 		"wrong digest": func() ([]byte, string, string, string) {
-			return raw, "sha512:" + provenanceDigest[len("sha512:")+1:] + "00", "sigstore", "sigstore-js"
+			return raw, "sha512:56d4e2f74c4877316640000a6fdf8a8b59f1e0847667973e9859f774dd31b8f1e0937813b777fb66a2ac67d50540fe34640966eee9fc2ccca387082b4c85cd3c", "sigstore", "sigstore-js"
 		},
 		"wrong algorithm": func() ([]byte, string, string, string) {
 			return raw, "sha256:46d4e2f74c4877316640000a6fdf8a8b59f1e0847667973e9859f774", "sigstore", "sigstore-js"
