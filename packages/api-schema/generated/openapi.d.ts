@@ -2665,6 +2665,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/plugin-store/{packageId}/artwork/icon": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable. */
+    get: operations["getMarketplaceIcon"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugin-store/{packageId}/artwork/screenshots/{index}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description One screenshot of a marketplace listing, served under the same rules as the listing icon. */
+    get: operations["getMarketplaceScreenshot"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/plugin-store/marketplace/refresh": {
     parameters: {
       query?: never;
@@ -7585,10 +7619,22 @@ export interface components {
       issues?: string;
       categories?: string[];
       featured?: boolean;
+      artwork?: components["schemas"]["PluginStoreArtwork"];
       compatible: boolean;
       installed: boolean;
       installedVersion?: string;
       updateAvailable: boolean;
+    };
+    /** @description Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install. */
+    PluginStoreArtwork: {
+      /** @description Server path that serves the listing icon. Absent when the listing declares no icon. */
+      iconUrl?: string;
+      screenshots?: {
+        /** @description Server path that serves the screenshot. */
+        url: string;
+        /** @description Text that describes the screenshot. */
+        alt: string;
+      }[];
     };
     /** @description The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here. */
     PluginMarketplaceStatus: {
@@ -19101,6 +19147,102 @@ export interface operations {
         content?: never;
       };
       /** @description plugin_not_found — no store entry carries this package ID */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getMarketplaceIcon: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Icon image */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+          "image/jpeg": string;
+          "image/gif": string;
+          "image/webp": string;
+        };
+      };
+      /** @description The cached image is unchanged */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description artwork_unavailable — the listing has no such artwork or the server could not fetch it */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getMarketplaceScreenshot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+        /** @description Zero-based screenshot position. */
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Screenshot image */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+          "image/jpeg": string;
+          "image/gif": string;
+          "image/webp": string;
+        };
+      };
+      /** @description The cached image is unchanged */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description artwork_unavailable — the listing has no such artwork or the server could not fetch it */
       404: {
         headers: {
           [name: string]: unknown;

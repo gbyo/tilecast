@@ -42,6 +42,15 @@
       "marketplace": "Marketplace",
       "custom": "Custom"
     },
+    "featured": {
+      "title": "Featured",
+      "label": "Featured plugins"
+    },
+    "allPlugins": "All plugins",
+    "card": {
+      "incompatible": "Incompatible",
+      "moreCategories": "+{{count}}"
+    },
     "notFoundTitle": "Plugin not found",
     "notFoundDescription": "This store entry is not available from these sources.",
     "backToExplore": "Back to Explore",

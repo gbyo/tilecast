@@ -4648,6 +4648,53 @@ paths:
           {
             description: plugin_not_found — no store entry carries this package ID,
           }
+  /api/v1/plugin-store/{packageId}/artwork/icon:
+    get:
+      operationId: getMarketplaceIcon
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+      responses:
+        "200":
+          description: Icon image
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "304": { description: The cached image is unchanged }
+        "401": { description: Dashboard authentication required }
+        "404":
+          {
+            description: artwork_unavailable — the listing has no such artwork or the server could not fetch it,
+          }
+  /api/v1/plugin-store/{packageId}/artwork/screenshots/{index}:
+    get:
+      operationId: getMarketplaceScreenshot
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: One screenshot of a marketplace listing, served under the same rules as the listing icon.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+        - name: index
+          in: path
+          required: true
+          description: Zero-based screenshot position.
+          schema: { type: integer, minimum: 0, maximum: 4 }
+      responses:
+        "200":
+          description: Screenshot image
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "304": { description: The cached image is unchanged }
+        "401": { description: Dashboard authentication required }
+        "404":
+          {
+            description: artwork_unavailable — the listing has no such artwork or the server could not fetch it,
+          }
   /api/v1/plugin-store/marketplace/refresh:
     post:
       operationId: refreshMarketplaceCatalog
@@ -11715,10 +11762,36 @@ components:
         issues: { type: string, format: uri }
         categories: { type: array, items: { type: string } }
         featured: { type: boolean }
+        artwork: { $ref: "#/components/schemas/PluginStoreArtwork" }
         compatible: { type: boolean }
         installed: { type: boolean }
         installedVersion: { type: string }
         updateAvailable: { type: boolean }
+    PluginStoreArtwork:
+      type: object
+      description: Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
+      properties:
+        iconUrl:
+          {
+            type: string,
+            description: "Server path that serves the listing icon. Absent when the listing declares no icon.",
+          }
+        screenshots:
+          type: array
+          items:
+            type: object
+            required: [url, alt]
+            properties:
+              url:
+                {
+                  type: string,
+                  description: "Server path that serves the screenshot.",
+                }
+              alt:
+                {
+                  type: string,
+                  description: "Text that describes the screenshot.",
+                }
     PluginMarketplaceStatus:
       type: object
       required: [stale]

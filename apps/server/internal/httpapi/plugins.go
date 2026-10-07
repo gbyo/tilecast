@@ -3,11 +3,13 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
@@ -42,6 +44,51 @@ func (s *server) getPluginStoreEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": entry})
+}
+
+// serveMarketplaceArtwork answers one listing's icon or screenshot from the
+// server's own verified cache. The request names a package and a slot; the
+// server never takes an image address from the client. Every failure answers
+// the same 404 so Studio shows its fallback and probes nothing.
+func (s *server) serveMarketplaceArtwork(w http.ResponseWriter, r *http.Request, fetch func() (catalog.Artwork, error)) {
+	artwork, err := fetch()
+	if err != nil {
+		writeError(w, http.StatusNotFound, "artwork_unavailable", "Artwork is not available.")
+		return
+	}
+	header := w.Header()
+	header.Set("Content-Type", artwork.ContentType)
+	header.Set("Content-Length", strconv.Itoa(len(artwork.Body)))
+	header.Set("ETag", artwork.ETag)
+	header.Set("Cache-Control", "private, max-age=86400")
+	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	if r.Header.Get("If-None-Match") == artwork.ETag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(artwork.Body)
+}
+
+// getMarketplaceIcon serves a marketplace listing's icon.
+func (s *server) getMarketplaceIcon(w http.ResponseWriter, r *http.Request) {
+	packageID := chi.URLParam(r, "packageId")
+	s.serveMarketplaceArtwork(w, r, func() (catalog.Artwork, error) {
+		return s.marketplace.IconArtwork(r.Context(), packageID)
+	})
+}
+
+// getMarketplaceScreenshot serves one marketplace listing screenshot.
+func (s *server) getMarketplaceScreenshot(w http.ResponseWriter, r *http.Request) {
+	packageID := chi.URLParam(r, "packageId")
+	index, err := strconv.Atoi(chi.URLParam(r, "index"))
+	if err != nil {
+		index = -1
+	}
+	s.serveMarketplaceArtwork(w, r, func() (catalog.Artwork, error) {
+		return s.marketplace.ScreenshotArtwork(r.Context(), packageID, index)
+	})
 }
 
 // refreshMarketplaceCatalog refreshes the official Tilecast marketplace

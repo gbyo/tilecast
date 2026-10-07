@@ -1,15 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ChevronRight,
-  CircleAlert,
-  Plus,
-  Puzzle,
-  SearchIcon,
-  SearchX,
-} from "lucide-react";
-import { Link } from "react-router";
-import type { PluginMarketplaceStatus, PluginStoreEntry } from "../api/types";
+import { CircleAlert, Plus, SearchIcon, SearchX } from "lucide-react";
+import type { PluginMarketplaceStatus } from "../api/types";
 import { apiErrorMessage } from "../i18n";
 import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
@@ -19,8 +11,14 @@ import {
   AlertDescription,
   AlertTitle,
 } from "../components/ui/alert";
-import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "../components/ui/carousel";
 import {
   Empty,
   EmptyDescription,
@@ -34,27 +32,16 @@ import {
   InputGroupInput,
 } from "../components/ui/input-group";
 import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from "../components/ui/item";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { Skeleton } from "../components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { AddCustomRepositoryDialog } from "../plugins/AddCustomRepositoryDialog";
 import {
   filterStoreEntries,
-  headlineRequirements,
   pluginCategories,
   usePluginStore,
   useRefreshMarketplaceCatalog,
@@ -62,9 +49,12 @@ import {
   type StoreCategoryFilter,
   type StoreSourceFilter,
 } from "../plugins/pluginCatalog";
-import { PluginIcon } from "../plugins/PluginIcon";
 import { canManage } from "../plugins/shared";
-import { StoreProvenanceBadge } from "../plugins/StoreProvenance";
+import {
+  StorePluginCard,
+  StorePluginCardSkeleton,
+} from "../plugins/StorePluginCard";
+import { storeCardView, type StoreCardView } from "../plugins/storeCardView";
 
 const categoryLabelKeys = {
   All: "catalog.categories.all",
@@ -79,9 +69,8 @@ const categoryLabelKeys = {
 
 /**
  * Explore: the searchable plugin store. Release-owned, marketplace, and
- * custom entries share one list; the marketplace joins it once the
- * operator configures a catalog, and custom entries once a repository is
- * added.
+ * custom entries share one card grid. Featured marketplace listings lead
+ * in a carousel until the person searches or narrows the filters.
  */
 export function PluginStorePage() {
   const { t } = useTranslation("plugins");
@@ -102,6 +91,29 @@ export function PluginStorePage() {
   const results = useMemo(
     () => filterStoreEntries(entries, query, category, source),
     [entries, query, category, source],
+  );
+  const views = useMemo(
+    () =>
+      results.flatMap((entry) => {
+        const view = storeCardView(entry);
+        return view ? [view] : [];
+      }),
+    [results],
+  );
+  const filtered = Boolean(
+    query.trim() || category !== "All" || source !== "all",
+  );
+  // A narrowed view answers a question; unrelated featured cards would
+  // dilute it. Featured always draws from the unfiltered store.
+  const featured = useMemo(
+    () =>
+      filtered
+        ? []
+        : entries.flatMap((entry) => {
+            const view = storeCardView(entry);
+            return view?.featured ? [view] : [];
+          }),
+    [entries, filtered],
   );
 
   return (
@@ -151,8 +163,9 @@ export function PluginStorePage() {
 
       <StoreResults
         loading={store.isLoading}
-        results={results}
-        filtered={Boolean(query || category !== "All" || source !== "all")}
+        views={views}
+        featured={featured}
+        filtered={filtered}
       />
     </main>
   );
@@ -299,24 +312,33 @@ function sourceLabel(kind: string, t: PluginsT) {
 
 function StoreResults({
   loading,
-  results,
+  views,
+  featured,
   filtered,
 }: {
   loading: boolean;
-  results: PluginStoreEntry[];
+  views: StoreCardView[];
+  featured: StoreCardView[];
   filtered: boolean;
 }) {
   const { t } = useTranslation("plugins");
   if (loading) {
     return (
-      <ItemGroup className="gap-2" aria-label={t("list.loading")}>
-        {[0, 1, 2].map((key) => (
-          <Skeleton key={key} className="h-20 rounded-xl" />
-        ))}
-      </ItemGroup>
+      <div className="@container">
+        <div
+          role="status"
+          aria-busy="true"
+          aria-label={t("list.loading")}
+          className={cardGridClass}
+        >
+          {[0, 1, 2, 3, 4, 5].map((key) => (
+            <StorePluginCardSkeleton key={key} />
+          ))}
+        </div>
+      </div>
     );
   }
-  if (results.length === 0) {
+  if (views.length === 0) {
     return (
       <Empty className="py-8">
         <EmptyHeader>
@@ -336,92 +358,61 @@ function StoreResults({
     );
   }
   return (
-    <ItemGroup className="gap-1">
-      {results.map((entry) => (
-        <StoreRow key={entry.packageId} entry={entry} />
-      ))}
-    </ItemGroup>
-  );
-}
-
-function StoreRow({ entry }: { entry: PluginStoreEntry }) {
-  const { t } = useTranslation("plugins");
-  const view = storeRowView(entry);
-  if (!view) return null;
-
-  return (
-    <Item
-      size="sm"
-      render={
-        <Link to={`/plugins/store/${encodeURIComponent(entry.packageId)}`} />
-      }
-      className="text-left hover:bg-muted"
-    >
-      <ItemMedia variant="image" className="bg-muted">
-        {view.plugin ? (
-          <PluginIcon pluginId={view.plugin.id} />
-        ) : (
-          <Puzzle aria-hidden="true" />
+    <div className="@container grid gap-6">
+      {featured.length > 0 && <FeaturedPlugins views={featured} />}
+      <section
+        aria-label={featured.length > 0 ? t("store.allPlugins") : undefined}
+        className="grid gap-3"
+      >
+        {featured.length > 0 && (
+          <h2 className="text-sm font-medium">{t("store.allPlugins")}</h2>
         )}
-      </ItemMedia>
-      <ItemContent>
-        <ItemTitle>
-          {view.name}
-          {view.installed && (
-            <Badge variant="secondary">{t("catalog.installed")}</Badge>
-          )}
-          {view.updateAvailable && (
-            <Badge variant="secondary">
-              {t("store.detail.updateAvailable")}
-            </Badge>
-          )}
-        </ItemTitle>
-        <ItemDescription>{view.description}</ItemDescription>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <StoreProvenanceBadge source={entry.source} />
-          {view.externalMeta && (
-            <span className="text-xs text-muted-foreground">
-              {view.externalMeta.publisher}
-              {" · "}
-              {t("store.detail.version", {
-                version: view.externalMeta.version,
-              })}
-            </span>
-          )}
-          {view.requirementLabels.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {t("catalog.requires", {
-                list: view.requirementLabels.join(" + "),
-              })}
-            </span>
-          )}
-        </div>
-      </ItemContent>
-      <ItemActions>
-        <ChevronRight className="text-muted-foreground" aria-hidden="true" />
-      </ItemActions>
-    </Item>
+        <ul className={cardGridClass}>
+          {views.map((view) => (
+            <li key={view.packageId} className="min-w-0">
+              <StorePluginCard view={view} />
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
   );
 }
 
-function storeRowView(entry: PluginStoreEntry) {
-  const plugin = entry.plugin;
-  const listing = entry.marketplace;
-  const custom = entry.custom;
-  if (!plugin && !listing && !custom) return null;
-  const external = listing ?? custom;
+/**
+ * The grid sizes by the space the page leaves it, not by the viewport,
+ * because the Studio sidebar takes a variable share of the width: one
+ * column when narrow, two when medium, three when wide.
+ */
+const cardGridClass = "grid gap-4 @lg:grid-cols-2 @4xl:grid-cols-3";
 
-  return {
-    plugin,
-    name: plugin?.name ?? external?.name ?? entry.packageId,
-    description: plugin?.description ?? external?.description ?? "",
-    installed: plugin?.installed ?? external?.installed ?? false,
-    updateAvailable: listing?.updateAvailable ?? false,
-    requirementLabels: plugin
-      ? headlineRequirements(plugin).map((requirement) => requirement.label)
-      : [],
-    externalMeta: external
-      ? { publisher: external.publisherName, version: external.version }
-      : null,
-  };
+function FeaturedPlugins({ views }: { views: StoreCardView[] }) {
+  const { t } = useTranslation("plugins");
+  return (
+    <Carousel
+      opts={{ align: "start", containScroll: "trimSnaps" }}
+      aria-label={t("store.featured.label")}
+      // The viewport clips at its edge; a little padding keeps each card's
+      // ring and shadow from being cut off.
+      className="grid gap-3 [&_[data-slot=carousel-content]]:-m-1 [&_[data-slot=carousel-content]]:p-1"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium">{t("store.featured.title")}</h2>
+        <div className="flex gap-2">
+          <CarouselPrevious className="static translate-y-0" />
+          <CarouselNext className="static translate-y-0" />
+        </div>
+      </div>
+      <CarouselContent>
+        {views.map((view) => (
+          <CarouselItem
+            key={view.packageId}
+            className="basis-full @lg:basis-1/2 @4xl:basis-1/3"
+          >
+            <StorePluginCard view={view} variant="featured" />
+          </CarouselItem>
+        ))}
+      </CarouselContent>
+    </Carousel>
+  );
 }
