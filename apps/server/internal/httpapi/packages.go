@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
@@ -151,39 +152,43 @@ func (s *server) getPackage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": rendered})
 }
 
-type resolveReview struct {
-	PackageID     string                 `json:"packageId"`
-	Version       string                 `json:"version"`
-	Manifest      packageManifestSummary `json:"manifest"`
-	Compatible    bool                   `json:"compatible"`
-	Contributions []struct {
-		Type string `json:"type"`
-		Path string `json:"path"`
-	} `json:"contributions"`
-	Digest           string     `json:"digest"`
-	Registry         string     `json:"registry"`
-	ReleaseTag       string     `json:"releaseTag"`
-	ReleaseName      string     `json:"releaseName,omitempty"`
-	PublishedAt      *time.Time `json:"publishedAt,omitempty"`
-	Owner            string     `json:"owner"`
-	Repo             string     `json:"repo"`
-	RepositoryURL    string     `json:"repositoryUrl"`
-	Signer           string     `json:"signer,omitempty"`
-	Trust            string     `json:"trust"`
-	Installed        bool       `json:"installed"`
-	InstalledVersion string     `json:"installedVersion,omitempty"`
+// reviewContribution is one manifest contribution. ID is the
+// package-qualified identity, present when the review read the artifact.
+type reviewContribution struct {
+	Type string `json:"type"`
+	Path string `json:"path"`
+	ID   string `json:"id,omitempty"`
 }
 
-func renderReview(resolution pipeline.Resolution, installed installer.InstalledPackage, isInstalled bool) resolveReview {
+type resolveReview struct {
+	PackageID        string                 `json:"packageId"`
+	Version          string                 `json:"version"`
+	Manifest         packageManifestSummary `json:"manifest"`
+	Compatible       bool                   `json:"compatible"`
+	Contributions    []reviewContribution   `json:"contributions"`
+	Digest           string                 `json:"digest"`
+	Registry         string                 `json:"registry"`
+	ReleaseTag       string                 `json:"releaseTag"`
+	ReleaseName      string                 `json:"releaseName,omitempty"`
+	PublishedAt      *time.Time             `json:"publishedAt,omitempty"`
+	Owner            string                 `json:"owner"`
+	Repo             string                 `json:"repo"`
+	RepositoryURL    string                 `json:"repositoryUrl"`
+	Signer           string                 `json:"signer,omitempty"`
+	Trust            string                 `json:"trust"`
+	Installed        bool                   `json:"installed"`
+	InstalledVersion string                 `json:"installedVersion,omitempty"`
+}
+
+// renderReview builds the install review. nested are the contribution
+// identities read from the artifact, or nil when the review did not read it.
+func renderReview(resolution pipeline.Resolution, installed installer.InstalledPackage, isInstalled bool, nested []packages.NestedContribution) resolveReview {
 	review := resolveReview{
-		PackageID:  resolution.Manifest.PackageID,
-		Version:    resolution.Manifest.PackageVersion,
-		Manifest:   summarizeManifest(resolution.Manifest),
-		Compatible: resolution.Compatible,
-		Contributions: []struct {
-			Type string `json:"type"`
-			Path string `json:"path"`
-		}{},
+		PackageID:     resolution.Manifest.PackageID,
+		Version:       resolution.Manifest.PackageVersion,
+		Manifest:      summarizeManifest(resolution.Manifest),
+		Compatible:    resolution.Compatible,
+		Contributions: []reviewContribution{},
 		Digest:        resolution.Digest,
 		Registry:      resolution.RegistryRef,
 		ReleaseTag:    resolution.ReleaseTag,
@@ -200,10 +205,14 @@ func renderReview(resolution pipeline.Resolution, installed installer.InstalledP
 		review.PublishedAt = &publishedAt
 	}
 	for _, contribution := range resolution.Manifest.Contributions {
-		review.Contributions = append(review.Contributions, struct {
-			Type string `json:"type"`
-			Path string `json:"path"`
-		}{Type: contribution.Type, Path: contribution.Path})
+		entry := reviewContribution{Type: contribution.Type, Path: contribution.Path}
+		for _, item := range nested {
+			if item.Kind == contribution.Type && item.Path == contribution.Path {
+				entry.ID = item.ID
+				break
+			}
+		}
+		review.Contributions = append(review.Contributions, entry)
 	}
 	if isInstalled {
 		review.InstalledVersion = installed.Version
@@ -237,7 +246,7 @@ func (s *server) resolveGitHubRepository(w http.ResponseWriter, r *http.Request)
 		s.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": renderReview(resolution, installed, isInstalled)})
+	writeJSON(w, http.StatusOK, map[string]any{"data": renderReview(resolution, installed, isInstalled, nil)})
 }
 
 // resolveMarketplacePackage resolves a cached marketplace listing to
@@ -257,7 +266,7 @@ func (s *server) resolveMarketplacePackage(w http.ResponseWriter, r *http.Reques
 		s.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": renderReview(resolution, installed, isInstalled)})
+	writeJSON(w, http.StatusOK, map[string]any{"data": renderReview(resolution, installed, isInstalled, nil)})
 }
 
 // installStorePackage installs the store entry: a marketplace listing by
@@ -340,7 +349,7 @@ func (s *server) checkPackageUpdate(w http.ResponseWriter, r *http.Request) {
 		UpToDate: check.UpToDate, LastChecked: check.LastChecked,
 	}
 	if check.Available {
-		latest := renderReview(check.Resolution, check.Installed, true)
+		latest := renderReview(check.Resolution, check.Installed, true, check.Contributions)
 		response.Latest = &latest
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": response})
@@ -419,7 +428,14 @@ func (s *server) removePackage(w http.ResponseWriter, r *http.Request) {
 // writePackageError maps pipeline, installer, and catalog failures to
 // API errors. Anything unmapped is a server bug and answers 500.
 func (s *server) writePackageError(w http.ResponseWriter, r *http.Request, err error) {
+	var inUse *installer.InUseError
 	switch {
+	case errors.As(err, &inUse):
+		writeJSON(w, http.StatusConflict, map[string]any{"error": map[string]any{
+			"code":    "package_in_use",
+			"message": inUse.Error(),
+			"details": map[string]any{"packageId": inUse.PackageID, "resources": inUse.Resources},
+		}})
 	case errors.Is(err, pipeline.ErrInvalidRepository):
 		writeError(w, http.StatusBadRequest, "invalid_repository", "That is not a GitHub repository URL.")
 	case errors.Is(err, pipeline.ErrRepositoryPrivate):

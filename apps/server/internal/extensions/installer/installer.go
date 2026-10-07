@@ -308,6 +308,15 @@ func (s *Service) Activate(ctx context.Context, activation Activation) (Installe
 	if err != nil {
 		return InstalledPackage{}, err
 	}
+	if current != nil {
+		resources, err := droppedInUse(ctx, tx, manifest.PackageID, activation.Contributions)
+		if err != nil {
+			return InstalledPackage{}, err
+		}
+		if len(resources) > 0 {
+			return InstalledPackage{}, &InUseError{PackageID: manifest.PackageID, Name: manifest.Name, Action: "updated", Resources: resources}
+		}
+	}
 	if err := replaceContributions(ctx, tx, manifest.PackageID, activation.Contributions); err != nil {
 		return InstalledPackage{}, err
 	}
@@ -383,6 +392,13 @@ func (s *Service) Rollback(ctx context.Context, packageID string, userID uuid.UU
 	if err != nil {
 		return InstalledPackage{}, err
 	}
+	resources, err := droppedInUse(ctx, tx, packageID, snapshot.Contributions)
+	if err != nil {
+		return InstalledPackage{}, err
+	}
+	if len(resources) > 0 {
+		return InstalledPackage{}, &InUseError{PackageID: packageID, Name: snapshot.Manifest.Name, Action: "rolled back", Resources: resources}
+	}
 	if err := replaceContributions(ctx, tx, packageID, snapshot.Contributions); err != nil {
 		return InstalledPackage{}, err
 	}
@@ -406,18 +422,33 @@ func (s *Service) Remove(ctx context.Context, packageID string, userID uuid.UUID
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	var installed InstalledPackage
-	err = tx.QueryRow(ctx, `DELETE FROM installed_packages WHERE package_id=$1
-		RETURNING package_id,package_version,digest,source_kind,source_reference,
+	var manifestRaw []byte
+	err = tx.QueryRow(ctx, `SELECT package_id,package_version,digest,source_kind,source_reference,
 		registry_reference,signer_identity,trust_state,installed_at,installed_by,
-		activated_at,previous_activation IS NOT NULL`, packageID).Scan(
+		activated_at,previous_activation IS NOT NULL,manifest
+		FROM installed_packages WHERE package_id=$1 FOR UPDATE`, packageID).Scan(
 		&installed.PackageID, &installed.Version, &installed.Digest,
 		&installed.SourceKind, &installed.SourceReference, &installed.RegistryReference,
 		&installed.SignerIdentity, &installed.Trust, &installed.InstalledAt,
-		&installed.InstalledBy, &installed.ActivatedAt, &installed.HasPrevious)
+		&installed.InstalledBy, &installed.ActivatedAt, &installed.HasPrevious, &manifestRaw)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
 		}
+		return err
+	}
+	resources, err := removalBlockers(ctx, tx, packageID)
+	if err != nil {
+		return err
+	}
+	if len(resources) > 0 {
+		name := packageID
+		if manifest, err := packagemanifest.Parse(manifestRaw); err == nil {
+			name = manifest.Name
+		}
+		return &InUseError{PackageID: packageID, Name: name, Resources: resources}
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM installed_packages WHERE package_id=$1`, packageID); err != nil {
 		return err
 	}
 	if err := auditPackage(ctx, tx, "package.removed", installed, userID); err != nil {

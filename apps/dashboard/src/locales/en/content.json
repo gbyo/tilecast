@@ -1094,7 +1094,8 @@
       "noProviders": "No Data Source providers are available in this installation.",
       "setupGuidance": "Data Source setup guidance",
       "sourcePlugin": "Plugin · {{name}}",
-      "requiresPlugin": "Requires {{name}}"
+      "requiresPlugin": "Requires {{name}}",
+      "sourcePackage": "Package · {{name}}"
     },
     "detail": {
       "backButton": "Back to Data Sources",

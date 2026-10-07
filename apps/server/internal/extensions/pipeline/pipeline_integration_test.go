@@ -475,6 +475,14 @@ func TestInstallCustom(t *testing.T) {
 	if len(contributions) != 2 {
 		t.Fatalf("contributions = %+v", contributions)
 	}
+	// Installing retained the bytes, so the local lookup serves them
+	// without the registry; an unretained digest is an error, not a pull.
+	if dir, err := f.service.LocalContentDir(ctx, "", f.digest); err != nil || dir == "" {
+		t.Fatalf("LocalContentDir = %q, %v", dir, err)
+	}
+	if _, err := f.service.LocalContentDir(ctx, "", "sha256:"+strings.Repeat("1", 64)); err == nil {
+		t.Fatal("LocalContentDir answered for an unretained digest")
+	}
 	entries, err := f.service.CustomEntries(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -558,6 +566,13 @@ func TestUpdateFlow(t *testing.T) {
 	}
 	if !check.Available || check.Resolution.Digest != f.digest {
 		t.Fatalf("check = %+v", check)
+	}
+	ids := map[string]string{}
+	for _, item := range check.Contributions {
+		ids[item.Kind] = item.ID
+	}
+	if len(check.Contributions) != 2 || ids["widget"] == "" || ids["dataSource"] == "" {
+		t.Fatalf("update check contributions = %+v, want both with qualified IDs", check.Contributions)
 	}
 	if _, err := f.service.ApplyUpdate(ctx, pipelinePID, "sha256:"+strings.Repeat("0", 64), f.userID); !errors.Is(err, ErrDigestMismatch) {
 		t.Fatalf("stale apply err = %v, want ErrDigestMismatch", err)

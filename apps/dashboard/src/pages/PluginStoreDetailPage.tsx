@@ -29,7 +29,9 @@ import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
 import {
+  diffContributions,
   hasStudioRoute,
+  inUseResources,
   usePackage,
   usePackageLifecycle,
   usePluginLifecycle,
@@ -428,8 +430,22 @@ function PackageManagement({
   const { confirm, dialog: confirmDialog } = useConfirm();
   const check = checkUpdate.data;
   const latest = check?.available ? check.latest : undefined;
-  const mutationError =
-    checkUpdate.error ?? applyUpdate.error ?? rollback.error ?? remove.error;
+  // A blocked operation names its remaining content; anything else
+  // renders as a plain error.
+  const operationErrors = [
+    checkUpdate.error,
+    applyUpdate.error,
+    rollback.error,
+    remove.error,
+  ];
+  const blockerError = operationErrors.find(
+    (error) => inUseResources(error) !== null,
+  );
+  const blockers =
+    blockerError === undefined ? null : inUseResources(blockerError);
+  const plainError = operationErrors.find(
+    (error) => error !== undefined && inUseResources(error) === null,
+  );
 
   const onRemove = async () => {
     const confirmed = await confirm({
@@ -461,10 +477,29 @@ function PackageManagement({
     <section aria-label={t("packages.manageTitle")} className="grid gap-4">
       {confirmDialog}
       <h2 className="text-base font-semibold">{t("packages.manageTitle")}</h2>
-      {mutationError && (
+      {plainError && (
         <Alert variant="destructive">
           <CircleAlert aria-hidden="true" />
-          <AlertDescription>{apiErrorMessage(mutationError)}</AlertDescription>
+          <AlertDescription>{apiErrorMessage(plainError)}</AlertDescription>
+        </Alert>
+      )}
+      {blockerError && blockers && (
+        <Alert variant="destructive">
+          <CircleAlert aria-hidden="true" />
+          <AlertDescription className="grid gap-2">
+            <p>{apiErrorMessage(blockerError)}</p>
+            <ul className="list-disc pl-5">
+              {blockers.map((blocker) => (
+                <li key={blocker.kind}>
+                  {t("packages.blockedResource", {
+                    count: blocker.count,
+                    label: blocker.label,
+                  })}
+                </li>
+              ))}
+            </ul>
+            <p>{t("packages.blockedInstruction")}</p>
+          </AlertDescription>
         </Alert>
       )}
       <dl className="grid gap-3 text-sm">
@@ -491,6 +526,10 @@ function PackageManagement({
       {latest && (
         <div className="grid gap-3 rounded-xl border p-4">
           <InstallReview review={latest} />
+          <ContributionChanges
+            current={installed.contributions}
+            next={latest.contributions}
+          />
           {canInstall && (
             <div>
               <Button
@@ -553,5 +592,60 @@ function PackageManagement({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * What an update changes about contributions. Removals name what would
+ * strand: updating deletes nothing, and an update that drops a
+ * contribution persisted content still uses waits until the operator
+ * deletes it.
+ */
+function ContributionChanges({
+  current,
+  next,
+}: {
+  current: { kind: string; path: string; id?: string }[];
+  next: { type: string; path: string; id?: string }[];
+}) {
+  const { t } = useTranslation("plugins");
+  const { added, removed } = diffContributions(current, next);
+  if (added.length === 0 && removed.length === 0) return null;
+  return (
+    <div className="grid gap-2 text-sm">
+      {added.length > 0 && (
+        <div className="grid gap-1">
+          <p className="font-medium">{t("packages.addedContributions")}</p>
+          <ul className="list-disc pl-5 text-muted-foreground">
+            {added.map((change) => (
+              <li key={`${change.kind} ${change.path} ${change.id ?? ""}`}>
+                {change.kind} · {change.path}
+                {change.id && (
+                  <span className="block font-mono text-xs">{change.id}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {removed.length > 0 && (
+        <div className="grid gap-1">
+          <p className="font-medium">{t("packages.removedContributions")}</p>
+          <ul className="list-disc pl-5 text-muted-foreground">
+            {removed.map((change) => (
+              <li key={`${change.kind} ${change.path} ${change.id ?? ""}`}>
+                {change.kind} · {change.path}
+                {change.id && (
+                  <span className="block font-mono text-xs">{change.id}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="text-muted-foreground">
+            {t("packages.removedWarning")}
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

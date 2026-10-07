@@ -1129,7 +1129,8 @@
       "noProviders": "No hay proveedores de fuentes de datos disponibles en esta instalación.",
       "setupGuidance": "Guía de configuración de la fuente de datos",
       "sourcePlugin": "Plugin · {{name}}",
-      "requiresPlugin": "Requiere {{name}}"
+      "requiresPlugin": "Requiere {{name}}",
+      "sourcePackage": "Paquete · {{name}}"
     },
     "detail": {
       "backButton": "Volver a las fuentes de datos",

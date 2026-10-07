@@ -411,3 +411,112 @@ func TestActivationWritesAuditRecords(t *testing.T) {
 		t.Fatalf("audit digest = %s", digest)
 	}
 }
+
+func TestRemoveBlockedByContributedContent(t *testing.T) {
+	f := newInstallerFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.service.Activate(ctx, testActivation("2.4.1", testDigestV1)); err != nil {
+		t.Fatal(err)
+	}
+	var organizationID uuid.UUID
+	if err := f.pool.QueryRow(ctx, `SELECT id FROM organization_settings LIMIT 1`).Scan(&organizationID); err != nil {
+		t.Fatal(err)
+	}
+	widgetID := uuid.New()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by)
+		VALUES($1,$2,'Widget','widget','widget.json','application/json',$3,10,'ready',$4)`,
+		widgetID, organizationID, make([]byte, 32), f.userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx, `INSERT INTO widgets(asset_id,provider,configuration)
+		VALUES($1,'acme.athletics.scoreboard','{}'::jsonb)`, widgetID); err != nil {
+		t.Fatal(err)
+	}
+	dataSourceID := uuid.New()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,provider,configuration,created_by)
+		VALUES($1,$2,'Schedule','acme.athletics.schedule','{}'::jsonb,$3)`, dataSourceID, organizationID, f.userID); err != nil {
+		t.Fatal(err)
+	}
+
+	err := f.service.Remove(ctx, "acme.athletics", f.userID)
+	var inUse *InUseError
+	if !errors.As(err, &inUse) {
+		t.Fatalf("remove with contributed content err = %#v", err)
+	}
+	if len(inUse.Resources) != 2 || inUse.Resources[0].Kind != "widget" || inUse.Resources[1].Kind != "data_source" {
+		t.Fatalf("resources = %+v", inUse.Resources)
+	}
+	if inUse.Resources[0].Count != 1 || inUse.Resources[0].Label != "Widget" || inUse.Resources[0].Resolution != "delete" {
+		t.Fatalf("Widget resource = %+v", inUse.Resources[0])
+	}
+	if got := inUse.Error(); got != "Athletics cannot be removed while 1 Widget remain." {
+		t.Fatalf("message = %q", got)
+	}
+	// The blocked removal deletes nothing.
+	if _, err := f.service.Get(ctx, "acme.athletics"); err != nil {
+		t.Fatalf("blocked removal deleted the installation: %v", err)
+	}
+
+	if _, err := f.pool.Exec(ctx, `DELETE FROM widgets WHERE asset_id=$1`, widgetID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx, `DELETE FROM assets WHERE id=$1`, widgetID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx, `DELETE FROM data_sources WHERE id=$1`, dataSourceID); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.Remove(ctx, "acme.athletics", f.userID); err != nil {
+		t.Fatalf("remove after cleanup: %v", err)
+	}
+}
+
+func TestUpdateBlockedByDroppedContributionInUse(t *testing.T) {
+	f := newInstallerFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.service.Activate(ctx, testActivation("2.4.1", testDigestV1)); err != nil {
+		t.Fatal(err)
+	}
+	var organizationID uuid.UUID
+	if err := f.pool.QueryRow(ctx, `SELECT id FROM organization_settings LIMIT 1`).Scan(&organizationID); err != nil {
+		t.Fatal(err)
+	}
+	dataSourceID := uuid.New()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,provider,configuration,created_by)
+		VALUES($1,$2,'Schedule','acme.athletics.schedule','{}'::jsonb,$3)`, dataSourceID, organizationID, f.userID); err != nil {
+		t.Fatal(err)
+	}
+
+	dropped := testActivation("2.5.0", testDigestV2)
+	// The update drops the plugin and data-source contributions. The
+	// manifest and the derived list agree on the surviving widget; the
+	// blocker comes from the dropped schedule still being in use.
+	dropped.Manifest.Contributions = dropped.Manifest.Contributions[1:2]
+	dropped.Contributions = []Contribution{
+		{Kind: "widget", ID: "acme.athletics.scoreboard", Path: "./widgets/scoreboard"},
+	}
+	err := func() error {
+		_, err := f.service.Activate(ctx, dropped)
+		return err
+	}()
+	var inUse *InUseError
+	if !errors.As(err, &inUse) {
+		t.Fatalf("update dropping an in-use contribution err = %#v", err)
+	}
+	if inUse.Action != "updated" || len(inUse.Resources) != 1 || inUse.Resources[0].Kind != "data_source" {
+		t.Fatalf("in-use = %+v", inUse)
+	}
+	if got := inUse.Error(); got != "Athletics cannot be updated while 1 Data Source remain." {
+		t.Fatalf("message = %q", got)
+	}
+	// The blocked update keeps the previous version active.
+	installed, err := f.service.Get(ctx, "acme.athletics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if installed.Version != "2.4.1" {
+		t.Fatalf("version = %s after blocked update", installed.Version)
+	}
+}

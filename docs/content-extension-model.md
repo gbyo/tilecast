@@ -655,11 +655,15 @@ The release catalog composes:
 - root V2 Widget manifests;
 - plugin-owned Widget manifests;
 - root declarative Data Source definitions;
-- plugin-owned declarative Data Source definitions.
+- plugin-owned declarative Data Source definitions;
+- package-owned Widget and Data Source definitions from installed
+  extension packages.
 
-The exact Go shape may differ. The important property is that
-`contentdefs.Catalog` no longer assumes "embedded release file" is the only
-possible origin.
+The shipped shape is the `contentdefs.Catalogs` interface with an atomic
+`Provider`: each installed package contributes one external overlay in
+package-ID order, and every rebuild swaps a complete immutable snapshot
+into the services. The important property holds: `contentdefs.Catalog`
+no longer assumes "embedded release file" is the only possible origin.
 
 The catalog fingerprint includes source identity and definition bytes.
 

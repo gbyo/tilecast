@@ -28,7 +28,7 @@ type Service struct {
 	notifier              Notifier
 	scheduling            *scheduling.Service
 	sources               SourceProjector
-	definitions           *contentdefs.Catalog
+	definitions           contentdefs.Catalogs
 	plugins               PluginProjector
 	presentationOverrides PresentationOverrideProjector
 	span                  SpanProjector
@@ -58,7 +58,7 @@ func NewService(db *pgxpool.Pool, notifier Notifier) *Service {
 
 func (s *Service) SetScheduling(service *scheduling.Service)          { s.scheduling = service }
 func (s *Service) SetSourceProjector(projector SourceProjector)       { s.sources = projector }
-func (s *Service) SetContentDefinitions(catalog *contentdefs.Catalog) { s.definitions = catalog }
+func (s *Service) SetContentDefinitions(catalog contentdefs.Catalogs) { s.definitions = catalog }
 func (s *Service) SetPluginProjector(projector PluginProjector)       { s.plugins = projector }
 func (s *Service) SetSpanProjector(projector SpanProjector)           { s.span = projector }
 func (s *Service) SetPresentationOverrides(projector PresentationOverrideProjector) {
@@ -2494,7 +2494,7 @@ func (s *Service) reconcilePresentationCatalog(ctx context.Context) error {
 		)
 		UPDATE screen_manifest_state
 		SET manifest_version=manifest_version+1,changed_at=now(),change_reason='presentation.catalog_changed'
-		WHERE EXISTS(SELECT 1 FROM changed)`, s.definitions.Fingerprint)
+		WHERE EXISTS(SELECT 1 FROM changed)`, s.definitions.CatalogFingerprint())
 	return err
 }
 
