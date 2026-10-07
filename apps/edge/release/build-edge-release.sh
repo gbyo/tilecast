@@ -13,7 +13,7 @@ set -euo pipefail
 : "${SOURCE_DATE_EPOCH:?the builder image sets SOURCE_DATE_EPOCH}"
 release=/src/apps/edge/release
 edge=/src/apps/edge
-wpe_version=$(sed -n 's/^WPE_VERSION=//p' "$release/build-wpe.sh")
+wpe_version=$(python3 "$release/inputs.py" wpe-version)
 wpe_sha256=$(sed -n 's/^WPE_SHA256=//p' "$release/build-wpe.sh")
 snapshot=$(sed -n 's/^ARG SNAPSHOT=//p' "$release/Dockerfile.builder")
 version=$(python3 "$release/inputs.py" version)
@@ -23,7 +23,10 @@ wpe_prefix=/opt/tilecast-edge/current/lib/wpe
 
 # 1. WPE WebKit, cached per version, builder inputs and architecture: a
 # cache entry for the other architecture is ignored, never extracted.
-key=$(cat "$release/Dockerfile.builder" "$release/build-wpe.sh" | sha256sum | cut -c1-16)
+# The key ignores comments and whitespace (inputs.py), and the release
+# workflow prefers a published prebuild at this exact path before the
+# best-effort CI cache, so releases never recompile WebKit.
+key=$(python3 "$release/inputs.py" wpe-key)
 cache="/cache/wpe-$wpe_version-$key-$arch.tar"
 if [ -f "$cache" ]; then
   tar -xf "$cache" -C /

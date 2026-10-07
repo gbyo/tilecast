@@ -1,0 +1,108 @@
+name: Tilecast WPE Prebuild
+
+# Compiles the pinned WPE WebKit once per (version, builder inputs,
+# architecture) and publishes the deterministic tar as an immutable release
+# asset, so Edge releases download WebKit instead of recompiling it (~2h).
+# The release workflow falls back to the CI cache and then to a from-scratch
+# compile, so a missing prebuild slows a release but never blocks it.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - apps/edge/release/Dockerfile.builder
+      - apps/edge/release/build-wpe.sh
+      - apps/edge/release/build-edge-release.sh
+      - apps/edge/release/inputs.py
+      - apps/edge/release/prebuild-wpe.sh
+      - .github/workflows/wpe-prebuild.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prebuild:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    concurrency:
+      group: wpe-prebuild-${{ matrix.arch }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve prebuild tag
+        id: prebuild
+        run: |
+          set -euo pipefail
+          echo "tag=$(python3 apps/edge/release/inputs.py wpe-tag '${{ matrix.arch }}')" >> "$GITHUB_OUTPUT"
+          echo "tar=$(python3 apps/edge/release/inputs.py wpe-tar '${{ matrix.arch }}')" >> "$GITHUB_OUTPUT"
+
+      - name: Skip when the prebuild already exists
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view '${{ steps.prebuild.outputs.tag }}' >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the release builder image
+        if: steps.exists.outputs.published != 'true'
+        run: docker build -t tilecast-edge-release-builder -f apps/edge/release/Dockerfile.builder apps/edge/release
+
+      - name: Compile WPE WebKit and pack the tar
+        if: steps.exists.outputs.published != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/wpe-prebuild"
+          docker run --rm -v "$PWD:/src" -v "$RUNNER_TEMP/wpe-prebuild:/out" \
+            tilecast-edge-release-builder /src/apps/edge/release/prebuild-wpe.sh "/out/${{ steps.prebuild.outputs.tar }}"
+
+      - uses: actions/attest-build-provenance@v4
+        if: steps.exists.outputs.published != 'true'
+        with:
+          subject-path: |
+            ${{ runner.temp }}/wpe-prebuild/${{ steps.prebuild.outputs.tar }}
+
+      - name: Publish the immutable prebuild
+        if: steps.exists.outputs.published != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag='${{ steps.prebuild.outputs.tag }}'
+          tar='${{ steps.prebuild.outputs.tar }}'
+          version=$(python3 apps/edge/release/inputs.py wpe-version)
+          key=$(python3 apps/edge/release/inputs.py wpe-key)
+          wpe_sha256=$(sed -n 's/^WPE_SHA256=//p' apps/edge/release/build-wpe.sh)
+          builder_sha256=$(sha256sum apps/edge/release/Dockerfile.builder | cut -d' ' -f1)
+          script_sha256=$(sha256sum apps/edge/release/build-wpe.sh | cut -d' ' -f1)
+          tar_sha256=$(sha256sum "$RUNNER_TEMP/wpe-prebuild/$tar" | cut -d' ' -f1)
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "another run published $tag; nothing to do"
+            exit 0
+          fi
+          gh release create "$tag" "$RUNNER_TEMP/wpe-prebuild/$tar" \
+            --target "$GITHUB_SHA" \
+            --title "WPE WebKit $version prebuild (${{ matrix.arch }})" \
+            --notes "Prebuilt WPE WebKit $version for Tilecast Edge releases (${{ matrix.arch }}).
+          The release workflow downloads this tar instead of recompiling WebKit.
+          Inputs key: $key. WPE source SHA-256: $wpe_sha256.
+          Dockerfile.builder SHA-256: $builder_sha256. build-wpe.sh SHA-256: $script_sha256.
+          Tar SHA-256: $tar_sha256. Built from commit $GITHUB_SHA."

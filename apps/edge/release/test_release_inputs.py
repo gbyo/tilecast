@@ -97,6 +97,73 @@ class InputTests(unittest.TestCase):
                 with patch.object(inputs.subprocess, "check_output", return_value=json.dumps(metadata)):
                     self.assertEqual(inputs.state_schema(), 7)
 
+    def test_wpe_key_ignores_comments_and_whitespace(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release = root / "apps/edge/release"
+            release.mkdir(parents=True)
+            (release / "Dockerfile.builder").write_text("FROM example@sha256:abc\nRUN apt-get install -y foo \\\n    bar\n")
+            (release / "build-wpe.sh").write_text("WPE_VERSION=2.54.0\ncmake --build /work/build\n")
+            with patch.object(inputs, "ROOT", root):
+                before = inputs.wpe_key()
+                (release / "Dockerfile.builder").write_text(
+                    "# a comment\n\nFROM example@sha256:abc\n\n# another\nRUN apt-get install -y foo \\\n        bar\n")
+                (release / "build-wpe.sh").write_text("\n# header\nWPE_VERSION=2.54.0\ncmake --build /work/build\n")
+                self.assertEqual(inputs.wpe_key(), before)
+
+    def test_wpe_key_moves_on_real_input_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release = root / "apps/edge/release"
+            release.mkdir(parents=True)
+            docker = release / "Dockerfile.builder"
+            wpe = release / "build-wpe.sh"
+            docker.write_text("FROM example@sha256:abc\n")
+            wpe.write_text("WPE_VERSION=2.54.0\n-DENABLE_FOO=ON\n")
+            with patch.object(inputs, "ROOT", root):
+                before = inputs.wpe_key()
+                wpe.write_text("WPE_VERSION=2.54.1\n-DENABLE_FOO=ON\n")
+                self.assertNotEqual(inputs.wpe_key(), before)
+                wpe.write_text("WPE_VERSION=2.54.0\n-DENABLE_FOO=OFF\n")
+                self.assertNotEqual(inputs.wpe_key(), before)
+                wpe.write_text("WPE_VERSION=2.54.0\n-DENABLE_FOO=ON\n")
+                docker.write_text("FROM example@sha256:def\n")
+                self.assertNotEqual(inputs.wpe_key(), before)
+
+    def test_wpe_tag_and_tar_bind_version_key_and_arch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release = root / "apps/edge/release"
+            release.mkdir(parents=True)
+            (release / "Dockerfile.builder").write_text("FROM example@sha256:abc\n")
+            (release / "build-wpe.sh").write_text("WPE_VERSION=2.54.0\n")
+            with patch.object(inputs, "ROOT", root):
+                self.assertEqual(inputs.wpe_version(), "2.54.0")
+                key = inputs.wpe_key()
+                self.assertRegex(key, r"^[0-9a-f]{16}$")
+                self.assertEqual(inputs.wpe_tag("x86_64"), f"wpe-2.54.0-{key}-x86_64")
+                self.assertEqual(inputs.wpe_tar("aarch64"), f"wpe-2.54.0-{key}-aarch64.tar")
+                for bad in ["x64", "arm64", "x86_64;evil", ""]:
+                    with self.subTest(bad=bad), self.assertRaises(ValueError):
+                        inputs.wpe_tag(bad)
+                    with self.subTest(bad=bad), self.assertRaises(ValueError):
+                        inputs.wpe_tar(bad)
+
+    def test_wpe_version_parsing_fails_closed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            release = root / "apps/edge/release"
+            release.mkdir(parents=True)
+            (release / "Dockerfile.builder").write_text("FROM example@sha256:abc\n")
+            script = release / "build-wpe.sh"
+            with patch.object(inputs, "ROOT", root):
+                for body in ["WPE_VERSION=\n", "WPE_VERSION=2.54.0\nWPE_VERSION=2.54.0\n",
+                             "# WPE_VERSION=2.54.0\n", "WPE_VERSION=2.54.0 # pinned\n"]:
+                    with self.subTest(body=body):
+                        script.write_text(body)
+                        with self.assertRaises(ValueError):
+                            inputs.wpe_version()
+
     def test_schema_lookup_ignores_edge_repository_adapter(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
