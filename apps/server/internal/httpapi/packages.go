@@ -226,7 +226,7 @@ func (s *server) resolveGitHubRepository(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, "invalid_request", "A repository URL is required.")
 		return
 	}
-	resolution, resolveErr := s.packages.ResolveCustom(r.Context(), input.Repository)
+	resolution, err := s.packages.ResolveCustom(r.Context(), input.Repository)
 	if err != nil {
 		s.writePackageError(w, r, err)
 		return
@@ -286,7 +286,7 @@ func (s *server) installStorePackage(w http.ResponseWriter, r *http.Request) {
 		// Resolve once to bind the route's package ID before the
 		// install re-resolves fresh; a mismatch must fail without
 		// installing anything.
-		resolution, err := s.packages.ResolveCustom(r.Context(), input.Repository)
+		resolution, resolveErr := s.packages.ResolveCustom(r.Context(), input.Repository)
 		if resolveErr != nil {
 			s.writePackageError(w, r, resolveErr)
 			return
