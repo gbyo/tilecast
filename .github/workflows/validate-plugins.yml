@@ -24,6 +24,8 @@ jobs:
         run: npm run plugins:check
       - name: Test the plugin SDK and pluginctl
         run: npm test --workspace @tilecast/plugin-sdk
+      - name: Test the package SDK
+        run: npm run packages:check
       - name: Lint the composed OpenAPI contract
         run: npm run openapi:lint
       - name: Check OpenAPI backward compatibility

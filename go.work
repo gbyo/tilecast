@@ -5,6 +5,7 @@ use (
 	./packages/api-client
 	./apps/server
 	./packages/plugin-sdk/go
+	./packages/package-sdk/go
 	./plugins
 	./widgets
 	./data-sources

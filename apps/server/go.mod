@@ -16,6 +16,7 @@ require (
 	github.com/oklog/ulid/v2 v2.1.2
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/tilecast/tilecast/data-sources v0.0.0
+	github.com/tilecast/tilecast/packages/package-sdk/go v0.0.0
 	github.com/tilecast/tilecast/packages/plugin-sdk/go v0.0.0
 	github.com/tilecast/tilecast/plugins v0.0.0
 	github.com/tilecast/tilecast/widgets v0.0.0
@@ -57,6 +58,7 @@ require (
 // workspace, such as the server container, resolving them locally.
 replace (
 	github.com/tilecast/tilecast/data-sources => ../../data-sources
+	github.com/tilecast/tilecast/packages/package-sdk/go => ../../packages/package-sdk/go
 	github.com/tilecast/tilecast/packages/plugin-sdk/go => ../../packages/plugin-sdk/go
 	github.com/tilecast/tilecast/plugins => ../../plugins
 	github.com/tilecast/tilecast/widgets => ../../widgets

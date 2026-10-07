@@ -99,6 +99,23 @@ type Manifest struct {
 	ServerChannel string `json:"serverChannel,omitempty"`
 	BuildCommit   string `json:"buildCommit,omitempty"`
 	BuildDate     string `json:"buildDate,omitempty"`
+	// Packages summarizes the activated extension packages: exact IDs,
+	// versions, digests, sources, and signer identities. Additive like the
+	// build fields above. The full rows ride in the database snapshot; this
+	// summary names them without a restore.
+	Packages []PackageRecord `json:"packages,omitempty"`
+}
+
+// PackageRecord pins one activated package inside a backup manifest.
+type PackageRecord struct {
+	PackageID         string `json:"packageId"`
+	PackageVersion    string `json:"packageVersion"`
+	Digest            string `json:"digest"`
+	SourceKind        string `json:"sourceKind"`
+	SourceReference   string `json:"sourceReference"`
+	RegistryReference string `json:"registryReference"`
+	SignerIdentity    string `json:"signerIdentity,omitempty"`
+	TrustState        string `json:"trustState"`
 }
 
 // TotalBytes reports the summed size of every archived file.
