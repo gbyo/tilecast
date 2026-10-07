@@ -91,7 +91,7 @@ func (v *AttestationVerifier) Verify(bundleJSON []byte, artifactDigest, owner, r
 	}
 	identity, err := verify.NewShortCertificateIdentity(
 		githubActionsIssuer, "",
-		"", "^https://github\\.com/"+regexp.QuoteMeta(owner+"/"+repo)+"/",
+		"", "(?i)^https://github\\.com/"+regexp.QuoteMeta(owner+"/"+repo)+"/",
 	)
 	if err != nil {
 		return "", fmt.Errorf("attestation identity: %w", err)
