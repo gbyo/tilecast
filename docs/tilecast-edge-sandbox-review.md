@@ -95,7 +95,7 @@ The 0.2.0 field drop-ins set `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`, and t
 
 Enabling the sandbox showed a defect that the disabled sandbox hid. WebKit binds the media socket file (`media.sock`) into the web process at start, and refuses a path that does not exist yet. Two cases need handling:
 
-- The self-test starts the renderer before the self-test host binds the socket. The renderer now waits up to 5 s for the socket before it creates the web context.
+- The self-test starts the renderer before the self-test host binds the socket. A release renderer now waits up to 30 s for the socket before it creates the web context (development and CI builds do not sandbox and do not wait).
 - A daemon restart replaces the socket file, and the bound file in the web process no longer reaches the daemon. When the renderer reconnects and sees a different socket than the one it bound, it exits with status 3 and its unit starts it again. A dedicated socket directory would avoid the restart. It would change the renderer contract, so it is a later change.
 
 ### 4.6 Evidence

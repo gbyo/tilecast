@@ -325,6 +325,16 @@ read_bridge_script (TcHost *host, GError **error)
   return contents;
 }
 
+/* How long a release renderer waits for the media socket before it builds the
+ * web context. The release self-test starts the renderer before its host
+ * binds the socket, and the self-test renderer is not restarted. Development
+ * and CI builds do not sandbox and do not wait. */
+#ifdef TILECAST_ALLOW_UNSANDBOXED_WEBKIT
+#define MEDIA_SOCKET_WAIT_MS 0
+#else
+#define MEDIA_SOCKET_WAIT_MS 30000
+#endif
+
 /* WebKit refuses to add a path to the sandbox that does not exist yet
  * ("must be created before adding it to the sandbox"), and the renderer can
  * start before the daemon has bound its media socket (the release self-test
@@ -371,7 +381,7 @@ tc_view_create (TcHost *host, GError **error)
   /* The web-process sandbox sees the media plugin; media bytes are provided
    * by tilecastd over its capability socket. */
   webkit_web_context_add_path_to_sandbox (host->web_context, host->gst_plugin_dir, TRUE);
-  if (!wait_for_path (host->media_socket, 5000))
+  if (!wait_for_path (host->media_socket, MEDIA_SOCKET_WAIT_MS))
     g_warning ("view: %s does not exist yet; video needs the renderer restarted once the daemon is up",
                host->media_socket);
   host->media_identity_known = media_socket_identity (host->media_socket, &host->media_dev, &host->media_ino);

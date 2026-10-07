@@ -154,7 +154,7 @@ def migrate(expect_code, settle=120):
 
 SANDBOX_PROBE = ("bwrap", "--die-with-parent", "--unshare-pid", "--proc", "/proc", "--dev", "/dev",
                  "--ro-bind", "/usr", "/usr", "--symlink", "usr/lib", "/lib", "--symlink", "usr/bin", "/bin",
-                 "--ro-bind", "/etc", "/etc", "--tmpfs", "/tmp", "true")
+                 "--ro-bind", "/etc", "/etc", "--tmpfs", "/tmp", "/usr/bin/true")
 
 
 def preflight():

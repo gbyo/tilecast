@@ -359,8 +359,11 @@ pub async fn clean<H: UpdateHost>(host: &H, roots: &Roots, list: &[Known], now_m
             Err(error) => {
                 // Leave the machine as it was, with the backup kept for the
                 // next run to try again.
-                if let Ok(Some(manifest)) = read_manifest(&backup) {
-                    restore(roots, list, &manifest)?;
+                // A restore that fails must not hide the reload error.
+                if let Ok(Some(manifest)) = read_manifest(&backup)
+                    && let Err(restore_error) = restore(roots, list, &manifest)
+                {
+                    tracing::error!(component = "update", event = "field_workaround_restore_failed", error = %restore_error);
                 }
                 return Err(error.into());
             }
