@@ -68,7 +68,7 @@ export function BrowserPlayerDiagnostics({
   const label = (fact: Fact) =>
     t(`browser.diagnostics.facts.${fact.id}` as never);
   const value = (fact: Fact) =>
-    t(`browser.diagnostics.${fact.value}` as never, fact.params as never);
+    t(`browser.diagnostics.${fact.value}` as never, { ...fact.params });
   return (
     <Card size="sm" className="min-w-0">
       <CardHeader>

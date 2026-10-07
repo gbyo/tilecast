@@ -29,6 +29,14 @@ const healthy: ReliabilityStatus = {
     offlineContent: "ready",
     serviceWorker: "controlling",
   },
+  powerAssist: {
+    deviceSleep: "untested",
+    tvStandby: "untested",
+    deviceWake: "untested",
+    tvWake: "untested",
+    inputSelection: "untested",
+    tilecastStartup: "untested",
+  },
 };
 const input = (
   overrides: Partial<BrowserDiagnosticsInput> = {},

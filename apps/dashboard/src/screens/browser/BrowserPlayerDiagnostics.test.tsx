@@ -26,6 +26,14 @@ const reliability: ReliabilityStatus = {
     offlineContent: "ready",
     serviceWorker: "controlling",
   },
+  powerAssist: {
+    deviceSleep: "untested",
+    tvStandby: "untested",
+    deviceWake: "untested",
+    tvWake: "untested",
+    inputSelection: "untested",
+    tilecastStartup: "untested",
+  },
 };
 
 beforeEach(() => {

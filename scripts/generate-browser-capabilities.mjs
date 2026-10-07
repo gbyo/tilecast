@@ -49,22 +49,20 @@ export type BrowserCapabilityStatus =
   | "unsupported"
   | "not_applicable";
 
+// Studio shows localized text from its own locale files, so the English
+// labels and notes stay in the matrix, the Go table and the documentation.
 export interface BrowserCapability {
   readonly id: string;
-  readonly label: string;
   readonly status: BrowserCapabilityStatus;
-  readonly note: string;
 }
 
 export interface BrowserCommand {
   readonly type: string;
-  readonly label: string;
-  readonly note: string;
 }
 
-export const BROWSER_CAPABILITIES: readonly BrowserCapability[] = ${json(source.capabilities)};
+export const BROWSER_CAPABILITIES: readonly BrowserCapability[] = ${json(source.capabilities.map(({ id, status }) => ({ id, status })))};
 
-export const BROWSER_COMMANDS: readonly BrowserCommand[] = ${json(source.commands.supported)};
+export const BROWSER_COMMANDS: readonly BrowserCommand[] = ${json(source.commands.supported.map(({ type }) => ({ type })))};
 
 const COMMAND_TYPES: ReadonlySet<string> = new Set(
   BROWSER_COMMANDS.map((command) => command.type),

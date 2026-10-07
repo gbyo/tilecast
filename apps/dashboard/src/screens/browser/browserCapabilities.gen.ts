@@ -4,168 +4,46 @@
 export type BrowserCapabilityStatus =
   "supported" | "conditional" | "unsupported" | "not_applicable";
 
+// Studio shows localized text from its own locale files, so the English
+// labels and notes stay in the matrix, the Go table and the documentation.
 export interface BrowserCapability {
   readonly id: string;
-  readonly label: string;
   readonly status: BrowserCapabilityStatus;
-  readonly note: string;
 }
 
 export interface BrowserCommand {
   readonly type: string;
-  readonly label: string;
-  readonly note: string;
 }
 
 export const BROWSER_CAPABILITIES: readonly BrowserCapability[] = [
-  {
-    id: "playback.shared_runtime",
-    label: "Image and video playback",
-    status: "supported",
-    note: "The shared Player Runtime plays them.",
-  },
-  {
-    id: "playback.playlists",
-    label: "Playlists and transitions",
-    status: "supported",
-    note: "The shared Player Runtime advances items and runs transitions.",
-  },
-  {
-    id: "playback.layouts",
-    label: "Layouts",
-    status: "supported",
-    note: "Layout zones render in the shared Player Runtime.",
-  },
-  {
-    id: "playback.widgets",
-    label: "Widgets",
-    status: "supported",
-    note: "Widgets and Widget components render in the shared Player Runtime.",
-  },
-  {
-    id: "scheduling.server_selected",
-    label: "Content schedules chosen by the server",
-    status: "supported",
-    note: "The server selects the content. The Browser Player does not rank schedules.",
-  },
-  {
-    id: "scheduling.takeovers",
-    label: "Takeovers",
-    status: "supported",
-    note: "The server selects a Takeover like any other content.",
-  },
-  {
-    id: "power.active_hours",
-    label: "Active hours and rest",
-    status: "supported",
-    note: "The shared active-hours policy runs in the browser, including while the server is unreachable. The browser shows the rest surface. It does not power off the display.",
-  },
-  {
-    id: "offline.last_verified_activation",
-    label: "Last verified content offline",
-    status: "supported",
-    note: "The last completely prepared activation continues while the server is unreachable.",
-  },
-  {
-    id: "offline.future_schedule_evaluation",
-    label: "Choosing future content schedules offline",
-    status: "unsupported",
-    note: "The server chooses content. The Browser Player waits for the server to choose again.",
-  },
-  {
-    id: "offline.persistent_media_cache",
-    label: "Persistent media cache",
-    status: "conditional",
-    note: "Supported when the browser grants persistent storage. Otherwise the browser can remove downloaded content.",
-  },
-  {
-    id: "activity.proof_of_play",
-    label: "Activity and proof of play",
-    status: "supported",
-    note: "The Browser Player reports the same Activity events as other Players. It keeps them in a durable local queue until the server accepts them.",
-  },
-  {
-    id: "commands.operator",
-    label: "Identify, retry, skip, sync and reload",
-    status: "supported",
-    note: "The Browser Player runs the commands listed under Commands.",
-  },
-  {
-    id: "install.pwa",
-    label: "Installed app",
-    status: "supported",
-    note: "Chrome and Microsoft Edge can install each Browser Player as its own app.",
-  },
-  {
-    id: "playback.synchronized",
-    label: "Synchronized playback",
-    status: "unsupported",
-    note: "The Browser Player does not produce shared timeline anchors.",
-  },
-  {
-    id: "capture.watch_live",
-    label: "Watch Live and screenshots",
-    status: "unsupported",
-    note: "A browser cannot capture its own display without a user prompt.",
-  },
-  {
-    id: "website.privileged",
-    label: "Websites and YouTube",
-    status: "unsupported",
-    note: "Browser Player v1 has no isolated Website surface. The browser frame boundary is not weakened.",
-  },
-  {
-    id: "display.cec_ddc",
-    label: "Display control (CEC and DDC)",
-    status: "unsupported",
-    note: "A web page cannot control the display.",
-  },
-  {
-    id: "device.reboot",
-    label: "Device restart",
-    status: "unsupported",
-    note: "A web page cannot restart the device.",
-  },
-  {
-    id: "updates.native",
-    label: "Player updates",
-    status: "not_applicable",
-    note: "The server supplies the Browser Player. Update targeting excludes it.",
-  },
-  {
-    id: "network.os_configuration",
-    label: "Operating system network setup",
-    status: "unsupported",
-    note: "A web page cannot change the network.",
-  },
+  { id: "playback.shared_runtime", status: "supported" },
+  { id: "playback.playlists", status: "supported" },
+  { id: "playback.layouts", status: "supported" },
+  { id: "playback.widgets", status: "supported" },
+  { id: "scheduling.server_selected", status: "supported" },
+  { id: "scheduling.takeovers", status: "supported" },
+  { id: "power.active_hours", status: "supported" },
+  { id: "offline.last_verified_activation", status: "supported" },
+  { id: "offline.future_schedule_evaluation", status: "unsupported" },
+  { id: "offline.persistent_media_cache", status: "conditional" },
+  { id: "activity.proof_of_play", status: "supported" },
+  { id: "commands.operator", status: "supported" },
+  { id: "install.pwa", status: "supported" },
+  { id: "playback.synchronized", status: "unsupported" },
+  { id: "capture.watch_live", status: "unsupported" },
+  { id: "website.privileged", status: "unsupported" },
+  { id: "display.cec_ddc", status: "unsupported" },
+  { id: "device.reboot", status: "unsupported" },
+  { id: "updates.native", status: "not_applicable" },
+  { id: "network.os_configuration", status: "unsupported" },
 ];
 
 export const BROWSER_COMMANDS: readonly BrowserCommand[] = [
-  {
-    type: "sync_now",
-    label: "Sync now",
-    note: "Refreshes the manifest, the configuration and the server selection.",
-  },
-  {
-    type: "reload_playback",
-    label: "Reload playback",
-    note: "Activates the current content again from the start.",
-  },
-  {
-    type: "identify_screen",
-    label: "Identify screen",
-    note: "Shows the Screen name through the shared Runtime.",
-  },
-  {
-    type: "retry_current_item",
-    label: "Retry current item",
-    note: "Asks the shared Runtime to restart the item on screen.",
-  },
-  {
-    type: "skip_current_item",
-    label: "Skip current item",
-    note: "Asks the shared Runtime to advance to the next item.",
-  },
+  { type: "sync_now" },
+  { type: "reload_playback" },
+  { type: "identify_screen" },
+  { type: "retry_current_item" },
+  { type: "skip_current_item" },
 ];
 
 const COMMAND_TYPES: ReadonlySet<string> = new Set(
