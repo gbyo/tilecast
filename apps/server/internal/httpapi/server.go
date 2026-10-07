@@ -199,6 +199,7 @@ func New(deps Dependencies) *API {
 		// The command path lives on the server, so bulk sending and single
 		// sending share one implementation.
 		s.fleet.SetCommandEnqueuer(s)
+		s.fleet.SetCommandApplicability(devices.PlatformSupportsCommand)
 	}
 	if s.devices != nil {
 		// A heartbeat that reports the last preparing participant as ready should

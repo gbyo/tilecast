@@ -37,6 +37,16 @@ Only the latest pending or approved pairing session for a player installation is
 
 ## Authenticated connection
 
+Browser Player uses a separate Secure, HttpOnly, SameSite Strict session cookie.
+Browser enrollment consumes the ordinary pairing token in the same transaction as device-key registration.
+It never returns a permanent bearer credential to JavaScript.
+A single-use P-256 device-key challenge can restore a lost session cookie.
+Managed recovery advances the binding epoch and invalidates older bindings.
+Browser cookie requests require the same HTTPS origin.
+They reach the shared Player handlers only through an explicit route allowlist.
+They cannot authorize Studio, native updates, capture, or platform provisioning.
+See [Browser Player architecture](browser-player.md).
+
 Player endpoints accept `Authorization: Bearer <device-credential>`. Dashboard cookies are never accepted. `/api/v1/player/socket` uses protocol version 1 and supports `player.hello`, `player.status`, `server.ping`, and `player.pong`. The `server.ping` `timestamp` is RFC 3339 with sub-second precision (servers before this change sent whole seconds), so a player can sample its clock offset from it. `/api/v1/player/heartbeat` is the lower-frequency fallback.
 
 The same authenticated socket carries bounded binary `TCLS` version 1 frames

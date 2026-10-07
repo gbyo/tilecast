@@ -27,7 +27,8 @@ SELECT s.id,s.name,s.description,COALESCE(l.name,''),s.location_id,s.room_name,s
        sg.id,sg.name,COALESCE(p.name,ly.name),
        CASE WHEN p.id IS NOT NULL THEN 'playlist' WHEN ly.id IS NOT NULL THEN 'presentation' END,
        ps.player_version_code,ps.android_sdk,ps.installer_source,ps.install_permission_status,ps.current_update_deployment_id,ps.update_state,ps.update_downloaded_bytes,ps.update_expected_bytes,ps.update_error,
-       ps.player_family,ps.player_architecture
+       ps.player_family,ps.player_architecture,
+       EXISTS(SELECT 1 FROM browser_player_slots bp WHERE bp.screen_id=s.id AND bp.active_binding_epoch=0)
 FROM screens s
 LEFT JOIN locations l ON l.id=s.location_id
 LEFT JOIN screen_group_memberships gm ON gm.screen_id=s.id
@@ -38,8 +39,10 @@ LEFT JOIN playlists p ON p.id=COALESCE(ga.playlist_id,sa.playlist_id)
 LEFT JOIN layouts ly ON ly.id=COALESCE(ga.layout_id,sa.layout_id)
 LEFT JOIN screen_player_status ps ON ps.screen_id=s.id`
 
+const liveScreenSQL = `(EXISTS (SELECT 1 FROM device_credentials c WHERE c.screen_id=s.id AND c.revoked_at IS NULL) OR EXISTS(SELECT 1 FROM browser_player_slots bp WHERE bp.screen_id=s.id AND bp.active_binding_epoch=0))`
+
 func (s *Service) ListScreens(ctx context.Context) ([]Screen, error) {
-	rows, err := s.db.Query(ctx, screenSelect+` WHERE s.archived_at IS NULL AND EXISTS (SELECT 1 FROM device_credentials c WHERE c.screen_id=s.id AND c.revoked_at IS NULL) ORDER BY s.name ASC LIMIT 500`)
+	rows, err := s.db.Query(ctx, screenSelect+` WHERE s.archived_at IS NULL AND `+liveScreenSQL+` ORDER BY s.name ASC LIMIT 500`)
 	if err != nil {
 		return nil, fmt.Errorf("list screens: %w", err)
 	}
@@ -87,6 +90,7 @@ type scanner interface {
 
 func scanScreen(row scanner, presence *PresenceHub, now time.Time) (Screen, error) {
 	var screen Screen
+	var awaitingPlayer bool
 	var addressLine1, addressLine2, city, state, postalCode, country *string
 	var mapLatitude, mapLongitude, latitude, longitude *float64
 	var locationCreatedAt, locationUpdatedAt *time.Time
@@ -96,7 +100,7 @@ func scanScreen(row scanner, presence *PresenceHub, now time.Time) (Screen, erro
 		&screen.Platform, &screen.DeviceManufacturer, &screen.DeviceModel, &screen.AndroidVersion, &screen.PlayerVersion, &screen.ScreenWidth, &screen.ScreenHeight, &screen.Density, &screen.Locale, &screen.Timezone, &screen.AvailableStorageBytes, &screen.UptimeSeconds, &screen.Enabled, &screen.PairedAt, &screen.LastConnectedAt, &screen.LastDisconnectedAt, &screen.LastHeartbeatAt, &screen.LastKnownIP, &screen.CreatedAt, &screen.UpdatedAt, &screen.HasActiveCredential,
 		&screen.ArchivedAt, &screen.ArchivedReason,
 		&screen.SyncGroupID, &screen.SyncGroupName, &screen.NowPlayingName, &screen.NowPlayingType,
-		&screen.PlayerVersionCode, &screen.AndroidSDK, &screen.InstallerSource, &screen.InstallPermissionStatus, &screen.CurrentUpdateDeploymentID, &screen.UpdateState, &screen.UpdateDownloadedBytes, &screen.UpdateExpectedBytes, &screen.UpdateError, &screen.PlayerFamily, &screen.PlayerArchitecture); err != nil {
+		&screen.PlayerVersionCode, &screen.AndroidSDK, &screen.InstallerSource, &screen.InstallPermissionStatus, &screen.CurrentUpdateDeploymentID, &screen.UpdateState, &screen.UpdateDownloadedBytes, &screen.UpdateExpectedBytes, &screen.UpdateError, &screen.PlayerFamily, &screen.PlayerArchitecture, &awaitingPlayer); err != nil {
 		return Screen{}, err
 	}
 	if screen.LocationID != nil {
@@ -121,7 +125,7 @@ func scanScreen(row scanner, presence *PresenceHub, now time.Time) (Screen, erro
 		}
 	}
 	screen.LastContactAt = latestContact(screen.LastConnectedAt, screen.LastDisconnectedAt, screen.LastHeartbeatAt)
-	screen.Status = ComputeStatus(now, presence.Connected(screen.ID), screen.Enabled, screen.HasActiveCredential, screen.LastContactAt)
+	screen.Status = computeScreenStatus(now, presence.Connected(screen.ID), screen.Enabled, screen.HasActiveCredential, awaitingPlayer && screen.ArchivedAt == nil, screen.LastContactAt)
 	return screen, nil
 }
 
@@ -216,12 +220,35 @@ func (s *Service) Revoke(ctx context.Context, id, userID uuid.UUID, reason strin
 		return err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	// Serialize revocation with browser recovery before touching credentials.
+	var lockedID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT id FROM screens WHERE id=$1 FOR UPDATE`, id).Scan(&lockedID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
 	result, err := tx.Exec(ctx, `UPDATE device_credentials SET revoked_at=now(),revocation_reason=$2 WHERE screen_id=$1 AND revoked_at IS NULL`, id, reason)
 	if err != nil {
 		return fmt.Errorf("revoke device credential: %w", err)
 	}
 	if result.RowsAffected() == 0 {
-		return ErrConflict
+		var awaitingBrowser bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM browser_player_slots p JOIN screens s ON s.id=p.screen_id WHERE p.screen_id=$1 AND p.active_binding_epoch=0 AND s.archived_at IS NULL AND s.deleted_at IS NULL)`, id).Scan(&awaitingBrowser); err != nil {
+			return err
+		}
+		if !awaitingBrowser {
+			return ErrConflict
+		}
+	}
+	if _, err := tx.Exec(ctx, `UPDATE browser_player_slots SET recovery_enabled=FALSE,updated_at=now() WHERE screen_id=$1`, id); err != nil {
+		return fmt.Errorf("disable browser recovery: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE browser_player_recovery_credentials SET revoked_at=now() WHERE slot_id IN (SELECT id FROM browser_player_slots WHERE screen_id=$1) AND revoked_at IS NULL`, id); err != nil {
+		return fmt.Errorf("revoke browser recovery: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE browser_player_bindings SET revoked_at=now() WHERE slot_id IN (SELECT id FROM browser_player_slots WHERE screen_id=$1) AND revoked_at IS NULL`, id); err != nil {
+		return fmt.Errorf("revoke browser bindings: %w", err)
 	}
 	result, err = tx.Exec(ctx, `UPDATE screens SET archived_at=now(),archived_reason=$2,enabled=FALSE,location_id=NULL,map_latitude=NULL,map_longitude=NULL,updated_at=now() WHERE id=$1`, id, reason)
 	if err != nil {

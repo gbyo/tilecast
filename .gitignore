@@ -10,6 +10,12 @@ coverage/
 /data/
 /postgres/
 apps/server/internal/web/static/assets/
+apps/server/internal/web/player-static/assets/
+apps/server/internal/web/player-static/runtime/
+apps/server/internal/web/player-static/icons/
+apps/server/internal/web/player-static/service-worker.js
+apps/server/internal/web/player-static/manifest.webmanifest
+apps/server/internal/web/player-static/build.json
 apps/server/tilecast-server
 apps/cli/tilecast
 **/.gradle/
@@ -28,6 +34,8 @@ release-secrets/
 __pycache__/
 e2e/test-results/
 e2e/playwright-report/
+apps/player-web/e2e/test-results/
+apps/player-web/test-results/
 e2e/visual/test-results/
 e2e/visual/playwright-report/
 e2e/docs-screenshots/test-results/

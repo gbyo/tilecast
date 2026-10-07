@@ -36,7 +36,17 @@ export const graph = {
   ci: [],
   widgets: ["dashboard", "runtime", "server", "docs"],
   sources: ["dashboard", "server", "plugins", "docs"],
-  runtime: ["linux", "edge_runtime", "edge_wpe", "edge_conformance", "windows"],
+  // Browser Player bundles the production Runtime, so a Runtime change
+  // rebuilds it and reruns its end-to-end lifecycle.
+  runtime: [
+    "linux",
+    "edge_runtime",
+    "edge_wpe",
+    "edge_conformance",
+    "windows",
+    "browser_player",
+  ],
+  browser_player: [],
   linux: ["edge_runtime", "edge_conformance"],
   protocol: ["server", "android", "runtime", "edge_rust", "edge_server"],
   activity: ["protocol", "edge_activity"],
@@ -81,6 +91,31 @@ const rules = [
   [/^apps\/server\//, ["server"]],
   [/^(apps\/cli|packages\/api-client)\//, ["cli"]],
   [/^apps\/player-android\//, ["android"]],
+  // Browser Player and the server code that authenticates and serves it.
+  [/^apps\/player-web\//, ["browser_player"]],
+  [
+    /^apps\/server\/internal\/(web\/player|httpapi\/browser_player|devices\/browser)/,
+    ["browser_player"],
+  ],
+  [/^scripts\/ci\/browser-player-architecture\.test\.mjs$/, ["browser_player"]],
+  // The Browser Player capability matrix generates its Host, server, Studio
+  // and documentation consumers, and `player-contracts:check` verifies them.
+  [
+    /^(apps\/player-web\/capabilities\.json|scripts\/generate-browser-capabilities\.mjs)$/,
+    ["browser_player", "server", "dashboard", "docs", "ci"],
+  ],
+  // Pure Player policy shared by the TypeScript Players. The Activity package
+  // also drives the real Electron and Edge proof-of-play comparison. The
+  // active-hours cases are pinned against Player Core as well.
+  [
+    /^packages\/player-activity\//,
+    ["linux", "browser_player", "edge_activity"],
+  ],
+  [/^packages\/player-active-hours\//, ["linux", "browser_player"]],
+  [
+    /^packages\/settings-schema\/active-hours-fixtures\.json$/,
+    ["player_core", "linux", "browser_player"],
+  ],
   [/^apps\/ios\//, ["ios"]],
   // The iOS app runs the shared server-address corpus in its tests.
   [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],

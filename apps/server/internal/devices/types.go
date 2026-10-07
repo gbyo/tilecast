@@ -103,9 +103,10 @@ type PollResult struct {
 }
 
 type EnrollmentResult struct {
-	ScreenID         uuid.UUID `json:"screenId"`
-	ScreenName       string    `json:"screenName"`
-	DeviceCredential string    `json:"deviceCredential"`
+	ScreenID         uuid.UUID       `json:"screenId"`
+	ScreenName       string          `json:"screenName"`
+	DeviceCredential string          `json:"deviceCredential"`
+	BrowserSession   *BrowserSession `json:"-"`
 }
 
 type MapCoordinates struct {
@@ -177,12 +178,13 @@ type Screen struct {
 type Status string
 
 const (
-	StatusOnline   Status = "online"
-	StatusRecent   Status = "recent"
-	StatusStale    Status = "stale"
-	StatusOffline  Status = "offline"
-	StatusDisabled Status = "disabled"
-	StatusRevoked  Status = "revoked"
+	StatusOnline         Status = "online"
+	StatusRecent         Status = "recent"
+	StatusStale          Status = "stale"
+	StatusOffline        Status = "offline"
+	StatusDisabled       Status = "disabled"
+	StatusRevoked        Status = "revoked"
+	StatusAwaitingPlayer Status = "awaiting_player"
 )
 
 type DevicePrincipal struct {
@@ -201,7 +203,7 @@ type Heartbeat struct {
 	PlayerVersionCode     *int64 `json:"playerVersionCode,omitempty"`
 	// PlayerFamily and PlayerArchitecture say which Player release family
 	// the running player installs (`android`, `electron-linux`, `edge`,
-	// `windows`) and, for Tilecast Edge and Windows Player, its
+	// `windows`, `browser`) and, for Tilecast Edge and Windows Player, its
 	// architecture. A release reaches only screens of its family; older
 	// players omit both.
 	PlayerFamily                      string            `json:"playerFamily,omitempty"`
@@ -363,6 +365,10 @@ type Heartbeat struct {
 	// "where do I send this room's video".
 	WiredInterfaceAvailable *bool  `json:"wiredInterfaceAvailable,omitempty"`
 	WiredIPv4               string `json:"wiredIpv4,omitempty"`
+
+	// Browser is the bounded Browser Player section. It is stored only for
+	// `playerFamily: browser` and is rebuilt from the fields the server defines.
+	Browser *BrowserStatus `json:"browser,omitempty"`
 
 	// COMPATIBILITY: the retired Noise Meter plugin's section. Linux and Edge
 	// Players released with it keep sending it, and strict decoding would

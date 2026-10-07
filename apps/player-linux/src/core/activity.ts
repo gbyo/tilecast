@@ -13,6 +13,10 @@
  * clock and a uuid factory.
  */
 
+import {
+  buildActivityRecord,
+  type ActivityEventInput,
+} from "@tilecast/player-activity";
 import type { ApiClient } from "./api";
 import { ApiError } from "./api";
 import { logger } from "./log";
@@ -25,50 +29,12 @@ const MAX_BUFFER = 500;
 const MAX_BATCH = 200;
 export const ACTIVITY_FLUSH_INTERVAL_MS = 30_000;
 
-export type ActivitySeverity =
-  "debug" | "info" | "warning" | "error" | "critical";
-
-export type ActivityResult =
-  | "playing"
-  | "completed"
-  | "partial"
-  | "skipped"
-  | "failed"
-  | "unknown"
-  | "recovered"
-  | "success";
-
-export type ActivitySessionType =
-  "presentation" | "content" | "layout_placement" | "playlist_item";
-
-export interface ActivityEventInput {
-  eventType: string;
-  category?: string;
-  severity?: ActivitySeverity;
-  presentationType?: string;
-  presentationId?: string;
-  presentationRevision?: string;
-  contentType?: string;
-  contentId?: string;
-  playlistItemId?: string;
-  layoutPlacementId?: string;
-  /** Stable for the life of one session; the end event repeats the start's. */
-  activitySessionId?: string;
-  parentActivitySessionId?: string;
-  sessionType?: ActivitySessionType;
-  /** Why the session ended. Required on end events under contract v2. */
-  terminalReason?: string;
-  result?: ActivityResult;
-  durationMs?: number;
-  expectedDurationMs?: number;
-  failureCode?: string;
-  failureMessage?: string;
-  trigger?: string;
-  scheduleId?: string;
-  takeoverId?: string;
-  manifestVersion?: number;
-  metadata?: Record<string, unknown>;
-}
+export type {
+  ActivityEventInput,
+  ActivityResult,
+  ActivitySessionType,
+  ActivitySeverity,
+} from "@tilecast/player-activity";
 
 interface StoredSequence {
   next: number;
@@ -132,25 +98,13 @@ export class ActivityReporter {
       if (this.stopping) {
         return;
       }
-      const event: Record<string, unknown> = {
+      const event = buildActivityRecord(input, {
         id: this.uuid(),
         sequence: this.next++,
-        eventType: input.eventType,
-        category: input.category ?? "playback",
-        severity: input.severity ?? "info",
-        occurredAt: new Date(this.now()).toISOString(),
-        elapsedRealtimeMs: Math.max(0, this.now() - this.startMs),
-        playerTimezone: this.timezone,
-      };
-      for (const [key, value] of Object.entries(input)) {
-        if (
-          value !== undefined &&
-          !["eventType", "category", "severity"].includes(key)
-        ) {
-          event[key] =
-            key === "failureMessage" ? String(value).slice(0, 240) : value;
-        }
-      }
+        nowMs: this.now(),
+        startMs: this.startMs,
+        timezone: this.timezone,
+      });
       this.buffer.push(event);
       if (this.buffer.length > MAX_BUFFER) {
         // Drop the oldest to stay bounded; note it so the gap is visible.

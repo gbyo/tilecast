@@ -11,9 +11,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dist": "npm run build && electron-builder --config electron-builder.config.cjs --linux --publish never",
-    "prebuild": "npm run build --prefix ../../packages/player-runtime"
+    "prebuild": "npm run build --prefix ../../packages/player-runtime && npm run build --prefix ../../packages/player-activity && npm run build --prefix ../../packages/player-active-hours"
   },
   "dependencies": {
+    "@tilecast/player-active-hours": "*",
+    "@tilecast/player-activity": "*",
     "@tilecast/player-runtime": "0.1.0",
     "bonjour-service": "^1.4.4",
     "qrcode-generator": "^2.0.4",

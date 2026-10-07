@@ -1,5 +1,11 @@
 import type { components } from "@tilecast/api-schema/generated/openapi";
 
+export type BrowserSlot = components["schemas"]["BrowserSlot"];
+export type BrowserPlayerStatus = components["schemas"]["BrowserPlayerStatus"];
+export type BrowserLaunch =
+  components["schemas"]["BrowserLaunchResponse"]["data"];
+export type BrowserScreenInput = components["schemas"]["BrowserScreenRequest"];
+
 export type User = {
   id: string;
   name: string;
@@ -164,8 +170,17 @@ export type SetupInput = {
 
 export type LoginInput = { username: string; password: string };
 
-export type ScreenStatus =
-  "online" | "recent" | "stale" | "offline" | "disabled" | "revoked";
+export const SCREEN_STATUSES = [
+  "online",
+  "recent",
+  "stale",
+  "offline",
+  "disabled",
+  "revoked",
+  "awaiting_player",
+] as const;
+
+export type ScreenStatus = (typeof SCREEN_STATUSES)[number];
 
 export type Location = {
   id: string;
@@ -670,6 +685,8 @@ export type PlayerCommand = {
 };
 
 export type ReliabilityStatus = {
+  /** Facts only a Browser Player reports. Null for every other player. */
+  browser?: BrowserPlayerStatus | null;
   configuredMode?: string;
   effectiveMode?: string;
   foregroundState?: string;
@@ -1388,7 +1405,8 @@ export type PlayerPlatform = "android" | "linux" | "windows";
  * the Electron Linux Player (`electron-linux`) and Tilecast Edge (`edge`);
  * a deployment reaches only screens of its release's family.
  */
-export type PlayerFamily = "android" | "electron-linux" | "edge" | "windows";
+export type PlayerFamily =
+  "android" | "electron-linux" | "edge" | "windows" | "browser";
 export type PlayerRelease = {
   id: string;
   tag: string;

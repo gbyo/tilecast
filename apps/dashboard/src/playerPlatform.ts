@@ -1,6 +1,6 @@
 import type { PlayerFamily, PlayerPlatform } from "./api/types";
 
-export type ScreenPlatformFamily = "android" | "linux" | "windows";
+export type ScreenPlatformFamily = "android" | "linux" | "windows" | "browser";
 
 /**
  * Narrow an open API family/platform string to the values Studio knows.
@@ -26,15 +26,16 @@ export const normalizePlayerFamily = (
     : undefined;
 
 // Screens report a specific platform string ("fire-tv", "android-tv",
-// "linux", "windows", …); anything that is neither Linux nor Windows belongs
-// to the Android family, the same mapping the server applies when resolving
-// deployment targets.
+// "linux", "windows", "browser", …). Legacy unknown native platforms retain
+// their Android mapping. Browser screens never participate in native updates.
 export const screenPlatformFamily = (platform: string): ScreenPlatformFamily =>
-  platform === "linux"
-    ? "linux"
-    : platform === "windows"
-      ? "windows"
-      : "android";
+  platform === "browser"
+    ? "browser"
+    : platform === "linux"
+      ? "linux"
+      : platform === "windows"
+        ? "windows"
+        : "android";
 
 export const isAndroidScreen = (platform: string) =>
   screenPlatformFamily(platform) === "android";
@@ -62,8 +63,15 @@ const tabOfFamily = (family?: string): UpdateFamilyTab | undefined =>
 export const screenUpdateTab = (screen: {
   platform: string;
   playerFamily?: string;
-}): UpdateFamilyTab =>
-  tabOfFamily(screen.playerFamily) ?? screenPlatformFamily(screen.platform);
+}): UpdateFamilyTab | undefined => {
+  if (screen.platform === "browser" || screen.playerFamily === "browser")
+    return undefined;
+  const family = screenPlatformFamily(screen.platform);
+  return (
+    tabOfFamily(screen.playerFamily) ??
+    (family === "browser" ? undefined : family)
+  );
+};
 
 export const releaseUpdateTab = (release: {
   platform: string;

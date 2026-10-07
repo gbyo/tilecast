@@ -26,6 +26,7 @@ import { installProbe } from "./probe";
 import { PlayerRoot } from "./views/player-root";
 import { RuntimeWidgetHost, widgetDiscovery } from "./widgets/host";
 import { runtimeSupport } from "./host/support";
+import { AuthorizedMedia } from "./host/media";
 
 declare const __RUNTIME_VERSION__: string;
 const RUNTIME_VERSION =
@@ -92,13 +93,16 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     animationScale,
     reducedMotion,
   });
+  const pluginMedia = new AuthorizedMedia();
   const surfaces = new RuntimeSurfaceHost({
     clock,
     plugins: runtimeDiscovery.plugins,
     animationScale,
     reducedMotion,
     mediaUrl: (assetId, variantId) =>
-      `tcmedia://variant/${assetId}/${variantId}`,
+      host.media
+        ? host.media.resolve(assetId, variantId)
+        : pluginMedia.resolve(assetId, variantId),
     stage: () => document.getElementById("content-stage"),
     diagnostic: (pluginId, message) =>
       console.warn(`tilecast runtime: plugin ${pluginId}: ${message}`),
@@ -146,6 +150,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
         controller.present(message);
         break;
       case "plugins":
+        pluginMedia.replace(message.media);
         widgets.setClockOffset(message.clockOffsetMs);
         surfaces.setEntries(message.plugins, message.clockOffsetMs);
         break;

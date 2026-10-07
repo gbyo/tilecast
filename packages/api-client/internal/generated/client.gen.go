@@ -357,6 +357,183 @@ func (e BackupJobKind) Valid() bool {
 	}
 }
 
+// Defines values for BrowserPlayerStatusBrowserName.
+const (
+	Chrome   BrowserPlayerStatusBrowserName = "chrome"
+	Chromium BrowserPlayerStatusBrowserName = "chromium"
+	Edge     BrowserPlayerStatusBrowserName = "edge"
+	Other    BrowserPlayerStatusBrowserName = "other"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusBrowserName enum.
+func (e BrowserPlayerStatusBrowserName) Valid() bool {
+	switch e {
+	case Chrome:
+		return true
+	case Chromium:
+		return true
+	case Edge:
+		return true
+	case Other:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPlayerStatusDisplayMode.
+const (
+	BrowserTab    BrowserPlayerStatusDisplayMode = "browser_tab"
+	StandalonePwa BrowserPlayerStatusDisplayMode = "standalone_pwa"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusDisplayMode enum.
+func (e BrowserPlayerStatusDisplayMode) Valid() bool {
+	switch e {
+	case BrowserTab:
+		return true
+	case StandalonePwa:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPlayerStatusOfflineContent.
+const (
+	BrowserPlayerStatusOfflineContentNotPrepared BrowserPlayerStatusOfflineContent = "not_prepared"
+	BrowserPlayerStatusOfflineContentReady       BrowserPlayerStatusOfflineContent = "ready"
+	BrowserPlayerStatusOfflineContentRepairing   BrowserPlayerStatusOfflineContent = "repairing"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusOfflineContent enum.
+func (e BrowserPlayerStatusOfflineContent) Valid() bool {
+	switch e {
+	case BrowserPlayerStatusOfflineContentNotPrepared:
+		return true
+	case BrowserPlayerStatusOfflineContentReady:
+		return true
+	case BrowserPlayerStatusOfflineContentRepairing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPlayerStatusServiceWorker.
+const (
+	BrowserPlayerStatusServiceWorkerControlling   BrowserPlayerStatusServiceWorker = "controlling"
+	BrowserPlayerStatusServiceWorkerInstalling    BrowserPlayerStatusServiceWorker = "installing"
+	BrowserPlayerStatusServiceWorkerUnavailable   BrowserPlayerStatusServiceWorker = "unavailable"
+	BrowserPlayerStatusServiceWorkerUpdateWaiting BrowserPlayerStatusServiceWorker = "update_waiting"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusServiceWorker enum.
+func (e BrowserPlayerStatusServiceWorker) Valid() bool {
+	switch e {
+	case BrowserPlayerStatusServiceWorkerControlling:
+		return true
+	case BrowserPlayerStatusServiceWorkerInstalling:
+		return true
+	case BrowserPlayerStatusServiceWorkerUnavailable:
+		return true
+	case BrowserPlayerStatusServiceWorkerUpdateWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPlayerStatusStoragePersistence.
+const (
+	BrowserPlayerStatusStoragePersistenceBestEffort BrowserPlayerStatusStoragePersistence = "best_effort"
+	BrowserPlayerStatusStoragePersistencePersistent BrowserPlayerStatusStoragePersistence = "persistent"
+	BrowserPlayerStatusStoragePersistenceUnknown    BrowserPlayerStatusStoragePersistence = "unknown"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusStoragePersistence enum.
+func (e BrowserPlayerStatusStoragePersistence) Valid() bool {
+	switch e {
+	case BrowserPlayerStatusStoragePersistenceBestEffort:
+		return true
+	case BrowserPlayerStatusStoragePersistencePersistent:
+		return true
+	case BrowserPlayerStatusStoragePersistenceUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPlayerStatusWakeLock.
+const (
+	BrowserPlayerStatusWakeLockActive      BrowserPlayerStatusWakeLock = "active"
+	BrowserPlayerStatusWakeLockDenied      BrowserPlayerStatusWakeLock = "denied"
+	BrowserPlayerStatusWakeLockReleased    BrowserPlayerStatusWakeLock = "released"
+	BrowserPlayerStatusWakeLockUnsupported BrowserPlayerStatusWakeLock = "unsupported"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPlayerStatusWakeLock enum.
+func (e BrowserPlayerStatusWakeLock) Valid() bool {
+	switch e {
+	case BrowserPlayerStatusWakeLockActive:
+		return true
+	case BrowserPlayerStatusWakeLockDenied:
+		return true
+	case BrowserPlayerStatusWakeLockReleased:
+		return true
+	case BrowserPlayerStatusWakeLockUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPublicKeyCrv.
+const (
+	P256 BrowserPublicKeyCrv = "P-256"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPublicKeyCrv enum.
+func (e BrowserPublicKeyCrv) Valid() bool {
+	switch e {
+	case P256:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPublicKeyKeyOps.
+const (
+	BrowserPublicKeyKeyOpsVerify BrowserPublicKeyKeyOps = "verify"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPublicKeyKeyOps enum.
+func (e BrowserPublicKeyKeyOps) Valid() bool {
+	switch e {
+	case BrowserPublicKeyKeyOpsVerify:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BrowserPublicKeyKty.
+const (
+	EC BrowserPublicKeyKty = "EC"
+)
+
+// Valid indicates whether the value is a known member of the BrowserPublicKeyKty enum.
+func (e BrowserPublicKeyKty) Valid() bool {
+	switch e {
+	case EC:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BulkAction.
 const (
 	AssignLayout    BulkAction = "assign_layout"
@@ -4188,36 +4365,6 @@ func (e ScreenSnapshotTrigger) Valid() bool {
 	}
 }
 
-// Defines values for ScreenStatus.
-const (
-	ScreenStatusDisabled ScreenStatus = "disabled"
-	ScreenStatusOffline  ScreenStatus = "offline"
-	ScreenStatusOnline   ScreenStatus = "online"
-	ScreenStatusRecent   ScreenStatus = "recent"
-	ScreenStatusRevoked  ScreenStatus = "revoked"
-	ScreenStatusStale    ScreenStatus = "stale"
-)
-
-// Valid indicates whether the value is a known member of the ScreenStatus enum.
-func (e ScreenStatus) Valid() bool {
-	switch e {
-	case ScreenStatusDisabled:
-		return true
-	case ScreenStatusOffline:
-		return true
-	case ScreenStatusOnline:
-		return true
-	case ScreenStatusRecent:
-		return true
-	case ScreenStatusRevoked:
-		return true
-	case ScreenStatusStale:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ScreenTimelineDomain.
 const (
 	ScreenTimelineDomainAudit        ScreenTimelineDomain = "audit"
@@ -6253,6 +6400,155 @@ type BackupWorkerStatus struct {
 	Phase           string             `json:"phase"`
 	ProgressPercent int                `json:"progressPercent"`
 	Status          string             `json:"status"`
+}
+
+// BrowserBindingRequest defines model for BrowserBindingRequest.
+type BrowserBindingRequest struct {
+	BindingId openapi_types.UUID `json:"bindingId"`
+	SlotId    openapi_types.UUID `json:"slotId"`
+}
+
+// BrowserChallenge defines model for BrowserChallenge.
+type BrowserChallenge struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+
+	// Message The complete text the device key signs, `tilecast-browser-player-v1:<slotId>:<bindingId>:<nonce>`. Signing the nonce alone is rejected.
+	Message string `json:"message"`
+	Nonce   string `json:"nonce"`
+}
+
+// BrowserEnrollmentRequest defines model for BrowserEnrollmentRequest.
+type BrowserEnrollmentRequest struct {
+	EnrollmentToken  *string             `json:"enrollmentToken,omitempty"`
+	PairingSessionId openapi_types.UUID  `json:"pairingSessionId"`
+	Registration     BrowserRegistration `json:"registration"`
+}
+
+// BrowserLaunchResponse defines model for BrowserLaunchResponse.
+type BrowserLaunchResponse struct {
+	Data struct {
+		Id              openapi_types.UUID `json:"id"`
+		LastRecoveredAt *time.Time         `json:"lastRecoveredAt,omitempty"`
+		RecoveryEnabled bool               `json:"recoveryEnabled"`
+		RecoverySecret  string             `json:"recoverySecret"`
+		ScreenId        openapi_types.UUID `json:"screenId"`
+	} `json:"data"`
+}
+
+// BrowserPlayerStatus Facts only a Browser Player can measure. A Browser Player also reports the generic reliability fields where their meaning matches: `foregroundState` (`foreground`, `background`, `frozen` or `recovering`), `immersiveModeActive` (the effective unattended presentation: fullscreen or an installed app), `keepScreenOn`, `activeHoursState` (`active` or `off_hours`) and `cachedFallbackAvailable`. Every value is a measurement. The server draws the health conclusions. The Browser Player sends no identifier that could single out one browser.
+type BrowserPlayerStatus struct {
+	// AudioUnlocked Whether the browser allows audible playback now.
+	AudioUnlocked       *bool                           `json:"audioUnlocked,omitempty"`
+	BrowserMajorVersion *int                            `json:"browserMajorVersion,omitempty"`
+	BrowserName         *BrowserPlayerStatusBrowserName `json:"browserName,omitempty"`
+
+	// DisplayMode `standalone_pwa` when the page runs as an installed app, otherwise `browser_tab`.
+	DisplayMode          *BrowserPlayerStatusDisplayMode    `json:"displayMode,omitempty"`
+	FullscreenActive     *bool                              `json:"fullscreenActive,omitempty"`
+	OfflineContent       *BrowserPlayerStatusOfflineContent `json:"offlineContent,omitempty"`
+	ServiceWorker        *BrowserPlayerStatusServiceWorker  `json:"serviceWorker,omitempty"`
+	ServiceWorkerVersion *string                            `json:"serviceWorkerVersion,omitempty"`
+
+	// StoragePersistence `persistent` only when the browser said so. `best_effort` means the browser may remove downloaded content under storage pressure.
+	StoragePersistence *BrowserPlayerStatusStoragePersistence `json:"storagePersistence,omitempty"`
+	StorageQuotaBytes  *int64                                 `json:"storageQuotaBytes,omitempty"`
+	StorageUsageBytes  *int64                                 `json:"storageUsageBytes,omitempty"`
+	WakeLock           *BrowserPlayerStatusWakeLock           `json:"wakeLock,omitempty"`
+
+	// WasDiscarded True when the browser discarded this page and the Player restarted it.
+	WasDiscarded *bool `json:"wasDiscarded,omitempty"`
+}
+
+// BrowserPlayerStatusBrowserName defines model for BrowserPlayerStatus.BrowserName.
+type BrowserPlayerStatusBrowserName string
+
+// BrowserPlayerStatusDisplayMode `standalone_pwa` when the page runs as an installed app, otherwise `browser_tab`.
+type BrowserPlayerStatusDisplayMode string
+
+// BrowserPlayerStatusOfflineContent defines model for BrowserPlayerStatus.OfflineContent.
+type BrowserPlayerStatusOfflineContent string
+
+// BrowserPlayerStatusServiceWorker defines model for BrowserPlayerStatus.ServiceWorker.
+type BrowserPlayerStatusServiceWorker string
+
+// BrowserPlayerStatusStoragePersistence `persistent` only when the browser said so. `best_effort` means the browser may remove downloaded content under storage pressure.
+type BrowserPlayerStatusStoragePersistence string
+
+// BrowserPlayerStatusWakeLock defines model for BrowserPlayerStatus.WakeLock.
+type BrowserPlayerStatusWakeLock string
+
+// BrowserPublicKey defines model for BrowserPublicKey.
+type BrowserPublicKey struct {
+	Crv    BrowserPublicKeyCrv      `json:"crv"`
+	Ext    bool                     `json:"ext"`
+	KeyOps []BrowserPublicKeyKeyOps `json:"key_ops"`
+	Kty    BrowserPublicKeyKty      `json:"kty"`
+	X      string                   `json:"x"`
+	Y      string                   `json:"y"`
+}
+
+// BrowserPublicKeyCrv defines model for BrowserPublicKey.Crv.
+type BrowserPublicKeyCrv string
+
+// BrowserPublicKeyKeyOps defines model for BrowserPublicKey.KeyOps.
+type BrowserPublicKeyKeyOps string
+
+// BrowserPublicKeyKty defines model for BrowserPublicKey.Kty.
+type BrowserPublicKeyKty string
+
+// BrowserRecoveryRequest defines model for BrowserRecoveryRequest.
+type BrowserRecoveryRequest struct {
+	Metadata             DeviceMetadata      `json:"metadata"`
+	RecoverySecret       *string             `json:"recoverySecret,omitempty"`
+	Registration         BrowserRegistration `json:"registration"`
+	ServerInstallationId openapi_types.UUID  `json:"serverInstallationId"`
+	SlotId               openapi_types.UUID  `json:"slotId"`
+}
+
+// BrowserRegistration defines model for BrowserRegistration.
+type BrowserRegistration struct {
+	InstallationId openapi_types.UUID `json:"installationId"`
+	PublicKey      BrowserPublicKey   `json:"publicKey"`
+}
+
+// BrowserRenewalRequest defines model for BrowserRenewalRequest.
+type BrowserRenewalRequest struct {
+	BindingId openapi_types.UUID `json:"bindingId"`
+	Nonce     string             `json:"nonce"`
+	Signature string             `json:"signature"`
+	SlotId    openapi_types.UUID `json:"slotId"`
+}
+
+// BrowserScreenRequest defines model for BrowserScreenRequest.
+type BrowserScreenRequest struct {
+	Description *string             `json:"description,omitempty"`
+	LocationId  *openapi_types.UUID `json:"locationId,omitempty"`
+	Name        string              `json:"name"`
+	RoomName    *string             `json:"roomName,omitempty"`
+	RoomNumber  *string             `json:"roomNumber,omitempty"`
+}
+
+// BrowserSession defines model for BrowserSession.
+type BrowserSession struct {
+	BindingId  openapi_types.UUID `json:"bindingId"`
+	Epoch      int64              `json:"epoch"`
+	ExpiresAt  time.Time          `json:"expiresAt"`
+	ScreenId   openapi_types.UUID `json:"screenId"`
+	ScreenName string             `json:"screenName"`
+	SlotId     openapi_types.UUID `json:"slotId"`
+}
+
+// BrowserSessionResponse defines model for BrowserSessionResponse.
+type BrowserSessionResponse struct {
+	Data BrowserSession `json:"data"`
+}
+
+// BrowserSlot defines model for BrowserSlot.
+type BrowserSlot struct {
+	Id              openapi_types.UUID `json:"id"`
+	LastRecoveredAt *time.Time         `json:"lastRecoveredAt,omitempty"`
+	RecoveryEnabled bool               `json:"recoveryEnabled"`
+	ScreenId        openapi_types.UUID `json:"screenId"`
 }
 
 // BulkAction defines model for BulkAction.
@@ -8801,10 +9097,13 @@ type PlayerFamily = string
 
 // PlayerHeartbeat The Player status document. Only the release family fields are described here; the remaining fields are the existing heartbeat contract and are additive.
 type PlayerHeartbeat struct {
+	// Browser Facts only a Browser Player can measure. A Browser Player also reports the generic reliability fields where their meaning matches: `foregroundState` (`foreground`, `background`, `frozen` or `recovering`), `immersiveModeActive` (the effective unattended presentation: fullscreen or an installed app), `keepScreenOn`, `activeHoursState` (`active` or `off_hours`) and `cachedFallbackAvailable`. Every value is a measurement. The server draws the health conclusions. The Browser Player sends no identifier that could single out one browser.
+	Browser *BrowserPlayerStatus `json:"browser,omitempty"`
+
 	// PlayerArchitecture `x86_64` or `aarch64`, kept only with `playerFamily: edge` or `playerFamily: windows`. An Edge or Windows screen without a known architecture is `incompatible` for its family's deployments.
 	PlayerArchitecture *string `json:"playerArchitecture,omitempty"`
 
-	// PlayerFamily `android`, `electron-linux`, `edge` or `windows`. The server keeps only these values; another value is recorded as absent.
+	// PlayerFamily `android`, `electron-linux`, `edge`, `windows` or `browser`. The server keeps only these values; another value is recorded as absent.
 	PlayerFamily *string `json:"playerFamily,omitempty"`
 }
 
@@ -10019,16 +10318,18 @@ type Screen struct {
 	RoomNumber                string              `json:"roomNumber"`
 	ScreenHeight              int                 `json:"screenHeight"`
 	ScreenWidth               int                 `json:"screenWidth"`
-	Status                    ScreenStatus        `json:"status"`
-	SyncGroupId               *openapi_types.UUID `json:"syncGroupId,omitempty"`
-	SyncGroupName             *string             `json:"syncGroupName,omitempty"`
-	Timezone                  string              `json:"timezone"`
-	UpdateDownloadedBytes     *int64              `json:"updateDownloadedBytes,omitempty"`
-	UpdateError               *string             `json:"updateError,omitempty"`
-	UpdateExpectedBytes       *int64              `json:"updateExpectedBytes,omitempty"`
-	UpdateState               *string             `json:"updateState,omitempty"`
-	UpdatedAt                 time.Time           `json:"updatedAt"`
-	UptimeSeconds             *int64              `json:"uptimeSeconds,omitempty"`
+
+	// Status The Server-computed Screen status. `awaiting_player` is a Browser Player Screen whose managed launch link has not been used yet. The set grows with new Player kinds; clients must tolerate values they do not recognize.
+	Status                ScreenStatus        `json:"status"`
+	SyncGroupId           *openapi_types.UUID `json:"syncGroupId,omitempty"`
+	SyncGroupName         *string             `json:"syncGroupName,omitempty"`
+	Timezone              string              `json:"timezone"`
+	UpdateDownloadedBytes *int64              `json:"updateDownloadedBytes,omitempty"`
+	UpdateError           *string             `json:"updateError,omitempty"`
+	UpdateExpectedBytes   *int64              `json:"updateExpectedBytes,omitempty"`
+	UpdateState           *string             `json:"updateState,omitempty"`
+	UpdatedAt             time.Time           `json:"updatedAt"`
+	UptimeSeconds         *int64              `json:"uptimeSeconds,omitempty"`
 }
 
 // ScreenActivity defines model for ScreenActivity.
@@ -10323,8 +10624,8 @@ type ScreenSnapshotList struct {
 	RetentionDays int              `json:"retentionDays"`
 }
 
-// ScreenStatus defines model for ScreenStatus.
-type ScreenStatus string
+// ScreenStatus The Server-computed Screen status. `awaiting_player` is a Browser Player Screen whose managed launch link has not been used yet. The set grows with new Player kinds; clients must tolerate values they do not recognize.
+type ScreenStatus = string
 
 // ScreenTelemetry defines model for ScreenTelemetry.
 type ScreenTelemetry struct {
@@ -12641,6 +12942,11 @@ type UpdateSpanGeometryParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// CreateBrowserPlayerSlotParams defines parameters for CreateBrowserPlayerSlot.
+type CreateBrowserPlayerSlotParams struct {
+	XCSRFToken *string `json:"X-CSRF-Token,omitempty"`
+}
+
 // ApplyBulkOperationJSONBody defines parameters for ApplyBulkOperation.
 type ApplyBulkOperationJSONBody struct {
 	Action              string                  `json:"action"`
@@ -12717,6 +13023,16 @@ type UpdateScreenJSONBody struct {
 	Name                *string             `json:"name,omitempty"`
 	RoomName            *string             `json:"roomName,omitempty"`
 	RoomNumber          *string             `json:"roomNumber,omitempty"`
+}
+
+// SetBrowserPlayerRecoveryJSONBody defines parameters for SetBrowserPlayerRecovery.
+type SetBrowserPlayerRecoveryJSONBody struct {
+	Enabled bool `json:"enabled"`
+}
+
+// SetBrowserPlayerRecoveryParams defines parameters for SetBrowserPlayerRecovery.
+type SetBrowserPlayerRecoveryParams struct {
+	XCSRFToken *string `json:"X-CSRF-Token,omitempty"`
 }
 
 // CancelPlayerCommandParams defines parameters for CancelPlayerCommand.
@@ -13210,6 +13526,18 @@ type UploadPlayerReleaseMultipartRequestBody UploadPlayerReleaseMultipartBody
 // IngestPlayerActivityEventsJSONRequestBody defines body for IngestPlayerActivityEvents for application/json ContentType.
 type IngestPlayerActivityEventsJSONRequestBody IngestPlayerActivityEventsJSONBody
 
+// ChallengeBrowserPlayerJSONRequestBody defines body for ChallengeBrowserPlayer for application/json ContentType.
+type ChallengeBrowserPlayerJSONRequestBody = BrowserBindingRequest
+
+// EnrollBrowserPlayerJSONRequestBody defines body for EnrollBrowserPlayer for application/json ContentType.
+type EnrollBrowserPlayerJSONRequestBody = BrowserEnrollmentRequest
+
+// RecoverBrowserPlayerJSONRequestBody defines body for RecoverBrowserPlayer for application/json ContentType.
+type RecoverBrowserPlayerJSONRequestBody = BrowserRecoveryRequest
+
+// RenewBrowserPlayerSessionJSONRequestBody defines body for RenewBrowserPlayerSession for application/json ContentType.
+type RenewBrowserPlayerSessionJSONRequestBody = BrowserRenewalRequest
+
 // ReportPlayerCommandResultJSONRequestBody defines body for ReportPlayerCommandResult for application/json ContentType.
 type ReportPlayerCommandResultJSONRequestBody = PlayerCommandResultRequest
 
@@ -13315,6 +13643,9 @@ type AddScreenGroupMemberJSONRequestBody = ScreenGroupMemberInput
 // UpdateSpanGeometryJSONRequestBody defines body for UpdateSpanGeometry for application/json ContentType.
 type UpdateSpanGeometryJSONRequestBody = SpanGeometryInput
 
+// CreateBrowserPlayerSlotJSONRequestBody defines body for CreateBrowserPlayerSlot for application/json ContentType.
+type CreateBrowserPlayerSlotJSONRequestBody = BrowserScreenRequest
+
 // ApplyBulkOperationJSONRequestBody defines body for ApplyBulkOperation for application/json ContentType.
 type ApplyBulkOperationJSONRequestBody ApplyBulkOperationJSONBody
 
@@ -13332,6 +13663,9 @@ type RejectPairingJSONRequestBody RejectPairingJSONBody
 
 // UpdateScreenJSONRequestBody defines body for UpdateScreen for application/json ContentType.
 type UpdateScreenJSONRequestBody UpdateScreenJSONBody
+
+// SetBrowserPlayerRecoveryJSONRequestBody defines body for SetBrowserPlayerRecovery for application/json ContentType.
+type SetBrowserPlayerRecoveryJSONRequestBody SetBrowserPlayerRecoveryJSONBody
 
 // SendScreenCommandJSONRequestBody defines body for SendScreenCommand for application/json ContentType.
 type SendScreenCommandJSONRequestBody = PlayerCommandRequest
@@ -15802,6 +16136,64 @@ type ClientInterface interface {
 	// Inspect player variant. Requires an authenticated player credential.
 	InspectPlayerVariant(ctx context.Context, assetId openapi_types.UUID, variantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ChallengeBrowserPlayerWithBody performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Create one two-minute challenge for the current slot and binding. Rate limited; no-store.
+	ChallengeBrowserPlayerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ChallengeBrowserPlayer performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Create one two-minute challenge for the current slot and binding. Rate limited; no-store.
+	ChallengeBrowserPlayer(ctx context.Context, body ChallengeBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnrollBrowserPlayerWithBody performs a POST /api/v1/player/browser/enroll (the `EnrollBrowserPlayer` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Consume an ordinary approved pairing enrollment token and register a browser device key in one transaction. Issue an HttpOnly session instead of a permanent bearer credential.
+	EnrollBrowserPlayerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// EnrollBrowserPlayer performs a POST /api/v1/player/browser/enroll (the `EnrollBrowserPlayer` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Consume an ordinary approved pairing enrollment token and register a browser device key in one transaction. Issue an HttpOnly session instead of a permanent bearer credential.
+	EnrollBrowserPlayer(ctx context.Context, body EnrollBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RecoverBrowserPlayerWithBody performs a POST /api/v1/player/browser/recover (the `RecoverBrowserPlayer` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Exchange one slot recovery capability over same-origin HTTPS. Replace the binding epoch and issue an independent HttpOnly session. Rate limited; no-store.
+	RecoverBrowserPlayerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RecoverBrowserPlayer performs a POST /api/v1/player/browser/recover (the `RecoverBrowserPlayer` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Exchange one slot recovery capability over same-origin HTTPS. Replace the binding epoch and issue an independent HttpOnly session. Rate limited; no-store.
+	RecoverBrowserPlayer(ctx context.Context, body RecoverBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RenewBrowserPlayerSessionWithBody performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+	RenewBrowserPlayerSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RenewBrowserPlayerSession performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+	RenewBrowserPlayerSession(ctx context.Context, body RenewBrowserPlayerSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBrowserPlayerSelection performs a GET /api/v1/player/browser/selection (the `GetBrowserPlayerSelection` operationId) request.
+	//
+	// Read the Server's current playback selection for this session's own Screen. No future offline schedule evaluation is delegated to the browser.
+	GetBrowserPlayerSelection(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetBrowserPlayerSession performs a GET /api/v1/player/browser/session (the `GetBrowserPlayerSession` operationId) request.
+	//
+	// Read the active Browser Player identity without exposing cookie material. Requires same-origin HTTPS fetch metadata; no-store.
+	GetBrowserPlayerSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListPlayerCommands Retrieve executable commands for the authenticated player
 	//
 	// Requires an authenticated player credential.
@@ -16564,6 +16956,18 @@ type ClientInterface interface {
 	// List archived screens. Requires an authenticated dashboard user with the read scope.
 	ListArchivedScreens(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// CreateBrowserPlayerSlotWithBody performs a POST /api/v1/screens/browser (the `CreateBrowserPlayerSlot` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Owner or Administrator creates an awaiting Browser Player Screen. The recovery secret is returned once. Requires same-origin HTTPS and the normal dashboard mutation boundary.
+	CreateBrowserPlayerSlotWithBody(ctx context.Context, params *CreateBrowserPlayerSlotParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateBrowserPlayerSlot performs a POST /api/v1/screens/browser (the `CreateBrowserPlayerSlot` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Owner or Administrator creates an awaiting Browser Player Screen. The recovery secret is returned once. Requires same-origin HTTPS and the normal dashboard mutation boundary.
+	CreateBrowserPlayerSlot(ctx context.Context, params *CreateBrowserPlayerSlotParams, body CreateBrowserPlayerSlotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ApplyBulkOperationWithBody performs a POST /api/v1/screens/bulk/apply (the `ApplyBulkOperation` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -16656,6 +17060,23 @@ type ClientInterface interface {
 	// Requires the Owner or Administrator role with the write scope. Cookie requests additionally require the X-CSRF-Token header. Replaces a screen's details document.
 	UpdateScreen(ctx context.Context, id openapi_types.UUID, body UpdateScreenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetBrowserPlayerSlot performs a GET /api/v1/screens/{id}/browser (the `GetBrowserPlayerSlot` operationId) request.
+	//
+	// Owner or Administrator reads slot metadata. This operation never returns the recovery secret.
+	GetBrowserPlayerSlot(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetBrowserPlayerRecoveryWithBody performs a PUT /api/v1/screens/{id}/browser/recovery (the `SetBrowserPlayerRecovery` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Owner or Administrator regenerates the sole active recovery credential when enabled is true. False disables recovery. Existing sessions remain valid. Requires same-origin HTTPS and normal CSRF protection.
+	SetBrowserPlayerRecoveryWithBody(ctx context.Context, id openapi_types.UUID, params *SetBrowserPlayerRecoveryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetBrowserPlayerRecovery performs a PUT /api/v1/screens/{id}/browser/recovery (the `SetBrowserPlayerRecovery` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Owner or Administrator regenerates the sole active recovery credential when enabled is true. False disables recovery. Existing sessions remain valid. Requires same-origin HTTPS and normal CSRF protection.
+	SetBrowserPlayerRecovery(ctx context.Context, id openapi_types.UUID, params *SetBrowserPlayerRecoveryParams, body SetBrowserPlayerRecoveryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListScreenCommands List recent screen commands
 	//
 	// Requires an authenticated dashboard user.
@@ -16665,7 +17086,7 @@ type ClientInterface interface {
 
 	// SendScreenCommandWithBody Queue a typed operational, Display Control, or bounded player-recovery command
 	//
-	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Takes any type of body and a specified content type.
 	//
@@ -16674,7 +17095,7 @@ type ClientInterface interface {
 
 	// SendScreenCommand Queue a typed operational, Display Control, or bounded player-recovery command
 	//
-	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Takes a body of the `application/json` content type.
 	//
@@ -21551,6 +21972,164 @@ func (c *Client) InspectPlayerVariant(ctx context.Context, assetId openapi_types
 	return c.Client.Do(req)
 }
 
+// ChallengeBrowserPlayerWithBody performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
+// with any type of body and a specified content type.
+//
+// Create one two-minute challenge for the current slot and binding. Rate limited; no-store.
+func (c *Client) ChallengeBrowserPlayerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewChallengeBrowserPlayerRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ChallengeBrowserPlayer performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Create one two-minute challenge for the current slot and binding. Rate limited; no-store.
+func (c *Client) ChallengeBrowserPlayer(ctx context.Context, body ChallengeBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewChallengeBrowserPlayerRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnrollBrowserPlayerWithBody performs a POST /api/v1/player/browser/enroll (the `EnrollBrowserPlayer` operationId) request,
+// with any type of body and a specified content type.
+//
+// Consume an ordinary approved pairing enrollment token and register a browser device key in one transaction. Issue an HttpOnly session instead of a permanent bearer credential.
+func (c *Client) EnrollBrowserPlayerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnrollBrowserPlayerRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// EnrollBrowserPlayer performs a POST /api/v1/player/browser/enroll (the `EnrollBrowserPlayer` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Consume an ordinary approved pairing enrollment token and register a browser device key in one transaction. Issue an HttpOnly session instead of a permanent bearer credential.
+func (c *Client) EnrollBrowserPlayer(ctx context.Context, body EnrollBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewEnrollBrowserPlayerRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RecoverBrowserPlayerWithBody performs a POST /api/v1/player/browser/recover (the `RecoverBrowserPlayer` operationId) request,
+// with any type of body and a specified content type.
+//
+// Exchange one slot recovery capability over same-origin HTTPS. Replace the binding epoch and issue an independent HttpOnly session. Rate limited; no-store.
+func (c *Client) RecoverBrowserPlayerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecoverBrowserPlayerRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RecoverBrowserPlayer performs a POST /api/v1/player/browser/recover (the `RecoverBrowserPlayer` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Exchange one slot recovery capability over same-origin HTTPS. Replace the binding epoch and issue an independent HttpOnly session. Rate limited; no-store.
+func (c *Client) RecoverBrowserPlayer(ctx context.Context, body RecoverBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRecoverBrowserPlayerRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RenewBrowserPlayerSessionWithBody performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request,
+// with any type of body and a specified content type.
+//
+// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+func (c *Client) RenewBrowserPlayerSessionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenewBrowserPlayerSessionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// RenewBrowserPlayerSession performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+func (c *Client) RenewBrowserPlayerSession(ctx context.Context, body RenewBrowserPlayerSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenewBrowserPlayerSessionRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetBrowserPlayerSelection performs a GET /api/v1/player/browser/selection (the `GetBrowserPlayerSelection` operationId) request.
+//
+// Read the Server's current playback selection for this session's own Screen. No future offline schedule evaluation is delegated to the browser.
+func (c *Client) GetBrowserPlayerSelection(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBrowserPlayerSelectionRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetBrowserPlayerSession performs a GET /api/v1/player/browser/session (the `GetBrowserPlayerSession` operationId) request.
+//
+// Read the active Browser Player identity without exposing cookie material. Requires same-origin HTTPS fetch metadata; no-store.
+func (c *Client) GetBrowserPlayerSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBrowserPlayerSessionRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListPlayerCommands Retrieve executable commands for the authenticated player
 //
 // Requires an authenticated player credential.
@@ -23543,6 +24122,38 @@ func (c *Client) ListArchivedScreens(ctx context.Context, reqEditors ...RequestE
 	return c.Client.Do(req)
 }
 
+// CreateBrowserPlayerSlotWithBody performs a POST /api/v1/screens/browser (the `CreateBrowserPlayerSlot` operationId) request,
+// with any type of body and a specified content type.
+//
+// Owner or Administrator creates an awaiting Browser Player Screen. The recovery secret is returned once. Requires same-origin HTTPS and the normal dashboard mutation boundary.
+func (c *Client) CreateBrowserPlayerSlotWithBody(ctx context.Context, params *CreateBrowserPlayerSlotParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBrowserPlayerSlotRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateBrowserPlayerSlot performs a POST /api/v1/screens/browser (the `CreateBrowserPlayerSlot` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Owner or Administrator creates an awaiting Browser Player Screen. The recovery secret is returned once. Requires same-origin HTTPS and the normal dashboard mutation boundary.
+func (c *Client) CreateBrowserPlayerSlot(ctx context.Context, params *CreateBrowserPlayerSlotParams, body CreateBrowserPlayerSlotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateBrowserPlayerSlotRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ApplyBulkOperationWithBody performs a POST /api/v1/screens/bulk/apply (the `ApplyBulkOperation` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -23795,6 +24406,53 @@ func (c *Client) UpdateScreen(ctx context.Context, id openapi_types.UUID, body U
 	return c.Client.Do(req)
 }
 
+// GetBrowserPlayerSlot performs a GET /api/v1/screens/{id}/browser (the `GetBrowserPlayerSlot` operationId) request.
+//
+// Owner or Administrator reads slot metadata. This operation never returns the recovery secret.
+func (c *Client) GetBrowserPlayerSlot(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBrowserPlayerSlotRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetBrowserPlayerRecoveryWithBody performs a PUT /api/v1/screens/{id}/browser/recovery (the `SetBrowserPlayerRecovery` operationId) request,
+// with any type of body and a specified content type.
+//
+// Owner or Administrator regenerates the sole active recovery credential when enabled is true. False disables recovery. Existing sessions remain valid. Requires same-origin HTTPS and normal CSRF protection.
+func (c *Client) SetBrowserPlayerRecoveryWithBody(ctx context.Context, id openapi_types.UUID, params *SetBrowserPlayerRecoveryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetBrowserPlayerRecoveryRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// SetBrowserPlayerRecovery performs a PUT /api/v1/screens/{id}/browser/recovery (the `SetBrowserPlayerRecovery` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Owner or Administrator regenerates the sole active recovery credential when enabled is true. False disables recovery. Existing sessions remain valid. Requires same-origin HTTPS and normal CSRF protection.
+func (c *Client) SetBrowserPlayerRecovery(ctx context.Context, id openapi_types.UUID, params *SetBrowserPlayerRecoveryParams, body SetBrowserPlayerRecoveryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetBrowserPlayerRecoveryRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListScreenCommands List recent screen commands
 //
 // Requires an authenticated dashboard user.
@@ -23814,7 +24472,7 @@ func (c *Client) ListScreenCommands(ctx context.Context, id ResourceID, reqEdito
 
 // SendScreenCommandWithBody Queue a typed operational, Display Control, or bounded player-recovery command
 //
-// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Takes any type of body and a specified content type.
 //
@@ -23833,7 +24491,7 @@ func (c *Client) SendScreenCommandWithBody(ctx context.Context, id ResourceID, c
 
 // SendScreenCommand Queue a typed operational, Display Control, or bounded player-recovery command
 //
-// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Takes a body of the `application/json` content type.
 //
@@ -35855,6 +36513,220 @@ func NewInspectPlayerVariantRequest(server string, assetId openapi_types.UUID, v
 	return req, nil
 }
 
+// NewChallengeBrowserPlayerRequest calls the generic ChallengeBrowserPlayer builder with application/json body
+func NewChallengeBrowserPlayerRequest(server string, body ChallengeBrowserPlayerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewChallengeBrowserPlayerRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewChallengeBrowserPlayerRequestWithBody constructs an http.Request for the ChallengeBrowserPlayer method, with any body, and a specified content type
+func NewChallengeBrowserPlayerRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/browser/challenge")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewEnrollBrowserPlayerRequest calls the generic EnrollBrowserPlayer builder with application/json body
+func NewEnrollBrowserPlayerRequest(server string, body EnrollBrowserPlayerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewEnrollBrowserPlayerRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewEnrollBrowserPlayerRequestWithBody constructs an http.Request for the EnrollBrowserPlayer method, with any body, and a specified content type
+func NewEnrollBrowserPlayerRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/browser/enroll")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRecoverBrowserPlayerRequest calls the generic RecoverBrowserPlayer builder with application/json body
+func NewRecoverBrowserPlayerRequest(server string, body RecoverBrowserPlayerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRecoverBrowserPlayerRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRecoverBrowserPlayerRequestWithBody constructs an http.Request for the RecoverBrowserPlayer method, with any body, and a specified content type
+func NewRecoverBrowserPlayerRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/browser/recover")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRenewBrowserPlayerSessionRequest calls the generic RenewBrowserPlayerSession builder with application/json body
+func NewRenewBrowserPlayerSessionRequest(server string, body RenewBrowserPlayerSessionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRenewBrowserPlayerSessionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRenewBrowserPlayerSessionRequestWithBody constructs an http.Request for the RenewBrowserPlayerSession method, with any body, and a specified content type
+func NewRenewBrowserPlayerSessionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/browser/renew")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetBrowserPlayerSelectionRequest constructs an http.Request for the GetBrowserPlayerSelection method
+func NewGetBrowserPlayerSelectionRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/browser/selection")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetBrowserPlayerSessionRequest constructs an http.Request for the GetBrowserPlayerSession method
+func NewGetBrowserPlayerSessionRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/browser/session")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListPlayerCommandsRequest constructs an http.Request for the ListPlayerCommands method
 func NewListPlayerCommandsRequest(server string) (*http.Request, error) {
 	var err error
@@ -39760,6 +40632,61 @@ func NewListArchivedScreensRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewCreateBrowserPlayerSlotRequest calls the generic CreateBrowserPlayerSlot builder with application/json body
+func NewCreateBrowserPlayerSlotRequest(server string, params *CreateBrowserPlayerSlotParams, body CreateBrowserPlayerSlotJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateBrowserPlayerSlotRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateBrowserPlayerSlotRequestWithBody constructs an http.Request for the CreateBrowserPlayerSlot method, with any body, and a specified content type
+func NewCreateBrowserPlayerSlotRequestWithBody(server string, params *CreateBrowserPlayerSlotParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/screens/browser")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
+
+	return req, nil
+}
+
 // NewApplyBulkOperationRequest calls the generic ApplyBulkOperation builder with application/json body
 func NewApplyBulkOperationRequest(server string, params *ApplyBulkOperationParams, body ApplyBulkOperationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -40196,6 +41123,102 @@ func NewUpdateScreenRequestWithBody(server string, id openapi_types.UUID, conten
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetBrowserPlayerSlotRequest constructs an http.Request for the GetBrowserPlayerSlot method
+func NewGetBrowserPlayerSlotRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/screens/%s/browser", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetBrowserPlayerRecoveryRequest calls the generic SetBrowserPlayerRecovery builder with application/json body
+func NewSetBrowserPlayerRecoveryRequest(server string, id openapi_types.UUID, params *SetBrowserPlayerRecoveryParams, body SetBrowserPlayerRecoveryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetBrowserPlayerRecoveryRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewSetBrowserPlayerRecoveryRequestWithBody constructs an http.Request for the SetBrowserPlayerRecovery method, with any body, and a specified content type
+func NewSetBrowserPlayerRecoveryRequestWithBody(server string, id openapi_types.UUID, params *SetBrowserPlayerRecoveryParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/screens/%s/browser/recovery", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
 
 	return req, nil
 }
@@ -45698,6 +46721,76 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	InspectPlayerVariantWithResponse(ctx context.Context, assetId openapi_types.UUID, variantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*InspectPlayerVariantResponse, error)
 
+	// ChallengeBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Create one two-minute challenge for the current slot and binding. Rate limited; no-store.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ChallengeBrowserPlayerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ChallengeBrowserPlayerResponse, error)
+
+	// ChallengeBrowserPlayerWithResponse performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Create one two-minute challenge for the current slot and binding. Rate limited; no-store.
+	ChallengeBrowserPlayerWithResponse(ctx context.Context, body ChallengeBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*ChallengeBrowserPlayerResponse, error)
+
+	// EnrollBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/enroll (the `EnrollBrowserPlayer` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Consume an ordinary approved pairing enrollment token and register a browser device key in one transaction. Issue an HttpOnly session instead of a permanent bearer credential.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	EnrollBrowserPlayerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnrollBrowserPlayerResponse, error)
+
+	// EnrollBrowserPlayerWithResponse performs a POST /api/v1/player/browser/enroll (the `EnrollBrowserPlayer` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Consume an ordinary approved pairing enrollment token and register a browser device key in one transaction. Issue an HttpOnly session instead of a permanent bearer credential.
+	EnrollBrowserPlayerWithResponse(ctx context.Context, body EnrollBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*EnrollBrowserPlayerResponse, error)
+
+	// RecoverBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/recover (the `RecoverBrowserPlayer` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Exchange one slot recovery capability over same-origin HTTPS. Replace the binding epoch and issue an independent HttpOnly session. Rate limited; no-store.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	RecoverBrowserPlayerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecoverBrowserPlayerResponse, error)
+
+	// RecoverBrowserPlayerWithResponse performs a POST /api/v1/player/browser/recover (the `RecoverBrowserPlayer` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Exchange one slot recovery capability over same-origin HTTPS. Replace the binding epoch and issue an independent HttpOnly session. Rate limited; no-store.
+	RecoverBrowserPlayerWithResponse(ctx context.Context, body RecoverBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*RecoverBrowserPlayerResponse, error)
+
+	// RenewBrowserPlayerSessionWithBodyWithResponse performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	RenewBrowserPlayerSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenewBrowserPlayerSessionResponse, error)
+
+	// RenewBrowserPlayerSessionWithResponse performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+	RenewBrowserPlayerSessionWithResponse(ctx context.Context, body RenewBrowserPlayerSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*RenewBrowserPlayerSessionResponse, error)
+
+	// GetBrowserPlayerSelectionWithResponse performs a GET /api/v1/player/browser/selection (the `GetBrowserPlayerSelection` operationId) request.
+	//
+	// Read the Server's current playback selection for this session's own Screen. No future offline schedule evaluation is delegated to the browser.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetBrowserPlayerSelectionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetBrowserPlayerSelectionResponse, error)
+
+	// GetBrowserPlayerSessionWithResponse performs a GET /api/v1/player/browser/session (the `GetBrowserPlayerSession` operationId) request.
+	//
+	// Read the active Browser Player identity without exposing cookie material. Requires same-origin HTTPS fetch metadata; no-store.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetBrowserPlayerSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetBrowserPlayerSessionResponse, error)
+
 	// ListPlayerCommandsWithResponse Retrieve executable commands for the authenticated player
 	//
 	// Requires an authenticated player credential.
@@ -46620,6 +47713,20 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	ListArchivedScreensWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListArchivedScreensResponse, error)
 
+	// CreateBrowserPlayerSlotWithBodyWithResponse performs a POST /api/v1/screens/browser (the `CreateBrowserPlayerSlot` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Owner or Administrator creates an awaiting Browser Player Screen. The recovery secret is returned once. Requires same-origin HTTPS and the normal dashboard mutation boundary.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CreateBrowserPlayerSlotWithBodyWithResponse(ctx context.Context, params *CreateBrowserPlayerSlotParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBrowserPlayerSlotResponse, error)
+
+	// CreateBrowserPlayerSlotWithResponse performs a POST /api/v1/screens/browser (the `CreateBrowserPlayerSlot` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Owner or Administrator creates an awaiting Browser Player Screen. The recovery secret is returned once. Requires same-origin HTTPS and the normal dashboard mutation boundary.
+	CreateBrowserPlayerSlotWithResponse(ctx context.Context, params *CreateBrowserPlayerSlotParams, body CreateBrowserPlayerSlotJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBrowserPlayerSlotResponse, error)
+
 	// ApplyBulkOperationWithBodyWithResponse performs a POST /api/v1/screens/bulk/apply (the `ApplyBulkOperation` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -46732,6 +47839,27 @@ type ClientWithResponsesInterface interface {
 	// Requires the Owner or Administrator role with the write scope. Cookie requests additionally require the X-CSRF-Token header. Replaces a screen's details document.
 	UpdateScreenWithResponse(ctx context.Context, id openapi_types.UUID, body UpdateScreenJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateScreenResponse, error)
 
+	// GetBrowserPlayerSlotWithResponse performs a GET /api/v1/screens/{id}/browser (the `GetBrowserPlayerSlot` operationId) request.
+	//
+	// Owner or Administrator reads slot metadata. This operation never returns the recovery secret.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetBrowserPlayerSlotWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetBrowserPlayerSlotResponse, error)
+
+	// SetBrowserPlayerRecoveryWithBodyWithResponse performs a PUT /api/v1/screens/{id}/browser/recovery (the `SetBrowserPlayerRecovery` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Owner or Administrator regenerates the sole active recovery credential when enabled is true. False disables recovery. Existing sessions remain valid. Requires same-origin HTTPS and normal CSRF protection.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	SetBrowserPlayerRecoveryWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *SetBrowserPlayerRecoveryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetBrowserPlayerRecoveryResponse, error)
+
+	// SetBrowserPlayerRecoveryWithResponse performs a PUT /api/v1/screens/{id}/browser/recovery (the `SetBrowserPlayerRecovery` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Owner or Administrator regenerates the sole active recovery credential when enabled is true. False disables recovery. Existing sessions remain valid. Requires same-origin HTTPS and normal CSRF protection.
+	SetBrowserPlayerRecoveryWithResponse(ctx context.Context, id openapi_types.UUID, params *SetBrowserPlayerRecoveryParams, body SetBrowserPlayerRecoveryJSONRequestBody, reqEditors ...RequestEditorFn) (*SetBrowserPlayerRecoveryResponse, error)
+
 	// ListScreenCommandsWithResponse List recent screen commands
 	//
 	// Requires an authenticated dashboard user.
@@ -46743,7 +47871,7 @@ type ClientWithResponsesInterface interface {
 
 	// SendScreenCommandWithBodyWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
 	//
-	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -46752,7 +47880,7 @@ type ClientWithResponsesInterface interface {
 
 	// SendScreenCommandWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
 	//
-	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
@@ -56059,6 +57187,262 @@ func (r InspectPlayerVariantResponse) ContentType() string {
 	return ""
 }
 
+type ChallengeBrowserPlayerResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BrowserChallenge `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ChallengeBrowserPlayerResponse) GetJSON200() *struct {
+	Data BrowserChallenge `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ChallengeBrowserPlayerResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ChallengeBrowserPlayerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ChallengeBrowserPlayerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ChallengeBrowserPlayerResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type EnrollBrowserPlayerResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *BrowserSessionResponse
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r EnrollBrowserPlayerResponse) GetJSON201() *BrowserSessionResponse {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r EnrollBrowserPlayerResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r EnrollBrowserPlayerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r EnrollBrowserPlayerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r EnrollBrowserPlayerResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RecoverBrowserPlayerResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *BrowserSessionResponse
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r RecoverBrowserPlayerResponse) GetJSON201() *BrowserSessionResponse {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r RecoverBrowserPlayerResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RecoverBrowserPlayerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RecoverBrowserPlayerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RecoverBrowserPlayerResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type RenewBrowserPlayerSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BrowserSessionResponse
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r RenewBrowserPlayerSessionResponse) GetJSON200() *BrowserSessionResponse {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r RenewBrowserPlayerSessionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r RenewBrowserPlayerSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RenewBrowserPlayerSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r RenewBrowserPlayerSessionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetBrowserPlayerSelectionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		// Data Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
+		Data PlaybackPlan `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetBrowserPlayerSelectionResponse) GetJSON200() *struct {
+	// Data Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
+	Data PlaybackPlan `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetBrowserPlayerSelectionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBrowserPlayerSelectionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBrowserPlayerSelectionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetBrowserPlayerSelectionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetBrowserPlayerSessionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BrowserSessionResponse
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetBrowserPlayerSessionResponse) GetJSON200() *BrowserSessionResponse {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetBrowserPlayerSessionResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBrowserPlayerSessionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBrowserPlayerSessionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetBrowserPlayerSessionResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListPlayerCommandsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -59876,6 +61260,47 @@ func (r ListArchivedScreensResponse) ContentType() string {
 	return ""
 }
 
+type CreateBrowserPlayerSlotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *BrowserLaunchResponse
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateBrowserPlayerSlotResponse) GetJSON201() *BrowserLaunchResponse {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateBrowserPlayerSlotResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateBrowserPlayerSlotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateBrowserPlayerSlotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateBrowserPlayerSlotResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ApplyBulkOperationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -60311,6 +61736,92 @@ func (r UpdateScreenResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r UpdateScreenResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetBrowserPlayerSlotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BrowserSlot `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetBrowserPlayerSlotResponse) GetJSON200() *struct {
+	Data BrowserSlot `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetBrowserPlayerSlotResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBrowserPlayerSlotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBrowserPlayerSlotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetBrowserPlayerSlotResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type SetBrowserPlayerRecoveryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *BrowserLaunchResponse
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r SetBrowserPlayerRecoveryResponse) GetJSON200() *BrowserLaunchResponse {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r SetBrowserPlayerRecoveryResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r SetBrowserPlayerRecoveryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetBrowserPlayerRecoveryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SetBrowserPlayerRecoveryResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -61387,14 +62898,14 @@ type GetScreenReliabilityResponse struct {
 	HTTPResponse *http.Response
 	// JSON200 the response for an HTTP 200 `application/json` response
 	JSON200 *struct {
-		// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
+		// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. A Browser Player's facts are under `browser` (`BrowserPlayerStatus`), which is null for every other player.
 		Data map[string]interface{} `json:"data"`
 	}
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
 func (r GetScreenReliabilityResponse) GetJSON200() *struct {
-	// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
+	// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. A Browser Player's facts are under `browser` (`BrowserPlayerStatus`), which is null for every other player.
 	Data map[string]interface{} `json:"data"`
 } {
 	return r.JSON200
@@ -67516,6 +69027,136 @@ func (c *ClientWithResponses) InspectPlayerVariantWithResponse(ctx context.Conte
 	return ParseInspectPlayerVariantResponse(rsp)
 }
 
+// ChallengeBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
+// with any type of body and a specified content type.
+//
+// Create one two-minute challenge for the current slot and binding. Rate limited; no-store.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ChallengeBrowserPlayerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ChallengeBrowserPlayerResponse, error) {
+	rsp, err := c.ChallengeBrowserPlayerWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseChallengeBrowserPlayerResponse(rsp)
+}
+
+// ChallengeBrowserPlayerWithResponse performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Create one two-minute challenge for the current slot and binding. Rate limited; no-store.
+func (c *ClientWithResponses) ChallengeBrowserPlayerWithResponse(ctx context.Context, body ChallengeBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*ChallengeBrowserPlayerResponse, error) {
+	rsp, err := c.ChallengeBrowserPlayer(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseChallengeBrowserPlayerResponse(rsp)
+}
+
+// EnrollBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/enroll (the `EnrollBrowserPlayer` operationId) request,
+// with any type of body and a specified content type.
+//
+// Consume an ordinary approved pairing enrollment token and register a browser device key in one transaction. Issue an HttpOnly session instead of a permanent bearer credential.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) EnrollBrowserPlayerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EnrollBrowserPlayerResponse, error) {
+	rsp, err := c.EnrollBrowserPlayerWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnrollBrowserPlayerResponse(rsp)
+}
+
+// EnrollBrowserPlayerWithResponse performs a POST /api/v1/player/browser/enroll (the `EnrollBrowserPlayer` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Consume an ordinary approved pairing enrollment token and register a browser device key in one transaction. Issue an HttpOnly session instead of a permanent bearer credential.
+func (c *ClientWithResponses) EnrollBrowserPlayerWithResponse(ctx context.Context, body EnrollBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*EnrollBrowserPlayerResponse, error) {
+	rsp, err := c.EnrollBrowserPlayer(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseEnrollBrowserPlayerResponse(rsp)
+}
+
+// RecoverBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/recover (the `RecoverBrowserPlayer` operationId) request,
+// with any type of body and a specified content type.
+//
+// Exchange one slot recovery capability over same-origin HTTPS. Replace the binding epoch and issue an independent HttpOnly session. Rate limited; no-store.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) RecoverBrowserPlayerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RecoverBrowserPlayerResponse, error) {
+	rsp, err := c.RecoverBrowserPlayerWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecoverBrowserPlayerResponse(rsp)
+}
+
+// RecoverBrowserPlayerWithResponse performs a POST /api/v1/player/browser/recover (the `RecoverBrowserPlayer` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Exchange one slot recovery capability over same-origin HTTPS. Replace the binding epoch and issue an independent HttpOnly session. Rate limited; no-store.
+func (c *ClientWithResponses) RecoverBrowserPlayerWithResponse(ctx context.Context, body RecoverBrowserPlayerJSONRequestBody, reqEditors ...RequestEditorFn) (*RecoverBrowserPlayerResponse, error) {
+	rsp, err := c.RecoverBrowserPlayer(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRecoverBrowserPlayerResponse(rsp)
+}
+
+// RenewBrowserPlayerSessionWithBodyWithResponse performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request,
+// with any type of body and a specified content type.
+//
+// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) RenewBrowserPlayerSessionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenewBrowserPlayerSessionResponse, error) {
+	rsp, err := c.RenewBrowserPlayerSessionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenewBrowserPlayerSessionResponse(rsp)
+}
+
+// RenewBrowserPlayerSessionWithResponse performs a POST /api/v1/player/browser/renew (the `RenewBrowserPlayerSession` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+func (c *ClientWithResponses) RenewBrowserPlayerSessionWithResponse(ctx context.Context, body RenewBrowserPlayerSessionJSONRequestBody, reqEditors ...RequestEditorFn) (*RenewBrowserPlayerSessionResponse, error) {
+	rsp, err := c.RenewBrowserPlayerSession(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenewBrowserPlayerSessionResponse(rsp)
+}
+
+// GetBrowserPlayerSelectionWithResponse performs a GET /api/v1/player/browser/selection (the `GetBrowserPlayerSelection` operationId) request.
+//
+// Read the Server's current playback selection for this session's own Screen. No future offline schedule evaluation is delegated to the browser.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetBrowserPlayerSelectionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetBrowserPlayerSelectionResponse, error) {
+	rsp, err := c.GetBrowserPlayerSelection(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBrowserPlayerSelectionResponse(rsp)
+}
+
+// GetBrowserPlayerSessionWithResponse performs a GET /api/v1/player/browser/session (the `GetBrowserPlayerSession` operationId) request.
+//
+// Read the active Browser Player identity without exposing cookie material. Requires same-origin HTTPS fetch metadata; no-store.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetBrowserPlayerSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetBrowserPlayerSessionResponse, error) {
+	rsp, err := c.GetBrowserPlayerSession(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBrowserPlayerSessionResponse(rsp)
+}
+
 // ListPlayerCommandsWithResponse Retrieve executable commands for the authenticated player
 //
 // Requires an authenticated player credential.
@@ -69176,6 +70817,32 @@ func (c *ClientWithResponses) ListArchivedScreensWithResponse(ctx context.Contex
 	return ParseListArchivedScreensResponse(rsp)
 }
 
+// CreateBrowserPlayerSlotWithBodyWithResponse performs a POST /api/v1/screens/browser (the `CreateBrowserPlayerSlot` operationId) request,
+// with any type of body and a specified content type.
+//
+// Owner or Administrator creates an awaiting Browser Player Screen. The recovery secret is returned once. Requires same-origin HTTPS and the normal dashboard mutation boundary.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CreateBrowserPlayerSlotWithBodyWithResponse(ctx context.Context, params *CreateBrowserPlayerSlotParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateBrowserPlayerSlotResponse, error) {
+	rsp, err := c.CreateBrowserPlayerSlotWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBrowserPlayerSlotResponse(rsp)
+}
+
+// CreateBrowserPlayerSlotWithResponse performs a POST /api/v1/screens/browser (the `CreateBrowserPlayerSlot` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Owner or Administrator creates an awaiting Browser Player Screen. The recovery secret is returned once. Requires same-origin HTTPS and the normal dashboard mutation boundary.
+func (c *ClientWithResponses) CreateBrowserPlayerSlotWithResponse(ctx context.Context, params *CreateBrowserPlayerSlotParams, body CreateBrowserPlayerSlotJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBrowserPlayerSlotResponse, error) {
+	rsp, err := c.CreateBrowserPlayerSlot(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateBrowserPlayerSlotResponse(rsp)
+}
+
 // ApplyBulkOperationWithBodyWithResponse performs a POST /api/v1/screens/bulk/apply (the `ApplyBulkOperation` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -69384,6 +71051,45 @@ func (c *ClientWithResponses) UpdateScreenWithResponse(ctx context.Context, id o
 	return ParseUpdateScreenResponse(rsp)
 }
 
+// GetBrowserPlayerSlotWithResponse performs a GET /api/v1/screens/{id}/browser (the `GetBrowserPlayerSlot` operationId) request.
+//
+// Owner or Administrator reads slot metadata. This operation never returns the recovery secret.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetBrowserPlayerSlotWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetBrowserPlayerSlotResponse, error) {
+	rsp, err := c.GetBrowserPlayerSlot(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBrowserPlayerSlotResponse(rsp)
+}
+
+// SetBrowserPlayerRecoveryWithBodyWithResponse performs a PUT /api/v1/screens/{id}/browser/recovery (the `SetBrowserPlayerRecovery` operationId) request,
+// with any type of body and a specified content type.
+//
+// Owner or Administrator regenerates the sole active recovery credential when enabled is true. False disables recovery. Existing sessions remain valid. Requires same-origin HTTPS and normal CSRF protection.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) SetBrowserPlayerRecoveryWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *SetBrowserPlayerRecoveryParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetBrowserPlayerRecoveryResponse, error) {
+	rsp, err := c.SetBrowserPlayerRecoveryWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetBrowserPlayerRecoveryResponse(rsp)
+}
+
+// SetBrowserPlayerRecoveryWithResponse performs a PUT /api/v1/screens/{id}/browser/recovery (the `SetBrowserPlayerRecovery` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Owner or Administrator regenerates the sole active recovery credential when enabled is true. False disables recovery. Existing sessions remain valid. Requires same-origin HTTPS and normal CSRF protection.
+func (c *ClientWithResponses) SetBrowserPlayerRecoveryWithResponse(ctx context.Context, id openapi_types.UUID, params *SetBrowserPlayerRecoveryParams, body SetBrowserPlayerRecoveryJSONRequestBody, reqEditors ...RequestEditorFn) (*SetBrowserPlayerRecoveryResponse, error) {
+	rsp, err := c.SetBrowserPlayerRecovery(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetBrowserPlayerRecoveryResponse(rsp)
+}
+
 // ListScreenCommandsWithResponse List recent screen commands
 //
 // Requires an authenticated dashboard user.
@@ -69401,7 +71107,7 @@ func (c *ClientWithResponses) ListScreenCommandsWithResponse(ctx context.Context
 
 // SendScreenCommandWithBodyWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
 //
-// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
@@ -69416,7 +71122,7 @@ func (c *ClientWithResponses) SendScreenCommandWithBodyWithResponse(ctx context.
 
 // SendScreenCommandWithResponse Queue a typed operational, Display Control, or bounded player-recovery command
 //
-// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
@@ -76400,6 +78106,218 @@ func ParseInspectPlayerVariantResponse(rsp *http.Response) (*InspectPlayerVarian
 	return response, nil
 }
 
+// ParseChallengeBrowserPlayerResponse parses an HTTP response from a ChallengeBrowserPlayerWithResponse call
+func ParseChallengeBrowserPlayerResponse(rsp *http.Response) (*ChallengeBrowserPlayerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ChallengeBrowserPlayerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BrowserChallenge `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseEnrollBrowserPlayerResponse parses an HTTP response from a EnrollBrowserPlayerWithResponse call
+func ParseEnrollBrowserPlayerResponse(rsp *http.Response) (*EnrollBrowserPlayerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &EnrollBrowserPlayerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest BrowserSessionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseRecoverBrowserPlayerResponse parses an HTTP response from a RecoverBrowserPlayerWithResponse call
+func ParseRecoverBrowserPlayerResponse(rsp *http.Response) (*RecoverBrowserPlayerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RecoverBrowserPlayerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest BrowserSessionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseRenewBrowserPlayerSessionResponse parses an HTTP response from a RenewBrowserPlayerSessionWithResponse call
+func ParseRenewBrowserPlayerSessionResponse(rsp *http.Response) (*RenewBrowserPlayerSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RenewBrowserPlayerSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserSessionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseGetBrowserPlayerSelectionResponse parses an HTTP response from a GetBrowserPlayerSelectionWithResponse call
+func ParseGetBrowserPlayerSelectionResponse(rsp *http.Response) (*GetBrowserPlayerSelectionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBrowserPlayerSelectionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			// Data Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
+			Data PlaybackPlan `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseGetBrowserPlayerSessionResponse parses an HTTP response from a GetBrowserPlayerSessionWithResponse call
+func ParseGetBrowserPlayerSessionResponse(rsp *http.Response) (*GetBrowserPlayerSessionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBrowserPlayerSessionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserSessionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseListPlayerCommandsResponse parses an HTTP response from a ListPlayerCommandsWithResponse call
 func ParseListPlayerCommandsResponse(rsp *http.Response) (*ListPlayerCommandsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -79010,6 +80928,35 @@ func ParseListArchivedScreensResponse(rsp *http.Response) (*ListArchivedScreensR
 	return response, nil
 }
 
+// ParseCreateBrowserPlayerSlotResponse parses an HTTP response from a CreateBrowserPlayerSlotWithResponse call
+func ParseCreateBrowserPlayerSlotResponse(rsp *http.Response) (*CreateBrowserPlayerSlotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateBrowserPlayerSlotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest BrowserLaunchResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseApplyBulkOperationResponse parses an HTTP response from a ApplyBulkOperationWithResponse call
 func ParseApplyBulkOperationResponse(rsp *http.Response) (*ApplyBulkOperationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -79351,6 +81298,69 @@ func ParseUpdateScreenResponse(rsp *http.Response) (*UpdateScreenResponse, error
 	return response, nil
 }
 
+// ParseGetBrowserPlayerSlotResponse parses an HTTP response from a GetBrowserPlayerSlotWithResponse call
+func ParseGetBrowserPlayerSlotResponse(rsp *http.Response) (*GetBrowserPlayerSlotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBrowserPlayerSlotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BrowserSlot `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseSetBrowserPlayerRecoveryResponse parses an HTTP response from a SetBrowserPlayerRecoveryWithResponse call
+func ParseSetBrowserPlayerRecoveryResponse(rsp *http.Response) (*SetBrowserPlayerRecoveryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetBrowserPlayerRecoveryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BrowserLaunchResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseListScreenCommandsResponse parses an HTTP response from a ListScreenCommandsWithResponse call
 func ParseListScreenCommandsResponse(rsp *http.Response) (*ListScreenCommandsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -79401,6 +81411,9 @@ func ParseSendScreenCommandResponse(rsp *http.Response) (*SendScreenCommandRespo
 			return nil, err
 		}
 		response.JSON202 = &dest
+
+	case rsp.StatusCode == 422:
+		break // No content-type
 
 	case rsp.StatusCode == 429:
 		break // No content-type
@@ -80104,7 +82117,7 @@ func ParseGetScreenReliabilityResponse(rsp *http.Response) (*GetScreenReliabilit
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest struct {
-			// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional.
+			// Data Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. A Browser Player's facts are under `browser` (`BrowserPlayerStatus`), which is null for every other player.
 			Data map[string]interface{} `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

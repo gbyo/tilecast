@@ -1,0 +1,75 @@
+name: validate-player-web
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  validate:
+    name: Browser Player
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: tilecast_test
+          POSTGRES_USER: tilecast
+          POSTGRES_PASSWORD: tilecast_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tilecast -d tilecast_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: |
+            apps/server/go.sum
+            plugins/go.sum
+            packages/plugin-sdk/go/go.sum
+      # Browser Player bundles the production Player Runtime, whose build
+      # dependencies are declared by that package. A Studio-only install does
+      # not provide them, so this lane installs the whole workspace itself.
+      - run: npm ci
+      - name: Browser Player architecture guard
+        run: node --test scripts/ci/browser-player-architecture.test.mjs
+      # The typecheck and unit-test scripts build the Runtime's public node
+      # output themselves, so a clean checkout reaches this point unaided.
+      - run: npm run typecheck --workspace @tilecast/player-web
+      - run: npm test --workspace @tilecast/player-web
+      # Pure policy the Browser Player shares with the Linux Player.
+      - name: Shared Activity and active-hours policy
+        run: |
+          npm test --workspace @tilecast/player-activity
+          npm test --workspace @tilecast/player-active-hours
+      - name: Generated Browser Player contracts are current
+        run: node scripts/generate-browser-capabilities.mjs --check
+      - name: Build the exact production Runtime and the Browser Player
+        run: npm run build --workspace @tilecast/player-web
+      - name: Install Chromium and the end-to-end tools
+        run: |
+          npx playwright install --with-deps chromium
+          sudo apt-get install -y --no-install-recommends ffmpeg postgresql-client
+      - name: Browser Player end to end against the real server
+        run: npx playwright test -c apps/player-web/e2e/playwright.config.ts
+        env:
+          TEST_DATABASE_URL: postgres://tilecast:tilecast_test_password@localhost:5432/tilecast_test?sslmode=disable
+      - uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with:
+          name: browser-player-failure
+          path: apps/player-web/e2e/test-results
+          if-no-files-found: ignore
+          retention-days: 14

@@ -2096,6 +2096,159 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/player/browser/recover": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Exchange one slot recovery capability over same-origin HTTPS. Replace the binding epoch and issue an independent HttpOnly session. Rate limited; no-store. */
+    post: operations["recoverBrowserPlayer"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/player/browser/enroll": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Consume an ordinary approved pairing enrollment token and register a browser device key in one transaction. Issue an HttpOnly session instead of a permanent bearer credential. */
+    post: operations["enrollBrowserPlayer"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/player/browser/challenge": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Create one two-minute challenge for the current slot and binding. Rate limited; no-store. */
+    post: operations["challengeBrowserPlayer"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/player/browser/renew": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch. */
+    post: operations["renewBrowserPlayerSession"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/player/browser/session": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read the active Browser Player identity without exposing cookie material. Requires same-origin HTTPS fetch metadata; no-store. */
+    get: operations["getBrowserPlayerSession"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/player/browser/selection": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read the Server's current playback selection for this session's own Screen. No future offline schedule evaluation is delegated to the browser. */
+    get: operations["getBrowserPlayerSelection"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/screens/browser": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Owner or Administrator creates an awaiting Browser Player Screen. The recovery secret is returned once. Requires same-origin HTTPS and the normal dashboard mutation boundary. */
+    post: operations["createBrowserPlayerSlot"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/screens/{id}/browser": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Owner or Administrator reads slot metadata. This operation never returns the recovery secret. */
+    get: operations["getBrowserPlayerSlot"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/screens/{id}/browser/recovery": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Owner or Administrator regenerates the sole active recovery credential when enabled is true. False disables recovery. Existing sessions remain valid. Requires same-origin HTTPS and normal CSRF protection. */
+    put: operations["setBrowserPlayerRecovery"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/player/enroll": {
     parameters: {
       query?: never;
@@ -4311,7 +4464,7 @@ export interface paths {
     put?: never;
     /**
      * Queue a typed operational, Display Control, or bounded player-recovery command
-     * @description Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+     * @description Display Control command types are display_power_on, display_power_off, display_set_input, display_set_volume, display_mute, display_unmute, display_set_brightness, and display_probe. They are capability-gated by the target Player. A Browser Player runs only `sync_now`, `reload_playback`, `identify_screen`, `retry_current_item` and `skip_current_item`; any other command type for a Browser Screen is refused with `command_not_supported_by_player`. Requires an Owner or Administrator with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
      */
     post: operations["sendScreenCommand"];
     delete?: never;
@@ -5522,6 +5675,128 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    BrowserPublicKey: {
+      /** @constant */
+      kty: "EC";
+      /** @constant */
+      crv: "P-256";
+      x: string;
+      y: string;
+      ext: boolean;
+      key_ops: "verify"[];
+    };
+    BrowserRegistration: {
+      /** Format: uuid */
+      installationId: string;
+      publicKey: components["schemas"]["BrowserPublicKey"];
+    };
+    BrowserRecoveryRequest: {
+      /** Format: uuid */
+      slotId: string;
+      /** Format: uuid */
+      serverInstallationId: string;
+      recoverySecret: string;
+      registration: components["schemas"]["BrowserRegistration"];
+      metadata: components["schemas"]["DeviceMetadata"];
+    };
+    BrowserEnrollmentRequest: {
+      /** Format: uuid */
+      pairingSessionId: string;
+      enrollmentToken: string;
+      registration: components["schemas"]["BrowserRegistration"];
+    };
+    BrowserBindingRequest: {
+      /** Format: uuid */
+      slotId: string;
+      /** Format: uuid */
+      bindingId: string;
+    };
+    BrowserRenewalRequest: {
+      /** Format: uuid */
+      slotId: string;
+      /** Format: uuid */
+      bindingId: string;
+      nonce: string;
+      signature: string;
+    };
+    BrowserChallenge: {
+      nonce: string;
+      /** @description The complete text the device key signs, `tilecast-browser-player-v1:<slotId>:<bindingId>:<nonce>`. Signing the nonce alone is rejected. */
+      message: string;
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    BrowserSession: {
+      /** Format: uuid */
+      slotId: string;
+      /** Format: uuid */
+      bindingId: string;
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      /** Format: int64 */
+      epoch: number;
+      /** Format: date-time */
+      expiresAt: string;
+    };
+    BrowserSessionResponse: {
+      data: components["schemas"]["BrowserSession"];
+    };
+    BrowserSlot: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      screenId: string;
+      recoveryEnabled: boolean;
+      /** Format: date-time */
+      lastRecoveredAt?: string;
+    };
+    BrowserLaunchResponse: {
+      data: components["schemas"]["BrowserSlot"] & {
+        recoverySecret: string;
+      };
+    };
+    BrowserScreenRequest: {
+      name: string;
+      /** Format: uuid */
+      locationId?: string;
+      roomName?: string;
+      roomNumber?: string;
+      description?: string;
+    };
+    /** @description Facts only a Browser Player can measure. A Browser Player also reports the generic reliability fields where their meaning matches: `foregroundState` (`foreground`, `background`, `frozen` or `recovering`), `immersiveModeActive` (the effective unattended presentation: fullscreen or an installed app), `keepScreenOn`, `activeHoursState` (`active` or `off_hours`) and `cachedFallbackAvailable`. Every value is a measurement. The server draws the health conclusions. The Browser Player sends no identifier that could single out one browser. */
+    BrowserPlayerStatus: {
+      /** @enum {string} */
+      browserName?: "chrome" | "edge" | "chromium" | "other";
+      browserMajorVersion?: number;
+      /**
+       * @description `standalone_pwa` when the page runs as an installed app, otherwise `browser_tab`.
+       * @enum {string}
+       */
+      displayMode?: "browser_tab" | "standalone_pwa";
+      fullscreenActive?: boolean;
+      /** @description Whether the browser allows audible playback now. */
+      audioUnlocked?: boolean;
+      /** @enum {string} */
+      wakeLock?: "active" | "released" | "denied" | "unsupported";
+      /**
+       * @description `persistent` only when the browser said so. `best_effort` means the browser may remove downloaded content under storage pressure.
+       * @enum {string}
+       */
+      storagePersistence?: "persistent" | "best_effort" | "unknown";
+      /** Format: int64 */
+      storageUsageBytes?: number;
+      /** Format: int64 */
+      storageQuotaBytes?: number;
+      /** @enum {string} */
+      offlineContent?: "ready" | "repairing" | "not_prepared";
+      /** @enum {string} */
+      serviceWorker?:
+        "controlling" | "update_waiting" | "installing" | "unavailable";
+      serviceWorkerVersion?: string;
+      /** @description True when the browser discarded this page and the Player restarted it. */
+      wasDiscarded?: boolean;
+    };
     AirplaySessionScreenState: {
       /** Format: uuid */
       screenId: string;
@@ -8043,10 +8318,11 @@ export interface components {
     };
     /** @description The Player status document. Only the release family fields are described here; the remaining fields are the existing heartbeat contract and are additive. */
     PlayerHeartbeat: {
-      /** @description `android`, `electron-linux`, `edge` or `windows`. The server keeps only these values; another value is recorded as absent. */
+      /** @description `android`, `electron-linux`, `edge`, `windows` or `browser`. The server keeps only these values; another value is recorded as absent. */
       playerFamily?: string;
       /** @description `x86_64` or `aarch64`, kept only with `playerFamily: edge` or `playerFamily: windows`. An Edge or Windows screen without a known architecture is `incompatible` for its family's deployments. */
       playerArchitecture?: string;
+      browser?: components["schemas"]["BrowserPlayerStatus"];
     };
     MultiFactorVerifyRequest: {
       challengeToken: string;
@@ -10542,9 +10818,8 @@ export interface components {
       items: components["schemas"]["PairingRequest"][];
       total: number;
     };
-    /** @enum {string} */
-    ScreenStatus:
-      "online" | "recent" | "stale" | "offline" | "disabled" | "revoked";
+    /** @description The Server-computed Screen status. `awaiting_player` is a Browser Player Screen whose managed launch link has not been used yet. The set grows with new Player kinds; clients must tolerate values they do not recognize. */
+    ScreenStatus: string;
     ScreenLocation: {
       /** Format: uuid */
       id: string;
@@ -16880,6 +17155,373 @@ export interface operations {
       };
     };
   };
+  recoverBrowserPlayer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BrowserRecoveryRequest"];
+      };
+    };
+    responses: {
+      /** @description Browser session cookie issued; no bearer credential in the response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserSessionResponse"];
+        };
+      };
+      /** @description Invalid or revoked recovery capability */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Same-origin HTTPS required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Rate limited */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  enrollBrowserPlayer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BrowserEnrollmentRequest"];
+      };
+    };
+    responses: {
+      /** @description Browser session cookie issued */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserSessionResponse"];
+        };
+      };
+      /** @description Enrollment credential invalid */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Same-origin HTTPS required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Token already consumed */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Rate limited */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  challengeBrowserPlayer: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BrowserBindingRequest"];
+      };
+    };
+    responses: {
+      /** @description Single-use device-key challenge */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["BrowserChallenge"];
+          };
+        };
+      };
+      /** @description Binding is invalid or replaced */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Same-origin HTTPS required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Rate limited */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  renewBrowserPlayerSession: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BrowserRenewalRequest"];
+      };
+    };
+    responses: {
+      /** @description Browser session cookie renewed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserSessionResponse"];
+        };
+      };
+      /** @description Challenge, signature, or binding is invalid */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Same-origin HTTPS required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Rate limited */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getBrowserPlayerSession: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Active Browser Player identity */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserSessionResponse"];
+        };
+      };
+      /** @description Browser session invalid or expired */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Same-origin HTTPS required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getBrowserPlayerSelection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Current Server selection */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlaybackPlan"];
+          };
+        };
+      };
+      /** @description Browser session invalid or expired */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Same-origin HTTPS required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  createBrowserPlayerSlot: {
+    parameters: {
+      query?: never;
+      header?: {
+        "X-CSRF-Token"?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BrowserScreenRequest"];
+      };
+    };
+    responses: {
+      /** @description Slot and one-time launch secret response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserLaunchResponse"];
+        };
+      };
+      /** @description Administrative authorization or same-origin HTTPS required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getBrowserPlayerSlot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Browser slot metadata */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["BrowserSlot"];
+          };
+        };
+      };
+      /** @description Browser slot not found or outside user scope */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  setBrowserPlayerRecovery: {
+    parameters: {
+      query?: never;
+      header?: {
+        "X-CSRF-Token"?: string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          enabled: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Recovery state and new secret when regenerated */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BrowserLaunchResponse"];
+        };
+      };
+      /** @description Administrative authorization or same-origin HTTPS required */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Browser slot not found or outside user scope */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   enrollPlayer: {
     parameters: {
       query?: never;
@@ -22794,6 +23436,13 @@ export interface operations {
           };
         };
       };
+      /** @description The payload is invalid (`command_invalid_payload`), or the Screen's player cannot run this command type (`command_not_supported_by_player`). */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description Pending command limit reached */
       429: {
         headers: {
@@ -23256,7 +23905,7 @@ export interface operations {
         };
         content: {
           "application/json": {
-            /** @description Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. */
+            /** @description Player-reported diagnostics bag. Fields vary by player state and caller role (managers see package details viewers do not); every field is optional. A Browser Player's facts are under `browser` (`BrowserPlayerStatus`), which is null for every other player. */
             data: {
               [key: string]: unknown;
             };

@@ -40,6 +40,7 @@ const screenStatusLabelKeys: Record<
   | "statusLabels.offline"
   | "statusLabels.disabled"
   | "statusLabels.revoked"
+  | "statusLabels.awaiting_player"
 > = {
   online: "statusLabels.online",
   recent: "statusLabels.recent",
@@ -47,6 +48,7 @@ const screenStatusLabelKeys: Record<
   offline: "statusLabels.offline",
   disabled: "statusLabels.disabled",
   revoked: "statusLabels.revoked",
+  awaiting_player: "statusLabels.awaiting_player",
 };
 
 const screenStatusPriority: Record<ScreenStatus, NotificationPriority> = {
@@ -56,6 +58,7 @@ const screenStatusPriority: Record<ScreenStatus, NotificationPriority> = {
   offline: "warning",
   disabled: "info",
   revoked: "warning",
+  awaiting_player: "info",
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;

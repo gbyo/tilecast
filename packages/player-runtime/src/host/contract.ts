@@ -10,7 +10,7 @@
  *
  * Everything that crosses this boundary is data. The runtime never receives a
  * credential, a filesystem path, a server response or an executable. Media is
- * addressed only by URIs the host has already authorized (`tcmedia:`).
+ * addressed only by URIs the host has already authorized.
  *
  * This file has no runtime dependencies so hosts that run in Node (the Electron
  * main process and preload) can share the exact types.
@@ -475,6 +475,8 @@ export interface PluginsMessage {
   type: "plugins";
   plugins: RuntimePluginV1[];
   clockOffsetMs: number;
+  /** Explicit grants for plugin media, replaced with each plugin snapshot. */
+  media?: ProjectionContextV1["media"];
 }
 
 export interface IdentifyMessage {
@@ -595,6 +597,15 @@ export interface TilecastRuntimeHostV1 {
   reportEvidence(report: EvidenceReportV1): void;
   reportPlaybackError(report: PlaybackErrorReportV1): void;
 
+  /**
+   * Optional synchronous resolver for hosts with an activation-bound media
+   * protocol. Other hosts supply explicit projection and plugin bindings.
+   * The host's media layer must enforce current-generation authorization.
+   */
+  readonly media?: {
+    resolve(assetId: string, variantId: string): string;
+  };
+
   /** Present when `capabilities.setup`. */
   readonly setup?: {
     submitServerUrl(url: string): Promise<SetupResultV1>;
@@ -693,6 +704,12 @@ export function hostContractProblem(value: unknown): string | null {
       if (typeof group[method] !== "function") {
         return `capability remoteWeb "host-view" is advertised without remoteWeb.${method}()`;
       }
+    }
+  }
+  if (host["media"] !== undefined) {
+    const media = host["media"] as Record<string, unknown> | null;
+    if (!media || typeof media["resolve"] !== "function") {
+      return "host bridge lacks media.resolve()";
     }
   }
   return null;

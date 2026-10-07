@@ -1,0 +1,56 @@
+---
+title: Use Browser Player
+description: Show signage in Chrome or Edge from a launch link, install it as an app, and know what it can't do yet.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+:::caution[Experimental]
+Browser Player is experimental. It has been tested with Chromium, not yet with specific versions of Chrome and Edge. Keep production displays on a native Player until a Tilecast release lists Browser Player as supported.
+:::
+
+Browser Player runs Tilecast Player inside a browser tab. You open a private launch link on the display, and the browser shows the Screen's content. Nothing is installed beyond the browser, and the browser can install the page as its own app.
+
+A Browser Player plays images, videos, playlists, Layouts, Widgets, takeovers, and the schedules Tilecast Server chooses. It keeps playing the last verified content when the server is unreachable.
+
+## Before you start
+
+- Sign in to Studio as an Owner or Administrator.
+- Open Studio through your server's HTTPS address. Studio doesn't create a launch link over plain HTTP.
+- Use a current Chrome or Microsoft Edge on the display.
+
+## Create a Browser Player
+
+<Steps>
+
+1. Open **Screens** > **Fleet** and select **Add Browser Player**.
+2. Enter the Screen's name and location, then select **Create Browser Player**.
+3. Copy the launch link, or select **Show QR** and scan it from the display.
+4. Open the link in the browser on the display.
+
+</Steps>
+
+Studio shows the launch link once. Anyone with the link can reconnect a browser as this Screen, so keep it private. If you lose it, regenerate it from the Screen's **Managed launch link** panel.
+
+## Keep the display running
+
+For a permanent display, install the page as an app from the browser's menu, or set the launch link to open at startup. The link reconnects the Screen if the browser loses its saved session.
+
+Regenerating a launch link stops the old one immediately. Update every startup link that uses it. The browser that's already connected keeps its session. **Disable managed recovery** stops launch links from reconnecting the Screen at all.
+
+## What a Browser Player can't do
+
+A web page can't control the computer or the TV, so these are unavailable:
+
+- Watch Live and screenshots
+- Display control (CEC and DDC)
+- Restart the device
+- Websites and YouTube
+- Synchronized playback across Screens
+- Player updates. Tilecast Server supplies the Player, so a Browser Screen isn't part of Player update targeting.
+
+A Browser Player runs these commands: **Sync now**, **Reload playback**, **Identify screen**, **Retry current item**, and **Skip current item**. Studio doesn't offer any other command for a Browser Screen.
+
+The Screen's detail page shows a **Browser Player monitoring** card with what the browser reports about itself, such as wake lock, fullscreen, storage, and offline content, and suggests changes that make the display more reliable.
+
+The [Browser Player architecture](https://github.com/gbyo/tilecast/blob/main/docs/browser-player.md) lists the exact capability matrix and what is qualified.

@@ -3,6 +3,8 @@ FROM node:26-alpine AS dashboard
 WORKDIR /src
 COPY package.json package-lock.json ./
 COPY apps/dashboard/package.json apps/dashboard/package.json
+COPY apps/player-web/package.json apps/player-web/package.json
+COPY packages/player-runtime/package.json packages/player-runtime/package.json
 COPY packages/design-tokens/package.json packages/design-tokens/package.json
 COPY packages/design-tokens/*.css packages/design-tokens/
 COPY packages/design-tokens/*.ts packages/design-tokens/
@@ -18,6 +20,8 @@ COPY packages/presentation-model/package.json packages/presentation-model/packag
 COPY packages/native-bridge-schema/package.json packages/native-bridge-schema/package.json
 RUN npm ci
 COPY apps/dashboard apps/dashboard
+COPY apps/player-web apps/player-web
+COPY packages/player-runtime packages/player-runtime
 COPY packages/manifest-schema/data-document-value-fixtures.json packages/manifest-schema/data-document-value-fixtures.json
 # Studio imports the committed generated contract types
 # (@tilecast/api-schema/generated/openapi). They are copied, not regenerated,
@@ -36,6 +40,7 @@ COPY widgets widgets
 COPY data-sources data-sources
 COPY plugins plugins
 RUN npm run build --workspace @tilecast/dashboard
+RUN npm run build --workspace @tilecast/player-web
 
 FROM golang:1.27-alpine AS server
 RUN apk add --no-cache ca-certificates git
@@ -65,6 +70,7 @@ COPY widgets widgets
 COPY data-sources data-sources
 COPY apps/server apps/server
 COPY --from=dashboard /src/apps/dashboard/dist/ apps/server/internal/web/static/
+COPY --from=dashboard /src/apps/player-web/dist/ apps/server/internal/web/player-static/
 WORKDIR /src/apps/server
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X github.com/tilecast/tilecast/apps/server/internal/version.Version=${VERSION_NUMBER} -X github.com/tilecast/tilecast/apps/server/internal/version.Channel=${VERSION_CHANNEL} -X github.com/tilecast/tilecast/apps/server/internal/version.Commit=${VERSION_COMMIT} -X github.com/tilecast/tilecast/apps/server/internal/version.Date=${VERSION_DATE}" -o /out/tilecast-server ./cmd/tilecast-server
 

@@ -29,6 +29,27 @@ var (
 const maxPresentationCapabilities = 128
 
 func (s *Service) Enroll(ctx context.Context, sessionID uuid.UUID, enrollmentToken string) (EnrollmentResult, error) {
+	return s.enroll(ctx, sessionID, enrollmentToken, nil)
+}
+
+func (s *Service) EnrollBrowser(ctx context.Context, sessionID uuid.UUID, enrollmentToken string, registration BrowserRegistration) (BrowserSession, error) {
+	if registration.InstallationID == uuid.Nil {
+		return BrowserSession{}, ErrInvalidCredential
+	}
+	if _, err := registration.PublicKey.parse(); err != nil {
+		return BrowserSession{}, err
+	}
+	result, err := s.enroll(ctx, sessionID, enrollmentToken, &registration)
+	if err != nil {
+		return BrowserSession{}, err
+	}
+	if result.BrowserSession == nil {
+		return BrowserSession{}, ErrInvalidCredential
+	}
+	return *result.BrowserSession, nil
+}
+
+func (s *Service) enroll(ctx context.Context, sessionID uuid.UUID, enrollmentToken string, browser *BrowserRegistration) (EnrollmentResult, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return EnrollmentResult{}, fmt.Errorf("begin enrollment: %w", err)
@@ -59,6 +80,9 @@ func (s *Service) Enroll(ctx context.Context, sessionID uuid.UUID, enrollmentTok
 	var metadata DeviceMetadata
 	if err := json.Unmarshal(encodedMetadata, &metadata); err != nil {
 		return EnrollmentResult{}, fmt.Errorf("decode enrollment metadata: %w", err)
+	}
+	if (metadata.Platform == "browser") != (browser != nil) || browser != nil && metadata.PlayerInstallationID != browser.InstallationID.String() {
+		return EnrollmentResult{}, ErrInvalidCredential
 	}
 	publicID, secret, credential, err := newDeviceCredential()
 	if err != nil {
@@ -127,13 +151,30 @@ func (s *Service) Enroll(ctx context.Context, sessionID uuid.UUID, enrollmentTok
 	if _, err := tx.Exec(ctx, `UPDATE device_pairing_sessions SET enrolled_at=now(),enrollment_token_hash=NULL WHERE id=$1`, sessionID); err != nil {
 		return EnrollmentResult{}, fmt.Errorf("complete enrollment: %w", err)
 	}
+	var browserSession *BrowserSession
+	if browser != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO browser_player_slots(id,screen_id,recovery_enabled) VALUES($1,$2,FALSE) ON CONFLICT(screen_id) DO NOTHING`, uuid.New(), screenID); err != nil {
+			return EnrollmentResult{}, err
+		}
+		var slotID uuid.UUID
+		if err := tx.QueryRow(ctx, `SELECT id FROM browser_player_slots WHERE screen_id=$1 FOR UPDATE`, screenID).Scan(&slotID); err != nil {
+			return EnrollmentResult{}, err
+		}
+		bound, err := s.bindBrowser(ctx, tx, BrowserSession{SlotID: slotID, ScreenID: screenID, ScreenName: screenName}, credentialID, *browser)
+		if err != nil {
+			return EnrollmentResult{}, err
+		}
+		browserSession = &bound
+		// Permanent bearer material never leaves the server for Browser Player.
+		credential = ""
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return EnrollmentResult{}, fmt.Errorf("commit enrollment: %w", err)
 	}
-	if pairingMode == "hardware_replacement" {
+	if pairingMode == "hardware_replacement" || browser != nil {
 		s.presence.Disconnect(screenID)
 	}
-	return EnrollmentResult{ScreenID: screenID, ScreenName: screenName, DeviceCredential: credential}, nil
+	return EnrollmentResult{ScreenID: screenID, ScreenName: screenName, DeviceCredential: credential, BrowserSession: browserSession}, nil
 }
 
 func (s *Service) AuthenticateDevice(ctx context.Context, credential string) (DevicePrincipal, error) {
@@ -220,7 +261,7 @@ func knownPlayerFamily(family, architecture string) (string, string) {
 			architecture = ""
 		}
 		return family, architecture
-	case "android", "electron-linux":
+	case "android", "electron-linux", "browser":
 		return family, ""
 	default:
 		return "", ""
@@ -257,6 +298,10 @@ func (s *Service) Heartbeat(ctx context.Context, principal DevicePrincipal, hear
 	// An unknown value is dropped, not rejected, like other optional status.
 	family, architecture := knownPlayerFamily(heartbeat.PlayerFamily, heartbeat.PlayerArchitecture)
 	_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET player_version_code=$2,android_sdk=$3,installer_source=NULLIF($4,''),install_permission_status=NULLIF($5,''),current_update_deployment_id=$6,update_state=NULLIF($7,''),update_downloaded_bytes=$8,update_expected_bytes=$9,update_error=NULLIF($10,''),player_family=NULLIF($11,''),player_architecture=NULLIF($12,'') WHERE screen_id=$1`, principal.ScreenID, heartbeat.PlayerVersionCode, heartbeat.AndroidSDK, heartbeat.InstallerSource, heartbeat.InstallPermissionStatus, heartbeat.CurrentUpdateDeploymentID, heartbeat.UpdateState, heartbeat.UpdateDownloadedBytes, heartbeat.UpdateExpectedBytes, heartbeat.UpdateError, family, architecture)
+	// The Browser section is the Browser Player's own facts. It follows the
+	// reported family, so a screen that stops being a Browser Player stops
+	// showing them. Failing to store it never costs the heartbeat.
+	_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET browser_status=$2::jsonb WHERE screen_id=$1`, principal.ScreenID, browserStatusJSON(family, heartbeat.Browser))
 	// Linux autostart. Recorded outside the reliability block below because it
 	// is reported on its own cadence (at startup and after each autostart
 	// command) rather than alongside the Android reliability fields.

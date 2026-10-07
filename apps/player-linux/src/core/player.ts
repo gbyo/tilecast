@@ -32,7 +32,7 @@ import {
   presentationContextFor,
   replacementReasonFor,
   stopForState,
-} from "./activity-sessions";
+} from "@tilecast/player-activity";
 import {
   TelemetryReporter,
   TELEMETRY_INTERVAL_MS,
@@ -101,7 +101,10 @@ import {
   type Selection,
 } from "./schedule";
 import { PlayerSocket } from "./socket";
-import { activeHoursFromConfig, evaluateActiveHours } from "./active-hours";
+import {
+  activeHoursFromConfig,
+  evaluateActiveHours,
+} from "@tilecast/player-active-hours";
 import {
   projectWidgetComponent,
   renderWidget,

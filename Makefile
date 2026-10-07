@@ -9,10 +9,11 @@ gofmt-check:
 	cd apps/server && test -z "$$(gofmt -l . ../../plugins ../../packages/plugin-sdk/go ../../packages/package-sdk/go ../../apps/cli ../../widgets ../../packages/api-client ../../data-sources)"
 
 build:
-	npm run build
+	npm run build:all
 	rm -rf apps/server/internal/web/static
 	mkdir -p apps/server/internal/web/static
 	cp -R apps/dashboard/dist/. apps/server/internal/web/static/
+	cp -R apps/player-web/dist/. apps/server/internal/web/player-static/
 	cd apps/server && go build ./cmd/tilecast-server
 	cd apps/cli && go build ./cmd/tilecast
 	cd apps/player-android && ./gradlew assembleDebug

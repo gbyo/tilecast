@@ -3,7 +3,7 @@
 //!
 //! The contract is `docs/activity-event-contract.md` (version 2), and the
 //! semantics are the Electron Linux Player's, event for event
-//! (`apps/player-linux/src/core/activity-sessions.ts` and the calls in
+//! (`packages/player-activity/src/sessions.ts` and the calls in
 //! `player.ts`):
 //!
 //! * a root `presentation` session opens when a playing presentation starts,

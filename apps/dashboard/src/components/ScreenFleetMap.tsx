@@ -35,6 +35,7 @@ const statusLabelKeys = {
   offline: "status.offline",
   disabled: "status.disabled",
   revoked: "status.revoked",
+  awaiting_player: "status.awaiting_player",
 } as const satisfies Record<Screen["status"], string>;
 
 function nativeTone(status: Screen["status"]): SystemMapTone {

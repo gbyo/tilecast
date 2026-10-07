@@ -69,19 +69,29 @@ function isLayoutReference(item: RuntimeItem): boolean {
   );
 }
 
-function translateMedia(value: unknown, media: Map<string, string>): unknown {
+function translateMedia(
+  value: unknown,
+  media: Map<string, string>,
+  mediaField = false,
+): unknown {
   if (typeof value === "string") {
-    return value.startsWith(VARIANT_PREFIX)
-      ? (media.get(value) ?? value)
-      : value;
+    if (!mediaField || !value.startsWith(VARIANT_PREFIX)) return value;
+    const authorized = media.get(value);
+    if (!authorized) throw new Error("Projected media is not authorized");
+    return authorized;
   }
   if (Array.isArray(value)) {
-    return value.map((entry) => translateMedia(entry, media));
+    return value.map((entry) => translateMedia(entry, media, mediaField));
   }
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(value)) {
-      out[key] = translateMedia((value as Record<string, unknown>)[key], media);
+      out[key] = translateMedia(
+        (value as Record<string, unknown>)[key],
+        media,
+        mediaField ||
+          ["src", "fallbackSrc", "backgroundImage", "media"].includes(key),
+      );
     }
     return out;
   }

@@ -94,6 +94,7 @@ const statusLabelKeys: Record<
   | "palette.screenStatus.offline"
   | "palette.screenStatus.disabled"
   | "palette.screenStatus.revoked"
+  | "palette.screenStatus.awaiting_player"
 > = {
   online: "palette.screenStatus.online",
   recent: "palette.screenStatus.recent",
@@ -101,6 +102,7 @@ const statusLabelKeys: Record<
   offline: "palette.screenStatus.offline",
   disabled: "palette.screenStatus.disabled",
   revoked: "palette.screenStatus.revoked",
+  awaiting_player: "palette.screenStatus.awaiting_player",
 };
 
 const commandGroupOrder: CommandGroupName[] = [

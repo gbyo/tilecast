@@ -63,6 +63,13 @@ import {
   makeApprovalSchema,
 } from "../pairing/PairingDetailsForm";
 import { PairScreenDialog } from "../pairing/PairScreenDialog";
+import {
+  AddBrowserPlayer,
+  BrowserRecoveryPanel,
+} from "../screens/browser/BrowserPlayerControls";
+import { BrowserCommandPanel } from "../screens/browser/BrowserCommandPanel";
+import { BrowserPlayerDiagnostics } from "../screens/browser/BrowserPlayerDiagnostics";
+import { screenRunsBrowserPlayer } from "../screens/commandApplicability";
 import { PendingPairings } from "../pairing/PendingPairings";
 import { useNativePairScreen } from "../pairing/useNativePairScreen";
 import { AirPlayPresentDialog } from "../components/AirPlayPresentDialog";
@@ -454,7 +461,8 @@ const statusContent: Record<
       | "status.stale"
       | "status.offline"
       | "status.disabled"
-      | "status.revoked";
+      | "status.revoked"
+      | "status.awaiting_player";
     Icon: typeof Wifi;
   }
 > = {
@@ -464,6 +472,7 @@ const statusContent: Record<
   offline: { labelKey: "status.offline", Icon: WifiOff },
   disabled: { labelKey: "status.disabled", Icon: ShieldOff },
   revoked: { labelKey: "status.revoked", Icon: ShieldOff },
+  awaiting_player: { labelKey: "status.awaiting_player", Icon: WifiOff },
 };
 
 export function ScreensWorkspacePage() {
@@ -529,6 +538,7 @@ export function ScreensWorkspacePage() {
                 <Plus aria-hidden="true" /> {t("page.pairScreen")}
               </Link>
             )}
+            {manageable && !archive && <AddBrowserPlayer />}
             <ActionMenuButton
               label={t("page.moreActions")}
               actions={takeoverActions}
@@ -2080,6 +2090,7 @@ function updateLabel(value: string, t: ScreensT) {
 
 export function platformLabel(value: string, t: ScreensT) {
   const normalized = value.toLowerCase();
+  if (normalized === "browser") return t("platform.browser");
   if (normalized === "linux") return t("platform.linux");
   if (normalized.includes("fire")) return t("platform.fireTv");
   if (normalized.includes("google")) return t("platform.googleTv");
@@ -2632,6 +2643,8 @@ export function ScreenDetailPage() {
         <AlertDescription>{t("detail.loadError")}</AlertDescription>
       </Alert>
     );
+  // Which controls make sense for this Player is one question, answered once.
+  const isBrowserPlayer = screenRunsBrowserPlayer(screen);
   const displayCapabilities =
     reliability.data?.displayControlCapabilities ?? {};
   const hasDisplayControl = Object.keys(displayCapabilities).length > 0;
@@ -3023,10 +3036,21 @@ export function ScreenDetailPage() {
                 )}
 
               <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
-                <LivePreviewPanel
-                  screenId={id}
-                  onOpenHistory={() => setDetailPanel("snapshots", true)}
-                />
+                {screen.platform === "browser" ? (
+                  <Card size="sm">
+                    <CardHeader>
+                      <CardTitle>{t("browser.monitorTitle")}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground">
+                      {t("browser.captureUnsupported")}
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <LivePreviewPanel
+                    screenId={id}
+                    onOpenHistory={() => setDetailPanel("snapshots", true)}
+                  />
+                )}
                 <Card size="sm" className="min-w-0">
                   <CardHeader>
                     <CardTitle>{t("detail.factConnectionTitle")}</CardTitle>
@@ -3103,6 +3127,22 @@ export function ScreenDetailPage() {
                 </Card>
               </div>
 
+              {isBrowserPlayer && (
+                <BrowserPlayerDiagnostics
+                  screenId={id}
+                  screenStatus={screen.status}
+                  playbackState={assignment.data?.playbackState}
+                  lastPlaybackError={assignment.data?.lastPlaybackError}
+                  reliability={reliability.data}
+                />
+              )}
+              {screen.platform === "browser" &&
+                canManageScreens(auth.status?.user) && (
+                  <BrowserRecoveryPanel
+                    screenId={id}
+                    csrfToken={auth.status?.csrfToken ?? ""}
+                  />
+                )}
               <ScreenPlaybackCard
                 screenId={id}
                 screenName={screen.name}
@@ -3249,7 +3289,28 @@ export function ScreenDetailPage() {
               </section>
             )}
 
-            {manageSection === "health" && (
+            {manageSection === "health" && isBrowserPlayer && (
+              <section
+                className="space-y-3"
+                aria-labelledby="browser-health-heading"
+              >
+                <h3
+                  id="browser-health-heading"
+                  className="text-sm font-semibold"
+                >
+                  {t("detail.healthTitle")}
+                </h3>
+                <BrowserPlayerDiagnostics
+                  screenId={id}
+                  screenStatus={screen.status}
+                  playbackState={assignment.data?.playbackState}
+                  lastPlaybackError={assignment.data?.lastPlaybackError}
+                  reliability={reliability.data}
+                />
+              </section>
+            )}
+
+            {manageSection === "health" && !isBrowserPlayer && (
               <section
                 className="space-y-3"
                 aria-labelledby="reliability-heading"
@@ -3965,6 +4026,50 @@ export function ScreenDetailPage() {
             )}
 
             {manageSection === "maintenance" &&
+              isBrowserPlayer &&
+              canManageScreens(auth.status?.user) && (
+                <div className="space-y-4">
+                  <BrowserCommandPanel
+                    pending={command.isPending}
+                    onCommand={(type, payload) =>
+                      command.mutate({ type, payload })
+                    }
+                  />
+                  {command.isSuccess && (
+                    <p className="text-sm text-muted-foreground">
+                      {t("detail.commandQueued")}
+                    </p>
+                  )}
+                  <section className="space-y-3">
+                    <h3 className="text-sm font-semibold">
+                      {t("detail.recentOps")}
+                    </h3>
+                    <div className="grid gap-2">
+                      {commands.data?.items?.map((c) => (
+                        <div
+                          key={c.id}
+                          className="space-y-0.5 rounded-lg border border-border px-3 py-2"
+                        >
+                          <p className="text-sm font-medium">
+                            {c.type?.replaceAll("_", " ") ??
+                              t("detail.unknownCommand")}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {c.state} ·{" "}
+                            {new Date(c.createdAt).toLocaleString(formatLocale)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {c.resultCode?.replaceAll("_", " ") ??
+                              t("detail.noResult")}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              )}
+            {manageSection === "maintenance" &&
+              !isBrowserPlayer &&
               canManageScreens(auth.status?.user) && (
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold">

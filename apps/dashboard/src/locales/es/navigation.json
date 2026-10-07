@@ -100,7 +100,8 @@
       "stale": "Desactualizado",
       "offline": "Sin conexión",
       "disabled": "Deshabilitado",
-      "revoked": "Vinculación revocada"
+      "revoked": "Vinculación revocada",
+      "awaiting_player": "Esperando al reproductor"
     },
     "settingsSearch": {
       "dependencyGraph": "Rastrear contenido, presentaciones, programaciones, grupos y pantallas",

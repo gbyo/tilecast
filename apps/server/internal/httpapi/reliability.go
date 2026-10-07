@@ -87,6 +87,9 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 		'presentationNetworkLimitation',ps.presentation_network_limitation,
 		'wiredInterfaceAvailable',ps.wired_interface_available,
 		'wiredIpv4',host(ps.wired_ipv4)
+	) || jsonb_build_object(
+		-- Facts only a Browser Player reports; null for every other player.
+		'browser',ps.browser_status
 	) FROM screens sc LEFT JOIN screen_player_status ps ON ps.screen_id=sc.id LEFT JOIN screen_power_assist_results pa ON pa.screen_id=sc.id WHERE sc.id=$1`, id, detailedDiagnostics(r)).Scan(&raw)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, 404, "screen_not_found", "Screen was not found.")

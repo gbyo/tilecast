@@ -157,6 +157,7 @@ test("installer runs Rust and migration without Studio", () => {
 });
 test("runtime semantics select both renderers but no migration", () => {
   assert.deepEqual(selected(["packages/player-runtime/src/widgets/host.ts"]), [
+    "browser_player",
     "edge_conformance",
     "edge_runtime",
     "edge_wpe",
@@ -178,6 +179,7 @@ test("the Presentation Model selects Studio and production runtime consumers", (
   assert.deepEqual(
     selected(["packages/presentation-model/src/availability.ts"]),
     [
+      "browser_player",
       "container",
       "dashboard",
       "e2e",
@@ -190,6 +192,7 @@ test("the Presentation Model selects Studio and production runtime consumers", (
     ],
   );
   assert.deepEqual(selected(["packages/presentation-model/package.json"]), [
+    "browser_player",
     "container",
     "dashboard",
     "e2e",
@@ -512,5 +515,75 @@ test("actual stacked base excludes base-only commits and retains rename/delete p
     assert.throws(() => changedPaths(undefined, head), /Both/);
   } finally {
     rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("Browser Player has its own lane and follows the Runtime and the server code it uses", () => {
+  assert.ok(areas.includes("browser_player"));
+  assert.deepEqual(selected(["apps/player-web/src/application.ts"]), [
+    "browser_player",
+  ]);
+  for (const path of [
+    "apps/server/internal/web/player.go",
+    "apps/server/internal/httpapi/browser_player.go",
+    "apps/server/internal/devices/browser_sessions.go",
+  ]) {
+    const result = selected([path]);
+    assert.ok(result.includes("browser_player"), path);
+    assert.ok(result.includes("server"), path);
+  }
+  // The Runtime is bundled into the Browser Player, unchanged.
+  assert.ok(
+    selected([
+      "packages/player-runtime/src/compat/projection/resolve.ts",
+    ]).includes("browser_player"),
+  );
+  assert.ok(
+    selected(["packages/presentation-model/src/availability.ts"]).includes(
+      "browser_player",
+    ),
+  );
+  // Studio-only and unrelated Player changes do not run it.
+  assert.ok(
+    !selected(["apps/dashboard/src/pages/ScreensPage.tsx"]).includes(
+      "browser_player",
+    ),
+  );
+  assert.ok(
+    !selected(["apps/player-android/app/build.gradle.kts"]).includes(
+      "browser_player",
+    ),
+  );
+});
+
+test("shared Player policy selects its consumers and the cross-player pin", () => {
+  for (const path of [
+    "packages/player-activity/src/sessions.ts",
+    "packages/player-activity/package.json",
+  ]) {
+    const result = affected([path]);
+    for (const area of ["linux", "browser_player", "edge_activity"])
+      assert.equal(result[area], true, `${path} ${area}`);
+    assert.equal(result.android, false, path);
+  }
+  const hours = affected(["packages/player-active-hours/src/active-hours.ts"]);
+  assert.equal(hours.linux, true);
+  assert.equal(hours.browser_player, true);
+  assert.equal(hours.edge_activity, false);
+  const fixture = affected([
+    "packages/settings-schema/active-hours-fixtures.json",
+  ]);
+  for (const area of ["player_core", "linux", "browser_player"])
+    assert.equal(fixture[area], true, area);
+});
+
+test("the Browser capability matrix selects every generated consumer", () => {
+  for (const path of [
+    "apps/player-web/capabilities.json",
+    "scripts/generate-browser-capabilities.mjs",
+  ]) {
+    const result = affected([path]);
+    for (const area of ["browser_player", "server", "dashboard", "docs", "ci"])
+      assert.equal(result[area], true, `${path} ${area}`);
   }
 });

@@ -700,7 +700,8 @@
     "stale": "Stale",
     "offline": "Offline",
     "disabled": "Disabled",
-    "revoked": "Pairing revoked"
+    "revoked": "Pairing revoked",
+    "awaiting_player": "Awaiting player"
   },
   "contentHealth": {
     "loading": "Checking content health…",

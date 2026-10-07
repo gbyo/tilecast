@@ -166,3 +166,24 @@ func TestJoinNamesSummarisesLongLists(t *testing.T) {
 		t.Errorf("joinNames = %q, want a summarised tail", got)
 	}
 }
+
+func TestCommandIsSkippedForAScreenWhosePlayerCannotRunIt(t *testing.T) {
+	service := &Service{}
+	service.SetCommandApplicability(func(platform, commandType string) bool {
+		return platform != "browser" || commandType == "sync_now"
+	})
+	browser := screenRow{enabled: true, platform: "browser"}
+	if got := service.unsupportedReason(browser, Request{Action: ActionSendCommand, CommandType: "clear_media_cache"}); got == "" {
+		t.Error("a Browser Player was offered a command it cannot run")
+	}
+	if got := service.unsupportedReason(browser, Request{Action: ActionSendCommand, CommandType: "sync_now"}); got != "" {
+		t.Errorf("a supported command was blocked: %q", got)
+	}
+	if got := service.unsupportedReason(screenRow{enabled: true, platform: "linux"}, Request{Action: ActionSendCommand, CommandType: "clear_media_cache"}); got != "" {
+		t.Errorf("a native player was blocked: %q", got)
+	}
+	// Only commands are checked.
+	if got := service.unsupportedReason(browser, playlistRequest()); got != "" {
+		t.Errorf("an assignment was blocked: %q", got)
+	}
+}

@@ -14,7 +14,7 @@
  * See docs/activity-event-contract.md.
  */
 
-import type { ActivityEventInput } from "./activity";
+import type { ActivityEventInput } from "./event.js";
 
 export type TerminalReason =
   | "expected_item_boundary"

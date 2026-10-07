@@ -3661,6 +3661,202 @@ paths:
                 properties:
                   data: { $ref: "#/components/schemas/PairingSessionPoll" }
         "401": { description: Poll secret missing or invalid }
+  /api/v1/player/browser/recover:
+    post:
+      operationId: recoverBrowserPlayer
+      description: Exchange one slot recovery capability over same-origin HTTPS. Replace the binding epoch and issue an independent HttpOnly session. Rate limited; no-store.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserRecoveryRequest" }
+      responses:
+        "201":
+          description: Browser session cookie issued; no bearer credential in the response
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserSessionResponse" }
+        "401": { description: Invalid or revoked recovery capability }
+        "403": { description: Same-origin HTTPS required }
+        "429": { description: Rate limited }
+  /api/v1/player/browser/enroll:
+    post:
+      operationId: enrollBrowserPlayer
+      description: Consume an ordinary approved pairing enrollment token and register a browser device key in one transaction. Issue an HttpOnly session instead of a permanent bearer credential.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserEnrollmentRequest" }
+      responses:
+        "201":
+          description: Browser session cookie issued
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserSessionResponse" }
+        "401": { description: Enrollment credential invalid }
+        "403": { description: Same-origin HTTPS required }
+        "409": { description: Token already consumed }
+        "429": { description: Rate limited }
+  /api/v1/player/browser/challenge:
+    post:
+      operationId: challengeBrowserPlayer
+      description: Create one two-minute challenge for the current slot and binding. Rate limited; no-store.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserBindingRequest" }
+      responses:
+        "200":
+          description: Single-use device-key challenge
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BrowserChallenge" }
+        "401": { description: Binding is invalid or replaced }
+        "403": { description: Same-origin HTTPS required }
+        "429": { description: Rate limited }
+  /api/v1/player/browser/renew:
+    post:
+      operationId: renewBrowserPlayerSession
+      description: Consume the challenge before verification. The signature covers the exact challenge message the Server issued. The Server rebuilds that message from the slot, binding and nonce and never accepts client-supplied signing text. Verify a P-256 SHA-256 WebCrypto P1363 signature. Issue a fresh HttpOnly session only for the active binding epoch.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserRenewalRequest" }
+      responses:
+        "200":
+          description: Browser session cookie renewed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserSessionResponse" }
+        "401": { description: "Challenge, signature, or binding is invalid" }
+        "403": { description: Same-origin HTTPS required }
+        "429": { description: Rate limited }
+  /api/v1/player/browser/session:
+    get:
+      operationId: getBrowserPlayerSession
+      security: [{ browserPlayerSession: [] }]
+      description: Read the active Browser Player identity without exposing cookie material. Requires same-origin HTTPS fetch metadata; no-store.
+      responses:
+        "200":
+          description: Active Browser Player identity
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserSessionResponse" }
+        "401": { description: Browser session invalid or expired }
+        "403": { description: Same-origin HTTPS required }
+  /api/v1/player/browser/selection:
+    get:
+      operationId: getBrowserPlayerSelection
+      security: [{ browserPlayerSession: [] }]
+      description: Read the Server's current playback selection for this session's own Screen. No future offline schedule evaluation is delegated to the browser.
+      responses:
+        "200":
+          description: Current Server selection
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlaybackPlan" }
+        "401": { description: Browser session invalid or expired }
+        "403": { description: Same-origin HTTPS required }
+  /api/v1/screens/browser:
+    post:
+      operationId: createBrowserPlayerSlot
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Owner or Administrator creates an awaiting Browser Player Screen. The recovery secret is returned once. Requires same-origin HTTPS and the normal dashboard mutation boundary.
+      parameters:
+        - {
+            in: header,
+            name: X-CSRF-Token,
+            required: false,
+            schema: { type: string },
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserScreenRequest" }
+      responses:
+        "201":
+          description: Slot and one-time launch secret response
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserLaunchResponse" }
+        "403":
+          {
+            description: Administrative authorization or same-origin HTTPS required,
+          }
+  /api/v1/screens/{id}/browser:
+    get:
+      operationId: getBrowserPlayerSlot
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Owner or Administrator reads slot metadata. This operation never returns the recovery secret.
+      parameters:
+        - {
+            in: path,
+            name: id,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+      responses:
+        "200":
+          description: Browser slot metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BrowserSlot" }
+        "404": { description: Browser slot not found or outside user scope }
+  /api/v1/screens/{id}/browser/recovery:
+    put:
+      operationId: setBrowserPlayerRecovery
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: Owner or Administrator regenerates the sole active recovery credential when enabled is true. False disables recovery. Existing sessions remain valid. Requires same-origin HTTPS and normal CSRF protection.
+      parameters:
+        - {
+            in: path,
+            name: id,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            in: header,
+            name: X-CSRF-Token,
+            required: false,
+            schema: { type: string },
+          }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: Recovery state and new secret when regenerated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BrowserLaunchResponse" }
+        "403":
+          {
+            description: Administrative authorization or same-origin HTTPS required,
+          }
+        "404": { description: Browser slot not found or outside user scope }
   /api/v1/player/enroll:
     post:
       operationId: enrollPlayer
@@ -7643,6 +7839,10 @@ paths:
         display_power_off, display_set_input, display_set_volume,
         display_mute, display_unmute, display_set_brightness, and
         display_probe. They are capability-gated by the target Player.
+        A Browser Player runs only `sync_now`, `reload_playback`,
+        `identify_screen`, `retry_current_item` and `skip_current_item`; any
+        other command type for a Browser Screen is refused with
+        `command_not_supported_by_player`.
         Requires an Owner or Administrator with the write scope.
         Cookie-authenticated unsafe requests require X-CSRF-Token.
       requestBody:
@@ -7660,6 +7860,11 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/QueuedPlayerCommand" }
+        "422":
+          description: >-
+            The payload is invalid (`command_invalid_payload`), or the Screen's
+            player cannot run this command type
+            (`command_not_supported_by_player`).
         "429": { description: Pending command limit reached }
   /api/v1/player/commands:
     get:
@@ -7952,6 +8157,9 @@ paths:
                       Player-reported diagnostics bag. Fields vary by
                       player state and caller role (managers see package
                       details viewers do not); every field is optional.
+                      A Browser Player's facts are under `browser`
+                      (`BrowserPlayerStatus`), which is null for every
+                      other player.
         "404": { description: Screen not found }
   /api/v1/screens/{id}/power-assist:
     put:
@@ -8580,6 +8788,16 @@ components:
       schema: { type: string }
       description: Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
   securitySchemes:
+    browserPlayerSession:
+      type: apiKey
+      in: cookie
+      name: __Host-tilecast_player
+      description: >-
+        Independent Secure HttpOnly SameSite Strict Browser Player session.
+        The cookie name has the prefix __Host-tilecast_player_ followed by
+        the slot UUID. HTTP requests select the slot with
+        X-Tilecast-Player-Slot. The WebSocket uses the non-secret browserSlot
+        query parameter. Does not authorize Studio or native platform administration.
     deviceBearer:
       type: http
       scheme: bearer
@@ -8594,6 +8812,170 @@ components:
       name: tilecast_session
       description: Enrolled dashboard session cookie
   schemas:
+    BrowserPublicKey:
+      type: object
+      additionalProperties: false
+      required: [kty, crv, x, y, ext, key_ops]
+      properties:
+        kty: { type: string, const: EC }
+        crv: { type: string, const: P-256 }
+        x: { type: string, minLength: 43, maxLength: 43 }
+        y: { type: string, minLength: 43, maxLength: 43 }
+        ext: { type: boolean }
+        key_ops:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items: { type: string, const: verify }
+    BrowserRegistration:
+      type: object
+      additionalProperties: false
+      required: [installationId, publicKey]
+      properties:
+        installationId: { type: string, format: uuid }
+        publicKey: { $ref: "#/components/schemas/BrowserPublicKey" }
+    BrowserRecoveryRequest:
+      type: object
+      additionalProperties: false
+      required:
+        [slotId, serverInstallationId, recoverySecret, registration, metadata]
+      properties:
+        slotId: { type: string, format: uuid }
+        serverInstallationId: { type: string, format: uuid }
+        recoverySecret:
+          { type: string, minLength: 43, maxLength: 43, writeOnly: true }
+        registration: { $ref: "#/components/schemas/BrowserRegistration" }
+        metadata: { $ref: "#/components/schemas/DeviceMetadata" }
+    BrowserEnrollmentRequest:
+      type: object
+      additionalProperties: false
+      required: [pairingSessionId, enrollmentToken, registration]
+      properties:
+        pairingSessionId: { type: string, format: uuid }
+        enrollmentToken: { type: string, writeOnly: true }
+        registration: { $ref: "#/components/schemas/BrowserRegistration" }
+    BrowserBindingRequest:
+      type: object
+      additionalProperties: false
+      required: [slotId, bindingId]
+      properties:
+        slotId: { type: string, format: uuid }
+        bindingId: { type: string, format: uuid }
+    BrowserRenewalRequest:
+      type: object
+      additionalProperties: false
+      required: [slotId, bindingId, nonce, signature]
+      properties:
+        slotId: { type: string, format: uuid }
+        bindingId: { type: string, format: uuid }
+        nonce: { type: string, minLength: 43, maxLength: 43 }
+        signature: { type: string, minLength: 86, maxLength: 86 }
+    BrowserChallenge:
+      type: object
+      additionalProperties: false
+      required: [nonce, message, expiresAt]
+      properties:
+        nonce: { type: string, minLength: 43, maxLength: 43 }
+        message:
+          type: string
+          description: The complete text the device key signs, `tilecast-browser-player-v1:<slotId>:<bindingId>:<nonce>`. Signing the nonce alone is rejected.
+        expiresAt: { type: string, format: date-time }
+    BrowserSession:
+      type: object
+      additionalProperties: false
+      required: [slotId, bindingId, screenId, screenName, epoch, expiresAt]
+      properties:
+        slotId: { type: string, format: uuid }
+        bindingId: { type: string, format: uuid }
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+        epoch: { type: integer, format: int64, minimum: 1 }
+        expiresAt: { type: string, format: date-time }
+    BrowserSessionResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { $ref: "#/components/schemas/BrowserSession" }
+    BrowserSlot:
+      type: object
+      required: [id, screenId, recoveryEnabled]
+      properties:
+        id: { type: string, format: uuid }
+        screenId: { type: string, format: uuid }
+        recoveryEnabled: { type: boolean }
+        lastRecoveredAt: { type: string, format: date-time }
+    BrowserLaunchResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          allOf:
+            - { $ref: "#/components/schemas/BrowserSlot" }
+            - type: object
+              required: [recoverySecret]
+              properties:
+                recoverySecret: { type: string, maxLength: 43 }
+    BrowserScreenRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        locationId: { type: string, format: uuid }
+        roomName: { type: string, maxLength: 120 }
+        roomNumber: { type: string, maxLength: 80 }
+        description: { type: string, maxLength: 1000 }
+    BrowserPlayerStatus:
+      type: object
+      additionalProperties: false
+      description: >-
+        Facts only a Browser Player can measure. A Browser Player also reports
+        the generic reliability fields where their meaning matches:
+        `foregroundState` (`foreground`, `background`, `frozen` or
+        `recovering`), `immersiveModeActive` (the effective unattended
+        presentation: fullscreen or an installed app), `keepScreenOn`,
+        `activeHoursState` (`active` or `off_hours`) and
+        `cachedFallbackAvailable`. Every value is a measurement. The server
+        draws the health conclusions. The Browser Player sends no
+        identifier that could single out one browser.
+      properties:
+        browserName:
+          type: string
+          enum: [chrome, edge, chromium, other]
+        browserMajorVersion: { type: integer, minimum: 0, maximum: 9999 }
+        displayMode:
+          type: string
+          description: >-
+            `standalone_pwa` when the page runs as an installed app, otherwise
+            `browser_tab`.
+          enum: [browser_tab, standalone_pwa]
+        fullscreenActive: { type: boolean }
+        audioUnlocked:
+          type: boolean
+          description: Whether the browser allows audible playback now.
+        wakeLock:
+          type: string
+          enum: [active, released, denied, unsupported]
+        storagePersistence:
+          type: string
+          description: >-
+            `persistent` only when the browser said so. `best_effort` means
+            the browser may remove downloaded content under storage pressure.
+          enum: [persistent, best_effort, unknown]
+        storageUsageBytes: { type: integer, format: int64, minimum: 0 }
+        storageQuotaBytes: { type: integer, format: int64, minimum: 0 }
+        offlineContent:
+          type: string
+          enum: [ready, repairing, not_prepared]
+        serviceWorker:
+          type: string
+          enum: [controlling, update_waiting, installing, unavailable]
+        serviceWorkerVersion: { type: string, maxLength: 64 }
+        wasDiscarded:
+          type: boolean
+          description: >-
+            True when the browser discarded this page and the Player
+            restarted it.
     AirplaySessionScreenState:
       type: object
       additionalProperties: false
@@ -11844,7 +12226,7 @@ components:
         relationship: { type: string }
     PlayerFamily:
       type: string
-      x-extensible-enum: [android, electron-linux, edge, windows]
+      x-extensible-enum: [android, electron-linux, edge, windows, browser]
       description: >-
         The Player release family. A deployment reaches only screens of its
         release's family, and for `edge` and `windows` only screens of its
@@ -11852,7 +12234,7 @@ components:
         values they do not recognize.
     PlayerPlatform:
       type: string
-      x-extensible-enum: [android, linux, windows]
+      x-extensible-enum: [android, linux, windows, browser]
       description: >-
         The Player operating-system platform. The set grows with new players;
         clients must tolerate values they do not recognize.
@@ -12254,7 +12636,7 @@ components:
         playerFamily:
           type: string
           description: >-
-            `android`, `electron-linux`, `edge` or `windows`. The server keeps
+            `android`, `electron-linux`, `edge`, `windows` or `browser`. The server keeps
             only these values; another value is recorded as absent.
         playerArchitecture:
           type: string
@@ -12262,6 +12644,8 @@ components:
             `x86_64` or `aarch64`, kept only with `playerFamily: edge` or
             `playerFamily: windows`. An Edge or Windows screen without a
             known architecture is `incompatible` for its family's deployments.
+        browser:
+          $ref: "#/components/schemas/BrowserPlayerStatus"
     MultiFactorVerifyRequest:
       type: object
       additionalProperties: false
@@ -15737,7 +16121,13 @@ components:
         total: { type: integer, minimum: 0 }
     ScreenStatus:
       type: string
-      enum: [online, recent, stale, offline, disabled, revoked]
+      x-extensible-enum:
+        [online, recent, stale, offline, disabled, revoked, awaiting_player]
+      description: >-
+        The Server-computed Screen status. `awaiting_player` is a Browser
+        Player Screen whose managed launch link has not been used yet. The set
+        grows with new Player kinds; clients must tolerate values they do not
+        recognize.
     ScreenLocation:
       type: object
       additionalProperties: false

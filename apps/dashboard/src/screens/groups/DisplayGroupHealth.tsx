@@ -41,6 +41,7 @@ const statusIcons: Record<ScreenStatus, typeof Wifi> = {
   offline: WifiOff,
   disabled: ShieldOff,
   revoked: ShieldOff,
+  awaiting_player: WifiOff,
 };
 
 /**
