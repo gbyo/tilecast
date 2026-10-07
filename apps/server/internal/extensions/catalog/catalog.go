@@ -33,6 +33,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/ghrepo"
 	"github.com/tilecast/tilecast/apps/server/internal/version"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
@@ -403,7 +404,7 @@ func validateListing(listing Listing) error {
 		return fmt.Errorf("digest %q is not pinned", listing.Digest)
 	}
 	if !validGitHubRepository(listing.Repository) {
-		return fmt.Errorf("repository must be a github.com repository URL with an owner and name")
+		return fmt.Errorf("repository must be a github.com repository URL with exactly an owner and name")
 	}
 	if listing.Documentation != "" && !packagemanifest.ValidHTTPSURL(listing.Documentation) {
 		return fmt.Errorf("documentation must be an https URL with a host and path")
@@ -427,26 +428,14 @@ func validateListing(listing Listing) error {
 	return nil
 }
 
-// validGitHubRepository accepts the https address of a GitHub repository:
-// a github.com host with an owner and repository path. The directory
-// lists GitHub repositories only; documentation and issue links may live
+// validGitHubRepository accepts a repository address the installer can
+// resolve: the same parser installation uses, so catalog CI and
+// installation accept exactly the same URL forms. The directory lists
+// GitHub repositories only; documentation and issue links may live
 // anywhere over https.
 func validGitHubRepository(value string) bool {
-	parsed, err := url.Parse(value)
-	if err != nil {
-		return false
-	}
-	if parsed.Scheme != "https" || parsed.User != nil {
-		return false
-	}
-	if !strings.EqualFold(parsed.Hostname(), "github.com") {
-		return false
-	}
-	segments := strings.Split(strings.Trim(parsed.EscapedPath(), "/"), "/")
-	if len(segments) < 2 || segments[0] == "" || segments[1] == "" {
-		return false
-	}
-	return true
+	_, err := ghrepo.ParseRepositoryURL(value)
+	return err == nil
 }
 
 // validCategory accepts a directory slug: lowercase letters, digits, and

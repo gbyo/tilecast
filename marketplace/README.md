@@ -51,8 +51,9 @@ Each listing must carry these fields:
 - `publisher.id`: one namespace segment. It must match the first segment
   of `packageId`.
 - `publisher.name`: display name of 1 to 80 characters.
-- `repository`: https address of the source GitHub repository, with an
-  owner and repository path.
+- `repository`: https address of the source GitHub repository, with
+  exactly an owner and name. A trailing slash or `.git` suffix is
+  allowed. Deeper paths such as issue or tree pages are rejected.
 - `version`: SemVer release of the listed package.
 - `tilecastRange`: supported Tilecast releases, such as
   `>=1.2.0 <2.0.0`.
@@ -80,8 +81,10 @@ Follow these rules when you add or update a listing:
 
 - Keep listings sorted by `packageId`. CI rejects unsorted catalogs.
 - Use each `packageId` once. CI rejects duplicates.
-- Point `repository` at a public `github.com` repository. The server
-  rejects any other host.
+- Point `repository` at a public `github.com` repository with exactly
+  an owner and name. The server rejects any other host and any deeper
+  path. The catalog and the installer share one parser, so a listing
+  the catalog accepts always resolves at install time.
 - Point `oci` and `digest` at the exact release artifact. The digest
   must be immutable. The install pipeline verifies provenance for that
   digest before it activates any bytes.

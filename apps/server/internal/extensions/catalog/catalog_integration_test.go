@@ -193,6 +193,7 @@ func TestRefreshRejectsMalformedCatalogs(t *testing.T) {
 		"http repository":  f.document(func(d *Document) { d.Listings[0].Repository = "http://github.com/acme/tilecast-athletics" }),
 		"wrong host":       f.document(func(d *Document) { d.Listings[0].Repository = "https://example.com/acme/tilecast-athletics" }),
 		"shallow path":     f.document(func(d *Document) { d.Listings[0].Repository = "https://github.com/acme" }),
+		"deep repo path":   f.document(func(d *Document) { d.Listings[0].Repository = "https://github.com/acme/tilecast-athletics/issues" }),
 		"bad issues link":  f.document(func(d *Document) { d.Listings[0].Issues = "not a url" }),
 		"bad category":     f.document(func(d *Document) { d.Listings[0].Categories = []string{"Sports!"} }),
 		"duplicate cat":    f.document(func(d *Document) { d.Listings[0].Categories = []string{"data", "data"} }),

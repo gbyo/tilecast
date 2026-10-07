@@ -96,6 +96,7 @@ func TestValidateListingRejects(t *testing.T) {
 		"tagged oci":          func(l *Listing) { l.OCI = "ghcr.io/acme/tilecast-athletics:latest" },
 		"unpinned digest":     func(l *Listing) { l.Digest = "v2.4.1" },
 		"empty repository":    func(l *Listing) { l.Repository = "" },
+		"deep repository":     func(l *Listing) { l.Repository = "https://github.com/acme/tilecast-athletics/issues" },
 		"http repository":     func(l *Listing) { l.Repository = "http://github.com/acme/tilecast-athletics" },
 		"non-github repo":     func(l *Listing) { l.Repository = "https://example.com/acme/tilecast-athletics" },
 		"shallow repo":        func(l *Listing) { l.Repository = "https://github.com/acme" },
@@ -115,6 +116,20 @@ func TestValidateListingRejects(t *testing.T) {
 				t.Fatalf("%s: expected a rejection", name)
 			}
 		})
+	}
+}
+
+func TestValidateListingAcceptsRepositoryShapes(t *testing.T) {
+	for _, repository := range []string{
+		"https://github.com/acme/tilecast-athletics",
+		"https://github.com/acme/tilecast-athletics/",
+		"https://github.com/acme/tilecast-athletics.git",
+	} {
+		listing := validTestListing()
+		listing.Repository = repository
+		if err := validateListing(listing); err != nil {
+			t.Fatalf("%s: %v", repository, err)
+		}
 	}
 }
 

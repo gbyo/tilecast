@@ -12817,6 +12817,12 @@ type SetPlaylistTagRuleParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// RefreshMarketplaceCatalogParams defines parameters for RefreshMarketplaceCatalog.
+type RefreshMarketplaceCatalogParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // CreateCountdownBarInstanceParams defines parameters for CreateCountdownBarInstance.
 type CreateCountdownBarInstanceParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
@@ -16572,7 +16578,7 @@ type ClientInterface interface {
 	// RefreshMarketplaceCatalog performs a POST /api/v1/plugin-store/marketplace/refresh (the `RefreshMarketplaceCatalog` operationId) request.
 	//
 	// Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
-	RefreshMarketplaceCatalog(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	RefreshMarketplaceCatalog(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetPluginStoreEntry performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
 	//
@@ -23063,8 +23069,8 @@ func (c *Client) ListPluginStore(ctx context.Context, reqEditors ...RequestEdito
 // RefreshMarketplaceCatalog performs a POST /api/v1/plugin-store/marketplace/refresh (the `RefreshMarketplaceCatalog` operationId) request.
 //
 // Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
-func (c *Client) RefreshMarketplaceCatalog(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewRefreshMarketplaceCatalogRequest(c.Server)
+func (c *Client) RefreshMarketplaceCatalog(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRefreshMarketplaceCatalogRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -38495,7 +38501,7 @@ func NewListPluginStoreRequest(server string) (*http.Request, error) {
 }
 
 // NewRefreshMarketplaceCatalogRequest constructs an http.Request for the RefreshMarketplaceCatalog method
-func NewRefreshMarketplaceCatalogRequest(server string) (*http.Request, error) {
+func NewRefreshMarketplaceCatalogRequest(server string, params *RefreshMarketplaceCatalogParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -38516,6 +38522,21 @@ func NewRefreshMarketplaceCatalogRequest(server string) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodPost, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -47294,7 +47315,7 @@ type ClientWithResponsesInterface interface {
 	// Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	RefreshMarketplaceCatalogWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error)
+	RefreshMarketplaceCatalogWithResponse(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error)
 
 	// GetPluginStoreEntryWithResponse performs a GET /api/v1/plugin-store/{packageId} (the `GetPluginStoreEntry` operationId) request.
 	//
@@ -70048,8 +70069,8 @@ func (c *ClientWithResponses) ListPluginStoreWithResponse(ctx context.Context, r
 // Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) RefreshMarketplaceCatalogWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error) {
-	rsp, err := c.RefreshMarketplaceCatalog(ctx, reqEditors...)
+func (c *ClientWithResponses) RefreshMarketplaceCatalogWithResponse(ctx context.Context, params *RefreshMarketplaceCatalogParams, reqEditors ...RequestEditorFn) (*RefreshMarketplaceCatalogResponse, error) {
+	rsp, err := c.RefreshMarketplaceCatalog(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

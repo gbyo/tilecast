@@ -40,8 +40,9 @@ The Server rejects a document in these cases:
   the reserved `tilecast` namespace. Versions must be SemVer. The
   package ID must start with the publisher namespace. The OCI reference
   must be tagless and digestless. The digest must be a pinned `sha256`
-  address. The repository link must be a `github.com` https URL with an
-  owner and repository path. The documentation and issue links must be
+  address. The repository link must be a `github.com` https URL with
+  exactly an owner and name; the catalog and the installer share one
+  parser. The documentation and issue links must be
   empty or use https with a host and path. Categories must be lowercase
   slugs of at most 5 entries with no repeats.
 

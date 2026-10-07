@@ -4409,6 +4409,8 @@ paths:
       security: [{ sessionCookie: [] }, { userBearer: [] }]
       description: >-
         Refresh the official Tilecast marketplace now and answer with its cache status. Requires the Owner or Administrator role with the admin scope. The previous cache keeps serving when the refresh fails.
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
       responses:
         "200":
           description: Marketplace cache status
