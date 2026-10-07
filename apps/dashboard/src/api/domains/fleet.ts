@@ -14,8 +14,10 @@ import type {
   DisplayControlGroupApplyResult,
   GitHubInstallReview,
   InstalledPackage,
+  PackageJob,
   PackageUpdateCheck,
   PackageUpdateResult,
+  StudioBridgeAnswer,
   PluginMarketplaceStatus,
   PluginStore,
   PluginStoreEntry,
@@ -294,6 +296,30 @@ export function rollbackPackage(
 ): Promise<InstalledPackage> {
   return apiPost("/api/v1/packages/{packageId}/rollback", {
     params: { path: { packageId } },
+    csrfToken,
+  });
+}
+
+/** Declared background jobs for one installed package. */
+export function listPackageJobs(packageId: string): Promise<PackageJob[]> {
+  return apiGet("/api/v1/packages/{packageId}/jobs", {
+    params: { path: { packageId } },
+  });
+}
+
+/**
+ * Relay one Studio UI call into the package guest. The input is base64
+ * over the 16 KiB call window; the answer carries the guest status code
+ * and base64 output.
+ */
+export function callStudioBridge(
+  packageId: string,
+  input: string,
+  csrfToken: string,
+): Promise<StudioBridgeAnswer> {
+  return apiPost("/api/v1/packages/{packageId}/studio/bridge", {
+    params: { path: { packageId } },
+    body: { input },
     csrfToken,
   });
 }

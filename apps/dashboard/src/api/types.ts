@@ -1256,6 +1256,8 @@ export type PluginStoreMarketplace = {
   version: string;
   name: string;
   description?: string;
+  /** Optional plain text for the listing page; never markup. */
+  longDescription?: string;
   publisherId: string;
   publisherName: string;
   license?: string;
@@ -1266,10 +1268,28 @@ export type PluginStoreMarketplace = {
   issues?: string;
   categories?: string[];
   featured?: boolean;
+  artwork?: PluginStoreArtwork;
   compatible: boolean;
   installed: boolean;
   installedVersion?: string;
   updateAvailable: boolean;
+};
+
+/**
+ * Presentation artwork a marketplace listing declares, as Tilecast Server
+ * paths. Studio loads images only from these paths, never from the
+ * addresses the catalog names. Artwork never affects identity, trust, or
+ * install, and any image may fail to load.
+ */
+export type PluginStoreArtwork = {
+  iconUrl?: string;
+  screenshots?: PluginStoreScreenshot[];
+};
+
+export type PluginStoreScreenshot = {
+  url: string;
+  /** Text that describes the screenshot. */
+  alt: string;
 };
 
 /**
@@ -1338,6 +1358,40 @@ export type PackageContribution = {
   path: string;
 };
 
+/** The external server behavior module of a manifest version 2 package. */
+export type PackageRuntime = {
+  module: string;
+};
+
+/**
+ * Bounded capability requests from a manifest version 2 package. Every
+ * entry is a request the host reviews before installation; nothing here
+ * grants itself.
+ */
+export type PackageCapabilities = {
+  network?: { hosts: string[] };
+  background?: { jobs: { id: string; intervalMinutes: number }[] };
+  storage?: boolean;
+  studioUI?: { entry: string };
+};
+
+/** One declared package background job with the scheduler cursor. */
+export type PackageJob = {
+  jobId: string;
+  intervalMinutes: number;
+  nextRunAt: string;
+  lastRunAt?: string;
+  lastStatus: string;
+  lastError: string;
+  consecutiveFailures: number;
+};
+
+/** The guest answer to one Studio UI bridge call. */
+export type StudioBridgeAnswer = {
+  status: number;
+  output: string;
+};
+
 /** The custom repository binding behind an installed custom package. */
 export type PackageSourceBinding = {
   owner: string;
@@ -1367,6 +1421,8 @@ export type InstalledPackage = {
   activatedAt: string;
   hasRollback: boolean;
   contributions: PackageContribution[];
+  runtime?: PackageRuntime;
+  capabilities?: PackageCapabilities;
   source?: PackageSourceBinding;
 };
 
@@ -1379,7 +1435,10 @@ export type GitHubInstallReview = {
   version: string;
   manifest: PackageManifestSummary;
   compatible: boolean;
-  contributions: { type: string; path: string }[];
+  /** id is the package-qualified identity, present on update checks. */
+  contributions: { type: string; path: string; id?: string }[];
+  runtime?: PackageRuntime;
+  capabilities?: PackageCapabilities;
   digest: string;
   registry: string;
   releaseTag: string;

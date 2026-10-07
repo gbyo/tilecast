@@ -20,6 +20,10 @@ const studioPluginDependencies = [
   "recharts",
 ];
 
+const dashboardSourceMap =
+  process.env.TILECAST_DASHBOARD_SOURCEMAP === "true" ||
+  process.env.TILECAST_DASHBOARD_SOURCEMAP === "1";
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -65,7 +69,7 @@ export default defineConfig({
       "/readyz": "http://localhost:8080",
     },
   },
-  build: { sourcemap: true },
+  build: { sourcemap: dashboardSourceMap },
   test: {
     coverage: {
       provider: "v8",

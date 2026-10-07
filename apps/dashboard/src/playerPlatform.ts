@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import type { PlayerFamily, PlayerPlatform } from "./api/types";
 
 export type ScreenPlatformFamily = "android" | "linux" | "windows" | "browser";
@@ -24,6 +25,39 @@ export const normalizePlayerFamily = (
   family === "windows"
     ? family
     : undefined;
+
+type ScreensT = TFunction<"screens", undefined>;
+
+export function platformLabel(value: string, t: ScreensT): string {
+  const normalized = value.toLowerCase();
+  if (normalized === "browser") return t("platform.browser");
+  if (normalized === "linux") return t("platform.linux");
+  if (normalized === "windows") return t("platform.windows");
+  if (normalized.includes("fire")) return t("platform.fireTv");
+  if (normalized.includes("google")) return t("platform.googleTv");
+  if (normalized.includes("android")) return t("platform.androidTv");
+  return value || t("platform.unknown");
+}
+
+/**
+ * Human-facing Player label for a paired Screen. The OS platform alone cannot
+ * distinguish the legacy Electron Linux Player from Tilecast Edge, so prefer
+ * the reported Player family. Linux screens that predate Player-family
+ * reporting are legacy Electron by definition.
+ */
+export function screenPlayerLabel(
+  screen: { platform: string; playerFamily?: string },
+  t: ScreensT,
+): string {
+  if (screen.playerFamily === "edge") return t("platform.edge");
+  if (screen.playerFamily === "electron-linux")
+    return t("platform.legacyLinux");
+  if (screen.playerFamily === "windows") return t("platform.windows");
+
+  const normalized = screen.platform.toLowerCase();
+  if (normalized === "linux") return t("platform.legacyLinux");
+  return platformLabel(screen.platform, t);
+}
 
 // Screens report a specific platform string ("fire-tv", "android-tv",
 // "linux", "windows", "browser", …). Legacy unknown native platforms retain

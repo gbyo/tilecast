@@ -10,6 +10,7 @@ package plugins
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
@@ -42,23 +43,44 @@ type StoreSource struct {
 // installation's state: compatibility with the running release, whether it
 // is installed, and whether the listing carries a newer version.
 type MarketplaceEntry struct {
-	Version          string   `json:"version"`
-	Name             string   `json:"name"`
-	Description      string   `json:"description"`
-	PublisherID      string   `json:"publisherId"`
-	PublisherName    string   `json:"publisherName"`
-	License          string   `json:"license"`
-	TilecastRange    string   `json:"tilecastRange"`
-	Digest           string   `json:"digest"`
-	Repository       string   `json:"repository"`
-	Documentation    string   `json:"documentation,omitempty"`
-	Issues           string   `json:"issues,omitempty"`
-	Categories       []string `json:"categories,omitempty"`
-	Featured         bool     `json:"featured,omitempty"`
-	Compatible       bool     `json:"compatible"`
-	Installed        bool     `json:"installed"`
-	InstalledVersion string   `json:"installedVersion,omitempty"`
-	UpdateAvailable  bool     `json:"updateAvailable"`
+	Version     string `json:"version"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	// LongDescription is optional listing text for the detail page. It is
+	// presentation only; Studio falls back to Description without it.
+	LongDescription string   `json:"longDescription,omitempty"`
+	PublisherID     string   `json:"publisherId"`
+	PublisherName   string   `json:"publisherName"`
+	License         string   `json:"license"`
+	TilecastRange   string   `json:"tilecastRange"`
+	Digest          string   `json:"digest"`
+	Repository      string   `json:"repository"`
+	Documentation   string   `json:"documentation,omitempty"`
+	Issues          string   `json:"issues,omitempty"`
+	Categories      []string `json:"categories,omitempty"`
+	Featured        bool     `json:"featured,omitempty"`
+	// Artwork carries Tilecast-owned paths to the listing's icon and
+	// screenshots. It is presentation only; the catalog's image
+	// addresses never reach Studio.
+	Artwork          *MarketplaceArtwork `json:"artwork,omitempty"`
+	Compatible       bool                `json:"compatible"`
+	Installed        bool                `json:"installed"`
+	InstalledVersion string              `json:"installedVersion,omitempty"`
+	UpdateAvailable  bool                `json:"updateAvailable"`
+}
+
+// MarketplaceArtwork lists the artwork a listing declares, as paths the
+// server serves.
+type MarketplaceArtwork struct {
+	IconURL     string                  `json:"iconUrl,omitempty"`
+	Screenshots []MarketplaceScreenshot `json:"screenshots,omitempty"`
+}
+
+// MarketplaceScreenshot is one served screenshot with its alternative
+// text.
+type MarketplaceScreenshot struct {
+	URL string `json:"url"`
+	Alt string `json:"alt"`
 }
 
 // StoreEntry is one normalized plugin-store row: the package identity and
@@ -385,6 +407,7 @@ func marketplaceEntry(listing catalog.Listing, installedVersion string, installe
 		Version:          listing.Version,
 		Name:             listing.Name,
 		Description:      listing.Description,
+		LongDescription:  listing.LongDescription,
 		PublisherID:      listing.Publisher.ID,
 		PublisherName:    listing.Publisher.Name,
 		License:          listing.License,
@@ -395,9 +418,38 @@ func marketplaceEntry(listing catalog.Listing, installedVersion string, installe
 		Issues:           listing.Issues,
 		Categories:       listing.Categories,
 		Featured:         listing.Featured,
+		Artwork:          marketplaceArtwork(listing),
 		Compatible:       packagemanifest.SatisfiesTilecastRange(listing.TilecastRange, version.Display()),
 		Installed:        installed,
 		InstalledVersion: installedVersion,
 		UpdateAvailable:  installed && catalog.UpdateAvailable(installedVersion, listing.Version),
 	}
+}
+
+// artworkIconPath is the server path that serves one listing's icon. The
+// token changes with the declared address so a changed icon defeats
+// browser caches.
+func artworkIconPath(listing catalog.Listing) string {
+	return "/api/v1/plugin-store/" + listing.PackageID + "/artwork/icon?v=" + catalog.ArtworkToken(listing.Icon)
+}
+
+func artworkScreenshotPath(listing catalog.Listing, index int) string {
+	return "/api/v1/plugin-store/" + listing.PackageID + "/artwork/screenshots/" + strconv.Itoa(index) +
+		"?v=" + catalog.ArtworkToken(listing.Screenshots[index].Src)
+}
+
+func marketplaceArtwork(listing catalog.Listing) *MarketplaceArtwork {
+	if listing.Icon == "" && len(listing.Screenshots) == 0 {
+		return nil
+	}
+	artwork := &MarketplaceArtwork{}
+	if listing.Icon != "" {
+		artwork.IconURL = artworkIconPath(listing)
+	}
+	for index, shot := range listing.Screenshots {
+		artwork.Screenshots = append(artwork.Screenshots, MarketplaceScreenshot{
+			URL: artworkScreenshotPath(listing, index), Alt: shot.Alt,
+		})
+	}
+	return artwork
 }

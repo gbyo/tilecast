@@ -2665,6 +2665,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/plugin-store/{packageId}/artwork/icon": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable. */
+    get: operations["getMarketplaceIcon"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/plugin-store/{packageId}/artwork/screenshots/{index}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description One screenshot of a marketplace listing, served under the same rules as the listing icon. */
+    get: operations["getMarketplaceScreenshot"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/plugin-store/marketplace/refresh": {
     parameters: {
       query?: never;
@@ -2763,6 +2797,87 @@ export interface paths {
     post?: never;
     /** @description Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Deletes the installation and its contribution rows. The custom source, when any, survives for reinstall. Audited. */
     delete: operations["removePackage"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages/{packageId}/widgets/{widgetId}/frame": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    /** @description Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404. */
+    get: operations["previewPackageWidgetFrame"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages/{packageId}/studio/frame": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    /** @description Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404. */
+    get: operations["packageStudioFrame"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages/{packageId}/studio/bridge": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation. */
+    post: operations["packageStudioBridge"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/packages/{packageId}/jobs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    /** @description Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404. */
+    get: operations["packageJobs"];
+    put?: never;
+    post?: never;
+    delete?: never;
     options?: never;
     head?: never;
     patch?: never;
@@ -3086,6 +3201,27 @@ export interface paths {
     options?: never;
     /** @description Inspect player variant. Requires an authenticated player credential. */
     head: operations["inspectPlayerVariant"];
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/player/packages/{packageId}/widgets/{widgetId}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packageId: string;
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    /** @description Download a package Widget player bundle. Requires an authenticated player credential. */
+    get: operations["downloadPackageWidgetBundle"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    /** @description Inspect a package Widget player bundle. Requires an authenticated player credential. */
+    head: operations["inspectPackageWidgetBundle"];
     patch?: never;
     trace?: never;
   };
@@ -7466,6 +7602,8 @@ export interface components {
       version: string;
       name: string;
       description?: string;
+      /** @description Optional plain text for the listing page. Presentation only: it never affects identity, digest, trust, or install. Studio falls back to description when absent. */
+      longDescription?: string;
       publisherId: string;
       publisherName: string;
       license?: string;
@@ -7483,10 +7621,22 @@ export interface components {
       issues?: string;
       categories?: string[];
       featured?: boolean;
+      artwork?: components["schemas"]["PluginStoreArtwork"];
       compatible: boolean;
       installed: boolean;
       installedVersion?: string;
       updateAvailable: boolean;
+    };
+    /** @description Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install. */
+    PluginStoreArtwork: {
+      /** @description Server path that serves the listing icon. Absent when the listing declares no icon. */
+      iconUrl?: string;
+      screenshots?: {
+        /** @description Server path that serves the screenshot. */
+        url: string;
+        /** @description Text that describes the screenshot. */
+        alt: string;
+      }[];
     };
     /** @description The cached catalog behind marketplace entries. Fetch failures keep serving the last valid cache and record the error here. */
     PluginMarketplaceStatus: {
@@ -7561,7 +7711,25 @@ export interface components {
       activatedAt: string;
       hasRollback: boolean;
       contributions: components["schemas"]["PackageContribution"][];
+      /** @description External server behavior module (manifest version 2 only). */
+      runtime?: {
+        /** @description Package-relative WebAssembly module path. */
+        module: string;
+      };
+      capabilities?: components["schemas"]["PackageCapabilities"];
       source?: components["schemas"]["PackageSourceBinding"];
+    };
+    /** @description One declared package background job with the scheduler cursor. */
+    PackageJob: {
+      jobId: string;
+      intervalMinutes: number;
+      /** Format: date-time */
+      nextRunAt: string;
+      /** Format: date-time */
+      lastRunAt?: string;
+      lastStatus: string;
+      lastError: string;
+      consecutiveFailures: number;
     };
     /** @description The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing. */
     GitHubInstallReview: {
@@ -7572,7 +7740,15 @@ export interface components {
       contributions: {
         type: string;
         path: string;
+        /** @description Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest. */
+        id?: string;
       }[];
+      /** @description External server behavior module (manifest version 2 only). */
+      runtime?: {
+        /** @description Package-relative WebAssembly module path. */
+        module: string;
+      };
+      capabilities?: components["schemas"]["PackageCapabilities"];
       /** @description Pinned artifact digest as sha256 colon hex. */
       digest: string;
       registry: string;
@@ -7598,6 +7774,26 @@ export interface components {
       lastChecked: string;
       latest?: components["schemas"]["GitHubInstallReview"];
     };
+    /** @description Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself. */
+    PackageCapabilities: {
+      /** @description Approved outbound HTTPS origins. */
+      network?: {
+        hosts: string[];
+      };
+      /** @description Package-owned background jobs the host runs. */
+      background?: {
+        jobs: {
+          id: string;
+          intervalMinutes: number;
+        }[];
+      };
+      /** @description Request plugin-owned key/value storage. */
+      storage?: boolean;
+      /** @description Sandboxed Studio UI entry. */
+      studioUI?: {
+        entry: string;
+      };
+    };
     PluginInUseError: {
       error: {
         /** @constant */
@@ -7611,6 +7807,48 @@ export interface components {
             label: string;
           }[];
         };
+      };
+    };
+    /** @description The package and the contributed content that blocks the operation. */
+    PackageInUseDetails: {
+      packageId: string;
+      resources: {
+        kind: string;
+        count: number;
+        label: string;
+        resolution: string;
+      }[];
+    };
+    /** @description A removal, update, or rollback blocked by contributed content the operation would strand. The operation deletes installation state only, never content, so the operator deletes the listed content first. */
+    PackageInUseError: {
+      error: {
+        /** @constant */
+        code: "package_in_use";
+        message: string;
+        details: components["schemas"]["PackageInUseDetails"];
+      };
+    };
+    /** @description A 409 from applying a package update. Only package_in_use carries details, listing the content the update would strand. */
+    PackageUpdateConflictError: {
+      error: {
+        /** @enum {string} */
+        code:
+          | "update_check_expired"
+          | "package_mismatch"
+          | "contribution_collision"
+          | "source_conflict"
+          | "package_in_use";
+        message: string;
+        details?: components["schemas"]["PackageInUseDetails"];
+      };
+    };
+    /** @description A 409 from restoring the previous package activation. Only package_in_use carries details, listing the content the rollback would strand. */
+    PackageRollbackConflictError: {
+      error: {
+        /** @enum {string} */
+        code: "no_rollback" | "package_in_use";
+        message: string;
+        details?: components["schemas"]["PackageInUseDetails"];
       };
     };
     /**
@@ -18919,6 +19157,102 @@ export interface operations {
       };
     };
   };
+  getMarketplaceIcon: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Icon image */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+          "image/jpeg": string;
+          "image/gif": string;
+          "image/webp": string;
+        };
+      };
+      /** @description The cached image is unchanged */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description artwork_unavailable — the listing has no such artwork or the server could not fetch it */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getMarketplaceScreenshot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+        /** @description Zero-based screenshot position. */
+        index: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Screenshot image */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+          "image/jpeg": string;
+          "image/gif": string;
+          "image/webp": string;
+        };
+      };
+      /** @description The cached image is unchanged */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description artwork_unavailable — the listing has no such artwork or the server could not fetch it */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   refreshMarketplaceCatalog: {
     parameters: {
       query?: never;
@@ -19298,6 +19632,193 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description package_in_use — contributed content still exists; remaining resources are listed in error.details */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PackageInUseError"];
+        };
+      };
+    };
+  };
+  previewPackageWidgetFrame: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sandboxed Widget frame document */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_widget_unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  packageStudioFrame: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sandboxed Studio UI frame document */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_studio_unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  packageStudioBridge: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /**
+           * Format: byte
+           * @description Base64 call payload, at most 16 KiB decoded.
+           */
+          input: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Guest answer */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              /** @description Guest status code; negative values are guest errors. */
+              status: number;
+              /**
+               * Format: byte
+               * @description Base64 guest output, at most 16 KiB.
+               */
+              output: string;
+            };
+          };
+        };
+      };
+      /** @description invalid_bridge_input */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_studio_unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  packageJobs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Package background jobs */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PackageJob"][];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_not_installed */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
     };
   };
   checkPackageUpdate: {
@@ -19427,12 +19948,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description update_check_expired, package_mismatch, contribution_collision, or source_conflict */
+      /** @description update_check_expired, package_mismatch, contribution_collision, source_conflict, or package_in_use — the update drops a contribution persisted content still uses; remaining resources are listed in error.details */
       409: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["PackageUpdateConflictError"];
+        };
       };
       /** @description repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation */
       422: {
@@ -19497,12 +20020,14 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description no_rollback — the package has no previous activation */
+      /** @description no_rollback — the package has no previous activation — or package_in_use — the rollback drops a contribution persisted content still uses; remaining resources are listed in error.details */
       409: {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "application/json": components["schemas"]["PackageRollbackConflictError"];
+        };
       };
     };
   };
@@ -20154,6 +20679,105 @@ export interface operations {
     responses: {
       /** @description ETag, Content-Length, MIME type, and Accept-Ranges */
       200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  downloadPackageWidgetBundle: {
+    parameters: {
+      query?: never;
+      header?: {
+        Range?: string;
+        "If-Range"?: string;
+        "If-None-Match"?: string;
+      };
+      path: {
+        packageId: string;
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Complete Widget player bundle */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/javascript": string;
+        };
+      };
+      /** @description Requested byte range */
+      206: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/javascript": string;
+        };
+      };
+      /** @description ETag matched */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Device credential invalid or revoked */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen disabled */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Package or bundle unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Range not satisfiable */
+      416: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  inspectPackageWidgetBundle: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packageId: string;
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description ETag, Content-Length, MIME type, and Accept-Ranges */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Package or bundle unavailable */
+      404: {
         headers: {
           [name: string]: unknown;
         };

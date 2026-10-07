@@ -12,6 +12,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DataSourceDefinition, DataSourceProvider } from "../api/types";
+import { usePackages } from "../plugins/pluginCatalog";
 import { Button } from "../components/ui/button";
 import {
   Dialog,
@@ -90,6 +91,7 @@ export function DataSourceProviderGallery({
     queryFn: api.plugins,
     staleTime: 5 * 60_000,
   });
+  const packages = usePackages();
   // Provenance for plugin-owned Data Sources, mirroring the Widget
   // gallery: the gallery is built from the effective catalog, and
   // installation state decides whether a plugin-owned provider can be
@@ -101,9 +103,23 @@ export function DataSourceProviderGallery({
   const installedPlugins = new Map(
     (pluginCatalog.data?.items ?? []).map((plugin) => [plugin.id, plugin]),
   );
+  const installedPackages = new Map(
+    (packages.data ?? []).map((pkg) => [pkg.packageId, pkg]),
+  );
   const sourceInfo = (definition: DataSourceDefinition) => {
     const source = definition.source;
-    if (!source || source.kind !== "plugin") return null;
+    if (!source) return null;
+    if (source.kind === "package" && source.packageId) {
+      // Package definitions join the catalog on activation, so they are
+      // always installed when the gallery shows them.
+      const pkg = installedPackages.get(source.packageId);
+      const name = pkg?.manifest.name ?? source.packageId;
+      return {
+        badge: t("dataSources.createFlow.sourcePackage", { name }),
+        unavailable: null as string | null,
+      };
+    }
+    if (source.kind !== "plugin") return null;
     const plugin = installedPlugins.get(source.pluginId);
     const name = plugin?.name ?? source.pluginId;
     if (plugin && !plugin.installed) {

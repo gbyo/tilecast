@@ -108,6 +108,15 @@ func TestValidateListingRejects(t *testing.T) {
 		"bad category":        func(l *Listing) { l.Categories = []string{"Sports!"} },
 		"empty category":      func(l *Listing) { l.Categories = []string{""} },
 		"duplicate category":  func(l *Listing) { l.Categories = []string{"data", "data"} },
+		"long long description": func(l *Listing) {
+			l.LongDescription = strings.Repeat("d", maxLongDescription+1)
+		},
+		"blank long description":      func(l *Listing) { l.LongDescription = " \n " },
+		"control in long description": func(l *Listing) { l.LongDescription = "Scores\x07 live." },
+		"tab in long description":     func(l *Listing) { l.LongDescription = "Scores\tlive." },
+		"invalid utf8 long description": func(l *Listing) {
+			l.LongDescription = "Scores \xff live."
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			listing := validTestListing()
@@ -133,12 +142,51 @@ func TestValidateListingAcceptsRepositoryShapes(t *testing.T) {
 	}
 }
 
+func TestValidateListingAcceptsLongDescription(t *testing.T) {
+	for name, text := range map[string]string{
+		"plain":          "Live scores for every game.",
+		"line breaks":    "Live scores.\n\nTeam colors and rotation.",
+		"unicode":        "Résultats en direct — ⚽",
+		"at the limit":   strings.Repeat("d", maxLongDescription),
+		"markup is text": "<b>Not bold</b> & [not a link](x)",
+	} {
+		listing := validTestListing()
+		listing.LongDescription = text
+		if err := validateListing(listing); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+}
+
+func TestLongDescriptionStaysOutOfIdentity(t *testing.T) {
+	listing := validTestListing()
+	listing.LongDescription = "Longer text."
+	payload, err := json.Marshal(listing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(payload), `"longDescription":"Longer text."`) {
+		t.Fatalf("longDescription missing from %s", payload)
+	}
+	listing.LongDescription = ""
+	payload, err = json.Marshal(listing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(payload), "longDescription") {
+		t.Fatalf("an empty longDescription must be omitted: %s", payload)
+	}
+}
+
 func TestValidateListingAcceptsMinimal(t *testing.T) {
 	listing := validTestListing()
 	listing.Documentation = ""
 	listing.Issues = ""
 	listing.Categories = nil
 	listing.Featured = false
+	listing.LongDescription = ""
+	listing.Icon = ""
+	listing.Screenshots = nil
 	if err := validateListing(listing); err != nil {
 		t.Fatalf("minimal listing rejected: %v", err)
 	}

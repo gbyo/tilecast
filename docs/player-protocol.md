@@ -101,6 +101,8 @@ Synchronized playlists use that same boundary rule. Their monotonic shared timel
 
 Delivery is deterministic: Download always caches; Stream requires connectivity; Automatic downloads images and videos up to 256 MiB when cache and reserved disk space permit, otherwise it streams video. The cache limit is 8 GiB, free-space reserve is 1 GiB, and at most two downloads run concurrently.
 
+Manifest schema 18 carries external Widget components. Each component names its package ID, the verified package digest, and the bundle SHA-256, size, and download path. The Player fetches each bundle from `GET /api/v1/player/packages/{packageId}/widgets/{widgetId}` with its device credential, verifies size and SHA-256, and pins the bytes before the manifest becomes pending. A bundle that is missing or fails verification keeps the last known playable presentation active. Retrieval never executes the bundle.
+
 ## Scheduled playback and offline limits
 
 Manifest schema v2 is activated atomically only after all Download-policy content for the direct fallback and included schedules is verified. Selection uses `[start, end)` intervals. The player evaluates with one server-corrected clock shared by schedules, availability windows, takeovers, Presentation Overrides, transitions, plugins, and cached playback. The measured offset is persisted/reconstructed before cached selection after restart. Weekly schedules continue offline indefinitely while their definitions and assets remain cached. A future one-time schedule that was not received before disconnection cannot activate. Stream-policy media still requires connectivity and is not guaranteed offline.

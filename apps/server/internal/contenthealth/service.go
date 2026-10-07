@@ -28,7 +28,7 @@ type SettingsReader interface {
 type Service struct {
 	db          *pgxpool.Pool
 	settings    SettingsReader
-	definitions *contentdefs.Catalog
+	definitions contentdefs.Catalogs
 }
 
 // NewService builds the content health service.
@@ -37,7 +37,7 @@ func NewService(db *pgxpool.Pool, reader SettingsReader) *Service {
 }
 
 // SetContentDefinitions shares the release catalog used for playback projection.
-func (s *Service) SetContentDefinitions(catalog *contentdefs.Catalog) { s.definitions = catalog }
+func (s *Service) SetContentDefinitions(catalog contentdefs.Catalogs) { s.definitions = catalog }
 
 // Thresholds are the organization's content health settings.
 type Thresholds struct {

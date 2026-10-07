@@ -262,10 +262,60 @@ export function useRefreshMarketplaceCatalog(csrfToken: string) {
   });
 }
 
-/** The plugin-owned resources a 409 plugin_in_use response says remain. */
+/**
+ * The owned resources a 409 in-use response says remain. Plugins and
+ * packages share the details shape; only the code differs.
+ */
 export function inUseResources(error: unknown): PluginInUseResource[] | null {
-  if (!(error instanceof ApiError) || error.code !== "plugin_in_use")
+  if (
+    !(error instanceof ApiError) ||
+    (error.code !== "plugin_in_use" && error.code !== "package_in_use")
+  )
     return null;
   const resources = error.details?.resources;
   return Array.isArray(resources) ? (resources as PluginInUseResource[]) : [];
+}
+
+/** One contribution an update adds or drops: kind, package path, qualified ID. */
+export type ContributionChange = { kind: string; path: string; id?: string };
+
+/**
+ * What an update changes about contributions: the review's (type, path, id)
+ * entries against the installed (kind, path, id) rows. Paths normalize a
+ * leading ./, since manifests and rows spell it differently. A nested
+ * manifest can change its ID while its path stays put, and content refers
+ * to the qualified ID, so a changed ID is both a drop and an addition.
+ * When the review carries no ID, entries compare by kind and path alone.
+ */
+export function diffContributions(
+  current: { kind: string; path: string; id?: string }[],
+  next: { type: string; path: string; id?: string }[],
+): { added: ContributionChange[]; removed: ContributionChange[] } {
+  const key = (kind: string, path: string) =>
+    `${kind} ${path.replace(/^\.\//, "")}`;
+  const before = new Map(
+    current.map((item) => [key(item.kind, item.path), item] as const),
+  );
+  const after = new Map(
+    next.map((item) => [key(item.type, item.path), item] as const),
+  );
+  const added: ContributionChange[] = [];
+  const removed: ContributionChange[] = [];
+  for (const [id, item] of after) {
+    const previous = before.get(id);
+    if (!previous) {
+      added.push({ kind: item.type, path: item.path, id: item.id });
+    } else if (previous.id && item.id && previous.id !== item.id) {
+      added.push({ kind: item.type, path: item.path, id: item.id });
+    }
+  }
+  for (const [id, item] of before) {
+    const upcoming = after.get(id);
+    if (!upcoming) {
+      removed.push({ kind: item.kind, path: item.path, id: item.id });
+    } else if (item.id && upcoming.id && item.id !== upcoming.id) {
+      removed.push({ kind: item.kind, path: item.path, id: item.id });
+    }
+  }
+  return { added, removed };
 }

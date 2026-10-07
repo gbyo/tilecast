@@ -21,8 +21,10 @@ func (s *server) providerCatalog(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"revision": 1, "providers": s.media.ProviderCatalog()}})
 }
 
+// contentDefinitions serves the effective catalog. The Provider is not a
+// serializable value, so the handler encodes its immutable snapshot.
 func (s *server) contentDefinitions(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"data": s.media.ContentDefinitions()})
+	writeJSON(w, http.StatusOK, map[string]any{"data": s.media.ContentDefinitions().Snapshot()})
 }
 
 func (s *server) compileWidgetPreview(w http.ResponseWriter, r *http.Request) {

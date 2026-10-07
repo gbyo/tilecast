@@ -80,6 +80,14 @@ func (p contributedSourceProvider) Normalize(_ context.Context, raw json.RawMess
 	return value, nil
 }
 
+// RegisteredDataSourceAdapter reports whether an adapter ID has a
+// trusted Server adapter. External definitions cross-check here so a
+// package can only name adapters the Server executes.
+func RegisteredDataSourceAdapter(id string) bool {
+	_, ok := dataSourceAdapterRegistry[id]
+	return ok
+}
+
 func ValidateContentAdapters(catalog *contentdefs.Catalog) error {
 	for _, definition := range catalog.DataSources {
 		if _, ok := dataSourceAdapterRegistry[definition.AdapterID]; !ok {

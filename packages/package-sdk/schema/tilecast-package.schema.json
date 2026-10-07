@@ -4,9 +4,11 @@
   "type": "object",
   "properties": {
     "apiVersion": {
-      "type": "number",
-      "const": 1,
-      "description": "Package manifest version. Only 1 exists."
+      "anyOf": [
+        { "type": "number", "const": 1 },
+        { "type": "number", "const": 2 }
+      ],
+      "description": "Package manifest version. Only 2 declares runtime and capabilities."
     },
     "packageId": {
       "type": "string",
@@ -125,6 +127,95 @@
       "type": "string",
       "maxLength": 200,
       "pattern": "^https:\\/\\/[^/\\s]+\\/[^/\\s].{0,180}$"
+    },
+    "runtime": {
+      "description": "External server behavior module (version 2 only).",
+      "type": "object",
+      "properties": {
+        "module": {
+          "type": "string",
+          "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$",
+          "description": "Package-relative WebAssembly module for server behavior."
+        }
+      },
+      "required": ["module"],
+      "additionalProperties": false
+    },
+    "capabilities": {
+      "description": "Bounded capabilities the package requests (version 2 only).",
+      "type": "object",
+      "properties": {
+        "network": {
+          "type": "object",
+          "properties": {
+            "hosts": {
+              "minItems": 1,
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$",
+                "description": "Approved outbound HTTPS origin."
+              },
+              "description": "Approved outbound HTTPS origins."
+            }
+          },
+          "required": ["hosts"],
+          "additionalProperties": false,
+          "description": "Approved outbound network access."
+        },
+        "background": {
+          "type": "object",
+          "properties": {
+            "jobs": {
+              "minItems": 1,
+              "maxItems": 4,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_-]{0,79}$",
+                    "description": "Stable job identity within the package."
+                  },
+                  "intervalMinutes": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 1440,
+                    "description": "How often the host runs the job, in minutes."
+                  }
+                },
+                "required": ["id", "intervalMinutes"],
+                "additionalProperties": false
+              },
+              "description": "Package-owned background jobs the host runs."
+            }
+          },
+          "required": ["jobs"],
+          "additionalProperties": false,
+          "description": "Package-owned background behavior."
+        },
+        "storage": {
+          "description": "Request plugin-owned key/value storage.",
+          "type": "boolean",
+          "const": true
+        },
+        "studioUI": {
+          "type": "object",
+          "properties": {
+            "entry": {
+              "type": "string",
+              "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$",
+              "description": "Package-relative entry page for the sandboxed Studio UI."
+            }
+          },
+          "required": ["entry"],
+          "additionalProperties": false,
+          "description": "Sandboxed Studio UI entry."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [

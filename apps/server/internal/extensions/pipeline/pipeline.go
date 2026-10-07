@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,6 +36,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/registry"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
 
@@ -164,6 +166,11 @@ type UpdateCheck struct {
 	Resolution  Resolution
 	UpToDate    bool
 	LastChecked time.Time
+	// Contributions are the available update's nested contribution
+	// identities, read from the retained artifact. They stay nil when the
+	// artifact cannot be read for review; apply re-reads it and fails
+	// there with the real error.
+	Contributions []packages.NestedContribution
 }
 
 // UpdateResult is an applied update. Updated is false for an idempotent
@@ -191,9 +198,27 @@ type Service struct {
 	registry        Registry
 	attest          AttestationVerifier
 	catalog         Catalog
+	contributions   Contributions
+	wasm            *wasm.Service
+	wasmStore       wasm.KVStore
 	packagesRoot    string
 	tilecastVersion string
 	allowUnsigned   bool
+	logger          *slog.Logger
+	// Failure-injection seams for post-commit reconciliation. A nil
+	// syncJobs runs wasm.SyncJobs; a nil removeExec runs the wasm
+	// service's Remove.
+	syncJobs   func(ctx context.Context, db *pgxpool.Pool, packageID string, jobs []packagemanifest.BackgroundJob) error
+	removeExec func(ctx context.Context, digest, packageID string, store wasm.KVStore) error
+}
+
+// Contributions joins installed package definitions into the effective
+// content catalog. *contributions.Service satisfies it; a nil
+// Contributions leaves package rows inert, as before external
+// contributions existed.
+type Contributions interface {
+	Validate(contentDir string, manifest packagemanifest.Manifest, digest string) error
+	Rebuild(ctx context.Context) error
 }
 
 // Option configures a Service.
@@ -224,6 +249,81 @@ func WithCatalog(catalog Catalog) Option {
 // configuration, honored on development builds only.
 func WithAllowUnsigned() Option {
 	return func(s *Service) { s.allowUnsigned = true }
+}
+
+// WithContributions joins installed package definitions into the
+// effective catalog after every mutation, and validates definitions
+// before activation. Omit it where contributions stay inert.
+func WithContributions(contributions Contributions) Option {
+	return func(s *Service) { s.contributions = contributions }
+}
+
+// SetContributions wires definition validation and catalog resync after
+// construction. Main uses it because the pipeline and the contributions
+// service reference each other: the pipeline validates through the
+// contributions service, which reads retained bytes through the
+// pipeline.
+func (s *Service) SetContributions(contributions Contributions) {
+	s.contributions = contributions
+}
+
+// SetWASM wires execution-state reconciliation after construction. Main
+// uses it because the wasm service resolves retained bytes through the
+// pipeline. A nil service leaves execution state untouched, for tests
+// that exercise activation without a runtime.
+func (s *Service) SetWASM(service *wasm.Service, store wasm.KVStore) {
+	s.wasm = service
+	s.wasmStore = store
+}
+
+// reconcileWASMJobs syncs the scheduler rows for one activation after
+// the installer commit. Derived execution state must never turn a
+// committed activation into an API failure: the sync is idempotent,
+// reruns on every lifecycle mutation, and stale rows cannot execute
+// (the scheduler re-validates each job against the installed
+// manifest), so a failure logs loudly and the committed state stands.
+func (s *Service) reconcileWASMJobs(ctx context.Context, operation, packageID string, manifest packagemanifest.Manifest) {
+	if s.wasm == nil {
+		return
+	}
+	var jobs []packagemanifest.BackgroundJob
+	if manifest.Capabilities != nil && manifest.Capabilities.Background != nil {
+		jobs = manifest.Capabilities.Background.Jobs
+	}
+	sync := s.syncJobs
+	if sync == nil {
+		sync = wasm.SyncJobs
+	}
+	if err := sync(ctx, s.db, packageID, jobs); err != nil {
+		s.log().ErrorContext(ctx, "package wasm job sync failed after commit",
+			"operation", operation, "package_id", packageID, "error", err)
+	}
+}
+
+// reconcileRemove clears execution state after the removal commit:
+// the compiled module leaves the cache, the package's keys are
+// deleted, and its job rows are removed. Like the job sync, a failure
+// logs and the committed removal stands.
+func (s *Service) reconcileRemove(ctx context.Context, packageID, digest string) {
+	if s.wasm == nil {
+		return
+	}
+	remove := s.removeExec
+	if remove == nil {
+		remove = s.wasm.Remove
+	}
+	if err := remove(ctx, digest, packageID, s.wasmStore); err != nil {
+		s.log().ErrorContext(ctx, "package execution-state removal failed after commit",
+			"operation", "remove", "package_id", packageID, "error", err)
+	}
+	s.reconcileWASMJobs(ctx, "remove", packageID, packagemanifest.Manifest{})
+}
+
+func (s *Service) log() *slog.Logger {
+	if s.logger == nil {
+		return slog.Default()
+	}
+	return s.logger
 }
 
 // NewService orchestrates package resolution into installer activation.
@@ -365,6 +465,11 @@ func (s *Service) InstallCustom(ctx context.Context, repoURL string, userID uuid
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
 	}
+	s.reconcileWASMJobs(ctx, "install", installed.PackageID, ociManifest)
+	// The activation committed; a resync failure degrades the effective
+	// catalog, which the contributions service already logged per
+	// package, so it never fails the request.
+	_ = s.resync(ctx)
 	return installed, nil
 }
 
@@ -463,6 +568,18 @@ func (s *Service) materialize(ctx context.Context, resolution Resolution) (packa
 	if err != nil {
 		return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
 	}
+	// Definitions validate before activation: an invalid Widget or Data
+	// Source fails the install instead of installing an inert package.
+	if s.contributions != nil {
+		if err := s.contributions.Validate(contentDir, verified.Manifest, resolution.Digest); err != nil {
+			return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
+		}
+	}
+	// The runtime module and Studio entry validate the same way: shape,
+	// bounds, and ABI before anything is retained or executed.
+	if err := wasm.ValidatePackageRuntime(contentDir, verified.Manifest); err != nil {
+		return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
+	}
 	return verified.Manifest, contributions, nil
 }
 
@@ -479,6 +596,32 @@ func (s *Service) ContentDir(ctx context.Context, ref, digest string) (string, e
 		return "", fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
 	}
 	return contentDir, nil
+}
+
+// LocalContentDir returns the extracted content directory of a digest this
+// server already retains. It never reaches the registry, so callers that
+// must not block on the network, such as startup, use it instead of
+// ContentDir. An unretained digest is an error.
+func (s *Service) LocalContentDir(_ context.Context, _, digest string) (string, error) {
+	retained := filepath.Join(s.packagesRoot, strings.ReplaceAll(digest, ":", "-"))
+	if !complete(retained, digest) {
+		return "", fmt.Errorf("package content %s is not retained on this server", digest)
+	}
+	layoutDir := filepath.Join(retained, "layout")
+	if _, err := packages.VerifyLayout(layoutDir); err != nil {
+		return "", fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
+	}
+	return filepath.Join(retained, "content"), nil
+}
+
+// resync recomposes the effective catalog after a mutation. The
+// contributions service logs what it skips; a failure here cannot undo
+// the committed activation, so the caller reports it alongside success.
+func (s *Service) resync(ctx context.Context) error {
+	if s.contributions == nil {
+		return nil
+	}
+	return s.contributions.Rebuild(ctx)
 }
 
 // ensureContent returns the verified layout and extracted content
@@ -582,6 +725,11 @@ func (s *Service) InstallMarketplace(ctx context.Context, packageID string, user
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
 	}
+	s.reconcileWASMJobs(ctx, "install", installed.PackageID, resolution.Manifest)
+	// The activation committed; a resync failure degrades the effective
+	// catalog, which the contributions service already logged per
+	// package, so it never fails the request.
+	_ = s.resync(ctx)
 	return installed, nil
 }
 
@@ -632,6 +780,14 @@ func (s *Service) UpdateCheck(ctx context.Context, packageID string) (UpdateChec
 	check.Available = compare > 0 || (compare == 0 && resolution.Digest != installed.Digest)
 	check.UpToDate = !check.Available
 	check.Resolution = resolution
+	if check.Available {
+		// Reading the artifact lets the review compare qualified
+		// contribution IDs, which can change while paths stay put. The
+		// bytes stay retained, so applying the update reuses them.
+		if _, nested, err := s.materialize(ctx, resolution); err == nil {
+			check.Contributions = nested
+		}
+	}
 	return check, nil
 }
 
@@ -664,25 +820,56 @@ func (s *Service) ApplyUpdate(ctx context.Context, packageID, digest string, use
 	if err != nil {
 		return UpdateResult{}, mapActivationError(err)
 	}
+	if s.wasm != nil {
+		s.wasm.Evict(ctx, check.Installed.Digest)
+	}
+	s.reconcileWASMJobs(ctx, "update", installed.PackageID, ociManifest)
+	_ = s.resync(ctx)
 	return UpdateResult{Installed: installed, Updated: true}, nil
 }
 
 // Rollback restores the previous activation.
 func (s *Service) Rollback(ctx context.Context, packageID string, userID uuid.UUID) (installer.InstalledPackage, error) {
+	previous, err := s.installer.Get(ctx, packageID)
+	if err != nil {
+		return installer.InstalledPackage{}, mapActivationError(err)
+	}
 	installed, err := s.installer.Rollback(ctx, packageID, userID)
 	if err != nil {
 		return installer.InstalledPackage{}, mapActivationError(err)
 	}
+	if s.wasm != nil {
+		s.wasm.Evict(ctx, previous.Digest)
+	}
+	// The rollback committed above; without its manifest the job sync
+	// cannot run, so a read failure logs and the restored activation
+	// stands. The next lifecycle mutation re-syncs.
+	manifest, err := s.installer.Manifest(ctx, packageID)
+	if err != nil {
+		s.log().ErrorContext(ctx, "package manifest read failed after rollback commit",
+			"operation", "rollback", "package_id", packageID, "error", err)
+	} else {
+		s.reconcileWASMJobs(ctx, "rollback", packageID, manifest)
+	}
+	_ = s.resync(ctx)
 	return installed, nil
 }
 
 // Remove deletes the installation and its contribution rows. Package
 // bytes stay retained: rollback snapshots and reinstalls reference them,
-// and no collector runs in this release.
+// and no collector runs in this release. Execution state does not
+// survive: the compiled module leaves the cache and the package's keys
+// and job rows are deleted, so a reinstall starts clean.
 func (s *Service) Remove(ctx context.Context, packageID string, userID uuid.UUID) error {
+	previous, err := s.installer.Get(ctx, packageID)
+	if err != nil {
+		return mapActivationError(err)
+	}
 	if err := s.installer.Remove(ctx, packageID, userID); err != nil {
 		return mapActivationError(err)
 	}
+	s.reconcileRemove(ctx, packageID, previous.Digest)
+	_ = s.resync(ctx)
 	return nil
 }
 
@@ -708,7 +895,8 @@ func (s *Service) resolveListing(ctx context.Context, listing catalog.Listing) (
 	}
 	return Resolution{
 		Manifest: packagemanifest.Manifest{
-			APIVersion:     packagemanifest.APIVersion,
+			// Listing-derived manifests declare no version 2 features.
+			APIVersion:     1,
 			PackageID:      listing.PackageID,
 			PackageVersion: listing.Version,
 			Name:           listing.Name,

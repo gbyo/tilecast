@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { WidgetMountState } from "@tilecast/widget-sdk/mount";
 import { layoutPreviewDateToMs, V2ZonePreview } from "./V2ZonePreview";
 import type { LayoutCaptureCoordinator } from "./layoutCaptureReadiness";
-import { studioWidgetComponent } from "../../content/studioWidgets";
+import { studioPreviewComponent } from "../../content/studioWidgets";
 import { api } from "../../api/client";
 import {
   isAvailableAt,
@@ -428,7 +428,7 @@ export function WidgetLivePreview({
     ...contentQueries.definitions(),
   });
   const provider = asset.widget!.provider;
-  const v2 = studioWidgetComponent(definitions.data, provider);
+  const v2 = studioPreviewComponent(definitions.data, provider);
   // Register capture-relevant zones while a V2 component is mounted. Static
   // content (snapshots, placeholders) has nothing asynchronous to wait for.
   // The asset id joins the deps so a swapped Widget re-registers as pending.

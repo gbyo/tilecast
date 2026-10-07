@@ -9,7 +9,14 @@ on:
     paths:
       - "apps/server/**"
       - "apps/dashboard/**"
+      - "apps/player-web/**"
       - "packages/**"
+      - "plugins/**"
+      - "widgets/**"
+      - "data-sources/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".dockerignore"
       - "deploy/docker/Dockerfile"
       - ".github/workflows/server-image.yml"
   workflow_dispatch:
@@ -63,6 +70,10 @@ jobs:
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
+      - name: Start build timer
+        id: build_timer
+        run: echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Build and publish image
         uses: docker/build-push-action@v7
         with:
@@ -80,3 +91,16 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: mode=max
           sbom: true
+
+      - name: Record build duration
+        if: always()
+        env:
+          STARTED: ${{ steps.build_timer.outputs.started }}
+        run: |
+          finished=$(date +%s)
+          seconds=$((finished - STARTED))
+          {
+            echo "### Server image build timing"
+            echo
+            echo "- Build/publish step: ${seconds}s"
+          } >> "$GITHUB_STEP_SUMMARY"

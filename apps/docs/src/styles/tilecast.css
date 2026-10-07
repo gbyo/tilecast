@@ -85,7 +85,48 @@
 }
 
 /* The Tilecast wordmark is wide; keep it visually balanced in the docs nav. */
+.site-title {
+  position: relative;
+}
+
 .site-title img {
   height: 1.75rem;
   width: auto;
+}
+
+/*
+ * Keep the header logo still at rest, then reveal the cast animation on
+ * hover or keyboard focus. The pseudo-element preserves Starlight's existing
+ * home link and accessible title while letting light and dark themes use the
+ * matching animated wordmark.
+ */
+.site-title::after {
+  position: absolute;
+  /*
+   * The animated SVG adds 25 viewBox units of bleed on every edge. Expand
+   * the overlay by the same visual amount so its 1157.43×245.25 artwork
+   * aligns exactly with the static 1.75rem-tall wordmark instead of shrinking.
+   */
+  inset: -0.1784rem;
+  content: "";
+  pointer-events: none;
+  background: center / contain no-repeat
+    url("../../../../.github/logos/animated/tilecast-logo-cast-white.svg");
+  opacity: 0;
+}
+
+:root[data-theme="light"] .site-title::after {
+  background-image: url("../../../../.github/logos/animated/tilecast-logo-cast-black.svg");
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .site-title:hover img,
+  .site-title:focus-visible img {
+    opacity: 0;
+  }
+
+  .site-title:hover::after,
+  .site-title:focus-visible::after {
+    opacity: 1;
+  }
 }

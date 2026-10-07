@@ -16,7 +16,7 @@ The plugin store at `GET /api/v1/plugin-store` presents the same release-owned p
 
 Owners and Administrators install with `POST /api/v1/plugins/{pluginId}/install` and remove with `DELETE /api/v1/plugins/{pluginId}/installation`, using a session and CSRF token. Installation returns `201` initially and `200` when repeated. Removal is idempotent and never deletes plugin data. Active resources may block removal with `409 plugin_in_use` and a resolution in `error.details`: delete, disable, or wait. Countdown Bar is blocked while instances exist; Forms while undeleted forms exist; Emergency Alerts while monitoring, rules, or activations remain. Configuration mutations require installation and otherwise return `409 plugin_not_installed`.
 
-Studio shows installed plugins on the **Installed** view and offers the store on the **Explore** view (`/plugins/store`), with one detail page per entry (`/plugins/store/{packageId}`). Older `?add=<id>` links redirect to the store. Opening an uninstalled supported plugin page shows its installation gate. A retired installation is labeled **Plugins removed from Tilecast** and is removable without deleting its old data.
+Studio shows installed plugins on the **Installed** view and offers the store on the **Explore** view (`/plugins/store`), with one detail page per entry (`/plugins/store/{packageId}`). The detail page uses one layout for included, Marketplace, and custom entries. It has a hero, optional screenshots, main sections, and a sticky sidebar on wide viewports. A narrow viewport shows one column with the package status directly below the hero. Install and update reviews open in a dialog on wide viewports and in a drawer on narrow viewports. Package management holds rollback, and a separate danger zone holds removal. A Studio UI frame reports the height it wants over its bridge port, and Studio clamps it. See [Extension packages](packages.md). Older `?add=<id>` links redirect to the store. Opening an uninstalled supported plugin page shows its installation gate. A retired installation is labeled **Plugins removed from Tilecast** and is removable without deleting its old data.
 
 ### Retired installations and compatibility
 
@@ -121,6 +121,7 @@ Dashboard reads require a valid session. Mutations require Owner or Administrato
 - `GET /api/v1/plugins` — current catalog plus unsupported or retired installations
 - `GET /api/v1/plugin-store` — normalized store entries with provenance
 - `GET /api/v1/plugin-store/{packageId}` — one store entry
+- `GET /api/v1/plugin-store/{packageId}/artwork/icon` and `.../artwork/screenshots/{index}` — marketplace artwork from the server cache; see [Marketplace](marketplace.md#artwork)
 - `POST /api/v1/plugins/{pluginId}/install` — install a supported plugin
 - `DELETE /api/v1/plugins/{pluginId}/installation` — remove an installation row
 - `GET /api/v1/plugins/dependency-graph` — Dependency Explorer system tool

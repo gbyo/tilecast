@@ -655,11 +655,15 @@ The release catalog composes:
 - root V2 Widget manifests;
 - plugin-owned Widget manifests;
 - root declarative Data Source definitions;
-- plugin-owned declarative Data Source definitions.
+- plugin-owned declarative Data Source definitions;
+- package-owned Widget and Data Source definitions from installed
+  extension packages.
 
-The exact Go shape may differ. The important property is that
-`contentdefs.Catalog` no longer assumes "embedded release file" is the only
-possible origin.
+The shipped shape is the `contentdefs.Catalogs` interface with an atomic
+`Provider`: each installed package contributes one external overlay in
+package-ID order, and every rebuild swaps a complete immutable snapshot
+into the services. The important property holds: `contentdefs.Catalog`
+no longer assumes "embedded release file" is the only possible origin.
 
 The catalog fingerprint includes source identity and definition bytes.
 
@@ -1111,7 +1115,7 @@ When restore cannot obtain a required package, preserve its persisted content
 and mark the contribution unavailable. Do not delete records because code is
 missing.
 
-## 16. Player delivery for future external Widgets
+## 16. Player delivery for external Widgets
 
 Trusted Widgets are bundled into the Player release and continue to advertise
 per-component capabilities such as:
@@ -1120,24 +1124,32 @@ per-component capabilities such as:
 widget.tilecast.clock = 1
 ```
 
-External Widgets are different. A future Player should advertise support for
-the external Widget execution ABI rather than pretending every downloadable
-Widget was compiled into that Player.
-
-Conceptually:
+External Widgets are different. The Player advertises one capability for the
+external Widget execution ABI instead of one capability per downloaded Widget:
 
 ```text
 widget.external-runtime = 1
 ```
 
-A presentation for an external Widget also identifies the verified package
-digest and component contract.
+A presentation for an external Widget carries a `package` block with the
+package ID, the verified package digest, the bundle SHA-256 and size, and the
+authenticated download path. Manifest schema 18 selects itself only for
+presentations that use an external Widget; other presentations keep their
+schema. Players without the external-runtime capability keep their current
+compatibility behavior.
 
-The Player must fetch/cache/verify the package before activation and preserve
-the last known playable presentation when it cannot satisfy the new one.
+The Player fetches the bundle through the same verified preparation path as
+media: it downloads the bundle, checks size and SHA-256, pins the verified
+bytes in the content store, and only then stores the pending manifest. When
+preparation fails, the Player keeps the last known playable presentation. It
+never activates a manifest whose bundles are missing or fail verification.
 
-Do not overload the current bundled component capability list with arbitrary
-downloaded types.
+The bundle path is fixed (`runtime/index.js` inside the package). Authors
+never declare it. Do not add downloaded Widget types to the bundled component
+capability list.
+
+Bundle execution is still future work. Delivery stores verified bytes; no
+executor runs them yet.
 
 ## 17. Studio model
 
@@ -1162,8 +1174,11 @@ Filters/badges may show:
 The editor is chosen by the definition contract, not by source kind.
 
 For V2 Widgets, Studio preview uses the real Widget through `WidgetMount`
-for trusted source-built Widgets and the same sandbox executor used by the
-Player for future external Widgets.
+for trusted source-built Widgets and through `SandboxedWidgetExecutor`
+for package-source Widgets. The sandboxed preview loads a Server-built
+frame document for the verified bundle; the bundle is never imported
+into the Studio document. Player execution of external Widgets stays
+future work until the per-target isolation gates in §12 pass.
 
 ## 18. Compatibility and migration
 
@@ -1381,20 +1396,20 @@ performance result is poor.
 
 ### Phase G — external Plugin runtime
 
-Only after a concrete integration needs executable third-party Server behavior,
-add the external plugin runtime.
+Implemented. A manifest version 2 package bundles external plugin
+behavior as a WebAssembly module with bounded capability requests. The
+server runs it in the capability-based Wasm host. Bundled Plugin API
+v1 stays out of this path: no package loads arbitrary code
+in-process.
 
-Prefer a capability-based Wasm host or another comparably strong isolation
-boundary. Do not reuse bundled Plugin API v1 as an in-process arbitrary-code
-loader.
-
-A package may then bundle:
+A package may bundle:
 
 - external plugin behavior;
 - Widgets;
 - declarative Data Sources.
 
-The Widget/Data Source contracts do not change.
+The Widget/Data Source contracts do not change. See
+[Extension packages](packages.md) for the runtime contract.
 
 ### Phase H — catalog and discovery service
 

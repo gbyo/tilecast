@@ -41,7 +41,7 @@ type Service struct {
 	storage     Storage
 	cfg         Config
 	invalidator AssetInvalidator
-	definitions *contentdefs.Catalog
+	definitions contentdefs.Catalogs
 	pluginGate  PluginSourceGate
 	hooks       FinalizationHooks
 	// contributed are plugin-owned Data Source providers. They overlay the
@@ -131,8 +131,8 @@ func (s *Service) Storage() Storage                                   { return s
 func (s *Service) SetAssetInvalidator(invalidator AssetInvalidator)   { s.invalidator = invalidator }
 func (s *Service) SetFinalizationHooks(hooks FinalizationHooks)       { s.hooks = hooks }
 func (s *Service) MaximumSourceBytes() int64                          { return s.cfg.SourceFetch.MaximumBytes }
-func (s *Service) SetContentDefinitions(catalog *contentdefs.Catalog) { s.definitions = catalog }
-func (s *Service) ContentDefinitions() *contentdefs.Catalog           { return s.definitions }
+func (s *Service) SetContentDefinitions(catalog contentdefs.Catalogs) { s.definitions = catalog }
+func (s *Service) ContentDefinitions() contentdefs.Catalogs           { return s.definitions }
 
 func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, mimeType string, size int64) (Upload, error) {
 	filename = strings.TrimSpace(filename)

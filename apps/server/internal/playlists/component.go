@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
@@ -15,7 +16,12 @@ const (
 	ManifestSchemaComponents = 16
 	// ManifestSchemaComponentEmptyPolicy carries component presentation schema 3.
 	ManifestSchemaComponentEmptyPolicy = 17
-	componentPresentationSchemaLegacy  = 2
+	// ManifestSchemaExternalComponents carries external Widget components:
+	// schema 3 components with a package block naming the verified
+	// package digest and the player bundle download. It includes every
+	// v17 feature.
+	ManifestSchemaExternalComponents  = 18
+	componentPresentationSchemaLegacy = 2
 )
 
 // ComponentPresentation references a first-class Widget component. Prepared
@@ -28,6 +34,22 @@ type ComponentPresentation struct {
 	DataSources []string            `json:"dataSources"`
 	Media       []ComponentMediaRef `json:"media"`
 	Empty       string              `json:"empty,omitempty"`
+	// Package names the installed package supplying an external
+	// component: its identity, verified digest, and bundle download.
+	// It is nil for release components, which Players already bundle.
+	Package *ExternalPackageRef `json:"package,omitempty"`
+}
+
+// ExternalPackageRef is the verified download claim for one external
+// Widget component: which package, which pinned artifact digest, and
+// the bundle hash, size, and player-authenticated download path the
+// Player verifies before activation.
+type ExternalPackageRef struct {
+	PackageID    string `json:"packageId"`
+	Digest       string `json:"digest"`
+	SHA256       string `json:"sha256"`
+	FileSize     int64  `json:"fileSize"`
+	DownloadPath string `json:"downloadPath"`
 }
 
 type ComponentMediaRef struct {
@@ -51,6 +73,28 @@ func (s *Service) compileWidgetComponentForSchema(provider string, raw json.RawM
 		return nil, nil
 	}
 	spec := *definition.Component
+	required := map[string]int{spec.Capability(): spec.Version}
+	var external *ExternalPackageRef
+	if definition.Source.Normalized().Kind == contentdefs.SourceKindPackage {
+		// External components need schema 3: the package block has no
+		// schema 2 form, so legacy Players keep the compatibility
+		// presentation.
+		if schemaVersion == componentPresentationSchemaLegacy {
+			return nil, nil
+		}
+		ref, ok, err := s.externalPackageRef(definition)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			// No verified bundle: the Widget stays on its
+			// compatibility presentation rather than naming code
+			// the Player cannot fetch.
+			return nil, nil
+		}
+		required = map[string]int{contentdefs.ExternalRuntimeCapability: contentdefs.ExternalRuntimeVersion}
+		external = ref
+	}
 	configuration := map[string]any{}
 	if len(raw) > 0 && string(raw) != "null" {
 		if err := json.Unmarshal(raw, &configuration); err != nil {
@@ -95,13 +139,40 @@ func (s *Service) compileWidgetComponentForSchema(provider string, raw json.RawM
 	return &WidgetPresentation{
 		SchemaVersion:        schemaVersion,
 		Kind:                 "component",
-		RequiredCapabilities: map[string]int{spec.Capability(): spec.Version},
+		RequiredCapabilities: required,
 		Component: &ComponentPresentation{
 			Type: spec.Type, Version: spec.Version, Config: config,
 			DataSources: dataSources, Media: componentMedia(definition, configuration),
-			Empty: componentEmptyPolicy(spec, schemaVersion),
+			Empty:   componentEmptyPolicy(spec, schemaVersion),
+			Package: external,
 		},
 	}, nil
+}
+
+// externalPackageRef builds the verified download claim for a
+// package-contributed Widget. It answers ok=false when no bundle is
+// snapshotted (unwired resolver or a skipped rebuild); a definition
+// outside its own package namespace is corruption and errors.
+func (s *Service) externalPackageRef(definition contentdefs.WidgetDefinition) (*ExternalPackageRef, bool, error) {
+	source := definition.Source.Normalized()
+	nestedID, ok := strings.CutPrefix(definition.ID, source.PackageID+".")
+	if !ok || nestedID == "" {
+		return nil, false, fmt.Errorf("Widget %q escapes package %q", definition.ID, source.PackageID)
+	}
+	if s.packagePayloads == nil {
+		return nil, false, nil
+	}
+	payload, ok := s.packagePayloads.WidgetPayload(source.PackageID, nestedID)
+	if !ok {
+		return nil, false, nil
+	}
+	return &ExternalPackageRef{
+		PackageID:    source.PackageID,
+		Digest:       payload.PackageDigest,
+		SHA256:       payload.SHA256Hex,
+		FileSize:     payload.Size,
+		DownloadPath: "/api/v1/player/packages/" + source.PackageID + "/widgets/" + nestedID,
+	}, true, nil
 }
 
 func componentEmptyPolicy(spec contentdefs.ComponentSpec, schemaVersion int) string {

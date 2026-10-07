@@ -8,15 +8,15 @@
  */
 import type { ContentDefinitionCatalog, WidgetDefinition } from "@/api/types";
 import {
-  studioWidgetComponent,
-  type StudioWidgetComponent,
+  studioPreviewComponent,
+  type StudioPreviewComponent,
 } from "@/content/studioWidgets";
 
 export type WidgetAuthoring =
   | {
       /** Renders through its real component, the one the Player mounts. */
       readonly kind: "component";
-      readonly component: StudioWidgetComponent;
+      readonly component: StudioPreviewComponent;
     }
   | {
       /** A remote web integration: previewed through a sandboxed frame. */
@@ -43,10 +43,12 @@ export function widgetAuthoring(
       ? { kind: "web", urlField }
       : { kind: "unsupported", reason: "schema" };
   }
-  // A native definition without a bundled component cannot be previewed
-  // or authored; the catalog would be invalid, and Studio says so.
+  // A native definition without a previewable component cannot be
+  // previewed or authored; the catalog would be invalid, and Studio says
+  // so. Package-source Widgets author against the same draft contract
+  // and preview through the sandbox executor.
   const component = definition.component
-    ? studioWidgetComponent(catalog, definition.id)
+    ? studioPreviewComponent(catalog, definition.id)
     : null;
   return component
     ? { kind: "component", component }

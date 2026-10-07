@@ -54,17 +54,17 @@ type Service struct {
 	// content is the release content catalog static contributions are
 	// read from. It defaults to the embedded catalog; tests inject a
 	// synthetic one through SetContentDefinitions.
-	content *contentdefs.Catalog
+	content contentdefs.Catalogs
 }
 
-// SetContentDefinitions injects the release content catalog generic
+// SetContentDefinitions injects the effective content catalog generic
 // lifecycle decisions (removal blockers, manifest invalidation) derive
 // static Widget and Data Source contributions from.
-func (s *Service) SetContentDefinitions(catalog *contentdefs.Catalog) {
+func (s *Service) SetContentDefinitions(catalog contentdefs.Catalogs) {
 	s.content = catalog
 }
 
-func (s *Service) catalog() *contentdefs.Catalog {
+func (s *Service) catalog() contentdefs.Catalogs {
 	if s.content == nil {
 		return contentdefs.MustLoad()
 	}

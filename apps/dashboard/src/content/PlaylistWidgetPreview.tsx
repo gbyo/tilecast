@@ -20,7 +20,7 @@ import type { PlaylistItem } from "../api/types";
 import type { OrganizationRegionalProfile } from "../settings/regionalProfile";
 import { V2ZonePreview } from "../components/layout-editor/V2ZonePreview";
 import { DeclarativePresentationPreview } from "./SourceEditors";
-import { studioWidgetComponent } from "./studioWidgets";
+import { studioPreviewComponent } from "./studioWidgets";
 
 /**
  * Intrinsic fullscreen proxy for playlist Widget items. The popup stage
@@ -62,7 +62,7 @@ export function PlaylistWidgetPreview({
   // real element; anything else keeps the legacy compiled preview.
   const v2 =
     savedWidget && definitionsQuery.data
-      ? studioWidgetComponent(definitionsQuery.data, savedWidget.provider)
+      ? studioPreviewComponent(definitionsQuery.data, savedWidget.provider)
       : undefined;
   const presentationQuery = useQuery({
     queryKey: [

@@ -28,7 +28,7 @@ type Service struct {
 	notifier              Notifier
 	scheduling            *scheduling.Service
 	sources               SourceProjector
-	definitions           *contentdefs.Catalog
+	definitions           contentdefs.Catalogs
 	plugins               PluginProjector
 	presentationOverrides PresentationOverrideProjector
 	span                  SpanProjector
@@ -36,6 +36,10 @@ type Service struct {
 	// Nil means this installation does not gate assignment at all. It runs inside
 	// the assignment transaction so the answer cannot go stale before the commit.
 	approvalGate func(ctx context.Context, tx pgx.Tx, contentType string, id uuid.UUID) error
+	// packagePayloads resolves external Widget player bundles. Nil fails
+	// closed: external Widgets compile no component, so capable Players
+	// fall back to the compatibility presentation.
+	packagePayloads PackagePayloads
 }
 
 type SourceProjector interface {
@@ -52,18 +56,31 @@ type SpanProjector interface {
 	PrepareVideo(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (span.VideoPanel, error)
 }
 
+// PackagePayloads answers the verified player bundle of one installed
+// package Widget. The contributions service implements it; playlists
+// holds it as an injected boundary so content compilation never imports
+// package installation details.
+type PackagePayloads interface {
+	WidgetPayload(packageID, nestedID string) (contentdefs.WidgetPayload, bool)
+}
+
 func NewService(db *pgxpool.Pool, notifier Notifier) *Service {
 	return &Service{db: db, notifier: notifier, definitions: contentdefs.MustLoad()}
 }
 
 func (s *Service) SetScheduling(service *scheduling.Service)          { s.scheduling = service }
 func (s *Service) SetSourceProjector(projector SourceProjector)       { s.sources = projector }
-func (s *Service) SetContentDefinitions(catalog *contentdefs.Catalog) { s.definitions = catalog }
+func (s *Service) SetContentDefinitions(catalog contentdefs.Catalogs) { s.definitions = catalog }
 func (s *Service) SetPluginProjector(projector PluginProjector)       { s.plugins = projector }
 func (s *Service) SetSpanProjector(projector SpanProjector)           { s.span = projector }
 func (s *Service) SetPresentationOverrides(projector PresentationOverrideProjector) {
 	s.presentationOverrides = projector
 }
+
+// SetPackagePayloads installs the installed-package bundle resolver used
+// when compiling external Widget components. Nil fails closed: external
+// Widgets compile no component.
+func (s *Service) SetPackagePayloads(payloads PackagePayloads) { s.packagePayloads = payloads }
 
 // SetApprovalGate installs the content review check used by every assignment
 // path. The gate takes the assignment's own transaction: it locks the content
@@ -2205,6 +2222,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	useV13 := false
 	usesComponents := false
 	usesComponentEmptyPolicy := false
+	usesExternalComponents := false
 	if playerCapabilities.Reported && canCompileV13 {
 		// Each Widget gets its first-class component when this Player renders
 		// that exact type and version, and its compatibility presentation
@@ -2215,6 +2233,9 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 					compiled[index] = component
 					usesComponents = true
 					usesComponentEmptyPolicy = true
+					if component.Component != nil && component.Component.Package != nil {
+						usesExternalComponents = true
+					}
 					continue
 				}
 			}
@@ -2284,7 +2305,15 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			manifest.Widgets[index].Configuration = nil
 		}
 	}
-	if usesComponentEmptyPolicy {
+	if usesExternalComponents {
+		// v18 adds the external package block to the v17 manifest
+		// contract. Only Players reporting widget.external-runtime can
+		// select these components, so only they receive v18.
+		manifest.SchemaVersion = ManifestSchemaExternalComponents
+		if manifestHasCrossfade(manifest) && playerCapabilities.PlayerVersion < crossfadePlayerVersionCode {
+			downgradeManifestCrossfades(&manifest)
+		}
+	} else if usesComponentEmptyPolicy {
 		// v17 adds the component empty policy to the v16 manifest contract.
 		manifest.SchemaVersion = ManifestSchemaComponentEmptyPolicy
 		if manifestHasCrossfade(manifest) && playerCapabilities.PlayerVersion < crossfadePlayerVersionCode {
@@ -2494,7 +2523,7 @@ func (s *Service) reconcilePresentationCatalog(ctx context.Context) error {
 		)
 		UPDATE screen_manifest_state
 		SET manifest_version=manifest_version+1,changed_at=now(),change_reason='presentation.catalog_changed'
-		WHERE EXISTS(SELECT 1 FROM changed)`, s.definitions.Fingerprint)
+		WHERE EXISTS(SELECT 1 FROM changed)`, s.definitions.CatalogFingerprint())
 	return err
 }
 

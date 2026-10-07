@@ -42,6 +42,15 @@
       "marketplace": "Marketplace",
       "custom": "Custom"
     },
+    "featured": {
+      "title": "Featured",
+      "label": "Featured plugins"
+    },
+    "allPlugins": "All plugins",
+    "card": {
+      "incompatible": "Incompatible",
+      "moreCategories": "+{{count}}"
+    },
     "notFoundTitle": "Plugin not found",
     "notFoundDescription": "This store entry is not available from these sources.",
     "backToExplore": "Back to Explore",
@@ -94,6 +103,13 @@
       "unsigned": "Unsigned — development installs only",
       "contributions": "Contributions",
       "noContributions": "None listed",
+      "runtime": "Server module",
+      "networkHosts": "Outbound HTTPS hosts",
+      "backgroundJobs": "Background jobs",
+      "jobSchedule": "{{id}} · every {{minutes}} min",
+      "storage": "Private storage",
+      "storageGranted": "Granted",
+      "studioInterface": "Studio interface",
       "installNote": "Installing binds this repository to the package, so update checks re-resolve it.",
       "catalogInstallNote": "The Marketplace listing stays the update plane, so update checks re-read it."
     }
@@ -103,7 +119,7 @@
     "reviewDescription": "Review {{name}} before installing it.",
     "installed": "Installed",
     "install": "Install",
-    "reviewInstall": "Review install",
+    "reviewInstall": "Review & install",
     "installNote": "An Owner or Administrator can install plugins.",
     "title": "Add a plugin",
     "description": "Optional features built into this Tilecast release. Installing one never downloads code.",
@@ -285,6 +301,174 @@
     "rollback": "Restore previous version",
     "remove": "Remove package",
     "removeConfirmTitle": "Remove this package?",
-    "removeConfirmBody": "This deletes the installation of {{packageId}} and its contributions. A custom repository binding survives for reinstall."
+    "removeConfirmBody": "This deletes the installation of {{packageId}} and its contributions. A custom repository binding survives for reinstall.",
+    "blockedResource": "{{count}} {{label}}",
+    "blockedInstruction": "Delete the remaining content, then try again.",
+    "addedContributions": "New in this version",
+    "removedContributions": "Removed in this version",
+    "removedWarning": "Updating deletes nothing: if anything still uses a removed contribution, the update waits until you delete it.",
+    "studioTitle": "Package interface",
+    "studioUnavailable": "The package interface could not be loaded.",
+    "jobsTitle": "Background jobs",
+    "jobsLoadError": "Background jobs could not be loaded.",
+    "jobEvery": "Every {{minutes}} min",
+    "jobNext": "Next run",
+    "jobNever": "Never run",
+    "jobOk": "Succeeded",
+    "jobFailed": "Failed",
+    "jobFailures": "{{count}} consecutive failures"
+  },
+  "storeDetail": {
+    "by": "by {{publisher}}",
+    "byLinked": "by <publisher>{{publisher}}</publisher>",
+    "publisherLinkLabel": "{{publisher}}, repository (opens in a new tab)",
+    "badgesLabel": "Plugin details",
+    "sourceBadge": {
+      "included": "Included",
+      "marketplace": "Marketplace",
+      "custom": "Custom"
+    },
+    "incompatible": {
+      "title": "Not compatible with this Tilecast version",
+      "body": "This plugin requires Tilecast {{range}}."
+    },
+    "about": {
+      "title": "About",
+      "cardTitle": "About this package",
+      "customTitle": "Custom package",
+      "customNotice": "Not reviewed or curated by the Marketplace.",
+      "noDownload": "No external package is downloaded. This plugin ships inside this Tilecast release.",
+      "source": "Source",
+      "marketplaceSource": "Official Tilecast Marketplace",
+      "customSource": "Custom GitHub repository",
+      "provenance": "Provenance",
+      "verified": "Verified release provenance",
+      "verifiedOnInstall": "Verified when you install",
+      "reportIssue": "Report an issue"
+    },
+    "adds": {
+      "title": "What this plugin adds",
+      "pending": "What it adds is listed in the install review, before anything is installed.",
+      "none": "This package adds nothing to Studio."
+    },
+    "kinds": {
+      "widget": "Widget",
+      "dataSource": "Data source",
+      "plugin": "Plugin"
+    },
+    "kindDescriptions": {
+      "widget": "Adds a widget you can place in layouts.",
+      "dataSource": "Supplies data to compatible widgets.",
+      "plugin": "Adds a plugin with its own pages in Studio.",
+      "other": "Adds content to Studio."
+    },
+    "permissions": {
+      "title": "Permissions & behavior",
+      "pending": "Requested permissions are listed in the install review, before anything is installed.",
+      "noneTitle": "No special permissions",
+      "noneBody": "This plugin doesn't request network access, local storage, background jobs, or a custom Studio interface."
+    },
+    "capabilities": {
+      "network": {
+        "title": "Network access",
+        "body": "Can connect to:"
+      },
+      "storage": {
+        "title": "Local storage",
+        "body": "Stores this plugin's own data on the Tilecast server."
+      },
+      "background": {
+        "title": "Background activity",
+        "body_one": "Runs {{count}} scheduled job.",
+        "body_other": "Runs {{count}} scheduled jobs."
+      },
+      "studioUI": {
+        "title": "Studio interface",
+        "body": "Adds its own configuration interface to Studio."
+      }
+    },
+    "requirements": {
+      "title": "Requirements"
+    },
+    "status": {
+      "title": "Package status",
+      "compatible": "Compatible with this server",
+      "incompatible": "Not compatible with this server",
+      "notCompatible": "Not compatible",
+      "upToDate": "Up to date · {{version}}",
+      "notInstalled": "Not installed",
+      "installedOn": "Installed {{date}}"
+    },
+    "update": {
+      "check": "Check for updates",
+      "review": "Review update",
+      "checkAgain": "Check again"
+    },
+    "technical": {
+      "title": "Technical details",
+      "packageId": "Package ID",
+      "registry": "Registry",
+      "signer": "Signer",
+      "releaseTag": "Release tag",
+      "runtime": "Runtime module",
+      "source": "Source",
+      "contributions": "Contributions",
+      "jobIds": "Background job IDs"
+    },
+    "screenshots": {
+      "title": "Screenshots",
+      "slide": "Screenshot {{current}} of {{total}}",
+      "open": "Enlarge screenshot: {{alt}}",
+      "unavailable": "Screenshot unavailable",
+      "lightboxTitle": "Screenshot {{current}} of {{total}}",
+      "previous": "Previous screenshot",
+      "next": "Next screenshot",
+      "position": "{{current}} of {{total}}"
+    },
+    "review": {
+      "installTitle": "Review {{name}}",
+      "installDescription": "Check what this plugin adds and what it can do before it is installed.",
+      "updateTitle": "Update {{name}}",
+      "updateDescription": "Review what changes in version {{version}} before it is applied.",
+      "confirmInstall": "Install plugin",
+      "verification": "Verification",
+      "contributionChanges": "Changes to what it adds",
+      "noContributionChanges": "No changes to what this package adds.",
+      "permissionChanges": "Changes to permissions",
+      "noPermissionChanges": "Permissions are unchanged.",
+      "permissionsAdded": "New permissions",
+      "permissionsChanged": "Changed permissions",
+      "permissionsRemoved": "Removed permissions",
+      "previously": "Previously: {{value}}",
+      "versionChange": "From {{from}} to {{to}}"
+    },
+    "settings": {
+      "title": "Plugin settings",
+      "description": "Configure this plugin without leaving Tilecast."
+    },
+    "jobs": {
+      "description": "Work this plugin runs on the Tilecast server on a schedule.",
+      "lastRun": "Last run {{when}} · {{status}}",
+      "lastFailed": "Last failed run {{when}}",
+      "successful": "Successful",
+      "nextRun": "Next run {{when}}"
+    },
+    "cadence": {
+      "minute": "Every minute",
+      "hour": "Every hour",
+      "day": "Every day",
+      "every": "Every {{interval}}"
+    },
+    "danger": {
+      "title": "Danger zone",
+      "removeTitle": "Remove this plugin",
+      "removeBody": "Removing deletes this package installation and what it added. Content still using it must be removed first."
+    },
+    "management": {
+      "title": "Package management",
+      "rollbackBody": "Go back to the version active before the last update.",
+      "confirmTitle": "Restore the previous version?",
+      "confirmBody": "{{name}} goes back to the version that was active before the last update. If content still uses something the newer version added, the restore waits until you delete that content."
+    }
   }
 }

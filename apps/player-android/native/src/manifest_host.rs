@@ -160,6 +160,8 @@ pub enum ManifestError {
     DeliveryPolicy,
     #[error("manifest schedule is invalid")]
     Schedule,
+    #[error("manifest contains an invalid Widget bundle claim")]
+    Bundle,
     #[error("manifest is incompatible with this renderer")]
     Incompatible(Incompatibility),
 }
@@ -175,6 +177,7 @@ impl ManifestError {
             Self::Reference => "manifest_reference_invalid",
             Self::DeliveryPolicy => "manifest_delivery_policy_invalid",
             Self::Schedule => "manifest_schedule_invalid",
+            Self::Bundle => "manifest_bundle_invalid",
             Self::Incompatible(reason) => reason.code(),
         }
     }
@@ -191,6 +194,7 @@ impl From<NativeManifestError> for ManifestError {
             NativeManifestError::Reference => Self::Reference,
             NativeManifestError::DeliveryPolicy => Self::DeliveryPolicy,
             NativeManifestError::Schedule => Self::Schedule,
+            NativeManifestError::Bundle => Self::Bundle,
         }
     }
 }

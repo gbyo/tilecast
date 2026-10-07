@@ -26,11 +26,13 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/discovery"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/contributions"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/github"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/registry"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 	"github.com/tilecast/tilecast/apps/server/internal/httpapi"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
@@ -90,11 +92,15 @@ func serve() {
 		fail("database connection failed", err)
 	}
 	defer db.Close()
-	contentDefinitions, err := contentdefs.Load()
+	releaseDefinitions, err := contentdefs.Load()
 	if err != nil {
 		fail("content definition validation failed", err)
 	}
-	if err = media.ValidateContentAdapters(contentDefinitions); err != nil {
+	// The effective catalog starts as the release catalog. Installed
+	// package contributions join it once the contributions service
+	// rebuilds from retained bytes below.
+	contentDefinitions := contentdefs.NewProvider(releaseDefinitions)
+	if err = media.ValidateContentAdapters(contentDefinitions.Snapshot()); err != nil {
 		fail("content adapter validation failed", err)
 	}
 
@@ -151,24 +157,11 @@ func serve() {
 	// Extension packages install through the installer and pipeline
 	// services. Release identities are reserved so a package can never
 	// shadow bundled behavior, and unsigned packages stay disabled on
-	// stable releases even when the development flag is set.
-	reservedIdentities := func(kind, id string) (string, bool) {
-		switch kind {
-		case "plugin":
-			if def, ok := plugins.Lookup(id); ok {
-				return "release plugin " + def.ID, true
-			}
-		case "widget":
-			if _, ok := contentDefinitions.Widget(id); ok {
-				return "release widget " + id, true
-			}
-		case "dataSource":
-			if _, ok := contentDefinitions.DataSource(id); ok {
-				return "release data source " + id, true
-			}
-		}
-		return "", false
-	}
+	// stable releases even when the development flag is set. Reservation
+	// checks the release catalog only: the effective catalog also holds
+	// installed packages' own contributions, which an update, rollback,
+	// or reinstall of the same package must not collide with.
+	reservedIdentities := releaseReservedIdentities(releaseDefinitions)
 	allowUnsigned := cfg.Packages.AllowUnsigned
 	if allowUnsigned && version.Channel == version.ChannelStable {
 		logger.Warn("unsigned extension packages are disabled on stable releases", "flag", "TILECAST_ALLOW_UNSIGNED_EXTENSIONS")
@@ -193,6 +186,29 @@ func serve() {
 		pipelineOptions = append(pipelineOptions, pipeline.WithAllowUnsigned())
 	}
 	pipelineService := pipeline.NewService(db, installService, cfg.Packages.Root, version.Display(), pipelineOptions...)
+	wasmStore := wasm.NewPostgresKV(db)
+	wasmService, err := wasm.NewService(ctx, installService, pipelineService.ContentDir, wasmStore, logger)
+	if err != nil {
+		fail("wasm execution host failed", err)
+	}
+	defer wasmService.Close(ctx) //nolint:errcheck
+	pipelineService.SetWASM(wasmService, wasmStore)
+	contributionService := contributions.NewService(db, installService, releaseDefinitions, contentDefinitions,
+		pipelineService.ContentDir, media.RegisteredDataSourceAdapter, media.ValidateContentAdapters,
+		contributions.WithLogger(logger),
+		contributions.WithLocalContentDir(pipelineService.LocalContentDir))
+	pipelineService.SetContributions(contributionService)
+	// Startup composes from retained bytes only. A package whose bytes are
+	// missing is skipped with a warning instead of pulling from the
+	// registry, so an unreachable network cannot block the server from
+	// starting. Later pipeline resyncs may still pull.
+	if err := contributionService.RebuildLocal(ctx); err != nil {
+		if contributions.SkipsOnly(err) {
+			logger.Warn("some package contributions did not join the catalog", "error", err)
+		} else {
+			fail("package contributions rebuild failed", err)
+		}
+	}
 	pluginService.SetCustomSource(func(ctx context.Context) ([]plugins.CustomSnapshot, error) {
 		sources, err := pipelineService.ListCustomSources(ctx)
 		if err != nil {
@@ -227,6 +243,7 @@ func serve() {
 	mediaService.SetPluginSourceGate(pluginService)
 	mediaService.SetContentDefinitions(contentDefinitions)
 	playlistService.SetContentDefinitions(contentDefinitions)
+	playlistService.SetPackagePayloads(contributionService)
 	pluginService.SetContentDefinitions(contentDefinitions)
 	managedPresentationService.SetContentDefinitions(contentDefinitions)
 	layoutService := layouts.NewService(db)
@@ -397,6 +414,7 @@ func serve() {
 		Marketplace:          marketplaceCatalog,
 		Installer:            installService,
 		Packages:             pipelineService,
+		WASM:                 wasmService,
 		Layouts:              layoutService,
 		Scheduling:           schedulingService,
 		Settings:             settingsService,
@@ -440,6 +458,9 @@ func serve() {
 
 	shutdownCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// External package background jobs run on their declared intervals;
+	// the first overdue pass runs at startup so a restart loses no jobs.
+	go wasm.NewScheduler(db, wasmService.InvokeJob, time.Minute, logger).Run(shutdownCtx)
 	// Refresh the marketplace in the background at startup so a fresh
 	// boot picks up the current catalog without delaying traffic. The
 	// bundled snapshot serves until the refresh lands.
@@ -543,4 +564,28 @@ func newLogger(level string) *slog.Logger {
 func fail(message string, err error) {
 	slog.Error(message, "error", err)
 	os.Exit(1)
+}
+
+// releaseReservedIdentities reports identities a package may never claim.
+// It reads the release catalog only: the effective catalog also holds the
+// installed packages' own contributions, so checking it would reject an
+// update, rollback, or reinstall of a package against itself.
+func releaseReservedIdentities(release *contentdefs.Catalog) func(kind, id string) (string, bool) {
+	return func(kind, id string) (string, bool) {
+		switch kind {
+		case "plugin":
+			if def, ok := plugins.Lookup(id); ok {
+				return "release plugin " + def.ID, true
+			}
+		case "widget":
+			if _, ok := release.Widget(id); ok {
+				return "release widget " + id, true
+			}
+		case "dataSource":
+			if _, ok := release.DataSource(id); ok {
+				return "release data source " + id, true
+			}
+		}
+		return "", false
+	}
 }

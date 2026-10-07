@@ -4403,6 +4403,53 @@ paths:
           {
             description: plugin_not_found — no store entry carries this package ID,
           }
+  /api/v1/plugin-store/{packageId}/artwork/icon:
+    get:
+      operationId: getMarketplaceIcon
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+      responses:
+        "200":
+          description: Icon image
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "304": { description: The cached image is unchanged }
+        "401": { description: Dashboard authentication required }
+        "404":
+          {
+            description: artwork_unavailable — the listing has no such artwork or the server could not fetch it,
+          }
+  /api/v1/plugin-store/{packageId}/artwork/screenshots/{index}:
+    get:
+      operationId: getMarketplaceScreenshot
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: One screenshot of a marketplace listing, served under the same rules as the listing icon.
+      parameters:
+        - { $ref: "#/components/parameters/PackageID" }
+        - name: index
+          in: path
+          required: true
+          description: Zero-based screenshot position.
+          schema: { type: integer, minimum: 0, maximum: 4 }
+      responses:
+        "200":
+          description: Screenshot image
+          content:
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/gif: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "304": { description: The cached image is unchanged }
+        "401": { description: Dashboard authentication required }
+        "404":
+          {
+            description: artwork_unavailable — the listing has no such artwork or the server could not fetch it,
+          }
   /api/v1/plugin-store/marketplace/refresh:
     post:
       operationId: refreshMarketplaceCatalog
@@ -4588,6 +4635,120 @@ paths:
         "401": { description: Dashboard authentication required }
         "403": { description: Owner or Administrator role required }
         "404": { description: package_not_installed }
+        "409":
+          description: package_in_use — contributed content still exists; remaining resources are listed in error.details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PackageInUseError" }
+  /api/v1/packages/{packageId}/widgets/{widgetId}/frame:
+    parameters:
+      - { $ref: "#/components/parameters/PackageID" }
+      - {
+          in: path,
+          name: widgetId,
+          required: true,
+          schema: { type: string, maxLength: 80 },
+        }
+    get:
+      operationId: previewPackageWidgetFrame
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404.
+      responses:
+        "200":
+          description: Sandboxed Widget frame document
+          content:
+            text/html:
+              schema: { type: string }
+        "401": { description: Dashboard authentication required }
+        "404": { description: package_widget_unavailable }
+  /api/v1/packages/{packageId}/studio/frame:
+    parameters:
+      - { $ref: "#/components/parameters/PackageID" }
+    get:
+      operationId: packageStudioFrame
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404.
+      responses:
+        "200":
+          description: Sandboxed Studio UI frame document
+          content:
+            text/html:
+              schema: { type: string }
+        "401": { description: Dashboard authentication required }
+        "404": { description: package_studio_unavailable }
+  /api/v1/packages/{packageId}/studio/bridge:
+    parameters:
+      - { $ref: "#/components/parameters/PackageID" }
+    post:
+      operationId: packageStudioBridge
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [input]
+              properties:
+                input:
+                  {
+                    type: string,
+                    format: byte,
+                    description: "Base64 call payload, at most 16 KiB decoded.",
+                  }
+      responses:
+        "200":
+          description: Guest answer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [status, output]
+                    properties:
+                      status:
+                        {
+                          type: integer,
+                          description: "Guest status code; negative values are guest errors.",
+                        }
+                      output:
+                        {
+                          type: string,
+                          format: byte,
+                          description: "Base64 guest output, at most 16 KiB.",
+                        }
+        "400": { description: invalid_bridge_input }
+        "401": { description: Dashboard authentication required }
+        "404": { description: package_studio_unavailable }
+  /api/v1/packages/{packageId}/jobs:
+    parameters:
+      - { $ref: "#/components/parameters/PackageID" }
+    get:
+      operationId: packageJobs
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404.
+      responses:
+        "200":
+          description: Package background jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/PackageJob" }
+        "401": { description: Dashboard authentication required }
+        "404": { description: package_not_installed }
   /api/v1/packages/{packageId}/update-check:
     post:
       operationId: checkPackageUpdate
@@ -4656,7 +4817,11 @@ paths:
         "403": { description: Owner or Administrator role required }
         "404": { description: package_not_installed }
         "409":
-          description: update_check_expired, package_mismatch, contribution_collision, or source_conflict
+          description: update_check_expired, package_mismatch, contribution_collision, source_conflict, or package_in_use — the update drops a contribution persisted content still uses; remaining resources are listed in error.details
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/PackageUpdateConflictError" }
         "422":
           description: repository_private, no_published_release, manifest_not_found, manifest_invalid, release_tag_unusable, no_published_package, package_unsigned, artifact_invalid, package_incompatible, or namespace_violation
         "502":
@@ -4684,7 +4849,11 @@ paths:
         "403": { description: Owner or Administrator role required }
         "404": { description: package_not_installed }
         "409":
-          description: no_rollback — the package has no previous activation
+          description: no_rollback — the package has no previous activation — or package_in_use — the rollback drops a contribution persisted content still uses; remaining resources are listed in error.details
+          content:
+            application/json:
+              schema:
+                { $ref: "#/components/schemas/PackageRollbackConflictError" }
   /api/v1/screens/pairing/{id}/reject:
     post:
       operationId: rejectPairing
@@ -5127,6 +5296,62 @@ paths:
             {
               description: "ETag, Content-Length, MIME type, and Accept-Ranges",
             },
+        }
+  /api/v1/player/packages/{packageId}/widgets/{widgetId}:
+    parameters:
+      - {
+          in: path,
+          name: packageId,
+          required: true,
+          schema: { type: string, maxLength: 128 },
+        }
+      - {
+          in: path,
+          name: widgetId,
+          required: true,
+          schema: { type: string, maxLength: 80 },
+        }
+    get:
+      operationId: downloadPackageWidgetBundle
+      description: >-
+        Download a package Widget player bundle. Requires an authenticated player credential.
+      security: [{ deviceBearer: [] }]
+      parameters:
+        - {
+            in: header,
+            name: Range,
+            schema: { type: string, example: bytes=0-1048575 },
+          }
+        - { in: header, name: If-Range, schema: { type: string } }
+        - { in: header, name: If-None-Match, schema: { type: string } }
+      responses:
+        "200":
+          description: Complete Widget player bundle
+          content:
+            text/javascript:
+              schema: { type: string, format: binary }
+        "206":
+          description: Requested byte range
+          content:
+            text/javascript:
+              schema: { type: string, format: binary }
+        "304": { description: ETag matched }
+        "401": { description: Device credential invalid or revoked }
+        "403": { description: Screen disabled }
+        "404": { description: Package or bundle unavailable }
+        "416": { description: Range not satisfiable }
+    head:
+      operationId: inspectPackageWidgetBundle
+      description: >-
+        Inspect a package Widget player bundle. Requires an authenticated player credential.
+      security: [{ deviceBearer: [] }]
+      responses:
+        {
+          "200":
+            {
+              description: "ETag, Content-Length, MIME type, and Accept-Ranges",
+            },
+          "404": { description: Package or bundle unavailable },
         }
   /api/v1/playlists:
     get:
@@ -11795,6 +12020,12 @@ components:
         version: { type: string }
         name: { type: string }
         description: { type: string }
+        longDescription:
+          {
+            type: string,
+            maxLength: 2000,
+            description: "Optional plain text for the listing page. Presentation only: it never affects identity, digest, trust, or install. Studio falls back to description when absent.",
+          }
         publisherId: { type: string }
         publisherName: { type: string }
         license: { type: string }
@@ -11814,10 +12045,36 @@ components:
         issues: { type: string, format: uri }
         categories: { type: array, items: { type: string } }
         featured: { type: boolean }
+        artwork: { $ref: "#/components/schemas/PluginStoreArtwork" }
         compatible: { type: boolean }
         installed: { type: boolean }
         installedVersion: { type: string }
         updateAvailable: { type: boolean }
+    PluginStoreArtwork:
+      type: object
+      description: Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
+      properties:
+        iconUrl:
+          {
+            type: string,
+            description: "Server path that serves the listing icon. Absent when the listing declares no icon.",
+          }
+        screenshots:
+          type: array
+          items:
+            type: object
+            required: [url, alt]
+            properties:
+              url:
+                {
+                  type: string,
+                  description: "Server path that serves the screenshot.",
+                }
+              alt:
+                {
+                  type: string,
+                  description: "Text that describes the screenshot.",
+                }
     PluginMarketplaceStatus:
       type: object
       required: [stale]
@@ -11932,7 +12189,39 @@ components:
         contributions:
           type: array
           items: { $ref: "#/components/schemas/PackageContribution" }
+        runtime:
+          type: object
+          required: [module]
+          description: External server behavior module (manifest version 2 only).
+          properties:
+            module:
+              {
+                type: string,
+                description: "Package-relative WebAssembly module path.",
+              }
+        capabilities:
+          $ref: "#/components/schemas/PackageCapabilities"
         source: { $ref: "#/components/schemas/PackageSourceBinding" }
+    PackageJob:
+      type: object
+      required:
+        [
+          jobId,
+          intervalMinutes,
+          nextRunAt,
+          lastStatus,
+          lastError,
+          consecutiveFailures,
+        ]
+      description: One declared package background job with the scheduler cursor.
+      properties:
+        jobId: { type: string }
+        intervalMinutes: { type: integer }
+        nextRunAt: { type: string, format: date-time }
+        lastRunAt: { type: string, format: date-time }
+        lastStatus: { type: string, x-extensible-enum: [never, ok, error] }
+        lastError: { type: string }
+        consecutiveFailures: { type: integer }
     GitHubInstallReview:
       type: object
       required:
@@ -11965,6 +12254,21 @@ components:
             properties:
               type: { type: string }
               path: { type: string }
+              id:
+                type: string
+                description: Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest.
+        runtime:
+          type: object
+          required: [module]
+          description: External server behavior module (manifest version 2 only).
+          properties:
+            module:
+              {
+                type: string,
+                description: "Package-relative WebAssembly module path.",
+              }
+        capabilities:
+          $ref: "#/components/schemas/PackageCapabilities"
         digest:
           {
             type: string,
@@ -11992,6 +12296,42 @@ components:
         upToDate: { type: boolean }
         lastChecked: { type: string, format: date-time }
         latest: { $ref: "#/components/schemas/GitHubInstallReview" }
+    PackageCapabilities:
+      type: object
+      description: Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself.
+      properties:
+        network:
+          type: object
+          required: [hosts]
+          description: Approved outbound HTTPS origins.
+          properties:
+            hosts:
+              type: array
+              items: { type: string }
+        background:
+          type: object
+          required: [jobs]
+          description: Package-owned background jobs the host runs.
+          properties:
+            jobs:
+              type: array
+              items:
+                type: object
+                required: [id, intervalMinutes]
+                properties:
+                  id: { type: string }
+                  intervalMinutes: { type: integer }
+        storage:
+          {
+            type: boolean,
+            description: "Request plugin-owned key/value storage.",
+          }
+        studioUI:
+          type: object
+          required: [entry]
+          description: Sandboxed Studio UI entry.
+          properties:
+            entry: { type: string }
     PluginInUseError:
       type: object
       required: [error]
@@ -12016,6 +12356,67 @@ components:
                       kind: { type: string }
                       count: { type: integer, minimum: 1 }
                       label: { type: string }
+    PackageInUseDetails:
+      type: object
+      required: [packageId, resources]
+      description: The package and the contributed content that blocks the operation.
+      properties:
+        packageId: { type: string }
+        resources:
+          type: array
+          items:
+            type: object
+            required: [kind, count, label, resolution]
+            properties:
+              kind: { type: string }
+              count: { type: integer, minimum: 1 }
+              label: { type: string }
+              resolution: { type: string }
+    PackageInUseError:
+      type: object
+      required: [error]
+      description: A removal, update, or rollback blocked by contributed content the operation would strand. The operation deletes installation state only, never content, so the operator deletes the listed content first.
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code: { type: string, const: package_in_use }
+            message: { type: string }
+            details: { $ref: "#/components/schemas/PackageInUseDetails" }
+    PackageUpdateConflictError:
+      type: object
+      required: [error]
+      description: A 409 from applying a package update. Only package_in_use carries details, listing the content the update would strand.
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                [
+                  update_check_expired,
+                  package_mismatch,
+                  contribution_collision,
+                  source_conflict,
+                  package_in_use,
+                ]
+            message: { type: string }
+            details: { $ref: "#/components/schemas/PackageInUseDetails" }
+    PackageRollbackConflictError:
+      type: object
+      required: [error]
+      description: A 409 from restoring the previous package activation. Only package_in_use carries details, listing the content the rollback would strand.
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, enum: [no_rollback, package_in_use] }
+            message: { type: string }
+            details: { $ref: "#/components/schemas/PackageInUseDetails" }
     PresentationNetworkSecurity:
       type: string
       enum: [wpa_psk, wpa_eap_peap_mschapv2]

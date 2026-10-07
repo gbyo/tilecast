@@ -2268,6 +2268,66 @@ func (e OAuthTokensTokenType) Valid() bool {
 	}
 }
 
+// Defines values for PackageInUseErrorErrorCode.
+const (
+	PackageInUseErrorErrorCodePackageInUse PackageInUseErrorErrorCode = "package_in_use"
+)
+
+// Valid indicates whether the value is a known member of the PackageInUseErrorErrorCode enum.
+func (e PackageInUseErrorErrorCode) Valid() bool {
+	switch e {
+	case PackageInUseErrorErrorCodePackageInUse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PackageRollbackConflictErrorErrorCode.
+const (
+	PackageRollbackConflictErrorErrorCodeNoRollback   PackageRollbackConflictErrorErrorCode = "no_rollback"
+	PackageRollbackConflictErrorErrorCodePackageInUse PackageRollbackConflictErrorErrorCode = "package_in_use"
+)
+
+// Valid indicates whether the value is a known member of the PackageRollbackConflictErrorErrorCode enum.
+func (e PackageRollbackConflictErrorErrorCode) Valid() bool {
+	switch e {
+	case PackageRollbackConflictErrorErrorCodeNoRollback:
+		return true
+	case PackageRollbackConflictErrorErrorCodePackageInUse:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PackageUpdateConflictErrorErrorCode.
+const (
+	PackageUpdateConflictErrorErrorCodeContributionCollision PackageUpdateConflictErrorErrorCode = "contribution_collision"
+	PackageUpdateConflictErrorErrorCodePackageInUse          PackageUpdateConflictErrorErrorCode = "package_in_use"
+	PackageUpdateConflictErrorErrorCodePackageMismatch       PackageUpdateConflictErrorErrorCode = "package_mismatch"
+	PackageUpdateConflictErrorErrorCodeSourceConflict        PackageUpdateConflictErrorErrorCode = "source_conflict"
+	PackageUpdateConflictErrorErrorCodeUpdateCheckExpired    PackageUpdateConflictErrorErrorCode = "update_check_expired"
+)
+
+// Valid indicates whether the value is a known member of the PackageUpdateConflictErrorErrorCode enum.
+func (e PackageUpdateConflictErrorErrorCode) Valid() bool {
+	switch e {
+	case PackageUpdateConflictErrorErrorCodeContributionCollision:
+		return true
+	case PackageUpdateConflictErrorErrorCodePackageInUse:
+		return true
+	case PackageUpdateConflictErrorErrorCodePackageMismatch:
+		return true
+	case PackageUpdateConflictErrorErrorCodeSourceConflict:
+		return true
+	case PackageUpdateConflictErrorErrorCodeUpdateCheckExpired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PairingRequestPairingMode.
 const (
 	CredentialRepair    PairingRequestPairingMode = "credential_repair"
@@ -7875,10 +7935,14 @@ type GitHubDeviceStart struct {
 
 // GitHubInstallReview The install review for a resolved repository: identity, version, provenance, and installed state. Resolving persists nothing.
 type GitHubInstallReview struct {
-	Compatible    bool `json:"compatible"`
+	// Capabilities Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself.
+	Capabilities  *PackageCapabilities `json:"capabilities,omitempty"`
+	Compatible    bool                 `json:"compatible"`
 	Contributions []struct {
-		Path string `json:"path"`
-		Type string `json:"type"`
+		// Id Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest.
+		Id   *string `json:"id,omitempty"`
+		Path string  `json:"path"`
+		Type string  `json:"type"`
 	} `json:"contributions"`
 
 	// Digest Pinned artifact digest as sha256 colon hex.
@@ -7896,9 +7960,15 @@ type GitHubInstallReview struct {
 	ReleaseTag    string                 `json:"releaseTag"`
 	Repo          string                 `json:"repo"`
 	RepositoryUrl string                 `json:"repositoryUrl"`
-	Signer        *string                `json:"signer,omitempty"`
-	Trust         string                 `json:"trust"`
-	Version       string                 `json:"version"`
+
+	// Runtime External server behavior module (manifest version 2 only).
+	Runtime *struct {
+		// Module Package-relative WebAssembly module path.
+		Module string `json:"module"`
+	} `json:"runtime,omitempty"`
+	Signer  *string `json:"signer,omitempty"`
+	Trust   string  `json:"trust"`
+	Version string  `json:"version"`
 }
 
 // HeartbeatAccepted defines model for HeartbeatAccepted.
@@ -8110,7 +8180,10 @@ type InstallationIdentity struct {
 
 // InstalledPackage One installed extension package with its contributions and, for custom packages, the repository binding.
 type InstalledPackage struct {
-	ActivatedAt   time.Time             `json:"activatedAt"`
+	ActivatedAt time.Time `json:"activatedAt"`
+
+	// Capabilities Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself.
+	Capabilities  *PackageCapabilities  `json:"capabilities,omitempty"`
 	Contributions []PackageContribution `json:"contributions"`
 
 	// Digest Pinned artifact digest as sha256 colon hex.
@@ -8123,7 +8196,13 @@ type InstalledPackage struct {
 	Manifest          PackageManifestSummary `json:"manifest"`
 	PackageId         string                 `json:"packageId"`
 	RegistryReference string                 `json:"registryReference"`
-	SignerIdentity    *string                `json:"signerIdentity,omitempty"`
+
+	// Runtime External server behavior module (manifest version 2 only).
+	Runtime *struct {
+		// Module Package-relative WebAssembly module path.
+		Module string `json:"module"`
+	} `json:"runtime,omitempty"`
+	SignerIdentity *string `json:"signerIdentity,omitempty"`
 
 	// Source The custom repository binding behind an installed custom package.
 	Source          *PackageSourceBinding `json:"source,omitempty"`
@@ -8717,11 +8796,71 @@ type OAuthTokens struct {
 // OAuthTokensTokenType defines model for OAuthTokens.TokenType.
 type OAuthTokensTokenType string
 
+// PackageCapabilities Bounded capabilities the package requests. Every entry is a request the host reviews before installation; nothing here grants itself.
+type PackageCapabilities struct {
+	// Background Package-owned background jobs the host runs.
+	Background *struct {
+		Jobs []struct {
+			Id              string `json:"id"`
+			IntervalMinutes int    `json:"intervalMinutes"`
+		} `json:"jobs"`
+	} `json:"background,omitempty"`
+
+	// Network Approved outbound HTTPS origins.
+	Network *struct {
+		Hosts []string `json:"hosts"`
+	} `json:"network,omitempty"`
+
+	// Storage Request plugin-owned key/value storage.
+	Storage *bool `json:"storage,omitempty"`
+
+	// StudioUI Sandboxed Studio UI entry.
+	StudioUI *struct {
+		Entry string `json:"entry"`
+	} `json:"studioUI,omitempty"`
+}
+
 // PackageContribution One activated contribution: its kind, its package-qualified identity, and its path inside the package.
 type PackageContribution struct {
 	Id   string `json:"id"`
 	Kind string `json:"kind"`
 	Path string `json:"path"`
+}
+
+// PackageInUseDetails The package and the contributed content that blocks the operation.
+type PackageInUseDetails struct {
+	PackageId string `json:"packageId"`
+	Resources []struct {
+		Count      int    `json:"count"`
+		Kind       string `json:"kind"`
+		Label      string `json:"label"`
+		Resolution string `json:"resolution"`
+	} `json:"resources"`
+}
+
+// PackageInUseError A removal, update, or rollback blocked by contributed content the operation would strand. The operation deletes installation state only, never content, so the operator deletes the listed content first.
+type PackageInUseError struct {
+	Error struct {
+		Code PackageInUseErrorErrorCode `json:"code"`
+
+		// Details The package and the contributed content that blocks the operation.
+		Details PackageInUseDetails `json:"details"`
+		Message string              `json:"message"`
+	} `json:"error"`
+}
+
+// PackageInUseErrorErrorCode defines model for PackageInUseError.Error.Code.
+type PackageInUseErrorErrorCode string
+
+// PackageJob One declared package background job with the scheduler cursor.
+type PackageJob struct {
+	ConsecutiveFailures int        `json:"consecutiveFailures"`
+	IntervalMinutes     int        `json:"intervalMinutes"`
+	JobId               string     `json:"jobId"`
+	LastError           string     `json:"lastError"`
+	LastRunAt           *time.Time `json:"lastRunAt,omitempty"`
+	LastStatus          string     `json:"lastStatus"`
+	NextRunAt           time.Time  `json:"nextRunAt"`
 }
 
 // PackageManifestSummary The human-readable face of an installed or resolved package manifest.
@@ -8733,6 +8872,20 @@ type PackageManifestSummary struct {
 	PublisherName string `json:"publisherName"`
 	TilecastRange string `json:"tilecastRange"`
 }
+
+// PackageRollbackConflictError A 409 from restoring the previous package activation. Only package_in_use carries details, listing the content the rollback would strand.
+type PackageRollbackConflictError struct {
+	Error struct {
+		Code PackageRollbackConflictErrorErrorCode `json:"code"`
+
+		// Details The package and the contributed content that blocks the operation.
+		Details *PackageInUseDetails `json:"details,omitempty"`
+		Message string               `json:"message"`
+	} `json:"error"`
+}
+
+// PackageRollbackConflictErrorErrorCode defines model for PackageRollbackConflictError.Error.Code.
+type PackageRollbackConflictErrorErrorCode string
 
 // PackageSourceBinding The custom repository binding behind an installed custom package.
 type PackageSourceBinding struct {
@@ -8758,6 +8911,20 @@ type PackageUpdateCheck struct {
 	Latest   *GitHubInstallReview `json:"latest,omitempty"`
 	UpToDate bool                 `json:"upToDate"`
 }
+
+// PackageUpdateConflictError A 409 from applying a package update. Only package_in_use carries details, listing the content the update would strand.
+type PackageUpdateConflictError struct {
+	Error struct {
+		Code PackageUpdateConflictErrorErrorCode `json:"code"`
+
+		// Details The package and the contributed content that blocks the operation.
+		Details *PackageInUseDetails `json:"details,omitempty"`
+		Message string               `json:"message"`
+	} `json:"error"`
+}
+
+// PackageUpdateConflictErrorErrorCode defines model for PackageUpdateConflictError.Error.Code.
+type PackageUpdateConflictErrorErrorCode string
 
 // PairingRequest defines model for PairingRequest.
 type PairingRequest struct {
@@ -9727,6 +9894,19 @@ type PluginStore struct {
 	} `json:"unsupportedInstallations"`
 }
 
+// PluginStoreArtwork Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
+type PluginStoreArtwork struct {
+	// IconUrl Server path that serves the listing icon. Absent when the listing declares no icon.
+	IconUrl     *string `json:"iconUrl,omitempty"`
+	Screenshots *[]struct {
+		// Alt Text that describes the screenshot.
+		Alt string `json:"alt"`
+
+		// Url Server path that serves the screenshot.
+		Url string `json:"url"`
+	} `json:"screenshots,omitempty"`
+}
+
 // PluginStoreCustom One custom-repository package joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry. Carries no update flag: freshness needs a live re-resolution through an update check.
 type PluginStoreCustom struct {
 	Compatible  bool    `json:"compatible"`
@@ -9760,9 +9940,11 @@ type PluginStoreEntry struct {
 
 // PluginStoreMarketplace One marketplace listing joined with this installation's state. Exactly one of plugin, marketplace, and custom is present on a store entry.
 type PluginStoreMarketplace struct {
-	Categories  *[]string `json:"categories,omitempty"`
-	Compatible  bool      `json:"compatible"`
-	Description *string   `json:"description,omitempty"`
+	// Artwork Presentation artwork a marketplace listing declares, as Tilecast Server paths. The catalog's own image addresses never reach Studio. Artwork never affects package identity, trust, or install.
+	Artwork     *PluginStoreArtwork `json:"artwork,omitempty"`
+	Categories  *[]string           `json:"categories,omitempty"`
+	Compatible  bool                `json:"compatible"`
+	Description *string             `json:"description,omitempty"`
 
 	// Digest Pinned artifact digest as sha256 colon hex.
 	Digest           string  `json:"digest"`
@@ -9772,9 +9954,12 @@ type PluginStoreMarketplace struct {
 	InstalledVersion *string `json:"installedVersion,omitempty"`
 	Issues           *string `json:"issues,omitempty"`
 	License          *string `json:"license,omitempty"`
-	Name             string  `json:"name"`
-	PublisherId      string  `json:"publisherId"`
-	PublisherName    string  `json:"publisherName"`
+
+	// LongDescription Optional plain text for the listing page. Presentation only: it never affects identity, digest, trust, or install. Studio falls back to description when absent.
+	LongDescription *string `json:"longDescription,omitempty"`
+	Name            string  `json:"name"`
+	PublisherId     string  `json:"publisherId"`
+	PublisherName   string  `json:"publisherName"`
 
 	// Repository Public source repository as a github.com https URL with an owner and name.
 	Repository      string `json:"repository"`
@@ -12745,6 +12930,12 @@ type RollbackPackageParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// PackageStudioBridgeJSONBody defines parameters for PackageStudioBridge.
+type PackageStudioBridgeJSONBody struct {
+	// Input Base64 call payload, at most 16 KiB decoded.
+	Input []byte `json:"input"`
+}
+
 // ApplyPackageUpdateJSONBody defines parameters for ApplyPackageUpdate.
 type ApplyPackageUpdateJSONBody struct {
 	// Digest Pinned artifact digest as sha256 colon hex.
@@ -12817,6 +13008,13 @@ type PlayerLivenessJSONBody = map[string]interface{}
 
 // GetPlayerManifestParams defines parameters for GetPlayerManifest.
 type GetPlayerManifestParams struct {
+	IfNoneMatch *string `json:"If-None-Match,omitempty"`
+}
+
+// DownloadPackageWidgetBundleParams defines parameters for DownloadPackageWidgetBundle.
+type DownloadPackageWidgetBundleParams struct {
+	Range       *string `json:"Range,omitempty"`
+	IfRange     *string `json:"If-Range,omitempty"`
 	IfNoneMatch *string `json:"If-None-Match,omitempty"`
 }
 
@@ -13731,6 +13929,9 @@ type RevokeOAuthCredentialJSONRequestBody RevokeOAuthCredentialJSONBody
 
 // IssueOAuthTokensJSONRequestBody defines body for IssueOAuthTokens for application/json ContentType.
 type IssueOAuthTokensJSONRequestBody = OAuthTokenRequest
+
+// PackageStudioBridgeJSONRequestBody defines body for PackageStudioBridge for application/json ContentType.
+type PackageStudioBridgeJSONRequestBody PackageStudioBridgeJSONBody
 
 // ApplyPackageUpdateJSONRequestBody defines body for ApplyPackageUpdate for application/json ContentType.
 type ApplyPackageUpdateJSONRequestBody ApplyPackageUpdateJSONBody
@@ -16277,10 +16478,32 @@ type ClientInterface interface {
 	// One installed extension package. Readable by any signed-in account. Unknown package IDs answer package_not_installed.
 	GetPackage(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PackageJobs performs a GET /api/v1/packages/{packageId}/jobs (the `PackageJobs` operationId) request.
+	//
+	// Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404.
+	PackageJobs(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// RollbackPackage performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
 	//
 	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
 	RollbackPackage(ctx context.Context, packageId PackageID, params *RollbackPackageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PackageStudioBridgeWithBody performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+	PackageStudioBridgeWithBody(ctx context.Context, packageId PackageID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PackageStudioBridge performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+	PackageStudioBridge(ctx context.Context, packageId PackageID, body PackageStudioBridgeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PackageStudioFrame performs a GET /api/v1/packages/{packageId}/studio/frame (the `PackageStudioFrame` operationId) request.
+	//
+	// Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404.
+	PackageStudioFrame(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ApplyPackageUpdateWithBody performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request,
 	// with any type of body and a specified content type.
@@ -16298,6 +16521,11 @@ type ClientInterface interface {
 	//
 	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves the latest artifact for an installed package without activating anything. A custom package re-resolves its repository; a marketplace package refreshes the catalog first.
 	CheckPackageUpdate(ctx context.Context, packageId PackageID, params *CheckPackageUpdateParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewPackageWidgetFrame performs a GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame (the `PreviewPackageWidgetFrame` operationId) request.
+	//
+	// Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404.
+	PreviewPackageWidgetFrame(ctx context.Context, packageId PackageID, widgetId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPlayerReleases List fixed-repository Tilecast Player releases and verification state
 	//
@@ -16546,6 +16774,16 @@ type ClientInterface interface {
 	//
 	// Get player manifest. Requires an authenticated player credential.
 	GetPlayerManifest(ctx context.Context, params *GetPlayerManifestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadPackageWidgetBundle performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `DownloadPackageWidgetBundle` operationId) request.
+	//
+	// Download a package Widget player bundle. Requires an authenticated player credential.
+	DownloadPackageWidgetBundle(ctx context.Context, packageId string, widgetId string, params *DownloadPackageWidgetBundleParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InspectPackageWidgetBundle performs a HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `InspectPackageWidgetBundle` operationId) request.
+	//
+	// Inspect a package Widget player bundle. Requires an authenticated player credential.
+	InspectPackageWidgetBundle(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreatePairingSessionWithBody performs a POST /api/v1/player/pairing-sessions (the `CreatePairingSession` operationId) request,
 	// with any type of body and a specified content type.
@@ -16817,6 +17055,16 @@ type ClientInterface interface {
 	//
 	// One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
 	GetPluginStoreEntry(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMarketplaceIcon performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
+	//
+	// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+	GetMarketplaceIcon(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetMarketplaceScreenshot performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
+	//
+	// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+	GetMarketplaceScreenshot(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InstallStorePackageWithBody performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
 	// with any type of body and a specified content type.
@@ -22064,11 +22312,73 @@ func (c *Client) GetPackage(ctx context.Context, packageId PackageID, reqEditors
 	return c.Client.Do(req)
 }
 
+// PackageJobs performs a GET /api/v1/packages/{packageId}/jobs (the `PackageJobs` operationId) request.
+//
+// Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404.
+func (c *Client) PackageJobs(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPackageJobsRequest(c.Server, packageId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // RollbackPackage performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
 //
 // Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
 func (c *Client) RollbackPackage(ctx context.Context, packageId PackageID, params *RollbackPackageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRollbackPackageRequest(c.Server, packageId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PackageStudioBridgeWithBody performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request,
+// with any type of body and a specified content type.
+//
+// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+func (c *Client) PackageStudioBridgeWithBody(ctx context.Context, packageId PackageID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPackageStudioBridgeRequestWithBody(c.Server, packageId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PackageStudioBridge performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+func (c *Client) PackageStudioBridge(ctx context.Context, packageId PackageID, body PackageStudioBridgeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPackageStudioBridgeRequest(c.Server, packageId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PackageStudioFrame performs a GET /api/v1/packages/{packageId}/studio/frame (the `PackageStudioFrame` operationId) request.
+//
+// Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404.
+func (c *Client) PackageStudioFrame(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPackageStudioFrameRequest(c.Server, packageId)
 	if err != nil {
 		return nil, err
 	}
@@ -22116,6 +22426,21 @@ func (c *Client) ApplyPackageUpdate(ctx context.Context, packageId PackageID, pa
 // Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Resolves the latest artifact for an installed package without activating anything. A custom package re-resolves its repository; a marketplace package refreshes the catalog first.
 func (c *Client) CheckPackageUpdate(ctx context.Context, packageId PackageID, params *CheckPackageUpdateParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCheckPackageUpdateRequest(c.Server, packageId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewPackageWidgetFrame performs a GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame (the `PreviewPackageWidgetFrame` operationId) request.
+//
+// Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404.
+func (c *Client) PreviewPackageWidgetFrame(ctx context.Context, packageId PackageID, widgetId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewPackageWidgetFrameRequest(c.Server, packageId, widgetId)
 	if err != nil {
 		return nil, err
 	}
@@ -22744,6 +23069,36 @@ func (c *Client) PlayerLiveness(ctx context.Context, body PlayerLivenessJSONRequ
 // Get player manifest. Requires an authenticated player credential.
 func (c *Client) GetPlayerManifest(ctx context.Context, params *GetPlayerManifestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPlayerManifestRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadPackageWidgetBundle performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `DownloadPackageWidgetBundle` operationId) request.
+//
+// Download a package Widget player bundle. Requires an authenticated player credential.
+func (c *Client) DownloadPackageWidgetBundle(ctx context.Context, packageId string, widgetId string, params *DownloadPackageWidgetBundleParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadPackageWidgetBundleRequest(c.Server, packageId, widgetId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// InspectPackageWidgetBundle performs a HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `InspectPackageWidgetBundle` operationId) request.
+//
+// Inspect a package Widget player bundle. Requires an authenticated player credential.
+func (c *Client) InspectPackageWidgetBundle(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInspectPackageWidgetBundleRequest(c.Server, packageId, widgetId)
 	if err != nil {
 		return nil, err
 	}
@@ -23475,6 +23830,36 @@ func (c *Client) ResolveGitHubRepository(ctx context.Context, params *ResolveGit
 // One normalized plugin-store entry. Readable by any signed-in account. Unknown package IDs answer plugin_not_found.
 func (c *Client) GetPluginStoreEntry(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPluginStoreEntryRequest(c.Server, packageId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMarketplaceIcon performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
+//
+// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+func (c *Client) GetMarketplaceIcon(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMarketplaceIconRequest(c.Server, packageId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetMarketplaceScreenshot performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
+//
+// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+func (c *Client) GetMarketplaceScreenshot(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMarketplaceScreenshotRequest(c.Server, packageId, index)
 	if err != nil {
 		return nil, err
 	}
@@ -36648,6 +37033,40 @@ func NewGetPackageRequest(server string, packageId PackageID) (*http.Request, er
 	return req, nil
 }
 
+// NewPackageJobsRequest constructs an http.Request for the PackageJobs method
+func NewPackageJobsRequest(server string, packageId PackageID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/jobs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewRollbackPackageRequest constructs an http.Request for the RollbackPackage method
 func NewRollbackPackageRequest(server string, packageId PackageID, params *RollbackPackageParams) (*http.Request, error) {
 	var err error
@@ -36692,6 +37111,87 @@ func NewRollbackPackageRequest(server string, packageId PackageID, params *Rollb
 			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewPackageStudioBridgeRequest calls the generic PackageStudioBridge builder with application/json body
+func NewPackageStudioBridgeRequest(server string, packageId PackageID, body PackageStudioBridgeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPackageStudioBridgeRequestWithBody(server, packageId, "application/json", bodyReader)
+}
+
+// NewPackageStudioBridgeRequestWithBody constructs an http.Request for the PackageStudioBridge method, with any body, and a specified content type
+func NewPackageStudioBridgeRequestWithBody(server string, packageId PackageID, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/studio/bridge", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPackageStudioFrameRequest constructs an http.Request for the PackageStudioFrame method
+func NewPackageStudioFrameRequest(server string, packageId PackageID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/studio/frame", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -36803,6 +37303,47 @@ func NewCheckPackageUpdateRequest(server string, packageId PackageID, params *Ch
 			req.Header.Set("X-CSRF-Token", headerParam0)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewPreviewPackageWidgetFrameRequest constructs an http.Request for the PreviewPackageWidgetFrame method
+func NewPreviewPackageWidgetFrameRequest(server string, packageId PackageID, widgetId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "widgetId", widgetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/packages/%s/widgets/%s/frame", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -37815,6 +38356,125 @@ func NewGetPlayerManifestRequest(server string, params *GetPlayerManifestParams)
 			req.Header.Set("If-None-Match", headerParam0)
 		}
 
+	}
+
+	return req, nil
+}
+
+// NewDownloadPackageWidgetBundleRequest constructs an http.Request for the DownloadPackageWidgetBundle method
+func NewDownloadPackageWidgetBundleRequest(server string, packageId string, widgetId string, params *DownloadPackageWidgetBundleParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "widgetId", widgetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/packages/%s/widgets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.Range != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Range", *params.Range, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Range", headerParam0)
+		}
+
+		if params.IfRange != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "If-Range", *params.IfRange, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Range", headerParam1)
+		}
+
+		if params.IfNoneMatch != nil {
+			var headerParam2 string
+
+			headerParam2, err = runtime.StyleParamWithOptions("simple", false, "If-None-Match", *params.IfNoneMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-None-Match", headerParam2)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewInspectPackageWidgetBundleRequest constructs an http.Request for the InspectPackageWidgetBundle method
+func NewInspectPackageWidgetBundleRequest(server string, packageId string, widgetId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "widgetId", widgetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/packages/%s/widgets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodHead, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -39320,6 +39980,81 @@ func NewGetPluginStoreEntryRequest(server string, packageId PackageID) (*http.Re
 	}
 
 	operationPath := fmt.Sprintf("/api/v1/plugin-store/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMarketplaceIconRequest constructs an http.Request for the GetMarketplaceIcon method
+func NewGetMarketplaceIconRequest(server string, packageId PackageID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store/%s/artwork/icon", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetMarketplaceScreenshotRequest constructs an http.Request for the GetMarketplaceScreenshot method
+func NewGetMarketplaceScreenshotRequest(server string, packageId PackageID, index int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "index", index, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/plugin-store/%s/artwork/screenshots/%s", pathParam0, pathParam1)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -47598,12 +48333,40 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	GetPackageWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetPackageResponse, error)
 
+	// PackageJobsWithResponse performs a GET /api/v1/packages/{packageId}/jobs (the `PackageJobs` operationId) request.
+	//
+	// Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PackageJobsWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*PackageJobsResponse, error)
+
 	// RollbackPackageWithResponse performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
 	//
 	// Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	RollbackPackageWithResponse(ctx context.Context, packageId PackageID, params *RollbackPackageParams, reqEditors ...RequestEditorFn) (*RollbackPackageResponse, error)
+
+	// PackageStudioBridgeWithBodyWithResponse performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PackageStudioBridgeWithBodyWithResponse(ctx context.Context, packageId PackageID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PackageStudioBridgeResponse, error)
+
+	// PackageStudioBridgeWithResponse performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+	PackageStudioBridgeWithResponse(ctx context.Context, packageId PackageID, body PackageStudioBridgeJSONRequestBody, reqEditors ...RequestEditorFn) (*PackageStudioBridgeResponse, error)
+
+	// PackageStudioFrameWithResponse performs a GET /api/v1/packages/{packageId}/studio/frame (the `PackageStudioFrame` operationId) request.
+	//
+	// Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PackageStudioFrameWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*PackageStudioFrameResponse, error)
 
 	// ApplyPackageUpdateWithBodyWithResponse performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request,
 	// with any type of body and a specified content type.
@@ -47625,6 +48388,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CheckPackageUpdateWithResponse(ctx context.Context, packageId PackageID, params *CheckPackageUpdateParams, reqEditors ...RequestEditorFn) (*CheckPackageUpdateResponse, error)
+
+	// PreviewPackageWidgetFrameWithResponse performs a GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame (the `PreviewPackageWidgetFrame` operationId) request.
+	//
+	// Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PreviewPackageWidgetFrameWithResponse(ctx context.Context, packageId PackageID, widgetId string, reqEditors ...RequestEditorFn) (*PreviewPackageWidgetFrameResponse, error)
 
 	// ListPlayerReleasesWithResponse List fixed-repository Tilecast Player releases and verification state
 	//
@@ -47921,6 +48691,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetPlayerManifestWithResponse(ctx context.Context, params *GetPlayerManifestParams, reqEditors ...RequestEditorFn) (*GetPlayerManifestResponse, error)
+
+	// DownloadPackageWidgetBundleWithResponse performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `DownloadPackageWidgetBundle` operationId) request.
+	//
+	// Download a package Widget player bundle. Requires an authenticated player credential.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DownloadPackageWidgetBundleWithResponse(ctx context.Context, packageId string, widgetId string, params *DownloadPackageWidgetBundleParams, reqEditors ...RequestEditorFn) (*DownloadPackageWidgetBundleResponse, error)
+
+	// InspectPackageWidgetBundleWithResponse performs a HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `InspectPackageWidgetBundle` operationId) request.
+	//
+	// Inspect a package Widget player bundle. Requires an authenticated player credential.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	InspectPackageWidgetBundleWithResponse(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*InspectPackageWidgetBundleResponse, error)
 
 	// CreatePairingSessionWithBodyWithResponse performs a POST /api/v1/player/pairing-sessions (the `CreatePairingSession` operationId) request,
 	// with any type of body and a specified content type.
@@ -48258,6 +49042,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetPluginStoreEntryWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetPluginStoreEntryResponse, error)
+
+	// GetMarketplaceIconWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
+	//
+	// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetMarketplaceIconWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetMarketplaceIconResponse, error)
+
+	// GetMarketplaceScreenshotWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
+	//
+	// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetMarketplaceScreenshotWithResponse(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*GetMarketplaceScreenshotResponse, error)
 
 	// InstallStorePackageWithBodyWithResponse performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
 	// with any type of body and a specified content type.
@@ -57764,6 +58562,13 @@ func (r ListPackagesResponse) ContentType() string {
 type RemovePackageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *PackageInUseError
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r RemovePackageResponse) GetJSON409() *PackageInUseError {
+	return r.JSON409
 }
 
 // GetBody returns the raw response body bytes
@@ -57842,6 +58647,51 @@ func (r GetPackageResponse) ContentType() string {
 	return ""
 }
 
+type PackageJobsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data []PackageJob `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PackageJobsResponse) GetJSON200() *struct {
+	Data []PackageJob `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r PackageJobsResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PackageJobsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PackageJobsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PackageJobsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type RollbackPackageResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -57850,6 +58700,8 @@ type RollbackPackageResponse struct {
 		// Data One installed extension package with its contributions and, for custom packages, the repository binding.
 		Data InstalledPackage `json:"data"`
 	}
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *PackageRollbackConflictError
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -57858,6 +58710,11 @@ func (r RollbackPackageResponse) GetJSON200() *struct {
 	Data InstalledPackage `json:"data"`
 } {
 	return r.JSON200
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r RollbackPackageResponse) GetJSON409() *PackageRollbackConflictError {
+	return r.JSON409
 }
 
 // GetBody returns the raw response body bytes
@@ -57889,6 +58746,97 @@ func (r RollbackPackageResponse) ContentType() string {
 	return ""
 }
 
+type PackageStudioBridgeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			// Output Base64 guest output, at most 16 KiB.
+			Output []byte `json:"output"`
+
+			// Status Guest status code; negative values are guest errors.
+			Status int `json:"status"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PackageStudioBridgeResponse) GetJSON200() *struct {
+	Data struct {
+		// Output Base64 guest output, at most 16 KiB.
+		Output []byte `json:"output"`
+
+		// Status Guest status code; negative values are guest errors.
+		Status int `json:"status"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r PackageStudioBridgeResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PackageStudioBridgeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PackageStudioBridgeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PackageStudioBridgeResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PackageStudioFrameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r PackageStudioFrameResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PackageStudioFrameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PackageStudioFrameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PackageStudioFrameResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ApplyPackageUpdateResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -57900,6 +58848,8 @@ type ApplyPackageUpdateResponse struct {
 			Updated bool             `json:"updated"`
 		} `json:"data"`
 	}
+	// JSON409 the response for an HTTP 409 `application/json` response
+	JSON409 *PackageUpdateConflictError
 }
 
 // GetJSON200 returns the response for an HTTP 200 `application/json` response
@@ -57911,6 +58861,11 @@ func (r ApplyPackageUpdateResponse) GetJSON200() *struct {
 	} `json:"data"`
 } {
 	return r.JSON200
+}
+
+// GetJSON409 returns the response for an HTTP 409 `application/json` response
+func (r ApplyPackageUpdateResponse) GetJSON409() *PackageUpdateConflictError {
+	return r.JSON409
 }
 
 // GetBody returns the raw response body bytes
@@ -57983,6 +58938,40 @@ func (r CheckPackageUpdateResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r CheckPackageUpdateResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PreviewPackageWidgetFrameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewPackageWidgetFrameResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewPackageWidgetFrameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewPackageWidgetFrameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewPackageWidgetFrameResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -59179,6 +60168,74 @@ func (r GetPlayerManifestResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetPlayerManifestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DownloadPackageWidgetBundleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadPackageWidgetBundleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadPackageWidgetBundleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadPackageWidgetBundleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadPackageWidgetBundleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type InspectPackageWidgetBundleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r InspectPackageWidgetBundleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r InspectPackageWidgetBundleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InspectPackageWidgetBundleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InspectPackageWidgetBundleResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -60643,6 +61700,74 @@ func (r GetPluginStoreEntryResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetPluginStoreEntryResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMarketplaceIconResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMarketplaceIconResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMarketplaceIconResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMarketplaceIconResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMarketplaceIconResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetMarketplaceScreenshotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMarketplaceScreenshotResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMarketplaceScreenshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMarketplaceScreenshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMarketplaceScreenshotResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -70388,6 +71513,19 @@ func (c *ClientWithResponses) GetPackageWithResponse(ctx context.Context, packag
 	return ParseGetPackageResponse(rsp)
 }
 
+// PackageJobsWithResponse performs a GET /api/v1/packages/{packageId}/jobs (the `PackageJobs` operationId) request.
+//
+// Declared background jobs for one installed package with the scheduler cursor: next run, last outcome, and consecutive failures. Readable by any signed-in account. Unknown packages answer package_not_installed 404.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PackageJobsWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*PackageJobsResponse, error) {
+	rsp, err := c.PackageJobs(ctx, packageId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePackageJobsResponse(rsp)
+}
+
 // RollbackPackageWithResponse performs a POST /api/v1/packages/{packageId}/rollback (the `RollbackPackage` operationId) request.
 //
 // Requires the Owner or Administrator role with the admin scope. Cookie requests additionally require the X-CSRF-Token header. Restores the previous activation. Audited.
@@ -70399,6 +71537,45 @@ func (c *ClientWithResponses) RollbackPackageWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseRollbackPackageResponse(rsp)
+}
+
+// PackageStudioBridgeWithBodyWithResponse performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request,
+// with any type of body and a specified content type.
+//
+// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PackageStudioBridgeWithBodyWithResponse(ctx context.Context, packageId PackageID, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PackageStudioBridgeResponse, error) {
+	rsp, err := c.PackageStudioBridgeWithBody(ctx, packageId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePackageStudioBridgeResponse(rsp)
+}
+
+// PackageStudioBridgeWithResponse performs a POST /api/v1/packages/{packageId}/studio/bridge (the `PackageStudioBridge` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Invoke one Studio UI call in the package guest: the Studio parent carries the dashboard session and CSRF token the sandboxed frame cannot hold, and the host runs the package handle_ui_request export with a five-second timeout. The input is base64 over the 16 KiB call window. A successful invocation always answers 200 with the guest status code and base64 output; only transport and host failures become errors. Owner and Administrator only, like every package operation.
+func (c *ClientWithResponses) PackageStudioBridgeWithResponse(ctx context.Context, packageId PackageID, body PackageStudioBridgeJSONRequestBody, reqEditors ...RequestEditorFn) (*PackageStudioBridgeResponse, error) {
+	rsp, err := c.PackageStudioBridge(ctx, packageId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePackageStudioBridgeResponse(rsp)
+}
+
+// PackageStudioFrameWithResponse performs a GET /api/v1/packages/{packageId}/studio/frame (the `PackageStudioFrame` operationId) request.
+//
+// Sandboxed Studio UI entry page for one installed package: the package-authored self-contained HTML document with an opaque-origin sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Studio loads it in an allow-scripts iframe and relays guest calls over the bridge endpoint. Readable by any signed-in account. Unknown packages and packages without a Studio UI capability share one package_studio_unavailable 404.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PackageStudioFrameWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*PackageStudioFrameResponse, error) {
+	rsp, err := c.PackageStudioFrame(ctx, packageId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePackageStudioFrameResponse(rsp)
 }
 
 // ApplyPackageUpdateWithBodyWithResponse performs a POST /api/v1/packages/{packageId}/update (the `ApplyPackageUpdate` operationId) request,
@@ -70438,6 +71615,19 @@ func (c *ClientWithResponses) CheckPackageUpdateWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseCheckPackageUpdateResponse(rsp)
+}
+
+// PreviewPackageWidgetFrameWithResponse performs a GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame (the `PreviewPackageWidgetFrame` operationId) request.
+//
+// Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PreviewPackageWidgetFrameWithResponse(ctx context.Context, packageId PackageID, widgetId string, reqEditors ...RequestEditorFn) (*PreviewPackageWidgetFrameResponse, error) {
+	rsp, err := c.PreviewPackageWidgetFrame(ctx, packageId, widgetId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewPackageWidgetFrameResponse(rsp)
 }
 
 // ListPlayerReleasesWithResponse List fixed-repository Tilecast Player releases and verification state
@@ -70962,6 +72152,32 @@ func (c *ClientWithResponses) GetPlayerManifestWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseGetPlayerManifestResponse(rsp)
+}
+
+// DownloadPackageWidgetBundleWithResponse performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `DownloadPackageWidgetBundle` operationId) request.
+//
+// Download a package Widget player bundle. Requires an authenticated player credential.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DownloadPackageWidgetBundleWithResponse(ctx context.Context, packageId string, widgetId string, params *DownloadPackageWidgetBundleParams, reqEditors ...RequestEditorFn) (*DownloadPackageWidgetBundleResponse, error) {
+	rsp, err := c.DownloadPackageWidgetBundle(ctx, packageId, widgetId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadPackageWidgetBundleResponse(rsp)
+}
+
+// InspectPackageWidgetBundleWithResponse performs a HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `InspectPackageWidgetBundle` operationId) request.
+//
+// Inspect a package Widget player bundle. Requires an authenticated player credential.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) InspectPackageWidgetBundleWithResponse(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*InspectPackageWidgetBundleResponse, error) {
+	rsp, err := c.InspectPackageWidgetBundle(ctx, packageId, widgetId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInspectPackageWidgetBundleResponse(rsp)
 }
 
 // CreatePairingSessionWithBodyWithResponse performs a POST /api/v1/player/pairing-sessions (the `CreatePairingSession` operationId) request,
@@ -71575,6 +72791,32 @@ func (c *ClientWithResponses) GetPluginStoreEntryWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetPluginStoreEntryResponse(rsp)
+}
+
+// GetMarketplaceIconWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/icon (the `GetMarketplaceIcon` operationId) request.
+//
+// The icon of a marketplace listing, served from the server's verified artwork cache. The request names a package, never an address. The server fetches only the listing's declared HTTPS address with bounded size, time, and redirects, refuses non-public addresses, and serves PNG, JPEG, GIF, or WebP only. Any failure answers artwork_unavailable.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetMarketplaceIconWithResponse(ctx context.Context, packageId PackageID, reqEditors ...RequestEditorFn) (*GetMarketplaceIconResponse, error) {
+	rsp, err := c.GetMarketplaceIcon(ctx, packageId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMarketplaceIconResponse(rsp)
+}
+
+// GetMarketplaceScreenshotWithResponse performs a GET /api/v1/plugin-store/{packageId}/artwork/screenshots/{index} (the `GetMarketplaceScreenshot` operationId) request.
+//
+// One screenshot of a marketplace listing, served under the same rules as the listing icon.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetMarketplaceScreenshotWithResponse(ctx context.Context, packageId PackageID, index int, reqEditors ...RequestEditorFn) (*GetMarketplaceScreenshotResponse, error) {
+	rsp, err := c.GetMarketplaceScreenshot(ctx, packageId, index, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMarketplaceScreenshotResponse(rsp)
 }
 
 // InstallStorePackageWithBodyWithResponse performs a POST /api/v1/plugin-store/{packageId}/install (the `InstallStorePackage` operationId) request,
@@ -79473,6 +80715,28 @@ func ParseRemovePackageResponse(rsp *http.Response) (*RemovePackageResponse, err
 		HTTPResponse: rsp,
 	}
 
+	switch {
+	case rsp.StatusCode == 204:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PackageInUseError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
 	return response, nil
 }
 
@@ -79494,6 +80758,40 @@ func ParseGetPackageResponse(rsp *http.Response) (*GetPackageResponse, error) {
 		var dest struct {
 			// Data One installed extension package with its contributions and, for custom packages, the repository binding.
 			Data InstalledPackage `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParsePackageJobsResponse parses an HTTP response from a PackageJobsWithResponse call
+func ParsePackageJobsResponse(rsp *http.Response) (*PackageJobsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PackageJobsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data []PackageJob `json:"data"`
 		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
@@ -79544,9 +80842,72 @@ func ParseRollbackPackageResponse(rsp *http.Response) (*RollbackPackageResponse,
 	case rsp.StatusCode == 404:
 		break // No content-type
 
-	case rsp.StatusCode == 409:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PackageRollbackConflictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePackageStudioBridgeResponse parses an HTTP response from a PackageStudioBridgeWithResponse call
+func ParsePackageStudioBridgeResponse(rsp *http.Response) (*PackageStudioBridgeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PackageStudioBridgeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				// Output Base64 guest output, at most 16 KiB.
+				Output []byte `json:"output"`
+
+				// Status Guest status code; negative values are guest errors.
+				Status int `json:"status"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
 		break // No content-type
 
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParsePackageStudioFrameResponse parses an HTTP response from a PackageStudioFrameWithResponse call
+func ParsePackageStudioFrameResponse(rsp *http.Response) (*PackageStudioFrameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PackageStudioFrameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil
@@ -79591,8 +80952,12 @@ func ParseApplyPackageUpdateResponse(rsp *http.Response) (*ApplyPackageUpdateRes
 	case rsp.StatusCode == 404:
 		break // No content-type
 
-	case rsp.StatusCode == 409:
-		break // No content-type
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest PackageUpdateConflictError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case rsp.StatusCode == 422:
 		break // No content-type
@@ -79644,6 +81009,22 @@ func ParseCheckPackageUpdateResponse(rsp *http.Response) (*CheckPackageUpdateRes
 	case rsp.StatusCode == 502:
 		break // No content-type
 
+	}
+
+	return response, nil
+}
+
+// ParsePreviewPackageWidgetFrameResponse parses an HTTP response from a PreviewPackageWidgetFrameWithResponse call
+func ParsePreviewPackageWidgetFrameResponse(rsp *http.Response) (*PreviewPackageWidgetFrameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewPackageWidgetFrameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil
@@ -80521,6 +81902,38 @@ func ParseGetPlayerManifestResponse(rsp *http.Response) (*GetPlayerManifestRespo
 	case rsp.StatusCode == 403:
 		break // No content-type
 
+	}
+
+	return response, nil
+}
+
+// ParseDownloadPackageWidgetBundleResponse parses an HTTP response from a DownloadPackageWidgetBundleWithResponse call
+func ParseDownloadPackageWidgetBundleResponse(rsp *http.Response) (*DownloadPackageWidgetBundleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadPackageWidgetBundleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseInspectPackageWidgetBundleResponse parses an HTTP response from a InspectPackageWidgetBundleWithResponse call
+func ParseInspectPackageWidgetBundleResponse(rsp *http.Response) (*InspectPackageWidgetBundleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InspectPackageWidgetBundleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil
@@ -81521,6 +82934,38 @@ func ParseGetPluginStoreEntryResponse(rsp *http.Response) (*GetPluginStoreEntryR
 	case rsp.StatusCode == 404:
 		break // No content-type
 
+	}
+
+	return response, nil
+}
+
+// ParseGetMarketplaceIconResponse parses an HTTP response from a GetMarketplaceIconWithResponse call
+func ParseGetMarketplaceIconResponse(rsp *http.Response) (*GetMarketplaceIconResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMarketplaceIconResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetMarketplaceScreenshotResponse parses an HTTP response from a GetMarketplaceScreenshotWithResponse call
+func ParseGetMarketplaceScreenshotResponse(rsp *http.Response) (*GetMarketplaceScreenshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMarketplaceScreenshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil

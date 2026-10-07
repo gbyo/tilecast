@@ -1,5 +1,5 @@
 {
-  "apiVersion": 2,
+  "apiVersion": 3,
   "packageId": "acme.athletics",
   "packageVersion": "2.4.1",
   "name": "Athletics",

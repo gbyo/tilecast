@@ -18,6 +18,9 @@ jobs:
           docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml config --quiet
           docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml -f deploy/docker/compose.dev.yml config --quiet
       - uses: docker/setup-buildx-action@v4
+      - name: Start build timer
+        id: build_timer
+        run: echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
       - name: Build container
         uses: docker/build-push-action@v7
         with:
@@ -26,6 +29,18 @@ jobs:
           push: false
           cache-from: type=gha,scope=server
           cache-to: type=gha,scope=server,mode=max
+      - name: Record build duration
+        if: always()
+        env:
+          STARTED: ${{ steps.build_timer.outputs.started }}
+        run: |
+          finished=$(date +%s)
+          seconds=$((finished - STARTED))
+          {
+            echo "### Server container build timing"
+            echo
+            echo "- Build step: ${seconds}s"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Browser smoke tests against a real Demo Mode stack: the production image,
   # PostgreSQL, and simulated players. A separate job, so the unit-test jobs
