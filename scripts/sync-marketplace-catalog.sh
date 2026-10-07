@@ -4,5 +4,5 @@
 # authored source of truth; make generate refreshes the copy, and
 # make generated-check fails when the committed copy drifts from it.
 set -eu
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/.."
 cp marketplace/catalog.json apps/server/internal/extensions/catalog/bundled_catalog.json
