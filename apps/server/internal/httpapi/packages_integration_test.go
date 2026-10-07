@@ -71,6 +71,13 @@ func TestPackagesAPI(t *testing.T) {
 			t.Fatalf("remove unknown = %d %v, want 404 package_not_installed", status, body)
 		}
 
+		// Unknown preview frames share the player endpoint's
+		// undifferentiated 404 so Studio never distinguishes a
+		// missing package from a missing bundle.
+		if status, body := client.call("viewer", http.MethodGet, "/api/v1/packages/no.such/widgets/scoreboard/frame", false, ""); status != http.StatusNotFound || errorCode(body) != "package_widget_unavailable" {
+			t.Fatalf("frame unknown = %d %v, want 404 package_widget_unavailable", status, body)
+		}
+
 		// Updates need a digest.
 		if status, body := client.call("owner", http.MethodPost, "/api/v1/packages/no.such/update", true, `{}`); status != http.StatusBadRequest || errorCode(body) != "invalid_request" {
 			t.Fatalf("update without digest = %d %v, want 400 invalid_request", status, body)

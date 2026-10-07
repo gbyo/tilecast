@@ -6,7 +6,9 @@ import {
 import {
   buildSandboxFrameDocument,
   escapeInlineScript,
+  SANDBOX_BUNDLE_PLACEHOLDER,
   SANDBOX_DEFINITION_GLOBAL,
+  sandboxFrameBootstrap,
   SandboxedWidgetExecutor,
   snapshotSandboxContext,
   type SandboxedWidgetBundle,
@@ -65,6 +67,13 @@ describe("sandbox frame document", () => {
     expect(document.indexOf('addEventListener("message"')).toBeLessThan(
       document.indexOf(BUNDLE.javaScript),
     );
+  });
+
+  it("reserves a single bundle slot for the server template", () => {
+    const bootstrap = sandboxFrameBootstrap();
+    expect(bootstrap).not.toContain(SANDBOX_BUNDLE_PLACEHOLDER);
+    const template = buildSandboxFrameDocument(SANDBOX_BUNDLE_PLACEHOLDER);
+    expect(template.split(SANDBOX_BUNDLE_PLACEHOLDER).length - 1).toBe(1);
   });
 
   it("keeps a hostile bundle inside its own script block", () => {
@@ -145,6 +154,41 @@ describe("SandboxedWidgetExecutor", () => {
     expect(created).toEqual(["blob:fixture"]);
     expect(revoked).toEqual(["blob:fixture"]);
     expect(container.querySelector("iframe")).toBeNull();
+  });
+
+  it("mounts a hosted frame without inline bundle bytes", () => {
+    const executor = new SandboxedWidgetExecutor();
+    const states: WidgetMountState[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const request = requestFor((state) => states.push(state), {
+      embedding: "hosted",
+      frameUrl: "https://frames.example/f/ok.html",
+    });
+    delete (request as { bundle?: SandboxedWidgetBundle }).bundle;
+    const execution = executor.mount(container, request);
+    const frame = container.querySelector("iframe");
+    expect(frame?.getAttribute("src")).toBe("https://frames.example/f/ok.html");
+    expect(states).toEqual([{ state: "pending" }]);
+    expect(execution.state).toEqual({ state: "pending" });
+    execution.dispose();
+  });
+
+  it("refuses a hosted mount without a frame URL", () => {
+    const executor = new SandboxedWidgetExecutor();
+    const states: WidgetMountState[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const request = requestFor((state) => states.push(state), {
+      embedding: "hosted",
+    });
+    delete (request as { bundle?: SandboxedWidgetBundle }).bundle;
+    executor.mount(container, request);
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(states).toEqual([
+      { state: "pending" },
+      { state: "error", code: "frame_error" },
+    ]);
   });
 
   it("reposts init on frame load for asynchronously navigated frames", () => {
@@ -266,6 +310,25 @@ describe("SandboxedWidgetExecutor", () => {
     const second = container.querySelector("iframe");
     expect(second).not.toBe(first);
     expect(container.querySelectorAll("iframe")).toHaveLength(1);
+    execution.dispose();
+  });
+
+  it("keeps reporting to the mount callback when an update omits it", () => {
+    const executor = new SandboxedWidgetExecutor();
+    const states: WidgetMountState[] = [];
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const execution = executor.mount(
+      container,
+      requestFor((state) => states.push(state)),
+    );
+    const silent = requestFor(() => {
+      throw new Error("must not be called");
+    });
+    delete (silent as { onState?: unknown }).onState;
+    execution.update(silent);
+    // The update's own pending proves the mount callback survived.
+    expect(states).toEqual([{ state: "pending" }, { state: "pending" }]);
     execution.dispose();
   });
 

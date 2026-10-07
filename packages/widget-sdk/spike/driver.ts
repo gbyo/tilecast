@@ -404,6 +404,58 @@ async function main(): Promise<void> {
       ms: median,
     });
   }
+
+  // 11. Eight concurrent placements (Phase F scale probe).
+  {
+    const started = performance.now();
+    const runs = await Promise.all(
+      Array.from({ length: 8 }, (_, index) =>
+        mountCase({
+          name: `scale-8-${index}`,
+          type: "acme.spike.ok",
+          embedding: "hosted",
+          bundle: "ok",
+        }),
+      ),
+    );
+    const ready = runs.filter((run) =>
+      run.states.some((state) => state.state === "ready"),
+    ).length;
+    const slowest = Math.max(...runs.map((run) => run.ms));
+    for (const run of runs) run.dispose();
+    record({
+      name: "scale-8",
+      pass: ready === 8,
+      detail: `${ready}/8 ready, slowest ${slowest.toFixed(0)}ms`,
+      ms: performance.now() - started,
+    });
+  }
+
+  // 12. Layout resize: the frame follows its container by CSS alone, and
+  // the placement reports nothing new.
+  {
+    const run = await mountCase({
+      name: "resize",
+      type: "acme.spike.ok",
+      embedding: "hosted",
+      bundle: "ok",
+      keep: true,
+    });
+    const wraps = document.getElementById("stage")!.children;
+    const box = wraps[wraps.length - 1]!.lastElementChild as HTMLElement;
+    const frame = box.querySelector("iframe")!;
+    const settledCount = run.states.length;
+    box.style.width = "320px";
+    box.style.height = "60px";
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    const fills = frame.style.width === "100%" && frame.style.height === "100%";
+    record({
+      name: "resize-stable",
+      pass: fills && run.states.length === settledCount,
+      detail: fills ? "" : "frame does not fill its container",
+      ms: run.ms,
+    });
+  }
 }
 
 function finish(): void {

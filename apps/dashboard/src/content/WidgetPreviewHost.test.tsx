@@ -371,4 +371,124 @@ describe("WidgetPreviewHost", () => {
     unmount();
     expect(container.querySelector("tc-widget-clock")).toBeNull();
   });
+
+  describe("sandboxed external Widgets", () => {
+    const sandbox = {
+      frameUrl: "/api/v1/packages/acme.athletics/widgets/scoreboard/frame",
+      declared: { dataSources: [], media: [] },
+    };
+    const external = {
+      type: "acme.scoreboard",
+      version: 1,
+      config: { label: "Final" },
+    };
+
+    function renderSandboxed(states: WidgetMountState[]) {
+      return render(
+        <WidgetPreviewHost
+          component={external}
+          resources={createWidgetResources({ documents: new Map() }, {})}
+          context={context(new PreviewClock())}
+          frame={{ width: 960, height: 540 }}
+          label="Scoreboard preview"
+          onState={(state) => states.push(state)}
+          sandbox={sandbox}
+        />,
+      );
+    }
+
+    it("mounts a locked-down frame from the Server document", async () => {
+      const states: WidgetMountState[] = [];
+      const { container } = renderSandboxed(states);
+      const frame = await waitFor(() => {
+        const found = container.querySelector("iframe");
+        expect(found).not.toBeNull();
+        return found!;
+      });
+      expect(frame.getAttribute("src")).toBe(sandbox.frameUrl);
+      expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
+      expect(frame.getAttribute("referrerpolicy")).toBe("no-referrer");
+      expect(container.querySelector("acme-scoreboard")).toBeNull();
+      expect(states.length).toBeGreaterThan(0);
+      expect(states.every((state) => state.state === "pending")).toBe(true);
+    });
+
+    it("reports bridge states without importing the Widget", async () => {
+      const states: WidgetMountState[] = [];
+      const { container } = renderSandboxed(states);
+      const frame = await waitFor(() => {
+        const found = container.querySelector("iframe");
+        expect(found).not.toBeNull();
+        return found!;
+      });
+      const posted: Array<{ nonce?: unknown }> = [];
+      vi.spyOn(frame.contentWindow!, "postMessage").mockImplementation(
+        (message: unknown) => void posted.push(message as { nonce?: unknown }),
+      );
+      // The mount-time post predates the spy; the load repost carries the
+      // same nonce the parent accepts reports on.
+      act(() => {
+        frame.dispatchEvent(new Event("load"));
+      });
+      const nonce = posted[0]?.nonce;
+      expect(typeof nonce).toBe("string");
+      act(() => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            origin: "null",
+            data: {
+              protocol: "tilecast.widget.bridge/1",
+              nonce,
+              state: { state: "ready" },
+            },
+          }),
+        );
+      });
+      await waitFor(() =>
+        expect(states.map((state) => state.state)).toContain("ready"),
+      );
+    });
+
+    it("remounts when the provider crosses the trust boundary", async () => {
+      const states: WidgetMountState[] = [];
+      const { container, rerender } = renderSandboxed(states);
+      await waitFor(() => {
+        expect(container.querySelector("iframe")).not.toBeNull();
+      });
+      rerender(
+        <WidgetPreviewHost
+          component={component(FULL_CONFIG)}
+          resources={createWidgetResources({ documents: new Map() }, {})}
+          context={context(new PreviewClock())}
+          frame={{ width: 960, height: 540 }}
+          label="Scoreboard preview"
+          onState={(state) => states.push(state)}
+        />,
+      );
+      await waitFor(() => container.querySelector("tc-widget-clock"));
+      expect(container.querySelector("iframe")).toBeNull();
+    });
+
+    it("updates the frame in place when the compiled config changes", async () => {
+      const states: WidgetMountState[] = [];
+      const { container, rerender } = renderSandboxed(states);
+      const before = await waitFor(() => {
+        const found = container.querySelector("iframe");
+        expect(found).not.toBeNull();
+        return found!;
+      });
+      rerender(
+        <WidgetPreviewHost
+          component={{ ...external, config: { label: "Halftime" } }}
+          resources={createWidgetResources({ documents: new Map() }, {})}
+          context={context(new PreviewClock())}
+          frame={{ width: 960, height: 540 }}
+          label="Scoreboard preview"
+          onState={(state) => states.push(state)}
+          sandbox={sandbox}
+        />,
+      );
+      expect(container.querySelector("iframe")).toBe(before);
+    });
+  });
 });

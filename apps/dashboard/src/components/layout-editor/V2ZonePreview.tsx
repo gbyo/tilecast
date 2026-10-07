@@ -20,7 +20,7 @@ import type {
 import type { Asset } from "../../api/types";
 import { useOrganizationRegionalProfile } from "../../settings/regionalProfile";
 import { PreviewClock } from "../../content/previewClock";
-import { studioWidgetComponent } from "../../content/studioWidgets";
+import { studioPreviewComponent } from "../../content/studioWidgets";
 import {
   WidgetPreviewHost,
   type PreviewFit,
@@ -150,10 +150,16 @@ export function V2ZonePreview({
   const definitions = useQuery({
     ...contentQueries.definitions(),
   });
-  const component = useMemo(
-    () => studioWidgetComponent(definitions.data, provider),
+  const resolved = useMemo(
+    () => studioPreviewComponent(definitions.data, provider),
     [definitions.data, provider],
   );
+  const component =
+    resolved?.kind === "trusted"
+      ? resolved.component
+      : resolved?.kind === "sandbox"
+        ? resolved.sandbox
+        : null;
   const definitionFields = useMemo(
     () =>
       definitions.data?.widgets.find((entry) => entry.id === provider)
@@ -273,6 +279,19 @@ export function V2ZonePreview({
     configuration,
   ]);
 
+  // The sandbox bridge carries exactly the grants the trusted mount
+  // resolves: the same Data Source ids and media refs.
+  const declared = useMemo(
+    () => ({ dataSources: dataSourceIds, media: preview.media }),
+    [dataSourceIds, preview.media],
+  );
+  const frameUrl =
+    resolved?.kind === "sandbox" ? resolved.sandbox.frameUrl : undefined;
+  const sandbox = useMemo(
+    () => (frameUrl ? { frameUrl, declared } : undefined),
+    [frameUrl, declared],
+  );
+
   if (definitions.isLoading) return null;
   if (sourcesLoading) return null;
   if (sourcesFailed)
@@ -291,6 +310,7 @@ export function V2ZonePreview({
       label={t("widgets.editors.v2.zonePreview")}
       onState={onState}
       fit={fit}
+      sandbox={sandbox}
     />
   );
 }

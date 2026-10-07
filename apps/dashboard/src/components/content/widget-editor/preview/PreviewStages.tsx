@@ -5,7 +5,7 @@
  */
 import { useTranslation } from "react-i18next";
 import type { ContentDefinitionField } from "@/api/types";
-import type { StudioWidgetComponent } from "@/content/studioWidgets";
+import type { StudioPreviewComponent } from "@/content/studioWidgets";
 import type { PreviewTime } from "@/content/previewTime";
 import { WidgetPreviewHost } from "@/content/WidgetPreviewHost";
 import { PreviewStage } from "../PreviewStage";
@@ -27,7 +27,7 @@ export function ComponentPreviewStage({
   previewTime,
 }: {
   view: PreviewView;
-  component: StudioWidgetComponent;
+  component: StudioPreviewComponent;
   fields: readonly ContentDefinitionField[];
   configuration: Record<string, unknown>;
   managedDataSourceId?: string;

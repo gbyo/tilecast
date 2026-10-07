@@ -2768,6 +2768,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/packages/{packageId}/widgets/{widgetId}/frame": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    /** @description Sandboxed frame document for one installed Widget contribution: the generated bootstrap with the verified bundle interpolated. Studio loads it in an opaque-origin allow-scripts iframe to preview external Widgets. The response carries a sandbox Content-Security-Policy, so the document cannot access credentials even when opened top-level. Readable by any signed-in account. Unknown packages and missing bundles share one package_widget_unavailable 404. */
+    get: operations["previewPackageWidgetFrame"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/packages/{packageId}/update-check": {
     parameters: {
       query?: never;
@@ -19371,6 +19392,44 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["PackageInUseError"];
         };
+      };
+    };
+  };
+  previewPackageWidgetFrame: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sandboxed Widget frame document */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description package_widget_unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

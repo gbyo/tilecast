@@ -69,7 +69,11 @@ export interface SandboxedWidgetBundle {
 }
 
 export interface SandboxedWidgetRequest extends WidgetExecutionRequest {
-  readonly bundle: SandboxedWidgetBundle;
+  /**
+   * Required for `srcdoc` and `blob`, which inline the bytes. `hosted`
+   * frames are served by URL, so hosts that never inline may omit it.
+   */
+  readonly bundle?: SandboxedWidgetBundle;
   readonly declared: DeclaredWidgetInputs;
   readonly embedding?: SandboxEmbedding;
   /**
@@ -89,6 +93,14 @@ export interface SandboxedWidgetExecutorOptions {
 
 /** The global a bundle assigns. Classic script, deterministic shape. */
 export const SANDBOX_DEFINITION_GLOBAL = "__tilecastWidgetDefinition";
+
+/**
+ * Bundle slot in the server-generated frame template. widgetctl builds
+ * `frame.gen.go` from `buildSandboxFrameDocument` over this token, and
+ * the Server replaces its single occurrence with the escaped verified
+ * bundle. The token must never appear in the bootstrap itself.
+ */
+export const SANDBOX_BUNDLE_PLACEHOLDER = "__TILECAST_SANDBOX_BUNDLE__";
 
 /** Escape a bundle for inlining: no script block may break out. */
 export function escapeInlineScript(javaScript: string): string {
@@ -362,23 +374,20 @@ class SandboxedWidgetExecution implements WidgetExecution {
   private timer: { cancel(): void } | null = null;
   private disposed = false;
   private readonly onMessage: (event: MessageEvent) => void;
+  private readonly container: HTMLElement;
+  private readonly options: ExecutionOptions;
 
   constructor(
-    private readonly container: HTMLElement,
+    container: HTMLElement,
     request: SandboxedWidgetRequest,
-    private readonly options: ExecutionOptions,
+    options: ExecutionOptions,
   ) {
+    this.container = container;
+    this.options = options;
     this.request = request;
     this.onMessage = (event: MessageEvent) => this.handleMessage(event);
     window.addEventListener("message", this.onMessage);
     this.report({ state: "pending" });
-    if (
-      typeof request.bundle?.javaScript !== "string" ||
-      request.bundle.javaScript === ""
-    ) {
-      this.settle({ state: "error", code: "frame_error" });
-      return;
-    }
     this.attach();
   }
 
@@ -395,7 +404,12 @@ class SandboxedWidgetExecution implements WidgetExecution {
         (this.request.embedding ?? this.options.defaultEmbedding) ||
       ((request.embedding ?? this.options.defaultEmbedding) === "hosted" &&
         request.frameUrl !== this.request.frameUrl);
-    this.request = request;
+    // The mount reports through its latest request; an update that omits
+    // the optional callback keeps the previous one instead of going silent.
+    this.request =
+      request.onState === undefined && this.request.onState !== undefined
+        ? { ...request, onState: this.request.onState }
+        : request;
     if (identityChanged || this.iframe === null) {
       this.detach();
       this.report({ state: "pending" });
@@ -444,14 +458,6 @@ class SandboxedWidgetExecution implements WidgetExecution {
   }
 
   private attach(): void {
-    this.nonce = createBridgeNonce();
-    const frame = document.createElement("iframe");
-    frame.setAttribute("sandbox", SANDBOX_FRAME_TOKENS);
-    frame.setAttribute("referrerpolicy", "no-referrer");
-    frame.setAttribute("title", "External widget");
-    frame.style.width = "100%";
-    frame.style.height = "100%";
-    frame.style.border = "0";
     const embedding = this.request.embedding ?? this.options.defaultEmbedding;
     if (embedding === "hosted") {
       if (
@@ -461,10 +467,27 @@ class SandboxedWidgetExecution implements WidgetExecution {
         this.settle({ state: "error", code: "frame_error" });
         return;
       }
-      frame.src = this.request.frameUrl;
+    } else if (
+      typeof this.request.bundle?.javaScript !== "string" ||
+      this.request.bundle.javaScript === ""
+    ) {
+      this.settle({ state: "error", code: "frame_error" });
+      return;
+    }
+    this.nonce = createBridgeNonce();
+    const frame = document.createElement("iframe");
+    frame.setAttribute("sandbox", SANDBOX_FRAME_TOKENS);
+    frame.setAttribute("referrerpolicy", "no-referrer");
+    frame.setAttribute("title", "External widget");
+    frame.style.width = "100%";
+    frame.style.height = "100%";
+    frame.style.border = "0";
+    if (embedding === "hosted") {
+      frame.src = this.request.frameUrl!;
     } else {
+      // Validated above: inline embeddings always carry bundle bytes.
       const documentText = buildSandboxFrameDocument(
-        this.request.bundle.javaScript,
+        this.request.bundle!.javaScript,
       );
       if (embedding === "blob") {
         this.blobURL = this.options.createObjectURL(documentText);

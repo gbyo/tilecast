@@ -4857,6 +4857,35 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/PackageInUseError" }
+  /api/v1/packages/{packageId}/widgets/{widgetId}/frame:
+    parameters:
+      - { $ref: "#/components/parameters/PackageID" }
+      - {
+          in: path,
+          name: widgetId,
+          required: true,
+          schema: { type: string, maxLength: 80 },
+        }
+    get:
+      operationId: previewPackageWidgetFrame
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Sandboxed frame document for one installed Widget contribution:
+        the generated bootstrap with the verified bundle interpolated.
+        Studio loads it in an opaque-origin allow-scripts iframe to
+        preview external Widgets. The response carries a sandbox
+        Content-Security-Policy, so the document cannot access
+        credentials even when opened top-level. Readable by any
+        signed-in account. Unknown packages and missing bundles share
+        one package_widget_unavailable 404.
+      responses:
+        "200":
+          description: Sandboxed Widget frame document
+          content:
+            text/html:
+              schema: { type: string }
+        "401": { description: Dashboard authentication required }
+        "404": { description: package_widget_unavailable }
   /api/v1/packages/{packageId}/update-check:
     post:
       operationId: checkPackageUpdate

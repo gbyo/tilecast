@@ -187,6 +187,7 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/plugin-store/{packageId}/install", s.installStorePackage)
 			dashboard.With(s.requireScope("read")).Get("/packages", s.listPackages)
 			dashboard.With(s.requireScope("read")).Get("/packages/{packageId}", s.getPackage)
+			dashboard.With(s.requireScope("read")).Get("/packages/{packageId}/widgets/{widgetId}/frame", s.previewWidgetFrame)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/packages/{packageId}/update-check", s.checkPackageUpdate)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/packages/{packageId}/update", s.applyPackageUpdate)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin")).Post("/packages/{packageId}/rollback", s.rollbackPackage)

@@ -105,7 +105,10 @@ export class WidgetMount {
       ),
     });
 
-  constructor(private readonly options: WidgetMountOptions) {
+  private readonly options: WidgetMountOptions;
+
+  constructor(options: WidgetMountOptions) {
+    this.options = options;
     this.component = options.component;
     this.resources = options.resources;
     this.context = options.context;

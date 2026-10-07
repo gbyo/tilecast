@@ -54,8 +54,10 @@ fixture probes parent DOM access, top location reads, cookies,
 fetch:rejected`, and the parent receives only the `ready` lifecycle
 state.
 
-Q4: Is mount latency acceptable? Yes. Median mount-to-ready is 28 ms
-over ten fresh placements, against a 2000 ms gate.
+Q4: Is mount latency acceptable? Yes. Median mount-to-ready is 29 ms
+over ten fresh placements, against a 2000 ms gate. Eight concurrent
+placements all report ready, the slowest in 52 ms. A container resize
+moves the frame by CSS alone and the placement reports nothing new.
 
 ## Security findings
 
@@ -107,20 +109,22 @@ cookie:denied storage:denied fetch:rejected`.
 
 User agent: `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)
 AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0
-Safari/537.36`. Result: `SPIKE_DONE:10/10`.
+Safari/537.36`. Result: `SPIKE_DONE:12/12`.
 
-| Case                | Result | Time                 |
-| ------------------- | ------ | -------------------- |
-| `srcdoc-blocked`    | PASS   | 1032 ms              |
-| `blob-blocked`      | PASS   | 1032 ms              |
-| `hosted-ok`         | PASS   | 102 ms               |
-| `update`            | PASS   | 54 ms                |
-| `hostile-hosted`    | PASS   | 53 ms                |
-| `empty`             | PASS   | 28 ms                |
-| `error-bounded`     | PASS   | 27 ms                |
-| `silent-timeout`    | PASS   | 528 ms               |
-| `bad-shape`         | PASS   | 30 ms                |
-| `latency-median-ms` | PASS   | 28 ms over 10 mounts |
+| Case                | Result | Time                     |
+| ------------------- | ------ | ------------------------ |
+| `srcdoc-blocked`    | PASS   | 1030 ms                  |
+| `blob-blocked`      | PASS   | 1031 ms                  |
+| `hosted-ok`         | PASS   | 79 ms                    |
+| `update`            | PASS   | 55 ms                    |
+| `hostile-hosted`    | PASS   | 77 ms                    |
+| `empty`             | PASS   | 29 ms                    |
+| `error-bounded`     | PASS   | 29 ms                    |
+| `silent-timeout`    | PASS   | 529 ms                   |
+| `bad-shape`         | PASS   | 30 ms                    |
+| `latency-median-ms` | PASS   | 29 ms over 10 mounts     |
+| `scale-8`           | PASS   | 8/8 ready, slowest 52 ms |
+| `resize-stable`     | PASS   | 29 ms                    |
 
 Hostile verdict: `parent:denied topread:denied cookie:denied
 storage:denied fetch:rejected`. The `hosted-ok` frame renders

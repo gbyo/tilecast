@@ -67,7 +67,11 @@ export interface TrustedWidgetExecutorOptions {
 
 /** Trusted execution: a WidgetMount over the release's own registry. */
 export class TrustedWidgetExecutor implements WidgetExecutor {
-  constructor(private readonly options: TrustedWidgetExecutorOptions) {}
+  private readonly options: TrustedWidgetExecutorOptions;
+
+  constructor(options: TrustedWidgetExecutorOptions) {
+    this.options = options;
+  }
 
   mount(
     container: HTMLElement,

@@ -3,9 +3,12 @@
  * (docs/widget-authoring.md).
  *
  * React owns this chrome; the Widget owns everything inside the frame.
- * The real Web Component renders through the shared WidgetMount from the
- * Studio registry — the same element the Player mounts. There are no
- * Studio-only Widget renderers on this path.
+ * Trusted source-built Widgets render the real Web Component through
+ * the shared executor over the Studio registry — the same element the
+ * Player mounts. Package-source Widgets render through the sandbox
+ * executor behind a Server-built frame document, never imported into
+ * the Studio document. There are no Studio-only Widget renderers on
+ * either path.
  */
 import {
   useEffect,
@@ -15,11 +18,19 @@ import {
   useState,
 } from "react";
 import {
-  WidgetMount,
-  type WidgetComponentRef,
-  type WidgetMountState,
+  TrustedWidgetExecutor,
+  type WidgetExecution,
+} from "@tilecast/widget-sdk/executor";
+import type {
+  WidgetComponentRef,
+  WidgetMountState,
 } from "@tilecast/widget-sdk/mount";
 import type { WidgetContext, WidgetResources } from "@tilecast/widget-sdk";
+import {
+  SandboxedWidgetExecutor,
+  type SandboxedWidgetRequest,
+} from "@tilecast/widget-sdk/sandboxed-executor";
+import type { DeclaredWidgetInputs } from "@tilecast/widget-sdk/sandbox-bridge";
 import { studioWidgetDiscovery } from "./studioWidgets";
 
 export interface PreviewFrame {
@@ -28,6 +39,47 @@ export interface PreviewFrame {
 }
 
 export type PreviewFit = "shrink" | "fill";
+
+/** Sandbox placement: the Server-built frame plus the declared grants. */
+export interface SandboxPreview {
+  readonly frameUrl: string;
+  readonly declared: DeclaredWidgetInputs;
+}
+
+type PreviewKind = "trusted" | "sandbox";
+
+function mountPreview(
+  container: HTMLElement,
+  kind: PreviewKind,
+  args: {
+    component: WidgetComponentRef;
+    resources: WidgetResources;
+    context: WidgetContext;
+    onState: (state: WidgetMountState) => void;
+    sandbox?: SandboxPreview;
+  },
+): WidgetExecution {
+  if (kind === "sandbox") {
+    const request: SandboxedWidgetRequest = {
+      component: args.component,
+      resources: args.resources,
+      context: args.context,
+      onState: args.onState,
+      embedding: "hosted",
+      frameUrl: args.sandbox!.frameUrl,
+      declared: args.sandbox!.declared,
+    };
+    return new SandboxedWidgetExecutor().mount(container, request);
+  }
+  return new TrustedWidgetExecutor({
+    registry: studioWidgetDiscovery.registry,
+  }).mount(container, {
+    component: args.component,
+    resources: args.resources,
+    context: args.context,
+    onState: args.onState,
+  });
+}
 
 export function WidgetPreviewHost({
   component,
@@ -38,6 +90,7 @@ export function WidgetPreviewHost({
   onState,
   fit = "shrink",
   scale,
+  sandbox,
 }: {
   /** Compiled component config; form edits update it in place. */
   component: WidgetComponentRef;
@@ -59,10 +112,17 @@ export function WidgetPreviewHost({
    * controls). The surface is sized to the scaled frame; `fit` is ignored.
    */
   scale?: number;
+  /**
+   * Present for package-source Widgets: preview through the sandbox
+   * executor behind the Server-built frame document. Absent Widgets
+   * mount trusted through the Studio registry.
+   */
+  sandbox?: SandboxPreview;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const mountRef = useRef<WidgetMount | null>(null);
+  const executionRef = useRef<WidgetExecution | null>(null);
+  const kindRef = useRef<PreviewKind>("trusted");
   const [previewScale, setPreviewScale] = useState(1);
   // The mount outlives renders, so it reports through an Effect Event that
   // always reaches the latest callback.
@@ -73,18 +133,19 @@ export function WidgetPreviewHost({
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const mount = new WidgetMount({
-      registry: studioWidgetDiscovery.registry,
-      container,
+    const kind: PreviewKind = sandbox ? "sandbox" : "trusted";
+    kindRef.current = kind;
+    const execution = mountPreview(container, kind, {
       component,
       resources,
       context,
       onState: (state) => reportState(state),
+      sandbox,
     });
-    mountRef.current = mount;
+    executionRef.current = execution;
     return () => {
-      mountRef.current = null;
-      mount.dispose();
+      executionRef.current = null;
+      execution.dispose();
     };
     // Mount once per placement: type/version changes below remount through
     // update(), and anything else updates the element in place.
@@ -92,10 +153,49 @@ export function WidgetPreviewHost({
   }, []);
 
   useEffect(() => {
+    const container = containerRef.current;
+    const execution = executionRef.current;
+    if (!container || !execution) return;
+    const kind: PreviewKind = sandbox ? "sandbox" : "trusted";
+    if (kindRef.current !== kind) {
+      // The provider crossed the trust boundary: executors are not
+      // interchangeable, so dispose and mount fresh through the other one.
+      execution.dispose();
+      kindRef.current = kind;
+      executionRef.current = mountPreview(container, kind, {
+        component,
+        resources,
+        context,
+        onState: (state) => reportState(state),
+        sandbox,
+      });
+      return;
+    }
     // Ordinary form edits compile locally and update the element in place,
     // so the preview never remounts (and never calls the Server) per keystroke.
-    mountRef.current?.update({ component, resources, context });
-  }, [component, resources, context]);
+    // The callback rides every update: the sandbox execution reports
+    // through its latest request, so dropping it would silence the mount.
+    const onUpdateState = (state: WidgetMountState) => reportState(state);
+    if (sandbox) {
+      const request: SandboxedWidgetRequest = {
+        component,
+        resources,
+        context,
+        onState: onUpdateState,
+        embedding: "hosted",
+        frameUrl: sandbox.frameUrl,
+        declared: sandbox.declared,
+      };
+      execution.update(request);
+    } else {
+      execution.update({
+        component,
+        resources,
+        context,
+        onState: onUpdateState,
+      });
+    }
+  }, [component, resources, context, sandbox]);
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
