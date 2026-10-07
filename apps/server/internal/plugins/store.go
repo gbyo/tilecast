@@ -43,19 +43,22 @@ type StoreSource struct {
 // installation's state: compatibility with the running release, whether it
 // is installed, and whether the listing carries a newer version.
 type MarketplaceEntry struct {
-	Version       string   `json:"version"`
-	Name          string   `json:"name"`
-	Description   string   `json:"description"`
-	PublisherID   string   `json:"publisherId"`
-	PublisherName string   `json:"publisherName"`
-	License       string   `json:"license"`
-	TilecastRange string   `json:"tilecastRange"`
-	Digest        string   `json:"digest"`
-	Repository    string   `json:"repository"`
-	Documentation string   `json:"documentation,omitempty"`
-	Issues        string   `json:"issues,omitempty"`
-	Categories    []string `json:"categories,omitempty"`
-	Featured      bool     `json:"featured,omitempty"`
+	Version     string `json:"version"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	// LongDescription is optional listing text for the detail page. It is
+	// presentation only; Studio falls back to Description without it.
+	LongDescription string   `json:"longDescription,omitempty"`
+	PublisherID     string   `json:"publisherId"`
+	PublisherName   string   `json:"publisherName"`
+	License         string   `json:"license"`
+	TilecastRange   string   `json:"tilecastRange"`
+	Digest          string   `json:"digest"`
+	Repository      string   `json:"repository"`
+	Documentation   string   `json:"documentation,omitempty"`
+	Issues          string   `json:"issues,omitempty"`
+	Categories      []string `json:"categories,omitempty"`
+	Featured        bool     `json:"featured,omitempty"`
 	// Artwork carries Tilecast-owned paths to the listing's icon and
 	// screenshots. It is presentation only; the catalog's image
 	// addresses never reach Studio.
@@ -404,6 +407,7 @@ func marketplaceEntry(listing catalog.Listing, installedVersion string, installe
 		Version:          listing.Version,
 		Name:             listing.Name,
 		Description:      listing.Description,
+		LongDescription:  listing.LongDescription,
 		PublisherID:      listing.Publisher.ID,
 		PublisherName:    listing.Publisher.Name,
 		License:          listing.License,

@@ -1256,6 +1256,8 @@ export type PluginStoreMarketplace = {
   version: string;
   name: string;
   description?: string;
+  /** Optional plain text for the listing page; never markup. */
+  longDescription?: string;
   publisherId: string;
   publisherName: string;
   license?: string;

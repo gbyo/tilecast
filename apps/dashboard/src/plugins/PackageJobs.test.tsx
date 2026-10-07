@@ -35,13 +35,16 @@ describe("PackageJobs", () => {
     jobsStub.mockResolvedValue([]);
   });
 
-  it("renders each job with its cadence and cursor", async () => {
+  it("renders each job with its cadence and outcome", async () => {
+    const now = Date.now();
+    const at = (minutes: number) =>
+      new Date(now + minutes * 60_000).toISOString();
     jobsStub.mockResolvedValue([
       {
-        jobId: "refresh",
-        intervalMinutes: 15,
-        nextRunAt: "2026-10-07T12:00:00Z",
-        lastRunAt: "2026-10-07T11:45:00Z",
+        jobId: "refresh-scores",
+        intervalMinutes: 5,
+        nextRunAt: at(3),
+        lastRunAt: at(-2),
         lastStatus: "ok",
         lastError: "",
         consecutiveFailures: 0,
@@ -49,7 +52,7 @@ describe("PackageJobs", () => {
       {
         jobId: "prune",
         intervalMinutes: 1440,
-        nextRunAt: "2026-10-08T00:00:00Z",
+        nextRunAt: at(600),
         lastStatus: "never",
         lastError: "",
         consecutiveFailures: 0,
@@ -57,8 +60,8 @@ describe("PackageJobs", () => {
       {
         jobId: "sync",
         intervalMinutes: 60,
-        nextRunAt: "2026-10-07T13:00:00Z",
-        lastRunAt: "2026-10-07T12:00:00Z",
+        nextRunAt: at(40),
+        lastRunAt: at(-20),
         lastStatus: "error",
         lastError: "guest exited with status 2",
         consecutiveFailures: 3,
@@ -66,16 +69,53 @@ describe("PackageJobs", () => {
     ]);
     await i18n.changeLanguage("en");
     renderJobs();
-    expect(await screen.findByText("Background jobs")).toBeInTheDocument();
-    expect(screen.getByText("refresh")).toBeInTheDocument();
-    expect(screen.getByText(/Every 15 min/)).toBeInTheDocument();
-    expect(screen.getByText(/Succeeded/)).toBeInTheDocument();
-    expect(screen.getByText("prune")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Background jobs" }),
+    ).toBeInTheDocument();
+    // The friendly name leads; raw job ids belong to Technical details.
+    expect(screen.getByText("Refresh scores")).toBeInTheDocument();
+    expect(screen.queryByText("refresh-scores")).not.toBeInTheDocument();
+    expect(screen.getByText("Every 5 minutes")).toBeInTheDocument();
+    expect(
+      screen.getByText("Last run 2 minutes ago · Successful"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Next run in 3 minutes")).toBeInTheDocument();
+    expect(screen.getByText("Every day")).toBeInTheDocument();
     expect(screen.getByText("Never run")).toBeInTheDocument();
-    expect(screen.getByText("sync")).toBeInTheDocument();
-    expect(screen.getByText(/Failed/)).toBeInTheDocument();
-    expect(screen.getByText(/3 consecutive failures/)).toBeInTheDocument();
-    expect(screen.getByText(/guest exited with status 2/)).toBeInTheDocument();
+    expect(screen.getByText("Every hour")).toBeInTheDocument();
+    expect(
+      screen.getByText("Last failed run 20 minutes ago"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("3 consecutive failures")).toBeInTheDocument();
+    expect(screen.getByText("guest exited with status 2")).toBeInTheDocument();
+  });
+
+  it("marks a failed job with a warning, not color alone", async () => {
+    jobsStub.mockResolvedValue([
+      {
+        jobId: "sync",
+        intervalMinutes: 60,
+        nextRunAt: new Date(Date.now() + 3_600_000).toISOString(),
+        lastRunAt: new Date(Date.now() - 600_000).toISOString(),
+        lastStatus: "error",
+        lastError: "boom",
+        consecutiveFailures: 1,
+      },
+    ]);
+    await i18n.changeLanguage("en");
+    renderJobs();
+    const row = (await screen.findByText("Sync")).closest(
+      "[data-slot='item']",
+    ) as HTMLElement;
+    expect(row).toHaveAttribute("data-status", "failed");
+    expect(row).toHaveTextContent("Last failed run");
+    expect(row.querySelector("svg")).not.toBeNull();
+    // A failure marks its own lines, not the whole row: the Item stays the
+    // quiet muted variant with no destructive border or fill.
+    expect(row).toHaveAttribute("data-variant", "muted");
+    expect(row.className).not.toMatch(/destructive/);
+    expect(screen.getByText("boom")).toHaveClass("text-destructive");
+    expect(screen.getByText(/Next run in/)).not.toHaveClass("text-destructive");
   });
 
   it("reports load failures", async () => {

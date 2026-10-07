@@ -44,8 +44,15 @@ The Server rejects a document in these cases:
   exactly an owner and name; the catalog and the installer share one
   parser. The documentation and issue links must be
   empty or use https with a host and path. Categories must be lowercase
-  slugs of at most 5 entries with no repeats. Artwork must follow the
+  slugs of at most 5 entries with no repeats. `longDescription`, when
+  present, must be plain text of at most 2000 characters. It may hold
+  line breaks and no other control characters. Artwork must follow the
   rules in [Artwork](#artwork).
+
+`longDescription` is optional presentation text for the detail page.
+Studio shows it as plain text, never as markup. When it is absent, the
+page shows `description`. It has no effect on package identity, the
+digest, provenance, capabilities, or installation.
 
 A listing means the Tilecast project accepted the repository into the
 official Marketplace. A listing is not a security audit of the package.
@@ -143,7 +150,10 @@ The cache is not persisted, adds nothing to a backup, and rebuilds on
 demand after a restart.
 
 A missing, slow, or refused image never fails the store. The store
-still lists the entry, and Studio shows the generic plugin icon.
+still lists the entry, and Studio shows the generic plugin icon. A
+screenshot that does not load keeps its place in the carousel on the
+detail page with a placeholder. A listing with no screenshots has no
+screenshot section on that page.
 Custom repositories have no artwork. Their entries use the generic icon.
 
 ## Fetching and caching
@@ -198,7 +208,9 @@ icon and screenshots, when the listing declares them. See
 A marketplace failure never fails the store. The release-owned entries
 still serve, with the failure recorded on the marketplace status.
 
-Owner or Administrator reviews a listing from its detail page with
+Owner or Administrator reviews a listing from its detail page. Studio
+shows the review in a dialog, or in a drawer on a narrow viewport. The
+review calls
 `POST /plugin-store/{packageId}/resolve`, then installs with
 `POST /plugin-store/{packageId}/install` and an empty body. The listing
 pins identity, version, and digest; the pipeline verifies provenance

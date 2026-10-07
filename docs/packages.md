@@ -247,8 +247,18 @@ parent, which answers once with `{source, kind: "studio-handshake"}`
 and the frame's port. The hello must come from the frame's own window
 at the opaque origin. Calls then cross the port as `{source, id,
 input}` with answers as `{source, id, status, output}` back. A failed
-relay answers `status: -1` with `error: "bridge_failed"`. A reload or
-navigation destroys the document's port, and the parent never sends
+relay answers `status: -1` with `error: "bridge_failed"`.
+
+The page can tell the parent how tall its content wants to be. It posts
+`{source, kind: "studio-resize", height}` over the same port, where
+`height` is a finite number of CSS pixels greater than 0 and at most 100000. The message has exactly those three fields. The parent ignores
+any other shape, and it ignores anything that arrives on the window bus
+instead of the port. The parent rounds the height and clamps it to 200
+through 680 pixels. A frame starts at 280 pixels. A page taller than the
+maximum scrolls inside the frame. The parent animates the change only
+when the person has not asked for reduced motion.
+
+A reload or navigation destroys the document's port, and the parent never sends
 the channel to a newly loaded document: the connection dies with the
 original document, and the host reports the interface unavailable.
 

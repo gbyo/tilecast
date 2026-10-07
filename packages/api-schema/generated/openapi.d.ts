@@ -7602,6 +7602,8 @@ export interface components {
       version: string;
       name: string;
       description?: string;
+      /** @description Optional plain text for the listing page. Presentation only: it never affects identity, digest, trust, or install. Studio falls back to description when absent. */
+      longDescription?: string;
       publisherId: string;
       publisherName: string;
       license?: string;

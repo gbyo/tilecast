@@ -11743,6 +11743,12 @@ components:
         version: { type: string }
         name: { type: string }
         description: { type: string }
+        longDescription:
+          {
+            type: string,
+            maxLength: 2000,
+            description: "Optional plain text for the listing page. Presentation only: it never affects identity, digest, trust, or install. Studio falls back to description when absent.",
+          }
         publisherId: { type: string }
         publisherName: { type: string }
         license: { type: string }
