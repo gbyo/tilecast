@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/tilecast/tilecast/apps/server/internal/audit"
 )
 
 var (
@@ -85,9 +87,19 @@ func (s *Service) EnqueuePlayerCommand(ctx context.Context, screenID uuid.UUID, 
 		return uuid.Nil, time.Time{}, err
 	}
 
-	_, _ = s.db.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,'command.created','player_command',$3)`, uuid.New(), createdBy, id.String())
+	record := func(action, resourceType, resourceID string) {
+		event := audit.Event{Action: action, ResourceType: resourceType, ResourceID: resourceID, Actor: createdBy}
+		if audit.SurfaceFrom(ctx) == "" {
+			// Background package calls carry no HTTP principal. Name the
+			// server as the initiating client instead of inventing a caller.
+			event.Surface = audit.SurfaceSystem
+			event.ClientID = "tilecast-server"
+		}
+		_ = audit.Record(ctx, s.db, event)
+	}
+	record("command.created", "player_command", id.String())
 	if action := map[string]string{"clear_media_cache": "media.cache_clear_requested", "clear_website_data": "website.data_clear_requested", "disable_playback": "playback.disable_requested", "enable_playback": "playback.enable_requested"}[commandType]; action != "" {
-		_, _ = s.db.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id)VALUES($1,$2,$3,'screen',$4)`, uuid.New(), createdBy, action, screenID.String())
+		record(action, "screen", screenID.String())
 	}
 	s.Notify(screenID, map[string]any{"type": "commands.available"})
 	return id, expires, nil
