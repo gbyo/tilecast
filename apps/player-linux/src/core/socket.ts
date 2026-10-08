@@ -80,6 +80,7 @@ export interface SocketEvents {
   onManifestChanged(manifestVersion: number): void;
   onConfigChanged(configRevision: number): void;
   onCommandsAvailable(): void;
+  onPreviewSessionChanged(): void;
   onLiveStreamSessionChanged(): void;
 }
 
@@ -162,6 +163,9 @@ export class PlayerSocket {
       }
       case "commands.available":
         this.events.onCommandsAvailable();
+        break;
+      case "preview.session_changed":
+        this.events.onPreviewSessionChanged();
         break;
       case "live_stream.session_changed":
         this.events.onLiveStreamSessionChanged();
