@@ -33,7 +33,12 @@ export function useScreenPreviewSession({
         await api.renewScreenPreview(screenId, forceCapture, csrfToken);
         if (active) setError(null);
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause : new Error("Preview renewal failed"));
+        if (active)
+          setError(
+            cause instanceof Error
+              ? cause
+              : new Error("Preview renewal failed"),
+          );
       } finally {
         inFlight = false;
       }
@@ -53,7 +58,9 @@ export function useScreenPreviewSession({
     let active = true;
     const check = () => {
       const capturedMillis = capturedAt ? Date.parse(capturedAt) : NaN;
-      const stale = !Number.isFinite(capturedMillis) || Date.now() - capturedMillis > 45_000;
+      const stale =
+        !Number.isFinite(capturedMillis) ||
+        Date.now() - capturedMillis > 45_000;
       if (!stale) return;
 
       // The server guards the actual capture request. This local guard also
