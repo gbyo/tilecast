@@ -273,15 +273,25 @@ The real-systemd test checks the running helper's environment and open file desc
 
 A candidate `tilecastd` migrates `state.db` after activation. The previous release's daemon refuses a database whose schema is newer than it knows (`state_db_newer_schema`, [`tilecast-edge.md`](tilecast-edge.md) §6.1) and runs in recovery mode instead of downgrading or changing it.
 
-Therefore a candidate that migrated the database to a schema too new for the previous release cannot produce a fully working automatic rollback. The helper still restores the previous release, its units and its system files, and the screen shows the recovery surface, not the candidate. The database is never changed by the helper and never migrated backwards. There is no reverse SQL migration.
+A schema-advancing update therefore checkpoints before activation. The coordinator writes a verified pre-update checkpoint only when the candidate's envelope names a state schema newer than the running database: a `VACUUM INTO` copy plus a manifest with its SHA-256, schema and release identity (`tilecastd/src/update_checkpoint.rs`). The checkpoint is verified (hash, `quick_check`, schema) before and after the rollback. After a rollback the previous daemon restores the checkpoint over `state.db` and replays the candidate's post-checkpoint facts, read from the newer database with explicit old-schema column lists, in one transaction:
 
-How the limitation is reduced and reported:
+- completed commands return completed with their results, so they never run again;
+- commands the candidate was running return `executing`, so normal startup recovery reports them `command_interrupted` instead of rerunning them;
+- queued outbox rows return by event ID, and the activity sequence watermark advances to the maximum, so proof of play continues without reused sequences;
+- the renderer's supervision row returns, so safe mode survives the rollback.
+
+A `restore-intent.json` marker makes a restore that crashes partway redo cleanly: file moves precede the replay, the replay is idempotent, and the checkpoint is consumed last. The newer database stays as `state-migrated-backup.db` and the checkpoint as `state-preupdate-backup.db` for manual recovery. The restored job row is pre-activation, so the coordinator settles it from the helper's terminal transaction instead of activating the rolled-back version again.
+
+The database is never changed by the helper and never migrated backwards. There is no reverse SQL migration. The restore fails closed into recovery mode with an explicit reason when the checkpoint is missing (`update_checkpoint_missing`), corrupt (`update_checkpoint_corrupt`), written for another schema (`update_checkpoint_schema_mismatch`), or when the newer database changed a table the restore reads (`update_delta_incompatible`). A future migration that renames the command, outbox or renderer tables is the documented case where automatic recovery cannot work; additive migrations keep restoring.
+
+How the remaining risk is reduced and reported:
 
 - `tilecastd` refuses a release whose envelope names a state schema older than its own database before it downloads anything (`update_schema_incompatible`);
-- a rollback that the daemon or an operator asks for waits for the previous daemon and records `schemaIncompatible` in the transaction;
-- after any rollback, the previous daemon's `tilecastctl status` shows recovery mode with `state_db_newer_schema`, and `tilecast-edge-update status` shows the rolled-back transaction and its reason;
+- a schema-advancing activation with no room for the checkpoint fails with `insufficient_disk` instead of updating without a rollback path;
+- a rollback that the daemon or an operator asks for waits for the previous daemon and records `schemaIncompatible` in the transaction when the previous daemon still refuses the database;
+- after a failed restore, the previous daemon's `tilecastctl status` shows recovery mode with the checkpoint reason, and `tilecast-edge-update status` shows the rolled-back transaction and its reason;
 - in recovery mode the daemon has no state, so it has no server binding and sends nothing. The server sees the screen stop reporting: Studio shows it `stale` and then `offline`, the deployment target stays at the last state the candidate reported, and a canary target that stays `installing` or `reconnecting` for ten minutes pauses the deployment;
-- manual recovery: a deployment cannot reach a daemon in recovery mode, so an operator does the recovery on the screen. The operator installs a fixed release with the same or a newer state schema with `tilecast-edge-migrate install --from <release>` and restarts the Edge units, or restores a copy of the database from before the update. The helper keeps the database as it is for this.
+- manual recovery: a deployment cannot reach a daemon in recovery mode, so an operator does the recovery on the screen. The operator installs a fixed release with the same or a newer state schema with `tilecast-edge-migrate install --from <release>` and restarts the Edge units, or restores `state-preupdate-backup.db` over `state.db` while the Edge units are stopped. The helper keeps the database as it is for this.
 
 ## 9. Invariants
 

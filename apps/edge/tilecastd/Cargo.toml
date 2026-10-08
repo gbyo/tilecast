@@ -23,6 +23,7 @@ edge-state.workspace = true
 futures-util.workspace = true
 jiff.workspace = true
 ring.workspace = true
+rusqlite.workspace = true
 rustix = { workspace = true, features = ["process"] }
 serde.workspace = true
 serde_json.workspace = true

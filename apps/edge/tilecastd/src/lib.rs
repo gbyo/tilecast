@@ -67,4 +67,5 @@ pub mod self_test;
 pub mod server_link;
 pub mod telemetry;
 pub mod update;
+pub mod update_checkpoint;
 pub mod widget_capabilities;
