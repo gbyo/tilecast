@@ -1,0 +1,22 @@
+{
+  "name": "@tilecast/browser-companion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tilecast Browser Companion: optional MV3 extension contributing Player capabilities to the Browser Player",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@tilecast/companion-protocol": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

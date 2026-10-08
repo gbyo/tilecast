@@ -32,6 +32,14 @@ one playlist per package: `ensure` creates or updates the set,
 never names another package's rows. `takeovers.manage@1` activates and
 cancels emergency takeovers under canonical takeover validation; it
 refuses paths a package cannot confirm, such as re-authentication.
+`players.display-control@1` exposes one method per Player Capability
+operation (`display.power`, `display.input`, `display.volume`,
+`display.mute`, `display.brightness`). A call carries the target
+`screenId` and the operation `input`; the server maps the operation
+through the Player Capability registry to one persistent command, and
+only for screens that report the matching capability. See [Player
+capabilities](player-capabilities.md).
+
 The audit service writes bounded package audit events.
 `audit.write@1/write` accepts only actions under the `package.`
 namespace with bounded metadata, attributed to the package.

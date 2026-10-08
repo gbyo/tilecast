@@ -271,9 +271,11 @@ If the order is reversed, the tracker drops the first `item-started` report and 
 Only trusted bundled first-party runtime plugins may execute in the Player origin.
 Untrusted marketplace or custom plugin JavaScript must not execute as trusted top-level code there.
 Future runtime extensions need isolated execution or a separate origin.
-An optional browser extension can supply narrow host capability providers.
+The Player aggregates a small capability-provider registry: each provider describes its current capability set and invokes typed operations, the heartbeat repeats the merged set, and persistent commands outside the static matrix route through the registry when a provider covers them.
+The optional Tilecast Browser Companion extension contributes additional providers after an explicit per-origin grant.
 Runtime behavior must not depend on a platform name or extension presence flag.
 Browser Player v1 must report capture and Watch Live as unsupported.
+See [Browser Companion architecture](browser-companion.md) and [Player capabilities](player-capabilities.md).
 
 ## Implementation status
 

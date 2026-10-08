@@ -1,5 +1,6 @@
 import type { RuntimeReadyV1 } from "@tilecast/player-runtime/host-contract";
 import type { SelectionFacts } from "@tilecast/player-runtime/projection";
+import type { PlayerCapabilitySet } from "./capability-providers";
 import type { BrowserPlayerStatus } from "./diagnostics";
 import type { ForegroundState } from "./lifecycle";
 
@@ -21,6 +22,12 @@ export interface HeartbeatInputs {
   lastPlaybackError?: string;
   /** The generic reliability facts a browser can measure. */
   reliability?: BrowserReliability;
+  /**
+   * The generic capability status. Undefined omits the key and keeps the
+   * server's stored report; an empty set clears it, so a disconnected
+   * provider disappears. The caller tracks what it last sent.
+   */
+  capabilities?: PlayerCapabilitySet;
 }
 
 /**
@@ -93,6 +100,9 @@ export function heartbeatPayload(input: HeartbeatInputs) {
       ? { lastPlaybackError: input.lastPlaybackError.slice(0, 500) }
       : {}),
     ...(input.reliability ? reliabilityFields(input.reliability) : {}),
+    ...(input.capabilities !== undefined
+      ? { playerCapabilities: input.capabilities }
+      : {}),
   };
 }
 

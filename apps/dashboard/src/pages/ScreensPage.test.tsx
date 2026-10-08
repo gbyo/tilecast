@@ -20,6 +20,7 @@ import { canManageScreens } from "../data/screens";
 import {
   autostartSummary,
   autostartWarning,
+  formatPlayerCapabilities,
   formatReportedStatus,
   reportsAutostart,
   reliabilityCapabilityWarning,
@@ -40,6 +41,29 @@ describe("reliability status display", () => {
     expect(formatReportedStatus({ id: "player-1", name: "Lobby" }, t)).toBe(
       "Not reported",
     );
+  });
+
+  it("summarizes reported player capabilities in sorted order", () => {
+    expect(
+      formatPlayerCapabilities(
+        {
+          "display.volume": { version: 1, provider: "ddc_ci" },
+          "display.power": { version: 1, provider: "hdmi_cec" },
+        },
+        t,
+      ),
+    ).toBe("display.power@1 (hdmi_cec), display.volume@1 (ddc_ci)");
+    expect(formatPlayerCapabilities(undefined, t)).toBe("Not reported");
+    expect(formatPlayerCapabilities({}, t)).toBe("Not reported");
+    expect(
+      formatPlayerCapabilities(
+        { "display.power": { version: 1 } } as unknown as Record<
+          string,
+          { version: number; provider: string }
+        >,
+        t,
+      ),
+    ).toBe("Not reported");
   });
 });
 

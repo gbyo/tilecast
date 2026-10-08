@@ -91,6 +91,16 @@ never change the Player's connection status. A successful Display Control
 command means that the Player accepted and attempted its fixed provider call;
 state confirmation is a separate observation.
 
+Any Player may also report the generic capability status
+`playerCapabilities`: capability IDs to `{version, provider}`, for example
+`{"display.power": {"version": 1, "provider": "hdmi_cec"}}`. Versions are
+explicit and providers are diagnostic metadata. Unsupported capabilities
+stay absent. An omitted report keeps the stored value; an explicit empty
+report clears it, so a disconnected provider disappears promptly. Unknown
+capabilities, versions, and providers are dropped, and an oversized
+report keeps the stored value. Like Display Control, this status never
+changes the connection state. See [Player capabilities](player-capabilities.md).
+
 ## Manifest synchronization and playback
 
 `GET /api/v1/player/manifest` uses the active device credential. It returns schema version 1, a persisted per-screen version, a single-zone playlist or `null`, exact compatible variants, hashes, sizes, and authenticated relative download paths. `If-None-Match` returns 304 without incrementing the version.

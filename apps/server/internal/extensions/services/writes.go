@@ -13,6 +13,8 @@ import (
 
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
+	"github.com/tilecast/tilecast/apps/server/internal/playercaps"
 	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
 	plugin "github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
@@ -455,4 +457,133 @@ func (d *Dispatcher) auditWrite(ctx context.Context, call Call) (any, *Denial, *
 		return nil, nil, unavailable(err)
 	}
 	return map[string]any{"written": true}, nil, nil
+}
+
+// ---------------------------------------------------------------- players
+
+// playerCommand maps one Player Capability operation to the persistent
+// command system. The checks run in order: grant (by the transport),
+// Studio role, operation schema, target eligibility, reported
+// capability, then ordinary command eligibility inside the enqueue.
+// Guests never name a command type or touch the queue directly.
+func (d *Dispatcher) playerCommand(ctx context.Context, call Call, operation string) (any, *Denial, *CallError) {
+	// Display commands are Owner/Administrator actions on the dashboard;
+	// Studio package calls match. Background runs under the grant.
+	if failure := studioRole(call, "owner", "administrator"); failure != nil {
+		return nil, nil, failure
+	}
+	var input struct {
+		ScreenID uuid.UUID      `json:"screenId"`
+		Input    map[string]any `json:"input"`
+	}
+	if failure := decode(call.Input, &input); failure != nil {
+		return nil, nil, failure
+	}
+	if input.ScreenID == uuid.Nil {
+		return nil, nil, invalidInput("screenId is required")
+	}
+	operationInput := input.Input
+	if operationInput == nil {
+		operationInput = map[string]any{}
+	}
+	resolved, err := playercaps.Resolve(operation, operationInput)
+	if err != nil {
+		return nil, nil, invalidInput("operation input is invalid: %v", err)
+	}
+	var enabled, active, hasCredential bool
+	var genericRaw, legacyRaw []byte
+	err = d.deps.DB.QueryRow(ctx, `SELECT s.enabled,(s.archived_at IS NULL),
+	       EXISTS(SELECT 1 FROM device_credentials c WHERE c.screen_id=s.id AND c.revoked_at IS NULL),
+	       COALESCE(ps.player_capabilities,'{}'::jsonb),
+	       COALESCE(ps.display_control_capabilities,'{}'::jsonb)
+		FROM screens s LEFT JOIN screen_player_status ps ON ps.screen_id=s.id
+		WHERE s.id=$1 AND s.deleted_at IS NULL`, input.ScreenID).
+		Scan(&enabled, &active, &hasCredential, &genericRaw, &legacyRaw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil, notFound("screen was not found")
+	}
+	if err != nil {
+		return nil, nil, unavailable(err)
+	}
+	if !enabled {
+		return nil, nil, forbidden("screen is disabled")
+	}
+	if !active {
+		return nil, nil, forbidden("screen hardware is archived")
+	}
+	if !hasCredential {
+		return nil, nil, forbidden("screen has no active player credential")
+	}
+	if !playerReportsCapability(genericRaw, legacyRaw, operation) {
+		return nil, nil, forbidden("player does not report " + operation + " control")
+	}
+	payload, err := json.Marshal(resolved.Payload)
+	if err != nil {
+		return nil, nil, unavailable(err)
+	}
+	var creator *uuid.UUID
+	if call.Context == ContextStudio && call.Actor != nil {
+		creator = &call.Actor.UserID
+	}
+	id, expires, err := d.deps.Devices.EnqueuePlayerCommand(ctx, input.ScreenID, creator,
+		resolved.Command, payload, uuid.New(),
+		d.deps.Limits.MaxPendingCommands, d.deps.Limits.DefaultCommandExpiryMinutes)
+	if errors.Is(err, devices.ErrCommandScreenNotFound) {
+		return nil, nil, notFound("screen was not found")
+	}
+	if errors.Is(err, devices.ErrCommandLimit) {
+		return nil, nil, unavailable(errors.New("screen reached its pending-command limit"))
+	}
+	if errors.Is(err, devices.ErrCommandUnsupported) {
+		return nil, nil, forbidden("player cannot run this command")
+	}
+	if err != nil {
+		return nil, nil, unavailable(err)
+	}
+	tx, err := d.deps.DB.Begin(ctx)
+	if err != nil {
+		return nil, nil, unavailable(err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	metadata := packageMetadata(call)
+	metadata["operation"] = operation
+	metadata["command"] = resolved.Command
+	if err := d.deps.Shared.Audit.RecordInTx(auditContext(ctx, call), tx, plugin.AuditEvent{
+		Action: "package.player.command_queued", ResourceType: "player_command",
+		ResourceID: id.String(), Metadata: metadata, UserID: d.actorID(call),
+	}); err != nil {
+		return nil, nil, unavailable(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, nil, unavailable(err)
+	}
+	return map[string]any{
+		"queued": true, "commandId": id.String(), "commandType": resolved.Command,
+		"screenId": input.ScreenID.String(), "expiresAt": expires.UTC().Format(time.RFC3339),
+	}, nil, nil
+}
+
+// playerReportsCapability accepts the generic capability report first
+// and the legacy display-control map second, so players that predate
+// the generic report keep working while new reporters use versions.
+func playerReportsCapability(genericRaw, legacyRaw []byte, operation string) bool {
+	var generic map[string]struct {
+		Version  int    `json:"version"`
+		Provider string `json:"provider"`
+	}
+	if json.Unmarshal(genericRaw, &generic) == nil {
+		if entry, ok := generic[operation]; ok && entry.Version == playercaps.Version1 && playercaps.KnownProvider(entry.Provider) {
+			return true
+		}
+	}
+	legacyName, ok := playercaps.DisplayControlName(operation)
+	if !ok {
+		return false
+	}
+	var legacy map[string]string
+	if json.Unmarshal(legacyRaw, &legacy) != nil {
+		return false
+	}
+	provider, ok := legacy[legacyName]
+	return ok && provider != displaycontrol.ProviderUnsupported && displaycontrol.IsProvider(provider)
 }

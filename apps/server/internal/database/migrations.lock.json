@@ -730,5 +730,11 @@
     "file": "00123_external_package_managed_presentations.sql",
     "owner": "core",
     "sha256": "4f3f4b3fcb8e1210b0085291cd14d451a45b46a5e2a7453527f0841f73cafe9d"
+  },
+  {
+    "version": 124,
+    "file": "00124_player_capabilities.sql",
+    "owner": "core",
+    "sha256": "80c2fb6aba9631681319bd50913f4010351bde28ade2e797688a01849cdb1bb1"
   }
 ]

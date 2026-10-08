@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@noble/hashes": "2.2.0",
+    "@tilecast/companion-protocol": "*",
     "@tilecast/player-active-hours": "*",
     "@tilecast/player-activity": "*",
     "@tilecast/player-runtime": "*"

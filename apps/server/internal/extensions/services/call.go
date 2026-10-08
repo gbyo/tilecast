@@ -15,6 +15,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 	"github.com/tilecast/tilecast/apps/server/internal/managedpresentations"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
+	"github.com/tilecast/tilecast/apps/server/internal/playercaps"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
@@ -269,6 +270,16 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		return d.usersListByRole(ctx, call)
 	case "audit.write@1/write":
 		return d.auditWrite(ctx, call)
+	case "players.display-control@1/display.power":
+		return d.playerCommand(ctx, call, playercaps.DisplayPower)
+	case "players.display-control@1/display.input":
+		return d.playerCommand(ctx, call, playercaps.DisplayInput)
+	case "players.display-control@1/display.volume":
+		return d.playerCommand(ctx, call, playercaps.DisplayVolume)
+	case "players.display-control@1/display.mute":
+		return d.playerCommand(ctx, call, playercaps.DisplayMute)
+	case "players.display-control@1/display.brightness":
+		return d.playerCommand(ctx, call, playercaps.DisplayBrightness)
 	default:
 		return nil, &Denial{Kind: DenialUnknownOperation, Message: "operation has no handler"}, nil
 	}

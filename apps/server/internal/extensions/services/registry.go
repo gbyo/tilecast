@@ -197,6 +197,24 @@ var capabilities = []Capability{
 			{Name: "audit.write@1/write", CapabilityID: "audit.write", CapabilityVersion: 1, Title: "Write audit event", Description: "Write one bounded package audit event.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
 		},
 	},
+	{
+		ID:          "players.display-control",
+		Version:     1,
+		Name:        "Player display control",
+		Description: "Request display operations on screens that report the matching Player capability.",
+		Category:    CategoryManage,
+		Contexts:    []string{ContextStudio, ContextBackground},
+		// One method per Player Capability operation. The method names,
+		// titles, and descriptions mirror playercaps.Operations(); the
+		// drift test pins them to the canonical registry file.
+		Operations: []Operation{
+			{Name: "players.display-control@1/display.power", CapabilityID: "players.display-control", CapabilityVersion: 1, Title: "Set display power", Description: "Turn the attached display on or off through the reporting provider.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
+			{Name: "players.display-control@1/display.input", CapabilityID: "players.display-control", CapabilityVersion: 1, Title: "Set display input", Description: "Select the active input on the attached display.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
+			{Name: "players.display-control@1/display.volume", CapabilityID: "players.display-control", CapabilityVersion: 1, Title: "Set display volume", Description: "Set the attached display volume from 0 to 100.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
+			{Name: "players.display-control@1/display.mute", CapabilityID: "players.display-control", CapabilityVersion: 1, Title: "Set display mute", Description: "Mute or unmute the attached display.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
+			{Name: "players.display-control@1/display.brightness", CapabilityID: "players.display-control", CapabilityVersion: 1, Title: "Set display brightness", Description: "Set the attached display brightness from 0 to 100.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
+		},
+	},
 }
 
 // All returns the registry in stable ID order.

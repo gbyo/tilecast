@@ -302,7 +302,7 @@ it invokes the guest.
 
 A version 3 package calls versioned Tilecast services through one
 host function, `tilecast.call_v1`. The service registry
-(`internal/extensions/services`) owns the service inventory: nine
+(`internal/extensions/services`) owns the service inventory: ten
 services at version 1, each with fixed operations, allowed contexts,
 and a category. The install review resolves every grant against the
 registry and shows the operations it unlocks. An unknown service fails
@@ -320,6 +320,7 @@ a grant for any version other than 1 fails closed.
 | `takeovers.manage@1`             | manage    | `activate`, `cancel`                                                                                                                                                    |
 | `users.read-basic@1`             | directory | `get`, `search`, `list-by-role`                                                                                                                                         |
 | `audit.write@1`                  | audit     | `write`                                                                                                                                                                 |
+| `players.display-control@1`      | manage    | `display.power`, `display.input`, `display.volume`, `display.mute`, `display.brightness`                                                                                |
 
 An operation token joins service and method:
 `capability@version/method`, for example
@@ -341,12 +342,16 @@ Mutations run through the canonical domain services with
 same-transaction audit and after-commit fan-out, so package writes
 obey the same rules as dashboard writes.
 
-Three services carry extra rules. The managed service owns one data
+Four services carry extra rules. The managed service owns one data
 source, one widget, and one playlist per package; the guest never
 names another package's rows. The takeover service applies canonical
 takeover validation and refuses paths a package cannot confirm, such
 as re-authentication. The audit service accepts only actions under the
 `package.` namespace with bounded metadata, attributed to the package.
+The player service maps each operation through the Player Capability
+registry to one persistent command, and only for screens that report
+the matching capability. See [Player
+capabilities](player-capabilities.md).
 
 The reference guest SDK (`packages/package-guest-sdk`) owns the unsafe
 boundary, the envelope parsing, and the typed shapes for the small

@@ -18,3 +18,9 @@ Guests call `tilecast.call_v1` with an operation token such as `screens.read@1/l
 The reference guest SDK (`packages/package-guest-sdk`) owns the unsafe boundary, envelope parsing, and typed shapes. The Hello Services sample (`packages/package-samples/hello-services`) shows a scheduled job that reads screens and writes one audit event.
 
 Background jobs run as the system with no user actor. Studio interface calls run as the signed-in account with that operation's dashboard role policy.
+
+## Request Player operations
+
+The `players.display-control@1` service exposes one method per Player Capability operation, for example `display.power`. A call carries the target `screenId` and the operation `input`. The server verifies the target screen reports the matching capability before queueing anything through the ordinary Player command path. Guests never name a command type.
+
+Player capabilities are versioned and independent of operating system. No package ships per-platform Player code. For the registry and the reporting contract, see the [Player capabilities engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/player-capabilities.md).
