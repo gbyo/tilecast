@@ -64,6 +64,7 @@ export function LiveStreamViewer({
   const retryTransport = useCallback((immediate = false) => {
     if (!sessionRef.current) return;
     if (transportRetryTimer.current !== null) {
+      if (!immediate) return;
       window.clearTimeout(transportRetryTimer.current);
       transportRetryTimer.current = null;
     }
