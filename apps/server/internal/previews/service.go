@@ -178,7 +178,7 @@ func (s *Service) RecordUpload(ctx context.Context, screenID uuid.UUID, upload U
 	commandTag, err := s.db.Exec(ctx, `
 		UPDATE screen_previews preview SET
 			attempted_at=$2,
-			captured_at=CASE WHEN $3='' THEN $11 ELSE preview.captured_at END,
+			captured_at=CASE WHEN $3='' THEN $10 ELSE preview.captured_at END,
 			player_version=$4,
 			width=CASE WHEN $3='' THEN $5 ELSE preview.width END,
 			height=CASE WHEN $3='' THEN $6 ELSE preview.height END,
