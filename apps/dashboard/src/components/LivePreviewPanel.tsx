@@ -14,6 +14,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useScreenPreviewSession } from "./useScreenPreviewSession";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
@@ -40,7 +41,6 @@ import {
   previewUnavailableMessage,
 } from "./livePreviewState";
 
-const LEASE_RENEWAL_MILLIS = 30_000;
 const METADATA_REFRESH_MILLIS = 5_000;
 type LivePreviewDisplayState =
   ReturnType<typeof livePreviewState> | "image-error";
@@ -62,7 +62,6 @@ export function LivePreviewPanel({
   const { t } = useTranslation(["screens", "common", "alerts"]);
   const formatLocale = useFormatLocale();
   const openNativePresentation = useOpenNativePresentation();
-  const [renewalError, setRenewalError] = useState<string | null>(null);
   const [manualRefreshError, setManualRefreshError] = useState<string | null>(
     null,
   );
@@ -92,32 +91,14 @@ export function LivePreviewPanel({
     if (!presented) setWatchingLive(true);
   };
 
-  useEffect(() => {
-    if (!csrfToken) return;
-    let active = true;
-    const renew = async (forceCapture: boolean) => {
-      try {
-        await api.renewScreenPreview(screenId, forceCapture, csrfToken);
-        if (active) setRenewalError(null);
-      } catch (error) {
-        if (active)
-          setRenewalError(
-            error instanceof Error
-              ? apiErrorMessage(error)
-              : t("livePreview.sessionFailed"),
-          );
-      }
-    };
-    void renew(true);
-    const interval = window.setInterval(
-      () => void renew(false),
-      LEASE_RENEWAL_MILLIS,
-    );
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, [csrfToken, screenId, t]);
+  const { error: renewalError } = useScreenPreviewSession({
+    screenId,
+    csrfToken,
+    enabled: Boolean(csrfToken) && screen.data?.status !== "offline" &&
+      screen.data?.status !== "disabled" && screen.data?.status !== "revoked",
+    capturedAt: preview.data?.capturedAt,
+    protectedPreview: preview.data?.captureFailureStatus?.startsWith("sensitive_"),
+  });
 
   const manualRefresh = useMutation({
     mutationFn: async () => {
@@ -252,7 +233,7 @@ export function LivePreviewPanel({
           <span className="text-sm text-muted-foreground">
             {stateDescription(
               displayState,
-              manualRefreshError ?? renewalError,
+              manualRefreshError ?? (renewalError ? apiErrorMessage(renewalError) : null),
               t,
             )}
           </span>
