@@ -740,7 +740,8 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 | 5         | Emergency Alerts                                                                  | Done    |
 | 6         | Forms                                                                             | Done    |
 | 7         | Remove the remaining special cases; freeze the v1 contract                        | Done    |
-| 8–9       | Historical reserved lanes for composition and proof of play; subsequently shipped under their own contracts | Superseded |
+| 8         | Multi-zone authoring shipped under its Layout contract                            | Done    |
+| 9         | Proof of play shipped under its Activity contract                                 | Done    |
 
 Countdown Bar has moved completely, including its Player renderer. Brand Bug
 and Noise Meter are retired: their old installation rows and data remain, but
