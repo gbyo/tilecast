@@ -342,6 +342,10 @@ func (s *server) createPlayerCommand(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 429, "command_limit_reached", "This screen has reached its pending-command limit.")
 		return
 	}
+	if errors.Is(err, errCommandConflict) {
+		writeError(w, http.StatusConflict, "command_idempotency_conflict", "The idempotency key was already used for a different command or payload.")
+		return
+	}
 	if errors.Is(err, errCommandUnsupported) {
 		writeError(w, 422, "command_not_supported_by_player", "This player cannot run that command.")
 		return
@@ -391,13 +395,13 @@ func (s *server) cancelPlayerCommand(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tag, err := s.db.Exec(r.Context(), `UPDATE player_commands SET state='cancelled',completed_at=now(),updated_at=now() WHERE id=$1 AND screen_id=$2 AND state IN ('pending','delivered','acknowledged')`, command, screen)
+	tag, err := s.db.Exec(r.Context(), `UPDATE player_commands SET state='cancelled',completed_at=now(),updated_at=now() WHERE id=$1 AND screen_id=$2 AND state IN ('pending','delivered')`, command, screen)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
 	if tag.RowsAffected() == 0 {
-		writeError(w, 409, "command_already_completed", "Command cannot be cancelled.")
+		writeError(w, 409, "command_already_completed", "The command was already acknowledged or completed; cancellation cannot be guaranteed.")
 		return
 	}
 	writeJSON(w, 200, map[string]any{"data": map[string]any{"id": command, "state": "cancelled"}})
@@ -682,6 +686,7 @@ func (s *server) expireCommands(r *http.Request) {
 var (
 	errScreenNotFound = errors.New("screen not found")
 	errCommandLimit   = errors.New("pending command limit reached")
+	errCommandConflict = errors.New("idempotency key conflicts with an existing command")
 	// errCommandUnsupported means the screen's player cannot run this command
 	// type. It is refused before anything is queued.
 	errCommandUnsupported = errors.New("the player does not support this command")
@@ -718,8 +723,12 @@ func (s *server) queueCommand(ctx context.Context, screen, user uuid.UUID, comma
 	// full; they do not consume another slot or create a second audit entry.
 	var existing uuid.UUID
 	var existingExpires time.Time
-	err = tx.QueryRow(ctx, `SELECT id,expires_at FROM player_commands WHERE screen_id=$1 AND idempotency_key=$2`, screen, idempotencyKey).Scan(&existing, &existingExpires)
+	var sameType, samePayload bool
+	err = tx.QueryRow(ctx, `SELECT id,expires_at,type=$3,payload=$4::jsonb FROM player_commands WHERE screen_id=$1 AND idempotency_key=$2`, screen, idempotencyKey, commandType, string(payload)).Scan(&existing, &existingExpires, &sameType, &samePayload)
 	if err == nil {
+		if !sameType || !samePayload {
+			return uuid.Nil, time.Time{}, errCommandConflict
+		}
 		if err = tx.Commit(ctx); err != nil {
 			return uuid.Nil, time.Time{}, err
 		}
