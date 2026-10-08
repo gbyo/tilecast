@@ -105,6 +105,9 @@ export function LivePreviewPanel({
     capturedAt: preview.data?.capturedAt,
     protectedPreview,
   });
+  const previewError =
+    manualRefreshError ??
+    (renewalError ? apiErrorMessage(renewalError) : null);
 
   const manualRefresh = useMutation({
     mutationFn: async () => {
@@ -239,7 +242,7 @@ export function LivePreviewPanel({
           <span className="text-sm text-muted-foreground">
             {stateDescription(
               displayState,
-              manualRefreshError ?? (renewalError ? apiErrorMessage(renewalError) : null),
+              previewError,
               t,
             )}
           </span>
