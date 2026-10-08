@@ -218,11 +218,27 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 		t.Fatalf("failure upload: %v", err)
 	}
 	metadata, err = service.GetMetadata(ctx, screenID)
-	if err != nil || metadata.Status != "capture_error" || metadata.ImageAvailable || metadata.CaptureFailureStatus != "pixel_copy_failed" {
+	if err != nil || metadata.Status != "capture_error" || !metadata.ImageAvailable || metadata.CaptureFailureStatus != "pixel_copy_failed" {
 		t.Fatalf("failure metadata = %#v, %v", metadata, err)
 	}
+	if stored, err = service.GetImage(ctx, screenID); err != nil || !bytes.Equal(stored.Data, image) {
+		t.Fatalf("a transient capture failure must retain the last successful image, got %#v %v", stored, err)
+	}
+	if err = service.RecordUpload(ctx, screenID, Upload{PlayerVersion: "0.10.1", FailureStatus: "unavailable"}); err != nil {
+		t.Fatal(err)
+	}
+	metadata, err = service.GetMetadata(ctx, screenID)
+	if err != nil || metadata.ImageAvailable {
+		t.Fatalf("ambiguous legacy failure must hide the cached image: %#v %v", metadata, err)
+	}
 	if _, err = service.GetImage(ctx, screenID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("failed capture should clear the previous image, got %v", err)
+		t.Fatalf("ambiguous failure leaked the cached image: %v", err)
+	}
+	if err = service.RecordUpload(ctx, screenID, Upload{PlayerVersion: "0.10.1", FailureStatus: "sensitive_admin"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.GetImage(ctx, screenID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("protected failure leaked the cached image: %v", err)
 	}
 
 	var rows int
