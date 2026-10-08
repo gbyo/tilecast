@@ -91,13 +91,19 @@ export function LivePreviewPanel({
     if (!presented) setWatchingLive(true);
   };
 
+  const previewEnabled =
+    Boolean(csrfToken) &&
+    screen.data?.status !== "offline" &&
+    screen.data?.status !== "disabled" &&
+    screen.data?.status !== "revoked";
+  const protectedPreview =
+    preview.data?.captureFailureStatus?.startsWith("sensitive_") ?? false;
   const { error: renewalError } = useScreenPreviewSession({
     screenId,
     csrfToken,
-    enabled: Boolean(csrfToken) && screen.data?.status !== "offline" &&
-      screen.data?.status !== "disabled" && screen.data?.status !== "revoked",
+    enabled: previewEnabled,
     capturedAt: preview.data?.capturedAt,
-    protectedPreview: preview.data?.captureFailureStatus?.startsWith("sensitive_"),
+    protectedPreview,
   });
 
   const manualRefresh = useMutation({
