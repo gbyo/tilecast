@@ -724,5 +724,11 @@
     "file": "00122_external_plugin_state.sql",
     "owner": "core",
     "sha256": "0218ba51f80d13f720f771105f7d7309af7103530bf441f390014fe066ce0af5"
+  },
+  {
+    "version": 123,
+    "file": "00123_edge_renderer_diagnostics.sql",
+    "owner": "core",
+    "sha256": "d24408d6b26c06172b8c99b48c787638a75b8cfa20de0ec65914648d44c9eb43"
   }
 ]
