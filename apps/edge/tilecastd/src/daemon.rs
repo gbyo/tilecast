@@ -101,6 +101,9 @@ pub struct DaemonContext {
     /// Durable playlist resume, loaded once at startup. Synchronous: the
     /// offline projection path consumes it without awaiting.
     pub resume: std::sync::Mutex<crate::resume::ResumeState>,
+    /// Recorded installation mismatch, mirrored in memory: the offline
+    /// projection path gates on it without awaiting.
+    pub installation_mismatch: std::sync::Mutex<Option<crate::mismatch::MismatchRecord>>,
     /// What manifest preparation is doing, for status and heartbeat.
     pub preparation: crate::manifest_sync::SharedPreparationStatus,
     pub link_state: std::sync::Mutex<LinkState>,
@@ -333,6 +336,10 @@ impl Daemon {
             StateMode::Normal(db) => crate::resume::load_resume_state(db).await,
             StateMode::Recovery { .. } => crate::resume::ResumeState::default(),
         };
+        let mismatch_state = match &state {
+            StateMode::Normal(db) => crate::mismatch::load_mismatch(db).await,
+            StateMode::Recovery { .. } => None,
+        };
 
         let mut registry = CapabilityRegistry::new();
         registry.register(Arc::new(SystemdProvider {
@@ -416,6 +423,7 @@ impl Daemon {
             manifest_wake: tokio::sync::Notify::new(),
             manifest_item_boundary: std::sync::atomic::AtomicBool::new(false),
             resume: std::sync::Mutex::new(resume_state),
+            installation_mismatch: std::sync::Mutex::new(mismatch_state),
             preparation: Default::default(),
             link_state: std::sync::Mutex::new(LinkState::Unbound),
             last_server_contact: std::sync::Mutex::new(None),

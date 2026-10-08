@@ -126,7 +126,18 @@ impl player_core::ServerLinkHost for Host {
     fn record_activity(&self, event: player_core::ActivityEvent) {
         self.0.activity.record(event);
     }
+    async fn identity_mismatch(&self, expected: &str, actual: &str) {
+        crate::mismatch::note_mismatch(&self.0, expected, actual).await;
+    }
     async fn heartbeat(&self) -> serde_json::Value {
+        // A heartbeat is built after the pass verified the installation, so
+        // a recorded mismatch observed here is stale (the server recovered
+        // its old installation) and clears.
+        if self.0.installation_mismatch.lock().unwrap_or_else(|poison| poison.into_inner()).is_some()
+            && *self.0.link_state.lock().unwrap_or_else(|poison| poison.into_inner()) == LinkState::Connected
+        {
+            crate::mismatch::clear_mismatch(&self.0).await;
+        }
         build_heartbeat(&self.0).await
     }
     async fn presentation_protected(&self) -> bool {

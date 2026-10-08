@@ -187,8 +187,19 @@ impl player_core::OfflineActivationHost for Host {
         let candidate = Candidate::from_native(native.clone());
         let mut resolved =
             candidate.presentation_with(time.presentation_ms(), configuration).map_err(|error| error.reason_code())?;
+        // A recorded installation mismatch stops server content: the screen
+        // shows the mismatch surface instead of anything the old server sent.
+        if let Some(record) = crate::mismatch::content_blocked(&self.0) {
+            resolved.document = crate::mismatch::mismatch_surface(&record);
+            resolved.timing = None;
+            resolved.content = Vec::new();
+            resolved.projection = None;
+            resolved.plugins = Vec::new();
+            resolved.plugin_aliases = Vec::new();
+        }
         // Durable playlist resume, before the activation key is computed: the
         // resumed order is the projection, so it never reads as a change.
+        // After a mismatch gate the content is empty and this is a no-op.
         {
             let mut resume = self.0.resume.lock().unwrap_or_else(|poison| poison.into_inner());
             crate::resume::maybe_rotate(

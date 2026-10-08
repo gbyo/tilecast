@@ -223,3 +223,11 @@ pub fn set_open_sessions(connection: &Connection, value: Option<&str>) -> Result
     connection.execute("UPDATE outbox_state SET open_sessions = ?1 WHERE singleton = 1", params![value])?;
     Ok(())
 }
+
+/// Drops every queued row and open session. Unpair only: the unsent results
+/// belong to a server relationship that no longer exists.
+pub fn clear_all(connection: &Connection) -> Result<()> {
+    connection.execute("DELETE FROM outbox", [])?;
+    connection.execute("UPDATE outbox_state SET open_sessions = NULL WHERE singleton = 1", [])?;
+    Ok(())
+}
