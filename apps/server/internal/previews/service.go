@@ -92,6 +92,7 @@ func (s *Service) Renew(ctx context.Context, screenID uuid.UUID, forceCapture bo
 	now := s.now().UTC()
 	expiresAt := now.Add(LeaseDuration)
 	var storedScreenID uuid.UUID
+	var requestedAt time.Time
 	err := s.db.QueryRow(ctx, `
 		INSERT INTO screen_previews(screen_id,organization_id,lease_expires_at,capture_requested_at,updated_at)
 		SELECT screens.id,screens.organization_id,$2,$1,$1
@@ -110,14 +111,16 @@ func (s *Service) Renew(ctx context.Context, screenID uuid.UUID, forceCapture bo
 				ELSE screen_previews.capture_requested_at
 			END,
 			updated_at=$1
-		RETURNING screen_id`, now, expiresAt, screenID, forceCapture, int(CaptureFreshness.Seconds()), int(CaptureRetryInterval.Seconds())).Scan(&storedScreenID)
+		RETURNING screen_id, capture_requested_at`, now, expiresAt, screenID, forceCapture, int(CaptureFreshness.Seconds()), int(CaptureRetryInterval.Seconds())).Scan(&storedScreenID, &requestedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Session{}, ErrNotFound
 	}
 	if err != nil {
 		return Session{}, fmt.Errorf("renew screen preview session: %w", err)
 	}
-	if s.notifier != nil {
+	// Only a new capture request needs to wake the Player. Ordinary 30-second
+	// lease renewals must not cause a socket notification or a session GET.
+	if s.notifier != nil && requestedAt.Equal(now) {
 		s.notifier.Notify(screenID, map[string]any{"type": "preview.session_changed"})
 	}
 	return Session{Active: true, ExpiresAt: &expiresAt, CaptureIntervalSeconds: int(CaptureInterval.Seconds()), CaptureNow: forceCapture}, nil
@@ -197,16 +200,16 @@ func (s *Service) GetMetadata(ctx context.Context, screenID uuid.UUID) (Metadata
 	var result Metadata
 	var leaseExpiresAt time.Time
 	var capturedAt *time.Time
-	var imageData []byte
+	var imageAvailable bool
 	err := s.db.QueryRow(ctx, `
 		SELECT preview.screen_id,preview.lease_expires_at,preview.captured_at,preview.player_version,
-			preview.width,preview.height,preview.file_size,preview.failure_status,preview.image_data,preview.updated_at
+			preview.width,preview.height,preview.file_size,preview.failure_status,(preview.image_data IS NOT NULL),preview.updated_at
 		FROM screen_previews preview
 		JOIN screens ON screens.id=preview.screen_id
 		JOIN organization_settings ON organization_settings.singleton=TRUE AND organization_settings.id=screens.organization_id
 		WHERE preview.screen_id=$1`, screenID).Scan(
 		&result.ScreenID, &leaseExpiresAt, &capturedAt, &result.PlayerVersion,
-		&result.Width, &result.Height, &result.FileSize, &result.CaptureFailureStatus, &imageData, &result.UpdatedAt,
+		&result.Width, &result.Height, &result.FileSize, &result.CaptureFailureStatus, &imageAvailable, &result.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		var exists bool
@@ -223,7 +226,7 @@ func (s *Service) GetMetadata(ctx context.Context, screenID uuid.UUID) (Metadata
 	}
 	result.LeaseExpiresAt = &leaseExpiresAt
 	result.CapturedAt = capturedAt
-	result.ImageAvailable = len(imageData) > 0 && result.CaptureFailureStatus == ""
+	result.ImageAvailable = imageAvailable && result.CaptureFailureStatus == ""
 	switch {
 	case result.CaptureFailureStatus != "" && strings.HasPrefix(result.CaptureFailureStatus, "sensitive_"):
 		result.Status = "unavailable"
