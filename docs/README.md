@@ -23,7 +23,7 @@ Start with [`AGENTS.md`](../AGENTS.md) for repository rules, [architecture](arch
 - **Operations:** [Deployment](deployment.md), [troubleshooting](troubleshooting.md), [demo mode](demo-mode.md). See also [notifications](notifications.md), [fleet operations](fleet-operations.md), [screen replacement](screen-replacement.md).
 - **Authoring and content:** [Content review](content-review.md), [playback plan](playback-plan.md), [structured sources](structured-sources.md). See also [playlist history](playlist-history.md), [website content](website-content.md), [snapshot history](snapshots.md).
 
-Read the platform's own README and any closer `AGENTS.md` before making changes. The table is navigational and does not override a deeper subsystem contract.
+Read the platform's own README and any closer `AGENTS.md` before making changes. The list is navigational and does not override a deeper subsystem contract.
 
 ## Historical plans and dated evidence
 
