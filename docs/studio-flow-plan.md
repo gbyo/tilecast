@@ -1,5 +1,7 @@
 # Studio Authoring Flow Plan
 
+**Status: historical implementation plan.** The phases below document the problems and choices at the time of the authoring-flow work; they are not a current inventory of Studio navigation or unfinished tasks. For present-day behavior use [Studio design system](design-system.md), [Widget authoring](widget-authoring.md), and the current Studio routes. Do not follow old source line numbers as implementation instructions.
+
 Studio currently exposes the content data model as navigation. Six of seven primary destinations
 are record types, so knowing where to click requires already knowing the schema, and the required
 creation order (Data Source → Widget → Layout or Playlist → Screen) is the inverse of how authors
