@@ -279,6 +279,40 @@ mod tests {
         drop(server);
     }
 
+    #[derive(Clone)]
+    struct IdleApi(tokio::sync::mpsc::UnboundedSender<()>);
+
+    #[async_trait::async_trait]
+    impl PreviewApi for IdleApi {
+        async fn preview_session(&self) -> Result<PreviewSession, ServerError> {
+            let _ = self.0.send(());
+            Ok(PreviewSession { active: false, capture_now: false, capture_interval_seconds: 20 })
+        }
+        async fn post_preview(&self, _: &PreviewUpload<'_>) -> Result<(), ServerError> {
+            panic!("no capture while the lease is inactive")
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn socket_wake_reconciles_without_waiting_for_the_fifteen_second_poll() {
+        let host = Arc::new(Host { health: Mutex::new(PreviewHealth::default()), captures: AtomicUsize::new(0) });
+        let (observed, mut fetched) = tokio::sync::mpsc::unbounded_channel();
+        let (_server, receiver) = tokio::sync::watch::channel(Some(IdleApi(observed)));
+        let wake = Arc::new(tokio::sync::Notify::new());
+        let shutdown = tokio_util::sync::CancellationToken::new();
+        let wake_driver = Arc::clone(&wake);
+        let stop_driver = shutdown.clone();
+        let worker = tokio::spawn(async move { drive_preview(host, receiver, &wake_driver, &stop_driver).await });
+        fetched.recv().await.expect("initial session fetch");
+        wake.notify_one();
+        tokio::time::timeout(Duration::from_secs(1), fetched.recv())
+            .await
+            .expect("wake must be immediate")
+            .expect("wake-triggered session fetch");
+        shutdown.cancel();
+        worker.await.unwrap();
+    }
+
     #[test]
     fn an_unanswered_capture_suspends_previews_with_a_growing_pause() {
         let mut health = PreviewHealth::default();
