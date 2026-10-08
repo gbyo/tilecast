@@ -211,6 +211,13 @@ const rules = [
     ],
   ],
   [/^packages\/package-sdk\//, ["plugins", "server", "docs"]],
+  // The reference Wasm guest SDK and its Hello Services sample ride the
+  // package lanes: plugins validates the sample manifest, and the server
+  // suite runs the committed sample module through the real host.
+  [
+    /^(packages\/package-guest-sdk|packages\/package-samples)\//,
+    ["plugins", "server"],
+  ],
   [/^packages\/edge-protocol\//, edgeAreas],
   [/^apps\/player-windows\//, ["windows"]],
   [/^apps\/edge\/(tilecastd|tilecastctl|crates)\//, ["edge_rust"]],
