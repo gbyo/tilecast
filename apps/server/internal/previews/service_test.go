@@ -135,6 +135,70 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 		t.Fatalf("stored image = %#v, %v", stored, err)
 	}
 
+
+	// A healthy lease renewal does not force another capture.
+	now = now.Add(10 * time.Second)
+	if _, err = service.Renew(ctx, screenID, false); err != nil {
+		t.Fatalf("healthy renewal: %v", err)
+	}
+	playerSession, err = service.PlayerSession(ctx, screenID)
+	if err != nil || playerSession.CaptureNow {
+		t.Fatalf("healthy renewal unexpectedly requested capture: %#v %v", playerSession, err)
+	}
+
+	// An overdue image is automatically re-requested. Repeated renewals do
+	// not reset the request timestamp or storm a player that hasn't answered.
+	now = now.Add(CaptureFreshness)
+	if _, err = service.Renew(ctx, screenID, false); err != nil {
+		t.Fatalf("overdue renewal: %v", err)
+	}
+	playerSession, err = service.PlayerSession(ctx, screenID)
+	if err != nil || !playerSession.CaptureNow {
+		t.Fatalf("overdue image was not re-requested: %#v %v", playerSession, err)
+	}
+	var requestedAt time.Time
+	if err = pool.QueryRow(ctx, `SELECT capture_requested_at FROM screen_previews WHERE screen_id=$1`, screenID).Scan(&requestedAt); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(5 * time.Second)
+	if _, err = service.Renew(ctx, screenID, false); err != nil {
+		t.Fatalf("duplicate renewal: %v", err)
+	}
+	var duplicateRequestedAt time.Time
+	if err = pool.QueryRow(ctx, `SELECT capture_requested_at FROM screen_previews WHERE screen_id=$1`, screenID).Scan(&duplicateRequestedAt); err != nil {
+		t.Fatal(err)
+	}
+	if !requestedAt.Equal(duplicateRequestedAt) {
+		t.Fatalf("duplicate renewals reset capture request: %s -> %s", requestedAt, duplicateRequestedAt)
+	}
+
+	now = now.Add(CaptureRetryInterval)
+	if _, err = service.Renew(ctx, screenID, false); err != nil {
+		t.Fatalf("retry renewal: %v", err)
+	}
+	var retriedAt time.Time
+	if err = pool.QueryRow(ctx, `SELECT capture_requested_at FROM screen_previews WHERE screen_id=$1`, screenID).Scan(&retriedAt); err != nil {
+		t.Fatal(err)
+	}
+	if !retriedAt.After(requestedAt) {
+		t.Fatalf("overdue pending request not retried: %s", retriedAt)
+	}
+
+	// Simulate the player responding to the retried request.
+	if err = service.RecordUpload(ctx, screenID, Upload{
+		CapturedAt: now, PlayerVersion: "0.10.1", Width: 960, Height: 540,
+		ContentType: "image/jpeg", Data: image,
+	}); err != nil {
+		t.Fatalf("recovery upload: %v", err)
+	}
+	if _, err = service.Renew(ctx, screenID, false); err != nil {
+		t.Fatalf("post-recovery renewal: %v", err)
+	}
+	playerSession, err = service.PlayerSession(ctx, screenID)
+	if err != nil || playerSession.CaptureNow {
+		t.Fatalf("successful upload did not clear requested state: %#v %v", playerSession, err)
+	}
+
 	now = now.Add(CaptureInterval)
 	if err = service.RecordUpload(ctx, screenID, Upload{PlayerVersion: "0.10.1", FailureStatus: "pixel_copy_failed"}); err != nil {
 		t.Fatalf("failure upload: %v", err)
