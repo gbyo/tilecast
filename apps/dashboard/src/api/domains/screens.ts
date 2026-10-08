@@ -343,10 +343,12 @@ export function createScreenCommand(
   type: PlayerCommandType,
   payload: Record<string, unknown>,
   csrfToken: string,
+  // Reuse this key when retrying the SAME intentional operator action.
+  idempotencyKey: string = crypto.randomUUID(),
 ): Promise<{ id: string; state: string; expiresAt: string }> {
   return apiPost("/api/v1/screens/{id}/commands", {
     params: { path: { id } },
-    body: { type, payload },
+    body: { type, payload, idempotencyKey },
     csrfToken,
   });
 }

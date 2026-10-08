@@ -90,7 +90,9 @@ func (s *server) playerSocket(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer close(pingDone)
 		pingTicker := time.NewTicker(30 * time.Second)
-		commandTicker := time.NewTicker(5 * time.Second)
+		// Players already poll commands independently every seven seconds.
+		// This longer safety-net resends a wake if a socket push was lost.
+		commandTicker := time.NewTicker(30 * time.Second)
 		defer pingTicker.Stop()
 		defer commandTicker.Stop()
 		for {
@@ -98,10 +100,11 @@ func (s *server) playerSocket(w http.ResponseWriter, r *http.Request) {
 			case <-ctx.Done():
 				return
 			case <-commandTicker.C:
-				var commandsWaiting, commandStuck bool
-				if err := s.db.QueryRow(ctx, `SELECT
-					EXISTS(SELECT 1 FROM player_commands WHERE screen_id=$1 AND state IN ('pending','delivered','acknowledged','running') AND expires_at>now()),
-					EXISTS(SELECT 1 FROM player_commands WHERE screen_id=$1 AND state='pending' AND created_at<=now()-interval '15 seconds' AND expires_at>now())`, principal.ScreenID).Scan(&commandsWaiting, &commandStuck); err != nil {
+				var commandsWaiting bool
+				if err := s.db.QueryRow(ctx, `SELECT EXISTS(
+					SELECT 1 FROM player_commands
+					WHERE screen_id=$1 AND state IN ('pending','delivered','acknowledged','running') AND expires_at>now()
+				)`, principal.ScreenID).Scan(&commandsWaiting); err != nil {
 					continue
 				}
 				if commandsWaiting {
@@ -110,11 +113,8 @@ func (s *server) playerSocket(w http.ResponseWriter, r *http.Request) {
 						return
 					}
 				}
-				if commandStuck {
-					_ = connection.Close(websocket.StatusNormalClosure, "retry pending commands")
-					cancel()
-					return
-				}
+				// A pending command is not evidence of a broken socket.
+				// In particular, don't interrupt Watch Live to force a reconnect.
 			case timestamp := <-pingTicker.C:
 				if err := send(map[string]any{"type": "server.ping", "timestamp": timestamp.UTC().Format(time.RFC3339Nano)}); err != nil {
 					cancel()

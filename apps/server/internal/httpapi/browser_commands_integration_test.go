@@ -71,8 +71,23 @@ func TestBrowserScreensAcceptOnlyTheirMatrixCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, supported := range devices.BrowserSupportedCommands() {
-		if _, _, err := s.queueCommand(ctx, browser, user, supported, []byte(`{}`), uuid.New()); err != nil {
+		key := uuid.New()
+		id, expires, err := s.queueCommand(ctx, browser, user, supported, []byte(`{}`), key)
+		if err != nil {
 			t.Fatalf("%s was refused for a Browser Player: %v", supported, err)
+		}
+		// Retrying the exact same action reuses the same durable row.
+		again, againExpires, err := s.queueCommand(ctx, browser, user, supported, []byte(`{ }`), key)
+		if err != nil || again != id || !againExpires.Equal(expires) {
+			t.Fatalf("duplicate command was not idempotent: %v, %s vs %s", err, again, id)
+		}
+		if _, _, err := s.queueCommand(ctx, browser, user, supported, []byte(`{"different":true}`), key); !errors.Is(err, errCommandConflict) {
+			t.Fatalf("conflicting payload was not rejected: %v", err)
+		}
+		if supported != "sync_now" {
+			if _, _, err := s.queueCommand(ctx, browser, user, "sync_now", []byte(`{}`), key); !errors.Is(err, errCommandConflict) {
+				t.Fatalf("conflicting command type was not rejected: %v", err)
+			}
 		}
 	}
 	for _, refused := range []string{"display_power_off", "clear_media_cache", "clear_website_data", "install_player_update", "restart_player_process", "run_player_self_test", "install_autostart"} {
