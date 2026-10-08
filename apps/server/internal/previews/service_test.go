@@ -135,7 +135,6 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 		t.Fatalf("stored image = %#v, %v", stored, err)
 	}
 
-
 	// A healthy lease renewal does not force another capture.
 	now = now.Add(10 * time.Second)
 	if _, err = service.Renew(ctx, screenID, false); err != nil {
