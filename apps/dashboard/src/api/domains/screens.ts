@@ -144,7 +144,12 @@ export function listScreenSnapshots(
  */
 export type WirePreviewSession = components["schemas"]["PreviewSession"];
 export type WireScreenPreview = components["schemas"]["ScreenPreviewMetadata"];
-export type WireLiveStreamSession = components["schemas"]["LiveStreamSession"];
+export type WireLiveStreamSession =
+  components["schemas"]["LiveStreamSession"] & {
+    /** In-memory health hints added by the live-stream service. */
+    lastFrameAt?: string | null;
+    frameSequence?: number;
+  };
 
 export function renewScreenPreview(
   id: string,
