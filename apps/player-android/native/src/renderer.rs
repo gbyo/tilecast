@@ -622,6 +622,9 @@ fn mint_frame_token() -> Option<String> {
 /// The live generation's grants, if an activation is prepared.
 type GenerationGrants = Option<(u64, HashMap<Sha256Digest, Grant>, HashMap<Sha256Digest, FrameGrant>)>;
 
+/// The media and frame grant tables handed to one generation's projection.
+type LiveGrants = (HashMap<Sha256Digest, Grant>, HashMap<Sha256Digest, FrameGrant>);
+
 /// Android's [`RendererPort`]: generation-bound media grants over the one
 /// semantic JNI upcall. The port never sends credentials, paths the page
 /// could reach (paths travel only inside the native grant list), or
@@ -705,10 +708,7 @@ impl AndroidRendererPort {
         Ok(())
     }
 
-    fn grants_for(
-        &self,
-        generation: u64,
-    ) -> Result<(HashMap<Sha256Digest, Grant>, HashMap<Sha256Digest, FrameGrant>), RendererPortError> {
+    fn grants_for(&self, generation: u64) -> Result<LiveGrants, RendererPortError> {
         let grants = self.grants.lock().unwrap_or_else(|error| error.into_inner());
         match grants.as_ref() {
             Some((live, grants, frames)) if *live == generation => Ok((grants.clone(), frames.clone())),
