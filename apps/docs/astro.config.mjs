@@ -194,6 +194,10 @@ export default defineConfig({
             { label: "Display control", slug: "screens/display-control" },
             { label: "Player updates", slug: "players/update-a-player" },
             {
+              label: "Browser Companion",
+              slug: "players/browser-companion",
+            },
+            {
               label: "Tilecast Edge",
               slug: "edge",
               badge: { text: "Preview", variant: "caution" },
@@ -262,6 +266,10 @@ export default defineConfig({
               slug: "developers/player-development",
             },
             { label: "Plugin development", slug: "developers/plugins" },
+            {
+              label: "External packages",
+              slug: "developers/external-packages",
+            },
             { label: "iOS development", slug: "developers/ios-app" },
           ],
         },

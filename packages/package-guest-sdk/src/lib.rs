@@ -676,6 +676,101 @@ pub mod audit {
     }
 }
 
+pub mod players {
+    //! `players.display-control@1`: typed display operations on screens
+    //! that report the matching Player capability. Guests name the
+    //! operation and the target screen; the server resolves the Player
+    //! command, verifies the report, and queues it. Guests never name a
+    //! command type or touch the queue.
+    use super::{CallError, call_json};
+    use serde::{Deserialize, Serialize};
+    use std::string::String;
+
+    pub const DISPLAY_POWER: &str = "players.display-control@1/display.power";
+    pub const DISPLAY_INPUT: &str = "players.display-control@1/display.input";
+    pub const DISPLAY_VOLUME: &str = "players.display-control@1/display.volume";
+    pub const DISPLAY_MUTE: &str = "players.display-control@1/display.mute";
+    pub const DISPLAY_BRIGHTNESS: &str = "players.display-control@1/display.brightness";
+
+    #[derive(Debug, Clone, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Invoke<T: Serialize> {
+        pub screen_id: String,
+        pub input: T,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+    #[serde(rename_all = "lowercase")]
+    pub enum PowerState {
+        On,
+        Off,
+    }
+
+    #[derive(Debug, Clone, Serialize)]
+    pub struct PowerInput {
+        pub state: PowerState,
+    }
+
+    #[derive(Debug, Clone, Serialize)]
+    pub struct InputInput {
+        pub input: String,
+    }
+
+    #[derive(Debug, Clone, Serialize)]
+    pub struct VolumeInput {
+        pub volume: i64,
+    }
+
+    #[derive(Debug, Clone, Serialize)]
+    pub struct MuteInput {
+        pub muted: bool,
+    }
+
+    #[derive(Debug, Clone, Serialize)]
+    pub struct BrightnessInput {
+        pub brightness: i64,
+    }
+
+    #[derive(Debug, Clone, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct Queued {
+        pub queued: bool,
+        pub command_id: String,
+        pub command_type: String,
+        pub screen_id: String,
+        pub expires_at: String,
+    }
+
+    fn invoke<T: Serialize>(operation: &str, screen_id: &str, input: &T) -> Result<Queued, CallError> {
+        call_json(operation, &Invoke { screen_id: screen_id.into(), input })
+    }
+
+    /// Turns the target display on or off.
+    pub fn set_power(screen_id: &str, state: PowerState) -> Result<Queued, CallError> {
+        invoke(DISPLAY_POWER, screen_id, &PowerInput { state })
+    }
+
+    /// Selects the active input on the target display.
+    pub fn set_input(screen_id: &str, input: &str) -> Result<Queued, CallError> {
+        invoke(DISPLAY_INPUT, screen_id, &InputInput { input: input.into() })
+    }
+
+    /// Sets the target display volume from 0 to 100.
+    pub fn set_volume(screen_id: &str, volume: i64) -> Result<Queued, CallError> {
+        invoke(DISPLAY_VOLUME, screen_id, &VolumeInput { volume })
+    }
+
+    /// Mutes or unmutes the target display.
+    pub fn set_muted(screen_id: &str, muted: bool) -> Result<Queued, CallError> {
+        invoke(DISPLAY_MUTE, screen_id, &MuteInput { muted })
+    }
+
+    /// Sets the target display brightness from 0 to 100.
+    pub fn set_brightness(screen_id: &str, brightness: i64) -> Result<Queued, CallError> {
+        invoke(DISPLAY_BRIGHTNESS, screen_id, &BrightnessInput { brightness })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -755,6 +850,11 @@ mod tests {
             users::SEARCH,
             users::LIST_BY_ROLE,
             audit::WRITE,
+            players::DISPLAY_POWER,
+            players::DISPLAY_INPUT,
+            players::DISPLAY_VOLUME,
+            players::DISPLAY_MUTE,
+            players::DISPLAY_BRIGHTNESS,
         ] {
             let (capability, method) = token.split_once('/').expect("operation/method");
             let (id, version) = capability.split_once('@').expect("id@version");
@@ -769,6 +869,16 @@ mod tests {
         let value = input.to_value();
         assert_eq!(value["type"], "custom");
         assert!(value.get("schedule_type").is_none());
+    }
+
+    #[test]
+    fn players_invoke_names_screen_id() {
+        let raw = serde_json::to_string(&players::Invoke {
+            screen_id: "screen-1".to_string(),
+            input: players::PowerInput { state: players::PowerState::Off },
+        })
+        .expect("serializes");
+        assert_eq!(raw, r#"{"screenId":"screen-1","input":{"state":"off"}}"#);
     }
 
     #[test]

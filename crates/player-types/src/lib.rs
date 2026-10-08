@@ -8,6 +8,7 @@ pub mod capability;
 pub mod digest;
 pub mod frames;
 pub mod ids;
+pub mod player_caps;
 pub mod time;
 
 pub use digest::Sha256Digest;

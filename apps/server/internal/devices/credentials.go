@@ -330,6 +330,8 @@ func (s *Service) Heartbeat(ctx context.Context, principal DevicePrincipal, hear
 	// Display Control is also optional. Invalid capability claims are discarded
 	// by the helper rather than taking a healthy legacy player offline.
 	s.updateDisplayControlHeartbeat(ctx, principal.ScreenID, heartbeat)
+	// Generic Player Capability status, populated from the same probe.
+	s.updatePlayerCapabilitiesHeartbeat(ctx, principal.ScreenID, heartbeat)
 	// Presentation Network capability and the wired address AirPlay group RTP
 	// fan-out needs. Also optional and also best effort; a player that predates
 	// the feature simply reports nothing and keeps its existing AirPlay behavior.

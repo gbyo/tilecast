@@ -440,7 +440,25 @@ impl DisplayControl {
         };
         heartbeat["displayControlProvider"] = json!(providers.first().copied().unwrap_or("unsupported"));
         heartbeat["displayControlProviders"] = json!(if supported { providers } else { vec!["unsupported"] });
-        heartbeat["displayControlCapabilities"] = Value::Object(capabilities);
+        heartbeat["displayControlCapabilities"] = Value::Object(capabilities.clone());
+        // The generic report mirrors the same probe through the
+        // versioned registry vocabulary: one probe, two projections.
+        // `probe` has no registry ID and stays legacy-only.
+        let mut generic = Map::new();
+        for (name, provider) in capabilities.iter() {
+            let Some(id) = player_types::player_caps::registry_id_for_display_control(name) else {
+                continue;
+            };
+            if let Value::String(provider) = provider
+                && player_types::player_caps::is_provider(provider)
+            {
+                generic.insert(
+                    id.into(),
+                    json!({"version": player_types::player_caps::REGISTRY_VERSION, "provider": provider}),
+                );
+            }
+        }
+        heartbeat["playerCapabilities"] = Value::Object(generic);
         heartbeat["displayPowerState"] = json!(power.state);
         heartbeat["displayPowerStateConfirmed"] = json!(power.confirmed);
         if let Some(at) = power.observed_at {
@@ -738,6 +756,50 @@ mod tests {
             ]
         );
         assert!(capabilities.iter().all(|c| c.state == CapabilityState::Unsupported && c.reason_code.is_some()));
+    }
+
+    /// Injects a probe with usable CEC power/input and DDC
+    /// brightness, the way a probed machine would hold it.
+    fn probed(_dir: &tempfile::TempDir, display: &DisplayControl) {
+        use edge_platform::display::{CecStatus, DdcStatus};
+        let mut snapshot = display.snapshot();
+        snapshot.probe = Some(Probe {
+            cec: CecStatus {
+                feature: Feature::available(),
+                adapter: Some(0),
+                physical_address: Some(0x1000),
+                power: None,
+            },
+            ddc: DdcStatus {
+                connector: Some("HDMI-1".into()),
+                bus: Some(6),
+                brightness: Feature::available(),
+                volume: Feature::new(CapabilityState::Unsupported, "ddc_volume_absent"),
+                mute: Feature::new(CapabilityState::Unsupported, "ddc_mute_absent"),
+            },
+        });
+    }
+
+    #[test]
+    fn heartbeat_reports_generic_capabilities_from_the_same_probe() {
+        let (dir, display) = unprobed();
+        probed(&dir, &display);
+        let mut heartbeat = json!({});
+        display.heartbeat(&mut heartbeat);
+        assert_eq!(
+            heartbeat["displayControlCapabilities"],
+            json!({"power": "hdmi_cec", "input": "hdmi_cec", "probe": "hdmi_cec", "brightness": "ddc_ci"})
+        );
+        // The generic report mirrors the probe through the versioned
+        // registry vocabulary; `probe` has no registry ID.
+        assert_eq!(
+            heartbeat["playerCapabilities"],
+            json!({
+                "display.power": {"version": 1, "provider": "hdmi_cec"},
+                "display.input": {"version": 1, "provider": "hdmi_cec"},
+                "display.brightness": {"version": 1, "provider": "ddc_ci"},
+            })
+        );
     }
 
     #[test]

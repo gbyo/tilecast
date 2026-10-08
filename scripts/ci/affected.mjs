@@ -93,6 +93,12 @@ const rules = [
   [/^apps\/player-android\//, ["android"]],
   // Browser Player and the server code that authenticates and serves it.
   [/^apps\/player-web\//, ["browser_player"]],
+  // The optional Companion extension and its page protocol ride the
+  // Browser Player lane: the validator tests and builds them together.
+  [
+    /^(apps\/browser-companion|packages\/companion-protocol)\//,
+    ["browser_player"],
+  ],
   [
     /^apps\/server\/internal\/(web\/player|httpapi\/browser_player|devices\/browser)/,
     ["browser_player"],

@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Tilecast Browser Companion",
+  "version": "0.1.0",
+  "description": "Optional capabilities for the Tilecast Browser Player. No function without an explicit per-origin grant.",
+  "minimum_chrome_version": "116",
+  "action": {
+    "default_title": "Tilecast Browser Companion",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": ["storage", "scripting", "activeTab"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": []
+}

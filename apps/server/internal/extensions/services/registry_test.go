@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tilecast/tilecast/apps/server/internal/playercaps"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
 
@@ -92,5 +93,31 @@ func TestValidateAndDetailsRejectUnknownServices(t *testing.T) {
 	}
 	if _, err := Details(unknown); !errors.Is(err, ErrUnknownService) {
 		t.Fatalf("Details = %v, want unknown service", err)
+	}
+}
+
+// TestPlayerOperationsMirrorPlayerCaps pins the players.display-control
+// methods to the Player Capability registry: one method per operation,
+// with the same titles and descriptions the canonical file carries.
+func TestPlayerOperationsMirrorPlayerCaps(t *testing.T) {
+	capability, ok := Find("players.display-control", 1)
+	if !ok {
+		t.Fatal("players.display-control@1 is not registered")
+	}
+	mirrored := playercaps.Operations()
+	if len(capability.Operations) != len(mirrored) {
+		t.Fatalf("operations = %d, registry carries %d", len(capability.Operations), len(mirrored))
+	}
+	for i, operation := range capability.Operations {
+		want := mirrored[i]
+		if operation.Name != "players.display-control@1/"+want.Operation {
+			t.Fatalf("operation = %q, want %q", operation.Name, want.Operation)
+		}
+		if operation.Title != want.Title || operation.Description != want.Description {
+			t.Fatalf("operation %q metadata drifted", operation.Name)
+		}
+		if !operation.Mutating {
+			t.Fatalf("operation %q is not marked mutating", operation.Name)
+		}
 	}
 }

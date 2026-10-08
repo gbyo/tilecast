@@ -311,3 +311,159 @@ func TestAuditWriteIsNamespaced(t *testing.T) {
 		t.Fatalf("forged action = %+v, want invalid_input", result.failure)
 	}
 }
+
+func insertPlayerCommandScreen(t *testing.T, pool *pgxpool.Pool, orgID, id uuid.UUID, generic, legacy string) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO screens(id,organization_id,player_installation_id,name,platform,device_manufacturer,device_model,android_version,player_version,screen_width,screen_height,density,locale,timezone)VALUES($1,$2,$3,'Command Screen','linux','Test','Test','none','1.0',1920,1080,1,'en-US','UTC')`, id, orgID, uuid.NewString()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO device_credentials(id,screen_id,public_id,secret_hash)VALUES($1,$2,$3,$4)`, uuid.New(), id, uuid.NewString(), make([]byte, 32)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,player_capabilities,display_control_capabilities)VALUES($1,$2::jsonb,$3::jsonb)`, id, generic, legacy); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func serviceOrgID(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
+	t.Helper()
+	var orgID uuid.UUID
+	if err := pool.QueryRow(context.Background(), `SELECT id FROM organization_settings WHERE singleton`).Scan(&orgID); err != nil {
+		t.Fatal(err)
+	}
+	return orgID
+}
+
+func TestPlayerCommandQueuesThroughCapability(t *testing.T) {
+	f := newServiceFixture(t)
+	ctx := context.Background()
+	screenID := uuid.New()
+	insertPlayerCommandScreen(t, f.pool, serviceOrgID(t, f.pool), screenID,
+		`{"display.power":{"version":1,"provider":"hdmi_cec"}}`, `{}`)
+	data := mustData(t, f.background("acme.display", "players.display-control", "players.display-control@1/display.power",
+		map[string]any{"screenId": screenID.String(), "input": map[string]any{"state": "off"}}))
+	if data["queued"] != true || data["commandType"] != "display_power_off" || data["screenId"] != screenID.String() {
+		t.Fatalf("answer = %+v", data)
+	}
+	commandID, err := uuid.Parse(data["commandId"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var commandType, payload string
+	var creator *uuid.UUID
+	if err := f.pool.QueryRow(ctx, `SELECT type,payload::text,created_by FROM player_commands WHERE id=$1`, commandID).Scan(&commandType, &payload, &creator); err != nil {
+		t.Fatal(err)
+	}
+	if commandType != "display_power_off" || payload != "{}" || creator != nil {
+		t.Fatalf("command = %s %s creator=%v", commandType, payload, creator)
+	}
+	var action string
+	var auditUser *uuid.UUID
+	var metadata map[string]any
+	metadataRaw := []byte{}
+	if err := f.pool.QueryRow(ctx, `SELECT action,user_id,metadata::text FROM audit_logs WHERE action='package.player.command_queued' AND resource_id=$1`, commandID.String()).Scan(&action, &auditUser, &metadataRaw); err != nil {
+		t.Fatalf("package audit row: %v", err)
+	}
+	if err := json.Unmarshal(metadataRaw, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	if auditUser != nil || metadata["package_id"] != "acme.display" || metadata["operation"] != "display.power" || metadata["command"] != "display_power_off" {
+		t.Fatalf("audit = user %v metadata %v", auditUser, metadata)
+	}
+}
+
+func TestPlayerCommandAcceptsLegacyReport(t *testing.T) {
+	f := newServiceFixture(t)
+	screenID := uuid.New()
+	insertPlayerCommandScreen(t, f.pool, serviceOrgID(t, f.pool), screenID,
+		`{}`, `{"power":"hdmi_cec"}`)
+	data := mustData(t, f.background("acme.display", "players.display-control", "players.display-control@1/display.power",
+		map[string]any{"screenId": screenID.String(), "input": map[string]any{"state": "on"}}))
+	if data["commandType"] != "display_power_on" {
+		t.Fatalf("answer = %+v", data)
+	}
+}
+
+func TestPlayerCommandRefusesWithoutCapability(t *testing.T) {
+	f := newServiceFixture(t)
+	screenID := uuid.New()
+	insertPlayerCommandScreen(t, f.pool, serviceOrgID(t, f.pool), screenID, `{}`, `{}`)
+	result := f.background("acme.display", "players.display-control", "players.display-control@1/display.power",
+		map[string]any{"screenId": screenID.String(), "input": map[string]any{"state": "on"}})
+	if result.failure == nil || result.failure.Code != ErrCodeForbidden {
+		t.Fatalf("result = %+v", result)
+	}
+	// A wrong-version generic report does not count either.
+	badID := uuid.New()
+	insertPlayerCommandScreen(t, f.pool, serviceOrgID(t, f.pool), badID,
+		`{"display.power":{"version":2,"provider":"hdmi_cec"}}`, `{}`)
+	result = f.background("acme.display", "players.display-control", "players.display-control@1/display.power",
+		map[string]any{"screenId": badID.String(), "input": map[string]any{"state": "on"}})
+	if result.failure == nil || result.failure.Code != ErrCodeForbidden {
+		t.Fatalf("versioned result = %+v", result)
+	}
+}
+
+func TestPlayerCommandValidationPaths(t *testing.T) {
+	f := newServiceFixture(t)
+	screenID := uuid.New()
+	insertPlayerCommandScreen(t, f.pool, serviceOrgID(t, f.pool), screenID,
+		`{"display.volume":{"version":1,"provider":"ddc_ci"}}`, `{}`)
+	cases := []struct {
+		name      string
+		operation string
+		input     map[string]any
+		code      string
+	}{
+		{"bad state", "players.display-control@1/display.power", map[string]any{"screenId": screenID.String(), "input": map[string]any{"state": "dim"}}, ErrCodeInvalidInput},
+		{"missing input", "players.display-control@1/display.power", map[string]any{"screenId": screenID.String()}, ErrCodeInvalidInput},
+		{"missing screen", "players.display-control@1/display.power", map[string]any{"screenId": uuid.NewString(), "input": map[string]any{"state": "on"}}, ErrCodeNotFound},
+		{"volume high", "players.display-control@1/display.volume", map[string]any{"screenId": screenID.String(), "input": map[string]any{"volume": float64(101)}}, ErrCodeInvalidInput},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := f.background("acme.display", "players.display-control", tc.operation, tc.input)
+			if result.failure == nil || result.failure.Code != tc.code {
+				t.Fatalf("result = %+v", result)
+			}
+		})
+	}
+	// The valid volume call queues with its payload intact.
+	data := mustData(t, f.background("acme.display", "players.display-control", "players.display-control@1/display.volume",
+		map[string]any{"screenId": screenID.String(), "input": map[string]any{"volume": float64(42)}}))
+	if data["commandType"] != "display_set_volume" {
+		t.Fatalf("answer = %+v", data)
+	}
+	var payload string
+	if err := f.pool.QueryRow(context.Background(), `SELECT payload::text FROM player_commands WHERE id=$1`, data["commandId"].(string)).Scan(&payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload != `{"volume": 42}` {
+		t.Fatalf("payload = %s", payload)
+	}
+}
+
+func TestPlayerCommandStudioRole(t *testing.T) {
+	f := newServiceFixture(t)
+	screenID := uuid.New()
+	insertPlayerCommandScreen(t, f.pool, serviceOrgID(t, f.pool), screenID,
+		`{"display.mute":{"version":1,"provider":"network"}}`, `{}`)
+	denied := f.studio(f.viewerID, "viewer", "acme.display", "players.display-control", "players.display-control@1/display.mute",
+		map[string]any{"screenId": screenID.String(), "input": map[string]any{"muted": true}})
+	if denied.failure == nil || denied.failure.Code != ErrCodeForbidden {
+		t.Fatalf("viewer result = %+v", denied)
+	}
+	data := mustData(t, f.studio(f.ownerID, "owner", "acme.display", "players.display-control", "players.display-control@1/display.mute",
+		map[string]any{"screenId": screenID.String(), "input": map[string]any{"muted": true}}))
+	if data["commandType"] != "display_mute" {
+		t.Fatalf("answer = %+v", data)
+	}
+	var creator *uuid.UUID
+	if err := f.pool.QueryRow(context.Background(), `SELECT created_by FROM player_commands WHERE id=$1`, data["commandId"].(string)).Scan(&creator); err != nil {
+		t.Fatal(err)
+	}
+	if creator == nil || *creator != f.ownerID {
+		t.Fatalf("creator = %v, want the studio actor", creator)
+	}
+}

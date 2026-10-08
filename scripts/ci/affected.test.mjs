@@ -538,6 +538,13 @@ test("Browser Player has its own lane and follows the Runtime and the server cod
   assert.deepEqual(selected(["apps/player-web/src/application.ts"]), [
     "browser_player",
   ]);
+  // The Companion extension rides the Browser Player lane.
+  for (const path of [
+    "apps/browser-companion/src/background.ts",
+    "packages/companion-protocol/src/protocol.ts",
+  ]) {
+    assert.deepEqual(selected([path]), ["browser_player"], path);
+  }
   for (const path of [
     "apps/server/internal/web/player.go",
     "apps/server/internal/httpapi/browser_player.go",

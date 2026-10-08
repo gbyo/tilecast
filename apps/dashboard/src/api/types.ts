@@ -786,6 +786,7 @@ export type ReliabilityStatus = {
   displayControlLastCommandSentAt?: string;
   displayControlLastStateConfirmedAt?: string;
   displayControlError?: string;
+  playerCapabilities?: Record<string, { version: number; provider: string }>;
   powerAssist: PowerAssistResults;
 };
 
