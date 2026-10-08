@@ -289,10 +289,21 @@ pub(crate) fn preview_session(data: &Value) -> PreviewSession {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PreviewUpload<'a> {
-    Image { jpeg: &'a [u8], width: u32, height: u32, captured_at: &'a str, player_version: &'a str },
-    Unavailable { player_version: &'a str },
+    Image {
+        jpeg: &'a [u8],
+        width: u32,
+        height: u32,
+        captured_at: &'a str,
+        player_version: &'a str,
+    },
+    Unavailable {
+        player_version: &'a str,
+    },
     /// A specific capture failure known not to be a protected player state.
-    Failure { player_version: &'a str, reason: &'a str },
+    Failure {
+        player_version: &'a str,
+        reason: &'a str,
+    },
 }
 
 /// The multipart body the Electron player sends (`preview.ts`). Values are
@@ -379,9 +390,12 @@ mod preview_tests {
         assert!(preview_form("b", &injected).is_none());
         let unavailable = preview_form("b", &PreviewUpload::Unavailable { player_version: "0.1.0" }).unwrap();
         assert!(String::from_utf8_lossy(&unavailable).contains("unavailable"));
-        let failure = preview_form("b", &PreviewUpload::Failure { player_version: "0.1.0", reason: "renderer_timeout" }).unwrap();
+        let failure =
+            preview_form("b", &PreviewUpload::Failure { player_version: "0.1.0", reason: "renderer_timeout" }).unwrap();
         assert!(String::from_utf8_lossy(&failure).contains("renderer_timeout"));
-        assert!(preview_form("b", &PreviewUpload::Failure { player_version: "0.1.0", reason: "bad\r\nfield" }).is_none());
+        assert!(
+            preview_form("b", &PreviewUpload::Failure { player_version: "0.1.0", reason: "bad\r\nfield" }).is_none()
+        );
     }
 }
 
