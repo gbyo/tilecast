@@ -120,7 +120,9 @@ func (s *Service) Renew(ctx context.Context, screenID uuid.UUID, forceCapture bo
 	}
 	// Only a new capture request needs to wake the Player. Ordinary 30-second
 	// lease renewals must not cause a socket notification or a session GET.
-	if s.notifier != nil && requestedAt.Equal(now) {
+	// PostgreSQL stores timestamps at microsecond precision, while Go's clock
+	// usually has nanoseconds. Compare within that precision after round-trip.
+	if s.notifier != nil && requestedAt.Sub(now).Abs() < time.Microsecond {
 		s.notifier.Notify(screenID, map[string]any{"type": "preview.session_changed"})
 	}
 	return Session{Active: true, ExpiresAt: &expiresAt, CaptureIntervalSeconds: int(CaptureInterval.Seconds()), CaptureNow: forceCapture}, nil
