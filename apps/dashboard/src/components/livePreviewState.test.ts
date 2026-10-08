@@ -49,10 +49,11 @@ describe("livePreviewState", () => {
       livePreviewState(screen, { ...preview, status: "capture_error" }),
     ).toBe("stale");
     expect(
-      livePreviewState(
-        screen,
-        { ...preview, status: "capture_error", imageAvailable: false },
-      ),
+      livePreviewState(screen, {
+        ...preview,
+        status: "capture_error",
+        imageAvailable: false,
+      }),
     ).toBe("capture-error");
   });
 });
