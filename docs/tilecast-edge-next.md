@@ -2,7 +2,9 @@
 
 This document is the implementation ledger for Tilecast Edge 1. It records what exists, what is proven, what is missing, and how to continue without breaking the architecture.
 
-**Status (2026-09-29):** Milestones M1 to M10 are software-complete and merged into `main`. M11's remote-web implementation is merged in gbyo/tilecast#699; physical WPE and hardware qualification is still outstanding. M12 (production rollout) has not started. Tilecast Edge is not qualified for production screens. The Electron Linux Player stays the supported Linux player.
+**Historical milestone snapshot (2026-09-29):** M1–M10 were merged; M11 remote-web software had merged, but physical qualification and production rollout were not complete at that checkpoint. The milestone table below records **September 29**, not today's release status.
+
+**Release and field status (2026-10-08):** Edge has published preview releases through `edge-v0.2.1-preview.1`. The [0.2.1 reliability review](tilecast-edge-sandbox-review.md) records hardware field problems and hardening. Preview releases and field tests are **not** general hardware-class or production qualification; the review requires verification on each deployment class. Check release notes, installed version, and device-specific qualification before migrating a production screen.
 
 Read in this order:
 
@@ -96,7 +98,7 @@ These hold across every milestone.
 8. **One-way migration.** Never modify or delete legacy files. No shadow mode, no dual runtime, no second credential.
 9. **Health from evidence.** Supervisor decisions use meaningful playback evidence, not process or socket liveness.
 
-## 3. Milestone status
+## 3. Milestone status (historical September 29 checkpoint)
 
 The milestones are in [`tilecast-edge.md`](tilecast-edge.md) §18.1. The M1–M10 stack (gbyo/tilecast#526 to gbyo/tilecast#681) merged into `main` on 2026-09-26. The M11 remote-web implementation followed in gbyo/tilecast#699 on 2026-09-27; the remaining M11 work is physical qualification.
 
