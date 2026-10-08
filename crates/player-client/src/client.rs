@@ -794,7 +794,10 @@ mod socket_tests {
         assert_eq!(classify_socket_text(r#"{"type":"manifest.changed"}"#), Ok(PlayerSocketEvent::ManifestChanged));
         assert_eq!(classify_socket_text(r#"{"type":"config.changed"}"#), Ok(PlayerSocketEvent::ConfigChanged));
         assert_eq!(classify_socket_text(r#"{"type":"commands.available"}"#), Ok(PlayerSocketEvent::CommandsAvailable));
-        assert_eq!(classify_socket_text(r#"{"type":"preview.session_changed"}"#), Ok(PlayerSocketEvent::PreviewSessionChanged));
+        assert_eq!(
+            classify_socket_text(r#"{"type":"preview.session_changed"}"#),
+            Ok(PlayerSocketEvent::PreviewSessionChanged)
+        );
         assert_eq!(classify_socket_text(r#"{"type":"future.unknown"}"#), Ok(PlayerSocketEvent::Other));
         assert_eq!(classify_socket_text(r#"{}"#), Ok(PlayerSocketEvent::Other));
         assert!(classify_socket_text("not json").is_err());
