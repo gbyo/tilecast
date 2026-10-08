@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LiveStreamDialog } from "./LiveStreamDialog";
 
@@ -14,6 +21,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Testing Library's auto-cleanup does not hook this file's explicitly
+  // imported hooks, so unmount here: a dialog left open leaks its stream
+  // image into the next test's queries.
+  cleanup();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -125,9 +136,7 @@ describe("LiveStreamDialog", () => {
       screen
         .getByAltText("Live Tilecast output from Lobby")
         .getAttribute("src"),
-    ).toBe(
-      "/api/v1/screens/screen-1/live-stream/session-auto/mjpeg?retry=1",
-    );
+    ).toBe("/api/v1/screens/screen-1/live-stream/session-auto/mjpeg?retry=1");
   });
 
   it("does not steal a replaced session", async () => {
@@ -161,6 +170,9 @@ describe("LiveStreamDialog", () => {
       )
       .mockResolvedValue(new Response(null, { status: 204 }));
 
+    // Fake timers start before mount: the renewal timeout is scheduled
+    // when the session installs, and post-mount faking cannot move it.
+    vi.useFakeTimers();
     render(
       <LiveStreamDialog
         open
@@ -170,13 +182,13 @@ describe("LiveStreamDialog", () => {
         onClose={() => undefined}
       />,
     );
-    await screen.findByAltText("Live Tilecast output from Lobby");
-
-    vi.useFakeTimers();
     await act(async () => {
-      vi.advanceTimersByTime(3_000);
-      await Promise.resolve();
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByAltText("Live Tilecast output from Lobby")).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000);
     });
 
     expect(screen.getByText("Stream unavailable")).toBeTruthy();
@@ -186,8 +198,7 @@ describe("LiveStreamDialog", () => {
     expect(screen.queryByRole("button", { name: "Retry stream" })).toBeNull();
 
     await act(async () => {
-      vi.advanceTimersByTime(12_000);
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(12_000);
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -228,6 +239,9 @@ describe("LiveStreamDialog", () => {
       )
       .mockResolvedValue(new Response(null, { status: 204 }));
 
+    // Fake timers start before mount: the renewal timeout is scheduled
+    // when the session installs, and post-mount faking cannot move it.
+    vi.useFakeTimers();
     render(
       <LiveStreamDialog
         open
@@ -237,21 +251,19 @@ describe("LiveStreamDialog", () => {
         onClose={() => undefined}
       />,
     );
-    const firstImage = await screen.findByAltText(
-      "Live Tilecast output from Lobby",
-    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const firstImage = screen.getByAltText("Live Tilecast output from Lobby");
     expect(firstImage.getAttribute("src")).toContain("/session-1/mjpeg");
 
-    vi.useFakeTimers();
+    // The renewal reports the session gone; the single immediate recovery
+    // fires after its first backoff.
     await act(async () => {
-      vi.advanceTimersByTime(3_000);
-      await Promise.resolve();
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(3_000);
     });
     await act(async () => {
-      vi.advanceTimersByTime(750);
-      await Promise.resolve();
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(750);
     });
 
     expect(

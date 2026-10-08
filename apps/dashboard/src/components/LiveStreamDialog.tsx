@@ -130,9 +130,7 @@ export function LiveStreamViewer({
       scheduleRenewal(renew);
     };
 
-    const scheduleSessionRecovery = (
-      start: (recovering: boolean) => void,
-    ) => {
+    const scheduleSessionRecovery = (start: (recovering: boolean) => void) => {
       clearRenewal();
       if (!active || recoveryTimer !== null) return;
       sessionRef.current = null;
@@ -151,10 +149,9 @@ export function LiveStreamViewer({
       }, retryDelay(attempt));
     };
 
-    let startSession: (recovering: boolean) => void;
-    let renewSession: () => void;
-
-    renewSession = () => {
+    // Mutually recursive session callbacks: each is assigned once, and
+    // neither runs before both are initialized.
+    const renewSession = (): void => {
       const current = sessionRef.current;
       if (!active || !current || renewalInFlight) return;
       renewalInFlight = true;
@@ -222,7 +219,7 @@ export function LiveStreamViewer({
         });
     };
 
-    startSession = (recovering: boolean) => {
+    const startSession = (recovering: boolean): void => {
       void api
         .startLiveStream(screenId, csrfToken)
         .then((next) => {

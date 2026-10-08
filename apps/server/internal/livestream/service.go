@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	LeaseDuration      = 15 * time.Second
-	FrameInterval      = 125 * time.Millisecond
-	MaxFrameBytes      = 100 * 1024
-	MaxWidth           = 640
-	MaxHeight          = 360
-	frameHeader        = 33
+	LeaseDuration = 15 * time.Second
+	FrameInterval = 125 * time.Millisecond
+	MaxFrameBytes = 100 * 1024
+	MaxWidth      = 640
+	MaxHeight     = 360
+	frameHeader   = 33
 
 	// A healthy Watch Live stream should deliver frames many times per second.
 	// These deliberately generous bounds detect an actual stall without
