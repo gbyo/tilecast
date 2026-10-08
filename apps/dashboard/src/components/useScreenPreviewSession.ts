@@ -50,18 +50,27 @@ export function useScreenPreviewSession({
 
   useEffect(() => {
     if (!enabled || !csrfToken || protectedPreview) return;
-    const capturedMillis = capturedAt ? Date.parse(capturedAt) : NaN;
-    const stale = !Number.isFinite(capturedMillis) || Date.now() - capturedMillis > 45_000;
-    if (!stale) return;
+    let active = true;
+    const check = () => {
+      const capturedMillis = capturedAt ? Date.parse(capturedAt) : NaN;
+      const stale = !Number.isFinite(capturedMillis) || Date.now() - capturedMillis > 45_000;
+      if (!stale) return;
 
-    // The server guards the actual capture request. This local guard also
-    // prevents metadata polling from creating excess HTTP traffic.
-    const now = Date.now();
-    if (now - lastNudge.current < 15_000) return;
-    lastNudge.current = now;
-    void api.renewScreenPreview(screenId, false, csrfToken).catch(() => {
-      // Normal lease renewal reports session failures; the next poll retries.
-    });
+      // The server guards the actual capture request. This local guard also
+      // prevents metadata polling from creating excess HTTP traffic.
+      const now = Date.now();
+      if (now - lastNudge.current < 15_000) return;
+      lastNudge.current = now;
+      void api.renewScreenPreview(screenId, false, csrfToken).catch(() => {
+        // Normal lease renewal reports session failures; the next check retries.
+      });
+    };
+    check();
+    const interval = window.setInterval(() => active && check(), 5_000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
   }, [screenId, csrfToken, enabled, capturedAt, protectedPreview]);
 
   useEffect(() => {
