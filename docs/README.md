@@ -46,6 +46,6 @@ Architecture decision records are in [`adr/`](adr/). Decisions remain useful eve
 
 ## Updating documentation
 
-Keep security invariants, SQL migration guarantees, release verification, and external compatibility precise. Don't change a protocol claim only because a historical date looks old. Verify it against the current implementation and corresponding tests. Mark time-sensitive assertions with the **as-of date and tested scope**. Do not silently promote preview releases, simulated tests, or plans into production compatibility claims.
+Keep security invariants, SQL migration guarantees, release verification, and external compatibility precise. Do not change a protocol claim only because a historical date looks old. Verify it against the current implementation and corresponding tests. Mark time-sensitive assertions with the **as-of date and tested scope**. Do not silently promote preview releases, simulated tests, or plans into production compatibility claims.
 
 Run `make docs-check` for engineering style and `npm run docs:build` for the public site when applicable.
