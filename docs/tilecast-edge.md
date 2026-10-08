@@ -297,7 +297,7 @@ Pins have a reason and a holder: the active and pending presentation, prefetch, 
 
 ### 10.1 Baseline
 
-- WPE WebKit 2.54 or later, through WPEPlatform only. No Cog, libwpe or WPEBackend-fdo in Tilecast code. The private WPE WebKit build links `libwpe-1.0.so.1` itself, so the release carries that library ([`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §2).
+- WPE WebKit 2.54 or later, through WPEPlatform only. No Cog, libwpe or WPEBackend-fdo in Tilecast code. The private WPE WebKit build links `libwpe-1.0.so.1` itself, so the release carries that library ([`records/edge/0.2.1-sandbox-review.md`](records/edge/0.2.1-sandbox-review.md) §2).
 - Platforms: `drm` on dedicated signage (no compositor), `wayland` on development machines and existing kiosk compositors, `headless` in CI.
 - A small C11/GLib host. Native coordination stays in Player Core. Presentation execution stays in Player Runtime.
 
@@ -406,7 +406,7 @@ A server-side migration session with a separate candidate credential is not part
 
 ## 15. Updates
 
-Tilecast Edge updates are Player updates. The Tilecast Server authorizes every deployment with the existing Player Updates model (releases, deployments, canary, maintenance windows, cancel and retry), and a screen installs only what a deployment names. `systemd-sysupdate` was prototyped and is not used ([`tilecast-edge-m10-sysupdate-evaluation.md`](tilecast-edge-m10-sysupdate-evaluation.md)): on the tested systemd versions it did not unpack the Tilecast `.tar.zst` archive, it verifies no local source, it cannot send the device credential, and it has no install-without-activation or rollback step. Debian 12 does not ship it. Mender is not a candidate.
+Tilecast Edge updates are Player updates. The Tilecast Server authorizes every deployment with the existing Player Updates model (releases, deployments, canary, maintenance windows, cancel and retry), and a screen installs only what a deployment names. `systemd-sysupdate` was prototyped and is not used ([`records/edge/m10-sysupdate-evaluation.md`](records/edge/m10-sysupdate-evaluation.md)): on the tested systemd versions it did not unpack the Tilecast `.tar.zst` archive, it verifies no local source, it cannot send the device credential, and it has no install-without-activation or rollback step. Debian 12 does not ship it. Mender is not a candidate.
 
 The M10 implementation reuses existing parts and adds only the missing ones:
 
@@ -478,32 +478,43 @@ Telemetry and Activity events use a bounded outbox in SQLite (at most 500 rows, 
 9. Public server hosts need HTTPS; HTTPS is never downgraded.
 10. Nothing in Edge 1 accepts server state from any source except the authenticated server.
 
-## 18. Roadmap
+## 18. Release and qualification
 
-### 18.1 Edge 1
+This architecture defines Edge ownership, trust boundaries, persistence,
+playback, migration, and update guarantees. It does not by itself qualify a
+release or hardware class.
 
-Edge 1 ships as a sequence of reviewable milestones. Each one keeps the tree releasable.
+### 18.1 Current readiness evidence
 
-M1 to M10 are software-complete and merged into `main` (2026-09-26). The M11 remote-web implementation merged in gbyo/tilecast#699 on 2026-09-27; M11 physical qualification remains outstanding. M12 has not started. [`tilecast-edge-next.md`](tilecast-edge-next.md) §3 records the state of each milestone.
+Use the dedicated current documents instead of the original implementation
+milestones:
 
-| Milestone                      | Scope                                                                                                                                                                                                                                                                                                                                           | Exit criteria                                                                                                                                                  |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| M1 Foundation                  | Rust workspace, `tilecastd` lifecycle under systemd, SQLite state and recovery mode, local IPC, `tilecastctl`, WPE renderer on drm, wayland and headless, renderer supervision, CAS with origin downloads, identity gate, device credential, minimal heartbeat, legacy import, capability registry, Linux CI and WPE headless end-to-end tests. | Workspace checks and Linux image checks pass; the headless scenarios pass; the real-server script passes import, identity gate, heartbeat and revocation.      |
-| M2 Server presence             | Player WebSocket with fallback heartbeat, server clock sampling, full heartbeat fields.                                                                                                                                                                                                                                                         | Studio shows a migrated screen as online; socket loss falls back to heartbeat; reconnect after server restart.                                                 |
-| M3 Manifests and content       | Manifest fetch and validation, CAS preparation from the origin, atomic activation, pinning, daemon-owned media capability channel, local schedule selection.                                                                                                                                                                                    | Downloaded image and video playback; restart offline from cached state; a failed preparation keeps the previous manifest.                                      |
-| M4 Configuration and commands  | Player configuration synchronization; durable commands with idempotency; restart, reload and display commands.                                                                                                                                                                                                                                  | A command runs at most once across daemon restarts and redelivery.                                                                                             |
-| M5 Pairing                     | Pairing sessions and setup surface for a new installation; manual URL entry; LAN discovery through Avahi.                                                                                                                                                                                                                                       | A clean machine pairs, is approved and plays without legacy state.                                                                                             |
-| M6 Offline resilience          | Server outage, WAN outage, power-loss and clock-change qualification.                                                                                                                                                                                                                                                                           | Documented crash-point and outage tests pass.                                                                                                                  |
-| M7 Migration installer         | Preflight, cutover, settlement window, automatic rollback, acceptance.                                                                                                                                                                                                                                                                          | Migration and rollback tested on each supported host type.                                                                                                     |
-| M8 Proof of play and telemetry | Activity events through the outbox, bounded player telemetry.                                                                                                                                                                                                                                                                                   | Activity compliance matches an Electron player on the same schedule.                                                                                           |
-| M9 Hardware parity             | CEC and DDC display control, Presentation Network helper client, audio output; the retired Noise Meter capture path is removed.                                                                                                                                                                                                                 | Capability matrix on reference hardware.                                                                                                                       |
-| M10 Updates                    | Signed Edge releases in the Player Updates model, resumable verified download, the root update helper, atomic switch, provisional confirmation and automatic rollback.                                                                                                                                                                          | Software: an update, a power loss while provisional and a broken candidate under real systemd. Hardware: an update and a rollback on reference hardware (M11). |
-| M11 WPE qualification          | DRM/KMS on reference hardware, Wayland kiosks, website isolation.                                                                                                                                                                                                                                                                               | Physical-device validation recorded in the ledger.                                                                                                             |
-| M12 Production rollout         | Pilot, staged migration, Electron retirement plan.                                                                                                                                                                                                                                                                                              | Pilot fleet stable for an agreed period.                                                                                                                       |
+- [Production readiness record](tilecast-edge-readiness.md) for subsystem
+  readiness and remaining implementation actions.
+- [Hardware qualification procedure](tilecast-edge-qualification.md) for the
+  physical test procedure.
+- [Production-readiness decision checklist](tilecast-edge-readiness-checklist.md)
+  for the go/no-go criteria used before Edge becomes the default Linux target.
+- [State and next work](tilecast-edge-next.md) for the concise current status
+  and pointers to the evidence above.
 
-### 18.2 Edge 1.5 and Edge 2
+Preview releases, headless WPE tests, and a passing result on another hardware
+class are not substitutes for signed-release evidence on the target class.
 
-Edge 1.5 may add optional peer content delivery, only if measurements from production Edge 1 fleets show that origin bandwidth or time to prepared playback is a real problem. Edge 2 may add an optional local coordinator or server-on-player mode, and selected concepts from the experimental Fabric work where they demonstrably help. Both are described, with their entry conditions, in [`tilecast-edge-future.md`](tilecast-edge-future.md).
+### 18.2 Historical development record
+
+The M1–M12 sequence used to build Edge 1 is preserved in
+[`records/edge/edge-1-milestones.md`](records/edge/edge-1-milestones.md).
+Dated implementation and field evidence lives under
+[`records/edge/`](records/edge/). Milestone completion is historical context,
+not a current release gate.
+
+### 18.3 Future work
+
+Optional later work is recorded in
+[`tilecast-edge-future.md`](tilecast-edge-future.md). Future work does not
+change the Edge trust, update, offline, renderer-isolation, or migration
+guarantees until this architecture is deliberately updated.
 
 ## 19. Review rules
 

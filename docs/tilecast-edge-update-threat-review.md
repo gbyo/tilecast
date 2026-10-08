@@ -251,7 +251,7 @@ The helper unit is not enabled and has no dependency on `tilecast-edge.service`,
 
 ### 7.3 Removal of the Edge 0.2.0 field workaround
 
-The 0.2.1 helper removes the five files of the Edge 0.2.0 field workaround after an update is final. The files, their digests and the full behavior are in [`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §7. This section records the privilege effect.
+The 0.2.1 helper removes the five files of the Edge 0.2.0 field workaround after an update is final. The files, their digests and the full behavior are in [`records/edge/0.2.1-sandbox-review.md`](records/edge/0.2.1-sandbox-review.md) §7. This section records the privilege effect.
 
 - The helper reads and removes files below `/etc/systemd/system` and `/etc/tilecast-edge`. It may write both already (`ReadWritePaths=/etc`). It gains no capability, no operation and no request field.
 - The paths and digests are constants in the binary. A file is removed only when its path is listed and its SHA-256 equals the listed value. It opens a listed path with the no-link open, reads at most 16 KiB, and compares the digest again immediately before it removes the file.
@@ -326,4 +326,4 @@ How the remaining risk is reduced and reported:
 - A new read of `tilecast`-owned data uses the no-link, owner-checked open, and root uses only a private copy that it verified.
 - The guard stays independent of the candidate: its binary is the previous release's, and its units are not release files.
 - The helper's sandbox changes only with a real-systemd test run that shows why.
-- A new path that the helper removes or rewrites by itself is a constant with an exact digest, is applied only when no rollback can need it, and is added to [`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §7.
+- A new path that the helper removes or rewrites by itself is a constant with an exact digest, is applied only when no rollback can need it, and is added to [`records/edge/0.2.1-sandbox-review.md`](records/edge/0.2.1-sandbox-review.md) §7.

@@ -9,7 +9,7 @@
  * `test/sandbox-harness/` measures it in a real browser.
  *
  * Deliberately spike-grade, with production follow-ups recorded in
- * `docs/widget-sandbox-spike.md`:
+ * `docs/records/widget-sandbox-spike.md`:
  *
  * - The frame bootstrap is a template string. Production needs a built
  *   frame entry so both sides share the SDK's event and revision

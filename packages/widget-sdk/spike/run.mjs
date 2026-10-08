@@ -293,7 +293,7 @@ async function main() {
   const frames = await frameDocuments();
   if (keep) {
     // Per-target runs serve these from a second origin; the driver takes
-    // its port from ?frames=. See docs/widget-sandbox-spike.md.
+    // its port from ?frames=. See docs/records/widget-sandbox-spike.md.
     const dir = join(out, "frames");
     mkdirSync(dir, { recursive: true });
     for (const [path, document] of frames) {

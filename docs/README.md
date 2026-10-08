@@ -15,7 +15,7 @@ Start with [`AGENTS.md`](../AGENTS.md) for repository rules, [architecture](arch
 
 - **API and authentication:** [API](api.md), [Player protocol](player-protocol.md), [device credentials](device-credential-security.md). See also [MFA and passkeys](multi-factor-authentication.md), [canonical OpenAPI](openapi.yaml).
 - **Native Players:** [Player Core](player-core.md), [Player Runtime](player-runtime.md). See also [Presentation Model](presentation-model.md), [cross-player contracts](player-contracts.md).
-- **Linux Edge:** [Edge architecture](tilecast-edge.md), [capability matrix](tilecast-edge-capabilities.md). See also [migration threat review](tilecast-edge-migration-threat-review.md), [update threat review](tilecast-edge-update-threat-review.md), [remote web threat review](tilecast-edge-remote-web-threat-review.md), [sandbox review](tilecast-edge-sandbox-review.md).
+- **Linux Edge:** [Edge architecture](tilecast-edge.md), [capability matrix](tilecast-edge-capabilities.md), [production readiness](tilecast-edge-readiness.md), [hardware qualification](tilecast-edge-qualification.md), and [decision checklist](tilecast-edge-readiness-checklist.md). See also [migration threat review](tilecast-edge-migration-threat-review.md), [update threat review](tilecast-edge-update-threat-review.md), [remote web threat review](tilecast-edge-remote-web-threat-review.md), and the dated [0.2.1 hardening record](records/edge/0.2.1-sandbox-review.md).
 - **Other platforms:** [Android development](android-development.md), [Windows Player](tilecast-windows.md), [Browser Player](browser-player.md), [iOS/iPadOS Studio](ios-app.md). See also [Fire TV](fire-tv.md), [Google TV](google-tv.md), [Windows qualification](tilecast-windows-qualification.md).
 - **Studio:** [Design system](design-system.md), [localization](localization.md). See also [widget authoring](widget-authoring.md), [Widgets V2](widgets-v2.md), [layouts](widgets-and-layouts.md).
 - **Extensions:** [Plugin API v1](plugin-api.md), [external packages](packages.md), [Marketplace](marketplace.md). See also [data-source modules](data-source-modules.md), [Widget V2 catalog](widgets-v2-catalog.md), [content extension model](content-extension-model.md).
@@ -25,20 +25,26 @@ Start with [`AGENTS.md`](../AGENTS.md) for repository rules, [architecture](arch
 
 Read the platform's own README and any closer `AGENTS.md` before making changes. The list is navigational and does not override a deeper subsystem contract.
 
-## Historical plans and dated evidence
+## Dated engineering records
 
-These stay at their original locations because other engineering documents and past PRs link to them. They are intentionally **not** current task instructions.
+Completed qualification reviews and implementation spikes that still matter for
+traceability live under [`records/`](records/). They are evidence, not current
+architecture instructions.
 
-- [Studio Rhea redesign](studio-rhea-redesign-plan.md): [Base Vega design system](design-system.md) and current components.
-- [Studio authoring flow plan](studio-flow-plan.md): Current Studio routes, [design system](design-system.md) and [widget authoring](widget-authoring.md).
-- [Widgets V2 first-wave migration](widgets-v2-authoring-and-first-wave.md): [Widget authoring](widget-authoring.md), [Widgets V2](widgets-v2.md).
-- [Studio design-system roadmap](design-system-roadmap.md): [Design system](design-system.md).
-- [CI timing record](ci-timings.md): [Testing/CI](testing.md), current workflows.
-- [Edge M9 reuse review](tilecast-edge-m9-reuse-review.md), [M10 sysupdate evaluation](tilecast-edge-m10-sysupdate-evaluation.md), [M11 remote-web spike](tilecast-edge-m11-remote-web-spike.md): [Edge architecture](tilecast-edge.md) and current threat reviews.
-- [Edge milestone ledger](tilecast-edge-next.md), [Player Core readiness](player-core-readiness.md): Their dated evidence, current releases, and per-hardware qualification.
-- [Widget sandbox spike](widget-sandbox-spike.md): [Packages](packages.md) and current isolation contracts.
+- [Native Player Core extraction/readiness](records/player-core-readiness.md)
+- [External Widget sandbox spike](records/widget-sandbox-spike.md)
+- [Tilecast Edge records](records/edge/), including the historical Edge 1
+  milestone sequence, M9/M10/M11 implementation records, and the 0.2.1 field
+  hardening review.
 
-Architecture decision records are in [`adr/`](adr/). Decisions remain useful even when the implementation milestones mentioned in their context are historical.
+Abandoned implementation plans such as Rhea, the old Studio flow plan, the
+Widgets V2 first-wave migration plan, the superseded design-system roadmap, and
+dated CI timing snapshots are intentionally removed from the current tree. Git
+history remains the archive for plans that no current contract or source code
+needs.
+
+Architecture decision records are in [`adr/`](adr/). Decisions remain useful
+even when the implementation context that motivated them is historical.
 
 ## Updating documentation
 

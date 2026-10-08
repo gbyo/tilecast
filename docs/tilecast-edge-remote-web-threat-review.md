@@ -2,7 +2,7 @@
 
 **Status:** Binding for Edge M11 remote web (Websites, YouTube, `presentation.kind = "web"` Widgets and remote web inside Layouts).
 **Date:** 2026-09-26
-**Scope:** The untrusted web process `tilecast-web-renderer-wpe`, its unit `tilecast-web-renderer.service`, its account `tilecast-web`, the frame transport, the renderer and runtime contracts for remote web, and the daemon changes that route remote web. The proof of the frame transport is [`tilecast-edge-m11-remote-web-spike.md`](tilecast-edge-m11-remote-web-spike.md).
+**Scope:** The untrusted web process `tilecast-web-renderer-wpe`, its unit `tilecast-web-renderer.service`, its account `tilecast-web`, the frame transport, the renderer and runtime contracts for remote web, and the daemon changes that route remote web. The proof of the frame transport is [`records/edge/m11-remote-web-spike.md`](records/edge/m11-remote-web-spike.md).
 **Rule:** A change to the boundaries in this document needs an update to this document in the same change ([`tilecast-edge.md`](tilecast-edge.md) §19 rule 12).
 
 ## 1. Decision
@@ -80,7 +80,7 @@ The helper is treated as compromised in the analysis below. B4 and the systemd s
 
 The helper never receives a path. Every path it opens comes from its own command line (fixed in the unit) or from a capability that it generated itself.
 
-The helper's unit does not set `ProtectKernelTunables=`, `ProtectKernelLogs=` or `RestrictSUIDSGID=`. Each one stops WebKit's bubblewrap sandbox from starting a web process, and that sandbox is the boundary that matters most for remote pages. The helper is an ordinary account with an empty capability set and `NoNewPrivileges=yes`, so it cannot write `/proc/sys` or `/sys`, read the kernel log or use a setuid file. The evidence and the full list of directives that were tested are in [`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §4. The helper clears `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS` at start in every release build.
+The helper's unit does not set `ProtectKernelTunables=`, `ProtectKernelLogs=` or `RestrictSUIDSGID=`. Each one stops WebKit's bubblewrap sandbox from starting a web process, and that sandbox is the boundary that matters most for remote pages. The helper is an ordinary account with an empty capability set and `NoNewPrivileges=yes`, so it cannot write `/proc/sys` or `/sys`, read the kernel log or use a setuid file. The evidence and the full list of directives that were tested are in [`records/edge/0.2.1-sandbox-review.md`](records/edge/0.2.1-sandbox-review.md) §4. The helper clears `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS` at start in every release build.
 
 ## 5. Unix sockets
 

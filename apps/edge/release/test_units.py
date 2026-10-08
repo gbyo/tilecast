@@ -1,7 +1,7 @@
 """Invariants of the packaged systemd units that real hardware broke.
 
 Release 0.2.0 failed on a Debian 13 screen in three ways that these tests keep
-out of every later release (docs/tilecast-edge-sandbox-review.md): the
+out of every later release (docs/records/edge/0.2.1-sandbox-review.md): the
 renderer's home directory was the state directory its own unit hides, WebKit's
 bubblewrap sandbox could not mount /proc under the unit's sandbox, and the
 self-test host's runtime was fixed by moving it out of /run.

@@ -1,6 +1,6 @@
 /**
  * Studio preview resources for V2 Widgets
- * (docs/widgets-v2-authoring-and-first-wave.md).
+ * (docs/widget-authoring.md, Preview capabilities).
  *
  * One adapter built from the same conceptual resources as the Player: it
  * loads only the Data Sources declared/connected to the Widget and exposes

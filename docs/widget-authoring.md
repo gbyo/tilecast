@@ -215,6 +215,28 @@ fields satisfy `requiredFields`. **Connect new data** opens the Data Source
 creation flow in a side panel. The draft stays open. Studio selects the new
 source when the flow finishes.
 
+### Semantic field roles
+
+A Data Source output field may declare a semantic `role`. Roles let a
+domain-aware Widget map concepts without depending on provider IDs or source
+column names. A role is a lowercase identifier of at most 40 characters. It
+starts with a letter and contains only letters, digits, and underscores.
+
+The shared vocabulary is intentionally small:
+
+- Feed/news: `headline`, `summary`, `published_at`, `source_name`,
+  `author`, `link`, `image`.
+- Menu: `title`, `description`, `price`, `category`,
+  `availability_start`, `availability_end`.
+- Agenda: `title`, `start`, `end`, `location`, `description`,
+  `category`.
+- Status: `status`, `message`, `severity`, `updated_at`,
+  `effective_at`, `expires_at`.
+
+Add a shared role only when a shipped domain Widget consumes the concept.
+Generic List, Table, and Cards Widgets use ordinary type-compatible field
+selection and do not require a semantic role for every column.
+
 Automatic mapping runs when the author connects a different source during the
 editing session. For each `data_source_field` that reads the source:
 
@@ -223,6 +245,10 @@ editing session. For each `data_source_field` that reads the source:
    the declared role, then `legacyKeys`, then a compatible type. A field with
    `typeFallback: false` skips the compatible-type step and stays empty.
 3. A stale value without a suggestion is cleared.
+
+Two slots do not automatically claim the same source field while another
+compatible field is available. The author may override every automatic mapping.
+Studio never switches on a provider ID to choose a field mapping.
 
 Studio does not map fields when it opens a saved Widget. Opening a Widget never
 changes it. The mapping control shows **Auto** when the current value is the

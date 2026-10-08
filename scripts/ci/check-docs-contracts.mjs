@@ -58,8 +58,13 @@ export function findDocumentationDrift({
   if (/Reserved: (composition|proof-of-play)[^\n]*not started/.test(plugins)) {
     errors.push("plugin-api.md: stale milestone status");
   }
-  if (!edge.includes("Historical milestone snapshot")) {
-    errors.push("tilecast-edge-next.md: missing historical status label");
+  if (
+    !edge.includes("Current readiness sources") ||
+    !edge.includes("records/edge/edge-1-milestones.md")
+  ) {
+    errors.push(
+      "tilecast-edge-next.md: point current readiness at dedicated evidence and archive milestones",
+    );
   }
   if (!websites.includes("Layout zone")) {
     errors.push("website-content.md: document Website playback inside Layouts");

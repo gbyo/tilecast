@@ -2,7 +2,7 @@
 title: Tilecast Edge
 description: Tilecast Edge is the service-based Linux Player with a WPE WebKit renderer. See what the Edge software does today, what still needs hardware qualification, and which guide to read next.
 hero:
-  tagline: The service-based Linux Player for Tilecast. The Edge software is complete and merged into Tilecast. It is still being qualified on physical hardware, so it isn't the production Linux Player yet.
+  tagline: The service-based Linux Player for Tilecast. Signed preview releases are available, with production support determined per release and hardware class.
   actions:
     - text: Check requirements
       link: requirements/
@@ -14,9 +14,9 @@ hero:
 
 import { Aside, Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
 
-Tilecast Edge replaces the Electron-based Linux AppImage Player with a Linux system service and a WPE WebKit renderer. The Edge software milestones M1 to M10 and the M11 remote-web implementation are merged into Tilecast. M11 now focuses on qualifying that software on real displays and computers.
+Tilecast Edge replaces the Electron-based Linux AppImage Player with a Linux system service and a WPE WebKit renderer. Signed preview releases are available for x86_64 and aarch64. Tilecast qualifies Edge by signed release and hardware class rather than by the old implementation milestone numbers.
 
-Until a Tilecast release lists your hardware as supported, use the [stable Linux Player](../players/install-linux/) on production screens.
+Before migrating a production screen, verify that the current signed Edge release has qualification evidence for that hardware class. Keep the [stable Linux Player](../players/install-linux/) where that evidence is absent.
 
 ## What Edge changes
 
@@ -64,21 +64,19 @@ WPE WebKit renderer
 
 ## What still needs qualification
 
-<Aside type="caution" title="Automated tests only">
+<Aside type="caution" title="Qualification is hardware-specific">
 
-Every feature above passes automated tests, including tests with a real Tilecast Server, the real WPE renderer, and real systemd. None of it is qualified on physical signage hardware yet. M11 covers:
+Automated tests cover the Server, WPE renderer, real systemd, migration, updates,
+rollback, and remote-web isolation. A field record also proves DRM/KMS
+playback and reboot recovery on one Debian 13 Intel i915 screen running Edge
+0.2.0 with a temporary workaround.
 
-- DRM/KMS and Wayland output, display rotation, and display ownership on real computers;
-- video codecs and hardware decoding;
-- CEC on real TVs and DDC/CI on real monitors;
-- Presentation Network on supported Wi-Fi hardware and idle inhibition in the real kiosk session;
-- long playback runs, restarts, and power cuts;
-- updates and rollbacks on reference hardware;
-- remote Website and YouTube content through the isolated helper, including the GPU frame path, physical audio routing, and a real YouTube smoke test.
+That evidence does not qualify stock 0.2.1, another GPU, CEC/DDC hardware,
+Wi-Fi hardware, ARM64 hardware, or every Website/YouTube media path. Check the
+[current qualification ledger](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-next.md)
+for the signed release and hardware class you intend to deploy.
 
 </Aside>
-
-Follow the [Tilecast Edge milestone](https://github.com/gbyo/tilecast/milestone/2) for qualification progress.
 
 ## Not part of Edge 1
 

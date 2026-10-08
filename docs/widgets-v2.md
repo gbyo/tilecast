@@ -7,11 +7,17 @@ and Runtime component projection test the same expected record IDs.
 It does not require a previous mount. The default empty policy does not
 select past records.
 
-**Status:** binding. PR 1 (foundation and the Clock vertical slice) implements this document. Later PRs extend it; they do not change the contracts in §3–§7 without a new version.
+**Status:** current binding contract. Changes to the versioned contracts in
+§3–§8 require compatible schema or capability evolution, not a second host
+implementation.
 
 **Packages:** `@tilecast/widget-sdk` (`packages/widget-sdk`), `@tilecast/widget-kit` (`packages/widget-kit`), and one module for each Widget below `widgets/`.
 
-A Widgets V2 Widget is a first-class presentation component. One Web Component, normally a Lit 3 element, is the only renderer of that Widget. The same element runs in Tilecast Studio preview and inside the shared Player Runtime hosted by Electron/Chromium, Tilecast Edge (WPE WebKit), and the converging Android trusted local WebView.
+A Widgets V2 Widget is a first-class presentation component. One Web
+Component, normally a Lit 3 element, is the only renderer of that Widget. The
+same element runs in Tilecast Studio preview and inside the shared Player
+Runtime hosted by Electron/Chromium, Tilecast Edge (WPE WebKit), Android's
+trusted local WebView, Windows WebView2, and other qualified Runtime hosts.
 
 If Weather looks wrong, there is one Weather renderer to fix.
 
@@ -25,29 +31,24 @@ Studio intentionally does **not** instantiate the complete Player Runtime for or
 
 The architectural invariant is: **one Widget component renders fullscreen, Layout zones, Studio, and Storybook.**
 
-## 1. Architecture checkpoint (2026-09-26)
+## 1. Compatibility baseline
 
-| Item                     | Decision                                                                                                                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Base                     | `main` at `c683ce28` (Plugin API v1 follow-up #703, merged after the #686–#701 stack).                                                                                               |
-| #699 (Edge M11)          | Merged. It adds Edge remote-web isolation and the shared Player Runtime host-view path, plus the YouTube Layout rule. It does not change the manifest schema or content definitions. |
-| Next manifest schema     | v17. v11–v16 do not change.                                                                                                                                                          |
-| Presentation schema      | Component presentations use schema 2 or 3. Schema 3 carries the empty policy. Native and web presentations stay at 1.                                                                |
-| Capability advertisement | `presentationSchemaVersions` includes `3` for empty-policy support, and `nativePresentationCapabilities` contains `widget.<component type>` = component version.                     |
-| Legacy fallback          | Manifest compilation for each screen. A Player that reports the exact component capability gets the component. Every other Player gets the existing presentation.                    |
-| Studio host              | A generic React 19 host mounts the real custom element through the shared `WidgetMount` (PR 2).                                                                                      |
-| CSP                      | The runtime CSP does not change. The conformance suite proves Shadow DOM and adopted stylesheets under it on Electron and WPE (§9).                                                  |
-
-### 1.1 CSP and Shadow DOM result
-
-The `widget-component` conformance fixture ran on Electron 39 (Chromium 142) and WPE WebKit 2.54 on 2026-09-26, with the unmodified runtime CSP. On both engines:
-
-- every Widget element has a shadow root, and its styles arrive only through `adoptedStyleSheets` (no `<style>` element);
-- container units resolve against the Widget's own box, and the container queries for a landscape zone, a tall sidebar and a wide strip apply;
-- no CSP violation is reported, and an injected inline `<style>` is refused and reported, so the policy is still enforced;
-- the checkpoints are semantically identical, and the screenshots differ by 0.07 % (fullscreen) and 0.26 % (Layout).
-
-No nonce and no `unsafe-inline` is necessary. The Android WebView baseline is recorded when the Android convergence runs the same fixture (§12).
+- Component presentations use schema 2 or 3. Schema 3 carries the required
+  empty policy.
+- Manifest v16 introduced component presentations. Manifest v17 added the
+  empty policy. Manifest v18 adds verified package metadata for external
+  Widget bundles.
+- A Player receives a component only when its reported presentation schema and
+  capability satisfy the requirement. The Server otherwise compiles the
+  compatible native or web presentation where one exists.
+- Core and bundled-plugin Widgets advertise one capability per component type.
+  External package Widgets use the separate `widget.external-runtime`
+  capability and never extend the release-owned component capability list.
+- Studio mounts trusted Widgets through `WidgetMount`; package Widgets use the
+  sandboxed preview boundary. Player Runtime owns playback lifecycle and
+  evidence.
+- Generated capability bindings keep Edge, Android, Windows, and other native
+  hosts aligned with the same Widget manifests.
 
 ## 2. Ownership
 
@@ -322,9 +323,8 @@ time-dependent projection keeps its current prepared data.
 Saved manual objects and approved Form snapshots keep their actual update
 times and cache metadata when the preview date changes.
 
-The binding Studio editor redesign, source-connection flow, shared preview
-host, and first-wave Widget migration are defined in
-[Widgets V2 authoring and first-wave migration](widgets-v2-authoring-and-first-wave.md).
+The current Studio editor, source-connection flow, semantic field mapping, and
+preview behavior are defined in [Widget authoring](widget-authoring.md).
 
 ## 11. Layout zones
 
@@ -336,18 +336,26 @@ Layout remains active, and the error does not count as another render.
 
 ## 12. Android
 
-No V2 Widget has Kotlin or Compose code. Android Players do not report component capabilities, so they receive the compatibility presentation. The Android convergence is a separate project: it hosts the built runtime in a trusted local WebView, implements the host contract and runs the conformance suite. Widgets V2 is not complete across platforms until that convergence reaches parity.
+No V2 Widget has Kotlin or Compose rendering code. Android packages the same
+Player Runtime in a trusted local WebView and reports generated component
+capabilities from the same Widget manifests as the other native hosts.
+Android-specific code owns the WebView host, lifecycle, storage, and platform
+integration; Widget rendering stays in the shared component.
 
-## 13. Future extension contribution
+The Android conformance suite loads the packaged Runtime assets. Adding a
+Widget must not add a Kotlin renderer or a hand-maintained Android capability
+entry.
+
+## 13. Extension sources
 
 Plugin API v1 is frozen and does not change. `defineWidget()`,
 `tilecast.widget.json`, and `WidgetMount` are the Widget contribution
 boundary regardless of where a Widget comes from.
 
-The binding plan for core Widgets, plugin-bundled Widgets, declarative Data
-Sources, source provenance, and future independently distributed packages is
-[Tilecast content extension model](content-extension-model.md). Later Widgets
-V2 work must keep the source of a Widget orthogonal to its rendering contract.
+Core, bundled-plugin, and installed-package Widgets use the same Widget
+definition and rendering contract. Source and provenance remain orthogonal to
+the component. [Extension architecture](content-extension-model.md) defines
+the trust and package boundaries.
 
 ## 13.5 Plugin-bundled Widgets
 
@@ -441,31 +449,30 @@ capabilities. No Widget presentation requirements means `not_applicable`.
 This evidence does not establish content readiness, media decoder support,
 network availability, or proof of actual playback.
 
-## 15. Deferred from PR 1
+## 15. Compatibility and evolution
 
-- The theme is the Tilecast display theme plus Widget author colors. Player branding colors join the context in a later PR; this needs no new setting.
-- Widget-owned copy (for example the default empty title) is English. Clock V2 shows only Intl-formatted text.
-- In the Studio gallery, a Widget module's catalog entry follows the definitions in `contentdefs/definitions`, so Clock now appears last in its category.
-- PR 1 left the Studio Clock preview on its compatibility renderer. The V2
-  authoring work replaced it: Studio previews every V2 Widget with the real
-  element through `WidgetMount` (§10).
+- Widget-owned copy is localized only where the authoring or component
+  contract provides it. Do not add host-specific copy paths.
+- Studio previews every trusted V2 Widget with the real element through
+  `WidgetMount`; external package Widgets use the sandboxed executor.
+- Saved provider IDs remain compatibility identities. More than one provider
+  may project to one component only when the component type, version, tag, and
+  entry point are identical.
+- The final provider-to-component mapping is
+  [Widgets V2 catalog](widgets-v2-catalog.md). Do not infer current migration
+  work from old implementation phases.
 
-## 16. PR sequence
+## 16. Contribution path
 
-1. Foundation and the Clock vertical slice: this document, both packages,
-   discovery, `widgetctl`, the CSP conformance gate, manifest v16, capability
-   negotiation, `WidgetMount`, fullscreen and Layout plumbing, Storybook
-   foundation and Clock V2.
-2. Follow the implementation order in
-   [Widgets V2 authoring and first-wave migration](widgets-v2-authoring-and-first-wave.md):
-   lock source-aware discovery, land the redesigned Studio editor/shared
-   preview, then migrate the first visual catalog by family.
-3. Continue the remaining catalog migration only after the first wave proves
-   the authoring/runtime contracts.
-4. Separate project: Android shared-runtime convergence.
-5. The final catalog and the fate of every legacy provider are in
-   [Widgets V2 final catalog](widgets-v2-catalog.md). Clock component
-   version 2 adds the date and world clocks modes. Text, Countdown, and
-   the hidden Image Notice compatibility component are Widgets V2
-   components. Every provider with a component validates writes through
-   its manifest schema (§8 of that document).
+Use the current contracts rather than a historical migration sequence:
+
+1. [Widget authoring](widget-authoring.md) for Studio fields, previews, source
+   connections, and semantic mapping.
+2. This document for component runtime, lifecycle, capability, and fallback
+   rules.
+3. [Widgets V2 catalog](widgets-v2-catalog.md) for persisted provider
+   compatibility.
+4. [Extension architecture](content-extension-model.md) for source, package,
+   provenance, and trust boundaries.
+5. `npm run widgets:check` and the shared Runtime/platform conformance suites
+   before a new component is considered supported.

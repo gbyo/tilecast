@@ -1,7 +1,7 @@
 import { contentQueries } from "../../data/content";
 /**
  * The Layout zone preview for migrated V2 Widgets
- * (docs/widgets-v2-authoring-and-first-wave.md).
+ * (docs/widget-authoring.md, Preview capabilities).
  *
  * The same real Web Component the editor previews and the Player mounts,
  * sized to the zone. Widgets still on their hand-written zone preview keep

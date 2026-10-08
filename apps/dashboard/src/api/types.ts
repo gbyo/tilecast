@@ -2237,7 +2237,7 @@ export type DataSourceField = {
   currency?: string;
   /**
    * Optional semantic role from the shared vocabulary
-   * (docs/widgets-v2-authoring-and-first-wave.md §4).
+   * (docs/widget-authoring.md, Semantic field roles).
    */
   role?: string;
 };

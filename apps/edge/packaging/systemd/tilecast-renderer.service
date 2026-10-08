@@ -80,7 +80,7 @@ CapabilityBoundingSet=
 # an ordinary account with no capability and NoNewPrivileges=yes, so it cannot
 # write /proc/sys or /sys, read the kernel log, or use a setuid file, and its
 # writable directories are private 0700 trees
-# (docs/tilecast-edge-sandbox-review.md).
+# (docs/records/edge/0.2.1-sandbox-review.md).
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 LockPersonality=yes

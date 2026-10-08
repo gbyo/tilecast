@@ -89,7 +89,7 @@ Removing a plugin is blocked while its instances or other plugin-owned resources
 
 The same holds for extension packages: installing one adds its Widgets and Data Sources to the Studio libraries under the package name, and removing it is refused while any of those remain in use. Updating or restoring a version is refused only when the target version drops a Widget or Data Source that your content still uses, so content stays safe when the target version keeps the same contributions. The refusal names what still uses the package, so delete those Widgets and Data Sources first, then retry.
 
-External Widgets preview inside an isolated frame in the Widget editor and Layout zones, using the same Widget contract as built-in previews. The package code never runs in the Studio page itself. See the [sandbox design](https://github.com/gbyo/tilecast/blob/main/docs/widget-sandbox-spike.md) for the isolation boundary and measurements.
+External Widgets preview inside an isolated frame in the Widget editor and Layout zones, using the same Widget contract as built-in previews. The package code never runs in the Studio page itself. See the [sandbox design](https://github.com/gbyo/tilecast/blob/main/docs/records/widget-sandbox-spike.md) for the isolation boundary and measurements.
 
 You can also list, install, and remove plugins with `tilecast plugin` in the [command-line interface](../../integrations/cli/). Some installed plugins add their own CLI commands and MCP tools.
 
