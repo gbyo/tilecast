@@ -33,16 +33,26 @@ export function findDocumentationDrift({
       }
     }
   }
-  if (!/compileSdk\s*=\s*\d+/.test(gradle) || !/minSdk\s*=\s*\d+/.test(gradle)) {
+  if (
+    !/compileSdk\s*=\s*\d+/.test(gradle) ||
+    !/minSdk\s*=\s*\d+/.test(gradle)
+  ) {
     errors.push("Android compileSdk/minSdk not found in app Gradle");
   }
-  if (/Android SDK\s+\d+/.test(android) || !android.includes("app/build.gradle.kts")) {
+  if (
+    /Android SDK\s+\d+/.test(android) ||
+    !android.includes("app/build.gradle.kts")
+  ) {
     errors.push("android-development.md: use app/build.gradle.kts SDK values");
   }
   if (/Android Room stores (pending|active)/.test(architecture)) {
     errors.push("architecture.md: obsolete production Room manifest ownership");
   }
-  if (/Production still runs the Kotlin Player|does not build macOS, browser/.test(core)) {
+  if (
+    /Production still runs the Kotlin Player|does not build macOS, browser/.test(
+      core,
+    )
+  ) {
     errors.push("player-core.md: obsolete native or Browser Player status");
   }
   if (/Reserved: (composition|proof-of-play)[^\n]*not started/.test(plugins)) {
