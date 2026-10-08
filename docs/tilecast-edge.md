@@ -259,6 +259,12 @@ Readiness, the renderer and playback never wait for the server. At start the dae
 
 A failed reconciliation or preparation never replaces the last good state. A new manifest becomes active only after every object it needs is verified and pinned.
 
+### 8.5 Installation mismatch and unpair
+
+When the server's installation ID stops matching the binding, the link stops and the daemon records the evidence: the server URL, both installation IDs, the detection time, the last successful contact, and where the quarantined caches went. The content store and partial downloads move aside (never deleted), fresh owner-only directories take their place, and the screen shows a mismatch surface instead of server content. Only a mismatch quarantines; unreachable servers, generic errors, and rejected credentials never do. The record clears on a re-pair, an unpair, or a recovered server. Studio truthfully shows the screen disconnected; the evidence lives on the device (`tilecastctl status`).
+
+`tilecastctl unpair` forgets the server relationship: the binding, device credential, pairing files, queued results, and staged configuration. It is idempotent, so a failed run converges on retry, and the screen returns to setup so it can pair again. Discovery keeps no preference to clear: every `discovery.list` is a fresh browse.
+
 ## 9. Content store
 
 ### 9.1 Identity and invariants

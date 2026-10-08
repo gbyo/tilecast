@@ -185,8 +185,18 @@ impl player_core::OfflineActivationHost for Host {
         time: player_core::ActivationTime,
     ) -> Result<player_core::OfflineProjection<Self::Projection, Self::Key>, &'static str> {
         let candidate = Candidate::from_native(native.clone());
-        let resolved =
+        let mut resolved =
             candidate.presentation_with(time.presentation_ms(), configuration).map_err(|error| error.reason_code())?;
+        // A recorded installation mismatch stops server content: the screen
+        // shows the mismatch surface instead of anything the old server sent.
+        if let Some(record) = crate::mismatch::content_blocked(&self.0) {
+            resolved.document = crate::mismatch::mismatch_surface(&record);
+            resolved.timing = None;
+            resolved.content = Vec::new();
+            resolved.projection = None;
+            resolved.plugins = Vec::new();
+            resolved.plugin_aliases = Vec::new();
+        }
         let metadata = crate::renderer_adapter::metadata(
             &resolved.document,
             ActivationSource::ServerManifest,

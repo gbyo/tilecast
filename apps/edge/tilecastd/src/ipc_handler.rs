@@ -206,6 +206,15 @@ impl IpcHandler for DaemonIpc {
                 crate::pairing::reset(context).await;
                 to_value(&serde_json::json!({}))
             }
+            Method::UnpairDevice(_) => match crate::mismatch::unpair_device(context).await {
+                Ok(summary) => to_value(&serde_json::json!({ "alreadyUnpaired": summary.already_unpaired })),
+                Err(crate::mismatch::UnpairError::Unavailable) => {
+                    Err(error(error_codes::UNAVAILABLE, "State is unavailable."))
+                }
+                Err(crate::mismatch::UnpairError::Failed(detail)) => {
+                    Err(error(error_codes::INTERNAL, &format!("Unpair failed: {detail}")))
+                }
+            },
             Method::DiscoveryList(_) => to_value(&crate::discovery::list(context).await),
         }
     }
@@ -346,6 +355,20 @@ impl DaemonIpc {
             presentation,
             outbox,
             update: crate::update::status(context).await,
+            installation_mismatch: context
+                .installation_mismatch
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner())
+                .clone()
+                .map(|record| edge_protocol::ipc::status::InstallationMismatchStatus {
+                    server_url: ShortText::lossy(&record.server_url),
+                    expected_installation_id: ShortText::lossy(&record.expected_installation_id),
+                    actual_installation_id: ShortText::lossy(&record.actual_installation_id),
+                    detected_at: record.detected_at,
+                    last_contact_at: record.last_contact_at,
+                    quarantined_cas_dir: record.quarantined_cas_dir.as_deref().map(ShortText::lossy),
+                    quarantined_partial_dir: record.quarantined_partial_dir.as_deref().map(ShortText::lossy),
+                }),
         }
     }
 }

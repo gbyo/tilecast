@@ -54,6 +54,7 @@ pub mod manifest;
 pub mod manifest_sync;
 pub mod media;
 pub mod media_channel;
+pub mod mismatch;
 pub mod network_task;
 pub mod pairing;
 pub mod player_config;
