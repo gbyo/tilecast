@@ -1,6 +1,6 @@
 # Android player development
 
-Tilecast Player requires JDK 17 and Android SDK 35. It uses the checked-in Gradle wrapper and has no Google Play Services dependency.
+Tilecast Player uses JDK 17 and the checked-in Gradle wrapper. Install the SDK, build tools, NDK and Rust toolchain required by `apps/player-android/app/build.gradle.kts` and `rust-toolchain.toml`; the Gradle file is authoritative for `minSdk`, `targetSdk`, and `compileSdk`. Compiling with a newer SDK does not raise the minimum installable Android API level. The Player has no Google Play Services dependency.
 
 ## Native Player Core host
 
@@ -225,13 +225,11 @@ RSS, Atom, JSON, and CSV Sources use manifest v8 and project inside the shared r
 
 Manifest v9 adds Clock, Date, QR Code, and Ticker Apps, which project inside the shared runtime. Structured date selection runs locally against the configured IANA timezone and uses calendar arithmetic rather than 24-hour durations. The Player reevaluates while running and after process restart. `empty`, `hide`, `fallback_text`, and `next_available` do not silently reuse an old record. `last_known_good` is an explicit administrator choice.
 
-Layout schema v1 is decoded into typed Kotlin models and validated before activation. Layouts travel to the shared runtime as references. Groups are structural and never inject markup. Canvas coordinates scale uniformly into landscape or portrait display bounds.
+Layout schema v1 is validated at the shared contract and Player Core boundary before activation. Layouts travel to the shared runtime as references. Groups are structural and never inject markup. Canvas coordinates scale uniformly into landscape or portrait display bounds.
 
 Unit tests cover URL policy, Core-to-UI state mapping, player-generated identity, secure-storage abstractions, and reconnect backoff. Core owns pairing enrollment, revocation, and scheduling, and the Rust tests cover them. Instrumented tests require an emulator or device:
 
-Milestone 4 uses Room schema version 2. `MIGRATION_1_2` preserves pairing configuration while adding manifest and cache metadata. Media bytes live under the application-controlled `files/media-cache` directory. Startup loads verified active content before network reconciliation.
-
-Milestone 5 keeps Room schema version 2 because schedule definitions live in the atomically stored manifest JSON. `ScheduleEngine` is isolated from Compose and evaluates with `java.time` timezone rules. Startup, manifest activation, foregrounding, clock/timezone broadcasts, and calculated transitions trigger reevaluation. Shared fixtures under `packages/manifest-schema` verify Go/Kotlin precedence parity.
+The old Room database and Kotlin schedule engine are migration inputs, not current playback authorities. The native importer accepts the legacy database using the documented binding and integrity checks. Player Core owns offline manifest and scheduling policy; shared fixtures keep Server selection and Player behavior compatible.
 
 Offline recovery verification should activate a Download-policy playlist, stop Tilecast or disconnect the network, force-stop and reopen the application, and confirm playback resumes. Stream-policy items are intentionally skipped while unavailable.
 
@@ -240,9 +238,7 @@ adb devices
 ./gradlew connectedDebugAndroidTest
 ```
 
-Milestone 6 uses the system Android WebView through a dedicated website playback component. Test exact-host policy and safe configuration on the JVM. Validate renderer behavior, D-pad focus, installed WebView versions, TLS failures, and process termination on the target emulator/device. Tilecast does not require Google Play Services or a Chrome-specific API.
-
-Milestone 8 adds `PlayerConfigManager`, the validated source for effective branding, playback defaults, cache/download policy, and reporting intervals. Room schema 3 preserves current and previous valid configuration revisions independently of content manifests.
+Websites render through the trusted shared Player Runtime WebView and its host-owned navigation and isolation rules. Validate exact-host policy, TLS failure, D-pad focus, process termination, and installed WebView versions on supported devices. Player Core accepts effective configuration revisions independently from manifests; platform adapters apply OS effects.
 
 The effective configuration is authoritative for every setting the Android
 Player advertises. Cache limits, free-space reserve, download concurrency and
