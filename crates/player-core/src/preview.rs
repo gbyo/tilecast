@@ -5,8 +5,10 @@ use player_types::Timestamp;
 use player_types::bounded::{DetailText, ShortToken};
 use player_types::capability::{Capability, CapabilityId, CapabilityState, ids};
 
-pub const PREVIEW_FIRST_SUSPENSION: Duration = Duration::from_secs(10 * 60);
-pub const PREVIEW_MAX_SUSPENSION: Duration = Duration::from_secs(6 * 60 * 60);
+// A renderer timeout must protect playback without stranding previews for ten minutes.
+// The next scheduled pass after the cooldown is the single half-open probe.
+pub const PREVIEW_FIRST_SUSPENSION: Duration = Duration::from_secs(30);
+pub const PREVIEW_MAX_SUSPENSION: Duration = Duration::from_secs(10 * 60);
 
 /// How the last preview captures went, for suspension and the capability.
 /// Preview-only: Watch Live never reads or writes this.
@@ -30,6 +32,7 @@ impl PreviewHealth {
         match outcome {
             Ok(()) => {
                 self.faults = 0;
+                self.suspended_until = None;
                 None
             }
             Err("renderer_timeout" | "renderer_disconnected") => {
