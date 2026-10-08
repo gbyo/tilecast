@@ -16,9 +16,11 @@ import (
 type recordingNotifier struct {
 	screenID uuid.UUID
 	message  map[string]any
+	calls    int
 }
 
 func (n *recordingNotifier) Notify(screenID uuid.UUID, message map[string]any) bool {
+	n.calls++
 	n.screenID = screenID
 	n.message = message
 	return true
@@ -140,6 +142,9 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 	if _, err = service.Renew(ctx, screenID, false); err != nil {
 		t.Fatalf("healthy renewal: %v", err)
 	}
+	if notifier.calls != 1 {
+		t.Fatalf("healthy renewal sent %d notifications, want 1", notifier.calls)
+	}
 	playerSession, err = service.PlayerSession(ctx, screenID)
 	if err != nil || playerSession.CaptureNow {
 		t.Fatalf("healthy renewal unexpectedly requested capture: %#v %v", playerSession, err)
@@ -150,6 +155,9 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 	now = now.Add(CaptureFreshness)
 	if _, err = service.Renew(ctx, screenID, false); err != nil {
 		t.Fatalf("overdue renewal: %v", err)
+	}
+	if notifier.calls != 2 {
+		t.Fatalf("overdue renewal should send a wake, got %d", notifier.calls)
 	}
 	playerSession, err = service.PlayerSession(ctx, screenID)
 	if err != nil || !playerSession.CaptureNow {
@@ -169,6 +177,9 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 	}
 	if !requestedAt.Equal(duplicateRequestedAt) {
 		t.Fatalf("duplicate renewals reset capture request: %s -> %s", requestedAt, duplicateRequestedAt)
+	}
+	if notifier.calls != 2 {
+		t.Fatalf("duplicate renewal sent a wake, got %d", notifier.calls)
 	}
 
 	now = now.Add(CaptureRetryInterval)
