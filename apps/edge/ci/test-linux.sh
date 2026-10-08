@@ -17,3 +17,4 @@ bash ci/cargo-edge.sh fmt --check
 bash ci/cargo-edge.sh clippy --all-targets -- -D warnings
 bash ci/cargo-edge.sh test
 python3 -m unittest discover -s release -p 'test_*.py'
+python3 -m unittest discover -s ci -p 'test_*.py'

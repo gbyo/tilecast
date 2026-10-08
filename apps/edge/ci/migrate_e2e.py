@@ -152,8 +152,12 @@ def migrate(expect_code, settle=120):
     return attempt(), time.monotonic() - started
 
 
+# /usr/bin/true is dynamically linked, so the sandbox must also provide its
+# loader from /lib64; without that bind the exec fails with ENOENT, which
+# preflight would misreport as missing user-namespace support.
 SANDBOX_PROBE = ("bwrap", "--die-with-parent", "--unshare-pid", "--proc", "/proc", "--dev", "/dev",
-                 "--ro-bind", "/usr", "/usr", "--symlink", "usr/lib", "/lib", "--symlink", "usr/bin", "/bin",
+                 "--ro-bind", "/usr", "/usr", "--ro-bind", "/lib64", "/lib64",
+                 "--symlink", "usr/lib", "/lib", "--symlink", "usr/bin", "/bin",
                  "--ro-bind", "/etc", "/etc", "--tmpfs", "/tmp", "/usr/bin/true")
 
 

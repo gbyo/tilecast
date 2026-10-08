@@ -79,6 +79,7 @@ jobs:
       - run: bash ci/cargo-edge.sh clippy --all-targets -- -D warnings
       - run: bash ci/cargo-edge.sh test
       - run: python3 -m unittest discover -s release -p 'test_*.py'
+      - run: python3 -m unittest discover -s ci -p 'test_*.py'
       - name: HDMI-CEC against the kernel (vivid, cec-follower, cec-ctl)
         # Independent evidence: it runs even when an earlier test step failed.
         if: ${{ !cancelled() }}
