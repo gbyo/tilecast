@@ -227,8 +227,6 @@ const rules = [
   // The reference Wasm guest SDK and its Hello Services sample ride the
   // package lanes: plugins validates the sample manifest, and the server
   // suite runs the committed sample module through the real host.
-  // (Mirrors the PR2 rule; this branch predates it. Drop the duplicate
-  // when the stack relands.)
   [
     /^(packages\/package-guest-sdk|packages\/package-samples)\//,
     ["plugins", "server"],
