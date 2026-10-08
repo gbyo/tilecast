@@ -12111,6 +12111,28 @@ components:
           description: Sandboxed Studio UI entry.
           properties:
             entry: { type: string }
+        services:
+          type: array
+          description: Requested Tilecast service grants with registry-resolved display metadata.
+          items:
+            type: object
+            required: [id, version, name, description, category, operations]
+            properties:
+              id: { type: string }
+              version: { type: integer }
+              name: { type: string }
+              description: { type: string }
+              category: { type: string, enum: [read, directory, manage, audit] }
+              operations:
+                type: array
+                items:
+                  type: object
+                  required: [name, title, description, mutating]
+                  properties:
+                    name: { type: string }
+                    title: { type: string }
+                    description: { type: string }
+                    mutating: { type: boolean }
     PluginInUseError:
       type: object
       required: [error]

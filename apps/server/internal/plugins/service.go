@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/version"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 	bundled "github.com/tilecast/tilecast/plugins"
 )
@@ -39,6 +40,8 @@ type Service struct {
 	managedPresentations plugin.ManagedPresentations
 	backgroundJobs       plugin.BackgroundJobs
 	publicURL            string
+	publicVersion        string
+	screens              ScreenLister
 	dsInvalidator        DataSourceInvalidator
 	attachments          AttachmentBackend
 
@@ -74,7 +77,7 @@ func (s *Service) catalog() contentdefs.Catalogs {
 // NewService hosts the plugins bundled with this release, or the ones given
 // with WithPlugins, and initializes each of them.
 func NewService(db *pgxpool.Pool, notifier Notifier, options ...Option) *Service {
-	s := &Service{db: db, notifier: notifier, logger: slog.Default(), clock: systemClock{}}
+	s := &Service{db: db, notifier: notifier, logger: slog.Default(), clock: systemClock{}, publicVersion: version.Display()}
 	for _, option := range options {
 		option(s)
 	}

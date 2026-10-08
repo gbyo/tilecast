@@ -7,6 +7,7 @@ import {
   Database,
   Globe,
   HardDrive,
+  KeyRound,
   LayoutPanelTop,
   Puzzle,
 } from "lucide-react";
@@ -123,7 +124,26 @@ const capabilityIcons = {
   storage: HardDrive,
   background: Clock,
   studioUI: AppWindow,
+  service: KeyRound,
 } as const;
+
+function serviceCategoryLabel(
+  category: string,
+  t: ReturnType<typeof useTranslation<"plugins">>["t"],
+) {
+  switch (category) {
+    case "read":
+      return t("storeDetail.capabilities.service.categories.read");
+    case "directory":
+      return t("storeDetail.capabilities.service.categories.directory");
+    case "manage":
+      return t("storeDetail.capabilities.service.categories.manage");
+    case "audit":
+      return t("storeDetail.capabilities.service.categories.audit");
+    default:
+      return category;
+  }
+}
 
 /**
  * One reviewed capability in plain language. Background activity names how
@@ -143,7 +163,31 @@ export function CapabilityItem({
         <Icon aria-hidden="true" />
       </ItemMedia>
       <ItemContent>
-        <ItemTitle>{t(`storeDetail.capabilities.${row.kind}.title`)}</ItemTitle>
+        <ItemTitle>
+          {row.kind === "service"
+            ? row.grant.name
+            : t(`storeDetail.capabilities.${row.kind}.title`)}
+        </ItemTitle>
+        {row.kind === "service" && (
+          <ItemDescription className={noClamp}>
+            <span className="block text-xs font-medium text-foreground/70">
+              {t("storeDetail.capabilities.service.version", {
+                version: row.grant.version,
+              })}{" "}
+              · {serviceCategoryLabel(row.grant.category, t)}
+            </span>
+            <span className="block">{row.grant.description}</span>
+            {row.grant.operations.map((operation) => (
+              <span key={operation.name} className="block">
+                {operation.mutating
+                  ? t("storeDetail.capabilities.service.operationMutating", {
+                      title: operation.title,
+                    })
+                  : operation.title}
+              </span>
+            ))}
+          </ItemDescription>
+        )}
         {row.kind === "network" && (
           <ItemDescription className={noClamp}>
             <span className="block">

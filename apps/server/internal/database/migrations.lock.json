@@ -724,5 +724,11 @@
     "file": "00122_external_plugin_state.sql",
     "owner": "core",
     "sha256": "0218ba51f80d13f720f771105f7d7309af7103530bf441f390014fe066ce0af5"
+  },
+  {
+    "version": 123,
+    "file": "00123_external_package_managed_presentations.sql",
+    "owner": "core",
+    "sha256": "4f3f4b3fcb8e1210b0085291cd14d451a45b46a5e2a7453527f0841f73cafe9d"
   }
 ]

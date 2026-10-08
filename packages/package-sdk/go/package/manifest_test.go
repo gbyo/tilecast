@@ -159,3 +159,23 @@ func TestSatisfiesTilecastRange(t *testing.T) {
 		}
 	}
 }
+
+// TestParseAcceptsSampleManifest keeps the Hello Services sample
+// installable: the server-authoritative parser must accept the exact
+// manifest the sample ships.
+func TestParseAcceptsSampleManifest(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "package-samples", "hello-services", "tilecast.package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if manifest.APIVersion != 3 || manifest.PackageID != "example.hello-services" {
+		t.Fatalf("manifest = %+v", manifest)
+	}
+	if manifest.Capabilities == nil || len(manifest.Capabilities.Services) != 3 {
+		t.Fatalf("services = %+v", manifest.Capabilities)
+	}
+}

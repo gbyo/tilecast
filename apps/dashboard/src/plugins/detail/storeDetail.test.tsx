@@ -348,7 +348,7 @@ describe("Included detail page", () => {
     expect(await screen.findByText("No special permissions")).toBeVisible();
     expect(
       screen.getByText(
-        "This plugin doesn't request network access, local storage, background jobs, or a custom Studio interface.",
+        "This plugin doesn't request network access, local storage, background jobs, a custom Studio interface, or Tilecast services.",
       ),
     ).toBeVisible();
     // Nothing to list, so no Requirements section to restate it.
@@ -1189,6 +1189,45 @@ describe("Update review", () => {
     expect(
       within(dialog).getByRole("button", { name: "Update to 1.3.0" }),
     ).toBeEnabled();
+  });
+
+  it("calls out an added Tilecast service as new permissions", async () => {
+    check = updateCheck({
+      installed: installedPackage(),
+      available: true,
+      upToDate: false,
+      latest: latest({
+        contributions: [{ type: "widget", path: "lobby" }],
+        capabilities: {
+          network: { hosts: ["api.old.example"] },
+          storage: true,
+          services: [
+            {
+              id: "takeovers.manage",
+              version: 1,
+              name: "Emergency takeovers",
+              description: "Start and cancel takeovers.",
+              category: "manage",
+              operations: [
+                {
+                  name: "takeovers.manage@1/activate",
+                  title: "Start takeover",
+                  description: "Start a takeover.",
+                  mutating: true,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+    const user = userEvent.setup();
+    const dialog = await openUpdateReview(user);
+    expect(within(dialog).getByText("New permissions")).toBeVisible();
+    expect(within(dialog).getByText("Emergency takeovers")).toBeVisible();
+    expect(
+      within(dialog).getByText("Start takeover (changes data)"),
+    ).toBeVisible();
   });
 
   it("says when contributions and permissions did not change", async () => {

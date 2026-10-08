@@ -100,7 +100,7 @@ func TestValidatePackageRuntime(t *testing.T) {
 
 	t.Run("jobs require run_job", func(t *testing.T) {
 		spec := validSpec()
-		spec.exports = []testExport{{name: "handle_ui_request", kind: 0, index: 6}}
+		spec.exports = []testExport{{name: "handle_ui_request", kind: 0, index: 7}}
 		dir := writeLayout(t, assemble(spec), "<!DOCTYPE html><title>acme</title>")
 		err := ValidatePackageRuntime(dir, v2Manifest())
 		if err == nil || !strings.Contains(err.Error(), "run_job") {
@@ -112,7 +112,7 @@ func TestValidatePackageRuntime(t *testing.T) {
 		manifest := v2Manifest()
 		manifest.Capabilities.Background = nil
 		spec := validSpec()
-		spec.exports = []testExport{{name: "run_job", kind: 0, index: 5}}
+		spec.exports = []testExport{{name: "run_job", kind: 0, index: 6}}
 		dir := writeLayout(t, assemble(spec), "<!DOCTYPE html><title>acme</title>")
 		err := ValidatePackageRuntime(dir, manifest)
 		if err == nil || !strings.Contains(err.Error(), "handle_ui_request") {
