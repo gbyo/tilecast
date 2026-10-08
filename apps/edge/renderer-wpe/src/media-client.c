@@ -89,13 +89,16 @@ integer_member (JsonObject *object, const char *name, guint64 *value)
   return TRUE;
 }
 
-gboolean
-tc_media_head (const char *socket_path, const char *capability, guint64 *size, char **mime_type, GError **error)
+static gboolean
+head_expect (const char *socket_path, const char *capability, gboolean frame, guint64 *size, char **mime_type,
+             GError **error)
 {
   g_return_val_if_fail (size != NULL && mime_type != NULL, FALSE);
   if (!valid_capability (capability, error))
     return FALSE;
-  g_autofree char *request = g_strdup_printf ("{\"op\":\"head\",\"capability\":\"%s\"}", capability);
+  g_autofree char *request =
+    frame ? g_strdup_printf ("{\"op\":\"head\",\"capability\":\"%s\",\"expect\":\"frame\"}", capability)
+          : g_strdup_printf ("{\"op\":\"head\",\"capability\":\"%s\"}", capability);
   g_autoptr (GSocketConnection) connection = NULL;
   g_autoptr (JsonParser) parser = NULL;
   if (!exchange (socket_path, request, &connection, &parser, error))
@@ -114,8 +117,20 @@ tc_media_head (const char *socket_path, const char *capability, guint64 *size, c
 }
 
 gboolean
-tc_media_read (const char *socket_path, const char *capability, guint64 offset, void *buffer, guint32 length,
-               GError **error)
+tc_media_head (const char *socket_path, const char *capability, guint64 *size, char **mime_type, GError **error)
+{
+  return head_expect (socket_path, capability, FALSE, size, mime_type, error);
+}
+
+gboolean
+tc_media_head_frame (const char *socket_path, const char *capability, guint64 *size, char **mime_type, GError **error)
+{
+  return head_expect (socket_path, capability, TRUE, size, mime_type, error);
+}
+
+static gboolean
+read_expect (const char *socket_path, const char *capability, gboolean frame, guint64 offset, void *buffer,
+             guint32 length, GError **error)
 {
   if (!valid_capability (capability, error) || buffer == NULL || length == 0 || length > TC_MEDIA_MAX_READ
       || offset > G_MAXINT64 || offset + length < offset || offset + length > G_MAXINT64) {
@@ -123,8 +138,13 @@ tc_media_read (const char *socket_path, const char *capability, guint64 offset, 
       g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_INVALID_ARGUMENT, "invalid media read");
     return FALSE;
   }
-  g_autofree char *request = g_strdup_printf ("{\"op\":\"read\",\"capability\":\"%s\",\"offset\":%" G_GUINT64_FORMAT
-                                             ",\"length\":%u}", capability, offset, length);
+  g_autofree char *request =
+    frame ? g_strdup_printf ("{\"op\":\"read\",\"capability\":\"%s\",\"offset\":%" G_GUINT64_FORMAT
+                             ",\"length\":%u,\"expect\":\"frame\"}",
+                             capability, offset, length)
+          : g_strdup_printf ("{\"op\":\"read\",\"capability\":\"%s\",\"offset\":%" G_GUINT64_FORMAT
+                             ",\"length\":%u}",
+                             capability, offset, length);
   g_autoptr (GSocketConnection) connection = NULL;
   g_autoptr (JsonParser) parser = NULL;
   if (!exchange (socket_path, request, &connection, &parser, error))
@@ -136,4 +156,18 @@ tc_media_read (const char *socket_path, const char *capability, guint64 offset, 
     return FALSE;
   }
   return read_all (g_io_stream_get_input_stream (G_IO_STREAM (connection)), buffer, length, error);
+}
+
+gboolean
+tc_media_read (const char *socket_path, const char *capability, guint64 offset, void *buffer, guint32 length,
+               GError **error)
+{
+  return read_expect (socket_path, capability, FALSE, offset, buffer, length, error);
+}
+
+gboolean
+tc_media_read_frame (const char *socket_path, const char *capability, guint64 offset, void *buffer, guint32 length,
+                     GError **error)
+{
+  return read_expect (socket_path, capability, TRUE, offset, buffer, length, error);
 }

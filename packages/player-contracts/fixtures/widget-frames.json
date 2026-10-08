@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "constants": {
+    "scheme": "tcwidget",
+    "host": "cap",
+    "mimeType": "text/html",
+    "sandboxPolicy": "sandbox allow-scripts",
+    "cspHeader": "Content-Security-Policy: sandbox allow-scripts",
+    "capability": "widget.external-runtime",
+    "capabilityVersion": 2,
+    "tokenLength": 64
+  },
+  "tableUris": [
+    {
+      "name": "canonical frame URI",
+      "uri": "tcwidget://cap/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "accepted": true
+    },
+    {
+      "name": "media capability is not a frame",
+      "uri": "tcmedia://cap/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "accepted": false
+    },
+    {
+      "name": "short token",
+      "uri": "tcwidget://cap/short",
+      "accepted": false
+    },
+    {
+      "name": "uppercase token",
+      "uri": "tcwidget://cap/DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+      "accepted": false
+    },
+    {
+      "name": "trailing path",
+      "uri": "tcwidget://cap/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd/extra",
+      "accepted": false
+    },
+    {
+      "name": "query string",
+      "uri": "tcwidget://cap/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd?x=1",
+      "accepted": false
+    },
+    {
+      "name": "fragment never rides the authorization table",
+      "uri": "tcwidget://cap/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd#token",
+      "accepted": false
+    },
+    {
+      "name": "wrong authority",
+      "uri": "tcwidget://other/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "accepted": false
+    }
+  ],
+  "requestUris": [
+    {
+      "name": "canonical frame request",
+      "uri": "tcwidget://cap/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "accepted": true,
+      "token": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "name": "handshake fragment is stripped, not refused",
+      "uri": "tcwidget://cap/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd#handshake-token",
+      "accepted": true,
+      "token": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "name": "media capability is not a frame request",
+      "uri": "tcmedia://cap/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "accepted": false
+    },
+    {
+      "name": "short token",
+      "uri": "tcwidget://cap/short",
+      "accepted": false
+    }
+  ],
+  "serveHeaders": {
+    "contentType": "text/html",
+    "contentSecurityPolicy": "sandbox allow-scripts",
+    "xContentTypeOptions": "nosniff",
+    "acceptRanges": "none",
+    "cacheControl": "no-store"
+  },
+  "rangesRefused": true
+}

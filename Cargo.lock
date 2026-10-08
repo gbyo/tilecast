@@ -2344,6 +2344,7 @@ dependencies = [
  "hyper-util",
  "jiff",
  "player-core",
+ "player-types",
  "ring",
  "rusqlite",
  "rustix",

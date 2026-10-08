@@ -29,14 +29,44 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 #[derive(Debug, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Request {
-    Head { capability: String },
-    Read { capability: String, offset: u64, length: u32 },
+    Head {
+        capability: String,
+        #[serde(default)]
+        expect: ReadExpect,
+    },
+    Read {
+        capability: String,
+        offset: u64,
+        length: u32,
+        #[serde(default)]
+        expect: ReadExpect,
+    },
+}
+
+/// Which grant usage a channel read expects. Absent means media: renderers
+/// older than frames never send the field and never hold frame tokens, so
+/// the default keeps them working. Frame reads always name `frame`
+/// explicitly; the daemon resolves with the matching registry method and
+/// a media capability presented for a frame read is denied like an
+/// unknown token.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum ReadExpect {
+    #[default]
+    Media,
+    Frame,
 }
 
 impl Request {
     fn capability(&self) -> &str {
         match self {
-            Self::Head { capability } | Self::Read { capability, .. } => capability,
+            Self::Head { capability, .. } | Self::Read { capability, .. } => capability,
+        }
+    }
+
+    fn expect(&self) -> ReadExpect {
+        match self {
+            Self::Head { expect, .. } | Self::Read { expect, .. } => *expect,
         }
     }
 }
@@ -229,11 +259,19 @@ async fn serve(
         Ok(request) => request,
         Err(_) => return deny(&mut stream).await,
     };
+    let expect = request.expect();
     let grant = {
         let Ok(registry) = registry.lock() else { return deny(&mut stream).await };
         registry.renderer().and_then(|renderer| {
             (renderer.uid == credentials.uid() && lineage.belongs_to(renderer, pid))
-                .then(|| registry.resolve(renderer.session, request.capability(), clock.now().unix_millis()).cloned())
+                .then(|| {
+                    let now = clock.now().unix_millis();
+                    match expect {
+                        ReadExpect::Media => registry.resolve(renderer.session, request.capability(), now),
+                        ReadExpect::Frame => registry.resolve_frame(renderer.session, request.capability(), now),
+                    }
+                    .cloned()
+                })
                 .flatten()
         })
     };
@@ -250,7 +288,12 @@ async fn serve(
     }
     let capability = request.capability().to_owned();
     let still_valid = registry.lock().is_ok_and(|registry| {
-        registry.resolve(grant.renderer_session, &capability, clock.now().unix_millis()).is_some()
+        let now = clock.now().unix_millis();
+        match expect {
+            ReadExpect::Media => registry.resolve(grant.renderer_session, &capability, now),
+            ReadExpect::Frame => registry.resolve_frame(grant.renderer_session, &capability, now),
+        }
+        .is_some()
     });
     if !still_valid {
         return deny(&mut stream).await;
@@ -289,7 +332,12 @@ async fn serve(
             .await;
             let Ok(Ok(bytes)) = bytes else { return deny(&mut stream).await };
             let still_valid = registry.lock().is_ok_and(|registry| {
-                registry.resolve(grant.renderer_session, &capability, clock.now().unix_millis()).is_some()
+                let now = clock.now().unix_millis();
+                match expect {
+                    ReadExpect::Media => registry.resolve(grant.renderer_session, &capability, now),
+                    ReadExpect::Frame => registry.resolve_frame(grant.renderer_session, &capability, now),
+                }
+                .is_some()
             });
             if !still_valid {
                 return deny(&mut stream).await;
@@ -317,11 +365,28 @@ mod fixture_tests {
         let head: Request =
             serde_json::from_str(include_str!("../../../../packages/edge-protocol/fixtures/media/head-request.json"))
                 .unwrap();
-        assert!(matches!(head, Request::Head { capability } if capability == CAP));
+        assert!(matches!(&head, Request::Head { capability, .. } if capability == CAP));
+        assert_eq!(head.expect(), ReadExpect::Media);
         let read: Request =
             serde_json::from_str(include_str!("../../../../packages/edge-protocol/fixtures/media/read-request.json"))
                 .unwrap();
-        assert!(matches!(read, Request::Read { capability, offset: 2, length: 3 } if capability == CAP));
+        assert!(matches!(&read, Request::Read { capability, offset: 2, length: 3, .. } if capability == CAP));
+        assert_eq!(read.expect(), ReadExpect::Media);
+        // Frame reads name their usage explicitly; anything else is denied.
+        let head: Request = serde_json::from_str(include_str!(
+            "../../../../packages/edge-protocol/fixtures/media/head-frame-request.json"
+        ))
+        .unwrap();
+        assert_eq!(head.expect(), ReadExpect::Frame);
+        let read: Request = serde_json::from_str(include_str!(
+            "../../../../packages/edge-protocol/fixtures/media/read-frame-request.json"
+        ))
+        .unwrap();
+        assert_eq!(read.expect(), ReadExpect::Frame);
+        assert!(serde_json::from_str::<Request>(
+            r#"{"op":"head","capability":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","expect":"video"}"#
+        )
+        .is_err());
         for (fixture, expected) in [
             (
                 include_str!("../../../../packages/edge-protocol/fixtures/media/head-response.json"),

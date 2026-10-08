@@ -1,5 +1,11 @@
 # Widget sandbox spike (stage 5c gate)
 
+> Resolved by production external Widgets. This document is retained
+> for its historical measurements and per-target procedures. The
+> production contract lives in [External Widget sandbox threat
+> model](widget-sandbox-threat-model.md) and the shared
+> `@tilecast/widget-sdk` sandbox implementation.
+
 Content-extension-model §12 allows runtime-installed external Widget code
 only after an isolation spike is measured on Electron, WPE, and the
 Android shared-runtime WebView. This document records the spike design,
@@ -19,12 +25,22 @@ gates each target must meet.
   lifecycle states; reasons and codes pass through the trusted
   bounded-code rules.
 - Every placement mints a 128-bit nonce and a per-attach hello token.
-  The bootstrap announces its document with a hello; the parent answers
+  The parent binds a hosted attach by appending the token to the frame
+  URL as a fragment — never part of the resource request or the cached
+  frame identity — and the bootstrap reads it back from
+  `location.hash`; inline documents interpolate it instead. The
+  bootstrap announces its document with a hello; the parent answers
   once with `init` and the frame's `MessagePort`. The hello must come
-  from the placement's own frame window at the expected origin (the
-  frame origin for `hosted`, `"null"` for inline embeddings), and an
-  inline document must echo its embedded token. Reports cross the port
-  with a matching nonce; the parent drops anything else.
+  from the placement's own frame window, from the opaque origin
+  `"null"` every sandboxed frame posts as, echoing the exact token.
+  Reports cross the port with a matching nonce; the parent drops
+  anything else.
+- Every input carries a revision, starting at 1 per attach. The frame
+  assigns it to the element under the same `Symbol.for` key
+  `WidgetMount` uses, drops element events from an older revision,
+  and echoes it on every report; the parent drops reports for a
+  superseded revision. A slow asynchronous Widget can never settle a
+  previous input after an update.
 - The channel binds to the original document. A reload or navigation
   destroys the document's port, and the parent never sends `init` to a
   newly loaded document, so the connection dies with its document and
@@ -68,6 +84,23 @@ over ten fresh placements, against a 2000 ms gate. Eight concurrent
 placements all report ready, the slowest in 52 ms. A container resize
 moves the frame by CSS alone and the placement reports nothing new.
 
+Q5: How does the Browser serve verified frames from its own worker?
+A service worker never sees a sandboxed iframe's navigation: a
+Chromium probe showed the worker receiving the page's `fetch()` while
+the attributed iframe navigation went straight to the network.
+In-memory embeddings do not help either. Both `srcdoc` and `blob:`
+documents inherit the embedding context's policy, so the shell's
+`script-src 'self'` blocks their inline scripts — measured as CSP
+violations in Chromium — and service workers cannot mint blob URLs at
+all (`URL.createObjectURL` is absent there). The Browser therefore
+navigates a bare iframe to its grant URL, which the worker does see
+(`mode: "navigate"`, `destination: "iframe"`, no client), and the
+served response carries the `sandbox allow-scripts` directive: the
+document runs opaque and hellos from `"null"`, with its scripts
+governed by the served policy alone. The grant's unguessable
+capability plus its active-trusted state authorize the navigation;
+`fetch()` and media keep the client roundtrip.
+
 ## Security findings
 
 - The parent never posts `init` on frame load. A network-loaded frame
@@ -79,14 +112,28 @@ moves the frame by CSS alone and the placement reports nothing new.
   navigation lands.
 - The frame reports the resolution outcome after an `update`. The
   element reports its own boot, but a synchronous fixture cannot
-  re-fire lifecycle events on new inputs. Production must track input
-  revisions in the frame. The follow-up list records this work.
+  re-fire lifecycle events on new inputs. Input revisions are now
+  tracked on both sides (see the design above), so the outcome
+  report and any racing element event are attributable to exactly one
+  input.
+- A sandboxed frame without `allow-same-origin` has an opaque origin
+  and posts its hello with origin `"null"` — including hosted frames
+  served from a second origin. The parent therefore authenticates the
+  hello by the fragment token, never by the frame origin, and answers
+  the single-shot port transfer with a wildcard target.
 - The runner uses real-time CDP polling, not
   `--virtual-time-budget`. Virtual time advances timers past real
   network loads, so frame `load` events land after the ready timeout
   and latency numbers lose meaning.
 - The hostile verdict above holds under the unmodified runtime CSP.
   No policy change was required to run the harness.
+- In-memory frame embeddings inherit the embedding context's policy.
+  A blob document created by the shell runs under the shell's
+  `script-src 'self'`, which blocks its inline scripts exactly like
+  `srcdoc` does. Bytes-loaded embeddings are therefore only sound
+  where the creator policy already permits the frame's scripts; the
+  Browser navigates its grants instead and takes the sandbox from the
+  response directive.
 
 ## Gates
 
@@ -142,6 +189,39 @@ Hostile verdict: `parent:denied topread:denied cookie:denied
 storage:denied fetch:rejected`. The `hosted-ok` frame renders
 `ok:hosted-ok sets:2 clock:ok` and `media:loaded`.
 
+### Desktop Chromium, production handshake (headless, 2026-10-07)
+
+Re-measured after the handshake fix (fragment token, opaque-origin
+`"null"` hello, input revisions on both sides). Same runner, same
+harness CSP, same fixtures extended to announce their input revision.
+Result: `SPIKE_DONE:12/12`.
+
+| Case                | Result | Time                     |
+| ------------------- | ------ | ------------------------ |
+| `srcdoc-blocked`    | PASS   | 1029 ms                  |
+| `blob-blocked`      | PASS   | 1031 ms                  |
+| `hosted-ok`         | PASS   | 102 ms                   |
+| `update`            | PASS   | 53 ms                    |
+| `hostile-hosted`    | PASS   | 102 ms                   |
+| `empty`             | PASS   | 28 ms                    |
+| `error-bounded`     | PASS   | 28 ms                    |
+| `silent-timeout`    | PASS   | 528 ms                   |
+| `bad-shape`         | PASS   | 53 ms                    |
+| `latency-median-ms` | PASS   | 27 ms over 10 mounts     |
+| `scale-8`           | PASS   | 8/8 ready, slowest 76 ms |
+| `resize-stable`     | PASS   | 26 ms                    |
+
+### Browser service-worker frames (desktop Chromium, 2026-10-07)
+
+`npm run test:e2e:frames` in `apps/player-web` registers the production
+service-worker build, seeds two verified frame grants, and completes
+two placements through bare navigations under the exact production
+shell policy: `1 passed`. The worker serves each grant with the frame
+response policy; the first placement hellos opaque, answers init, and
+reports ready with its revision echoed; the second proves the served
+policy is active by blocking `eval` and attributing the violation to
+`script-src`. An ungranted capability on the same route answers 404.
+
 ### Electron (TODO)
 
 Not measured yet.
@@ -161,8 +241,10 @@ measurement is outstanding.
 - Build the frame bootstrap as a real frame entry so both sides share
   the SDK event and revision helpers; the spike inlines a template.
 - Decide the 5c bundle module format (classic vs ESM, SDK linkage).
-- Track input revisions in the frame so slow elements cannot misreport
-  after an update.
+- Input revisions are tracked on both sides since the production
+  handshake: the frame assigns the revision to the element, drops
+  stale element events, and echoes it on every report, and the parent
+  drops reports for a superseded revision.
 - Measure a `csp` attribute on the frame (`connect-src 'none'` with an
   `img-src`/`media-src` allowlist) after the core isolation result.
 - Confirm blob-URL revocation timing against frame teardown on WPE.

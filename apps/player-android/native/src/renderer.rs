@@ -32,7 +32,7 @@ use player_core::{
     HealAction, ObjectBinding, ProgressEvidence, RendererActivation, RendererActivationRef, RendererCaptureRequest,
     RendererCoordinator, RendererMetadata, RendererPort, RendererPortError, RendererProfileMismatch,
     RendererRequirement, RendererSupport, RuntimePayload, SemanticRendererCommand, SemanticRendererProgress,
-    SupervisorConfig, VerifiedContentRef,
+    SupervisorConfig, VerifiedContentRef, VerifiedFrameRef,
 };
 use player_types::ActivationId;
 use player_types::bounded::{SafeText, ShortToken};
@@ -129,6 +129,17 @@ pub struct ActivationContent {
     pub mime_type: SafeText<127>,
 }
 
+/// One verified sandbox-frame document the activation may execute. The
+/// digest selects bytes from the frame domain; the package pair
+/// identifies the frame-table entry the Runtime joins.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActivationFrame {
+    pub package_id: SafeText<128>,
+    pub package_digest: Sha256Digest,
+    pub digest: Sha256Digest,
+    pub size_bytes: u64,
+}
+
 /// Which prepared manifest an activation shows and what selected it:
 /// the identifiers the reference player reports for its presentation.
 #[derive(Debug, Clone)]
@@ -151,6 +162,7 @@ pub struct PlaybackIdentity {
 pub struct ActivateRequest {
     pub envelope: serde_json::Value,
     pub content: Vec<ActivationContent>,
+    pub frames: Vec<ActivationFrame>,
     pub source: ActivationSource,
     pub identity: Option<PlaybackIdentity>,
     pub clock_offset_ms: i64,
@@ -302,7 +314,38 @@ fn parse_activate_request(raw: &str) -> Result<ActivateRequest, ActivateError> {
         })
         .transpose()?;
     let clock_offset_ms = request.get("clockOffsetMs").and_then(serde_json::Value::as_i64).unwrap_or(0);
-    Ok(ActivateRequest { envelope, content, source, identity, clock_offset_ms })
+    // Frame claims ride beside the media list. Absent means no external
+    // Widgets; present must be an array of complete claims.
+    let mut frames = Vec::new();
+    if let Some(requested) = request.get("frames") {
+        for entry in requested.as_array().ok_or(ActivateError::Malformed)? {
+            frames.push(ActivationFrame {
+                package_id: entry
+                    .get("packageId")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(|id| SafeText::new(id).ok())
+                    .ok_or(ActivateError::Malformed)?,
+                package_digest: entry
+                    .get("packageDigest")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(parse_digest)
+                    .ok_or(ActivateError::Malformed)?,
+                digest: entry
+                    .get("frameDigest")
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(parse_digest)
+                    .ok_or(ActivateError::Malformed)?,
+                size_bytes: entry
+                    .get("sizeBytes")
+                    .and_then(serde_json::Value::as_u64)
+                    .ok_or(ActivateError::Malformed)?,
+            });
+            if frames.len() > MAX_ACTIVATION_CONTENT {
+                return Err(ActivateError::TooLarge);
+            }
+        }
+    }
+    Ok(ActivateRequest { envelope, content, frames, source, identity, clock_offset_ms })
 }
 
 /// Scans a projected value for `tcmedia:` URIs, blanking each one and
@@ -551,8 +594,33 @@ struct Grant {
     mime_type: SafeText<127>,
 }
 
+/// One authorized frame document: the interceptor serves `path` at `uri`.
+/// The URI carries an opaque per-activation token, never the digest or a
+/// path; authorization is membership in this per-activation token set.
+#[derive(Debug, Clone)]
+struct FrameGrant {
+    uri: String,
+    package_id: SafeText<128>,
+    package_digest: Sha256Digest,
+    path: std::path::PathBuf,
+    size_bytes: u64,
+}
+
+/// Mints one opaque frame token. Randomness failure refuses the
+/// activation rather than reusing a predictable token.
+fn mint_frame_token() -> Option<String> {
+    use ring::rand::SecureRandom as _;
+    let mut bytes = [0_u8; 32];
+    ring::rand::SystemRandom::new().fill(&mut bytes).ok()?;
+    Some(bytes.iter().fold(String::with_capacity(64), |mut token, byte| {
+        use std::fmt::Write as _;
+        let _ = write!(token, "{byte:02x}");
+        token
+    }))
+}
+
 /// The live generation's grants, if an activation is prepared.
-type GenerationGrants = Option<(u64, HashMap<Sha256Digest, Grant>)>;
+type GenerationGrants = Option<(u64, HashMap<Sha256Digest, Grant>, HashMap<Sha256Digest, FrameGrant>)>;
 
 /// Android's [`RendererPort`]: generation-bound media grants over the one
 /// semantic JNI upcall. The port never sends credentials, paths the page
@@ -577,6 +645,7 @@ impl AndroidRendererPort {
         &self,
         generation: u64,
         content: &[ActivationContent],
+        frames: &[ActivationFrame],
         uris: &HashMap<Sha256Digest, String>,
     ) -> Result<(), RendererPortError> {
         let mut grants = HashMap::new();
@@ -601,14 +670,48 @@ impl AndroidRendererPort {
                 },
             );
         }
-        *self.grants.lock().unwrap_or_else(|error| error.into_inner()) = Some((generation, grants));
+        // A digest claimed as both media and a frame fails the
+        // activation rather than serving one object's bytes twice.
+        let mut tokens = std::collections::HashSet::new();
+        let mut frame_grants = HashMap::new();
+        for frame in frames {
+            if grants.contains_key(&frame.digest) {
+                return Err(RendererPortError::InvalidActivation);
+            }
+            let path = self
+                .cas
+                .verified_path(&frame.digest)
+                .await
+                .ok()
+                .flatten()
+                .ok_or(RendererPortError::ResourceUnavailable)?;
+            let mut token = mint_frame_token().ok_or(RendererPortError::InvalidActivation)?;
+            while tokens.contains(&token) {
+                token = mint_frame_token().ok_or(RendererPortError::InvalidActivation)?;
+            }
+            tokens.insert(token.clone());
+            frame_grants.insert(
+                frame.digest,
+                FrameGrant {
+                    uri: format!("tcwidget://cap/{token}"),
+                    package_id: frame.package_id.clone(),
+                    package_digest: frame.package_digest,
+                    path,
+                    size_bytes: frame.size_bytes,
+                },
+            );
+        }
+        *self.grants.lock().unwrap_or_else(|error| error.into_inner()) = Some((generation, grants, frame_grants));
         Ok(())
     }
 
-    fn grants_for(&self, generation: u64) -> Result<HashMap<Sha256Digest, Grant>, RendererPortError> {
+    fn grants_for(
+        &self,
+        generation: u64,
+    ) -> Result<(HashMap<Sha256Digest, Grant>, HashMap<Sha256Digest, FrameGrant>), RendererPortError> {
         let grants = self.grants.lock().unwrap_or_else(|error| error.into_inner());
         match grants.as_ref() {
-            Some((live, grants)) if *live == generation => Ok(grants.clone()),
+            Some((live, grants, frames)) if *live == generation => Ok((grants.clone(), frames.clone())),
             _ => Err(RendererPortError::InvalidActivation),
         }
     }
@@ -644,7 +747,7 @@ fn wire_document(
 impl RendererPort for AndroidRendererPort {
     fn activate(&self, activation: &RendererActivation) -> Result<(), RendererPortError> {
         let reference = activation.reference();
-        let grants = self.grants_for(reference.generation)?;
+        let (grants, frame_grants) = self.grants_for(reference.generation)?;
         let resolve = |object: Sha256Digest| grants.get(&object).map(|grant| grant.uri.clone());
         let presentation = wire_document(activation.document(), &resolve)?;
         let context = activation.runtime_context().map(|context| wire_document(context, &resolve)).transpose()?;
@@ -664,19 +767,68 @@ impl RendererPort for AndroidRendererPort {
                 }))
             })
             .collect::<Result<_, RendererPortError>>()?;
+        // Frames ride the envelope beside the media grants, and the
+        // projection carries the authorization table the projector
+        // joins. Every claim must have a grant; a missing one fails
+        // the activation rather than executing a frame unconfined.
+        let frames: Vec<serde_json::Value> = activation
+            .frames()
+            .iter()
+            .map(|frame| {
+                let grant = frame_grants.get(&frame.sha256).ok_or(RendererPortError::InvalidActivation)?;
+                Ok(serde_json::json!({
+                    "uri": grant.uri,
+                    "packageId": grant.package_id.as_str(),
+                    "packageDigest": grant.package_digest.to_hex(),
+                    "frameDigest": frame.sha256.to_hex(),
+                    "sizeBytes": grant.size_bytes,
+                    "path": grant.path.to_string_lossy(),
+                }))
+            })
+            .collect::<Result<_, RendererPortError>>()?;
         let mut envelope = serde_json::json!({
             "op": "activate",
             "activationId": reference.activation_id.to_string(),
             "generation": reference.generation,
             "presentation": presentation,
             "content": content,
+            "frames": frames,
         });
         if let Some(context) = context.as_ref().and_then(|context| context.as_object()) {
             if let Some(timing) = context.get("timing") {
                 envelope["timing"] = timing.clone();
             }
             if let Some(projection) = context.get("projection") {
-                envelope["projection"] = projection.clone();
+                let mut projection = projection.clone();
+                if !frames.is_empty() {
+                    let Some(object) = projection.as_object_mut() else {
+                        return Err(RendererPortError::InvalidActivation);
+                    };
+                    if object.contains_key("widgetFrames") {
+                        // The port builds the authorization table; a table
+                        // already present means a confused upstream.
+                        return Err(RendererPortError::InvalidActivation);
+                    }
+                    object.insert(
+                        "widgetFrames".to_string(),
+                        serde_json::Value::Array(
+                            frames
+                                .iter()
+                                .map(|frame| {
+                                    serde_json::json!({
+                                        "packageId": frame["packageId"],
+                                        "packageDigest": frame["packageDigest"],
+                                        "frameDigest": frame["frameDigest"],
+                                        "uri": frame["uri"],
+                                    })
+                                })
+                                .collect(),
+                        ),
+                    );
+                }
+                envelope["projection"] = projection;
+            } else if !frames.is_empty() {
+                return Err(RendererPortError::InvalidActivation);
             }
             // Plugin surfaces travel beside the presentation, as Edge's
             // adapter forwards them; the runtime reads a separate
@@ -1004,6 +1156,16 @@ impl PresentationEngine {
                 mime_type: entry.mime_type.clone(),
             })
             .collect();
+        let frames: Vec<VerifiedFrameRef> = request
+            .frames
+            .iter()
+            .map(|entry| VerifiedFrameRef {
+                package_id: entry.package_id.clone(),
+                package_digest: entry.package_digest,
+                sha256: entry.digest,
+                size_bytes: entry.size_bytes,
+            })
+            .collect();
         let prepared_error = |error: player_core::PreparedActivationError| match error {
             player_core::PreparedActivationError::TooLarge => ActivateError::TooLarge,
             player_core::PreparedActivationError::UnlistedObject => ActivateError::UnknownMedia,
@@ -1012,12 +1174,14 @@ impl PresentationEngine {
             .native
             .begin_activation(ActivationId::from_uuid(uuid::Uuid::new_v4()), metadata.clone(), now)
             .map_err(prepared_error)?;
-        let activation =
-            RendererActivation::new(reference, document, metadata, content, runtime_context).map_err(prepared_error)?;
+        let activation = RendererActivation::new(reference, document, metadata, content, frames, runtime_context)
+            .map_err(prepared_error)?;
         // Grants resolve before the activation is stored: a failure
         // withdraws the begun activation so the recovery ladder never
         // runs against content it cannot authorize.
-        if let Err(error) = self.port.prepare_grants(reference.generation, &request.content, &uris).await {
+        if let Err(error) =
+            self.port.prepare_grants(reference.generation, &request.content, &request.frames, &uris).await
+        {
             self.native.clear();
             return Err(match error {
                 RendererPortError::ResourceUnavailable => ActivateError::Unverified,
@@ -1049,7 +1213,12 @@ impl PresentationEngine {
         let Some(current) = self.current.clone() else { return };
         if self
             .port
-            .prepare_grants(current.reference.generation, &current.request.content, &current.uris)
+            .prepare_grants(
+                current.reference.generation,
+                &current.request.content,
+                &current.request.frames,
+                &current.uris,
+            )
             .await
             .is_err()
         {
@@ -1818,6 +1987,125 @@ mod tests {
                 assert_eq!(context.presentation_type, "playlist");
             }
             other => panic!("expected Presented::Playing, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn activate_grants_frames_with_a_widget_table() {
+        let mut test = scratch().await;
+        let bytes = b"fake-image-bytes";
+        let digest = seed(&test.engine.port.cas, bytes).await;
+        let frame_bytes = b"<frame/>";
+        let frame = seed(&test.engine.port.cas, frame_bytes).await;
+        let package = Sha256Digest::of(b"package");
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let mut request: serde_json::Value =
+            serde_json::from_str(&playing_request(&digest, bytes.len() as u64, "image")).expect("parses");
+        request["frames"] = serde_json::json!([{
+            "packageId": "acme.athletics",
+            "packageDigest": package.to_hex(),
+            "frameDigest": frame.to_hex(),
+            "sizeBytes": frame_bytes.len(),
+        }]);
+        request["envelope"]["projection"] = serde_json::json!({"schema": 19});
+        test.engine.activate(&request.to_string(), now(BASE_MS)).await.expect("activate");
+        let requests = test.platform.requests();
+        assert_eq!(requests.len(), 1);
+        let envelope: serde_json::Value = serde_json::from_str(&requests[0]).expect("parses");
+        assert_eq!(envelope["frames"][0]["frameDigest"], frame.to_hex());
+        assert_eq!(envelope["frames"][0]["packageId"], "acme.athletics");
+        assert_eq!(envelope["frames"][0]["packageDigest"], package.to_hex());
+        let uri = envelope["frames"][0]["uri"].as_str().expect("str");
+        let token = uri.strip_prefix("tcwidget://cap/").expect("opaque capability");
+        assert_eq!(token.len(), 64);
+        assert_ne!(token, frame.to_hex());
+        let path = envelope["frames"][0]["path"].as_str().expect("str");
+        assert_eq!(std::fs::read(path).expect("read"), frame_bytes);
+        let table = envelope["projection"]["widgetFrames"].as_array().expect("table");
+        assert_eq!(table.len(), 1);
+        assert_eq!(table[0]["frameDigest"], frame.to_hex());
+        assert_eq!(table[0]["uri"], uri);
+        assert!(table[0].get("path").is_none());
+    }
+
+    #[tokio::test]
+    async fn dual_claimed_media_and_frame_digests_fail_activation() {
+        let mut test = scratch().await;
+        let bytes = b"fake-image-bytes";
+        let digest = seed(&test.engine.port.cas, bytes).await;
+        let package = Sha256Digest::of(b"package");
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let mut request: serde_json::Value =
+            serde_json::from_str(&playing_request(&digest, bytes.len() as u64, "image")).expect("parses");
+        // The same digest rides both the media grant list and the frame
+        // claims: no grant may serve one object's bytes twice.
+        request["frames"] = serde_json::json!([{
+            "packageId": "acme.athletics",
+            "packageDigest": package.to_hex(),
+            "frameDigest": digest.to_hex(),
+            "sizeBytes": bytes.len(),
+        }]);
+        request["envelope"]["projection"] = serde_json::json!({"schema": 19});
+        assert!(test.engine.activate(&request.to_string(), now(BASE_MS)).await.is_err());
+        assert!(test.platform.requests().is_empty());
+    }
+
+    #[tokio::test]
+    async fn downgrade_to_a_frameless_manifest_empties_the_table() {
+        let mut test = scratch().await;
+        let bytes = b"fake-image-bytes";
+        let digest = seed(&test.engine.port.cas, bytes).await;
+        let frame = seed(&test.engine.port.cas, b"<frame/>").await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let mut framed: serde_json::Value =
+            serde_json::from_str(&playing_request(&digest, bytes.len() as u64, "image")).expect("parses");
+        framed["frames"] = serde_json::json!([{
+            "packageId": "acme.athletics",
+            "packageDigest": Sha256Digest::of(b"package").to_hex(),
+            "frameDigest": frame.to_hex(),
+            "sizeBytes": 8,
+        }]);
+        framed["envelope"]["projection"] = serde_json::json!({"schema": 19});
+        test.engine.activate(&framed.to_string(), now(BASE_MS)).await.expect("activate");
+        // The next revision carries no frames: the table empties and the
+        // old frame URIs stop resolving with their drained generation.
+        test.engine
+            .activate(&playing_request(&digest, bytes.len() as u64, "image"), now(BASE_MS + 1))
+            .await
+            .expect("activate");
+        let requests = test.platform.requests();
+        assert_eq!(requests.len(), 2);
+        let envelope: serde_json::Value = serde_json::from_str(&requests[1]).expect("parses");
+        assert_eq!(envelope["generation"], 2);
+        assert_eq!(envelope["frames"], serde_json::json!([]));
+        assert!(envelope["projection"].is_null());
+    }
+
+    #[test]
+    fn frame_claims_parse_strictly_and_default_to_none() {
+        let minimal = serde_json::json!({
+            "envelope": {"presentation": {"state": "playing", "items": []}},
+            "content": [],
+            "source": "server_manifest",
+        });
+        let parsed = parse_activate_request(&minimal.to_string()).expect("parses");
+        assert!(parsed.frames.is_empty());
+        for bad in [
+            serde_json::json!("nope"),
+            serde_json::json!([{"packageId": "acme.athletics"}]),
+            serde_json::json!([{
+                "packageId": "acme.athletics",
+                "packageDigest": "x",
+                "frameDigest": Sha256Digest::of(b"frame").to_hex(),
+                "sizeBytes": 1,
+            }]),
+        ] {
+            let mut request = minimal.clone();
+            request["frames"] = bad;
+            assert!(matches!(parse_activate_request(&request.to_string()), Err(ActivateError::Malformed)));
         }
     }
 

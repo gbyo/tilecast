@@ -27,6 +27,7 @@
 pub mod bounded;
 pub mod capability;
 pub mod digest;
+pub mod frames;
 pub mod ids;
 pub mod ipc;
 pub mod time;

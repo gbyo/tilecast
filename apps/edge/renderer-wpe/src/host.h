@@ -86,6 +86,7 @@ struct _TcHost {
   /* Daemon-provided state. */
   GPtrArray *content;          /* TcContentRef*, current activation + plugins */
   GPtrArray *plugin_content;   /* TcContentRef*, current plugin state */
+  GPtrArray *frames;           /* TcContentRef*, current activation frame allowlist */
   GHashTable *media_aliases;   /* "<asset>/<variant>" -> capability URI, from plugin state */
   char *current_activation_id;
   gint64 current_generation;
@@ -143,6 +144,7 @@ void tc_view_reply_json (TcHost *host, WebKitScriptMessageReply *reply, const ch
 /* schemes.c */
 void tc_schemes_register (TcHost *host);
 const TcContentRef *tc_host_find_content (TcHost *host, const char *uri);
+const TcContentRef *tc_host_find_frame (TcHost *host, const char *uri);
 void tc_content_ref_free (gpointer ref);
 
 G_END_DECLS

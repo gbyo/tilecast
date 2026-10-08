@@ -13018,6 +13018,13 @@ type DownloadPackageWidgetBundleParams struct {
 	IfNoneMatch *string `json:"If-None-Match,omitempty"`
 }
 
+// DownloadPackageWidgetFrameParams defines parameters for DownloadPackageWidgetFrame.
+type DownloadPackageWidgetFrameParams struct {
+	Range       *string `json:"Range,omitempty"`
+	IfRange     *string `json:"If-Range,omitempty"`
+	IfNoneMatch *string `json:"If-None-Match,omitempty"`
+}
+
 // PollPairingSessionParams defines parameters for PollPairingSession.
 type PollPairingSessionParams struct {
 	Authorization string `json:"Authorization"`
@@ -16784,6 +16791,16 @@ type ClientInterface interface {
 	//
 	// Inspect a package Widget player bundle. Requires an authenticated player credential.
 	InspectPackageWidgetBundle(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadPackageWidgetFrame performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame (the `DownloadPackageWidgetFrame` operationId) request.
+	//
+	// Download a package Widget sandbox frame. Requires an authenticated player credential.
+	DownloadPackageWidgetFrame(ctx context.Context, packageId string, widgetId string, params *DownloadPackageWidgetFrameParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InspectPackageWidgetFrame performs a HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame (the `InspectPackageWidgetFrame` operationId) request.
+	//
+	// Inspect a package Widget sandbox frame. Requires an authenticated player credential.
+	InspectPackageWidgetFrame(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreatePairingSessionWithBody performs a POST /api/v1/player/pairing-sessions (the `CreatePairingSession` operationId) request,
 	// with any type of body and a specified content type.
@@ -23099,6 +23116,36 @@ func (c *Client) DownloadPackageWidgetBundle(ctx context.Context, packageId stri
 // Inspect a package Widget player bundle. Requires an authenticated player credential.
 func (c *Client) InspectPackageWidgetBundle(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewInspectPackageWidgetBundleRequest(c.Server, packageId, widgetId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadPackageWidgetFrame performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame (the `DownloadPackageWidgetFrame` operationId) request.
+//
+// Download a package Widget sandbox frame. Requires an authenticated player credential.
+func (c *Client) DownloadPackageWidgetFrame(ctx context.Context, packageId string, widgetId string, params *DownloadPackageWidgetFrameParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadPackageWidgetFrameRequest(c.Server, packageId, widgetId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// InspectPackageWidgetFrame performs a HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame (the `InspectPackageWidgetFrame` operationId) request.
+//
+// Inspect a package Widget sandbox frame. Requires an authenticated player credential.
+func (c *Client) InspectPackageWidgetFrame(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInspectPackageWidgetFrameRequest(c.Server, packageId, widgetId)
 	if err != nil {
 		return nil, err
 	}
@@ -38480,6 +38527,125 @@ func NewInspectPackageWidgetBundleRequest(server string, packageId string, widge
 	return req, nil
 }
 
+// NewDownloadPackageWidgetFrameRequest constructs an http.Request for the DownloadPackageWidgetFrame method
+func NewDownloadPackageWidgetFrameRequest(server string, packageId string, widgetId string, params *DownloadPackageWidgetFrameParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "widgetId", widgetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/packages/%s/widgets/%s/frame", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		if params.Range != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Range", *params.Range, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Range", headerParam0)
+		}
+
+		if params.IfRange != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "If-Range", *params.IfRange, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Range", headerParam1)
+		}
+
+		if params.IfNoneMatch != nil {
+			var headerParam2 string
+
+			headerParam2, err = runtime.StyleParamWithOptions("simple", false, "If-None-Match", *params.IfNoneMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-None-Match", headerParam2)
+		}
+
+	}
+
+	return req, nil
+}
+
+// NewInspectPackageWidgetFrameRequest constructs an http.Request for the InspectPackageWidgetFrame method
+func NewInspectPackageWidgetFrameRequest(server string, packageId string, widgetId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "widgetId", widgetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/packages/%s/widgets/%s/frame", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodHead, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewCreatePairingSessionRequest calls the generic CreatePairingSession builder with application/json body
 func NewCreatePairingSessionRequest(server string, body CreatePairingSessionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -48705,6 +48871,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	InspectPackageWidgetBundleWithResponse(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*InspectPackageWidgetBundleResponse, error)
+
+	// DownloadPackageWidgetFrameWithResponse performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame (the `DownloadPackageWidgetFrame` operationId) request.
+	//
+	// Download a package Widget sandbox frame. Requires an authenticated player credential.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DownloadPackageWidgetFrameWithResponse(ctx context.Context, packageId string, widgetId string, params *DownloadPackageWidgetFrameParams, reqEditors ...RequestEditorFn) (*DownloadPackageWidgetFrameResponse, error)
+
+	// InspectPackageWidgetFrameWithResponse performs a HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame (the `InspectPackageWidgetFrame` operationId) request.
+	//
+	// Inspect a package Widget sandbox frame. Requires an authenticated player credential.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	InspectPackageWidgetFrameWithResponse(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*InspectPackageWidgetFrameResponse, error)
 
 	// CreatePairingSessionWithBodyWithResponse performs a POST /api/v1/player/pairing-sessions (the `CreatePairingSession` operationId) request,
 	// with any type of body and a specified content type.
@@ -60236,6 +60416,74 @@ func (r InspectPackageWidgetBundleResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r InspectPackageWidgetBundleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DownloadPackageWidgetFrameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadPackageWidgetFrameResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadPackageWidgetFrameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadPackageWidgetFrameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadPackageWidgetFrameResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type InspectPackageWidgetFrameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r InspectPackageWidgetFrameResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r InspectPackageWidgetFrameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InspectPackageWidgetFrameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InspectPackageWidgetFrameResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -72180,6 +72428,32 @@ func (c *ClientWithResponses) InspectPackageWidgetBundleWithResponse(ctx context
 	return ParseInspectPackageWidgetBundleResponse(rsp)
 }
 
+// DownloadPackageWidgetFrameWithResponse performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame (the `DownloadPackageWidgetFrame` operationId) request.
+//
+// Download a package Widget sandbox frame. Requires an authenticated player credential.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DownloadPackageWidgetFrameWithResponse(ctx context.Context, packageId string, widgetId string, params *DownloadPackageWidgetFrameParams, reqEditors ...RequestEditorFn) (*DownloadPackageWidgetFrameResponse, error) {
+	rsp, err := c.DownloadPackageWidgetFrame(ctx, packageId, widgetId, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadPackageWidgetFrameResponse(rsp)
+}
+
+// InspectPackageWidgetFrameWithResponse performs a HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame (the `InspectPackageWidgetFrame` operationId) request.
+//
+// Inspect a package Widget sandbox frame. Requires an authenticated player credential.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) InspectPackageWidgetFrameWithResponse(ctx context.Context, packageId string, widgetId string, reqEditors ...RequestEditorFn) (*InspectPackageWidgetFrameResponse, error) {
+	rsp, err := c.InspectPackageWidgetFrame(ctx, packageId, widgetId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInspectPackageWidgetFrameResponse(rsp)
+}
+
 // CreatePairingSessionWithBodyWithResponse performs a POST /api/v1/player/pairing-sessions (the `CreatePairingSession` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -81932,6 +82206,38 @@ func ParseInspectPackageWidgetBundleResponse(rsp *http.Response) (*InspectPackag
 	}
 
 	response := &InspectPackageWidgetBundleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseDownloadPackageWidgetFrameResponse parses an HTTP response from a DownloadPackageWidgetFrameWithResponse call
+func ParseDownloadPackageWidgetFrameResponse(rsp *http.Response) (*DownloadPackageWidgetFrameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadPackageWidgetFrameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseInspectPackageWidgetFrameResponse parses an HTTP response from a InspectPackageWidgetFrameWithResponse call
+func ParseInspectPackageWidgetFrameResponse(rsp *http.Response) (*InspectPackageWidgetFrameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InspectPackageWidgetFrameResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

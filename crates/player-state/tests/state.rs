@@ -371,7 +371,7 @@ fn migration_7_drops_noise_history_and_keeps_presentation_network_state() {
     let owned: Vec<Migration> =
         player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to latest");
-    assert_eq!(player_state::schema_version(&connection).expect("version"), 8);
+    assert_eq!(player_state::schema_version(&connection).expect("version"), 9);
     let noise: i64 = connection
         .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'noise_history'", [], |r| r.get(0))
         .expect("query");
@@ -412,7 +412,7 @@ fn migration_8_keeps_cas_rows_and_admits_widget_bundles() {
     let owned: Vec<Migration> =
         player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to latest");
-    assert_eq!(player_state::schema_version(&connection).expect("version"), 8);
+    assert_eq!(player_state::schema_version(&connection).expect("version"), 9);
     let domain: String = connection
         .query_row("SELECT domain FROM cas_objects WHERE sha256 = ?1", [&media], |r| r.get(0))
         .expect("cached object survives");
@@ -423,4 +423,56 @@ fn migration_8_keeps_cas_rows_and_admits_widget_bundles() {
             ["cd".repeat(32)],
         )
         .expect("v8 admits widget bundles");
+}
+
+#[test]
+fn migration_9_keeps_cas_rows_and_admits_widget_frames() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    // Simulate a device last migrated at version 8 with cached objects.
+    let v8: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 8)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v8).expect("migrate to v8");
+    let media = "ab".repeat(32);
+    let bundle = "cd".repeat(32);
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 12, 'media', 'image/png', 'origin', 'verified', 1, 1, 1)",
+            [&media],
+        )
+        .expect("seed cached object");
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_bundle', 'text/javascript', 'origin', 'verified', 1, 1, 1)",
+            [&bundle],
+        )
+        .expect("seed cached bundle");
+    assert!(
+        connection
+            .execute(
+                "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_frame', 'text/html', 'origin', 'verified', 1, 1, 1)",
+                ["ef".repeat(32)],
+            )
+            .is_err(),
+        "v8 rejects the new domain"
+    );
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), 9);
+    for (sha, domain) in [(&media, "media"), (&bundle, "widget_bundle")] {
+        let kept: String = connection
+            .query_row("SELECT domain FROM cas_objects WHERE sha256 = ?1", [sha], |r| r.get(0))
+            .expect("cached object survives");
+        assert_eq!(kept, domain);
+    }
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_frame', 'text/html', 'origin', 'verified', 1, 1, 1)",
+            ["ef".repeat(32)],
+        )
+        .expect("v9 admits widget frames");
 }

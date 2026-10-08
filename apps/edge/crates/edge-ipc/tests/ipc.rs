@@ -263,6 +263,7 @@ async fn wrong_direction_and_sequence_violations_close_the_session() {
             status: None,
         }),
         content: vec![],
+        frames: vec![],
         timing: None,
         projection: None,
     }));
