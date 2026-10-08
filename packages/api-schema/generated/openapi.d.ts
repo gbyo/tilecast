@@ -7814,6 +7814,21 @@ export interface components {
       studioUI?: {
         entry: string;
       };
+      /** @description Requested Tilecast service grants with registry-resolved display metadata. */
+      services?: {
+        id: string;
+        version: number;
+        name: string;
+        description: string;
+        /** @enum {string} */
+        category: "read" | "directory" | "manage" | "audit";
+        operations: {
+          name: string;
+          title: string;
+          description: string;
+          mutating: boolean;
+        }[];
+      }[];
     };
     PluginInUseError: {
       error: {

@@ -2268,6 +2268,30 @@ func (e OAuthTokensTokenType) Valid() bool {
 	}
 }
 
+// Defines values for PackageCapabilitiesServicesCategory.
+const (
+	PackageCapabilitiesServicesCategoryAudit     PackageCapabilitiesServicesCategory = "audit"
+	PackageCapabilitiesServicesCategoryDirectory PackageCapabilitiesServicesCategory = "directory"
+	PackageCapabilitiesServicesCategoryManage    PackageCapabilitiesServicesCategory = "manage"
+	PackageCapabilitiesServicesCategoryRead      PackageCapabilitiesServicesCategory = "read"
+)
+
+// Valid indicates whether the value is a known member of the PackageCapabilitiesServicesCategory enum.
+func (e PackageCapabilitiesServicesCategory) Valid() bool {
+	switch e {
+	case PackageCapabilitiesServicesCategoryAudit:
+		return true
+	case PackageCapabilitiesServicesCategoryDirectory:
+		return true
+	case PackageCapabilitiesServicesCategoryManage:
+		return true
+	case PackageCapabilitiesServicesCategoryRead:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PackageInUseErrorErrorCode.
 const (
 	PackageInUseErrorErrorCodePackageInUse PackageInUseErrorErrorCode = "package_in_use"
@@ -8811,6 +8835,21 @@ type PackageCapabilities struct {
 		Hosts []string `json:"hosts"`
 	} `json:"network,omitempty"`
 
+	// Services Requested Tilecast service grants with registry-resolved display metadata.
+	Services *[]struct {
+		Category    PackageCapabilitiesServicesCategory `json:"category"`
+		Description string                              `json:"description"`
+		Id          string                              `json:"id"`
+		Name        string                              `json:"name"`
+		Operations  []struct {
+			Description string `json:"description"`
+			Mutating    bool   `json:"mutating"`
+			Name        string `json:"name"`
+			Title       string `json:"title"`
+		} `json:"operations"`
+		Version int `json:"version"`
+	} `json:"services,omitempty"`
+
 	// Storage Request plugin-owned key/value storage.
 	Storage *bool `json:"storage,omitempty"`
 
@@ -8819,6 +8858,9 @@ type PackageCapabilities struct {
 		Entry string `json:"entry"`
 	} `json:"studioUI,omitempty"`
 }
+
+// PackageCapabilitiesServicesCategory defines model for PackageCapabilities.Services.Category.
+type PackageCapabilitiesServicesCategory string
 
 // PackageContribution One activated contribution: its kind, its package-qualified identity, and its path inside the package.
 type PackageContribution struct {

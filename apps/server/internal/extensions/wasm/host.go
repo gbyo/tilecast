@@ -16,6 +16,9 @@ import (
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
+
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
+	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
 
 // Guest ABI error codes. Host functions answer a negative i32 instead of
@@ -33,6 +36,9 @@ const (
 	ErrNotAllowlisted = -5
 	// ErrFetchFailed answers a network failure, timeout, or refusal.
 	ErrFetchFailed = -6
+	// ErrNoOperation answers a call_v1 operation token the service
+	// registry does not know.
+	ErrNoOperation = -7
 )
 
 // Call framing bounds. The host writes the call input at address 0 and
@@ -61,6 +67,14 @@ type Grants struct {
 	NetworkHosts []string
 	// Storage grants plugin-owned key/value storage.
 	Storage bool
+	// Services are the versioned Tilecast service grants for call_v1.
+	Services []packagemanifest.ServiceGrant
+}
+
+// ServiceCaller executes authorized service calls. The dispatcher lives
+// behind it so the host never imports domain services itself.
+type ServiceCaller interface {
+	Call(ctx context.Context, call services.Call) (any, *services.Denial, *services.CallError)
 }
 
 // Call is one guest invocation.
@@ -79,6 +93,14 @@ type Call struct {
 	Input []byte
 	// Timeout bounds the whole call, guest and host functions alike.
 	Timeout time.Duration
+	// Context is the invocation context for service calls: studio or
+	// background.
+	Context string
+	// Actor is the authenticated Studio operator. Studio calls require
+	// one; background calls must not carry one.
+	Actor *services.Actor
+	// Caller executes service calls. Nil denies every call_v1.
+	Caller ServiceCaller
 }
 
 // Result is one completed call.
@@ -96,6 +118,9 @@ type Result struct {
 type invocation struct {
 	packageID string
 	grants    Grants
+	context   string
+	actor     *services.Actor
+	caller    ServiceCaller
 	store     KVStore
 	fetch     func(ctx context.Context, rawURL string, allow []string) ([]byte, error)
 	logger    *slog.Logger
@@ -148,6 +173,9 @@ func NewHost(ctx context.Context, store KVStore, logger *slog.Logger) (*Host, er
 	builder.NewFunctionBuilder().
 		WithFunc(host.nowMS).
 		Export("now_ms")
+	builder.NewFunctionBuilder().
+		WithFunc(host.serviceCall).
+		Export("call_v1")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		host.runtime.Close(ctx) //nolint:errcheck
 		return nil, fmt.Errorf("wasm: host module: %w", err)
@@ -203,6 +231,9 @@ func (h *Host) Invoke(ctx context.Context, call Call) (Result, error) {
 	ctx = context.WithValue(ctx, invocationKey{}, &invocation{
 		packageID: call.PackageID,
 		grants:    call.Grants,
+		context:   call.Context,
+		actor:     call.Actor,
+		caller:    call.Caller,
 		store:     h.store,
 		fetch:     h.fetch,
 		logger:    h.logger,
@@ -374,6 +405,61 @@ func (h *Host) logLine(ctx context.Context, mod api.Module, level, msgPtr, msgLe
 
 func (h *Host) nowMS(context.Context) uint64 {
 	return uint64(time.Now().UnixMilli())
+}
+
+// serviceCall executes one tilecast.call_v1 operation: the dispatcher
+// authorizes the operation token against the activation's service grants
+// and the invocation context, then runs it. Denials answer stable
+// negative codes; executed calls answer a JSON envelope, success or
+// typed domain failure, or a negative code when the envelope cannot be
+// written whole.
+func (h *Host) serviceCall(ctx context.Context, mod api.Module, opPtr, opLen, inPtr, inLen, outPtr, outCap uint32) int32 {
+	call := invocationOf(ctx)
+	if call == nil || call.caller == nil {
+		return ErrNoGrant
+	}
+	operation, ok := readGuestString(mod, opPtr, opLen, services.MaxOperationBytes)
+	if !ok {
+		return ErrTooLarge
+	}
+	if uint64(inLen) > uint64(services.MaxInputBytes) {
+		return ErrTooLarge
+	}
+	input, ok := mod.Memory().Read(inPtr, inLen)
+	if !ok {
+		return ErrTooLarge
+	}
+	data, denial, failure := call.caller.Call(ctx, services.Call{
+		PackageID: call.packageID,
+		Context:   call.context,
+		Actor:     call.actor,
+		Grants:    call.grants.Services,
+		Operation: operation,
+		Input:     input,
+	})
+	if denial != nil {
+		if denial.Kind == services.DenialUnknownOperation {
+			return ErrNoOperation
+		}
+		return ErrNoGrant
+	}
+	var envelope []byte
+	var err error
+	if failure != nil {
+		envelope, err = services.MarshalFailure(failure)
+	} else {
+		envelope, err = services.MarshalSuccess(data)
+	}
+	if err != nil {
+		return ErrHostFailure
+	}
+	if len(envelope) > services.MaxOutputBytes || uint64(len(envelope)) > uint64(outCap) {
+		return ErrTooLarge
+	}
+	if !mod.Memory().Write(outPtr, envelope) {
+		return ErrTooLarge
+	}
+	return int32(len(envelope))
 }
 
 var errNotAllowlisted = errors.New("wasm: URL is not allowlisted")

@@ -178,6 +178,19 @@ func TestActivateInstallUpdateRollbackRemove(t *testing.T) {
 	}
 }
 
+func TestActivateRefusesUnknownServiceGrant(t *testing.T) {
+	f := newInstallerFixture(t)
+	activation := testActivation("3.0.0", testDigestV1)
+	activation.Manifest.APIVersion = 3
+	activation.Manifest.Runtime = &packagemanifest.Runtime{Module: "./runtime/plugin.wasm"}
+	activation.Manifest.Capabilities = &packagemanifest.Capabilities{
+		Services: []packagemanifest.ServiceGrant{{ID: "screens.read", Version: 99}},
+	}
+	if _, err := f.service.Activate(context.Background(), activation); !errors.Is(err, ErrServiceUnknown) {
+		t.Fatalf("unknown service = %v, want ErrServiceUnknown", err)
+	}
+}
+
 func TestActivateRefusesIncompatibleUnsignedForeignAndColliding(t *testing.T) {
 	f := newInstallerFixture(t, WithReserved(func(kind, id string) (string, bool) {
 		if id == "acme.athletics.schedule" {
