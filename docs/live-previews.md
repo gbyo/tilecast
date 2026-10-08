@@ -6,7 +6,7 @@ see [Ephemeral live streaming](live-streaming.md).
 
 Tilecast Studio starts a temporary preview session whenever a screen detail page is open or its preview card is visible in the Screens grid. The session uses a 60-second lease. Studio renews the lease every 30 seconds and stops renewing it when the detail page closes or the card leaves the visible grid, so the player stops capturing automatically. Grid cards request an immediate first capture, poll for updated metadata while visible, and show the age of the latest snapshot. A 2 px rail between the preview and the card details shows the same age tones as the detail page: no rail for a capture of 45 seconds or less, an amber rail with one moving segment for 45 to 120 seconds, and a static destructive rail for more than 120 seconds or a `capture_error` status. The rail does not show for offline, disabled, revoked, loading, or unavailable previews. When the system or Studio reduced-motion setting is on, the moving segment is removed and the amber rail is static.
 
-The player captures immediately after it observes a new session and then approximately every 20 seconds while the lease remains active. Preview captures are not player commands and do not create command-history records.
+The player captures immediately after it observes a new session and then approximately every 20 seconds while the lease remains active. For updated native Players and Electron Linux, a `preview.session_changed` WebSocket notification wakes the preview coordinator immediately; the authenticated HTTP session remains authoritative, and periodic polling recovers missed notifications. Ordinary lease renewal without new capture demand does not send another notification. Preview captures are not player commands and do not create command-history records.
 
 ## Security and privacy
 
@@ -26,7 +26,9 @@ For a stale Player without a cached image, Studio shows the offline preview stat
 
 The player preserves aspect ratio, never upscales, and resizes the capture to at most 960×540 before upload. It encodes JPEG near 75 percent quality and progressively reduces quality or dimensions only when needed to remain below the hard 500 KB limit.
 
-The server stores one `screen_previews` row per screen. A successful or failed capture replaces the previous result, so no preview history accumulates. Capture metadata remains available only through authenticated screen endpoints.
+The server stores one `screen_previews` row per screen. A successful capture replaces its last successful image. A failed capture updates only the attempt/error information, preserving those last-good bytes, so no preview history accumulates. Only explicitly recognized non-sensitive failure reasons may continue serving a previous image, clearly marked stale/failed. For old Players that report the ambiguous `unavailable` status, and for protected or unknown failures, the image endpoint fails closed even if an older image is retained. Capture metadata remains available only through authenticated screen endpoints.
+
+Native Player Core's capture timeout circuit breaker now makes a single guarded recovery attempt after an initial 30-second cooldown instead of waiting ten minutes, extending backoff up to ten minutes for repeated renderer faults. Captures remain serialized and bounded so previews cannot monopolize rendering.
 
 ## Endpoints
 
