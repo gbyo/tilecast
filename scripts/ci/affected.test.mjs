@@ -231,6 +231,43 @@ test("plugin surfaces follow their consumers", () => {
   );
   assert.equal(affected(["plugins/weather/service.go"]).server, true);
 });
+test("the package guest SDK and samples ride the package lanes", () => {
+  for (const path of [
+    "packages/package-guest-sdk/Cargo.toml",
+    "packages/package-guest-sdk/src/lib.rs",
+    "packages/package-samples/hello-services/tilecast.package.json",
+    "packages/package-samples/hello-services/guest/src/lib.rs",
+    "packages/package-samples/hello-services/runtime/hello_services.wasm",
+  ]) {
+    const result = affected([path]);
+    for (const area of ["plugins", "server", "container", "e2e"])
+      assert.equal(result[area], true, `${path}: ${area}`);
+    assert.equal(result.player_core, false, path);
+    assert.equal(result.ios, false, path);
+  }
+  assert.deepEqual(
+    selected(["packages/package-samples/hello-services/README.md"]),
+    ["docs"],
+  );
+});
+test("the player capability registry selects its browser, server, and Rust consumers", () => {
+  const result = affected([
+    "packages/player-contracts/player-capabilities.json",
+  ]);
+  for (const area of [
+    "browser_player",
+    "server",
+    "player_core",
+    "container",
+    "e2e",
+    "android",
+    "windows",
+    "edge_rust",
+  ])
+    assert.equal(result[area], true, area);
+  assert.equal(result.ios, false);
+  assert.equal(result.docs, false);
+});
 test("new data source catalog has server, Studio and conformance", () => {
   const result = affected([
     "data-sources/announcements/tilecast.datasource.json",

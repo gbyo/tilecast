@@ -125,6 +125,13 @@ const rules = [
   [/^apps\/ios\//, ["ios"]],
   // The iOS app runs the shared server-address corpus in its tests.
   [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],
+  // The versioned Player Capability registry is replayed by the server
+  // drift test, imported by the Browser Player providers, and mirrored
+  // in player-types.
+  [
+    /^packages\/player-contracts\/player-capabilities\.json$/,
+    ["browser_player", "server", "player_core"],
+  ],
   // The iOS app's navigation icons are generated from Studio's icon mapping.
   [/^apps\/dashboard\/src\/navigation\/NavigationIcon\.tsx$/, ["ios"]],
   // Studio and the iOS app both run the native bridge contract's fixtures.
@@ -217,6 +224,15 @@ const rules = [
     ],
   ],
   [/^packages\/package-sdk\//, ["plugins", "server", "docs"]],
+  // The reference Wasm guest SDK and its Hello Services sample ride the
+  // package lanes: plugins validates the sample manifest, and the server
+  // suite runs the committed sample module through the real host.
+  // (Mirrors the PR2 rule; this branch predates it. Drop the duplicate
+  // when the stack relands.)
+  [
+    /^(packages\/package-guest-sdk|packages\/package-samples)\//,
+    ["plugins", "server"],
+  ],
   [/^packages\/edge-protocol\//, edgeAreas],
   [/^apps\/player-windows\//, ["windows"]],
   [/^apps\/edge\/(tilecastd|tilecastctl|crates)\//, ["edge_rust"]],
