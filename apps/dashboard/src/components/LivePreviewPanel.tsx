@@ -106,8 +106,7 @@ export function LivePreviewPanel({
     protectedPreview,
   });
   const previewError =
-    manualRefreshError ??
-    (renewalError ? apiErrorMessage(renewalError) : null);
+    manualRefreshError ?? (renewalError ? apiErrorMessage(renewalError) : null);
 
   const manualRefresh = useMutation({
     mutationFn: async () => {
