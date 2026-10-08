@@ -1,0 +1,68 @@
+// Verify a few source-backed engineering documentation invariants.
+// This is deliberately narrow: it is not a parser for all historical docs.
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join, resolve } from "node:path";
+
+export function findDocumentationDrift({ provider, gradle, updates, credentials, android, architecture, core, plugins, edge, websites, previews }) {
+  const errors = [];
+  const owner = /GitHubOwner\s*=\s*"([^"]+)"/.exec(provider)?.[1];
+  const repo = /GitHubRepo\s*=\s*"([^"]+)"/.exec(provider)?.[1];
+  if (!owner || !repo) {
+    errors.push("Could not read the fixed release owner and repo from updates/provider.go");
+  } else {
+    for (const [file, content] of [["player-updates.md", updates], ["device-credential-security.md", credentials]]) {
+      if (!content.includes(`${owner}/${repo}`)) errors.push(`${file}: fixed release source must be ${owner}/${repo}`);
+    }
+  }
+  if (!/compileSdk\s*=\s*\d+/.test(gradle) || !/minSdk\s*=\s*\d+/.test(gradle)) {
+    errors.push("Could not find Android compileSdk/minSdk in the app Gradle file");
+  }
+  if (/Android SDK\s+\d+/.test(android) || !android.includes("app/build.gradle.kts")) {
+    errors.push("android-development.md: defer SDK versions to app/build.gradle.kts");
+  }
+  if (/Android Room stores (pending|active)/.test(architecture)) {
+    errors.push("architecture.md: obsolete production Room manifest ownership");
+  }
+  if (/Production still runs the Kotlin Player|does not build macOS, browser/.test(core)) {
+    errors.push("player-core.md: obsolete native Core or Browser Player status");
+  }
+  if (/Reserved: (composition|proof-of-play)[^\n]*not started/.test(plugins)) {
+    errors.push("plugin-api.md: old milestones still presented as incomplete");
+  }
+  if (!edge.includes("Historical milestone snapshot")) {
+    errors.push("tilecast-edge-next.md: date milestone status instead of claiming current qualification");
+  }
+  if (!websites.includes("Layout zone")) {
+    errors.push("website-content.md: document Website playback inside Layouts");
+  }
+  if (!previews.includes("Linux Edge") || !previews.includes("Linux Legacy")) {
+    errors.push("live-previews.md: distinguish Edge from the legacy Electron capture path");
+  }
+  return errors;
+}
+
+const filename = fileURLToPath(import.meta.url);
+if (process.argv[1] && resolve(process.argv[1]) === filename) {
+  const root = resolve(dirname(filename), "../..");
+  const read = (path) => readFileSync(join(root, path), "utf8");
+  const errors = findDocumentationDrift({
+    provider: read("apps/server/internal/updates/provider.go"),
+    gradle: read("apps/player-android/app/build.gradle.kts"),
+    updates: read("docs/player-updates.md"),
+    credentials: read("docs/device-credential-security.md"),
+    android: read("docs/android-development.md"),
+    architecture: read("docs/architecture.md"),
+    core: read("docs/player-core.md"),
+    plugins: read("docs/plugin-api.md"),
+    edge: read("docs/tilecast-edge-next.md"),
+    websites: read("docs/website-content.md"),
+    previews: read("docs/live-previews.md"),
+  });
+  if (errors.length) {
+    errors.forEach((error) => console.error("docs-contract: " + error));
+    process.exitCode = 1;
+  } else {
+    console.log("docs-contract: source-backed documentation checks passed");
+  }
+}
