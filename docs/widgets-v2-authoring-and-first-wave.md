@@ -1,8 +1,6 @@
 # Widgets V2 authoring and first-wave migration
 
-**Status:** accepted implementation plan. The editor parts of this plan are
-complete and are superseded by [Widget authoring](widget-authoring.md), which
-is the current contract.
+**Status: historical migration plan, not a current implementation checklist.** The editor work was completed and superseded by [Widget authoring](widget-authoring.md). Use [Widgets V2](widgets-v2.md), [the binding catalog](widgets-v2-catalog.md), and current source for supported components and remaining work. Earlier references to legacy editors and planned migration stages are snapshots.
 
 This document defines the first major Widgets V2 migration after the Clock
 foundation. It covers the Studio Widget authoring redesign, the move from
