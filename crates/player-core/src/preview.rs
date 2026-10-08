@@ -195,6 +195,10 @@ pub async fn drive_preview<H, A>(
                 };
                 api.post_preview(&upload).await
             }
+            (Err(reason @ ("renderer_timeout" | "renderer_disconnected" | "capture_invalid" | "capture_out_of_bounds")), _) => {
+                api.post_preview(&PreviewUpload::Failure { player_version: version, reason }).await
+            }
+            // Protected states and ambiguous/unknown failures fail closed.
             _ => api.post_preview(&PreviewUpload::Unavailable { player_version: version }).await,
         };
         match result {
@@ -243,7 +247,10 @@ mod tests {
         async fn post_preview(&self, upload: &PreviewUpload<'_>) -> Result<(), ServerError> {
             match upload {
                 PreviewUpload::Unavailable { player_version } => assert_eq!(*player_version, "test-player"),
-                _ => panic!("failed and suspended captures report unavailable"),
+                PreviewUpload::Failure { player_version, reason } => {
+                    assert_eq!((*player_version, *reason), ("test-player", "renderer_timeout"));
+                }
+                _ => panic!("renderer timeout must be reported, not a fabricated screenshot"),
             }
             self.0.send(true).await.unwrap();
             Ok(())
