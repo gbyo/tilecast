@@ -2,6 +2,18 @@
 
 This file applies to the entire repository. Read it before changing Tilecast. More specific `AGENTS.md` files may be added beneath individual applications later; when present, the closest file takes precedence.
 
+## Agent development discipline
+
+Favor the smallest **complete** change that solves the requested problem, not the fewest lines at any cost.
+
+- Read the affected flow before editing. Trace callers, shared owners, tests, fixtures, generated outputs, and compatibility or migration implications; fix root causes at the appropriate shared layer.
+- Reuse existing Tilecast components, contracts, utilities, platform facilities, and dependencies before introducing new abstractions, configuration, or packages. Do not build speculative flexibility.
+- Complete all affected paths, including relevant tests and documentation. Add a focused test for new non-trivial logic and validate the change with the applicable checks; report what was not verified.
+- Never optimize away trust-boundary validation, error handling, accessibility, data safety, offline reliability, or hardware-specific requirements.
+- All product, architecture, security, cross-platform, and release rules in this file and more specific guides take precedence over minimizing a diff. A larger shared implementation is preferable to a shorter platform-only workaround when ownership requires it.
+
+These principles are self-contained. No external agent plugin or skill is required to contribute.
+
 ## Product and license
 
 Tilecast is a polished, open-source, self-hosted digital signage platform.
