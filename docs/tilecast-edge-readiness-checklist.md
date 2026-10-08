@@ -12,28 +12,28 @@ implies a lower one was skipped.
 
 ## Update and rollback safety
 
-| Item | Evidence |
-|---|---|
-| Verified pre-update checkpoint | Software implemented, tests passed (`tilecastd` checkpoint + updates suites) |
-| Schema-advancing rollback restores playback | Tests passed (harness); hardware and field pending |
-| Ordinary rollback without onsite recovery | Tests passed; hardware pending |
-| Signed release install and update on hardware | Not run |
+| Item                                          | Evidence                                                                     |
+| --------------------------------------------- | ---------------------------------------------------------------------------- |
+| Verified pre-update checkpoint                | Software implemented, tests passed (`tilecastd` checkpoint + updates suites) |
+| Schema-advancing rollback restores playback   | Tests passed (harness); hardware and field pending                           |
+| Ordinary rollback without onsite recovery     | Tests passed; hardware pending                                               |
+| Signed release install and update on hardware | Not run                                                                      |
 
 ## Remote operations
 
-| Item | Evidence |
-|---|---|
+| Item                                | Evidence                                         |
+| ----------------------------------- | ------------------------------------------------ |
 | Preview transport hardening (#1376) | Implemented, CI green; hardware fidelity pending |
-| Command delivery hardening (#1377) | Implemented, CI green |
-| Watch Live stall recovery (#1378) | Implemented, CI green; encoder load pending |
+| Command delivery hardening (#1377)  | Implemented, CI green                            |
+| Watch Live stall recovery (#1378)   | Implemented, CI green; encoder load pending      |
 
 ## Recovery
 
-| Item | Evidence |
-|---|---|
-| Supervisor persistence across restarts | Implemented, tests passed |
-| No systemd latch into failed state | Implemented, tests passed |
-| Renderer crash matrix | Tests passed (Linux suites); hardware pending |
+| Item                                   | Evidence                                      |
+| -------------------------------------- | --------------------------------------------- |
+| Supervisor persistence across restarts | Implemented, tests passed                     |
+| No systemd latch into failed state     | Implemented, tests passed                     |
+| Renderer crash matrix                  | Tests passed (Linux suites); hardware pending |
 
 ## Hardware qualification
 
