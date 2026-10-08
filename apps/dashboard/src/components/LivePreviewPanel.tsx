@@ -240,11 +240,7 @@ export function LivePreviewPanel({
             {t(stateLabelKeys[displayState])}
           </strong>
           <span className="text-sm text-muted-foreground">
-            {stateDescription(
-              displayState,
-              previewError,
-              t,
-            )}
+            {stateDescription(displayState, previewError, t)}
           </span>
         </div>
 
