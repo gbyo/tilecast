@@ -25,7 +25,10 @@ test("reports mismatched release repository in both references", () => {
     ...good,
     provider: good.provider.replace("gbyo", "example"),
   });
-  assert.equal(errors.filter((error) => error.includes("source must be")).length, 2);
+  assert.equal(
+    errors.filter((error) => error.includes("source must be")).length,
+    2,
+  );
 });
 
 test("flags obsolete Android guidance without lowering minSdk", () => {
