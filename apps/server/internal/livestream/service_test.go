@@ -2,6 +2,7 @@ package livestream
 
 import (
 	"encoding/binary"
+	"errors"
 	"testing"
 	"time"
 
@@ -47,13 +48,31 @@ func TestSessionLifecycleAndLatestFrameDelivery(t *testing.T) {
 	if received := <-frames; received.JPEG[2] != 2 {
 		t.Fatalf("received stale frame: %v", received.JPEG)
 	}
+	current := service.Current(screenID)
+	if current.FrameSequence != 2 || current.LastFrameAt == nil || !current.LastFrameAt.Equal(now) {
+		t.Fatalf("frame health was not recorded: %+v", current)
+	}
 
-	now = now.Add(8 * time.Second)
+	now = now.Add(4 * time.Second)
+	if _, err := service.Renew(screenID, session.ID); err != nil {
+		t.Fatal(err)
+	}
+	if notifier.count != 1 {
+		t.Fatalf("healthy renew notifications=%d", notifier.count)
+	}
+	now = now.Add(2 * time.Second)
 	if _, err := service.Renew(screenID, session.ID); err != nil {
 		t.Fatal(err)
 	}
 	if notifier.count != 2 {
-		t.Fatalf("renew notifications=%d", notifier.count)
+		t.Fatalf("stalled renew should nudge once, notifications=%d", notifier.count)
+	}
+	now = now.Add(time.Second)
+	if _, err := service.Renew(screenID, session.ID); err != nil {
+		t.Fatal(err)
+	}
+	if notifier.count != 2 {
+		t.Fatalf("stalled renew ignored cooldown, notifications=%d", notifier.count)
 	}
 	if err := service.End(screenID, session.ID); err != nil {
 		t.Fatal(err)
@@ -65,6 +84,28 @@ func TestSessionLifecycleAndLatestFrameDelivery(t *testing.T) {
 	}
 	if service.Current(screenID).Active {
 		t.Fatal("ended session is still active")
+	}
+}
+
+func TestReplacedSessionIsDistinctFromExpiredSession(t *testing.T) {
+	service := NewService(nil)
+	now := time.Now().UTC()
+	service.now = func() time.Time { return now }
+	screenID := uuid.New()
+	first := service.Start(screenID)
+	second := service.Start(screenID)
+	if first.ID == second.ID {
+		t.Fatal("replacement reused a session id")
+	}
+	if _, err := service.Renew(screenID, first.ID); !errors.Is(err, ErrReplaced) {
+		t.Fatalf("renew replaced session error=%v", err)
+	}
+	if err := service.End(screenID, first.ID); !errors.Is(err, ErrReplaced) {
+		t.Fatalf("end replaced session error=%v", err)
+	}
+	now = now.Add(LeaseDuration + time.Second)
+	if _, err := service.Renew(screenID, second.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("renew expired session error=%v", err)
 	}
 }
 

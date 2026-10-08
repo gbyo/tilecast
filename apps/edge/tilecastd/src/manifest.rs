@@ -437,11 +437,21 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
     // reason when none does, as the reference Linux player does.
     for plugin in document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("unknown");
+        if is_retired_plugin(kind) {
+            continue;
+        }
         if !profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
             push(Incompatibility::Plugin(kind.chars().take(32).collect()));
         }
     }
     out
+}
+
+/// Plugin kinds the catalog retired. The reference Linux player ignores
+/// their manifest entries and plays on; Edge does the same so a stale
+/// cached manifest never blocks activation. Unknown kinds still reject.
+fn is_retired_plugin(kind: &str) -> bool {
+    matches!(kind, "noise_meter")
 }
 
 impl Candidate {
@@ -992,6 +1002,10 @@ impl Candidate {
         let mut content = Vec::new();
         for plugin in self.document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
             let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("");
+            if is_retired_plugin(kind) {
+                tracing::warn!(component = "manifest", event = "retired_plugin_ignored", kind);
+                continue;
+            }
             if !profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
                 return Err(ManifestError::Incompatible(Incompatibility::Plugin(kind.chars().take(32).collect())));
             }
@@ -1606,6 +1620,16 @@ mod tests {
         let PresentationDocument::Playing { items, .. } = &resolved.document else { panic!("playing") };
         assert_eq!(items.len(), 1);
         assert_eq!(items[0].id.as_str(), format!("layout-{LAYOUT}"));
+    }
+
+    #[test]
+    fn retired_plugin_entries_are_ignored_instead_of_blocking_activation() {
+        let mut value = manifest();
+        value["plugins"] = serde_json::json!([{"id": ITEM, "type": "noise_meter", "version": 1, "config": {}}]);
+        assert!(incompatibilities(&value, &[]).is_empty());
+        let candidate = parse(value).unwrap();
+        let resolved = candidate.presentation(1_000).unwrap();
+        assert!(resolved.plugins.is_empty());
     }
 
     #[test]

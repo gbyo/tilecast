@@ -434,4 +434,34 @@ mod tests {
             "a listed file may not replace the manifest itself"
         );
     }
+
+    fn shipped_unit(name: &str) -> String {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../packaging/systemd").join(name);
+        std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()))
+    }
+
+    #[test]
+    fn player_units_never_latch_into_failed_state() {
+        // A latched unit is a dark screen until a site visit (same rule as
+        // the legacy player unit). Every always-on player unit opts out of
+        // start-rate limiting.
+        for unit in ["tilecast-edge.service", "tilecast-renderer.service", "tilecast-web-renderer.service"] {
+            let body = shipped_unit(unit);
+            assert!(
+                body.lines().any(|line| line.trim() == "StartLimitIntervalSec=0"),
+                "{unit} must set StartLimitIntervalSec=0"
+            );
+        }
+    }
+
+    #[test]
+    fn renderer_keeps_its_device_groups() {
+        // Unmuted video soundtracks need ALSA access, like the web helper's
+        // unmuted pages.
+        let body = shipped_unit("tilecast-renderer.service");
+        let groups = body.lines().find_map(|line| line.trim().strip_prefix("SupplementaryGroups=")).unwrap_or_default();
+        for group in ["video", "render", "input", "audio", "tilecast-web"] {
+            assert!(groups.split_whitespace().any(|g| g == group), "renderer unit must keep the {group} group");
+        }
+    }
 }

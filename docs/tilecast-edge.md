@@ -455,7 +455,7 @@ The M10 implementation reuses existing parts and adds only the missing ones:
 
 ### 15.4 State schema
 
-The candidate migrates `state.db` after activation. An older daemon refuses a newer schema (§6.1) and runs in recovery mode instead of changing it. A rollback after such a migration restores the previous release but not a working screen; the helper never changes the database, and there is no reverse migration. `tilecastd` refuses a release whose state schema is older than its database before it downloads it. The threat review records the recovery steps.
+The candidate migrates `state.db` after activation. An older daemon refuses a newer schema (§6.1) and runs in recovery mode instead of changing it. Before activation of a release whose state schema is newer than the running database, `tilecastd` writes a verified pre-update checkpoint: a `VACUUM INTO` copy of `state.db` with a manifest that carries its SHA-256. After a rollback the previous daemon verifies the checkpoint, extracts the candidate's post-checkpoint facts (completed and running commands, queued outbox rows, the activity sequence watermark, renderer supervision) from the newer database with explicit old-schema column lists, restores the checkpoint, and replays those facts in one transaction. The newer database and the checkpoint stay aside for manual recovery. Anything unverifiable fails closed into recovery mode with an explicit reason. The helper never changes the database, and there is no reverse migration. `tilecastd` refuses a release whose state schema is older than its database before it downloads it. The threat review records the mechanism and the remaining manual steps.
 
 ## 16. Local administration and observability
 

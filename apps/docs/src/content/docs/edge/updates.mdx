@@ -99,17 +99,19 @@ sudo /opt/tilecast-edge/current/bin/tilecast-edge-update rollback
 
 ## Recover after a rollback to an older state database
 
-A new release can upgrade the Player's local state database when it starts. If that release is then rolled back, the previous release can't read the upgraded database. It shows its recovery screen instead of changing or recreating your data, and the screen stops reporting to Studio. Studio shows it as stale and then offline.
+A new release can upgrade the Player's local state database when it starts. Before such an update activates, Edge writes a verified checkpoint of the database. If that release is then rolled back, the previous release restores the checkpoint automatically, replays the update's commands and playback records, and resumes the presentation without a site visit. No action is needed when the screen reconnects in Studio after the rollback.
+
+If the checkpoint itself can't be verified, the previous release shows its recovery screen instead of changing or recreating your data, and the screen stops reporting to Studio. Studio shows it as stale and then offline.
 
 <Aside type="caution" title="Studio can't fix this screen">
 
-An update deployment can't reach a Player in recovery mode, and Edge never converts the database back automatically. Recover the screen on the computer. Don't delete `/var/lib/tilecast-edge/` or `state.db` to clear the recovery screen: that removes the Player's pairing and cached content.
+An update deployment can't reach a Player in recovery mode. Recover the screen on the computer. Don't delete `/var/lib/tilecast-edge/` or `state.db` to clear the recovery screen: that removes the Player's pairing and cached content.
 
 </Aside>
 
 <Steps>
 
-1. Confirm the cause. `tilecastctl status` reports recovery mode with `state_db_newer_schema`, and `tilecast-edge-update status` shows the rolled-back update.
+1. Confirm the cause. `tilecastctl status` reports recovery mode with a checkpoint reason such as `update_checkpoint_missing`, and `tilecast-edge-update status` shows the rolled-back update.
 
    ```sh title="On the Edge computer"
    /opt/tilecast-edge/current/bin/tilecastctl status
@@ -133,6 +135,6 @@ An update deployment can't reach a Player in recovery mode, and Edge never conve
 
 </Steps>
 
-If no fixed release is available and you kept a copy of `/var/lib/tilecast-edge/state.db` from before the update, you can restore that copy instead. The [update threat review](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-update-threat-review.md#8-the-state-database-and-rollback) explains this limit in detail.
+If no fixed release is available, restore the checkpoint copy Edge kept as `/var/lib/tilecast-edge/state-preupdate-backup.db` over `state.db` while the Edge units are stopped. The [update threat review](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-update-threat-review.md#8-the-state-database-and-rollback) explains the checkpoint and its limits in detail.
 
 For other update problems, see [Player update troubleshooting](../../troubleshooting/player-updates/).

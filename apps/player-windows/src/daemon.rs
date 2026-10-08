@@ -76,6 +76,8 @@ pub struct DaemonContext {
     pub pairing_wake: tokio::sync::Notify,
     /// Wakes the command task (`commands.available`).
     pub command_wake: tokio::sync::Notify,
+    /// Wakes the preview task when a capture is requested.
+    pub preview_wake: tokio::sync::Notify,
     /// Wakes the Activity reporter early.
     pub report_wake: tokio::sync::Notify,
     /// Wakes Watch Live when its lease changes.
@@ -263,6 +265,7 @@ pub async fn build_with_sealer(
         manifest_item_boundary: AtomicBool::new(false),
         pairing_wake: tokio::sync::Notify::new(),
         command_wake: tokio::sync::Notify::new(),
+        preview_wake: tokio::sync::Notify::new(),
         report_wake: tokio::sync::Notify::new(),
         live_stream_wake: tokio::sync::Notify::new(),
         live_frames,

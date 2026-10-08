@@ -131,6 +131,8 @@ pub struct DaemonContext {
     pub capture: crate::capture::CaptureBroker,
     /// Periodic Live Preview health (its renderer-fault suspension only).
     pub preview_health: crate::preview::PreviewHealth,
+    /// Wakes the preview coordinator when a capture is requested.
+    pub preview_wake: tokio::sync::Notify,
     /// Wakes the Watch Live reconciler (a socket push arrived).
     pub live_stream_wake: tokio::sync::Notify,
     /// Latest encoded Watch Live frame for the WebSocket owner to send.
@@ -180,10 +182,35 @@ impl DaemonContext {
 
 /// Opens state for this run, choosing recovery mode on any failure.
 fn open_state(paths: &EdgePaths, now: Timestamp) -> (StateMode, Option<PlayerId>) {
+    let supported = edge_state::latest_schema_version();
+    if let Err(error) = crate::update_checkpoint::finish_interrupted_restore(&paths.state_dir, supported) {
+        tracing::error!(component = "daemon", event = "rollback_restore_failed", reason = error.reason_code());
+        return (StateMode::Recovery { reason: error.reason_code() }, None);
+    }
     let db = match StateDb::open(paths.state_db(), OpenOptions::default()) {
         Ok(db) => db,
-        Err(error) => return (recovery(&error), None),
+        Err(error) => {
+            if matches!(error, StateError::NewerSchema { .. }) {
+                match crate::update_checkpoint::restore_checkpoint(&paths.state_dir, supported) {
+                    Ok(()) => match StateDb::open(paths.state_db(), OpenOptions::default()) {
+                        Ok(db) => db,
+                        Err(reopen) => return (recovery(&reopen), None),
+                    },
+                    Err(error) => {
+                        tracing::error!(
+                            component = "daemon",
+                            event = "rollback_restore_failed",
+                            reason = error.reason_code()
+                        );
+                        return (StateMode::Recovery { reason: error.reason_code() }, None);
+                    }
+                }
+            } else {
+                return (recovery(&error), None);
+            }
+        }
     };
+    crate::update_checkpoint::prune_stale_checkpoint(&paths.state_dir, supported);
     let start = match db.run_blocking(|c| daemon_repo::record_start(c, now, VERSION)) {
         Ok(start) => start,
         Err(error) => return (recovery(&error), None),
@@ -291,6 +318,14 @@ impl Daemon {
             now.unix_millis(),
         );
         presentation.set_activity(activity.clone());
+        if let StateMode::Normal(db) = &state {
+            match db.run(|conn| edge_state::repo::renderer::get(conn)).await {
+                Ok(record) => presentation.restore_supervision(&record, now.unix_millis()),
+                Err(error) => {
+                    tracing::warn!(component = "daemon", event = "supervision_restore_failed", error = %error);
+                }
+            }
+        }
 
         let mut registry = CapabilityRegistry::new();
         registry.register(Arc::new(SystemdProvider {
@@ -391,6 +426,7 @@ impl Daemon {
             report_wake: tokio::sync::Notify::new(),
             capture: crate::capture::CaptureBroker::default(),
             preview_health: crate::preview::PreviewHealth::default(),
+            preview_wake: tokio::sync::Notify::new(),
             live_stream_wake: tokio::sync::Notify::new(),
             live_frames: tokio::sync::watch::Sender::new(None),
             renderer_commands: crate::remote_web::Waiters::default(),
@@ -576,7 +612,10 @@ async fn supervision_loop(context: Arc<DaemonContext>) {
             _ = ticker.tick() => {}
         }
         let now = context.now().unix_millis();
-        context.presentation.lock().await.tick(now);
+        let action = context.presentation.lock().await.tick(now);
+        if matches!(action, player_core::HealAction::RestartRenderer | player_core::HealAction::EnterSafeMode) {
+            crate::presentation::persist_supervision(&context).await;
+        }
     }
 }
 

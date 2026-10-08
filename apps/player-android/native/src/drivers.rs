@@ -284,6 +284,7 @@ impl Drivers {
                         link_state: &signals.link_state,
                         last_server_contact: &signals.last_server_contact,
                         command_wake: &signals.command_wake,
+                        preview_wake: &signals.preview_wake,
                         command_server: &signals.command_server,
                         sync_request: &signals.sync_request,
                         sync_done: &signals.sync_done,
@@ -371,8 +372,9 @@ impl Drivers {
             let preview = self.renderer.preview.clone();
             let server = self.renderer.signals.command_server.subscribe();
             let shutdown = self.renderer.shutdown.clone();
+            let wake = self.renderer.signals.preview_wake.clone();
             let previews = runtime.spawn(async move {
-                player_core::drive_preview(preview, server, &shutdown).await;
+                player_core::drive_preview(preview, server, &wake, &shutdown).await;
             });
             self.renderer.handles.lock().unwrap_or_else(|error| error.into_inner()).push(previews);
             let selection = runtime.spawn(run_selection(

@@ -39,5 +39,11 @@ impl player_core::PreviewHost for DaemonContext {
 }
 
 pub async fn run(context: Arc<DaemonContext>) {
-    player_core::drive_preview(Arc::clone(&context), context.command_server.subscribe(), &context.shutdown).await;
+    player_core::drive_preview(
+        Arc::clone(&context),
+        context.command_server.subscribe(),
+        &context.preview_wake,
+        &context.shutdown,
+    )
+    .await;
 }

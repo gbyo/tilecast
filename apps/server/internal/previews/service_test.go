@@ -16,9 +16,11 @@ import (
 type recordingNotifier struct {
 	screenID uuid.UUID
 	message  map[string]any
+	calls    int
 }
 
 func (n *recordingNotifier) Notify(screenID uuid.UUID, message map[string]any) bool {
+	n.calls++
 	n.screenID = screenID
 	n.message = message
 	return true
@@ -140,6 +142,9 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 	if _, err = service.Renew(ctx, screenID, false); err != nil {
 		t.Fatalf("healthy renewal: %v", err)
 	}
+	if notifier.calls != 1 {
+		t.Fatalf("healthy renewal sent %d notifications, want 1", notifier.calls)
+	}
 	playerSession, err = service.PlayerSession(ctx, screenID)
 	if err != nil || playerSession.CaptureNow {
 		t.Fatalf("healthy renewal unexpectedly requested capture: %#v %v", playerSession, err)
@@ -150,6 +155,9 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 	now = now.Add(CaptureFreshness)
 	if _, err = service.Renew(ctx, screenID, false); err != nil {
 		t.Fatalf("overdue renewal: %v", err)
+	}
+	if notifier.calls != 2 {
+		t.Fatalf("overdue renewal should send a wake, got %d", notifier.calls)
 	}
 	playerSession, err = service.PlayerSession(ctx, screenID)
 	if err != nil || !playerSession.CaptureNow {
@@ -169,6 +177,9 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 	}
 	if !requestedAt.Equal(duplicateRequestedAt) {
 		t.Fatalf("duplicate renewals reset capture request: %s -> %s", requestedAt, duplicateRequestedAt)
+	}
+	if notifier.calls != 2 {
+		t.Fatalf("duplicate renewal sent a wake, got %d", notifier.calls)
 	}
 
 	now = now.Add(CaptureRetryInterval)
@@ -207,11 +218,27 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 		t.Fatalf("failure upload: %v", err)
 	}
 	metadata, err = service.GetMetadata(ctx, screenID)
-	if err != nil || metadata.Status != "capture_error" || metadata.ImageAvailable || metadata.CaptureFailureStatus != "pixel_copy_failed" {
+	if err != nil || metadata.Status != "capture_error" || !metadata.ImageAvailable || metadata.CaptureFailureStatus != "pixel_copy_failed" {
 		t.Fatalf("failure metadata = %#v, %v", metadata, err)
 	}
+	if stored, err = service.GetImage(ctx, screenID); err != nil || !bytes.Equal(stored.Data, image) {
+		t.Fatalf("a transient capture failure must retain the last successful image, got %#v %v", stored, err)
+	}
+	if err = service.RecordUpload(ctx, screenID, Upload{PlayerVersion: "0.10.1", FailureStatus: "unavailable"}); err != nil {
+		t.Fatal(err)
+	}
+	metadata, err = service.GetMetadata(ctx, screenID)
+	if err != nil || metadata.ImageAvailable {
+		t.Fatalf("ambiguous legacy failure must hide the cached image: %#v %v", metadata, err)
+	}
 	if _, err = service.GetImage(ctx, screenID); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("failed capture should clear the previous image, got %v", err)
+		t.Fatalf("ambiguous failure leaked the cached image: %v", err)
+	}
+	if err = service.RecordUpload(ctx, screenID, Upload{PlayerVersion: "0.10.1", FailureStatus: "sensitive_admin"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.GetImage(ctx, screenID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("protected failure leaked the cached image: %v", err)
 	}
 
 	var rows int

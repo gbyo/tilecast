@@ -5,8 +5,10 @@ use player_types::Timestamp;
 use player_types::bounded::{DetailText, ShortToken};
 use player_types::capability::{Capability, CapabilityId, CapabilityState, ids};
 
-pub const PREVIEW_FIRST_SUSPENSION: Duration = Duration::from_secs(10 * 60);
-pub const PREVIEW_MAX_SUSPENSION: Duration = Duration::from_secs(6 * 60 * 60);
+// A renderer timeout must protect playback without stranding previews for ten minutes.
+// The next scheduled pass after the cooldown is the single half-open probe.
+pub const PREVIEW_FIRST_SUSPENSION: Duration = Duration::from_secs(30);
+pub const PREVIEW_MAX_SUSPENSION: Duration = Duration::from_secs(10 * 60);
 
 /// How the last preview captures went, for suspension and the capability.
 /// Preview-only: Watch Live never reads or writes this.
@@ -30,6 +32,7 @@ impl PreviewHealth {
         match outcome {
             Ok(()) => {
                 self.faults = 0;
+                self.suspended_until = None;
                 None
             }
             Err("renderer_timeout" | "renderer_disconnected") => {
@@ -121,6 +124,7 @@ impl PreviewApi for AuthenticatedServer {
 pub async fn drive_preview<H, A>(
     host: Arc<H>,
     mut server: tokio::sync::watch::Receiver<Option<A>>,
+    wake: &tokio::sync::Notify,
     shutdown: &tokio_util::sync::CancellationToken,
 ) where
     H: PreviewHost + 'static,
@@ -133,6 +137,7 @@ pub async fn drive_preview<H, A>(
         tokio::select! {
             () = shutdown.cancelled() => return,
             _ = ticker.tick() => {}
+            _ = wake.notified() => {}
             changed = server.changed() => if changed.is_err() { return },
         }
         let Some(api) = server.borrow().clone() else { continue };
@@ -190,6 +195,16 @@ pub async fn drive_preview<H, A>(
                 };
                 api.post_preview(&upload).await
             }
+            (
+                Err(
+                    reason @ ("renderer_timeout"
+                    | "renderer_disconnected"
+                    | "capture_invalid"
+                    | "capture_out_of_bounds"),
+                ),
+                _,
+            ) => api.post_preview(&PreviewUpload::Failure { player_version: version, reason }).await,
+            // Protected states and ambiguous/unknown failures fail closed.
             _ => api.post_preview(&PreviewUpload::Unavailable { player_version: version }).await,
         };
         match result {
@@ -238,7 +253,10 @@ mod tests {
         async fn post_preview(&self, upload: &PreviewUpload<'_>) -> Result<(), ServerError> {
             match upload {
                 PreviewUpload::Unavailable { player_version } => assert_eq!(*player_version, "test-player"),
-                _ => panic!("failed and suspended captures report unavailable"),
+                PreviewUpload::Failure { player_version, reason } => {
+                    assert_eq!((*player_version, *reason), ("test-player", "renderer_timeout"));
+                }
+                _ => panic!("renderer timeout must be reported, not a fabricated screenshot"),
             }
             self.0.send(true).await.unwrap();
             Ok(())
@@ -253,7 +271,8 @@ mod tests {
         let shutdown = tokio_util::sync::CancellationToken::new();
         let worker_host = Arc::clone(&host);
         let worker_shutdown = shutdown.clone();
-        let worker = tokio::spawn(async move { drive_preview(worker_host, receiver, &worker_shutdown).await });
+        let wake = std::sync::Arc::new(tokio::sync::Notify::new());
+        let worker = tokio::spawn(async move { drive_preview(worker_host, receiver, &wake, &worker_shutdown).await });
         results.recv().await.unwrap();
         assert_eq!(host.captures.load(Ordering::SeqCst), 1);
         assert_eq!(host.health.lock().unwrap().faults, 1);
@@ -264,6 +283,40 @@ mod tests {
         shutdown.cancel();
         worker.await.unwrap();
         drop(server);
+    }
+
+    #[derive(Clone)]
+    struct IdleApi(tokio::sync::mpsc::UnboundedSender<()>);
+
+    #[async_trait::async_trait]
+    impl PreviewApi for IdleApi {
+        async fn preview_session(&self) -> Result<PreviewSession, ServerError> {
+            let _ = self.0.send(());
+            Ok(PreviewSession { active: false, capture_now: false, capture_interval_seconds: 20 })
+        }
+        async fn post_preview(&self, _: &PreviewUpload<'_>) -> Result<(), ServerError> {
+            panic!("no capture while the lease is inactive")
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn socket_wake_reconciles_without_waiting_for_the_fifteen_second_poll() {
+        let host = Arc::new(Host { health: Mutex::new(PreviewHealth::default()), captures: AtomicUsize::new(0) });
+        let (observed, mut fetched) = tokio::sync::mpsc::unbounded_channel();
+        let (_server, receiver) = tokio::sync::watch::channel(Some(IdleApi(observed)));
+        let wake = Arc::new(tokio::sync::Notify::new());
+        let shutdown = tokio_util::sync::CancellationToken::new();
+        let wake_driver = Arc::clone(&wake);
+        let stop_driver = shutdown.clone();
+        let worker = tokio::spawn(async move { drive_preview(host, receiver, &wake_driver, &stop_driver).await });
+        fetched.recv().await.expect("initial session fetch");
+        wake.notify_one();
+        tokio::time::timeout(Duration::from_secs(1), fetched.recv())
+            .await
+            .expect("wake must be immediate")
+            .expect("wake-triggered session fetch");
+        shutdown.cancel();
+        worker.await.unwrap();
     }
 
     #[test]

@@ -83,6 +83,7 @@ pub async fn run(context: Arc<DaemonContext>) {
             link_state: &context.link_state,
             last_server_contact: &context.last_server_contact,
             command_wake: &context.command_wake,
+            preview_wake: &context.preview_wake,
             command_server: &context.command_server,
             sync_request: &context.sync_request,
             sync_done: &context.sync_done,

@@ -43,6 +43,7 @@ pub struct ServerLinkSignals<'a> {
     pub link_state: &'a Mutex<LinkState>,
     pub last_server_contact: &'a Mutex<Option<Timestamp>>,
     pub command_wake: &'a Notify,
+    pub preview_wake: &'a Notify,
     pub command_server: &'a watch::Sender<Option<AuthenticatedServer>>,
     pub sync_request: &'a AtomicU64,
     pub sync_done: &'a watch::Sender<(u64, bool)>,
@@ -243,6 +244,7 @@ pub(crate) async fn drive_server_link<H: ServerLinkHost>(
                                 }
                                 // Commands have their own task and cadence.
                                 PlayerSocketEvent::CommandsAvailable => context.signals.command_wake.notify_one(),
+                                PlayerSocketEvent::PreviewSessionChanged => context.signals.preview_wake.notify_one(),
                                 // A lease change only wakes the Watch Live
                                 // reconciler; the HTTP session endpoint stays
                                 // authoritative.
@@ -362,6 +364,7 @@ async fn pass<H: ServerLinkHost>(
                 link.manifest_dirty = true;
                 link.config_dirty = true;
                 context.signals.command_wake.notify_one();
+                context.signals.preview_wake.notify_one();
                 context.signals.live_stream_wake.notify_one();
             }
             Err(error) => {

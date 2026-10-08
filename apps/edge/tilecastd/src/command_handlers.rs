@@ -130,6 +130,7 @@ impl DaemonHandlers {
 
     async fn restart_renderer(&self, code: &str) -> CommandResult {
         if self.context.presentation.lock().await.restart_renderer("command") {
+            crate::presentation::persist_supervision(&self.context).await;
             CommandResult::ok(code, "")
         } else {
             CommandResult::failed("renderer_not_connected", "No display renderer is connected.")
@@ -195,35 +196,44 @@ impl DaemonHandlers {
     }
 }
 
+/// Plans a command type without daemon state, so unit tests cover the full
+/// routing table. Every type with a `run()` arm below must map to `Run`
+/// here; otherwise the handler is dead and the command always settles
+/// `unsupported_command`.
+fn plan_for(command_type: &str) -> Plan {
+    match command_type {
+        "restart_player_process" => Plan::Disruptive,
+        "sync_now"
+        | "resynchronize_player"
+        | "reload_playback"
+        | "identify_screen"
+        | "clear_media_cache"
+        | "clear_website_data"
+        | "disable_playback"
+        | "enable_playback"
+        | "retry_current_item"
+        | "skip_current_item"
+        | "recreate_renderer"
+        | "recreate_playback_session"
+        | "restart_activity"
+        | "retry_player_recovery"
+        | "exit_safe_mode"
+        | "run_player_self_test"
+        | "provision_presentation_network"
+        | "test_presentation_network"
+        | "install_player_update" => Plan::Run,
+        kind if crate::display_control::COMMANDS.contains(&kind) => Plan::Run,
+        other => Plan::Settle(CommandResult::failed(
+            "unsupported_command",
+            unsupported_reason(other).unwrap_or("This command type is not supported by Tilecast Edge."),
+        )),
+    }
+}
+
 #[async_trait]
 impl Handlers for DaemonHandlers {
     fn plan(&self, command: &ServerCommand) -> Plan {
-        match command.command_type.as_str() {
-            "restart_player_process" => Plan::Disruptive,
-            "sync_now"
-            | "resynchronize_player"
-            | "reload_playback"
-            | "identify_screen"
-            | "clear_media_cache"
-            | "disable_playback"
-            | "enable_playback"
-            | "retry_current_item"
-            | "skip_current_item"
-            | "recreate_renderer"
-            | "recreate_playback_session"
-            | "restart_activity"
-            | "retry_player_recovery"
-            | "exit_safe_mode"
-            | "run_player_self_test"
-            | "provision_presentation_network"
-            | "test_presentation_network"
-            | "install_player_update" => Plan::Run,
-            kind if crate::display_control::COMMANDS.contains(&kind) => Plan::Run,
-            other => Plan::Settle(CommandResult::failed(
-                "unsupported_command",
-                unsupported_reason(other).unwrap_or("This command type is not supported by Tilecast Edge."),
-            )),
-        }
+        plan_for(command.command_type.as_str())
     }
 
     async fn run(&self, command: &ServerCommand) -> CommandResult {
@@ -264,10 +274,16 @@ impl Handlers for DaemonHandlers {
             "restart_activity" => self.restart_renderer("activity_restarted").await,
             "retry_player_recovery" => {
                 let action = self.context.presentation.lock().await.retry_recovery(now_ms);
+                if matches!(action, player_core::HealAction::RestartRenderer | player_core::HealAction::EnterSafeMode) {
+                    crate::presentation::persist_supervision(&self.context).await;
+                }
                 CommandResult::ok("recovery_retried", &format!("{action:?}"))
             }
             "exit_safe_mode" => {
                 let was = self.context.presentation.lock().await.clear_safe_mode(now_ms);
+                if was {
+                    crate::presentation::persist_supervision(&self.context).await;
+                }
                 self.context.manifest_wake.notify_one();
                 CommandResult::ok("safe_mode_cleared", if was { "" } else { "Safe mode was not active." })
             }
@@ -333,5 +349,43 @@ impl Handlers for DaemonHandlers {
             self.context.restart_requested.store(true, std::sync::atomic::Ordering::Release);
             self.context.shutdown.cancel();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_runnable_command_type_reaches_its_handler() {
+        for command_type in [
+            "sync_now",
+            "resynchronize_player",
+            "reload_playback",
+            "identify_screen",
+            "clear_media_cache",
+            "clear_website_data",
+            "disable_playback",
+            "enable_playback",
+            "retry_current_item",
+            "skip_current_item",
+            "recreate_renderer",
+            "recreate_playback_session",
+            "restart_activity",
+            "retry_player_recovery",
+            "exit_safe_mode",
+            "run_player_self_test",
+            "provision_presentation_network",
+            "test_presentation_network",
+            "install_player_update",
+        ] {
+            assert_eq!(plan_for(command_type), Plan::Run, "{command_type} must reach run()");
+        }
+        for command_type in crate::display_control::COMMANDS {
+            assert_eq!(plan_for(command_type), Plan::Run, "{command_type} must reach run()");
+        }
+        assert_eq!(plan_for("restart_player_process"), Plan::Disruptive);
+        assert!(matches!(plan_for("prepare_airplay_session"), Plan::Settle(_)));
+        assert!(matches!(plan_for("no_such_command"), Plan::Settle(_)));
     }
 }

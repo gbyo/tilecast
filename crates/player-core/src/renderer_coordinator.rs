@@ -189,6 +189,16 @@ impl RendererCoordinator {
         was
     }
 
+    /// Restores safe mode persisted by a previous process. The restored
+    /// mode holds until an explicit exit, like a freshly entered one; the
+    /// stall clock restarts at boot so only new evidence clears the ladder.
+    pub fn restore_safe_mode(&mut self, reason: &str, now: Timestamp) {
+        self.supervisor.safe_mode = true;
+        self.supervisor.safe_mode_reason = Some(reason.to_owned());
+        self.supervisor.last_progress_at_ms = now.unix_millis();
+        self.supervisor.healthy_since_ms = Some(now.unix_millis());
+    }
+
     pub fn set_config(&mut self, config: SupervisorConfig) {
         self.config = config;
     }
@@ -429,5 +439,15 @@ mod tests {
         core.clear();
         assert_eq!(core.retry_recovery(now(2_000_000)), HealAction::None);
         assert!(!core.clear_safe_mode(now(2_000_000)));
+    }
+
+    #[test]
+    fn restored_safe_mode_holds_until_an_explicit_exit() {
+        let mut core = coordinator();
+        core.restore_safe_mode("renderer recovery exhausted repeatedly", now(1_000));
+        assert!(core.is_safe_mode());
+        assert_eq!(core.evaluate_recovery(now(10_000_000)), HealAction::None);
+        assert!(core.clear_safe_mode(now(10_000_001)));
+        assert!(!core.is_safe_mode());
     }
 }
