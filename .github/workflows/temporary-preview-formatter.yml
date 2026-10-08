@@ -1,0 +1,21 @@
+name: Temporary Preview Formatter Diagnostic
+on:
+  push:
+    branches:
+      - fix/self-healing-screen-previews
+permissions:
+  contents: read
+jobs:
+  formatter-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --workspace @tilecast/dashboard --include-workspace-root
+      - name: Print exact Prettier diff
+        run: |
+          npx prettier --write apps/dashboard/src/components/LivePreviewPanel.tsx
+          git diff --no-ext-diff -- apps/dashboard/src/components/LivePreviewPanel.tsx
