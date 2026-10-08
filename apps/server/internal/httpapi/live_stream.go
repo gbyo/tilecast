@@ -119,6 +119,8 @@ func (s *server) watchLiveStream(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) writeLiveStreamError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, livestream.ErrReplaced):
+		writeError(w, http.StatusConflict, "live_stream_replaced", "Another viewer replaced this live stream session.")
 	case errors.Is(err, livestream.ErrNotFound):
 		writeError(w, http.StatusNotFound, "live_stream_not_found", "That live stream is no longer active.")
 	case errors.Is(err, livestream.ErrInvalidFrame):
