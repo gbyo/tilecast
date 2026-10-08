@@ -2258,12 +2258,11 @@ export function ScreenGridCard({
     return () => window.clearInterval(interval);
   }, [preview.data?.capturedAt, visible]);
   const previewState = livePreviewState(screen, preview.data, now);
-  const railState = previewRailState(
-    previewState,
-    preview.data?.capturedAt,
-    now,
-  );
-  const captureFailed = previewState === "capture-error";
+  const railState =
+    preview.data?.status === "capture_error"
+      ? "error"
+      : previewRailState(previewState, preview.data?.capturedAt, now);
+  const captureFailed = preview.data?.status === "capture_error";
   const portrait = screen.screenHeight > screen.screenWidth;
   return (
     <article
