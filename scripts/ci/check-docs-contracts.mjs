@@ -4,40 +4,58 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 
-export function findDocumentationDrift({ provider, gradle, updates, credentials, android, architecture, core, plugins, edge, websites, previews }) {
+export function findDocumentationDrift({
+  provider,
+  gradle,
+  updates,
+  credentials,
+  android,
+  architecture,
+  core,
+  plugins,
+  edge,
+  websites,
+  previews,
+}) {
   const errors = [];
   const owner = /GitHubOwner\s*=\s*"([^"]+)"/.exec(provider)?.[1];
   const repo = /GitHubRepo\s*=\s*"([^"]+)"/.exec(provider)?.[1];
   if (!owner || !repo) {
-    errors.push("Could not read the fixed release owner and repo from updates/provider.go");
+    errors.push("Fixed release owner/repo not found in updates/provider.go");
   } else {
-    for (const [file, content] of [["player-updates.md", updates], ["device-credential-security.md", credentials]]) {
-      if (!content.includes(`${owner}/${repo}`)) errors.push(`${file}: fixed release source must be ${owner}/${repo}`);
+    const docs = [
+      ["player-updates.md", updates],
+      ["device-credential-security.md", credentials],
+    ];
+    for (const [file, content] of docs) {
+      if (!content.includes(`${owner}/${repo}`)) {
+        errors.push(`${file}: fixed release source must be ${owner}/${repo}`);
+      }
     }
   }
   if (!/compileSdk\s*=\s*\d+/.test(gradle) || !/minSdk\s*=\s*\d+/.test(gradle)) {
-    errors.push("Could not find Android compileSdk/minSdk in the app Gradle file");
+    errors.push("Android compileSdk/minSdk not found in app Gradle");
   }
   if (/Android SDK\s+\d+/.test(android) || !android.includes("app/build.gradle.kts")) {
-    errors.push("android-development.md: defer SDK versions to app/build.gradle.kts");
+    errors.push("android-development.md: use app/build.gradle.kts SDK values");
   }
   if (/Android Room stores (pending|active)/.test(architecture)) {
     errors.push("architecture.md: obsolete production Room manifest ownership");
   }
   if (/Production still runs the Kotlin Player|does not build macOS, browser/.test(core)) {
-    errors.push("player-core.md: obsolete native Core or Browser Player status");
+    errors.push("player-core.md: obsolete native or Browser Player status");
   }
   if (/Reserved: (composition|proof-of-play)[^\n]*not started/.test(plugins)) {
-    errors.push("plugin-api.md: old milestones still presented as incomplete");
+    errors.push("plugin-api.md: stale milestone status");
   }
   if (!edge.includes("Historical milestone snapshot")) {
-    errors.push("tilecast-edge-next.md: date milestone status instead of claiming current qualification");
+    errors.push("tilecast-edge-next.md: missing historical status label");
   }
   if (!websites.includes("Layout zone")) {
     errors.push("website-content.md: document Website playback inside Layouts");
   }
   if (!previews.includes("Linux Edge") || !previews.includes("Linux Legacy")) {
-    errors.push("live-previews.md: distinguish Edge from the legacy Electron capture path");
+    errors.push("live-previews.md: separate Edge and Legacy capture");
   }
   return errors;
 }
