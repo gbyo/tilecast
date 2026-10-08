@@ -121,6 +121,7 @@ impl PreviewApi for AuthenticatedServer {
 pub async fn drive_preview<H, A>(
     host: Arc<H>,
     mut server: tokio::sync::watch::Receiver<Option<A>>,
+    wake: &tokio::sync::Notify,
     shutdown: &tokio_util::sync::CancellationToken,
 ) where
     H: PreviewHost + 'static,
@@ -133,6 +134,7 @@ pub async fn drive_preview<H, A>(
         tokio::select! {
             () = shutdown.cancelled() => return,
             _ = ticker.tick() => {}
+            _ = wake.notified() => {}
             changed = server.changed() => if changed.is_err() { return },
         }
         let Some(api) = server.borrow().clone() else { continue };
@@ -253,7 +255,8 @@ mod tests {
         let shutdown = tokio_util::sync::CancellationToken::new();
         let worker_host = Arc::clone(&host);
         let worker_shutdown = shutdown.clone();
-        let worker = tokio::spawn(async move { drive_preview(worker_host, receiver, &worker_shutdown).await });
+        let wake = std::sync::Arc::new(tokio::sync::Notify::new());
+        let worker = tokio::spawn(async move { drive_preview(worker_host, receiver, &wake, &worker_shutdown).await });
         results.recv().await.unwrap();
         assert_eq!(host.captures.load(Ordering::SeqCst), 1);
         assert_eq!(host.health.lock().unwrap().faults, 1);
