@@ -27,147 +27,57 @@ Tilecast is a polished, open-source, self-hosted digital signage platform.
 
 Use the Tilecast name consistently. The management browser application may be described as Tilecast Studio; the TV application is Tilecast Player.
 
-## Current product boundary
+## Current product and scope
 
-Milestones 1 and 2 establish the foundation and player enrollment path:
+Tilecast manages media, playlists, multi-zone layouts, schedules, widgets, data sources, and a fleet of screens. Activity, proof of play, health, remote control, previews, and Player configuration are operational features. Extensions include bundled plugins, Widgets V2, data-source modules, and separately distributed marketplace packages. Do not treat historical milestone exclusions as current product limits.
 
-- Go/Chi server and a single PostgreSQL database
-- embedded Goose migrations
-- one-time organization and Owner setup
-- Argon2id local accounts and revocable database sessions
-- HttpOnly SameSite dashboard cookies and CSRF protection
-- React/TypeScript/Vite management dashboard
-- Docker Compose deployment and optional Cloudflare Tunnel profile
-- permanent installation identity
-- native Kotlin/Compose Android TV player
-- LAN discovery and manual server address entry
-- short-lived pairing sessions, approval, one-time enrollment, and per-device credentials
-- WebSocket presence, fallback heartbeat, computed screen status, disable, and revocation
+The Server remains self-hosted and the source of truth for organization, configuration, access, and scheduling. Keep one organization per installation and do not make proprietary cloud services a requirement. Do not add new product features as incidental work; confirm actual support and compatibility before presenting any platform, extension, or feature as generally available.
 
-Milestone 2 intentionally does **not** contain media upload, media processing, playlists, layouts, schedules, player manifests, or content playback.
-
-Milestone 8 adds a closed typed settings registry, organization branding, user preferences, deterministic group/screen player policies, independent player configuration synchronization, and safe system administration. Do not opportunistically begin multi-zone layouts, compositions, authenticated websites, proof-of-play, notifications, cloud accounts, billing, multi-tenancy, HDMI-CEC, automatic APK installation, or arbitrary configuration and execution.
-
-Milestone 9 adds signed Tilecast Player APK updates from the fixed public GitHub repository. It does not add server, container, or operating-system updates; app-store distribution; silent-install claims; root or ADB installation; arbitrary update repositories; or arbitrary executable commands.
-
-Multi-zone layouts and proof-of-play were deferred through milestone 9 and have since shipped. Activity now covers Player-confirmed proof of play, fleet health, incidents, expected-versus-actual playback compliance, and bounded player telemetry. Read [`docs/activity.md`](docs/activity.md) and [`docs/activity-event-contract.md`](docs/activity-event-contract.md) before changing anything in that area: the metric definitions there are load-bearing, and several of them exist specifically to replace an earlier measurement that was misleading.
+See [`docs/architecture.md`](docs/architecture.md), [`docs/player-protocol.md`](docs/player-protocol.md), [`docs/marketplace.md`](docs/marketplace.md), and [`docs/packages.md`](docs/packages.md) for current contracts. For proof-of-play and operational metrics, read [`docs/activity.md`](docs/activity.md) and [`docs/activity-event-contract.md`](docs/activity-event-contract.md); do not redefine their semantics in dashboards or Players.
 
 ## Repository map
 
 ```text
-apps/server/                 Go application and embedded dashboard host
-  cmd/tilecast-server/     process startup, backup, restore, MFA reset
-  internal/auth/             local users, passwords, dashboard sessions, MFA
-  internal/config/           validated environment configuration
-  internal/database/         pgx pool and embedded Goose migrations
-  internal/devices/          identity, pairing, credentials, screens, status
-  internal/discovery/        optional mDNS/DNS-SD advertisement
-  internal/httpapi/          Chi routes, middleware, JSON contracts, WebSocket
-  internal/web/              embedded dashboard files and SPA fallback
-apps/cli/                    remote management CLI (Cobra, no server internals)
-  cmd/tilecast/              CLI entrypoint
-  internal/cli/              handwritten command tree
-plugins/                     bundled first-party plugins, one directory each
-  <name>/tilecast.plugin.json  the plugin manifest (see docs/plugin-api.md)
-  <name>/tilecast.store.json   optional Plugin Store presentation: publisher, long description, static artwork in store/
-  registry_gen.go            generated Go registry; never edit
-apps/dashboard/              React, TypeScript, Vite, TanStack Query
-  src/api/                   public browser contract types and fetch client
-  src/auth/                  session state and forms
-  src/content/               Widget and Data Source authoring controls
-  src/navigation/            route metadata and workspace tab definitions
-  src/pages/                 authenticated Studio routes
-  src/plugin-host/           plugin discovery and the @tilecast/studio surface
-apps/ios/                    native iOS and iPadOS host for Studio (see docs/ios-app.md)
-  Tilecast/                  SwiftUI app: scenes, server switching, localized text
-  TilecastKit/               Swift package: server profiles, WebKit hosting, policies
-apps/player-android/         native Android TV application
-  app/src/main/              Compose UI and production player code
-  app/src/test/              JVM unit tests
-  app/src/androidTest/       emulator/device tests
-apps/player-windows/         native Windows Player Core host (see docs/tilecast-windows.md)
-  src/                       Rust host: UI thread, WebView2 renderer, services
-  release/                   MSIX manifest template, staging script, VERSION
-packages/player-runtime/      shared Player Runtime hosted by Electron, WPE, and WebView2
-packages/plugin-sdk/         Plugin API v1: manifest schema, Go SDK, pluginctl
-packages/api-schema/         generated TypeScript contract for the composed OpenAPI
-packages/manifest-schema/    Player manifest schemas + declarative presentation capability registry
-packages/player-contracts/     ownerless cross-player conformance fixtures only
-packages/layout-schema/      reserved for renderer-neutral layouts
-packages/design-tokens/      shared Studio visual tokens
-deploy/docker/               multi-stage image and Compose setup
-deploy/cloudflare/           optional Tunnel guidance
-docs/                        architecture, API, pairing, deployment, TV setup
-apps/docs/                   public documentation site (Astro Starlight)
+apps/server/                 Go/Chi Server, PostgreSQL, authentication, API, embedded Studio/Browser assets
+apps/cli/                    Go remote-management CLI
+apps/dashboard/              React/TypeScript Tilecast Studio and plugin host
+apps/docs/                   public Astro/Starlight documentation site
+apps/ios/                    SwiftUI iOS/iPadOS Studio host and native bridge
+apps/player-android/         Android TV/Google TV/Fire TV Compose host + native Player Core adapter
+apps/player-web/             experimental Browser Player
+apps/player-windows/         Windows native Player host (Rust + WebView2)
+apps/edge/                   Linux Edge host (Rust, WPE, systemd, hardware integration)
+apps/player-linux/           legacy Linux Electron Player and helper; maintain compatibility/migration
+crates/player-{types,state,cas,client,core}/  shared native Player crates
+packages/presentation-model/ shared pure presentation decisions
+packages/player-runtime/     shared presentation execution
+packages/player-contracts/   cross-host conformance fixtures and contracts
+packages/{manifest,layout,settings}-schema/  shared versioned contracts
+packages/{plugin,widget,data-source,package}-sdk/  extension contracts and tools
+packages/{widget-kit,design-tokens,api-schema,native-bridge-schema}/  shared UI and API contracts
+plugins/                     bundled first-party plugin modules
+widgets/                     widget modules and fixtures
+data-sources/                data-source modules
+marketplace/                 curated external package catalog
+deploy/                      Docker and deployment integration
+docs/                        engineering contracts and architecture decisions
+scripts/                     generation, checks, and development tools
 ```
 
-The server is a modular monolith. Preserve small domain packages and thin HTTP handlers. Do not scatter SQL through React code or unrelated handler files.
+Use the actual directory and its owning documentation as the source of truth; this map is a navigation aid, not a complete ownership matrix. The Server is a modular monolith: preserve small domain packages and thin HTTP handlers, and keep SQL out of Studio and unrelated handlers.
 
-## Native Player ownership
+## Player architecture and platform ownership
 
-Read [`docs/player-core.md`](docs/player-core.md) before native Player changes.
-The extraction contract is binding. Generic native values live in
-`crates/player-types`. Durable metadata lives in `crates/player-state`.
-Historical platform repository APIs remain in `edge-state::platform`.
-Verified storage lives in `crates/player-cas`. Its space-probe interface is
-implemented by Edge adapters; privileged helpers must not depend on storage.
-Server transport lives in `crates/player-client`. Edge owns credential and
-pairing files. Hosts supply product identity and device metadata.
-The Core foundation owns native selection, command delivery, and Activity
-sessions in `crates/player-core`. Core also owns the renderer recovery ladder
-and meaningful-evidence rules, with connection-bound acceptance and evidence
-tracking. Edge executes renderer actions through its port
-adapter. Core also owns capture serialization, periodic preview policy, and
-Watch Live lease and frame coordination. Runtime presentation data stays opaque
-to Core, with explicit resource, compatibility, and evidence metadata.
-Core correlates renderer command results and owns startup Website data-clear
-retry policy. Edge maps wire results and user-facing failure text.
-Core coordinates activation identity, profile checks, and recovery timing.
-Edge keeps Runtime projection inputs and constructs status payloads.
-Core owns pairing orchestration and server identity, credential-rejection,
-retry, and persisted clock-sampling policy. Edge supplies private stores,
-device metadata, and status surfaces. Core drives the server socket,
-heartbeat fallback, push handling, and reconciliation loop. Edge supplies
-heartbeat projection, privacy checks, Activity signals, and retry jitter.
-Core owns configuration acceptance, manifest target reconciliation, and native
-manifest resource-claim validation and verified preparation, repair, and pinning.
-Runtime presentation fields stay opaque.
-Core owns native configuration values and active-hours policy. Edge separates
-Runtime configuration projection from its Linux platform configuration.
-Core owns manifest preparation-worker supervision and target-bound cancellation.
-Core owns telemetry sampling, interval counters, serialization, and bounded
-offline queue policy. Edge supplies semantic observations and measured gauges.
-Core owns offline manifest state, native activation gates, trial deadlines,
-evidence requirements for promotion, and verified pin lifetime. Core drives the
-offline activation loop. Edge supplies Runtime projection, opaque comparison
-keys, and status surfaces.
-Core owns Display Control payload validation, scheduled policy retry, and
-power-readback result semantics. Edge keeps CEC/DDC, input address conversion,
-probes, and readback. Core owns non-secret Presentation Network assignment
-validation and revision decisions. Edge keeps provisioning credentials, helper
-calls, NetworkManager, and radio recovery.
-Core owns durable Activity reporting, restart closure, overflow reporting, and
-bounded shutdown flushing. Edge supplies Runtime signal projection, clocks,
-IDs, and timezone observations and constructs one shared PlayerCore instance.
+Read [`docs/player-core.md`](docs/player-core.md) and [`docs/player-core-readiness.md`](docs/player-core-readiness.md) before shared native Player changes. The extraction contract defines ownership; do not assume that a partially qualified stage or platform feature is release-ready.
 
-- Presentation appearance and execution belong in Presentation Model and Player Runtime.
-- Behavior shared by full native Players belongs in Player Core after extraction.
-- OS integration, lifecycle, distribution, and renderer hosting belong to the platform.
-- Independent implementations share contracts or fixtures at the rule's natural owner.
-- A normal product-level Player change should usually need one Core or Runtime implementation.
+- **Presentation Model** owns pure shared presentation decisions. **Player Runtime** owns presentation rendering and execution, across hosts.
+- **Player Core** (`crates/player-core`) owns portable native policy: pairing, Server communication, commands, capture coordination, manifest/offline activation, telemetry, Activity, recovery, and other shared behavior as defined by the extraction contract. Pure types, state, CAS, and Server client behavior live in their respective shared crates.
+- **Platforms** own OS integration, process lifecycle, storage and credentials, renderer hosting, hardware providers, network facilities, distribution, and update installation. Runtime payload presentation data stays opaque to Core.
+- **Browser Player** uses its own browser host and session model while consuming shared presentation contracts; read [`docs/browser-player.md`](docs/browser-player.md). It is experimental, not automatically qualified for every browser.
+- **Linux Edge** has binding process, privilege, sandbox, offline, and update guarantees in [`docs/tilecast-edge.md`](docs/tilecast-edge.md) and [`apps/edge/AGENTS.md`](apps/edge/AGENTS.md). Legacy Electron exists for migration and compatibility; do not introduce a second presentation implementation.
+- **Android** uses a Kotlin/Compose host and a Rust Player Core adapter; read [`docs/android-development.md`](docs/android-development.md). **Windows** uses the shared native architecture; read [`docs/tilecast-windows.md`](docs/tilecast-windows.md). **iOS/iPadOS** hosts Studio rather than duplicating its application features; read [`docs/ios-app.md`](docs/ios-app.md).
 
-Shared Player crates must never depend on Edge crates or Edge wire framing.
-Run `python3 scripts/ci/check-player-architecture.py` to check dependency direction.
-Preserve shipped SQLite migration bytes and all Edge security, offline, crash,
-update, and renderer isolation guarantees. Do not implement macOS or move behavior
-before the dedicated root Rust workspace migration is qualified. The workspace,
-lockfile, Rust toolchain, and formatter now live at the repository root. Use
-`make edge-check` and `make edge-test` for Edge-scoped Rust validation.
-Edge product version is `apps/edge/release/VERSION`.
-Use `make windows-check` and `make windows-test` for Windows-scoped Rust
-validation. Windows product version is `apps/player-windows/release/VERSION`.
-Use `make player-check` and `make player-test` for shared Rust validation.
-Shared values perform no I/O. Hosts supply clocks and generate random IDs.
+Do not depend on Edge crates or Edge wire framing from shared Player crates. Keep independent platform behavior consistent through natural-owner contracts and conformance fixtures, not copied implementations. Preserve shipped SQLite migration bytes and all Edge security, offline, crash, update, and renderer-isolation guarantees. Host adapters provide time and random IDs; pure shared values do not perform I/O. Run `python3 scripts/ci/check-player-architecture.py` when changing the shared architecture.
 
 ## Server conventions
 
@@ -252,12 +162,13 @@ Do not store or trust a player-supplied online string. `internal/devices/status.
 - `offline`: no contact for more than fifteen minutes, or never contacted
 - `disabled`: administrative override
 - `revoked`: no active credential
+- `awaiting_player`: enabled screen pending a Player connection during approved replacement/enrollment
 
-Return computed status and `lastContactAt`. Do not duplicate the thresholds in React or Android.
+Return computed status and `lastContactAt`. Do not duplicate the thresholds in React or Android. Preserve the `awaiting_player` distinction for screens waiting for replacement hardware.
 
-### Plugins
+### Plugins and extension packages
 
-A bundled plugin is a directory below `plugins/`. Read [`docs/plugin-api.md`](docs/plugin-api.md) before you change a plugin or the plugin host.
+A **bundled** plugin is a directory below `plugins/`. Read [`docs/plugin-api.md`](docs/plugin-api.md) before you change a bundled plugin or its host. Marketplace packages are separately distributed and have distinct installation and trust boundaries; see [`docs/packages.md`](docs/packages.md) and [`docs/marketplace.md`](docs/marketplace.md). For Widgets V2 and data sources, use [`docs/widgets-v2.md`](docs/widgets-v2.md) and [`docs/data-source-modules.md`](docs/data-source-modules.md).
 
 - Keep everything unique to a plugin in its directory. Do not add a plugin identifier to core code; extend the SDK contribution interfaces instead.
 - Plugins import only the plugin SDK, `@tilecast/studio`, and their own files. `npm run plugins:check` enforces this.
@@ -274,56 +185,28 @@ Migration files share one sequence. Core files are under `apps/server/internal/d
 - Avoid unbounded heartbeat history. Update current screen timestamps and record only meaningful audit events.
 - Preserve the one-organization schema. Do not add multi-tenant routing or tenant selectors.
 
-Milestone 3 media tables should reference generated asset IDs. Uploaded filenames must remain metadata only and must never control a filesystem path.
+Media rows must reference generated asset IDs. Uploaded filenames are metadata only and must never control filesystem paths.
 
-## Dashboard conventions
+## Studio conventions
 
-- React with strict TypeScript
-- React Router
-- TanStack Query for server state
-- React Hook Form and Zod for forms
-- Zustand is reserved for complex local editor state
-- design tokens come from `packages/design-tokens`
+- React and strict TypeScript, React Router, TanStack Query for Server state, React Hook Form and Zod for forms; use Zustand only for complex local editor state.
+- Prefer the existing shadcn Base UI **Base Vega** components in `apps/dashboard/src/components/ui`, Geist, Lucide, and semantic tokens in `packages/design-tokens`. Read [`docs/design-system.md`](docs/design-system.md) before making UI changes.
+- Preserve domain query ownership and typed API boundaries in `apps/dashboard/src/api/` and `apps/dashboard/src/data/`. Keep local draft state distinct from Server state; plugin-owned UI and operations stay inside their extension interfaces.
+- Build for mobile and desktop together. Reuse established loading, empty, error, confirmation, and feedback patterns. Controls must be usable by keyboard/touch, never hover-only; respect focus order, contrast, and reduced motion.
+- Keep Studio restrained and operational: useful density, clear hierarchy, neutral application chrome, restrained motion, no fabricated analytics or claims that unfinished features exist. Pair status color with text; do not use organization branding as Studio chrome.
+- Studio supports English, Spanish, and Russian using react-i18next. Follow [`docs/localization.md`](docs/localization.md): new user-visible strings go through `t()` and all locale files, not hard-coded UI English. Preserve existing English copy during key conversion when tests rely on it, and run the relevant i18n scan.
 
-Keep UI state separate from API state. New server operations belong in `src/api/client.ts`; public types belong in `src/api/types.ts`. Plugin-owned operations and types belong in `plugins/<name>/studio/` and reach the API through `studioRequest`; the `src/api` rule above covers non-plugin server operations. Polling is currently used for screen status, at a ten-second interval.
+Studio in the browser must remain functional without a native host. Native iOS routes and actions follow the bridge contract in [`docs/ios-app.md`](docs/ios-app.md), rather than adding feature-specific SwiftUI duplicates.
 
-Studio is localized with react-i18next (English source, Spanish, Russian). Follow [`docs/localization.md`](docs/localization.md): new user-visible text goes through `t()` with keys added to every locale in `src/locales/`, never as a hard-coded English literal. Keep English copy unchanged when converting an existing string, because tests assert on it. `npm run i18n:scan -- --check <path>` must be clean for any file you convert.
+## Android Player conventions
 
-The interface is restrained infrastructure software: compact spacing, visible controls, limited corner radii, no decorative gradients, no fake analytics, and no future feature presented as complete. Important operations must not be hover-only. Status must include text or an icon, not color alone.
+- One application ID: `org.tilecast.player`, covering Fire TV, Google TV, Android TV, store releases, and sideloaded builds. Kotlin/Compose owns Android UI and host lifecycle; shared Player Runtime owns presentation. The native Rust Player Core adapter lives under `apps/player-android/native/`.
+- Minimum API 23. Get current compile/target SDK, NDK, signing, and toolchain versions from `apps/player-android/app/build.gradle.kts`; do not freeze version numbers in this guide.
+- Protect the device credential with the platform's secure storage. Verify Server installation identity before sending it. Use the established URL policy (HTTPS for public hosts; HTTP only for explicitly allowed local addresses); never downgrade silently.
+- Keep temporary pairing state reconstructable. Do not fork shared Player policy in Kotlin or reimplement playback in Compose to work around the shared renderer.
+- All player controls must work with D-pad focus and remote activation. Show clear paired, unassigned, offline, error, and recovery states instead of exceptions, raw IDs, debug JSON, or placeholders. Do not claim hardware compatibility without device verification.
 
-When adding Milestone 3 media screens, show real processing states and real metadata. Do not add fabricated library totals or storage charts.
-
-## Android player conventions
-
-- package/application ID: `org.tilecast.player`
-- Kotlin, Jetpack Compose, lifecycle ViewModel
-- Room for durable non-secret configuration
-- WorkManager only for low-frequency fallback work
-- Android Keystore plus AES-GCM for the device credential
-- OkHttp for REST and WebSockets
-- standard `NsdManager` for `_tilecast._tcp.local` discovery
-- no Google Play Services dependency
-- minimum API 23; compile/target SDK 35
-- one application for Fire TV, Google TV, Android TV, Play Store, and sideloaded APKs
-
-`PlayerState` is the explicit connection state machine. Do not replace it with scattered booleans. Persist only durable configuration: player-generated UUID, normalized server URL, installation ID, organization, screen ID, and screen name. Temporary pairing/poll state must remain reconstructable and should not be stored after enrollment.
-
-Manual URL security is centralized in `ServerUrlPolicy`:
-
-- normalize whitespace and trailing slash
-- preserve explicit ports
-- only HTTP and HTTPS
-- public hosts require HTTPS
-- HTTP is allowed only for private IPv4, link-local, localhost, and `.local`
-- never silently downgrade HTTPS
-
-If the installation ID changes, do not send the credential. Show `ServerIdentityMismatch` and require an explicit reset.
-
-All controls must work with D-pad focus and remote activation. Normal player UI must not display raw exceptions, internal IDs, debug JSON, or development placeholders. Until playback exists, paired state says “No content assigned.”
-
-### Milestone 8 Android boundary
-
-Milestone 8 itself was constrained to one fullscreen zone. Effective configuration is versioned separately from content, validated centrally, stored with a previous valid revision, and applied by category. Playlist-item values continue to override player defaults. Its original multi-zone and proof-of-play exclusions no longer describe the current product; retain the remaining boundaries on compositions, authenticated sites, arbitrary configuration, and simultaneous videos.
+Follow [`docs/android-development.md`](docs/android-development.md), [`docs/player-core.md`](docs/player-core.md), and [`docs/player-runtime.md`](docs/player-runtime.md) for implementation details and qualification.
 
 ## LAN discovery and deployment
 
@@ -348,79 +231,33 @@ Do not make Cloudflare mandatory. Do not expose PostgreSQL. Outside a trusted LA
 - role checks on credential-management operations
 - strict device metadata validation and body limits
 - installation identity verification before credential use
-- uploaded filenames never become paths in Milestone 3
-- FFmpeg must eventually run with bounded resources and generated input/output paths
-- website credentials remain out of scope
+- uploaded filenames never become filesystem paths; media processing uses generated paths
+- media processing and FFmpeg must have bounded resources and generated input/output paths
+- never leak credentials into website content, untrusted runtime data, URLs, logs, or screenshots; use the documented Website security boundary
 
-## Build and test commands
+## Build and verification
 
-From the repository root:
-
-```sh
-npm install
-make check
-make build
-```
-
-Plugins only:
+Use the smallest relevant test suite while developing; run the required broader checks before handoff. Commands below are entrypoints, not evidence that a platform was tested. See [`docs/testing.md`](docs/testing.md), platform READMEs, and the root `Makefile` for prerequisites and full scopes.
 
 ```sh
-npm run plugins:check      # manifests, boundaries, generated files
-npm run plugins:generate   # rewrite generated files
+make doctor AREA=dashboard # or server|edge|windows|android|media|docs
+make check                 # root integration checks (not a substitute for native/hardware tests)
+make build                 # full workspace/Server/Android debug build; requires platform toolchains
+make player-check player-test
+make edge-check edge-test
+make windows-check windows-test
+make android-check
+npm run build:player-web
+npm run docs:build
 ```
 
-Dashboard only:
+- For extensions, run `make plugins-check`, `make widgets-check`, and `make data-sources-check`, plus relevant package tests. Regenerate via the supported tools; do not edit generated contracts.
+- For Server and authentication/protocol changes, run relevant Go tests and PostgreSQL integration tests with `TEST_DATABASE_URL`. The test role must be able to create and drop isolated test databases. Check authorization, credential revocation, and Server/Player compatibility.
+- For Studio changes, run focused Vitest, typecheck/build, lint, i18n, and accessibility-relevant UI tests. For Browser Player changes, use its own tests and contract/e2e checks in [`docs/browser-player.md`](docs/browser-player.md).
+- For Android native changes, run JVM tests and Rust host tests; use instrumented tests and real devices for focus, playback, WebView, and hardware behavior. For Edge, verify Linux WPE/systemd and device-specific behavior separately. For Windows, verify WebView2 on Windows.
+- Test pairing, reconnect, identity mismatch, revocation, offline playback, and recovery when touching related code. Do not reuse historical green results as proof for a changed branch.
 
-```sh
-npm run format:check
-npm run lint
-npm test
-npm run build
-```
-
-Server only:
-
-```sh
-cd apps/server
-gofmt -w $(find . -name '*.go' -type f)
-go vet ./...
-go test ./...
-go build ./cmd/tilecast-server
-```
-
-PostgreSQL integration tests run when `TEST_DATABASE_URL` is set. Each integration-test package uses `apps/server/internal/testdb` to create a temporary PostgreSQL database, apply the embedded migrations, and drop the database when the package exits. The configured role must be able to create and drop databases. Advisory locks still serialize fixture resets inside a package; isolated databases let Go run packages concurrently.
-
-```sh
-TEST_DATABASE_URL='postgres://localhost:5432/tilecast_test?sslmode=disable' go test ./...
-```
-
-Remote CLI only:
-
-```sh
-cd apps/cli
-gofmt -w $(find . -name '*.go' -type f)
-go vet ./...
-go test ./...
-go build ./cmd/tilecast
-```
-
-Android:
-
-```sh
-cd apps/player-android
-./gradlew testDebugUnitTest lintDebug assembleDebug
-./gradlew connectedDebugAndroidTest   # emulator or device required
-./gradlew assembleRelease             # unsigned without local signing config
-```
-
-Docker:
-
-```sh
-docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml config --quiet
-docker compose --env-file deploy/docker/.env.example -f deploy/docker/compose.yml build server
-```
-
-Do not claim a feature works until the relevant build and tests have run. For protocol changes, add both unit tests and a complete PostgreSQL integration path. For Android state behavior, prefer JVM tests with network/storage fakes; use instrumented tests for focus, launcher, and actual device behavior.
+In the PR handoff, state the exact checks run, any failures or skips, and remaining device or release-qualification risks. Never claim CI, emulator, or physical-device coverage without evidence.
 
 ## Generated files and artifacts
 
@@ -466,27 +303,14 @@ Update documentation with the implementation, not afterward as an approximation.
 - `docs/deployment.md`
 - `docs/troubleshooting.md`
 - `docs/localization.md`
+- `docs/player-core.md`, `docs/browser-player.md`, `docs/ios-app.md`, and relevant platform contracts
+- `docs/marketplace.md`, `docs/packages.md`, `docs/widgets-v2.md`, and `docs/data-source-modules.md`
 
 Tilecast has two documentation sets, and a change must update both where it applies:
 
 - **Engineering docs** in `docs/` are the specifications and contracts listed above. They follow the ASD-STE100 rules in `docs/documentation-style.md`, checked by `make docs-check`.
-- **The public docs site** in `apps/docs/src/content/docs/` is what installers, operators, and contributors read. Update it in the same change whenever you add or change something a user can see or do: a Studio feature, a setting, an install or upgrade step, a Player behavior, or a contributor workflow. It follows `apps/docs/STYLE.md`, not the ASD-STE100 rules. Register a new page in the sidebar in `apps/docs/astro.config.mjs`, link to the engineering doc for the exact contract instead of restating it, and run `npm run docs:build`, which also checks internal links.
+- **The public docs site** in `apps/docs/src/content/docs/` is what installers, operators, and contributors read. Update it in the same change whenever you add or change something a user can see or do: a Studio feature, a setting, an install or upgrade step, a Player behavior, or a contributor workflow. It follows `apps/docs/STYLE.md`, not the ASD-STE100 rules. When adding a public page, register it in the current docs navigation configuration, link to the engineering doc for the exact contract instead of restating it, and run `npm run docs:build`, which also checks internal links.
 
 A change that only touches internals with no user-visible effect does not need a public docs page.
 
-For Milestone 3 also document media storage, upload limits, FFmpeg inspection/transcoding behavior, range requests, cleanup semantics, and backup implications.
-
-## Verification ledger and known limitations
-
-At the Milestone 2 handoff, verify and update this section if facts change:
-
-- Go formatting, vet, unit tests, and PostgreSQL integration tests pass.
-- Dashboard TypeScript build, ESLint, Prettier, Vitest, and Vite production build pass.
-- Android JVM tests, lint, debug APK build, and Android TV emulator instrumented test pass.
-- A Google Android TV API 34 ARM64 emulator is the current device-level test target.
-- The emulator has completed manual server entry, visible local-HTTP confirmation, pairing, approval, enrollment, online presence, server-restart reconnection, live revocation, revoked-state recovery, and re-pairing.
-- Physical Fire TV validation is outstanding; do not claim physical Fire TV compatibility based only on compilation/emulation.
-- LAN discovery is implemented but depends on multicast network support and should be tested on the deployment LAN.
-- Image/video playback and offline scheduling are implemented. Website playback is implemented but physical Fire TV and Google TV WebView validation remains outstanding.
-
-Before each milestone handoff, rerun the full check suite and confirm pairing, server restart reconnection, credential revocation, re-pairing, downloaded playback, and offline scheduling remain green. Website work must not weaken or bypass device authentication.
+For media changes, document storage, upload limits, processing/transcoding, range requests, cleanup, and backup implications. Keep operator and API documentation aligned with implementation.
