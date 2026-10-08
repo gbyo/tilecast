@@ -120,6 +120,7 @@ import {
   previewRailState,
 } from "../components/livePreviewState";
 import { PreviewFreshnessRail } from "../components/PreviewFreshnessRail";
+import { useScreenPreviewSession } from "../components/useScreenPreviewSession";
 import { screenRowActionGroups } from "../components/screenActions";
 import {
   ActionMenuButton,
@@ -206,7 +207,6 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 
-const GRID_PREVIEW_LEASE_RENEWAL_MILLIS = 30_000;
 const GRID_PREVIEW_METADATA_REFRESH_MILLIS = 10_000;
 const GRID_PREVIEW_AGE_REFRESH_MILLIS = 10_000;
 
@@ -2229,31 +2229,17 @@ export function ScreenGridCard({
     screen.status !== "offline" &&
     screen.status !== "disabled" &&
     screen.status !== "revoked";
-  useEffect(() => {
-    if (!canRequestPreview) return;
-    let active = true;
-    const renew = async (forceCapture: boolean) => {
-      try {
-        await api.renewScreenPreview(screen.id, forceCapture, csrfToken);
-      } catch {
-        // The metadata query below keeps the card's honest unavailable state.
-        // A transient lease failure is retried at the next renewal.
-      }
-    };
-    void renew(true);
-    const interval = window.setInterval(
-      () => active && void renew(false),
-      GRID_PREVIEW_LEASE_RENEWAL_MILLIS,
-    );
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, [canRequestPreview, csrfToken, screen.id]);
   const preview = useQuery({
     ...screenQueries.previewCard(screen.id),
     enabled: visible,
     refetchInterval: visible ? GRID_PREVIEW_METADATA_REFRESH_MILLIS : false,
+  });
+  useScreenPreviewSession({
+    screenId: screen.id,
+    csrfToken,
+    enabled: canRequestPreview,
+    capturedAt: preview.data?.capturedAt,
+    protectedPreview: preview.data?.captureFailureStatus?.startsWith("sensitive_"),
   });
   const image =
     preview.data?.imageAvailable && preview.data.updatedAt
