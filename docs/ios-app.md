@@ -1,5 +1,7 @@
 # Tilecast for iOS and iPadOS
 
+**Reading guide:** Architecture and security rules below are normative. Milestone numbers explain when features were introduced; they are not a current implementation backlog. Confirm native API availability and current app behavior against `apps/ios/` and its architecture tests before changing platform boundaries.
+
 The Tilecast iOS app is a native host for Tilecast Studio. SwiftUI owns the Apple-platform shell and system integrations. The Studio React frontend, loaded from the configured server, stays the authoritative interface for Tilecast product surfaces. Shared contracts connect the two.
 
 The app is in `apps/ios`. It targets iOS 26 and iPadOS 26 and later, uses Swift 6 with complete concurrency checking. Its only package dependencies are Apple's Swift OpenAPI Generator, OpenAPI Runtime, OpenAPI URLSession transport, and HTTP Types.

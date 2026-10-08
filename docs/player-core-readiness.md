@@ -1,7 +1,6 @@
 # Native Player Core readiness review
 
-**Status:** Stage 12 review in progress. The extraction is not fully qualified.
-This review does not authorize a production Edge rollout or create a macOS app.
+**Status: stage 12 qualification ledger; evidence is scoped to its recorded commits and test environments.** The review does not authorize a general production Edge rollout or create a macOS app. Check the latest release and per-hardware evidence before interpreting any historical stage as current qualification.
 The governing contract is [`player-core.md`](player-core.md).
 
 ## Ownership audit

@@ -75,7 +75,7 @@ Require these stable check names in the branch ruleset:
 
 All three workflows run for every PR. An aggregate fails when detection fails, a selected job fails or is cancelled, or a selected job is skipped. The aggregate uses only the runner shell after its dependencies finish; it does not check out the repository or install Node. The contract tests require every validation job to appear in the aggregate dependencies and exercise the fail-closed shell logic.
 
-On 2026-09-28, the active `Main branch ruleset` requires a PR but contains no required status checks. There is no separate legacy protection rule on `main`. These workflows define the intended check contract. Repository administrators must configure the required checks in the ruleset.
+**Historical configuration observation (2026-09-28, not a present-day guarantee):** the active `Main branch ruleset` required a PR but contained no required status checks. There is no separate legacy protection rule on `main`. These workflows define the intended check contract. Repository administrators must configure the required checks in the ruleset.
 
 The documentation formatting check on a PR covers the Markdown files that the PR changes. It does not fail a PR for formatting that was already wrong on `main`. The runs on `main` and the manual runs check every document.
 
