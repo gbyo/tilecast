@@ -2239,7 +2239,8 @@ export function ScreenGridCard({
     csrfToken,
     enabled: canRequestPreview,
     capturedAt: preview.data?.capturedAt,
-    protectedPreview: preview.data?.captureFailureStatus?.startsWith("sensitive_"),
+    protectedPreview:
+      preview.data?.captureFailureStatus?.startsWith("sensitive_") ?? false,
   });
   const image =
     preview.data?.imageAvailable && preview.data.updatedAt
