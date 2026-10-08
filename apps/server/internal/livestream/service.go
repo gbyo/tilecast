@@ -18,10 +18,17 @@ const (
 	MaxWidth      = 640
 	MaxHeight     = 360
 	frameHeader   = 33
+
+	// A healthy Watch Live stream should deliver frames many times per second.
+	// These deliberately generous bounds detect an actual stall without
+	// treating normal capture jitter as a failure.
+	FrameStaleAfter       = 5 * time.Second
+	FrameNudgeCooldown    = 3 * time.Second
 )
 
 var (
 	ErrNotFound     = errors.New("live stream session was not found")
+	ErrReplaced     = errors.New("live stream session was replaced")
 	ErrInvalidFrame = errors.New("live stream frame is invalid")
 )
 
@@ -39,7 +46,9 @@ type Session struct {
 	FrameIntervalMillis int       `json:"frameIntervalMillis"`
 	MaxWidth            int       `json:"maxWidth"`
 	MaxHeight           int       `json:"maxHeight"`
-	MaxFrameBytes       int       `json:"maxFrameBytes"`
+	MaxFrameBytes       int        `json:"maxFrameBytes"`
+	LastFrameAt         *time.Time `json:"lastFrameAt,omitempty"`
+	FrameSequence       uint64     `json:"frameSequence"`
 }
 
 type Frame struct {
@@ -51,6 +60,8 @@ type Frame struct {
 
 type activeSession struct {
 	Session
+	startedAt   time.Time
+	lastNudgeAt time.Time
 	done        chan struct{}
 	subscribers map[chan Frame]struct{}
 }
@@ -87,6 +98,7 @@ func (s *Service) Start(screenID uuid.UUID) Session {
 			MaxHeight:           MaxHeight,
 			MaxFrameBytes:       MaxFrameBytes,
 		},
+		startedAt:   now,
 		done:        make(chan struct{}),
 		subscribers: make(map[chan Frame]struct{}),
 	}
@@ -98,25 +110,49 @@ func (s *Service) Start(screenID uuid.UUID) Session {
 }
 
 func (s *Service) Renew(screenID, sessionID uuid.UUID) (Session, error) {
+	now := s.now().UTC()
 	s.mu.Lock()
 	active := s.activeLocked(screenID)
-	if active == nil || active.ID != sessionID {
+	if active == nil {
 		s.mu.Unlock()
 		return Session{}, ErrNotFound
 	}
-	active.ExpiresAt = s.now().UTC().Add(LeaseDuration)
+	if active.ID != sessionID {
+		s.mu.Unlock()
+		return Session{}, ErrReplaced
+	}
+	active.ExpiresAt = now.Add(LeaseDuration)
+
+	// A renewal doubles as a low-cost health observation. Healthy renewals do
+	// not wake the Player. A stream that has never produced a frame or whose
+	// last accepted frame is old gets a rate-limited reconcile nudge.
+	staleSince := active.startedAt
+	if active.LastFrameAt != nil {
+		staleSince = *active.LastFrameAt
+	}
+	shouldNudge := now.Sub(staleSince) >= FrameStaleAfter &&
+		(active.lastNudgeAt.IsZero() || now.Sub(active.lastNudgeAt) >= FrameNudgeCooldown)
+	if shouldNudge {
+		active.lastNudgeAt = now
+	}
 	result := active.Session
 	s.mu.Unlock()
-	s.notify(screenID)
+	if shouldNudge {
+		s.notify(screenID)
+	}
 	return result, nil
 }
 
 func (s *Service) End(screenID, sessionID uuid.UUID) error {
 	s.mu.Lock()
 	active := s.activeLocked(screenID)
-	if active == nil || active.ID != sessionID {
+	if active == nil {
 		s.mu.Unlock()
 		return ErrNotFound
+	}
+	if active.ID != sessionID {
+		s.mu.Unlock()
+		return ErrReplaced
 	}
 	delete(s.sessions, screenID)
 	close(active.done)
@@ -155,6 +191,10 @@ func (s *Service) Publish(screenID, sessionID uuid.UUID, frame Frame) error {
 		return ErrNotFound
 	}
 	frame.JPEG = bytes.Clone(frame.JPEG)
+	acceptedAt := s.now().UTC()
+	active.LastFrameAt = &acceptedAt
+	active.FrameSequence++
+	active.lastNudgeAt = time.Time{}
 	for subscriber := range active.subscribers {
 		select {
 		case subscriber <- frame:
