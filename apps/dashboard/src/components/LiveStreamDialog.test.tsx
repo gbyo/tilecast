@@ -130,6 +130,68 @@ describe("LiveStreamDialog", () => {
     );
   });
 
+  it("does not steal a session that another viewer replaced", async () => {
+    const session = {
+      id: "session-old",
+      screenId: "screen-1",
+      active: true,
+      expiresAt: "2026-07-30T12:00:15Z",
+      frameIntervalMillis: 125,
+      maxWidth: 640,
+      maxHeight: 360,
+      maxFrameBytes: 102400,
+      frameSequence: 1,
+      lastFrameAt: new Date().toISOString(),
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: session }), { status: 201 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "live_stream_replaced",
+              message: "Another viewer replaced this live stream session.",
+            },
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        ),
+      )
+      .mockResolvedValue(new Response(null, { status: 204 }));
+
+    render(
+      <LiveStreamDialog
+        open
+        screenId="screen-1"
+        screenName="Lobby"
+        csrfToken="csrf"
+        onClose={() => undefined}
+      />,
+    );
+    await screen.findByAltText("Live Tilecast output from Lobby");
+
+    vi.useFakeTimers();
+    await act(async () => {
+      vi.advanceTimersByTime(3_000);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("Stream unavailable")).toBeTruthy();
+    expect(
+      screen.getByText("Another viewer started Watch Live for this screen."),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Retry stream" })).toBeNull();
+
+    await act(async () => {
+      vi.advanceTimersByTime(12_000);
+      await Promise.resolve();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("recreates an expired session but does not require a page reload", async () => {
     const session = (id: string) => ({
       id,
