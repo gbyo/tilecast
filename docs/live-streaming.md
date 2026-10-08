@@ -12,7 +12,22 @@ dialog remains open. Closing the dialog explicitly ends the session. The lease
 is the backstop when a browser disappears without running cleanup.
 
 Only one live-stream session is active per screen. Starting another replaces
-the previous session and closes its viewer.
+the previous session and closes its viewer. Studio distinguishes that
+replacement from an expired session: an expired session can be recreated
+automatically, while an older viewer never steals the session back from a
+newer viewer.
+
+The server tracks only two in-memory health hints for the active session: the
+arrival time of the last accepted frame and a monotonically increasing frame
+sequence. Studio observes those hints during lease renewal. A healthy renewal
+does not wake the Player; if accepted frames stop for five seconds, the server
+sends a rate-limited session-change nudge and Studio reconnects the MJPEG
+relay with bounded exponential backoff. A lost session after expiry or a
+server restart is recreated with bounded backoff. A transient MJPEG connection
+failure is retried automatically before Studio falls back to the manual
+**Retry stream** action.
+
+Changing Studio language does not restart the live-stream lease.
 
 The target is 8 frames per second at no more than 640×360. Capture, JPEG
 encoding, player performance, and network latency can lower the actual frame
