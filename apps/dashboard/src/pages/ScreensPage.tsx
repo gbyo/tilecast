@@ -2243,8 +2243,12 @@ export function ScreenGridCard({
       preview.data?.captureFailureStatus?.startsWith("sensitive_") ?? false,
   });
   const image =
-    preview.data?.imageAvailable && (preview.data.capturedAt || preview.data.updatedAt)
-      ? api.screenPreviewImageUrl(screen.id, preview.data.capturedAt ?? preview.data.updatedAt)
+    preview.data?.imageAvailable &&
+    (preview.data.capturedAt || preview.data.updatedAt)
+      ? api.screenPreviewImageUrl(
+          screen.id,
+          preview.data.capturedAt ?? preview.data.updatedAt,
+        )
       : undefined;
   const age = preview.data?.capturedAt
     ? previewAge(preview.data.capturedAt, now, t)
