@@ -4250,13 +4250,11 @@ export function ScreenDetailPage() {
                       />
                       <OverviewFact
                         label={t("detail.factPlatform")}
-                        value={
-                          `${screenPlayerLabel(screen, t)} ${
-                            isAndroidScreen(screen.platform)
-                              ? (screen.androidVersion ?? "")
-                              : ""
-                          }`.trim()
-                        }
+                        value={`${screenPlayerLabel(screen, t)} ${
+                          isAndroidScreen(screen.platform)
+                            ? (screen.androidVersion ?? "")
+                            : ""
+                        }`.trim()}
                       />
                       <OverviewFact
                         label={t("detail.factPlayerVersion")}

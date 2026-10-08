@@ -12,6 +12,12 @@ rust-version.workspace = true
 # TILECAST_UPDATE_CRASH_AT. A release build must not enable it
 # (build-edge-release.sh checks the binary).
 integration-test = []
+# The systemd integration test only: a helper that behaves like the Edge 0.2.0
+# helper, which does not know the field-workaround cleanup. The update test
+# builds its base release with it, because the helper that orchestrates the
+# 0.2.0 -> 0.2.1 update and any rollback from it is the 0.2.0 helper. A
+# release build must not enable it.
+legacy-helper-emulation = []
 
 [dependencies]
 async-trait.workspace = true

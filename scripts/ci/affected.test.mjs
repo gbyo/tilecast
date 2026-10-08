@@ -366,10 +366,11 @@ test("shared schema contracts distinguish players from ordinary API consumers", 
     "e2e",
     "server",
   ]);
-  assert.deepEqual(
-    selected(["packages/api-schema/generated/openapi.d.ts"]),
-    ["container", "dashboard", "e2e"],
-  );
+  assert.deepEqual(selected(["packages/api-schema/generated/openapi.d.ts"]), [
+    "container",
+    "dashboard",
+    "e2e",
+  ]);
   for (const path of [
     "packages/api-schema/README.md",
     "packages/manifest-schema/README.md",

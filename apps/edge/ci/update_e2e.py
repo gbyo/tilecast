@@ -12,6 +12,11 @@ update coordinator, and the server's Player Updates deployments.
                       0.4.0 (a deliberately broken daemon and helper), upload
                       them through the ordinary release upload, and check that
                       the server refuses a tampered envelope
+  update-field-rollback  R: 0.1.0 -> 0.5.0 (broken) on a screen that carries
+                      the exact 0.2.0 field-workaround files; the previous
+                      release's helper (which has no cleanup, like the 0.2.0
+                      helper) rolls back, and the files are exactly as they
+                      were
   update-success      A: 0.1.0 -> 0.2.0. The download is throttled and the
                       daemon is killed half way, so it resumes; the candidate
                       is staged, activated, runs provisionally, confirms after
@@ -23,6 +28,11 @@ update coordinator, and the server's Player Updates deployments.
   update-broken       C: 0.2.0 -> 0.4.0, whose daemon cannot start and whose
                       helper cannot run; the previous release's guard rolls
                       back and nothing activates the candidate again
+
+The base release 0.1.0 stands for Edge 0.2.0: its update helper is built with
+`legacy-helper-emulation`, because the helper that orchestrates the 0.2.0 ->
+0.2.1 update, its guard and its rollback is the 0.2.0 helper. The candidates
+0.2.0 and later stand for 0.2.1 and carry the cleanup.
 
 Each scenario starts from the release the one before left current, because an
 installed release is never replaced by an older one: A leaves 0.2.0 current,
@@ -54,6 +64,26 @@ GUARD_SERVICE = "/etc/systemd/system/tilecast-edge-update-guard.service"
 GUARD_TIMER = "/etc/systemd/system/tilecast-edge-update-guard.timer"
 EDGE_UNITS = ("tilecast-edge.service", "tilecast-web-renderer.service", "tilecast-renderer.service")
 ARCH = os.uname().machine
+# The exact bytes of the 0.2.0 field workaround as it was deployed.
+FIELD = os.path.join(EDGE, "tilecast-edge-update", "tests", "field-workaround")
+FIELD_FILES = {
+    f"{FIELD}/tilecast-renderer-selftest.service.d/edge-0.2.0-field-fix.conf":
+        "/etc/systemd/system/tilecast-renderer-selftest.service.d/edge-0.2.0-field-fix.conf",
+    f"{FIELD}/tilecast-renderer.service.d/edge-0.2.0-field-fix.conf":
+        "/etc/systemd/system/tilecast-renderer.service.d/edge-0.2.0-field-fix.conf",
+    f"{FIELD}/tilecast-web-renderer.service.d/edge-0.2.0-field-fix.conf":
+        "/etc/systemd/system/tilecast-web-renderer.service.d/edge-0.2.0-field-fix.conf",
+    f"{FIELD}/tilecast-edge-selftest.service.d/edge-0.2.0-field-fix.conf":
+        "/etc/systemd/system/tilecast-edge-selftest.service.d/edge-0.2.0-field-fix.conf",
+    f"{FIELD}/selftest-0.2.0-field.toml": "/etc/tilecast-edge/selftest-0.2.0-field.toml",
+}
+FIELD_HASHES = {
+    "tilecast-renderer-selftest.service.d": "16b3c5ee08191aa111ab72949a17fce5b334776cfa7d7f218fac3be416f1ddbc",
+    "tilecast-renderer.service.d": "c1f0cd083640731cc682bd16ba6ddfd875c7c00692261447e67f8666258490e6",
+    "tilecast-web-renderer.service.d": "9cb35e76c1ec8ef982fb46ef6ecf57a9a0c14474b04f7e2c497e16e86b8cb9d0",
+    "tilecast-edge-selftest.service.d": "ce3d1dea27aba5d24346bdb4ba4870a80264df026b27b1ccd5168cc9db00545c",
+    "selftest-0.2.0-field.toml": "50b452f6af225015935c34a17490d6dbbec24c495a525d6aa255a03395e0515d",
+}
 # CAP_CHOWN, CAP_DAC_OVERRIDE, CAP_DAC_READ_SEARCH, CAP_FOWNER, CAP_FSETID.
 HELPER_CAPABILITIES = "000000000000001f"
 BROKEN = "#!/bin/sh\necho 'e2e: deliberately broken Tilecast Edge candidate' >&2\nexit 70\n"
@@ -381,6 +411,47 @@ def artifact_of(version):
     return m.load("update-releases.json")[version]
 
 
+
+# ---- the 0.2.0 field workaround -----------------------------------------------------
+
+
+def install_field_workaround():
+    """Writes the five files exactly as they were deployed in the field."""
+    for source, target in FIELD_FILES.items():
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(source, "rb") as handle:
+            data = handle.read()
+        # The fixtures are the deployed bytes: check them against the digests
+        # recorded from the machines, so a fixture cannot drift.
+        key = next(k for k in FIELD_HASHES if k in source)
+        assert hashlib.sha256(data).hexdigest() == FIELD_HASHES[key], source
+        with open(target, "wb") as handle:
+            handle.write(data)
+        os.chmod(target, 0o644)
+    m.run("systemctl", "daemon-reload")
+
+
+def assert_field_workaround(present, context):
+    """All five files are byte-identical to the deployed ones (present), or
+    all gone."""
+    for source, target in FIELD_FILES.items():
+        if present:
+            with open(source, "rb") as a, open(target, "rb") as b:
+                assert a.read() == b.read(), f"{context}: {target} differs from the deployed bytes"
+            assert mode_of(target)[2] == "0o644", f"{context}: {target} {mode_of(target)}"
+        else:
+            assert not os.path.lexists(target), f"{context}: {target} remains"
+    for unit in ("tilecast-renderer", "tilecast-renderer-selftest", "tilecast-web-renderer", "tilecast-edge-selftest"):
+        directory = f"/etc/systemd/system/{unit}.service.d"
+        if not present:
+            assert not os.path.exists(f"{directory}/edge-0.2.0-field-fix.conf"), context
+
+
+def renderer_environment():
+    return show("tilecast-renderer.service", "Environment")["Environment"]
+
+
+
 # ---- releases ------------------------------------------------------------------
 
 
@@ -438,7 +509,7 @@ def package(version, tree):
 def update_releases():
     environment = m.env()
     built = {}
-    for version, broken in (("0.2.0", False), ("0.3.0", False), ("0.4.0", True)):
+    for version, broken in (("0.2.0", False), ("0.3.0", False), ("0.4.0", True), ("0.5.0", True)):
         bin_dir = os.path.join(RELEASES, version, "bin")
         os.makedirs(bin_dir, exist_ok=True)
         if not broken:
@@ -491,7 +562,46 @@ def update_releases():
     m.save("update-releases.json", built)
     # The migration state an update must leave alone.
     m.save("migration-accepted.json", m.attempt())
-    print("update-releases: 0.2.0, 0.3.0 and 0.4.0 (broken) signed and imported; a tampered envelope was refused")
+    print("update-releases: 0.2.0, 0.3.0, 0.4.0 and 0.5.0 (broken) signed and imported; a tampered envelope was refused")
+
+
+
+# ---- R: a failed update on a screen with the field workaround -------------------------
+
+
+def update_field_rollback():
+    """The exact 0.2.0 field files are on the machine; an update that fails
+    rolls back to the base release, whose helper (like the 0.2.0 helper) has no
+    cleanup, and leaves the files exactly as they were: the 0.2.0 renderer
+    still gets what it needs. Nothing removes them during the window either."""
+    screen = m.load("screen.json")["screenId"]
+    e2e.wait_for(lambda: e2e.psql(f"SELECT player_family||'/'||player_architecture FROM screen_player_status "
+                                  f"WHERE screen_id='{screen}'") == f"edge/{ARCH}",
+                 "the screen to report the edge family and its architecture", 120)
+    wait_healthy("0.1.0", "before R")
+    install_field_workaround()
+    assert_field_workaround(True, "R installed")
+    release = artifact_of("0.5.0")
+    deployment = deploy(owner(), release["releaseId"], "E2E broken update to 0.5.0 with the field workaround")
+    e2e.wait_for(lambda: (open_transaction() or {}).get("candidate", {}).get("versionName") == "0.5.0"
+                 and open_transaction()["phase"] == "provisional", "0.5.0 provisional", 600)
+    assert_field_workaround(True, "R provisional")
+
+    def rolled_back():
+        done = finished_transaction()
+        return done if done and done["candidate"]["versionName"] == "0.5.0" and done["phase"] == "rolled_back" else None
+
+    finished = e2e.wait_for(rolled_back, "the guard to roll 0.5.0 back", 720)
+    guard = own_entries("tilecast-edge-update-guard.service")
+    assert {e.get("_EXE") for e in guard} == {f"{INSTALL}/0.1.0/bin/tilecast-edge-update"}, \
+        {e.get("_EXE") for e in guard}
+    wait_healthy("0.1.0", "R after rollback", 240)
+    assert_field_workaround(True, "R after rollback")
+    e2e.wait_for(lambda: server_target(deployment)[0] == "failed", "the server to see the rollback", 180)
+    assert not os.path.exists(f"{STATE}/field-workaround.json"), "the previous release's helper cleaned nothing"
+    assert not os.path.exists(f"{STATE}/field-workaround-backup")
+    print(f"update-field-rollback: 0.5.0 failed ({finished['reason']}) and was rolled back to 0.1.0; the five "
+          "field-workaround files are byte-identical and nothing removed them")
 
 
 # ---- A: a successful update ------------------------------------------------------
@@ -548,6 +658,13 @@ def update_success():
     status = wait_healthy("0.2.0", "A provisional", 240)
     assert status["update"]["state"] in ("provisional", "confirmed"), status["update"]
     assert_helper_boundary("A provisional")
+    # The field files are still there, because the 0.2.0 helper that runs this
+    # update does not know them and nothing removes them during the window,
+    # yet the candidate's renderers refuse the variable that disables the
+    # sandbox: WebKit still runs in bubblewrap.
+    assert_field_workaround(True, "A provisional")
+    assert "WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1" in renderer_environment(), renderer_environment()
+    m.check_webkit_sandbox(leftover_workaround=True)
     # The candidate reports on its next coordinator pass (10 s) after its
     # link is up.
     e2e.wait_for(lambda: server_target(deployment)[0] in ("reconnecting", "succeeded"),
@@ -572,9 +689,54 @@ def update_success():
     assert {"0.1.0", "0.2.0"} <= set(helper["installed"]) and helper["current"]["versionName"] == "0.2.0", helper
     assert_switch_order(started_usec, "0.2.0", "tilecast-edge-update.service", "A")
     assert_migration_untouched("A")
+    settle_field_workaround()
     events = [e["detail"] for e in finished["events"]]
     print(f"update-success: 0.2.0 confirmed about {confirmed_after:.0f} s after the test first saw it provisional; "
           f"transaction events: {events}")
+
+
+
+def settle_field_workaround():
+    """After the confirmation the 0.2.1 helper next starts and removes the
+    exact field files; an edited file at a listed path is left and reported."""
+    assert_field_workaround(True, "A confirmed")  # the 0.2.0 helper cleaned nothing
+    # What the daemon's periodic status request does once the previous
+    # helper has gone: the release's own helper starts.
+    m.run("systemctl", "stop", "tilecast-edge-update.service")
+    m.run("systemctl", "start", "tilecast-edge-update.service")
+    e2e.wait_for(lambda: os.path.exists(f"{STATE}/field-workaround.json"), "the field workaround cleanup", 60)
+    assert_field_workaround(False, "A cleaned")
+    report = read_json(f"{STATE}/field-workaround.json")
+    assert len(report["removed"]) == 5 and report["unknownOverrides"] == [], report
+    assert not os.path.exists(f"{STATE}/field-workaround-backup"), "the backup is discarded after the reload"
+    assert "WEBKIT_DISABLE_SANDBOX" not in renderer_environment(), renderer_environment()
+    for unit in ("tilecast-renderer.service", "tilecast-web-renderer.service"):
+        paths = show(unit, "DropInPaths")["DropInPaths"]
+        assert "field-fix" not in paths, (unit, paths)
+    m.check_webkit_sandbox()
+    wait_healthy("0.2.0", "A after the cleanup")
+
+    # An administrator's own file at a listed path is not the deployed
+    # content: it stays, and the helper reports it.
+    edited = "/etc/systemd/system/tilecast-web-renderer.service.d/edge-0.2.0-field-fix.conf"
+    os.makedirs(os.path.dirname(edited), exist_ok=True)
+    mine = b"[Service]\nEnvironment=WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1\nEnvironment=MINE=1\n"
+    with open(edited, "wb") as handle:
+        handle.write(mine)
+    m.run("systemctl", "daemon-reload")
+    m.run("systemctl", "stop", "tilecast-edge-update.service")
+    m.run("systemctl", "start", "tilecast-edge-update.service")
+    e2e.wait_for(lambda: read_json(f"{STATE}/field-workaround.json")["unknownOverrides"], "the unknown override", 60)
+    with open(edited, "rb") as handle:
+        assert handle.read() == mine, "an unknown administrator override is never touched"
+    report = json.loads(output(f"{INSTALL}/current/bin/tilecast-edge-update", "overrides"))
+    assert [item["path"] for item in report["unknownAdministratorOverrides"]] == [edited], report
+    assert report["deployedFilesPresent"] == [], report
+    os.remove(edited)
+    os.rmdir(os.path.dirname(edited))
+    m.run("systemctl", "daemon-reload")
+    print("update-success: after the confirmation the 0.2.1 helper removed the five exact field files and reloaded; "
+          "an edited file at a listed path stayed and was reported")
 
 
 # ---- B: power loss while provisional --------------------------------------------
@@ -701,7 +863,8 @@ def print_diagnostics():
               flush=True)
 
 
-PHASES = {"update-releases": update_releases, "update-success": update_success,
+PHASES = {"update-releases": update_releases, "update-field-rollback": update_field_rollback,
+          "update-success": update_success,
           "update-provisional": update_provisional, "update-after-reboot": update_after_reboot,
           "update-broken": update_broken}
 

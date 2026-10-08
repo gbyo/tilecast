@@ -35,6 +35,12 @@ docker create --name "$name" --privileged --tmpfs /run --tmpfs /run/lock \
 # KEEP=1 leaves the container for debugging.
 trap '[ "${KEEP:-0}" = 1 ] || docker rm -f "$name" >/dev/null 2>&1 || true' EXIT
 start
+# WebKit's bubblewrap sandbox mounts /proc in a user namespace. Ubuntu 24.04
+# hosts (GitHub runners, Colima) restrict that for unconfined programs, which
+# the privileged container shares with its host. A kernel without the
+# setting needs nothing.
+docker exec "$name" sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 >/dev/null 2>&1 || true
+inside preflight
 inside setup
 inside import-failure
 inside crash
@@ -44,12 +50,17 @@ docker kill "$name" >/dev/null
 start
 inside after-reboot
 inside accept
+echo "== power loss after acceptance"
+docker kill "$name" >/dev/null
+start
+inside accepted-reboot
 # M10: updates of the accepted Edge through the real helper (update_e2e.py).
 update() {
   echo "== $1"
   docker exec "$name" python3 /src/apps/edge/ci/update_e2e.py "$1"
 }
 update update-releases
+update update-field-rollback
 update update-success
 update update-provisional
 echo "== power loss while provisional"

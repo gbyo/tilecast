@@ -68,7 +68,14 @@ IDs, and timezone observations and constructs one shared PlayerCore instance.
 - `tilecastd` runs as the fixed `tilecast` account. The renderer runs as the
   same account in a separate, more restricted unit.
 - The Linux renderer is WPE WebKit 2.54+ on the WPEPlatform API. Do not add
-  Cog, libwpe, WPEBackend-fdo or an Electron renderer bridge.
+  Cog, libwpe, WPEBackend-fdo or an Electron renderer bridge to Tilecast code.
+  The private WebKit build links `libwpe-1.0.so.1` itself; the release carries
+  it (`release/runtime_closure.py`), and a release must stay dependency closed.
+- WebKit's own bubblewrap sandbox is always on in a release. Never set
+  `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS` in a unit or drop-in, and do not
+  add `ProtectKernelTunables=`, `ProtectKernelLogs=`, `RestrictSUIDSGID=`,
+  `RestrictNamespaces=` or `SystemCallFilter=` to a unit that starts WebKit:
+  each one stops bubblewrap (`docs/tilecast-edge-sandbox-review.md` §4).
 - Electron and WPE host the shared Tilecast Player Runtime
   (`packages/player-runtime`). Presentation behavior belongs in the runtime,
   never in C. The WPE host stays boring: WPEPlatform and web view lifecycle,
@@ -136,7 +143,11 @@ The ones most often relevant here:
     systemd's seccomp options change what a syscall returns: for example,
     `RestrictSUIDSGID=` makes `openat2` fail with `ENOSYS`, so the helper
     uses `edge_platform::fs::open_regular_no_links`. `ci/run-migrate-e2e.sh`
-    runs the real units.
+    runs the real units, with WebKit's sandbox on.
+11. The helper that runs an update is the previous release's. Nothing a release
+    adds to the helper runs during its own update or its rollback. A change
+    that must act on the previous release's files runs after confirmation
+    (`docs/tilecast-edge-sandbox-review.md` §7).
 
 ## Identity invariants
 

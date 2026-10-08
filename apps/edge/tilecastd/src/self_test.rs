@@ -19,6 +19,18 @@
 //! reported content evidence for every fixture item: an image shown, video
 //! progress, a render tree or a layout drawn. A connected renderer, or a unit
 //! that systemd reports as running, is not enough.
+//!
+//! Failures name the layer that failed. The fixture is imported and activated
+//! here, not by the daemon's development task, so an import or activation
+//! error ends the run at once with `fixture_import_failed` (or
+//! `fixture_invalid`, `fixture_activation_failed`, `content_store_unavailable`)
+//! and a bounded detail, rather than as a `fixture_not_active` timeout.
+//!
+//! The content store has its own policy, never the production one: the
+//! fixture is a few dozen kilobytes in a runtime directory that is usually a
+//! small tmpfs, and the production reserve of free space (1 GiB) would refuse
+//! it there. The policy bounds the self-test's own store and reserves nothing
+//! on a filesystem that holds only this run.
 
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -28,9 +40,14 @@ use edge_platform::systemd::Notifier;
 use edge_protocol::ipc::presentation::PresentationDocument;
 use serde::Serialize;
 
-use crate::config::EdgeConfig;
+use crate::config::{CasConfig, EdgeConfig};
 use crate::daemon::{Daemon, Environment};
+use crate::fixture::bounded_detail;
 use crate::presentation::ActivationSource;
+
+/// The self-test content store: far more than the built-in fixture needs, and
+/// bounded so a malformed fixture cannot fill the runtime tmpfs.
+pub const CAS_LIMIT_BYTES: u64 = 16 * 1024 * 1024;
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(90);
 pub const TIMEOUT_RANGE_SECONDS: std::ops::RangeInclusive<u64> = 10..=600;
@@ -43,6 +60,9 @@ pub struct SelfTestReport {
     pub outcome: &'static str,
     /// Why the self-test failed.
     pub reason: Option<&'static str>,
+    /// One bounded printable line that says more about `reason`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
     pub daemon_version: &'static str,
     pub renderer: Option<RendererReport>,
     pub expected_items: Vec<String>,
@@ -69,53 +89,96 @@ impl SelfTestReport {
     }
 }
 
+/// The content store policy of the self-test host.
+pub fn cas_config() -> CasConfig {
+    CasConfig { limit_bytes: CAS_LIMIT_BYTES, reserved_free_bytes: 0, max_concurrent_downloads: 1 }
+}
+
 /// Runs the self-test host under `runtime_root` until the fixture is proven
 /// or `timeout` passes.
 pub async fn run(fixture: PathBuf, runtime_root: PathBuf, timeout: Duration) -> SelfTestReport {
+    run_with(fixture, runtime_root, timeout, Environment::default()).await
+}
+
+/// [`run`] with the host facts (clock, free space) supplied by the caller.
+pub async fn run_with(
+    fixture: PathBuf,
+    runtime_root: PathBuf,
+    timeout: Duration,
+    environment: Environment,
+) -> SelfTestReport {
     let started = Instant::now();
     let mut config = EdgeConfig::default();
     config.paths.state_dir = Some(runtime_root.join("state"));
     config.paths.runtime_dir = Some(runtime_root.clone());
-    config.dev.fixture = Some(fixture);
+    config.cas = cas_config();
+    // The fixture is activated below so that its failure is reported here.
+    config.dev.fixture = None;
     // The self-test runs before the cutover, while the legacy player still
     // owns the display: it sends nothing to the TV or monitor.
     config.display.cec_enabled = false;
     config.display.ddc_enabled = false;
     config.dev.idle_inhibit = Some(false);
     config.log = crate::config::LogConfig::default();
-    let failed = |reason, renderer, expected, proven, started: Instant| SelfTestReport {
+    let failed = |reason, detail: Option<String>, renderer, expected, proven, started: Instant| SelfTestReport {
         outcome: "failed",
         reason: Some(reason),
+        detail,
         daemon_version: crate::daemon::VERSION,
         renderer,
         expected_items: expected,
         proven_items: proven,
         elapsed_ms: started.elapsed().as_millis() as u64,
     };
-    let daemon = match Daemon::start_with(config, Notifier::disabled(), Environment::default()).await {
+    let daemon = match Daemon::start_with(config, Notifier::disabled(), environment).await {
         Ok(daemon) => daemon,
         Err(error) => {
-            tracing::error!(component = "self_test", event = "start_failed", error = format!("{error:#}"));
-            return failed("daemon_start_failed", None, vec![], vec![], started);
+            let detail = bounded_detail(&format!("{error:#}"));
+            tracing::error!(component = "self_test", event = "start_failed", error = detail);
+            return failed("daemon_start_failed", Some(detail), None, vec![], vec![], started);
         }
     };
     let context = daemon.context().clone();
     let shutdown = context.shutdown.clone();
     let running = tokio::spawn(daemon.run());
 
+    let report = match crate::fixture::activate(&context, &fixture).await {
+        Err(error) => {
+            tracing::error!(component = "self_test", event = "fixture_failed", reason = error.reason(), error = %error);
+            failed(error.reason(), Some(error.detail()), None, vec![], vec![], started)
+        }
+        Ok(_) => wait_for_proof(&context, started, timeout).await,
+    };
+    shutdown.cancel();
+    let _ = tokio::time::timeout(Duration::from_secs(10), running).await;
+    report
+}
+
+async fn wait_for_proof(context: &crate::daemon::DaemonContext, started: Instant, timeout: Duration) -> SelfTestReport {
+    let failed = |reason, renderer, expected, proven| SelfTestReport {
+        outcome: "failed",
+        reason: Some(reason),
+        detail: None,
+        daemon_version: crate::daemon::VERSION,
+        renderer,
+        expected_items: expected,
+        proven_items: proven,
+        elapsed_ms: started.elapsed().as_millis() as u64,
+    };
     let deadline = started + timeout;
-    let report = loop {
+    loop {
         let observation = {
             let engine = context.presentation.lock().await;
             observe(&engine)
         };
         if let Some(reason) = observation.failure {
-            break failed(reason, observation.renderer, observation.expected, observation.proven, started);
+            return failed(reason, observation.renderer, observation.expected, observation.proven);
         }
         if observation.passed {
-            break SelfTestReport {
+            return SelfTestReport {
                 outcome: "passed",
                 reason: None,
+                detail: None,
                 daemon_version: crate::daemon::VERSION,
                 renderer: observation.renderer,
                 expected_items: observation.expected,
@@ -129,13 +192,10 @@ pub async fn run(fixture: PathBuf, runtime_root: PathBuf, timeout: Duration) -> 
                 (Some(_), false) => "fixture_not_active",
                 (Some(_), true) => "evidence_timeout",
             };
-            break failed(reason, observation.renderer, observation.expected, observation.proven, started);
+            return failed(reason, observation.renderer, observation.expected, observation.proven);
         }
         tokio::time::sleep(POLL).await;
-    };
-    shutdown.cancel();
-    let _ = tokio::time::timeout(Duration::from_secs(10), running).await;
-    report
+    }
 }
 
 struct Observation {

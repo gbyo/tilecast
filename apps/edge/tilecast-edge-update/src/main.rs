@@ -24,6 +24,9 @@ enum Command {
     Status,
     /// Return to the previous release while an update is provisional.
     Rollback,
+    /// Print the Edge 0.2.0 field-workaround files that are present, the
+    /// unknown administrator overrides at their paths, and the last cleanup.
+    Overrides,
 }
 
 fn main() -> ExitCode {
@@ -59,6 +62,7 @@ mod linux_main {
     use std::time::Duration;
 
     use edge_release::install::Layout;
+    use tilecast_edge_update::field_workaround;
     use tilecast_edge_update::linux::LinuxHost;
     use tilecast_edge_update::server::{DaemonOnly, IDLE_EXIT, serve};
     use tilecast_edge_update::transaction::{STATE_DIR, TransactionStore, UpdateLock};
@@ -67,6 +71,7 @@ mod linux_main {
     use super::{Cli, Command};
 
     const CAS_ROOT: &str = "/var/lib/tilecast-edge/cas";
+    const CONFIG_DIR: &str = "/etc/tilecast-edge";
     const LOCK_WAIT: Duration = Duration::from_secs(300);
 
     fn tilecast_uid() -> Option<u32> {
@@ -116,12 +121,34 @@ mod linux_main {
             tilecast_uid: Some(uid),
             reserve_bytes: WORK_RESERVE_BYTES,
         };
-        let updater = Updater::new(&host, layout, store.clone(), key, paths).crash_at(crash_point());
+        let roots = field_workaround::Roots {
+            unit_dir: layout.unit_dir.clone(),
+            config_dir: PathBuf::from(CONFIG_DIR),
+            state_dir: PathBuf::from(STATE_DIR),
+            probation_file: PathBuf::from(edge_platform::paths::MIGRATION_PROBATION_FILE),
+        };
+        let updater = Updater::new(&host, layout, store.clone(), key, paths)
+            .crash_at(crash_point())
+            .with_field_workaround(roots.clone());
         match cli.command {
             Command::Status => {
                 print(&updater.status());
                 ExitCode::SUCCESS
             }
+            Command::Overrides => match field_workaround::scan(&roots, field_workaround::KNOWN) {
+                Ok(scan) => {
+                    print(&serde_json::json!({
+                        "deployedFilesPresent": scan.known_present,
+                        "unknownAdministratorOverrides": scan.unknown_overrides,
+                        "lastCleanup": field_workaround::last_report(&roots.state_dir),
+                    }));
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    eprintln!("tilecast-edge-update: {error}");
+                    ExitCode::FAILURE
+                }
+            },
             Command::Serve => {
                 let listener = match edge_platform::activation::take_listen_socket()
                     .map(std::os::unix::net::UnixListener::from)
@@ -138,10 +165,15 @@ mod linux_main {
                 };
                 // Whatever the previous helper process left unfinished is
                 // settled before a new request is served.
-                if let Ok(_lock) = UpdateLock::acquire(store.dir(), LOCK_WAIT).await
-                    && let Err(error) = updater.guard().await
-                {
-                    tracing::error!(component = "update", event = "recovery_failed", error = %error);
+                if let Ok(_lock) = UpdateLock::acquire(store.dir(), LOCK_WAIT).await {
+                    if let Err(error) = updater.guard().await {
+                        tracing::error!(component = "update", event = "recovery_failed", error = %error);
+                    }
+                    // Once this release is the confirmed current one, the
+                    // 0.2.0 field workaround is not needed again.
+                    if let Err(error) = updater.settle_field_workaround(edge_platform::RELEASE_VERSION).await {
+                        tracing::error!(component = "update", event = "field_workaround_failed", error = %error);
+                    }
                 }
                 serve(listener, &updater, &DaemonOnly { tilecast_uid: uid }, IDLE_EXIT).await;
                 ExitCode::SUCCESS

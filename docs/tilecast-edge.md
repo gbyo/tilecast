@@ -297,7 +297,7 @@ Pins have a reason and a holder: the active and pending presentation, prefetch, 
 
 ### 10.1 Baseline
 
-- WPE WebKit 2.54 or later, through WPEPlatform only. No Cog, libwpe or WPEBackend-fdo.
+- WPE WebKit 2.54 or later, through WPEPlatform only. No Cog, libwpe or WPEBackend-fdo in Tilecast code. The private WPE WebKit build links `libwpe-1.0.so.1` itself, so the release carries that library ([`tilecast-edge-sandbox-review.md`](tilecast-edge-sandbox-review.md) §2).
 - Platforms: `drm` on dedicated signage (no compositor), `wayland` on development machines and existing kiosk compositors, `headless` in CI.
 - A small C11/GLib host. Native coordination stays in Player Core. Presentation execution stays in Player Runtime.
 

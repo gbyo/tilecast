@@ -60,6 +60,13 @@ struct _TcHost {
   GMainLoop *loop;
   int exit_code;
 
+  /* The media socket as the web process's sandbox saw it when the view was
+   * created (st_dev, st_ino). A sandbox binds that one file, so a socket the
+   * daemon creates later is not reachable from it; see tc_view_media_socket_stale. */
+  gboolean media_identity_known;
+  guint64 media_dev;
+  guint64 media_ino;
+
   /* Engine. */
   WPEDisplay *display;
   WebKitWebContext *web_context;
@@ -133,6 +140,9 @@ void tc_preview_capture (TcHost *host, JsonObject *data);
 int tc_drm_probe (const char *dri_dir);
 
 /* view.c */
+/* view.c: whether the daemon's media socket is no longer the one the web process's
+ * sandbox was given. */
+gboolean tc_view_media_socket_stale (TcHost *host);
 gboolean tc_view_create (TcHost *host, GError **error);
 void tc_view_deliver (TcHost *host, const char *name, const char *json);
 void tc_view_reload_runtime (TcHost *host);

@@ -128,6 +128,25 @@ jobs:
             -e TILECAST_EDGE_CHANNEL="$CHANNEL" \
             tilecast-edge-release-builder /src/apps/edge/release/build-edge-release.sh
 
+      - name: Require user namespaces for the sandbox check
+        # The kernel check that Ubuntu 24.04 runners apply to unconfined
+        # programs also applies to WebKit's bubblewrap sandbox in the check
+        # below.
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: The release closes over its runtime libraries
+        # A clean Debian 13 with only the operating system baseline
+        # (apps/edge/release/system-baseline.txt) and no WPE package, which
+        # the builder cannot show: it has the -dev packages that hide a
+        # missing library. Every ELF file in the tree must resolve. Failing
+        # this fails the release.
+        run: apps/edge/release/run-closure-check.sh "$RUNNER_TEMP/edge-release/tree"
+
+      - name: The release passes its self-test under the production sandbox
+        # Real systemd, the release's own units and WebKit's bubblewrap
+        # sandbox on, nothing that disables it.
+        run: apps/edge/release/run-sandbox-check.sh "$RUNNER_TEMP/edge-release/tree"
+
       - name: Rebuild and compare every file digest
         if: ${{ inputs.verify_reproducible }}
         env:

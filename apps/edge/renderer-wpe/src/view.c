@@ -17,6 +17,7 @@
 #include "validate.h"
 #include "remote-web.h"
 
+#include <glib/gstdio.h>
 #include <string.h>
 
 #define RUNTIME_URI "tilecast://runtime/index.html"
@@ -324,6 +325,51 @@ read_bridge_script (TcHost *host, GError **error)
   return contents;
 }
 
+/* How long a release renderer waits for the media socket before it builds the
+ * web context. The release self-test starts the renderer before its host
+ * binds the socket, and the self-test renderer is not restarted. Development
+ * and CI builds do not sandbox and do not wait. */
+#ifdef TILECAST_ALLOW_UNSANDBOXED_WEBKIT
+#define MEDIA_SOCKET_WAIT_MS 0
+#else
+#define MEDIA_SOCKET_WAIT_MS 30000
+#endif
+
+/* WebKit refuses to add a path to the sandbox that does not exist yet
+ * ("must be created before adding it to the sandbox"), and the renderer can
+ * start before the daemon has bound its media socket (the release self-test
+ * starts the renderer first). Wait for it, bounded. */
+static gboolean
+wait_for_path (const char *path, guint timeout_ms)
+{
+  for (guint waited = 0; waited < timeout_ms; waited += 100) {
+    if (g_file_test (path, G_FILE_TEST_EXISTS))
+      return TRUE;
+    g_usleep (100 * 1000);
+  }
+  return g_file_test (path, G_FILE_TEST_EXISTS);
+}
+
+static gboolean
+media_socket_identity (const char *path, guint64 *dev, guint64 *ino)
+{
+  GStatBuf st;
+  if (g_stat (path, &st) != 0)
+    return FALSE;
+  *dev = (guint64) st.st_dev;
+  *ino = (guint64) st.st_ino;
+  return TRUE;
+}
+
+gboolean
+tc_view_media_socket_stale (TcHost *host)
+{
+  guint64 dev = 0, ino = 0;
+  if (!media_socket_identity (host->media_socket, &dev, &ino))
+    return FALSE;
+  return !host->media_identity_known || dev != host->media_dev || ino != host->media_ino;
+}
+
 gboolean
 tc_view_create (TcHost *host, GError **error)
 {
@@ -335,6 +381,10 @@ tc_view_create (TcHost *host, GError **error)
   /* The web-process sandbox sees the media plugin; media bytes are provided
    * by tilecastd over its capability socket. */
   webkit_web_context_add_path_to_sandbox (host->web_context, host->gst_plugin_dir, TRUE);
+  if (!wait_for_path (host->media_socket, MEDIA_SOCKET_WAIT_MS))
+    g_warning ("view: %s does not exist yet; video needs the renderer restarted once the daemon is up",
+               host->media_socket);
+  host->media_identity_known = media_socket_identity (host->media_socket, &host->media_dev, &host->media_ino);
   webkit_web_context_add_path_to_sandbox (host->web_context, host->media_socket, TRUE);
   /* tcwebsrc connects to the helper's frame sockets from the web process.
    * The directory is the helper's; the renderer unit's supplementary

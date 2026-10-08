@@ -11,8 +11,11 @@ Group=tilecast
 SupplementaryGroups=video render
 ExecStart=/opt/tilecast-edge/current/bin/tilecast-renderer-wpe --probe-drm
 StandardOutput=truncate:/run/tilecast-edge-migrate/drm-probe.json
-# Only the JSON result goes to the file; diagnostics go to the journal.
-StandardError=journal
+# Only the JSON result goes to the result file. Standard error goes to its own
+# file, not the journal: when the probe cannot run at all (a missing shared
+# library, a crash) it is the only account of why, and the migrator keeps the
+# last line of it in the attempt record.
+StandardError=truncate:/run/tilecast-edge-migrate/drm-probe.err
 # Exit 5 means no usable output; the migrator reads it as a refusal.
 SuccessExitStatus=5
 TimeoutStartSec=30s

@@ -9,7 +9,10 @@ It lists what the release is made of, from the inputs that pinned it:
 * WPE WebKit, by its upstream source tarball digest;
 * the Debian packages whose shared libraries the release's executables load
   (found with ldd and dpkg-query in the builder image), at the pinned
-  snapshot.
+  snapshot;
+* the Debian libraries the release carries itself (runtime_closure.py), from
+  the record it wrote into the tree: unlike the packages above, these ship
+  inside the release, so the release is what must be patched for them.
 
 Usage: sbom.py --release-tree DIR --version X.Y.Z --snapshot TIMESTAMP --out FILE
 """
@@ -108,7 +111,29 @@ def debian_components(tree, snapshot):
         out.append({"type": "library", "name": package, "version": version,
                     "purl": f"pkg:deb/debian/{package}@{version}?distro=debian-13&snapshot={snapshot}",
                     "scope": "required"})
-    return out
+    # The builder's ldd also finds a carried library on the builder's own
+    # system; one component per package, marked as carried.
+    carried = {component["name"]: component for component in carried_components(tree, snapshot)}
+    merged = [carried.pop(component["name"], component) for component in out]
+    return merged + [carried[name] for name in sorted(carried)]
+
+
+def carried_components(tree, snapshot):
+    """Debian libraries inside the release tree, from runtime_closure's record."""
+    record = os.path.join(tree, "share", "doc", "tilecast-edge", "bundled-libraries.json")
+    if not os.path.isfile(record):
+        return []
+    with open(record) as handle:
+        libraries = json.load(handle)["libraries"]
+    out = {}
+    for library in libraries:
+        package, version = library.get("package"), library.get("version", "")
+        if not package or package in out:
+            continue
+        out[package] = {"type": "library", "name": package, "version": version,
+                        "purl": f"pkg:deb/debian/{package}@{version}?distro=debian-13&snapshot={snapshot}",
+                        "scope": "required", "properties": [{"name": "tilecast:carried", "value": "true"}]}
+    return [out[name] for name in sorted(out)]
 
 
 def main():

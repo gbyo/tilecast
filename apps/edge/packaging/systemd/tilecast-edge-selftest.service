@@ -13,8 +13,9 @@ RuntimeDirectory=tilecast-edge-selftest
 RuntimeDirectoryMode=0750
 ExecStart=/opt/tilecast-edge/current/bin/tilecastd self-test --fixture /opt/tilecast-edge/current/share/tilecast/selftest/fixture.json --timeout-seconds 120
 StandardOutput=truncate:/run/tilecast-edge-migrate/selftest.json
-# Only the JSON result goes to the file; diagnostics go to the journal.
-StandardError=journal
+# Only the JSON result goes to the result file; standard error goes to its own
+# file for the migrator's attempt record (see tilecast-renderer-probe.service).
+StandardError=truncate:/run/tilecast-edge-migrate/selftest.err
 TimeoutStartSec=180s
 UMask=0077
 PrivateNetwork=yes

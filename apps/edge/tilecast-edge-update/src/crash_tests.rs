@@ -550,3 +550,116 @@ async fn a_guard_rollback_never_waits_for_the_previous_daemon() {
     world.host.boot_edge();
     world.assert_consistent(Phase::RolledBack);
 }
+
+// ---- the 0.2.0 field workaround ------------------------------------------------
+
+mod field_workaround {
+    use super::*;
+    use crate::field_workaround::Roots;
+    use crate::field_workaround::tests::{FIXTURES, Machine, machine};
+    use std::os::unix::fs::PermissionsExt as _;
+
+    impl World {
+        fn field(&self, machine: &Machine) -> Updater<'_, FakeHost> {
+            self.updater(None).with_field_workaround(machine.roots.clone())
+        }
+    }
+
+    fn assert_untouched(machine: &Machine, context: &str) {
+        for (index, bytes) in FIXTURES.iter().enumerate() {
+            assert_eq!(std::fs::read(machine.path(index)).unwrap(), *bytes, "{context}: file {index}");
+            assert_eq!(std::fs::metadata(machine.path(index)).unwrap().permissions().mode() & 0o777, 0o644);
+        }
+    }
+
+    #[tokio::test]
+    async fn the_files_stay_through_the_provisional_window_and_go_only_after_confirmation() {
+        let world = World::new();
+        let machine = machine();
+        machine.install_all();
+        world.staged("0.2.0").await;
+        world.updater(None).activate("0.2.0").await.unwrap();
+        // The window is open: even the candidate's own helper leaves them.
+        assert!(world.field(&machine).settle_field_workaround("0.2.0").await.unwrap().is_none());
+        assert_untouched(&machine, "provisional");
+        // Confirmation by the running helper (the previous release's helper
+        // in production), which does not touch them either.
+        world.updater(None).confirm("0.2.0").await.unwrap();
+        assert_untouched(&machine, "just confirmed");
+        // A helper that is not the current release's never acts.
+        assert!(world.field(&machine).settle_field_workaround("0.1.0").await.unwrap().is_none());
+        assert_untouched(&machine, "old helper");
+        // The new release's helper does, once.
+        let reloads = world.host.with(|s| s.reloads);
+        let report = world.field(&machine).settle_field_workaround("0.2.0").await.unwrap().unwrap();
+        assert_eq!(report.removed.len(), 5);
+        for index in 0..5 {
+            assert!(!machine.path(index).exists());
+        }
+        assert_eq!(world.host.with(|s| s.reloads), reloads + 1);
+        world.assert_consistent(Phase::Confirmed);
+    }
+
+    #[tokio::test]
+    async fn every_rollback_leaves_the_workaround_exactly_as_it_was() {
+        for point in CrashPoint::ROLLBACK {
+            for power_loss in [false, true] {
+                let world = World::new();
+                let machine = machine();
+                machine.install_all();
+                world.staged("0.2.0").await;
+                world.updater(None).activate("0.2.0").await.unwrap();
+                world.updater(Some(point)).rollback("candidate_safe_mode").await.unwrap_err();
+                world.recover(power_loss).await;
+                world.assert_consistent(Phase::RolledBack);
+                assert_untouched(&machine, &format!("{point:?} power loss {power_loss}"));
+            }
+        }
+        // A candidate that never confirms is rolled back at its deadline.
+        let world = World::new();
+        let machine = machine();
+        machine.install_all();
+        world.staged("0.2.0").await;
+        world.host.with(|s| s.behavior.insert("0.2.0".into(), Behavior::NoEvidence));
+        world.updater(None).activate("0.2.0").await.unwrap();
+        world.host.advance(Duration::from_secs(601));
+        world.updater(None).guard().await.unwrap();
+        world.assert_consistent(Phase::RolledBack);
+        assert_untouched(&machine, "timeout");
+        assert!(world.field(&machine).settle_field_workaround("0.2.0").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn a_migration_that_is_settling_blocks_the_cleanup() {
+        let world = World::new();
+        let machine = machine();
+        machine.install_all();
+        std::fs::create_dir_all(machine.roots.probation_file.parent().unwrap()).unwrap();
+        std::fs::write(&machine.roots.probation_file, "").unwrap();
+        assert!(world.field(&machine).settle_field_workaround("0.1.0").await.unwrap().is_none());
+        assert_untouched(&machine, "probation");
+        std::fs::remove_file(&machine.roots.probation_file).unwrap();
+        let report = world.field(&machine).settle_field_workaround("0.1.0").await.unwrap().unwrap();
+        assert_eq!(report.removed.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn an_unknown_override_is_reported_and_survives() {
+        let world = World::new();
+        let machine = machine();
+        machine.install_all();
+        let edited = b"[Service]\nEnvironment=MINE=1\n";
+        machine.install(1, edited);
+        let report = world.field(&machine).settle_field_workaround("0.1.0").await.unwrap().unwrap();
+        assert_eq!(report.unknown_overrides.len(), 1);
+        assert!(report.unknown_overrides[0].path.ends_with("tilecast-renderer.service.d/edge-0.2.0-field-fix.conf"));
+        assert_eq!(std::fs::read(machine.path(1)).unwrap(), edited);
+    }
+
+    #[tokio::test]
+    async fn without_roots_the_updater_never_touches_anything() {
+        let world = World::new();
+        assert!(world.updater(None).settle_field_workaround("0.1.0").await.unwrap().is_none());
+        let _: Option<Roots> = None;
+    }
+}

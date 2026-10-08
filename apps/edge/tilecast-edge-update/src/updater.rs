@@ -199,6 +199,7 @@ pub struct Updater<'a, H: UpdateHost> {
     paths: HelperPaths,
     timing: Timing,
     crash_at: Option<CrashPoint>,
+    field_workaround: Option<crate::field_workaround::Roots>,
 }
 
 impl<H: UpdateHost> std::fmt::Debug for Updater<'_, H> {
@@ -217,7 +218,7 @@ fn release_ref(release: &edge_release::VerifiedRelease) -> ReleaseRef {
 
 impl<'a, H: UpdateHost> Updater<'a, H> {
     pub fn new(host: &'a H, layout: Layout, store: TransactionStore, key: [u8; 32], paths: HelperPaths) -> Self {
-        Self { host, layout, store, key, paths, timing: Timing::default(), crash_at: None }
+        Self { host, layout, store, key, paths, timing: Timing::default(), crash_at: None, field_workaround: None }
     }
 
     pub fn with_timing(mut self, timing: Timing) -> Self {
@@ -227,6 +228,12 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
 
     pub fn crash_at(mut self, point: Option<CrashPoint>) -> Self {
         self.crash_at = point;
+        self
+    }
+
+    /// Lets [`Updater::settle_field_workaround`] act on these roots.
+    pub fn with_field_workaround(mut self, roots: crate::field_workaround::Roots) -> Self {
+        self.field_workaround = Some(roots);
         self
     }
 
@@ -705,6 +712,42 @@ impl<'a, H: UpdateHost> Updater<'a, H> {
             }
         }
         Ok(Some(transaction))
+    }
+
+    // ---- field workaround -------------------------------------------------
+
+    /// Removes the Edge 0.2.0 field-workaround files that match the deployed
+    /// digests exactly (`field_workaround`), when that cannot be needed
+    /// again. `own_version` is the release of the running helper.
+    ///
+    /// It acts only when this helper belongs to the current release, no
+    /// update transaction is open (so no rollback to an older release is
+    /// possible) and no migration is settling. During the 0.2.0 → 0.2.1
+    /// update the 0.2.0 helper is the one running, so this code runs only
+    /// after the update was confirmed and the 0.2.1 helper next starts.
+    /// Returns `None` when it did not act.
+    pub async fn settle_field_workaround(
+        &self,
+        own_version: &str,
+    ) -> Result<Option<crate::field_workaround::Report>, UpdateError> {
+        if cfg!(feature = "legacy-helper-emulation") {
+            return Ok(None);
+        }
+        let Some(roots) = &self.field_workaround else { return Ok(None) };
+        if current_version(&self.layout).as_deref() != Some(own_version) || self.store.load()?.is_some() {
+            return Ok(None);
+        }
+        if std::fs::symlink_metadata(&roots.probation_file).is_ok() {
+            return Ok(None);
+        }
+        let report =
+            crate::field_workaround::clean(self.host, roots, crate::field_workaround::KNOWN, self.host.now_ms())
+                .await
+                .map_err(|error| {
+                    tracing::error!(component = "update", event = "field_workaround_failed", error = %error);
+                    UpdateError::Refused("field_workaround_failed")
+                })?;
+        Ok(Some(report))
     }
 
     // ---- status -----------------------------------------------------------

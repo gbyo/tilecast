@@ -179,6 +179,18 @@ handle_payload (TcHost *host)
       host->next_outbound_seq = 1;
       host->expected_inbound_seq = 1;
       g_message ("ipc: session %s opened", json_object_get_string_member_with_default (frame, "sessionId", "?"));
+#ifndef TILECAST_ALLOW_UNSANDBOXED_WEBKIT
+      if (tc_view_media_socket_stale (host)) {
+        /* The web process's sandbox holds the media socket that existed when
+         * it started. The daemon replaced it, so video cannot reach the
+         * daemon until the sandbox is built again: restart the renderer (its
+         * unit restarts it) rather than play without media. */
+        g_message ("ipc: the media socket was replaced since the view was created; restarting the renderer");
+        host->exit_code = 3;
+        g_main_loop_quit (host->loop);
+        return;
+      }
+#endif
       if (host->runtime_ready)
         tc_protocol_send_ready (host);
       return;

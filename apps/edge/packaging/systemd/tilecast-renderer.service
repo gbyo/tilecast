@@ -33,8 +33,15 @@ StandardInput=tty-force
 TTYReset=yes
 TTYVHangup=yes
 
-CacheDirectory=tilecast-renderer
+# The renderer's whole writable world. The account's home directory is
+# /var/lib/tilecast-edge, which this unit hides, so HOME and the XDG
+# directories name renderer-owned cache paths instead; a library that looks
+# in $HOME/.config (WebKit's sandbox checks $HOME/.config/pulse) must not
+# resolve into the daemon's state. systemd creates and owns the directories.
+CacheDirectory=tilecast-renderer tilecast-renderer/home tilecast-renderer/config tilecast-renderer/data
 CacheDirectoryMode=0700
+Environment=HOME=/var/cache/tilecast-renderer/home
+Environment=XDG_CONFIG_HOME=/var/cache/tilecast-renderer/config
 Environment=XDG_CACHE_HOME=/var/cache/tilecast-renderer
 Environment=XDG_DATA_HOME=/var/cache/tilecast-renderer/data
 UMask=0077
@@ -57,11 +64,23 @@ InaccessiblePaths=-/run/tilecast-edge-update
 PrivateTmp=yes
 NoNewPrivileges=yes
 CapabilityBoundingSet=
-ProtectKernelTunables=yes
+# Three directives are deliberately absent, because each one stops WebKit's
+# own bubblewrap sandbox from starting its child processes:
+#   ProtectKernelTunables=, ProtectKernelLogs=  they mount read-only or empty
+#       files over /proc, and the kernel then refuses the fresh /proc that
+#       bubblewrap mounts ("bwrap: Can't mount proc").
+#   RestrictSUIDSGID=  its seccomp filter makes openat2() fail with ENOSYS,
+#       and bubblewrap 0.12 and later does not fall back ("Can't open
+#       source /: Function not implemented").
+# Keeping them would force WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS, which is
+# never acceptable here. What they gave holds without them: the unit runs as
+# an ordinary account with no capability and NoNewPrivileges=yes, so it cannot
+# write /proc/sys or /sys, read the kernel log, or use a setuid file, and its
+# writable directories are private 0700 trees
+# (docs/tilecast-edge-sandbox-review.md).
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 LockPersonality=yes
-RestrictSUIDSGID=yes
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
 SystemCallArchitectures=native
 

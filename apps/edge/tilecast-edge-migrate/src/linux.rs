@@ -48,6 +48,10 @@ const MAX_MEDIA_FILES: usize = 10_000;
 const MAX_TASK_OUTPUT_BYTES: u64 = 256 * 1024;
 const MAX_COMMAND_OUTPUT: usize = 64 * 1024;
 const JOB_TIMEOUT: Duration = Duration::from_secs(90);
+/// `siginfo.si_code` of a process that exited normally (`ExecMainCode`).
+const CLD_EXITED: i32 = 1;
+/// How much of a unit's standard error file is read: its end.
+const MAX_STDERR_BYTES: u64 = 16 * 1024;
 
 /// The legacy state files, by the legacy player's fixed names
 /// (`apps/player-linux/src/core/storage.ts`).
@@ -103,6 +107,32 @@ pub struct LinuxHost {
     run_dir: PathBuf,
     edge_state_dir: PathBuf,
     tilecast: (u32, u32),
+}
+
+/// The standard error file of a unit that has one (`host::*_STDERR`).
+fn stderr_file(run_dir: &Path, unit: &str) -> Option<PathBuf> {
+    let name = match unit {
+        DRM_PROBE_UNIT => DRM_PROBE_STDERR,
+        SELFTEST_HOST_UNIT => SELFTEST_STDERR,
+        SELFTEST_RENDERER_UNIT => SELFTEST_RENDERER_STDERR,
+        _ => return None,
+    };
+    Some(run_dir.join(name))
+}
+
+/// The end of a standard error file, bounded and printable. The file is
+/// written by the unit's own process, so only its tail is read and it is
+/// never interpreted.
+fn read_diagnostic(path: &Path) -> Option<String> {
+    use std::io::{Seek as _, SeekFrom};
+    // No link is followed, and the file is only ever read, never executed.
+    let (mut file, length) = edge_platform::fs::open_regular_no_links(path, u64::MAX).ok()??;
+    if length > MAX_STDERR_BYTES {
+        file.seek(SeekFrom::Start(length - MAX_STDERR_BYTES)).ok()?;
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_STDERR_BYTES).read_to_end(&mut bytes).ok()?;
+    diagnostic_tail(&String::from_utf8_lossy(&bytes))
 }
 
 fn failed(context: &str, error: impl std::fmt::Display) -> HostError {
@@ -181,6 +211,29 @@ impl LinuxHost {
             }
         }
         Ok(warnings)
+    }
+
+    /// Reads a finished task unit: how its main process ended, its output
+    /// file and the end of its standard error.
+    async fn task_result(&self, unit: &str, output: &Path, stderr: Option<&Path>) -> Result<TaskResult, HostError> {
+        let path = self.unit_path(unit).await?;
+        let service = "org.freedesktop.systemd1.Service";
+        let exit_status: i32 = self.property(&path, service, "ExecMainStatus").await?;
+        let code: i32 = self.property(&path, service, "ExecMainCode").await?;
+        let text = edge_platform::fs::read_regular(output, MAX_TASK_OUTPUT_BYTES)
+            .map_err(|e| failed(&output.display().to_string(), e))?
+            .unwrap_or_default();
+        let parsed = String::from_utf8_lossy(&text)
+            .lines()
+            .rev()
+            .find(|line| !line.trim().is_empty())
+            .and_then(|line| serde_json::from_str::<Value>(line).ok());
+        Ok(TaskResult {
+            exit_status,
+            signaled: code != 0 && code != CLD_EXITED,
+            output: parsed,
+            diagnostic: stderr.and_then(read_diagnostic),
+        })
     }
 
     async fn restart_and_wait(&self, unit: &str) -> Result<(), HostError> {
@@ -513,6 +566,9 @@ impl Host for LinuxHost {
     }
 
     async fn start(&self, unit: &str) -> Result<(), HostError> {
+        if let Some(path) = stderr_file(&self.run_dir, unit) {
+            let _ = std::fs::remove_file(path);
+        }
         let manager = self.manager().await?;
         let _ = manager.reset_failed_unit(unit).await;
         let job = manager.start_unit(unit, "replace").await.map_err(|e| failed(unit, e))?;
@@ -556,6 +612,10 @@ impl Host for LinuxHost {
     async fn run_task(&self, unit: &str, output: &str, timeout: Duration) -> Result<TaskResult, HostError> {
         let output_path = self.run_dir.join(output);
         let _ = std::fs::remove_file(&output_path);
+        let stderr_path = stderr_file(&self.run_dir, unit);
+        if let Some(path) = &stderr_path {
+            let _ = std::fs::remove_file(path);
+        }
         let manager = self.manager().await?;
         let _ = manager.reset_failed_unit(unit).await;
         let job = manager.start_unit(unit, "replace").await.map_err(|e| failed(unit, e))?;
@@ -563,17 +623,61 @@ impl Host for LinuxHost {
             let _ = self.stop(unit).await;
             return Err(error);
         }
+        self.task_result(unit, &output_path, stderr_path.as_deref()).await
+    }
+
+    async fn run_task_watched(
+        &self,
+        unit: &str,
+        output: &str,
+        timeout: Duration,
+        companion: &str,
+    ) -> Result<Watched, HostError> {
+        let output_path = self.run_dir.join(output);
+        let _ = std::fs::remove_file(&output_path);
+        let stderr_path = stderr_file(&self.run_dir, unit);
+        if let Some(path) = &stderr_path {
+            let _ = std::fs::remove_file(path);
+        }
+        let manager = self.manager().await?;
+        let _ = manager.reset_failed_unit(unit).await;
+        let job = manager.start_unit(unit, "replace").await.map_err(|e| failed(unit, e))?;
+        let deadline = tokio::time::Instant::now() + timeout;
+        loop {
+            let running = self.property::<String>(&job, "org.freedesktop.systemd1.Job", "State").await.is_ok();
+            if !running {
+                return self.task_result(unit, &output_path, stderr_path.as_deref()).await.map(Watched::Finished);
+            }
+            // The companion was started and confirmed active before the task
+            // began: a unit that is no longer active has ended.
+            if !self.unit(companion).await?.active {
+                let exit = self.unit_exit(companion).await?.unwrap_or(UnitExit {
+                    exit_status: 0,
+                    signaled: false,
+                    diagnostic: None,
+                });
+                let _ = self.stop(unit).await;
+                return Ok(Watched::CompanionStopped(exit));
+            }
+            if tokio::time::Instant::now() >= deadline {
+                let _ = self.stop(unit).await;
+                return Err(HostError::Timeout("systemd job"));
+            }
+            tokio::time::sleep(Duration::from_millis(250)).await;
+        }
+    }
+
+    async fn unit_exit(&self, unit: &str) -> Result<Option<UnitExit>, HostError> {
         let path = self.unit_path(unit).await?;
-        let exit_status: i32 = self.property(&path, "org.freedesktop.systemd1.Service", "ExecMainStatus").await?;
-        let text = edge_platform::fs::read_regular(&output_path, MAX_TASK_OUTPUT_BYTES)
-            .map_err(|e| failed(output, e))?
-            .unwrap_or_default();
-        let output = String::from_utf8_lossy(&text)
-            .lines()
-            .rev()
-            .find(|line| !line.trim().is_empty())
-            .and_then(|line| serde_json::from_str::<Value>(line).ok());
-        Ok(TaskResult { exit_status, output })
+        let service = "org.freedesktop.systemd1.Service";
+        let code: i32 = self.property(&path, service, "ExecMainCode").await?;
+        let status: i32 = self.property(&path, service, "ExecMainStatus").await?;
+        if code == 0 {
+            // CLD_EXITED is 1; zero means the process has not run.
+            return Ok(None);
+        }
+        let diagnostic = stderr_file(&self.run_dir, unit).and_then(|file| read_diagnostic(&file));
+        Ok(Some(UnitExit { exit_status: status, signaled: code != CLD_EXITED, diagnostic }))
     }
 
     async fn resolve_kiosk(&self, user: &str) -> Result<KioskRecord, HostError> {
@@ -633,6 +737,10 @@ impl Host for LinuxHost {
 
     async fn legacy_stop(&self, kiosk: &KioskRecord) -> Result<(), HostError> {
         self.user_systemctl(kiosk, &["stop"]).await.map(|_| ())
+    }
+
+    async fn legacy_reset_failed(&self, kiosk: &KioskRecord) -> Result<(), HostError> {
+        self.user_systemctl(kiosk, &["reset-failed"]).await.map(|_| ())
     }
 
     fn legacy_processes(&self, kiosk: Option<&KioskRecord>) -> Result<usize, HostError> {

@@ -29,6 +29,8 @@ Restart=always
 RestartSec=2
 TimeoutStopSec=10s
 UMask=0077
+# HOME is this account's own state directory (sysusers.d), which is writable
+# here, so the sandbox's $HOME/.config lookups never reach /var/lib/tilecast-edge.
 
 # Directories. /run/tilecast-web is 0750 tilecast-web:tilecast-web so only
 # the trusted renderer (which joins tilecast-web as a supplementary group)
@@ -57,11 +59,13 @@ InaccessiblePaths=-/var/cache/tilecast-renderer
 PrivateTmp=yes
 NoNewPrivileges=yes
 CapabilityBoundingSet=
-ProtectKernelTunables=yes
+# No ProtectKernelTunables=, ProtectKernelLogs= or RestrictSUIDSGID=: each one
+# stops WebKit's own bubblewrap sandbox from starting (see
+# tilecast-renderer.service), and this helper is the one that loads untrusted
+# pages, so that sandbox matters most here.
 ProtectKernelModules=yes
 ProtectControlGroups=yes
 LockPersonality=yes
-RestrictSUIDSGID=yes
 # Outbound web access is the helper's job: loopback for GStreamer-local
 # signaling, unicast IP for pages and media, netlink for the resolver.
 # No SystemCallFilter and no namespace restrictions: they break WebKit's

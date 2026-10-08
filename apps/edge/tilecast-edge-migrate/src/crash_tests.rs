@@ -1,6 +1,6 @@
 //! The M7 crash-point and failure matrix, against the in-memory machine.
 
-use crate::fake::{Edge, FakeHost};
+use crate::fake::{Broken, Edge, FakeHost, SelfTestRenderer};
 use crate::host::*;
 use crate::migrate::{CrashPoint, MigrateError, Migrator, Options, Timing};
 use crate::state::{Backend, Kind, Phase, StateStore};
@@ -168,6 +168,109 @@ async fn failures_before_the_cutover_refuse_and_touch_nothing() {
     host.world.lock().unwrap().violations.clear();
     let attempt = migrator(&host, &dir).run(&options()).await.unwrap();
     assert_eq!(attempt.reason.as_deref(), Some("edge_already_enabled"));
+}
+
+const LOADER_ERROR: &str =
+    "error while loading shared libraries: libwpe-1.0.so.1: cannot open shared object file: No such file or directory";
+
+fn broken(exit_status: i32, signaled: bool, diagnostic: Option<&str>) -> Broken {
+    Broken { exit_status, signaled, diagnostic: diagnostic.map(str::to_owned) }
+}
+
+async fn refused_with(change: impl FnOnce(&mut crate::fake::World)) -> (FakeHost, crate::state::Attempt) {
+    let host = FakeHost::migration();
+    change(&mut host.world.lock().unwrap());
+    let dir = tempfile::tempdir().unwrap();
+    let attempt = migrator(&host, &dir).run(&options()).await.unwrap();
+    assert_eq!(attempt.phase, Phase::Refused, "{:?}", attempt.reason);
+    assert_eq!(host.world.lock().unwrap().legacy, (true, true), "legacy untouched");
+    (host, attempt)
+}
+
+#[tokio::test]
+async fn a_probe_that_cannot_start_is_a_probe_failure_not_a_missing_output() {
+    // Exit 127 is the dynamic loader failing: the real 0.2.0 failure.
+    let (_, attempt) = refused_with(|w| w.probe_broken = Some(broken(127, false, Some(LOADER_ERROR)))).await;
+    let reason = attempt.reason.unwrap();
+    assert!(reason.starts_with("drm_probe_failed: exit status 127: error while loading shared libraries"), "{reason}");
+    assert!(reason.contains("libwpe-1.0.so.1"));
+    assert!(!reason.contains("drm_output_unavailable"));
+
+    let (_, attempt) = refused_with(|w| w.probe_broken = Some(broken(11, true, None))).await;
+    assert_eq!(attempt.reason.as_deref(), Some("drm_probe_failed: signal 11"));
+
+    // A probe that ran and found no output is still that, with its exit 5.
+    let (_, attempt) = refused_with(|w| w.probe_usable = false).await;
+    assert_eq!(attempt.reason.as_deref(), Some("drm_output_unavailable"));
+}
+
+#[tokio::test]
+async fn a_renderer_that_cannot_start_ends_the_self_test_at_once() {
+    let (host, attempt) = refused_with(|w| {
+        w.self_test_renderer = SelfTestRenderer::FailsToStart(broken(127, false, Some(LOADER_ERROR)));
+    })
+    .await;
+    let reason = attempt.reason.unwrap();
+    assert!(reason.starts_with("self_test_failed: renderer_start_failed: exit status 127"), "{reason}");
+    assert!(reason.contains("libwpe-1.0.so.1"));
+    let report = attempt.self_test.unwrap();
+    assert_eq!(report["outcome"], "failed");
+    assert_eq!(report["reason"], "renderer_start_failed");
+    assert!(report["detail"].as_str().unwrap().contains("exit status 127"));
+    assert!(!host.world.lock().unwrap().self_test_host_ran, "the host never waited for a dead renderer");
+}
+
+#[tokio::test]
+async fn a_renderer_that_crashes_during_the_self_test_ends_it_with_its_signal() {
+    // WebKit's sandbox failing aborts the renderer with SIGTRAP (signal 5).
+    let (host, attempt) =
+        refused_with(|w| w.self_test_renderer = SelfTestRenderer::EndsEarly(broken(5, true, Some("bwrap: denied"))))
+            .await;
+    assert_eq!(attempt.reason.as_deref(), Some("self_test_failed: renderer_exited: signal 5: bwrap: denied"));
+    assert_eq!(attempt.self_test.unwrap()["reason"], "renderer_exited");
+    assert!(!host.world.lock().unwrap().self_test_host_ran);
+    assert_eq!(host.unit_state(SELFTEST_RENDERER_UNIT), (false, false), "the renderer unit is stopped");
+}
+
+#[tokio::test]
+async fn the_hosts_own_reason_and_detail_reach_the_attempt() {
+    // The host names the failing layer; a fixture import failure is not
+    // reported as a timeout.
+    let host = FakeHost::migration();
+    {
+        let mut world = host.world.lock().unwrap();
+        world.self_test_passes = false;
+        world.self_test_reason = "fixture_import_failed";
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let attempt = migrator(&host, &dir).run(&options()).await.unwrap();
+    assert_eq!(attempt.reason.as_deref(), Some("self_test_failed: fixture_import_failed"));
+    assert_eq!(attempt.self_test.unwrap()["reason"], "fixture_import_failed");
+}
+
+#[tokio::test]
+async fn acceptance_clears_the_failed_state_of_the_stopped_legacy_player() {
+    let host = FakeHost::migration().with(|w| w.legacy_stop_leaves_failed = true);
+    let dir = tempfile::tempdir().unwrap();
+    let attempt = migrator(&host, &dir).run(&options()).await.unwrap();
+    assert_eq!(attempt.phase, Phase::Accepted);
+    let world = host.world.lock().unwrap();
+    assert!(!world.legacy_failed, "disabled and inactive, not failed");
+    assert_eq!(world.legacy_reset_failed_calls, 1);
+    assert!(world.legacy_installed, "the unit itself stays");
+    assert_eq!(world.legacy, (false, false));
+}
+
+#[tokio::test]
+async fn a_rollback_leaves_the_legacy_player_unit_state_alone() {
+    let host = FakeHost::migration().with(|w| {
+        w.legacy_stop_leaves_failed = true;
+        w.edge = Edge::NeverConnects;
+    });
+    let dir = tempfile::tempdir().unwrap();
+    let attempt = migrator(&host, &dir).run(&options()).await.unwrap();
+    assert_eq!(attempt.phase, Phase::RolledBack);
+    assert_eq!(host.world.lock().unwrap().legacy_reset_failed_calls, 0, "only acceptance normalizes it");
 }
 
 #[tokio::test]
