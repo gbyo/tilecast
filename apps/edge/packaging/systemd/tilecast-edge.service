@@ -7,6 +7,9 @@ Wants=network-online.target
 # One owner of the device credential: tilecast-edge-migrate disables the
 # legacy Electron player unit before it enables this unit, and disables this
 # unit before it enables the legacy unit again on a rollback.
+# A latched unit is a dark screen until a site visit, so restarts are never
+# rate-limited into the failed state (same rule as the legacy player unit).
+StartLimitIntervalSec=0
 
 [Service]
 Type=notify

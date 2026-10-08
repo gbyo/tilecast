@@ -291,6 +291,14 @@ impl Daemon {
             now.unix_millis(),
         );
         presentation.set_activity(activity.clone());
+        if let StateMode::Normal(db) = &state {
+            match db.run(|conn| edge_state::repo::renderer::get(conn)).await {
+                Ok(record) => presentation.restore_supervision(&record, now.unix_millis()),
+                Err(error) => {
+                    tracing::warn!(component = "daemon", event = "supervision_restore_failed", error = %error);
+                }
+            }
+        }
 
         let mut registry = CapabilityRegistry::new();
         registry.register(Arc::new(SystemdProvider {
@@ -576,7 +584,10 @@ async fn supervision_loop(context: Arc<DaemonContext>) {
             _ = ticker.tick() => {}
         }
         let now = context.now().unix_millis();
-        context.presentation.lock().await.tick(now);
+        let action = context.presentation.lock().await.tick(now);
+        if matches!(action, player_core::HealAction::RestartRenderer | player_core::HealAction::EnterSafeMode) {
+            crate::presentation::persist_supervision(&context).await;
+        }
     }
 }
 
