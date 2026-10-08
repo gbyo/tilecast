@@ -186,8 +186,12 @@ func TestPreviewLifecyclePostgreSQL(t *testing.T) {
 
 	// Simulate the player responding to the retried request.
 	if err = service.RecordUpload(ctx, screenID, Upload{
-		CapturedAt: now, PlayerVersion: "0.10.1", Width: 960, Height: 540,
-		ContentType: "image/jpeg", Data: image,
+		CapturedAt:    now,
+		PlayerVersion: "0.10.1",
+		Width:         960,
+		Height:        540,
+		ContentType:   "image/jpeg",
+		Data:          image,
 	}); err != nil {
 		t.Fatalf("recovery upload: %v", err)
 	}
