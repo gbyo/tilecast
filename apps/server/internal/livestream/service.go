@@ -12,18 +12,18 @@ import (
 )
 
 const (
-	LeaseDuration = 15 * time.Second
-	FrameInterval = 125 * time.Millisecond
-	MaxFrameBytes = 100 * 1024
-	MaxWidth      = 640
-	MaxHeight     = 360
-	frameHeader   = 33
+	LeaseDuration      = 15 * time.Second
+	FrameInterval      = 125 * time.Millisecond
+	MaxFrameBytes      = 100 * 1024
+	MaxWidth           = 640
+	MaxHeight          = 360
+	frameHeader        = 33
 
 	// A healthy Watch Live stream should deliver frames many times per second.
 	// These deliberately generous bounds detect an actual stall without
 	// treating normal capture jitter as a failure.
-	FrameStaleAfter       = 5 * time.Second
-	FrameNudgeCooldown    = 3 * time.Second
+	FrameStaleAfter    = 5 * time.Second
+	FrameNudgeCooldown = 3 * time.Second
 )
 
 var (
@@ -39,13 +39,13 @@ type Notifier interface {
 }
 
 type Session struct {
-	ID                  uuid.UUID `json:"id"`
-	ScreenID            uuid.UUID `json:"screenId"`
-	Active              bool      `json:"active"`
-	ExpiresAt           time.Time `json:"expiresAt"`
-	FrameIntervalMillis int       `json:"frameIntervalMillis"`
-	MaxWidth            int       `json:"maxWidth"`
-	MaxHeight           int       `json:"maxHeight"`
+	ID                  uuid.UUID  `json:"id"`
+	ScreenID            uuid.UUID  `json:"screenId"`
+	Active              bool       `json:"active"`
+	ExpiresAt           time.Time  `json:"expiresAt"`
+	FrameIntervalMillis int        `json:"frameIntervalMillis"`
+	MaxWidth            int        `json:"maxWidth"`
+	MaxHeight           int        `json:"maxHeight"`
 	MaxFrameBytes       int        `json:"maxFrameBytes"`
 	LastFrameAt         *time.Time `json:"lastFrameAt,omitempty"`
 	FrameSequence       uint64     `json:"frameSequence"`
