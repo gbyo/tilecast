@@ -1,8 +1,9 @@
 # Tilecast content extension model
 
-Status: accepted architecture plan. This document defines how Widgets, Data
-Sources, plugins, and future independently distributed extension packages fit
-together. It builds on [Widgets V2](widgets-v2.md) and the frozen
+**Status: accepted architecture rationale with historical delivery stages.** This document defines how Widgets, Data
+Sources, plugins, and independently distributed extension packages fit
+together. For **current** packaging, marketplace, and runtime support, use
+[Packages](packages.md), [Marketplace](marketplace.md), [Widget authoring](widget-authoring.md), and the implementation. Do not infer that a stage is still pending from this plan alone. It builds on [Widgets V2](widgets-v2.md) and the frozen
 [Plugin API v1](plugin-api.md).
 
 The purpose of this plan is to keep four things true at the same time:
