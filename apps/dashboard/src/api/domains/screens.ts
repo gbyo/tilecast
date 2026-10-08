@@ -144,7 +144,12 @@ export function listScreenSnapshots(
  */
 export type WirePreviewSession = components["schemas"]["PreviewSession"];
 export type WireScreenPreview = components["schemas"]["ScreenPreviewMetadata"];
-export type WireLiveStreamSession = components["schemas"]["LiveStreamSession"];
+export type WireLiveStreamSession =
+  components["schemas"]["LiveStreamSession"] & {
+    /** In-memory health hints added by the live-stream service. */
+    lastFrameAt?: string | null;
+    frameSequence?: number;
+  };
 
 export function renewScreenPreview(
   id: string,
@@ -343,10 +348,12 @@ export function createScreenCommand(
   type: PlayerCommandType,
   payload: Record<string, unknown>,
   csrfToken: string,
+  // Reuse this key when retrying the SAME intentional operator action.
+  idempotencyKey: string = crypto.randomUUID(),
 ): Promise<{ id: string; state: string; expiresAt: string }> {
   return apiPost("/api/v1/screens/{id}/commands", {
     params: { path: { id } },
-    body: { type, payload },
+    body: { type, payload, idempotencyKey },
     csrfToken,
   });
 }

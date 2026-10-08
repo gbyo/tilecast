@@ -92,6 +92,7 @@ func (s *Service) Renew(ctx context.Context, screenID uuid.UUID, forceCapture bo
 	now := s.now().UTC()
 	expiresAt := now.Add(LeaseDuration)
 	var storedScreenID uuid.UUID
+	var requestedAt time.Time
 	err := s.db.QueryRow(ctx, `
 		INSERT INTO screen_previews(screen_id,organization_id,lease_expires_at,capture_requested_at,updated_at)
 		SELECT screens.id,screens.organization_id,$2,$1,$1
@@ -110,14 +111,18 @@ func (s *Service) Renew(ctx context.Context, screenID uuid.UUID, forceCapture bo
 				ELSE screen_previews.capture_requested_at
 			END,
 			updated_at=$1
-		RETURNING screen_id`, now, expiresAt, screenID, forceCapture, int(CaptureFreshness.Seconds()), int(CaptureRetryInterval.Seconds())).Scan(&storedScreenID)
+		RETURNING screen_id, capture_requested_at`, now, expiresAt, screenID, forceCapture, int(CaptureFreshness.Seconds()), int(CaptureRetryInterval.Seconds())).Scan(&storedScreenID, &requestedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Session{}, ErrNotFound
 	}
 	if err != nil {
 		return Session{}, fmt.Errorf("renew screen preview session: %w", err)
 	}
-	if s.notifier != nil {
+	// Only a new capture request needs to wake the Player. Ordinary 30-second
+	// lease renewals must not cause a socket notification or a session GET.
+	// PostgreSQL stores timestamps at microsecond precision, while Go's clock
+	// usually has nanoseconds. Compare within that precision after round-trip.
+	if s.notifier != nil && requestedAt.Sub(now).Abs() < time.Microsecond {
 		s.notifier.Notify(screenID, map[string]any{"type": "preview.session_changed"})
 	}
 	return Session{Active: true, ExpiresAt: &expiresAt, CaptureIntervalSeconds: int(CaptureInterval.Seconds()), CaptureNow: forceCapture}, nil
@@ -146,38 +151,46 @@ func (s *Service) PlayerSession(ctx context.Context, screenID uuid.UUID) (Sessio
 	return Session{Active: active, ExpiresAt: &expiresAt, CaptureIntervalSeconds: int(CaptureInterval.Seconds()), CaptureNow: captureNow}, nil
 }
 
+// previewImageVisible fails closed for old/unknown failure statuses. Older Players
+// send 'unavailable' for both a capture error and a protected UI, so their
+// cached image must remain inaccessible until a new successful capture.
+func previewImageVisible(failure string) bool {
+	switch failure {
+	case "", "renderer_timeout", "renderer_disconnected", "capture_invalid", "capture_out_of_bounds", "pixel_copy_failed":
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Service) RecordUpload(ctx context.Context, screenID uuid.UUID, upload Upload) error {
 	if err := validateUpload(upload); err != nil {
 		return err
 	}
 	now := s.now().UTC()
-	capturedAt := any(nil)
-	imageData := any(nil)
-	contentType := ""
-	width, height, fileSize := 0, 0, 0
 	failureStatus := strings.TrimSpace(upload.FailureStatus)
+	capturedAt := any(nil)
 	if failureStatus == "" {
 		capturedAt = upload.CapturedAt.UTC()
-		imageData = upload.Data
-		contentType = upload.ContentType
-		width, height, fileSize = upload.Width, upload.Height, len(upload.Data)
 	}
+	// Failure updates only the attempt and failure status, not the last image.
+	// Unknown or protected failure statuses are hidden by the image endpoint.
 	commandTag, err := s.db.Exec(ctx, `
 		UPDATE screen_previews preview SET
 			attempted_at=$2,
-			captured_at=$3,
+			captured_at=CASE WHEN $3='' THEN $10 ELSE preview.captured_at END,
 			player_version=$4,
-			width=$5,
-			height=$6,
-			file_size=$7,
-			content_type=$8,
-			image_data=$9,
-			failure_status=$10,
+			width=CASE WHEN $3='' THEN $5 ELSE preview.width END,
+			height=CASE WHEN $3='' THEN $6 ELSE preview.height END,
+			file_size=CASE WHEN $3='' THEN $7 ELSE preview.file_size END,
+			content_type=CASE WHEN $3='' THEN $8 ELSE preview.content_type END,
+			image_data=CASE WHEN $3='' THEN $9 ELSE preview.image_data END,
+			failure_status=$3,
 			updated_at=$2
 		FROM screens
 		JOIN organization_settings ON organization_settings.singleton=TRUE AND organization_settings.id=screens.organization_id
 		WHERE preview.screen_id=$1 AND screens.id=preview.screen_id AND preview.lease_expires_at>$2`,
-		screenID, now, capturedAt, strings.TrimSpace(upload.PlayerVersion), width, height, fileSize, contentType, imageData, failureStatus)
+		screenID, now, failureStatus, strings.TrimSpace(upload.PlayerVersion), upload.Width, upload.Height, len(upload.Data), upload.ContentType, upload.Data, capturedAt)
 	if err != nil {
 		return fmt.Errorf("store player preview: %w", err)
 	}
@@ -197,16 +210,16 @@ func (s *Service) GetMetadata(ctx context.Context, screenID uuid.UUID) (Metadata
 	var result Metadata
 	var leaseExpiresAt time.Time
 	var capturedAt *time.Time
-	var imageData []byte
+	var imageAvailable bool
 	err := s.db.QueryRow(ctx, `
 		SELECT preview.screen_id,preview.lease_expires_at,preview.captured_at,preview.player_version,
-			preview.width,preview.height,preview.file_size,preview.failure_status,preview.image_data,preview.updated_at
+			preview.width,preview.height,preview.file_size,preview.failure_status,(preview.image_data IS NOT NULL),preview.updated_at
 		FROM screen_previews preview
 		JOIN screens ON screens.id=preview.screen_id
 		JOIN organization_settings ON organization_settings.singleton=TRUE AND organization_settings.id=screens.organization_id
 		WHERE preview.screen_id=$1`, screenID).Scan(
 		&result.ScreenID, &leaseExpiresAt, &capturedAt, &result.PlayerVersion,
-		&result.Width, &result.Height, &result.FileSize, &result.CaptureFailureStatus, &imageData, &result.UpdatedAt,
+		&result.Width, &result.Height, &result.FileSize, &result.CaptureFailureStatus, &imageAvailable, &result.UpdatedAt,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		var exists bool
@@ -223,7 +236,7 @@ func (s *Service) GetMetadata(ctx context.Context, screenID uuid.UUID) (Metadata
 	}
 	result.LeaseExpiresAt = &leaseExpiresAt
 	result.CapturedAt = capturedAt
-	result.ImageAvailable = len(imageData) > 0 && result.CaptureFailureStatus == ""
+	result.ImageAvailable = imageAvailable && previewImageVisible(result.CaptureFailureStatus)
 	switch {
 	case result.CaptureFailureStatus != "" && strings.HasPrefix(result.CaptureFailureStatus, "sensitive_"):
 		result.Status = "unavailable"
@@ -246,7 +259,8 @@ func (s *Service) GetImage(ctx context.Context, screenID uuid.UUID) (Image, erro
 		FROM screen_previews preview
 		JOIN screens ON screens.id=preview.screen_id
 		JOIN organization_settings ON organization_settings.singleton=TRUE AND organization_settings.id=screens.organization_id
-		WHERE preview.screen_id=$1 AND preview.image_data IS NOT NULL AND preview.failure_status=''`, screenID).Scan(&image.ContentType, &image.Data, &image.UpdatedAt)
+		WHERE preview.screen_id=$1 AND preview.image_data IS NOT NULL
+		  AND preview.failure_status IN ('', 'renderer_timeout', 'renderer_disconnected', 'capture_invalid', 'capture_out_of_bounds', 'pixel_copy_failed')`, screenID).Scan(&image.ContentType, &image.Data, &image.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Image{}, ErrNotFound
 	}

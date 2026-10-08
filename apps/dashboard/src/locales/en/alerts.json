@@ -250,6 +250,7 @@
     "leaseRenewError": "The live stream lease could not be renewed.",
     "startError": "The live stream could not be started.",
     "connectionEnded": "The live stream connection ended unexpectedly.",
+    "replaced": "Another viewer started Watch Live for this screen.",
     "retry": "Retry stream",
     "imageAlt": "Live Tilecast output from {{name}}",
     "unavailable": "Stream unavailable",

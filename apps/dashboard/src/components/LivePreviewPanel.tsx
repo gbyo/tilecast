@@ -241,6 +241,12 @@ export function LivePreviewPanel({
           <span className="text-sm text-muted-foreground">
             {stateDescription(displayState, previewError, t)}
           </span>
+          {preview.data?.status === "capture_error" &&
+            preview.data.imageAvailable && (
+              <span className="text-xs text-destructive">
+                {t("livePreview.states.captureError.label")}
+              </span>
+            )}
         </div>
 
         <dl className="grid gap-3 border-y border-border py-3 text-xs sm:grid-cols-3">

@@ -18,7 +18,7 @@ host; the renderer and conformance need Windows with WebView2.
 
 The production Docker builder images in `deploy/docker/Dockerfile` are a separate build environment. They can use newer, validated versions than `mise.toml`. Docker must not change the contributor baseline. To change any version, change it on purpose, and run the full checks for the affected areas.
 
-PostgreSQL is the only runtime dependency for Milestone 1.
+PostgreSQL is required by the Server. Local development also needs the documented toolchains; media processing and native Player builds have separate dependencies.
 
 Run `make dev` to start the local PostgreSQL service, the Go server with [Air](https://github.com/air-verse/air) reload, and the Vite dashboard. The first run downloads the pinned Go watcher. Press Ctrl-C to stop the processes. The database volume remains for the next run. Run `make dev-down` to stop and remove the local development container and network while keeping the database volume.
 

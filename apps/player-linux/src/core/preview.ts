@@ -46,6 +46,7 @@ export class LivePreview {
   private stopped = false;
   private lastCaptureMs = 0;
   private busy = false;
+  private wakePending = false;
 
   constructor(
     private readonly client: ApiClient,
@@ -59,6 +60,15 @@ export class LivePreview {
     }
     this.timer = setInterval(() => void this.tick(), IDLE_POLL_MS);
     this.timer.unref?.();
+    void this.tick();
+  }
+
+  sessionChanged(): void {
+    if (this.stopped) return;
+    if (this.busy) {
+      this.wakePending = true;
+      return;
+    }
     void this.tick();
   }
 
@@ -96,6 +106,10 @@ export class LivePreview {
       await this.captureAndUpload();
     } finally {
       this.busy = false;
+      if (this.wakePending && !this.stopped) {
+        this.wakePending = false;
+        void this.tick();
+      }
     }
   }
 

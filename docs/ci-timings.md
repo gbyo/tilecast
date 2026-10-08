@@ -1,5 +1,7 @@
 # CI timing record
 
+**Status: dated benchmark (September 2026).** The times below describe the specified commits, runners and workflow configuration. They are evidence for a historical CI change, not a current performance target or proof that today's jobs are healthy. For current validation contracts, use [Testing and CI](testing.md) and the workflows under `.github/workflows/`.
+
 ## Before the change
 
 The following successful runs validate the extension PR at commit `5b19d044e534efdc68e814bf3631c75c6d7e73a3`. Both runs started on 2026-09-28 at 06:17:26 UTC:

@@ -6,6 +6,8 @@ presentation capability, not a playlist item and not a ManifestPlugin. When
 the session ends, the Linux player evaluates the current manifest, schedule,
 takeover, active-hours, and disabled state before returning to signage.
 
+**Platform scope:** This document covers the UxPlay integration for the **Linux Legacy (Electron)** Player. It does not establish AirPlay support or qualification on **Tilecast Edge**. Do not apply Legacy provisioning commands to Edge or assume an Edge screen reports this capability.
+
 The supported UxPlay baseline is 1.73.6. Tilecast uses UxPlay's RTP forwarding
 mode for groups so the gateway forwards decrypted, compressed H.264 packets;
 the gateway never renders, captures, decodes, or re-encodes the mirrored

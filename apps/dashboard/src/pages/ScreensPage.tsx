@@ -2243,8 +2243,12 @@ export function ScreenGridCard({
       preview.data?.captureFailureStatus?.startsWith("sensitive_") ?? false,
   });
   const image =
-    preview.data?.imageAvailable && preview.data.updatedAt
-      ? api.screenPreviewImageUrl(screen.id, preview.data.updatedAt)
+    preview.data?.imageAvailable &&
+    (preview.data.capturedAt || preview.data.updatedAt)
+      ? api.screenPreviewImageUrl(
+          screen.id,
+          preview.data.capturedAt ?? preview.data.updatedAt,
+        )
       : undefined;
   const age = preview.data?.capturedAt
     ? previewAge(preview.data.capturedAt, now, t)
@@ -2258,12 +2262,11 @@ export function ScreenGridCard({
     return () => window.clearInterval(interval);
   }, [preview.data?.capturedAt, visible]);
   const previewState = livePreviewState(screen, preview.data, now);
-  const railState = previewRailState(
-    previewState,
-    preview.data?.capturedAt,
-    now,
-  );
-  const captureFailed = previewState === "capture-error";
+  const railState =
+    preview.data?.status === "capture_error"
+      ? "error"
+      : previewRailState(previewState, preview.data?.capturedAt, now);
+  const captureFailed = preview.data?.status === "capture_error";
   const portrait = screen.screenHeight > screen.screenWidth;
   return (
     <article

@@ -740,8 +740,7 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 | 5         | Emergency Alerts                                                                  | Done    |
 | 6         | Forms                                                                             | Done    |
 | 7         | Remove the remaining special cases; freeze the v1 contract                        | Done    |
-| 8         | Reserved: composition or multi-zone authoring; not started                        | Planned |
-| 9         | Reserved: proof-of-play measurement on top of the frozen v1 contract; not started | Planned |
+| 8–9       | Historical reserved lanes for composition and proof of play; subsequently shipped under their own contracts | Superseded |
 
 Countdown Bar has moved completely, including its Player renderer. Brand Bug
 and Noise Meter are retired: their old installation rows and data remain, but
@@ -758,6 +757,6 @@ metadata. Even the sidebar Approvals entry is a Forms contribution
 (`secondaryNavigation`), not shell logic: no generic core file names a
 plugin.
 
-Milestones 8 and 9 stay in their reserved lanes: multi-zone layout
-composition and proof-of-play measurement arrive on top of this frozen
-contract, not through new special cases in it.
+Multi-zone Layouts and proof of play now exist under their respective
+architecture and Activity contracts. They do not require special cases in
+the frozen Plugin API v1.
