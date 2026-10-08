@@ -348,6 +348,28 @@ test("player contract sources select every native consumer and their drift gate"
       assert.equal(result[area], true, `${path}: ${area}`);
   }
 });
+test("the widget-frames fixture selects the protocol lane and the shared crates", () => {
+  const result = affected([
+    "packages/player-contracts/fixtures/widget-frames.json",
+  ]);
+  for (const area of [
+    "protocol",
+    "player_core",
+    "server",
+    "android",
+    "runtime",
+    "windows",
+    "linux",
+    "edge_rust",
+    "edge_server",
+    "edge_wpe",
+    "edge_conformance",
+    "browser_player",
+  ])
+    assert.equal(result[area], true, area);
+  assert.equal(result.ios, false);
+  assert.equal(result.docs, false);
+});
 test("shared schema contracts distinguish players from ordinary API consumers", () => {
   for (const path of [
     "packages/manifest-schema/schema-v16.json",

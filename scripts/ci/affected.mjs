@@ -119,6 +119,13 @@ const rules = [
   [/^apps\/ios\//, ["ios"]],
   // The iOS app runs the shared server-address corpus in its tests.
   [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],
+  // The v19 sandbox-frame fixture is pinned by player-types, edge-protocol,
+  // tilecast-windows, and player-runtime; Android and WPE mirror it in
+  // their own suites. It rides the protocol lane plus the shared crates.
+  [
+    /^packages\/player-contracts\/fixtures\/widget-frames\.json$/,
+    ["protocol", "player_core"],
+  ],
   // The iOS app's navigation icons are generated from Studio's icon mapping.
   [/^apps\/dashboard\/src\/navigation\/NavigationIcon\.tsx$/, ["ios"]],
   // Studio and the iOS app both run the native bridge contract's fixtures.
