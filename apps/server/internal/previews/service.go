@@ -13,11 +13,13 @@ import (
 )
 
 const (
-	LeaseDuration   = 60 * time.Second
-	CaptureInterval = 20 * time.Second
-	MaxImageBytes   = 500 * 1024
-	MaxWidth        = 960
-	MaxHeight       = 540
+	LeaseDuration        = 60 * time.Second
+	CaptureInterval      = 20 * time.Second
+	CaptureFreshness     = 45 * time.Second
+	CaptureRetryInterval = 30 * time.Second
+	MaxImageBytes        = 500 * 1024
+	MaxWidth             = 960
+	MaxHeight            = 540
 )
 
 var (
@@ -98,9 +100,17 @@ func (s *Service) Renew(ctx context.Context, screenID uuid.UUID, forceCapture bo
 		WHERE screens.id=$3
 		ON CONFLICT(screen_id) DO UPDATE SET
 			lease_expires_at=EXCLUDED.lease_expires_at,
-			capture_requested_at=CASE WHEN $4 THEN $1 ELSE screen_previews.capture_requested_at END,
+			capture_requested_at=CASE
+				WHEN $4 THEN $1
+				WHEN (screen_previews.captured_at IS NULL OR screen_previews.captured_at < $1 - make_interval(secs => $5))
+					AND left(COALESCE(screen_previews.failure_status, ''), 10) <> 'sensitive_'
+					AND screen_previews.capture_requested_at <= $1 - make_interval(secs => $6)
+					AND (screen_previews.attempted_at IS NULL OR screen_previews.attempted_at <= $1 - make_interval(secs => $6))
+				THEN $1
+				ELSE screen_previews.capture_requested_at
+			END,
 			updated_at=$1
-		RETURNING screen_id`, now, expiresAt, screenID, forceCapture).Scan(&storedScreenID)
+		RETURNING screen_id`, now, expiresAt, screenID, forceCapture, int(CaptureFreshness.Seconds()), int(CaptureRetryInterval.Seconds())).Scan(&storedScreenID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Session{}, ErrNotFound
 	}

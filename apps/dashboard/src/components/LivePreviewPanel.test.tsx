@@ -81,6 +81,15 @@ afterEach(() => {
 });
 
 describe("LivePreviewPanel", () => {
+  it("proactively nudges an overdue preview without requiring a page reload", async () => {
+    renderPanel();
+    await screen.findByAltText("Current Tilecast output for Lobby");
+    await waitFor(() => {
+      expect(renewMock).toHaveBeenCalledWith("screen-1", false, "csrf");
+    });
+    expect(renewMock).toHaveBeenCalledWith("screen-1", true, "csrf");
+  });
+
   it("opens snapshot history from the preview actions when provided", async () => {
     const onOpenHistory = vi.fn();
     renderPanel(onOpenHistory);
