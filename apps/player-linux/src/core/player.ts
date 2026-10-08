@@ -1001,6 +1001,7 @@ export class PlayerRuntime {
           void this.manifestSync.syncNow("socket-open");
           void this.configSync.syncNow("socket-open");
           void this.commands?.pollNow("socket-open");
+          this.preview?.sessionChanged();
           this.liveStream?.sessionChanged();
           void this.reportStatus();
         },
@@ -1034,6 +1035,7 @@ export class PlayerRuntime {
         onManifestChanged: () => void this.manifestSync.syncNow("push"),
         onConfigChanged: () => void this.configSync.syncNow("push"),
         onCommandsAvailable: () => void this.commands?.pollNow("push"),
+        onPreviewSessionChanged: () => this.preview?.sessionChanged(),
         onLiveStreamSessionChanged: () => this.liveStream?.sessionChanged(),
       },
     );

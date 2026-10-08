@@ -44,8 +44,16 @@ describe("livePreviewState", () => {
     expect(livePreviewState({ ...screen, status: "offline" }, preview)).toBe(
       "offline",
     );
+    // A failed refresh keeps the last good image but never calls it live.
     expect(
       livePreviewState(screen, { ...preview, status: "capture_error" }),
+    ).toBe("stale");
+    expect(
+      livePreviewState(screen, {
+        ...preview,
+        status: "capture_error",
+        imageAvailable: false,
+      }),
     ).toBe("capture-error");
   });
 });

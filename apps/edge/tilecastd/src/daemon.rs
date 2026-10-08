@@ -131,6 +131,8 @@ pub struct DaemonContext {
     pub capture: crate::capture::CaptureBroker,
     /// Periodic Live Preview health (its renderer-fault suspension only).
     pub preview_health: crate::preview::PreviewHealth,
+    /// Wakes the preview coordinator when a capture is requested.
+    pub preview_wake: tokio::sync::Notify,
     /// Wakes the Watch Live reconciler (a socket push arrived).
     pub live_stream_wake: tokio::sync::Notify,
     /// Latest encoded Watch Live frame for the WebSocket owner to send.
@@ -391,6 +393,7 @@ impl Daemon {
             report_wake: tokio::sync::Notify::new(),
             capture: crate::capture::CaptureBroker::default(),
             preview_health: crate::preview::PreviewHealth::default(),
+            preview_wake: tokio::sync::Notify::new(),
             live_stream_wake: tokio::sync::Notify::new(),
             live_frames: tokio::sync::watch::Sender::new(None),
             renderer_commands: crate::remote_web::Waiters::default(),

@@ -318,6 +318,8 @@ pub enum PlayerSocketEvent {
     ManifestChanged,
     ConfigChanged,
     CommandsAvailable,
+    /// A preview lease/capture request changed; GET remains authoritative.
+    PreviewSessionChanged,
     /// A live-stream lease changed. This is only a wake-up: the
     /// authenticated `GET /api/v1/player/live-stream-session` endpoint stays
     /// authoritative.
@@ -353,6 +355,7 @@ fn classify_socket_text(text: &str) -> Result<PlayerSocketEvent, ServerError> {
         Some("manifest.changed") => PlayerSocketEvent::ManifestChanged,
         Some("config.changed") => PlayerSocketEvent::ConfigChanged,
         Some("commands.available") => PlayerSocketEvent::CommandsAvailable,
+        Some("preview.session_changed") => PlayerSocketEvent::PreviewSessionChanged,
         Some("live_stream.session_changed") => PlayerSocketEvent::LiveStreamSessionChanged,
         _ => PlayerSocketEvent::Other,
     })
@@ -791,6 +794,10 @@ mod socket_tests {
         assert_eq!(classify_socket_text(r#"{"type":"manifest.changed"}"#), Ok(PlayerSocketEvent::ManifestChanged));
         assert_eq!(classify_socket_text(r#"{"type":"config.changed"}"#), Ok(PlayerSocketEvent::ConfigChanged));
         assert_eq!(classify_socket_text(r#"{"type":"commands.available"}"#), Ok(PlayerSocketEvent::CommandsAvailable));
+        assert_eq!(
+            classify_socket_text(r#"{"type":"preview.session_changed"}"#),
+            Ok(PlayerSocketEvent::PreviewSessionChanged)
+        );
         assert_eq!(classify_socket_text(r#"{"type":"future.unknown"}"#), Ok(PlayerSocketEvent::Other));
         assert_eq!(classify_socket_text(r#"{}"#), Ok(PlayerSocketEvent::Other));
         assert!(classify_socket_text("not json").is_err());
