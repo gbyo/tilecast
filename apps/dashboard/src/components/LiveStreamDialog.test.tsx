@@ -79,7 +79,7 @@ describe("LiveStreamDialog", () => {
     );
   });
 
-  it("automatically reconnects the MJPEG relay after a transport error", async () => {
+  it("automatically reconnects after a transport error", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(
         new Response(
@@ -130,7 +130,7 @@ describe("LiveStreamDialog", () => {
     );
   });
 
-  it("does not steal a session that another viewer replaced", async () => {
+  it("does not steal a replaced session", async () => {
     const session = {
       id: "session-old",
       screenId: "screen-1",
@@ -192,7 +192,7 @@ describe("LiveStreamDialog", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
-  it("recreates an expired session but does not require a page reload", async () => {
+  it("recreates an expired session", async () => {
     const session = (id: string) => ({
       id,
       screenId: "screen-1",
@@ -237,11 +237,10 @@ describe("LiveStreamDialog", () => {
         onClose={() => undefined}
       />,
     );
-    expect(
-      (await screen.findByAltText("Live Tilecast output from Lobby")).getAttribute(
-        "src",
-      ),
-    ).toContain("/session-1/mjpeg");
+    const firstImage = await screen.findByAltText(
+      "Live Tilecast output from Lobby",
+    );
+    expect(firstImage.getAttribute("src")).toContain("/session-1/mjpeg");
 
     vi.useFakeTimers();
     await act(async () => {
