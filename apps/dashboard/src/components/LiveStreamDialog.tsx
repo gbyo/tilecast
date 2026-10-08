@@ -117,10 +117,7 @@ export function LiveStreamViewer({
       }
     };
 
-    const installSession = (
-      next: WireLiveStreamSession,
-      renew: () => void,
-    ) => {
+    const installSession = (next: WireLiveStreamSession, renew: () => void) => {
       sessionRef.current = next;
       startedAt = Date.now();
       stalled = false;
@@ -133,7 +130,9 @@ export function LiveStreamViewer({
       scheduleRenewal(renew);
     };
 
-    const scheduleSessionRecovery = (start: (recovering: boolean) => void) => {
+    const scheduleSessionRecovery = (
+      start: (recovering: boolean) => void,
+    ) => {
       clearRenewal();
       if (!active || recoveryTimer !== null) return;
       sessionRef.current = null;
@@ -193,7 +192,10 @@ export function LiveStreamViewer({
         })
         .catch((reason: unknown) => {
           if (!active || sessionRef.current?.id !== current.id) return;
-          if (reason instanceof ApiError && reason.code === "live_stream_replaced") {
+          if (
+            reason instanceof ApiError &&
+            reason.code === "live_stream_replaced"
+          ) {
             clearRenewal();
             clearRecovery();
             sessionRef.current = null;
@@ -202,7 +204,10 @@ export function LiveStreamViewer({
             setError("replaced");
             return;
           }
-          if (reason instanceof ApiError && reason.code === "live_stream_not_found") {
+          if (
+            reason instanceof ApiError &&
+            reason.code === "live_stream_not_found"
+          ) {
             scheduleSessionRecovery(startSession);
             return;
           }
@@ -281,7 +286,9 @@ export function LiveStreamViewer({
           <img
             key={`${session.id}:${streamAttempt}`}
             className="block size-full object-contain"
-            src={`${api.screenLiveStreamUrl(screenId, session.id)}${streamAttempt ? `?retry=${streamAttempt}` : ""}`}
+            src={`${api.screenLiveStreamUrl(screenId, session.id)}${
+              streamAttempt ? `?retry=${streamAttempt}` : ""
+            }`}
             alt={t("liveStream.imageAlt", { name: screenName })}
             onLoad={() => {
               if (transportRetryTimer.current !== null) {
