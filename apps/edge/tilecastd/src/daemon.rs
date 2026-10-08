@@ -98,6 +98,9 @@ pub struct DaemonContext {
     /// Wakes activation when a manifest is prepared or an item boundary passes.
     pub manifest_wake: tokio::sync::Notify,
     pub manifest_item_boundary: std::sync::atomic::AtomicBool,
+    /// Durable playlist resume, loaded once at startup. Synchronous: the
+    /// offline projection path consumes it without awaiting.
+    pub resume: std::sync::Mutex<crate::resume::ResumeState>,
     /// What manifest preparation is doing, for status and heartbeat.
     pub preparation: crate::manifest_sync::SharedPreparationStatus,
     pub link_state: std::sync::Mutex<LinkState>,
@@ -326,6 +329,10 @@ impl Daemon {
                 }
             }
         }
+        let resume_state = match &state {
+            StateMode::Normal(db) => crate::resume::load_resume_state(db).await,
+            StateMode::Recovery { .. } => crate::resume::ResumeState::default(),
+        };
 
         let mut registry = CapabilityRegistry::new();
         registry.register(Arc::new(SystemdProvider {
@@ -408,6 +415,7 @@ impl Daemon {
             server_wake: tokio::sync::Notify::new(),
             manifest_wake: tokio::sync::Notify::new(),
             manifest_item_boundary: std::sync::atomic::AtomicBool::new(false),
+            resume: std::sync::Mutex::new(resume_state),
             preparation: Default::default(),
             link_state: std::sync::Mutex::new(LinkState::Unbound),
             last_server_contact: std::sync::Mutex::new(None),

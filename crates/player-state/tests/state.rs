@@ -1,7 +1,7 @@
 //! Migration, restart-safety and repository tests against real SQLite files.
 
 use player_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
-use player_state::repo::{self, cas, daemon, renderer};
+use player_state::repo::{self, cas, daemon, playback_checkpoint, renderer};
 use player_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
 use player_types::capability::{Capability, CapabilityId, CapabilityState};
 use player_types::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
@@ -456,4 +456,38 @@ fn migration_9_keeps_renderer_state_and_records_last_restart() {
     renderer::put(&connection, &restarted, now()).expect("store restart");
     let round_tripped = renderer::get(&connection).expect("reread record");
     assert_eq!(round_tripped, restarted);
+}
+
+#[test]
+fn migration_10_adds_playback_checkpoint_and_round_trips() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    // Simulate a device last migrated at version 8.
+    let v8: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 8)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v8).expect("migrate to v8");
+    assert!(playback_checkpoint::get(&connection).is_err(), "no checkpoint table at v8");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
+    assert_eq!(playback_checkpoint::get(&connection).expect("read"), None);
+    let checkpoint = playback_checkpoint::PlaybackCheckpoint {
+        installation_id: "installation".into(),
+        screen_id: "screen".into(),
+        server_url: "https://tilecast.example".into(),
+        manifest_version: 3,
+        manifest_digest: "ab".repeat(32),
+        playlist_id: "playlist".into(),
+        item_id: "item-2".into(),
+        presented_at: now(),
+        updated_at: now(),
+    };
+    playback_checkpoint::put(&connection, &checkpoint).expect("store");
+    assert_eq!(playback_checkpoint::get(&connection).expect("reread"), Some(checkpoint));
+    playback_checkpoint::clear(&connection).expect("clear");
+    assert_eq!(playback_checkpoint::get(&connection).expect("read cleared"), None);
 }
