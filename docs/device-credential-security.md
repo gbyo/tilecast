@@ -6,7 +6,7 @@ The public ID selects a database record. The server compares the 256-bit secret 
 
 The server returns the full credential one time. The server does not store or log the full credential.
 
-Android encrypts the credential with an AES-GCM key from Android Keystore. Room contains only non-secret configuration.
+Android encrypts the credential with an AES-GCM key from Android Keystore. The native Player Core host stores non-secret durable state; the former Room database is a legacy migration input, not the production state store.
 
 Revocation adds a timestamp to the credential record and closes the active WebSocket. Future requests return `device_credential_revoked`.
 
@@ -37,7 +37,7 @@ Update metadata and APK ranges require device authentication. An active deployme
 
 Commands contain only identifiers, the expected version and hash, the mode, and the expiration. They do not contain URLs, credentials, or paths.
 
-Releases come only from `Gibsonmb71/tilecast`. The server verifies the Ed25519 statement, APK checksum, Android signature, and signing certificate.
+Releases come only from `gbyo/tilecast`. The server verifies the Ed25519 statement, APK checksum, Android signature, and signing certificate.
 
 ## Tilecast Edge
 
