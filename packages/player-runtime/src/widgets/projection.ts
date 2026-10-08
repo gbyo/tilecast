@@ -13,6 +13,7 @@
 import type {
   RuntimeWidgetComponentPayload,
   RuntimeWidgetComponentV1,
+  RuntimeWidgetSandboxExecutionV1,
 } from "../host/contract";
 import type {
   DataDocument,
@@ -23,6 +24,16 @@ import type { RegionalFormatting } from "../compat/projection/format";
 import { normalizeSource } from "../compat/projection/datasource";
 import type { ManifestAsset } from "../compat/projection/types";
 
+/**
+ * Mirrors `@tilecast/widget-sdk/identity`'s component-type rule. The SDK
+ * ships ES modules and this file also compiles to CommonJS for Node hosts,
+ * so the values are mirrored instead of imported; projection.test.ts asserts
+ * parity with the SDK.
+ */
+export const COMPONENT_TYPE_PATTERN =
+  /^[a-z][a-z0-9]{1,31}(\.[a-z][a-z0-9-]{0,47})+$/;
+export const MAX_COMPONENT_TYPE_LENGTH = 80 - "widget.".length;
+
 /** Latest presentation schema version of `kind: "component"` presentations. */
 export const COMPONENT_PRESENTATION_SCHEMA = 3;
 const LEGACY_COMPONENT_PRESENTATION_SCHEMA = 2;
@@ -30,7 +41,92 @@ const LEGACY_COMPONENT_PRESENTATION_SCHEMA = 2;
 const MAX_DATA_SOURCES = 8;
 const MAX_MEDIA = 16;
 const IDENTIFIER = /^[A-Za-z0-9-]{1,64}$/;
-const TYPE = /^[a-z][a-z0-9]{1,31}\.[a-z][a-z0-9-]{0,47}$/;
+/** Mirrors the package SDK's package identity rule (at most 128 runes). */
+const PACKAGE_ID =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const HEX64 = /^[0-9a-f]{64}$/;
+/**
+ * Canonical frame references the projector translates through the host's
+ * frame table: `tcwidget://frame/<packageId>/<frameDigest>`. The Runtime
+ * never sends one to an executor untranslated.
+ */
+export const FRAME_URI_PREFIX = "tcwidget://frame/";
+/** Mirrors the Server frame cap: a maximum bundle plus template headroom. */
+export const MAX_FRAME_BYTES = (1 << 20) + (1 << 16);
+/** The external Widget execution ABI that runs sandbox frames. */
+export const EXTERNAL_RUNTIME_FRAME_VERSION = 2;
+/** The host capability name for the frame execution ABI. */
+export const EXTERNAL_RUNTIME_CAPABILITY = "widget.external-runtime";
+
+/** A validated v19 frame claim: the executable frame a host must prepare. */
+export interface FrameClaim {
+  packageId: string;
+  packageDigest: string;
+  frameDigest: string;
+  size: number;
+  downloadPath: string;
+}
+
+/**
+ * Parse one manifest `package` block. Absent for bundled components;
+ * null when the block names no executable frame or is malformed. The
+ * single validation rule for projection and planning: size and download
+ * path stay Core's business at execution time, but planning needs them
+ * to prepare the exact bytes, so the claim carries all three.
+ */
+export function parseFrameClaim(value: unknown): FrameClaim | null | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const packageId = record.packageId;
+  const digest = record.digest;
+  const frame = record.frame;
+  if (
+    typeof packageId !== "string" ||
+    packageId.length > 128 ||
+    !PACKAGE_ID.test(packageId) ||
+    packageId.split(".")[0] === "tilecast"
+  ) {
+    return null;
+  }
+  if (
+    typeof digest !== "string" ||
+    !digest.startsWith("sha256:") ||
+    !HEX64.test(digest.slice("sha256:".length))
+  ) {
+    return null;
+  }
+  if (!frame || typeof frame !== "object") return null;
+  const entry = frame as Record<string, unknown>;
+  const sha256 = entry.sha256;
+  const fileSize = entry.fileSize;
+  const downloadPath = entry.downloadPath;
+  if (typeof sha256 !== "string" || !HEX64.test(sha256)) return null;
+  if (
+    typeof fileSize !== "number" ||
+    !Number.isInteger(fileSize) ||
+    fileSize < 1 ||
+    fileSize > MAX_FRAME_BYTES
+  ) {
+    return null;
+  }
+  if (
+    typeof downloadPath !== "string" ||
+    downloadPath.length > 256 ||
+    !/^\/api\/v1\/player\/packages\/[A-Za-z0-9._-]+\/widgets\/[A-Za-z0-9_-]+\/frame$/.test(
+      downloadPath,
+    )
+  ) {
+    return null;
+  }
+  return {
+    packageId,
+    packageDigest: digest,
+    frameDigest: sha256,
+    size: fileSize,
+    downloadPath,
+  };
+}
 
 export interface ComponentProjectionContext {
   dataSources: ReadonlyMap<string, ManifestDataSource>;
@@ -44,7 +140,30 @@ export function isComponentWidget(widget: ManifestWidget): boolean {
   return widget.presentation?.kind === "component";
 }
 
-function componentOf(widget: ManifestWidget): RuntimeWidgetComponentV1 | null {
+/**
+ * Extract a package block's executable frame claim as the canonical
+ * reference the projector translates through the host's frame table.
+ * Absent for bundled components. Null fails the component: a package
+ * claim without an executable frame (a v18 bundle claim, or a malformed
+ * block) never mounts, trusted or otherwise.
+ */
+function frameExecutionOf(
+  value: unknown,
+): RuntimeWidgetSandboxExecutionV1 | null | undefined {
+  const claim = parseFrameClaim(value);
+  if (claim === undefined || claim === null) return claim;
+  // The Runtime joins the claim to its authorized frame by package and
+  // frame digest; size and download path stay the preparer's business.
+  return {
+    kind: "sandboxed",
+    frameUrl: `${FRAME_URI_PREFIX}${claim.packageId}/${claim.frameDigest}`,
+  };
+}
+
+function componentOf(widget: ManifestWidget): {
+  component: RuntimeWidgetComponentV1;
+  execution?: RuntimeWidgetSandboxExecutionV1;
+} | null {
   const presentation = widget.presentation;
   if (
     !presentation ||
@@ -63,7 +182,11 @@ function componentOf(widget: ManifestWidget): RuntimeWidgetComponentV1 | null {
     presentation.schemaVersion === COMPONENT_PRESENTATION_SCHEMA
       ? raw.empty
       : "render";
-  if (typeof type !== "string" || type.length > 72 || !TYPE.test(type)) {
+  if (
+    typeof type !== "string" ||
+    type.length > MAX_COMPONENT_TYPE_LENGTH ||
+    !COMPONENT_TYPE_PATTERN.test(type)
+  ) {
     return null;
   }
   if (!Number.isInteger(version) || version < 1 || version > 100) return null;
@@ -93,13 +216,18 @@ function componentOf(widget: ManifestWidget): RuntimeWidgetComponentV1 | null {
   ) {
     return null;
   }
+  const execution = frameExecutionOf(raw.package);
+  if (execution === null) return null;
   return {
-    type,
-    version,
-    config,
-    empty,
-    dataSources: [...dataSources],
-    media: media.map(({ assetId, variantId }) => ({ assetId, variantId })),
+    component: {
+      type,
+      version,
+      config,
+      empty,
+      dataSources: [...dataSources],
+      media: media.map(({ assetId, variantId }) => ({ assetId, variantId })),
+    },
+    ...(execution === undefined ? {} : { execution }),
   };
 }
 
@@ -122,8 +250,9 @@ export function projectWidgetComponent(
   widget: ManifestWidget,
   ctx: ComponentProjectionContext,
 ): RuntimeWidgetComponentPayload | null {
-  const component = componentOf(widget);
-  if (!component) return null;
+  const projected = componentOf(widget);
+  if (!projected) return null;
+  const { component, execution } = projected;
   const documents: Record<string, unknown> = {};
   let hidden = false;
   for (const id of component.dataSources) {
@@ -181,5 +310,8 @@ export function projectWidgetComponent(
       timeZone: ctx.regionalFormat.timezone,
       hourCycle: hourCycle(ctx.regionalFormat.timeFormat),
     },
+    // A canonical frame reference, translated through the host's frame
+    // table before any executor sees it (projector.ts).
+    ...(execution === undefined ? {} : { execution }),
   };
 }

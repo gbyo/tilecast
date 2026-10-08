@@ -16,7 +16,42 @@ import type {
   ManifestWidget,
 } from "../compat/projection/content-types";
 import type { Manifest } from "../compat/projection/types";
-import { projectWidgetComponent } from "./projection";
+import {
+  COMPONENT_TYPE_PATTERN,
+  EXTERNAL_RUNTIME_CAPABILITY,
+  EXTERNAL_RUNTIME_FRAME_VERSION,
+  FRAME_URI_PREFIX,
+  MAX_COMPONENT_TYPE_LENGTH,
+  projectWidgetComponent,
+} from "./projection";
+import frameContract from "../../../player-contracts/fixtures/widget-frames.json";
+import {
+  COMPONENT_TYPE_PATTERN as SDK_COMPONENT_TYPE_PATTERN,
+  MAX_COMPONENT_TYPE_LENGTH as SDK_MAX_COMPONENT_TYPE_LENGTH,
+} from "@tilecast/widget-sdk/identity";
+
+describe("component identity parity", () => {
+  it("mirrors the widget SDK identity rule", () => {
+    expect(COMPONENT_TYPE_PATTERN.source).toBe(
+      SDK_COMPONENT_TYPE_PATTERN.source,
+    );
+    expect(COMPONENT_TYPE_PATTERN.flags).toBe(SDK_COMPONENT_TYPE_PATTERN.flags);
+    expect(MAX_COMPONENT_TYPE_LENGTH).toBe(SDK_MAX_COMPONENT_TYPE_LENGTH);
+  });
+});
+
+describe("shared frame contract", () => {
+  it("pins the cross-player frame constants", () => {
+    expect(frameContract.schemaVersion).toBe(1);
+    expect(EXTERNAL_RUNTIME_CAPABILITY).toBe(
+      frameContract.constants.capability,
+    );
+    expect(EXTERNAL_RUNTIME_FRAME_VERSION).toBe(
+      frameContract.constants.capabilityVersion,
+    );
+    expect(FRAME_URI_PREFIX).toBe(`${frameContract.constants.scheme}://frame/`);
+  });
+});
 
 const SOURCE = "6f5f2f7e-1c1a-4e8e-9b61-3a2d8d2f1c10";
 const OTHER_SOURCE = "0b8a7c52-6c2f-4c65-9a5e-8e0e1f3a2b44";
@@ -555,5 +590,112 @@ describe("component projection in hosts", () => {
       component: { component: { type: "tilecast.clock" } },
     });
     expect(layout?.zones[0]?.render).toBeUndefined();
+  });
+});
+
+describe("external frame claims", () => {
+  const FRAME = "c".repeat(64);
+  const PACKAGE = "a".repeat(64);
+  const external = (pkg: Record<string, unknown>) =>
+    componentWidget(
+      {
+        type: "acme.athletics.scoreboard",
+        version: 2,
+        config: { title: "Friday" },
+        dataSources: [],
+        media: [],
+        empty: "render",
+        package: {
+          packageId: "acme.athletics",
+          digest: `sha256:${PACKAGE}`,
+          ...pkg,
+        },
+      },
+      3,
+    );
+
+  it("projects a v19 frame claim as a canonical execution reference", () => {
+    const payload = projectWidgetComponent(
+      external({
+        frame: {
+          sha256: FRAME,
+          fileSize: 4242,
+          downloadPath:
+            "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame",
+        },
+      }),
+      context,
+    );
+    expect(payload?.component.type).toBe("acme.athletics.scoreboard");
+    expect(payload?.execution).toEqual({
+      kind: "sandboxed",
+      frameUrl: `${FRAME_URI_PREFIX}acme.athletics/${FRAME}`,
+    });
+  });
+
+  it("leaves a package claim without an executable frame unprojected", () => {
+    // A v18 bundle claim names no frame: the runtime never executes it.
+    expect(
+      projectWidgetComponent(
+        external({
+          sha256: "b".repeat(64),
+          fileSize: 42,
+          downloadPath:
+            "/api/v1/player/packages/acme.athletics/widgets/scoreboard",
+        }),
+        context,
+      ),
+    ).toBeNull();
+    for (const pkg of [
+      {
+        packageId: "not a package",
+        digest: `sha256:${PACKAGE}`,
+        frame: { sha256: FRAME },
+      },
+      {
+        packageId: "tilecast.evil",
+        digest: `sha256:${PACKAGE}`,
+        frame: { sha256: FRAME },
+      },
+      {
+        packageId: "acme.athletics",
+        digest: "deadbeef",
+        frame: { sha256: FRAME },
+      },
+      {
+        packageId: "acme.athletics",
+        digest: `sha256:${PACKAGE}`,
+        frame: { sha256: "xyz" },
+      },
+      { packageId: "acme.athletics", digest: `sha256:${PACKAGE}`, frame: null },
+      { packageId: "acme.athletics", digest: `sha256:${PACKAGE}` },
+      "package",
+    ]) {
+      expect(
+        projectWidgetComponent(
+          external(pkg as Record<string, unknown>),
+          context,
+        ),
+        `projects ${JSON.stringify(pkg)}`,
+      ).toBeNull();
+    }
+  });
+
+  it("projects multi-segment package-qualified types", () => {
+    const payload = projectWidgetComponent(
+      componentWidget(
+        {
+          type: "gbyo.athletics.scoreboard",
+          version: 1,
+          config: {},
+          dataSources: [],
+          media: [],
+        },
+        2,
+      ),
+      context,
+    );
+    expect(payload?.component.type).toBe("gbyo.athletics.scoreboard");
+    expect(payload?.execution).toBeUndefined();
   });
 });

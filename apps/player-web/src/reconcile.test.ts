@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { RuntimeSupportV1 } from "@tilecast/player-runtime/host-contract";
 import { PlayerAPI } from "./api";
 import { reconcileSelection, type ReconcileMemory } from "./reconcile";
 import { openDatabase } from "./storage/database";
 import { IndexedObjects } from "./storage/index";
-import { loadActivation } from "./storage/activation";
+import { activeGrant, loadActivation } from "./storage/activation";
 import { memoryStore } from "./test-support/memory-store";
 
 const id = (n: number) =>
@@ -60,7 +61,80 @@ const manifest = (version = 1, windows: Windows = {}) => ({
   ],
 });
 
-function server(selectedPlaylist: string | null, windows: Windows = {}) {
+const FRAME_BODY = "<!doctype html><html><body>scores</body></html>";
+const FRAME_DIGEST = createHash("sha256").update(FRAME_BODY).digest("hex");
+const FRAME_PACKAGE = "e".repeat(64);
+const WIDGET_ASSET = id(500);
+const PLAYLIST_WIDGET = id(903);
+const FRAME_PATH =
+  "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame";
+const frameSupport: RuntimeSupportV1 = {
+  presentationSchemas: [3],
+  declarativeCapabilities: {},
+  widgetComponents: { "widget.external-runtime": 2 },
+};
+const widgetManifest = (): Record<string, unknown> => {
+  const base = manifest(1);
+  return {
+    ...base,
+    widgets: [
+      {
+        assetId: WIDGET_ASSET,
+        name: "Scores",
+        provider: "acme.athletics.scoreboard",
+        presentation: {
+          schemaVersion: 3,
+          kind: "component",
+          requiredCapabilities: { "widget.external-runtime": 2 },
+          component: {
+            type: "acme.athletics.scoreboard",
+            version: 2,
+            config: { title: "Friday" },
+            dataSources: [],
+            media: [],
+            empty: "render",
+            package: {
+              packageId: "acme.athletics",
+              digest: `sha256:${FRAME_PACKAGE}`,
+              frame: {
+                sha256: FRAME_DIGEST,
+                fileSize: FRAME_BODY.length,
+                downloadPath: FRAME_PATH,
+              },
+            },
+          },
+        },
+      },
+    ],
+    playlists: [
+      ...base.playlists,
+      {
+        id: PLAYLIST_WIDGET,
+        revision: 1,
+        name: "Widget",
+        items: [
+          {
+            id: id(950),
+            assetId: WIDGET_ASSET,
+            variantId: null,
+            assetType: "widget",
+            fitMode: "contain",
+            transition: "none",
+            audioEnabled: false,
+            volume: 0,
+            deliveryPolicy: "download",
+          },
+        ],
+      },
+    ],
+  };
+};
+
+function server(
+  selectedPlaylist: string | null,
+  windows: Windows = {},
+  manifestOverride?: Record<string, unknown>,
+) {
   const downloads: string[] = [];
   let current = selectedPlaylist;
   let failing: string | undefined;
@@ -69,7 +143,8 @@ function server(selectedPlaylist: string | null, windows: Windows = {}) {
     const path = url.pathname;
     const ok = (data: unknown) =>
       new Response(JSON.stringify({ data }), { status: 200 });
-    if (path === "/api/v1/player/manifest") return ok(manifest(1, windows));
+    if (path === "/api/v1/player/manifest")
+      return ok(manifestOverride ?? manifest(1, windows));
     if (path === "/api/v1/player/config")
       return ok({
         configRevision: 1,
@@ -94,6 +169,7 @@ function server(selectedPlaylist: string | null, windows: Windows = {}) {
     downloads.push(path);
     if (failing && path.includes(failing))
       return new Response("nope", { status: 500 });
+    if (path === FRAME_PATH) return new Response(FRAME_BODY, { status: 200 });
     const n = [1, 2, 3, 4, 5, 6, 7, 8].find((value) =>
       path.includes(id(value)),
     )!;
@@ -107,11 +183,16 @@ function server(selectedPlaylist: string | null, windows: Windows = {}) {
   };
 }
 
-async function setup(selectedPlaylist: string | null, windows: Windows = {}) {
+async function setup(
+  selectedPlaylist: string | null,
+  windows: Windows = {},
+  manifestOverride?: Record<string, unknown>,
+  support?: RuntimeSupportV1,
+) {
   clock.ms = Date.now();
   const database = await openDatabase(new IDBFactory());
   const memory = memoryStore();
-  const remote = server(selectedPlaylist, windows);
+  const remote = server(selectedPlaylist, windows, manifestOverride);
   const index = new IndexedObjects(database);
   const reconcileMemory: ReconcileMemory = {
     key: "",
@@ -131,7 +212,7 @@ async function setup(selectedPlaylist: string | null, windows: Windows = {}) {
           bindingId: "binding",
           serverInstallationId: "server",
         },
-        support: () => undefined,
+        support: () => support,
         signal: new AbortController().signal,
         storeOptions: {},
         exclusively: (run) => run(),
@@ -164,6 +245,30 @@ describe("exact-closure reconciliation", () => {
     expect(
       activation?.resources.map((resource) => resource.digest).sort(),
     ).toEqual([digestOf(1), digestOf(2)].sort());
+  });
+
+  it("downloads, verifies and grants the frames a widget playlist needs", async () => {
+    const h = await setup(PLAYLIST_WIDGET, {}, widgetManifest(), frameSupport);
+    const result = await h.reconcile();
+    expect(result.changed).toBe(true);
+    expect(h.remote.downloads).toContain(FRAME_PATH);
+    expect([...h.memory.bytes.keys()]).toContain(FRAME_DIGEST);
+    const activation = await loadActivation(h.database, "slot");
+    expect(activation?.frames?.map((frame) => frame.frameDigest)).toEqual([
+      FRAME_DIGEST,
+    ]);
+    const table = activation?.presentation.projection?.widgetFrames;
+    expect(table).toHaveLength(1);
+    expect(table![0]).toMatchObject({
+      packageId: "acme.athletics",
+      packageDigest: `sha256:${FRAME_PACKAGE}`,
+      frameDigest: FRAME_DIGEST,
+    });
+    expect(table![0]!.uri).toMatch(/^\/player\/widget-frame\/1\//);
+    expect(await activeGrant(h.database, table![0]!.uri)).toMatchObject({
+      kind: "frame",
+      digest: FRAME_DIGEST,
+    });
   });
 
   it("needs no download or activation when nothing changed", async () => {

@@ -41,10 +41,14 @@
       this.appendChild(note);
       this.appendChild(img);
     }
+    // Mirror the SDK announce helpers: the frame assigned the current
+    // input revision under this key, and events without it are dropped
+    // as possibly stale.
+    var revision = this[Symbol.for("tilecast.widget.inputRevision")];
     this.dispatchEvent(
       new CustomEvent("tilecast-widget-ready", {
         bubbles: true,
-        detail: {},
+        detail: { revision: revision },
       }),
     );
   };

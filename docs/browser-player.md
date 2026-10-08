@@ -172,6 +172,23 @@ Trust has four levels:
 Metadata without bytes, or with a different size, invalidates the object.
 Bytes without metadata are removed during reconciliation.
 
+## Sandbox frames
+
+Browser Player prepares each Widget frame like other objects.
+It downloads the frame document, checks size and SHA-256, and pins the bytes.
+Activation mints one frame grant per frame, separate from media grants.
+A media grant never serves the frame route, and a frame grant never serves media.
+The grant usage is fixed when the grant is minted.
+
+The Runtime navigates a bare iframe to the grant URL.
+A service worker never sees a sandboxed iframe navigation, so the sandbox attribute would bypass the verified store.
+The served frame response carries the `sandbox` directive instead.
+The document runs at an opaque origin and completes the production handshake.
+The shell policy allows same-origin frame navigations on any scheme.
+Navigations carry no client, so the grant capability and its active-trusted state authorize them.
+`fetch()` and media keep the client authorization roundtrip.
+See [Widget sandbox spike](widget-sandbox-spike.md) for the measured behavior.
+
 ## Installation identity
 
 Each managed Browser Player has its own install manifest at `/player/<slot>/manifest.webmanifest`.
@@ -239,6 +256,7 @@ Studio offers only these command types for a Browser Screen.
 It installs the whole workspace, because the production Runtime declares its own build dependencies.
 It runs unit tests, builds the exact Runtime and the Host, and runs Chromium end-to-end tests against the real Go server and PostgreSQL.
 The end-to-end tests cover authentication, replaced and revoked bindings, single ownership, media preparation, service worker range responses, a browser restart while the Server is stopped, and Runtime output for each representative presentation.
+`npm run test:e2e:frames` covers verified frame grants separately: the production worker build serves two grants, two bare navigations complete the handshake under the production shell policy, and an ungranted capability answers 404.
 The Activity tests read proof of play back from the Server.
 They cover an image playlist, a video that ends by itself, a manual skip, and a Layout that a takeover replaces.
 A Go test verifies a WebCrypto signature from `apps/server/internal/devices/testdata/browser_webcrypto_golden.json`.

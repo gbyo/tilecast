@@ -93,6 +93,14 @@ func TestBrowserSessionsCannotEnterPlatformOrAdminRoutes(t *testing.T) {
 			t.Fatalf("browser cookie rejected shared route %s", path)
 		}
 	}
+	for _, path := range []string{
+		"/api/v1/player/packages/acme.athletics/widgets/scoreboard",
+		"/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame",
+	} {
+		if !browserPlayerRoute(path) {
+			t.Fatalf("browser cookie rejected package route %s", path)
+		}
+	}
 }
 
 func TestBrowserChallengeAndRecoveryRateLimits(t *testing.T) {

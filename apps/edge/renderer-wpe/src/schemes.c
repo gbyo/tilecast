@@ -5,6 +5,8 @@
  *   tcmedia://cap/<opaque>                  → daemon media capability channel
  *   tcmedia://variant/<asset>/<variant>     → the capability the current plugin
  *                                             state aliases to that variant
+ *   tcwidget://cap/<opaque>                 → daemon frame capability read,
+ *                                             served as a sandboxed document
  *
  * A media request is served only when the digest is listed in the current
  * activation or plugin state, and only when the file's size matches what
@@ -113,6 +115,7 @@ struct _TcMediaStream {
   GInputStream parent_instance;
   char *socket_path;
   char *capability;
+  gboolean frame;
   guint64 offset;
   guint64 remaining;
 };
@@ -127,7 +130,9 @@ tc_media_stream_read (GInputStream *stream, void *buffer, gsize count, GCancella
   if (count == 0 || self->remaining == 0)
     return 0;
   guint32 want = (guint32) MIN (MIN ((guint64) count, self->remaining), (guint64) TC_MEDIA_MAX_READ);
-  if (!tc_media_read (self->socket_path, self->capability, self->offset, buffer, want, error))
+  gboolean ok = self->frame ? tc_media_read_frame (self->socket_path, self->capability, self->offset, buffer, want, error)
+                            : tc_media_read (self->socket_path, self->capability, self->offset, buffer, want, error);
+  if (!ok)
     return -1;
   self->offset += want;
   self->remaining -= want;
@@ -162,6 +167,19 @@ media_stream_new (const char *socket_path, const char *capability, guint64 offse
   TcMediaStream *self = g_object_new (TC_TYPE_MEDIA_STREAM, NULL);
   self->socket_path = g_strdup (socket_path);
   self->capability = g_strdup (capability);
+  self->frame = FALSE;
+  self->offset = offset;
+  self->remaining = length;
+  return G_INPUT_STREAM (self);
+}
+
+static GInputStream *
+frame_stream_new (const char *socket_path, const char *capability, guint64 offset, guint64 length)
+{
+  TcMediaStream *self = g_object_new (TC_TYPE_MEDIA_STREAM, NULL);
+  self->socket_path = g_strdup (socket_path);
+  self->capability = g_strdup (capability);
+  self->frame = TRUE;
   self->offset = offset;
   self->remaining = length;
   return G_INPUT_STREAM (self);
@@ -182,6 +200,17 @@ tc_host_find_content (TcHost *host, const char *uri)
 {
   for (guint i = 0; i < host->content->len; i++) {
     const TcContentRef *ref = g_ptr_array_index (host->content, i);
+    if (strcmp (ref->uri, uri) == 0)
+      return ref;
+  }
+  return NULL;
+}
+
+const TcContentRef *
+tc_host_find_frame (TcHost *host, const char *uri)
+{
+  for (guint i = 0; i < host->frames->len; i++) {
+    const TcContentRef *ref = g_ptr_array_index (host->frames, i);
     if (strcmp (ref->uri, uri) == 0)
       return ref;
   }
@@ -339,13 +368,95 @@ handle_media (WebKitURISchemeRequest *request, gpointer user_data)
   }
 }
 
+/* ------------------------------------------------------- widget scheme */
+
+/* The cross-player sandbox policy every host applies to served frame
+ * documents: scripts run, but the document stays opaque, formless, and
+ * pointer-lock-free. */
+#define TC_FRAME_SANDBOX_POLICY "sandbox allow-scripts"
+
+static void
+finish_frame (WebKitURISchemeRequest *request, const char *socket_path, const char *capability, guint64 length)
+{
+  g_autoptr (GInputStream) stream = frame_stream_new (socket_path, capability, 0, length);
+  g_autoptr (WebKitURISchemeResponse) response = webkit_uri_scheme_response_new (stream, (gint64) length);
+  webkit_uri_scheme_response_set_status (response, 200, NULL);
+  webkit_uri_scheme_response_set_content_type (response, "text/html");
+  SoupMessageHeaders *headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+  soup_message_headers_append (headers, "Content-Security-Policy", TC_FRAME_SANDBOX_POLICY);
+  soup_message_headers_append (headers, "X-Content-Type-Options", "nosniff");
+  soup_message_headers_append (headers, "Accept-Ranges", "none");
+  soup_message_headers_append (headers, "Cache-Control", "no-store");
+  /* (transfer full): the response owns the headers from here on. */
+  webkit_uri_scheme_response_set_http_headers (response, headers);
+  webkit_uri_scheme_request_finish_with_response (request, response);
+}
+
+static void
+handle_widget (WebKitURISchemeRequest *request, gpointer user_data)
+{
+  TcHost *host = user_data;
+  const char *full_uri = webkit_uri_scheme_request_get_uri (request);
+  g_autoptr (GUri) uri = g_uri_parse (full_uri, G_URI_FLAGS_ENCODED, NULL);
+  const char *authority = uri ? g_uri_get_host (uri) : NULL;
+  const char *path = uri ? g_uri_get_path (uri) : NULL;
+  if (uri == NULL || g_uri_get_query (uri) != NULL || g_uri_get_userinfo (uri) != NULL || g_uri_get_port (uri) != -1) {
+    fail (request, G_IO_ERROR_NOT_FOUND, "not found");
+    return;
+  }
+  /* Unlike every other scheme here, a fragment is stripped, not refused:
+   * the executor binds each attach with a `#token` fragment, and WebKit
+   * may or may not pass it through. The token authenticates the frame
+   * handshake, never the HTTP layer, so the resolver ignores it. */
+  g_autofree char *bare = g_strdup (full_uri);
+  if (g_uri_get_fragment (uri) != NULL) {
+    char *hash = g_strrstr (bare, "#");
+    if (hash != NULL)
+      *hash = '\0';
+  }
+  const char *capability = path && path[0] == '/' ? path + 1 : NULL;
+  if (g_strcmp0 (authority, "cap") != 0 || capability == NULL || !tc_is_widget_capability_uri (bare)) {
+    fail (request, G_IO_ERROR_NOT_FOUND, "not found");
+    return;
+  }
+  const TcContentRef *ref = tc_host_find_frame (host, bare);
+  if (ref == NULL) {
+    g_warning ("schemes: refused frame capability absent from the current activation");
+    fail (request, G_IO_ERROR_PERMISSION_DENIED, "not part of the current presentation");
+    return;
+  }
+  guint64 size = 0;
+  g_autofree char *mime_type = NULL;
+  g_autoptr (GError) media_error = NULL;
+  if (!tc_media_head_frame (host->media_socket, capability, &size, &mime_type, &media_error) || size != ref->size_bytes
+      || g_strcmp0 (mime_type, "text/html") != 0) {
+    g_warning ("schemes: daemon denied or mismatched frame capability");
+    fail (request, G_IO_ERROR_NOT_FOUND, "not available");
+    return;
+  }
+  /* Whole documents only: a partial frame can never execute. The
+   * zero-length stream answers without touching the media socket. */
+  SoupMessageHeaders *request_headers = webkit_uri_scheme_request_get_http_headers (request);
+  if (request_headers != NULL && soup_message_headers_get_one (request_headers, "Range") != NULL) {
+    SoupMessageHeaders *headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
+    g_autofree char *content_range = g_strdup_printf ("bytes */%" G_GUINT64_FORMAT, size);
+    soup_message_headers_append (headers, "Content-Range", content_range);
+    soup_message_headers_append (headers, "Cache-Control", "no-store");
+    finish_media (request, host->media_socket, capability, 0, 0, 416, "text/html", headers);
+    return;
+  }
+  finish_frame (request, host->media_socket, capability, size);
+}
+
 void
 tc_schemes_register (TcHost *host)
 {
   WebKitSecurityManager *security = webkit_web_context_get_security_manager (host->web_context);
   webkit_security_manager_register_uri_scheme_as_secure (security, "tilecast");
   webkit_security_manager_register_uri_scheme_as_secure (security, "tcmedia");
+  webkit_security_manager_register_uri_scheme_as_secure (security, "tcwidget");
   webkit_security_manager_register_uri_scheme_as_cors_enabled (security, "tcmedia");
   webkit_web_context_register_uri_scheme (host->web_context, "tilecast", handle_runtime, host, NULL);
   webkit_web_context_register_uri_scheme (host->web_context, "tcmedia", handle_media, host, NULL);
+  webkit_web_context_register_uri_scheme (host->web_context, "tcwidget", handle_widget, host, NULL);
 }

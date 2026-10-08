@@ -44,7 +44,7 @@ fn to_value<T: serde::Serialize>(value: &T) -> Result<Value, ErrorBody> {
 
 /// Renderer features this daemon understands. Unknown requested features
 /// are ignored rather than rejected (see `edge_protocol::ipc`).
-const RENDERER_SESSION_FEATURES: &[&str] = &[];
+const RENDERER_SESSION_FEATURES: &[&str] = &[edge_protocol::ipc::RENDERER_FEATURE_WIDGET_FRAMES];
 
 #[async_trait]
 impl IpcHandler for DaemonIpc {

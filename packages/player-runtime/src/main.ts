@@ -92,6 +92,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     clock,
     animationScale,
     reducedMotion,
+    externalFrameSandbox: capabilities.externalFrameSandbox ?? "attribute",
   });
   const pluginMedia = new AuthorizedMedia();
   const surfaces = new RuntimeSurfaceHost({
@@ -194,7 +195,11 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
         host.ready({
           contractVersion: RUNTIME_HOST_CONTRACT_VERSION,
           runtimeVersion: RUNTIME_VERSION,
-          support: runtimeSupport(widgets.capabilities(), remoteWeb !== null),
+          support: runtimeSupport(
+            widgets.capabilities(),
+            remoteWeb !== null,
+            capabilities.externalFrames === true,
+          ),
         }),
       ),
     ),

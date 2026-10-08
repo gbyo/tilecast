@@ -11,6 +11,12 @@ export interface ActivationResource extends ResourceClaim {
   variantId: string;
 }
 
+export interface ActivationFrameResource extends ResourceClaim {
+  packageId: string;
+  packageDigest: string;
+  frameDigest: string;
+}
+
 /**
  * What a restarted browser needs to behave correctly without the server: the
  * server's own selection facts for the content, and the few accepted
@@ -37,6 +43,11 @@ export interface PreparedActivation {
   generation: number;
   activationId: string;
   resources: ActivationResource[];
+  /**
+   * Exactly the sandbox frames the activation's Widgets requested.
+   * Absent only on an activation committed before frames existed.
+   */
+  frames?: ActivationFrameResource[];
   presentation: PresentationMessage;
   plugins: PluginsMessage;
   /** Absent only on an activation committed before the policy existed. */
@@ -57,6 +68,13 @@ export interface MediaGrant {
   size: number;
   mimeType: string;
   trustedAt?: number;
+  /**
+   * Which route may serve this grant. Absent only on a grant minted
+   * before frames existed, which is always media. A media grant never
+   * serves the frame route and a frame grant never serves media: the
+   * usage is pinned at mint time, not negotiated per request.
+   */
+  kind?: "media" | "frame";
 }
 
 /**
@@ -77,13 +95,18 @@ export interface PublishedMessages {
 
 /**
  * Runs under the profile CAS Web Lock after all files are reverified.
- * Required-object pins, media grants and active metadata commit together.
+ * Required-object pins, media and frame grants, and active metadata
+ * commit together.
  */
 export async function commitActivation(
   database: IDBDatabase,
   activation: PendingActivation,
   publish?: (
     media: NonNullable<PresentationMessage["projection"]>["media"],
+    frames: Exclude<
+      NonNullable<PresentationMessage["projection"]>["widgetFrames"],
+      undefined
+    >,
   ) => PublishedMessages,
 ): Promise<PreparedActivation> {
   const transaction = database.transaction(
@@ -106,9 +129,20 @@ export async function commitActivation(
         throw new Error("Activation requires unprepared media");
       }
     }
+    const frames = activation.frames ?? [];
+    for (const claim of frames) {
+      const object = byDigest.get(claim.digest);
+      if (
+        !object ||
+        object.size !== claim.size ||
+        object.mimeType !== claim.mimeType
+      ) {
+        throw new Error("Activation requires an unprepared frame");
+      }
+    }
     const pin = `active:${activation.slotId}`;
     const required = new Set(
-      activation.resources.map((resource) => resource.digest),
+      [...activation.resources, ...frames].map((resource) => resource.digest),
     );
     for (const object of stored) {
       const pins = object.pins.filter((owner) => owner !== pin);
@@ -121,36 +155,64 @@ export async function commitActivation(
       const grant: MediaGrant = await result(grants.get(key));
       if (grant.slotId === activation.slotId) grants.delete(key);
     }
-    const media = activation.resources.map((resource) => {
+    const mint = (
+      route: "media" | "widget-frame",
+      digest: string,
+      size: number,
+      mimeType: string,
+    ): string => {
       const capability = crypto.randomUUID();
-      const uri = `/player/media/${activation.generation}/${capability}`;
+      const uri = `/player/${route}/${activation.generation}/${capability}`;
       const grant: MediaGrant = {
         slotId: activation.slotId,
         bindingId: activation.bindingId,
         activationId: activation.activationId,
         generation: activation.generation,
-        digest: resource.digest,
-        size: resource.size,
-        mimeType: resource.mimeType,
+        digest,
+        size,
+        mimeType,
+        kind: route === "media" ? "media" : "frame",
         // Every resource was downloaded and hashed, or rehashed, under the
         // CAS lock immediately before this transaction.
         trustedAt: Date.now(),
       };
       grants.put(grant, uri);
-      return { assetId: resource.assetId, variantId: resource.variantId, uri };
-    });
+      return uri;
+    };
+    const media = activation.resources.map((resource) => ({
+      assetId: resource.assetId,
+      variantId: resource.variantId,
+      uri: mint("media", resource.digest, resource.size, resource.mimeType),
+    }));
+    const widgetFrames = frames.map((resource) => ({
+      packageId: resource.packageId,
+      packageDigest: resource.packageDigest,
+      frameDigest: resource.frameDigest,
+      uri: mint(
+        "widget-frame",
+        resource.digest,
+        resource.size,
+        resource.mimeType,
+      ),
+    }));
     // Projection and plugins receive the same authorized table. Top-level
     // media item sources are mapped by the shared projection adapter at boot.
     const { presentation, plugins } = activation;
     if (!publish && (!presentation || !plugins))
       throw new Error("Activation has nothing to publish");
     const messages: PublishedMessages = publish
-      ? publish(media)
+      ? publish(media, widgetFrames)
       : {
           presentation: {
             ...presentation!,
             ...(presentation!.projection
-              ? { projection: { ...presentation!.projection, media } }
+              ? {
+                  projection: {
+                    ...presentation!.projection,
+                    media,
+                    ...(widgetFrames.length ? { widgetFrames } : {}),
+                  },
+                }
               : {}),
           },
           plugins: { ...plugins!, media },

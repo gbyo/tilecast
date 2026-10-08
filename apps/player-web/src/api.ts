@@ -86,7 +86,7 @@ export class PlayerAPI {
     const url = new URL(path, location.origin);
     if (
       url.origin !== location.origin ||
-      !/^\/api\/v1\/player\/(assets|span-panels)\//.test(url.pathname)
+      !/^\/api\/v1\/player\/(assets|span-panels|packages)\//.test(url.pathname)
     ) {
       throw new Error("Media download is outside the Player API");
     }

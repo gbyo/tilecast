@@ -231,6 +231,16 @@ export interface ComponentPresentation {
   media?: { assetId: string; variantId: string }[];
   /** Present in component presentation schema 3. */
   empty?: "render" | "skip-eligible";
+  /**
+   * Present only for package-contributed Widgets (manifest v18/v19):
+   * the verified package claim. A v19 claim carries the executable
+   * `frame`; anything else leaves the component unprojected.
+   */
+  package?: {
+    packageId: string;
+    digest: string;
+    frame?: { sha256: string; fileSize: number; downloadPath: string };
+  };
 }
 
 export interface WidgetPresentation {

@@ -91,6 +91,10 @@ pub const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
 pub const HANDSHAKE_TIMEOUT_MS: u64 = 5_000;
 /// Largest request `id`.
 pub const MAX_REQUEST_ID_CHARS: usize = 64;
+/// Renderer session feature naming sandboxed external-Widget frames. The
+/// daemon sends `frames` and `projection.widgetFrames` only on sessions
+/// that negotiated it, so an older renderer never sees unknown members.
+pub const RENDERER_FEATURE_WIDGET_FRAMES: &str = "widget-frames-v1";
 
 /// Who is on the other end of a session. Closed set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

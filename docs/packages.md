@@ -177,6 +177,16 @@ SHA-256 and size, so the Player verifies the download before activation.
 Bundle bytes are content-addressed and pinned like media; removal of the
 package invalidates the route.
 
+Frame-capable Players fetch the executable document from
+`GET /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame`, with
+`HEAD` for inspection. The server assembles the document deterministically
+from the same retained verified bundle through the generated sandbox
+assembler, so manifest compilation and the endpoint agree on the exact
+bytes, SHA-256, and size. No second package copy is stored for the frame;
+the bundle stays the one authoritative artifact and the frame metadata is
+snapshotted beside it. The response carries the Player frame `sandbox`
+policy.
+
 Studio previews the same contribution through
 `GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame`, readable by
 any signed-in account. The endpoint interpolates the verified bundle

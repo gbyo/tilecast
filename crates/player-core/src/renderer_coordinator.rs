@@ -298,6 +298,7 @@ mod tests {
             .unwrap(),
             metadata,
             vec![VerifiedContentRef { sha256: digest, size_bytes: 8, mime_type: SafeText::new("image/png").unwrap() }],
+            Vec::new(),
             None,
         )
         .unwrap()
@@ -349,6 +350,7 @@ mod tests {
             next.document().clone(),
             wrong_metadata,
             next.content().to_vec(),
+            next.frames().to_vec(),
             None,
         )
         .unwrap();

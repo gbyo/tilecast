@@ -241,6 +241,10 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
     let native: serde_json::Map<String, serde_json::Value> = crate::manifest::profile::NATIVE_CAPABILITIES
         .iter()
         .chain(crate::widget_capabilities::WIDGET_COMPONENTS)
+        .chain(std::iter::once(&(
+            edge_protocol::frames::EXTERNAL_RUNTIME_CAPABILITY,
+            edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+        )))
         .map(|(name, version)| ((*name).to_owned(), serde_json::json!(version)))
         .collect();
     let mut heartbeat = serde_json::json!({

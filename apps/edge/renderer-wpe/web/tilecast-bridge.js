@@ -193,6 +193,11 @@
       setup: !!handlers.tilecastRequest,
       // tilecastd browses Avahi; an empty list is a valid answer.
       discovery: !!handlers.tilecastRequest,
+      // Verified sandbox frames arrive over the daemon's tcwidget scheme
+      // handler, which sees every subframe navigation, so the runtime
+      // keeps its default iframe-sandbox attribute on top of the served
+      // response policy.
+      externalFrames: true,
       // Edge shows the pulse logo outside active hours; other hosts omit this
       // and keep the Cast logo.
       outsideHoursLogo: "pulse",
