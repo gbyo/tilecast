@@ -525,7 +525,7 @@ func (d *Dispatcher) playerCommand(ctx context.Context, call Call, operation str
 	if call.Context == ContextStudio && call.Actor != nil {
 		creator = &call.Actor.UserID
 	}
-	id, expires, err := d.deps.Devices.EnqueuePlayerCommand(ctx, input.ScreenID, creator,
+	id, expires, err := d.deps.Devices.EnqueuePlayerCommand(auditContext(ctx, call), input.ScreenID, creator,
 		resolved.Command, payload, uuid.New(),
 		d.deps.Limits.MaxPendingCommands, d.deps.Limits.DefaultCommandExpiryMinutes)
 	if errors.Is(err, devices.ErrCommandScreenNotFound) {
