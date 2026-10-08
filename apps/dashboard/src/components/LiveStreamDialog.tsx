@@ -233,11 +233,7 @@ export function LiveStreamViewer({
         })
         .catch(() => {
           if (!active) return;
-          if (recovering) {
-            scheduleSessionRecovery(startSession);
-          } else {
-            setError("start");
-          }
+          scheduleSessionRecovery(startSession);
         });
     };
 
