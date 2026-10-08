@@ -8,7 +8,7 @@ Docker bridge networking does not reliably publish multicast DNS on every Linux 
 
 ## HTTPS reverse proxy
 
-Set `TILECAST_PUBLIC_URL` to the external URL and `TILECAST_COOKIE_SECURE=true`. Forward HTTP to `server:8080` on a private Docker network. Preserve WebSocket upgrade headers when player notifications are introduced.
+Set `TILECAST_PUBLIC_URL` to the external URL and `TILECAST_COOKIE_SECURE=true`. Forward HTTP to `server:8080` on a private Docker network. Preserve WebSocket upgrade headers for the existing Player and Studio realtime connections.
 
 This is also what makes passkeys possible. Browsers refuse WebAuthn outside a secure context and reject an IP address as a relying party identifier, so a plain-HTTP LAN installation can offer authenticator apps and recovery codes but not passkeys. `TILECAST_PUBLIC_URL` must be the address browsers actually use. When the proxy's external hostname differs from what the server sees, set `TILECAST_WEBAUTHN_RP_ID` (a bare hostname) and `TILECAST_WEBAUTHN_ORIGINS` (comma-separated, with scheme) together. The server logs the reason at startup whenever passkeys are disabled. See [multi-factor-authentication.md](multi-factor-authentication.md).
 
@@ -68,7 +68,7 @@ docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml -f dep
 
 The running server reports its build identity through `tilecastVersion`, `channel`, `buildCommit`, and `buildDate` in the system status response. Stable builds report the bare tag version with channel `stable`. Development builds report `0.0.0-dev` with channel `development` plus their real commit, so they are never mistaken for a Stable release. The same identity is stamped into backup manifests (`tilecastVersion`, `serverChannel`, `buildCommit`, `buildDate`); archives written before these fields existed remain valid and decode with empty values.
 
-To cut a Stable release, update `main`, tag it (`git tag server-vX.Y.Z`), and push the tag. The first release under this system will be `server-v0.11.0`, not `server-v0.10.0`, because development builds historically hard-coded `0.10.0`. No source-version-bump commit is needed: the tag is the authoritative Stable version and the release workflow injects it into the binary at build time. The workflow rejects malformed tags, rejects versions that do not increase, requires the tag to point at a commit that is part of `main` (main may advance after tagging; a tag on an unmerged side branch is rejected), and gates publishing on the full server shipping bundle: server, Studio, container, browser, plugins, widgets, data sources, and generated-contract validation. All Stable releases serialize through one global concurrency group so two tags can never race the shared aliases. The workflow publishes only the immutable versioned image first, resolves and verifies its digest, records that digest in the GitHub Release, and only then creates `stable` and `latest` from the verified digest without rebuilding. A rerun after a promotion failure recovers the recorded digest from the existing release instead of resolving the version tag again.
+To cut a Stable release, update `main`, tag it (`git tag server-vX.Y.Z`), and push the tag. Check the latest published Server release before selecting a tag; historical first-release plans do not establish which tag currently exists.
 
 ## Data and upgrades
 

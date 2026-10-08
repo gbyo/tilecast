@@ -2,7 +2,7 @@
 
 Website assets are configuration records. They are not uploaded or downloadable media.
 
-A website plays fullscreen as a playlist item with a fixed duration. It uses the existing assignment, group, schedule, and precedence systems.
+Website content may play fullscreen as a timed playlist item or appear inside a Layout zone. Its playback follows assignment, group, schedule, and precedence rules. The shared Player Runtime owns presentation; each platform's remote-web host enforces its security boundary. Browser Player does not currently support Website content.
 
 Website pages do not operate offline. Downloaded images and videos continue to play when a website is not available.
 
@@ -73,7 +73,7 @@ The command removes cookies, HTTP cache, DOM storage, history, and temporary Web
 
 ## Reliability and offline behavior
 
-Each website playlist item requires an explicit duration. Tilecast reports a category for each load failure.
+Each Website playlist item requires an explicit duration; Layout zones follow their Layout's duration and lifecycle. Tilecast reports a category for each load failure.
 
 Failure categories include DNS, connection, TLS, HTTP, redirect, timeout, and renderer errors. Reports do not contain raw URLs or page content.
 

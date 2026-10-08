@@ -60,7 +60,7 @@ Core also owns renderer recovery decisions and meaningful-evidence rules.
 Each native host executes renderer actions through its RendererPort adapter
 and keeps its current process and security boundaries.
 
-The Android Player is a native Kotlin/Compose application. Room stores the durable player-generated ID, selected server identity, and paired screen identifiers. Android Keystore protects the device credential. WorkManager provides a low-frequency heartbeat fallback; foreground WebSocket presence is managed by the application and is not delegated to WorkManager. Electron, WPE, and WebView2 hosts use the shared `packages/player-runtime` renderer. Tilecast Edge keeps device and network operations in its native host. See the Tilecast Edge section below. The Windows Player is the second native host of the same shared crates; see the Windows section below.
+The Android Player uses Kotlin/Compose for platform UI and lifecycle, a native Rust Player Core host for pairing, connection, manifests, offline state, and recovery, and the shared Player Runtime in its trusted WebView. Android Keystore protects the device credential. Room is not a production state store; migration tests use the legacy database format. Linux Edge and Windows likewise host shared native Player Core and Player Runtime through platform-specific renderers. The experimental Browser Player shares the presentation model and runtime but has a distinct browser-host authentication and offline model. See [Android development](android-development.md), [Native Player Core](player-core.md), and [Browser Player](browser-player.md).
 
 The `devices` server package owns installation identity, pairing sessions, enrollment, credential replacement, screen administration, and status calculation. Pairing codes, poll secrets, enrollment tokens, and device credentials have distinct purposes. A stable player installation ID maps recovery requests back to the original screen; explicit repair approval is stored on the session, while previous credentials are revoked only in the successful enrollment transaction. Active WebSocket membership is kept in a process-local presence hub and is the strongest online signal; PostgreSQL timestamps provide recent, stale, and offline status after a restart.
 
@@ -70,7 +70,7 @@ FFprobe extracts trusted video metadata. FFmpeg is invoked directly, never throu
 
 Manifest versions are persisted per screen and advance only when its assignment or playback-relevant playlist revision changes. Reads are idempotent and use stable ETags. WebSockets carry only `manifest.changed`; players periodically reconcile as a fallback.
 
-Android Room stores pending, ready, active, failed, and superseded manifests plus cache metadata. A pending manifest activates only after every required file is size-checked, SHA-256 verified, and atomically renamed. The prior active manifest remains untouched during preparation, and startup loads verified active content before attempting the network.
+Player Core stores durable native manifest and activation state, while the platform supplies private storage and verified file access. A pending manifest activates only after required files pass size and SHA-256 verification and durable preparation. The previous active manifest remains available during preparation, and offline startup uses verified committed content. Android imports older Room state only through its legacy migration path.
 
 Playback supports either a fullscreen playlist or a published Layout. Layouts render natively, scale landscape and portrait canvases without distortion, and run positioned playlist zones independently alongside Apps, Assets, and primitives. Publishing limits a Layout to one active video-capable placement or zone and one audio-emitting placement or zone. An invalid or incompletely prepared Layout never replaces the previous verified presentation.
 
@@ -91,8 +91,7 @@ member updates the group assignment, and a schedule aimed at a grouped screen
 is normalized to the group target. Ungrouped screens keep independent
 assignments and schedules. `internal/scheduling` remains the server authority
 for half-open interval evaluation and deterministic precedence: priority,
-target specificity, later effective start, then stable ID. The Android `ScheduleEngine` implements the
-same transport semantics for offline evaluation.
+target specificity, later effective start, then stable ID. Player Core and shared presentation contracts preserve deterministic offline behavior.
 
 `scheduling.Explain` calls this same resolver. It returns a reason code for
 each selected, inactive, or superseded schedule. Selection and explanation
@@ -117,7 +116,7 @@ normal-resolution H.264 files. See [Span video walls](span-video-walls.md).
 
 Player manifests contain only schedules relevant to the authenticated screen, its playlist or Layout fallback, referenced published Layout revisions, required Apps, playlist zones, structured datasets, media variants, server time, preparation policy, and optional sync-group playback epoch. Group members calculate the same current item and elapsed offset from the shared clock, including after reconnecting late. Recurring rules use calendar calculations rather than fixed-duration days. A repeated local time uses the earlier occurrence for a start and later occurrence for an end; a nonexistent local time advances to the first valid time after the DST gap.
 
-## Milestone 6 website playback
+## Website playback
 
 Website configuration is normalized in `website_assets`; no page data or credentials are stored. Manifest v3 includes only websites referenced by relevant playlists, plus optional fallback-image variants. The Android player isolates WebView policy, lifecycle, timeout/reload control, failure state, and data clearing from Compose playlist orchestration. Scheduling is unchanged.
 
@@ -170,19 +169,19 @@ RSS, Atom, JSON, and CSV extend the Calendar refresh boundary rather than adding
 
 Manifest v9 adds native Clock, Date, QR Code, and Ticker Apps plus date-aware structured Source configuration. The server prepares and bounds datasets, but the Player selects the active record from its current local calendar date and configured IANA timezone. It reevaluates without a manifest revision at calendar transitions, startup, and runtime clock changes; reuse of a previous record requires the explicit `last_known_good` policy.
 
-## Milestone 7 operations
+## Operations
 
 Takeovers are separate lifecycle records rather than schedules. Manifest v4 references a Takeover playlist and expiration only for affected screens; its released `emergency` JSON key remains a compatibility boundary. Optional NWS rules monitor official active alerts and raise bounded Takeovers using a hidden Tilecast-managed live alert presentation or an operator-selected playlist. Persistent typed player commands use PostgreSQL as the delivery source of truth; WebSockets only announce availability. See [takeover-and-operations.md](takeover-and-operations.md).
 
-## Milestone 8 settings architecture
+## Settings architecture
 
 The closed typed registry separates organization settings, preferences, group policy, and screen policy. Effective player policy uses screen, group priority plus stable UUID, organization, then built-in precedence. A separate ETag-enabled player configuration document changes policy and branding without revising content manifests. See [settings.md](settings.md).
 
-## Milestone 10 Android reliability
+## Android reliability
 
 `CommissioningController`, `ActiveHoursEngine`, `ReliabilitySupervisor`, `ReliabilityController`, and the accessibility return policy are independent of Compose playback UI. Boot recovery restores cached state and uses bounded launch retries. Watchdog escalation persists crash history, executes each recovery rung, and enters safe mode without deleting configuration. Managed Kiosk is capability-confirmed through Android device policy and lock task. Accessibility Control observes only foreground package transitions and applies a fixed excluded-package policy. Android Power Assist selects device-policy sleep, accessibility lock, or black-screen fallback; it never sends direct HDMI-CEC commands. Linux Display Control is a separate capability-gated provider path for host-attached displays. Studio stores human-confirmed physical-TV results separately from player-reported Android capability and shows a computed Zero-Touch Readiness panel. See [reliability-and-power.md](reliability-and-power.md).
 
-## Milestone 9 player updates
+## Player updates
 
 The `updates` domain owns an optional fixed GitHub Releases provider, direct signed-release import, Ed25519-signed release manifests, Android APK-signature verification, private persistent cache, deployment snapshots, and per-screen state. Both release sources converge on one verified Player release model. Update commands reuse PostgreSQL command delivery; APK bytes use a device-authenticated range endpoint and never enter content manifests. Success remains provisional until the updated player reconnects with the expected version code. See [player-updates.md](player-updates.md).
 
