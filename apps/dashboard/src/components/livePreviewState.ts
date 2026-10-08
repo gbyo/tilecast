@@ -26,7 +26,9 @@ export function livePreviewState(
   // A known-safe transient failure can retain the last successful image.
   // Never call that image live: the attempted refresh failed.
   if (preview.status === "capture_error")
-    return preview.imageAvailable && preview.capturedAt ? "stale" : "capture-error";
+    return preview.imageAvailable && preview.capturedAt
+      ? "stale"
+      : "capture-error";
   if (preview.status === "unavailable") return "unavailable";
   if (!preview.imageAvailable || !preview.capturedAt) return "loading";
   const captureAge = now - new Date(preview.capturedAt).getTime();
