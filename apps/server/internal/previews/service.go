@@ -167,12 +167,16 @@ func (s *Service) RecordUpload(ctx context.Context, screenID uuid.UUID, upload U
 	}
 	now := s.now().UTC()
 	failureStatus := strings.TrimSpace(upload.FailureStatus)
+	capturedAt := any(nil)
+	if failureStatus == "" {
+		capturedAt = upload.CapturedAt.UTC()
+	}
 	// Failure updates only the attempt and failure status, not the last image.
 	// Unknown or protected failure statuses are hidden by the image endpoint.
 	commandTag, err := s.db.Exec(ctx, `
 		UPDATE screen_previews preview SET
 			attempted_at=$2,
-			captured_at=CASE WHEN $3='' THEN $2 ELSE preview.captured_at END,
+			captured_at=CASE WHEN $3='' THEN $11 ELSE preview.captured_at END,
 			player_version=$4,
 			width=CASE WHEN $3='' THEN $5 ELSE preview.width END,
 			height=CASE WHEN $3='' THEN $6 ELSE preview.height END,
@@ -184,7 +188,7 @@ func (s *Service) RecordUpload(ctx context.Context, screenID uuid.UUID, upload U
 		FROM screens
 		JOIN organization_settings ON organization_settings.singleton=TRUE AND organization_settings.id=screens.organization_id
 		WHERE preview.screen_id=$1 AND screens.id=preview.screen_id AND preview.lease_expires_at>$2`,
-		screenID, now, failureStatus, strings.TrimSpace(upload.PlayerVersion), upload.Width, upload.Height, len(upload.Data), upload.ContentType, upload.Data)
+		screenID, now, failureStatus, strings.TrimSpace(upload.PlayerVersion), upload.Width, upload.Height, len(upload.Data), upload.ContentType, upload.Data, capturedAt)
 	if err != nil {
 		return fmt.Errorf("store player preview: %w", err)
 	}
