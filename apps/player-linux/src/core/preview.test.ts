@@ -42,33 +42,27 @@ describe("LivePreview", () => {
     expect(uploaded!.get("preview")).toBeInstanceOf(Blob);
   });
 
-  it(
-    "reconciles a preview notification without waiting for the next timer",
-    async () => {
-      const client = {
-        previewSession: vi.fn(async () => ({
-          active: false,
-          captureNow: false,
-        })),
-        postPreview: vi.fn(async () => {}),
-      } as unknown as ApiClient;
-      const preview = new LivePreview(
-        client,
-        { capture: vi.fn(async () => capture()), playerVersion: "0.2.2" },
-        () => CAPTURED_AT_MS,
-      );
+  it("reconciles a pushed preview immediately", async () => {
+    const client = {
+      previewSession: vi.fn(async () => ({ active: false, captureNow: false })),
+      postPreview: vi.fn(async () => {}),
+    } as unknown as ApiClient;
+    const preview = new LivePreview(
+      client,
+      { capture: vi.fn(async () => capture()), playerVersion: "0.2.2" },
+      () => CAPTURED_AT_MS,
+    );
 
-      preview.start();
-      await vi.waitFor(() =>
-        expect(client.previewSession).toHaveBeenCalledOnce(),
-      );
-      preview.sessionChanged();
-      await vi.waitFor(() =>
-        expect(client.previewSession).toHaveBeenCalledTimes(2),
-      );
-      preview.stop();
-    },
-  );
+    preview.start();
+    await vi.waitFor(() =>
+      expect(client.previewSession).toHaveBeenCalledOnce(),
+    );
+    preview.sessionChanged();
+    await vi.waitFor(() =>
+      expect(client.previewSession).toHaveBeenCalledTimes(2),
+    );
+    preview.stop();
+  });
 
   it("honors the server captureNow signal before the interval is due", async () => {
     const client = {
