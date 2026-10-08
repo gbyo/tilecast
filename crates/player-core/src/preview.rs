@@ -195,9 +195,15 @@ pub async fn drive_preview<H, A>(
                 };
                 api.post_preview(&upload).await
             }
-            (Err(reason @ ("renderer_timeout" | "renderer_disconnected" | "capture_invalid" | "capture_out_of_bounds")), _) => {
-                api.post_preview(&PreviewUpload::Failure { player_version: version, reason }).await
-            }
+            (
+                Err(
+                    reason @ ("renderer_timeout"
+                    | "renderer_disconnected"
+                    | "capture_invalid"
+                    | "capture_out_of_bounds"),
+                ),
+                _,
+            ) => api.post_preview(&PreviewUpload::Failure { player_version: version, reason }).await,
             // Protected states and ambiguous/unknown failures fail closed.
             _ => api.post_preview(&PreviewUpload::Unavailable { player_version: version }).await,
         };
