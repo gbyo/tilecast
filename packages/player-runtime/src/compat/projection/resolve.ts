@@ -29,6 +29,12 @@ import type {
 } from "../../host/contract";
 import { createProjector } from "../projector";
 import {
+  EXTERNAL_RUNTIME_CAPABILITY,
+  EXTERNAL_RUNTIME_FRAME_VERSION,
+  parseFrameClaim,
+  type FrameClaim,
+} from "../../widgets/projection";
+import {
   isAvailableAt,
   nextAvailabilityTransition,
   type AvailabilityWindow,
@@ -79,6 +85,18 @@ export interface MediaRequirement {
 
 export type MediaBinding = ProjectionContextV1["media"][number];
 
+export interface FrameRequirement {
+  packageId: string;
+  packageDigest: string;
+  frameDigest: string;
+  size: number;
+  downloadPath: string;
+}
+
+export type FrameBinding = NonNullable<
+  ProjectionContextV1["widgetFrames"]
+>[number];
+
 export type ResolvedKind = "playing" | "idle" | "unavailable";
 
 /**
@@ -110,6 +128,8 @@ export interface PresentationPlan {
   readonly selection: SelectionFacts | null;
   /** Exactly the verified media this presentation can display. */
   readonly requirements: MediaRequirement[];
+  /** Exactly the verified sandbox frames this presentation can execute. */
+  readonly frameRequirements: FrameRequirement[];
   readonly compatibility: {
     /** Component Widget types and versions the presentation uses. */
     required: Record<string, number>;
@@ -452,12 +472,14 @@ function build(
 function projectionContext(
   input: ResolveInput,
   media: readonly MediaBinding[],
+  frames: readonly FrameBinding[] = [],
 ): ProjectionContextV1 {
   return {
     schema: input.manifest.schemaVersion,
     clockOffsetMs: input.clockOffsetMs,
     manifest: input.manifest as unknown as Record<string, unknown>,
     media: [...media],
+    ...(frames.length ? { widgetFrames: [...frames] } : {}),
     ...(input.config.playback ? { playback: input.config.playback } : {}),
   };
 }
@@ -465,6 +487,7 @@ function projectionContext(
 // ---------------------------------------------------------------- closure
 
 const PLACEHOLDER = "tcreq:";
+const FRAME_PLACEHOLDER = "tcreqframe:";
 
 function withoutWindow<T extends AvailabilityWindow>(value: T): T {
   const { availableFrom: _from, expiresAt: _until, ...rest } = value;
@@ -476,6 +499,17 @@ function placeholderIndices(emitted: unknown): Set<number> {
   const found = new Set<number>();
   for (const match of JSON.stringify(emitted).matchAll(
     new RegExp(`${PLACEHOLDER}(\\d+)`, "g"),
+  )) {
+    found.add(Number(match[1]));
+  }
+  return found;
+}
+
+/** The frame catalog entries a scan of an emitted presentation names. */
+function framePlaceholderIndices(emitted: unknown): Set<number> {
+  const found = new Set<number>();
+  for (const match of JSON.stringify(emitted).matchAll(
+    new RegExp(`${FRAME_PLACEHOLDER}(\\d+)`, "g"),
   )) {
     found.add(Number(match[1]));
   }
@@ -541,11 +575,12 @@ function pluginMediaPairs(
 function componentsIn(
   value: unknown,
   found: Map<string, number>,
+  external: Set<string>,
   depth = 0,
 ): void {
   if (!value || typeof value !== "object" || depth > 12) return;
   if (Array.isArray(value)) {
-    for (const entry of value) componentsIn(entry, found, depth + 1);
+    for (const entry of value) componentsIn(entry, found, external, depth + 1);
     return;
   }
   const record = value as Record<string, unknown>;
@@ -560,9 +595,17 @@ function componentsIn(
       component.type,
       Math.max(found.get(component.type) ?? 0, component.version),
     );
+    // A projected execution descriptor marks an external component: it
+    // needs the frame execution ABI, never a per-type bundled
+    // capability. The manifest package claim itself never survives
+    // projection.
+    const execution = record["execution"] as { kind?: unknown } | undefined;
+    if (execution?.kind === "sandboxed") {
+      external.add(component.type);
+    }
   }
   for (const entry of Object.values(record))
-    componentsIn(entry, found, depth + 1);
+    componentsIn(entry, found, external, depth + 1);
 }
 
 /**
@@ -579,15 +622,47 @@ export function planPresentation(input: ResolveInput): PresentationPlan {
   let built = build(input, placeholders, 0);
   const emitted: unknown[] = [built.presentation];
   const components = new Map<string, number>();
+  const external = new Set<string>();
+  const frameCatalog: FrameClaim[] = [];
   if (built.kind === "playing" && built.presentation.state === "playing") {
     try {
-      const projector = createProjector(projectionContext(input, placeholders));
+      const framePlaceholders: FrameBinding[] = [];
+      for (const widget of manifest.widgets ?? []) {
+        const component = (
+          widget as unknown as {
+            presentation?: { component?: { package?: unknown } };
+          }
+        ).presentation?.component;
+        const claim = parseFrameClaim(component?.package);
+        if (claim === undefined) continue;
+        // A malformed frame claim fails the plan like an unprojectable
+        // reference: the host keeps its previous activation.
+        if (claim === null)
+          throw new Error("Manifest frame claim is malformed");
+        const index = frameCatalog.findIndex(
+          (found) =>
+            found.packageId === claim.packageId &&
+            found.frameDigest === claim.frameDigest,
+        );
+        if (index === -1) {
+          framePlaceholders.push({
+            packageId: claim.packageId,
+            packageDigest: claim.packageDigest,
+            frameDigest: claim.frameDigest,
+            uri: `${FRAME_PLACEHOLDER}${frameCatalog.length}`,
+          });
+          frameCatalog.push(claim);
+        }
+      }
+      const projector = createProjector(
+        projectionContext(input, placeholders, framePlaceholders),
+      );
       const projected = projector?.project(
         built.presentation,
         at.getTime() - input.clockOffsetMs,
       );
       emitted.push(projected);
-      componentsIn(projected, components);
+      componentsIn(projected, components, external);
     } catch {
       // A reference the Runtime could not project would not render either.
       built = {
@@ -634,11 +709,43 @@ export function planPresentation(input: ResolveInput): PresentationPlan {
         a.assetId.localeCompare(b.assetId) ||
         a.variantId.localeCompare(b.variantId),
     );
+  const frameRequirements = [...framePlaceholderIndices(emitted)]
+    .filter((index) => index >= 0 && index < frameCatalog.length)
+    .map((index) => frameCatalog[index]!)
+    .map<FrameRequirement>((claim) => ({
+      packageId: claim.packageId,
+      packageDigest: claim.packageDigest,
+      frameDigest: claim.frameDigest,
+      size: claim.size,
+      downloadPath: claim.downloadPath,
+    }))
+    .sort(
+      (a, b) =>
+        a.packageId.localeCompare(b.packageId) ||
+        a.frameDigest.localeCompare(b.frameDigest),
+    );
 
   const required = Object.fromEntries(components);
   const failures: CompatibilityFailure[] = [];
   if (input.support) {
     for (const [type, version] of components) {
+      // External components need the frame execution ABI, never a
+      // per-type bundled capability.
+      if (external.has(type)) {
+        const supported =
+          input.support.widgetComponents[EXTERNAL_RUNTIME_CAPABILITY];
+        if (
+          supported === undefined ||
+          supported < EXTERNAL_RUNTIME_FRAME_VERSION
+        ) {
+          failures.push({
+            code: "widget_component_unsupported",
+            component: type,
+            version: EXTERNAL_RUNTIME_FRAME_VERSION,
+          });
+        }
+        continue;
+      }
       const supported = input.support.widgetComponents[`widget.${type}`];
       if (supported === undefined || supported < version)
         failures.push({
@@ -687,6 +794,7 @@ export function planPresentation(input: ResolveInput): PresentationPlan {
     kind: built.kind,
     selection: built.facts,
     requirements,
+    frameRequirements,
     compatibility: { required, failures },
     validUntil,
   };
@@ -694,12 +802,13 @@ export function planPresentation(input: ResolveInput): PresentationPlan {
 
 /**
  * Builds the Runtime messages for a plan. `media` must authorize every
- * requirement of the plan; a missing binding throws instead of rendering
- * partially.
+ * requirement of the plan and `frames` every frame requirement; a
+ * missing binding throws instead of rendering partially.
  */
 export function realizePresentation(
   plan: PresentationPlan,
   media: readonly MediaBinding[],
+  frames: readonly FrameBinding[],
   activation: ActivationRefV1,
 ): ResolvedPresentation {
   const built = build(plan.input, media, activation.generation);
@@ -711,7 +820,7 @@ export function realizePresentation(
       type: "presentation",
       activation,
       presentation: built.presentation,
-      projection: projectionContext(plan.input, media),
+      projection: projectionContext(plan.input, media, frames),
     },
     plugins: {
       type: "plugins",

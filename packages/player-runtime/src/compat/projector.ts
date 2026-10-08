@@ -17,7 +17,10 @@ import { resolveRegionalFormatting } from "./projection/format";
 import { renderLayout, spanViewport } from "./projection/layout-render";
 import { renderWidget } from "./projection/widget-render";
 import { isRemoteWebWidget, remoteWebForWidget } from "./projection/web-widget";
-import { projectWidgetComponent } from "../widgets/projection";
+import {
+  FRAME_URI_PREFIX,
+  projectWidgetComponent,
+} from "../widgets/projection";
 import type {
   LayoutDocument,
   ManifestDataSource,
@@ -72,6 +75,7 @@ function isLayoutReference(item: RuntimeItem): boolean {
 function translateMedia(
   value: unknown,
   media: Map<string, string>,
+  frames: Map<string, string>,
   mediaField = false,
 ): unknown {
   if (typeof value === "string") {
@@ -81,14 +85,30 @@ function translateMedia(
     return authorized;
   }
   if (Array.isArray(value)) {
-    return value.map((entry) => translateMedia(entry, media, mediaField));
+    return value.map((entry) =>
+      translateMedia(entry, media, frames, mediaField),
+    );
   }
   if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    // A projected execution descriptor translates through the host's
+    // frame table like media. A canonical reference the host did not
+    // authorize rejects the activation; it never reaches an executor.
+    if (
+      record.kind === "sandboxed" &&
+      typeof record.frameUrl === "string" &&
+      record.frameUrl.startsWith(FRAME_URI_PREFIX)
+    ) {
+      const authorized = frames.get(record.frameUrl);
+      if (!authorized) throw new Error("Projected frame is not authorized");
+      return { ...record, frameUrl: authorized };
+    }
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(value)) {
       out[key] = translateMedia(
-        (value as Record<string, unknown>)[key],
+        record[key],
         media,
+        frames,
         mediaField ||
           ["src", "fallbackSrc", "backgroundImage", "media"].includes(key),
       );
@@ -142,6 +162,23 @@ export function createProjector(
       alias.uri,
     );
   }
+  const frames = new Map<string, string>();
+  for (const entry of context.widgetFrames ?? []) {
+    if (
+      typeof entry.packageId !== "string" ||
+      entry.packageId === "" ||
+      typeof entry.frameDigest !== "string" ||
+      entry.frameDigest === "" ||
+      typeof entry.uri !== "string" ||
+      entry.uri === ""
+    ) {
+      throw new Error("Projection context carries a malformed frame entry");
+    }
+    frames.set(
+      `${FRAME_URI_PREFIX}${entry.packageId}/${entry.frameDigest}`,
+      entry.uri,
+    );
+  }
   const manifest = {
     ...raw,
     assets: (raw["assets"] as unknown[]) ?? [],
@@ -189,6 +226,7 @@ export function createProjector(
                 remoteWeb: translateMedia(
                   remoteWeb,
                   media,
+                  frames,
                 ) as RuntimeItem["remoteWeb"],
               });
             }
@@ -214,7 +252,11 @@ export function createProjector(
           if (payload) {
             items.push({
               ...item,
-              widget: translateMedia(payload, media) as RuntimeItem["widget"],
+              widget: translateMedia(
+                payload,
+                media,
+                frames,
+              ) as RuntimeItem["widget"],
             });
           }
         } else if (isLayoutReference(item)) {
@@ -237,7 +279,11 @@ export function createProjector(
           if (payload) {
             items.push({
               ...item,
-              layout: translateMedia(payload, media) as RuntimeItem["layout"],
+              layout: translateMedia(
+                payload,
+                media,
+                frames,
+              ) as RuntimeItem["layout"],
             });
           }
         } else {

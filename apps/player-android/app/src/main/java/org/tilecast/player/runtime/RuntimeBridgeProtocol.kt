@@ -150,7 +150,11 @@ object RuntimeBridgeProtocol {
           var host={
             contractVersion:$CONTRACT_VERSION,
             info:{host:"android",hostVersion:"unknown",engine:"android-webview",engineVersion:"unknown"},
-            capabilities:{remoteWeb:null,synchronizedPlayback:false,setup:false,discovery:false},
+            capabilities:{remoteWeb:null,synchronizedPlayback:false,setup:false,discovery:false,
+              // Verified sandbox frames are intercepted from the
+              // activation's frame grants; the runtime keeps its default
+              // iframe-sandbox attribute on top of the served headers.
+              externalFrames:true},
             subscribe:function(listener){
               if(typeof listener!=="function")throw new TypeError("listener must be a function");
               return function(){};
@@ -189,5 +193,8 @@ object RuntimeBridgeProtocol {
         "synchronizedPlayback" to false,
         "setup" to false,
         "discovery" to false,
+        // Mirrors the bootstrap: verified sandbox frames are intercepted
+        // from the activation's frame grants.
+        "externalFrames" to true,
     )
 }

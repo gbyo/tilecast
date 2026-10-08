@@ -13,6 +13,13 @@ test_sha256 (void)
   g_assert_true (tc_is_media_capability_uri ("tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
   g_assert_false (tc_is_media_capability_uri ("tcmedia://sha256/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
   g_assert_false (tc_is_media_capability_uri ("tcmedia://cap/../../etc/passwd"));
+  g_assert_true (tc_is_widget_capability_uri ("tcwidget://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_widget_capability_uri ("tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_widget_capability_uri ("tcwidget://cap/short"));
+  g_assert_false (tc_is_widget_capability_uri ("tcwidget://cap/0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_widget_capability_uri ("tcwidget://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef#frag"));
+  g_assert_false (tc_is_widget_capability_uri ("tcwidget://cap/../../etc/passwd"));
+  g_assert_false (tc_is_widget_capability_uri (NULL));
 }
 
 static void

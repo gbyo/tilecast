@@ -38,6 +38,21 @@ export function runtimeHost(callbacks: {
       synchronizedPlayback: false,
       setup: false,
       discovery: false,
+      // The frame route is served by the controlling service worker,
+      // which boot guarantees before the Runtime reads this. Read live:
+      // without a controller there is no verified frame store to serve.
+      get externalFrames(): boolean {
+        return (
+          typeof navigator !== "undefined" &&
+          !!navigator.serviceWorker?.controller
+        );
+      },
+      // Sandbox frames navigate bare so the worker sees them: a service
+      // worker never sees a sandboxed iframe's navigation, so the
+      // attribute would bypass the verified store. The served frame
+      // response carries the sandbox directive instead. See
+      // docs/widget-sandbox-spike.md.
+      externalFrameSandbox: "response",
     },
     ...(callbacks.remoteWeb ? { remoteWeb: callbacks.remoteWeb } : {}),
     subscribe(listener) {

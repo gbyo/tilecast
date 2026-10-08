@@ -58,6 +58,19 @@ pub struct ContentRef {
     pub mime_type: SafeText<127>,
 }
 
+/// One verified sandbox-frame document a presentation executes. The digest
+/// selects bytes from the frame domain; the package pair identifies the
+/// frame-table entry the Runtime joins. Frames are always documents; the
+/// serving layer names `text/html` itself.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FrameRef {
+    pub package_id: SafeText<128>,
+    pub package_digest: Sha256Digest,
+    pub sha256: Sha256Digest,
+    pub size_bytes: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ItemKind {

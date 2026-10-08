@@ -1,0 +1,41 @@
+---
+title: Connect the Browser Companion
+description: Give a Browser Player extra capabilities with the optional Tilecast Browser Companion extension.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+The Tilecast Browser Companion is an optional Chrome extension for displays that run Browser Player. It will contribute extra Player capabilities that a plain browser tab cannot reach on its own. It currently contributes none: this page covers connecting it so future capabilities light up when they ship.
+
+The Companion is optional. A Browser Player works fully without it, and removing the Companion never breaks playback.
+
+## Before you start
+
+- Use a Browser Player page on the display. See [Use Browser Player](../install-browser/).
+- Use Chrome or Microsoft Edge with permission to install extensions.
+
+## Connect the Companion
+
+<Steps>
+
+1. Install the Tilecast Browser Companion extension in the display's browser.
+2. Open the Browser Player page on the display.
+3. Open the Companion from the browser toolbar and select **Connect this player**.
+4. Approve the browser's permission prompt for exactly your Tilecast address.
+5. Reload the player page.
+
+</Steps>
+
+The grant covers only your Tilecast address. The Companion never asks for access to every site, and it does nothing on pages outside your player.
+
+## Check the connection
+
+Open the Screen in Studio and look at its diagnostics. Connected capabilities appear in the **Player capabilities** row. Since the Companion currently contributes none, the row stays empty until the first capability ships — an empty row does not mean the connection failed.
+
+If a future capability never appears, check that the extension is installed, the origin grant is still in place, and the player page was reloaded after connecting.
+
+## Disconnect
+
+Open the Companion popup and select **Disconnect**. The browser forgets the address grant, the bridge unregisters, and the contributed capabilities disappear from the next status report. Playback continues unchanged.
+
+For the exact protocol and security contract, see the engineering doc on [Player capabilities](https://github.com/gbyo/tilecast/blob/main/docs/player-capabilities.md).

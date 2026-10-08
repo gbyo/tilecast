@@ -8,7 +8,8 @@
  * reports `widget-shown` and `widget-alive` as it does for every Widget.
  * A Widget that fails after it was shown is reported as a playback failure.
  */
-import type { WidgetMount, WidgetMountState } from "@tilecast/widget-sdk/mount";
+import type { WidgetMountState } from "@tilecast/widget-sdk/mount";
+import type { WidgetExecution } from "@tilecast/widget-sdk/executor";
 import type { RuntimeItem } from "../host/contract";
 import { widgetComponent } from "../engine/model";
 import type {
@@ -19,7 +20,7 @@ import type {
 
 export class ComponentWidgetSurface implements MediaSurface {
   readonly element: HTMLDivElement;
-  private mount: WidgetMount | null = null;
+  private mount: WidgetExecution | null = null;
   private settled = false;
   private disposed = false;
 

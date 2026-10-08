@@ -66,6 +66,7 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 		'displayControlLastCommandState',ps.display_control_last_command_state,'displayControlLastCommandResult',ps.display_control_last_command_result,
 		'displayControlLastCommandSentAt',ps.display_control_last_command_sent_at,'displayControlLastStateConfirmedAt',ps.display_control_last_state_confirmed_at,
 		'displayControlError',ps.display_control_error,
+		'playerCapabilities',ps.player_capabilities,
 		'powerAssist',jsonb_build_object('deviceSleep',COALESCE(pa.device_sleep,'untested'),'tvStandby',COALESCE(pa.tv_standby,'untested'),'deviceWake',COALESCE(pa.device_wake,'untested'),'tvWake',COALESCE(pa.tv_wake,'untested'),'inputSelection',COALESCE(pa.input_selection,'untested'),'tilecastStartup',COALESCE(pa.tilecast_startup,'untested'),'lastTestedAt',pa.last_tested_at)
 	) || jsonb_build_object(
 		-- Presentation Network capability. Studio composes one operator-facing

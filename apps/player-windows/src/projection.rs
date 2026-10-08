@@ -13,7 +13,7 @@
 //! and web/YouTube Widgets flow through their `requiredCapabilities`
 //! like any other Widget.
 
-use player_core::{ManifestAsset, NativeManifest, Selection, Source, VerifiedContentRef};
+use player_core::{ManifestAsset, NativeManifest, Selection, Source, VerifiedContentRef, VerifiedFrameRef};
 use player_types::Timestamp;
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -126,6 +126,9 @@ pub struct ResolvedPresentation {
     /// to one and shows a playlist.
     pub timing: Option<GroupTiming>,
     pub content: Vec<VerifiedContentRef>,
+    /// Every verified frame claim of the manifest, granted alongside the
+    /// content so the port can authorize the projection's frame table.
+    pub frames: Vec<VerifiedFrameRef>,
     /// The `ProjectionContextV1` JSON, when an item needs Runtime projection.
     pub projection: Option<Value>,
     pub plugins: Vec<Value>,
@@ -353,6 +356,26 @@ impl<'a> Projector<'a> {
             mime_type: player_types::bounded::SafeText::new(asset.mime_type.clone())
                 .map_err(|_| ProjectionError::Structure)?,
         })
+    }
+
+    /// Every verified frame claim, deduplicated by document digest like
+    /// the content map. Core fetched and verified each one before this
+    /// manifest became a candidate; the port mints one grant per claim.
+    fn frame_refs(&self) -> Result<Vec<VerifiedFrameRef>, ProjectionError> {
+        let mut frames = Vec::with_capacity(self.native.required_frames.len());
+        for claim in &self.native.required_frames {
+            if frames.iter().any(|existing: &VerifiedFrameRef| existing.sha256 == claim.digest) {
+                continue;
+            }
+            frames.push(VerifiedFrameRef {
+                package_id: player_types::bounded::SafeText::new(claim.package_id.clone())
+                    .map_err(|_| ProjectionError::Structure)?,
+                package_digest: claim.package_digest,
+                sha256: claim.digest,
+                size_bytes: claim.size_bytes,
+            });
+        }
+        Ok(frames)
     }
 
     fn widget(&self, asset_id: &str) -> Option<&Value> {
@@ -655,6 +678,7 @@ impl<'a> Projector<'a> {
             (None, None) => None,
         };
         let (plugins, plugin_aliases, plugin_content) = self.plugins()?;
+        let frames = self.frame_refs()?;
         let finish =
             |document: Value, mut content: Vec<VerifiedContentRef>, projection: Option<Value>, selection: Selection| {
                 for reference in &plugin_content {
@@ -666,6 +690,7 @@ impl<'a> Projector<'a> {
                     document,
                     timing: None,
                     content,
+                    frames: frames.clone(),
                     projection,
                     plugins: plugins.clone(),
                     plugin_aliases: plugin_aliases.clone(),
@@ -867,7 +892,29 @@ mod tests {
             assets: Vec::new(),
             required_downloads: Vec::new(),
             required_bundles: Vec::new(),
+            required_frames: Vec::new(),
         }
+    }
+
+    #[test]
+    fn frame_claims_project_deduplicated_by_document() {
+        use player_core::ManifestFrame;
+        let mut native = website_native();
+        let claim = ManifestFrame {
+            package_id: "acme.athletics".to_owned(),
+            package_digest: player_types::Sha256Digest::from_bytes([9; 32]),
+            digest: player_types::Sha256Digest::from_bytes([11; 32]),
+            size_bytes: 512,
+            download_path: "/api/v1/player/packages/acme.athletics/frame".to_owned(),
+        };
+        native.required_frames = vec![claim.clone(), claim];
+        let projector = Projector::new(&native);
+        let frames = projector.frame_refs().expect("frames");
+        assert_eq!(frames.len(), 1);
+        assert_eq!(frames[0].package_id.as_str(), "acme.athletics");
+        assert_eq!(frames[0].package_digest, player_types::Sha256Digest::from_bytes([9; 32]));
+        assert_eq!(frames[0].sha256, player_types::Sha256Digest::from_bytes([11; 32]));
+        assert_eq!(frames[0].size_bytes, 512);
     }
 
     #[test]

@@ -167,6 +167,10 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
     let native: serde_json::Map<String, serde_json::Value> = crate::renderer_adapter::profile::NATIVE_CAPABILITIES
         .iter()
         .chain(crate::widget_capabilities::WIDGET_COMPONENTS)
+        .chain(std::iter::once(&(
+            player_types::frames::EXTERNAL_RUNTIME_CAPABILITY,
+            player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+        )))
         .map(|(name, version)| ((*name).to_owned(), serde_json::json!(version)))
         .collect();
     let (screen_width, screen_height) = crate::device::display_size(None);

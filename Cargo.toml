@@ -19,6 +19,8 @@ members = [
     "apps/edge/tilecast-edge-update",
     "apps/player-android/native",
     "apps/player-windows",
+    "packages/package-guest-sdk",
+    "packages/package-samples/hello-services/guest",
 ]
 default-members = [
     "apps/edge/crates/edge-protocol",

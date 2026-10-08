@@ -60,6 +60,42 @@ func TestAssemble(t *testing.T) {
 	}
 }
 
+func TestAssembleFrameAgreesOnBytesHashAndSize(t *testing.T) {
+	definition := `globalThis.__tilecastWidgetDefinition={type:"acme.ok",version:1};`
+	first, err := AssembleFrame(definition)
+	if err != nil {
+		t.Fatalf("AssembleFrame returned error: %v", err)
+	}
+	second, err := AssembleFrame(definition)
+	if err != nil {
+		t.Fatalf("AssembleFrame returned error: %v", err)
+	}
+	if first != second {
+		t.Fatal("AssembleFrame is not deterministic")
+	}
+	plain, err := Assemble(definition)
+	if err != nil {
+		t.Fatalf("Assemble returned error: %v", err)
+	}
+	if first.Document != plain {
+		t.Fatal("AssembleFrame document differs from Assemble")
+	}
+	if int64(len(first.Document)) != first.Size {
+		t.Fatalf("frame size = %d, want %d", first.Size, len(first.Document))
+	}
+	if len(first.SHA256Hex) != 64 {
+		t.Fatalf("frame hash = %q, want 64 hex characters", first.SHA256Hex)
+	}
+	// The template stays far below the headroom: the bound budgets a
+	// maximum-size bundle, not template growth.
+	if int64(len(Template)) >= 1<<16 {
+		t.Fatalf("frame template is %d bytes, want below 64KiB", len(Template))
+	}
+	if _, err := AssembleFrame(strings.Repeat("x", int(MaxFrameBytes))); err == nil {
+		t.Fatal("AssembleFrame accepted an oversized document")
+	}
+}
+
 func TestAssembleKeepsHostileBundleInsideItsBlock(t *testing.T) {
 	hostile := `</script><script>fetch("https://evil.example")</script>`
 	document, err := Assemble(hostile)

@@ -489,6 +489,113 @@ func TestExternalWidgetCompilesRuntimeCapability(t *testing.T) {
 	}
 }
 
+func TestExternalWidgetFrameCompilesFrameClaim(t *testing.T) {
+	service := &Service{definitions: externalWidgetCatalog(t)}
+	service.SetPackagePayloads(stubPackagePayloads{
+		[2]string{"acme.athletics", "scoreboard"}: {
+			PackageDigest:  "sha256:" + strings.Repeat("a", 64),
+			SHA256Hex:      strings.Repeat("b", 64),
+			Size:           42,
+			FrameSHA256Hex: strings.Repeat("c", 64),
+			FrameSize:      4242,
+		},
+	})
+	raw := json.RawMessage(`{"title":"Friday"}`)
+	component, err := service.compileWidgetFrameComponent("acme.athletics.scoreboard", raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if component == nil {
+		t.Fatal("external Widget compiled no frame component")
+	}
+	if component.SchemaVersion != 3 || component.Kind != "component" {
+		t.Fatalf("unexpected presentation identity: %+v", component)
+	}
+	if len(component.RequiredCapabilities) != 1 || component.RequiredCapabilities[contentdefs.ExternalRuntimeCapability] != contentdefs.ExternalRuntimeFrameVersion {
+		t.Fatalf("frame component must require only the frame ABI: %+v", component.RequiredCapabilities)
+	}
+	ref := component.Component.Package
+	if ref == nil {
+		t.Fatal("frame component names no package")
+	}
+	if ref.PackageID != "acme.athletics" || ref.Digest != "sha256:"+strings.Repeat("a", 64) {
+		t.Fatalf("package identity = %+v", ref)
+	}
+	// The v19 claim names the executable frame only: the raw bundle
+	// fields stay empty so they never serialize beside it.
+	if ref.SHA256 != "" || ref.FileSize != 0 || ref.DownloadPath != "" {
+		t.Fatalf("frame claim leaks bundle fields: %+v", ref)
+	}
+	if ref.Frame == nil {
+		t.Fatal("frame claim names no frame")
+	}
+	if ref.Frame.SHA256 != strings.Repeat("c", 64) || ref.Frame.FileSize != 4242 {
+		t.Fatalf("frame claim = %+v", ref.Frame)
+	}
+	if ref.Frame.DownloadPath != "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame" {
+		t.Fatalf("frame download path = %q", ref.Frame.DownloadPath)
+	}
+	encoded, err := json.Marshal(ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"sha256", "fileSize", "downloadPath"} {
+		if _, present := decoded[key]; present {
+			t.Fatalf("v19 package block serializes %q", key)
+		}
+	}
+	frame, ok := decoded["frame"].(map[string]any)
+	if !ok || frame["sha256"] != strings.Repeat("c", 64) {
+		t.Fatalf("v19 package block = %v", decoded)
+	}
+	// Selection keys on the frame ABI: v2 selects, v1-only does not.
+	v2 := playerPresentationCapabilities{Reported: true, SchemaVersions: []int32{1, 2, 3}, Native: map[string]int{contentdefs.ExternalRuntimeCapability: 2}}
+	if supported, _ := presentationSupported(component, v2); !supported {
+		t.Fatal("frame-capable Player cannot select the frame component")
+	}
+	v1 := playerPresentationCapabilities{Reported: true, SchemaVersions: []int32{1, 2, 3}, Native: map[string]int{contentdefs.ExternalRuntimeCapability: 1}}
+	if supported, _ := presentationSupported(component, v1); supported {
+		t.Fatal("retrieval-only Player selects the frame component")
+	}
+}
+
+func TestExternalWidgetFrameWithoutSnapshotCompilesNoComponent(t *testing.T) {
+	raw := json.RawMessage(`{"title":"Friday"}`)
+	unwired := &Service{definitions: externalWidgetCatalog(t)}
+	if component, err := unwired.compileWidgetFrameComponent("acme.athletics.scoreboard", raw); err != nil || component != nil {
+		t.Fatalf("unwired frame component = %+v, err %v", component, err)
+	}
+	// A bundle snapshot without frame metadata is not executable: the
+	// Widget falls back to its v18 bundle claim, never a frame claim.
+	bundled := &Service{definitions: externalWidgetCatalog(t)}
+	bundled.SetPackagePayloads(stubPackagePayloads{
+		[2]string{"acme.athletics", "scoreboard"}: {
+			PackageDigest: "sha256:" + strings.Repeat("a", 64),
+			SHA256Hex:     strings.Repeat("b", 64),
+			Size:          42,
+		},
+	})
+	if component, err := bundled.compileWidgetFrameComponent("acme.athletics.scoreboard", raw); err != nil || component != nil {
+		t.Fatalf("frameless frame component = %+v, err %v", component, err)
+	}
+	legacy, err := bundled.compileWidgetComponent("acme.athletics.scoreboard", raw)
+	if err != nil || legacy == nil || legacy.Component.Package == nil || legacy.Component.Package.Frame != nil {
+		t.Fatalf("v18 bundle claim lost: %+v, err %v", legacy, err)
+	}
+	// Release Widgets never compile a frame component.
+	release := &Service{definitions: componentOnlyCatalog(t)}
+	if component, err := release.compileWidgetFrameComponent("probe", raw); err != nil || component != nil {
+		t.Fatalf("release frame component = %+v, err %v", component, err)
+	}
+	if component, err := bundled.compileWidgetFrameComponent("no.such.widget", raw); err != nil || component != nil {
+		t.Fatalf("unknown frame component = %+v, err %v", component, err)
+	}
+}
+
 func TestExternalWidgetWithoutBundleCompilesNoComponent(t *testing.T) {
 	raw := json.RawMessage(`{"title":"Friday"}`)
 	unwired := &Service{definitions: externalWidgetCatalog(t)}

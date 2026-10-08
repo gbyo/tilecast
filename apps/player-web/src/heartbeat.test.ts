@@ -111,3 +111,28 @@ it("sends generic reliability facts and the bounded browser section", () => {
   expect(payload).not.toHaveProperty("availableStorageBytes");
   expect(payload).not.toHaveProperty("lastSuccessfulSyncAt");
 });
+
+it("carries the generic capability report when the caller sends one", () => {
+  const base = {
+    screenWidth: 1280,
+    screenHeight: 720,
+    hostVersion: "0.1.0",
+    uptimeSeconds: 12.7,
+    playing: true,
+    support,
+  };
+  expect(heartbeatPayload(base)).not.toHaveProperty("playerCapabilities");
+  const reported = heartbeatPayload({
+    ...base,
+    capabilities: {
+      "display.power": { version: 1, provider: "fake" },
+    },
+  });
+  expect(reported.playerCapabilities).toEqual({
+    "display.power": { version: 1, provider: "fake" },
+  });
+  // An explicit empty set clears the stored report.
+  expect(
+    heartbeatPayload({ ...base, capabilities: {} }).playerCapabilities,
+  ).toEqual({});
+});

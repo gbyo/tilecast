@@ -50,7 +50,11 @@ func ShellForSlot(shell []byte, slot string) []byte {
 	return bytes.Replace(shell, []byte(playerGenericManifestLink), []byte(`href="/player/`+slot+`/manifest.webmanifest"`), 1)
 }
 
-const playerCSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-src https:; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'"
+// frame-src allows the Runtime's sandbox frame navigations: grants are
+// same-origin service worker URLs on any scheme (LAN installs serve
+// plain HTTP), and the served frame response carries the sandbox
+// directive.
+const playerCSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-src https: 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'"
 
 func PlayerHandler() http.Handler {
 	static, _ := fs.Sub(playerFiles, "player-static")
@@ -87,7 +91,7 @@ func PlayerHandler() http.Handler {
 		}
 		if r.URL.Path == "/player" || r.URL.Path == "/player/" || slot != "" {
 			name = "index.html"
-		} else if !strings.HasPrefix(r.URL.Path, "/player/") || strings.HasPrefix(name, "media/") {
+		} else if !strings.HasPrefix(r.URL.Path, "/player/") || strings.HasPrefix(name, "media/") || strings.HasPrefix(name, "widget-frame/") {
 			http.NotFound(w, r)
 			return
 		}

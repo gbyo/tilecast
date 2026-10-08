@@ -91,6 +91,16 @@ never change the Player's connection status. A successful Display Control
 command means that the Player accepted and attempted its fixed provider call;
 state confirmation is a separate observation.
 
+Any Player may also report the generic capability status
+`playerCapabilities`: capability IDs to `{version, provider}`, for example
+`{"display.power": {"version": 1, "provider": "hdmi_cec"}}`. Versions are
+explicit and providers are diagnostic metadata. Unsupported capabilities
+stay absent. An omitted report keeps the stored value; an explicit empty
+report clears it, so a disconnected provider disappears promptly. Unknown
+capabilities, versions, and providers are dropped, and an oversized
+report keeps the stored value. Like Display Control, this status never
+changes the connection state. See [Player capabilities](player-capabilities.md).
+
 ## Manifest synchronization and playback
 
 `GET /api/v1/player/manifest` uses the active device credential. It returns schema version 1, a persisted per-screen version, a single-zone playlist or `null`, exact compatible variants, hashes, sizes, and authenticated relative download paths. `If-None-Match` returns 304 without incrementing the version.
@@ -102,6 +112,10 @@ Synchronized playlists use that same boundary rule. Their monotonic shared timel
 Delivery is deterministic: Download always caches; Stream requires connectivity; Automatic downloads images and videos up to 256 MiB when cache and reserved disk space permit, otherwise it streams video. The cache limit is 8 GiB, free-space reserve is 1 GiB, and at most two downloads run concurrently.
 
 Manifest schema 18 carries external Widget components. Each component names its package ID, the verified package digest, and the bundle SHA-256, size, and download path. The Player fetches each bundle from `GET /api/v1/player/packages/{packageId}/widgets/{widgetId}` with its device credential, verifies size and SHA-256, and pins the bytes before the manifest becomes pending. A bundle that is missing or fails verification keeps the last known playable presentation active. Retrieval never executes the bundle.
+
+Manifest schema 19 carries executable external Widget components for Players reporting `widget.external-runtime@2`. Each component names its package ID, the verified package digest, and a `frame` block with the sandbox frame SHA-256, size, and download path. The Player fetches each frame from `GET /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame` with its device credential, verifies the exact size and SHA-256, pins the bytes in a frame resource domain separate from raw bundles, and only then stores the pending manifest. Preparation is prepare-before-switch: a failed frame keeps the last known playable activation, and old frame bytes stay pinned while the draining activation needs them. Each frame document carries its own policy meta tag, pinned equal to the delivery response policy minus `sandbox`. Bytes-loading hosts enforce the meta tag. Navigating hosts add the iframe sandbox attribute, or navigate bare and take the served `sandbox` directive when their serving layer only sees bare navigations; see [Browser Player architecture](browser-player.md).
+
+Every host runs the same frame lifecycle. The manifest claim joins verified bytes at preparation. The port mints one grant per claim and builds the projection authorization table. The projector joins each claim to its authorized URI and rejects the activation on any mismatch. The serving layer answers only tabled URIs, as `text/html`, under the shared sandbox policy. A revision mints new grants and drains the old ones with their generation. A downgrade to a manifest without frames activates with an empty table, and the old frame URIs stop resolving. The URI shape, headers, and execution-ABI version are pinned in `packages/player-contracts/fixtures/widget-frames.json`; hosts assert that fixture in their own suites.
 
 ## Scheduled playback and offline limits
 

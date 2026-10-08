@@ -262,6 +262,18 @@ impl Host {
                 };
                 serve_grant(&self.services.cas, &self.runtime, grant, range, head_only)
             }
+            Some(crate::schemes::SchemeRequest::Widget(request)) => {
+                if !self.current_source_is_runtime() {
+                    return text_response(404, "Not Found", "text/plain", b"not found".to_vec());
+                }
+                let grant = {
+                    let media = self.services.media.lock().unwrap_or_else(|poison| poison.into_inner());
+                    media.resolve_frame(self.services.session, &request.capability, now_ms()).cloned()
+                };
+                // Media capabilities presented here resolve to nothing:
+                // grant usage is pinned at mint time.
+                serve_frame(&self.services.cas, &self.runtime, grant, range, head_only)
+            }
             None => text_response(404, "Not Found", "text/plain", b"not found".to_vec()),
         }
     }
@@ -325,6 +337,51 @@ fn serve_grant(
             let headers = format!("Content-Range: bytes */{}\r\nCache-Control: no-store\r\n", grant.size_bytes);
             (416, "Range Not Satisfiable", headers, empty())
         }
+    }
+}
+
+/// Serves one resolved frame grant: whole documents only, confined by the
+/// shared frame sandbox policy. Mirrors `serve_grant`'s verified open and
+/// size check; every failure answers an identical 404, and any Range
+/// answers 416 because a partial frame can never execute.
+fn serve_frame(
+    cas: &player_cas::ContentStore,
+    runtime: &tokio::runtime::Runtime,
+    grant: Option<crate::media::MediaGrant>,
+    range: Option<String>,
+    head_only: bool,
+) -> (i32, &'static str, String, windows::Win32::System::Com::IStream) {
+    use crate::streams::MemStream;
+    let empty = || MemStream::new(Vec::new());
+    let missing = || {
+        (
+            404,
+            "Not Found",
+            "Content-Type: text/plain\r\nContent-Length: 9\r\nCache-Control: no-store\r\n".to_string(),
+            MemStream::new(b"not found".to_vec()),
+        )
+    };
+    let Some(grant) = grant else {
+        return missing();
+    };
+    debug_assert_eq!(grant.kind, crate::media::MediaGrantKind::Frame);
+    if range.is_some() {
+        let headers = format!("Content-Range: bytes */{}\r\nCache-Control: no-store\r\n", grant.size_bytes);
+        return (416, "Range Not Satisfiable", headers, empty());
+    }
+    let opened = cas.clone();
+    let Ok(Some((file, record))) = runtime.block_on(opened.open_verified(&grant.sha256)) else {
+        return missing();
+    };
+    if record.size_bytes != grant.size_bytes {
+        return missing();
+    }
+    let headers = crate::schemes::frame_response_headers(grant.size_bytes);
+    if head_only {
+        (200, "OK", headers, empty())
+    } else {
+        let stream = crate::streams::FileRangeStream::new(file, 0, grant.size_bytes);
+        (200, "OK", headers, stream)
     }
 }
 

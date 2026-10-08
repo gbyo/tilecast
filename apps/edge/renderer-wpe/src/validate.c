@@ -81,6 +81,13 @@ tc_is_media_capability_uri (const char *value)
 }
 
 gboolean
+tc_is_widget_capability_uri (const char *value)
+{
+  static const char prefix[] = "tcwidget://cap/";
+  return value != NULL && g_str_has_prefix (value, prefix) && tc_is_sha256_hex (value + sizeof prefix - 1);
+}
+
+gboolean
 tc_is_canonical_uuid (const char *value)
 {
   if (value == NULL || strlen (value) != 36)

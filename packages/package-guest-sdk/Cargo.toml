@@ -1,0 +1,18 @@
+[package]
+name = "tilecast-package-guest"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "Reference guest SDK for Tilecast Package API v3 service calls over tilecast.call_v1"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

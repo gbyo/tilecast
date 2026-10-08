@@ -543,3 +543,102 @@ func TestExternalWidgetManifestVersion(t *testing.T) {
 		t.Fatalf("download path = %q", ref.DownloadPath)
 	}
 }
+
+// TestExternalWidgetFrameManifestVersion proves an installed package
+// Widget reaches a frame-capable Player as a v19 component naming its
+// verified package digest and sandbox frame download, while a
+// retrieval-only Player keeps the v18 bundle claim and an incapable
+// Player keeps the declared compatibility presentation.
+func TestExternalWidgetFrameManifestVersion(t *testing.T) {
+	f := setupCapabilityFixture(t)
+	catalog := externalWidgetCatalog(t)
+	f.service.SetContentDefinitions(catalog)
+	f.media.SetContentDefinitions(catalog)
+	f.service.SetPackagePayloads(stubPackagePayloads{
+		[2]string{"acme.athletics", "scoreboard"}: {
+			PackageDigest:  "sha256:" + strings.Repeat("a", 64),
+			SHA256Hex:      strings.Repeat("b", 64),
+			Size:           42,
+			FrameSHA256Hex: strings.Repeat("c", 64),
+			FrameSize:      4242,
+		},
+	})
+	raw, _ := json.Marshal(map[string]any{"title": "Friday"})
+	widget, err := f.media.CreateWidget(f.ctx, f.user, media.WidgetInput{Provider: "acme.athletics.scoreboard", Name: "Scores", Configuration: raw})
+	if err != nil {
+		t.Fatalf("create external Widget: %v", err)
+	}
+	playlist, err := f.service.Create(f.ctx, f.user, "Scores rotation", "", "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration := int64(30_000)
+	if _, err := f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: widget.ID, DurationMS: &duration, DeliveryPolicy: "stream"}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+	if _, err := f.service.Assign(f.ctx, f.screen, playlist.ID, f.user); err != nil {
+		t.Fatal(err)
+	}
+
+	// Without the execution ABI the Player keeps compatibility.
+	f.reportCapabilities(t, "{1,2,3}", nil)
+	manifest, _, err := f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion == ManifestSchemaExternalWidgetFrames || manifest.SchemaVersion == ManifestSchemaExternalComponents {
+		t.Fatalf("incapable Player received v%d", manifest.SchemaVersion)
+	}
+	served := onlyWidget(t, manifest)
+	if served.Presentation == nil || served.Presentation.Kind != "native" {
+		t.Fatalf("incapable Player did not receive compatibility: %+v", served.Presentation)
+	}
+
+	// With the retrieval ABI the same Widget arrives as a v18 bundle claim.
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{contentdefs.ExternalRuntimeCapability: contentdefs.ExternalRuntimeVersion})
+	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion != ManifestSchemaExternalComponents {
+		t.Fatalf("manifest version = %d, want %d", manifest.SchemaVersion, ManifestSchemaExternalComponents)
+	}
+	served = onlyWidget(t, manifest)
+	if served.Presentation == nil || served.Presentation.Kind != "component" || served.Presentation.Component == nil {
+		t.Fatalf("retrieval-only Player did not receive a component: %+v", served.Presentation)
+	}
+	if ref := served.Presentation.Component.Package; ref == nil || ref.Frame != nil || ref.SHA256 == "" {
+		t.Fatalf("retrieval-only Player did not receive a v18 bundle claim: %+v", ref)
+	}
+
+	// With the frame ABI the Widget arrives as an executable v19 claim.
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{contentdefs.ExternalRuntimeCapability: contentdefs.ExternalRuntimeFrameVersion})
+	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion != ManifestSchemaExternalWidgetFrames {
+		t.Fatalf("manifest version = %d, want %d", manifest.SchemaVersion, ManifestSchemaExternalWidgetFrames)
+	}
+	served = onlyWidget(t, manifest)
+	if served.Presentation == nil || served.Presentation.Kind != "component" || served.Presentation.Component == nil {
+		t.Fatalf("frame-capable Player did not receive a component: %+v", served.Presentation)
+	}
+	ref := served.Presentation.Component.Package
+	if ref == nil {
+		t.Fatal("frame component names no package")
+	}
+	if ref.PackageID != "acme.athletics" || ref.Digest != "sha256:"+strings.Repeat("a", 64) {
+		t.Fatalf("package identity = %+v", ref)
+	}
+	if ref.SHA256 != "" || ref.FileSize != 0 || ref.DownloadPath != "" || ref.Frame == nil {
+		t.Fatalf("v19 claim is not frame-only: %+v", ref)
+	}
+	if ref.Frame.SHA256 != strings.Repeat("c", 64) || ref.Frame.FileSize != 4242 {
+		t.Fatalf("frame claim = %+v", ref.Frame)
+	}
+	if ref.Frame.DownloadPath != "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame" {
+		t.Fatalf("frame download path = %q", ref.Frame.DownloadPath)
+	}
+}

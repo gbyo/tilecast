@@ -68,9 +68,32 @@ func WithBackgroundJobsAllowed(allowed func() bool) Option {
 }
 func WithPublicURL(url string) Option { return func(s *Service) { s.publicURL = url } }
 
-type publicInstance string
+// WithPublicVersion pins the release version Instance reports. It
+// defaults to the running build; tests pin it.
+func WithPublicVersion(version string) Option {
+	return func(s *Service) { s.publicVersion = version }
+}
 
-func (p publicInstance) PublicURL() string { return string(p) }
+type publicInstance struct {
+	url     string
+	version string
+}
+
+func (p publicInstance) PublicURL() string { return p.url }
+func (p publicInstance) Version() string   { return p.version }
+
+// ScreenLister projects live screens to shared non-secret facts. The
+// devices domain implements it; the plugin host and external Tilecast
+// services share the projection instead of each writing screen SQL.
+type ScreenLister interface {
+	PluginScreens(ctx context.Context, user *uuid.UUID, role string, query plugin.ScreenListQuery) (plugin.ScreenListResult, error)
+	PluginScreen(ctx context.Context, id uuid.UUID) (plugin.ScreenFacts, error)
+}
+
+// WithScreens wires the fleet projection behind plugin.Screens.
+func WithScreens(lister ScreenLister) Option {
+	return func(s *Service) { s.screens = lister }
+}
 
 type systemClock struct{}
 
@@ -129,7 +152,7 @@ func (s *Service) hostFor(id string) plugin.Host {
 		Takeovers:            s.takeovers,
 		ManagedPresentations: s.managedPresentations,
 		BackgroundJobs:       s.backgroundJobs,
-		Instance:             publicInstance(s.publicURL),
+		Instance:             publicInstance{url: s.publicURL, version: s.publicVersion},
 		Screens:              screenService{service: s},
 		Organization:         organizationService{service: s},
 		Clock:                s.clock,
@@ -310,6 +333,29 @@ func (t targetService) AppliesToScreen(ctx context.Context, screenID uuid.UUID, 
 
 type screenService struct{ service *Service }
 
+func (s screenService) lister() (ScreenLister, error) {
+	if s.service.screens == nil {
+		return nil, errors.New("screen listing is not wired")
+	}
+	return s.service.screens, nil
+}
+
+func (s screenService) List(ctx context.Context, query plugin.ScreenListQuery) (plugin.ScreenListResult, error) {
+	lister, err := s.lister()
+	if err != nil {
+		return plugin.ScreenListResult{}, err
+	}
+	return lister.PluginScreens(ctx, nil, "", query)
+}
+
+func (s screenService) Get(ctx context.Context, id uuid.UUID) (plugin.ScreenFacts, error) {
+	lister, err := s.lister()
+	if err != nil {
+		return plugin.ScreenFacts{}, err
+	}
+	return lister.PluginScreen(ctx, id)
+}
+
 func (s screenService) PairedPlatforms(ctx context.Context) (map[string]int, error) {
 	rows, err := s.service.db.Query(ctx, `SELECT platform,count(*) FROM screens WHERE archived_at IS NULL GROUP BY platform`)
 	if err != nil {
@@ -334,6 +380,42 @@ func (o organizationService) ID(ctx context.Context) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := o.service.db.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton=TRUE`).Scan(&id)
 	return id, err
+}
+
+func (o organizationService) Get(ctx context.Context) (plugin.OrganizationFacts, error) {
+	var facts plugin.OrganizationFacts
+	err := o.service.db.QueryRow(ctx, `SELECT id,organization_name FROM organization_settings WHERE singleton=TRUE`).Scan(&facts.ID, &facts.Name)
+	return facts, err
+}
+
+// SharedHost exposes the plugin-agnostic host services external Tilecast
+// services reuse: screens, targets, users, organization, instance,
+// takeovers, and managed presentations. Plugin-scoped services (store,
+// data sources, assets, manifests) stay behind Host.
+type SharedHost struct {
+	Screens              plugin.Screens
+	Targets              plugin.Targets
+	Takeovers            plugin.Takeovers
+	ManagedPresentations plugin.ManagedPresentations
+	Instance             plugin.Instance
+	Organization         plugin.Organization
+	Users                plugin.Users
+	Audit                plugin.Audit
+}
+
+// Shared returns the host services external callers may reuse. Takeovers
+// and managed presentations are nil until wired with their options.
+func (s *Service) Shared() SharedHost {
+	return SharedHost{
+		Screens:              screenService{service: s},
+		Targets:              targetService{db: s.db},
+		Takeovers:            s.takeovers,
+		ManagedPresentations: s.managedPresentations,
+		Instance:             publicInstance{url: s.publicURL, version: s.publicVersion},
+		Organization:         organizationService{service: s},
+		Users:                userService{db: s.db},
+		Audit:                auditService{},
+	}
 }
 
 // ----------------------------------------------------------- routes

@@ -23,6 +23,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/sandbox"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
 
@@ -316,6 +317,9 @@ func (s *Service) decode(contentDir string, manifest packagemanifest.Manifest, d
 // player bundle. The bundle path is never author-declared, containment
 // is rechecked after joining, and an oversized bundle fails like a
 // missing one: the package cannot serve Players code it cannot name.
+// The assembled sandbox frame over those same bytes is snapshotted
+// beside the bundle, so manifest compilation names the exact executable
+// document without reassembling it per manifest.
 func hashWidgetPayload(contentDir, contributionPath, packageID, nestedID, digest string) (contentdefs.WidgetPayload, error) {
 	joined := filepath.Join(contentDir, contributionPath, packages.WidgetPayloadRel)
 	rel, err := filepath.Rel(contentDir, joined)
@@ -330,5 +334,15 @@ func hashWidgetPayload(contentDir, contributionPath, packageID, nestedID, digest
 		return contentdefs.WidgetPayload{}, fmt.Errorf("package %s: Widget %q has an unusable player bundle", packageID, nestedID)
 	}
 	sum := sha256.Sum256(raw)
-	return contentdefs.WidgetPayload{PackageDigest: digest, SHA256Hex: hex.EncodeToString(sum[:]), Size: int64(len(raw))}, nil
+	frame, err := sandbox.AssembleFrame(string(raw))
+	if err != nil {
+		return contentdefs.WidgetPayload{}, fmt.Errorf("package %s: Widget %q has an unusable player frame: %w", packageID, nestedID, err)
+	}
+	return contentdefs.WidgetPayload{
+		PackageDigest:  digest,
+		SHA256Hex:      hex.EncodeToString(sum[:]),
+		Size:           int64(len(raw)),
+		FrameSHA256Hex: frame.SHA256Hex,
+		FrameSize:      frame.Size,
+	}, nil
 }
