@@ -794,6 +794,38 @@ impl PresentationEngine {
         self.native.clear_safe_mode(policy_time(now_ms))
     }
 
+    /// Restores supervision state persisted by a previous process: the
+    /// renderer restart count and safe mode. A restored safe mode holds
+    /// its surface until `exit_safe_mode`, like the legacy player's
+    /// persisted supervisor state.
+    pub fn restore_supervision(&mut self, record: &edge_state::repo::renderer::RendererRecord, now_ms: i64) {
+        self.restart_count = record.restart_count;
+        if record.safe_mode {
+            let reason = record.safe_mode_reason.as_deref().unwrap_or("recovery");
+            self.native.restore_safe_mode(reason, policy_time(now_ms));
+            let _ = self.activate(
+                PresentationDocument::SafeMode { reason: self.native.safe_mode_reason() },
+                Vec::new(),
+                None,
+                ActivationSource::SafeMode,
+                now_ms,
+            );
+        }
+    }
+
+    /// Builds the supervision record to persist: this process updates safe
+    /// mode and the restart count and keeps the other persisted fields.
+    pub fn supervision_snapshot(
+        &self,
+        previous: &edge_state::repo::renderer::RendererRecord,
+    ) -> edge_state::repo::renderer::RendererRecord {
+        let mut next = previous.clone();
+        next.restart_count = self.restart_count;
+        next.safe_mode = self.native.is_safe_mode();
+        next.safe_mode_reason = self.native.is_safe_mode().then(|| self.native.safe_mode_reason().to_string());
+        next
+    }
+
     /// Allows the next recovery rung at once and evaluates it (the reference
     /// player's `retry_player_recovery`).
     pub fn retry_recovery(&mut self, now_ms: i64) -> HealAction {
@@ -802,9 +834,64 @@ impl PresentationEngine {
     }
 }
 
+/// Persists the current supervision record (safe mode, restart count).
+/// Callers invoke this after a recovery action or command that changes
+/// supervision state. A failed write is logged, never fatal: the next
+/// supervision change persists again.
+pub async fn persist_supervision(context: &crate::daemon::DaemonContext) {
+    let Some(db) = context.db() else { return };
+    let now = context.now();
+    let previous = match db.run(|conn| edge_state::repo::renderer::get(conn)).await {
+        Ok(record) => record,
+        Err(error) => {
+            tracing::warn!(component = "presentation", event = "supervision_load_failed", error = %error);
+            return;
+        }
+    };
+    let next = context.presentation.lock().await.supervision_snapshot(&previous);
+    if next == previous {
+        return;
+    }
+    if let Err(error) = db.run(move |conn| edge_state::repo::renderer::put(conn, &next, now)).await {
+        tracing::warn!(component = "presentation", event = "supervision_store_failed", error = %error);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use edge_protocol::time::ManualClock;
+
+    fn engine() -> PresentationEngine {
+        PresentationEngine::new(
+            Path::new("/run/tilecast-edge/media.sock"),
+            Arc::new(Mutex::new(MediaRegistry::new())),
+            KioskPolicy { prevent_display_sleep: false, hide_cursor: true },
+            SupervisorConfig::default(),
+            ManualClock::new(Timestamp::from_unix_millis(1_000).expect("test clock")),
+            1_000,
+        )
+    }
+
+    #[test]
+    fn supervision_restore_holds_safe_mode_and_seed_restarts() {
+        let mut engine = engine();
+        let record = edge_state::repo::renderer::RendererRecord {
+            safe_mode: true,
+            safe_mode_reason: Some("renderer recovery exhausted repeatedly".into()),
+            restart_count: 7,
+            ..Default::default()
+        };
+        engine.restore_supervision(&record, 2_000);
+        assert!(engine.is_safe_mode());
+        assert_eq!(engine.restart_count(), 7);
+        assert_eq!(engine.tick(3_000), HealAction::None);
+        assert!(engine.clear_safe_mode(3_001));
+        let snapshot = engine.supervision_snapshot(&record);
+        assert!(!snapshot.safe_mode);
+        assert_eq!(snapshot.safe_mode_reason, None);
+        assert_eq!(snapshot.restart_count, 7);
+    }
 
     #[test]
     fn website_content_evidence_is_a_rendered_page() {

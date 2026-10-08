@@ -16,7 +16,7 @@ Tilecast Server
 tilecastd  (tilecast, tilecast-edge.service)
       │ /run/tilecast-edge/edge.sock  (IPC v1, renderer role)
       ▼
-tilecast-renderer-wpe  (tilecast + group tilecast-web, tilecast-renderer.service)
+tilecast-renderer-wpe  (tilecast + groups video render input audio tilecast-web, tilecast-renderer.service)
       │ TilecastRuntimeHostV1, remoteWeb: "host-view"
       ▼
 @tilecast/player-runtime in tilecast://runtime/index.html

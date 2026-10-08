@@ -15,6 +15,10 @@ Description=Tilecast Edge remote web helper
 Documentation=https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-remote-web-threat-review.md
 After=tilecast-edge.service network-online.target
 Wants=tilecast-edge.service network-online.target
+# A latched helper breaks every Website surface until a site visit, so
+# restarts are never rate-limited into the failed state (same rule as the
+# legacy player unit).
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
