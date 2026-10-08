@@ -490,18 +490,39 @@ impl Coordinator {
         if !observation.server_connected {
             return Pass::Waiting("server_not_connected");
         }
-        match helper.call(HelperRequest::Status {}, HELPER_TIMEOUT).await {
-            Ok(response) => {
-                if response.status.as_ref().and_then(|s| s.transaction.as_ref()).is_some_and(|t| !t.phase.is_terminal())
-                {
-                    return Pass::Waiting("update_helper_busy");
-                }
-            }
+        let status = match helper.call(HelperRequest::Status {}, HELPER_TIMEOUT).await {
+            Ok(response) => response.status,
             Err(_) => return self.retry(job, "update_helper_unavailable", now).await,
-        }
+        };
         let Some(version) = job.version_name.clone() else {
             return self.fail(job, "update_state_invalid", now).await;
         };
+        if let Some(transaction) = status.as_ref().and_then(|s| s.transaction.as_ref()) {
+            if !transaction.phase.is_terminal() {
+                return Pass::Waiting("update_helper_busy");
+            }
+            // A version the helper already settled is never activated again.
+            // After a checkpoint restore the job row is pre-activation, but
+            // the transaction already reached its terminal state.
+            if transaction.candidate.version_name == version {
+                match transaction.phase {
+                    Phase::RolledBack => {
+                        let reason = transaction.reason.clone().unwrap_or_else(|| "rolled_back".to_owned());
+                        let reason = safe_code(&reason);
+                        tracing::warn!(component = "update", event = "rolled_back", reason);
+                        return self.transition(job, JobState::RolledBack, Some(reason), now).await;
+                    }
+                    Phase::Confirmed => return self.transition(job, JobState::Confirmed, None, now).await,
+                    _ => {}
+                }
+            }
+        }
+        // A candidate that would advance the state schema past what this
+        // build can open needs a verified checkpoint first, so a rollback
+        // restores a working database instead of recovery mode.
+        if let Err(pass) = self.checkpoint_for_activation(job, &version, observation, now).await {
+            return pass;
+        }
         // Durable before the request: after a restart the job follows the
         // helper's transaction instead of asking again.
         job.activation_requested_at_ms = Some(now);
@@ -542,6 +563,58 @@ impl Coordinator {
         }
     }
 
+    /// Deletes the pre-update checkpoint after this candidate confirms. Best
+    /// effort: a leftover is pruned as stale on later boots.
+    fn consume_checkpoint(&self) {
+        if let Some(state_dir) = self.db.path().parent() {
+            crate::update_checkpoint::consume_checkpoint(state_dir);
+        }
+    }
+
+    /// Creates the verified pre-update checkpoint when the candidate would
+    /// advance the state schema past what this build can open. Returns the
+    /// pass to take instead of activating when the checkpoint blocks
+    /// progress: a failed job on a full disk or a lost envelope, a retry
+    /// on a transient checkpoint failure.
+    async fn checkpoint_for_activation(
+        &self,
+        job: &mut UpdateJob,
+        version: &str,
+        observation: &Observation,
+        now: i64,
+    ) -> Result<(), Pass> {
+        let (Some(envelope), Some(signature)) = (job.envelope.clone(), job.envelope_signature.clone()) else {
+            return Err(self.fail(job, "update_state_invalid", now).await);
+        };
+        let verified = match edge_release::verify_envelope(&envelope, &signature, &self.key) {
+            Ok(verified) => verified,
+            Err(error) => return Err(self.fail(job, error.reason_code(), now).await),
+        };
+        if !crate::update_checkpoint::needs_checkpoint(verified.envelope.state_schema_version, observation.state_schema)
+        {
+            return Ok(());
+        }
+        let Some(state_dir) = self.db.path().parent() else {
+            return Err(self.retry(job, "checkpoint_unavailable", now).await);
+        };
+        match crate::update_checkpoint::create_checkpoint(
+            &self.db,
+            state_dir,
+            &self.own_version,
+            version,
+            observation.state_schema,
+            now,
+        )
+        .await
+        {
+            Ok(()) => Ok(()),
+            Err(crate::update_checkpoint::CheckpointError::InsufficientSpace) => {
+                Err(self.fail(job, "insufficient_disk", now).await)
+            }
+            Err(_) => Err(self.retry(job, "checkpoint_unavailable", now).await),
+        }
+    }
+
     // ---- follow and confirm ---------------------------------------------
 
     async fn follow(&self, job: &mut UpdateJob, helper: &dyn Helper, observation: &Observation) -> Pass {
@@ -558,6 +631,7 @@ impl Coordinator {
         let Some(transaction) = transaction else {
             if candidate && status.current.as_ref().is_some_and(|c| c.version_name == version) {
                 // Confirmed long ago and archived by a later transaction.
+                self.consume_checkpoint();
                 return self.transition(job, JobState::Confirmed, None, now).await;
             }
             // The activation never reached the helper.
@@ -566,6 +640,9 @@ impl Coordinator {
         match transaction.phase {
             Phase::Confirmed => {
                 let reason = if candidate { None } else { Some("confirmed_elsewhere") };
+                if candidate {
+                    self.consume_checkpoint();
+                }
                 self.transition(job, JobState::Confirmed, reason, now).await
             }
             Phase::RolledBack => {
@@ -637,6 +714,7 @@ impl Coordinator {
         match helper.call(HelperRequest::Confirm { version_name: version.to_owned() }, HELPER_TIMEOUT).await {
             Ok(response) if response.ok => {
                 tracing::info!(component = "update", event = "confirmed", version);
+                self.consume_checkpoint();
                 self.transition(job, JobState::Confirmed, None, observation.now_ms).await
             }
             Ok(response) => {

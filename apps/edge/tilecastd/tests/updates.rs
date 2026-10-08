@@ -955,3 +955,61 @@ async fn the_command_handler_only_records_a_job() {
     let current = tilecastd::update::accept(&db, &command, 2000, world.now_ms()).await;
     assert_eq!(current.code, "update_not_needed");
 }
+
+fn checkpoint_manifest(world: &World) -> PathBuf {
+    world.db_path.parent().unwrap().join("update-checkpoint").join("manifest.json")
+}
+
+#[tokio::test]
+async fn a_schema_advancing_update_checkpoints_before_activation_and_consumes_on_confirm() {
+    let world = World::build(Build { state_schema: edge_state::latest_schema_version() + 1, tamper_file: false });
+    world.accept("install_now").await;
+    world.to_activation().await;
+    assert!(checkpoint_manifest(&world).exists(), "activation of a newer schema checkpoints first");
+    let candidate = world.daemon(NEW).await;
+    world.pass(&candidate, &healthy(&world)).await;
+    world.advance(STABLE_PERIOD - Duration::from_secs(10));
+    world.pass(&candidate, &healthy(&world)).await;
+    world.advance(Duration::from_secs(10));
+    world.pass(&candidate, &healthy(&world)).await;
+    assert_eq!(world.job().await.state, JobState::Confirmed);
+    assert!(!checkpoint_manifest(&world).exists(), "confirmation consumes the checkpoint");
+}
+
+#[tokio::test]
+async fn a_compatible_schema_update_needs_no_checkpoint() {
+    let world = World::new();
+    world.accept("install_now").await;
+    world.to_activation().await;
+    assert!(!checkpoint_manifest(&world).exists(), "same-schema activation skips the checkpoint");
+}
+
+#[tokio::test]
+async fn a_rolled_back_version_is_never_activated_again() {
+    let world = World::new();
+    world.accept("install_now").await;
+    world.to_activation().await;
+    world
+        .bridge
+        .call(HelperRequest::Rollback { reason: "confirmation_timeout".into() }, Duration::from_secs(60))
+        .await
+        .unwrap();
+    assert_eq!(world.current(), OLD);
+    // The old daemon follows the rollback.
+    let old = world.daemon(OLD).await;
+    world.pass(&old, &healthy(&world)).await;
+    assert_eq!(world.job().await.state, JobState::RolledBack);
+    // A checkpoint restore leaves the job row pre-activation: the guard must
+    // settle it from the terminal transaction instead of activating again.
+    let db = world.db().await;
+    let mut job = world.job().await;
+    job.state = JobState::Staged;
+    job.reason_code = None;
+    let at = world.now_ms();
+    db.run(move |c| jobs::save(c, &job, at)).await.unwrap();
+    let old = world.daemon(OLD).await;
+    world.pass(&old, &healthy(&world)).await;
+    let job = world.job().await;
+    assert_eq!((job.state, job.reason_code.as_deref()), (JobState::RolledBack, Some("confirmation_timeout")));
+    assert_eq!(world.current(), OLD, "no second activation after the rollback");
+}

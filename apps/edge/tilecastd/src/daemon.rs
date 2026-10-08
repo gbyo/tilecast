@@ -182,10 +182,35 @@ impl DaemonContext {
 
 /// Opens state for this run, choosing recovery mode on any failure.
 fn open_state(paths: &EdgePaths, now: Timestamp) -> (StateMode, Option<PlayerId>) {
+    let supported = edge_state::latest_schema_version();
+    if let Err(error) = crate::update_checkpoint::finish_interrupted_restore(&paths.state_dir, supported) {
+        tracing::error!(component = "daemon", event = "rollback_restore_failed", reason = error.reason_code());
+        return (StateMode::Recovery { reason: error.reason_code() }, None);
+    }
     let db = match StateDb::open(paths.state_db(), OpenOptions::default()) {
         Ok(db) => db,
-        Err(error) => return (recovery(&error), None),
+        Err(error) => {
+            if matches!(error, StateError::NewerSchema { .. }) {
+                match crate::update_checkpoint::restore_checkpoint(&paths.state_dir, supported) {
+                    Ok(()) => match StateDb::open(paths.state_db(), OpenOptions::default()) {
+                        Ok(db) => db,
+                        Err(reopen) => return (recovery(&reopen), None),
+                    },
+                    Err(error) => {
+                        tracing::error!(
+                            component = "daemon",
+                            event = "rollback_restore_failed",
+                            reason = error.reason_code()
+                        );
+                        return (StateMode::Recovery { reason: error.reason_code() }, None);
+                    }
+                }
+            } else {
+                return (recovery(&error), None);
+            }
+        }
     };
+    crate::update_checkpoint::prune_stale_checkpoint(&paths.state_dir, supported);
     let start = match db.run_blocking(|c| daemon_repo::record_start(c, now, VERSION)) {
         Ok(start) => start,
         Err(error) => return (recovery(&error), None),
