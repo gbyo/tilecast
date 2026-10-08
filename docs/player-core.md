@@ -390,22 +390,22 @@ These tests supplement Edge system tests.
 Android keeps Kotlin. Android hosts Core through the platform crate
 `tilecast-player-android-native` below `apps/player-android/native`.
 The crate owns one process-level host, a narrow JNI bridge, Android storage
-locations, and Android platform TLS trust. Kotlin keeps lifecycle, UI,
-WebView runtime hosting, Keystore, scheduling, and other OS behavior.
+locations, and Android platform TLS trust. Kotlin keeps lifecycle, setup UI, WebView hosting, Keystore, and OS effects.
 Shared crates never depend on the Android crate. The dependency gate checks
-this direction. Production still runs the Kotlin Player. The Core host
-gains behavior behind its own qualification before any production cutover.
-The first qualified behavior is pairing. Core owns the session and
-enrollment. Kotlin supplies private stores and device facts and keeps the
-credential in the Keystore. A reset clears only the session and preserves
-an enrolled credential. Core reserves credential removal for revocation.
+this direction. Production uses the native Player Core host for pairing,
+Server reconciliation, manifests, offline activation, commands, and recovery;
+see [Android development](android-development.md) for the completed cutover.
+Kotlin supplies private stores and device facts and keeps the credential
+in the Keystore. A pairing reset clears the session and preserves an enrolled
+credential; Core reserves credential removal for revocation.
 
 Independent Players share fixtures at the rule's natural
 owner. `packages/player-contracts` contains only ownerless cross-player fixtures.
-Browser, Tizen, and webOS may later share a browser-host family and Player Runtime
-where supported. They need no native appliance Core or WASM requirement.
-
-This project does not build macOS, browser, or smart-TV Players.
+The experimental Browser Player in `apps/player-web` uses Player Runtime and
+shared presentation contracts without native appliance Core; see
+[Browser Player](browser-player.md) for its separately qualified host model.
+Other browser-based platforms may reuse that family after qualification.
+This project does not currently build a macOS, Tizen, or webOS Player.
 The Windows Player (`apps/player-windows`) is the second native host: it
 proves the extraction by composing the same shared crates with a WebView2
 renderer instead of a second Player implementation.
