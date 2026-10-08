@@ -103,7 +103,7 @@ func (s *Service) Renew(ctx context.Context, screenID uuid.UUID, forceCapture bo
 			capture_requested_at=CASE
 				WHEN $4 THEN $1
 				WHEN (screen_previews.captured_at IS NULL OR screen_previews.captured_at < $1 - make_interval(secs => $5))
-					AND COALESCE(screen_previews.failure_status, '') NOT LIKE 'sensitive_%'
+					AND left(COALESCE(screen_previews.failure_status, ''), 10) <> 'sensitive_'
 					AND screen_previews.capture_requested_at <= $1 - make_interval(secs => $6)
 					AND (screen_previews.attempted_at IS NULL OR screen_previews.attempted_at <= $1 - make_interval(secs => $6))
 				THEN $1
