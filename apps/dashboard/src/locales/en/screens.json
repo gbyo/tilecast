@@ -1530,5 +1530,62 @@
     "snapshotAlt": "Screen at {{date}}",
     "manualSuffix": " · manual",
     "openFull": "Open full size"
+  },
+  "playerHealth": {
+    "title": "Player health",
+    "loading": "Loading player health…",
+    "observed": "Last verified observation",
+    "cause": "Cause",
+    "renderer": "Renderer",
+    "lastProgress": "last progress {{at}}",
+    "lastRecovery": "Last recovery",
+    "recoveryLevel": "level {{level}}",
+    "lastFailure": "Last renderer failure",
+    "restartCount": "{{count}} restarts",
+    "update": "Update",
+    "links": {
+      "activity": "Activity",
+      "commands": "Commands",
+      "updates": "Player updates"
+    },
+    "states": {
+      "disconnected": "Disconnected",
+      "healthy": "Healthy",
+      "renderer_unavailable": "Renderer unavailable",
+      "waiting_for_evidence": "Waiting for playback",
+      "recovering": "Recovering",
+      "safe_mode": "Safe mode",
+      "sleeping_or_disabled": "Sleeping or disabled",
+      "presentation_failed": "Presentation failed",
+      "needs_intervention": "Needs intervention",
+      "unknown": "Unknown"
+    },
+    "causes": {
+      "screen_disabled": "Screen disabled",
+      "credential_revoked": "Credential revoked",
+      "awaiting_player": "Awaiting player",
+      "never_contacted": "Never contacted",
+      "connection_lost": "Connection lost",
+      "recovery": "Recovery",
+      "update_failed": "Update failed",
+      "preparation_failed": "Preparation failed",
+      "presentation_incompatible": "Presentation incompatible",
+      "recovery_in_progress": "Recovery in progress",
+      "renderer_disconnected": "Renderer disconnected",
+      "awaiting_playback_evidence": "Awaiting playback evidence",
+      "renderer_failure": "Renderer failure",
+      "playback_disabled": "Playback disabled",
+      "display_sleep": "Display sleep",
+      "unreported": "Not reported",
+      "player_setup": "Player setup"
+    },
+    "rendererStates": {
+      "healthy": "Healthy",
+      "safe_mode": "Safe mode",
+      "disconnected": "Disconnected",
+      "starting": "Starting",
+      "incompatible": "Incompatible",
+      "waiting_for_progress": "Waiting for progress"
+    }
   }
 }

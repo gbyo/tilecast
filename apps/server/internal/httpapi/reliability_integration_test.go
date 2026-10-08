@@ -52,3 +52,55 @@ func TestScreenReliabilityBuildsFullPayload(t *testing.T) {
 		}
 	})
 }
+
+// The reliability endpoint derives one player-health presentation from the
+// player-status row and the telemetry snapshot: recovery in progress here,
+// with the restart reason and time the player reported.
+func TestScreenReliabilityDerivesPlayerHealth(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		ctx := context.Background()
+		if _, err := env.pool.Exec(ctx, `UPDATE screens SET last_heartbeat_at=now() WHERE id=$1`, env.screenID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := env.pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,playback_state,recovery_level,recovery_count,safe_mode,last_renderer_failure,renderer_restart_count,last_renderer_restart_at,last_renderer_restart_reason,last_healthy_playback_at) VALUES($1,'playing',2,1,FALSE,'rejected',4,now()-interval '5 minutes','recovery',now()-interval '3 minutes')`, env.screenID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := env.pool.Exec(ctx, `INSERT INTO screen_telemetry_snapshots(screen_id,observed_at,renderer_state,last_meaningful_progress_at) VALUES($1,now()-interval '2 minutes','starting',now()-interval '3 minutes')`, env.screenID); err != nil {
+			t.Fatal(err)
+		}
+
+		routeContext := chi.NewRouteContext()
+		routeContext.URLParams.Add("id", env.screenID.String())
+		request := httptest.NewRequest(http.MethodGet, "/screens/"+env.screenID.String()+"/reliability", nil)
+		request = requestWithTestPrincipal(request, env.owner)
+		request = request.WithContext(context.WithValue(request.Context(), chi.RouteCtxKey, routeContext))
+		recorder := httptest.NewRecorder()
+
+		env.server.screenReliability(recorder, request)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+		}
+		var payload struct {
+			Data map[string]any `json:"data"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		for _, field := range []string{"lastRendererFailure", "rendererRestartCount", "lastRendererRestartAt", "lastRendererRestartReason"} {
+			if _, ok := payload.Data[field]; !ok {
+				t.Fatalf("reliability payload is missing %q", field)
+			}
+		}
+		health, ok := payload.Data["playerHealth"].(map[string]any)
+		if !ok {
+			t.Fatalf("reliability payload is missing playerHealth: %v", payload.Data["playerHealth"])
+		}
+		if health["state"] != "recovering" {
+			t.Fatalf("playerHealth.state = %v, want recovering", health["state"])
+		}
+		if health["lastRecoveryReason"] != "recovery" {
+			t.Fatalf("playerHealth.lastRecoveryReason = %v", health["lastRecoveryReason"])
+		}
+	})
+}

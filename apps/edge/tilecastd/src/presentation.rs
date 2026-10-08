@@ -167,11 +167,24 @@ pub struct PresentationEngine {
     incompatible_reason: Option<String>,
     native: player_core::RendererCoordinator,
     restart_count: u64,
+    /// Last renderer restart (recovery rung or explicit command), restored
+    /// from the supervision record so it survives daemon restarts.
+    last_restart: Option<(ShortToken, Timestamp)>,
     /// Proof-of-play signals for the activity task.
     activity: Option<crate::activity::Handle>,
     /// Corrected-minus-local wall offset handed to the runtime for
     /// time-dependent projection (countdowns, date-selected records).
     clock_offset_ms: i64,
+}
+
+/// Recovery facts for heartbeat diagnostics. Core owns the ladder; Edge
+/// projects the snapshot plus the restarts it executed.
+#[derive(Debug, Clone)]
+pub struct RecoveryReport {
+    pub snapshot: player_core::RecoverySnapshot,
+    pub restart_count: u64,
+    pub last_restart: Option<(ShortToken, Timestamp)>,
+    pub safe_mode_reason: Option<SafeText<240>>,
 }
 
 impl PresentationEngine {
@@ -203,6 +216,7 @@ impl PresentationEngine {
                 policy_time(now_ms),
             ),
             restart_count: 0,
+            last_restart: None,
             activity: None,
             clock_offset_ms: 0,
         }
@@ -474,6 +488,7 @@ impl PresentationEngine {
             }
             HealAction::RestartRenderer => {
                 self.restart_count += 1;
+                self.note_restart("recovery", now_ms);
                 if let Some(link) = &self.renderer {
                     let _ = self.native.dispatch_recovery(link.port(), action, uuid::Uuid::new_v4());
                 }
@@ -687,6 +702,27 @@ impl PresentationEngine {
         self.restart_count
     }
 
+    /// Last renderer restart reason and time, for heartbeat diagnostics.
+    pub fn last_restart(&self) -> Option<(&ShortToken, Timestamp)> {
+        self.last_restart.as_ref().map(|(reason, at)| (reason, *at))
+    }
+
+    /// Recovery facts for heartbeat diagnostics, projected from Player Core.
+    /// Unknown stays unknown: a missing restart or failure is omitted
+    /// downstream, never reported as zero or empty.
+    pub fn recovery_report(&self) -> RecoveryReport {
+        RecoveryReport {
+            snapshot: self.native.recovery_snapshot(),
+            restart_count: self.restart_count,
+            last_restart: self.last_restart.clone(),
+            safe_mode_reason: self.native.is_safe_mode().then(|| self.native.safe_mode_reason()),
+        }
+    }
+
+    pub fn safe_mode_reason(&self) -> SafeText<240> {
+        self.native.safe_mode_reason()
+    }
+
     pub fn is_safe_mode(&self) -> bool {
         self.native.is_safe_mode()
     }
@@ -778,14 +814,20 @@ impl PresentationEngine {
 
     /// Asks the connected renderer to exit so systemd starts a fresh one; the
     /// current activation is restored when it reconnects.
-    pub fn restart_renderer(&mut self, reason: &str) -> bool {
+    pub fn restart_renderer(&mut self, reason: &str, now_ms: i64) -> bool {
         let Some(link) = self.renderer.as_ref() else { return false };
         let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("command").expect("literal token"));
         let sent = link.port().request_restart(&reason, 5_000).is_ok();
         if sent {
             self.restart_count += 1;
+            self.note_restart(reason.as_str(), now_ms);
         }
         sent
+    }
+
+    fn note_restart(&mut self, reason: &str, now_ms: i64) {
+        let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("recovery").expect("literal token"));
+        self.last_restart = Some((reason, policy_time(now_ms)));
     }
 
     /// Leaves safe mode and restarts the ladder. Returns whether safe mode
@@ -800,6 +842,10 @@ impl PresentationEngine {
     /// persisted supervisor state.
     pub fn restore_supervision(&mut self, record: &edge_state::repo::renderer::RendererRecord, now_ms: i64) {
         self.restart_count = record.restart_count;
+        self.last_restart = match (&record.last_restart_reason, record.last_restart_at) {
+            (Some(reason), Some(at)) => ShortToken::new(reason).ok().map(|token| (token, at)),
+            _ => None,
+        };
         if record.safe_mode {
             let reason = record.safe_mode_reason.as_deref().unwrap_or("recovery");
             self.native.restore_safe_mode(reason, policy_time(now_ms));
@@ -821,6 +867,8 @@ impl PresentationEngine {
     ) -> edge_state::repo::renderer::RendererRecord {
         let mut next = previous.clone();
         next.restart_count = self.restart_count;
+        next.last_restart_at = self.last_restart.as_ref().map(|(_, at)| *at);
+        next.last_restart_reason = self.last_restart.as_ref().map(|(reason, _)| reason.as_str().to_owned());
         next.safe_mode = self.native.is_safe_mode();
         next.safe_mode_reason = self.native.is_safe_mode().then(|| self.native.safe_mode_reason().to_string());
         next
@@ -891,6 +939,41 @@ mod tests {
         assert!(!snapshot.safe_mode);
         assert_eq!(snapshot.safe_mode_reason, None);
         assert_eq!(snapshot.restart_count, 7);
+    }
+
+    #[test]
+    fn last_restart_survives_a_daemon_restart_and_reports_invalid_tokens_as_unknown() {
+        let mut engine = engine();
+        let record = edge_state::repo::renderer::RendererRecord {
+            restart_count: 3,
+            last_restart_at: Some(Timestamp::from_unix_millis(1_700_000_000_000).expect("restart time")),
+            last_restart_reason: Some("recovery".into()),
+            ..Default::default()
+        };
+        engine.restore_supervision(&record, 2_000);
+        let (reason, at) = engine.last_restart().expect("restored restart");
+        assert_eq!(reason.as_str(), "recovery");
+        assert_eq!(at.unix_millis(), 1_700_000_000_000);
+        let snapshot = engine.supervision_snapshot(&record);
+        assert_eq!(snapshot.last_restart_at, record.last_restart_at);
+        assert_eq!(snapshot.last_restart_reason.as_deref(), Some("recovery"));
+        // A reason that is no longer a valid token reports no last restart
+        // rather than a misleading one.
+        let invalid = edge_state::repo::renderer::RendererRecord {
+            last_restart_at: Some(Timestamp::from_unix_millis(1_700_000_000_000).expect("restart time")),
+            last_restart_reason: Some("not a token!".into()),
+            ..Default::default()
+        };
+        engine.restore_supervision(&invalid, 2_000);
+        assert_eq!(engine.last_restart(), None);
+    }
+
+    #[test]
+    fn explicit_restart_without_a_renderer_records_nothing() {
+        let mut engine = engine();
+        assert!(!engine.restart_renderer("command", 2_000));
+        assert_eq!(engine.restart_count(), 0);
+        assert_eq!(engine.last_restart(), None);
     }
 
     #[test]
