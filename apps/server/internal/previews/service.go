@@ -13,13 +13,13 @@ import (
 )
 
 const (
-	LeaseDuration   = 60 * time.Second
-	CaptureInterval = 20 * time.Second
-	CaptureFreshness = 45 * time.Second
+	LeaseDuration        = 60 * time.Second
+	CaptureInterval      = 20 * time.Second
+	CaptureFreshness     = 45 * time.Second
 	CaptureRetryInterval = 30 * time.Second
-	MaxImageBytes   = 500 * 1024
-	MaxWidth        = 960
-	MaxHeight       = 540
+	MaxImageBytes        = 500 * 1024
+	MaxWidth             = 960
+	MaxHeight            = 540
 )
 
 var (
