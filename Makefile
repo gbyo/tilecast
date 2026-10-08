@@ -170,6 +170,7 @@ test:
 
 docs-check:
 	bash scripts/check-docs-ste.sh
+	node scripts/ci/check-docs-contracts.mjs
 
 # Demo Mode: a disposable, pre-seeded installation for development, browser
 # tests, and screenshots. See docs/demo-mode.md.
