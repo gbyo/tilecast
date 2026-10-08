@@ -65,6 +65,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "widget_bundle_domain",
         sql: include_str!("../migrations/0008_widget_bundle_domain.sql"),
     },
+    Migration {
+        version: 9,
+        name: "playback_checkpoint",
+        sql: include_str!("../migrations/0009_playback_checkpoint.sql"),
+    },
 ];
 
 pub fn latest_schema_version() -> u32 {

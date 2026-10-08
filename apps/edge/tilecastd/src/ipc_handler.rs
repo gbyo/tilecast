@@ -102,11 +102,28 @@ impl IpcHandler for DaemonIpc {
             Event::RendererProgress(progress) => {
                 let is_boundary = progress.kind == EvidenceKind::ItemTransition;
                 let meaningful = engine.progress(session, &progress, now);
+                // The resume checkpoint follows accepted item evidence, never
+                // raw progress: only the current activation's shown item.
+                let mut note: Option<(String, crate::presentation::PlaybackIdentity)> = None;
+                if meaningful
+                    && matches!(progress.kind, EvidenceKind::ItemStarted | EvidenceKind::ItemTransition)
+                    && engine.current_is_accepted()
+                    && let Some(item) = progress.item_id.as_ref()
+                    && let Some(current) = engine.current()
+                    && let Some(identity) = current.identity.clone()
+                    && current.source == crate::presentation::ActivationSource::ServerManifest
+                {
+                    note = Some((item.as_str().to_owned(), identity));
+                }
                 if is_boundary && meaningful {
                     self.context.manifest_item_boundary.store(true, Ordering::Relaxed);
                     self.context.manifest_wake.notify_one();
                 } else if meaningful {
                     self.context.manifest_wake.notify_one();
+                }
+                if let Some((item, identity)) = note {
+                    drop(engine);
+                    crate::resume::note_item_evidence(&self.context, &item, &identity, now).await;
                 }
             }
             Event::ItemError(item) => {

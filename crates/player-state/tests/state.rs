@@ -1,7 +1,7 @@
 //! Migration, restart-safety and repository tests against real SQLite files.
 
 use player_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
-use player_state::repo::{self, cas, daemon};
+use player_state::repo::{self, cas, daemon, playback_checkpoint};
 use player_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
 use player_types::capability::{Capability, CapabilityId, CapabilityState};
 use player_types::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
@@ -371,7 +371,7 @@ fn migration_7_drops_noise_history_and_keeps_presentation_network_state() {
     let owned: Vec<Migration> =
         player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to latest");
-    assert_eq!(player_state::schema_version(&connection).expect("version"), 8);
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
     let noise: i64 = connection
         .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'noise_history'", [], |r| r.get(0))
         .expect("query");
@@ -412,7 +412,7 @@ fn migration_8_keeps_cas_rows_and_admits_widget_bundles() {
     let owned: Vec<Migration> =
         player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to latest");
-    assert_eq!(player_state::schema_version(&connection).expect("version"), 8);
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
     let domain: String = connection
         .query_row("SELECT domain FROM cas_objects WHERE sha256 = ?1", [&media], |r| r.get(0))
         .expect("cached object survives");
@@ -423,4 +423,38 @@ fn migration_8_keeps_cas_rows_and_admits_widget_bundles() {
             ["cd".repeat(32)],
         )
         .expect("v8 admits widget bundles");
+}
+
+#[test]
+fn migration_9_adds_playback_checkpoint_and_round_trips() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    // Simulate a device last migrated at version 8.
+    let v8: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 8)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v8).expect("migrate to v8");
+    assert!(playback_checkpoint::get(&connection).is_err(), "no checkpoint table at v8");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
+    assert_eq!(playback_checkpoint::get(&connection).expect("read"), None);
+    let checkpoint = playback_checkpoint::PlaybackCheckpoint {
+        installation_id: "installation".into(),
+        screen_id: "screen".into(),
+        server_url: "https://tilecast.example".into(),
+        manifest_version: 3,
+        manifest_digest: "ab".repeat(32),
+        playlist_id: "playlist".into(),
+        item_id: "item-2".into(),
+        presented_at: now(),
+        updated_at: now(),
+    };
+    playback_checkpoint::put(&connection, &checkpoint).expect("store");
+    assert_eq!(playback_checkpoint::get(&connection).expect("reread"), Some(checkpoint));
+    playback_checkpoint::clear(&connection).expect("clear");
+    assert_eq!(playback_checkpoint::get(&connection).expect("read cleared"), None);
 }
