@@ -1,6 +1,6 @@
 # Tilecast Edge M11: remote web frame transport spike
 
-**Status:** Complete. The architecture is proven. No stop condition was found.
+**Status: completed 2026-09-26 technical spike.** The recorded transport architecture was feasible in the tested environment; this is not a current qualification result for production GPUs, displays, or Edge releases. The binding current security contract is [the remote-web threat review](tilecast-edge-remote-web-threat-review.md).
 **Date:** 2026-09-26
 **Scope:** Phase 0 of the M11 remote web work. This record comes before the contracts in [`tilecast-edge-remote-web-threat-review.md`](tilecast-edge-remote-web-threat-review.md).
 **Code:** [`apps/edge/web-renderer-wpe/spike/`](../apps/edge/web-renderer-wpe/spike/)
