@@ -684,9 +684,9 @@ func (s *server) expireCommands(r *http.Request) {
 // function as single sending, so the pending-command limit, the idempotency
 // key, the audit entries, and the socket wake cannot drift apart.
 var (
-	errScreenNotFound     = errors.New("screen not found")
-	errCommandLimit       = errors.New("pending command limit reached")
-	errCommandConflict    = errors.New("idempotency key conflicts with an existing command")
+	errScreenNotFound  = errors.New("screen not found")
+	errCommandLimit    = errors.New("pending command limit reached")
+	errCommandConflict = errors.New("idempotency key conflicts with an existing command")
 	// errCommandUnsupported means the screen's player cannot run this command
 	// type. It is refused before anything is queued.
 	errCommandUnsupported = errors.New("the player does not support this command")
