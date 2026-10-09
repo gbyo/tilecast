@@ -12,6 +12,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { i18n } from "../i18n";
 import { UsersPage } from "./UsersPage";
 
 vi.mock("../auth/AuthProvider", () => ({
@@ -306,4 +307,80 @@ describe("user creation dialog", () => {
       expect(screen.queryByLabelText("Temporary password")).toBeNull(),
     );
   });
+});
+
+describe("user error localization", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("en");
+  });
+
+  it("translates a known API error code in the editor's failure alert", async () => {
+    const serverMessage = "Too many requests from this address.";
+    vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) => {
+      if (init?.method === "DELETE") {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: { code: "rate_limited", message: serverMessage },
+            }),
+            {
+              status: 429,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: {
+              items: [
+                {
+                  id: "user-2",
+                  name: "Former Editor",
+                  username: "former-editor",
+                  role: "editor",
+                  active: false,
+                  createdAt: "2026-01-01T00:00:00Z",
+                  mfaEnrolled: false,
+                  mfaRequired: false,
+                },
+              ],
+              total: 1,
+            },
+          }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      );
+    });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <UsersPage />
+      </QueryClientProvider>,
+    );
+
+    const name = await screen.findByText("Former Editor");
+    const row = name.closest<HTMLElement>('[data-slot="item"]');
+    await userEvent.click(within(row!).getByRole("button", { name: "Edit" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Delete permanently" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Delete permanently" }),
+    );
+    // Switch after the request starts, so the labels above stay English. The
+    // failure renders under Spanish.
+    await i18n.changeLanguage("es");
+
+    const translated = i18n.t("errors:codes.rate_limited");
+    expect(await screen.findByText(translated)).toBeInTheDocument();
+    expect(screen.queryByText(serverMessage)).toBeNull();
+  }, 15_000);
 });
