@@ -9,29 +9,6 @@ Status: accepted. The foundation is implemented and the built-in plugins
 have moved to the new structure; see [Migration status](#migration-status).
 This document describes the frozen Plugin API v1 contract.
 
-## Which API do you need
-
-Tilecast has five extension APIs. They differ by trust and by layer:
-
-- Bundled Plugin API v1 (this document): trusted, release-built,
-  first-party feature modules compiled into the server. Choose it for
-  bundled Tilecast features.
-- External Package API: untrusted third-party packages installed at
-  runtime: content contributions plus a capability-scoped Wasm module.
-  See [Extension packages](packages.md).
-- Widget API: declarative visual components, trusted or external.
-  External Widget code runs only in the sandbox frame. See
-  [content-extension-model](content-extension-model.md).
-- Data Source API: declarative data definitions and adapters. See
-  [content-extension-model](content-extension-model.md).
-- Player Capability API: the versioned vocabulary for privileged
-  Player and device functionality, independent of operating system.
-  See [Player capabilities](player-capabilities.md).
-
-External packages use the External Package, Widget, Data Source, and
-Player Capability APIs together. None of them is a second bundled
-plugin system, and bundled plugins never move into them.
-
 ## Context
 
 Before Plugin API v1, the then-current built-in plugins had one shared installation
