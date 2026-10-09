@@ -232,7 +232,8 @@ export function FormDataSourcePage() {
             </TabsTrigger>
           ))}
         </TabsList>
-        <TabsContent value={activeTab} className="grid gap-4">
+        {/* Keyed by form: the editors hold local drafts that must not carry over to another cached form. */}
+        <TabsContent key={detail.id} value={activeTab} className="grid gap-4">
           {activeTab === "responses" ? (
             <ResponsesTab
               form={detail}
