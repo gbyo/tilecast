@@ -257,8 +257,16 @@ test("external Widget fixture changes reach every host and shared SDK", () => {
   ]) {
     const result = affected([path]);
     for (const area of [
-      "widgets", "server", "dashboard", "runtime", "browser_player",
-      "android", "windows", "edge_rust", "edge_wpe", "edge_conformance",
+      "widgets",
+      "server",
+      "dashboard",
+      "runtime",
+      "browser_player",
+      "android",
+      "windows",
+      "edge_rust",
+      "edge_wpe",
+      "edge_conformance",
       "player_core",
     ]) {
       assert.equal(result[area], true, `${path}: ${area}`);
