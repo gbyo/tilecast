@@ -11,6 +11,7 @@
     "line": "Línea"
   },
   "library": {
+    "toastCreated": "Diseño creado.",
     "title": "Diseños",
     "description": "Diseña composiciones reutilizables y encuentra el lienzo adecuado de un vistazo.",
     "createLayout": "Crear diseño",
