@@ -1084,6 +1084,8 @@
     }
   },
   "branding": {
+    "loginBackgroundSaved": "Fondo de inicio de sesión guardado.",
+    "loginBackgroundRemoved": "Fondo de inicio de sesión eliminado.",
     "title": "Imágenes de la organización",
     "description": "Sube imágenes desde este dispositivo. Tilecast guarda el recurso elegido internamente.",
     "logo": {
