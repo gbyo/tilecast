@@ -580,6 +580,7 @@ mod tests {
             media: vec![],
             playback: None,
             widget_frames: None,
+            widget_media: None,
             manifest: json!({"widgets": [{"presentation": {"schemaVersion": 2, "kind": "component",
                 "requiredCapabilities": {"widget.tilecast.clock": 2, "content.text": 1}}}]}),
         };

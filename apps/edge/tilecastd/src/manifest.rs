@@ -1023,7 +1023,7 @@ impl Candidate {
         // Frame claims join their grants at the port, after Core prepared
         // them; the manifest projection never invents the table itself.
         Ok((
-            ProjectionContext { schema: 1, clock_offset_ms: 0, manifest, media, playback, widget_frames: None },
+            ProjectionContext { schema: 1, clock_offset_ms: 0, manifest, media, playback, widget_frames: None, widget_media: None },
             content,
         ))
     }

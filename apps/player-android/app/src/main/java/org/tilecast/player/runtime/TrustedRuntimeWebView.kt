@@ -100,8 +100,22 @@ class TrustedRuntimeWebView(
                 return true
             }
 
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                shouldBlockTopLevelNavigation(view, request.url?.toString())
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                val url = request.url?.toString()
+                // Subframe navigations to intercepted capability schemes
+                // are confined content, not top-level escapes: the
+                // interceptor serves only host-authorized bytes (or the
+                // WebView's 404 path), and the sandbox attribute keeps
+                // the frame opaque. The main frame still never leaves
+                // the trusted runtime tree.
+                if (!request.isForMainFrame &&
+                    (url?.startsWith("${MediaAuthorization.SCHEME}:", ignoreCase = true) == true ||
+                        url?.startsWith("${FrameAuthorization.SCHEME}:", ignoreCase = true) == true)
+                ) {
+                    return false
+                }
+                return shouldBlockTopLevelNavigation(view, url)
+            }
 
             @Suppress("DEPRECATION")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =

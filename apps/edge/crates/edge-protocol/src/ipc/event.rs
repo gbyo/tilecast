@@ -181,6 +181,25 @@ pub struct ProjectionContext {
     /// no external Widgets.
     #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "optional_widget_frames")]
     pub widget_frames: Option<Vec<RendererFrameRef>>,
+    /// Media aliases for opaque sandbox frames, mirroring [`Self::media`].
+    /// Some engines refuse subresource loads from opaque origins to
+    /// capability schemes, so hosts that serve frames over loopback HTTP
+    /// authorize the same variants a second time in a form frames can
+    /// load. The projector prefers this table for Widget component
+    /// media and falls back to [`Self::media`]; hosts whose frames load
+    /// capability URIs directly omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "optional_media_aliases")]
+    pub widget_media: Option<Vec<MediaAlias>>,
+}
+
+fn optional_media_aliases<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Vec<MediaAlias>>, D::Error> {
+    let aliases = Option::<Vec<MediaAlias>>::deserialize(d)?;
+    if let Some(aliases) = &aliases
+        && aliases.len() > MAX_MEDIA_ALIASES
+    {
+        return Err(D::Error::custom(format!("list has more than {MAX_MEDIA_ALIASES} entries")));
+    }
+    Ok(aliases)
 }
 
 fn optional_widget_frames<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Vec<RendererFrameRef>>, D::Error> {
@@ -921,6 +940,25 @@ mod tests {
 
         assert!(matches!(Event::decode("noise.report", json!({"status": "inactive"})), Err(EventError::Unknown(_))));
         assert!(matches!(Event::decode("noise.level", json!({"rms": 0.5})), Err(EventError::Unknown(_))));
+    }
+
+    #[test]
+    fn widget_media_mirrors_the_alias_bound_and_omits_when_empty() {
+        let alias = json!({
+            "assetId": "844f4a48-a47c-4fbd-8a84-f8d61cc64b6a",
+            "variantId": "46784d73-3daf-45cf-8ff0-7cb4a3d12852",
+            "uri": format!("http://127.0.0.1:8471/media/{}", "d".repeat(64)),
+        });
+        let mut projection = json!({"schema": 19, "clockOffsetMs": 0, "manifest": {}, "media": []});
+        let parsed: ProjectionContext = serde_json::from_value(projection.clone()).expect("parses");
+        assert!(parsed.widget_media.is_none());
+        assert!(!serde_json::to_value(&parsed).expect("json").as_object().expect("obj").contains_key("widgetMedia"));
+        projection["widgetMedia"] = json!([alias]);
+        let parsed: ProjectionContext = serde_json::from_value(projection.clone()).expect("parses");
+        assert_eq!(parsed.widget_media.expect("table").len(), 1);
+        projection["widgetMedia"] = json!([alias.clone(), alias]);
+        let parsed: ProjectionContext = serde_json::from_value(projection).expect("parses");
+        assert_eq!(parsed.widget_media.expect("table").len(), 2);
     }
 
     #[test]

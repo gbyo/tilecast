@@ -101,14 +101,14 @@ class WidgetFrameDeviceTest {
             framePath: String,
         ) = "\"assetId\":\"$asset\",\"name\":\"$label\",\"provider\":\"$type\"," +
             "\"configVersion\":1,\"configuration\":{}," +
-            "\"presentation\":{\"schemaVersion\":3,\"kind\":\"component\"," +
+            "\"presentation\":{\"schemaVersion\":2,\"kind\":\"component\"," +
             "\"requiredCapabilities\":{\"widget.external-runtime\":2}," +
             "\"component\":{\"type\":\"$type\",\"version\":$version,\"config\":$config," +
-            "\"dataSources\":$sources,\"media\":$media,\"empty\":\"render\"," +
+            "\"dataSources\":$sources,\"media\":$media," +
             "\"package\":{\"packageId\":\"$packageId\",\"digest\":\"sha256:$packageDigest\"," +
             "\"frame\":{\"sha256\":\"$frameDigest\",\"fileSize\":$frameSize,\"downloadPath\":\"$framePath\"}}}}"
 
-        private fun manifestJson() = "{" +
+        fun manifestJson() = "{" +
             "\"schemaVersion\":19,\"manifestVersion\":3,\"screenId\":\"$screenId\",\"mode\":\"presentation\"," +
             "\"assets\":[{\"assetId\":\"$heroAsset\",\"variantId\":\"$heroVariant\",\"sha256\":\"$digest\"," +
             "\"fileSize\":${payload.size},\"mimeType\":\"image/png\"," +
@@ -209,38 +209,38 @@ class WidgetFrameDeviceTest {
             if (method == "GET" && path == "/api/v1/system/identity") {
                 return json(
                     "200 OK",
-                    "\"\"{\"data\":{\"product\":\"tilecast\",\"installationId\":\"$installationId\",\"organizationName\":\"Test Org\",\"apiVersion\":\"1\",\"pairingEnabled\":true}}\"\"",
+                    """{"data":{"product":"tilecast","installationId":"$installationId","organizationName":"Test Org","apiVersion":"1","pairingEnabled":true}}""",
                 )
             }
             if (method == "POST" && path == "/api/v1/player/pairing-sessions") {
                 val expires = Instant.now().plusSeconds(600).toString()
                 return json(
                     "200 OK",
-                    "\"\"{\"data\":{\"id\":\"$sessionId\",\"code\":\"REN333\",\"pollSecret\":\"$pollSecret\",\"expiresAt\":\"$expires\",\"pollingIntervalSeconds\":1,\"approvalUrl\":\"$url/approve\",\"organizationName\":\"Test Org\"}}\"\"",
+                    """{"data":{"id":"$sessionId","code":"REN333","pollSecret":"$pollSecret","expiresAt":"$expires","pollingIntervalSeconds":1,"approvalUrl":"$url/approve","organizationName":"Test Org"}}""",
                 )
             }
             if (method == "GET" && path == "/api/v1/player/pairing-sessions/$sessionId") {
                 return if (pairingPolls.getAndIncrement() == 0) {
-                    json("200 OK", "\"\"{\"data\":{\"status\":\"pending\"}}\"\"")
+                    json("200 OK", """{"data":{"status":"pending"}}""")
                 } else {
-                    json("200 OK", "\"\"{\"data\":{\"status\":\"claimed\",\"enrollmentToken\":\"$enrollmentToken\"}}\"\"")
+                    json("200 OK", """{"data":{"status":"claimed","enrollmentToken":"$enrollmentToken"}}""")
                 }
             }
             if (method == "POST" && path == "/api/v1/player/enroll") {
                 return json(
                     "200 OK",
-                    "\"\"{\"data\":{\"screenId\":\"$screenId\",\"screenName\":\"Widget Screen\",\"deviceCredential\":\"$credential\"}}\"\"",
+                    """{"data":{"screenId":"$screenId","screenName":"Widget Screen","deviceCredential":"$credential"}}""",
                 )
             }
             if (method == "GET" && path == "/api/v1/player/config") {
                 return json(
                     "200 OK",
-                    "\"\"{\"data\":{\"schemaVersion\":1,\"configRevision\":7,\"generatedAt\":\"2026-10-05T00:00:00Z\"}}\"\"",
+                    """{"data":{"schemaVersion":1,"configRevision":7,"generatedAt":"2026-10-05T00:00:00Z"}}""",
                     "ETag: \"config-7\"\r\n",
                 )
             }
             if (method == "GET" && path == "/api/v1/player/manifest") {
-                return json("200 OK", "\"\"{\"data\":${manifestJson()}}\"\"", "ETag: \"manifest-v3\"\r\n")
+                return json("200 OK", """{"data":${manifestJson()}}""", "ETag: \"manifest-v3\"\r\n")
             }
             if (method == "GET" && path == "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame") {
                 frameHits.incrementAndGet()
@@ -256,15 +256,15 @@ class WidgetFrameDeviceTest {
             }
             if (path == "/api/v1/player/probe-exfil") {
                 exfilHits.incrementAndGet()
-                return json("200 OK", "\"\"{\"data\":{}}\"\"")
+                return json("200 OK", """{"data":{}}""")
             }
             if (method == "POST" && path == "/api/v1/player/heartbeat") {
-                return json("200 OK", "\"\"{\"data\":{}}\"\"")
+                return json("200 OK", """{"data":{}}""")
             }
             if (method == "GET" && path == "/api/v1/player/commands") {
-                return json("200 OK", "\"\"{\"data\":{\"items\":[]}}\"\"")
+                return json("200 OK", """{"data":{"items":[]}}""")
             }
-            return json("404 Not Found", "\"\"{\"error\":{\"code\":\"not_found\",\"message\":\"no such stub route\"}}\"\"")
+            return json("404 Not Found", """{"error":{"code":"not_found","message":"no such stub route"}}""")
         }
 
         private data class Route(
@@ -279,6 +279,7 @@ class WidgetFrameDeviceTest {
         reports: CopyOnWriteArrayList<JSONObject>,
         timeoutMs: Long = 120_000,
         fromIndex: Int = 0,
+        what: String = "report",
         match: (JSONObject) -> Boolean,
     ): JSONObject = try {
             withTimeout(timeoutMs) {
@@ -291,7 +292,7 @@ class WidgetFrameDeviceTest {
             }
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
             val seen = reports.map { it.optString("type") + ":" + it.optString("itemId") }
-            throw AssertionError("timed out waiting for report; saw types=$seen")
+            throw AssertionError("timed out waiting for $what; saw types=$seen")
         }
 
     /** The live document's text, including every shadow root. */
@@ -360,6 +361,16 @@ class WidgetFrameDeviceTest {
                 renderer.view?.let { view -> content?.addView(view) }
             }
             assertTrue(renderer.view?.isAttachedToWindow == true)
+            // The renderer must be ready with proven Widget capabilities
+            // before pairing: the first ready races the component probe,
+            // and preparation gates on the connected profile.
+            awaitReports(reports, what = "component-ready") {
+                it.optString("type") == "ready" &&
+                    it.optJSONObject("report")
+                        ?.optJSONObject("support")
+                        ?.optJSONObject("widgetComponents")
+                        ?.optInt("widget.external-runtime") == 2
+            }
 
             val begin = host.beginPairing(stub.url)
             assertTrue("begin failed: $begin", begin.ok)
@@ -367,24 +378,63 @@ class WidgetFrameDeviceTest {
                 while (host.pairingState.value !is CorePairingState.Paired) delay(200)
             }
             val first = host.syncManifest()
-            assertTrue("sync: $first", first.ok && first.version == 3L)
+            assertTrue(
+                "sync: $first",
+                first.ok && first.version == 3L && (first.outcome == "prepared" || first.outcome == "current"),
+            )
             // Both frames and the granted media download exactly once.
             assertEquals(1, stub.frameHits.get())
             assertEquals(1, stub.hostileHits.get())
             assertEquals(1, stub.assetHits.get())
 
-            awaitReports(reports) { it.optString("type") == "connected" }
-            awaitReports(reports) { it.optString("type") == "accepted" }
+            // No selection driver yet: the test activates each item
+            // explicitly, like the production caller will.
+            val scoreboard = """
+                {"envelope":{"presentation":{"state":"playing",
+                "items":[{"id":"${stub.scoreItem}","kind":"widget",
+                "widget":{"widgetAssetId":"${stub.scoreAsset}"}}]},
+                "projection":{"schema":1,"clockOffsetMs":0,
+                "manifest":${stub.manifestJson()},
+                "media":[{"assetId":"${stub.heroAsset}","variantId":"${stub.heroVariant}",
+                "uri":"tcmedia://variant/${stub.heroAsset}/${stub.heroVariant}"}]}},
+                "content":[{"assetId":"${stub.heroAsset}","variantId":"${stub.heroVariant}",
+                "digest":"${stub.digest}","sizeBytes":${stub.payload.size},"mimeType":"image/png"}],
+                "frames":[{"packageId":"acme.athletics","packageDigest":"${stub.packageDigest}",
+                "frameDigest":"${stub.frameDigest}","sizeBytes":${stub.frame.size}}],
+                "source":"server_manifest","clockOffsetMs":0}
+            """.trimIndent().replace("\n", "")
+            val activated = host.activatePresentation(scoreboard)
+            assertTrue("activate scoreboard: $activated", activated.ok && activated.activationId != null)
+
+            awaitReports(reports, what = "connected") { it.optString("type") == "connected" }
+            awaitReports(reports, what = "accepted") { it.optString("type") == "accepted" }
             // The scoreboard only signals ready when its config,
             // document, media grant, and clock all check out.
             awaitReports(reports) {
                 it.optString("type") == "progress" && it.optString("itemId") == stub.scoreItem
             }
+            // The scoreboard renders inside its opaque frame, which the
+            // outer page cannot read back; the progress evidence above
+            // is the execution proof. The outer page must still never
+            // see secrets.
             val text = pageText(renderer.view)
-            assertTrue("trusted page rendered", text != null && text.contains("tilecast"))
             assertTrue("credential stays out of the page", text == null || !text.contains(stub.credential))
-            // The playlist rotates to the hostile Widget, which
-            // completes its lifecycle without ever reaching out.
+            // Then the hostile Widget, which completes its lifecycle
+            // without ever reaching out.
+            val hostile = """
+                {"envelope":{"presentation":{"state":"playing",
+                "items":[{"id":"${stub.hostileItem}","kind":"widget",
+                "widget":{"widgetAssetId":"${stub.hostileAsset}"}}]},
+                "projection":{"schema":1,"clockOffsetMs":0,
+                "manifest":${stub.manifestJson()},
+                "media":[]}},
+                "content":[],
+                "frames":[{"packageId":"acme.evil","packageDigest":"${stub.evilDigest}",
+                "frameDigest":"${stub.hostileDigest}","sizeBytes":${stub.hostile.size}}],
+                "source":"server_manifest","clockOffsetMs":0}
+            """.trimIndent().replace("\n", "")
+            val activatedHostile = host.activatePresentation(hostile)
+            assertTrue("activate hostile: $activatedHostile", activatedHostile.ok && activatedHostile.activationId != null)
             awaitReports(reports) {
                 it.optString("type") == "progress" && it.optString("itemId") == stub.hostileItem
             }

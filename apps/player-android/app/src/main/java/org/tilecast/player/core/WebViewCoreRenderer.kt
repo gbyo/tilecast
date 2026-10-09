@@ -648,6 +648,10 @@ class WebViewCoreRenderer(
                                         for ((name, version) in WidgetComponentCapabilities.WIDGET_COMPONENT_CAPABILITIES) {
                                             put(name, version)
                                         }
+                                        // The frame execution ABI is one capability for every
+                                        // downloaded Widget, not a discovered component: this
+                                        // release confines served frames, so it offers it.
+                                        put("widget.external-runtime", 2)
                                     }
                                 },
                             )
