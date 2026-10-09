@@ -4,6 +4,10 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -115,6 +119,20 @@ func TestExtractRoundTrip(t *testing.T) {
 		}
 		if !packagemanifest.InNamespace(contribution.ID, verified.Manifest.PackageID) {
 			t.Fatalf("contribution %q escapes its namespace", contribution.ID)
+		}
+		// The digest is what an update compares, so it must be the hash of
+		// the definition file as installed.
+		file, _, ok := nestedManifest(contribution.Kind)
+		if !ok {
+			t.Fatalf("no nested manifest for %q", contribution.Kind)
+		}
+		raw, err := os.ReadFile(filepath.Join(dest, contribution.Path, file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		sum := sha256.Sum256(raw)
+		if contribution.Digest != hex.EncodeToString(sum[:]) {
+			t.Fatalf("digest of %q = %q, want the SHA-256 of its %s", contribution.ID, contribution.Digest, file)
 		}
 	}
 }

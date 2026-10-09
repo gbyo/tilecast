@@ -730,5 +730,11 @@
     "file": "00123_edge_renderer_diagnostics.sql",
     "owner": "core",
     "sha256": "d24408d6b26c06172b8c99b48c787638a75b8cfa20de0ec65914648d44c9eb43"
+  },
+  {
+    "version": 124,
+    "file": "00124_contribution_definition_digest.sql",
+    "owner": "core",
+    "sha256": "e31f2ff70535463074236fd85864dd81ded1d291524be8dbd7ed45fdb1e7b6ee"
   }
 ]
