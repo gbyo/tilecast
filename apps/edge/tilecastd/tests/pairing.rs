@@ -498,6 +498,40 @@ async fn installation_mismatch_records_evidence_quarantines_and_stops_content() 
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn recovered_server_clears_the_mismatch_and_replaces_its_surface() {
+    let harness = Harness::new().await;
+    let player = harness.start().await;
+    let renderer = Renderer::connect(&player.socket).await;
+    pair_and_approve(&harness, &renderer).await;
+    let expected = harness.fake.installation.lock().unwrap().to_string();
+    let rotated = InstallationId::from_uuid(uuid::Uuid::new_v4()).to_string();
+    *harness.fake.installation.lock().unwrap() = InstallationId::from_str(&rotated).unwrap();
+    player.context.server_wake.notify_one();
+    let db = player.context.db().unwrap().clone();
+    wait_for("the mismatch record", || db.run_blocking(|c| edge_state::repo::installation_mismatch::get(c)).ok()?)
+        .await;
+    wait_for("the mismatch surface", || {
+        renderer.last().filter(|d| matches!(d, PresentationDocument::Unavailable(surface) if surface.status.as_ref().is_some_and(|s| s.as_str() == "installation-mismatch")))
+    })
+    .await;
+    // The original server comes back. A verified heartbeat proves the
+    // mismatch stale: the record clears and the mismatch screen is replaced
+    // at once, not on some later activation.
+    *harness.fake.installation.lock().unwrap() = InstallationId::from_str(&expected).unwrap();
+    player.context.server_wake.notify_one();
+    wait_for("the record cleared", || {
+        db.run_blocking(|c| edge_state::repo::installation_mismatch::get(c)).ok()?.is_none().then_some(())
+    })
+    .await;
+    wait_for("the mismatch surface replaced", || {
+        renderer.last().filter(|d| !matches!(d, PresentationDocument::Unavailable(surface) if surface.status.as_ref().is_some_and(|s| s.as_str() == "installation-mismatch")))
+    })
+    .await;
+    renderer.task.abort();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn unpair_forgets_the_relationship_and_allows_a_repair() {
     let harness = Harness::new().await;
     let player = harness.start().await;
@@ -525,6 +559,19 @@ async fn unpair_forgets_the_relationship_and_allows_a_repair() {
         .unwrap()
         .expect("second unpair succeeds");
     assert_eq!(again["alreadyUnpaired"], true);
+    // A run that was interrupted after the binding and credential went away
+    // leaves a pairing file behind. The retry must still remove it.
+    let stray = harness.identity().join("pairing-session");
+    std::fs::create_dir_all(harness.identity()).unwrap();
+    std::fs::write(&stray, b"{}").unwrap();
+    let retried = ctl
+        .request(Method::UnpairDevice(edge_protocol::ipc::method::Empty {}))
+        .await
+        .unwrap()
+        .expect("retried unpair succeeds");
+    assert_eq!(retried["alreadyUnpaired"], true);
+    assert!(!stray.exists(), "the retry finishes the pairing cleanup");
+    assert!(FilePairingStore::read_at(&harness.identity()).unwrap().is_none());
     // And the screen can pair again from the clean state.
     assert_eq!(renderer.submit(&harness.url).await["ok"], true);
     wait_for("the pairing code", || pairing_code(renderer.last())).await;
