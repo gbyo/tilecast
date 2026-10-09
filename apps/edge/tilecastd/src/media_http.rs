@@ -151,12 +151,7 @@ impl LoopbackMedia {
     }
 
     pub async fn run(self, shutdown: CancellationToken) -> std::io::Result<()> {
-        let state = Arc::new(State {
-            registry: self.registry,
-            cas: self.cas,
-            clock: self.clock,
-            stream: self.stream,
-        });
+        let state = Arc::new(State { registry: self.registry, cas: self.cas, clock: self.clock, stream: self.stream });
         let permits = Arc::new(Semaphore::new(MAX_CONNECTIONS));
         loop {
             tokio::select! {
@@ -318,7 +313,10 @@ async fn answer(state: &State, request: &Request<Incoming>) -> Response<Body> {
                     chunk.truncate(read);
                     at += read as u64;
                     left -= read as u64;
-                    Some((Ok::<_, std::convert::Infallible>(hyper::body::Frame::data(chunk.freeze())), (file, at, left)))
+                    Some((
+                        Ok::<_, std::convert::Infallible>(hyper::body::Frame::data(chunk.freeze())),
+                        (file, at, left),
+                    ))
                 }
             });
             http_body_util::BodyExt::boxed(http_body_util::StreamBody::new(stream))
@@ -358,7 +356,10 @@ async fn answer(state: &State, request: &Request<Incoming>) -> Response<Body> {
                             }
                             at += bytes.len() as u64;
                             left = left.saturating_sub(bytes.len() as u64);
-                            Some((Ok::<_, std::convert::Infallible>(hyper::body::Frame::data(Bytes::from(bytes))), (at, left)))
+                            Some((
+                                Ok::<_, std::convert::Infallible>(hyper::body::Frame::data(Bytes::from(bytes))),
+                                (at, left),
+                            ))
                         }
                         Err(error) => {
                             tracing::warn!(component = "media", event = "loopback_origin_read_failed", error = %error);
