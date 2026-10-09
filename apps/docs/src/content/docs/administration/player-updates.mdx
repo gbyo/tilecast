@@ -1,6 +1,6 @@
 ---
 title: Update Tilecast Player
-description: Add a verified Android, Linux, or Tilecast Edge Player release and deploy it to selected screens.
+description: Add verified Android, Linux, Tilecast Edge, and Windows Player releases and deploy them to compatible screens.
 ---
 
 Use **Settings** > **Player updates** to deploy signed Tilecast Player releases. This updates Player apps; it does not update Tilecast Server, containers, or the host operating system. Owners manage releases. Owners and Administrators can create deployments.
@@ -11,7 +11,7 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 <Steps>
 
-1. Choose **Android**, **Linux**, or **Tilecast Edge** under **Player platform**.
+1. Choose **Android**, **Linux**, **Tilecast Edge**, or **Windows** under **Player platform**.
 2. Select **Sync from GitHub** to import releases from [Tilecast releases](https://github.com/gbyo/tilecast/releases), or select **Upload release** to add signed files directly.
 3. For a direct upload, choose all three files from the same signed release:
 
@@ -20,12 +20,15 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
    | Android       | `tilecast-player.apk`                    | `tilecast-player-update.json`       | `tilecast-player-update.json.sig`       |
    | Linux         | `tilecast-player.AppImage`               | `tilecast-player-update-linux.json` | `tilecast-player-update-linux.json.sig` |
    | Tilecast Edge | `tilecast-edge-<version>-<arch>.tar.zst` | `tilecast-edge-update.json`         | `tilecast-edge-update.json.sig`         |
+   | Windows       | `tilecast-windows-<version>-<arch>.msix` | `tilecast-windows-update.json`      | `tilecast-windows-update.json.sig`      |
 
    Select **Upload and verify**. Tilecast verifies the files before adding the release to its update cache.
 
 </Steps>
 
-GitHub releases show verification and cache status. If a release is verified but not cached, select **Download** to cache it. A release must be verified and cached before you can deploy it.
+For Windows and Edge, upload each architecture separately. GitHub assets carry architecture-specific names such as `tilecast-windows-update-x86_64.json`; for a **direct Windows upload**, select that manifest and its matching signature using the filenames shown in the table.
+
+GitHub releases show verification and cache status. If a release is verified but not cached, select **Download** to cache it. A release must be verified and cached before you can deploy it. The Windows preview is not available until a signed Windows release is published.
 
 ## Deploy a release
 
@@ -62,6 +65,12 @@ This update path applies to Players running as a managed AppImage. Each Linux Pl
 Tilecast Edge releases are built for one architecture, `x86_64` or `aarch64`. A release reaches only Edge screens that report the same architecture, and never reaches an Electron Linux or Android screen. Upload one release for each architecture you use.
 
 An Edge screen installs the release beside the current one, restarts into it, and keeps it only after it reconnects and shows content for two minutes. If it can't, or if it loses power before then, it returns to its previous release on its own and the deployment shows the screen as failed. See [Update Tilecast Edge](#update-tilecast-edge).
+
+</TabItem>
+
+<TabItem label="Windows">
+
+Windows packages are signed MSIX files, one for `x86_64` and one for `aarch64`. A release reaches only Windows screens reporting the same architecture. The Player checks the signed Tilecast update envelope and the Windows package publisher identity before installing, then relaunches and reports its new version. The PC must trust the package publisher certificate. See [Install Tilecast Player on Windows](../../players/install-windows/) and [Windows update troubleshooting](../../troubleshooting/player-updates/).
 
 </TabItem>
 
