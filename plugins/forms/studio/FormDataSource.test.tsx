@@ -319,6 +319,26 @@ describe("Form Data Source Studio", () => {
     ).toBeInTheDocument();
   });
 
+  it("names a global role in the access table by its label, not its identifier", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(formsApi, "listFormAccess").mockResolvedValue([
+      {
+        userId: "u2",
+        name: "Zoe",
+        username: "zoe",
+        role: "editor",
+        capabilities: ["submit"],
+        isCreator: false,
+        isGlobalOwner: false,
+      },
+    ]);
+    renderAt("/plugins/forms/f1?tab=access", "owner");
+
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText("Editor")).toBeInTheDocument();
+    expect(within(table).queryByText("editor")).toBeNull();
+  });
+
   it("shows a search error instead of no-match when the directory fails", async () => {
     vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
     vi.spyOn(formsApi, "listFormAccess").mockResolvedValue([]);
