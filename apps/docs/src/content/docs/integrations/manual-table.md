@@ -37,6 +37,7 @@ The `rows` field is required. Omitting it is an error; sending an empty array in
 - `401 invalid_token`: check the token value, expiry, and revocation status.
 - `403 insufficient_scope`: the token needs **Write Manual Table rows** and must be allowed to write this Data Source.
 - `404 not_found`: confirm the ID belongs to an existing Data Source.
+- `409 data_source_changed`: someone edited the Manual Table while your request ran, for example by changing its columns. Nothing was written. Send the request again.
 - `422 rows_invalid`: check that the source is a Manual Table and every supplied key matches one of its configured columns.
 
 See [API conventions](../../reference/api/) for the response envelope and error format.

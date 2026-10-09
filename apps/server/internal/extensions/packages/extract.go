@@ -3,6 +3,8 @@ package packages
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -193,6 +195,8 @@ type NestedContribution struct {
 	Kind string
 	ID   string
 	Path string
+	// Digest is the SHA-256 of the nested definition file.
+	Digest string
 }
 
 // ReadContributions reads the nested manifest identity of every manifest
@@ -243,7 +247,8 @@ func ReadContributions(contentDir string, manifest packagemanifest.Manifest) ([]
 		if len(id) > 128 {
 			return nil, fmt.Errorf("package content: contribution %q identity exceeds 128 characters", contribution.Path)
 		}
-		contributions = append(contributions, NestedContribution{Kind: contribution.Type, ID: id, Path: contribution.Path})
+		sum := sha256.Sum256(raw)
+		contributions = append(contributions, NestedContribution{Kind: contribution.Type, ID: id, Path: contribution.Path, Digest: hex.EncodeToString(sum[:])})
 	}
 	return contributions, nil
 }

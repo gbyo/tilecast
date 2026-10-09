@@ -1794,6 +1794,9 @@ paths:
         "401": { description: Integration authentication required }
         "403": { description: Insufficient scope }
         "404": { description: Data source not found }
+        "409":
+          description: >-
+            The data source changed while the rows were being written, for example a Studio edit to its columns. Nothing was written. Retry the request.
         "422": { description: Rows invalid }
   /api/v1/integration/activity/fleet:
     get:

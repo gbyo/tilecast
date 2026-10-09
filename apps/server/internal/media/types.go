@@ -72,6 +72,7 @@ var (
 	ErrInspectionFailed   = errors.New("media inspection failed")
 	ErrNotReady           = errors.New("media not ready")
 	ErrVariantUnavailable = errors.New("media variant unavailable")
+	ErrDataSourceChanged  = errors.New("data source changed during the write")
 )
 
 type Asset struct {

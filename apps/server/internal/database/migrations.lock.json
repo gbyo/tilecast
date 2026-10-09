@@ -739,13 +739,19 @@
   },
   {
     "version": 125,
-    "file": "00125_external_package_managed_presentations.sql",
+    "file": "00125_contribution_definition_digest.sql",
+    "owner": "core",
+    "sha256": "e31f2ff70535463074236fd85864dd81ded1d291524be8dbd7ed45fdb1e7b6ee"
+  },
+  {
+    "version": 126,
+    "file": "00126_external_package_managed_presentations.sql",
     "owner": "core",
     "sha256": "4f3f4b3fcb8e1210b0085291cd14d451a45b46a5e2a7453527f0841f73cafe9d"
   },
   {
-    "version": 126,
-    "file": "00126_player_capabilities.sql",
+    "version": 127,
+    "file": "00127_player_capabilities.sql",
     "owner": "core",
     "sha256": "80c2fb6aba9631681319bd50913f4010351bde28ade2e797688a01849cdb1bb1"
   }

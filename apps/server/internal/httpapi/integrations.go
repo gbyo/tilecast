@@ -93,6 +93,10 @@ func (s *server) replaceDataSourceRows(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "That Data Source no longer exists.")
 		return
 	}
+	if errors.Is(err, media.ErrDataSourceChanged) {
+		writeError(w, http.StatusConflict, "data_source_changed", "The Data Source changed while these rows were being written. Retry the request.")
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "rows_invalid", err.Error())
 		return

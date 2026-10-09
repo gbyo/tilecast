@@ -101,6 +101,9 @@ type Contribution struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
 	Path string `json:"path"`
+	// Digest is the SHA-256 of the nested definition file. Empty means
+	// unknown; an update does not compare an unknown digest.
+	Digest string `json:"digest,omitempty"`
 }
 
 // CollisionError names the source already supplying a contribution.
@@ -232,7 +235,7 @@ func (s *Service) Contributions(ctx context.Context, packageID string) ([]Contri
 	if _, err := s.Get(ctx, packageID); err != nil {
 		return nil, err
 	}
-	rows, err := s.db.Query(ctx, `SELECT kind,contribution_id,contribution_path
+	rows, err := s.db.Query(ctx, `SELECT kind,contribution_id,contribution_path,definition_digest
 		FROM installed_package_contributions WHERE package_id=$1
 		ORDER BY kind,contribution_id`, packageID)
 	if err != nil {
@@ -242,7 +245,7 @@ func (s *Service) Contributions(ctx context.Context, packageID string) ([]Contri
 	out := []Contribution{}
 	for rows.Next() {
 		var item Contribution
-		if err := rows.Scan(&item.Kind, &item.ID, &item.Path); err != nil {
+		if err := rows.Scan(&item.Kind, &item.ID, &item.Path, &item.Digest); err != nil {
 			return nil, err
 		}
 		out = append(out, item)
@@ -622,7 +625,7 @@ type activationSnapshot struct {
 }
 
 func snapshotPrevious(ctx context.Context, tx pgx.Tx, current *installedRow) ([]byte, error) {
-	rows, err := tx.Query(ctx, `SELECT kind,contribution_id,contribution_path
+	rows, err := tx.Query(ctx, `SELECT kind,contribution_id,contribution_path,definition_digest
 		FROM installed_package_contributions
 		WHERE organization_id=$1 AND package_id=$2
 		ORDER BY kind,contribution_id`, current.organizationID, current.packageID)
@@ -633,7 +636,7 @@ func snapshotPrevious(ctx context.Context, tx pgx.Tx, current *installedRow) ([]
 	contributions := []Contribution{}
 	for rows.Next() {
 		var item Contribution
-		if err := rows.Scan(&item.Kind, &item.ID, &item.Path); err != nil {
+		if err := rows.Scan(&item.Kind, &item.ID, &item.Path, &item.Digest); err != nil {
 			return nil, err
 		}
 		contributions = append(contributions, item)
@@ -739,9 +742,9 @@ func replaceContributions(ctx context.Context, tx pgx.Tx, packageID string, cont
 	}
 	for _, contribution := range contributions {
 		if _, err := tx.Exec(ctx, `INSERT INTO installed_package_contributions(
-			organization_id,package_id,kind,contribution_id,contribution_path)
-			SELECT organization_id,$1,$2,$3,$4 FROM installed_packages WHERE package_id=$1`,
-			packageID, contribution.Kind, contribution.ID, contribution.Path); err != nil {
+			organization_id,package_id,kind,contribution_id,contribution_path,definition_digest)
+			SELECT organization_id,$1,$2,$3,$4,$5 FROM installed_packages WHERE package_id=$1`,
+			packageID, contribution.Kind, contribution.ID, contribution.Path, contribution.Digest); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 				return &CollisionError{Kind: contribution.Kind, ID: contribution.ID, Owner: "another package"}
