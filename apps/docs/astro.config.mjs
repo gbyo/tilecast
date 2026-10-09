@@ -134,6 +134,21 @@ export default defineConfig({
       head: [
         { tag: "link", attrs: { rel: "sitemap", href: "/sitemap-index.xml" } },
         { tag: "script", content: syncTokenTheme },
+        // Site-wide GA4 tracking (documentation site only).
+        {
+          tag: "script",
+          attrs: {
+            async: true,
+            src: "https://www.googletagmanager.com/gtag/js?id=G-77PYKT7TRJ",
+          },
+        },
+        {
+          tag: "script",
+          content: `window.dataLayer = window.dataLayer || [];
+function gtag() { window.dataLayer.push(arguments); }
+gtag("js", new Date());
+gtag("config", "G-77PYKT7TRJ");`,
+        },
         {
           tag: "script",
           attrs: { type: "text/javascript" },
