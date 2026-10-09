@@ -914,6 +914,7 @@
     "groupMemberCount_one": "{{count}} screens",
     "groupMemberCount_other": "{{count}} screens",
     "activateError": "Takeover could not be activated",
+    "started": "Takeover started.",
     "summaryAll": "Every screen in the fleet ({{count}}) is selected",
     "summarySelected_one": "{{count}} screen selected",
     "summarySelected_other": "{{count}} screens selected",

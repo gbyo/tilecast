@@ -11,6 +11,8 @@
     "line": "Line"
   },
   "library": {
+    "toastDuplicated": "Layout duplicated.",
+    "toastDeleted": "Layout deleted.",
     "title": "Layouts",
     "description": "Design reusable screen compositions and find the right canvas at a glance.",
     "createLayout": "Create layout",

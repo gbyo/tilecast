@@ -1043,6 +1043,7 @@
   },
   "dataSources": {
     "deleteSuccess": "Data Source deleted.",
+    "duplicated": "Data Source duplicated.",
     "calendar": {
       "addCalendar": "Add calendar",
       "calendarsLegend": "Calendars",

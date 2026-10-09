@@ -954,6 +954,7 @@
     "groupMemberCount_many": "{{count}} экранов",
     "groupMemberCount_other": "{{count}} экрана",
     "activateError": "Не удалось запустить временный показ",
+    "started": "Перехват запущен.",
     "summaryAll": "Выбраны все экраны флота ({{count}})",
     "summarySelected_one": "{{count}} экран выбран",
     "summarySelected_few": "{{count}} экрана выбраны",

@@ -92,6 +92,11 @@ A `download`-policy video that does not fit the store fails preparation
 with `media_cache_too_small` in `lastSynchronizationError`; it never
 falls back to streaming.
 
+Stored renderer failures do not override intentional `sleep`, `disabled`, or
+`idle` playback in `playerHealth`. Active recovery and current renderer
+telemetry keep their priority. The reliability response retains the last
+renderer failure as a diagnostic fact.
+
 ### Release family
 
 A heartbeat may carry `playerFamily` (`android`, `electron-linux`, `edge` or `windows`) and, for Tilecast Edge and Windows Player, `playerArchitecture` (`x86_64` or `aarch64`). The server records only these values; another value is recorded as absent and never rejects the heartbeat. Player Updates target a release only at screens of its family and architecture. A player that does not report a family keeps the family its platform always meant: `linux` is `electron-linux`, `windows` is `windows`, and every other platform is `android`.
