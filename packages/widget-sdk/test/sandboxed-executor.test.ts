@@ -131,8 +131,12 @@ describe("sandbox context snapshot", () => {
   it("projects the clock offset and copies the serializable fields", () => {
     const clock = createManualClock(1_000_000);
     const context = createTestContext({ clock, mode: "playback" });
+    // Date.now() can tick between computing the snapshot and asserting it.
+    const before = Date.now();
     const snapshot = snapshotSandboxContext(context);
-    expect(snapshot.wallClockOffsetMs).toBe(1_000_000 - Date.now());
+    const after = Date.now();
+    expect(snapshot.wallClockOffsetMs).toBeGreaterThanOrEqual(1_000_000 - after);
+    expect(snapshot.wallClockOffsetMs).toBeLessThanOrEqual(1_000_000 - before);
     expect(snapshot.locale).toBe("en-US");
     expect(snapshot.timeZone).toBe("America/Chicago");
     expect(snapshot.hourCycle).toBe("locale");
