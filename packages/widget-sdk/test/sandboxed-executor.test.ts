@@ -135,7 +135,9 @@ describe("sandbox context snapshot", () => {
     const before = Date.now();
     const snapshot = snapshotSandboxContext(context);
     const after = Date.now();
-    expect(snapshot.wallClockOffsetMs).toBeGreaterThanOrEqual(1_000_000 - after);
+    expect(snapshot.wallClockOffsetMs).toBeGreaterThanOrEqual(
+      1_000_000 - after,
+    );
     expect(snapshot.wallClockOffsetMs).toBeLessThanOrEqual(1_000_000 - before);
     expect(snapshot.locale).toBe("en-US");
     expect(snapshot.timeZone).toBe("America/Chicago");
