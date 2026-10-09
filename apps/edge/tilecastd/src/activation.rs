@@ -185,8 +185,21 @@ impl player_core::OfflineActivationHost for Host {
         time: player_core::ActivationTime,
     ) -> Result<player_core::OfflineProjection<Self::Projection, Self::Key>, &'static str> {
         let candidate = Candidate::from_native(native.clone());
-        let resolved =
+        let mut resolved =
             candidate.presentation_with(time.presentation_ms(), configuration).map_err(|error| error.reason_code())?;
+        // Durable playlist resume, before the activation key is computed: the
+        // resumed order is the projection, so it never reads as a change.
+        {
+            let mut resume = self.0.resume.lock().unwrap_or_else(|poison| poison.into_inner());
+            crate::resume::maybe_rotate(
+                &mut resume,
+                &mut resolved,
+                &candidate.digest.to_hex(),
+                candidate.version,
+                configuration.runtime.playback.resume_after_restart(),
+                time.presentation_ms(),
+            );
+        }
         let metadata = crate::renderer_adapter::metadata(
             &resolved.document,
             ActivationSource::ServerManifest,
