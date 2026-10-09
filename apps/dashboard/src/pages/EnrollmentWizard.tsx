@@ -477,8 +477,17 @@ function RecoveryStep({
             <Button
               variant="secondary"
               onClick={() => {
-                void navigator.clipboard
-                  ?.writeText(codes.join("\n"))
+                // Without the Clipboard API the chain below never runs, so say so.
+                const clipboard = navigator.clipboard;
+                if (!clipboard) {
+                  toast.add({
+                    title: t("enrollment.recovery.copyUnavailable"),
+                    type: "error",
+                  });
+                  return;
+                }
+                void clipboard
+                  .writeText(codes.join("\n"))
                   .then(() => {
                     setCopied(true);
                     toast.add({
