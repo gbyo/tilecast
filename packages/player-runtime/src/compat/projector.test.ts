@@ -537,8 +537,15 @@ describe("external frame authorization", () => {
       uri: "tcwidget:authorized-frame",
     };
     const loopback = "http://127.0.0.1:8471/media/" + "a".repeat(64);
-    const hostContext = { ...projection, manifest: withMedia, widgetFrames: [frame] };
-    const ordinary = project(hostContext) as Extract<RuntimePresentation, { state: "playing" }>;
+    const hostContext = {
+      ...projection,
+      manifest: withMedia,
+      widgetFrames: [frame],
+    };
+    const ordinary = project(hostContext) as Extract<
+      RuntimePresentation,
+      { state: "playing" }
+    >;
     expect(ordinary.items[0]!.widget).toMatchObject({
       media: { [`${ASSET}/${VARIANT}`]: CAP },
     });
