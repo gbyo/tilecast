@@ -276,12 +276,22 @@ on_decide_policy (WebKitWebView *view, WebKitPolicyDecision *decision, WebKitPol
     webkit_navigation_policy_decision_get_navigation_action (WEBKIT_NAVIGATION_POLICY_DECISION (decision));
   const char *uri = webkit_uri_request_get_uri (webkit_navigation_action_get_request (action));
   /* Sandbox frames are iframe navigations to exact daemon-minted capability
-   * URIs. The served document stays confined: an opaque origin under the
-   * response `sandbox allow-scripts` directive, no bridge injection outside
-   * the tilecast://runtime/ top frame, and no daemon access except through
-   * the runtime's relay. Top-level navigation still cannot leave the
-   * runtime tree or reach an unminted URI. */
-  gboolean trusted = g_str_has_prefix (uri, "tilecast://runtime/") || tc_is_widget_capability_uri (uri);
+   * URIs, each carrying the executor's `#hello` attach fragment (read back
+   * from location.hash inside the frame). The fragment never reaches the
+   * capability resolver — schemes.c strips it — so the policy judges the
+   * bare URI with the same exact matcher. The served document stays
+   * confined: an opaque origin under the response `sandbox allow-scripts`
+   * directive, no bridge injection outside the tilecast://runtime/ top
+   * frame, and no daemon access except through the runtime's relay.
+   * Top-level navigation still cannot leave the runtime tree or reach an
+   * unminted URI. */
+  g_autofree char *bare = g_strdup (uri);
+  if (bare != NULL) {
+    char *hash = strchr (bare, '#');
+    if (hash != NULL)
+      *hash = '\0';
+  }
+  gboolean trusted = g_str_has_prefix (uri, "tilecast://runtime/") || tc_is_widget_capability_uri (bare);
   if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION && trusted) {
     webkit_policy_decision_use (decision);
   } else {
