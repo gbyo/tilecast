@@ -18,6 +18,18 @@ pub enum RendererDispatch {
     Incompatible(Vec<(RendererRequirement, RendererProfileMismatch)>),
 }
 
+/// Recovery-ladder position for host status reporting. Hosts project these
+/// values into heartbeats and diagnostics; Core keeps owning the ladder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RecoverySnapshot {
+    /// Current escalation step (Linux `recoveryLevel` parity).
+    pub escalation_step: usize,
+    /// Completed ladder runs inside the configured window.
+    pub ladder_runs: usize,
+    /// When the last recovery action ran, if any.
+    pub last_action_at_ms: Option<i64>,
+}
+
 /// Hosts retain their projection inputs. Core owns native activation identity,
 /// requirements, evidence expectations, and recovery timing, never Runtime fields.
 #[derive(Debug)]
@@ -212,6 +224,17 @@ impl RendererCoordinator {
         self.supervisor.safe_mode
     }
 
+    /// Current recovery-ladder position for host status reporting: the
+    /// escalation step (Linux `recoveryLevel` parity), completed ladder runs
+    /// in the window, and when the last recovery action ran.
+    pub fn recovery_snapshot(&self) -> RecoverySnapshot {
+        RecoverySnapshot {
+            escalation_step: self.supervisor.escalation_step,
+            ladder_runs: self.supervisor.ladder_runs_at_ms.len(),
+            last_action_at_ms: self.supervisor.last_action_at_ms,
+        }
+    }
+
     pub fn safe_mode_reason(&self) -> SafeText<240> {
         SafeText::lossy(self.supervisor.safe_mode_reason.as_deref().unwrap_or("recovery"))
     }
@@ -307,7 +330,12 @@ mod tests {
             )
             .unwrap(),
             metadata,
-            vec![VerifiedContentRef { sha256: digest, size_bytes: 8, mime_type: SafeText::new("image/png").unwrap() }],
+            vec![VerifiedContentRef {
+                sha256: digest,
+                size_bytes: 8,
+                mime_type: SafeText::new("image/png").unwrap(),
+                stream: None,
+            }],
             Vec::new(),
             None,
         )
@@ -419,6 +447,9 @@ mod tests {
         core.ready(connection, ConnectedRendererProfile(support()));
         assert_eq!(core.evaluate_recovery(now(539_999)), HealAction::None);
         assert_eq!(core.evaluate_recovery(now(540_000)), HealAction::Reactivate);
+        let snapshot = core.recovery_snapshot();
+        assert_eq!((snapshot.escalation_step, snapshot.ladder_runs), (1, 0));
+        assert_eq!(snapshot.last_action_at_ms, Some(540_000));
         let reactivated = activation(&mut core, 540_000);
         assert_eq!(core.evaluate_recovery(now(630_000)), HealAction::None);
         let reload = core.evaluate_recovery(now(720_000));
@@ -438,6 +469,10 @@ mod tests {
         core.progress(connection, &progress(reactivated.reference(), ProgressEvidence::ImageShown), now(811_000));
         core.progress(connection, &progress(reactivated.reference(), ProgressEvidence::ImageShown), now(1_411_000));
         assert_eq!(core.supervisor.escalation_step, 0);
+        assert_eq!(
+            core.recovery_snapshot(),
+            RecoverySnapshot { escalation_step: 0, ladder_runs: 0, last_action_at_ms: None }
+        );
         core.clear();
         assert_eq!(core.retry_recovery(now(2_000_000)), HealAction::None);
         assert!(!core.clear_safe_mode(now(2_000_000)));

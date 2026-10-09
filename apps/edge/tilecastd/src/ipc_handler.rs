@@ -102,11 +102,28 @@ impl IpcHandler for DaemonIpc {
             Event::RendererProgress(progress) => {
                 let is_boundary = progress.kind == EvidenceKind::ItemTransition;
                 let meaningful = engine.progress(session, &progress, now);
+                // The resume checkpoint follows accepted item evidence, never
+                // raw progress: only the current activation's shown item.
+                let mut note: Option<(String, crate::presentation::PlaybackIdentity)> = None;
+                if meaningful
+                    && matches!(progress.kind, EvidenceKind::ItemStarted | EvidenceKind::ItemTransition)
+                    && engine.current_is_accepted()
+                    && let Some(item) = progress.item_id.as_ref()
+                    && let Some(current) = engine.current()
+                    && let Some(identity) = current.identity.clone()
+                    && current.source == crate::presentation::ActivationSource::ServerManifest
+                {
+                    note = Some((item.as_str().to_owned(), identity));
+                }
                 if is_boundary && meaningful {
                     self.context.manifest_item_boundary.store(true, Ordering::Relaxed);
                     self.context.manifest_wake.notify_one();
                 } else if meaningful {
                     self.context.manifest_wake.notify_one();
+                }
+                if let Some((item, identity)) = note {
+                    drop(engine);
+                    crate::resume::note_item_evidence(&self.context, &item, &identity, now).await;
                 }
             }
             Event::ItemError(item) => {
@@ -206,6 +223,15 @@ impl IpcHandler for DaemonIpc {
                 crate::pairing::reset(context).await;
                 to_value(&serde_json::json!({}))
             }
+            Method::UnpairDevice(_) => match crate::mismatch::unpair_device(context).await {
+                Ok(summary) => to_value(&serde_json::json!({ "alreadyUnpaired": summary.already_unpaired })),
+                Err(crate::mismatch::UnpairError::Unavailable) => {
+                    Err(error(error_codes::UNAVAILABLE, "State is unavailable."))
+                }
+                Err(crate::mismatch::UnpairError::Failed(detail)) => {
+                    Err(error(error_codes::INTERNAL, &format!("Unpair failed: {detail}")))
+                }
+            },
             Method::DiscoveryList(_) => to_value(&crate::discovery::list(context).await),
         }
     }
@@ -346,6 +372,20 @@ impl DaemonIpc {
             presentation,
             outbox,
             update: crate::update::status(context).await,
+            installation_mismatch: context
+                .installation_mismatch
+                .lock()
+                .unwrap_or_else(|poison| poison.into_inner())
+                .clone()
+                .map(|record| edge_protocol::ipc::status::InstallationMismatchStatus {
+                    server_url: ShortText::lossy(&record.server_url),
+                    expected_installation_id: ShortText::lossy(&record.expected_installation_id),
+                    actual_installation_id: ShortText::lossy(&record.actual_installation_id),
+                    detected_at: record.detected_at,
+                    last_contact_at: record.last_contact_at,
+                    quarantined_cas_dir: record.quarantined_cas_dir.as_deref().map(ShortText::lossy),
+                    quarantined_partial_dir: record.quarantined_partial_dir.as_deref().map(ShortText::lossy),
+                }),
         }
     }
 }

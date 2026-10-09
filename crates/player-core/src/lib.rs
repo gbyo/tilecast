@@ -51,10 +51,12 @@ pub use display::{
 };
 pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame, drive_live_stream};
 pub use manifest_content::{
-    MANIFEST_PIN_PREFIX, ManifestOriginSources, ManifestPreparationError, ManifestSourcePlan, manifest_pin_holder,
+    MANIFEST_PIN_PREFIX, ManifestOriginSources, ManifestPreparationError, ManifestSourcePlan, PreparedContent,
+    manifest_pin_holder, stream_claims,
 };
 pub use manifest_resources::{
-    ManifestAsset, ManifestBundle, ManifestFrame, NATIVE_MANIFEST_SCHEMAS, NativeManifest, NativeManifestError,
+    AssetPolicy, ManifestAsset, ManifestBundle, ManifestFrame, NATIVE_MANIFEST_SCHEMAS, NativeManifest,
+    NativeManifestError, StreamClaim, StreamReason,
 };
 pub use manifest_worker::{
     ManifestFailureKind, ManifestPreparationCoordinator, ManifestPreparationStatus, ManifestWorkerFailure,
@@ -77,7 +79,7 @@ pub use offline_driver::{
     ActivationSource, ActivationTime, OfflineActivationHost, OfflineActivationSignals, OfflineCurrent,
     OfflineProjection, OfflineRendererHealth, drive_offline_activation,
 };
-pub use origin::{InvalidDownloadPath, OriginBlobSource};
+pub use origin::{InvalidDownloadPath, OriginBlobSource, StreamReadError};
 pub use pairing::{
     PAIRING_RETRY, PairingCoordinator, PairingError, PairingHost, PairingMetadataProvider, PairingOutcome,
     PairingStatus,
@@ -90,10 +92,10 @@ pub use renderer_commands::{
     RendererCommandBroker, RendererCommandError, SemanticRendererCommandResult, StartupWebsiteClear,
     WEBSITE_DATA_CLEAR_TIMEOUT,
 };
-pub use renderer_coordinator::{RendererCoordinator, RendererDispatch};
+pub use renderer_coordinator::{RecoverySnapshot, RendererCoordinator, RendererDispatch};
 pub use renderer_document::{
     ContentRef as VerifiedContentRef, FrameRef as VerifiedFrameRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError,
-    RendererMetadata,
+    RendererMetadata, StreamSource,
 };
 pub use renderer_port::{
     CapturedFrame, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererPort, RendererPortError,

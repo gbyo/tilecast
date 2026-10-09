@@ -6,6 +6,7 @@
 use edge_server::{FileCredentialStore, FilePairingStore};
 use std::convert::Infallible;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -43,7 +44,7 @@ struct Pairing {
 }
 
 struct FakeServer {
-    installation: InstallationId,
+    installation: Mutex<InstallationId>,
     screen: ScreenId,
     pairing_enabled: AtomicBool,
     pairing: Mutex<Pairing>,
@@ -74,14 +75,14 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Respons
     if path == "/api/v1/system/identity" {
         return Ok(data(
             StatusCode::OK,
-            json!({"product": "tilecast", "installationId": fake.installation.to_string(),
+            json!({"product": "tilecast", "installationId": fake.installation.lock().unwrap().to_string(),
             "organizationName": "Greenwood Library", "apiVersion": "v1",
             "pairingEnabled": fake.pairing_enabled.load(Ordering::SeqCst)}),
         ));
     }
     if path == "/api/v1/player/pairing-sessions" && request.method() == hyper::Method::POST {
         let body: Value = serde_json::from_slice(&request.into_body().collect().await.unwrap().to_bytes()).unwrap();
-        assert_eq!(body["installationId"], fake.installation.to_string());
+        assert_eq!(body["installationId"], fake.installation.lock().unwrap().to_string());
         let mut pairing = fake.pairing.lock().unwrap();
         pairing.sessions += 1;
         pairing.status = "pending".to_owned();
@@ -235,7 +236,7 @@ struct Player {
 impl Harness {
     async fn new() -> Self {
         let fake = Arc::new(FakeServer {
-            installation: InstallationId::from_uuid(uuid::Uuid::new_v4()),
+            installation: Mutex::new(InstallationId::from_uuid(uuid::Uuid::new_v4())),
             screen: ScreenId::from_uuid(uuid::Uuid::new_v4()),
             pairing_enabled: AtomicBool::new(true),
             pairing: Mutex::new(Pairing::default()),
@@ -356,7 +357,10 @@ async fn a_clean_machine_pairs_is_approved_and_connects_without_legacy_state() {
     wait_for("enrollment", || (harness.fake.pairing.lock().unwrap().enrolled == 1).then_some(())).await;
     wait_for("the paired surface", || renderer.last().filter(|d| matches!(d, PresentationDocument::Idle(_)))).await;
     let bound = db.run(|c| binding::get(c)).await.unwrap().expect("binding");
-    assert_eq!((bound.installation_id, bound.screen_id), (harness.fake.installation, Some(harness.fake.screen)));
+    assert_eq!(
+        (bound.installation_id, bound.screen_id),
+        (*harness.fake.installation.lock().unwrap(), Some(harness.fake.screen))
+    );
     assert_eq!(bound.credential_state, CredentialState::Stored);
     assert!(FileCredentialStore::read_at(&harness.identity()).unwrap().is_some());
     assert!(!harness.identity().join("pairing-session").exists(), "temporary secrets are cleared");
@@ -439,6 +443,91 @@ async fn a_server_with_pairing_disabled_is_refused_with_a_reason() {
     assert_eq!(answer["ok"], false);
     assert!(answer["error"].as_str().unwrap().contains("turned off"), "{answer}");
     assert_eq!(harness.fake.pairing.lock().unwrap().sessions, 0);
+    renderer.task.abort();
+    player.stop().await;
+}
+
+async fn pair_and_approve(harness: &Harness, renderer: &Renderer) {
+    assert_eq!(renderer.submit(&harness.url).await["ok"], true);
+    wait_for("the pairing code", || pairing_code(renderer.last())).await;
+    harness.set_status("approved");
+    wait_for("enrollment", || (harness.fake.pairing.lock().unwrap().enrolled == 1).then_some(())).await;
+    wait_for("authenticated contact", || (harness.fake.authenticated.load(Ordering::SeqCst) > 0).then_some(())).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn installation_mismatch_records_evidence_quarantines_and_stops_content() {
+    let harness = Harness::new().await;
+    let player = harness.start().await;
+    let renderer = Renderer::connect(&player.socket).await;
+    pair_and_approve(&harness, &renderer).await;
+    let expected = harness.fake.installation.lock().unwrap().to_string();
+    // Seed the caches so quarantine has something to move aside.
+    let state = harness.dir.path().join("state");
+    std::fs::write(state.join("cas/sha256/sentinel"), b"cached").unwrap();
+    std::fs::write(state.join("partial/sentinel"), b"partial").unwrap();
+
+    // The server's installation changes out from under the binding.
+    let rotated = InstallationId::from_uuid(uuid::Uuid::new_v4()).to_string();
+    *harness.fake.installation.lock().unwrap() = InstallationId::from_str(&rotated).unwrap();
+    player.context.server_wake.notify_one();
+    let db = player.context.db().unwrap().clone();
+    wait_for("the mismatch record", || db.run_blocking(|c| edge_state::repo::installation_mismatch::get(c)).ok()?)
+        .await;
+    let record = db.run(|c| edge_state::repo::installation_mismatch::get(c)).await.unwrap().expect("mismatch evidence");
+    assert_eq!(record.expected_installation_id, expected);
+    assert_eq!(record.actual_installation_id, rotated);
+    assert!(record.last_contact_at.is_some(), "last successful contact is kept");
+    let cas_dir = record.quarantined_cas_dir.expect("cas quarantined");
+    let partial_dir = record.quarantined_partial_dir.expect("partial quarantined");
+    assert!(state.join(&cas_dir).join("sha256/sentinel").exists(), "cached evidence preserved");
+    assert!(state.join(&partial_dir).join("sentinel").exists(), "partial evidence preserved");
+    assert!(state.join("cas").is_dir() && state.join("partial").is_dir(), "fresh caches recreated");
+    // Server content stops: the screen names both installations.
+    wait_for("the mismatch surface", || {
+        renderer.last().filter(|d| matches!(d, PresentationDocument::Unavailable(surface) if surface.status.as_ref().is_some_and(|s| s.as_str() == "installation-mismatch")))
+    })
+    .await;
+    // A second pass with the same pair records nothing new.
+    player.context.server_wake.notify_one();
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    let again = db.run(|c| edge_state::repo::installation_mismatch::get(c)).await.unwrap().expect("mismatch evidence");
+    assert_eq!(again.detected_at, record.detected_at, "one record per pair");
+    renderer.task.abort();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn unpair_forgets_the_relationship_and_allows_a_repair() {
+    let harness = Harness::new().await;
+    let player = harness.start().await;
+    let renderer = Renderer::connect(&player.socket).await;
+    pair_and_approve(&harness, &renderer).await;
+    let db = player.context.db().unwrap().clone();
+    assert!(db.run(|c| binding::get(c)).await.unwrap().is_some());
+
+    let ctl = IpcClient::connect(&player.socket, ClientOptions::new(Role::Tilecastctl, "test", "0.1.0")).await.unwrap();
+    let answer = ctl
+        .request(Method::UnpairDevice(edge_protocol::ipc::method::Empty {}))
+        .await
+        .unwrap()
+        .expect("unpair succeeds");
+    assert_eq!(answer["alreadyUnpaired"], false);
+    assert!(db.run(|c| binding::get(c)).await.unwrap().is_none(), "binding forgotten");
+    assert!(FileCredentialStore::read_at(&harness.identity()).unwrap().is_none(), "credential removed");
+    let stats = db.run(|c| edge_state::repo::outbox::stats(c)).await.unwrap();
+    assert_eq!((stats.queued_activity, stats.queued_telemetry), (0, 0));
+    wait_for("the setup surface", || renderer.last().filter(|d| matches!(d, PresentationDocument::Setup {}))).await;
+    // Unpair is idempotent: a second run reports the device already unpaired.
+    let again = ctl
+        .request(Method::UnpairDevice(edge_protocol::ipc::method::Empty {}))
+        .await
+        .unwrap()
+        .expect("second unpair succeeds");
+    assert_eq!(again["alreadyUnpaired"], true);
+    // And the screen can pair again from the clean state.
+    assert_eq!(renderer.submit(&harness.url).await["ok"], true);
+    wait_for("the pairing code", || pairing_code(renderer.last())).await;
     renderer.task.abort();
     player.stop().await;
 }

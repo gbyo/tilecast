@@ -227,7 +227,12 @@ mod tests {
             reference(),
             payload,
             native,
-            vec![VerifiedContentRef { sha256: object, size_bytes: 8, mime_type: SafeText::new("image/png").unwrap() }],
+            vec![VerifiedContentRef {
+                sha256: object,
+                size_bytes: 8,
+                mime_type: SafeText::new("image/png").unwrap(),
+                stream: None,
+            }],
             Vec::new(),
             None,
         )
@@ -243,8 +248,12 @@ mod tests {
     #[test]
     fn document_and_context_share_total_payload_and_binding_bounds() {
         let object = Sha256Digest::of(b"verified");
-        let content =
-            vec![VerifiedContentRef { sha256: object, size_bytes: 8, mime_type: SafeText::new("image/png").unwrap() }];
+        let content = vec![VerifiedContentRef {
+            sha256: object,
+            size_bytes: 8,
+            mime_type: SafeText::new("image/png").unwrap(),
+            stream: None,
+        }];
         let half = RuntimePayload::new(json!("x".repeat(MAX_RUNTIME_PAYLOAD_BYTES / 2)), vec![]).unwrap();
         assert_eq!(
             RendererActivation::new(reference(), half.clone(), metadata(), content.clone(), Vec::new(), Some(half)),

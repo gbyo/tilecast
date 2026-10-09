@@ -90,6 +90,14 @@ impl Default for Playback {
     }
 }
 
+impl Playback {
+    /// Item-level resume after a restart. The server sends default-true;
+    /// only an explicit false disables it.
+    pub fn resume_after_restart(&self) -> bool {
+        !matches!(self.context.get("resumeAfterRestart"), Some(Value::Bool(false)))
+    }
+}
+
 /// The `website` section: player-wide Website defaults and overrides, read
 /// as the reference Linux player reads them (`core/player.ts`, website items).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -373,6 +381,20 @@ mod tests {
             value[key] = field.clone();
         }
         value
+    }
+
+    #[test]
+    fn resume_after_restart_defaults_true_and_only_false_disables() {
+        assert!(Playback::default().resume_after_restart());
+        let mut explicit = Playback::default();
+        explicit.context.insert("resumeAfterRestart".into(), Value::Bool(false));
+        assert!(!explicit.resume_after_restart());
+        let mut truthy = Playback::default();
+        truthy.context.insert("resumeAfterRestart".into(), Value::Bool(true));
+        assert!(truthy.resume_after_restart());
+        let mut garbage = Playback::default();
+        garbage.context.insert("resumeAfterRestart".into(), Value::String("eventually".into()));
+        assert!(garbage.resume_after_restart());
     }
 
     #[test]

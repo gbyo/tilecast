@@ -126,7 +126,18 @@ impl player_core::ServerLinkHost for Host {
     fn record_activity(&self, event: player_core::ActivityEvent) {
         self.0.activity.record(event);
     }
+    async fn identity_mismatch(&self, expected: &str, actual: &str) {
+        crate::mismatch::note_mismatch(&self.0, expected, actual).await;
+    }
     async fn heartbeat(&self) -> serde_json::Value {
+        // A heartbeat is built after the pass verified the installation, so
+        // a recorded mismatch observed here is stale (the server recovered
+        // its old installation) and clears.
+        if self.0.installation_mismatch.lock().unwrap_or_else(|poison| poison.into_inner()).is_some()
+            && *self.0.link_state.lock().unwrap_or_else(|poison| poison.into_inner()) == LinkState::Connected
+        {
+            crate::mismatch::clear_mismatch(&self.0).await;
+        }
         build_heartbeat(&self.0).await
     }
     async fn presentation_protected(&self) -> bool {
@@ -211,7 +222,7 @@ fn iso(ms: i64) -> Option<String> {
 /// committed and pending manifest versions, and what the renderer is actually
 /// showing and why.
 pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
-    let (renderer, current, current_item, remote_web_available) = {
+    let (renderer, current, current_item, remote_web_available, recovery) = {
         let presentation = context.presentation.lock().await;
         let (remote_web, connected, restarting) = presentation.remote_web();
         (
@@ -219,6 +230,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
             presentation.current().cloned(),
             presentation.current_item(),
             connected && !restarting && remote_web.is_some_and(|status| status.available),
+            presentation.recovery_report(),
         )
     };
     let healthy = renderer.state.as_str() == "healthy"
@@ -246,6 +258,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
             edge_protocol::frames::EXTERNAL_RUNTIME_CAPABILITY,
             edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
         )))
+        .chain(std::iter::once(&("media-streaming", 1)))
         .map(|(name, version)| ((*name).to_owned(), serde_json::json!(version)))
         .collect();
     let mut heartbeat = serde_json::json!({
@@ -260,6 +273,11 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         "uptimeSeconds": uptime,
         "playbackState": playback_state,
         "safeMode": renderer.state.as_str() == "safe_mode",
+        // Linux parity: the supervisor's escalation step and ladder runs,
+        // so Studio can tell a first stall from repeated recovery.
+        "recoveryLevel": recovery.snapshot.escalation_step,
+        "recoveryCount": recovery.snapshot.ladder_runs,
+        "rendererRestartCount": recovery.restart_count,
         "presentationSchemaVersions": crate::manifest::profile::PRESENTATION_SCHEMAS,
         "nativePresentationCapabilities": native,
         "webRuntimeVersion": if remote_web_available { crate::manifest::profile::WEB_RUNTIME_VERSION } else { 0 },
@@ -272,30 +290,48 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
     {
         heartbeat["lastHealthyPlaybackAt"] = serde_json::Value::String(progress_at.to_string());
     }
-    if let Some(identity) = current.as_ref().and_then(|activation| activation.identity.as_ref()) {
-        if let Some(source) = heartbeat_selection_source(identity.selection_source) {
-            heartbeat["selectionSource"] = serde_json::json!(source);
-        }
-        if let Some(playlist) = identity.playlist_id {
-            heartbeat["currentPlaylistId"] = serde_json::json!(playlist.to_string());
-        }
-        if let Some(schedule) = identity.schedule_id {
-            heartbeat["currentScheduleId"] = serde_json::json!(schedule.to_string());
-        }
-        if let Some(takeover) = identity.takeover_id {
-            heartbeat["activeTakeoverId"] = serde_json::json!(takeover.to_string());
-            heartbeat["takeoverState"] = serde_json::json!("active");
-        }
-        if let Some(next) = identity.next_transition_ms.and_then(iso) {
-            heartbeat["nextTransitionAt"] = serde_json::json!(next);
-        }
-        if let Some((item, _)) = current_item.as_ref()
-            && let Some(item) = heartbeat_item_id(item)
-        {
-            // The item's start time is not a heartbeat field: the server's
-            // strict HTTP heartbeat decoding refuses the whole message for
-            // it. It travels in the telemetry sample (`itemStartedAt`).
-            heartbeat["currentItemId"] = serde_json::json!(item);
+    // Categorized renderer facts. Each is omitted when unknown: the server
+    // tells "not reported" apart from a zero or empty value.
+    if let Some(code) = renderer.last_error_code.as_ref() {
+        heartbeat["lastRendererFailure"] = serde_json::Value::String(code.as_str().to_owned());
+    }
+    if let Some((reason, at)) = recovery.last_restart.as_ref() {
+        heartbeat["lastRendererRestartReason"] = serde_json::Value::String(reason.as_str().to_owned());
+        heartbeat["lastRendererRestartAt"] = serde_json::Value::String(at.to_string());
+    }
+    if let Some(reason) = recovery.safe_mode_reason.as_ref() {
+        heartbeat["safeModeReason"] = serde_json::Value::String(reason.to_string());
+    }
+    if let Some(active) = current.as_ref() {
+        // Stream-backed videos of this activation: content the player did
+        // not fully cache, with reduced offline guarantees. Omitted
+        // without an activation; legacy players never send it.
+        heartbeat["streamBackedAssetCount"] = serde_json::json!(active.extras.streams.len());
+        if let Some(identity) = active.identity.as_ref() {
+            if let Some(source) = heartbeat_selection_source(identity.selection_source) {
+                heartbeat["selectionSource"] = serde_json::json!(source);
+            }
+            if let Some(playlist) = identity.playlist_id {
+                heartbeat["currentPlaylistId"] = serde_json::json!(playlist.to_string());
+            }
+            if let Some(schedule) = identity.schedule_id {
+                heartbeat["currentScheduleId"] = serde_json::json!(schedule.to_string());
+            }
+            if let Some(takeover) = identity.takeover_id {
+                heartbeat["activeTakeoverId"] = serde_json::json!(takeover.to_string());
+                heartbeat["takeoverState"] = serde_json::json!("active");
+            }
+            if let Some(next) = identity.next_transition_ms.and_then(iso) {
+                heartbeat["nextTransitionAt"] = serde_json::json!(next);
+            }
+            if let Some((item, _)) = current_item.as_ref()
+                && let Some(item) = heartbeat_item_id(item)
+            {
+                // The item's start time is not a heartbeat field: the server's
+                // strict HTTP heartbeat decoding refuses the whole message for
+                // it. It travels in the telemetry sample (`itemStartedAt`).
+                heartbeat["currentItemId"] = serde_json::json!(item);
+            }
         }
     }
     if let Ok(available) = context.space.available_bytes(&context.paths.state_dir) {

@@ -727,13 +727,25 @@
   },
   {
     "version": 123,
-    "file": "00123_external_package_managed_presentations.sql",
+    "file": "00123_edge_renderer_diagnostics.sql",
+    "owner": "core",
+    "sha256": "d24408d6b26c06172b8c99b48c787638a75b8cfa20de0ec65914648d44c9eb43"
+  },
+  {
+    "version": 124,
+    "file": "00124_edge_stream_backed_assets.sql",
+    "owner": "core",
+    "sha256": "c69e5cc6949f9aca62938d3f35165412f1bc75fc7c98ddf0470fa43712023a6b"
+  },
+  {
+    "version": 125,
+    "file": "00125_external_package_managed_presentations.sql",
     "owner": "core",
     "sha256": "4f3f4b3fcb8e1210b0085291cd14d451a45b46a5e2a7453527f0841f73cafe9d"
   },
   {
-    "version": 124,
-    "file": "00124_player_capabilities.sql",
+    "version": 126,
+    "file": "00126_player_capabilities.sql",
     "owner": "core",
     "sha256": "80c2fb6aba9631681319bd50913f4010351bde28ade2e797688a01849cdb1bb1"
   }

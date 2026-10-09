@@ -26,6 +26,7 @@
 //! manifest is never promoted while a policy surface is shown, because it
 //! has not produced evidence on screen; it is tried when content returns.
 
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
 use edge_protocol::ipc::presentation::PresentationDocument;
@@ -123,7 +124,11 @@ fn identity(candidate: &Candidate, resolved: &ResolvedPresentation) -> PlaybackI
     }
 }
 
-fn extras(resolved: &ResolvedPresentation, offset_ms: i64) -> ServerExtras {
+fn extras(
+    resolved: &ResolvedPresentation,
+    offset_ms: i64,
+    streams: HashMap<edge_protocol::Sha256Digest, player_core::StreamSource>,
+) -> ServerExtras {
     ServerExtras {
         timing: resolved.timing.as_ref().map(|timing| edge_protocol::ipc::event::SyncTiming {
             group_id: edge_protocol::bounded::SafeText::lossy(&timing.group_id),
@@ -134,7 +139,27 @@ fn extras(resolved: &ResolvedPresentation, offset_ms: i64) -> ServerExtras {
         projection: resolved.projection.clone(),
         plugins: resolved.plugins.clone(),
         plugin_aliases: resolved.plugin_aliases.clone(),
+        streams,
     }
+}
+
+/// Stream backends for this activation: the manifest's stream claims
+/// intersected with the projected content, so gated content (mismatch,
+/// policy surfaces) never gains a network backend.
+fn stream_sources(
+    context: &DaemonContext,
+    candidate: &Candidate,
+    content: &[edge_protocol::ipc::presentation::ContentRef],
+) -> HashMap<edge_protocol::Sha256Digest, player_core::StreamSource> {
+    let Some(cas) = context.cas.as_ref() else { return HashMap::new() };
+    let in_content: BTreeSet<edge_protocol::Sha256Digest> = content.iter().map(|reference| reference.sha256).collect();
+    player_core::stream_claims(candidate, cas.download_threshold_bytes())
+        .into_iter()
+        .filter(|claim| in_content.contains(&claim.digest))
+        .filter_map(|claim| {
+            player_core::StreamSource::new(claim.download_path).map(|source| (claim.digest, source)).ok()
+        })
+        .collect()
 }
 
 #[derive(Debug, PartialEq)]
@@ -185,8 +210,32 @@ impl player_core::OfflineActivationHost for Host {
         time: player_core::ActivationTime,
     ) -> Result<player_core::OfflineProjection<Self::Projection, Self::Key>, &'static str> {
         let candidate = Candidate::from_native(native.clone());
-        let resolved =
+        let mut resolved =
             candidate.presentation_with(time.presentation_ms(), configuration).map_err(|error| error.reason_code())?;
+        // A recorded installation mismatch stops server content: the screen
+        // shows the mismatch surface instead of anything the old server sent.
+        if let Some(record) = crate::mismatch::content_blocked(&self.0) {
+            resolved.document = crate::mismatch::mismatch_surface(&record);
+            resolved.timing = None;
+            resolved.content = Vec::new();
+            resolved.projection = None;
+            resolved.plugins = Vec::new();
+            resolved.plugin_aliases = Vec::new();
+        }
+        // Durable playlist resume, before the activation key is computed: the
+        // resumed order is the projection, so it never reads as a change.
+        // After a mismatch gate the content is empty and this is a no-op.
+        {
+            let mut resume = self.0.resume.lock().unwrap_or_else(|poison| poison.into_inner());
+            crate::resume::maybe_rotate(
+                &mut resume,
+                &mut resolved,
+                &candidate.digest.to_hex(),
+                candidate.version,
+                configuration.runtime.playback.resume_after_restart(),
+                time.presentation_ms(),
+            );
+        }
         let metadata = crate::renderer_adapter::metadata(
             &resolved.document,
             ActivationSource::ServerManifest,
@@ -270,7 +319,8 @@ impl player_core::OfflineActivationHost for Host {
     ) -> Result<player_core::RendererActivationRef, &'static str> {
         let candidate = Candidate::from_native(native.clone());
         let identity = identity(&candidate, &resolved);
-        let extras = extras(&resolved, time.offset_ms);
+        let streams = stream_sources(&self.0, &candidate, &resolved.content);
+        let extras = extras(&resolved, time.offset_ms, streams);
         self.0
             .presentation
             .lock()

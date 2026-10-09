@@ -78,6 +78,7 @@ import { ScreenPlaybackCard } from "../screens/detail/ScreenPlaybackCard";
 import { ScreenScheduleCard } from "../screens/detail/ScreenScheduleCard";
 import { PlaybackExplanationPanel } from "../screens/detail/PlaybackExplanationPanel";
 import { ScreenPlaybackDiagnostics } from "../screens/detail/ScreenPlaybackDiagnostics";
+import { PlayerHealthSummary } from "../screens/detail/PlayerHealthSummary";
 import { DashboardSearch } from "../components/DashboardListToolbar";
 import { useCompactLayout } from "../hooks/use-compact-layout";
 import {
@@ -3326,6 +3327,12 @@ export function ScreenDetailPage() {
                 <p className="text-sm text-muted-foreground">
                   {t("detail.healthBody")}
                 </p>
+                <PlayerHealthSummary
+                  health={reliability.data?.playerHealth}
+                  reliability={reliability.data}
+                  screenId={id}
+                  loading={reliability.isPending}
+                />
                 <section className="min-w-0 space-y-3 rounded-xl border border-border border-l-4 border-l-primary bg-muted/20">
                   <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-4">
                     <div className="min-w-0 space-y-1">
