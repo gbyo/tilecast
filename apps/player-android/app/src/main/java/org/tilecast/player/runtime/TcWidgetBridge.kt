@@ -13,7 +13,16 @@ import java.io.InputStream
  * null (the WebView's 404 path), exactly like ungranted media.
  */
 object TcWidgetBridge {
-    const val SANDBOX_POLICY = "sandbox allow-scripts"
+    /**
+     * The shared frame response policy. The frame's own `<meta>` policy is not
+     * a barrier (the Widget's bytes are untrusted), so this header confines
+     * passive loads (image, media, font) to host-granted `tcmedia:` URIs and
+     * `data:`; a Widget cannot encode granted data into an attacker URL.
+     */
+    const val SANDBOX_POLICY =
+        "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
+            "img-src data: tcmedia:; media-src data: tcmedia:; font-src data: tcmedia:; " +
+            "connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
 
     data class ResolvedFrame(
         val statusCode: Int,

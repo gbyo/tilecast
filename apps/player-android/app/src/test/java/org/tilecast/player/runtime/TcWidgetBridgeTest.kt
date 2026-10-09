@@ -1,10 +1,14 @@
 package org.tilecast.player.runtime
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.tilecast.player.runtime.FrameAuthorization.AuthorizedFrame
+import java.io.File
 
 class TcWidgetBridgeTest {
     @get:Rule
@@ -27,7 +31,7 @@ class TcWidgetBridgeTest {
         assertNull(resolved.contentRange)
         val headers = TcWidgetBridge.responseHeaders(resolved)
         assertEquals("text/html", headers["Content-Type"])
-        assertEquals("sandbox allow-scripts", headers["Content-Security-Policy"])
+        assertEquals(sharedResponsePolicy(), headers["Content-Security-Policy"])
         assertEquals("nosniff", headers["X-Content-Type-Options"])
         assertEquals("none", headers["Accept-Ranges"])
         assertEquals("no-store", headers["Cache-Control"])
@@ -48,5 +52,33 @@ class TcWidgetBridgeTest {
         assertNull(TcWidgetBridge.resolve("tcwidget://cap/$token", authorized, emptyMap(), null))
         val gone = setup().mapValues { files.root.absolutePath + "/missing.html" }
         assertNull(TcWidgetBridge.resolve("tcwidget://cap/$token", authorized, gone, null))
+    }
+
+    @Test fun frameHeaderIsTheSharedPolicyAndKeepsPassiveLoadsOffTheOpenWeb() {
+        assertEquals(sharedResponsePolicy(), TcWidgetBridge.SANDBOX_POLICY)
+        val directives = TcWidgetBridge.SANDBOX_POLICY.split("; ").associate {
+            it.substringBefore(" ") to it.substringAfter(" ", "")
+        }
+        // A Widget could otherwise encode granted data into an attacker URL
+        // through an image, media, or font request.
+        for (name in listOf("img-src", "media-src", "font-src")) {
+            val sources = directives.getValue(name).split(" ").toSet()
+            assertEquals(name, setOf("data:", "tcmedia:"), sources)
+        }
+        for (name in listOf("default-src", "connect-src", "worker-src", "object-src", "base-uri", "form-action")) {
+            assertEquals(name, "'none'", directives[name])
+        }
+    }
+
+    private fun sharedResponsePolicy(): String {
+        var directory = File(System.getProperty("user.dir")).absoluteFile
+        while (true) {
+            val candidate = File(directory, "packages/player-contracts/fixtures/widget-frames.json")
+            if (candidate.isFile) {
+                val constants = Json.parseToJsonElement(candidate.readText()).jsonObject.getValue("constants").jsonObject
+                return constants.getValue("responsePolicy").jsonPrimitive.content
+            }
+            directory = directory.parentFile ?: error("repository root not found from user.dir")
+        }
     }
 }

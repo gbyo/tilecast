@@ -61,25 +61,69 @@ fails. Whole documents only: range requests are refused.
 
 ## Residual risks
 
-The current frame CSP allows `https:` and `http:` passive image,
-media, and font requests so that host-served media works in opaque-origin
-frames. This is **not an exfiltration barrier**: a malicious Widget could
-encode its declared configuration or prepared data into an attacker-owned
-image URL, even while `connect-src 'none'` blocks `fetch`. Opaque origin
-isolation still prevents access to host credentials, top-level DOM, and
-other Widgets, but it does not make granted Widget data impossible to
-exfiltrate. The existing hostile fixture's `fetch` canary only tests
-active network calls; passing it must not be interpreted as proving
-passive resource isolation.
+### Passive-resource exfiltration
 
-**Release blocker for untrusted external packages:** each supported host
-must constrain image, media, and font requests to specific host-authorized
-media endpoints (or an equivalently restrictive native request policy),
-and a real-engine test must prove that an attacker-specified image URL
-cannot receive a request. A response-level or per-frame CSP is suitable
-only when verified for that engine, including WPE opaque-origin frames.
-Until this is enforced and tested, `widget.external-runtime@2` is not
-security-qualified for general third-party execution, regardless of
-unit-test or headless fixture success. A malicious Widget may also
-consume CPU/memory or render misleading content inside its own tile.
-Physical DRM/KMS, WebView and WebView2 qualification remain separate gates.
+`connect-src 'none'` blocks `fetch`, XHR, and WebSocket, but not passive
+loads. A Widget that is allowed to load any `https:` or `http:` image,
+media, or font could encode its declared configuration or prepared data
+into an attacker-owned URL. The frame document's own `<meta>` policy cannot
+prevent this: the untrusted bytes choose it, and it must stay broad enough
+for every host's media route, which only the serving host can name.
+
+Each Player host therefore serves frame bytes with a response policy built
+from the shared contract (`packages/player-contracts/fixtures/widget-frames.json`).
+Content-Security-Policies intersect, so the header narrows the meta policy:
+
+| Host                         | Passive sources (`img-src`, `media-src`, `font-src`) | Enforcement                                     |
+| ---------------------------- | ---------------------------------------------------- | ----------------------------------------------- |
+| Browser Player               | `data:` and `<origin>/player/media/`                 | Service-worker response header                  |
+| Android                      | `data:` and `tcmedia:`                               | `TcWidgetBridge` response header                |
+| Windows                      | `data:` and `tcmedia:`                               | `tcwidget` scheme response header               |
+| Edge (WPE)                   | `data:` and `http://127.0.0.1:*/media/`              | `tcwidget` scheme response header               |
+| Server player frame endpoint | `data:` and `tcmedia:`                               | Response header (hosts re-serve with their own) |
+
+Every other fetch directive stays `'none'`, including `connect-src`,
+`worker-src`, `object-src`, `frame-src` (through `default-src`), `base-uri`,
+and `form-action`. Unit tests pin each header to the contract, and a
+fixture check rejects any passive source outside the allowed set.
+
+Evidence by engine:
+
+- **Chromium (Browser Player): proven.** The Browser frame e2e loads the
+  production service worker and runs a hostile Widget that aims 14 passive
+  vectors at an attacker host (image, `srcset`, video, audio, poster, CSS
+  background, `@font-face`, stylesheet, preload, prefetch, object, embed,
+  iframe, and plain `http:`). Each must raise a policy violation, and the
+  harness must see no request leave the frame. A control run with
+  `https:`/`http:` restored to the header leaks the requests, so the test
+  detects the weakness.
+- **Android WebView, WebView2, and WPE: header pinned, engine run
+  outstanding.** Their headers equal the contract and are unit tested, but
+  no run has yet shown that the engine enforces the header inside an
+  opaque-origin frame loaded from a custom scheme. WPE needs particular
+  care because it rejects custom-scheme loads inside opaque-origin frames;
+  the loopback route is the only passive source it allows.
+
+Remaining limits:
+
+- **Studio preview** serves the frame with the broader meta-equivalent
+  policy (`https:` and `http:` passive sources) because its media grants are
+  same-origin server URLs. A previewed malicious package could exfiltrate
+  the preview's data. Preview runs only for a signed-in administrator, but
+  do not preview untrusted packages with real data until preview pins its
+  media path.
+- **DNS prefetch** and similar resolver hints are not governed by CSP. A
+  Widget could leak a few bits through name lookups. Hosts do not block
+  them.
+- **Edge loopback** allows any local port under `127.0.0.1`. Only a process
+  on the device itself could receive a request, but the policy does not pin
+  the daemon's port.
+
+**Release gate for untrusted external packages:** run the passive-vector
+Widget on Android WebView, WebView2, and WPE, with each engine showing a
+policy violation and no outbound request. Until then,
+`widget.external-runtime@2` is not security-qualified for general
+third-party execution on those hosts, regardless of unit-test success.
+A malicious Widget may also consume CPU/memory or render misleading content
+inside its own tile. Physical DRM/KMS, WebView and WebView2 qualification
+remain separate gates.

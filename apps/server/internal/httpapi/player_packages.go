@@ -51,17 +51,20 @@ func (s *server) playerPackageWidget(w http.ResponseWriter, r *http.Request) {
 }
 
 // playerFramePolicy is the response Content-Security-Policy for the
-// Player sandbox-frame documents. It matches the Studio preview policy
-// plus the native tcmedia: grant scheme: opaque-origin frames cannot
-// use 'self', so server-URL grants stay scheme-wide here and the grant
-// list stays the real boundary. Each Player host further tightens its
-// own embeds with the iframe csp attribute (native hosts pin
-// tcmedia:/data:, Browser pins its exact server origin and media path),
-// and framed content must pass both policies.
+// Player sandbox-frame documents. It is the shared cross-player frame
+// policy (packages/player-contracts, responsePolicy): passive loads
+// reach only host-granted tcmedia: capabilities and inline data:, never
+// the open web, so a Widget cannot encode granted data into an
+// attacker-owned image, media, or font URL. The frame's own <meta> policy
+// is deliberately broader (it must also admit the Browser Player's media
+// route and Edge's loopback route, which only the serving host can
+// name) and is not a barrier: the untrusted bytes choose it. Every
+// Player host re-serves the verified bytes with its own header, built
+// from the same contract, and a fixture-driven test pins each of them.
 const playerFramePolicy = "sandbox allow-scripts; default-src 'none'; " +
 	"script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
-	"img-src data: https: http: tcmedia:; media-src data: https: http: tcmedia:; font-src data: https: http: tcmedia:; " +
-	"connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';"
+	"img-src data: tcmedia:; media-src data: tcmedia:; font-src data: tcmedia:; " +
+	"connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
 
 // playerPackageWidgetFrame serves one installed Widget contribution's
 // assembled sandbox frame to an authenticated Player (manifest v19).

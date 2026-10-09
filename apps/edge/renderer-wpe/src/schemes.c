@@ -370,10 +370,17 @@ handle_media (WebKitURISchemeRequest *request, gpointer user_data)
 
 /* ------------------------------------------------------- widget scheme */
 
-/* The cross-player sandbox policy every host applies to served frame
- * documents: scripts run, but the document stays opaque, formless, and
- * pointer-lock-free. */
-#define TC_FRAME_SANDBOX_POLICY "sandbox allow-scripts"
+/* The cross-player frame response policy (packages/player-contracts,
+ * loopbackResponsePolicy). The frame's own <meta> policy is not a barrier
+ * because the Widget's bytes are untrusted; this header is. WPE rejects
+ * custom-scheme loads inside opaque-origin frames, so passive loads (image,
+ * media, font) reach only the daemon's loopback media route, never the open
+ * web: a Widget cannot encode granted data into an attacker-owned URL. */
+#define TC_FRAME_SANDBOX_POLICY                                                                                     \
+  "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "              \
+  "img-src data: http://127.0.0.1:*/media/; media-src data: http://127.0.0.1:*/media/; "                            \
+  "font-src data: http://127.0.0.1:*/media/; connect-src 'none'; worker-src 'none'; object-src 'none'; "           \
+  "base-uri 'none'; form-action 'none'"
 
 static void
 finish_frame (WebKitURISchemeRequest *request, const char *socket_path, const char *capability, guint64 length)

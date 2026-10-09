@@ -144,11 +144,20 @@ export const SANDBOX_BUNDLE_PLACEHOLDER = "__TILECAST_SANDBOX_BUNDLE__";
 /**
  * The frame document's own policy, delivered as a `<meta>` tag so it
  * applies however the bytes are embedded — navigated with response
- * headers, or embedded as a blob URL, which carries no headers. It
- * mirrors the Server frame response policy except for `sandbox`,
- * which meta tags cannot set and which the iframe sandbox attribute
- * already provides: no network, no workers, passive subresources
- * only. The Server frame endpoint test pins the two in sync.
+ * headers, or embedded as a blob URL, which carries no headers.
+ *
+ * This meta policy is NOT the exfiltration barrier. The Widget's own
+ * bytes choose it, and the scheme-wide `https:`/`http:` passive sources
+ * below exist only because the serving host, not this static document,
+ * knows the one media route a frame may load from (the Browser Player's
+ * `/player/media/` path, Edge's loopback `/media/` route, or the native
+ * `tcmedia:` scheme). Content-Security-Policies intersect, so each
+ * host's frame response header, built from the shared contract in
+ * `packages/player-contracts` (`responsePolicy`), narrows passive loads
+ * to exactly that route. A host that serves a frame without such a
+ * header is not secure for untrusted packages. Studio preview serves
+ * this document with the broader policy because its media grants are
+ * same-origin server URLs; see the threat model.
  */
 export const SANDBOX_FRAME_META_POLICY =
   "default-src 'none'; " +

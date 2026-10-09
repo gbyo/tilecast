@@ -331,7 +331,7 @@ mod tests {
         let headers = frame_response_headers(512);
         assert!(headers.contains("Content-Type: text/html\r\n"), "{headers}");
         assert!(headers.contains("Content-Length: 512\r\n"), "{headers}");
-        assert!(headers.contains("Content-Security-Policy: sandbox allow-scripts\r\n"), "{headers}");
+        assert!(headers.contains(&format!("{}\r\n", player_types::frames::FRAME_CSP_HEADER)), "{headers}");
         assert!(headers.contains("X-Content-Type-Options: nosniff\r\n"), "{headers}");
         assert!(headers.contains("Accept-Ranges: none\r\n"), "{headers}");
         assert!(headers.contains("Cache-Control: no-store\r\n"), "{headers}");
@@ -364,7 +364,10 @@ mod tests {
         // exactly so a header reorder or rename fails loudly.
         assert_eq!(
             frame_response_headers(0),
-            "Content-Type: text/html\r\nContent-Length: 0\r\nContent-Security-Policy: sandbox allow-scripts\r\nX-Content-Type-Options: nosniff\r\nAccept-Ranges: none\r\nCache-Control: no-store\r\n"
+            format!(
+                "Content-Type: text/html\r\nContent-Length: 0\r\n{}\r\nX-Content-Type-Options: nosniff\r\nAccept-Ranges: none\r\nCache-Control: no-store\r\n",
+                player_types::frames::FRAME_CSP_HEADER
+            )
         );
     }
 }

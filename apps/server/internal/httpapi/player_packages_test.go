@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -56,7 +57,51 @@ func TestPlayerFramePolicyIsolatesExternalCode(t *testing.T) {
 	}
 }
 
-func TestPlayerFramePolicyMatchesDocumentMetaPolicy(t *testing.T) {
+func TestPlayerFramePolicyIsTheSharedContractPolicy(t *testing.T) {
+	raw, err := os.ReadFile("../../../../packages/player-contracts/fixtures/widget-frames.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture struct {
+		Constants struct {
+			ResponsePolicy string `json:"responsePolicy"`
+		} `json:"constants"`
+	}
+	if err := json.Unmarshal(raw, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	if playerFramePolicy != fixture.Constants.ResponsePolicy {
+		t.Fatalf("player frame policy = %q, want the contract policy %q", playerFramePolicy, fixture.Constants.ResponsePolicy)
+	}
+}
+
+// Passive loads must never reach the open web: a Widget could encode
+// its granted data into an attacker-owned image, media, or font URL
+// even while connect-src blocks fetch.
+func TestPlayerFramePolicyBlocksPassiveExfiltration(t *testing.T) {
+	for _, directive := range []string{"img-src", "media-src", "font-src"} {
+		var sources string
+		for _, part := range strings.Split(playerFramePolicy, "; ") {
+			if rest, ok := strings.CutPrefix(part, directive); ok {
+				sources = rest
+			}
+		}
+		if sources == "" {
+			t.Fatalf("%s is missing from %q", directive, playerFramePolicy)
+		}
+		for _, source := range strings.Fields(sources) {
+			if source != "data:" && source != "tcmedia:" {
+				t.Fatalf("%s grants %q; passive loads may reach only data: and tcmedia:", directive, source)
+			}
+		}
+	}
+}
+
+// The document's own meta policy is broader than the response header (it
+// must admit the Browser and Edge media routes only the serving host can
+// name). It must still admit everything the header does, or the header
+// would be narrowed by a policy the untrusted bytes choose.
+func TestPlayerFrameMetaPolicyAdmitsTheHeaderSources(t *testing.T) {
 	document, err := sandbox.Assemble("globalThis.__tilecastWidgetDefinition={};")
 	if err != nil {
 		t.Fatalf("Assemble returned error: %v", err)
@@ -72,11 +117,18 @@ func TestPlayerFramePolicyMatchesDocumentMetaPolicy(t *testing.T) {
 		t.Fatal("policy meta tag is unterminated")
 	}
 	meta := rest[:end]
-	// The response header adds exactly the sandbox directive, which
-	// meta tags cannot set; every other directive is identical, so a
-	// headerless (blob) embedding enforces the same policy.
-	if want := "sandbox allow-scripts; " + meta; playerFramePolicy != want {
-		t.Fatalf("player frame policy = %q, want %q", playerFramePolicy, want)
+	for _, directive := range []string{"img-src", "media-src", "font-src"} {
+		for _, source := range []string{"data:", "tcmedia:"} {
+			found := false
+			for _, part := range strings.Split(meta, "; ") {
+				if rest, ok := strings.CutPrefix(part, directive); ok && strings.Contains(" "+rest+" ", " "+source+" ") {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("meta policy %q does not admit %s %s", meta, directive, source)
+			}
+		}
 	}
 }
 
