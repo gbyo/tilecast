@@ -614,13 +614,23 @@ func (s *Service) withDefaultTimezone(ctx context.Context, in Input) (Input, err
 	err := s.db.QueryRow(ctx, `SELECT default_timezone FROM organization_settings WHERE singleton`).Scan(&in.Timezone)
 	return in, err
 }
+
+// rowQuerier is satisfied by both the pool and a transaction.
+type rowQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 func (s *Service) normalizeSyncGroupTargets(ctx context.Context, in Input) (Input, error) {
+	return normalizeSyncGroupTargetsWith(ctx, s.db, in)
+}
+
+func normalizeSyncGroupTargetsWith(ctx context.Context, q rowQuerier, in Input) (Input, error) {
 	normalized := make([]Target, 0, len(in.Targets))
 	seen := map[string]bool{}
 	for _, target := range in.Targets {
 		if target.Type == "screen" {
 			var groupID *uuid.UUID
-			if err := s.db.QueryRow(ctx, `SELECT m.screen_group_id FROM screens sc LEFT JOIN screen_group_memberships m ON m.screen_id=sc.id WHERE sc.id=$1`, target.ID).Scan(&groupID); err != nil {
+			if err := q.QueryRow(ctx, `SELECT m.screen_group_id FROM screens sc LEFT JOIN screen_group_memberships m ON m.screen_id=sc.id WHERE sc.id=$1`, target.ID).Scan(&groupID); err != nil {
 				return in, err
 			}
 			if groupID != nil {
@@ -728,6 +738,19 @@ func (s *Service) write(ctx context.Context, id, user uuid.UUID, in Input, creat
 		return err
 	}
 	defer tx.Rollback(ctx)
+	// Lock each screen target, then normalize under that lock. A membership
+	// change locks the same screen row, so a screen that joins a group after
+	// the pre-check is stored as its group target, not as a screen-only target.
+	for _, target := range in.Targets {
+		if target.Type == "screen" {
+			if _, err = tx.Exec(ctx, `SELECT 1 FROM screens WHERE id=$1 FOR UPDATE`, target.ID); err != nil {
+				return err
+			}
+		}
+	}
+	if in, err = normalizeSyncGroupTargetsWith(ctx, tx, in); err != nil {
+		return err
+	}
 	old, err := affectedForSchedule(ctx, tx, id)
 	if err != nil {
 		return err
