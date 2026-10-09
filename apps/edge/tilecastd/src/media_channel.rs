@@ -324,7 +324,13 @@ pub(crate) async fn network_read(
 /// Media and frame grants share the registry but resolve from disjoint
 /// tables; every liveness check funnels through here so the two can
 /// never drift apart again.
-pub(crate) fn grant_live(registry: &MediaRegistry, session: SessionId, capability: &str, expect: ReadExpect, now_ms: i64) -> bool {
+pub(crate) fn grant_live(
+    registry: &MediaRegistry,
+    session: SessionId,
+    capability: &str,
+    expect: ReadExpect,
+    now_ms: i64,
+) -> bool {
     match expect {
         ReadExpect::Media => registry.resolve(session, capability, now_ms),
         ReadExpect::Frame => registry.resolve_frame(session, capability, now_ms),
