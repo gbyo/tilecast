@@ -256,6 +256,7 @@ async fn prepare_fixture_media(
             sha256: *digest,
             size_bytes: size,
             mime_type: player_types::bounded::SafeText::new(mime).map_err(|_| format!("media {name} mime"))?,
+            stream: None,
         });
     }
     let mut registry = media.lock().unwrap_or_else(|poison| poison.into_inner());

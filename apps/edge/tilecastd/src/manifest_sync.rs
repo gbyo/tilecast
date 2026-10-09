@@ -65,9 +65,15 @@ impl PrepareError {
     }
 
     /// Deterministic for this exact manifest: retrying cannot change the
-    /// outcome, so the player waits for a new target.
+    /// outcome, so the player waits for a new target. A missing or
+    /// corrupt frame names exact bytes the origin cannot serve, so it
+    /// waits too; transport trouble retries.
     pub fn is_final(&self) -> bool {
-        matches!(self, Self::Manifest(_))
+        matches!(
+            self,
+            Self::Manifest(_)
+                | Self::Fetch(PreparationError::FrameMissing | PreparationError::FrameDigestInvalid)
+        )
     }
 }
 

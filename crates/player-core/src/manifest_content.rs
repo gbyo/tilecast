@@ -123,6 +123,20 @@ pub enum ManifestPreparationError {
     /// streaming; the operator raises the cache limit or picks `stream`.
     #[error("a required download does not fit the content store policy")]
     CacheTooSmall,
+    /// The origin has no frame document for the claim: every source
+    /// answered not-found for these exact bytes.
+    #[error("a required Widget frame is not on the origin")]
+    FrameMissing,
+    /// A Widget frame source served bytes that failed verification, or
+    /// the cached bytes disagree with the claim. The bytes are never
+    /// used; the committed presentation stays.
+    #[error("a required Widget frame failed digest verification")]
+    FrameDigestInvalid,
+    /// A Widget frame fetch failed in transport (unauthorized, stalled,
+    /// or unreachable origin). Unlike a missing or corrupt frame, this
+    /// may clear on its own, so preparation retries it.
+    #[error("a required Widget frame could not be fetched")]
+    FrameFetchFailed,
 }
 
 impl ManifestPreparationError {
@@ -136,6 +150,9 @@ impl ManifestPreparationError {
             Self::SizeMismatch => "media_size_mismatch",
             Self::Missing => "media_missing",
             Self::CacheTooSmall => "media_cache_too_small",
+            Self::FrameMissing => "widget_frame_missing",
+            Self::FrameDigestInvalid => "widget_frame_digest_invalid",
+            Self::FrameFetchFailed => "widget_frame_fetch_failed",
         }
     }
 }
@@ -202,6 +219,92 @@ async fn fetch_object<P: ManifestSourcePlan>(
     Ok(())
 }
 
+/// Records per-attempt outcomes for failure attribution. The fetch
+/// decision never consults this: preparation already failed by the
+/// time the outcomes are read, so naming the reason cannot weaken
+/// verification.
+#[derive(Debug, Default)]
+struct OutcomeRecorder {
+    outcomes: std::sync::Mutex<Vec<player_cas::fetch::AttemptOutcome>>,
+}
+
+impl FetchObserver for OutcomeRecorder {
+    fn attempt(
+        &self,
+        _source: &dyn BlobSource,
+        outcome: player_cas::fetch::AttemptOutcome,
+        _bytes: u64,
+        _elapsed: std::time::Duration,
+    ) {
+        self.outcomes.lock().expect("observer lock").push(outcome);
+    }
+}
+
+/// The attribution recorder plus the plan observer when the plan has
+/// one, so hosts keep their byte counters while frame failures gain
+/// their reason either way.
+struct Observed<'a> {
+    inner: Option<Box<dyn FetchObserver + 'a>>,
+    recorder: &'a OutcomeRecorder,
+}
+
+impl FetchObserver for Observed<'_> {
+    fn attempt(
+        &self,
+        source: &dyn BlobSource,
+        outcome: player_cas::fetch::AttemptOutcome,
+        bytes: u64,
+        elapsed: std::time::Duration,
+    ) {
+        if let Some(inner) = &self.inner {
+            inner.attempt(source, outcome, bytes, elapsed);
+        }
+        self.recorder.attempt(source, outcome, bytes, elapsed);
+    }
+}
+
+/// Fetches one Widget frame with attributed failures: a missing origin
+/// object, corrupt bytes, and transport trouble each name themselves,
+/// so the operator can tell a bad publish from a bad network.
+async fn fetch_frame_object<P: ManifestSourcePlan>(
+    store: &ContentStore,
+    plan: &P,
+    digest: Sha256Digest,
+    size_bytes: u64,
+    origin_path: &str,
+    meta: IngestMeta,
+) -> Result<(), ManifestPreparationError> {
+    use player_cas::fetch::AttemptOutcome;
+    if let Some((_, record)) = store.open_verified(&digest).await? {
+        if record.size_bytes != size_bytes {
+            return Err(ManifestPreparationError::FrameDigestInvalid);
+        }
+        return Ok(());
+    }
+    let recorder = OutcomeRecorder::default();
+    let observed = Observed { inner: plan.observer(digest), recorder: &recorder };
+    let request = FetchRequest { digest, size_bytes, meta };
+    let sources = plan.sources(digest, size_bytes, origin_path).await?;
+    let outcome = Fetcher::new(store.clone(), 2).fetch(&request, &sources, Some(&observed)).await;
+    match outcome {
+        Ok(record) if record.size_bytes == size_bytes => Ok(()),
+        Ok(_) => Err(ManifestPreparationError::FrameDigestInvalid),
+        Err(FetchError::Exhausted) => {
+            let outcomes = recorder.outcomes.lock().expect("observer lock");
+            if outcomes.contains(&AttemptOutcome::IntegrityFailure) {
+                Err(ManifestPreparationError::FrameDigestInvalid)
+            } else if !outcomes.is_empty()
+                && outcomes.iter().all(|outcome| *outcome == AttemptOutcome::NotFound)
+            {
+                Err(ManifestPreparationError::FrameMissing)
+            } else {
+                Err(ManifestPreparationError::FrameFetchFailed)
+            }
+        }
+        Err(error) => Err(ManifestPreparationError::Fetch(error)),
+    }
+}
+
 /// Fetches every variant, Widget bundle, and Widget frame the candidate
 /// needs. The caller persists and pins a candidate only after this
 /// succeeds, so a manifest whose bundle or frame cannot be fetched
@@ -258,7 +361,7 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
             content_type: Some("text/html".to_owned()),
             source: SourceKind::Origin,
         };
-        fetch_object(store, plan, frame.digest, frame.size_bytes, &frame.download_path, meta).await?;
+        fetch_frame_object(store, plan, frame.digest, frame.size_bytes, &frame.download_path, meta).await?;
         digests.insert(frame.digest);
     }
     for digest in &digests {
@@ -509,5 +612,121 @@ mod tests {
         let (asset, variant) = asset_ids(600);
         let manifest = candidate(vec![video_asset(asset, variant, digest, 13)], vec![item(asset, variant, "download")]);
         assert!(matches!(manifest.verify_content(&store).await.unwrap_err(), ManifestPreparationError::Missing));
+    }
+
+    fn frame_candidate(frame: &Sha256Digest, package: &Sha256Digest, size: u64) -> NativeManifest {
+        let screen = player_types::ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let widget = uuid::Uuid::from_u128(10);
+        let document = serde_json::json!({
+            "schemaVersion": 19, "manifestVersion": 3, "screenId": screen, "mode": "presentation",
+            "assets": [],
+            "playlist": {"id": uuid::Uuid::from_u128(5), "items": [{"id": uuid::Uuid::from_u128(6),
+                "assetId": widget, "assetType": "widget", "deliveryPolicy": "download"}]},
+            "playlists": [], "schedules": [], "dataSources": [], "plugins": [],
+            "widgets": [{"assetId": widget, "name": "Scores", "provider": "acme.athletics.scoreboard",
+                "presentation": {"schemaVersion": 3, "kind": "component",
+                    "requiredCapabilities": {"widget.external-runtime": 2},
+                    "component": {"type": "acme.athletics.scoreboard", "version": 2,
+                        "config": {}, "dataSources": [], "media": [], "empty": "render",
+                        "package": {"packageId": "acme.athletics",
+                            "digest": format!("sha256:{}", package.to_hex()),
+                            "frame": {"sha256": frame.to_hex(), "fileSize": size,
+                                "downloadPath": "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame"}}}}}],
+        });
+        let digest = crate::manifest_digest(&document);
+        let manifest = NativeManifest::parse(document, screen, digest).unwrap();
+        assert_eq!(manifest.required_frames.len(), 1);
+        manifest
+    }
+
+    #[derive(Debug)]
+    struct FailingSource {
+        error: &'static str,
+    }
+
+    #[async_trait::async_trait]
+    impl BlobSource for FailingSource {
+        fn kind(&self) -> player_cas::SourceKind {
+            player_cas::SourceKind::Origin
+        }
+
+        fn label(&self) -> String {
+            "failing".into()
+        }
+
+        async fn open(
+            &self,
+            _digest: &Sha256Digest,
+            _size: u64,
+            _offset: u64,
+        ) -> Result<player_cas::SourceStream, player_cas::SourceError> {
+            Err(match self.error {
+                "missing" => player_cas::SourceError::NotFound,
+                _ => player_cas::SourceError::Retryable("unreachable".into()),
+            })
+        }
+    }
+
+    struct FailingPlan {
+        error: &'static str,
+    }
+
+    impl ManifestSourcePlan for FailingPlan {
+        async fn sources(
+            &self,
+            _digest: Sha256Digest,
+            _size: u64,
+            _origin_path: &str,
+        ) -> Result<Vec<Arc<dyn BlobSource>>, ManifestPreparationError> {
+            Ok(vec![Arc::new(FailingSource { error: self.error }) as Arc<dyn BlobSource>])
+        }
+
+        fn observer(&self, _digest: Sha256Digest) -> Option<Box<dyn FetchObserver + '_>> {
+            None
+        }
+    }
+
+    #[tokio::test]
+    async fn frame_failures_name_themselves() {
+        let frame = Sha256Digest::of(b"frame document");
+        let package = Sha256Digest::of(b"package");
+        // Exact bytes verify and pin like any other object.
+        let dir = tempfile::tempdir().unwrap();
+        let store = test_store(dir.path(), 1 << 20).await;
+        let manifest = frame_candidate(&frame, &package, 14);
+        let plan =
+            StaticPlan { files: [(frame, b"frame document".to_vec())].into_iter().collect(), calls: Mutex::new(vec![]) };
+        let prepared = manifest.prepare_content(&store, &plan).await.unwrap();
+        assert_eq!(prepared.verified, vec![frame]);
+        // A source that lacks the object names the missing frame.
+        let dir = tempfile::tempdir().unwrap();
+        let store = test_store(dir.path(), 1 << 20).await;
+        let error = manifest.prepare_content(&store, &FailingPlan { error: "missing" }).await.unwrap_err();
+        assert!(matches!(error, ManifestPreparationError::FrameMissing), "{error:?}");
+        assert_eq!(error.reason_code(), "widget_frame_missing");
+        // A stalled origin names the transport failure, which retries.
+        let dir = tempfile::tempdir().unwrap();
+        let store = test_store(dir.path(), 1 << 20).await;
+        let error = manifest.prepare_content(&store, &FailingPlan { error: "stalled" }).await.unwrap_err();
+        assert!(matches!(error, ManifestPreparationError::FrameFetchFailed), "{error:?}");
+        assert_eq!(error.reason_code(), "widget_frame_fetch_failed");
+        // Wrong bytes fail verification and are never used.
+        let dir = tempfile::tempdir().unwrap();
+        let store = test_store(dir.path(), 1 << 20).await;
+        let plan =
+            StaticPlan { files: [(frame, b"tampered bytes".to_vec())].into_iter().collect(), calls: Mutex::new(vec![]) };
+        let error = manifest.prepare_content(&store, &plan).await.unwrap_err();
+        assert!(matches!(error, ManifestPreparationError::FrameDigestInvalid), "{error:?}");
+        assert_eq!(error.reason_code(), "widget_frame_digest_invalid");
+        assert!(store.open_verified(&frame).await.unwrap().is_none());
+        // A cached object that disagrees with the claim fails the same way.
+        let dir = tempfile::tempdir().unwrap();
+        let store = test_store(dir.path(), 1 << 20).await;
+        let plan =
+            StaticPlan { files: [(frame, b"frame document".to_vec())].into_iter().collect(), calls: Mutex::new(vec![]) };
+        manifest.prepare_content(&store, &plan).await.unwrap();
+        let drifted = frame_candidate(&frame, &package, 15);
+        let error = drifted.prepare_content(&store, &plan).await.unwrap_err();
+        assert!(matches!(error, ManifestPreparationError::FrameDigestInvalid), "{error:?}");
     }
 }

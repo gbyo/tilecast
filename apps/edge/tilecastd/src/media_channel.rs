@@ -349,7 +349,28 @@ async fn serve(
                 .flatten()
         })
     };
-    let Some(grant) = grant else { return deny(&mut stream).await };
+    let Some(grant) = grant else {
+        // Daemon-side attribution only: the socket answer stays bare so
+        // unknown and retired tokens are indistinguishable on the wire.
+        let retired =
+            registry.lock().is_ok_and(|registry| registry.retired_token(request.capability()));
+        tracing::warn!(
+            component = "media",
+            event = "grant_denied",
+            reason = if retired {
+                match expect {
+                    ReadExpect::Frame => "widget_grant_revoked",
+                    ReadExpect::Media => "media_grant_revoked",
+                }
+            } else {
+                match expect {
+                    ReadExpect::Frame => "widget_grant_unknown",
+                    ReadExpect::Media => "media_grant_unknown",
+                }
+            },
+        );
+        return deny(&mut stream).await;
+    };
     if grant.read_mode != ReadMode::Seekable {
         return deny(&mut stream).await;
     }

@@ -57,6 +57,19 @@ fn semantic_ref(reference: ActivationRef) -> player_core::RendererActivationRef 
     player_core::RendererActivationRef { activation_id: reference.activation_id, generation: reference.generation }
 }
 
+/// Names a Widget mount failure for the last-error status. The runtime
+/// reports every mount outcome as `widget <code>`; the daemon records
+/// the bounded category, never the raw mount detail.
+fn widget_failure_code<'a>(code: &'a str, message: &str) -> &'a str {
+    if !message.starts_with("widget ") {
+        return code;
+    }
+    if message.starts_with("widget widget_ready_timeout") {
+        return "widget_sandbox_timeout";
+    }
+    "widget_execution_failed"
+}
+
 pub use player_core::ActivationSource;
 
 /// Which verified presentation an activation shows and what selected it:
@@ -462,7 +475,11 @@ impl PresentationEngine {
         item_id: Option<&str>,
         message: &str,
     ) {
-        if self.native.rejected(*session.id().as_uuid(), semantic_ref(activation), ShortToken::new(code).ok()) {
+        if self.native.rejected(
+            *session.id().as_uuid(),
+            semantic_ref(activation),
+            ShortToken::new(widget_failure_code(code, message)).ok(),
+        ) {
             self.signal(crate::activity::Signal::PlaybackError {
                 item_id: item_id.map(str::to_owned),
                 message: message.to_owned(),
@@ -932,6 +949,15 @@ mod tests {
             ManualClock::new(Timestamp::from_unix_millis(1_000).expect("test clock")),
             1_000,
         )
+    }
+
+    #[test]
+    fn widget_failures_record_bounded_categories_not_mount_detail() {
+        assert_eq!(widget_failure_code("playback_error", "widget widget_ready_timeout"), "widget_sandbox_timeout");
+        assert_eq!(widget_failure_code("playback_error", "widget widget_resolve_failed"), "widget_execution_failed");
+        assert_eq!(widget_failure_code("playback_error", "widget frame_error"), "widget_execution_failed");
+        assert_eq!(widget_failure_code("playback_error", "a video stalled"), "playback_error");
+        assert_eq!(widget_failure_code("decode_error", "widget widget_ready_timeout"), "widget_sandbox_timeout");
     }
 
     #[test]

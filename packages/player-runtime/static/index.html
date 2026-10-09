@@ -5,11 +5,15 @@
     <!--
       The trusted Tilecast display document. Every host loads this exact file
       from tilecast://runtime/index.html. Scripts and styles come only from the
-      runtime itself; media only from host-authorized tcmedia: URIs.
+      runtime itself; media only from host-authorized tcmedia: URIs; frames
+      only from remote origins and host-authorized tcwidget: capabilities.
+      The tcwidget: source lets native hosts navigate sandbox frames to
+      daemon-granted documents; the iframe sandbox attribute and the
+      frame's own policy still confine them.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' tcmedia: data:; media-src tcmedia: tcweb:; frame-src https: http:;"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' tcmedia: data:; media-src tcmedia: tcweb:; frame-src https: http: tcwidget:;"
     />
     <meta name="color-scheme" content="light" />
     <title>Tilecast Player</title>

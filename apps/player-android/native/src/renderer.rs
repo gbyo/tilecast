@@ -1154,6 +1154,9 @@ impl PresentationEngine {
                 sha256: entry.digest,
                 size_bytes: entry.size_bytes,
                 mime_type: entry.mime_type.clone(),
+                // The Android host requires downloads; stream-backed
+                // claims are an Edge capability it does not advertise.
+                stream: None,
             })
             .collect();
         let frames: Vec<VerifiedFrameRef> = request

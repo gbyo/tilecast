@@ -767,6 +767,446 @@ def fixture_evidence(stack):
     return seen if required <= seen else None
 
 
+# ---------------------------------------------------------------- widget
+#
+# External Widgets through the real WPE path: the daemon pairs against a
+# fake Tilecast Server, fetches verified sandbox frame documents built by
+# the SDK's own frame builder over the conformance fixture bundles, and
+# the headless renderer executes them in confined iframes. The fixture
+# bundle gates its ready signal on every host input (compiled config,
+# prepared documents, a granted media URI whose bytes load, a sane
+# clock), so each widget_shown proves the full input chain. The hostile
+# bundle probes isolation and phones a canary that must never ring.
+
+WIDGET_PACKAGE = "acme.athletics"
+WIDGET_ID = "scoreboard"
+EVIL_PACKAGE = "acme.evil"
+EVIL_ID = "probe"
+
+
+def build_frame_document(bundle_name):
+    """The exact frame document production would serve for a fixture."""
+    tests_dir = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.normpath(os.path.join(tests_dir, "..", "..", "..", ".."))
+    bundle = os.path.join(root, "packages", "player-contracts", "fixtures", "widget-package", bundle_name)
+    helper = os.path.join(tests_dir, "build_frame_doc.py")
+    with open(bundle, encoding="utf-8") as handle:
+        completed = subprocess.run([sys.executable, helper], stdin=handle, check=True,
+                                   capture_output=True, text=True)
+    return completed.stdout.encode("utf-8")
+
+
+def png_bytes():
+    """A decodable 1x1 PNG, hand-rolled so the test needs no image tools."""
+    import struct
+    import zlib
+
+    def chunk(kind, payload):
+        return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload))
+    header = struct.pack(">IIBBBBB", 1, 1, 8, 6, 0, 0, 0)
+    raw = b"\x00\x00\x00\xff\xff"  # filter + one opaque blue pixel
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", header)
+        + chunk(b"IDAT", zlib.compress(raw))
+        + chunk(b"IEND", b"")
+    )
+
+
+class WidgetState:
+    def __init__(self, installation, screen, server_url):
+        self.installation = installation
+        self.screen = screen
+        self.frame = build_frame_document("bundle.js")
+        self.frame_hex = hashlib.sha256(self.frame).hexdigest()
+        self.evil = build_frame_document("hostile.js")
+        self.evil_hex = hashlib.sha256(self.evil).hexdigest()
+        self.package_hex = hashlib.sha256(b"acme-athletics-package").hexdigest()
+        self.evil_package_hex = hashlib.sha256(b"acme-evil-package").hexdigest()
+        self.png = png_bytes()
+        self.png_hex = hashlib.sha256(self.png).hexdigest()
+        self.widget_a = str(uuid.uuid4())
+        self.widget_b = str(uuid.uuid4())
+        self.hostile = str(uuid.uuid4())
+        self.hero = str(uuid.uuid4())
+        self.hero_variant = str(uuid.uuid4())
+        self.document_id = str(uuid.uuid4())
+        self.layout_id = str(uuid.uuid4())
+        self.item_full = str(uuid.uuid4())
+        self.item_layout = str(uuid.uuid4())
+        self.canary = f"{server_url}/api/v1/player/probe-exfil"
+        self.revision = 1
+        self.tamper = False
+        self.lock = threading.Lock()
+        self.heartbeats = []
+        self.frame_requests = 0
+        self.evil_requests = 0
+        self.media_requests = 0
+        self.exfil_hits = 0
+
+    @property
+    def etag(self):
+        return f'"manifest-{self.revision}"'
+
+    def _component(self, widget, label, package, digest_hex, frame_hex, frame_size, frame_path, hostile=False):
+        if hostile:
+            config = {"exfil": self.canary}
+            data_sources, media = [], []
+            component_type, version = "acme.evil.probe", 1
+        else:
+            config = {"label": label, "mediaAssetId": self.hero, "mediaVariantId": self.hero_variant,
+                      "documentId": self.document_id}
+            data_sources, media = [self.document_id], [{"assetId": self.hero, "variantId": self.hero_variant}]
+            component_type, version = "acme.athletics.scoreboard", 2
+        capability = 3 if self.revision == 2 else 2
+        return {
+            "assetId": widget, "name": label, "provider": component_type,
+            "configVersion": 1, "configuration": {},
+            "presentation": {
+                "schemaVersion": 3, "kind": "component",
+                "requiredCapabilities": {"widget.external-runtime": capability},
+                "component": {
+                    "type": component_type, "version": version, "config": config,
+                    "dataSources": data_sources, "media": media, "empty": "render",
+                    "package": {
+                        "packageId": package, "digest": f"sha256:{digest_hex}",
+                        "frame": {"sha256": frame_hex, "fileSize": frame_size, "downloadPath": frame_path},
+                    },
+                },
+            },
+        }
+
+    def manifest(self):
+        frame_path = f"/api/v1/player/packages/{WIDGET_PACKAGE}/widgets/{WIDGET_ID}/frame"
+        evil_path = f"/api/v1/player/packages/{EVIL_PACKAGE}/widgets/{EVIL_ID}/frame"
+        claimed, claimed_hex = self.frame, self.frame_hex
+        if self.tamper:
+            # Claim bytes the origin then corrupts: the fetch must fail
+            # digest verification and the committed presentation must stay.
+            tampered = bytearray(self.frame)
+            tampered[len(tampered) // 2] ^= 0xFF
+            claimed, claimed_hex = bytes(tampered), hashlib.sha256(bytes(tampered)).hexdigest()
+        return {
+            "schemaVersion": 19, "manifestVersion": self.revision, "screenId": self.screen,
+            "generatedAt": "2026-10-08T00:00:00Z", "mode": "presentation",
+            "assets": [{
+                "assetId": self.hero, "variantId": self.hero_variant, "mimeType": "image/png",
+                "sha256": self.png_hex, "fileSize": len(self.png),
+                "downloadPath": f"/api/v1/player/assets/{self.hero}/variants/{self.hero_variant}",
+            }],
+            "playlist": {"id": str(uuid.uuid4()), "revision": 1, "name": "Widgets", "items": [
+                {"id": self.item_full, "assetId": self.widget_a, "assetType": "widget",
+                 "durationMs": 20000, "fitMode": "contain", "transition": "none",
+                 "audioEnabled": False, "volume": 0.0, "deliveryPolicy": "download"},
+                {"id": self.item_layout, "assetId": self.layout_id, "layoutId": self.layout_id,
+                 "assetType": "layout", "durationMs": 20000, "fitMode": "contain", "transition": "none",
+                 "audioEnabled": False, "volume": 0.0, "deliveryPolicy": "stream"},
+            ]},
+            "playlists": [], "schedules": [], "websites": [],
+            "widgets": [
+                self._component(self.widget_a, "Lobby", WIDGET_PACKAGE, self.package_hex,
+                               claimed_hex, len(claimed), frame_path),
+                self._component(self.widget_b, "Zone", WIDGET_PACKAGE, self.package_hex,
+                               claimed_hex, len(claimed), frame_path),
+                self._component(self.hostile, "Probe", EVIL_PACKAGE, self.evil_package_hex,
+                               self.evil_hex, len(self.evil), evil_path, hostile=True),
+            ],
+            "dataSources": [{
+                "id": self.document_id, "name": "Schedule", "provider": "test",
+                "configVersion": 1, "configuration": {},
+                "dataDocument": {"schemaVersion": 1, "datasets": [{"label": "Week 1"}]},
+            }],
+            "plugins": [],
+            "layouts": [{
+                "id": self.layout_id, "revisionId": str(uuid.uuid4()), "revision": 1,
+                "documentSha256": hashlib.sha256(b"widget-layout").hexdigest(),
+                "document": {
+                    "schemaVersion": 1,
+                    "canvas": {"width": 1920, "height": 1080, "orientation": "landscape",
+                               "backgroundColor": "#000000"},
+                    "placements": [
+                        {"id": "zone-scores", "type": "widget", "name": "Scores", "x": 0, "y": 0,
+                         "width": 960, "height": 1080, "layer": 0, "opacity": 1,
+                         "visible": True, "locked": False, "widgetId": self.widget_b},
+                        {"id": "zone-probe", "type": "widget", "name": "Probe", "x": 960, "y": 0,
+                         "width": 960, "height": 1080, "layer": 0, "opacity": 1,
+                         "visible": True, "locked": False, "widgetId": self.hostile},
+                    ],
+                },
+            }],
+            "prefetchHorizonDays": 14, "activationGraceSeconds": 3600,
+        }
+
+
+class WidgetHandler(http.server.BaseHTTPRequestHandler):
+    server_version = "TilecastWidgetFake/1"
+
+    def log_message(self, *args):
+        pass
+
+    @property
+    def state(self):
+        return self.server.widget_state
+
+    def _send_json(self, code, obj):
+        body = json.dumps(obj).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _send_bytes(self, body, content_type):
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Accept-Ranges", "bytes")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _read_json(self):
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        raw = self.rfile.read(length) if length else b"{}"
+        return json.loads(raw or b"{}")
+
+    def _authorized(self):
+        return self.headers.get("Authorization") == f"Bearer {STREAM_CREDENTIAL}"
+
+    def _deny(self):
+        self._send_json(401, {"error": {"code": "device_credential_invalid", "message": "rejected"}})
+
+    def _frame_response(self, body, counter):
+        with self.state.lock:
+            setattr(self.state, counter, getattr(self.state, counter) + 1)
+        if self.state.tamper and counter == "frame_requests":
+            # Serve bytes that do not match the claimed digest.
+            flipped = bytearray(body)
+            flipped[100] ^= 0x01
+            body = bytes(flipped)
+        self._send_bytes(body, "text/html")
+
+    def do_GET(self):  # noqa: N802
+        if self.path == "/api/v1/system/identity":
+            return self._send_json(200, {"data": {
+                "product": "tilecast", "installationId": self.state.installation,
+                "organizationName": "Widget Test", "apiVersion": "v1", "pairingEnabled": False,
+            }})
+        if not self._authorized():
+            return self._deny()
+        if self.path == "/api/v1/player/manifest":
+            if self.headers.get("If-None-Match") == self.state.etag:
+                self.send_response(304)
+                self.end_headers()
+                return
+            body = json.dumps({"data": self.state.manifest()}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("ETag", self.state.etag)
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path == "/api/v1/player/config":
+            # Fast reconciliation: revisions land within about a minute.
+            return self._send_json(200, {"data": {
+                "schemaVersion": 1, "configRevision": 1,
+                "sync": {"statusReportSeconds": 15, "manifestReconciliationSeconds": 60},
+            }})
+        if self.path == "/api/v1/player/commands":
+            return self._send_json(200, {"data": {"items": []}})
+        if self.path == f"/api/v1/player/packages/{WIDGET_PACKAGE}/widgets/{WIDGET_ID}/frame":
+            return self._frame_response(self.state.frame, "frame_requests")
+        if self.path == f"/api/v1/player/packages/{EVIL_PACKAGE}/widgets/{EVIL_ID}/frame":
+            return self._frame_response(self.state.evil, "evil_requests")
+        if self.path == f"/api/v1/player/assets/{self.state.hero}/variants/{self.state.hero_variant}":
+            with self.state.lock:
+                self.state.media_requests += 1
+            return self._send_bytes(self.state.png, "image/png")
+        return self._send_json(404, {"error": {"code": "not_found", "message": "no such path"}})
+
+    def do_POST(self):  # noqa: N802
+        if self.path == "/api/v1/player/probe-exfil":
+            with self.state.lock:
+                self.state.exfil_hits += 1
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            if length:
+                self.rfile.read(length)
+            return self._send_json(200, {"data": {}})
+        if not self._authorized():
+            self._read_json()
+            return self._deny()
+        if self.path == "/api/v1/player/heartbeat":
+            payload = self._read_json()
+            with self.state.lock:
+                self.state.heartbeats.append(payload)
+            return self._send_json(200, {"data": {}})
+        if self.path == "/api/v1/player/liveness":
+            self._read_json()
+            return self._send_json(200, {"data": {}})
+        if self.path == "/api/v1/player/telemetry":
+            self._read_json()
+            return self._send_json(200, {"data": {"accepted": True}})
+        if self.path == "/api/v1/player/activity-events":
+            batch = self._read_json()
+            events = batch.get("events", [])
+            return self._send_json(200, {"data": {
+                "accepted": len(events),
+                "acknowledgedEventIds": [e.get("id") for e in events],
+            }})
+        self._read_json()
+        return self._send_json(404, {"error": {"code": "not_found", "message": "no such path"}})
+
+    # The canary accepts any method a hostile frame might use.
+    do_PUT = do_POST
+    do_PATCH = do_POST
+
+
+def media_socket_ask(runtime_dir, request):
+    """One raw media-channel request, framed exactly like the C client."""
+    import socket
+    import struct
+
+    path = os.path.join(runtime_dir, "media.sock")
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+        sock.settimeout(10)
+        sock.connect(path)
+        body = json.dumps(request).encode("utf-8")
+        sock.sendall(struct.pack(">I", len(body)) + body)
+        header = sock.recv(4)
+        (length,) = struct.unpack(">I", header)
+        reply = b""
+        while len(reply) < length:
+            chunk = sock.recv(length - len(reply))
+            if not chunk:
+                break
+            reply += chunk
+        return json.loads(reply)
+
+
+def scenario_widget(args):
+    with tempfile.TemporaryDirectory() as workdir:
+        installation = str(uuid.uuid4())
+        screen = str(uuid.uuid4())
+        # The handler needs the server URL for the exfil canary before the
+        # socket exists; re-point the state once the port is known.
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), WidgetHandler)
+        server.widget_state = WidgetState(installation, screen, "http://127.0.0.1:0")
+        server_url = f"http://127.0.0.1:{server.server_address[1]}"
+        server.widget_state.canary = f"{server_url}/api/v1/player/probe-exfil"
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        stack = Stack(args, workdir)
+        try:
+            stack.start_daemon()
+            stack.stop()
+            inject_pairing(workdir, server_url, installation, screen)
+            stack.start_daemon()
+            stack.start_renderer()
+            state = server.widget_state
+            wait_for("the healthy renderer", lambda: healthy(stack), timeout=90)
+            # Every Widget instance reports: the fullscreen scoreboard by
+            # item, both Layout zones by zone. Each ready gates on config,
+            # documents, granted media bytes, and a sane clock.
+            wait_for("the fullscreen Widget evidence",
+                     lambda: [e for e in accepted_evidence(stack)
+                              if e[0] == "widget_shown" and e[1] == state.item_full], timeout=180, interval=1)
+            zones = wait_for(
+                "both Widget Layout zones rendered",
+                lambda: (lambda z: z if {"zone-scores", "zone-probe"} <= z else None)(
+                    {e[2] for e in accepted_evidence(stack) if e[0] == "layout_zone_rendered"}),
+                timeout=180, interval=1)
+            presentation = wait_for(
+                "the Widget presentation accepted with evidence",
+                lambda: (lambda p: p if p and p["accepted"] and p["evidence"] else None)(
+                    stack.status().get("presentation")),
+                timeout=60)
+            assert presentation["source"] == "server_manifest", presentation
+            generation = presentation["generation"]
+            with state.lock:
+                assert state.frame_requests > 0, "the scoreboard frame was never fetched"
+                assert state.evil_requests > 0, "the hostile frame was never fetched"
+                assert state.media_requests > 0, "the granted Widget media was never prepared"
+                assert state.exfil_hits == 0, "the hostile frame reached the network"
+                beats = [b for b in state.heartbeats
+                         if b.get("nativePresentationCapabilities", {}).get("widget.external-runtime") == 2]
+                assert beats, "no heartbeat advertised the frame execution ABI"
+            print(f"widget: zones {sorted(zones)} rendered, frames verified, ABI advertised")
+            with open(os.path.join(workdir, "tilecastd.log"), encoding="utf-8", errors="replace") as handle:
+                daemon_log = handle.read()
+            with open(os.path.join(workdir, "renderer.log"), encoding="utf-8", errors="replace") as handle:
+                renderer_log = handle.read()
+            # Renderer-visible surfaces stay opaque: no download paths, no
+            # credential, and the hostile fetch died in the sandbox.
+            assert "/api/v1/player/packages" not in renderer_log, "frame paths leaked to the renderer"
+            assert STREAM_CREDENTIAL not in renderer_log, "credential leaked to the renderer"
+            assert STREAM_CREDENTIAL not in daemon_log, "credential leaked to the daemon log"
+            assert state.frame.decode("utf-8").count(STREAM_CREDENTIAL) == 0
+            assert "content-security-policy" in renderer_log.lower() or "blocked" in renderer_log.lower(), \
+                "no console trace of the contained hostile fetch"
+            # The media socket refuses unknown capabilities with a bare
+            # denial. (Retired-vs-unknown attribution is daemon-side and
+            # covered by the registry unit test; this probe cannot pass
+            # the renderer's peer-lineage check by design.)
+            denied = media_socket_ask(os.path.join(workdir, "run"),
+                                      {"op": "head", "capability": "0" * 64, "expect": "frame"})
+            assert denied == {"status": "denied"}, denied
+            print("widget: unknown frame capability denied bare; no leaks in renderer surfaces")
+
+            # Killing the renderer disturbs nothing: the replacement shows
+            # the same activation and the Widgets report again.
+            mark = log_lines(stack)
+            stack.renderer.send_signal(signal.SIGKILL)
+            stack.renderer.wait(timeout=10)
+            stack.start_renderer()
+            wait_for("the healthy renderer again", lambda: healthy(stack), timeout=90)
+            wait_for("Widget evidence after the renderer restart",
+                     lambda: [e for e in accepted_evidence(stack, mark) if e[0] == "widget_shown"],
+                     timeout=180, interval=1)
+            assert stack.status()["presentation"]["generation"] == generation, "activation changed"
+            print("widget: renderer restart kept the activation and the Widgets reported again")
+
+            # An ABI the host cannot run never blanks the screen: the new
+            # revision fails with its reason and the committed Widgets play on.
+            with state.lock:
+                state.revision = 2
+            wait_for("the incompatible revision refused",
+                     lambda: [b for b in state.heartbeats
+                              if b.get("lastSynchronizationError")
+                              == "presentation_incompatible_widget_capability"], timeout=180, interval=2)
+            assert stack.status()["presentation"]["generation"] == generation, "incompatible took over"
+            assert healthy(stack) is not None, "renderer left healthy state"
+            print("widget: external-runtime@3 refused, committed Widgets kept playing")
+
+            # Corrupt frame bytes fail verification; the committed Widgets
+            # play on with the named reason.
+            with state.lock:
+                state.revision = 3
+                state.tamper = True
+            wait_for("the corrupt frame refused",
+                     lambda: [b for b in state.heartbeats
+                              if b.get("lastSynchronizationError") == "widget_frame_digest_invalid"],
+                     timeout=180, interval=2)
+            assert stack.status()["presentation"]["generation"] == generation, "corrupt revision took over"
+            print("widget: corrupt frame bytes refused with widget_frame_digest_invalid")
+
+            # The origin goes away: prepared frame bytes keep playing from
+            # the cache with the presentation still accepted.
+            server.shutdown()
+            thread.join(timeout=10)
+            time.sleep(5)
+            status = stack.status()
+            assert status["presentation"]["accepted"], "cached Widgets stopped while offline"
+            assert status["renderer"]["state"] == "healthy", status["renderer"]
+            print("widget: cached frames kept playing with the origin gone")
+        except Exception:
+            stack.dump_logs()
+            raise
+        finally:
+            server.shutdown()
+            thread.join(timeout=10)
+            stack.stop()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bin-dir", required=True)
@@ -783,6 +1223,7 @@ def main():
         "selftest": scenario_selftest,
         "website": scenario_website,
         "stream": scenario_stream,
+        "widget": scenario_widget,
     }
     selected = scenarios.values() if args.scenario == "all" else [scenarios[args.scenario]]
     for scenario in selected:

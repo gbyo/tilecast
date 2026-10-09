@@ -4,7 +4,7 @@
 //! media service resolves only these random, renderer-instance-bound grants.
 //! Generations move through prepared, active and draining before retirement.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 
 use edge_protocol::Sha256Digest;
@@ -16,6 +16,9 @@ const TOKEN_BYTES: usize = 32;
 const MAX_GRANTS_PER_GENERATION: usize = 1024;
 const PREPARED_LIFETIME_MS: i64 = 10 * 60 * 1_000;
 const DRAIN_LIFETIME_MS: i64 = 30 * 1_000;
+/// Retired-token tombstones, for denial attribution. Hashes only, never
+/// tokens, and bounded: old tombstones age out silently.
+const MAX_RETIRED_TOKENS: usize = 64;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct MediaCapability(String);
@@ -124,6 +127,7 @@ pub struct MediaRegistry {
     renderer: Option<RendererInstance>,
     generations: HashMap<u64, Generation>,
     grants: HashMap<MediaCapability, MediaGrant>,
+    retired: VecDeque<[u8; 32]>,
 }
 
 impl fmt::Debug for MediaRegistry {
@@ -132,6 +136,7 @@ impl fmt::Debug for MediaRegistry {
             .field("renderer", &self.renderer)
             .field("generations", &self.generations.len())
             .field("grants", &self.grants.len())
+            .field("retired", &self.retired.len())
             .finish()
     }
 }
@@ -144,7 +149,7 @@ impl Default for MediaRegistry {
 
 impl MediaRegistry {
     pub fn new() -> Self {
-        Self { renderer: None, generations: HashMap::new(), grants: HashMap::new() }
+        Self { renderer: None, generations: HashMap::new(), grants: HashMap::new(), retired: VecDeque::new() }
     }
 
     /// A new renderer instance invalidates every old capability immediately.
@@ -152,6 +157,7 @@ impl MediaRegistry {
         if self.renderer != Some(renderer) {
             self.generations.clear();
             self.grants.clear();
+            self.retired.clear();
             self.renderer = Some(renderer);
         }
     }
@@ -375,8 +381,24 @@ impl MediaRegistry {
         if let Some(entry) = self.generations.remove(&generation) {
             for token in entry.tokens {
                 self.grants.remove(&token);
+                let hash = ring::digest::digest(&ring::digest::SHA256, token.as_str().as_bytes());
+                let mut tombstone = [0u8; 32];
+                tombstone.copy_from_slice(hash.as_ref());
+                if self.retired.len() >= MAX_RETIRED_TOKENS {
+                    self.retired.pop_front();
+                }
+                self.retired.push_back(tombstone);
             }
         }
+    }
+
+    /// True when `token` names a grant this registry retired: the
+    /// renderer holds a capability its generation outlived. Daemon-side
+    /// attribution only; the socket answer stays a bare denial.
+    pub fn retired_token(&self, token: &str) -> bool {
+        let Some(parsed) = MediaCapability::parse(token) else { return false };
+        let hash = ring::digest::digest(&ring::digest::SHA256, parsed.as_str().as_bytes());
+        self.retired.iter().any(|tombstone| tombstone.as_slice() == hash.as_ref())
     }
 
     pub fn expire(&mut self, now_ms: i64) {
@@ -484,6 +506,23 @@ mod tests {
         registry.activate(session, 2, 1).unwrap();
         assert_eq!(registry.resolve_frame(session, token.as_str(), 1).unwrap().state, GenerationState::Draining);
         assert!(registry.resolve_frame(session, token.as_str(), DRAIN_LIFETIME_MS + 2).is_none());
+    }
+
+    #[test]
+    fn retired_tokens_are_recognized_by_hash_while_unknown_ones_are_not() {
+        let session = SessionId::from_uuid(uuid::Uuid::new_v4());
+        let mut registry = MediaRegistry::new();
+        registry.bind_renderer(renderer(session));
+        registry.prepare(session, 1, 0, &[content(&"a".repeat(64))], &HashMap::new()).unwrap();
+        let minted = registry.prepare_frames(session, 1, 0, &[frame(&"f".repeat(64))]).unwrap();
+        let token = minted.values().next().unwrap().as_str().to_owned();
+        assert!(!registry.retired_token(&token), "an active grant is not retired");
+        assert!(!registry.retired_token(&"0".repeat(64)), "a never-issued token is unknown");
+        assert!(!registry.retired_token("short"), "a malformed token is unknown");
+        registry.retire(1);
+        assert!(registry.resolve_frame(session, &token, 0).is_none(), "retired grants stop resolving");
+        assert!(registry.retired_token(&token), "a retired grant names its revocation");
+        assert!(!registry.retired_token(&"0".repeat(64)), "unknown stays unknown after retirements");
     }
 
     #[test]

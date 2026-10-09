@@ -355,6 +355,9 @@ impl<'a> Projector<'a> {
             size_bytes: asset.size_bytes,
             mime_type: player_types::bounded::SafeText::new(asset.mime_type.clone())
                 .map_err(|_| ProjectionError::Structure)?,
+            // The Windows host requires downloads; stream-backed claims
+            // are an Edge capability it does not advertise.
+            stream: None,
         })
     }
 

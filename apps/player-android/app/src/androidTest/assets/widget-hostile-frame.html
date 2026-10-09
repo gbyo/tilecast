@@ -1,0 +1,336 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: https: http: tcmedia:; media-src data: https: http: tcmedia:; font-src data: https: http: tcmedia:; connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';"><style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;color:#fff;font:12px/1.4 monospace}</style></head><body><script>(function () {
+  "use strict";
+  var PROTOCOL = "tilecast.widget.bridge/1";
+  var READY_EVENT = "tilecast-widget-ready";
+  var EMPTY_EVENT = "tilecast-widget-empty";
+  var ERROR_EVENT = "tilecast-widget-error";
+  var DEFINITION_GLOBAL = "__tilecastWidgetDefinition";
+  var INTERPOLATED_TOKEN = "";
+  var REVISION_KEY = "tilecast.widget.inputRevision";
+  var nonce = null;
+  var port = null;
+  var revision = 0;
+  var element = null;
+  var definition = null;
+  var resources = null;
+  var frameContext = null;
+  var disposed = false;
+
+  function tokenFromFragment() {
+    try {
+      var hash = window.location.hash;
+      if (typeof hash === "string" && hash.charAt(0) === "#") return hash.slice(1);
+    } catch (err) {}
+    return "";
+  }
+  var HELLO_TOKEN = tokenFromFragment() || INTERPOLATED_TOKEN;
+
+  function post(state) {
+    if (port === null || nonce === null || disposed) return;
+    port.postMessage({ protocol: PROTOCOL, nonce: nonce, revision: revision, state: state });
+  }
+  function fail(code) { post({ state: "error", code: code }); }
+
+  function validRevision(value) {
+    return typeof value === "number" && isFinite(value) && Math.floor(value) === value && value >= 1;
+  }
+
+  function assignRevision(value) {
+    revision = value;
+    if (element === null) return;
+    try {
+      Object.defineProperty(element, Symbol.for(REVISION_KEY), { configurable: true, value: value });
+    } catch (err) {}
+  }
+
+  function eventRevision(event) {
+    var detail = event.detail;
+    if (!detail || typeof detail.revision !== "number") return -1;
+    return detail.revision;
+  }
+
+  function validTagName(value) {
+    return typeof value === "string" && /^[a-z][a-z0-9]*-[a-z0-9-]+$/.test(value);
+  }
+
+  function frameClock(context) {
+    var offset = context.wallClockOffsetMs;
+    return {
+      now: function () { return Date.now() + offset; },
+      monotonicNow: function () { return performance.now(); },
+      after: function (delayMs, run) {
+        var id = setTimeout(run, delayMs);
+        return { cancel: function () { clearTimeout(id); } };
+      }
+    };
+  }
+
+  function toContext(context) {
+    return {
+      clock: frameClock(context),
+      locale: context.locale,
+      timeZone: context.timeZone,
+      hourCycle: context.hourCycle,
+      theme: context.theme,
+      motion: { reduced: context.reducedMotion },
+      mode: context.mode
+    };
+  }
+
+  function toResources(snapshot) {
+    var documents = snapshot.documents || {};
+    var grants = snapshot.media || [];
+    function has(map, key) {
+      return Object.prototype.hasOwnProperty.call(map, key);
+    }
+    function mediaUri(assetId, variantId) {
+      for (var i = 0; i < grants.length; i++) {
+        if (grants[i].assetId === assetId && grants[i].variantId === variantId) {
+          return grants[i].uri;
+        }
+      }
+      return null;
+    }
+    return {
+      dataDocument: function (id) { return has(documents, id) ? documents[id] : null; },
+      dataset: function (id, datasetId) {
+        var document = has(documents, id) ? documents[id] : null;
+        if (!document || !document.datasets) return null;
+        return has(document.datasets, datasetId) ? document.datasets[datasetId] : null;
+      },
+      media: mediaUri,
+      mediaVariant: function (assetId) {
+        var found = null;
+        for (var i = 0; i < grants.length; i++) {
+          if (grants[i].assetId !== assetId) continue;
+          if (found !== null) return null;
+          found = grants[i].uri;
+        }
+        return found;
+      }
+    };
+  }
+
+  function applyInputs(component, version) {
+    var parsed;
+    try {
+      parsed = definition.parseConfig
+        ? definition.parseConfig(component.config, version)
+        : { ok: true, config: component.config };
+    } catch (err) {
+      parsed = { ok: false };
+    }
+    if (!parsed || parsed.ok !== true) {
+      fail("widget_config_invalid");
+      return null;
+    }
+    var resolution = null;
+    try {
+      resolution = definition.resolveData
+        ? definition.resolveData(parsed.config, resources)
+        : { state: "ready", data: null };
+    } catch (err) {
+      resolution = { state: "error", code: "widget_resolve_failed" };
+    }
+    if (!resolution || resolution.state === "error") {
+      fail(resolution && resolution.code ? resolution.code : "widget_error");
+      return null;
+    }
+    element.context = frameContext;
+    element.config = parsed.config;
+    element.data = resolution.state === "ready" ? resolution.data : null;
+    element.empty = resolution.state === "empty" ? resolution.reason : null;
+    return resolution.state;
+  }
+
+  function boot(snapshot) {
+    var candidate = window[DEFINITION_GLOBAL];
+    if (!candidate || typeof candidate !== "object") { fail("frame_error"); return; }
+    if (typeof candidate.type !== "string" || typeof candidate.version !== "number") {
+      fail("frame_error");
+      return;
+    }
+    if (candidate.type !== snapshot.component.type || candidate.version !== snapshot.component.version) {
+      fail("frame_error");
+      return;
+    }
+    if (!validTagName(candidate.tagName) || typeof candidate.element !== "function") {
+      fail("frame_error");
+      return;
+    }
+    definition = candidate;
+    try {
+      window.customElements.define(definition.tagName, definition.element);
+    } catch (err) {
+      fail("frame_error");
+      return;
+    }
+    resources = toResources(snapshot);
+    frameContext = toContext(snapshot.context);
+    element = document.createElement(definition.tagName);
+    element.addEventListener(READY_EVENT, function (event) {
+      if (eventRevision(event) === revision) post({ state: "ready" });
+    });
+    element.addEventListener(EMPTY_EVENT, function (event) {
+      if (eventRevision(event) !== revision) return;
+      post({ state: "empty", reason: event.detail && event.detail.reason });
+    });
+    element.addEventListener(ERROR_EVENT, function (event) {
+      if (eventRevision(event) !== revision) return;
+      post({ state: "error", code: event.detail && event.detail.code });
+    });
+    assignRevision(revision);
+    if (!applyInputs(snapshot.component, snapshot.component.version)) return;
+    document.body.appendChild(element);
+  }
+
+  function onPortMessage(event) {
+    var message = event.data;
+    if (!message || message.protocol !== PROTOCOL) return;
+    if (message.nonce !== nonce) return;
+    if (disposed) return;
+    if (message.kind === "update") {
+      if (!validRevision(message.revision)) return;
+      try {
+        assignRevision(message.revision);
+        resources = toResources(message.snapshot);
+        frameContext = toContext(message.snapshot.context);
+        var outcome = applyInputs(message.snapshot.component, message.snapshot.component.version);
+        // The element reports its own boot; on update the frame also
+        // reports the resolution outcome, tagged with the new revision.
+        // A slow element's event for the previous input carries the old
+        // revision and is dropped above.
+        if (outcome === "ready") {
+          post({ state: "ready" });
+        } else if (outcome === "empty") {
+          post({ state: "empty", reason: element.empty });
+        }
+      } catch (err) {
+        fail("frame_error");
+      }
+    } else if (message.kind === "dispose") {
+      disposed = true;
+      if (element && element.parentNode) element.parentNode.removeChild(element);
+      element = null;
+    }
+  }
+
+  // The window bus carries exactly one message per document: the init
+  // that transfers the port. Everything after it travels the port.
+  window.addEventListener("message", function (event) {
+    var message = event.data;
+    if (!message || message.protocol !== PROTOCOL) return;
+    if (message.kind !== "init") return;
+    if (nonce !== null) return;
+    if (typeof message.nonce !== "string" || message.nonce === "") return;
+    if (!validRevision(message.revision)) return;
+    var framePort = event.ports && event.ports[0];
+    if (!framePort) return;
+    nonce = message.nonce;
+    revision = message.revision;
+    port = framePort;
+    port.onmessage = onPortMessage;
+    try {
+      boot(message.snapshot);
+    } catch (err) {
+      fail("frame_error");
+    }
+  });
+  window.parent.postMessage({ protocol: PROTOCOL, kind: "frame-hello", helloToken: HELLO_TOKEN }, "*");
+})();</script><script>/* Conformance fixture: a hostile external Widget (classic script,
+ * deterministic). Every probe is wrapped; the rendered line records what
+ * the sandbox allowed, for screenshots. The exfil fetch targets a
+ * server-controlled canary URL from the Widget config: a contained frame
+ * never reaches it, so the test server asserts zero hits. The lifecycle
+ * always completes: ready under containment proves isolation did not
+ * break execution. Identity: acme.evil/probe v1. */
+(function () {
+  "use strict";
+
+  var READY_EVENT = "tilecast-widget-ready";
+  var REVISION_KEY = "tilecast.widget.inputRevision";
+
+  function WidgetElement() {
+    return Reflect.construct(HTMLElement, [], WidgetElement);
+  }
+  Object.setPrototypeOf(WidgetElement.prototype, HTMLElement.prototype);
+  Object.setPrototypeOf(WidgetElement, HTMLElement);
+
+  WidgetElement.prototype.connectedCallback = function () {
+    var verdicts = [];
+    function probe(name, fn) {
+      try {
+        var value = fn();
+        verdicts.push(name + ":" + (value ? "allowed" : "empty"));
+      } catch (err) {
+        verdicts.push(name + ":denied");
+      }
+    }
+    // Parent DOM access must throw (opaque origin, no same-origin).
+    probe("parent", function () {
+      return window.parent.document === document;
+    });
+    // Top navigation must not escape the frame.
+    probe("topread", function () {
+      return window.top.location.href.length > 0;
+    });
+    // Opaque origins have no storage.
+    probe("cookie", function () {
+      document.cookie = "x=1";
+      return document.cookie.indexOf("x=1") >= 0;
+    });
+    probe("storage", function () {
+      window.localStorage.setItem("x", "1");
+      return window.localStorage.getItem("x") === "1";
+    });
+    // Credential-bearing globals must be absent.
+    probe("device", function () {
+      return typeof window.__tilecastDeviceCredential !== "undefined";
+    });
+    var self = this;
+    var line = document.createElement("div");
+    line.id = "hostile-output";
+    function finish(extra) {
+      line.textContent = verdicts.join(" ") + " " + extra;
+      self.appendChild(line);
+      var revision = self[Symbol.for(REVISION_KEY)];
+      self.dispatchEvent(
+        new CustomEvent(READY_EVENT, { bubbles: true, detail: { revision: revision } }),
+      );
+    }
+    var target = this.data && this.data.exfil ? this.data.exfil : null;
+    if (!target) {
+      finish("fetch:skipped");
+      return;
+    }
+    try {
+      fetch(target, { method: "GET", mode: "no-cors" }).then(
+        function () {
+          finish("fetch:allowed");
+        },
+        function () {
+          finish("fetch:blocked");
+        },
+      );
+    } catch (err) {
+      finish("fetch:blocked");
+    }
+  };
+
+  globalThis.__tilecastWidgetDefinition = {
+    type: "acme.evil.probe",
+    version: 1,
+    tagName: "acme-evil-probe",
+    parseConfig: function (raw) {
+      if (!raw || typeof raw.exfil !== "string" || raw.exfil === "") {
+        return { ok: false, problem: "exfil" };
+      }
+      return { ok: true, config: { exfil: raw.exfil } };
+    },
+    resolveData: function (config) {
+      return { state: "ready", data: { exfil: config.exfil } };
+    },
+    element: WidgetElement,
+  };
+})();
+</script></body></html>
