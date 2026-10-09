@@ -371,8 +371,7 @@ fn widget_media_table(
         if !grant_live(registry, session, token.as_str(), ReadExpect::Media, now_ms) {
             return Err(RendererPortError::InvalidActivation);
         }
-        let uri =
-            SafeText::new(crate::media_http::media_url(port, token.as_str())).map_err(invalid)?;
+        let uri = SafeText::new(crate::media_http::media_url(port, token.as_str())).map_err(invalid)?;
         table.push(MediaAlias { asset_id: alias.asset_id, variant_id: alias.variant_id, uri });
     }
     Ok(Some(table))
@@ -918,18 +917,9 @@ mod tests {
     fn granted_alias(session: edge_protocol::ids::SessionId) -> (MediaRegistry, MediaAlias, String) {
         use edge_protocol::ipc::presentation::ContentRef;
         let digest = Sha256Digest::of(b"frame media");
-        let content = ContentRef {
-            sha256: digest,
-            size_bytes: 11,
-            mime_type: SafeText::new("image/png").unwrap(),
-        };
+        let content = ContentRef { sha256: digest, size_bytes: 11, mime_type: SafeText::new("image/png").unwrap() };
         let mut registry = MediaRegistry::new();
-        registry.bind_renderer(crate::media::RendererInstance {
-            session,
-            uid: 0,
-            pid: 0,
-            start_ticks: 0,
-        });
+        registry.bind_renderer(crate::media::RendererInstance { session, uid: 0, pid: 0, start_ticks: 0 });
         let token = registry
             .prepare(session, 7, 1_700_000_000_000, &[content], &HashMap::new())
             .unwrap()
@@ -949,9 +939,7 @@ mod tests {
         let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
         let (registry, alias, token) = granted_alias(session);
         let table =
-            widget_media_table(&registry, session, &[alias.clone()], Some(8471), 1_700_000_000_000)
-                .unwrap()
-                .unwrap();
+            widget_media_table(&registry, session, &[alias.clone()], Some(8471), 1_700_000_000_000).unwrap().unwrap();
         assert_eq!(table.len(), 1);
         assert_eq!(table[0].asset_id, alias.asset_id);
         assert_eq!(table[0].variant_id, alias.variant_id);
@@ -962,14 +950,8 @@ mod tests {
     fn widget_media_table_requires_port_when_aliases_are_present() {
         let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
         let (registry, alias, _) = granted_alias(session);
-        assert!(
-            widget_media_table(&registry, session, &[], Some(8471), 1_700_000_000_000)
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            widget_media_table(&registry, session, &[alias], None, 1_700_000_000_000).is_err()
-        );
+        assert!(widget_media_table(&registry, session, &[], Some(8471), 1_700_000_000_000).unwrap().is_none());
+        assert!(widget_media_table(&registry, session, &[alias], None, 1_700_000_000_000).is_err());
     }
 
     #[test]
@@ -979,23 +961,13 @@ mod tests {
         // An alias URI that is not a minted capability means a confused
         // upstream; it must fail the activation, not mint a loopback URL.
         let unresolved = MediaAlias {
-            uri: SafeText::new(format!(
-                "tcmedia://variant/{}/{}",
-                uuid::Uuid::nil(),
-                uuid::Uuid::nil()
-            ))
-            .unwrap(),
+            uri: SafeText::new(format!("tcmedia://variant/{}/{}", uuid::Uuid::nil(), uuid::Uuid::nil())).unwrap(),
             ..alias.clone()
         };
-        assert!(
-            widget_media_table(&registry, session, &[unresolved], Some(8471), 1_700_000_000_000)
-                .is_err()
-        );
+        assert!(widget_media_table(&registry, session, &[unresolved], Some(8471), 1_700_000_000_000).is_err());
         // A generation that retired between grant and fill hands frames a
         // dead URL unless the fill fails loudly.
         registry.retire(7);
-        assert!(
-            widget_media_table(&registry, session, &[alias], Some(8471), 1_700_000_000_000).is_err()
-        );
+        assert!(widget_media_table(&registry, session, &[alias], Some(8471), 1_700_000_000_000).is_err());
     }
 }
