@@ -355,8 +355,10 @@ fn widget_media_table(
         return Ok(None);
     }
     let Some(port) = port else {
+        // An unbound endpoint is an activation failure, not permission to
+        // leak an unusable tcmedia URI into an opaque sandbox frame.
         tracing::warn!(component = "media", event = "loopback_unbound_frames_have_no_media");
-        return Ok(None);
+        return Err(RendererPortError::ResourceUnavailable);
     };
     let mut table = Vec::with_capacity(aliases.len());
     for alias in aliases {
@@ -957,7 +959,7 @@ mod tests {
     }
 
     #[test]
-    fn widget_media_table_omits_without_aliases_or_port() {
+    fn widget_media_table_requires_port_when_aliases_are_present() {
         let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
         let (registry, alias, _) = granted_alias(session);
         assert!(
@@ -966,7 +968,7 @@ mod tests {
                 .is_none()
         );
         assert!(
-            widget_media_table(&registry, session, &[alias], None, 1_700_000_000_000).unwrap().is_none()
+            widget_media_table(&registry, session, &[alias], None, 1_700_000_000_000).is_err()
         );
     }
 
