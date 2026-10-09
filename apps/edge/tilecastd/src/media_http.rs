@@ -191,7 +191,11 @@ impl LoopbackMedia {
 }
 
 async fn handle(state: Arc<State>, request: Request<Incoming>) -> Result<Response<Body>, hyper::Error> {
-    Ok(answer(&state, &request).await)
+    let response = answer(&state, &request).await;
+    // Record only the status, never the request URI: it contains a bearer
+    // token and must not escape into systemd or diagnostic logs.
+    tracing::info!(component = "media", event = "loopback_response", status = response.status().as_u16());
+    Ok(response)
 }
 
 fn bare(status: StatusCode) -> Response<Body> {
