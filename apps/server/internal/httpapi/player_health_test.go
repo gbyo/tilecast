@@ -254,3 +254,37 @@ func TestDerivePlayerHealthPassesStreamBackedCountThrough(t *testing.T) {
 		t.Fatalf("streamBackedAssetCount=%v, want nil for legacy players", unreported.StreamBackedAssetCount)
 	}
 }
+
+func TestDerivePlayerHealthQuietStatesWithStoredFailure(t *testing.T) {
+	now := time.Now().UTC()
+	disabled := true
+	recovering := 2
+	for _, testCase := range []struct {
+		name, playbackState, rendererState string
+		playbackDisabled                   *bool
+		recoveryLevel                      *int
+		state, cause                       string
+	}{
+		{name: "sleep", playbackState: "sleep", state: playerHealthSleepingDisabled, cause: "display_sleep"},
+		{name: "disabled state", playbackState: "disabled", state: playerHealthSleepingDisabled, cause: "playback_disabled"},
+		{name: "disabled flag", playbackState: "playing", playbackDisabled: &disabled, state: playerHealthSleepingDisabled, cause: "playback_disabled"},
+		{name: "idle", playbackState: "idle", state: playerHealthHealthy},
+		{name: "playing", playbackState: "playing", state: playerHealthRendererDown, cause: "renderer_failure"},
+		{name: "active recovery during sleep", playbackState: "sleep", recoveryLevel: &recovering, state: playerHealthRecovering, cause: "recovery_in_progress"},
+		{name: "disconnected renderer during idle", playbackState: "idle", rendererState: "disconnected", state: playerHealthRendererDown, cause: "renderer_disconnected"},
+		{name: "starting renderer during sleep", playbackState: "sleep", rendererState: "starting", state: playerHealthWaitingEvidence, cause: "awaiting_playback_evidence"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			health := derivePlayerHealth(now, playerHealthInput{
+				Status: devices.StatusOnline, LastContactAt: &now,
+				PlaybackState: testCase.playbackState, PlaybackDisabled: testCase.playbackDisabled,
+				LastRendererFailure: "rejected", RecoveryLevel: testCase.recoveryLevel,
+				TelemetryObservedAt: &now, TelemetryRendererState: testCase.rendererState,
+				LastHealthyPlaybackAt: healthTime(now, time.Hour),
+			})
+			if health.State != testCase.state || health.Cause != testCase.cause {
+				t.Fatalf("state=%q cause=%q, want state=%q cause=%q", health.State, health.Cause, testCase.state, testCase.cause)
+			}
+		})
+	}
+}

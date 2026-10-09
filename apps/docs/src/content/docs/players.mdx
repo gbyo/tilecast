@@ -56,7 +56,7 @@ To retire a screen or change several at once, see [Screen archive](../screens/ar
 
 ## Which Player to use
 
-Choose the Android APK for Android TV, Google TV, or Fire TV, or use the current Linux AppImage on a 64-bit x86_64 computer with a graphical desktop session.
+Choose the Android APK for Android TV, Google TV, or Fire TV, or use the current Linux AppImage on a 64-bit x86_64 computer with a graphical desktop session. The native Windows Player is being prepared for preview on Windows 10/11 x64 and ARM64; it is not qualified for production use.
 
 Tilecast Edge is the new Linux Player. It replaces the Electron/AppImage Player with a Linux service and a WPE WebKit renderer. Its software is complete, but it is still being qualified on physical hardware, so it is not the production Linux install yet. See [Tilecast Edge](../edge/).
 
@@ -64,16 +64,16 @@ Tilecast Edge is the new Linux Player. It replaces the Electron/AppImage Player 
 | ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Android | Signed APK, `tilecast-player.apk` | For Android TV, Google TV, and Fire TV devices that allow APK installation.                                      |
 | Linux   | AppImage                          | Current stable path. The server-provided installer targets x86_64 Linux with a graphical X11 or Wayland session. |
-| Windows | Signed MSIX package               | Windows 10 and 11, x64 and ARM64. Physical qualification is still in progress.                                   |
+| Windows | Signed MSIX package               | Preview release pending. Windows 10 and 11, x64 and ARM64; physical qualification still in progress.             |
 | Edge    | Signed Linux release archive      | Preview. Use it only when a Tilecast release lists your hardware as supported.                                   |
 
-Find the Android APK on the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). The Linux installer downloads a signed, verified release cached on your Tilecast Server. See [Install the Linux Player](./install-linux/). Windows setup is in [Install Tilecast Player on Windows](./install-windows/).
+Find the Android APK on the [Tilecast releases page](https://github.com/gbyo/tilecast/releases). The Linux installer downloads a signed, verified release cached on your Tilecast Server. See [Install the Linux Player](./install-linux/). Windows requirements and preview availability are in [Install Tilecast Player on Windows](./install-windows/).
 
 ## Connect a display
 
 A Player can discover nearby servers or accept a manually entered address. Discovery is optional: the default Docker Compose setup disables mDNS, and multicast may not cross VLANs, guest networks, or access-point isolation. Enter the server address if it does not appear.
 
-Use HTTPS for a public hostname. Both Players accept HTTP for local addresses such as private IPv4, `localhost`, and `.local` names. Enter the server address and optional port, without an API path.
+Use HTTPS for a public hostname. Players accept HTTP for local addresses such as private IPv4, `localhost`, and `.local` names; restrict HTTP to trusted networks. Enter the server address and optional port, without an API path.
 
 An Owner or Administrator approves each new pairing request. Studio displays device details so you can compare the request with the display in front of you. For a step-by-step procedure, see [Pair a display](./pair-a-display/).
 
