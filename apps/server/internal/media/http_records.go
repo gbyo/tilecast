@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"strconv"
 	"strings"
@@ -223,8 +224,13 @@ func httpRecordsFromCSV(body []byte, spec contentdefs.FetchSpec, limit int) ([]m
 	rows := make([]map[string]string, 0, limit)
 	for len(rows) < limit {
 		record, readErr := reader.Read()
-		if readErr != nil {
+		if errors.Is(readErr, io.EOF) {
 			break
+		}
+		if readErr != nil {
+			// A partial prefix would publish as a complete refresh, so a malformed
+			// body fails the whole read.
+			return nil, errors.New("source response is not valid CSV")
 		}
 		row := make(map[string]string, len(spec.Mapping))
 		for key, column := range spec.Mapping {
