@@ -26,7 +26,7 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 </Steps>
 
-For Windows and Edge, upload each architecture separately. GitHub assets carry architecture-specific names such as `tilecast-windows-update-x86_64.json`; for a **direct Windows upload**, select that manifest and its matching signature using the filenames shown in the table.
+For Windows and Edge, upload each architecture separately. Published Windows GitHub assets use architecture-specific names such as `tilecast-windows-update-x86_64.json`. For a **direct Windows upload**, save a local copy of the matching JSON and signature with the generic filenames in the table. Do not change their contents or mix architectures.
 
 GitHub releases show verification and cache status. If a release is verified but not cached, select **Download** to cache it. A release must be verified and cached before you can deploy it. The Windows preview is not available until a signed Windows release is published.
 
