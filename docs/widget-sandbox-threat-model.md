@@ -61,12 +61,25 @@ fails. Whole documents only: range requests are refused.
 
 ## Residual risks
 
-Pinning image, media, and font sources to the exact granted URIs
-through the iframe `csp` attribute is recorded future hardening; today
-the scheme-wide source list relies on the grant list as the boundary.
-A malicious Widget can still consume CPU and memory inside its frame
-and can render misleading content inside its own tile; it cannot
-exfiltrate data, reach credentials, touch other tiles, or navigate the
-top page. Real-engine qualification (WPE, WebView, WebView2,
-Chromium) is the gate for every advertised target: no target claims
-`widget.external-runtime@2` on unit tests alone.
+The current frame CSP allows `https:` and `http:` passive image,
+media, and font requests so that host-served media works in opaque-origin
+frames. This is **not an exfiltration barrier**: a malicious Widget could
+encode its declared configuration or prepared data into an attacker-owned
+image URL, even while `connect-src 'none'` blocks `fetch`. Opaque origin
+isolation still prevents access to host credentials, top-level DOM, and
+other Widgets, but it does not make granted Widget data impossible to
+exfiltrate. The existing hostile fixture's `fetch` canary only tests
+active network calls; passing it must not be interpreted as proving
+passive resource isolation.
+
+**Release blocker for untrusted external packages:** each supported host
+must constrain image, media, and font requests to specific host-authorized
+media endpoints (or an equivalently restrictive native request policy),
+and a real-engine test must prove that an attacker-specified image URL
+cannot receive a request. A response-level or per-frame CSP is suitable
+only when verified for that engine, including WPE opaque-origin frames.
+Until this is enforced and tested, `widget.external-runtime@2` is not
+security-qualified for general third-party execution, regardless of
+unit-test or headless fixture success. A malicious Widget may also
+consume CPU/memory or render misleading content inside its own tile.
+Physical DRM/KMS, WebView and WebView2 qualification remain separate gates.
