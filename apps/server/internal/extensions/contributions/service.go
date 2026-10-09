@@ -259,9 +259,9 @@ func (s *Service) decode(contentDir string, manifest packagemanifest.Manifest, d
 	bundles := map[payloadKey]contentdefs.WidgetPayload{}
 	for _, contribution := range manifest.Contributions {
 		if contribution.Type == packagemanifest.ContributionPlugin {
-			// Plugin behavior waits for the external plugin
-			// runtime. The contribution row stays inert; nothing
-			// executes it.
+			// Package plugin contribution rows do not load trusted Plugin API
+			// code. External executable behavior uses the package runtime
+			// capabilities and stays outside this content catalog.
 			continue
 		}
 		file, ok := packages.NestedManifestFile(contribution.Type)

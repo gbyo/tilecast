@@ -2,8 +2,8 @@
 
 An extension package is a distribution container, not a fourth extension
 API. It carries distribution, version, provenance, and contribution
-metadata for Widgets, declarative Data Sources, and (once the external
-runtime exists) plugin behavior. The contribution contracts themselves
+metadata for Widgets, declarative Data Sources, and isolated external Server
+behavior. Bundled Plugin API v1 remains a separate trusted release boundary. The contribution contracts themselves
 (`tilecast.widget.json`, `tilecast.datasource.json`,
 `tilecast.plugin.json`) do not change. See
 [Content extension model](content-extension-model.md) for the architecture.
@@ -92,10 +92,10 @@ partial result. `WriteLayout` likewise propagates every filesystem write
 failure instead of returning a usable artifact digest. Limits are 1 MiB
 for layout documents and the manifest, 256 MiB per content blob.
 
-At this stage, content blobs are integrity-checked opaque bytes after their
-Tilecast tar+gzip media type is verified. Safe gzip/tar parsing and
-extraction arrive with the external-runtime delivery stage; Stage 2 does
-not extract or execute package content.
+Package content is retained only after the package pipeline validates the
+container, manifest, provenance, and contribution paths. Runtime modules and
+Widget bundles are then handled by their own bounded execution or delivery
+contracts; package activation never turns an arbitrary archive path into code.
 
 Remote registry transport resolves tags to digests, pulls the layout,
 and feeds this same verifier, so local layouts, offline imports, and
@@ -387,11 +387,11 @@ valid.
 
 ## Boundaries
 
-This stage builds the package format, validation, installed state, OCI
+The current package system includes format validation, installed state, OCI
 layout verification, registry fetching, Sigstore provenance verification,
 activation with rollback, effective external content contributions,
-removal/update/rollback blockers, backup metadata, package HTTP
-endpoints, custom repository bindings, Studio package management,
-player bundle delivery, the Widget sandbox frame, and the external
-Wasm runtime with background jobs and the Studio interface. It does not
-add private registry authentication or a package-bytes collector.
+removal/update/rollback blockers, backup metadata, package HTTP endpoints,
+custom repository bindings, Studio package management, Player bundle delivery,
+the Widget sandbox preview, and the external Wasm runtime with background jobs
+and the Studio interface. Private registry authentication and a package-bytes
+collector are not part of the current contract.

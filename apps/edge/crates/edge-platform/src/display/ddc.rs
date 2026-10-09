@@ -51,7 +51,7 @@ impl I2cBus for I2cDevice {
 /// DDC/CI timing (MCCS 2.2a): wait after a Get VCP request before reading
 /// the reply, and after any write before the next request. The defaults are
 /// ddcutil 3.0's (`src/base/parms.h`), the reference for monitor behavior
-/// (docs/tilecast-edge-m9-reuse-review.md §3.2).
+/// (docs/records/edge/m9-reuse-review.md §3.2).
 #[derive(Debug, Clone)]
 pub struct Timing {
     pub reply_delay: Duration,

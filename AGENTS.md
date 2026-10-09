@@ -68,7 +68,7 @@ Use the actual directory and its owning documentation as the source of truth; th
 
 ## Player architecture and platform ownership
 
-Read [`docs/player-core.md`](docs/player-core.md) and [`docs/player-core-readiness.md`](docs/player-core-readiness.md) before shared native Player changes. The extraction contract defines ownership; do not assume that a partially qualified stage or platform feature is release-ready.
+Read [`docs/player-core.md`](docs/player-core.md) before shared native Player changes. Use [`docs/records/player-core-readiness.md`](docs/records/player-core-readiness.md) only for historical extraction evidence; current platform qualification comes from the platform contract and current test evidence.
 
 - **Presentation Model** owns pure shared presentation decisions. **Player Runtime** owns presentation rendering and execution, across hosts.
 - **Player Core** (`crates/player-core`) owns portable native policy: pairing, Server communication, commands, capture coordination, manifest/offline activation, telemetry, Activity, recovery, and other shared behavior as defined by the extraction contract. Pure types, state, CAS, and Server client behavior live in their respective shared crates.

@@ -710,7 +710,7 @@ func (c *Catalog) validate() error {
 				return fmt.Errorf("Widget definition %q declares component %q outside package namespace %q", definition.ID, definition.Component.Type, source.PackageID)
 			}
 			// Several provider generations may project into one component
-			// (docs/widgets-v2-authoring-and-first-wave.md §9.2): a repeated
+			// (docs/widgets-v2.md §15): a repeated
 			// component identity is a compatibility alias only when it names
 			// the same version, element and entrypoint. Anything else is a
 			// collision between two different components.

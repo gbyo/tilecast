@@ -27,7 +27,7 @@ build when its CSP drifts from
 ## On other targets
 
 Electron, WPE, and the Android shared-runtime WebView cannot run this
-script as-is. `docs/widget-sandbox-spike.md` records the desktop-Chromium
+script as-is. `docs/records/widget-sandbox-spike.md` records the desktop-Chromium
 measurements and the per-target procedure: generate `spike/dist/`
 (`node spike/run.mjs --keep`), serve it and `spike/dist/frames/` from
 two origins, open `harness.html?frames=<port>`, read the `#results`

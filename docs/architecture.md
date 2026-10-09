@@ -12,7 +12,7 @@ Tilecast is a self-hosted modular monolith with one organization per installatio
 - `internal/presentnet` owns Presentation Network validation, AES-256-GCM credential envelopes, organization network definitions, Linux screen assignments, and player provisioning material. Its only plaintext-secret path is the authenticated player endpoint; Studio, audit, command, and configuration contracts use redacted metadata.
 - `internal/media` owns resumable upload state, generated storage keys, local storage, trusted inspection, compatibility decisions, persistent jobs, and delivery metadata.
 - `internal/playlists` owns ordered playlists, direct assignments, per-screen manifest versions, manifest contracts, and summarized synchronization status.
-- `internal/plugins` owns the built-in registry, installation lifecycle, and legacy Emergency Alerts and Forms integration. Installation gates runtime projection and background work. Countdown Bar is a bundled plugin. Brand Bug and Noise Meter are retired: old installation rows and tables remain for compatibility, while the catalog distinguishes retired rows from unknown newer plugins. Neither retired feature is projected into new manifests or configured in Studio. Old `noiseMeter` heartbeats are accepted and ignored. Plugins reach the Linux renderer on a channel independent of presentation playback.
+- `internal/plugins` hosts the bundled Plugin API registry and installation lifecycle. Plugin-owned implementation stays below `plugins/<plugin>/`; installation gates its contributed routes, background work, definitions, and Player projection. Brand Bug and Noise Meter are retired compatibility rows. `internal/extensions` owns external package resolution, provenance, activation, contributions, sandbox frames, and the isolated WebAssembly package runtime.
 - `internal/web` serves immutable dashboard assets and the SPA fallback.
 - `packages/api-schema` owns the generated OpenAPI TypeScript contract. `apps/dashboard/src/api/transport.ts` owns the typed first-party JSON transport. Domain modules in `apps/dashboard/src/api/domains/` expose operations to Studio. Dynamic plugin operations use the plugin API boundary.
 - `apps/dashboard/src/data` owns domain query keys and `queryOptions()` factories. Screen queries preserve the existing cache keys during adoption.
@@ -24,7 +24,7 @@ Tilecast is a self-hosted modular monolith with one organization per installatio
 - Schedule mutation options own typed requests and cache invalidation. The editor owns confirmation, feedback, and navigation. Domain success handlers remain active after a UI observer disconnects.
 - `apps/dashboard/src/data/settings.ts` owns the organization settings document query. Settings, regional formatting, policy definitions, and Takeover defaults share this cache. A successful settings save updates the shared document. `apps/dashboard/src/data/account.ts` owns the separate account preferences query. Both queries cancel through the typed transport. Local drafts remain in the editor.
 
-- Presentation Network Wi-Fi is a sidecar to the Linux Player's Ethernet path. The unprivileged Electron process talks to the narrowly scoped root-owned `tilecast-networkd` helper over a Unix socket; the helper owns only Tilecast-named NetworkManager profiles and never changes the existing Ethernet profile.
+- Presentation Network Wi-Fi is a sidecar to a Linux Player's Ethernet path. The narrowly scoped root-owned `tilecast-networkd` helper owns only Tilecast-named NetworkManager profiles and never changes the existing Ethernet profile. Linux Legacy reaches it through the unprivileged Electron client; Edge uses its native typed client. Neither Player receives general NetworkManager or root access.
 - `packages/*-schema` own versioned cross-application contracts. Player manifest schemas and presentation capabilities are defined in `packages/manifest-schema`.
 
 ## Authentication model
@@ -138,7 +138,20 @@ Catalog Apps extend that boundary without collapsing it. An App recipe atomicall
 
 ## Form Data Sources
 
-Form Data Sources are the `form` provider (adapter `form_records`), owned by `internal/forms`. A Form's `data_sources` row is the parent resource; `internal/forms` adds dedicated tables for immutable published revisions, submission records, record history and comments, saved views, per-form access grants, and image attachments (migration `00044`). It depends on `internal/media` for the parent row shape, attachment ingestion, and the typed-dataset types, and on the shared `AssetInvalidator` implemented by `internal/playlists`; `media` never depends on `forms`. Unlike polled or Studio-edited Sources, a Form's refresh is managed internally: on every mutation the service re-projects approved, output-eligible records into `data_source_refresh_states.cached_payload` as one typed dataset per saved view, then invalidates affected manifests through the existing `DataSourceChanged` path — so existing data-driven Widgets (Ticker, List, Cards, Table, Spotlight) consume form views with no announcement-specific Player code. A lightweight projection worker re-projects at each time-window boundary and auto-expires overdue records. Published revisions are immutable, so editing a live form never corrupts older submissions. Per-form grants (`manage`, `submit`, `view_own`, `view_all`, `review`, `approve`) are the first per-resource ACL in the system; global roles are unchanged and the server — not Studio — enforces every grant, with Owners and the form creator always able to manage. Unapproved records and their attachments never enter a manifest, and attachment assets are reclassified so they cannot be selected as public Media.
+Forms is a bundled plugin. Its Server implementation lives in
+`plugins/forms/server`, while `internal/plugins` supplies the host services and
+installation gate. A Form's `data_sources` row remains the parent content
+resource so ordinary Widget and Layout projection can consume approved views.
+
+The plugin owns immutable published revisions, submissions, record history and
+comments, saved views, per-form grants, and image attachments. It projects
+approved output into `data_source_refresh_states.cached_payload` and invalidates
+affected manifests through the normal Data Source path. The Player therefore
+needs no Forms-specific renderer or protocol.
+
+Published revisions remain immutable. The Server enforces per-form grants.
+Unapproved records and their attachments never enter a manifest, and form
+attachments are not selectable as ordinary public Media.
 
 Compatibility is evaluated per assigned presentation across direct assignments, groups, schedules, Layout and playlist dependencies, and takeovers. A future catalog capability does not affect existing content unless an assigned presentation requires it. The presentation-catalog fingerprint is generated from embedded definition files, definition versions and schemas, templates, and the compiler version; catalog changes increment manifest versions and ETags.
 

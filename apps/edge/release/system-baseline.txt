@@ -1,5 +1,5 @@
 # The Debian packages a Tilecast Edge release expects from the operating system
-# (docs/tilecast-edge-sandbox-review.md, "Runtime dependency closure").
+# (docs/records/edge/0.2.1-sandbox-review.md, "Runtime dependency closure").
 #
 # A shared library that a binary in the release loads is taken from the
 # operating system when its package is listed here, or is a dependency of a

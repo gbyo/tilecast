@@ -20,7 +20,7 @@ The rule for M9: Tilecast writes only the adapter between a system facility and 
 | Device access        | udev rules, a sysusers group, `modules-load.d`, systemd `DevicePolicy=closed`.                                                                                                       | Packaging files                                                     |
 | M10 updates          | Prototype `systemd-sysupdate` before any custom updater code.                                                                                                                        | None in M9                                                          |
 
-> **Later outcome (M10).** The M10 row is the M9 recommendation, and §8 repeats it. M10 prototyped `systemd-sysupdate`, did not adopt it, and built on the M7 release installer instead. The evidence and the decision are in [`tilecast-edge-m10-sysupdate-evaluation.md`](tilecast-edge-m10-sysupdate-evaluation.md).
+> **Later outcome (M10).** The M10 row is the M9 recommendation, and §8 repeats it. M10 prototyped `systemd-sysupdate`, did not adopt it, and built on the M7 release installer instead. The evidence and the decision are in [`tilecast-edge-m10-sysupdate-evaluation.md`](m10-sysupdate-evaluation.md).
 
 ## 2. HDMI-CEC
 

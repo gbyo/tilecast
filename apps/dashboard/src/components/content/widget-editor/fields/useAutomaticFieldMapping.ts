@@ -1,6 +1,5 @@
 /**
- * Automatic semantic mapping (docs/widgets-v2-authoring-and-first-wave.md
- * §4.1). When the author connects a different Data Source, every slot that
+ * Automatic semantic mapping (docs/widget-authoring.md, Semantic field roles). When the author connects a different Data Source, every slot that
  * reads it is filled from its declared role, legacy keys, or compatible
  * types. A choice the new source still has stands; a key it lacks is stale
  * and remaps (or clears). Opening a saved Widget maps nothing, so looking

@@ -801,8 +801,8 @@ func (s *Service) availableDataSourceFields(provider string, raw json.RawMessage
 	}
 	var config StructuredSourceConfig
 	_ = json.Unmarshal(raw, &config)
-	// Feed records share one normalized contract (docs/widgets-v2-authoring-and-first-wave.md
-	// §5.8): each fixed feed field declares its semantic role so News, Ticker,
+	// Feed records share one normalized semantic-role contract
+	// (docs/widget-authoring.md): each fixed feed field declares its role so News, Ticker,
 	// and other feed-driven Widgets map by role instead of by column name.
 	feedRoles := map[string]string{}
 	if provider == "rss" || provider == "atom" || provider == "feed" {

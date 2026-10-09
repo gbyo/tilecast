@@ -75,7 +75,7 @@ IDs, and timezone observations and constructs one shared PlayerCore instance.
   `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS` in a unit or drop-in, and do not
   add `ProtectKernelTunables=`, `ProtectKernelLogs=`, `RestrictSUIDSGID=`,
   `RestrictNamespaces=` or `SystemCallFilter=` to a unit that starts WebKit:
-  each one stops bubblewrap (`docs/tilecast-edge-sandbox-review.md` §4).
+  each one stops bubblewrap (`docs/records/edge/0.2.1-sandbox-review.md` §4).
 - Electron and WPE host the shared Tilecast Player Runtime
   (`packages/player-runtime`). Presentation behavior belongs in the runtime,
   never in C. The WPE host stays boring: WPEPlatform and web view lifecycle,
@@ -98,13 +98,13 @@ IDs, and timezone observations and constructs one shared PlayerCore instance.
   it starts shell processes), GStreamer `level` for audio levels,
   libwireplumber for the audio graph, the existing `tilecast-networkd` helper
   for NetworkManager, systemd-logind for idle inhibition, udev and systemd
-  for device access. See `docs/tilecast-edge-m9-reuse-review.md`.
+  for device access. See `docs/records/edge/m9-reuse-review.md`.
 - Updates are Player releases of the `edge` family (M10). `tilecastd`
   downloads and verifies them; only the root helper `tilecast-edge-update`
   installs them, through the one `edge-release` installer that the migrator
   also uses. Do not add a second installer, `systemd-sysupdate`, a package
   manager or a subprocess (`tar`, `zstd`, `cp`) to the update path. The
-  evaluation is `docs/tilecast-edge-m10-sysupdate-evaluation.md`.
+  evaluation is `docs/records/edge/m10-sysupdate-evaluation.md`.
 - The update helper has five fixed operations and takes no path, unit name
   or command from a request. It never holds the device credential and has
   no network. Add a capability or relax its sandbox only with an update to
@@ -147,7 +147,7 @@ The ones most often relevant here:
 11. The helper that runs an update is the previous release's. Nothing a release
     adds to the helper runs during its own update or its rollback. A change
     that must act on the previous release's files runs after confirmation
-    (`docs/tilecast-edge-sandbox-review.md` §7).
+    (`docs/records/edge/0.2.1-sandbox-review.md` §7).
 
 ## Identity invariants
 

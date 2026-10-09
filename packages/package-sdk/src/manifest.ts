@@ -3,8 +3,8 @@
  *
  * A package is a distribution container, not a fourth extension API: it
  * carries distribution, version, provenance, and contribution metadata for
- * Widgets, declarative Data Sources, and (once the external runtime exists)
- * plugin behavior. The contribution contracts themselves
+ * Widgets, declarative Data Sources, and isolated external runtime behavior.
+ * The contribution contracts themselves
  * (`tilecast.widget.json`, `tilecast.datasource.json`,
  * `tilecast.plugin.json`) are unchanged.
  *

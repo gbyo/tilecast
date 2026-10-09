@@ -10,7 +10,7 @@ import (
 //
 // The source of an extension is orthogonal to what the extension is: a
 // Widget is a Widget whether it ships in Tilecast, is owned by a bundled
-// plugin, or comes from a future external package. Source metadata is used
+// plugin, or comes from an installed external package. Source metadata is used
 // for availability, collision diagnostics, Studio provenance, support
 // bundles, audit, updates, backup/restore, and package trust. It never
 // changes the Widget contract.

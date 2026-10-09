@@ -285,4 +285,4 @@ The scheduled Go race workflow runs the server integration contract with `-race`
 node scripts/ci/timing.mjs 36385719535 36385719698
 ```
 
-The [CI timing record](ci-timings.md) contains representative runs and selection comparisons.
+Use the timing script against current workflow runs when evaluating CI cost or cache behavior. Dated timing snapshots are not maintained as an engineering contract.

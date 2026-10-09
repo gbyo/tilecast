@@ -11,7 +11,8 @@ const good = {
   architecture: "Core stores verified active manifests",
   core: "Android production uses native Core; Browser Player is experimental",
   plugins: "Stages 8 and 9 are historical, shipped under other contracts",
-  edge: "Historical milestone snapshot; see per-device evidence",
+  edge:
+    "Current readiness sources; historical sequence is in records/edge/edge-1-milestones.md",
   websites: "Website content plays inside a Layout zone",
   previews: "Linux Edge and Linux Legacy have separate capture paths",
 };

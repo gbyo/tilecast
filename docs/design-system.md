@@ -43,10 +43,11 @@ Use these labels when discussing the design system:
 | **Implemented**   | Available from shared tokens, React primitives, or the Player theme and safe to use now.                                      |
 | **Normative**     | Required behavior for new or changed UI, even if enforcement is partly manual.                                                |
 | **Page-specific** | Present in the product but not yet a shared pattern. Reuse its behavior cautiously. do not describe it as a system primitive. |
-| **Planned**       | Proposed in the [Signal pattern roadmap](design-system-roadmap.md). It is not available until its status becomes Implemented. |
+| **Proposed**      | Discussed in an issue or PR but not yet available as a shared pattern.                                                     |
 
-The roadmap is planning material. This document remains authoritative for
-implemented and normative behavior.
+This document and the current shared components are authoritative for
+implemented and normative behavior. A proposal becomes a shared pattern only
+after its implementation and tests land here.
 
 ## Principles
 
@@ -779,7 +780,7 @@ step.
 
 - [ ] Uses semantic or component tokens instead of raw values.
 - [ ] Uses shared React primitives where an implemented primitive exists.
-- [ ] Does not describe a Planned or Page-specific pattern as shared.
+- [ ] Does not describe a Proposed or Page-specific pattern as shared.
 - [ ] Shows loading, empty, error, disabled, and success states that can actually
       occur.
 - [ ] Keeps the primary action clear and destructive consequences explicit.

@@ -1,9 +1,9 @@
 # Native Player Core
 
-**Status:** Accepted extraction contract. Stages 1 through 9 and stage 11 are
-implemented and qualified. Stage 10 is implemented but has selected CI failures.
-Stage 12 hardening and the readiness review are in progress.
-Edge keeps its current behavior throughout the extraction.
+**Status:** current native Player ownership contract. Edge, Android, and
+Windows compose the shared native crates today. Historical extraction and
+qualification evidence is retained in
+[`records/player-core-readiness.md`](records/player-core-readiness.md).
 
 This document defines ownership for native Player work. It supplements
 [`tilecast-edge.md`](tilecast-edge.md), which defines Linux process, privilege,
@@ -127,13 +127,12 @@ storage ports; the HTTP client never calls them. Edge implements atomic,
 owner-only file writes. Authenticated downloads require a validated
 `PlayerDownloadPath`. Core supplies the CAS origin adapter.
 
-Stage 9 passed all selected qualification at `f19a6b88`. Core owns pairing eligibility, persistent Player
-identity creation, session creation, enrollment retry and storage order,
-session renewal, reset suppression, and polling cadence.
+Core owns pairing eligibility, persistent Player identity creation, session
+creation, enrollment retry and storage order, session renewal, reset
+suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
-The shared macOS and Linux gates and all selected Edge jobs passed.
-Core now owns binding-scoped offline manifest reads, stale pending retirement,
+Core owns binding-scoped offline manifest reads, stale pending retirement,
 active-hours and disabled gates, pending grace and trial deadlines, evidence
 requirements for promotion, and verified pin lifetime. Core tests check that
 acceptance alone cannot promote a manifest, a changed target cannot become
@@ -227,8 +226,6 @@ The Edge port owns its renderer endpoint and caches grants for that session.
 It prepares and activates grants and drains prior generations with its own clock.
 The activation coordinator does not assemble media capabilities.
 Core checks packaged and connected profiles before activation.
-Stage 8 requires green selected qualification jobs for the current commit.
-PR #1224 records qualification for the renderer extraction.
 
 Keep command delivery in Core: fetch, validate, persist idempotency, acknowledge,
 commit executing, invoke a typed handler, persist the result, report, and retry
@@ -413,12 +410,12 @@ It does not replace Runtime or Presentation Model, rewrite shipped migrations,
 create a universal updater or IPC framework, change Player API behavior,
 relax privilege boundaries, or decide macOS process topology.
 
-At completion, a new native host needs platform composition, a renderer host,
-capability providers, lifecycle, distribution, and secure media delivery.
-It must not need another implementation of pairing, reconciliation, manifests,
-offline selection, idempotency, Activity, recovery, or content verification.
-Record remaining macOS work in a readiness review. Do not create the app.
-The current review is [`player-core-readiness.md`](player-core-readiness.md).
+A new native host needs platform composition, a renderer host, capability
+providers, lifecycle, distribution, and secure media delivery. It must not need
+another implementation of pairing, reconciliation, manifests, offline
+selection, idempotency, Activity, recovery, or content verification. A new
+platform proposal records its own platform gaps rather than reopening the Core
+extraction ledger.
 
 ## Current characterization
 

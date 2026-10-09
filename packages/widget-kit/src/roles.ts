@@ -1,6 +1,6 @@
 /**
  * Semantic field roles for domain-aware Widgets
- * (docs/widgets-v2-authoring-and-first-wave.md §4).
+ * (docs/widget-authoring.md, Semantic field roles).
  *
  * A generic records source may name its columns anything (`headline`,
  * `starts`, `cost`), while a domain Widget expects concepts (a title, a
@@ -18,7 +18,7 @@
  * There is never a provider-ID switch inside a Widget editor.
  */
 
-/** Menu Board concepts (§4 menu roles). */
+/** Menu Board concepts from the current authoring contract. */
 export const MENU_FIELD_ROLES = [
   "title",
   "description",
@@ -28,7 +28,7 @@ export const MENU_FIELD_ROLES = [
   "availability_end",
 ] as const;
 
-/** Agenda concepts (§4 agenda roles). */
+/** Agenda concepts from the current authoring contract. */
 export const AGENDA_FIELD_ROLES = [
   "title",
   "start",
@@ -38,7 +38,7 @@ export const AGENDA_FIELD_ROLES = [
   "category",
 ] as const;
 
-/** Feed/news concepts (§5.8 suggested roles). */
+/** Feed/news concepts from the current authoring contract. */
 export const FEED_FIELD_ROLES = [
   "headline",
   "summary",
@@ -72,7 +72,7 @@ export interface MappableField {
   readonly role?: string;
 }
 
-/** One Widget slot's mapping preference, in §4.1 priority order. */
+/** One Widget slot's mapping preference, in the documented priority order. */
 export interface FieldSlot {
   /** Declared semantic roles, first match wins. */
   readonly roles: readonly string[];
@@ -99,7 +99,7 @@ export function fieldForRole(
 }
 
 /**
- * Suggest one field key per slot following §4.1. Slots claim fields in
+ * Suggest one field key per slot following the authoring contract. Slots claim fields in
  * order, so two slots never share a field unless the source has nothing
  * else compatible: a title and a description pointing at the same column
  * would render the column twice and hide the real description.
