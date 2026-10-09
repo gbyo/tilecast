@@ -520,3 +520,54 @@ func TestUpdateBlockedByDroppedContributionInUse(t *testing.T) {
 		t.Fatalf("version = %s after blocked update", installed.Version)
 	}
 }
+
+// A Data Source keeps its stored configuration across an update. Changing its
+// definition while saved sources use it would read them against a contract
+// they were not created under, so the update is refused. An unchanged
+// definition updates normally.
+func TestUpdateBlockedByRedefinedDataSourceInUse(t *testing.T) {
+	f := newInstallerFixture(t)
+	ctx := context.Background()
+
+	withSourceDigest := func(activation Activation, digest string) Activation {
+		for index := range activation.Contributions {
+			if activation.Contributions[index].Kind == "dataSource" {
+				activation.Contributions[index].Digest = digest
+			}
+		}
+		return activation
+	}
+	if _, err := f.service.Activate(ctx, withSourceDigest(testActivation("2.4.1", testDigestV1), "definition-1")); err != nil {
+		t.Fatal(err)
+	}
+	var organizationID uuid.UUID
+	if err := f.pool.QueryRow(ctx, `SELECT id FROM organization_settings LIMIT 1`).Scan(&organizationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,provider,configuration,created_by)
+		VALUES($1,$2,'Schedule',$3,'{"city":"Northport"}'::jsonb,$4)`, uuid.New(), organizationID, "acme.athletics.schedule", f.userID); err != nil {
+		t.Fatal(err)
+	}
+
+	redefined := withSourceDigest(testActivation("2.5.0", testDigestV2), "definition-2")
+	_, err := f.service.Activate(ctx, redefined)
+	var inUse *InUseError
+	if !errors.As(err, &inUse) {
+		t.Fatalf("update redefining an in-use Data Source err = %#v", err)
+	}
+	if inUse.Action != "updated" || len(inUse.Resources) != 1 || inUse.Resources[0].Kind != "data_source" {
+		t.Fatalf("in-use = %+v", inUse)
+	}
+	installed, err := f.service.Get(ctx, "acme.athletics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if installed.Version != "2.4.1" {
+		t.Fatalf("version = %s after blocked redefinition", installed.Version)
+	}
+
+	// The same definition is not a redefinition, so the update proceeds.
+	if _, err := f.service.Activate(ctx, withSourceDigest(testActivation("2.5.0", testDigestV2), "definition-1")); err != nil {
+		t.Fatalf("update with an unchanged definition: %v", err)
+	}
+}

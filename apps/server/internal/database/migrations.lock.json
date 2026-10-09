@@ -736,5 +736,11 @@
     "file": "00124_edge_stream_backed_assets.sql",
     "owner": "core",
     "sha256": "c69e5cc6949f9aca62938d3f35165412f1bc75fc7c98ddf0470fa43712023a6b"
+  },
+  {
+    "version": 125,
+    "file": "00125_contribution_definition_digest.sql",
+    "owner": "core",
+    "sha256": "e31f2ff70535463074236fd85864dd81ded1d291524be8dbd7ed45fdb1e7b6ee"
   }
 ]

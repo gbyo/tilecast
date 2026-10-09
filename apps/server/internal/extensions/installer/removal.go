@@ -55,29 +55,64 @@ func removalBlockers(ctx context.Context, tx pgx.Tx, packageID string) ([]InUseR
 }
 
 // droppedInUse counts persisted content using contributions the next
-// activation drops. Updates and rollbacks never strand content: dropping
-// an in-use contribution blocks like a removal.
+// activation drops or redefines. Updates and rollbacks never strand content:
+// dropping an in-use contribution blocks like a removal. So does changing a
+// Data Source's definition while saved sources use it, because a source keeps
+// its stored configuration and would be read against a contract it no longer
+// matches. A digest the database or the snapshot does not know is not compared.
 func droppedInUse(ctx context.Context, tx pgx.Tx, packageID string, next []Contribution) ([]InUseResource, error) {
 	widgets, sources, err := currentContributionIDs(ctx, tx, packageID)
 	if err != nil {
 		return nil, err
 	}
-	keep := make(map[string]bool, len(next))
+	stored, err := storedDefinitionDigests(ctx, tx, packageID)
+	if err != nil {
+		return nil, err
+	}
+	nextDigests := make(map[string]string, len(next))
 	for _, contribution := range next {
-		keep[contribution.Kind+"\x00"+contribution.ID] = true
+		nextDigests[contribution.Kind+"\x00"+contribution.ID] = contribution.Digest
 	}
 	var droppedWidgets, droppedSources []string
 	for _, id := range widgets {
-		if !keep[packagemanifest.ContributionWidget+"\x00"+id] {
+		if _, ok := nextDigests[packagemanifest.ContributionWidget+"\x00"+id]; !ok {
 			droppedWidgets = append(droppedWidgets, id)
 		}
 	}
 	for _, id := range sources {
-		if !keep[packagemanifest.ContributionDataSource+"\x00"+id] {
+		key := packagemanifest.ContributionDataSource + "\x00" + id
+		nextDigest, ok := nextDigests[key]
+		if !ok || redefined(stored[key], nextDigest) {
 			droppedSources = append(droppedSources, id)
 		}
 	}
 	return countUsage(ctx, tx, packageID, droppedWidgets, droppedSources)
+}
+
+// redefined reports a definition change that both sides can prove. An empty
+// digest on either side means the definition was never recorded.
+func redefined(previous, next string) bool {
+	return previous != "" && next != "" && previous != next
+}
+
+// storedDefinitionDigests answers the installed definition digest of every
+// contribution of one package, keyed by kind and identity.
+func storedDefinitionDigests(ctx context.Context, tx pgx.Tx, packageID string) (map[string]string, error) {
+	rows, err := tx.Query(ctx, `SELECT kind,contribution_id,definition_digest
+		FROM installed_package_contributions WHERE package_id=$1`, packageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	digests := map[string]string{}
+	for rows.Next() {
+		var kind, id, digest string
+		if err := rows.Scan(&kind, &id, &digest); err != nil {
+			return nil, err
+		}
+		digests[kind+"\x00"+id] = digest
+	}
+	return digests, rows.Err()
 }
 
 func currentContributionIDs(ctx context.Context, tx pgx.Tx, packageID string) (widgets, sources []string, err error) {
