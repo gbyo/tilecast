@@ -116,5 +116,3 @@ func TestScheduleCreateNormalizesUnderScreenLock(t *testing.T) {
 		t.Fatalf("stored targets: screen=%d group=%d, want screen=0 group=1", screenTargets, groupTargets)
 	}
 }
-
-func ptrString(value string) *string { return &value }
