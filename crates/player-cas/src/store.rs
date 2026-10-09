@@ -153,6 +153,14 @@ impl ContentStore {
         *self.inner.policy.lock().unwrap_or_else(|p| p.into_inner())
     }
 
+    /// Half the cache limit: `automatic` videos larger than this become
+    /// stream claims instead of downloads, so one object can never consume
+    /// the whole store. Explicit `download` still fails rather than
+    /// streaming. The one-byte floor keeps the comparison total.
+    pub fn download_threshold_bytes(&self) -> u64 {
+        (self.policy().limit_bytes / 2).max(1)
+    }
+
     pub fn cas_dir(&self) -> &Path {
         &self.inner.cas_dir
     }

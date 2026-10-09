@@ -7,12 +7,32 @@ pub const MAX_CONTENT_REFS: usize = 1024;
 pub const MAX_EVIDENCE_ITEMS: usize = 500;
 pub const MAX_RENDERER_REQUIREMENTS: usize = 256;
 
-/// One immutable verified object authorized for an activation generation.
+/// The network backend for one stream-backed object: the manifest's
+/// authenticated player download path. The renderer never sees it; the
+/// host resolves it to bounded range fetches behind the same capability.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StreamSource {
+    pub download_path: String,
+}
+
+impl StreamSource {
+    /// The path comes from a validated manifest; re-validation keeps a
+    /// corrupted activation from turning into a network request.
+    pub fn new(download_path: String) -> Result<Self, crate::InvalidDownloadPath> {
+        crate::OriginBlobSource::validate_path(&download_path)?;
+        Ok(Self { download_path })
+    }
+}
+
+/// One immutable object authorized for an activation generation: a
+/// verified CAS object, or (for eligible video) a stream-backed object
+/// the host serves through authenticated range fetches.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContentRef {
     pub sha256: Sha256Digest,
     pub size_bytes: u64,
     pub mime_type: SafeText<127>,
+    pub stream: Option<StreamSource>,
 }
 
 /// Projection-supplied native semantics. Core never infers these from JSON.

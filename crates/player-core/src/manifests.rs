@@ -171,21 +171,21 @@ impl ManifestCoordinator {
                 // file after an unclean stop, say) and was removed. Fetch and
                 // verify it again; the stage is unchanged, and activation pins
                 // and shows the manifest once it is whole.
-                let digests = candidate.prepare_content(store, plan).await?;
+                let prepared = candidate.prepare_content(store, plan).await?;
                 let reason =
                     if stage == Stage::Active { PinReason::ActivePresentation } else { PinReason::PendingPresentation };
                 store
-                    .replace_pins(reason, &crate::manifest_pin_holder(&candidate.digest), digests)
+                    .replace_pins(reason, &crate::manifest_pin_holder(&candidate.digest), prepared.verified)
                     .await
                     .map_err(crate::ManifestPreparationError::from)?;
                 tracing::info!(component = "manifest", event = "repaired", manifest = %candidate.digest.short());
                 return Ok(ManifestPrepared::Repaired);
             }
         }
-        let digests = candidate.prepare_content(store, plan).await?;
+        let prepared = candidate.prepare_content(store, plan).await?;
         let holder = crate::manifest_pin_holder(&candidate.digest);
         store
-            .replace_pins(PinReason::PendingPresentation, &holder, digests)
+            .replace_pins(PinReason::PendingPresentation, &holder, prepared.verified)
             .await
             .map_err(crate::ManifestPreparationError::from)?;
         let stored = StoredManifest {

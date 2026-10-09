@@ -132,6 +132,38 @@ func (w *Worker) startup(ctx context.Context) {
 	w.tickSchedule(ctx)
 }
 
+// leaseHeartbeat is how often a running job refreshes its lease. It is well
+// inside the 15-minute lease the claim query uses, so a healthy job is never
+// reclaimed by another process.
+const leaseHeartbeat = time.Minute
+
+// heartbeatLease refreshes a running job's lease every interval until the
+// returned stop function is called. Errors are ignored: a missed refresh only
+// matters if it persists until the lease lapses.
+func heartbeatLease(ctx context.Context, db *pgxpool.Pool, jobID uuid.UUID, interval time.Duration) (stop func()) {
+	done := make(chan struct{})
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_, _ = db.Exec(ctx, `UPDATE backup_jobs SET locked_at = now() WHERE id = $1 AND status = 'running'`, jobID)
+			}
+		}
+	}()
+	return func() {
+		close(done)
+		<-finished
+	}
+}
+
 // backupLease is how long a running job's claim stays valid without progress.
 // Another process reclaims a job only after its lease lapses, so recovery
 // uses the same window before it treats a job or a temporary file as dead.
@@ -182,6 +214,10 @@ func (w *Worker) claimAndRun(ctx context.Context) {
 
 	w.setStatus(&MemoryJobStatus{JobID: jobID, Kind: kind, Status: "running"})
 	defer w.setStatus(nil)
+	// Phase updates refresh the lease only when a phase changes. A single step
+	// can run far longer than the lease, so refresh it on a timer as well.
+	stopLease := heartbeatLease(ctx, w.svc.db, jobID, leaseHeartbeat)
+	defer stopLease()
 
 	switch kind {
 	case "backup":

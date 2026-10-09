@@ -224,6 +224,7 @@ pub(crate) fn prepare(activation: &Activation, clock_offset_ms: i64) -> Result<R
             sha256: reference.sha256,
             size_bytes: reference.size_bytes,
             mime_type: reference.mime_type.clone(),
+            stream: activation.extras.streams.get(&reference.sha256).cloned(),
         })
         .collect();
     RendererActivation::new(
@@ -298,8 +299,14 @@ impl RendererPort for EdgeRendererPort {
                         mime_type: object.mime_type.clone(),
                     })
                     .collect();
-                let prepared =
-                    registry.prepare(self.session.id(), reference.generation, now_ms, &content).map_err(|error| {
+                let streams: HashMap<_, _> = activation
+                    .content()
+                    .iter()
+                    .filter_map(|object| object.stream.clone().map(|stream| (object.sha256, stream)))
+                    .collect();
+                let prepared = registry
+                    .prepare(self.session.id(), reference.generation, now_ms, &content, &streams)
+                    .map_err(|error| {
                         tracing::error!(component = "media", event = "capability_prepare_failed", error = %error);
                         RendererPortError::ResourceUnavailable
                     })?;
@@ -531,7 +538,12 @@ mod tests {
                 requires_content_evidence: true,
                 capture_state: player_core::CaptureState::Presentation,
             },
-            vec![VerifiedContentRef { sha256: digest, size_bytes: 8, mime_type: SafeText::new("image/png").unwrap() }],
+            vec![VerifiedContentRef {
+                sha256: digest,
+                size_bytes: 8,
+                mime_type: SafeText::new("image/png").unwrap(),
+                stream: None,
+            }],
             None,
         )
         .unwrap();
@@ -649,5 +661,54 @@ mod tests {
         assert_eq!(decoded.aliases, activation.extras.plugin_aliases);
         activation.content.clear();
         assert_eq!(prepare(&activation, 123), Err(RendererPortError::InvalidActivation));
+    }
+
+    #[test]
+    fn extras_streams_become_content_backends_while_uris_stay_opaque() {
+        use crate::presentation::{ActivationSource, ServerExtras};
+        let digest = Sha256Digest::of(b"streamed");
+        let source = player_core::StreamSource::new(
+            "/api/v1/player/assets/844f4a48-a47c-4fbd-8a84-f8d61cc64b6a/variants/46784d73-3daf-45cf-8ff0-7cb4a3d12852"
+                .to_owned(),
+        )
+        .unwrap();
+        let other = Sha256Digest::of(b"cached");
+        let activation = Activation {
+            id: edge_protocol::ids::ActivationId::from_uuid(uuid::Uuid::nil()),
+            generation: 3,
+            identity: None,
+            document: PresentationDocument::Setup {},
+            renderer_metadata: metadata(&PresentationDocument::Setup {}, ActivationSource::ServerManifest, None)
+                .unwrap(),
+            content: vec![
+                edge_protocol::ipc::presentation::ContentRef {
+                    sha256: digest,
+                    size_bytes: 8,
+                    mime_type: SafeText::new("video/mp4").unwrap(),
+                },
+                edge_protocol::ipc::presentation::ContentRef {
+                    sha256: other,
+                    size_bytes: 8,
+                    mime_type: SafeText::new("image/png").unwrap(),
+                },
+            ],
+            timing: None,
+            source: ActivationSource::ServerManifest,
+            extras: ServerExtras {
+                streams: std::collections::HashMap::from([(digest, source.clone())]),
+                ..ServerExtras::default()
+            },
+        };
+        let prepared = prepare(&activation, 0).unwrap();
+        let objects: std::collections::HashMap<_, _> =
+            prepared.content().iter().map(|object| (object.sha256, object.stream.clone())).collect();
+        assert_eq!(objects[&digest], Some(source));
+        assert_eq!(objects[&other], None);
+        // The renderer-visible document resolves digests to opaque URIs;
+        // the download path never enters the presentation.
+        let resolved =
+            prepared.document().resolve(&|object| objects.contains_key(&object).then(|| "tcmedia://cap/x".into()));
+        let encoded = serde_json::to_string(&resolved.unwrap()).unwrap();
+        assert!(!encoded.contains("api/v1"));
     }
 }

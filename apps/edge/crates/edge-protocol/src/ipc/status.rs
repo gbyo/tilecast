@@ -107,6 +107,24 @@ pub struct DaemonStatus {
     /// The Player update this screen is working on, or finished last (M10).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub update: Option<UpdateStatus>,
+    /// The recorded installation mismatch, if the server's installation ID
+    /// stopped matching the binding. Server identifiers only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installation_mismatch: Option<InstallationMismatchStatus>,
+}
+
+/// Server evidence for an installation mismatch: what the daemon saw, when,
+/// and where the quarantined caches went. No secrets, paths, or credentials.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InstallationMismatchStatus {
+    pub server_url: ShortText,
+    pub expected_installation_id: ShortText,
+    pub actual_installation_id: ShortText,
+    pub detected_at: Timestamp,
+    pub last_contact_at: Option<Timestamp>,
+    pub quarantined_cas_dir: Option<ShortText>,
+    pub quarantined_partial_dir: Option<ShortText>,
 }
 
 /// One Player update, as `tilecastd` sees it (M10). Server identifiers and

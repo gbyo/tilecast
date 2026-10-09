@@ -288,11 +288,15 @@ type Heartbeat struct {
 	// Edge renderer diagnostics. Categorized codes and counts, never free
 	// text: the renderer failure is the Core rejection token, the restart
 	// reason is `recovery` or `command`. Omitted when unknown.
-	LastRendererFailure               string            `json:"lastRendererFailure,omitempty"`
-	RendererRestartCount              *int              `json:"rendererRestartCount,omitempty"`
-	LastRendererRestartAt             *time.Time        `json:"lastRendererRestartAt,omitempty"`
-	LastRendererRestartReason         string            `json:"lastRendererRestartReason,omitempty"`
-	SafeModeReason                    string            `json:"safeModeReason,omitempty"`
+	LastRendererFailure       string     `json:"lastRendererFailure,omitempty"`
+	RendererRestartCount      *int       `json:"rendererRestartCount,omitempty"`
+	LastRendererRestartAt     *time.Time `json:"lastRendererRestartAt,omitempty"`
+	LastRendererRestartReason string     `json:"lastRendererRestartReason,omitempty"`
+	SafeModeReason            string     `json:"safeModeReason,omitempty"`
+	// Stream-backed videos in the current activation: content the player
+	// did not fully cache, with reduced offline guarantees. Omitted when
+	// unknown; legacy players never send it.
+	StreamBackedAssetCount            *int              `json:"streamBackedAssetCount,omitempty"`
 	LastWatchdogFailure               string            `json:"lastWatchdogFailure,omitempty"`
 	LastWatchdogRecoveryAt            *time.Time        `json:"lastWatchdogRecoveryAt,omitempty"`
 	MaintenanceSessionExpiresAt       *time.Time        `json:"maintenanceSessionExpiresAt,omitempty"`

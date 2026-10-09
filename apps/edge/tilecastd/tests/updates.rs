@@ -137,6 +137,7 @@ fn daemon_status(version: &str, behavior: Behavior) -> DaemonStatus {
         }),
         outbox: None,
         update: None,
+        installation_mismatch: None,
     }
 }
 

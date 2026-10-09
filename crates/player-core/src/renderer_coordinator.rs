@@ -330,7 +330,12 @@ mod tests {
             )
             .unwrap(),
             metadata,
-            vec![VerifiedContentRef { sha256: digest, size_bytes: 8, mime_type: SafeText::new("image/png").unwrap() }],
+            vec![VerifiedContentRef {
+                sha256: digest,
+                size_bytes: 8,
+                mime_type: SafeText::new("image/png").unwrap(),
+                stream: None,
+            }],
             None,
         )
         .unwrap()
