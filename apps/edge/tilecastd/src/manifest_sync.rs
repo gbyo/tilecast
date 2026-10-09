@@ -71,8 +71,7 @@ impl PrepareError {
     pub fn is_final(&self) -> bool {
         matches!(
             self,
-            Self::Manifest(_)
-                | Self::Fetch(PreparationError::FrameMissing | PreparationError::FrameDigestInvalid)
+            Self::Manifest(_) | Self::Fetch(PreparationError::FrameMissing | PreparationError::FrameDigestInvalid)
         )
     }
 }
