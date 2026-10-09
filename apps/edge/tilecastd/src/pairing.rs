@@ -100,6 +100,8 @@ pub async fn begin(context: &DaemonContext, url: &str) -> Result<(), &'static st
         .begin(url, &user_agent(), &Metadata(context))
         .await
         .map_err(|error| pairing_message(&error))?;
+    // A re-pair supersedes any recorded mismatch for the old relationship.
+    crate::mismatch::clear_mismatch(context).await;
     context.pairing_wake.notify_one();
     Ok(())
 }

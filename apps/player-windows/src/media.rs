@@ -358,6 +358,7 @@ mod tests {
             sha256: Sha256Digest::of(object),
             size_bytes: object.len() as u64,
             mime_type: SafeText::new("image/png").expect("test fixture"),
+            stream: None,
         }
     }
 

@@ -25,7 +25,7 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 	var playbackState, safeModeReason, lastRendererFailure, lastRendererRestartReason *string
 	var lastSyncError, updateState, updateError, telemetryRendererState *string
 	var playbackDisabled, safeMode *bool
-	var recoveryLevel *int
+	var recoveryLevel, streamBackedAssetCount *int
 	var lastRendererRestartAt, lastHealthyPlaybackAt, telemetryObservedAt, telemetryLastProgressAt *time.Time
 	// Postgres caps any function call at 100 arguments, and jsonb_build_object
 	// spends two per field. This payload is well past that, so it is built in
@@ -46,7 +46,7 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 		'lastWatchdogFailure',ps.last_watchdog_failure,'lastWatchdogRecoveryAt',ps.last_watchdog_recovery_at,
 		'lastRendererFailure',ps.last_renderer_failure,'rendererRestartCount',ps.renderer_restart_count,
 		'lastRendererRestartAt',ps.last_renderer_restart_at,'lastRendererRestartReason',ps.last_renderer_restart_reason,
-		'safeModeReason',ps.safe_mode_reason
+		'safeModeReason',ps.safe_mode_reason,'streamBackedAssetCount',ps.stream_backed_asset_count
 	) || jsonb_build_object(
 		'maintenanceSessionExpiresAt',ps.maintenance_session_expires_at,
 		'commissioningState',ps.commissioning_state,'commissioningStep',ps.commissioning_step,
@@ -109,6 +109,7 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 		sc.archived_at,sc.last_connected_at,sc.last_disconnected_at,sc.last_heartbeat_at,
 		ps.playback_state,ps.playback_disabled,ps.safe_mode,ps.safe_mode_reason,ps.recovery_level,
 		ps.last_renderer_failure,ps.last_renderer_restart_at,ps.last_renderer_restart_reason,
+		ps.stream_backed_asset_count,
 		ps.last_healthy_playback_at,ps.last_sync_error,ps.update_state,ps.update_error,
 		ts.observed_at,ts.renderer_state,ts.last_meaningful_progress_at
 	 FROM screens sc LEFT JOIN screen_player_status ps ON ps.screen_id=sc.id LEFT JOIN screen_power_assist_results pa ON pa.screen_id=sc.id LEFT JOIN screen_telemetry_snapshots ts ON ts.screen_id=sc.id WHERE sc.id=$1`, id, detailedDiagnostics(r)).Scan(&raw,
@@ -116,6 +117,7 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 		&lastConnectedAt, &lastDisconnectedAt, &lastHeartbeatAt,
 		&playbackState, &playbackDisabled, &safeMode, &safeModeReason, &recoveryLevel,
 		&lastRendererFailure, &lastRendererRestartAt, &lastRendererRestartReason,
+		&streamBackedAssetCount,
 		&lastHealthyPlaybackAt, &lastSyncError, &updateState, &updateError,
 		&telemetryObservedAt, &telemetryRendererState, &telemetryLastProgressAt)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -144,6 +146,7 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 		RecoveryLevel: recoveryLevel, LastRendererFailure: derefHealthString(lastRendererFailure),
 		LastRendererRestartAt:     lastRendererRestartAt,
 		LastRendererRestartReason: derefHealthString(lastRendererRestartReason),
+		StreamBackedAssetCount:    streamBackedAssetCount,
 		LastHealthyPlaybackAt:     lastHealthyPlaybackAt, LastSyncError: derefHealthString(lastSyncError),
 		UpdateState: derefHealthString(updateState), UpdateError: derefHealthString(updateError),
 		TelemetryObservedAt:     telemetryObservedAt,

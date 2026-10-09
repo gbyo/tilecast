@@ -8,6 +8,7 @@ pub mod cas;
 pub mod commands;
 pub mod config;
 pub mod daemon;
+pub mod installation_mismatch;
 pub mod manifests;
 pub mod outbox;
 pub mod playback;

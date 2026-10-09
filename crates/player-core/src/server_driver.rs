@@ -31,6 +31,11 @@ pub trait ServerLinkHost: ConfigurationHost {
     fn record_activity(&self, event: ActivityEvent);
     async fn heartbeat(&self) -> serde_json::Value;
     async fn presentation_protected(&self) -> bool;
+    /// A pass ended in an installation identity mismatch. The host
+    /// quarantines server-derived caches and surfaces the stopped state;
+    /// Core never touches host stores. Called every mismatched pass, so the
+    /// host must treat it as idempotent. Default: ignore.
+    async fn identity_mismatch(&self, _expected: &str, _actual: &str) {}
 }
 
 /// Signals shared with commands, activation, status, and Watch Live coordinators.
@@ -164,7 +169,10 @@ pub(crate) async fn drive_server_link<H: ServerLinkHost>(
         {
             delay = delay.min(next.saturating_duration_since(Instant::now()));
         }
-        *context.signals.link_state.lock().unwrap_or_else(|e| e.into_inner()) = state;
+        *context.signals.link_state.lock().unwrap_or_else(|e| e.into_inner()) = state.clone();
+        if let LinkState::IdentityMismatch { expected, actual } = &state {
+            context.host.identity_mismatch(expected, actual).await;
+        }
         let deadline = tokio::time::sleep(delay);
         tokio::pin!(deadline);
         loop {

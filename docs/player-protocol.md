@@ -83,6 +83,15 @@ heartbeat field ships server-first: the strict HTTP fallback rejects a
 heartbeat with unknown fields, so the server accepts a field before any
 player sends it.
 
+Edge also reports stream-backed video: the `media-streaming` presentation
+capability and the activation's `streamBackedAssetCount`, the number of
+videos playing through origin range reads without a complete local copy.
+A count of zero is known-empty; omission means a player that never reports
+it. The server persists the count and passes it through `playerHealth`.
+A `download`-policy video that does not fit the store fails preparation
+with `media_cache_too_small` in `lastSynchronizationError`; it never
+falls back to streaming.
+
 Stored renderer failures do not override intentional `sleep`, `disabled`, or
 `idle` playback in `playerHealth`. Active recovery and current renderer
 telemetry keep their priority. The reliability response retains the last

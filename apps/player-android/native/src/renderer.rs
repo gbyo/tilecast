@@ -1002,6 +1002,7 @@ impl PresentationEngine {
                 sha256: entry.digest,
                 size_bytes: entry.size_bytes,
                 mime_type: entry.mime_type.clone(),
+                stream: None,
             })
             .collect();
         let prepared_error = |error: player_core::PreparedActivationError| match error {

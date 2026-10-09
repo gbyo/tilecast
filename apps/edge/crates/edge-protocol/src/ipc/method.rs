@@ -96,6 +96,9 @@ pub enum Method {
     PairingStart(SubmitServerUrlParams),
     /// Abandon a pairing in progress and clear its secrets.
     PairingReset(Empty),
+    /// Forget the server relationship: binding, credential, pairing files,
+    /// queued results, and staged configuration. Idempotent.
+    UnpairDevice(Empty),
     DiscoveryList(Empty),
 }
 
@@ -149,6 +152,7 @@ methods! {
     SetupSubmitServerUrl => "setup.submit_server_url", [Renderer], admin = false;
     PairingStart => "pairing.start", [Tilecastctl], admin = true;
     PairingReset => "pairing.reset", [Tilecastctl], admin = true;
+    UnpairDevice => "device.unpair", [Tilecastctl], admin = true;
     DiscoveryList => "discovery.list", [Renderer, Tilecastctl], admin = false;
 }
 
@@ -185,6 +189,9 @@ mod tests {
         assert!(pairing.is_administrative());
         assert_eq!(pairing.allowed_roles(), &[Role::Tilecastctl]);
         assert!(Method::decode("pairing.reset", json!({})).expect("valid").is_administrative());
+        let unpair = Method::decode("device.unpair", json!({})).expect("valid");
+        assert!(unpair.is_administrative());
+        assert_eq!(unpair.allowed_roles(), &[Role::Tilecastctl]);
         assert!(!Method::decode("discovery.list", json!({})).expect("valid").is_administrative());
         let many: Vec<_> = (0..=MAX_DISCOVERED_SERVERS)
             .map(|_| json!({"name": "Library", "serverUrl": "http://signs.local"}))
