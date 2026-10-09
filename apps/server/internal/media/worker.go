@@ -84,10 +84,13 @@ func (p *WorkerPool) run(ctx context.Context) {
 				if j == nil {
 					break
 				}
-				if err := p.process(ctx, *j); err != nil {
-					p.fail(ctx, *j, err)
+				stopLease := p.keepLease(ctx, *j)
+				processErr := p.process(ctx, *j)
+				stopLease()
+				if processErr != nil {
+					p.fail(ctx, *j, processErr)
 				} else {
-					p.complete(ctx, j.ID)
+					p.complete(ctx, *j)
 				}
 			}
 		}
@@ -117,10 +120,48 @@ func (p *WorkerPool) claim(ctx context.Context) (*job, error) {
 	}
 	return &j, nil
 }
-func (p *WorkerPool) complete(ctx context.Context, id uuid.UUID) {
-	_, err := p.service.db.Exec(ctx, `UPDATE media_jobs SET status='succeeded',progress=1,completed_at=now(),updated_at=now(),locked_at=NULL,locked_by=NULL WHERE id=$1`, id)
+
+// mediaLeaseHeartbeat is how often a running job refreshes its lease. It is well
+// inside the 10-minute reclaim window, so a slow but live FFmpeg run keeps its job.
+const mediaLeaseHeartbeat = time.Minute
+
+// keepLease refreshes this worker's lease on the job until the returned stop
+// function is called. The refresh is fenced like completion, so a worker that
+// has lost the job cannot extend another worker's lease.
+func (p *WorkerPool) keepLease(ctx context.Context, j job) (stop func()) {
+	done := make(chan struct{})
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		ticker := time.NewTicker(mediaLeaseHeartbeat)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_, _ = p.service.db.Exec(ctx, `UPDATE media_jobs SET locked_at=now() WHERE id=$1 AND status='running' AND locked_by=$2 AND attempts=$3`, j.ID, p.id, j.Attempts)
+			}
+		}
+	}()
+	return func() {
+		close(done)
+		<-finished
+	}
+}
+
+// complete marks a job succeeded only if this worker still holds its current
+// attempt. A reclaimed job's original worker must not overwrite its replacement.
+func (p *WorkerPool) complete(ctx context.Context, j job) {
+	tag, err := p.service.db.Exec(ctx, `UPDATE media_jobs SET status='succeeded',progress=1,completed_at=now(),updated_at=now(),locked_at=NULL,locked_by=NULL WHERE id=$1 AND status='running' AND locked_by=$2 AND attempts=$3`, j.ID, p.id, j.Attempts)
 	if err != nil {
-		p.logger.Error("complete media job", "error", err, "job_id", id)
+		p.logger.Error("complete media job", "error", err, "job_id", j.ID)
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		p.logger.Warn("media job completed by a superseded worker; result ignored", "job_id", j.ID)
 	}
 }
 func (p *WorkerPool) fail(ctx context.Context, j job, cause error) {
@@ -134,7 +175,11 @@ func (p *WorkerPool) fail(ctx context.Context, j job, cause error) {
 	if j.Attempts >= j.MaxAttempts {
 		status = "failed"
 	}
-	_, err := p.service.db.Exec(ctx, `UPDATE media_jobs SET status=$2,run_after=$3,error_code=$4,error_message=$5,updated_at=now(),locked_at=NULL,locked_by=NULL WHERE id=$1`, j.ID, status, runAfter, code, safe)
+	tag, err := p.service.db.Exec(ctx, `UPDATE media_jobs SET status=$2,run_after=$3,error_code=$4,error_message=$5,updated_at=now(),locked_at=NULL,locked_by=NULL WHERE id=$1 AND status='running' AND locked_by=$6 AND attempts=$7`, j.ID, status, runAfter, code, safe, p.id, j.Attempts)
+	if err == nil && tag.RowsAffected() == 0 {
+		p.logger.Warn("media job failed under a superseded worker; result ignored", "job_id", j.ID)
+		return
+	}
 	if err == nil && status == "failed" && j.AssetID != nil {
 		_, err = p.service.db.Exec(ctx, `UPDATE assets SET processing_status='failed',processing_progress=NULL,error_code=$2,error_message=$3,updated_at=now() WHERE id=$1 AND deleted_at IS NULL`, *j.AssetID, code, safe)
 	}
