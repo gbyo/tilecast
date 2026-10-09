@@ -11,7 +11,7 @@
 //      the picker explains that and offers the same Connect action.
 //   3. Show the data, not just its name. The selected source reports status, cached record
 //      count, and sample values.
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronRight, Database, Plus, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -301,6 +301,7 @@ function useConnectDataFlow(
   onCreated: (id: string) => void,
 ) {
   const [creating, setCreating] = useState<DataSourceProvider | "choose">();
+  const queryClient = useQueryClient();
   const catalog = useQuery({
     queryKey: ["provider-catalog"],
     queryFn: api.providerCatalog,
@@ -318,6 +319,11 @@ function useConnectDataFlow(
         onClose={() => setCreating(undefined)}
         onCreated={(id) => {
           setCreating(undefined);
+          // The editor's list of saved sources is what resolves the new ID. Refresh it
+          // so the new source is listed at once, not after the editor remounts.
+          void queryClient.invalidateQueries({
+            queryKey: ["definition-form-data-sources"],
+          });
           onCreated(id);
         }}
       />

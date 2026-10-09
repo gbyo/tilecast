@@ -1,9 +1,17 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { formsApi } from "../api";
 import type { FormDataSource } from "../types";
 import { FormBuilder } from "./FormBuilder";
 
@@ -80,6 +88,14 @@ function fieldOrder(): string[] {
     .map((button) => button.getAttribute("aria-label") ?? "");
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 describe("FormBuilder field list", () => {
   it("renders fields as an item list with an add palette", () => {
     renderBuilder();
@@ -149,5 +165,41 @@ describe("FormBuilder field list", () => {
       screen.getByRole("heading", { name: "Field settings" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps an edit made while a draft save is pending as an unsaved change", async () => {
+    const pending = deferred<FormDataSource>();
+    const save = vi
+      .spyOn(formsApi, "updateFormDraft")
+      .mockReturnValue(pending.promise);
+    renderBuilder();
+    // Move Alpha below Beta, then save the order [Beta, Alpha, Gamma].
+    fireEvent.keyDown(screen.getByRole("button", { name: "Edit Alpha" }), {
+      key: "ArrowDown",
+      altKey: true,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    // While the save is in flight, move Beta back above Alpha.
+    fireEvent.keyDown(screen.getByRole("button", { name: "Edit Beta" }), {
+      key: "ArrowDown",
+      altKey: true,
+    });
+    expect(fieldOrder()).toEqual(["Edit Alpha", "Edit Beta", "Edit Gamma"]);
+    const [alpha, beta, gamma] = form().draftSchema.fields;
+    act(() =>
+      pending.resolve({
+        ...form(),
+        draftSchema: { ...form().draftSchema, fields: [beta!, alpha!, gamma!] },
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Save draft" }),
+      ).not.toHaveAttribute("aria-busy"),
+    );
+    // The server copy of the sent order does not replace the newer edit.
+    expect(fieldOrder()).toEqual(["Edit Alpha", "Edit Beta", "Edit Gamma"]);
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled();
   });
 });

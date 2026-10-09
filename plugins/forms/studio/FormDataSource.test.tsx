@@ -319,6 +319,26 @@ describe("Form Data Source Studio", () => {
     ).toBeInTheDocument();
   });
 
+  it("names a global role in the access table by its label, not its identifier", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(formsApi, "listFormAccess").mockResolvedValue([
+      {
+        userId: "u2",
+        name: "Zoe",
+        username: "zoe",
+        role: "editor",
+        capabilities: ["submit"],
+        isCreator: false,
+        isGlobalOwner: false,
+      },
+    ]);
+    renderAt("/plugins/forms/f1?tab=access", "owner");
+
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText("Editor")).toBeInTheDocument();
+    expect(within(table).queryByText("editor")).toBeNull();
+  });
+
   it("shows a search error instead of no-match when the directory fails", async () => {
     vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
     vi.spyOn(formsApi, "listFormAccess").mockResolvedValue([]);
@@ -387,6 +407,44 @@ describe("Form responses table", () => {
     expect(title.closest("tr")?.getAttribute("role")).toBeNull();
     await user.click(title);
     expect(router.state.location.search).toContain("record=r1");
+  });
+
+  it("shows the newly routed Form's draft, not the previous Form's", async () => {
+    const formWith = (id: string, label: string): FormDataSource => ({
+      ...formDetail(["manage"]),
+      id,
+      name: label,
+      draftSchema: {
+        title: label,
+        fields: [{ key: "q", label, control: "short_text" }],
+      },
+    });
+    vi.spyOn(formsApi, "getForm").mockImplementation((id: string) =>
+      Promise.resolve(
+        formWith(id, id === "f1" ? "Alpha question" : "Beta question"),
+      ),
+    );
+    const { router } = renderAt("/plugins/forms/f1?tab=form", "owner");
+    expect(
+      await screen.findByRole("button", { name: "Edit Alpha question" }),
+    ).toBeInTheDocument();
+    // Both Forms are now cached. Moving to Form B and back, without a full
+    // load in between, must show Form A's own fields.
+    await act(async () => {
+      await router.navigate("/plugins/forms/f2?tab=form");
+    });
+    expect(
+      await screen.findByRole("button", { name: "Edit Beta question" }),
+    ).toBeInTheDocument();
+    await act(async () => {
+      await router.navigate("/plugins/forms/f1?tab=form");
+    });
+    expect(
+      await screen.findByRole("button", { name: "Edit Alpha question" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Edit Beta question" }),
+    ).toBeNull();
   });
 
   it("renders only the error when the records query fails", async () => {

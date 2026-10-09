@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -237,5 +238,112 @@ func TestUserScreenScopesRoundTrip(t *testing.T) {
 	bogus := `{"scopes":[{"type":"location","id":"` + uuid.NewString() + `"}]}`
 	if response := callPut(owner, targetID, bogus); response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("bogus-scope PUT status = %d, want %d; body=%s", response.Code, http.StatusUnprocessableEntity, response.Body.String())
+	}
+}
+
+func TestConcurrentOwnerDeactivationKeepsOneActiveOwner(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx := context.Background()
+	lockPool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lockPool.Close()
+	lock, err := lockPool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Release()
+	if _, err = lock.Exec(ctx, `SELECT pg_advisory_lock(7421999)`); err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Exec(ctx, `SELECT pg_advisory_unlock(7421999)`) //nolint:errcheck
+	if err = database.Migrate(ctx, databaseURL); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := database.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if _, err = pool.Exec(ctx, `TRUNCATE organization_settings,users CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+
+	organizationID, firstOwnerID, secondOwnerID := uuid.New(), uuid.New(), uuid.New()
+	if _, err = pool.Exec(ctx, `INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Owner race test',$1)`, organizationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `
+		INSERT INTO users(id,name,username,password_hash,role,active) VALUES
+		($1,'First Owner','first-owner','unused','owner',TRUE),
+		($2,'Second Owner','second-owner','unused','owner',TRUE)`, firstOwnerID, secondOwnerID); err != nil {
+		t.Fatal(err)
+	}
+
+	s := &server{db: pool, logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	firstOwner := auth.Session{User: auth.User{ID: firstOwnerID, Name: "First Owner", Username: "first-owner", Role: "owner", Active: true}}
+	secondOwner := auth.Session{User: auth.User{ID: secondOwnerID, Name: "Second Owner", Username: "second-owner", Role: "owner", Active: true}}
+	deactivate := func(actor auth.Session, targetID uuid.UUID) int {
+		request := httptest.NewRequest(http.MethodDelete, "/api/v1/users/"+targetID.String(), nil)
+		routeContext := chi.NewRouteContext()
+		routeContext.URLParams.Add("id", targetID.String())
+		request = request.WithContext(context.WithValue(request.Context(), chi.RouteCtxKey, routeContext))
+		request = requestWithTestPrincipal(request, actor)
+		response := httptest.NewRecorder()
+		s.deleteUser(response, request)
+		return response.Code
+	}
+
+	// Each round, both Owners deactivate each other while the invariant lock is
+	// held. A correct implementation queues both requests behind that lock, so
+	// exactly one succeeds and the other sees the last-Owner refusal.
+	for round := 0; round < 5; round++ {
+		if _, err = pool.Exec(ctx, `UPDATE users SET role='owner', active=TRUE WHERE id IN ($1,$2)`, firstOwnerID, secondOwnerID); err != nil {
+			t.Fatal(err)
+		}
+		holder, err := pool.Acquire(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = holder.Exec(ctx, `SELECT pg_advisory_lock(hashtext('tilecast.users.active-owner'))`); err != nil {
+			holder.Release()
+			t.Fatal(err)
+		}
+		codes := make(chan int, 2)
+		go func() { codes <- deactivate(firstOwner, secondOwnerID) }()
+		go func() { codes <- deactivate(secondOwner, firstOwnerID) }()
+		time.Sleep(200 * time.Millisecond)
+		if _, err = holder.Exec(ctx, `SELECT pg_advisory_unlock(hashtext('tilecast.users.active-owner'))`); err != nil {
+			holder.Release()
+			t.Fatal(err)
+		}
+		holder.Release()
+		first, second := <-codes, <-codes
+		succeeded := 0
+		refused := 0
+		for _, code := range []int{first, second} {
+			switch code {
+			case http.StatusNoContent:
+				succeeded++
+			case http.StatusConflict:
+				refused++
+			default:
+				t.Fatalf("round %d: unexpected status %d", round, code)
+			}
+		}
+		if succeeded != 1 || refused != 1 {
+			t.Fatalf("round %d: statuses = %d and %d, want one %d and one %d", round, first, second, http.StatusNoContent, http.StatusConflict)
+		}
+		var activeOwners int
+		if err = pool.QueryRow(ctx, `SELECT count(*) FROM users WHERE role='owner' AND active=TRUE`).Scan(&activeOwners); err != nil {
+			t.Fatal(err)
+		}
+		if activeOwners != 1 {
+			t.Fatalf("round %d: active owners = %d, want 1", round, activeOwners)
+		}
 	}
 }

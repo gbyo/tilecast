@@ -160,7 +160,7 @@ export function FormsPortalShell() {
       void navigate(
         session.setupRequired
           ? "/setup"
-          : `/login?returnTo=${encodeURIComponent(location.pathname)}`,
+          : `/login?returnTo=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`,
         { replace: true },
       );
     }
@@ -170,6 +170,8 @@ export function FormsPortalShell() {
     session.setupRequired,
     navigate,
     location.pathname,
+    location.search,
+    location.hash,
   ]);
   if (session.isLoading || !session.authenticated) return null;
   return (

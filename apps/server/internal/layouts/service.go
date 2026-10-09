@@ -223,9 +223,6 @@ func (s *Service) SaveDraft(ctx context.Context, id, userID uuid.UUID, expected 
 		return Layout{}, err
 	}
 	deps := Dependencies(document)
-	if err := s.validateDependencies(ctx, deps); err != nil {
-		return Layout{}, err
-	}
 	encoded, err := json.Marshal(document)
 	if err != nil {
 		return Layout{}, err
@@ -235,6 +232,12 @@ func (s *Service) SaveDraft(ctx context.Context, id, userID uuid.UUID, expected 
 		return Layout{}, err
 	}
 	defer tx.Rollback(ctx)
+	// Validate inside the transaction: the share locks taken on referenced
+	// Data Sources are held until the dependency rows commit, so a deletion
+	// that checks usage afterwards sees this draft.
+	if err := s.validateDependenciesTx(ctx, tx, deps); err != nil {
+		return Layout{}, err
+	}
 	command, err := tx.Exec(ctx, `UPDATE layouts SET draft_document=$1,draft_revision=draft_revision+1,orientation=$2,canvas_width=$3,canvas_height=$4,preview_image=NULL,preview_content_type=NULL,preview_width=NULL,preview_height=NULL,preview_updated_at=NULL,preview_capture_version=NULL,updated_by=$5,updated_at=now() WHERE id=$6 AND deleted_at IS NULL AND draft_revision=$7`, encoded, document.Canvas.Orientation, document.Canvas.Width, document.Canvas.Height, userID, id, expected)
 	if err != nil {
 		return Layout{}, err
@@ -694,7 +697,7 @@ func (s *Service) validateDependencyQuery(ctx context.Context, q queryer, deps [
 				return err
 			}
 		case "data_source":
-			err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM data_sources WHERE id=$1 AND deleted_at IS NULL)`, dep.ID).Scan(&valid)
+			err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM data_sources WHERE id=$1 AND deleted_at IS NULL FOR SHARE)`, dep.ID).Scan(&valid)
 			if err != nil {
 				return err
 			}
