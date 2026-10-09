@@ -2,7 +2,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router";
-import type { FormDataSource, FormRecordListParams } from "./types";
+import type {
+  FormDataSource,
+  FormRecordListParams,
+  FormRecordPage,
+} from "./types";
 import { formsApi } from "./api";
 import {
   Tabs,
@@ -351,16 +355,22 @@ function ResponsesTab({
         ? needsReviewStates
         : [stateFilter];
 
+  // An omitted states filter lists every record, so a Needs review view with
+  // no review states must not send one. It is answered as an empty page.
+  const noReviewStates =
+    stateFilter === "needs_review" && needsReviewStates.length === 0;
   const records = useQuery({
     queryKey: ["form-records", form.id, { stateFilter, search, sort, page }],
-    queryFn: () =>
-      formsApi.listFormRecords(form.id, {
-        states,
-        search: search.trim() || undefined,
-        sort,
-        page,
-        pageSize: PAGE_SIZE,
-      }),
+    queryFn: (): Promise<FormRecordPage> =>
+      noReviewStates
+        ? Promise.resolve({ items: [], total: 0, page, pageSize: PAGE_SIZE })
+        : formsApi.listFormRecords(form.id, {
+            states,
+            search: search.trim() || undefined,
+            sort,
+            page,
+            pageSize: PAGE_SIZE,
+          }),
   });
 
   const total = records.data?.total ?? 0;
