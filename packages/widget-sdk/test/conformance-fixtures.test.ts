@@ -66,14 +66,22 @@ describe("external-widget conformance fixtures", () => {
     const ready = definition.resolveData(parsed.config, full);
     expect(ready).toMatchObject({ state: "ready" });
     const noDocument = definition.resolveData(parsed.config, fixtureResources());
-    expect(noDocument).toMatchObject({ state: "error", code: "widget_data_missing" });
+    expect(noDocument).toMatchObject({
+      state: "error",
+      code: "widget_data_missing",
+    });
     const noMedia = definition.resolveData(
       parsed.config,
       fixtureResources({
-        documents: { schedule: { schemaVersion: 1, datasets: [{ label: "Week 1" }] } },
+        documents: {
+          schedule: { schemaVersion: 1, datasets: [{ label: "Week 1" }] },
+        },
       }),
     );
-    expect(noMedia).toMatchObject({ state: "error", code: "widget_media_missing" });
+    expect(noMedia).toMatchObject({
+      state: "error",
+      code: "widget_media_missing",
+    });
   });
 
   it("the hostile bundle validates and always completes", () => {
