@@ -1046,6 +1046,11 @@ func (s *Service) DeleteAsset(ctx context.Context, id, userID uuid.UUID) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	// Playlist publication takes this same lock before it validates an asset, so
+	// a reference cannot be committed to an asset this deletion has already checked.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('tilecast.media.asset.'||$1))`, id.String()); err != nil {
+		return err
+	}
 	var inUse bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlist_items WHERE asset_id=$1) OR EXISTS(SELECT 1 FROM website_assets WHERE fallback_image_asset_id=$1) OR EXISTS(SELECT 1 FROM widgets JOIN assets widget_asset ON widget_asset.id=widgets.asset_id AND widget_asset.deleted_at IS NULL WHERE widgets.configuration->>'fallbackImageAssetId'=$1::text) OR EXISTS(SELECT 1 FROM organization_runtime_settings WHERE settings->>'branding.logo_asset_id'=$1::text OR settings->>'branding.icon_asset_id'=$1::text) OR EXISTS(SELECT 1 FROM layout_draft_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset')) OR EXISTS(SELECT 1 FROM layout_revision_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))`, id).Scan(&inUse); err != nil {
 		return err
