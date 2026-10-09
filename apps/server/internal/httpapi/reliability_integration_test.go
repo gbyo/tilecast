@@ -104,3 +104,54 @@ func TestScreenReliabilityDerivesPlayerHealth(t *testing.T) {
 		}
 	})
 }
+
+func TestScreenReliabilityQuietStatesKeepRendererFailureHistory(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		ctx := context.Background()
+		if _, err := env.pool.Exec(ctx, `UPDATE screens SET last_heartbeat_at=now() WHERE id=$1`, env.screenID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := env.pool.Exec(ctx, `INSERT INTO screen_player_status(screen_id,playback_state,last_renderer_failure,last_healthy_playback_at) VALUES($1,'playing','rejected',now()-interval '1 hour')`, env.screenID); err != nil {
+			t.Fatal(err)
+		}
+		for _, testCase := range []struct {
+			playbackState, state, cause string
+		}{
+			{"sleep", playerHealthSleepingDisabled, "display_sleep"},
+			{"disabled", playerHealthSleepingDisabled, "playback_disabled"},
+			{"idle", playerHealthHealthy, ""},
+			{"playing", playerHealthRendererDown, "renderer_failure"},
+		} {
+			t.Run(testCase.playbackState, func(t *testing.T) {
+				if _, err := env.pool.Exec(ctx, `UPDATE screen_player_status SET playback_state=$2 WHERE screen_id=$1`, env.screenID, testCase.playbackState); err != nil {
+					t.Fatal(err)
+				}
+				routeContext := chi.NewRouteContext()
+				routeContext.URLParams.Add("id", env.screenID.String())
+				request := httptest.NewRequest(http.MethodGet, "/screens/"+env.screenID.String()+"/reliability", nil)
+				request = requestWithTestPrincipal(request, env.owner)
+				request = request.WithContext(context.WithValue(request.Context(), chi.RouteCtxKey, routeContext))
+				recorder := httptest.NewRecorder()
+				env.server.screenReliability(recorder, request)
+				if recorder.Code != http.StatusOK {
+					t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+				}
+				var payload struct {
+					Data struct {
+						PlayerHealth        playerHealth `json:"playerHealth"`
+						LastRendererFailure string       `json:"lastRendererFailure"`
+					} `json:"data"`
+				}
+				if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+					t.Fatal(err)
+				}
+				if payload.Data.PlayerHealth.State != testCase.state || payload.Data.PlayerHealth.Cause != testCase.cause {
+					t.Fatalf("health = %+v, want state=%q cause=%q", payload.Data.PlayerHealth, testCase.state, testCase.cause)
+				}
+				if payload.Data.LastRendererFailure != "rejected" {
+					t.Fatalf("renderer failure history = %q, want rejected", payload.Data.LastRendererFailure)
+				}
+			})
+		}
+	})
+}

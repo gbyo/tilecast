@@ -52,7 +52,7 @@ func TestRendererDiagnosticsHeartbeatPersistsAndClears(t *testing.T) {
 	off := false
 	service.updateRendererDiagnosticsHeartbeat(ctx, principal.ScreenID, Heartbeat{
 		RendererRestartCount: &negative,
-		SafeMode:            &off,
+		SafeMode:             &off,
 	})
 	var failureAfter, reasonAfter, safeReasonAfter *string
 	var countAfter *int

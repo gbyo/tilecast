@@ -24,6 +24,98 @@ function formatInstant(
   });
 }
 
+function HealthDetail({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <dt>{title}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
+function RendererDetail({ health }: { health: PlayerHealth }) {
+  const { t, i18n } = useTranslation("screens");
+  const lastProgress = formatInstant(
+    health.lastProgressAt,
+    i18n.language || "en",
+  );
+  if (!health.rendererState && !lastProgress) return null;
+  const renderer = health.rendererState
+    ? t(`playerHealth.rendererStates.${health.rendererState}`, {
+        defaultValue: health.rendererState.replaceAll("_", " "),
+      })
+    : null;
+  const progress = lastProgress
+    ? t("playerHealth.lastProgress", { at: lastProgress })
+    : null;
+  return (
+    <HealthDetail title={t("playerHealth.renderer")}>
+      {[renderer, progress].filter(Boolean).join(" · ")}
+    </HealthDetail>
+  );
+}
+
+function RecoveryDetail({ health }: { health: PlayerHealth }) {
+  const { t, i18n } = useTranslation("screens");
+  const lastRecovery = formatInstant(
+    health.lastRecoveryAt,
+    i18n.language || "en",
+  );
+  if (
+    !health.lastRecoveryReason &&
+    !lastRecovery &&
+    health.recoveryLevel == null
+  )
+    return null;
+  const level =
+    health.recoveryLevel != null
+      ? t("playerHealth.recoveryLevel", { level: health.recoveryLevel })
+      : null;
+  return (
+    <HealthDetail title={t("playerHealth.lastRecovery")}>
+      {[health.lastRecoveryReason?.replaceAll("_", " "), lastRecovery, level]
+        .filter(Boolean)
+        .join(" · ")}
+    </HealthDetail>
+  );
+}
+
+function FailureDetail({ reliability }: { reliability?: ReliabilityStatus }) {
+  const { t } = useTranslation("screens");
+  if (!reliability?.lastRendererFailure) return null;
+  const restarts =
+    reliability.rendererRestartCount != null
+      ? t("playerHealth.restartCount", {
+          count: reliability.rendererRestartCount,
+        })
+      : null;
+  return (
+    <HealthDetail title={t("playerHealth.lastFailure")}>
+      {[reliability.lastRendererFailure.replaceAll("_", " "), restarts]
+        .filter(Boolean)
+        .join(" · ")}
+    </HealthDetail>
+  );
+}
+
+function UpdateDetail({ health }: { health: PlayerHealth }) {
+  const { t } = useTranslation("screens");
+  if (!health.updateState && !health.updateError) return null;
+  return (
+    <HealthDetail title={t("playerHealth.update")}>
+      {[health.updateState?.replaceAll("_", " "), health.updateError]
+        .filter(Boolean)
+        .join(" · ")}
+    </HealthDetail>
+  );
+}
+
 /**
  * One derived presentation of the player's condition, from the server's
  * `playerHealth` object. Intentional sleep, disabled playback, and healthy
@@ -51,80 +143,6 @@ export function PlayerHealthSummary({
   if (!health) return null;
   const language = i18n.language || "en";
   const observed = formatInstant(health.observedAt, language);
-  const lastProgress = formatInstant(health.lastProgressAt, language);
-  const lastRecovery = formatInstant(health.lastRecoveryAt, language);
-  const rows: { title: string; body: React.ReactNode }[] = [
-    {
-      title: t("playerHealth.observed"),
-      body: observed ?? t("shared.notReported"),
-    },
-  ];
-  if (health.cause) {
-    rows.push({
-      title: t("playerHealth.cause"),
-      body: t(`playerHealth.causes.${health.cause}`, {
-        defaultValue: health.cause.replaceAll("_", " "),
-      }),
-    });
-  }
-  if (health.rendererState || lastProgress) {
-    rows.push({
-      title: t("playerHealth.renderer"),
-      body: [
-        health.rendererState
-          ? t(`playerHealth.rendererStates.${health.rendererState}`, {
-              defaultValue: health.rendererState.replaceAll("_", " "),
-            })
-          : null,
-        lastProgress
-          ? t("playerHealth.lastProgress", { at: lastProgress })
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-    });
-  }
-  if (
-    health.lastRecoveryReason ||
-    lastRecovery ||
-    health.recoveryLevel != null
-  ) {
-    rows.push({
-      title: t("playerHealth.lastRecovery"),
-      body: [
-        health.lastRecoveryReason?.replaceAll("_", " "),
-        lastRecovery,
-        health.recoveryLevel != null
-          ? t("playerHealth.recoveryLevel", { level: health.recoveryLevel })
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-    });
-  }
-  if (reliability?.lastRendererFailure) {
-    rows.push({
-      title: t("playerHealth.lastFailure"),
-      body: [
-        reliability.lastRendererFailure.replaceAll("_", " "),
-        reliability.rendererRestartCount != null
-          ? t("playerHealth.restartCount", {
-              count: reliability.rendererRestartCount,
-            })
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-    });
-  }
-  if (health.updateState || health.updateError) {
-    rows.push({
-      title: t("playerHealth.update"),
-      body: [health.updateState?.replaceAll("_", " "), health.updateError]
-        .filter(Boolean)
-        .join(" · "),
-    });
-  }
   return (
     <section
       aria-labelledby="player-health-heading"
@@ -143,12 +161,20 @@ export function PlayerHealthSummary({
         </Badge>
       </div>
       <dl className="grid gap-3 sm:grid-cols-2 [&_dd]:mt-1 [&_dd]:break-words [&_dd]:text-sm [&_dt]:text-xs [&_dt]:text-muted-foreground">
-        {rows.map((row) => (
-          <div key={row.title}>
-            <dt>{row.title}</dt>
-            <dd>{row.body}</dd>
-          </div>
-        ))}
+        <HealthDetail title={t("playerHealth.observed")}>
+          {observed ?? t("shared.notReported")}
+        </HealthDetail>
+        {health.cause && (
+          <HealthDetail title={t("playerHealth.cause")}>
+            {t(`playerHealth.causes.${health.cause}`, {
+              defaultValue: health.cause.replaceAll("_", " "),
+            })}
+          </HealthDetail>
+        )}
+        <RendererDetail health={health} />
+        <RecoveryDetail health={health} />
+        <FailureDetail reliability={reliability} />
+        <UpdateDetail health={health} />
       </dl>
       <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         <Link

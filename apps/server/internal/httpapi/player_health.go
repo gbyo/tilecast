@@ -142,18 +142,17 @@ func derivePlayerHealth(now time.Time, input playerHealthInput) playerHealth {
 		health.State, health.Cause = playerHealthWaitingEvidence, "awaiting_playback_evidence"
 		return health
 	}
-	if input.LastRendererFailure != "" && health.LastProgressAt == nil {
-		health.State, health.Cause = playerHealthRendererDown, "renderer_failure"
-		health.setRecovery(input)
-		return health
-	}
-
 	if (input.PlaybackDisabled != nil && *input.PlaybackDisabled) || input.PlaybackState == "disabled" {
 		health.State, health.Cause = playerHealthSleepingDisabled, "playback_disabled"
 		return health
 	}
 	if input.PlaybackState == "sleep" {
 		health.State, health.Cause = playerHealthSleepingDisabled, "display_sleep"
+		return health
+	}
+	if input.LastRendererFailure != "" && health.LastProgressAt == nil && input.PlaybackState != "idle" {
+		health.State, health.Cause = playerHealthRendererDown, "renderer_failure"
+		health.setRecovery(input)
 		return health
 	}
 
