@@ -1,6 +1,6 @@
 ---
 title: Actually open source signage.
-description: Tilecast is open-source, self-hosted digital signage software for Android TV and Linux. Manage screens, playlists, schedules, layouts, and media on your own server.
+description: Tilecast is open-source, self-hosted digital signage for Android TV and Linux, with a Windows Player preview in preparation. Manage screens and content on your own server.
 template: splash
 head:
   - tag: title
@@ -12,7 +12,7 @@ head:
   - tag: meta
     attrs:
       property: og:description
-      content: Tilecast is open-source, self-hosted digital signage software for Android TV and Linux. Manage your screens and content from your own server.
+      content: Tilecast is open-source, self-hosted digital signage for Android TV and Linux, with Windows Player preview support in preparation. Manage your screens and content from your own server.
   - tag: meta
     attrs:
       property: og:type
@@ -40,14 +40,14 @@ head:
   - tag: meta
     attrs:
       name: twitter:description
-      content: Open-source, self-hosted digital signage for Android TV and Linux. Run Tilecast on your own server and keep your screens and content under your control.
+      content: Open-source, self-hosted digital signage for Android TV and Linux. Windows Player preview is in preparation. Run Tilecast on your own server.
   - tag: script
     attrs:
       type: application/ld+json
     content: >-
-      {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Tilecast","url":"https://tilecast.org/","description":"Open-source, self-hosted digital signage software for Android TV and Linux.","applicationCategory":"BusinessApplication","operatingSystem":"Linux, Android TV","isAccessibleForFree":true,"license":"https://www.gnu.org/licenses/agpl-3.0.html","sameAs":"https://github.com/gbyo/tilecast"}
+      {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Tilecast","url":"https://tilecast.org/","description":"Open-source, self-hosted digital signage software for Android TV and Linux, with Windows Player preview support in preparation.","applicationCategory":"BusinessApplication","operatingSystem":"Linux, Android TV, Windows","isAccessibleForFree":true,"license":"https://www.gnu.org/licenses/agpl-3.0.html","sameAs":"https://github.com/gbyo/tilecast"}
 hero:
-  tagline: Tilecast is self-hosted digital signage for Android TV and Linux displays. Run the server on your own hardware, manage screens in Studio, and keep your content under your control.
+  tagline: Tilecast is self-hosted digital signage for Android TV and Linux, with a Windows Player preview in preparation. Run the server on your hardware and manage screens in Studio.
   actions:
     - text: Get started
       link: getting-started/
@@ -90,7 +90,7 @@ import { CardGrid, LinkCard } from "@astrojs/starlight/components";
   />
   <LinkCard
     title="Screens & players"
-    description="Install Tilecast Player on an Android TV device or a Linux computer, pair it, and control how it behaves."
+    description="Install Tilecast Player on Android TV or Linux. Find the Windows preview guide and platform limits."
     href="players/"
   />
   <LinkCard
