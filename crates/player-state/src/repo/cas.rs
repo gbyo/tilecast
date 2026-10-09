@@ -186,6 +186,17 @@ pub fn mark_all_suspect(connection: &Connection) -> Result<usize> {
     Ok(connection.execute("UPDATE cas_objects SET verify_state = 'suspect'", [])?)
 }
 
+/// Drops every object, partial, and pin row. Used when the cache directories
+/// are quarantined: the rows would otherwise describe files that moved away.
+pub fn forget_all(connection: &mut Connection) -> Result<()> {
+    let tx = connection.transaction()?;
+    tx.execute("DELETE FROM cas_pins", [])?;
+    tx.execute("DELETE FROM cas_partials", [])?;
+    tx.execute("DELETE FROM cas_objects", [])?;
+    tx.commit()?;
+    Ok(())
+}
+
 /// Applies batched access times (docs/tilecast-edge.md §6.2: never one write per read).
 pub fn touch_many(connection: &mut Connection, touches: &[(Sha256Digest, Timestamp)]) -> Result<()> {
     let tx = connection.transaction()?;

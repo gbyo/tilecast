@@ -133,9 +133,7 @@ impl player_core::ServerLinkHost for Host {
         // A heartbeat is built after the pass verified the installation, so
         // a recorded mismatch observed here is stale (the server recovered
         // its old installation) and clears.
-        if self.0.installation_mismatch.lock().unwrap_or_else(|poison| poison.into_inner()).is_some()
-            && *self.0.link_state.lock().unwrap_or_else(|poison| poison.into_inner()) == LinkState::Connected
-        {
+        if self.0.installation_mismatch.lock().unwrap_or_else(|poison| poison.into_inner()).is_some() {
             crate::mismatch::clear_mismatch(&self.0).await;
         }
         build_heartbeat(&self.0).await

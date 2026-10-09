@@ -515,9 +515,14 @@ fn migration_11_adds_installation_mismatch_and_round_trips() {
         last_contact_at: Some(now()),
         quarantined_cas_dir: Some("cas-quarantined-1".into()),
         quarantined_partial_dir: None,
+        quarantine_complete: false,
     };
     installation_mismatch::put(&connection, &mismatch).expect("store");
-    assert_eq!(installation_mismatch::get(&connection).expect("reread"), Some(mismatch));
+    assert_eq!(installation_mismatch::get(&connection).expect("reread"), Some(mismatch.clone()));
+    // Completing the quarantine rewrites the same row with the flag set.
+    let complete = installation_mismatch::InstallationMismatch { quarantine_complete: true, ..mismatch };
+    installation_mismatch::put(&connection, &complete).expect("complete");
+    assert_eq!(installation_mismatch::get(&connection).expect("reread complete"), Some(complete));
     installation_mismatch::clear(&connection).expect("clear");
     assert_eq!(installation_mismatch::get(&connection).expect("read cleared"), None);
 }
