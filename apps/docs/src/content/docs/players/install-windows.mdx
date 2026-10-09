@@ -1,49 +1,74 @@
 ---
 title: Install Tilecast Player on Windows
-description: Install the signed Windows Player package, check the WebView2 Runtime, and pair the display.
+description: Prepare Windows 10 or 11 for the Tilecast Player preview, install a signed MSIX, and pair the display.
 ---
 
-:::note[Qualification status]
-The Windows Player runs on Windows 10 and Windows 11, x64 and ARM64. Physical qualification on both architectures is still in progress. Keep production screens on a qualified Player until a Tilecast release lists Windows as supported for your setup.
+:::note[Windows preview: release and qualification pending]
+The native Windows Player targets Windows 10 and 11 on x64 and ARM64. Its release packaging is implemented, but no Windows Player package has been published yet. Physical qualification on both architectures is still in progress. Do not use Windows for unattended production screens until a Tilecast release explicitly supports your setup.
 :::
 
-Tilecast Player for Windows ships as a signed MSIX package, one for x64 and one for ARM64. Download the package that matches the PC: **Settings** > **System** > **About** shows the processor architecture. An x64 package does not install on an ARM64 PC, and Player updates always stay on the installed architecture.
+When a Windows release is available, install the signed MSIX package that matches the PC and pair it with your Tilecast Server. Windows uses the same Studio, playlists, Layouts, and pairing flow as other Players.
 
 import { Steps } from "@astrojs/starlight/components";
 
 ## Before you start
 
-- Use Windows 10 version 1809 or newer, or Windows 11, on x64 or ARM64.
-- Make sure the PC can reach Tilecast Server at the address in `TILECAST_PUBLIC_URL`.
-- Sign in to Studio as an Owner to prepare the Windows release.
-- Confirm the WebView2 Runtime is present. It ships with Microsoft Edge and with Windows 11. If the Player reports that WebView2 is missing, install the Evergreen Runtime from Microsoft before pairing: the Bootstrapper installer for a PC with internet access, or the Standalone installer for the matching architecture when you must prepare the PC offline.
+- Use Windows 10 version 1809 or newer, or Windows 11, on an x64 or ARM64 PC. In **Settings** > **System** > **About**, check **System type** to choose the package for your processor.
+- Make sure the PC can reach Tilecast Server at the address set in `TILECAST_PUBLIC_URL`. Use HTTPS for a public hostname or HTTP only on a trusted local network.
+- Check that the **Microsoft Edge WebView2 Evergreen Runtime** is installed. The Player does not bundle WebView2. If it is missing, get the **Evergreen Bootstrapper** for a connected PC or the matching **Evergreen Standalone Installer** for an offline PC from [Microsoft's WebView2 download page](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
+- Arrange a Windows user session for signage. The Player starts when that user signs in, **not before Windows sign-in**. Test your own sign-in and reboot setup before leaving a screen unattended.
 
-## Prepare a Windows release
-
-<Steps>
-
-1. In Studio, open **Settings** > **Player updates** and select **Windows**.
-2. If the release you want is not listed, select **Sync from GitHub**.
-3. Select **Download** beside the release and wait until Studio shows **Ready to deploy**.
-
-</Steps>
-
-## Install the Player
+## Find the Windows release
 
 <Steps>
 
-1. Download the MSIX package for the PC's architecture from the Tilecast release.
-2. Double-click the package. Windows verifies the publisher signature before it installs anything; installing from any other source is not supported.
-3. Launch **Tilecast Player** from the Start menu. The packaged install also starts the Player at logon. You can disable that in Task Manager under **Startup apps**.
+1. Open [Tilecast releases on GitHub](https://github.com/gbyo/tilecast/releases).
+2. Find a published **Tilecast Player for Windows** release. If none is listed, the Windows preview is not available for installation yet.
+3. Download the signed `.msix` package for your PC: `x86_64` for Windows x64, or `aarch64` for Windows ARM64. Do not substitute an Edge/Linux or Android asset.
 
 </Steps>
 
-In an enterprise deployment, provision the Tilecast publisher certificate on the PC before installing the package.
+Only install Windows packages from the Tilecast GitHub repository or your organization's approved distribution source. A GitHub Actions build artifact is not a published Player release.
 
-The Player opens with a pairing code. Continue with [Pair a display](../pair-a-display/).
+## Install and start the Player
 
-## Host limits
+<Steps>
 
-The Player shows signage fullscreen on the primary display and keeps the display awake while it presents. It does not control display power, CEC, or DDC, and it does not join Presentation Networks. Remote pages cannot open file dialogs: do not assign pages with file inputs to Windows screens.
+1. Check the package publisher before trusting or installing it. Windows requires a signed MSIX. If Windows reports that the certificate is not trusted, see [Publisher certificate trust](#publisher-certificate-trust) below; do not disable signature checking.
+2. Open the `.msix` with **App Installer** and select **Install**.
+3. Launch **Tilecast Player** from the Windows Start menu.
+4. Enter your Tilecast Server address if discovery does not find it. Follow [Pair a display](../pair-a-display/) to approve the pairing code in Studio.
+5. Assign a playlist or Layout and confirm playback. Restart the PC, sign in, and check that the Player starts again and fills the primary display.
 
-A local HTTP server address is not encrypted. Use it only on a trusted LAN. Public hostnames require HTTPS.
+</Steps>
+
+The package declares a startup task for user logon. You can control it in **Task Manager** > **Startup apps**. An MSIX installation does not configure Windows automatic sign-in, a dedicated kiosk account, or sign-in before the desktop loads.
+
+## Publisher certificate trust
+
+A correctly signed MSIX still cannot install if Windows does not trust the signing certificate.
+
+- **Publicly trusted certificate:** Windows normally verifies it without a separate certificate-installation step.
+- **Self-signed or organization-issued certificate:** An administrator must trust the publisher certificate on each PC before installing. Obtain the public `.cer` file from a trusted release or your IT administrator, and confirm its identity and thumbprint through a separate trusted channel. Never distribute a private `.pfx` signing key to Player PCs.
+
+For a verified test certificate, an administrator can import the public certificate into the local computer's **Trusted People** store:
+
+```powershell title="Administrator PowerShell · Trusted test publisher only"
+Import-Certificate -FilePath .\Tilecast-Publisher.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople
+```
+
+Do this only for a publisher you trust. Do not import an untrusted publisher certificate into **Trusted Root Certification Authorities**, and don't turn off Windows security checks. For background and other deployment methods, see [Microsoft's MSIX signing guide](https://learn.microsoft.com/en-us/windows/msix/package/sign-msix-package-guide).
+
+## Update the Windows Player
+
+In Studio, an Owner can open **Settings** > **Player updates**, choose **Windows**, select **Sync from GitHub**, and cache a published, verified Windows release. Owners and Administrators can then deploy that release to matching Windows screens.
+
+A Windows Player verifies both the Tilecast-signed update metadata and the Windows MSIX identity before installation. An ARM64 screen receives only ARM64 updates; an x64 screen receives only x64 updates. The signing identity must remain compatible across updates. See [Update a Player](../update-a-player/) and [Troubleshoot Player updates](../../troubleshooting/player-updates/).
+
+## Windows host limits
+
+The Player presents fullscreen on the **primary monitor** and keeps the system and display awake while it runs. It does **not** control screen power, HDMI-CEC, or DDC/CI; it does not offer an AirPlay receiver or join Presentation Networks.
+
+Website and YouTube content use WebView2. Remote pages cannot open file-selection dialogs, so avoid assigning sites that require file uploads. Physical testing is still required for video codecs, multi-zone websites, captures, and long-running unattended playback.
+
+Before using the Player for a real installation, verify pairing, offline recovery, restart at user logon, preview and Watch Live, and signed updates on the exact PC architecture you intend to use.

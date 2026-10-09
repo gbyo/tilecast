@@ -1,6 +1,6 @@
 ---
 title: Player updates
-description: Troubleshoot Android, Linux, or Tilecast Edge Player releases that cannot verify, download, install, or finish deploying.
+description: Troubleshoot Android, Linux, Tilecast Edge, and Windows Player releases that cannot verify, install, or finish deploying.
 ---
 
 import { TabItem, Tabs } from "@astrojs/starlight/components";
@@ -53,6 +53,22 @@ To see what happened on the screen, run `sudo /opt/tilecast-edge/current/bin/til
 [Update Tilecast Edge](../../edge/updates/#when-edge-rolls-back) explains each rollback reason.
 
 If the screen shows its recovery screen after a rollback, the new release changed the local state database to a version the previous release can't read. Studio can't fix this; see [Recover after a rollback](../../edge/updates/#recover-after-a-rollback-to-an-older-state-database).
+
+</TabItem>
+
+<TabItem label="Windows">
+
+If there is no Windows release in Studio or on GitHub, wait for a published signed Windows Player release. Windows preview packages are not yet available for installation.
+
+If the MSIX installation fails:
+
+- **Untrusted publisher:** Windows must trust the MSIX signing certificate. Do not bypass package signature checks. For a self-signed or organization-issued certificate, have your administrator verify its source and import its public `.cer` certificate into the local computer's **Trusted People** store. See [Publisher certificate trust](../../players/install-windows/#publisher-certificate-trust).
+- **Wrong architecture:** Download `x86_64` for a Windows x64 PC or `aarch64` for an ARM64 PC. Check **Settings** > **System** > **About** and use the matching package and update manifest.
+- **Wrong package identity or signing certificate:** Install a release from the same Windows publisher and package family. Don't work around an identity mismatch by deleting a paired Player; inspect the package and release first.
+- **WebView2 is missing:** Install Microsoft's [WebView2 Evergreen Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/), using the Standalone installer on an offline PC.
+- **Player does not return after a reboot:** Confirm that Windows signs in to the signage user's desktop and that **Tilecast Player** is enabled in **Startup apps**. The MSIX starts at user logon, not at the Windows sign-in screen.
+
+If the deployment is waiting to complete, check that the Player restarted into the expected version and reconnected to its paired server. For MSIX installation and certificate failures, see [Microsoft's MSIX troubleshooting guide](https://learn.microsoft.com/en-us/windows/msix/msix-troubleshooting-guide).
 
 </TabItem>
 
