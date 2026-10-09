@@ -1,7 +1,7 @@
 //! Migration, restart-safety and repository tests against real SQLite files.
 
 use player_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
-use player_state::repo::{self, cas, daemon, playback_checkpoint};
+use player_state::repo::{self, cas, daemon, playback_checkpoint, renderer};
 use player_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
 use player_types::capability::{Capability, CapabilityId, CapabilityState};
 use player_types::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
@@ -426,17 +426,17 @@ fn migration_8_keeps_cas_rows_and_admits_widget_bundles() {
 }
 
 #[test]
-fn migration_9_adds_playback_checkpoint_and_round_trips() {
+fn migration_10_adds_playback_checkpoint_and_round_trips() {
     let (_dir, path) = temp_db();
     let connection = rusqlite::Connection::open(&path).expect("raw open");
-    // Simulate a device last migrated at version 8.
-    let v8: Vec<Migration> = player_state::MIGRATIONS
+    // Simulate a device last migrated at version 9.
+    let v9: Vec<Migration> = player_state::MIGRATIONS
         .iter()
-        .take_while(|m| m.version <= 8)
+        .take_while(|m| m.version <= 9)
         .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
         .collect();
-    migrate_with(&connection, &v8).expect("migrate to v8");
-    assert!(playback_checkpoint::get(&connection).is_err(), "no checkpoint table at v8");
+    migrate_with(&connection, &v9).expect("migrate to v9");
+    assert!(playback_checkpoint::get(&connection).is_err(), "no checkpoint table at v9");
     let owned: Vec<Migration> =
         player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to latest");
@@ -457,4 +457,37 @@ fn migration_9_adds_playback_checkpoint_and_round_trips() {
     assert_eq!(playback_checkpoint::get(&connection).expect("reread"), Some(checkpoint));
     playback_checkpoint::clear(&connection).expect("clear");
     assert_eq!(playback_checkpoint::get(&connection).expect("read cleared"), None);
+}
+
+#[test]
+fn migration_9_keeps_renderer_state_and_records_last_restart() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    // Simulate a device last migrated at version 8 with supervision state.
+    let v8: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 8)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v8).expect("migrate to v8");
+    connection
+        .execute("INSERT INTO renderer_state (id, restart_count, safe_mode, updated_at_ms) VALUES (1, 7, 0, 1)", [])
+        .expect("seed supervision state");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
+    let record = renderer::get(&connection).expect("read record");
+    assert_eq!(record.restart_count, 7);
+    assert_eq!(record.last_restart_at, None);
+    assert_eq!(record.last_restart_reason, None);
+    let restarted = renderer::RendererRecord {
+        restart_count: 8,
+        last_restart_at: Timestamp::from_unix_millis(1_700_000_000_000),
+        last_restart_reason: Some("recovery".into()),
+        ..record
+    };
+    renderer::put(&connection, &restarted, now()).expect("store restart");
+    let round_tripped = renderer::get(&connection).expect("reread record");
+    assert_eq!(round_tripped, restarted);
 }

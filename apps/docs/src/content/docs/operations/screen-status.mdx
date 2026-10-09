@@ -41,6 +41,22 @@ Below the **Fleet** and **Archive** tabs, one row of controls changes what the l
 
 Each active filter appears under the row with its own remove button. **Clear all** removes every filter and keeps your group, sort, and view.
 
+## Read Player health
+
+Select a screen and open **Overview** to see **Player health**. The summary
+combines connection status, Player reports, and recent playback evidence.
+It shows the cause, renderer progress, recovery details, and update failures
+when those facts are available. Use its **Activity**, **Commands**, and
+**Player updates** links to investigate or take action.
+
+Intentional sleep, disabled playback, and idle playback with no content
+assigned stay quiet even when the Player has a stored renderer failure.
+The last failure remains visible as diagnostic history. Active recovery
+or a current renderer problem still takes priority.
+
+See the [Player protocol](https://github.com/gbyo/tilecast/blob/main/docs/player-protocol.md)
+for the exact reporting contract.
+
 ## If the screen is offline or stale
 
 <Steps>

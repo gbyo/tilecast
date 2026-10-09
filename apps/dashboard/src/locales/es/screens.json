@@ -1562,5 +1562,62 @@
     "snapshotAlt": "Pantalla el {{date}}",
     "manualSuffix": " · manual",
     "openFull": "Abrir a tamaño completo"
+  },
+  "playerHealth": {
+    "title": "Salud del reproductor",
+    "loading": "Cargando la salud del reproductor…",
+    "observed": "Última observación verificada",
+    "cause": "Causa",
+    "renderer": "Renderizador",
+    "lastProgress": "último progreso {{at}}",
+    "lastRecovery": "Última recuperación",
+    "recoveryLevel": "nivel {{level}}",
+    "lastFailure": "Último fallo del renderizador",
+    "restartCount": "{{count}} reinicios",
+    "update": "Actualización",
+    "links": {
+      "activity": "Actividad",
+      "commands": "Comandos",
+      "updates": "Actualizaciones del reproductor"
+    },
+    "states": {
+      "disconnected": "Desconectado",
+      "healthy": "Saludable",
+      "renderer_unavailable": "Renderizador no disponible",
+      "waiting_for_evidence": "Esperando reproducción",
+      "recovering": "Recuperándose",
+      "safe_mode": "Modo seguro",
+      "sleeping_or_disabled": "En reposo o deshabilitado",
+      "presentation_failed": "Presentación fallida",
+      "needs_intervention": "Necesita intervención",
+      "unknown": "Desconocido"
+    },
+    "causes": {
+      "screen_disabled": "Pantalla deshabilitada",
+      "credential_revoked": "Credencial revocada",
+      "awaiting_player": "Esperando al reproductor",
+      "never_contacted": "Sin contacto",
+      "connection_lost": "Conexión perdida",
+      "recovery": "Recuperación",
+      "update_failed": "Actualización fallida",
+      "preparation_failed": "Preparación fallida",
+      "presentation_incompatible": "Presentación incompatible",
+      "recovery_in_progress": "Recuperación en curso",
+      "renderer_disconnected": "Renderizador desconectado",
+      "awaiting_playback_evidence": "Esperando evidencia de reproducción",
+      "renderer_failure": "Fallo del renderizador",
+      "playback_disabled": "Reproducción deshabilitada",
+      "display_sleep": "Reposo de pantalla",
+      "unreported": "No informado",
+      "player_setup": "Configuración del reproductor"
+    },
+    "rendererStates": {
+      "healthy": "Saludable",
+      "safe_mode": "Modo seguro",
+      "disconnected": "Desconectado",
+      "starting": "Iniciando",
+      "incompatible": "Incompatible",
+      "waiting_for_progress": "Esperando progreso"
+    }
   }
 }

@@ -711,6 +711,13 @@ export type ReliabilityStatus = {
   safeMode?: boolean;
   lastWatchdogFailure?: string;
   lastWatchdogRecoveryAt?: string;
+  /** Edge renderer diagnostics; absent on players that do not report them. */
+  lastRendererFailure?: string;
+  rendererRestartCount?: number;
+  lastRendererRestartAt?: string;
+  lastRendererRestartReason?: string;
+  safeModeReason?: string;
+  playerHealth?: PlayerHealth;
   maintenanceSessionExpiresAt?: string;
   commissioningState?: string;
   commissioningStep?: string;
@@ -790,6 +797,37 @@ export type ReliabilityStatus = {
 };
 
 type AirplayString<T extends string> = T | (string & {});
+
+/**
+ * One derived presentation of a screen's condition, computed server-side
+ * from connection state, player status, and the telemetry snapshot
+ * (see internal/httpapi/player_health.go). Unknown states stay unknown:
+ * a missing field means unreported, never zero.
+ */
+export type PlayerHealth = {
+  state: PlayerHealthState;
+  observedAt?: string;
+  cause?: string;
+  rendererState?: string;
+  lastProgressAt?: string;
+  lastRecoveryReason?: string;
+  lastRecoveryAt?: string;
+  recoveryLevel?: number;
+  updateState?: string;
+  updateError?: string;
+};
+
+export type PlayerHealthState =
+  | "disconnected"
+  | "healthy"
+  | "renderer_unavailable"
+  | "waiting_for_evidence"
+  | "recovering"
+  | "safe_mode"
+  | "sleeping_or_disabled"
+  | "presentation_failed"
+  | "needs_intervention"
+  | "unknown";
 
 export type AirplaySessionScreenState = {
   screenId: string;

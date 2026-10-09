@@ -67,8 +67,13 @@ pub const MIGRATIONS: &[Migration] = &[
     },
     Migration {
         version: 9,
+        name: "renderer_last_restart",
+        sql: include_str!("../migrations/0009_renderer_last_restart.sql"),
+    },
+    Migration {
+        version: 10,
         name: "playback_checkpoint",
-        sql: include_str!("../migrations/0009_playback_checkpoint.sql"),
+        sql: include_str!("../migrations/0010_playback_checkpoint.sql"),
     },
 ];
 

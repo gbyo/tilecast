@@ -63,6 +63,16 @@ func (h *PresenceHub) Connected(screenID uuid.UUID) bool {
 	return ok
 }
 
+// PresenceConnected reports whether the screen holds an authenticated socket
+// in this process. It lets dashboard handlers derive connectivity without
+// duplicating the status thresholds.
+func (s *Service) PresenceConnected(screenID uuid.UUID) bool {
+	if s.presence == nil {
+		return false
+	}
+	return s.presence.Connected(screenID)
+}
+
 func (h *PresenceHub) Disconnect(screenID uuid.UUID) {
 	h.mu.RLock()
 	closeConnection := h.connections[screenID].close

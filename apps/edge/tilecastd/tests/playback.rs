@@ -3079,3 +3079,29 @@ async fn cold_start_resumes_the_checkpointed_item() {
     renderer.stop();
     player.stop().await;
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn heartbeat_reports_recovery_position_and_last_restart() {
+    let harness = Harness::new().await;
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    // A healthy player reports its ladder position and omits every unknown
+    // renderer fact rather than zeroing it.
+    let fresh = heartbeat(&player.context).await;
+    assert_eq!(fresh["recoveryLevel"], 0);
+    assert_eq!(fresh["recoveryCount"], 0);
+    assert_eq!(fresh["rendererRestartCount"], 0);
+    assert!(fresh.get("lastRendererFailure").is_none());
+    assert!(fresh.get("lastRendererRestartAt").is_none());
+    assert!(fresh.get("lastRendererRestartReason").is_none());
+    assert!(fresh.get("safeModeReason").is_none());
+    // An explicit restart is reported with its reason and time.
+    let at = player.context.now().unix_millis();
+    assert!(player.context.presentation.lock().await.restart_renderer("command", at));
+    let restarted = heartbeat(&player.context).await;
+    assert_eq!(restarted["rendererRestartCount"], 1);
+    assert_eq!(restarted["lastRendererRestartReason"], "command");
+    assert!(restarted.get("lastRendererRestartAt").is_some());
+    renderer.stop();
+    player.stop().await;
+}
