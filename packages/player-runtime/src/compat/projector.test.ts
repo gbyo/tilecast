@@ -516,6 +516,45 @@ describe("external frame authorization", () => {
     });
   });
 
+  it("uses loopback media only for sandboxed Widgets, never trusted hosts", () => {
+    const withMedia = {
+      ...externalManifest,
+      widgets: externalManifest.widgets.map((widget) => ({
+        ...widget,
+        presentation: {
+          ...widget.presentation,
+          component: {
+            ...widget.presentation.component,
+            media: [{ assetId: ASSET, variantId: VARIANT }],
+          },
+        },
+      })),
+    };
+    const frame = {
+      packageId: "acme.athletics",
+      packageDigest: `sha256:${PACKAGE}`,
+      frameDigest: FRAME,
+      uri: "tcwidget:authorized-frame",
+    };
+    const loopback = "http://127.0.0.1:8471/media/" + "a".repeat(64);
+    const hostContext = { ...projection, manifest: withMedia, widgetFrames: [frame] };
+    const ordinary = project(hostContext) as Extract<RuntimePresentation, { state: "playing" }>;
+    expect(ordinary.items[0]!.widget).toMatchObject({
+      media: { [`${ASSET}/${VARIANT}`]: CAP },
+    });
+    const isolated = project({
+      ...hostContext,
+      widgetMedia: [{ assetId: ASSET, variantId: VARIANT, uri: loopback }],
+    }) as Extract<RuntimePresentation, { state: "playing" }>;
+    expect(isolated.items[0]!.widget).toMatchObject({
+      execution: { kind: "sandboxed", frameUrl: frame.uri },
+      media: { [`${ASSET}/${VARIANT}`]: loopback },
+    });
+    expect(() => project({ ...hostContext, widgetMedia: [] })).toThrow(
+      "Projected media is not authorized",
+    );
+  });
+
   it("rejects a frame claim the host did not authorize", () => {
     expect(() =>
       project({ ...projection, manifest: externalManifest }),
