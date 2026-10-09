@@ -150,7 +150,18 @@ func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, 
 	if err != nil {
 		return Upload{}, fmt.Errorf("check media storage: %w", err)
 	}
-	if uint64(size) > available || available-uint64(size) < s.cfg.ReservedFreeBytes {
+	// Accepted uploads that have not finished still need their remaining bytes.
+	// Count them against free space, or concurrent sessions can each pass the
+	// reserve check against the same snapshot.
+	var promised int64
+	if err := s.db.QueryRow(ctx, `SELECT COALESCE(SUM(GREATEST(expected_size-current_offset,0)),0)::bigint FROM upload_sessions WHERE status IN ('pending','uploading') AND expires_at>now()`).Scan(&promised); err != nil {
+		return Upload{}, err
+	}
+	free := uint64(0)
+	if uint64(promised) < available {
+		free = available - uint64(promised)
+	}
+	if uint64(size) > free || free-uint64(size) < s.cfg.ReservedFreeBytes {
 		return Upload{}, ErrInsufficientSpace
 	}
 	var organizationID uuid.UUID
