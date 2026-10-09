@@ -64,6 +64,7 @@ pub mod presentation_network;
 pub mod preview;
 pub mod remote_web;
 mod renderer_adapter;
+pub mod resume;
 pub mod self_test;
 pub mod server_link;
 pub mod telemetry;

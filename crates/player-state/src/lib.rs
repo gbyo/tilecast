@@ -72,8 +72,13 @@ pub const MIGRATIONS: &[Migration] = &[
     },
     Migration {
         version: 10,
+        name: "playback_checkpoint",
+        sql: include_str!("../migrations/0010_playback_checkpoint.sql"),
+    },
+    Migration {
+        version: 11,
         name: "installation_mismatch",
-        sql: include_str!("../migrations/0010_installation_mismatch.sql"),
+        sql: include_str!("../migrations/0011_installation_mismatch.sql"),
     },
 ];
 

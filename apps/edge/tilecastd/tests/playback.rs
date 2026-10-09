@@ -3008,6 +3008,78 @@ async fn watch_live_safe_mode_emits_no_frames() {
     player.stop().await;
 }
 
+fn playing_order(activation: &PresentationActivate) -> Vec<String> {
+    let PresentationDocument::Playing { items, .. } = &activation.presentation else { return Vec::new() };
+    items.iter().map(|item| item.id.as_str().to_owned()).collect()
+}
+
+async fn read_checkpoint(player: &Player) -> Option<edge_state::repo::playback_checkpoint::PlaybackCheckpoint> {
+    player.context.db().unwrap().run(|c| edge_state::repo::playback_checkpoint::get(c)).await.unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn accepted_item_evidence_writes_the_resume_checkpoint() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let second = Asset::new("second", "image/png");
+    harness.fake.add_asset(&first, AssetMode::Serve);
+    harness.fake.add_asset(&second, AssetMode::Serve);
+    harness.fake.set_manifest(manifest(harness.screen, 3, &[&first, &second]));
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    let activation =
+        wait_for("the playlist activation", || renderer.last().filter(|a| playing_order(a).len() == 2)).await;
+    let order = playing_order(&activation);
+    // Raw progress is not a checkpoint: only accepted item evidence writes.
+    renderer.evidence(&activation, EvidenceKind::ItemStarted, Some(&order[1])).await;
+    wait_until("the checkpoint write", || async { read_checkpoint(&player).await.is_some() }).await;
+    let checkpoint = read_checkpoint(&player).await.unwrap();
+    assert_eq!(checkpoint.item_id, order[1]);
+    assert_eq!(checkpoint.manifest_version, 3);
+    assert!(!checkpoint.manifest_digest.is_empty());
+    assert_eq!(checkpoint.screen_id, harness.screen.to_string());
+    assert_eq!(checkpoint.installation_id, harness.installation.to_string());
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn cold_start_resumes_the_checkpointed_item() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let second = Asset::new("second", "image/png");
+    harness.fake.add_asset(&first, AssetMode::Serve);
+    harness.fake.add_asset(&second, AssetMode::Serve);
+    harness.fake.set_manifest(manifest(harness.screen, 3, &[&first, &second]));
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    let activation =
+        wait_for("the playlist activation", || renderer.last().filter(|a| playing_order(a).len() == 2)).await;
+    let order = playing_order(&activation);
+    renderer.evidence(&activation, EvidenceKind::ItemStarted, Some(&order[1])).await;
+    renderer.evidence(&activation, EvidenceKind::ImageShown, Some(&order[1])).await;
+    let binding = harness.binding();
+    wait_until("promotion", || async { player.stage(&binding, Stage::Active).await.is_some() }).await;
+    wait_until("the checkpoint write", || async { read_checkpoint(&player).await.is_some() }).await;
+    renderer.stop();
+    player.stop().await;
+
+    // A cold start on the same state resumes at the checkpointed item, and
+    // the resumed order sticks: no second activation reorders to the head.
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    let resumed = wait_for("the resumed activation", || renderer.last().filter(|a| playing_order(a).len() == 2)).await;
+    assert_eq!(playing_order(&resumed)[0], order[1]);
+    settle().await;
+    // Renderer readiness can deliver the startup idle surface before the
+    // cached manifest is projected. Only playlist activations indicate churn.
+    let playlist_orders: Vec<_> =
+        renderer.log.lock().unwrap().activations.iter().map(playing_order).filter(|order| !order.is_empty()).collect();
+    assert_eq!(playlist_orders, vec![vec![order[1].clone(), order[0].clone()]], "the resumed order sticks");
+    renderer.stop();
+    player.stop().await;
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn heartbeat_reports_recovery_position_and_last_restart() {
     let harness = Harness::new().await;

@@ -209,6 +209,12 @@ Reads never cause one write each. CAS access times are batched in memory and flu
 
 The daemon records a running marker at start and clears it on clean shutdown. A start that finds the marker set runs an integrity check and marks every CAS object as suspect. A suspect object is re-hashed before its next use.
 
+### 6.4 Playlist resume
+
+An ordinary playlist restarts at its last reliably presented item after a daemon restart, reboot, or power cut. The daemon writes one checkpoint row on accepted item evidence: the server binding, manifest version and digest, playlist, item, and presentation time. Only a new triple writes; duplicate evidence costs no transaction.
+
+At cold start the first ordinary playlist projection rotates to the checkpointed item when the binding, manifest, playlist, and 24-hour freshness all still match, and when `resumeAfterRestart` is not false (the server default is true). The rotation reorders the projected items in memory; it never rewrites the server manifest. The applied rotation sticks for the session, so repeated projections keep one stable activation key. Synchronized groups, takeovers, layouts, and changed manifests always start from the head. Anything invalid falls back to the ordinary order.
+
 ## 7. Local IPC
 
 The IPC contract is `edge_protocol::ipc`, protocol version 1. It is renderer-neutral.

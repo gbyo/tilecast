@@ -1,7 +1,7 @@
 //! Migration, restart-safety and repository tests against real SQLite files.
 
 use player_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
-use player_state::repo::{self, cas, daemon, installation_mismatch, renderer};
+use player_state::repo::{self, cas, daemon, installation_mismatch, playback_checkpoint, renderer};
 use player_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
 use player_types::capability::{Capability, CapabilityId, CapabilityState};
 use player_types::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
@@ -426,6 +426,40 @@ fn migration_8_keeps_cas_rows_and_admits_widget_bundles() {
 }
 
 #[test]
+fn migration_10_adds_playback_checkpoint_and_round_trips() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    // Simulate a device last migrated at version 9.
+    let v9: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 9)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v9).expect("migrate to v9");
+    assert!(playback_checkpoint::get(&connection).is_err(), "no checkpoint table at v9");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
+    assert_eq!(playback_checkpoint::get(&connection).expect("read"), None);
+    let checkpoint = playback_checkpoint::PlaybackCheckpoint {
+        installation_id: "installation".into(),
+        screen_id: "screen".into(),
+        server_url: "https://tilecast.example".into(),
+        manifest_version: 3,
+        manifest_digest: "ab".repeat(32),
+        playlist_id: "playlist".into(),
+        item_id: "item-2".into(),
+        presented_at: now(),
+        updated_at: now(),
+    };
+    playback_checkpoint::put(&connection, &checkpoint).expect("store");
+    assert_eq!(playback_checkpoint::get(&connection).expect("reread"), Some(checkpoint));
+    playback_checkpoint::clear(&connection).expect("clear");
+    assert_eq!(playback_checkpoint::get(&connection).expect("read cleared"), None);
+}
+
+#[test]
 fn migration_9_keeps_renderer_state_and_records_last_restart() {
     let (_dir, path) = temp_db();
     let connection = rusqlite::Connection::open(&path).expect("raw open");
@@ -459,16 +493,16 @@ fn migration_9_keeps_renderer_state_and_records_last_restart() {
 }
 
 #[test]
-fn migration_10_adds_installation_mismatch_and_round_trips() {
+fn migration_11_adds_installation_mismatch_and_round_trips() {
     let (_dir, path) = temp_db();
     let connection = rusqlite::Connection::open(&path).expect("raw open");
-    let v9: Vec<Migration> = player_state::MIGRATIONS
+    let v10: Vec<Migration> = player_state::MIGRATIONS
         .iter()
-        .take_while(|m| m.version <= 9)
+        .take_while(|m| m.version <= 10)
         .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
         .collect();
-    migrate_with(&connection, &v9).expect("migrate to v9");
-    assert!(installation_mismatch::get(&connection).is_err(), "no mismatch table at v9");
+    migrate_with(&connection, &v10).expect("migrate to v10");
+    assert!(installation_mismatch::get(&connection).is_err(), "no mismatch table at v10");
     let owned: Vec<Migration> =
         player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to latest");

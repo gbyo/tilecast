@@ -12,6 +12,7 @@ pub mod installation_mismatch;
 pub mod manifests;
 pub mod outbox;
 pub mod playback;
+pub mod playback_checkpoint;
 pub mod renderer;
 
 use player_types::Timestamp;
