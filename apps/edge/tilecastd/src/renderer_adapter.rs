@@ -939,7 +939,7 @@ mod tests {
         let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
         let (registry, alias, token) = granted_alias(session);
         let table =
-            widget_media_table(&registry, session, &[alias.clone()], Some(8471), 1_700_000_000_000).unwrap().unwrap();
+            widget_media_table(&registry, session, std::slice::from_ref(&alias), Some(8471), 1_700_000_000_000).unwrap().unwrap();
         assert_eq!(table.len(), 1);
         assert_eq!(table[0].asset_id, alias.asset_id);
         assert_eq!(table[0].variant_id, alias.variant_id);
