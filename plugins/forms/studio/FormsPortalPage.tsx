@@ -404,6 +404,14 @@ export function FormPortalDetailPage() {
         </h2>
         {records.isLoading ? (
           <PortalLoading label={t("portal.detail.submissionsLoading")} />
+        ) : records.isError && !records.data ? (
+          // A failed request is not an empty list: say so instead.
+          <PortalNotice
+            variant="danger"
+            title={t("portal.detail.submissionsError")}
+          >
+            {apiErrorMessage(records.error)}
+          </PortalNotice>
         ) : mine.length === 0 ? (
           <Empty>
             <EmptyHeader>
