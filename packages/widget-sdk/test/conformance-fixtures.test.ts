@@ -48,6 +48,17 @@ describe("external-widget conformance fixtures", () => {
 
   it("the well-behaved bundle gates ready on every input", () => {
     const { definition } = loadFixture("bundle.js");
+    const scheduleDocument = {
+      schemaVersion: 1,
+      datasets: [
+        {
+          id: "week-1",
+          kind: "records",
+          records: [],
+          cache: { usingCachedData: false, unavailable: false },
+        },
+      ],
+    } as const;
     const config = {
       label: "Lobby",
       mediaAssetId: "hero",
@@ -60,9 +71,7 @@ describe("external-widget conformance fixtures", () => {
     expect(definition.parseConfig({ label: "" }, 2).ok).toBe(false);
     expect(definition.parseConfig({ label: "x" }, 2).ok).toBe(false);
     const full = fixtureResources({
-      documents: {
-        schedule: { schemaVersion: 1, datasets: [{ label: "Week 1" }] },
-      },
+      documents: { schedule: scheduleDocument },
       media: { "hero/full": "tcmedia://cap/x" },
     });
     const ready = definition.resolveData(parsed.config, full);
@@ -78,9 +87,7 @@ describe("external-widget conformance fixtures", () => {
     const noMedia = definition.resolveData(
       parsed.config,
       fixtureResources({
-        documents: {
-          schedule: { schemaVersion: 1, datasets: [{ label: "Week 1" }] },
-        },
+        documents: { schedule: scheduleDocument },
       }),
     );
     expect(noMedia).toMatchObject({
