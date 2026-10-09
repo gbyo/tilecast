@@ -1,0 +1,23 @@
+{
+  "name": "@tilecast/companion-protocol",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Versioned page-to-extension protocol for the Tilecast Browser Companion",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/protocol.ts",
+      "default": "./src/protocol.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

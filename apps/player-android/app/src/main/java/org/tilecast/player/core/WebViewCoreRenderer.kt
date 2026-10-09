@@ -28,6 +28,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import org.tilecast.player.network.PlayerPresentationSupport
+import org.tilecast.player.runtime.FrameAuthorization
 import org.tilecast.player.runtime.HostChannel
 import org.tilecast.player.runtime.MediaAuthorization
 import org.tilecast.player.runtime.RuntimeBridgeProtocol
@@ -38,6 +39,7 @@ import org.tilecast.player.runtime.RuntimePresentationBuilder
 import org.tilecast.player.runtime.RuntimeScreenState
 import org.tilecast.player.runtime.RuntimeSupportAssessment
 import org.tilecast.player.runtime.TcMediaBridge
+import org.tilecast.player.runtime.TcWidgetBridge
 import org.tilecast.player.runtime.TrustedRuntimeEndpoint
 import org.tilecast.player.runtime.TrustedRuntimeWebView
 import org.tilecast.player.runtime.WidgetComponentCapabilities
@@ -77,6 +79,8 @@ class WebViewCoreRenderer(
         val authorized: Set<MediaAuthorization.AuthorizedMedia>,
         val localFiles: Map<String, String>,
         val mimeByVariant: Map<String, String>,
+        val frames: Set<FrameAuthorization.AuthorizedFrame> = emptySet(),
+        val frameFiles: Map<String, String> = emptyMap(),
     )
 
     private val context = appContext.applicationContext
@@ -252,6 +256,32 @@ class WebViewCoreRenderer(
             localFiles[variantId] = path
             mimeByVariant[variantId] = mime
         }
+        // Frame grants ride beside the media grants; an absent list is an
+        // activation without external Widgets. A frame entry whose file is
+        // missing fails the activation rather than executing unconfined.
+        val frameGrants = mutableSetOf<FrameAuthorization.AuthorizedFrame>()
+        val frameFiles = mutableMapOf<String, String>()
+        val frames = runCatching {
+            root["frames"] as? JsonArray
+        }.getOrNull()
+        if (frames != null) {
+            for (entry in frames) {
+                val grant = runCatching { entry.jsonObject }.getOrNull()
+                    ?: return CoreRendererRequestCode.INVALID_ACTIVATION
+                val uri = grant.stringOrNull("uri")
+                val path = grant.stringOrNull("path")
+                // The token is the authority: it comes from the grant's
+                // own URI through the single parser, never from the
+                // digest the runtime joins on.
+                val token = FrameAuthorization.tokenOf(uri)
+                if (token.isNullOrEmpty() || path.isNullOrEmpty()) {
+                    return CoreRendererRequestCode.INVALID_ACTIVATION
+                }
+                if (!File(path).isFile) return CoreRendererRequestCode.RESOURCE_UNAVAILABLE
+                frameGrants += FrameAuthorization.AuthorizedFrame(token)
+                frameFiles[token] = path
+            }
+        }
         val message = buildJsonObject {
             put("type", "presentation")
             put("presentation", presentation)
@@ -278,7 +308,7 @@ class WebViewCoreRenderer(
         }
         val stateGeneration = synchronized(lock) {
             val live = session ?: return CoreRendererRequestCode.NOT_READY
-            grants = Grants(authorized, localFiles, mimeByVariant)
+            grants = Grants(authorized, localFiles, mimeByVariant, frameGrants, frameFiles)
             live.offer(parsed)
             pluginsMessage?.let { live.offer(it) }
             live.currentStateGeneration()
@@ -470,6 +500,11 @@ class WebViewCoreRenderer(
 
     private fun serveMedia(url: String, range: String?): WebResourceResponse? {
         val current = grants ?: return null
+        if (url.substringBefore('#').startsWith("tcwidget:")) {
+            val resolved = TcWidgetBridge.resolve(url, current.frames, current.frameFiles, range)
+                ?: return null
+            return TcWidgetBridge.toResponse(resolved)
+        }
         val resolved = TcMediaBridge.resolve(url, current.authorized, current.localFiles, current.mimeByVariant, range)
             ?: return null
         return TcMediaBridge.toResponse(resolved)

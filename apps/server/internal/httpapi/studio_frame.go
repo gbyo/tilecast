@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
@@ -84,7 +85,12 @@ func (s *server) studioBridge(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_bridge_input", "The bridge call payload is invalid.")
 		return
 	}
-	result, err := s.wasm.InvokeUI(r.Context(), packageID, input)
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	result, err := s.wasm.InvokeUI(r.Context(), packageID, services.Actor{UserID: principal.User.ID, Role: principal.User.Role}, input)
 	if err != nil {
 		if errors.Is(err, installer.ErrNotFound) || errors.Is(err, wasm.ErrNoStudioUI) || errors.Is(err, wasm.ErrNoRuntime) {
 			writeError(w, http.StatusNotFound, "package_studio_unavailable", "The package has no Studio interface.")

@@ -31,7 +31,7 @@ class TrustedRuntimeWebView(
     private val crashPolicy: RuntimeCrashPolicy = RuntimeCrashPolicy(),
     private val onRuntimeMessage: (String, Long, JavaScriptReplyProxy?) -> Unit = { _, _, _ -> },
     private val documentStartScript: String = RuntimeBridgeProtocol.bootstrapScript(),
-    /** Serves host-authorized media (tcmedia:) to the trusted page. */
+    /** Serves host-authorized media (tcmedia:) and sandbox frames (tcwidget:) to the trusted page. */
     private val mediaInterceptor: (url: String, rangeHeader: String?) -> WebResourceResponse? = { _, _ -> null },
     private val onRendererGone: (deadGeneration: Long) -> Unit = {},
     /**
@@ -84,7 +84,9 @@ class TrustedRuntimeWebView(
                 request: WebResourceRequest,
             ): WebResourceResponse? {
                 val url = request.url?.toString() ?: return super.shouldInterceptRequest(view, request)
-                if (url.startsWith("${MediaAuthorization.SCHEME}:", ignoreCase = true)) {
+                if (url.startsWith("${MediaAuthorization.SCHEME}:", ignoreCase = true) ||
+                    url.startsWith("${FrameAuthorization.SCHEME}:", ignoreCase = true)
+                ) {
                     return mediaInterceptor(url, request.requestHeaders?.get("Range"))
                         ?: super.shouldInterceptRequest(view, request)
                 }

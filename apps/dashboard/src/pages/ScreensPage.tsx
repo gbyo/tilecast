@@ -346,6 +346,27 @@ export const formatReportedStatus = (
 const formatReportedCount = (value: unknown, fallback = 0) =>
   typeof value === "number" && Number.isFinite(value) ? value : fallback;
 /**
+ * One-line Player Capability summary: sorted `id@version (provider)`
+ * entries, or the shared not-reported text when the player reports
+ * nothing. Entries are data, so they render verbatim in every locale.
+ */
+export const formatPlayerCapabilities = (
+  value: ReliabilityStatus["playerCapabilities"],
+  t: ScreensT,
+): string => {
+  if (!value || typeof value !== "object") return t("shared.notReported");
+  const entries = Object.entries(value)
+    .filter(
+      (entry): entry is [string, { version: number; provider: string }] =>
+        typeof entry[0] === "string" &&
+        typeof entry[1]?.version === "number" &&
+        typeof entry[1]?.provider === "string",
+    )
+    .map(([id, report]) => `${id}@${report.version} (${report.provider})`)
+    .sort();
+  return entries.length > 0 ? entries.join(", ") : t("shared.notReported");
+};
+/**
  * Whether this screen reports Linux systemd autostart at all. Android players
  * and Linux players older than autostart support both report nothing, and the
  * Linux-specific controls stay hidden for them.
@@ -3483,6 +3504,15 @@ export function ScreenDetailPage() {
                         </div>
                       </>
                     )}
+                    <div>
+                      <dt>{t("detail.factPlayerCapabilities")}</dt>
+                      <dd>
+                        {formatPlayerCapabilities(
+                          reliability.data?.playerCapabilities,
+                          t,
+                        )}
+                      </dd>
+                    </div>
                   </dl>
                 </section>
                 {screen.platform.toLowerCase() === "linux" && (

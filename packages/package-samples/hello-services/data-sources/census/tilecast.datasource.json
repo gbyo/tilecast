@@ -1,0 +1,61 @@
+{
+  "$schema": "../../../../packages/data-source-sdk/schema/tilecast-datasource.schema.json",
+  "apiVersion": 1,
+  "id": "census",
+  "version": 1,
+  "name": "Screen census",
+  "description": "Sample rows the Hello Services package ships so the package carries a real contribution.",
+  "category": "Structured",
+  "icon": "table",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "records",
+        "label": "Rows",
+        "description": "One row per screen under management.",
+        "control": "repeating_group",
+        "maximumItems": 50,
+        "itemFields": [
+          {
+            "key": "screen",
+            "label": "Screen",
+            "control": "text",
+            "required": true,
+            "minLength": 1,
+            "maxLength": 120,
+            "default": "Lobby"
+          },
+          {
+            "key": "note",
+            "label": "Note",
+            "control": "text",
+            "default": "",
+            "maxLength": 200
+          }
+        ]
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "records": []
+  },
+  "outputSchema": {
+    "kind": "records",
+    "fields": [
+      {
+        "key": "screen",
+        "label": "Screen",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "note",
+        "label": "Note",
+        "type": "text"
+      }
+    ]
+  },
+  "adapterId": "manual_records",
+  "refreshBehavior": "manual",
+  "deprecation": {}
+}

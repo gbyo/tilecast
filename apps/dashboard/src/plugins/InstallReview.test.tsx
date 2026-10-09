@@ -41,6 +41,38 @@ describe("InstallReview capabilities", () => {
           },
           storage: true,
           studioUI: { entry: "./studio/index.html" },
+          services: [
+            {
+              id: "screens.read",
+              version: 1,
+              name: "Screen directory",
+              description: "List screens and read non-secret screen facts.",
+              category: "read",
+              operations: [
+                {
+                  name: "screens.read@1/list",
+                  title: "List screens",
+                  description: "List screens.",
+                  mutating: false,
+                },
+              ],
+            },
+            {
+              id: "takeovers.manage",
+              version: 1,
+              name: "Emergency takeovers",
+              description: "Start and cancel takeovers.",
+              category: "manage",
+              operations: [
+                {
+                  name: "takeovers.manage@1/activate",
+                  title: "Start takeover",
+                  description: "Start a takeover.",
+                  mutating: true,
+                },
+              ],
+            },
+          ],
         },
       }),
     );
@@ -60,6 +92,14 @@ describe("InstallReview capabilities", () => {
     expect(screen.getByText("Studio interface")).toBeInTheDocument();
     expect(
       screen.getByText("Adds its own configuration interface to Studio."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Screen directory")).toBeInTheDocument();
+    expect(
+      screen.getByText("List screens and read non-secret screen facts."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Emergency takeovers")).toBeInTheDocument();
+    expect(
+      screen.getByText("Start takeover (changes data)"),
     ).toBeInTheDocument();
     expect(
       screen.queryByText("No special permissions"),

@@ -81,11 +81,12 @@ type testModule struct {
 }
 
 var (
-	typeCall = testFuncType{params: []byte{0x7f, 0x7f, 0x7f, 0x7f}, results: []byte{0x7f}}
-	typeLog  = testFuncType{params: []byte{0x7f, 0x7f, 0x7f}}
-	typeNow  = testFuncType{results: []byte{0x7e}}
-	typeJob  = testFuncType{params: []byte{0x7f, 0x7f}, results: []byte{0x7f}}
-	i32Zero  = []byte{0x41, 0x00, 0x0b}
+	typeCall        = testFuncType{params: []byte{0x7f, 0x7f, 0x7f, 0x7f}, results: []byte{0x7f}}
+	typeLog         = testFuncType{params: []byte{0x7f, 0x7f, 0x7f}}
+	typeNow         = testFuncType{results: []byte{0x7e}}
+	typeJob         = testFuncType{params: []byte{0x7f, 0x7f}, results: []byte{0x7f}}
+	typeServiceCall = testFuncType{params: []byte{0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f}, results: []byte{0x7f}}
+	i32Zero         = []byte{0x41, 0x00, 0x0b}
 )
 
 func assemble(spec testModule) []byte {
@@ -185,20 +186,21 @@ func assemble(spec testModule) []byte {
 // exact signatures, both guest entries exported, 1..16 memory pages.
 func validSpec() testModule {
 	return testModule{
-		types: []testFuncType{typeCall, typeLog, typeNow, typeJob},
+		types: []testFuncType{typeCall, typeLog, typeNow, typeJob, typeServiceCall},
 		imports: []testImport{
 			{module: "tilecast", name: "kv_get", kind: 0, typeIdx: 0},
 			{module: "tilecast", name: "kv_set", kind: 0, typeIdx: 0},
 			{module: "tilecast", name: "http_fetch", kind: 0, typeIdx: 0},
 			{module: "tilecast", name: "log", kind: 0, typeIdx: 1},
 			{module: "tilecast", name: "now_ms", kind: 0, typeIdx: 2},
+			{module: "tilecast", name: "call_v1", kind: 0, typeIdx: 4},
 		},
 		funcs: []testFunc{
 			{typeIdx: 3, body: i32Zero},
 			{typeIdx: 0, body: i32Zero},
 		},
 		memory:  &testMemory{min: 1, max: 16, hasMax: true},
-		exports: []testExport{{name: "run_job", kind: 0, index: 5}, {name: "handle_ui_request", kind: 0, index: 6}},
+		exports: []testExport{{name: "run_job", kind: 0, index: 6}, {name: "handle_ui_request", kind: 0, index: 7}},
 	}
 }
 
@@ -207,7 +209,7 @@ func TestParseValidModule(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}
-	if len(module.Imports) != 5 || module.Imports[0] != "kv_get" {
+	if len(module.Imports) != 6 || module.Imports[0] != "kv_get" || module.Imports[5] != "call_v1" {
 		t.Fatalf("imports = %v", module.Imports)
 	}
 	if !module.HasMemory || module.MemoryPages != 16 {
@@ -218,8 +220,28 @@ func TestParseValidModule(t *testing.T) {
 	}
 }
 
+// TestParseCustomSections proves repeated custom sections pass: real
+// toolchains emit several (names, producers, metadata), and the format
+// allows it. Every other section must still appear at most once.
+func TestParseCustomSections(t *testing.T) {
+	custom := func(name string) []byte {
+		body := append([]byte{byte(len(name))}, name...)
+		return section(0, body)
+	}
+	raw := append(assemble(validSpec()), custom("name")...)
+	raw = append(raw, custom("producers")...)
+	if _, err := Parse(raw); err != nil {
+		t.Fatalf("Parse refused repeated custom sections: %v", err)
+	}
+
+	duplicate := append(assemble(validSpec()), section(1, []byte{0x00})...)
+	if _, err := Parse(duplicate); err == nil || !strings.Contains(err.Error(), "duplicate section 1") {
+		t.Fatalf("duplicate type section error = %v", err)
+	}
+}
+
 func TestParseRejects(t *testing.T) {
-	start := uint32(5)
+	start := uint32(6)
 	with := func(mutate func(*testModule)) []byte {
 		spec := validSpec()
 		mutate(&spec)

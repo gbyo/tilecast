@@ -167,17 +167,77 @@ type ManagedPresentations interface {
 }
 
 type BackgroundJobs interface{ Allowed() bool }
-type Instance interface{ PublicURL() string }
+
+// Instance answers installation questions: the public address Studio and
+// players use, and the running release version.
+type Instance interface {
+	PublicURL() string
+	Version() string
+}
+
+// ScreenCapabilities are the versions a player reported about itself:
+// the presentation schemas and native capabilities it understands, and
+// the web runtime it hosts. Facts, never credentials.
+type ScreenCapabilities struct {
+	PresentationSchemaVersions []int          `json:"presentationSchemaVersions,omitempty"`
+	Native                     map[string]int `json:"native,omitempty"`
+	WebRuntimeVersion          int            `json:"webRuntimeVersion,omitempty"`
+	WebBundleLimitBytes        int64          `json:"webBundleLimitBytes,omitempty"`
+}
+
+// ScreenFacts are the non-secret facts about one live screen: identity,
+// name, state, platform and family, and reported player capabilities.
+// The projection never carries credentials, tokens, or network addresses.
+type ScreenFacts struct {
+	ID            uuid.UUID          `json:"id"`
+	Name          string             `json:"name"`
+	Enabled       bool               `json:"enabled"`
+	Status        string             `json:"status"`
+	LastContactAt *time.Time         `json:"lastContactAt,omitempty"`
+	Platform      string             `json:"platform"`
+	PlayerFamily  string             `json:"playerFamily,omitempty"`
+	PlayerVersion string             `json:"playerVersion,omitempty"`
+	Capabilities  ScreenCapabilities `json:"capabilities"`
+}
+
+// ScreenListQuery bounds a screen listing. Page starts at 1; the host
+// clamps page size.
+type ScreenListQuery struct {
+	Search   string
+	Page     int
+	PageSize int
+}
+
+// ScreenListResult is one page of screen facts.
+type ScreenListResult struct {
+	Items    []ScreenFacts `json:"items"`
+	Page     int           `json:"page"`
+	PageSize int           `json:"pageSize"`
+	Total    int           `json:"total"`
+}
 
 // Screens answers fleet questions plugins ask for status and advice.
 type Screens interface {
 	// PairedPlatforms counts screens that are not archived, by platform.
 	PairedPlatforms(ctx context.Context) (map[string]int, error)
+	// List returns one page of non-secret screen facts.
+	List(ctx context.Context, query ScreenListQuery) (ScreenListResult, error)
+	// Get returns one screen's non-secret facts, or an error when the
+	// screen is unknown or archived.
+	Get(ctx context.Context, id uuid.UUID) (ScreenFacts, error)
+}
+
+// OrganizationFacts are the installation's single organization.
+type OrganizationFacts struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
 }
 
 type Organization interface {
 	// ID is the installation's single organization.
 	ID(ctx context.Context) (uuid.UUID, error)
+	// Get reads the organization's identifier and name.
+	Get(ctx context.Context) (OrganizationFacts, error)
 }
 
 // Clock is the server clock. Tests replace it.

@@ -44,7 +44,7 @@ export async function restoreLocalActivation(
   }
   // Nothing the page has not itself verified may be served.
   await setActivationTrust(database, slotId, saved.activationId, false);
-  for (const resource of saved.resources) {
+  for (const resource of [...saved.resources, ...(saved.frames ?? [])]) {
     if (!(await store.verified(resource))) {
       await discardActivation(database, slotId);
       return undefined;

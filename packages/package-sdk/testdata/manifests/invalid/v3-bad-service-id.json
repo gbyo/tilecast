@@ -1,0 +1,36 @@
+{
+  "apiVersion": 3,
+  "packageId": "acme.athletics",
+  "packageVersion": "3.0.0",
+  "name": "Athletics",
+  "description": "Scoreboards and schedules.",
+  "publisher": {
+    "id": "acme",
+    "name": "Acme Athletics"
+  },
+  "repository": "https://github.com/acme/tilecast-athletics",
+  "license": "MIT",
+  "tilecast": {
+    "version": ">=1.2.0 <2.0.0"
+  },
+  "distribution": {
+    "oci": "ghcr.io/acme/tilecast-athletics"
+  },
+  "contributions": [
+    {
+      "type": "widget",
+      "path": "./widgets/scoreboard"
+    }
+  ],
+  "runtime": {
+    "module": "./runtime/plugin.wasm"
+  },
+  "capabilities": {
+    "services": [
+      {
+        "id": "Screens/Read",
+        "version": 1
+      }
+    ]
+  }
+}

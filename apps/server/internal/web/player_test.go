@@ -22,8 +22,11 @@ func TestPlayerShellBoundary(t *testing.T) {
 		if !strings.Contains(csp, "script-src 'self'") || strings.Contains(csp, "cloudflare") || strings.Contains(csp, "unsafe-eval") {
 			t.Fatalf("invalid Player policy: %s", csp)
 		}
+		if !strings.Contains(csp, "frame-src https: 'self'") {
+			t.Fatalf("Player policy must permit same-origin frame grants: %s", csp)
+		}
 	}
-	for _, target := range []string{"/player/not-a-slot", "/player/media/1/11111111-1111-4111-8111-111111111111", "/player/../static/index.html", "/api/v1/player/heartbeat", "/player/missing.js"} {
+	for _, target := range []string{"/player/not-a-slot", "/player/media/1/11111111-1111-4111-8111-111111111111", "/player/widget-frame/1/11111111-1111-4111-8111-111111111111", "/player/../static/index.html", "/api/v1/player/heartbeat", "/player/missing.js"} {
 		recorder := httptest.NewRecorder()
 		PlayerHandler().ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, target, nil))
 		if recorder.Code != 404 {

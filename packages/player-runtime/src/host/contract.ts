@@ -52,6 +52,21 @@ export interface RuntimeCapabilitiesV1 {
   /** `discovery.list` and `discovered-server` messages are available. */
   readonly discovery: boolean;
   /**
+   * The host serves verified sandbox frames for package-contributed
+   * Widgets. Absent means unavailable: the runtime then never reports
+   * the frame execution ABI.
+   */
+  readonly externalFrames?: boolean;
+  /**
+   * Where a served frame's sandbox comes from. `attribute` sets the
+   * iframe sandbox attribute; `response` navigates bare and takes the
+   * sandbox from the response `sandbox` directive, for hosts whose
+   * serving layer only sees bare navigations: a browser service
+   * worker never sees a sandboxed iframe's navigation. Absent means
+   * `attribute`.
+   */
+  readonly externalFrameSandbox?: "attribute" | "response";
+  /**
    * The animated logo for the "Bouncing logo" display. Absent, or any value
    * the runtime does not know, means `"cast"`.
    */
@@ -260,6 +275,19 @@ export interface RuntimeWidgetComponentV1 {
 }
 
 /**
+ * Sandboxed execution for a package-contributed Widget. The frame URL is
+ * the host's authorized URL for the verified frame: the projector
+ * translated the manifest claim through the host's frame table, and a
+ * canonical reference that matches no authorized entry rejects the
+ * activation instead. The executor appends its own per-attach token;
+ * the URL carries no placement identity.
+ */
+export interface RuntimeWidgetSandboxExecutionV1 {
+  kind: "sandboxed";
+  frameUrl: string;
+}
+
+/**
  * A projected component: the reference plus the prepared resources it is
  * granted, and the regional formatting its context uses. Date-aware datasets
  * are selected for the Player instant and change when the local date changes.
@@ -277,6 +305,13 @@ export interface RuntimeWidgetComponentPayload {
     timeZone: string;
     hourCycle: "locale" | "h12" | "h23";
   };
+  /**
+   * Present only for package-contributed Widgets: the authorized frame
+   * to execute. Absent for bundled Widgets, which mount trusted. The
+   * host selects the executor from this field alone; it never inspects
+   * the component type to decide.
+   */
+  execution?: RuntimeWidgetSandboxExecutionV1;
 }
 
 export interface RuntimeLayoutZonePlaylistItem {
@@ -444,6 +479,19 @@ export interface ProjectionContextV1 {
   clockOffsetMs: number;
   manifest: Record<string, unknown>;
   media: { assetId: string; variantId: string; uri: string }[];
+  /**
+   * Authorization table: every sandbox frame the references may execute.
+   * The host lists only frames it verified and pinned for this
+   * activation; the projector joins each manifest frame claim to its
+   * authorized URI and rejects the activation on any mismatch. Absent
+   * when the activation carries no external Widgets.
+   */
+  widgetFrames?: {
+    packageId: string;
+    packageDigest: string;
+    frameDigest: string;
+    uri: string;
+  }[];
   /**
    * The accepted player configuration's playback section: regional
    * formatting and layout playlist-zone defaults. Optional and additive;

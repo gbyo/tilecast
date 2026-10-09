@@ -3225,6 +3225,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/player/packages/{packageId}/widgets/{widgetId}/frame": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packageId: string;
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    /** @description Download a package Widget sandbox frame. Requires an authenticated player credential. */
+    get: operations["downloadPackageWidgetFrame"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    /** @description Inspect a package Widget sandbox frame. Requires an authenticated player credential. */
+    head: operations["inspectPackageWidgetFrame"];
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/playlists": {
     parameters: {
       query?: never;
@@ -7804,6 +7825,21 @@ export interface components {
       studioUI?: {
         entry: string;
       };
+      /** @description Requested Tilecast service grants with registry-resolved display metadata. */
+      services?: {
+        id: string;
+        version: number;
+        name: string;
+        description: string;
+        /** @enum {string} */
+        category: "read" | "directory" | "manage" | "audit";
+        operations: {
+          name: string;
+          title: string;
+          description: string;
+          mutating: boolean;
+        }[];
+      }[];
     };
     PluginInUseError: {
       error: {
@@ -20788,6 +20824,105 @@ export interface operations {
         content?: never;
       };
       /** @description Package or bundle unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  downloadPackageWidgetFrame: {
+    parameters: {
+      query?: never;
+      header?: {
+        Range?: string;
+        "If-Range"?: string;
+        "If-None-Match"?: string;
+      };
+      path: {
+        packageId: string;
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Complete Widget sandbox frame document */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Requested byte range */
+      206: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description ETag matched */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Device credential invalid or revoked */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen disabled */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Package or frame unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Range not satisfiable */
+      416: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  inspectPackageWidgetFrame: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packageId: string;
+        widgetId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description ETag, Content-Length, MIME type, and Accept-Ranges */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Package or frame unavailable */
       404: {
         headers: {
           [name: string]: unknown;

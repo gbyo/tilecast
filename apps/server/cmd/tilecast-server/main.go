@@ -31,6 +31,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/registry"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
@@ -142,7 +143,7 @@ func serve() {
 	backupGuard := backup.NewGuard()
 	takeoverService := takeovers.NewService(db, playlistService, deviceService, time.Duration(cfg.Operations.MaxTakeoverDurationHours)*time.Hour)
 	managedPresentationService := managedpresentations.NewService(db)
-	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL), plugins.WithDataSourceInvalidator(playlistService), plugins.WithAttachments(mediaService))
+	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL), plugins.WithScreens(deviceService), plugins.WithDataSourceInvalidator(playlistService), plugins.WithAttachments(mediaService))
 	// The marketplace joins cached catalog listings into the plugin
 	// store. The server knows the official catalog address itself, so the
 	// marketplace is always on and needs no operator configuration.
@@ -257,6 +258,13 @@ func serve() {
 	playlistService.SetScheduling(schedulingService)
 	settingsService := settings.NewService(db, deviceService, settings.HardLimits{MaxUploadBytes: cfg.Media.MaxUploadBytes, MaxTakeoverMinutes: cfg.Operations.MaxTakeoverDurationHours * 60, MaxWebsiteTimeout: cfg.Website.MaxTimeoutSeconds, MaxPrefetchDays: cfg.Scheduling.PrefetchDays, PrivateHTTPAllowed: cfg.Website.AllowPrivateHTTP})
 	schedulingService.SetOrganizationSettingsProvider(settingsService)
+	wasmService.SetServiceCaller(services.NewDispatcher(services.Dependencies{
+		DB: db, Devices: deviceService, Playlists: playlistService,
+		Layouts: layoutService, Media: mediaService, Scheduling: schedulingService,
+		Takeovers: takeoverService, Managed: managedPresentationService,
+		Settings: settingsService, Shared: pluginService.Shared(),
+		Limits: services.Limits{MaxTakeoverTargets: cfg.Operations.MaxTakeoverTargets, MaxPendingCommands: cfg.Operations.MaxPendingCommands, DefaultCommandExpiryMinutes: cfg.Operations.DefaultCommandExpiryMinutes},
+	}))
 	// Presentation Networks seal Wi-Fi credentials with an environment-backed
 	// key. A missing key must not stop the server: signage, AirPlay without a
 	// Presentation Network, and every other feature keep working, and Studio

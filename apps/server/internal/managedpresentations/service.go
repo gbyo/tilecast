@@ -62,7 +62,14 @@ func (s *Service) EnsureInTx(ctx context.Context, tx pgx.Tx, existing plugin.Man
 	if !json.Valid([]byte(widgetConfiguration)) {
 		return plugin.ManagedPresentation{}, errors.New("invalid widget configuration")
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,description,provider,config_version,configuration,created_by,system_managed) VALUES($1,$2,$3,$4,$5,1,$6::jsonb,$7,TRUE)`, result.DataSourceID, org, request.Name, request.Description, request.DataSourceProvider, request.DataSourceConfiguration, request.CreatedBy); err != nil {
+	// A Nil creator is a system actor, not a user: store NULL so the
+	// users foreign key never sees a zero UUID.
+	var createdBy *uuid.UUID
+	if request.CreatedBy != uuid.Nil {
+		creator := request.CreatedBy
+		createdBy = &creator
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO data_sources(id,organization_id,name,description,provider,config_version,configuration,created_by,system_managed) VALUES($1,$2,$3,$4,$5,1,$6::jsonb,$7,TRUE)`, result.DataSourceID, org, request.Name, request.Description, request.DataSourceProvider, request.DataSourceConfiguration, createdBy); err != nil {
 		return plugin.ManagedPresentation{}, err
 	}
 	expires := request.CacheExpiresAt
@@ -72,13 +79,13 @@ func (s *Service) EnsureInTx(ctx context.Context, tx pgx.Tx, existing plugin.Man
 	if _, err := tx.Exec(ctx, `INSERT INTO data_source_refresh_states(data_source_id,next_refresh_at,last_attempt_at,last_success_at,http_result_category,parse_status,available_item_count,cache_updated_at,cache_expires_at,cached_payload) VALUES($1,now()+interval '100 years',now(),now(),$2,'success',1,now(),$3,$4::jsonb)`, result.DataSourceID, request.CacheCategory, expires, request.CachedPayload); err != nil {
 		return plugin.ManagedPresentation{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO assets(id,organization_id,name,description,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by,system_managed) VALUES($1,$2,$3,$4,'widget','','application/vnd.tilecast.widget+json',''::bytea,0,'ready',$5,TRUE)`, result.WidgetID, org, request.Name, request.Description, request.CreatedBy); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO assets(id,organization_id,name,description,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by,system_managed) VALUES($1,$2,$3,$4,'widget','','application/vnd.tilecast.widget+json',''::bytea,0,'ready',$5,TRUE)`, result.WidgetID, org, request.Name, request.Description, createdBy); err != nil {
 		return plugin.ManagedPresentation{}, err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO widgets(asset_id,provider,config_version,configuration) VALUES($1,$2,$3,$4::jsonb)`, result.WidgetID, request.WidgetProvider, s.widgetConfigVersion(request.WidgetProvider), widgetConfiguration); err != nil {
 		return plugin.ManagedPresentation{}, err
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO playlists(id,organization_id,name,description,created_by,system_managed) VALUES($1,$2,$3,$4,$5,TRUE)`, result.PlaylistID, org, request.Name, request.Description, request.CreatedBy); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO playlists(id,organization_id,name,description,created_by,system_managed) VALUES($1,$2,$3,$4,$5,TRUE)`, result.PlaylistID, org, request.Name, request.Description, createdBy); err != nil {
 		return plugin.ManagedPresentation{}, err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO playlist_items(id,playlist_id,asset_id,position,fit_mode,transition,audio_enabled,volume,delivery_policy) VALUES($1,$2,$3,0,'contain','none',FALSE,0,'stream')`, uuid.New(), result.PlaylistID, result.WidgetID); err != nil {

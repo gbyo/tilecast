@@ -30,6 +30,15 @@ pub(crate) async fn verify_content(
         }
         digests.insert(bundle.digest);
     }
+    for frame in &candidate.required_frames {
+        let Some((_, record)) = store.open_verified(&frame.digest).await? else {
+            return Err(ManifestPreparationError::Missing);
+        };
+        if record.size_bytes != frame.size_bytes {
+            return Err(ManifestPreparationError::SizeMismatch);
+        }
+        digests.insert(frame.digest);
+    }
     Ok(digests.into_iter().collect())
 }
 
@@ -133,10 +142,11 @@ async fn fetch_object<P: ManifestSourcePlan>(
     Ok(())
 }
 
-/// Fetches every variant and Widget bundle the candidate needs. The caller
-/// persists and pins a candidate only after this succeeds, so a manifest
-/// whose bundle cannot be fetched never activates: the Player keeps its
-/// last known playable presentation.
+/// Fetches every variant, Widget bundle, and Widget frame the candidate
+/// needs. The caller persists and pins a candidate only after this
+/// succeeds, so a manifest whose bundle or frame cannot be fetched
+/// never activates: the Player keeps its last known playable
+/// presentation.
 pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
     store: &ContentStore,
     plan: &P,
@@ -160,6 +170,15 @@ pub(crate) async fn prepare_content<P: ManifestSourcePlan>(
         };
         fetch_object(store, plan, bundle.digest, bundle.size_bytes, &bundle.download_path, meta).await?;
         digests.insert(bundle.digest);
+    }
+    for frame in &candidate.required_frames {
+        let meta = IngestMeta {
+            domain: Domain::WidgetFrame,
+            content_type: Some("text/html".to_owned()),
+            source: SourceKind::Origin,
+        };
+        fetch_object(store, plan, frame.digest, frame.size_bytes, &frame.download_path, meta).await?;
+        digests.insert(frame.digest);
     }
     for digest in &digests {
         if store.verified_path(digest).await?.is_none() {

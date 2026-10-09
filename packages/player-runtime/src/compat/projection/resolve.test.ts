@@ -424,7 +424,7 @@ describe("selection mapping", () => {
         },
       }),
     );
-    const resolved = realizePresentation(plan, grant(plan), {
+    const resolved = realizePresentation(plan, grant(plan), [], {
       activationId: "a",
       generation: 1,
     });
@@ -456,6 +456,7 @@ describe("selection mapping", () => {
     const resolved = realizePresentation(
       plan,
       [{ assetId: LOGO, variantId: id(107), uri: "/player/media/1/logo" }],
+      [],
       { activationId: "a", generation: 1 },
     );
     expect(resolved.presentation.presentation).toMatchObject({
@@ -533,7 +534,7 @@ describe("Widget references", () => {
     expect(plan.kind).toBe("playing");
     expect(required(plan)).toEqual([LOGO]);
     expect(plan.compatibility.required).toEqual({});
-    const resolved = realizePresentation(plan, grant(plan), {
+    const resolved = realizePresentation(plan, grant(plan), [], {
       activationId: "a",
       generation: 1,
     });
@@ -555,7 +556,7 @@ describe("realization", () => {
       variantId: requirement.variantId,
       uri: `/player/media/1/${requirement.assetId}`,
     }));
-    const resolved = realizePresentation(plan, bindings, {
+    const resolved = realizePresentation(plan, bindings, [], {
       activationId: "act",
       generation: 4,
     });
@@ -574,7 +575,7 @@ describe("realization", () => {
     expect(resolved.plugins.media).toEqual(bindings);
     expect(JSON.stringify(resolved)).not.toContain("tcreq:");
     expect(() =>
-      realizePresentation(plan, [], { activationId: "act", generation: 4 }),
+      realizePresentation(plan, [], [], { activationId: "act", generation: 4 }),
     ).toThrow("not authorized");
   });
 
@@ -685,5 +686,146 @@ describe("reported selection facts", () => {
       );
       expect(plan.selection?.source).toBe(source);
     }
+  });
+});
+
+describe("external frame requirements", () => {
+  const FRAME = "c".repeat(64);
+  const PACKAGE = "a".repeat(64);
+  const external = (pkg: Record<string, unknown>) => ({
+    assetId: WIDGET,
+    name: "Scores",
+    provider: "acme.athletics.scoreboard",
+    presentation: {
+      schemaVersion: 3,
+      kind: "component",
+      requiredCapabilities: { "widget.external-runtime": 2 },
+      component: {
+        type: "acme.athletics.scoreboard",
+        version: 2,
+        config: { title: "Friday" },
+        dataSources: [],
+        media: [],
+        empty: "render",
+        package: {
+          packageId: "acme.athletics",
+          digest: `sha256:${PACKAGE}`,
+          ...pkg,
+        },
+      },
+    },
+  });
+  const frame = {
+    sha256: FRAME,
+    fileSize: 4242,
+    downloadPath:
+      "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame",
+  };
+  const planned = (
+    widgets: Record<string, unknown>[],
+    support?: ResolveInput["support"],
+  ) =>
+    planPresentation(
+      base({
+        manifest: manifest({
+          widgets,
+          playlists: [
+            {
+              id: PLAYLIST,
+              revision: 1,
+              name: "Widget",
+              items: [
+                item(0, {
+                  assetId: WIDGET,
+                  variantId: null,
+                  assetType: "widget",
+                }),
+              ],
+            },
+          ],
+        }),
+        ...(support ? { support } : {}),
+      }),
+    );
+
+  it("requires the projected frame and nothing else", () => {
+    const plan = planned([external({ frame })]);
+    expect(plan.kind).toBe("playing");
+    expect(plan.frameRequirements).toEqual([
+      {
+        packageId: "acme.athletics",
+        packageDigest: `sha256:${PACKAGE}`,
+        frameDigest: FRAME,
+        size: 4242,
+        downloadPath:
+          "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame",
+      },
+    ]);
+  });
+
+  it("fails the plan on a malformed frame claim", () => {
+    for (const pkg of [
+      {
+        frame: { sha256: "xyz", fileSize: 9, downloadPath: frame.downloadPath },
+      },
+      {
+        frame: { sha256: FRAME, fileSize: 0, downloadPath: frame.downloadPath },
+      },
+      {
+        frame: {
+          sha256: FRAME,
+          fileSize: 9,
+          downloadPath: "/api/v1/player/assets/x",
+        },
+      },
+      { packageId: "tilecast.evil", frame },
+    ]) {
+      expect(planned([external(pkg)]).kind).toBe("unavailable");
+    }
+  });
+
+  it("checks external components against the frame ABI, never a per-type capability", () => {
+    const without = planned([external({ frame })], {
+      presentationSchemas: [3],
+      declarativeCapabilities: {},
+      widgetComponents: { "widget.acme.athletics.scoreboard": 99 },
+    });
+    expect(without.compatibility.failures).toEqual([
+      {
+        code: "widget_component_unsupported",
+        component: "acme.athletics.scoreboard",
+        version: 2,
+      },
+    ]);
+    const incapable = planned([external({ frame })], {
+      presentationSchemas: [3],
+      declarativeCapabilities: {},
+      widgetComponents: { "widget.external-runtime": 1 },
+    });
+    expect(incapable.compatibility.failures).toHaveLength(1);
+    const capable = planned([external({ frame })], {
+      presentationSchemas: [3],
+      declarativeCapabilities: {},
+      widgetComponents: { "widget.external-runtime": 2 },
+    });
+    expect(capable.compatibility.failures).toEqual([]);
+  });
+
+  it("realizes the frame authorization table with the presentation", () => {
+    const plan = planned([external({ frame })]);
+    const bindings = [
+      {
+        packageId: "acme.athletics",
+        packageDigest: `sha256:${PACKAGE}`,
+        frameDigest: FRAME,
+        uri: "/player/widget-frame/1/scores",
+      },
+    ];
+    const resolved = realizePresentation(plan, [], bindings, {
+      activationId: "a",
+      generation: 1,
+    });
+    expect(resolved.presentation.projection?.widgetFrames).toEqual(bindings);
+    expect(JSON.stringify(resolved)).not.toContain("tcreqframe:");
   });
 });

@@ -1,0 +1,15 @@
+[package]
+name = "hello-services"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "Sample Package API v3 guest: screens report over tilecast.call_v1"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+tilecast-package-guest = { path = "../../../package-guest-sdk" }
+serde_json = { workspace = true }

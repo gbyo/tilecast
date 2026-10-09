@@ -5,7 +5,7 @@
 
 use player_core::{
     Expectation, RendererActivation, RendererCaptureRequest, RendererMetadata, RendererPort, RendererPortError,
-    RendererRequirement, RuntimePayload, SemanticRendererCommand, VerifiedContentRef,
+    RendererRequirement, RuntimePayload, SemanticRendererCommand, VerifiedContentRef, VerifiedFrameRef,
 };
 use player_types::bounded::{SafeText, ShortToken};
 use serde_json::Value;
@@ -63,6 +63,13 @@ pub(crate) fn packaged_profile() -> player_core::PackagedRendererProfile {
             crate::widget_capabilities::WIDGET_COMPONENTS
                 .iter()
                 .map(|(name, version)| (token(*name), *version))
+                // The frame execution ABI is one capability for every
+                // downloaded Widget, not a discovered component: this
+                // release confines served frames, so it offers it.
+                .chain(std::iter::once((
+                    token(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY),
+                    player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+                )))
                 .collect(),
         )
         .expect("bounded installed runtime profile"),
@@ -290,6 +297,28 @@ pub fn substitute_grants(
     Ok(document)
 }
 
+/// Joins verified frame claims to their minted `tcwidget://` capabilities:
+/// the `projection.widgetFrames` authorization table the projector joins
+/// manifest frame claims against. Every claim must have a grant; a missing
+/// one fails the activation rather than executing a frame unconfined.
+pub fn frame_authorization_table(
+    frames: &[VerifiedFrameRef],
+    grants: &HashMap<player_types::Sha256Digest, MediaCapability>,
+) -> Result<Vec<Value>, RendererPortError> {
+    frames
+        .iter()
+        .map(|frame| {
+            let uri = grants.get(&frame.sha256).ok_or(RendererPortError::InvalidActivation)?.frame_uri();
+            Ok(serde_json::json!({
+                "packageId": frame.package_id.as_str(),
+                "packageDigest": frame.package_digest.to_string(),
+                "frameDigest": frame.sha256.to_string(),
+                "uri": uri,
+            }))
+        })
+        .collect()
+}
+
 /// The semantic port over the WebView2 host. Activations mint media grants,
 /// substitute them into the Runtime document, and post the message; the UI
 /// thread owns everything past that point.
@@ -369,9 +398,12 @@ impl RendererPort for WebViewPort {
         let minted = media
             .prepare(self.session, reference.generation, now_ms, activation.content())
             .map_err(|_| RendererPortError::InvalidActivation)?;
+        let frame_grants = media
+            .prepare_frames(self.session, reference.generation, now_ms, activation.frames())
+            .map_err(|_| RendererPortError::InvalidActivation)?;
         let document =
             substitute_grants(activation.document().value().clone(), activation.document().bindings(), &minted)?;
-        let context = match activation.runtime_context() {
+        let mut context = match activation.runtime_context() {
             Some(context) => {
                 media
                     .register_aliases(self.session, reference.generation, &context_aliases(context))
@@ -380,6 +412,22 @@ impl RendererPort for WebViewPort {
             }
             None => None,
         };
+        // Frames ride the projection's authorization table, joined by
+        // digest. A frame claim without a projection to authorize it
+        // fails the activation rather than executing unconfined.
+        if !activation.frames().is_empty() {
+            let table = frame_authorization_table(activation.frames(), &frame_grants)?;
+            let Some(context) = context.as_mut() else {
+                return Err(RendererPortError::InvalidActivation);
+            };
+            let Some(projection) = context.get_mut("projection") else {
+                return Err(RendererPortError::InvalidActivation);
+            };
+            let Some(projection) = projection.as_object_mut() else {
+                return Err(RendererPortError::InvalidActivation);
+            };
+            projection.insert("widgetFrames".to_string(), Value::Array(table));
+        }
         media.activate(self.session, reference.generation, now_ms).map_err(|_| RendererPortError::InvalidActivation)?;
         drop(media);
         // The host envelope splits back into contract fields: timing and
@@ -473,5 +521,64 @@ mod tests {
         packaged_profile()
             .check(&player_core::RendererRequirement::Declarative { name: web_remote, version: 1 })
             .expect("web.remote v1");
+    }
+
+    fn frame(document: &[u8]) -> VerifiedFrameRef {
+        VerifiedFrameRef {
+            package_id: SafeText::new("acme.athletics").expect("test fixture"),
+            package_digest: player_types::Sha256Digest::of(b"package"),
+            sha256: player_types::Sha256Digest::of(document),
+            size_bytes: document.len() as u64,
+        }
+    }
+
+    #[test]
+    fn frame_table_joins_claims_to_confined_uris() {
+        let reference = frame(b"frame");
+        let token = MediaCapability::parse(&"c".repeat(64)).expect("test fixture");
+        let grants = HashMap::from([(reference.sha256, token)]);
+        let table = frame_authorization_table(std::slice::from_ref(&reference), &grants).expect("table");
+        assert_eq!(table.len(), 1);
+        assert_eq!(table[0]["packageId"], "acme.athletics");
+        assert_eq!(table[0]["packageDigest"], player_types::Sha256Digest::of(b"package").to_string());
+        assert_eq!(table[0]["frameDigest"], player_types::Sha256Digest::of(b"frame").to_string());
+        let uri = table[0]["uri"].as_str().expect("uri");
+        assert!(uri.starts_with("tcwidget://cap/"), "{uri}");
+        assert!(!uri.contains("athletics"), "{uri}");
+        // The projector's join key survives the round trip.
+        let parsed = crate::schemes::parse_widget_url(uri).expect("parses");
+        assert_eq!(parsed.capability, "c".repeat(64));
+    }
+
+    #[test]
+    fn packaged_profile_offers_the_frame_execution_abi_at_two() {
+        let name = || {
+            player_types::bounded::ShortToken::new(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY)
+                .expect("test fixture")
+        };
+        packaged_profile()
+            .check(&player_core::RendererRequirement::WidgetComponent {
+                name: name(),
+                version: player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+            })
+            .expect("external-runtime @2");
+        assert!(
+            packaged_profile()
+                .check(&player_core::RendererRequirement::WidgetComponent {
+                    name: name(),
+                    version: player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION + 1,
+                })
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn frame_table_without_a_grant_fails_closed() {
+        let reference = frame(b"frame");
+        assert_eq!(
+            frame_authorization_table(std::slice::from_ref(&reference), &HashMap::new()),
+            Err(RendererPortError::InvalidActivation)
+        );
+        assert!(frame_authorization_table(&[], &HashMap::new()).expect("empty").is_empty());
     }
 }

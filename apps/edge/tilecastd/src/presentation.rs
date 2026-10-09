@@ -39,7 +39,7 @@ use edge_protocol::ipc::event::{
     RendererCommandKind, RendererConfigure, RendererMediaRef, RendererProgress, RendererReady, SyncTiming,
 };
 use edge_protocol::ipc::presentation::{
-    ContentRef, PresentationDocument, PresentationError, StatusSurface, validate_content_references,
+    ContentRef, FrameRef, PresentationDocument, PresentationError, StatusSurface, validate_content_references,
 };
 use edge_protocol::ipc::status::RendererStatus;
 use player_core::RendererPort;
@@ -94,6 +94,7 @@ pub struct Activation {
     pub document: PresentationDocument,
     pub renderer_metadata: player_core::RendererMetadata,
     pub content: Vec<ContentRef>,
+    pub frames: Vec<FrameRef>,
     pub timing: Option<SyncTiming>,
     pub source: ActivationSource,
     pub extras: ServerExtras,
@@ -116,6 +117,8 @@ impl Activation {
             generation: self.generation,
             presentation: document,
             content,
+            // Fallback activations carry no media and no frames.
+            frames: Vec::new(),
             timing,
             projection,
         }))
@@ -221,7 +224,7 @@ impl PresentationEngine {
         source: ActivationSource,
         now_ms: i64,
     ) -> Result<ActivationRef, PresentationError> {
-        self.activate_revision(document, content, timing, source, None, ServerExtras::default(), now_ms)
+        self.activate_revision(document, content, Vec::new(), timing, source, None, ServerExtras::default(), now_ms)
     }
 
     /// Activates a prepared server presentation. The identity binds renderer
@@ -231,6 +234,7 @@ impl PresentationEngine {
         identity: PlaybackIdentity,
         document: PresentationDocument,
         content: Vec<ContentRef>,
+        frames: Vec<FrameRef>,
         extras: ServerExtras,
         now_ms: i64,
     ) -> Result<ActivationRef, PresentationError> {
@@ -246,6 +250,7 @@ impl PresentationEngine {
         self.activate_revision(
             document,
             content,
+            frames,
             timing,
             ActivationSource::ServerManifest,
             Some(identity),
@@ -259,6 +264,7 @@ impl PresentationEngine {
         &mut self,
         document: PresentationDocument,
         content: Vec<ContentRef>,
+        frames: Vec<FrameRef>,
         timing: Option<SyncTiming>,
         source: ActivationSource,
         identity: Option<PlaybackIdentity>,
@@ -282,6 +288,7 @@ impl PresentationEngine {
             document,
             renderer_metadata,
             content,
+            frames,
             timing,
             source,
             extras,
@@ -459,6 +466,7 @@ impl PresentationEngine {
                     let _ = self.activate_revision(
                         current.document,
                         current.content,
+                        current.frames,
                         current.timing,
                         current.source,
                         current.identity,
@@ -742,6 +750,7 @@ impl PresentationEngine {
         self.activate_revision(
             current.document,
             current.content,
+            current.frames,
             current.timing,
             current.source,
             current.identity,

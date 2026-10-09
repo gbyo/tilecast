@@ -128,7 +128,7 @@ tc_ipc_send_request (TcHost *host, const char *method, JsonNode *params, char **
 static void
 send_hello (TcHost *host)
 {
-  static const char *const features[] = { NULL };
+  static const char *const features[] = { "widget-frames-v1", NULL };
   g_autoptr (JsonBuilder) builder = json_builder_new ();
   json_builder_begin_object (builder);
   json_builder_set_member_name (builder, "type");

@@ -28,7 +28,7 @@ use tokio::sync::{Mutex, Notify};
 use tokio_util::sync::CancellationToken;
 
 use crate::config_host::{AndroidConfigHost, AndroidPlayerConfig, Playback};
-use crate::renderer::{ActivateRequest, ActivationContent, PlaybackIdentity, PresentationEngine};
+use crate::renderer::{ActivateRequest, ActivationContent, ActivationFrame, PlaybackIdentity, PresentationEngine};
 
 /// Why a manifest could not become a presentation. Codes mirror Edge's
 /// manifest reason codes so Studio sees one vocabulary.
@@ -37,6 +37,7 @@ pub enum ManifestError {
     Structure,
     Bound,
     Asset,
+    Frame,
     Reference,
     Schedule,
     Incompatible(Incompatibility),
@@ -48,6 +49,7 @@ impl ManifestError {
             Self::Structure => "manifest_structure_invalid",
             Self::Bound => "manifest_bound_exceeded",
             Self::Asset => "manifest_asset_invalid",
+            Self::Frame => "manifest_frame_invalid",
             Self::Reference => "manifest_reference_invalid",
             Self::Schedule => "manifest_schedule_invalid",
             Self::Incompatible(reason) => reason.code(),
@@ -98,6 +100,9 @@ pub struct ResolvedPresentation {
     /// belongs to one and shows a playlist.
     pub timing: Option<GroupTiming>,
     pub content: Vec<ActivationContent>,
+    /// Every verified frame claim of the manifest, granted alongside the
+    /// content so the port can authorize the projection's frame table.
+    pub frames: Vec<ActivationFrame>,
     pub projection: Option<Value>,
     pub plugins: Vec<Value>,
     pub plugin_aliases: Vec<Value>,
@@ -328,6 +333,25 @@ fn content_ref(asset: &ManifestAsset) -> Result<ActivationContent, ManifestError
     })
 }
 
+/// Every verified frame claim, deduplicated by document digest like
+/// the content map. Core fetched and verified each one before this
+/// manifest became a candidate; the port mints one grant per claim.
+fn frame_refs(candidate: &NativeManifest) -> Result<Vec<ActivationFrame>, ManifestError> {
+    let mut frames = Vec::with_capacity(candidate.required_frames.len());
+    for claim in &candidate.required_frames {
+        if frames.iter().any(|existing: &ActivationFrame| existing.digest == claim.digest) {
+            continue;
+        }
+        frames.push(ActivationFrame {
+            package_id: player_types::bounded::SafeText::new(&claim.package_id).map_err(|_| ManifestError::Frame)?,
+            package_digest: claim.package_digest,
+            digest: claim.digest,
+            size_bytes: claim.size_bytes,
+        });
+    }
+    Ok(frames)
+}
+
 fn media_alias(asset: &ManifestAsset) -> Value {
     serde_json::json!({
         "assetId": asset.asset_id.to_string(),
@@ -511,6 +535,7 @@ pub fn presentation_with(
         (None, None) => None,
     };
     let (plugins, plugin_aliases, plugin_content) = plugins(candidate, now_ms)?;
+    let frames = frame_refs(candidate)?;
     let finish =
         |document: Value, mut content: Vec<ActivationContent>, projection: Option<Value>, selection: Selection| {
             for reference in &plugin_content {
@@ -522,6 +547,7 @@ pub fn presentation_with(
                 document,
                 timing: None,
                 content,
+                frames: frames.clone(),
                 projection,
                 plugins: plugins.clone(),
                 plugin_aliases: plugin_aliases.clone(),
@@ -955,6 +981,7 @@ async fn show_policy(
             ActivateRequest {
                 envelope: serde_json::json!({ "presentation": document }),
                 content,
+                frames: Vec::new(),
                 source: ActivationSource::Policy,
                 identity: None,
                 clock_offset_ms: 0,
@@ -1113,6 +1140,7 @@ impl OfflineActivationHost for SelectionHost {
                 ActivateRequest {
                     envelope: serde_json::json!({ "presentation": document }),
                     content: Vec::new(),
+                    frames: Vec::new(),
                     source: ActivationSource::StatusSurface,
                     identity: None,
                     clock_offset_ms: 0,
@@ -1132,6 +1160,7 @@ impl OfflineActivationHost for SelectionHost {
         let request = ActivateRequest {
             envelope: envelope(&resolved, time.offset_ms),
             content: resolved.content.clone(),
+            frames: resolved.frames.clone(),
             source: ActivationSource::ServerManifest,
             identity: Some(identity),
             clock_offset_ms: time.offset_ms,

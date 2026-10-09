@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=18;
+pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=19;
 const MAX_ASSETS: usize = 1024;
 const MAX_PLAYLISTS: usize = 128;
 const MAX_ITEMS: usize = 4096;
@@ -15,6 +15,9 @@ const MAX_DATA_SOURCES: usize = 256;
 const MAX_PLUGINS: usize = 64;
 /// Server bundle cap (`MaxWidgetPayloadBytes`); a larger claim is corrupt.
 const MAX_BUNDLE_BYTES: u64 = 1 << 20;
+/// Server frame cap (`sandbox.MaxFrameBytes`): a maximum-size bundle
+/// plus the bootstrap template with headroom. A larger claim is corrupt.
+const MAX_FRAME_BYTES: u64 = (1 << 20) + (1 << 16);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ManifestAsset {
     pub asset_id: uuid::Uuid,
@@ -38,6 +41,19 @@ pub struct ManifestBundle {
     pub download_path: String,
 }
 
+/// One external Widget sandbox frame claim: the verified package digest
+/// it was assembled from plus the frame document hash, size, and
+/// download path the Player verifies before activation. The frame is a
+/// distinct CAS resource from the raw bundle, never the same bytes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManifestFrame {
+    pub package_id: String,
+    pub package_digest: Sha256Digest,
+    pub digest: Sha256Digest,
+    pub size_bytes: u64,
+    pub download_path: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct NativeManifest {
     /// SHA-256 of the manifest's stable encoding ([`crate::manifest_digest`]).
@@ -50,6 +66,8 @@ pub struct NativeManifest {
     pub required_downloads: Vec<ManifestAsset>,
     /// Every claimed Widget bundle must be verified alongside the variants.
     pub required_bundles: Vec<ManifestBundle>,
+    /// Every claimed Widget frame must be verified alongside the variants.
+    pub required_frames: Vec<ManifestFrame>,
 }
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
@@ -72,6 +90,8 @@ pub enum NativeManifestError {
     Schedule,
     #[error("manifest contains an invalid Widget bundle claim")]
     Bundle,
+    #[error("manifest contains an invalid Widget frame claim")]
+    Frame,
 }
 
 impl NativeManifestError {
@@ -86,6 +106,7 @@ impl NativeManifestError {
             Self::DeliveryPolicy => "manifest_delivery_policy_invalid",
             Self::Schedule => "manifest_schedule_invalid",
             Self::Bundle => "manifest_bundle_invalid",
+            Self::Frame => "manifest_frame_invalid",
         }
     }
 }
@@ -179,6 +200,11 @@ fn extract_bundle(widget: &Value) -> Result<Option<ManifestBundle>, NativeManife
         return Ok(None);
     };
     let object = package.as_object().ok_or(NativeManifestError::Bundle)?;
+    // A frame block is a v19 claim: the frame extractor owns it, and the
+    // bundle fields it omits must not fail bundle extraction.
+    if object.get("frame").is_some_and(|frame| !frame.is_null()) {
+        return Ok(None);
+    }
     let package_id = object.get("packageId").and_then(Value::as_str).ok_or(NativeManifestError::Bundle)?;
     if !valid_package_id(package_id) {
         return Err(NativeManifestError::Bundle);
@@ -204,6 +230,51 @@ fn extract_bundle(widget: &Value) -> Result<Option<ManifestBundle>, NativeManife
         return Err(NativeManifestError::Bundle);
     }
     Ok(Some(ManifestBundle {
+        package_id: package_id.to_owned(),
+        package_digest,
+        digest,
+        size_bytes,
+        download_path: download_path.to_owned(),
+    }))
+}
+
+/// Extracts one Widget's external frame claim, if its package block
+/// carries a `frame` object. A malformed claim fails the manifest: a
+/// Player must never activate a component it cannot verify.
+fn extract_frame(widget: &Value) -> Result<Option<ManifestFrame>, NativeManifestError> {
+    let Some(package) = widget.pointer("/presentation/component/package").filter(|value| !value.is_null()) else {
+        return Ok(None);
+    };
+    let object = package.as_object().ok_or(NativeManifestError::Frame)?;
+    let Some(frame) = object.get("frame").filter(|value| !value.is_null()) else {
+        return Ok(None);
+    };
+    let frame = frame.as_object().ok_or(NativeManifestError::Frame)?;
+    let package_id = object.get("packageId").and_then(Value::as_str).ok_or(NativeManifestError::Frame)?;
+    if !valid_package_id(package_id) {
+        return Err(NativeManifestError::Frame);
+    }
+    let package_digest = object
+        .get("digest")
+        .and_then(Value::as_str)
+        .and_then(|value| value.strip_prefix("sha256:"))
+        .ok_or(NativeManifestError::Frame)
+        .and_then(|hex| Sha256Digest::parse(hex).map_err(|_| NativeManifestError::Frame))?;
+    let digest = frame
+        .get("sha256")
+        .and_then(Value::as_str)
+        .ok_or(NativeManifestError::Frame)
+        .and_then(|hex| Sha256Digest::parse(hex).map_err(|_| NativeManifestError::Frame))?;
+    let size_bytes = u64::try_from(frame.get("fileSize").and_then(Value::as_i64).ok_or(NativeManifestError::Frame)?)
+        .map_err(|_| NativeManifestError::Frame)?;
+    if size_bytes == 0 || size_bytes > MAX_FRAME_BYTES {
+        return Err(NativeManifestError::Frame);
+    }
+    let download_path = frame.get("downloadPath").and_then(Value::as_str).ok_or(NativeManifestError::Frame)?;
+    if crate::OriginBlobSource::validate_path(download_path).is_err() {
+        return Err(NativeManifestError::Frame);
+    }
+    Ok(Some(ManifestFrame {
         package_id: package_id.to_owned(),
         package_digest,
         digest,
@@ -381,9 +452,29 @@ impl NativeManifest {
         {
             return Err(NativeManifestError::Schema);
         }
+        // Frame blocks exist only from v19.
+        if wire.schema_version < 19
+            && wire.widgets.iter().any(|widget| {
+                widget.pointer("/presentation/component/package/frame").is_some_and(|frame| !frame.is_null())
+            })
+        {
+            return Err(NativeManifestError::Schema);
+        }
         let mut required_bundles = Vec::new();
         let mut seen_bundle = BTreeSet::new();
+        let mut required_frames = Vec::new();
+        let mut seen_frame = BTreeSet::new();
         for widget in &wire.widgets {
+            // A widget claims at most one artifact: a frame block takes
+            // the frame path, anything else takes the bundle path.
+            if let Some(frame) = extract_frame(widget)? {
+                // One CAS object per frame digest; the package digest is
+                // activation evidence, not a second fetch.
+                if seen_frame.insert(frame.digest) {
+                    required_frames.push(frame);
+                }
+                continue;
+            }
             let Some(bundle) = extract_bundle(widget)? else { continue };
             // One CAS object per bundle digest; the package digest is
             // activation evidence, not a second fetch.
@@ -401,6 +492,7 @@ impl NativeManifest {
             assets,
             required_downloads,
             required_bundles,
+            required_frames,
         })
     }
 }
@@ -484,6 +576,101 @@ mod tests {
         let identity = crate::manifest_digest(&shared);
         let prepared = NativeManifest::parse(shared, screen, identity).unwrap();
         assert_eq!(prepared.required_bundles.len(), 1);
+    }
+
+    fn frame_document(screen: ScreenId, schema: u32) -> Value {
+        let widget = uuid::Uuid::from_u128(10);
+        let frame = Sha256Digest::of(b"frame document");
+        let package = Sha256Digest::of(b"package");
+        json!({
+            "schemaVersion":schema, "manifestVersion":3, "screenId":screen, "mode":"presentation",
+            "assets":[],
+            "playlist":{"id":uuid::Uuid::from_u128(5),"items":[{"id":uuid::Uuid::from_u128(6),
+                "assetId":widget,"assetType":"widget","deliveryPolicy":"download"}]},
+            "playlists":[],"schedules":[],"dataSources":[],"plugins":[],
+            "widgets":[{"assetId":widget,"name":"Scores","provider":"acme.athletics.scoreboard",
+                "presentation":{"schemaVersion":3,"kind":"component",
+                    "requiredCapabilities":{"widget.external-runtime":2},
+                    "component":{"type":"acme.athletics.scoreboard","version":2,
+                        "config":{},"dataSources":[],"media":[],"empty":"render",
+                        "package":{"packageId":"acme.athletics",
+                            "digest":format!("sha256:{}", package.to_hex()),
+                            "frame":{"sha256":frame.to_hex(),"fileSize":14,
+                                "downloadPath":"/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame"}}}}}],
+        })
+    }
+
+    #[test]
+    fn external_frame_claims_are_extracted_while_presentations_stay_opaque() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let frame = Sha256Digest::of(b"frame document");
+        let package = Sha256Digest::of(b"package");
+        let document = frame_document(screen, 19);
+        let identity = crate::manifest_digest(&document);
+        let prepared = NativeManifest::parse(document.clone(), screen, identity).unwrap();
+        assert_eq!(prepared.document, document);
+        assert_eq!(prepared.required_bundles.len(), 0);
+        assert_eq!(prepared.required_frames.len(), 1);
+        let claim = &prepared.required_frames[0];
+        assert_eq!(claim.package_id, "acme.athletics");
+        assert_eq!(claim.package_digest, package);
+        assert_eq!(claim.digest, frame);
+        assert_eq!(claim.size_bytes, 14);
+        assert_eq!(claim.download_path, "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame");
+        // One object per frame digest no matter how many Widgets share it.
+        let mut shared = document.clone();
+        shared["widgets"] = json!([shared["widgets"][0].clone(), shared["widgets"][0].clone()]);
+        let identity = crate::manifest_digest(&shared);
+        let prepared = NativeManifest::parse(shared, screen, identity).unwrap();
+        assert_eq!(prepared.required_frames.len(), 1);
+    }
+
+    #[test]
+    fn malformed_frame_claims_fail_the_manifest() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let mutate_package = |key: &str, value: Value| {
+            let mut document = frame_document(screen, 19);
+            document["widgets"][0]["presentation"]["component"]["package"][key] = value;
+            let identity = crate::manifest_digest(&document);
+            NativeManifest::parse(document, screen, identity)
+        };
+        let mutate_frame = |key: &str, value: Value| {
+            let mut document = frame_document(screen, 19);
+            document["widgets"][0]["presentation"]["component"]["package"]["frame"][key] = value;
+            let identity = crate::manifest_digest(&document);
+            NativeManifest::parse(document, screen, identity)
+        };
+        for (key, value) in
+            [("packageId", json!("not a package")), ("digest", json!("deadbeef")), ("digest", json!("sha256:xyz"))]
+        {
+            assert!(
+                matches!(mutate_package(key, value), Err(NativeManifestError::Frame)),
+                "claim with bad {key} parsed"
+            );
+        }
+        for (key, value) in [
+            ("sha256", json!("xyz")),
+            ("sha256", json!("00")),
+            ("fileSize", json!(0)),
+            ("fileSize", json!(2 * 1024 * 1024)),
+            ("downloadPath", json!("/api/v1/system/identity")),
+            ("downloadPath", json!("/api/v1/player/../escape")),
+        ] {
+            assert!(matches!(mutate_frame(key, value), Err(NativeManifestError::Frame)), "frame with bad {key} parsed");
+        }
+        let mut missing = frame_document(screen, 19);
+        missing["widgets"][0]["presentation"]["component"]["package"]["frame"]
+            .as_object_mut()
+            .unwrap()
+            .remove("sha256");
+        let identity = crate::manifest_digest(&missing);
+        assert!(matches!(NativeManifest::parse(missing, screen, identity), Err(NativeManifestError::Frame)));
+        // A frame block below v19 is corrupt: no server emits it there.
+        for schema in [17, 18] {
+            let older = frame_document(screen, schema);
+            let identity = crate::manifest_digest(&older);
+            assert!(matches!(NativeManifest::parse(older, screen, identity), Err(NativeManifestError::Schema)));
+        }
     }
 
     #[test]

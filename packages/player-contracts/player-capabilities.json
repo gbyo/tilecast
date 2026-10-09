@@ -1,0 +1,124 @@
+{
+  "registryVersion": 1,
+  "capabilities": [
+    {
+      "id": "display.power",
+      "version": 1,
+      "title": "Display power",
+      "description": "Turn the attached display on or off through the reporting provider.",
+      "providers": ["hdmi_cec", "ddc_ci", "network", "rs232"],
+      "operations": [
+        {
+          "operation": "display.power",
+          "title": "Set display power",
+          "input": {
+            "type": "object",
+            "properties": {
+              "state": { "type": "string", "enum": ["on", "off"] }
+            },
+            "required": ["state"],
+            "additionalProperties": false
+          },
+          "commands": [
+            { "when": { "state": "on" }, "command": "display_power_on" },
+            { "when": { "state": "off" }, "command": "display_power_off" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "display.input",
+      "version": 1,
+      "title": "Display input",
+      "description": "Select the active input on the attached display.",
+      "providers": ["hdmi_cec", "ddc_ci", "network", "rs232"],
+      "operations": [
+        {
+          "operation": "display.input",
+          "title": "Set display input",
+          "input": {
+            "type": "object",
+            "properties": {
+              "input": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,32}$"
+              }
+            },
+            "required": ["input"],
+            "additionalProperties": false
+          },
+          "commands": [{ "when": {}, "command": "display_set_input" }]
+        }
+      ]
+    },
+    {
+      "id": "display.volume",
+      "version": 1,
+      "title": "Display volume",
+      "description": "Set the attached display volume from 0 to 100.",
+      "providers": ["hdmi_cec", "ddc_ci", "network", "rs232"],
+      "operations": [
+        {
+          "operation": "display.volume",
+          "title": "Set display volume",
+          "input": {
+            "type": "object",
+            "properties": {
+              "volume": { "type": "integer", "minimum": 0, "maximum": 100 }
+            },
+            "required": ["volume"],
+            "additionalProperties": false
+          },
+          "commands": [{ "when": {}, "command": "display_set_volume" }]
+        }
+      ]
+    },
+    {
+      "id": "display.mute",
+      "version": 1,
+      "title": "Display mute",
+      "description": "Mute or unmute the attached display.",
+      "providers": ["hdmi_cec", "ddc_ci", "network", "rs232"],
+      "operations": [
+        {
+          "operation": "display.mute",
+          "title": "Set display mute",
+          "input": {
+            "type": "object",
+            "properties": {
+              "muted": { "type": "boolean" }
+            },
+            "required": ["muted"],
+            "additionalProperties": false
+          },
+          "commands": [
+            { "when": { "muted": true }, "command": "display_mute" },
+            { "when": { "muted": false }, "command": "display_unmute" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "display.brightness",
+      "version": 1,
+      "title": "Display brightness",
+      "description": "Set the attached display brightness from 0 to 100.",
+      "providers": ["hdmi_cec", "ddc_ci", "network", "rs232"],
+      "operations": [
+        {
+          "operation": "display.brightness",
+          "title": "Set display brightness",
+          "input": {
+            "type": "object",
+            "properties": {
+              "brightness": { "type": "integer", "minimum": 0, "maximum": 100 }
+            },
+            "required": ["brightness"],
+            "additionalProperties": false
+          },
+          "commands": [{ "when": {}, "command": "display_set_brightness" }]
+        }
+      ]
+    }
+  ]
+}

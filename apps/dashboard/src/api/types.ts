@@ -786,6 +786,7 @@ export type ReliabilityStatus = {
   displayControlLastCommandSentAt?: string;
   displayControlLastStateConfirmedAt?: string;
   displayControlError?: string;
+  playerCapabilities?: Record<string, { version: number; provider: string }>;
   powerAssist: PowerAssistResults;
 };
 
@@ -1385,11 +1386,28 @@ export type PackageRuntime = {
  * entry is a request the host reviews before installation; nothing here
  * grants itself.
  */
+export type PackageServiceOperation = {
+  name: string;
+  title: string;
+  description: string;
+  mutating: boolean;
+};
+
+export type PackageServiceGrant = {
+  id: string;
+  version: number;
+  name: string;
+  description: string;
+  category: string;
+  operations: PackageServiceOperation[];
+};
+
 export type PackageCapabilities = {
   network?: { hosts: string[] };
   background?: { jobs: { id: string; intervalMinutes: number }[] };
   storage?: boolean;
   studioUI?: { entry: string };
+  services?: PackageServiceGrant[];
 };
 
 /** One declared package background job with the scheduler cursor. */

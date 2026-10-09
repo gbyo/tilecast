@@ -2194,6 +2194,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	compiled := make([]*WidgetPresentation, len(manifest.Widgets))
 	componentsV2 := make([]*WidgetPresentation, len(manifest.Widgets))
 	componentsV3 := make([]*WidgetPresentation, len(manifest.Widgets))
+	componentsFrame := make([]*WidgetPresentation, len(manifest.Widgets))
 	canCompileV13 := true
 	allowPrivateHTTP := s.orgPrivateHTTP(ctx)
 	organizationTimezone := s.orgTimezone(ctx)
@@ -2206,6 +2207,9 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		componentsV2[index], err = s.compileWidgetComponentForSchema(widget.Provider, widget.Configuration, componentPresentationSchemaLegacy)
 		if err == nil {
 			componentsV3[index], err = s.compileWidgetComponentForSchema(widget.Provider, widget.Configuration, contentdefs.ComponentPresentationSchemaVersion)
+		}
+		if err == nil {
+			componentsFrame[index], err = s.compileWidgetFrameComponent(widget.Provider, widget.Configuration)
 		}
 		if err != nil {
 			return Manifest{}, "", fmt.Errorf("%w: Widget “%s” cannot be compiled: %v", ErrConflict, widget.Name, err)
@@ -2223,11 +2227,23 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	usesComponents := false
 	usesComponentEmptyPolicy := false
 	usesExternalComponents := false
+	usesExternalFrames := false
 	if playerCapabilities.Reported && canCompileV13 {
 		// Each Widget gets its first-class component when this Player renders
 		// that exact type and version, and its compatibility presentation
 		// otherwise (docs/widgets-v2.md §7). Persisted Widgets never change.
+		// External Widgets prefer the executable frame claim over the
+		// retrieval-only bundle claim.
 		for index := range compiled {
+			if component := componentsFrame[index]; component != nil {
+				if supported, _ := presentationSupported(component, playerCapabilities); supported {
+					compiled[index] = component
+					usesComponents = true
+					usesComponentEmptyPolicy = true
+					usesExternalFrames = true
+					continue
+				}
+			}
 			if component := componentsV3[index]; component != nil {
 				if supported, _ := presentationSupported(component, playerCapabilities); supported {
 					compiled[index] = component
@@ -2305,7 +2321,16 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			manifest.Widgets[index].Configuration = nil
 		}
 	}
-	if usesExternalComponents {
+	if usesExternalFrames {
+		// v19 adds the executable external frame claim to the v18
+		// manifest contract. Only Players reporting
+		// widget.external-runtime@2 select these components, so only
+		// they receive v19.
+		manifest.SchemaVersion = ManifestSchemaExternalWidgetFrames
+		if manifestHasCrossfade(manifest) && playerCapabilities.PlayerVersion < crossfadePlayerVersionCode {
+			downgradeManifestCrossfades(&manifest)
+		}
+	} else if usesExternalComponents {
 		// v18 adds the external package block to the v17 manifest
 		// contract. Only Players reporting widget.external-runtime can
 		// select these components, so only they receive v18.

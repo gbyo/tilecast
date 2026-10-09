@@ -8,6 +8,11 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
+	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
 
 // Guests below are hand-assembled: real bytecode exercising the host
@@ -338,5 +343,177 @@ func TestRestrictedFetch(t *testing.T) {
 	_, err := restrictedFetch(ctx, "https://127.0.0.1/x", []string{"127.0.0.1"})
 	if err == nil || errors.Is(err, errNotAllowlisted) {
 		t.Fatalf("loopback fetch: error = %v, want the address guard", err)
+	}
+}
+
+// fakeServiceCaller records the call the host built and answers canned.
+type fakeServiceCaller struct {
+	last    services.Call
+	seen    bool
+	data    any
+	denial  *services.Denial
+	failure *services.CallError
+}
+
+func (f *fakeServiceCaller) Call(_ context.Context, call services.Call) (any, *services.Denial, *services.CallError) {
+	f.last, f.seen = call, true
+	return f.data, f.denial, f.failure
+}
+
+// serviceCallGuest answers whatever call_v1 answers for one operation.
+// Imports call_v1 (0); run_job is index 1.
+func serviceCallGuest(t *testing.T, operation string, outCap uint32) []byte {
+	t.Helper()
+	body := concat(
+		i32Const(t, 100), i32Const(t, uint32(len(operation))),
+		i32Const(t, 200), i32Const(t, 2),
+		i32Const(t, 300), i32Const(t, outCap),
+		call(0),
+		[]byte{0x0b},
+	)
+	return assemble(testModule{
+		types:   []testFuncType{typeServiceCall, typeJob},
+		imports: []testImport{{module: "tilecast", name: "call_v1", kind: 0}},
+		funcs:   []testFunc{{typeIdx: 1, body: body}},
+		memory:  &testMemory{min: 1, max: 1, hasMax: true},
+		exports: []testExport{{name: "run_job", kind: 0, index: 1}},
+		data:    []testData{{offset: 100, bytes: []byte(operation)}, {offset: 200, bytes: []byte("{}")}},
+	})
+}
+
+func TestInvokeServiceCallEnvelopes(t *testing.T) {
+	host := testHost(t, NewMemoryKV())
+	caller := &fakeServiceCaller{data: map[string]any{"id": "x"}}
+	grants := Grants{Services: []packagemanifest.ServiceGrant{{ID: "instance.read", Version: 1}}}
+	result, err := host.Invoke(context.Background(), Call{
+		PackageID: "acme.athletics",
+		Digest:    "sha256:call",
+		Module:    serviceCallGuest(t, "instance.read@1/get", 4096),
+		Grants:    grants,
+		Entry:     "run_job",
+		Input:     []byte("refresh"),
+		Timeout:   5 * time.Second,
+		Context:   services.ContextBackground,
+		Caller:    caller,
+	})
+	if err != nil {
+		t.Fatalf("Invoke returned error: %v", err)
+	}
+	want, err := services.MarshalSuccess(map[string]any{"id": "x"})
+	if err != nil {
+		t.Fatalf("MarshalSuccess: %v", err)
+	}
+	if result.Status != int32(len(want)) {
+		t.Fatalf("status = %d, want %d envelope bytes", result.Status, len(want))
+	}
+	if !caller.seen || caller.last.Operation != "instance.read@1/get" || string(caller.last.Input) != "{}" {
+		t.Fatalf("caller saw %+v", caller.last)
+	}
+	if caller.last.PackageID != "acme.athletics" || caller.last.Context != services.ContextBackground || caller.last.Actor != nil {
+		t.Fatalf("caller context = %+v", caller.last)
+	}
+	if len(caller.last.Grants) != 1 || caller.last.Grants[0].ID != "instance.read" {
+		t.Fatalf("caller grants = %+v", caller.last.Grants)
+	}
+}
+
+func TestInvokeServiceCallCarriesStudioActor(t *testing.T) {
+	host := testHost(t, NewMemoryKV())
+	caller := &fakeServiceCaller{data: map[string]any{"ok": true}}
+	actor := &services.Actor{UserID: uuid.New(), Role: "owner"}
+	result, err := host.Invoke(context.Background(), Call{
+		PackageID: "acme.athletics",
+		Digest:    "sha256:call-actor",
+		Module:    serviceCallGuest(t, "screens.read@1/list", 4096),
+		Grants:    Grants{Services: []packagemanifest.ServiceGrant{{ID: "screens.read", Version: 1}}},
+		Entry:     "run_job",
+		Input:     []byte("refresh"),
+		Timeout:   5 * time.Second,
+		Context:   services.ContextStudio,
+		Actor:     actor,
+		Caller:    caller,
+	})
+	if err != nil {
+		t.Fatalf("Invoke returned error: %v", err)
+	}
+	if result.Status <= 0 {
+		t.Fatalf("status = %d, want envelope bytes", result.Status)
+	}
+	if !caller.seen || caller.last.Actor == nil || caller.last.Actor.UserID != actor.UserID || caller.last.Actor.Role != "owner" {
+		t.Fatalf("caller actor = %+v", caller.last.Actor)
+	}
+}
+
+func TestInvokeServiceCallDenialCodes(t *testing.T) {
+	host := testHost(t, NewMemoryKV())
+	invoke := func(caller ServiceCaller) int32 {
+		t.Helper()
+		result, err := host.Invoke(context.Background(), Call{
+			PackageID: "acme.athletics",
+			Digest:    "sha256:call-deny",
+			Module:    serviceCallGuest(t, "screens.read@1/drop", 4096),
+			Entry:     "run_job",
+			Input:     []byte("refresh"),
+			Timeout:   5 * time.Second,
+			Context:   services.ContextBackground,
+			Caller:    caller,
+		})
+		if err != nil {
+			t.Fatalf("Invoke returned error: %v", err)
+		}
+		return result.Status
+	}
+	if status := invoke(&fakeServiceCaller{denial: &services.Denial{Kind: services.DenialUnknownOperation}}); status != ErrNoOperation {
+		t.Fatalf("unknown operation status = %d, want %d", status, ErrNoOperation)
+	}
+	if status := invoke(&fakeServiceCaller{denial: &services.Denial{Kind: services.DenialMissingGrant}}); status != ErrNoGrant {
+		t.Fatalf("missing grant status = %d, want %d", status, ErrNoGrant)
+	}
+	if status := invoke(nil); status != ErrNoGrant {
+		t.Fatalf("missing caller status = %d, want %d", status, ErrNoGrant)
+	}
+}
+
+func TestInvokeServiceCallFailsClosed(t *testing.T) {
+	host := testHost(t, NewMemoryKV())
+	caller := &fakeServiceCaller{failure: &services.CallError{Code: services.ErrCodeInvalidInput, Message: "bad"}}
+	result, err := host.Invoke(context.Background(), Call{
+		PackageID: "acme.athletics",
+		Digest:    "sha256:call-fail",
+		Module:    serviceCallGuest(t, "screens.read@1/list", 4096),
+		Grants:    Grants{Services: []packagemanifest.ServiceGrant{{ID: "screens.read", Version: 1}}},
+		Entry:     "run_job",
+		Input:     []byte("refresh"),
+		Timeout:   5 * time.Second,
+		Context:   services.ContextBackground,
+		Caller:    caller,
+	})
+	if err != nil {
+		t.Fatalf("Invoke returned error: %v", err)
+	}
+	want, err := services.MarshalFailure(caller.failure)
+	if err != nil {
+		t.Fatalf("MarshalFailure: %v", err)
+	}
+	if result.Status != int32(len(want)) {
+		t.Fatalf("status = %d, want %d envelope bytes", result.Status, len(want))
+	}
+	// A clipped buffer writes nothing and answers too-large.
+	clipped, err := host.Invoke(context.Background(), Call{
+		PackageID: "acme.athletics",
+		Digest:    "sha256:call-clip",
+		Module:    serviceCallGuest(t, "screens.read@1/list", 4),
+		Grants:    Grants{Services: []packagemanifest.ServiceGrant{{ID: "screens.read", Version: 1}}},
+		Entry:     "run_job",
+		Input:     []byte("refresh"),
+		Timeout:   5 * time.Second,
+		Context:   services.ContextBackground,
+		Caller:    &fakeServiceCaller{data: map[string]any{"id": "x"}},
+	})
+	if err != nil {
+		t.Fatalf("Invoke returned error: %v", err)
+	}
+	if clipped.Status != ErrTooLarge {
+		t.Fatalf("clipped status = %d, want %d", clipped.Status, ErrTooLarge)
 	}
 }

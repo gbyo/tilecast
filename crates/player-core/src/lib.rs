@@ -53,7 +53,9 @@ pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame
 pub use manifest_content::{
     MANIFEST_PIN_PREFIX, ManifestOriginSources, ManifestPreparationError, ManifestSourcePlan, manifest_pin_holder,
 };
-pub use manifest_resources::{ManifestAsset, NATIVE_MANIFEST_SCHEMAS, NativeManifest, NativeManifestError};
+pub use manifest_resources::{
+    ManifestAsset, ManifestBundle, ManifestFrame, NATIVE_MANIFEST_SCHEMAS, NativeManifest, NativeManifestError,
+};
 pub use manifest_worker::{
     ManifestFailureKind, ManifestPreparationCoordinator, ManifestPreparationStatus, ManifestWorkerFailure,
     ManifestWorkerHost, SharedManifestPreparationStatus,
@@ -90,7 +92,8 @@ pub use renderer_commands::{
 };
 pub use renderer_coordinator::{RendererCoordinator, RendererDispatch};
 pub use renderer_document::{
-    ContentRef as VerifiedContentRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError, RendererMetadata,
+    ContentRef as VerifiedContentRef, FrameRef as VerifiedFrameRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError,
+    RendererMetadata,
 };
 pub use renderer_port::{
     CapturedFrame, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererPort, RendererPortError,

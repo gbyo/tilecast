@@ -25,9 +25,14 @@ const (
 	// advertise per-component capabilities: the presentation names the
 	// component contract, and the capability names the execution ABI.
 	ExternalRuntimeCapability = "widget.external-runtime"
-	// ExternalRuntimeVersion is the supported external execution ABI.
+	// ExternalRuntimeVersion is the retrieval-only external execution
+	// ABI: verified raw bundle download, never executed (manifest v18).
 	ExternalRuntimeVersion = 1
-	maxComponentVersion    = 100
+	// ExternalRuntimeFrameVersion is the executable external execution
+	// ABI: verified sandbox-frame download and sandboxed execution
+	// (manifest v19).
+	ExternalRuntimeFrameVersion = 2
+	maxComponentVersion         = 100
 	// maxWidgetCapabilityLen is the heartbeat's capability-name bound. The
 	// full "widget.<type>" capability must fit within it.
 	maxWidgetCapabilityLen   = 80
