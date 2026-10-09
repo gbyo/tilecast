@@ -67,7 +67,10 @@ describe("external-widget conformance fixtures", () => {
     });
     const ready = definition.resolveData(parsed.config, full);
     expect(ready).toMatchObject({ state: "ready" });
-    const noDocument = definition.resolveData(parsed.config, fixtureResources());
+    const noDocument = definition.resolveData(
+      parsed.config,
+      fixtureResources(),
+    );
     expect(noDocument).toMatchObject({
       state: "error",
       code: "widget_data_missing",
