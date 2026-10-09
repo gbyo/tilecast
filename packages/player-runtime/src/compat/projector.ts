@@ -76,6 +76,7 @@ function translateMedia(
   value: unknown,
   media: Map<string, string>,
   frames: Map<string, string>,
+  sandboxMedia?: Map<string, string>,
   mediaField = false,
 ): unknown {
   if (typeof value === "string") {
@@ -86,7 +87,7 @@ function translateMedia(
   }
   if (Array.isArray(value)) {
     return value.map((entry) =>
-      translateMedia(entry, media, frames, mediaField),
+      translateMedia(entry, media, frames, sandboxMedia, mediaField),
     );
   }
   if (value && typeof value === "object") {
@@ -103,12 +104,25 @@ function translateMedia(
       if (!authorized) throw new Error("Projected frame is not authorized");
       return { ...record, frameUrl: authorized };
     }
+    // Only package-contributed components use the host's sandbox-specific
+    // media transport. Trusted Widgets and ordinary video/layout surfaces
+    // retain their original media aliases. This also handles components
+    // nested inside a Layout zone without a separate projector.
+    const execution = record.execution;
+    const scopedMedia =
+      sandboxMedia &&
+      execution &&
+      typeof execution === "object" &&
+      (execution as Record<string, unknown>).kind === "sandboxed"
+        ? sandboxMedia
+        : media;
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(value)) {
       out[key] = translateMedia(
         record[key],
-        media,
+        scopedMedia,
         frames,
+        sandboxMedia,
         mediaField ||
           ["src", "fallbackSrc", "backgroundImage", "media"].includes(key),
       );
@@ -162,6 +176,14 @@ export function createProjector(
       alias.uri,
     );
   }
+  const sandboxMedia = context.widgetMedia
+    ? new Map(
+        context.widgetMedia.map((alias) => [
+          `${VARIANT_PREFIX}${alias.assetId}/${alias.variantId}`,
+          alias.uri,
+        ]),
+      )
+    : undefined;
   const frames = new Map<string, string>();
   for (const entry of context.widgetFrames ?? []) {
     if (
@@ -227,6 +249,7 @@ export function createProjector(
                   remoteWeb,
                   media,
                   frames,
+                  sandboxMedia,
                 ) as RuntimeItem["remoteWeb"],
               });
             }
@@ -256,6 +279,7 @@ export function createProjector(
                 payload,
                 media,
                 frames,
+                sandboxMedia,
               ) as RuntimeItem["widget"],
             });
           }
@@ -283,6 +307,7 @@ export function createProjector(
                 payload,
                 media,
                 frames,
+                sandboxMedia,
               ) as RuntimeItem["layout"],
             });
           }
