@@ -52,6 +52,7 @@ use crate::config::EdgeConfig;
 use crate::ipc_handler::DaemonIpc;
 use crate::media::MediaRegistry;
 use crate::media_channel::{self, MediaChannel, ProcLineage};
+use crate::media_http::LoopbackMedia;
 use crate::presentation::{ActivationSource, PresentationEngine};
 use crate::server_link::{self, LinkState};
 use player_core::SupervisorConfig;
@@ -272,6 +273,8 @@ pub struct Daemon {
     context: Arc<DaemonContext>,
     ipc: IpcServer,
     media: Option<MediaChannel>,
+    /// Loopback transport for opaque external Widget frame media.
+    media_http: Option<LoopbackMedia>,
     activity_signals: tokio::sync::mpsc::Receiver<crate::activity::Signal>,
 }
 
@@ -513,7 +516,27 @@ impl Daemon {
                 .with_context(|| format!("binding {}", path.display()))
             })
             .transpose()?;
-        Ok(Self { context, ipc, media, activity_signals })
+        // Opaque-origin sandbox frames cannot load the renderer's tcmedia
+        // scheme. Bind a loopback-only endpoint for the *same* live grants
+        // before the renderer is allowed to connect. Recovery mode has no
+        // CAS, therefore no endpoint or advertised media URLs.
+        let media_http = context
+            .cas
+            .clone()
+            .map(|cas| {
+                LoopbackMedia::bind(
+                    context.media_registry.clone(),
+                    cas,
+                    context.clock.clone(),
+                    Some(media_channel::StreamBackend::new(context.command_server.subscribe())),
+                )
+                .context("binding sandbox Widget media loopback")
+            })
+            .transpose()?;
+        if let Some(ref server) = media_http {
+            context.presentation.lock().await.set_loopback_port(server.port());
+        }
+        Ok(Self { context, ipc, media, media_http, activity_signals })
     }
 
     pub fn context(&self) -> &Arc<DaemonContext> {
@@ -536,6 +559,15 @@ impl Daemon {
             tasks.spawn(async move {
                 if let Err(error) = media.run(media_shutdown.clone()).await {
                     tracing::error!(component = "media", event = "channel_failed", error = %error);
+                    media_shutdown.cancel();
+                }
+            });
+        }
+        if let Some(media_http) = self.media_http {
+            let media_shutdown = shutdown.clone();
+            tasks.spawn(async move {
+                if let Err(error) = media_http.run(media_shutdown.clone()).await {
+                    tracing::error!(component = "media", event = "loopback_failed", error = %error);
                     media_shutdown.cancel();
                 }
             });
