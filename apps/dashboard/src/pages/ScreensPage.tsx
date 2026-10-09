@@ -930,7 +930,7 @@ function TakeoverDialogs({
         auth.status?.csrfToken ?? "",
       ),
     onSuccess: async () => {
-      toast.add({ title: "Takeover started.", type: "success" });
+      toast.add({ title: t("takeover.started"), type: "success" });
       setOpen(false);
       setPasswordOpen(false);
       setConfirmationOpen(false);
