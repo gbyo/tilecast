@@ -1061,6 +1061,7 @@
     }
   },
   "retention": {
+    "saved": "Ajustes de retención de actividad guardados.",
     "title": "Retención de actividad",
     "description": "La limpieza se ejecuta en lotes acotados en segundo plano y respeta los límites estrictos del despliegue.",
     "save": "Guardar retención",

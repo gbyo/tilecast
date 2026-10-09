@@ -1061,6 +1061,7 @@
     }
   },
   "retention": {
+    "saved": "Activity retention settings saved.",
     "title": "Activity retention",
     "description": "Cleanup runs in bounded background batches and respects deployment hard limits.",
     "save": "Save retention",
