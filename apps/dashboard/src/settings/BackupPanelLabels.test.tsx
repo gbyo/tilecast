@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
-import type { BackupArchive, BackupList } from "../api/types";
+import type { BackupArchive } from "../api/types";
 import { BackupPanel } from "./BackupPanel";
 
 vi.mock("../auth/AuthProvider", () => ({
@@ -42,7 +42,7 @@ describe("BackupPanel labels", () => {
       recentJobs: [],
       lastSuccessful: null,
       schedule: {},
-    } as unknown as BackupList);
+    });
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
