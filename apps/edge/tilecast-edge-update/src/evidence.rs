@@ -106,7 +106,7 @@ pub(crate) mod tests {
                 evidence: true,
             }),
             update: None,
-        installation_mismatch: None,
+            installation_mismatch: None,
         }
     }
 

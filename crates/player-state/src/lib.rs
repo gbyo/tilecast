@@ -67,8 +67,13 @@ pub const MIGRATIONS: &[Migration] = &[
     },
     Migration {
         version: 9,
+        name: "renderer_last_restart",
+        sql: include_str!("../migrations/0009_renderer_last_restart.sql"),
+    },
+    Migration {
+        version: 10,
         name: "installation_mismatch",
-        sql: include_str!("../migrations/0009_installation_mismatch.sql"),
+        sql: include_str!("../migrations/0010_installation_mismatch.sql"),
     },
 ];
 

@@ -72,6 +72,22 @@ and progress, stall, expected-motion, and renderer-response measurements through
 device status; adding telemetry-only keys to it makes the strict HTTP fallback
 reject the full heartbeat.
 
+Edge reports renderer recovery facts in the heartbeat: `recoveryLevel` and
+`recoveryCount` (the recovery-ladder position), `lastRendererFailure` (the
+categorized Core rejection token), `rendererRestartCount` with
+`lastRendererRestartAt` and `lastRendererRestartReason`, and `safeModeReason`
+while in safe mode. Each is omitted when unknown. The server stores them in
+`screen_player_status` and derives one `playerHealth` presentation for Studio
+from connection state, player status, and the telemetry snapshot. A new
+heartbeat field ships server-first: the strict HTTP fallback rejects a
+heartbeat with unknown fields, so the server accepts a field before any
+player sends it.
+
+Stored renderer failures do not override intentional `sleep`, `disabled`, or
+`idle` playback in `playerHealth`. Active recovery and current renderer
+telemetry keep their priority. The reliability response retains the last
+renderer failure as a diagnostic fact.
+
 ### Release family
 
 A heartbeat may carry `playerFamily` (`android`, `electron-linux`, `edge` or `windows`) and, for Tilecast Edge and Windows Player, `playerArchitecture` (`x86_64` or `aarch64`). The server records only these values; another value is recorded as absent and never rejects the heartbeat. Player Updates target a release only at screens of its family and architecture. A player that does not report a family keeps the family its platform always meant: `linux` is `electron-linux`, `windows` is `windows`, and every other platform is `android`.

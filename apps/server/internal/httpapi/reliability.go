@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
 var powerResultValues = map[string]bool{"untested": true, "confirmed_working": true, "partially_working": true, "failed": true, "unsupported": true}
@@ -18,6 +19,14 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var raw []byte
+	var enabled, hasCredential, awaitingPlayer bool
+	var archivedAt *time.Time
+	var lastConnectedAt, lastDisconnectedAt, lastHeartbeatAt *time.Time
+	var playbackState, safeModeReason, lastRendererFailure, lastRendererRestartReason *string
+	var lastSyncError, updateState, updateError, telemetryRendererState *string
+	var playbackDisabled, safeMode *bool
+	var recoveryLevel *int
+	var lastRendererRestartAt, lastHealthyPlaybackAt, telemetryObservedAt, telemetryLastProgressAt *time.Time
 	// Postgres caps any function call at 100 arguments, and jsonb_build_object
 	// spends two per field. This payload is well past that, so it is built in
 	// chunks and merged with ||. Keep each chunk under 50 fields when adding to
@@ -34,7 +43,10 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 		'activeHoursState',ps.active_hours_state,'sleepCapability',ps.sleep_capability,
 		'lastSleepRequestResult',ps.last_sleep_request_result,'lastWakeResult',ps.last_wake_result,
 		'recoveryLevel',ps.recovery_level,'recoveryCount',ps.recovery_count,'safeMode',ps.safe_mode,
-		'lastWatchdogFailure',ps.last_watchdog_failure,'lastWatchdogRecoveryAt',ps.last_watchdog_recovery_at
+		'lastWatchdogFailure',ps.last_watchdog_failure,'lastWatchdogRecoveryAt',ps.last_watchdog_recovery_at,
+		'lastRendererFailure',ps.last_renderer_failure,'rendererRestartCount',ps.renderer_restart_count,
+		'lastRendererRestartAt',ps.last_renderer_restart_at,'lastRendererRestartReason',ps.last_renderer_restart_reason,
+		'safeModeReason',ps.safe_mode_reason
 	) || jsonb_build_object(
 		'maintenanceSessionExpiresAt',ps.maintenance_session_expires_at,
 		'commissioningState',ps.commissioning_state,'commissioningStep',ps.commissioning_step,
@@ -90,7 +102,22 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 	) || jsonb_build_object(
 		-- Facts only a Browser Player reports; null for every other player.
 		'browser',ps.browser_status
-	) FROM screens sc LEFT JOIN screen_player_status ps ON ps.screen_id=sc.id LEFT JOIN screen_power_assist_results pa ON pa.screen_id=sc.id WHERE sc.id=$1`, id, detailedDiagnostics(r)).Scan(&raw)
+	),
+		sc.enabled,
+		EXISTS(SELECT 1 FROM device_credentials c WHERE c.screen_id=sc.id AND c.revoked_at IS NULL),
+		EXISTS(SELECT 1 FROM browser_player_slots bp WHERE bp.screen_id=sc.id AND bp.active_binding_epoch=0),
+		sc.archived_at,sc.last_connected_at,sc.last_disconnected_at,sc.last_heartbeat_at,
+		ps.playback_state,ps.playback_disabled,ps.safe_mode,ps.safe_mode_reason,ps.recovery_level,
+		ps.last_renderer_failure,ps.last_renderer_restart_at,ps.last_renderer_restart_reason,
+		ps.last_healthy_playback_at,ps.last_sync_error,ps.update_state,ps.update_error,
+		ts.observed_at,ts.renderer_state,ts.last_meaningful_progress_at
+	 FROM screens sc LEFT JOIN screen_player_status ps ON ps.screen_id=sc.id LEFT JOIN screen_power_assist_results pa ON pa.screen_id=sc.id LEFT JOIN screen_telemetry_snapshots ts ON ts.screen_id=sc.id WHERE sc.id=$1`, id, detailedDiagnostics(r)).Scan(&raw,
+		&enabled, &hasCredential, &awaitingPlayer, &archivedAt,
+		&lastConnectedAt, &lastDisconnectedAt, &lastHeartbeatAt,
+		&playbackState, &playbackDisabled, &safeMode, &safeModeReason, &recoveryLevel,
+		&lastRendererFailure, &lastRendererRestartAt, &lastRendererRestartReason,
+		&lastHealthyPlaybackAt, &lastSyncError, &updateState, &updateError,
+		&telemetryObservedAt, &telemetryRendererState, &telemetryLastProgressAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, 404, "screen_not_found", "Screen was not found.")
 		return
@@ -99,9 +126,38 @@ func (s *server) screenReliability(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	var data any
+	var data map[string]any
 	_ = json.Unmarshal(raw, &data)
+	if data == nil {
+		data = map[string]any{}
+	}
+	now := time.Now().UTC()
+	lastContact := latestHealthTime(lastConnectedAt, lastDisconnectedAt, lastHeartbeatAt)
+	status := devices.ComputeStatus(now, s.devices.PresenceConnected(id), enabled, hasCredential, lastContact)
+	if enabled && !hasCredential && awaitingPlayer && archivedAt == nil {
+		status = devices.StatusAwaitingPlayer
+	}
+	data["playerHealth"] = derivePlayerHealth(now, playerHealthInput{
+		Status: status, LastContactAt: lastContact,
+		PlaybackState: derefHealthString(playbackState), PlaybackDisabled: playbackDisabled,
+		SafeMode: safeMode != nil && *safeMode, SafeModeReason: derefHealthString(safeModeReason),
+		RecoveryLevel: recoveryLevel, LastRendererFailure: derefHealthString(lastRendererFailure),
+		LastRendererRestartAt:     lastRendererRestartAt,
+		LastRendererRestartReason: derefHealthString(lastRendererRestartReason),
+		LastHealthyPlaybackAt:     lastHealthyPlaybackAt, LastSyncError: derefHealthString(lastSyncError),
+		UpdateState: derefHealthString(updateState), UpdateError: derefHealthString(updateError),
+		TelemetryObservedAt:     telemetryObservedAt,
+		TelemetryRendererState:  derefHealthString(telemetryRendererState),
+		TelemetryLastProgressAt: telemetryLastProgressAt,
+	})
 	writeJSON(w, 200, map[string]any{"data": data})
+}
+
+func derefHealthString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 type powerConfirmationInput struct {

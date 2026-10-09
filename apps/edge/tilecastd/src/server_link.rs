@@ -222,7 +222,7 @@ fn iso(ms: i64) -> Option<String> {
 /// committed and pending manifest versions, and what the renderer is actually
 /// showing and why.
 pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
-    let (renderer, current, current_item, remote_web_available) = {
+    let (renderer, current, current_item, remote_web_available, recovery) = {
         let presentation = context.presentation.lock().await;
         let (remote_web, connected, restarting) = presentation.remote_web();
         (
@@ -230,6 +230,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
             presentation.current().cloned(),
             presentation.current_item(),
             connected && !restarting && remote_web.is_some_and(|status| status.available),
+            presentation.recovery_report(),
         )
     };
     let healthy = renderer.state.as_str() == "healthy"
@@ -267,6 +268,11 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         "uptimeSeconds": uptime,
         "playbackState": playback_state,
         "safeMode": renderer.state.as_str() == "safe_mode",
+        // Linux parity: the supervisor's escalation step and ladder runs,
+        // so Studio can tell a first stall from repeated recovery.
+        "recoveryLevel": recovery.snapshot.escalation_step,
+        "recoveryCount": recovery.snapshot.ladder_runs,
+        "rendererRestartCount": recovery.restart_count,
         "presentationSchemaVersions": crate::manifest::profile::PRESENTATION_SCHEMAS,
         "nativePresentationCapabilities": native,
         "webRuntimeVersion": if remote_web_available { crate::manifest::profile::WEB_RUNTIME_VERSION } else { 0 },
@@ -278,6 +284,18 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         && healthy
     {
         heartbeat["lastHealthyPlaybackAt"] = serde_json::Value::String(progress_at.to_string());
+    }
+    // Categorized renderer facts. Each is omitted when unknown: the server
+    // tells "not reported" apart from a zero or empty value.
+    if let Some(code) = renderer.last_error_code.as_ref() {
+        heartbeat["lastRendererFailure"] = serde_json::Value::String(code.as_str().to_owned());
+    }
+    if let Some((reason, at)) = recovery.last_restart.as_ref() {
+        heartbeat["lastRendererRestartReason"] = serde_json::Value::String(reason.as_str().to_owned());
+        heartbeat["lastRendererRestartAt"] = serde_json::Value::String(at.to_string());
+    }
+    if let Some(reason) = recovery.safe_mode_reason.as_ref() {
+        heartbeat["safeModeReason"] = serde_json::Value::String(reason.to_string());
     }
     if let Some(identity) = current.as_ref().and_then(|activation| activation.identity.as_ref()) {
         if let Some(source) = heartbeat_selection_source(identity.selection_source) {
