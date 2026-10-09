@@ -305,6 +305,20 @@ Pins have a reason and a holder: the active and pending presentation, prefetch, 
 
 `tilecastctl` can verify one object on request. A corrupt object is removed; the next preparation that needs it fetches it again. Background scrubbing, when added, uses the same verification and is rate-limited.
 
+### 9.5 Stream-backed video
+
+A video can play without a complete local copy. Each playlist item carries a delivery policy, `download`, `stream`, or `automatic`:
+
+- `download` must be fetched and verified before activation. It never falls back to streaming: a video that does not fit the store fails preparation with `media_cache_too_small`.
+- `automatic` downloads when the video fits and streams when it does not. The threshold is half the cache limit, so one object can never consume the whole store.
+- `stream` plays from the origin while online, or from CAS when the bytes are already verified there.
+
+The partition is deterministic in the manifest, the policies, and the threshold, so prepare, verify, and diagnostics always agree. Only videos stream; images, bundles, and frames always download. A variant streams only when every one of its uses allows it: any `download` item, or any policy-less reference (layout, branding, website fallback, plugin image), keeps it a verified download.
+
+The media grant carries the stream backend: the manifest's authenticated player download path. The media channel serves verified CAS bytes first when present, then bounded origin range reads (`Range` with `If-Range` on the manifest validator) behind the same opaque `tcmedia://cap/…` URI and the same HEAD/READ protocol. The renderer never learns the path, the URL, the credential, or which backend answered. Only an exact `206` whose Content-Range start, end, and total match the manifest claim is accepted; a `200` (Range ignored), `416`, wrong range, wrong total, or changed ETag fails the read with a typed reason (`credential_rejected`, `origin_not_found`, `range_rejected`, `stream_truncated`, `origin_unreachable`), and the renderer's normal skip/fallback policy answers. A partial stream is never promoted to CAS and never pinned. Concurrent origin reads are bounded, each read is timed out, no registry lock is held across I/O, and the grant, the generation, and the verified relationship are re-checked before the bytes are released — so revocation, mismatch, re-pairing, or an activation replacement mid-read withholds the bytes.
+
+Stream-backed video has reduced offline guarantees: offline, its reads fail typed and the playlist moves on. The heartbeat reports the `media-streaming` capability and the activation's `streamBackedAssetCount`, and a stream failure never discards the committed manifest or starts a repair download.
+
 ## 10. Renderer
 
 ### 10.1 Baseline

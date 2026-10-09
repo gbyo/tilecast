@@ -23,6 +23,51 @@ pub struct ManifestAsset {
     pub size_bytes: u64,
     pub mime_type: String,
     pub download_path: String,
+    /// Resolved from every playlist item that plays this variant.
+    /// References outside playlists (layouts, branding, website
+    /// fallbacks, plugins) always demand a verified download.
+    pub policy: AssetPolicy,
+}
+
+/// A playlist item's delivery policy, merged across every item that plays
+/// one variant: `Download` anywhere wins, then `Stream`, else `Automatic`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AssetPolicy {
+    Download,
+    #[default]
+    Automatic,
+    Stream,
+}
+
+impl AssetPolicy {
+    fn merge(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Download, _) | (_, Self::Download) => Self::Download,
+            (Self::Stream, _) | (_, Self::Stream) => Self::Stream,
+            _ => Self::Automatic,
+        }
+    }
+}
+
+/// Why a video is stream-backed rather than downloaded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamReason {
+    /// The manifest says `stream` and no use demands a download.
+    Explicit,
+    /// `automatic` and larger than half the cache limit.
+    Oversize,
+}
+
+/// One video the renderer reads through bounded authenticated range
+/// fetches instead of a verified local object. The digest, size, MIME
+/// type, and player download path are the manifest's immutable claims.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StreamClaim {
+    pub digest: Sha256Digest,
+    pub size_bytes: u64,
+    pub mime_type: String,
+    pub download_path: String,
+    pub reason: StreamReason,
 }
 
 /// One external Widget player bundle claim: the verified package digest
@@ -46,7 +91,10 @@ pub struct NativeManifest {
     pub version: i64,
     pub screen_id: ScreenId,
     pub assets: Vec<ManifestAsset>,
-    /// Every declared variant must be verified before this candidate is pending.
+    /// Every declared variant. Preparation partitions these by delivery
+    /// policy, media kind, and the store threshold: `download` assets and
+    /// non-video must be verified before the candidate is pending, while
+    /// eligible videos become stream claims instead of downloads.
     pub required_downloads: Vec<ManifestAsset>,
     /// Every claimed Widget bundle must be verified alongside the variants.
     pub required_bundles: Vec<ManifestBundle>,
@@ -142,6 +190,7 @@ fn exact_asset(
     asset_key: &str,
     variant_key: &str,
     catalog: &BTreeMap<(uuid::Uuid, uuid::Uuid), usize>,
+    forced_downloads: &mut BTreeSet<(uuid::Uuid, uuid::Uuid)>,
 ) -> Result<Option<usize>, NativeManifestError> {
     let Some(asset) = value.get(asset_key).filter(|value| !value.is_null()) else { return Ok(None) };
     let asset: uuid::Uuid =
@@ -152,6 +201,9 @@ fn exact_asset(
         .ok_or(NativeManifestError::Reference)?
         .parse()
         .map_err(|_| NativeManifestError::Reference)?;
+    // References outside playlists carry no delivery policy, so they always
+    // demand a verified download, even when a playlist would stream.
+    forced_downloads.insert((asset, variant));
     catalog.get(&(asset, variant)).copied().map(Some).ok_or(NativeManifestError::Reference)
 }
 
@@ -215,11 +267,12 @@ fn extract_bundle(widget: &Value) -> Result<Option<ManifestBundle>, NativeManife
 fn check_layout(
     layout: &Value,
     catalog: &BTreeMap<(uuid::Uuid, uuid::Uuid), usize>,
+    forced_downloads: &mut BTreeSet<(uuid::Uuid, uuid::Uuid)>,
 ) -> Result<(), NativeManifestError> {
     let document = layout.get("document").ok_or(NativeManifestError::Structure)?;
     layout.get("id").and_then(Value::as_str).ok_or(NativeManifestError::Structure)?;
     if let Some(canvas) = document.get("canvas") {
-        exact_asset(canvas, "backgroundAssetId", "backgroundVariantId", catalog)?;
+        exact_asset(canvas, "backgroundAssetId", "backgroundVariantId", catalog, forced_downloads)?;
     }
     if let Some(placements) = document.get("placements") {
         let placements = placements.as_array().ok_or(NativeManifestError::Structure)?;
@@ -228,7 +281,7 @@ fn check_layout(
         }
         for placement in placements {
             if placement.get("type").and_then(Value::as_str) == Some("asset") {
-                exact_asset(placement, "assetId", "variantId", catalog)?;
+                exact_asset(placement, "assetId", "variantId", catalog, forced_downloads)?;
             }
         }
     }
@@ -247,7 +300,7 @@ impl NativeManifest {
         &self,
         store: &player_cas::ContentStore,
         plan: &P,
-    ) -> Result<Vec<Sha256Digest>, crate::ManifestPreparationError> {
+    ) -> Result<crate::PreparedContent, crate::ManifestPreparationError> {
         crate::manifest_content::prepare_content(store, plan, self).await
     }
     /// Re-validates a stored document (offline start, activation).
@@ -298,6 +351,9 @@ impl NativeManifest {
                 return Err(NativeManifestError::Asset);
             }
             assets.push(ManifestAsset {
+                // Resolved below, once every playlist item and every
+                // policy-less reference has been seen.
+                policy: AssetPolicy::Download,
                 asset_id: source.asset_id,
                 variant_id: source.variant_id,
                 digest,
@@ -320,6 +376,7 @@ impl NativeManifest {
             .filter_map(|layout| layout.get("id").and_then(Value::as_str).and_then(|id| id.parse().ok()))
             .collect();
         let mut item_count = 0;
+        let mut item_policies: BTreeMap<(uuid::Uuid, uuid::Uuid), AssetPolicy> = BTreeMap::new();
         for playlist in wire.playlist.into_iter().chain(wire.direct_fallback_playlist).chain(wire.playlists) {
             item_count += playlist.items.len();
             if item_count > MAX_ITEMS {
@@ -347,29 +404,39 @@ impl NativeManifest {
                 }
                 let Some(variant) = item.variant_id else { return Err(NativeManifestError::Reference) };
                 by_variant.get(&(item.asset_id, variant)).ok_or(NativeManifestError::Reference)?;
+                let policy = match item.delivery_policy.as_str() {
+                    "download" => AssetPolicy::Download,
+                    "stream" => AssetPolicy::Stream,
+                    _ => AssetPolicy::Automatic,
+                };
+                item_policies
+                    .entry((item.asset_id, variant))
+                    .and_modify(|merged| *merged = merged.merge(policy))
+                    .or_insert(policy);
             }
         }
+        let mut forced_downloads: BTreeSet<(uuid::Uuid, uuid::Uuid)> = BTreeSet::new();
         if let Some(branding) = document.get("branding").filter(|value| !value.is_null()) {
-            exact_asset(branding, "logoAssetId", "logoVariantId", &by_variant)?;
+            exact_asset(branding, "logoAssetId", "logoVariantId", &by_variant, &mut forced_downloads)?;
         }
         if let Some(websites) = document.get("websites") {
             for website in websites.as_array().ok_or(NativeManifestError::Structure)? {
-                exact_asset(website, "fallbackImageAssetId", "fallbackVariantId", &by_variant)?;
+                exact_asset(website, "fallbackImageAssetId", "fallbackVariantId", &by_variant, &mut forced_downloads)?;
             }
         }
         for key in ["layout", "directFallbackLayout"] {
             if let Some(layout) = document.get(key).filter(|value| !value.is_null()) {
-                check_layout(layout, &by_variant)?;
+                check_layout(layout, &by_variant, &mut forced_downloads)?;
             }
         }
         for layout in &wire.layouts {
-            check_layout(layout, &by_variant)?;
+            check_layout(layout, &by_variant, &mut forced_downloads)?;
         }
         for plugin in &wire.plugins {
             if plugin.get("type").and_then(Value::as_str) == Some("brand_bug")
                 && let Some(config) = plugin.get("config")
             {
-                exact_asset(config, "imageAssetId", "imageVariantId", &by_variant)?;
+                exact_asset(config, "imageAssetId", "imageVariantId", &by_variant, &mut forced_downloads)?;
             }
         }
         crate::resolve(&document, 0).map_err(|_| NativeManifestError::Schedule)?;
@@ -391,6 +458,17 @@ impl NativeManifest {
                 continue;
             }
             required_bundles.push(bundle);
+        }
+        // A variant streams only when every one of its uses allows it: any
+        // policy-less reference (layout, branding, fallback, plugin) or any
+        // `download` playlist item keeps it a verified download.
+        for asset in &mut assets {
+            let key = (asset.asset_id, asset.variant_id);
+            asset.policy = if forced_downloads.contains(&key) {
+                AssetPolicy::Download
+            } else {
+                item_policies.get(&key).copied().unwrap_or(AssetPolicy::Download)
+            };
         }
         let required_downloads = assets.clone();
         Ok(Self {
@@ -517,5 +595,137 @@ mod tests {
         let older = bundle_document(screen, 17);
         let identity = crate::manifest_digest(&older);
         assert!(matches!(NativeManifest::parse(older, screen, identity), Err(NativeManifestError::Schema)));
+    }
+
+    fn policy_asset(asset: uuid::Uuid, variant: uuid::Uuid, mime: &str, size: u64) -> Value {
+        json!({
+            "assetId": asset, "variantId": variant,
+            "sha256": Sha256Digest::of(format!("{asset}{variant}").as_bytes()).to_hex(),
+            "fileSize": size, "mimeType": mime,
+            "downloadPath": format!("/api/v1/player/assets/{asset}/variants/{variant}"),
+        })
+    }
+
+    fn policy_item(asset: uuid::Uuid, variant: uuid::Uuid, policy: &str) -> Value {
+        json!({
+            "id": uuid::Uuid::new_v4(), "assetId": asset, "variantId": variant,
+            "assetType": "video", "deliveryPolicy": policy,
+        })
+    }
+
+    fn policy_document(screen: ScreenId, assets: Vec<Value>, items: Vec<Value>, extra: Value) -> Value {
+        let mut document = json!({
+            "schemaVersion": 11, "manifestVersion": 1, "screenId": screen, "mode": "presentation",
+            "assets": assets,
+            "playlist": {"id": uuid::Uuid::from_u128(5), "items": items},
+            "playlists": [], "schedules": [], "widgets": [], "dataSources": [], "plugins": [],
+        });
+        for (key, value) in extra.as_object().unwrap() {
+            document[key] = value.clone();
+        }
+        document
+    }
+
+    fn parse_policy(document: Value, screen: ScreenId) -> NativeManifest {
+        let identity = crate::manifest_digest(&document);
+        NativeManifest::parse(document, screen, identity).expect("policy manifest parses")
+    }
+
+    #[test]
+    fn delivery_policy_merges_across_items_with_download_winning() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let (a1, v1) = (uuid::Uuid::from_u128(21), uuid::Uuid::from_u128(22));
+        let (a2, v2) = (uuid::Uuid::from_u128(23), uuid::Uuid::from_u128(24));
+        let (a3, v3) = (uuid::Uuid::from_u128(25), uuid::Uuid::from_u128(26));
+        let document = policy_document(
+            screen,
+            vec![
+                policy_asset(a1, v1, "video/mp4", 100),
+                policy_asset(a2, v2, "video/mp4", 100),
+                policy_asset(a3, v3, "video/mp4", 100),
+            ],
+            vec![
+                policy_item(a1, v1, "automatic"),
+                policy_item(a1, v1, "stream"),
+                policy_item(a2, v2, "stream"),
+                policy_item(a2, v2, "download"),
+                policy_item(a3, v3, "automatic"),
+            ],
+            json!({}),
+        );
+        let manifest = parse_policy(document, screen);
+        let policy = |asset: uuid::Uuid| manifest.assets.iter().find(|a| a.asset_id == asset).expect("asset").policy;
+        assert_eq!(policy(a1), AssetPolicy::Stream);
+        assert_eq!(policy(a2), AssetPolicy::Download);
+        assert_eq!(policy(a3), AssetPolicy::Automatic);
+        // Small videos: only the explicit stream settles as a stream.
+        let claims = crate::stream_claims(&manifest, 1000);
+        assert_eq!(claims.len(), 1);
+        assert_eq!(claims[0].reason, StreamReason::Explicit);
+        assert_eq!(claims[0].mime_type, "video/mp4");
+    }
+
+    #[test]
+    fn policy_less_references_force_a_verified_download() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let (a1, v1) = (uuid::Uuid::from_u128(31), uuid::Uuid::from_u128(32));
+        let (a2, v2) = (uuid::Uuid::from_u128(33), uuid::Uuid::from_u128(34));
+        let document = policy_document(
+            screen,
+            vec![policy_asset(a1, v1, "video/mp4", 100), policy_asset(a2, v2, "video/mp4", 100)],
+            vec![policy_item(a1, v1, "stream"), policy_item(a2, v2, "stream")],
+            json!({
+                "layouts": [{"id": uuid::Uuid::from_u128(4), "document": {"placements": [
+                    {"type": "asset", "assetId": a1, "variantId": v1},
+                ]}}],
+                "websites": [{"fallbackImageAssetId": a2, "fallbackVariantId": v2}],
+            }),
+        );
+        let manifest = parse_policy(document, screen);
+        assert!(manifest.assets.iter().all(|asset| asset.policy == AssetPolicy::Download));
+        assert!(crate::stream_claims(&manifest, 1000).is_empty());
+    }
+
+    #[test]
+    fn oversize_automatic_videos_stream_while_images_download() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let (big, big_v) = (uuid::Uuid::from_u128(41), uuid::Uuid::from_u128(42));
+        let (small, small_v) = (uuid::Uuid::from_u128(43), uuid::Uuid::from_u128(44));
+        let (img, img_v) = (uuid::Uuid::from_u128(45), uuid::Uuid::from_u128(46));
+        let document = policy_document(
+            screen,
+            vec![
+                policy_asset(big, big_v, "video/mp4", 10_000),
+                policy_asset(small, small_v, "video/mp4", 100),
+                policy_asset(img, img_v, "image/png", 10_000),
+            ],
+            vec![
+                policy_item(big, big_v, "automatic"),
+                policy_item(small, small_v, "automatic"),
+                policy_item(img, img_v, "stream"),
+            ],
+            json!({}),
+        );
+        let manifest = parse_policy(document, screen);
+        let claims = crate::stream_claims(&manifest, 1000);
+        assert_eq!(claims.len(), 1);
+        assert_eq!(claims[0].reason, StreamReason::Oversize);
+        assert_eq!(claims[0].size_bytes, 10_000);
+        // The stream-policy image still downloads: the fallback is video-only.
+        assert!(manifest.assets.iter().find(|a| a.asset_id == img).is_some());
+    }
+
+    #[test]
+    fn unknown_delivery_policy_fails_the_manifest() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let (asset, variant) = (uuid::Uuid::from_u128(51), uuid::Uuid::from_u128(52));
+        let document = policy_document(
+            screen,
+            vec![policy_asset(asset, variant, "video/mp4", 100)],
+            vec![policy_item(asset, variant, "torrent")],
+            json!({}),
+        );
+        let identity = crate::manifest_digest(&document);
+        assert!(matches!(NativeManifest::parse(document, screen, identity), Err(NativeManifestError::DeliveryPolicy)));
     }
 }

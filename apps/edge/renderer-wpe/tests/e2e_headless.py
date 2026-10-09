@@ -18,21 +18,28 @@ exactly as an operator would. Scenarios:
              evidence, and a helper crash that fails only the web surfaces
              while other content plays on, then recovers (needs root and
              --web-helper)
+  stream     authenticated large-video streaming: a video oversized for
+             the 1 MiB test cache plays through origin range reads (never
+             downloaded whole) with video progress evidence, and the
+             heartbeat reports the stream-backed video
 
 Usage: e2e_headless.py --bin-dir DIR --renderer PATH --runtime-dir DIR
                        [--web-helper PATH]
-                       [--scenario status|fixture|reconnect|selftest|website|all]
+                       [--scenario status|fixture|reconnect|selftest|website|stream|all]
 """
 import argparse
+import hashlib
 import http.server
 import json
 import os
 import signal
+import sqlite3
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+import uuid
 
 
 def wait_for(description, predicate, timeout=60.0, interval=0.25):
@@ -475,6 +482,278 @@ def scenario_website(args):
             server.shutdown()
 
 
+# ---------------------------------------------------------------- stream
+#
+# A real WPE/GStreamer smoke test for authenticated large-video streaming:
+# the daemon pairs against a fake Tilecast Server (credential + binding
+# injected, exactly as pairing would persist them), receives a manifest
+# whose only video is oversized for its 1 MiB cache, and the headless
+# renderer plays it through authenticated origin range reads. Nothing is
+# ever downloaded whole.
+
+STREAM_CREDENTIAL = "tc_device_" + "s" * 26 + "." + "t" * 40
+
+
+class StreamState:
+    def __init__(self, installation, screen, video, digest_hex):
+        self.installation = installation
+        self.screen = screen
+        self.video = video
+        self.digest_hex = digest_hex
+        self.asset_id = str(uuid.uuid4())
+        self.variant_id = str(uuid.uuid4())
+        self.item_id = str(uuid.uuid4())
+        self.path = f"/api/v1/player/assets/{self.asset_id}/variants/{self.variant_id}"
+        self.manifest_etag = '"manifest-1"'
+        self.lock = threading.Lock()
+        self.heartbeats = []
+        self.range_requests = 0
+        self.full_requests = 0
+
+    def manifest(self):
+        return {
+            "schemaVersion": 11, "manifestVersion": 1, "screenId": self.screen,
+            "generatedAt": "2026-10-08T00:00:00Z", "mode": "presentation",
+            "assets": [{
+                "assetId": self.asset_id, "variantId": self.variant_id,
+                "mimeType": "video/mp4", "sha256": self.digest_hex,
+                "fileSize": len(self.video), "downloadPath": self.path,
+            }],
+            "playlist": {"id": str(uuid.uuid4()), "revision": 1, "name": "Stream",
+                         "items": [{
+                             "id": self.item_id, "assetId": self.asset_id,
+                             "variantId": self.variant_id, "assetType": "video",
+                             "durationMs": 15000, "fitMode": "contain", "transition": "none",
+                             "audioEnabled": False, "volume": 0.5, "deliveryPolicy": "automatic",
+                         }]},
+            "playlists": [], "schedules": [], "websites": [], "widgets": [],
+            "dataSources": [], "plugins": [], "layouts": [],
+            "prefetchHorizonDays": 14, "activationGraceSeconds": 3600,
+        }
+
+
+class StreamHandler(http.server.BaseHTTPRequestHandler):
+    server_version = "TilecastStreamFake/1"
+
+    def log_message(self, *args):
+        pass
+
+    @property
+    def state(self):
+        return self.server.stream_state
+
+    def _send_json(self, code, obj, headers=()):
+        body = json.dumps(obj).encode("utf-8")
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        for key, value in headers:
+            self.send_header(key, value)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _read_json(self):
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        raw = self.rfile.read(length) if length else b"{}"
+        return json.loads(raw or b"{}")
+
+    def _authorized(self):
+        return self.headers.get("Authorization") == f"Bearer {STREAM_CREDENTIAL}"
+
+    def _deny(self):
+        self._send_json(401, {"error": {"code": "device_credential_invalid", "message": "rejected"}})
+
+    def do_GET(self):  # noqa: N802
+        if self.path == "/api/v1/system/identity":
+            return self._send_json(200, {"data": {
+                "product": "tilecast", "installationId": self.state.installation,
+                "organizationName": "Stream Test", "apiVersion": "v1", "pairingEnabled": False,
+            }})
+        if not self._authorized():
+            return self._deny()
+        if self.path == "/api/v1/player/manifest":
+            if self.headers.get("If-None-Match") == self.state.manifest_etag:
+                self.send_response(304)
+                self.end_headers()
+                return
+            return self._send_json(200, {"data": self.state.manifest()}, [("ETag", self.state.manifest_etag)])
+        if self.path == "/api/v1/player/config":
+            return self._send_json(200, {"data": {"schemaVersion": 1, "configRevision": 1}})
+        if self.path == "/api/v1/player/commands":
+            return self._send_json(200, {"data": {"items": []}})
+        if self.path == self.state.path:
+            return self._serve_video()
+        return self._send_json(404, {"error": {"code": "not_found", "message": "no such path"}})
+
+    def _serve_video(self):
+        total = len(self.state.video)
+        asked = self.headers.get("Range")
+        with self.state.lock:
+            if not asked:
+                self.state.full_requests += 1
+        if not asked:
+            self.send_response(200)
+            self.send_header("Content-Type", "video/mp4")
+            self.send_header("Content-Length", str(total))
+            self.send_header("Accept-Ranges", "bytes")
+            self.end_headers()
+            self.wfile.write(self.state.video)
+            return
+        try:
+            unit, spec = asked.split("=", 1)
+            start_s, end_s = spec.split("-", 1)
+            start, end = int(start_s), int(end_s)
+            assert unit == "bytes" and 0 <= start <= end < total
+        except (ValueError, AssertionError):
+            self.send_response(416)
+            self.send_header("Content-Range", f"bytes */{total}")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
+        with self.state.lock:
+            self.state.range_requests += 1
+        chunk = self.state.video[start : end + 1]
+        self.send_response(206)
+        self.send_header("Content-Type", "video/mp4")
+        self.send_header("Content-Length", str(len(chunk)))
+        self.send_header("Content-Range", f"bytes {start}-{end}/{total}")
+        self.send_header("ETag", f'"sha256-{self.state.digest_hex}"')
+        self.end_headers()
+        self.wfile.write(chunk)
+
+    def do_POST(self):  # noqa: N802
+        if not self._authorized():
+            self._read_json()
+            return self._deny()
+        if self.path == "/api/v1/player/heartbeat":
+            payload = self._read_json()
+            with self.state.lock:
+                self.state.heartbeats.append(payload)
+            return self._send_json(200, {"data": {}})
+        if self.path == "/api/v1/player/liveness":
+            self._read_json()
+            return self._send_json(200, {"data": {}})
+        if self.path == "/api/v1/player/telemetry":
+            self._read_json()
+            return self._send_json(200, {"data": {"accepted": True}})
+        if self.path == "/api/v1/player/activity-events":
+            batch = self._read_json()
+            events = batch.get("events", [])
+            return self._send_json(200, {"data": {
+                "accepted": len(events),
+                "acknowledgedEventIds": [e.get("id") for e in events],
+            }})
+        self._read_json()
+        return self._send_json(404, {"error": {"code": "not_found", "message": "no such path"}})
+
+
+def inject_pairing(workdir, server_url, installation, screen):
+    """Persist the pairing result exactly as enrollment would: the device
+    credential file plus the server binding row."""
+    state_dir = os.path.join(workdir, "state")
+    identity_dir = os.path.join(state_dir, "identity")
+    os.makedirs(identity_dir, exist_ok=True)
+    credential_path = os.path.join(identity_dir, "device-credential")
+    with open(credential_path, "w", encoding="utf-8") as handle:
+        handle.write(STREAM_CREDENTIAL)
+    os.chmod(credential_path, 0o600)
+    now_ms = int(time.time() * 1000)
+    db = sqlite3.connect(os.path.join(state_dir, "state.db"))
+    db.execute(
+        """INSERT INTO server_binding (id, server_url, installation_id, organization_name,
+           screen_id, screen_name, credential_state, identity_verified_at_ms, bound_at_ms,
+           updated_at_ms) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (id) DO UPDATE SET server_url = excluded.server_url,
+           installation_id = excluded.installation_id, screen_id = excluded.screen_id,
+           credential_state = excluded.credential_state,
+           identity_verified_at_ms = excluded.identity_verified_at_ms,
+           updated_at_ms = excluded.updated_at_ms""",
+        [server_url, installation, "Stream Test", screen, "Stream Screen",
+         "stored", now_ms, now_ms, now_ms],
+    )
+    db.commit()
+    db.close()
+
+
+def build_stream_video(workdir):
+    """A real multi-megabyte H.264 MP4 with its index up front, so range
+    reads play it without ever needing the tail first."""
+    path = os.path.join(workdir, "stream.mp4")
+    subprocess.run(
+        ["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi",
+         "-i", "testsrc=size=1280x720:rate=30", "-t", "15",
+         "-c:v", "libx264", "-profile:v", "baseline", "-pix_fmt", "yuv420p",
+         # A pinned bitrate keeps the fixture well above the 1 MiB test
+         # cache however well the synthetic source compresses.
+         "-b:v", "1500k", "-movflags", "+faststart", path],
+        check=True,
+    )
+    with open(path, "rb") as handle:
+        video = handle.read()
+    assert len(video) > 1024 * 1024, f"the stream fixture must exceed the 1 MiB test cache, got {len(video)}"
+    return video, hashlib.sha256(video).hexdigest()
+
+
+def stream_evidence(stack):
+    seen = set()
+    with open(os.path.join(stack.workdir, "tilecastd.log"), encoding="utf-8", errors="replace") as handle:
+        for line in handle:
+            if "evidence_accepted" in line and "video_progress" in line:
+                seen.add("video_progress")
+    return seen if seen else None
+
+
+def scenario_stream(args):
+    with tempfile.TemporaryDirectory() as workdir:
+        video, digest_hex = build_stream_video(workdir)
+        installation = str(uuid.uuid4())
+        screen = str(uuid.uuid4())
+        state = StreamState(installation, screen, video, digest_hex)
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), StreamHandler)
+        server.stream_state = state
+        server_url = f"http://127.0.0.1:{server.server_address[1]}"
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        stack = Stack(args, workdir)
+        # A 1 MiB cache: the multi-megabyte video is oversized for it and
+        # must stream instead of downloading.
+        with open(stack.config, "a", encoding="utf-8") as handle:
+            handle.write("[cas]\nlimit_bytes = 1048576\nreserved_free_bytes = 0\n")
+        try:
+            # First boot creates the state database; pairing is then
+            # injected and the daemon restarts as a paired player.
+            stack.start_daemon()
+            stack.stop()
+            inject_pairing(workdir, server_url, installation, screen)
+            stack.start_daemon()
+            stack.start_renderer()
+            wait_for("the stream activation", lambda: healthy(stack), timeout=90)
+            wait_for("video progress evidence through range reads", lambda: stream_evidence(stack), timeout=180)
+            presentation = wait_for(
+                "the stream accepted with evidence in status",
+                lambda: (lambda p: p if p and p["accepted"] and p["evidence"] else None)(
+                    stack.status().get("presentation")
+                ),
+            )
+            assert presentation["source"] == "server_manifest", presentation
+            with state.lock:
+                assert state.range_requests > 0, "the renderer played without a single range read"
+                assert state.full_requests == 0, "the video was downloaded whole instead of streamed"
+                beats = [b for b in state.heartbeats if b.get("streamBackedAssetCount") == 1]
+                assert beats, "no heartbeat reported the stream-backed video"
+                assert beats[0].get("nativePresentationCapabilities", {}).get("media-streaming") == 1, beats[0]
+            cache = stack.ctl("cache")
+            assert cache["objectCount"] == 0, f"streaming cached objects: {cache}"
+            print(f"stream: {state.range_requests} range reads, video_progress evidence, cache empty")
+        except Exception:
+            stack.dump_logs()
+            raise
+        finally:
+            server.shutdown()
+            thread.join(timeout=10)
+            stack.stop()
+
+
 def fixture_evidence(stack):
     # The daemon logs each meaningful evidence kind it accepts once per item.
     seen = set()
@@ -503,6 +782,7 @@ def main():
         "fixture": scenario_fixture,
         "selftest": scenario_selftest,
         "website": scenario_website,
+        "stream": scenario_stream,
     }
     selected = scenarios.values() if args.scenario == "all" else [scenarios[args.scenario]]
     for scenario in selected:

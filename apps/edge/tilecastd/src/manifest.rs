@@ -1063,7 +1063,7 @@ pub async fn prepare<P: SourcePlan>(
     store: &edge_cas::ContentStore,
     plan: &P,
     candidate: &Candidate,
-) -> Result<Vec<Sha256Digest>, PreparationError> {
+) -> Result<player_core::PreparedContent, PreparationError> {
     candidate.prepare_content(store, plan).await
 }
 

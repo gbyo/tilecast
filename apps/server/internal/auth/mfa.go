@@ -358,6 +358,15 @@ func (s *Service) failChallenge(ctx context.Context, id uuid.UUID) {
 	_, _ = s.db.Exec(ctx, `UPDATE mfa_challenges SET attempts=attempts+1 WHERE id=$1`, id)
 }
 
+// PurgeExpiredSessions removes dashboard sessions past their expiry.
+// Authenticate already rejects them; this keeps the table bounded.
+func (s *Service) PurgeExpiredSessions(ctx context.Context) error {
+	if _, err := s.db.Exec(ctx, `DELETE FROM sessions WHERE expires_at<now()`); err != nil {
+		return fmt.Errorf("purge sessions: %w", err)
+	}
+	return nil
+}
+
 // PurgeExpiredChallenges removes abandoned ceremonies. Challenges are short
 // lived, but nothing else deletes the rows of a user who never finishes.
 func (s *Service) PurgeExpiredChallenges(ctx context.Context) error {

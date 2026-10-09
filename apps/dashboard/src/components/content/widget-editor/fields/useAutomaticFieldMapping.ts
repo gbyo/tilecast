@@ -108,8 +108,10 @@ function remap(
   rootFields: readonly ContentDefinitionField[],
   sourceFields: readonly DataSourceField[],
 ): WidgetConfiguration {
-  const segments = selection.path.split(".");
-  if (segments.length === 1)
+  // The path is "group.row.group.row...key"; the final segment is the
+  // source's own key, and the segments before it locate the item.
+  const path = selection.path.split(".").slice(0, -1);
+  if (path.length === 0)
     return remapLevel(
       rootFields,
       configuration,
@@ -118,25 +120,59 @@ function remap(
       rootFields,
       true,
     );
-  // A source inside a group item maps that item's own slots.
-  const [groupKey, indexText] = segments;
-  const group = rootFields.find((field) => field.key === groupKey);
-  const stored = configuration[groupKey!];
-  const items: unknown[] = Array.isArray(stored) ? stored : [];
-  const index = Number(indexText);
-  if (!group || !items[index]) return configuration;
-  const item = items[index] as WidgetConfiguration;
-  const mapped = remapLevel(
-    group.itemFields ?? [],
-    item,
-    selection.key,
+  return remapItem(
+    configuration,
+    rootFields,
+    path,
+    selection,
     sourceFields,
     rootFields,
-    false,
   );
-  if (mapped === item) return configuration;
+}
+
+/**
+ * Follows a group and row path, however deep, to the item holding the
+ * source. That item's own slots are mapped; sibling groups are not.
+ */
+function remapItem(
+  values: WidgetConfiguration,
+  fields: readonly ContentDefinitionField[],
+  path: readonly string[],
+  selection: SourceSelection,
+  sourceFields: readonly DataSourceField[],
+  rootFields: readonly ContentDefinitionField[],
+): WidgetConfiguration {
+  const [groupKey, indexText, ...rest] = path;
+  const group = fields.find(
+    (field) => field.key === groupKey && field.control === "repeating_group",
+  );
+  const stored = values[groupKey!];
+  const items: unknown[] = Array.isArray(stored) ? stored : [];
+  const index = Number(indexText);
+  const item = items[index];
+  if (!group || !item || typeof item !== "object") return values;
+  const target = item as WidgetConfiguration;
+  const mapped =
+    rest.length === 0
+      ? remapLevel(
+          group.itemFields ?? [],
+          target,
+          selection.key,
+          sourceFields,
+          rootFields,
+          false,
+        )
+      : remapItem(
+          target,
+          group.itemFields ?? [],
+          rest,
+          selection,
+          sourceFields,
+          rootFields,
+        );
+  if (mapped === target) return values;
   return {
-    ...configuration,
+    ...values,
     [groupKey!]: items.map((entry, position) =>
       position === index ? mapped : entry,
     ),

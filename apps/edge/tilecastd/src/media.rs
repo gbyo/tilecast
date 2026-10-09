@@ -64,6 +64,10 @@ pub struct MediaGrant {
     pub read_mode: ReadMode,
     pub state: GenerationState,
     pub expires_at_ms: Option<i64>,
+    /// The network backend when this object is stream-backed. The media
+    /// channel serves verified CAS bytes first when present; the renderer
+    /// never learns which backend answered, nor this path.
+    pub stream: Option<player_core::StreamSource>,
 }
 
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
@@ -148,13 +152,16 @@ impl MediaRegistry {
 
     /// Creates one opaque capability per distinct verified object. The
     /// caller still has to establish CAS verification and pins before sending
-    /// the corresponding presentation to WPE.
+    /// the corresponding presentation to WPE. `streams` carries the
+    /// activation's network backends by digest; a digest without one is
+    /// served from CAS only and denied when absent.
     pub fn prepare(
         &mut self,
         session: SessionId,
         generation: u64,
         now_ms: i64,
         content: &[ContentRef],
+        streams: &HashMap<Sha256Digest, player_core::StreamSource>,
     ) -> Result<HashMap<Sha256Digest, MediaCapability>, MediaError> {
         if self.renderer.is_none_or(|renderer| renderer.session != session) {
             return Err(MediaError::RendererChanged);
@@ -202,6 +209,7 @@ impl MediaRegistry {
                     read_mode: ReadMode::Seekable,
                     state: GenerationState::Prepared,
                     expires_at_ms: Some(now_ms.saturating_add(PREPARED_LIFETIME_MS)),
+                    stream: streams.get(&reference.sha256).cloned(),
                 },
             );
         }
@@ -325,7 +333,7 @@ mod tests {
         let reference = content(&"a".repeat(64));
         let mut registry = MediaRegistry::new();
         registry.bind_renderer(renderer(session));
-        let first = registry.prepare(session, 1, 0, std::slice::from_ref(&reference)).unwrap();
+        let first = registry.prepare(session, 1, 0, std::slice::from_ref(&reference), &HashMap::new()).unwrap();
         let token = &first[&reference.sha256];
         assert!(token.uri().starts_with("tcmedia://cap/"));
         assert_ne!(token.as_str(), reference.sha256.to_hex());
@@ -334,7 +342,7 @@ mod tests {
         assert_eq!(registry.resolve(session, token.as_str(), 0).unwrap().state, GenerationState::Prepared);
         registry.bind_renderer(renderer(other));
         assert!(registry.resolve(session, token.as_str(), 0).is_none());
-        let second = registry.prepare(other, 1, 0, &[reference]).unwrap();
+        let second = registry.prepare(other, 1, 0, &[reference], &HashMap::new()).unwrap();
         assert_ne!(token, second.values().next().unwrap());
     }
 
@@ -343,15 +351,15 @@ mod tests {
         let session = SessionId::from_uuid(uuid::Uuid::new_v4());
         let mut registry = MediaRegistry::new();
         registry.bind_renderer(renderer(session));
-        let one = registry.prepare(session, 1, 0, &[content(&"a".repeat(64))]).unwrap();
+        let one = registry.prepare(session, 1, 0, &[content(&"a".repeat(64))], &HashMap::new()).unwrap();
         let one_token = one.values().next().unwrap().as_str();
         assert_eq!(registry.resolve(session, one_token, 0).unwrap().state, GenerationState::Prepared);
         registry.activate(session, 1, 0).unwrap();
-        let two = registry.prepare(session, 2, 1, &[content(&"b".repeat(64))]).unwrap();
+        let two = registry.prepare(session, 2, 1, &[content(&"b".repeat(64))], &HashMap::new()).unwrap();
         registry.activate(session, 2, 1).unwrap();
         assert_eq!(registry.resolve(session, one_token, 1).unwrap().state, GenerationState::Draining);
         assert!(registry.resolve(session, one_token, DRAIN_LIFETIME_MS + 1).is_none());
-        let three = registry.prepare(session, 3, 2, &[content(&"c".repeat(64))]).unwrap();
+        let three = registry.prepare(session, 3, 2, &[content(&"c".repeat(64))], &HashMap::new()).unwrap();
         registry.activate(session, 3, 2).unwrap();
         assert!(registry.resolve(session, one_token, 2).is_none());
         assert_eq!(
@@ -370,9 +378,12 @@ mod tests {
         let first = content(&"a".repeat(64));
         let mut conflicting = first.clone();
         conflicting.size_bytes = 43;
-        assert_eq!(registry.prepare(session, 1, 0, &[first.clone(), conflicting]), Err(MediaError::ConflictingContent));
+        assert_eq!(
+            registry.prepare(session, 1, 0, &[first.clone(), conflicting], &HashMap::new()),
+            Err(MediaError::ConflictingContent)
+        );
         assert_eq!(registry.activate(session, 1, 0), Err(MediaError::NotPrepared));
-        let issued = registry.prepare(session, 1, 0, &[first]).unwrap();
+        let issued = registry.prepare(session, 1, 0, &[first], &HashMap::new()).unwrap();
         registry.activate(session, 1, 0).unwrap();
         assert_eq!(registry.activate(session, 2, 0), Err(MediaError::NotPrepared));
         assert_eq!(
@@ -382,11 +393,36 @@ mod tests {
     }
 
     #[test]
+    fn stream_backends_attach_per_digest_and_never_leak_into_uris() {
+        let session = SessionId::from_uuid(uuid::Uuid::new_v4());
+        let streamed = content(&"a".repeat(64));
+        let cached = content(&"b".repeat(64));
+        let source = player_core::StreamSource::new(
+            "/api/v1/player/assets/844f4a48-a47c-4fbd-8a84-f8d61cc64b6a/variants/46784d73-3daf-45cf-8ff0-7cb4a3d12852"
+                .to_owned(),
+        )
+        .unwrap();
+        let streams = HashMap::from([(streamed.sha256, source.clone())]);
+        let mut registry = MediaRegistry::new();
+        registry.bind_renderer(renderer(session));
+        let cached_digest = cached.sha256;
+        let issued = registry.prepare(session, 1, 0, &[streamed, cached], &streams).unwrap();
+        for (digest, token) in &issued {
+            let grant = registry.resolve(session, token.as_str(), 0).unwrap();
+            assert_eq!(grant.stream.as_ref(), streams.get(digest));
+            // The renderer sees an opaque capability, never the path.
+            assert!(token.uri().starts_with("tcmedia://cap/"));
+            assert!(!token.uri().contains("api/v1"));
+        }
+        assert!(registry.resolve(session, issued[&cached_digest].as_str(), 0).unwrap().stream.is_none());
+    }
+
+    #[test]
     fn abandoned_prepared_grants_expire_before_activation() {
         let session = SessionId::from_uuid(uuid::Uuid::new_v4());
         let mut registry = MediaRegistry::new();
         registry.bind_renderer(renderer(session));
-        let issued = registry.prepare(session, 1, 100, &[content(&"a".repeat(64))]).unwrap();
+        let issued = registry.prepare(session, 1, 100, &[content(&"a".repeat(64))], &HashMap::new()).unwrap();
         let token = issued.values().next().unwrap().as_str();
         assert!(registry.resolve(session, token, 100 + PREPARED_LIFETIME_MS - 1).is_some());
         assert!(registry.resolve(session, token, 100 + PREPARED_LIFETIME_MS).is_none());

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"regexp"
@@ -156,17 +157,6 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "cannot_deactivate_self", "You cannot deactivate your own account.")
 		return
 	}
-	if target.Role == "owner" && (body.Role != "owner" || !active) {
-		var owners int
-		if err := s.db.QueryRow(r.Context(), `SELECT count(*) FROM users WHERE role='owner' AND active=TRUE`).Scan(&owners); err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-		if owners <= 1 {
-			writeError(w, http.StatusConflict, "last_owner_required", "Tilecast must keep at least one active Owner account.")
-			return
-		}
-	}
 	var passwordHash *string
 	var passwordValue any
 	if body.Password != "" {
@@ -184,6 +174,19 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context()) //nolint:errcheck
+	if err := lockActiveOwnerInvariant(r.Context(), tx); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	lastOwner, err := removesLastActiveOwner(r.Context(), tx, id, body.Role != "owner" || !active)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if lastOwner {
+		writeError(w, http.StatusConflict, "last_owner_required", "Tilecast must keep at least one active Owner account.")
+		return
+	}
 	var updated auth.User
 	err = tx.QueryRow(r.Context(), `
 		UPDATE users SET
@@ -226,6 +229,34 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": updated})
 }
 
+// lockActiveOwnerInvariant serializes every write that can remove an active
+// Owner. Without it, two requests can each count another Owner before either
+// commits, and both can commit.
+func lockActiveOwnerInvariant(ctx context.Context, tx pgx.Tx) error {
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('tilecast.users.active-owner'))`)
+	return err
+}
+
+// removesLastActiveOwner reports whether the write would leave no active Owner.
+// The check reads the current row inside the locked transaction, so it does not
+// depend on any state read before the transaction began.
+func removesLastActiveOwner(ctx context.Context, tx pgx.Tx, id uuid.UUID, removesAccess bool) (bool, error) {
+	if !removesAccess {
+		return false, nil
+	}
+	var targetIsOwner, otherOwnerExists bool
+	err := tx.QueryRow(ctx, `
+		SELECT
+			EXISTS(SELECT 1 FROM users WHERE id=$1 AND role='owner' AND active=TRUE),
+			EXISTS(SELECT 1 FROM users WHERE id<>$1 AND role='owner' AND active=TRUE)`,
+		id,
+	).Scan(&targetIsOwner, &otherOwnerExists)
+	if err != nil {
+		return false, err
+	}
+	return targetIsOwner && !otherOwnerExists, nil
+}
+
 func (s *server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
 	if !ok {
@@ -254,23 +285,25 @@ func (s *server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may manage Owner or Administrator accounts.")
 		return
 	}
-	if target.Role == "owner" && target.Active {
-		var owners int
-		if err := s.db.QueryRow(r.Context(), `SELECT count(*) FROM users WHERE role='owner' AND active=TRUE`).Scan(&owners); err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-		if owners <= 1 {
-			writeError(w, http.StatusConflict, "last_owner_required", "Tilecast must keep at least one active Owner account.")
-			return
-		}
-	}
 	tx, err := s.db.Begin(r.Context())
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
 	defer tx.Rollback(r.Context()) //nolint:errcheck
+	if err := lockActiveOwnerInvariant(r.Context(), tx); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	lastOwner, err := removesLastActiveOwner(r.Context(), tx, id, true)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if lastOwner {
+		writeError(w, http.StatusConflict, "last_owner_required", "Tilecast must keep at least one active Owner account.")
+		return
+	}
 	if _, err := tx.Exec(r.Context(), `UPDATE users SET active=FALSE WHERE id=$1`, id); err != nil {
 		s.internalError(w, r, err)
 		return

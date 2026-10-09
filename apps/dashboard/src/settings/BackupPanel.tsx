@@ -89,7 +89,9 @@ export function BackupPanel({ owner }: { owner: boolean }) {
             action: t("common:actions.delete"),
             destructive: true,
           });
-          if (force) return api.deleteBackup(archive.id, true, csrf);
+          // Declining the second confirmation is a cancellation, not a failed delete.
+          if (!force) throw new CancelledAction();
+          return api.deleteBackup(archive.id, true, csrf);
         }
         throw error;
       }

@@ -1061,6 +1061,7 @@
     }
   },
   "retention": {
+    "saved": "Ajustes de retención de actividad guardados.",
     "title": "Retención de actividad",
     "description": "La limpieza se ejecuta en lotes acotados en segundo plano y respeta los límites estrictos del despliegue.",
     "save": "Guardar retención",
@@ -1084,6 +1085,8 @@
     }
   },
   "branding": {
+    "loginBackgroundSaved": "Fondo de inicio de sesión guardado.",
+    "loginBackgroundRemoved": "Fondo de inicio de sesión eliminado.",
     "title": "Imágenes de la organización",
     "description": "Sube imágenes desde este dispositivo. Tilecast guarda el recurso elegido internamente.",
     "logo": {

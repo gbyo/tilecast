@@ -130,7 +130,7 @@ export function ActivityRetentionPanel({
     },
     onSuccess: (next) => {
       toast.add({
-        title: "Activity retention settings saved.",
+        title: t("retention.saved"),
         type: "success",
       });
       setDraft(null);

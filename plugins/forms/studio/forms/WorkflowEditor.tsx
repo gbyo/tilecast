@@ -211,7 +211,9 @@ export function WorkflowEditor({
     setTransitions((prev) => prev.filter((_, i) => i !== index));
 
   return (
-    <div className="grid gap-4">
+    // Authoring controls are disabled while a save is in flight, so the
+    // server response cannot overwrite edits made during the request.
+    <fieldset disabled={save.isPending} className="grid min-w-0 gap-4">
       {navigationWarning}
       {error && (
         <Alert variant="destructive">
@@ -608,7 +610,7 @@ export function WorkflowEditor({
           {t("workflow.saveWorkflow")}
         </Button>
       </div>
-    </div>
+    </fieldset>
   );
 }
 

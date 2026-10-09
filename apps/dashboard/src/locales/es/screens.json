@@ -934,6 +934,7 @@
     "groupMemberCount_other": "{{count}} pantallas",
     "groupMemberCount_many": "{{count}} de pantallas",
     "activateError": "No se pudo activar la toma de control",
+    "started": "Toma iniciada.",
     "summaryAll": "Todas las pantallas de la flota ({{count}}) están seleccionadas",
     "summarySelected_one": "{{count}} pantalla seleccionada",
     "summarySelected_other": "{{count}} pantallas seleccionadas",

@@ -11,6 +11,8 @@
     "line": "Línea"
   },
   "library": {
+    "toastDuplicated": "Diseño duplicado.",
+    "toastDeleted": "Diseño eliminado.",
     "title": "Diseños",
     "description": "Diseña composiciones reutilizables y encuentra el lienzo adecuado de un vistazo.",
     "createLayout": "Crear diseño",
