@@ -75,6 +75,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "playback_checkpoint",
         sql: include_str!("../migrations/0010_playback_checkpoint.sql"),
     },
+    Migration {
+        version: 11,
+        name: "installation_mismatch",
+        sql: include_str!("../migrations/0011_installation_mismatch.sql"),
+    },
 ];
 
 pub fn latest_schema_version() -> u32 {

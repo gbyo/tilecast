@@ -265,6 +265,12 @@ Readiness, the renderer and playback never wait for the server. At start the dae
 
 A failed reconciliation or preparation never replaces the last good state. A new manifest becomes active only after every object it needs is verified and pinned.
 
+### 8.5 Installation mismatch and unpair
+
+When the server's installation ID stops matching the binding, the daemon stops server content and records the evidence: the server URL, both installation IDs, the detection time, the last successful contact, and where the quarantined caches went. The record is written before any cache moves. It names the planned moves and stays incomplete until every move is done. The content store and partial downloads move aside (never deleted), fresh owner-only directories take their place, and the content store forgets its object, partial, and pin rows, because those rows describe files that moved. The screen shows a mismatch surface instead of server content. A restart or the next mismatched pass finishes an incomplete record, and a move that already happened is not repeated. Only a mismatch quarantines; unreachable servers, generic errors, and rejected credentials never do. The record clears on a re-pair, an unpair, or a recovered server. A recovered server clears it on its first verified heartbeat. Studio truthfully shows the screen disconnected; the evidence lives on the device (`tilecastctl status`).
+
+`tilecastctl unpair` forgets the server relationship: the binding, device credential, pairing files, queued results, and staged configuration. It is idempotent, so a failed run converges on retry: a retry runs the whole cleanup again, including the pairing files, even when the binding and credential are already gone. The database steps run in one transaction. The screen returns to setup so it can pair again. Discovery keeps no preference to clear: every `discovery.list` is a fresh browse.
+
 ## 9. Content store
 
 ### 9.1 Identity and invariants
@@ -298,6 +304,20 @@ Pins have a reason and a holder: the active and pending presentation, prefetch, 
 ### 9.4 Scrubbing
 
 `tilecastctl` can verify one object on request. A corrupt object is removed; the next preparation that needs it fetches it again. Background scrubbing, when added, uses the same verification and is rate-limited.
+
+### 9.5 Stream-backed video
+
+A video can play without a complete local copy. Each playlist item carries a delivery policy, `download`, `stream`, or `automatic`:
+
+- `download` must be fetched and verified before activation. It never falls back to streaming: a video that does not fit the store fails preparation with `media_cache_too_small`.
+- `automatic` downloads when the video fits and streams when it does not. The threshold is half the cache limit, so one object can never consume the whole store.
+- `stream` plays from the origin while online, or from CAS when the bytes are already verified there.
+
+The partition is deterministic in the manifest, the policies, and the threshold, so prepare, verify, and diagnostics always agree. Only videos stream; images, bundles, and frames always download. A variant streams only when every one of its uses allows it: any `download` item, or any policy-less reference (layout, branding, website fallback, plugin image), keeps it a verified download.
+
+The media grant carries the stream backend: the manifest's authenticated player download path. The media channel serves verified CAS bytes first when present, then bounded origin range reads (`Range` with `If-Range` on the manifest validator) behind the same opaque `tcmedia://cap/…` URI and the same HEAD/READ protocol. The renderer never learns the path, the URL, the credential, or which backend answered. Only an exact `206` whose Content-Range start, end, and total match the manifest claim is accepted; a `200` (Range ignored), `416`, wrong range, wrong total, or changed ETag fails the read with a typed reason (`credential_rejected`, `origin_not_found`, `range_rejected`, `stream_truncated`, `origin_unreachable`), and the renderer's normal skip/fallback policy answers. A partial stream is never promoted to CAS and never pinned. Concurrent origin reads are bounded, each read is timed out, no registry lock is held across I/O, and the grant, the generation, and the verified relationship are re-checked before the bytes are released — so revocation, mismatch, re-pairing, or an activation replacement mid-read withholds the bytes.
+
+Stream-backed video has reduced offline guarantees: offline, its reads fail typed and the playlist moves on. The heartbeat reports the `media-streaming` capability and the activation's `streamBackedAssetCount`, and a stream failure never discards the committed manifest or starts a repair download.
 
 ## 10. Renderer
 

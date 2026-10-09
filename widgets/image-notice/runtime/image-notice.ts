@@ -159,7 +159,9 @@ export class TilecastImageNoticeWidget extends TilecastWidgetElement<
       />
       ${
         this.config.caption
-          ? html`<figcaption>${this.config.caption}</figcaption>`
+          ? html`<div aria-hidden="true">
+              <figcaption>${this.config.caption}</figcaption>
+            </div>`
           : nothing
       }
     </figure>`;

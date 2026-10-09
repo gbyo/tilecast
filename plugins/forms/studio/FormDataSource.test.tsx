@@ -116,6 +116,24 @@ const formDetail = (capabilities: FormCapability[]): FormDataSource => ({
   grantedCapabilities: capabilities,
 });
 
+// The Needs review filter lists states that carry a review or approve transition, so the
+// records tests need a workflow with one.
+const formWithReview = (): FormDataSource => ({
+  ...formDetail(["manage"]),
+  workflow: {
+    states: [],
+    transitions: [
+      {
+        from: "submitted",
+        to: "approved",
+        label: "Approve",
+        requiredCapability: "review",
+        position: 0,
+      },
+    ],
+  },
+});
+
 describe("Form Data Source Studio", () => {
   it("creates a Form with the seeded Title field and navigates to the builder", async () => {
     const createForm = vi
@@ -319,6 +337,26 @@ describe("Form Data Source Studio", () => {
     ).toBeInTheDocument();
   });
 
+  it("names a global role in the access table by its label, not its identifier", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(formsApi, "listFormAccess").mockResolvedValue([
+      {
+        userId: "u2",
+        name: "Zoe",
+        username: "zoe",
+        role: "editor",
+        capabilities: ["submit"],
+        isCreator: false,
+        isGlobalOwner: false,
+      },
+    ]);
+    renderAt("/plugins/forms/f1?tab=access", "owner");
+
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText("Editor")).toBeInTheDocument();
+    expect(within(table).queryByText("editor")).toBeNull();
+  });
+
   it("shows a search error instead of no-match when the directory fails", async () => {
     vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
     vi.spyOn(formsApi, "listFormAccess").mockResolvedValue([]);
@@ -355,7 +393,7 @@ describe("Form Data Source Studio", () => {
 
 describe("Form responses table", () => {
   it("opens a response through its title link instead of a clickable row", async () => {
-    vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formWithReview());
     vi.spyOn(formsApi, "listFormRecords").mockResolvedValue({
       items: [
         {
@@ -389,8 +427,81 @@ describe("Form responses table", () => {
     expect(router.state.location.search).toContain("record=r1");
   });
 
-  it("renders only the error when the records query fails", async () => {
+  it("does not list every response under Needs review when the workflow has no review states", async () => {
     vi.spyOn(formsApi, "getForm").mockResolvedValue(formDetail(["manage"]));
+    const listRecords = vi
+      .spyOn(formsApi, "listFormRecords")
+      .mockResolvedValue({
+        items: [
+          {
+            id: "r1",
+            dataSourceId: "f1",
+            revisionId: "r1",
+            state: "submitted",
+            values: { title: "Field trip" },
+            submitterName: "Sam",
+            displayTitle: "Field trip",
+            priority: 0,
+            eligible: true,
+            version: 1,
+            createdAt: "2026-01-02T00:00:00Z",
+            updatedAt: "2026-01-02T00:00:00Z",
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 25,
+      });
+    renderAt("/plugins/forms/f1?tab=responses", "owner");
+
+    expect(await screen.findByText("No responses")).toBeInTheDocument();
+    expect(
+      screen.getByText("Nothing is waiting for review right now."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Field trip")).not.toBeInTheDocument();
+    expect(listRecords).not.toHaveBeenCalled();
+  });
+
+  it("shows the newly routed Form's draft, not the previous Form's", async () => {
+    const formWith = (id: string, label: string): FormDataSource => ({
+      ...formDetail(["manage"]),
+      id,
+      name: label,
+      draftSchema: {
+        title: label,
+        fields: [{ key: "q", label, control: "short_text" }],
+      },
+    });
+    vi.spyOn(formsApi, "getForm").mockImplementation((id: string) =>
+      Promise.resolve(
+        formWith(id, id === "f1" ? "Alpha question" : "Beta question"),
+      ),
+    );
+    const { router } = renderAt("/plugins/forms/f1?tab=form", "owner");
+    expect(
+      await screen.findByRole("button", { name: "Edit Alpha question" }),
+    ).toBeInTheDocument();
+    // Both Forms are now cached. Moving to Form B and back, without a full
+    // load in between, must show Form A's own fields.
+    await act(async () => {
+      await router.navigate("/plugins/forms/f2?tab=form");
+    });
+    expect(
+      await screen.findByRole("button", { name: "Edit Beta question" }),
+    ).toBeInTheDocument();
+    await act(async () => {
+      await router.navigate("/plugins/forms/f1?tab=form");
+    });
+    expect(
+      await screen.findByRole("button", { name: "Edit Alpha question" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Edit Beta question" }),
+    ).toBeNull();
+  });
+
+  it("renders only the error when the records query fails", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(formWithReview());
     vi.spyOn(formsApi, "listFormRecords").mockRejectedValue(
       new Error("offline"),
     );

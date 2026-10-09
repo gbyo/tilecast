@@ -11,12 +11,21 @@ import { useFormatLocale } from "../i18n";
 function parseDatePart(value: string): Date | undefined {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return undefined;
-  const date = new Date(
-    Number(match[1]),
-    Number(match[2]) - 1,
-    Number(match[3]),
-  );
-  return Number.isNaN(date.getTime()) ? undefined : date;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const date = new Date(year, month, day);
+  // Date rolls an impossible day such as February 31 into the next month. The
+  // native date contract rejects it, so it must not display as a real date.
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month ||
+    date.getDate() !== day
+  ) {
+    return undefined;
+  }
+  return date;
 }
 
 function formatDatePart(date: Date): string {

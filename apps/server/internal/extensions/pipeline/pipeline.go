@@ -479,7 +479,7 @@ func (s *Service) InstallCustom(ctx context.Context, repoURL string, userID uuid
 func Activation(resolution Resolution, ociManifest packagemanifest.Manifest, nested []packages.NestedContribution, userID uuid.UUID) installer.Activation {
 	contributions := make([]installer.Contribution, 0, len(nested))
 	for _, item := range nested {
-		contributions = append(contributions, installer.Contribution{Kind: item.Kind, ID: item.ID, Path: item.Path})
+		contributions = append(contributions, installer.Contribution{Kind: item.Kind, ID: item.ID, Path: item.Path, Digest: item.Digest})
 	}
 	kind := installer.SourceCustom
 	reference := resolution.RepositoryURL + "@" + resolution.ReleaseTag

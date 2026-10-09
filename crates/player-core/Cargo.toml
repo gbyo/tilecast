@@ -28,6 +28,10 @@ uuid.workspace = true
 player-types = { workspace = true, features = ["test-util"] }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
+bytes.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
 
 [lints]
 workspace = true

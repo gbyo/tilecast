@@ -1,7 +1,7 @@
 //! Migration, restart-safety and repository tests against real SQLite files.
 
 use player_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
-use player_state::repo::{self, cas, daemon, playback_checkpoint, renderer};
+use player_state::repo::{self, cas, daemon, installation_mismatch, playback_checkpoint, renderer};
 use player_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
 use player_types::capability::{Capability, CapabilityId, CapabilityState};
 use player_types::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
@@ -490,4 +490,77 @@ fn migration_9_keeps_renderer_state_and_records_last_restart() {
     renderer::put(&connection, &restarted, now()).expect("store restart");
     let round_tripped = renderer::get(&connection).expect("reread record");
     assert_eq!(round_tripped, restarted);
+}
+
+#[test]
+fn migration_11_adds_installation_mismatch_and_round_trips() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    let v10: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 10)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v10).expect("migrate to v10");
+    assert!(installation_mismatch::get(&connection).is_err(), "no mismatch table at v10");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
+    let mismatch = installation_mismatch::InstallationMismatch {
+        server_url: "https://tilecast.example".into(),
+        expected_installation_id: "expected".into(),
+        actual_installation_id: "actual".into(),
+        detected_at: now(),
+        last_contact_at: Some(now()),
+        quarantined_cas_dir: Some("cas-quarantined-1".into()),
+        quarantined_partial_dir: None,
+        quarantine_complete: false,
+    };
+    installation_mismatch::put(&connection, &mismatch).expect("store");
+    assert_eq!(installation_mismatch::get(&connection).expect("reread"), Some(mismatch.clone()));
+    // Completing the quarantine rewrites the same row with the flag set.
+    let complete = installation_mismatch::InstallationMismatch { quarantine_complete: true, ..mismatch };
+    installation_mismatch::put(&connection, &complete).expect("complete");
+    assert_eq!(installation_mismatch::get(&connection).expect("reread complete"), Some(complete));
+    installation_mismatch::clear(&connection).expect("clear");
+    assert_eq!(installation_mismatch::get(&connection).expect("read cleared"), None);
+}
+
+#[test]
+fn unpair_clear_forgets_binding_outbox_and_config() {
+    use player_state::repo::{binding, config, outbox};
+    let (_dir, path) = temp_db();
+    let mut connection = rusqlite::Connection::open(&path).expect("raw open");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    let bound = player_state::repo::manifests::Binding {
+        installation_id: player_types::InstallationId::from_uuid(uuid::Uuid::from_u128(1)),
+        screen_id: player_types::ScreenId::from_uuid(uuid::Uuid::from_u128(2)),
+        server_url: "https://tilecast.example".into(),
+    };
+    binding::put(&connection, &edge_state_binding(&bound), now()).expect("bind");
+    outbox::enqueue_telemetry(&mut connection, "12345678-1234-1234-1234-1234567890ab", "{}", now()).expect("queue");
+    outbox::set_open_sessions(&connection, Some("[]")).expect("sessions");
+    binding::clear(&connection).expect("clear binding");
+    outbox::clear_all(&connection).expect("clear outbox");
+    config::clear_all(&connection).expect("clear config");
+    assert!(binding::get(&connection).expect("read binding").is_none());
+    let stats = outbox::stats(&connection).expect("stats");
+    assert_eq!((stats.queued_activity, stats.queued_telemetry), (0, 0));
+    assert_eq!(outbox::open_sessions(&connection).expect("sessions"), None);
+}
+
+fn edge_state_binding(bound: &player_state::repo::manifests::Binding) -> player_state::repo::binding::ServerBinding {
+    player_state::repo::binding::ServerBinding {
+        installation_id: bound.installation_id,
+        screen_id: Some(bound.screen_id),
+        server_url: bound.server_url.clone(),
+        organization_name: None,
+        screen_name: None,
+        credential_state: player_state::repo::binding::CredentialState::Stored,
+        identity_verified_at: None,
+        bound_at: now(),
+    }
 }

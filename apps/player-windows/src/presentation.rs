@@ -1460,6 +1460,7 @@ mod tests {
             sha256: digest,
             size_bytes: 128,
             mime_type: SafeText::new("image/png").expect("test fixture"),
+            stream: None,
         }]
     }
 

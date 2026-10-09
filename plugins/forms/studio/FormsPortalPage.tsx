@@ -160,7 +160,7 @@ export function FormsPortalShell() {
       void navigate(
         session.setupRequired
           ? "/setup"
-          : `/login?returnTo=${encodeURIComponent(location.pathname)}`,
+          : `/login?returnTo=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`,
         { replace: true },
       );
     }
@@ -170,6 +170,8 @@ export function FormsPortalShell() {
     session.setupRequired,
     navigate,
     location.pathname,
+    location.search,
+    location.hash,
   ]);
   if (session.isLoading || !session.authenticated) return null;
   return (
@@ -404,6 +406,14 @@ export function FormPortalDetailPage() {
         </h2>
         {records.isLoading ? (
           <PortalLoading label={t("portal.detail.submissionsLoading")} />
+        ) : records.isError && !records.data ? (
+          // A failed request is not an empty list: say so instead.
+          <PortalNotice
+            variant="danger"
+            title={t("portal.detail.submissionsError")}
+          >
+            {apiErrorMessage(records.error)}
+          </PortalNotice>
         ) : mine.length === 0 ? (
           <Empty>
             <EmptyHeader>

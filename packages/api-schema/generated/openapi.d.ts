@@ -15062,6 +15062,13 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description The data source changed while the rows were being written, for example a Studio edit to its columns. Nothing was written. Retry the request. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description Rows invalid */
       422: {
         headers: {

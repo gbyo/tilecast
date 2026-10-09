@@ -433,7 +433,7 @@ export function LayoutsPage() {
     mutationFn: (id: string) => api.duplicateLayout(id, csrf),
     onMutate: () => setActionError(""),
     onSuccess: (layout) => {
-      toast.add({ title: "Layout duplicated.", type: "success" });
+      toast.add({ title: t("library.toastDuplicated"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       void navigate(`/layouts/${layout.id}`);
     },
@@ -475,7 +475,7 @@ export function LayoutsPage() {
     mutationFn: (id: string) => api.deleteLayout(id, csrf),
     onMutate: () => setActionError(""),
     onSuccess: () => {
-      toast.add({ title: "Layout deleted.", type: "success" });
+      toast.add({ title: t("library.toastDeleted"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
     },
     onError: (error) =>

@@ -101,6 +101,9 @@ pub struct DaemonContext {
     /// Durable playlist resume, loaded once at startup. Synchronous: the
     /// offline projection path consumes it without awaiting.
     pub resume: std::sync::Mutex<crate::resume::ResumeState>,
+    /// Recorded installation mismatch, mirrored in memory: the offline
+    /// projection path gates on it without awaiting.
+    pub installation_mismatch: std::sync::Mutex<Option<crate::mismatch::MismatchRecord>>,
     /// What manifest preparation is doing, for status and heartbeat.
     pub preparation: crate::manifest_sync::SharedPreparationStatus,
     pub link_state: std::sync::Mutex<LinkState>,
@@ -329,6 +332,23 @@ impl Daemon {
                 }
             }
         }
+        let mismatch_state = match &state {
+            StateMode::Normal(db) => match crate::mismatch::load_mismatch(db).await {
+                // Finish an interrupted quarantine before the CAS opens. A
+                // failure keeps the record gated; the next pass retries.
+                Some(record) if !record.quarantine_complete => {
+                    match crate::mismatch::reconcile_quarantine(&paths, db, &record).await {
+                        Ok(complete) => Some(complete),
+                        Err(error) => {
+                            tracing::warn!(component = "mismatch", event = "quarantine_resume_failed", error = %error);
+                            Some(record)
+                        }
+                    }
+                }
+                other => other,
+            },
+            StateMode::Recovery { .. } => None,
+        };
         let resume_state = match &state {
             StateMode::Normal(db) => crate::resume::load_resume_state(db).await,
             StateMode::Recovery { .. } => crate::resume::ResumeState::default(),
@@ -416,6 +436,7 @@ impl Daemon {
             manifest_wake: tokio::sync::Notify::new(),
             manifest_item_boundary: std::sync::atomic::AtomicBool::new(false),
             resume: std::sync::Mutex::new(resume_state),
+            installation_mismatch: std::sync::Mutex::new(mismatch_state),
             preparation: Default::default(),
             link_state: std::sync::Mutex::new(LinkState::Unbound),
             last_server_contact: std::sync::Mutex::new(None),
@@ -476,7 +497,10 @@ impl Daemon {
         } else {
             crate::config_sync::install(&context, None).await;
         }
-        let initial = status_surface(&context, bound);
+        let initial = match crate::mismatch::content_blocked(&context) {
+            Some(record) => crate::mismatch::mismatch_surface(&record),
+            None => status_surface(&context, bound),
+        };
         context
             .presentation
             .lock()
@@ -500,6 +524,7 @@ impl Daemon {
                     cas,
                     context.clock.clone(),
                     Arc::new(ProcLineage),
+                    Some(media_channel::StreamBackend::new(context.command_server.subscribe())),
                 )
                 .with_context(|| format!("binding {}", path.display()))
             })

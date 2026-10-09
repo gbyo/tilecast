@@ -254,6 +254,13 @@ func (s *Service) CreateDataSource(ctx context.Context, user uuid.UUID, input Da
 }
 
 func (s *Service) UpdateDataSource(ctx context.Context, id, user uuid.UUID, input DataSourceInput) (DataSource, error) {
+	return s.updateDataSource(ctx, id, user, input, nil)
+}
+
+// updateDataSource writes the configuration. When expected is set, the write
+// applies only if the stored configuration still equals it; otherwise it
+// returns ErrDataSourceChanged and leaves the newer configuration in place.
+func (s *Service) updateDataSource(ctx context.Context, id, user uuid.UUID, input DataSourceInput, expected *string) (DataSource, error) {
 	existing, err := s.rawDataSource(ctx, id)
 	if err != nil {
 		return DataSource{}, err
@@ -312,8 +319,22 @@ func (s *Service) UpdateDataSource(ctx context.Context, id, user uuid.UUID, inpu
 		return DataSource{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
-	tag, err := tx.Exec(ctx, `UPDATE data_sources SET name=$2,description=$3,configuration=$4::jsonb,config_version=1,updated_at=now() WHERE id=$1 AND deleted_at IS NULL`, id, input.Name, strings.TrimSpace(input.Description), string(encoded))
-	if err != nil || tag.RowsAffected() == 0 {
+	tag, err := tx.Exec(ctx, `UPDATE data_sources SET name=$2,description=$3,configuration=$4::jsonb,config_version=1,updated_at=now() WHERE id=$1 AND deleted_at IS NULL AND ($5::jsonb IS NULL OR configuration = $5::jsonb)`, id, input.Name, strings.TrimSpace(input.Description), string(encoded), expected)
+	if err != nil {
+		return DataSource{}, ErrNotFound
+	}
+	if tag.RowsAffected() == 0 {
+		// A conditional write that matched nothing is either a deleted source or
+		// one whose configuration moved on after the caller read it.
+		if expected != nil {
+			var live bool
+			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM data_sources WHERE id=$1 AND deleted_at IS NULL)`, id).Scan(&live); err != nil {
+				return DataSource{}, err
+			}
+			if live {
+				return DataSource{}, ErrDataSourceChanged
+			}
+		}
 		return DataSource{}, ErrNotFound
 	}
 	if input.Provider == "manual" {
@@ -877,6 +898,17 @@ func (s *Service) dataSourceBindingUsage(ctx context.Context, id uuid.UUID) ([]D
 
 // DeleteDataSource removes a Data Source, refusing when a Widget or Layout binding uses it.
 func (s *Service) DeleteDataSource(ctx context.Context, id, user uuid.UUID) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	// Lock the Data Source before the usage check. A Layout draft that is
+	// validating this source holds a share lock until its dependency rows
+	// commit, so the check below runs after any such save has finished.
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM data_sources WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id); err != nil {
+		return err
+	}
 	widgets, err := s.dataSourceWidgetUsage(ctx, id)
 	if err != nil {
 		return err
@@ -895,11 +927,6 @@ func (s *Service) DeleteDataSource(ctx context.Context, id, user uuid.UUID) erro
 		}
 		return &DependencyError{Resource: "data source", UsedBy: names}
 	}
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
 	tag, err := tx.Exec(ctx, `UPDATE data_sources SET deleted_at=now(),updated_at=now() WHERE id=$1 AND deleted_at IS NULL`, id)
 	if err != nil {
 		return err
@@ -968,6 +995,15 @@ func (s *Service) ReplaceManualRows(ctx context.Context, id, user uuid.UUID, row
 	if err != nil {
 		return DataSource{}, err
 	}
+	return s.replaceManualRowsFrom(ctx, existing, user, rows)
+}
+
+// replaceManualRowsFrom validates rows against the configuration in existing,
+// the snapshot the caller read, and writes them only if that configuration is
+// still current. A Studio edit made after the read (a new column, a changed
+// setting) fails the write with ErrDataSourceChanged, so the caller retries
+// against the newer configuration instead of reverting it.
+func (s *Service) replaceManualRowsFrom(ctx context.Context, existing DataSource, user uuid.UUID, rows []ManualRowWrite) (DataSource, error) {
 	if existing.Provider != "manual" {
 		return DataSource{}, fmt.Errorf("%s Data Sources cannot be written to; only a Manual Table can", existing.Provider)
 	}
@@ -999,13 +1035,14 @@ func (s *Service) ReplaceManualRows(ctx context.Context, id, user uuid.UUID, row
 	if err != nil {
 		return DataSource{}, err
 	}
+	expected := string(existing.Configuration)
 	// Routed through the ordinary update so the cached player payload, the
 	// audit entry, and the assets that bind to this source are all handled by
 	// the one code path that already knows how.
-	return s.UpdateDataSource(ctx, id, user, DataSourceInput{
+	return s.updateDataSource(ctx, existing.ID, user, DataSourceInput{
 		Provider:      existing.Provider,
 		Name:          existing.Name,
 		Description:   existing.Description,
 		Configuration: encoded,
-	})
+	}, &expected)
 }

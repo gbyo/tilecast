@@ -169,6 +169,7 @@ pub(crate) mod tests {
             pairing: None,
             outbox: None,
             update: None,
+            installation_mismatch: None,
             presentation: Some(PresentationStatus {
                 source: ShortToken::new("server_manifest").unwrap(),
                 generation: 3,

@@ -23,13 +23,22 @@ func (s *Service) updateRendererDiagnosticsHeartbeat(ctx context.Context, screen
 	if heartbeat.RendererRestartCount != nil && *heartbeat.RendererRestartCount >= 0 {
 		restarts = heartbeat.RendererRestartCount
 	}
+	// A current count, overwritten on every heartbeat that carries it. Out
+	// of range (or a downgraded player that omits it) keeps the last known
+	// value rather than rejecting the heartbeat.
+	var streams *int
+	if heartbeat.StreamBackedAssetCount != nil &&
+		*heartbeat.StreamBackedAssetCount >= 0 && *heartbeat.StreamBackedAssetCount <= 1024 {
+		streams = heartbeat.StreamBackedAssetCount
+	}
 	safeModeOff := heartbeat.SafeMode != nil && !*heartbeat.SafeMode
 	_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET
 		last_renderer_failure=COALESCE(NULLIF($2,''),last_renderer_failure),
 		renderer_restart_count=COALESCE($3,renderer_restart_count),
 		last_renderer_restart_at=COALESCE($4,last_renderer_restart_at),
 		last_renderer_restart_reason=COALESCE(NULLIF($5,''),last_renderer_restart_reason),
-		safe_mode_reason=CASE WHEN $6 THEN NULL ELSE COALESCE(NULLIF($7,''),safe_mode_reason) END
+		safe_mode_reason=CASE WHEN $6 THEN NULL ELSE COALESCE(NULLIF($7,''),safe_mode_reason) END,
+		stream_backed_asset_count=COALESCE($8,stream_backed_asset_count)
 		WHERE screen_id=$1`,
-		screenID, failure, restarts, heartbeat.LastRendererRestartAt, reason, safeModeOff, safeReason)
+		screenID, failure, restarts, heartbeat.LastRendererRestartAt, reason, safeModeOff, safeReason, streams)
 }

@@ -275,7 +275,11 @@ export function ProofTab({
             <Collapsible className="grid gap-2 rounded-xl border border-border p-3">
               <CollapsibleTrigger className="flex cursor-pointer items-center gap-1 text-left text-sm font-medium">
                 {t("proof.viewBreakdown", {
-                  dimension: dimensionLabel(dimension),
+                  dimension: t(
+                    proofDimensionOptions.find(
+                      (option) => option.value === dimension,
+                    )?.labelKey ?? "proof.dimensions.screen",
+                  ),
                 })}
                 <CollapsibleChevron orientation="right" size={15} />
               </CollapsibleTrigger>
@@ -791,10 +795,6 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
       <dd className="min-w-0 flex-1 break-words">{value}</dd>
     </div>
   );
-}
-
-function dimensionLabel(value: string) {
-  return value === "presentation" ? "presentation" : value;
 }
 
 // Dimension structures hold translation keys, never rendered text. Labels are

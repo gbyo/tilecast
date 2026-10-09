@@ -671,14 +671,12 @@ function UserEditorDialog({
             resetSecurity.error) && (
             <Alert variant="destructive">
               <AlertDescription role="alert">
-                {
-                  (
-                    update.error ??
+                {apiErrorMessage(
+                  update.error ??
                     deactivate.error ??
                     permanentlyDelete.error ??
-                    resetSecurity.error
-                  )?.message
-                }
+                    resetSecurity.error,
+                )}
               </AlertDescription>
             </Alert>
           )}
