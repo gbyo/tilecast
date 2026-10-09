@@ -60,7 +60,9 @@ describe("external-widget conformance fixtures", () => {
     expect(definition.parseConfig({ label: "" }, 2).ok).toBe(false);
     expect(definition.parseConfig({ label: "x" }, 2).ok).toBe(false);
     const full = fixtureResources({
-      documents: { schedule: { schemaVersion: 1, datasets: [{ label: "Week 1" }] } },
+      documents: {
+        schedule: { schemaVersion: 1, datasets: [{ label: "Week 1" }] },
+      },
       media: { "hero/full": "tcmedia://cap/x" },
     });
     const ready = definition.resolveData(parsed.config, full);
