@@ -293,9 +293,7 @@ async fn fetch_frame_object<P: ManifestSourcePlan>(
             let outcomes = recorder.outcomes.lock().expect("observer lock");
             if outcomes.contains(&AttemptOutcome::IntegrityFailure) {
                 Err(ManifestPreparationError::FrameDigestInvalid)
-            } else if !outcomes.is_empty()
-                && outcomes.iter().all(|outcome| *outcome == AttemptOutcome::NotFound)
-            {
+            } else if !outcomes.is_empty() && outcomes.iter().all(|outcome| *outcome == AttemptOutcome::NotFound) {
                 Err(ManifestPreparationError::FrameMissing)
             } else {
                 Err(ManifestPreparationError::FrameFetchFailed)
@@ -694,8 +692,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = test_store(dir.path(), 1 << 20).await;
         let manifest = frame_candidate(&frame, &package, 14);
-        let plan =
-            StaticPlan { files: [(frame, b"frame document".to_vec())].into_iter().collect(), calls: Mutex::new(vec![]) };
+        let plan = StaticPlan {
+            files: [(frame, b"frame document".to_vec())].into_iter().collect(),
+            calls: Mutex::new(vec![]),
+        };
         let prepared = manifest.prepare_content(&store, &plan).await.unwrap();
         assert_eq!(prepared.verified, vec![frame]);
         // A source that lacks the object names the missing frame.
@@ -713,8 +713,10 @@ mod tests {
         // Wrong bytes fail verification and are never used.
         let dir = tempfile::tempdir().unwrap();
         let store = test_store(dir.path(), 1 << 20).await;
-        let plan =
-            StaticPlan { files: [(frame, b"tampered bytes".to_vec())].into_iter().collect(), calls: Mutex::new(vec![]) };
+        let plan = StaticPlan {
+            files: [(frame, b"tampered bytes".to_vec())].into_iter().collect(),
+            calls: Mutex::new(vec![]),
+        };
         let error = manifest.prepare_content(&store, &plan).await.unwrap_err();
         assert!(matches!(error, ManifestPreparationError::FrameDigestInvalid), "{error:?}");
         assert_eq!(error.reason_code(), "widget_frame_digest_invalid");
@@ -722,8 +724,10 @@ mod tests {
         // A cached object that disagrees with the claim fails the same way.
         let dir = tempfile::tempdir().unwrap();
         let store = test_store(dir.path(), 1 << 20).await;
-        let plan =
-            StaticPlan { files: [(frame, b"frame document".to_vec())].into_iter().collect(), calls: Mutex::new(vec![]) };
+        let plan = StaticPlan {
+            files: [(frame, b"frame document".to_vec())].into_iter().collect(),
+            calls: Mutex::new(vec![]),
+        };
         manifest.prepare_content(&store, &plan).await.unwrap();
         let drifted = frame_candidate(&frame, &package, 15);
         let error = drifted.prepare_content(&store, &plan).await.unwrap_err();
