@@ -520,19 +520,31 @@ impl Daemon {
         // scheme. Bind a loopback-only endpoint for the *same* live grants
         // before the renderer is allowed to connect. Recovery mode has no
         // CAS, therefore no endpoint or advertised media URLs.
-        let media_http = context
-            .cas
-            .clone()
-            .map(|cas| {
-                LoopbackMedia::bind(
-                    context.media_registry.clone(),
-                    cas,
-                    context.clock.clone(),
-                    Some(media_channel::StreamBackend::new(context.command_server.subscribe())),
-                )
-                .context("binding sandbox Widget media loopback")
-            })
-            .transpose()?;
+        let media_http = match context.cas.clone() {
+            None => None,
+            Some(cas) => match LoopbackMedia::bind(
+                context.media_registry.clone(),
+                cas,
+                context.clock.clone(),
+                Some(media_channel::StreamBackend::new(context.command_server.subscribe())),
+            ) {
+                Ok(server) => Some(server),
+                // Import/migration self-tests run in an isolated network
+                // namespace that denies AF_INET. Those tests still need to
+                // start the daemon, but must never offer unusable Widget media
+                // URLs. The renderer port remains unset; Widget activations
+                // requiring loopback media are rejected by widget_media_table.
+                Err(error) if error.raw_os_error() == Some(97) => {
+                    tracing::warn!(
+                        component = "media",
+                        event = "loopback_unavailable",
+                        reason = "address_family_unsupported"
+                    );
+                    None
+                }
+                Err(error) => return Err(error).context("binding sandbox Widget media loopback"),
+            },
+        };
         if let Some(ref server) = media_http {
             context.presentation.lock().await.set_loopback_port(server.port());
         }
