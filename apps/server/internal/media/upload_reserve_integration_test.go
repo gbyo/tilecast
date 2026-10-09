@@ -80,3 +80,74 @@ func TestUploadReserveCountsAcceptedUploadsStillToWrite(t *testing.T) {
 		t.Fatalf("upload that fits beside the pending session: %v", err)
 	}
 }
+
+// Two creations that start together must not both pass the reserve check
+// against the same snapshot. The second waits for the first to commit.
+func TestUploadCreationWaitsForReserveLock(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx := context.Background()
+	lockPool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lockPool.Close()
+	lock, err := lockPool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Release()
+	if _, err = lock.Exec(ctx, `SELECT pg_advisory_lock(7421999)`); err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Exec(ctx, `SELECT pg_advisory_unlock(7421999)`) //nolint:errcheck
+	if err = database.Migrate(ctx, databaseURL); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := database.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if _, err = pool.Exec(ctx, `TRUNCATE upload_sessions, organization_settings, users CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := auth.NewService(pool, time.Hour).Setup(ctx, auth.SetupInput{OrganizationName: "Reserve Lock", OwnerName: "Owner", Username: "owner", Password: "correct horse battery staple"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Another creation holds the reserve lock while it checks and inserts.
+	holder, err := pool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer holder.Release()
+	if _, err = holder.Exec(ctx, `SELECT pg_advisory_lock(hashtext('tilecast.media.upload-reserve'))`); err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(pool, fixedSpaceStorage{available: 1000}, Config{MaxUploadBytes: 10_000, ReservedFreeBytes: 100})
+	done := make(chan error, 1)
+	go func() {
+		_, err := service.CreateUpload(ctx, owner.User.ID, "small.png", "image/png", 50)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		t.Fatalf("creation finished while the reserve lock was held: %v", err)
+	case <-time.After(300 * time.Millisecond):
+	}
+	if _, err = holder.Exec(ctx, `SELECT pg_advisory_unlock(hashtext('tilecast.media.upload-reserve'))`); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("creation after the lock was released: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("creation did not resume after the reserve lock was released")
+	}
+}

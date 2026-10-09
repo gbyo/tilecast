@@ -146,6 +146,16 @@ func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, 
 	if size > s.cfg.MaxUploadBytes {
 		return Upload{}, ErrUploadTooLarge
 	}
+	// The check, the session row, and the commit happen under one lock, so a
+	// second creation waits and then sees this session in its pending total.
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return Upload{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('tilecast.media.upload-reserve'))`); err != nil {
+		return Upload{}, err
+	}
 	available, err := s.storage.AvailableBytes()
 	if err != nil {
 		return Upload{}, fmt.Errorf("check media storage: %w", err)
@@ -154,7 +164,7 @@ func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, 
 	// Count them against free space, or concurrent sessions can each pass the
 	// reserve check against the same snapshot.
 	var promised int64
-	if err := s.db.QueryRow(ctx, `SELECT COALESCE(SUM(GREATEST(expected_size-current_offset,0)),0)::bigint FROM upload_sessions WHERE status IN ('pending','uploading') AND expires_at>now()`).Scan(&promised); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(GREATEST(expected_size-current_offset,0)),0)::bigint FROM upload_sessions WHERE status IN ('pending','uploading') AND expires_at>now()`).Scan(&promised); err != nil {
 		return Upload{}, err
 	}
 	free := uint64(0)
@@ -165,22 +175,25 @@ func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, 
 		return Upload{}, ErrInsufficientSpace
 	}
 	var organizationID uuid.UUID
-	if err := s.db.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton=TRUE`).Scan(&organizationID); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton=TRUE`).Scan(&organizationID); err != nil {
 		return Upload{}, err
 	}
 	upload := Upload{ID: uuid.New(), OriginalFilename: filename, DeclaredMIMEType: mimeType, ExpectedSize: size, Status: UploadPending, ExpiresAt: time.Now().UTC().Add(UploadLifetime), MaximumSize: s.cfg.MaxUploadBytes}
 	key := UploadKey(upload.ID)
+	_, err = tx.Exec(ctx, `INSERT INTO upload_sessions (id,organization_id,created_by,original_filename,declared_mime_type,expected_size,temporary_storage_key,status,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, upload.ID, organizationID, userID, filename, mimeType, size, key, upload.Status, upload.ExpiresAt)
+	if err != nil {
+		return Upload{}, fmt.Errorf("create upload session: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Upload{}, err
+	}
 	file, err := s.storage.CreateUpload(key)
 	if err != nil {
+		_, _ = s.db.Exec(ctx, `DELETE FROM upload_sessions WHERE id=$1`, upload.ID)
 		return Upload{}, err
 	}
 	if err := file.Close(); err != nil {
 		return Upload{}, err
-	}
-	_, err = s.db.Exec(ctx, `INSERT INTO upload_sessions (id,organization_id,created_by,original_filename,declared_mime_type,expected_size,temporary_storage_key,status,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, upload.ID, organizationID, userID, filename, mimeType, size, key, upload.Status, upload.ExpiresAt)
-	if err != nil {
-		_ = s.storage.Delete(key)
-		return Upload{}, fmt.Errorf("create upload session: %w", err)
 	}
 	upload.UploadEndpoint = "/api/v1/uploads/" + upload.ID.String()
 	return upload, nil
