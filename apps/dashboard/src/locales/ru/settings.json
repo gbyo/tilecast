@@ -1109,6 +1109,33 @@
     "remove": "Удалить"
   },
   "backups": {
+    "kinds": {
+      "manual": "Вручную",
+      "scheduled": "По расписанию",
+      "preRestore": "Перед восстановлением",
+      "imported": "Импортирован"
+    },
+    "verification": {
+      "unverified": "Не проверена",
+      "failed": "Проверка не пройдена"
+    },
+    "jobKinds": {
+      "backup": "Резервное копирование",
+      "verify": "Проверка",
+      "restore": "Восстановление"
+    },
+    "jobStatuses": {
+      "queued": "В очереди",
+      "running": "Выполняется",
+      "succeeded": "Выполнено",
+      "failed": "Ошибка",
+      "cancelled": "Отменено"
+    },
+    "triggers": {
+      "manual": "Вручную",
+      "scheduled": "По расписанию",
+      "preRestore": "Перед восстановлением"
+    },
     "ownerOnly": "Копиями может управлять только владелец.",
     "loading": "Загрузка копий…",
     "loadError": "Не удалось загрузить копии.",

@@ -1109,6 +1109,33 @@
     "remove": "Remove"
   },
   "backups": {
+    "kinds": {
+      "manual": "Manual",
+      "scheduled": "Scheduled",
+      "preRestore": "Before restore",
+      "imported": "Imported"
+    },
+    "verification": {
+      "unverified": "Not verified",
+      "failed": "Verification failed"
+    },
+    "jobKinds": {
+      "backup": "Backup",
+      "verify": "Verification",
+      "restore": "Restore"
+    },
+    "jobStatuses": {
+      "queued": "Queued",
+      "running": "Running",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "triggers": {
+      "manual": "Manual",
+      "scheduled": "Scheduled",
+      "preRestore": "Before restore"
+    },
     "ownerOnly": "Only the Owner may manage backups.",
     "loading": "Loading backups…",
     "loadError": "Backups could not be loaded.",

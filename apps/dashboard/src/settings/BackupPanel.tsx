@@ -35,6 +35,73 @@ export function BackupPanel({ owner }: { owner: boolean }) {
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
+  // Backend values stay API tokens; the labels follow the interface language.
+  const kindLabel = (kind: string) => {
+    switch (kind) {
+      case "manual":
+        return t("backups.kinds.manual");
+      case "scheduled":
+        return t("backups.kinds.scheduled");
+      case "pre_restore":
+        return t("backups.kinds.preRestore");
+      case "imported":
+        return t("backups.kinds.imported");
+      default:
+        return kind;
+    }
+  };
+  const verificationLabel = (state: string) => {
+    switch (state) {
+      case "verified":
+        return t("backups.verified");
+      case "unverified":
+        return t("backups.verification.unverified");
+      case "failed":
+        return t("backups.verification.failed");
+      default:
+        return state;
+    }
+  };
+  const jobKindLabel = (kind: string) => {
+    switch (kind) {
+      case "backup":
+        return t("backups.jobKinds.backup");
+      case "verify":
+        return t("backups.jobKinds.verify");
+      case "restore":
+        return t("backups.jobKinds.restore");
+      default:
+        return kind;
+    }
+  };
+  const jobStatusLabel = (status: string) => {
+    switch (status) {
+      case "queued":
+        return t("backups.jobStatuses.queued");
+      case "running":
+        return t("backups.jobStatuses.running");
+      case "succeeded":
+        return t("backups.jobStatuses.succeeded");
+      case "failed":
+        return t("backups.jobStatuses.failed");
+      case "cancelled":
+        return t("backups.jobStatuses.cancelled");
+      default:
+        return status;
+    }
+  };
+  const triggerLabel = (trigger: string) => {
+    switch (trigger) {
+      case "manual":
+        return t("backups.triggers.manual");
+      case "scheduled":
+        return t("backups.triggers.scheduled");
+      case "pre_restore":
+        return t("backups.triggers.preRestore");
+      default:
+        return trigger;
+    }
+  };
   const query = useQuery({
     queryKey: ["backups"],
     queryFn: api.backups,
@@ -164,7 +231,13 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                 : ""}
             </p>
           )}
-          {data?.currentJob && <JobProgress job={data.currentJob} />}
+          {data?.currentJob && (
+            <JobProgress
+              job={data.currentJob}
+              kindLabel={jobKindLabel(data.currentJob.kind)}
+              statusLabel={jobStatusLabel(data.currentJob.status)}
+            />
+          )}
           {actionError && (
             <Alert variant="destructive">
               <AlertDescription>{actionError.message}</AlertDescription>
@@ -200,7 +273,8 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                     </ItemTitle>
                     <ItemDescription>
                       {formatDateTime(archive.createdAt, locale)} ·{" "}
-                      {formatBytes(archive.sizeBytes, locale)} · {archive.kind}
+                      {formatBytes(archive.sizeBytes, locale)} ·{" "}
+                      {kindLabel(archive.kind)}
                     </ItemDescription>
                     <ItemDescription className="flex flex-wrap items-center gap-2">
                       <Badge
@@ -212,7 +286,7 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                       >
                         {archive.verification === "verified"
                           ? t("backups.verified")
-                          : archive.verification}
+                          : verificationLabel(archive.verification)}
                       </Badge>
                       {t("backups.versionMeta", {
                         tilecastVersion: archive.tilecastVersion,
@@ -285,14 +359,15 @@ export function BackupPanel({ owner }: { owner: boolean }) {
                 >
                   <span className="grid gap-0.5">
                     <strong className="text-sm font-semibold">
-                      {title(job.kind)}
+                      {jobKindLabel(job.kind)}
                     </strong>
                     <small className="text-xs text-muted-foreground">
-                      {formatDateTime(job.createdAt, locale)} · {job.trigger}
+                      {formatDateTime(job.createdAt, locale)} ·{" "}
+                      {triggerLabel(job.trigger)}
                     </small>
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    {job.status}
+                    {jobStatusLabel(job.status)}
                     {job.errorMessage ? ` — ${job.errorMessage}` : ""}
                   </span>
                 </div>
@@ -305,7 +380,15 @@ export function BackupPanel({ owner }: { owner: boolean }) {
   );
 }
 
-function JobProgress({ job }: { job: BackupJob }) {
+function JobProgress({
+  job,
+  kindLabel,
+  statusLabel,
+}: {
+  job: BackupJob;
+  kindLabel: string;
+  statusLabel: string;
+}) {
   const { t } = useTranslation(["settings", "common"]);
   return (
     <div
@@ -314,10 +397,10 @@ function JobProgress({ job }: { job: BackupJob }) {
     >
       <div className="grid gap-0.5">
         <strong className="text-sm font-semibold">
-          {t("backups.jobInProgress", { kind: title(job.kind) })}
+          {t("backups.jobInProgress", { kind: kindLabel })}
         </strong>
         <span className="text-sm text-muted-foreground">
-          {job.phase || job.status} · {job.progressPercent}%
+          {job.phase || statusLabel} · {job.progressPercent}%
         </span>
       </div>
       <progress max={100} value={job.progressPercent} className="w-full" />
@@ -325,6 +408,3 @@ function JobProgress({ job }: { job: BackupJob }) {
   );
 }
 class CancelledAction extends Error {}
-function title(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}

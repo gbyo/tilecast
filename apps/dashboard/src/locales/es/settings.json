@@ -1109,6 +1109,33 @@
     "remove": "Quitar"
   },
   "backups": {
+    "kinds": {
+      "manual": "Manual",
+      "scheduled": "Programada",
+      "preRestore": "Antes de restaurar",
+      "imported": "Importada"
+    },
+    "verification": {
+      "unverified": "Sin verificar",
+      "failed": "Verificación fallida"
+    },
+    "jobKinds": {
+      "backup": "Copia de seguridad",
+      "verify": "Verificación",
+      "restore": "Restauración"
+    },
+    "jobStatuses": {
+      "queued": "En cola",
+      "running": "En curso",
+      "succeeded": "Completada",
+      "failed": "Fallida",
+      "cancelled": "Cancelada"
+    },
+    "triggers": {
+      "manual": "Manual",
+      "scheduled": "Programada",
+      "preRestore": "Antes de restaurar"
+    },
     "ownerOnly": "Solo el propietario puede gestionar las copias.",
     "loading": "Cargando copias…",
     "loadError": "No se pudieron cargar las copias.",
