@@ -189,7 +189,7 @@ export const QUESTIONS: Question[] = [
     id: "platform",
     stage: "Players",
     text: "What will your displays run?",
-    help: "Tilecast Player runs on Android TV, Google TV, Fire TV, and Linux computers. There is no Player for Apple TV.",
+    help: "Tilecast Player runs on Android TV, Google TV, Fire TV, and Linux computers. A native Windows Player preview is in preparation. Apple TV is not supported.",
     summaryLabel: "Players",
     choices: [
       {
@@ -204,8 +204,13 @@ export const QUESTIONS: Question[] = [
       },
       {
         value: "both",
-        label: "A mix of both",
+        label: "A mix of Android and Linux",
         summary: "Android TV family and Linux",
+      },
+      {
+        value: "windows",
+        label: "A Windows 10 or 11 computer (preview in preparation)",
+        summary: "Windows PC (preview)",
       },
       {
         value: "unsure",
@@ -267,7 +272,7 @@ export function effectiveAnswers(answers: Answers): Answers {
 
 export type NetworkLayout = "flat" | "vlan" | "isolated" | "unknown";
 export type NetworkControl = "yes" | "limited" | "no" | "unknown";
-export type Platform = "android" | "linux";
+export type Platform = "android" | "linux" | "windows";
 
 export interface Facts {
   allPlayersLocal: Tri;
@@ -308,7 +313,9 @@ export function normalizeFacts(raw: Answers): Facts {
         ? ["linux"]
         : a.platform === "both"
           ? ["android", "linux"]
-          : [];
+          : a.platform === "windows"
+            ? ["windows"]
+            : [];
   return {
     allPlayersLocal:
       a.players === "same" ? "yes" : a.players === "unsure" ? "unknown" : "no",
@@ -412,11 +419,18 @@ export const STEPS = {
       "Run the installer from your server on a 64-bit x86_64 Linux computer with a graphical session.",
     href: "players/install-linux/",
   },
+  "install-windows": {
+    id: "install-windows",
+    title: "Prepare Tilecast Player on Windows (preview)",
+    summary:
+      "Check Windows 10/11 requirements, package availability, WebView2 and MSIX certificate trust before testing.",
+    href: "players/install-windows/",
+  },
   "choose-player": {
     id: "choose-player",
     title: "Choose a Player for your display",
     summary:
-      "Compare the Android and Linux Players before you buy or assign hardware.",
+      "Compare Android, Linux, and the Windows preview before buying or assigning hardware."
     href: "players/capabilities/",
   },
   pair: {
@@ -670,7 +684,7 @@ export function selectTopology(facts: Facts): TopologyRule {
 function playerSteps(facts: Facts): StepId[] {
   if (!facts.platformKnown) return ["choose-player"];
   return facts.platforms.map((p) =>
-    p === "android" ? "install-android" : "install-linux",
+    p === "android" ? "install-android" : p === "windows" ? "install-windows" : "install-linux",
   );
 }
 
@@ -838,6 +852,13 @@ function considerations(topology: TopologyId, f: Facts): Consideration[] {
       text: "If you later need Studio from outside, the Cloudflare Tunnel guide adds that without port forwarding.",
     });
   }
+  if (f.platforms.includes("windows")) {
+    items.push({
+      id: "windows-preview",
+      tone: "caution",
+      text: "Windows Player packages are not published yet, and x64 and ARM64 physical qualification is still in progress. Follow the Windows guide for preview availability and do not use it for unattended production screens.",
+    });
+  }
   if (f.platforms.includes("linux")) {
     items.push({
       id: "edge-preview",
@@ -849,7 +870,7 @@ function considerations(topology: TopologyId, f: Facts): Consideration[] {
     items.push({
       id: "player-undecided",
       tone: "note",
-      text: "Pick a Player platform before you buy displays. Tilecast supports Android TV, Google TV, Fire TV, and Linux computers. Apple TV is not supported.",
+      text: "Pick a Player platform before you buy displays. Android TV, Google TV, Fire TV, and Linux are documented production setup paths. Windows preview is being prepared; Apple TV is not supported.",
     });
   }
   return items;
