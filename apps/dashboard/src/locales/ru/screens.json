@@ -1594,5 +1594,62 @@
     "snapshotAlt": "Экран {{date}}",
     "manualSuffix": " · вручную",
     "openFull": "Открыть в полном размере"
+  },
+  "playerHealth": {
+    "title": "Состояние проигрывателя",
+    "loading": "Загрузка состояния проигрывателя…",
+    "observed": "Последнее проверенное наблюдение",
+    "cause": "Причина",
+    "renderer": "Средство отображения",
+    "lastProgress": "последний прогресс {{at}}",
+    "lastRecovery": "Последнее восстановление",
+    "recoveryLevel": "уровень {{level}}",
+    "lastFailure": "Последний сбой средства отображения",
+    "restartCount": "перезапусков: {{count}}",
+    "update": "Обновление",
+    "links": {
+      "activity": "Активность",
+      "commands": "Команды",
+      "updates": "Обновления проигрывателя"
+    },
+    "states": {
+      "disconnected": "Отключён",
+      "healthy": "Исправен",
+      "renderer_unavailable": "Средство отображения недоступно",
+      "waiting_for_evidence": "Ожидание воспроизведения",
+      "recovering": "Восстановление",
+      "safe_mode": "Безопасный режим",
+      "sleeping_or_disabled": "Сон или отключено",
+      "presentation_failed": "Презентация не удалась",
+      "needs_intervention": "Требуется вмешательство",
+      "unknown": "Неизвестно"
+    },
+    "causes": {
+      "screen_disabled": "Экран отключён",
+      "credential_revoked": "Учётные данные отозваны",
+      "awaiting_player": "Ожидание проигрывателя",
+      "never_contacted": "Связи не было",
+      "connection_lost": "Соединение потеряно",
+      "recovery": "Восстановление",
+      "update_failed": "Обновление не удалось",
+      "preparation_failed": "Подготовка не удалась",
+      "presentation_incompatible": "Презентация несовместима",
+      "recovery_in_progress": "Идёт восстановление",
+      "renderer_disconnected": "Средство отображения отключено",
+      "awaiting_playback_evidence": "Ожидание подтверждения воспроизведения",
+      "renderer_failure": "Сбой средства отображения",
+      "playback_disabled": "Воспроизведение отключено",
+      "display_sleep": "Спящий режим экрана",
+      "unreported": "Нет данных",
+      "player_setup": "Настройка проигрывателя"
+    },
+    "rendererStates": {
+      "healthy": "Исправно",
+      "safe_mode": "Безопасный режим",
+      "disconnected": "Отключено",
+      "starting": "Запуск",
+      "incompatible": "Несовместимо",
+      "waiting_for_progress": "Ожидание прогресса"
+    }
   }
 }

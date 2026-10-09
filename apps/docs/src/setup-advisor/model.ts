@@ -684,7 +684,11 @@ export function selectTopology(facts: Facts): TopologyRule {
 function playerSteps(facts: Facts): StepId[] {
   if (!facts.platformKnown) return ["choose-player"];
   return facts.platforms.map((p) =>
-    p === "android" ? "install-android" : p === "windows" ? "install-windows" : "install-linux",
+    p === "android"
+      ? "install-android"
+      : p === "windows"
+        ? "install-windows"
+        : "install-linux",
   );
 }
 
