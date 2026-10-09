@@ -292,6 +292,15 @@ func (s *Service) DeleteGroup(ctx context.Context, id, user uuid.UUID) error {
 	if _, err = tx.Exec(ctx, `DELETE FROM screen_group_memberships WHERE screen_group_id=$1`, id); err != nil {
 		return err
 	}
+	// Schedules and Quick Presents that targeted the group can no longer reach
+	// any screen. Disable the schedules and stop the sessions, so the lists do
+	// not show them as active and their Stop action does not fail later.
+	if _, err = tx.Exec(ctx, `UPDATE schedules SET enabled=FALSE,updated_at=now() WHERE deleted_at IS NULL AND enabled AND id IN (SELECT schedule_id FROM schedule_targets WHERE target_type='group' AND screen_group_id=$1)`, id); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE presentation_overrides SET stopped_at=now() WHERE target_type='group' AND target_id=$1 AND stopped_at IS NULL`, id); err != nil {
+		return err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
