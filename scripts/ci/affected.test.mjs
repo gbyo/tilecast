@@ -250,6 +250,21 @@ test("the package guest SDK and samples ride the package lanes", () => {
     ["docs"],
   );
 });
+test("external Widget fixture changes reach every host and shared SDK", () => {
+  for (const path of [
+    "packages/player-contracts/fixtures/widget-package/bundle.js",
+    "packages/player-contracts/fixtures/widget-package/hostile.js",
+  ]) {
+    const result = affected([path]);
+    for (const area of [
+      "widgets", "server", "dashboard", "runtime", "browser_player",
+      "android", "windows", "edge_rust", "edge_wpe", "edge_conformance",
+      "player_core",
+    ]) {
+      assert.equal(result[area], true, `${path}: ${area}`);
+    }
+  }
+});
 test("the player capability registry selects its browser, server, and Rust consumers", () => {
   const result = affected([
     "packages/player-contracts/player-capabilities.json",
