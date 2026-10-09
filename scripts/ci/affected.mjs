@@ -132,6 +132,13 @@ const rules = [
     /^packages\/player-contracts\/fixtures\/widget-frames\.json$/,
     ["protocol", "player_core"],
   ],
+  // External Widget conformance fixtures are executed by the shared Widget
+  // SDK and projected by the Runtime, then exercised by native hosts.
+  // Keep each changed fixture on the relevant cross-player validation lanes.
+  [
+    /^packages\/player-contracts\/fixtures\/widget-package\//,
+    ["widgets", "protocol", "player_core"],
+  ],
   // The versioned Player Capability registry is replayed by the server
   // drift test, imported by the Browser Player providers, and mirrored
   // in player-types.
