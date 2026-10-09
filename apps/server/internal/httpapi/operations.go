@@ -693,6 +693,10 @@ var (
 )
 
 func (s *server) queueCommand(ctx context.Context, screen, user uuid.UUID, commandType string, payload []byte, idempotencyKey uuid.UUID) (uuid.UUID, time.Time, error) {
+	// Read the runtime setting before the transaction takes a pool connection.
+	// Reading it inside would wait on a second connection, and concurrent enqueues
+	// could hold every connection while waiting on each other.
+	expiryMinutes := s.runtimeIntContext(ctx, "commands.default_expiry_minutes", s.operations.DefaultCommandExpiryMinutes)
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return uuid.Nil, time.Time{}, err
@@ -747,7 +751,7 @@ func (s *server) queueCommand(ctx context.Context, screen, user uuid.UUID, comma
 	}
 
 	id := uuid.New()
-	expires := time.Now().Add(time.Duration(s.runtimeIntContext(ctx, "commands.default_expiry_minutes", s.operations.DefaultCommandExpiryMinutes)) * time.Minute)
+	expires := time.Now().Add(time.Duration(expiryMinutes) * time.Minute)
 	if err = tx.QueryRow(ctx, `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at)VALUES($1,$2,$3,$4,$5::jsonb,$6,$7,$8) RETURNING id,expires_at`, id, org, screen, commandType, string(payload), idempotencyKey, user, expires).Scan(&id, &expires); err != nil {
 		return uuid.Nil, time.Time{}, err
 	}
