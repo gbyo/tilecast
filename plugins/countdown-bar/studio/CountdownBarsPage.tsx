@@ -402,6 +402,9 @@ export function CountdownBarEditorPage() {
     queryFn: () => countdownApi.get(id ?? ""),
     enabled: editing,
   });
+  // Until the saved Countdown Bar has loaded, the form has nothing to edit
+  // against. Edits made now would be overwritten when the response arrives.
+  const awaitingSaved = editing && !instance.isSuccess;
   const previousLeadMinutes = useRef(defaults.leadMinutes);
   const timezoneTouched = useRef(false);
   // Numeric urgency fallbacks are identical in every language; destructuring
@@ -614,412 +617,417 @@ export function CountdownBarEditorPage() {
         className="grid gap-4"
         onSubmit={(event) => void handleSubmit(submit)(event)}
       >
-        <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">
-            {ct("editor.sections.content")}
-          </h2>
-          <FormField
-            id="countdown-name"
-            label={t("shared.nameLabel")}
-            aria-required="true"
-            error={errors.name?.message}
-            {...register("name")}
-          />
-          <FormField
-            id="countdown-message"
-            label={ct("editor.messageLabel")}
-            aria-required="true"
-            error={errors.message?.message}
-            {...register("message")}
-          />
-          <FormField
-            id="countdown-completion"
-            label={ct("editor.completionLabel")}
-            placeholder={ct("editor.completionPlaceholder")}
-            hint={ct("editor.completionHint")}
-            error={errors.completionText?.message}
-            {...register("completionText")}
-          />
-          <RegisterCheckbox
-            control={control}
-            name="showConfetti"
-            label={ct("editor.confettiLabel")}
-          />
-        </section>
-
-        <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">
-            {ct("editor.sections.timing")}
-          </h2>
-          <Field>
-            <FieldLabel htmlFor="countdown-schedule-type">
-              {ct("editor.scheduleLabel")}
-            </FieldLabel>
-            <Select
-              items={scheduleTypeOptions.map((option) => ({
-                value: option.value,
-                label: ct(option.labelKey),
-              }))}
-              name="scheduleType"
-              value={scheduleType}
-              onValueChange={(next) => {
-                if (next) setScheduleType(next);
-              }}
-            >
-              <SelectTrigger
-                id="countdown-schedule-type"
-                aria-label={ct("editor.scheduleLabel")}
-              >
-                <SelectValue>
-                  {ct(
-                    scheduleTypeOptions.find(
-                      (option) => option.value === scheduleType,
-                    )?.labelKey ?? "editor.scheduleType.weekly",
-                  )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {scheduleTypeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {ct(option.labelKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          {scheduleType === "weekly" ? (
-            <>
-              <FormField
-                id="countdown-target-time"
-                label={ct("editor.targetTimeLabel")}
-                type="time"
-                error={errors.targetTime?.message}
-                {...register("targetTime")}
-              />
-              <div className="grid gap-2">
-                <span className="text-sm font-medium" id="countdown-days-label">
-                  {ct("editor.daysLabel")}
-                </span>
-                <ToggleGroup
-                  multiple
-                  variant="outline"
-                  size="sm"
-                  spacing={1}
-                  className="flex-wrap"
-                  aria-labelledby="countdown-days-label"
-                  value={selectedDays.map(String)}
-                  onValueChange={(values) => {
-                    const next = values.map(Number);
-                    const changed = [
-                      ...next.filter((day) => !selectedDays.includes(day)),
-                      ...selectedDays.filter((day) => !next.includes(day)),
-                    ];
-                    changed.forEach(toggleDay);
-                  }}
-                >
-                  {scheduleWeekdays.map((day) => (
-                    <ToggleGroupItem
-                      key={day.value}
-                      value={String(day.value)}
-                      className="min-w-10 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:shadow-sm aria-pressed:hover:bg-primary/90"
-                    >
-                      {weekdayShortLabel(day.value, t)}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-                {errors.daysOfWeek && (
-                  <span className="text-sm text-destructive" role="alert">
-                    {errors.daysOfWeek.message}
-                  </span>
-                )}
-              </div>
-            </>
-          ) : (
-            <Controller
-              control={control}
-              name="oneTimeAt"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="countdown-one-time">
-                    {ct("editor.oneTimeLabel")}
-                  </FieldLabel>
-                  <DateTimeInput
-                    id="countdown-one-time"
-                    aria-label={ct("editor.oneTimeLabel")}
-                    timeLabel={ct("editor.targetTimeLabel")}
-                    value={field.value}
-                    onChange={field.onChange}
-                    onBlur={field.onBlur}
-                    aria-invalid={fieldState.invalid}
-                    aria-describedby={
-                      fieldState.error
-                        ? "countdown-one-time-hint countdown-one-time-error"
-                        : "countdown-one-time-hint"
-                    }
-                  />
-                  <FieldDescription id="countdown-one-time-hint">
-                    {ct("editor.oneTimeHint")}
-                  </FieldDescription>
-                  <FieldError
-                    id="countdown-one-time-error"
-                    errors={[fieldState.error]}
-                  />
-                </Field>
-              )}
-            />
-          )}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField
-              id="countdown-timezone"
-              label={ct("editor.timezoneLabel")}
-              aria-required="true"
-              error={errors.timezone?.message}
-              {...register("timezone", {
-                onChange: () => {
-                  timezoneTouched.current = true;
-                },
-              })}
-            />
-            <FormField
-              id="countdown-lead"
-              label={ct("editor.leadLabel")}
-              type="number"
-              min={1}
-              max={43_200}
-              error={errors.leadMinutes?.message}
-              {...register("leadMinutes", { valueAsNumber: true })}
-            />
-          </div>
-        </section>
-
-        <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">
-            {ct("editor.sections.display")}
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="countdown-display-mode">
-                {ct("editor.modeLabel")}
-              </FieldLabel>
-              <Select
-                items={displayModeOptions.map((option) => ({
-                  value: option.value,
-                  label: ct(option.labelKey),
-                }))}
-                name="displayMode"
-                value={displayMode}
-                onValueChange={(next) => {
-                  if (next) setDisplayMode(next);
-                }}
-              >
-                <SelectTrigger
-                  id="countdown-display-mode"
-                  aria-label={ct("editor.modeLabel")}
-                >
-                  <SelectValue>
-                    {ct(
-                      displayModeOptions.find(
-                        (option) => option.value === displayMode,
-                      )?.labelKey ?? "editor.displayMode.overlay",
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {displayModeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {ct(option.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="countdown-progress-fill">
-                {ct("editor.progressLabel")}
-              </FieldLabel>
-              <Select
-                items={progressFillOptions.map((option) => ({
-                  value: option.value,
-                  label: ct(option.labelKey),
-                }))}
-                name="progressFill"
-                value={progressFill}
-                onValueChange={(next) => {
-                  if (next) setProgressFill(next);
-                }}
-              >
-                <SelectTrigger
-                  id="countdown-progress-fill"
-                  aria-label={ct("editor.progressLabel")}
-                >
-                  <SelectValue>
-                    {ct(
-                      progressFillOptions.find(
-                        (option) => option.value === progressFill,
-                      )?.labelKey ?? "editor.progressFill.none",
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {progressFillOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {ct(option.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldDescription>{ct("editor.progressHint")}</FieldDescription>
-            </Field>
-            <FormField
-              id="countdown-height"
-              label={ct("editor.heightLabel")}
-              type="number"
-              min={40}
-              max={320}
-              error={errors.heightPx?.message}
-              {...register("heightPx", { valueAsNumber: true })}
-            />
-            <FormField
-              id="countdown-padding"
-              label={ct("editor.paddingLabel")}
-              hint={ct("editor.paddingHint")}
-              aria-label={ct("editor.paddingLabel")}
-              type="number"
-              min={0}
-              max={40}
-              error={errors.contentPadding?.message}
-              {...register("contentPadding", { valueAsNumber: true })}
-            />
-            <FormField
-              id="countdown-text-scale"
-              label={ct("editor.textScaleLabel")}
-              hint={ct("editor.textScaleHint")}
-              aria-label={ct("editor.textScaleLabel")}
-              type="number"
-              min={25}
-              max={500}
-              error={errors.textScale?.message}
-              {...register("textScale", { valueAsNumber: true })}
-            />
-            <FormField
-              id="countdown-priority"
-              label={t("shared.priorityLabel")}
-              type="number"
-              min={-1000}
-              max={1000}
-              error={errors.priority?.message}
-              {...register("priority", { valueAsNumber: true })}
-            />
-          </div>
-          <RegisterCheckbox
-            control={control}
-            name="enabled"
-            label={t("shared.enabledLabel")}
-          />
-        </section>
-
-        <section className="grid gap-4 rounded-xl border border-border p-4">
-          <header className="grid gap-1">
+        <fieldset disabled={awaitingSaved} className="contents">
+          <section className="grid gap-4 rounded-xl border border-border p-4">
             <h2 className="text-base font-semibold">
-              {ct("editor.sections.urgency")}
+              {ct("editor.sections.content")}
             </h2>
-            <p className="text-sm text-muted-foreground">
-              {ct("editor.urgencyDescription")}
-            </p>
-          </header>
-          <RegisterCheckbox
-            control={control}
-            name="urgencyEnabled"
-            label={ct("editor.urgencyEnabledLabel")}
-          />
-          {urgencyEnabled && (
-            <div className="grid gap-4 sm:grid-cols-3">
+            <FormField
+              id="countdown-name"
+              label={t("shared.nameLabel")}
+              aria-required="true"
+              error={errors.name?.message}
+              {...register("name")}
+            />
+            <FormField
+              id="countdown-message"
+              label={ct("editor.messageLabel")}
+              aria-required="true"
+              error={errors.message?.message}
+              {...register("message")}
+            />
+            <FormField
+              id="countdown-completion"
+              label={ct("editor.completionLabel")}
+              placeholder={ct("editor.completionPlaceholder")}
+              hint={ct("editor.completionHint")}
+              error={errors.completionText?.message}
+              {...register("completionText")}
+            />
+            <RegisterCheckbox
+              control={control}
+              name="showConfetti"
+              label={ct("editor.confettiLabel")}
+            />
+          </section>
+
+          <section className="grid gap-4 rounded-xl border border-border p-4">
+            <h2 className="text-base font-semibold">
+              {ct("editor.sections.timing")}
+            </h2>
+            <Field>
+              <FieldLabel htmlFor="countdown-schedule-type">
+                {ct("editor.scheduleLabel")}
+              </FieldLabel>
+              <Select
+                items={scheduleTypeOptions.map((option) => ({
+                  value: option.value,
+                  label: ct(option.labelKey),
+                }))}
+                name="scheduleType"
+                value={scheduleType}
+                onValueChange={(next) => {
+                  if (next) setScheduleType(next);
+                }}
+              >
+                <SelectTrigger
+                  id="countdown-schedule-type"
+                  aria-label={ct("editor.scheduleLabel")}
+                >
+                  <SelectValue>
+                    {ct(
+                      scheduleTypeOptions.find(
+                        (option) => option.value === scheduleType,
+                      )?.labelKey ?? "editor.scheduleType.weekly",
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {scheduleTypeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {ct(option.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            {scheduleType === "weekly" ? (
+              <>
+                <FormField
+                  id="countdown-target-time"
+                  label={ct("editor.targetTimeLabel")}
+                  type="time"
+                  error={errors.targetTime?.message}
+                  {...register("targetTime")}
+                />
+                <div className="grid gap-2">
+                  <span
+                    className="text-sm font-medium"
+                    id="countdown-days-label"
+                  >
+                    {ct("editor.daysLabel")}
+                  </span>
+                  <ToggleGroup
+                    multiple
+                    variant="outline"
+                    size="sm"
+                    spacing={1}
+                    className="flex-wrap"
+                    aria-labelledby="countdown-days-label"
+                    value={selectedDays.map(String)}
+                    onValueChange={(values) => {
+                      const next = values.map(Number);
+                      const changed = [
+                        ...next.filter((day) => !selectedDays.includes(day)),
+                        ...selectedDays.filter((day) => !next.includes(day)),
+                      ];
+                      changed.forEach(toggleDay);
+                    }}
+                  >
+                    {scheduleWeekdays.map((day) => (
+                      <ToggleGroupItem
+                        key={day.value}
+                        value={String(day.value)}
+                        className="min-w-10 aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:shadow-sm aria-pressed:hover:bg-primary/90"
+                      >
+                        {weekdayShortLabel(day.value, t)}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                  {errors.daysOfWeek && (
+                    <span className="text-sm text-destructive" role="alert">
+                      {errors.daysOfWeek.message}
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <Controller
+                control={control}
+                name="oneTimeAt"
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="countdown-one-time">
+                      {ct("editor.oneTimeLabel")}
+                    </FieldLabel>
+                    <DateTimeInput
+                      id="countdown-one-time"
+                      aria-label={ct("editor.oneTimeLabel")}
+                      timeLabel={ct("editor.targetTimeLabel")}
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      aria-invalid={fieldState.invalid}
+                      aria-describedby={
+                        fieldState.error
+                          ? "countdown-one-time-hint countdown-one-time-error"
+                          : "countdown-one-time-hint"
+                      }
+                    />
+                    <FieldDescription id="countdown-one-time-hint">
+                      {ct("editor.oneTimeHint")}
+                    </FieldDescription>
+                    <FieldError
+                      id="countdown-one-time-error"
+                      errors={[fieldState.error]}
+                    />
+                  </Field>
+                )}
+              />
+            )}
+            <div className="grid gap-4 sm:grid-cols-2">
               <FormField
-                id="countdown-starting-soon"
-                label={ct("editor.startingSoonLabel")}
-                type="number"
-                min={1}
-                max={1_440}
-                error={errors.startingSoonMinutes?.message}
-                {...register("startingSoonMinutes", {
-                  valueAsNumber: true,
+                id="countdown-timezone"
+                label={ct("editor.timezoneLabel")}
+                aria-required="true"
+                error={errors.timezone?.message}
+                {...register("timezone", {
                   onChange: () => {
-                    linkedUrgencyDefaults.current.startingSoonMinutes = false;
+                    timezoneTouched.current = true;
                   },
                 })}
               />
               <FormField
-                id="countdown-urgent"
-                label={ct("editor.urgentLabel")}
-                type="number"
-                min={2}
-                max={3_600}
-                error={errors.urgentSeconds?.message}
-                {...register("urgentSeconds", {
-                  valueAsNumber: true,
-                  onChange: () => {
-                    linkedUrgencyDefaults.current.urgentSeconds = false;
-                  },
-                })}
-              />
-              <FormField
-                id="countdown-pulse"
-                label={ct("editor.pulseLabel")}
-                hint={ct("editor.pulseHint")}
+                id="countdown-lead"
+                label={ct("editor.leadLabel")}
                 type="number"
                 min={1}
-                max={60}
-                error={errors.pulseSeconds?.message}
-                {...register("pulseSeconds", {
-                  valueAsNumber: true,
-                  onChange: () => {
-                    linkedUrgencyDefaults.current.pulseSeconds = false;
-                  },
-                })}
+                max={43_200}
+                error={errors.leadMinutes?.message}
+                {...register("leadMinutes", { valueAsNumber: true })}
               />
             </div>
+          </section>
+
+          <section className="grid gap-4 rounded-xl border border-border p-4">
+            <h2 className="text-base font-semibold">
+              {ct("editor.sections.display")}
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="countdown-display-mode">
+                  {ct("editor.modeLabel")}
+                </FieldLabel>
+                <Select
+                  items={displayModeOptions.map((option) => ({
+                    value: option.value,
+                    label: ct(option.labelKey),
+                  }))}
+                  name="displayMode"
+                  value={displayMode}
+                  onValueChange={(next) => {
+                    if (next) setDisplayMode(next);
+                  }}
+                >
+                  <SelectTrigger
+                    id="countdown-display-mode"
+                    aria-label={ct("editor.modeLabel")}
+                  >
+                    <SelectValue>
+                      {ct(
+                        displayModeOptions.find(
+                          (option) => option.value === displayMode,
+                        )?.labelKey ?? "editor.displayMode.overlay",
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {displayModeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {ct(option.labelKey)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="countdown-progress-fill">
+                  {ct("editor.progressLabel")}
+                </FieldLabel>
+                <Select
+                  items={progressFillOptions.map((option) => ({
+                    value: option.value,
+                    label: ct(option.labelKey),
+                  }))}
+                  name="progressFill"
+                  value={progressFill}
+                  onValueChange={(next) => {
+                    if (next) setProgressFill(next);
+                  }}
+                >
+                  <SelectTrigger
+                    id="countdown-progress-fill"
+                    aria-label={ct("editor.progressLabel")}
+                  >
+                    <SelectValue>
+                      {ct(
+                        progressFillOptions.find(
+                          (option) => option.value === progressFill,
+                        )?.labelKey ?? "editor.progressFill.none",
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {progressFillOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {ct(option.labelKey)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldDescription>{ct("editor.progressHint")}</FieldDescription>
+              </Field>
+              <FormField
+                id="countdown-height"
+                label={ct("editor.heightLabel")}
+                type="number"
+                min={40}
+                max={320}
+                error={errors.heightPx?.message}
+                {...register("heightPx", { valueAsNumber: true })}
+              />
+              <FormField
+                id="countdown-padding"
+                label={ct("editor.paddingLabel")}
+                hint={ct("editor.paddingHint")}
+                aria-label={ct("editor.paddingLabel")}
+                type="number"
+                min={0}
+                max={40}
+                error={errors.contentPadding?.message}
+                {...register("contentPadding", { valueAsNumber: true })}
+              />
+              <FormField
+                id="countdown-text-scale"
+                label={ct("editor.textScaleLabel")}
+                hint={ct("editor.textScaleHint")}
+                aria-label={ct("editor.textScaleLabel")}
+                type="number"
+                min={25}
+                max={500}
+                error={errors.textScale?.message}
+                {...register("textScale", { valueAsNumber: true })}
+              />
+              <FormField
+                id="countdown-priority"
+                label={t("shared.priorityLabel")}
+                type="number"
+                min={-1000}
+                max={1000}
+                error={errors.priority?.message}
+                {...register("priority", { valueAsNumber: true })}
+              />
+            </div>
+            <RegisterCheckbox
+              control={control}
+              name="enabled"
+              label={t("shared.enabledLabel")}
+            />
+          </section>
+
+          <section className="grid gap-4 rounded-xl border border-border p-4">
+            <header className="grid gap-1">
+              <h2 className="text-base font-semibold">
+                {ct("editor.sections.urgency")}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {ct("editor.urgencyDescription")}
+              </p>
+            </header>
+            <RegisterCheckbox
+              control={control}
+              name="urgencyEnabled"
+              label={ct("editor.urgencyEnabledLabel")}
+            />
+            {urgencyEnabled && (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <FormField
+                  id="countdown-starting-soon"
+                  label={ct("editor.startingSoonLabel")}
+                  type="number"
+                  min={1}
+                  max={1_440}
+                  error={errors.startingSoonMinutes?.message}
+                  {...register("startingSoonMinutes", {
+                    valueAsNumber: true,
+                    onChange: () => {
+                      linkedUrgencyDefaults.current.startingSoonMinutes = false;
+                    },
+                  })}
+                />
+                <FormField
+                  id="countdown-urgent"
+                  label={ct("editor.urgentLabel")}
+                  type="number"
+                  min={2}
+                  max={3_600}
+                  error={errors.urgentSeconds?.message}
+                  {...register("urgentSeconds", {
+                    valueAsNumber: true,
+                    onChange: () => {
+                      linkedUrgencyDefaults.current.urgentSeconds = false;
+                    },
+                  })}
+                />
+                <FormField
+                  id="countdown-pulse"
+                  label={ct("editor.pulseLabel")}
+                  hint={ct("editor.pulseHint")}
+                  type="number"
+                  min={1}
+                  max={60}
+                  error={errors.pulseSeconds?.message}
+                  {...register("pulseSeconds", {
+                    valueAsNumber: true,
+                    onChange: () => {
+                      linkedUrgencyDefaults.current.pulseSeconds = false;
+                    },
+                  })}
+                />
+              </div>
+            )}
+          </section>
+
+          <section className="grid gap-4 rounded-xl border border-border p-4">
+            <h2 className="text-base font-semibold">
+              {t("shared.targetsSection")}
+            </h2>
+            <TargetFields
+              idPrefix="countdown"
+              scope={targetScope}
+              source={targetSource}
+              error={errors.targetIds?.message}
+              control={control}
+              onScopeChange={(value) => {
+                // Ids from the previous scope would otherwise stay registered and
+                // be submitted alongside the new scope's picks.
+                setValue("targetIds", []);
+                setValue("targetScope", value, { shouldDirty: true });
+              }}
+            />
+          </section>
+
+          {save.isError && (
+            <Alert variant="destructive">
+              <AlertDescription>{apiErrorMessage(save.error)}</AlertDescription>
+            </Alert>
           )}
-        </section>
-
-        <section className="grid gap-4 rounded-xl border border-border p-4">
-          <h2 className="text-base font-semibold">
-            {t("shared.targetsSection")}
-          </h2>
-          <TargetFields
-            idPrefix="countdown"
-            scope={targetScope}
-            source={targetSource}
-            error={errors.targetIds?.message}
-            control={control}
-            onScopeChange={(value) => {
-              // Ids from the previous scope would otherwise stay registered and
-              // be submitted alongside the new scope's picks.
-              setValue("targetIds", []);
-              setValue("targetScope", value, { shouldDirty: true });
-            }}
-          />
-        </section>
-
-        {save.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>{apiErrorMessage(save.error)}</AlertDescription>
-          </Alert>
-        )}
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <Link
-            className={buttonVariants({ variant: "outline", size: "lg" })}
-            to="/plugins/countdown-bar"
-          >
-            {t("common:actions.cancel")}
-          </Link>
-          <Button type="submit" disabled={save.isPending}>
-            {save.isPending
-              ? t("common:actions.saving")
-              : editing
-                ? t("common:actions.saveChanges")
-                : t("shared.createInstance")}
-          </Button>
-        </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link
+              className={buttonVariants({ variant: "outline", size: "lg" })}
+              to="/plugins/countdown-bar"
+            >
+              {t("common:actions.cancel")}
+            </Link>
+            <Button type="submit" disabled={save.isPending || awaitingSaved}>
+              {save.isPending
+                ? t("common:actions.saving")
+                : editing
+                  ? t("common:actions.saveChanges")
+                  : t("shared.createInstance")}
+            </Button>
+          </div>
+        </fieldset>
       </form>
     </main>
   );
