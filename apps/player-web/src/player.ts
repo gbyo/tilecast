@@ -527,12 +527,7 @@ export class BrowserPlayer {
         backoff = outcome;
       }
       try {
-        await Promise.race([
-          pause(backoff, this.abort.signal),
-          new Promise<void>((resolve) =>
-            this.wake.addEventListener("wake", () => resolve(), { once: true }),
-          ),
-        ]);
+        await waitForPoll(this.wake, backoff, this.abort.signal);
       } catch {
         break;
       }
@@ -919,4 +914,33 @@ export function compatibilityProblem(message: string): void {
   copy.textContent = message;
   main.append(title, copy);
   document.body.replaceChildren(main);
+}
+
+/**
+ * Waits for the next poll: the interval, an early wake, or abort. The wake
+ * listener is removed on every exit path. A timeout that wins would otherwise
+ * leave one callback behind per poll until the next wake event.
+ */
+export async function waitForPoll(
+  wake: EventTarget,
+  milliseconds: number,
+  signal: AbortSignal,
+): Promise<void> {
+  const waiter = new AbortController();
+  const stop = () => waiter.abort(signal.reason);
+  signal.addEventListener("abort", stop, { once: true });
+  try {
+    await Promise.race([
+      pause(milliseconds, waiter.signal),
+      new Promise<void>((resolve) =>
+        wake.addEventListener("wake", () => resolve(), {
+          once: true,
+          signal: waiter.signal,
+        }),
+      ),
+    ]);
+  } finally {
+    signal.removeEventListener("abort", stop);
+    waiter.abort();
+  }
 }
