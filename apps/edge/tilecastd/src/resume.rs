@@ -100,28 +100,33 @@ pub async fn note_item_evidence(
     let manifest_digest = identity.manifest.to_hex();
     let playlist_id = playlist_id.to_string();
     let binding = {
-        let mut resume = context.resume.lock().unwrap_or_else(|poison| poison.into_inner());
+        let resume = context.resume.lock().unwrap_or_else(|poison| poison.into_inner());
         if !resume.needs_write(&manifest_digest, &playlist_id, item_id) {
             return;
         }
-        let Some(binding) = resume.binding.clone() else { return };
-        resume.mark_written(&manifest_digest, &playlist_id, item_id);
-        binding
+        resume.binding.clone()
     };
+    let Some(binding) = binding else { return };
     let Some(db) = context.db() else { return };
     let checkpoint = PlaybackCheckpoint {
         installation_id: binding.installation_id,
         screen_id: binding.screen_id,
         server_url: binding.server_url,
         manifest_version: identity.manifest_version,
-        manifest_digest,
-        playlist_id,
+        manifest_digest: manifest_digest.clone(),
+        playlist_id: playlist_id.clone(),
         item_id: item_id.to_owned(),
         presented_at: now,
         updated_at: now,
     };
-    if let Err(error) = db.run(move |conn| edge_state::repo::playback_checkpoint::put(conn, &checkpoint)).await {
-        tracing::warn!(component = "resume", event = "checkpoint_store_failed", error = %error);
+    // Mark the tuple only after the write lands. A failed write leaves it
+    // unmarked, so the next accepted evidence for the same item retries it.
+    match db.run(move |conn| edge_state::repo::playback_checkpoint::put(conn, &checkpoint)).await {
+        Ok(()) => {
+            let mut resume = context.resume.lock().unwrap_or_else(|poison| poison.into_inner());
+            resume.mark_written(&manifest_digest, &playlist_id, item_id);
+        }
+        Err(error) => tracing::warn!(component = "resume", event = "checkpoint_store_failed", error = %error),
     }
 }
 
