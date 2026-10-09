@@ -307,3 +307,18 @@ describe("asset action failure feedback", () => {
     expect(await screen.findByText("Poster-1")).toBeInTheDocument();
   });
 });
+
+describe("media details pane", () => {
+  it("shows the newly opened asset's fields, not the previous asset's", async () => {
+    mockLibrary();
+    vi.spyOn(api, "asset").mockImplementation((id) =>
+      Promise.resolve(asset(id, id.replace("poster-", "Poster-"))),
+    );
+    renderPage();
+    fireEvent.click(await screen.findByText("Poster-1"));
+    expect(await screen.findByDisplayValue("Poster-1")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Poster-2"));
+    expect(await screen.findByDisplayValue("Poster-2")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Poster-1")).toBeNull();
+  });
+});

@@ -997,6 +997,9 @@ export function ContentPage() {
       )}
       {selected && (
         <AssetDetails
+          // A new asset remounts the pane, so its form state starts from
+          // that asset instead of the previously selected one.
+          key={selected.id}
           asset={selected}
           canManage={canManage && libraryView === "active"}
           csrf={csrf}
