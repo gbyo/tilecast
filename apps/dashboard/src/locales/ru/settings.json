@@ -1084,6 +1084,8 @@
     }
   },
   "branding": {
+    "loginBackgroundSaved": "Фон входа сохранён.",
+    "loginBackgroundRemoved": "Фон входа удалён.",
     "title": "Изображения организации",
     "description": "Загрузите изображения с этого устройства. Выбранный ресурс Tilecast хранит внутренне.",
     "logo": {
