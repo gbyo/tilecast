@@ -331,6 +331,21 @@ describe("Forms portal", () => {
     await waitFor(() => expect(transition).toHaveBeenCalled());
   });
 
+  it("reports a failed submissions request instead of an empty list", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(form(["submit"]));
+    vi.spyOn(formsApi, "listFormRecords").mockRejectedValue(
+      new Error("Records offline"),
+    );
+    renderPortal("/forms/f1");
+
+    expect(
+      await screen.findByText(
+        "We could not load your submissions. Try again later.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No submissions yet")).toBeNull();
+  });
+
   it("confirms the submission landed after returning to the form", async () => {
     vi.spyOn(formsApi, "getForm").mockResolvedValue(form(["submit"]));
     vi.spyOn(formsApi, "listFormRecords").mockResolvedValue({

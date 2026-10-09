@@ -636,6 +636,7 @@
       "submissionsTitle": "Your submissions",
       "submissionsLoading": "Loading submissions…",
       "submissionsEmpty": "No submissions yet",
+      "submissionsError": "We could not load your submissions. Try again later.",
       "submissionsEmptySubmit": "Start a submission to see it here.",
       "submissionsEmptyNone": "You have not submitted to this form.",
       "submissionsPages": "Your submissions pages",
