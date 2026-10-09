@@ -529,7 +529,8 @@ func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error 
 	defer tx.Rollback(ctx) //nolint:errcheck
 	var key string
 	var status UploadStatus
-	err = tx.QueryRow(ctx, `SELECT temporary_storage_key,status FROM upload_sessions WHERE id=$1 AND created_by=$2 FOR UPDATE`, id, userID).Scan(&key, &status)
+	var marker *string
+	err = tx.QueryRow(ctx, `SELECT temporary_storage_key,status,failure_code FROM upload_sessions WHERE id=$1 AND created_by=$2 FOR UPDATE`, id, userID).Scan(&key, &status, &marker)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -540,9 +541,16 @@ func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error 
 		return ErrUploadUnavailable
 	}
 	if status == UploadCancelled {
+		if err = tx.Commit(ctx); err != nil {
+			return err
+		}
+		// A cancellation whose file delete failed stays marked until the file is gone.
+		if marker != nil && *marker == uploadCancelledCleanupPending {
+			return s.removeCancelledUpload(ctx, id, key)
+		}
 		return nil
 	}
-	if _, err = tx.Exec(ctx, `UPDATE upload_sessions SET status='cancelled',failure_code=NULL WHERE id=$1`, id); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE upload_sessions SET status='cancelled',failure_code=$2 WHERE id=$1`, id, uploadCancelledCleanupPending); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs (id,user_id,action,resource_type,resource_id) VALUES ($1,$2,'media.upload_cancelled','upload',$3)`, uuid.New(), userID, id.String()); err != nil {
@@ -551,7 +559,55 @@ func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error 
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
-	return s.storage.Delete(key)
+	return s.removeCancelledUpload(ctx, id, key)
+}
+
+// uploadCancelledCleanupPending marks a cancelled session whose temporary file
+// has not been removed yet. The cleanup worker and a repeated cancellation both
+// retry the removal until it succeeds.
+const uploadCancelledCleanupPending = "upload_cancelled_cleanup_pending"
+
+// removeCancelledUpload deletes a cancelled session's temporary file, then clears
+// the marker. A failed delete leaves the marker in place for a later retry.
+func (s *Service) removeCancelledUpload(ctx context.Context, id uuid.UUID, key string) error {
+	if err := s.storage.Delete(key); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(ctx, `UPDATE upload_sessions SET failure_code=NULL WHERE id=$1 AND status='cancelled' AND failure_code=$2`, id, uploadCancelledCleanupPending)
+	return err
+}
+
+// retryCancelledCleanup removes temporary files of cancelled uploads whose first
+// removal failed. Cleanup runs periodically so an orphan is not kept indefinitely.
+func (s *Service) retryCancelledCleanup(ctx context.Context) error {
+	rows, err := s.db.Query(ctx, `SELECT id,temporary_storage_key FROM upload_sessions WHERE status='cancelled' AND failure_code=$1 ORDER BY created_at LIMIT 32`, uploadCancelledCleanupPending)
+	if err != nil {
+		return err
+	}
+	type pending struct {
+		id  uuid.UUID
+		key string
+	}
+	var items []pending
+	for rows.Next() {
+		var item pending
+		if err := rows.Scan(&item.id, &item.key); err != nil {
+			rows.Close()
+			return err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, item := range items {
+		if err := s.removeCancelledUpload(ctx, item.id, item.key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // assetOrigin returns the origin ('library' or 'form_attachment') of a live asset, or ErrNotFound.

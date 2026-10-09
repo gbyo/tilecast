@@ -461,6 +461,9 @@ func (p *WorkerPool) cleanExpired(ctx context.Context) error {
 		return err
 	}
 	rows.Close()
+	if err := p.service.retryCancelledCleanup(ctx); err != nil {
+		return err
+	}
 	for _, id := range cleaned {
 		if _, err := p.service.db.Exec(ctx, `UPDATE upload_sessions SET failure_code='upload_expired' WHERE id=$1 AND status='expired' AND failure_code='upload_expired_cleanup_pending'`, id); err != nil {
 			return err
