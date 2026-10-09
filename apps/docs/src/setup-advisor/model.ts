@@ -430,7 +430,7 @@ export const STEPS = {
     id: "choose-player",
     title: "Choose a Player for your display",
     summary:
-      "Compare Android, Linux, and the Windows preview before buying or assigning hardware."
+      "Compare Android, Linux, and the Windows preview before buying or assigning hardware.",
     href: "players/capabilities/",
   },
   pair: {
