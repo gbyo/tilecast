@@ -23,8 +23,7 @@ use tokio_util::sync::CancellationToken;
 
 async fn get(port: u16, path: &str, range: Option<&str>) -> (hyper::StatusCode, hyper::HeaderMap, Vec<u8>) {
     let stream = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
-    let (mut sender, conn) =
-        hyper::client::conn::http1::handshake(hyper_util::rt::TokioIo::new(stream)).await.unwrap();
+    let (mut sender, conn) = hyper::client::conn::http1::handshake(hyper_util::rt::TokioIo::new(stream)).await.unwrap();
     tokio::spawn(conn);
     let mut request = hyper::Request::builder().uri(format!("http://127.0.0.1:{port}{path}"));
     if let Some(range) = range {
@@ -39,8 +38,7 @@ async fn get(port: u16, path: &str, range: Option<&str>) -> (hyper::StatusCode, 
 
 async fn head(port: u16, path: &str) -> (hyper::StatusCode, hyper::HeaderMap, Vec<u8>) {
     let stream = tokio::net::TcpStream::connect(("127.0.0.1", port)).await.unwrap();
-    let (mut sender, conn) =
-        hyper::client::conn::http1::handshake(hyper_util::rt::TokioIo::new(stream)).await.unwrap();
+    let (mut sender, conn) = hyper::client::conn::http1::handshake(hyper_util::rt::TokioIo::new(stream)).await.unwrap();
     tokio::spawn(conn);
     let request = hyper::Request::builder()
         .method(hyper::Method::HEAD)
@@ -143,7 +141,10 @@ async fn loopback_serves_granted_bytes_and_denies_barely() {
     let (status, headers, body) = get(port, &path, Some(&format!("bytes={}-", bytes.len()))).await;
     assert_eq!(status, hyper::StatusCode::RANGE_NOT_SATISFIABLE);
     assert!(body.is_empty());
-    assert_eq!(headers.get(hyper::header::CONTENT_RANGE).unwrap().to_str().unwrap(), format!("bytes */{}", bytes.len()).as_str());
+    assert_eq!(
+        headers.get(hyper::header::CONTENT_RANGE).unwrap().to_str().unwrap(),
+        format!("bytes */{}", bytes.len()).as_str()
+    );
 
     // Unknown tokens, frame tokens, malformed paths, and a retired
     // renderer all answer the same bare 404.
