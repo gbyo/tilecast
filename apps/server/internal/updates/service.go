@@ -879,18 +879,32 @@ func (s *Service) ArtifactPath(ctx context.Context, releaseID uuid.UUID) (string
 // uncached state that a later download can restore. The returned flag reports
 // whether the record was removed.
 func (s *Service) Purge(ctx context.Context, releaseID uuid.UUID) (bool, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	// Lock the release before the reference check. A deployment that is being
+	// created holds a share lock on it until that deployment commits, so the
+	// check below sees the deployment and this purge keeps the artifact.
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM player_releases WHERE id=$1 FOR UPDATE`, releaseID); err != nil {
+		return false, err
+	}
 	var referenced bool
-	if err := s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM update_deployments WHERE release_id=$1)`, releaseID).Scan(&referenced); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM update_deployments WHERE release_id=$1)`, releaseID).Scan(&referenced); err != nil {
 		return false, err
 	}
 	if referenced {
 		// A cached artifact is what makes verification complete, so a release
 		// that loses its file falls back to the manifest-only verification it
 		// held before the download.
-		if _, err := s.db.Exec(ctx, `UPDATE player_releases SET cache_status='missing',verification_status=CASE WHEN verification_status='verified' THEN 'verified_manifest' ELSE verification_status END,verification_error=NULL,updated_at=now() WHERE id=$1`, releaseID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE player_releases SET cache_status='missing',verification_status=CASE WHEN verification_status='verified' THEN 'verified_manifest' ELSE verification_status END,verification_error=NULL,updated_at=now() WHERE id=$1`, releaseID); err != nil {
 			return false, err
 		}
-	} else if _, err := s.db.Exec(ctx, `DELETE FROM player_releases WHERE id=$1`, releaseID); err != nil {
+	} else if _, err := tx.Exec(ctx, `DELETE FROM player_releases WHERE id=$1`, releaseID); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
 		return false, err
 	}
 	s.removeArtifacts(releaseID)

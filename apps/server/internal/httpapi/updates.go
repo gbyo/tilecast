@@ -397,13 +397,6 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 		writeError(w, 422, "update_deployment_invalid", "Choose a future maintenance window.")
 		return
 	}
-	var versionCode, apkSize int64
-	var minimumSDK *int
-	var family, architecture, hash string
-	if err := s.db.QueryRow(r.Context(), `SELECT player_family,architecture,version_code,minimum_sdk,apk_size,apk_sha256 FROM player_releases WHERE id=$1 AND verification_status='verified' AND cache_status='cached'`, input.ReleaseID).Scan(&family, &architecture, &versionCode, &minimumSDK, &apkSize, &hash); err != nil {
-		writeError(w, 422, "player_release_not_verified", "Only fully verified cached releases can be deployed.")
-		return
-	}
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
@@ -416,6 +409,16 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	defer tx.Rollback(r.Context())
+	// The release is checked inside the transaction under a share lock, so a
+	// concurrent purge of its cached artifact waits for this deployment to commit,
+	// and this check cannot pass for an artifact that is already being removed.
+	var versionCode, apkSize int64
+	var minimumSDK *int
+	var family, architecture, hash string
+	if err := tx.QueryRow(r.Context(), `SELECT player_family,architecture,version_code,minimum_sdk,apk_size,apk_sha256 FROM player_releases WHERE id=$1 AND verification_status='verified' AND cache_status='cached' FOR SHARE`, input.ReleaseID).Scan(&family, &architecture, &versionCode, &minimumSDK, &apkSize, &hash); err != nil {
+		writeError(w, 422, "player_release_not_verified", "Only fully verified cached releases can be deployed.")
+		return
+	}
 	id := uuid.New()
 	rolloutMode := "full"
 	rolloutPhase := "full"
