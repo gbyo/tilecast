@@ -88,6 +88,13 @@ describe("Image Notice", () => {
     expect(element.shadowRoot!.querySelector("figcaption")?.textContent).toBe(
       "Spring concert",
     );
+    // The image's alternative text already announces the caption, so the
+    // visible caption is hidden from assistive technology to avoid a repeat.
+    expect(
+      element
+        .shadowRoot!.querySelector("figcaption")
+        ?.parentElement?.getAttribute("aria-hidden"),
+    ).toBe("true");
     expect(test.states.at(-1)).toEqual({ state: "ready" });
   });
 });
