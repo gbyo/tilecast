@@ -551,7 +551,7 @@ func (s *Service) validateInputFor(ctx context.Context, in Input, platformCheck 
 		var targetOK bool
 		var targetErr error
 		if t.Type == "screen" {
-			targetErr = s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screens sc JOIN organization_settings o ON o.id=sc.organization_id AND o.singleton WHERE sc.id=$1)`, t.ID).Scan(&targetOK)
+			targetErr = s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screens sc JOIN organization_settings o ON o.id=sc.organization_id AND o.singleton WHERE sc.id=$1 AND sc.archived_at IS NULL)`, t.ID).Scan(&targetOK)
 		} else {
 			targetErr = s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screen_groups g JOIN organization_settings o ON o.id=g.organization_id AND o.singleton WHERE g.id=$1 AND g.deleted_at IS NULL)`, t.ID).Scan(&targetOK)
 		}
@@ -750,7 +750,7 @@ func (s *Service) write(ctx context.Context, id, user uuid.UUID, in Input, creat
 	for _, t := range in.Targets {
 		var tag pgconn.CommandTag
 		if t.Type == "screen" {
-			tag, err = tx.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_id)SELECT $1,'screen',sc.id FROM screens sc JOIN schedules s ON s.id=$1 AND s.organization_id=sc.organization_id WHERE sc.id=$2`, id, t.ID)
+			tag, err = tx.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_id)SELECT $1,'screen',sc.id FROM screens sc JOIN schedules s ON s.id=$1 AND s.organization_id=sc.organization_id WHERE sc.id=$2 AND sc.archived_at IS NULL`, id, t.ID)
 		} else {
 			tag, err = tx.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_group_id)SELECT $1,'group',g.id FROM screen_groups g JOIN schedules s ON s.id=$1 AND s.organization_id=g.organization_id WHERE g.id=$2 AND g.deleted_at IS NULL`, id, t.ID)
 		}
