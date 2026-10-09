@@ -4,7 +4,7 @@ import { formatDateTime } from "../lib/dateTime";
 import { useTranslation } from "react-i18next";
 import { Download, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 import { api, ApiError } from "../api/client";
-import { apiErrorMessage, useFormatLocale } from "../i18n";
+import { apiErrorMessage, translateKnown, useFormatLocale } from "../i18n";
 import type { BackupArchive, BackupJob } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -380,6 +380,30 @@ export function BackupPanel({ owner }: { owner: boolean }) {
   );
 }
 
+// Phases the server names with a fixed token. Per-table and per-component
+// phases carry a dynamic suffix, so they, and any token this list lacks, show
+// their raw value.
+const fixedBackupPhases = new Set([
+  "checking_disk_space",
+  "database_snapshot",
+  "pre_restore_backup",
+  "finalizing_archive",
+  "verifying",
+  "verifying_archive",
+  "staging_files",
+  "restoring_database",
+  "activating_files",
+  "validating",
+  "finalizing",
+  "complete",
+]);
+
+function backupPhaseLabel(phase: string): string {
+  return fixedBackupPhases.has(phase)
+    ? translateKnown(`settings:backups.phases.${phase}`, phase)
+    : phase;
+}
+
 function JobProgress({
   job,
   kindLabel,
@@ -400,7 +424,8 @@ function JobProgress({
           {t("backups.jobInProgress", { kind: kindLabel })}
         </strong>
         <span className="text-sm text-muted-foreground">
-          {job.phase || statusLabel} · {job.progressPercent}%
+          {job.phase ? backupPhaseLabel(job.phase) : statusLabel} ·{" "}
+          {job.progressPercent}%
         </span>
       </div>
       <progress max={100} value={job.progressPercent} className="w-full" />

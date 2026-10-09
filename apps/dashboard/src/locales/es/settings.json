@@ -1131,6 +1131,20 @@
       "failed": "Fallida",
       "cancelled": "Cancelada"
     },
+    "phases": {
+      "checking_disk_space": "Comprobando el espacio en disco",
+      "database_snapshot": "Guardando la base de datos",
+      "pre_restore_backup": "Creando copia previa a la restauración",
+      "finalizing_archive": "Finalizando el archivo",
+      "verifying": "Verificando",
+      "verifying_archive": "Verificando el archivo",
+      "staging_files": "Preparando archivos",
+      "restoring_database": "Restaurando la base de datos",
+      "activating_files": "Activando archivos",
+      "validating": "Validando",
+      "finalizing": "Finalizando",
+      "complete": "Completado"
+    },
     "triggers": {
       "manual": "Manual",
       "scheduled": "Programada",

@@ -1113,7 +1113,7 @@
       "manual": "Вручную",
       "scheduled": "По расписанию",
       "preRestore": "Перед восстановлением",
-      "imported": "Импортирован"
+      "imported": "Импортирована"
     },
     "verification": {
       "unverified": "Не проверена",
@@ -1130,6 +1130,20 @@
       "succeeded": "Выполнено",
       "failed": "Ошибка",
       "cancelled": "Отменено"
+    },
+    "phases": {
+      "checking_disk_space": "Проверка свободного места",
+      "database_snapshot": "Сохранение базы данных",
+      "pre_restore_backup": "Создание копии перед восстановлением",
+      "finalizing_archive": "Завершение архива",
+      "verifying": "Проверка",
+      "verifying_archive": "Проверка архива",
+      "staging_files": "Подготовка файлов",
+      "restoring_database": "Восстановление базы данных",
+      "activating_files": "Активация файлов",
+      "validating": "Проверка данных",
+      "finalizing": "Завершение",
+      "complete": "Готово"
     },
     "triggers": {
       "manual": "Вручную",

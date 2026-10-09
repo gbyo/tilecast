@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
-import type { BackupArchive } from "../api/types";
+import type { BackupArchive, BackupJob } from "../api/types";
 import { BackupPanel } from "./BackupPanel";
 
 vi.mock("../auth/AuthProvider", () => ({
@@ -58,4 +58,52 @@ describe("BackupPanel labels", () => {
     expect(screen.queryByText(/pre_restore/)).toBeNull();
     expect(screen.queryByText("unverified")).toBeNull();
   });
+
+  it("shows a fixed job phase translated and a dynamic phase as the server sent it", async () => {
+    const running = (phase: string): BackupJob => ({
+      id: "job-1",
+      kind: "verify",
+      trigger: "manual",
+      status: "running",
+      phase,
+      progressPercent: 5,
+      createdAt: "2026-10-02T00:00:00Z",
+    });
+    vi.spyOn(api, "backups").mockResolvedValue({
+      backups: [archive],
+      currentJob: running("verifying_archive"),
+      recentJobs: [],
+      lastSuccessful: null,
+      schedule: {},
+    });
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const { unmount } = render(
+      <QueryClientProvider client={client}>
+        <BackupPanel owner />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      await screen.findByText("Verifying archive · 5%"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/verifying_archive/)).toBeNull();
+    unmount();
+
+    vi.spyOn(api, "backups").mockResolvedValue({
+      backups: [archive],
+      currentJob: running("archiving_media"),
+      recentJobs: [],
+      lastSuccessful: null,
+      schedule: {},
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <BackupPanel owner />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("archiving_media · 5%")).toBeInTheDocument();
+  }, 15_000);
 });
