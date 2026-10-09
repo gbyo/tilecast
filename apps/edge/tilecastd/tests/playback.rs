@@ -3071,7 +3071,11 @@ async fn cold_start_resumes_the_checkpointed_item() {
     let resumed = wait_for("the resumed activation", || renderer.last().filter(|a| playing_order(a).len() == 2)).await;
     assert_eq!(playing_order(&resumed)[0], order[1]);
     settle().await;
-    assert_eq!(renderer.activation_count(), 1, "the resumed order sticks");
+    // Renderer readiness can deliver the startup idle surface before the
+    // cached manifest is projected. Only playlist activations indicate churn.
+    let playlist_orders: Vec<_> =
+        renderer.log.lock().unwrap().activations.iter().map(playing_order).filter(|order| !order.is_empty()).collect();
+    assert_eq!(playlist_orders, vec![vec![order[1].clone(), order[0].clone()]], "the resumed order sticks");
     renderer.stop();
     player.stop().await;
 }
