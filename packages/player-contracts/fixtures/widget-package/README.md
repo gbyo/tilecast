@@ -24,17 +24,17 @@ Browser suites use the same sources.
 
 Behavior coverage (each names its proving consumer):
 
-| Behavior | Proven by |
-| --- | --- |
-| Configuration compile | Bundle gates ready on `label`; Edge e2e, SDK mount tests |
-| Structured Data Source values | Bundle requires `schedule` datasets; Edge e2e, runtime projection tests |
-| Host-projected clock/context | Bundle requires clock within 60 s; Edge e2e |
-| Safe media references | Bundle requires the grant URI and its bytes load; Edge e2e, runtime projection tests |
-| Mount and ready signaling | `widget_shown` evidence; Edge e2e, SDK executor tests |
-| Updates without remount | Port revision updates; SDK sandboxed-executor tests |
-| Multiple instances | Two scoreboard items, distinct evidence; Edge e2e |
-| Layout-zone placement | Scoreboard in a Layout zone with `zoneId` evidence; Edge e2e |
-| Playlist placement | Fullscreen scoreboard item; Edge e2e |
-| Cleanup and reactivation | Renderer restart re-reports evidence; Edge e2e |
-| Temporary offline playback | Cached frame bytes play with the origin gone; Edge e2e |
-| Hostile containment | Zero canary hits, CSP console violation, lifecycle completes; Edge e2e, Browser frames e2e, SDK spike |
+| Behavior                      | Proven by                                                                                             |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Configuration compile         | Bundle gates ready on `label`; Edge e2e, SDK mount tests                                              |
+| Structured Data Source values | Bundle requires `schedule` datasets; Edge e2e, runtime projection tests                               |
+| Host-projected clock/context  | Bundle requires clock within 60 s; Edge e2e                                                           |
+| Safe media references         | Bundle requires the grant URI and its bytes load; Edge e2e, runtime projection tests                  |
+| Mount and ready signaling     | `widget_shown` evidence; Edge e2e, SDK executor tests                                                 |
+| Updates without remount       | Port revision updates; SDK sandboxed-executor tests                                                   |
+| Multiple instances            | Two scoreboard items, distinct evidence; Edge e2e                                                     |
+| Layout-zone placement         | Scoreboard in a Layout zone with `zoneId` evidence; Edge e2e                                          |
+| Playlist placement            | Fullscreen scoreboard item; Edge e2e                                                                  |
+| Cleanup and reactivation      | Renderer restart re-reports evidence; Edge e2e                                                        |
+| Temporary offline playback    | Cached frame bytes play with the origin gone; Edge e2e                                                |
+| Hostile containment           | Zero canary hits, CSP console violation, lifecycle completes; Edge e2e, Browser frames e2e, SDK spike |
