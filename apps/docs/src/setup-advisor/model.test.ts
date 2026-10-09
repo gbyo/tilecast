@@ -265,9 +265,27 @@ test("Player platform controls the install steps", () => {
   );
   const both = stepIds({ ...local, platform: "both" });
   assert.ok(both.includes("install-android") && both.includes("install-linux"));
+  const windows = { ...local, platform: "windows" };
+  assert.ok(stepIds(windows).includes("install-windows"));
+  assert.ok(!stepIds(windows).includes("install-linux"));
+  assert.ok(considerationIds(windows).includes("windows-preview"));
+  assert.deepEqual(normalizeFacts(windows).platforms, ["windows"]);
   assert.ok(
     considerationIds({ ...local, platform: "linux" }).includes("edge-preview"),
   );
+});
+
+test("Windows preview option survives the shareable URL round trip", () => {
+  const answers: Answers = {
+    host: "yes",
+    players: "same",
+    studio: "no",
+    network: "flat",
+    platform: "windows",
+  };
+  const encoded = encodeAnswers(answers);
+  assert.deepEqual(decodeAnswers(encoded), effectiveAnswers(answers));
+  assert.match(buildSummary(answers), /Windows PC \(preview\)/);
 });
 
 test("changing an earlier answer changes the final recommendation", () => {
