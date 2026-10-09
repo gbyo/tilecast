@@ -333,7 +333,20 @@ impl Daemon {
             }
         }
         let mismatch_state = match &state {
-            StateMode::Normal(db) => crate::mismatch::load_mismatch(db).await,
+            StateMode::Normal(db) => match crate::mismatch::load_mismatch(db).await {
+                // Finish an interrupted quarantine before the CAS opens. A
+                // failure keeps the record gated; the next pass retries.
+                Some(record) if !record.quarantine_complete => {
+                    match crate::mismatch::reconcile_quarantine(&paths, db, &record).await {
+                        Ok(complete) => Some(complete),
+                        Err(error) => {
+                            tracing::warn!(component = "mismatch", event = "quarantine_resume_failed", error = %error);
+                            Some(record)
+                        }
+                    }
+                }
+                other => other,
+            },
             StateMode::Recovery { .. } => None,
         };
         let resume_state = match &state {
@@ -484,7 +497,10 @@ impl Daemon {
         } else {
             crate::config_sync::install(&context, None).await;
         }
-        let initial = status_surface(&context, bound);
+        let initial = match crate::mismatch::content_blocked(&context) {
+            Some(record) => crate::mismatch::mismatch_surface(&record),
+            None => status_surface(&context, bound),
+        };
         context
             .presentation
             .lock()
