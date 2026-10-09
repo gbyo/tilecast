@@ -1061,6 +1061,7 @@
     }
   },
   "retention": {
+    "saved": "Activity retention settings saved.",
     "title": "Activity retention",
     "description": "Cleanup runs in bounded background batches and respects deployment hard limits.",
     "save": "Save retention",
@@ -1084,6 +1085,8 @@
     }
   },
   "branding": {
+    "loginBackgroundSaved": "Login background saved.",
+    "loginBackgroundRemoved": "Login background removed.",
     "title": "Organization images",
     "description": "Upload images from this device. Tilecast stores the selected asset internally.",
     "logo": {

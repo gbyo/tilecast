@@ -877,6 +877,17 @@ func (s *Service) dataSourceBindingUsage(ctx context.Context, id uuid.UUID) ([]D
 
 // DeleteDataSource removes a Data Source, refusing when a Widget or Layout binding uses it.
 func (s *Service) DeleteDataSource(ctx context.Context, id, user uuid.UUID) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	// Lock the Data Source before the usage check. A Layout draft that is
+	// validating this source holds a share lock until its dependency rows
+	// commit, so the check below runs after any such save has finished.
+	if _, err := tx.Exec(ctx, `SELECT 1 FROM data_sources WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id); err != nil {
+		return err
+	}
 	widgets, err := s.dataSourceWidgetUsage(ctx, id)
 	if err != nil {
 		return err
@@ -895,11 +906,6 @@ func (s *Service) DeleteDataSource(ctx context.Context, id, user uuid.UUID) erro
 		}
 		return &DependencyError{Resource: "data source", UsedBy: names}
 	}
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
 	tag, err := tx.Exec(ctx, `UPDATE data_sources SET deleted_at=now(),updated_at=now() WHERE id=$1 AND deleted_at IS NULL`, id)
 	if err != nil {
 		return err

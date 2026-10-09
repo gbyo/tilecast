@@ -635,7 +635,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               <Button
                 type="button"
                 onClick={() => save.mutate()}
-                disabled={save.isPending}
+                // Saving and publishing both carry the draft revision, so one
+                // waits for the other.
+                disabled={save.isPending || publish.isPending}
               >
                 <Save size={16} aria-hidden="true" />{" "}
                 {t("campaigns.editor.saveDraft")}
@@ -645,7 +647,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               <Button
                 type="button"
                 onClick={() => publish.mutate()}
-                disabled={publish.isPending}
+                disabled={publish.isPending || save.isPending}
               >
                 <Send size={16} aria-hidden="true" />{" "}
                 {t("campaigns.editor.submitPublish")}

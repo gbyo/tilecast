@@ -1,5 +1,12 @@
 {
   "access": {
+    "roles": {
+      "owner": "Владелец",
+      "administrator": "Администратор",
+      "editor": "Редактор",
+      "contributor": "Участник",
+      "viewer": "Наблюдатель"
+    },
     "capabilities": {
       "manage": {
         "label": "Управлять",

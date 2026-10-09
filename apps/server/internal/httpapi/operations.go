@@ -706,9 +706,12 @@ func (s *server) queueCommand(ctx context.Context, screen, user uuid.UUID, comma
 		return uuid.Nil, time.Time{}, err
 	}
 
+	// Archived and deleted screens cannot poll for commands, so they are refused
+	// here. The row lock also orders this check against archiving: an archive
+	// that commits first is seen, and an archive that waits cancels this command.
 	var org uuid.UUID
 	var platform string
-	if err = tx.QueryRow(ctx, `SELECT organization_id,platform FROM screens WHERE id=$1`, screen).Scan(&org, &platform); errors.Is(err, pgx.ErrNoRows) {
+	if err = tx.QueryRow(ctx, `SELECT organization_id,platform FROM screens WHERE id=$1 AND archived_at IS NULL AND deleted_at IS NULL FOR UPDATE`, screen).Scan(&org, &platform); errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, time.Time{}, errScreenNotFound
 	} else if err != nil {
 		return uuid.Nil, time.Time{}, err

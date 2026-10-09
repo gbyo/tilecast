@@ -1,5 +1,12 @@
 {
   "access": {
+    "roles": {
+      "owner": "Propietario",
+      "administrator": "Administrador",
+      "editor": "Editor",
+      "contributor": "Colaborador",
+      "viewer": "Visor"
+    },
     "capabilities": {
       "manage": {
         "label": "Gestionar",
