@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use edge_cas::ContentStore;
+use edge_protocol::ids::SessionId;
 use edge_protocol::time::SharedClock;
 use edge_server::AuthenticatedServer;
 use player_core::{OriginBlobSource, StreamReadError, StreamSource};
@@ -319,6 +320,18 @@ async fn network_read(
     }
 }
 
+/// Whether a capability is still live for the usage the peer named.
+/// Media and frame grants share the registry but resolve from disjoint
+/// tables; every liveness check funnels through here so the two can
+/// never drift apart again.
+fn grant_live(registry: &MediaRegistry, session: SessionId, capability: &str, expect: ReadExpect, now_ms: i64) -> bool {
+    match expect {
+        ReadExpect::Media => registry.resolve(session, capability, now_ms),
+        ReadExpect::Frame => registry.resolve_frame(session, capability, now_ms),
+    }
+    .is_some()
+}
+
 async fn serve(
     mut stream: UnixStream,
     registry: Arc<Mutex<MediaRegistry>>,
@@ -352,8 +365,7 @@ async fn serve(
     let Some(grant) = grant else {
         // Daemon-side attribution only: the socket answer stays bare so
         // unknown and retired tokens are indistinguishable on the wire.
-        let retired =
-            registry.lock().is_ok_and(|registry| registry.retired_token(request.capability()));
+        let retired = registry.lock().is_ok_and(|registry| registry.retired_token(request.capability()));
         tracing::warn!(
             component = "media",
             event = "grant_denied",
@@ -383,12 +395,7 @@ async fn serve(
     };
     let capability = request.capability().to_owned();
     let still_valid = registry.lock().is_ok_and(|registry| {
-        let now = clock.now().unix_millis();
-        match expect {
-            ReadExpect::Media => registry.resolve(grant.renderer_session, &capability, now),
-            ReadExpect::Frame => registry.resolve_frame(grant.renderer_session, &capability, now),
-        }
-        .is_some()
+        grant_live(&registry, grant.renderer_session, &capability, expect, clock.now().unix_millis())
     });
     if !still_valid {
         return deny(&mut stream).await;
@@ -433,7 +440,7 @@ async fn serve(
                 .await;
                 let Ok(Ok(bytes)) = bytes else { return deny(&mut stream).await };
                 let still_valid = registry.lock().is_ok_and(|registry| {
-                    registry.resolve(grant.renderer_session, &capability, clock.now().unix_millis()).is_some()
+                    grant_live(&registry, grant.renderer_session, &capability, expect, clock.now().unix_millis())
                 });
                 if !still_valid {
                     return deny(&mut stream).await;
@@ -458,12 +465,7 @@ async fn serve(
                 }
             };
             let still_valid = registry.lock().is_ok_and(|registry| {
-                let now = clock.now().unix_millis();
-                match expect {
-                    ReadExpect::Media => registry.resolve(grant.renderer_session, &capability, now),
-                    ReadExpect::Frame => registry.resolve_frame(grant.renderer_session, &capability, now),
-                }
-                .is_some()
+                grant_live(&registry, grant.renderer_session, &capability, expect, clock.now().unix_millis())
             });
             if !still_valid {
                 return deny(&mut stream).await;
@@ -529,6 +531,45 @@ mod fixture_tests {
         ] {
             assert_eq!(serde_json::from_str::<serde_json::Value>(fixture).unwrap(), expected);
         }
+    }
+}
+
+#[cfg(test)]
+mod grant_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    use edge_protocol::Sha256Digest;
+    use edge_protocol::bounded::SafeText;
+    use edge_protocol::ipc::presentation::{ContentRef, FrameRef};
+
+    #[test]
+    fn liveness_checks_follow_the_named_usage() {
+        let session = SessionId::from_uuid(uuid::Uuid::new_v4());
+        let mut registry = MediaRegistry::new();
+        registry.bind_renderer(RendererInstance { session, uid: 1000, pid: 1234, start_ticks: 1 });
+        let content = ContentRef {
+            sha256: Sha256Digest::parse(&"a".repeat(64)).unwrap(),
+            size_bytes: 42,
+            mime_type: SafeText::new("image/png").unwrap(),
+        };
+        let streams: HashMap<Sha256Digest, player_core::StreamSource> = HashMap::new();
+        let media = registry.prepare(session, 1, 0, std::slice::from_ref(&content), &streams).unwrap();
+        let media_token = media[&content.sha256].as_str().to_owned();
+        let frame = FrameRef {
+            package_id: SafeText::new("acme.athletics").unwrap(),
+            package_digest: Sha256Digest::parse(&"e".repeat(64)).unwrap(),
+            sha256: Sha256Digest::parse(&"f".repeat(64)).unwrap(),
+            size_bytes: 42,
+        };
+        let frames = registry.prepare_frames(session, 1, 0, std::slice::from_ref(&frame)).unwrap();
+        let frame_token = frames[&frame.sha256].as_str().to_owned();
+        // A cached frame read revalidates in the frame table: resolving
+        // it as media denies bytes head just approved.
+        assert!(grant_live(&registry, session, &media_token, ReadExpect::Media, 0));
+        assert!(!grant_live(&registry, session, &media_token, ReadExpect::Frame, 0));
+        assert!(grant_live(&registry, session, &frame_token, ReadExpect::Frame, 0));
+        assert!(!grant_live(&registry, session, &frame_token, ReadExpect::Media, 0));
     }
 }
 
