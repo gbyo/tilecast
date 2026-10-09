@@ -5,6 +5,7 @@ import {
   activeGrant,
   commitActivation,
   loadActivation,
+  type ActivationFrameResource,
   type PreparedActivation,
 } from "./activation";
 import type { VerifiedObject } from "./verified-store";
@@ -97,6 +98,74 @@ describe("atomic browser activation and media grants", () => {
       bindingId: "replacement",
     });
     expect(await activeGrant(database, uri)).toBeUndefined();
+    database.close();
+  });
+});
+
+const frame = "c".repeat(64);
+const frameResource = (): ActivationFrameResource => ({
+  digest: frame,
+  size: 10,
+  mimeType: "text/html",
+  packageId: "acme.athletics",
+  packageDigest: "sha256:" + "d".repeat(64),
+  frameDigest: frame,
+});
+
+describe("atomic browser activation and frame grants", () => {
+  it("mints kind-pinned frame grants and publishes the frame table", async () => {
+    const database = await openDatabase(new IDBFactory());
+    await write(database, "objects", digest, object(digest));
+    await write(database, "objects", frame, {
+      ...object(frame),
+      mimeType: "text/html",
+    });
+    const pending = activation();
+    pending.frames = [frameResource()];
+    const committed = await commitActivation(database, pending);
+    const table = committed.presentation.projection!.widgetFrames!;
+    expect(table).toHaveLength(1);
+    expect(table[0]).toMatchObject({
+      packageId: "acme.athletics",
+      packageDigest: "sha256:" + "d".repeat(64),
+      frameDigest: frame,
+    });
+    expect(table[0]!.uri).toMatch(/^\/player\/widget-frame\/1\/[a-f0-9-]{36}$/);
+    expect(await activeGrant(database, table[0]!.uri)).toMatchObject({
+      kind: "frame",
+      digest: frame,
+      mimeType: "text/html",
+      generation: 1,
+    });
+    const mediaUri = committed.plugins.media![0]!.uri;
+    expect(mediaUri).toMatch(/^\/player\/media\/1\/[a-f0-9-]{36}$/);
+    expect(await activeGrant(database, mediaUri)).toMatchObject({
+      kind: "media",
+    });
+    database.close();
+  });
+
+  it("never changes active state or grants for an unprepared frame", async () => {
+    const database = await openDatabase(new IDBFactory());
+    await write(database, "objects", digest, object(digest));
+    await write(database, "objects", frame, {
+      ...object(frame),
+      mimeType: "text/html",
+    });
+    const pending = activation();
+    pending.frames = [frameResource()];
+    const first = await commitActivation(database, pending);
+    const frameUri = first.presentation.projection!.widgetFrames![0]!.uri;
+    const incomplete = activation(2);
+    incomplete.frames = [{ ...frameResource(), digest: other }];
+    await expect(commitActivation(database, incomplete)).rejects.toThrow(
+      "unprepared frame",
+    );
+    expect((await loadActivation(database, "slot"))?.generation).toBe(1);
+    expect(await activeGrant(database, frameUri)).toMatchObject({
+      kind: "frame",
+      generation: 1,
+    });
     database.close();
   });
 });

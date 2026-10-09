@@ -30,6 +30,30 @@ describe("package manifest schema", () => {
     expect(() => parsePackageManifest(value)).toThrow();
   });
 
+  it("accepts the Hello Services sample manifest", () => {
+    const sample = JSON.parse(
+      readFileSync(
+        join(
+          import.meta.dirname,
+          "..",
+          "..",
+          "package-samples",
+          "hello-services",
+          "tilecast.package.json",
+        ),
+        "utf8",
+      ),
+    );
+    const manifest = parsePackageManifest(sample);
+    expect(manifest.apiVersion).toBe(3);
+    expect(manifest.packageId).toBe("example.hello-services");
+    expect(manifest.capabilities?.services?.map((grant) => grant.id)).toEqual([
+      "organization.read",
+      "screens.read",
+      "audit.write",
+    ]);
+  });
+
   it("publishes a Draft 2020-12 JSON Schema that matches the checked-in file", () => {
     const generated = packageManifestJSONSchema();
     expect(generated.$schema).toBe(

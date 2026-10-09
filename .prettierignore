@@ -16,3 +16,8 @@ packages/edge-protocol/fixtures/update-envelope/
 apps/ios/**/*.xcassets/
 apps/ios/**/.build/
 apps/ios/**/DerivedData/
+# Byte-identical external Widget conformance bundles and generated Android frame
+# documents. Formatting these independently changes validated frame digests;
+# the SDK and device tests verify source/frame parity instead.
+packages/player-contracts/fixtures/widget-package/*.js
+apps/player-android/app/src/androidTest/assets/widget-*-frame.html

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
 
@@ -37,16 +38,34 @@ type Service struct {
 	host      *Host
 	installer *installer.Service
 	content   func(ctx context.Context, ref, digest string) (string, error)
+	caller    ServiceCaller
 }
 
 // NewService builds the runtime service. content resolves retained
-// artifacts to directories; the pipeline supplies ContentDir.
-func NewService(ctx context.Context, install *installer.Service, content func(ctx context.Context, ref, digest string) (string, error), store KVStore, logger *slog.Logger) (*Service, error) {
+// artifacts to directories; the pipeline supplies ContentDir. Options
+// wire collaborators such as the service dispatcher.
+func NewService(ctx context.Context, install *installer.Service, content func(ctx context.Context, ref, digest string) (string, error), store KVStore, logger *slog.Logger, options ...func(*Service)) (*Service, error) {
 	host, err := NewHost(ctx, store, logger)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{host: host, installer: install, content: content}, nil
+	service := &Service{host: host, installer: install, content: content}
+	for _, option := range options {
+		option(service)
+	}
+	return service, nil
+}
+
+// WithServiceCaller wires the service dispatcher behind call_v1. Without
+// one, every service call is denied.
+func WithServiceCaller(caller ServiceCaller) func(*Service) {
+	return func(s *Service) { s.caller = caller }
+}
+
+// SetServiceCaller wires the dispatcher after construction, for callers
+// whose domain services do not exist yet when the runtime is built.
+func (s *Service) SetServiceCaller(caller ServiceCaller) {
+	s.caller = caller
 }
 
 // Close releases the execution host.
@@ -95,6 +114,8 @@ func (s *Service) InvokeJob(ctx context.Context, packageID, jobID string) (int32
 		Entry:     "run_job",
 		Input:     []byte(jobID),
 		Timeout:   JobTimeout,
+		Context:   services.ContextBackground,
+		Caller:    s.caller,
 	})
 	if err != nil {
 		return 0, err
@@ -102,8 +123,9 @@ func (s *Service) InvokeJob(ctx context.Context, packageID, jobID string) (int32
 	return result.Status, nil
 }
 
-// InvokeUI answers one Studio UI bridge call with a framed reply.
-func (s *Service) InvokeUI(ctx context.Context, packageID string, request []byte) (Result, error) {
+// InvokeUI answers one Studio UI bridge call with a framed reply. The
+// actor is the authenticated operator behind the call.
+func (s *Service) InvokeUI(ctx context.Context, packageID string, actor services.Actor, request []byte) (Result, error) {
 	prepared, err := s.prepare(ctx, packageID)
 	if err != nil {
 		return Result{}, err
@@ -119,6 +141,9 @@ func (s *Service) InvokeUI(ctx context.Context, packageID string, request []byte
 		Entry:     "handle_ui_request",
 		Input:     request,
 		Timeout:   UICallTimeout,
+		Context:   services.ContextStudio,
+		Actor:     &actor,
+		Caller:    s.caller,
 	})
 }
 
@@ -163,6 +188,7 @@ func (s *Service) prepare(ctx context.Context, packageID string) (prepared, erro
 			grants.NetworkHosts = append([]string{}, manifest.Capabilities.Network.Hosts...)
 		}
 		grants.Storage = manifest.Capabilities.Storage != nil && *manifest.Capabilities.Storage
+		grants.Services = append([]packagemanifest.ServiceGrant{}, manifest.Capabilities.Services...)
 	}
 	return prepared{manifest: manifest, digest: installed.Digest, module: module, grants: grants}, nil
 }

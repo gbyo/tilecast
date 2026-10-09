@@ -451,3 +451,151 @@ describe("time-bound widgets keep time without restarting playback", () => {
     expect(started).toEqual(["clock"]);
   });
 });
+
+describe("external frame authorization", () => {
+  const SCORES = "9c3e1d2f-7a55-4b1e-9c33-6f0d2e8a4b92";
+  const FRAME = "c".repeat(64);
+  const PACKAGE = "a".repeat(64);
+  const externalManifest = {
+    ...manifest,
+    widgets: [
+      {
+        assetId: SCORES,
+        name: "Scores",
+        provider: "acme.athletics.scoreboard",
+        presentation: {
+          schemaVersion: 3,
+          kind: "component",
+          requiredCapabilities: { "widget.external-runtime": 2 },
+          component: {
+            type: "acme.athletics.scoreboard",
+            version: 2,
+            config: { title: "Friday" },
+            dataSources: [],
+            media: [],
+            empty: "render",
+            package: {
+              packageId: "acme.athletics",
+              digest: `sha256:${PACKAGE}`,
+              frame: {
+                sha256: FRAME,
+                fileSize: 4242,
+                downloadPath:
+                  "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame",
+              },
+            },
+          },
+        },
+      },
+    ],
+  };
+  const scoresItem = item("scores", "widget", {
+    widget: { widgetAssetId: SCORES },
+  });
+  const project = (context: ProjectionContextV1) =>
+    createProjector(context)!.project(
+      playing([scoresItem]),
+      Date.UTC(2026, 8, 24, 13),
+    );
+
+  it("translates a frame claim through the host frame table", () => {
+    const projected = project({
+      ...projection,
+      manifest: externalManifest,
+      widgetFrames: [
+        {
+          packageId: "acme.athletics",
+          packageDigest: `sha256:${PACKAGE}`,
+          frameDigest: FRAME,
+          uri: "tcwidget:authorized-frame",
+        },
+      ],
+    }) as Extract<RuntimePresentation, { state: "playing" }>;
+    expect(projected.items[0]!.widget).toMatchObject({
+      execution: { kind: "sandboxed", frameUrl: "tcwidget:authorized-frame" },
+    });
+  });
+
+  it("uses loopback media only for sandboxed Widgets, never trusted hosts", () => {
+    const withMedia = {
+      ...externalManifest,
+      widgets: externalManifest.widgets.map((widget) => ({
+        ...widget,
+        presentation: {
+          ...widget.presentation,
+          component: {
+            ...widget.presentation.component,
+            media: [{ assetId: ASSET, variantId: VARIANT }],
+          },
+        },
+      })),
+    };
+    const frame = {
+      packageId: "acme.athletics",
+      packageDigest: `sha256:${PACKAGE}`,
+      frameDigest: FRAME,
+      uri: "tcwidget:authorized-frame",
+    };
+    const loopback = "http://127.0.0.1:8471/media/" + "a".repeat(64);
+    const hostContext = {
+      ...projection,
+      manifest: withMedia,
+      widgetFrames: [frame],
+    };
+    const ordinary = project(hostContext) as Extract<
+      RuntimePresentation,
+      { state: "playing" }
+    >;
+    expect(ordinary.items[0]!.widget).toMatchObject({
+      media: { [`${ASSET}/${VARIANT}`]: CAP },
+    });
+    const isolated = project({
+      ...hostContext,
+      widgetMedia: [{ assetId: ASSET, variantId: VARIANT, uri: loopback }],
+    }) as Extract<RuntimePresentation, { state: "playing" }>;
+    expect(isolated.items[0]!.widget).toMatchObject({
+      execution: { kind: "sandboxed", frameUrl: frame.uri },
+      media: { [`${ASSET}/${VARIANT}`]: loopback },
+    });
+    expect(() => project({ ...hostContext, widgetMedia: [] })).toThrow(
+      "Projected media is not authorized",
+    );
+  });
+
+  it("rejects a frame claim the host did not authorize", () => {
+    expect(() =>
+      project({ ...projection, manifest: externalManifest }),
+    ).toThrow("Projected frame is not authorized");
+    expect(() =>
+      project({
+        ...projection,
+        manifest: externalManifest,
+        widgetFrames: [
+          {
+            packageId: "acme.athletics",
+            packageDigest: `sha256:${PACKAGE}`,
+            frameDigest: "d".repeat(64),
+            uri: "tcwidget:other-frame",
+          },
+        ],
+      }),
+    ).toThrow("Projected frame is not authorized");
+  });
+
+  it("rejects a malformed frame table", () => {
+    expect(() =>
+      createProjector({
+        ...projection,
+        manifest: externalManifest,
+        widgetFrames: [
+          {
+            packageId: "acme.athletics",
+            packageDigest: `sha256:${PACKAGE}`,
+            frameDigest: FRAME,
+            uri: "",
+          },
+        ],
+      }),
+    ).toThrow("malformed frame entry");
+  });
+});

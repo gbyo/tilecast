@@ -1,0 +1,26 @@
+---
+title: Call Tilecast services from an external package
+description: Use versioned service grants and Player capabilities from external package server code.
+---
+
+External packages are untrusted third-party code installed at runtime. Their server logic runs as WebAssembly on Tilecast Server, and it reaches Tilecast through versioned service grants — never through SQL, the filesystem, or OS calls.
+
+## Request service grants
+
+Use Package API v3 and list each service in `capabilities.services` with its `{id, version}`. The install review shows every grant and the operations it unlocks before anything installs. Unknown services fail the review.
+
+Ten services exist at version 1: organization, instance, screens, targets, content, managed presentations, takeovers, the basic user directory, audit events, and Player display control. For the full inventory, see the [package service capabilities engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/package-services.md).
+
+## Call services from Wasm
+
+Guests call `tilecast.call_v1` with an operation token such as `screens.read@1/list` and a JSON input. An executed call answers an envelope: `{ok: true, data}` or `{ok: false, error}` with a typed failure. A missing grant, a forbidden context, or an unknown operation fails closed at the transport.
+
+The reference guest SDK (`packages/package-guest-sdk`) owns the unsafe boundary, envelope parsing, and typed shapes. The Hello Services sample (`packages/package-samples/hello-services`) shows a scheduled job that reads screens and writes one audit event.
+
+Background jobs run as the system with no user actor. Studio interface calls run as the signed-in account with that operation's dashboard role policy.
+
+## Request Player operations
+
+The `players.display-control@1` service exposes one method per Player Capability operation, for example `display.power`. A call carries the target `screenId` and the operation `input`. The server verifies the target screen reports the matching capability before queueing anything through the ordinary Player command path. Guests never name a command type.
+
+Player capabilities are versioned and independent of operating system. No package ships per-platform Player code. For the registry and the reporting contract, see the [Player capabilities engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/player-capabilities.md).

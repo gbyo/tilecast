@@ -1082,6 +1082,7 @@
     "factLastHealthy": "Last healthy playback",
     "factUpdateReadiness": "Update readiness",
     "factDisplayControl": "Display Control",
+    "factPlayerCapabilities": "Player capabilities",
     "providerCapabilities": "{{provider}} · {{count}} capabilities",
     "factDisplayState": "Display state",
     "displayNotConfirmed": " · command sent, not confirmed",

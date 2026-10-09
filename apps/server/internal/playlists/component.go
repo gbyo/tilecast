@@ -20,8 +20,13 @@ const (
 	// schema 3 components with a package block naming the verified
 	// package digest and the player bundle download. It includes every
 	// v17 feature.
-	ManifestSchemaExternalComponents  = 18
-	componentPresentationSchemaLegacy = 2
+	ManifestSchemaExternalComponents = 18
+	// ManifestSchemaExternalWidgetFrames carries executable external
+	// Widget components: schema 3 components with a package block
+	// naming the verified package digest and the assembled sandbox
+	// frame download. It includes every v18 feature.
+	ManifestSchemaExternalWidgetFrames = 19
+	componentPresentationSchemaLegacy  = 2
 )
 
 // ComponentPresentation references a first-class Widget component. Prepared
@@ -41,12 +46,26 @@ type ComponentPresentation struct {
 }
 
 // ExternalPackageRef is the verified download claim for one external
-// Widget component: which package, which pinned artifact digest, and
-// the bundle hash, size, and player-authenticated download path the
-// Player verifies before activation.
+// Widget component: which package and which pinned artifact digest,
+// plus exactly one executable artifact. A v18 claim names the raw
+// bundle hash, size, and player-authenticated download path the Player
+// retrieves but never executes; a v19 claim names only the assembled
+// sandbox frame the Player verifies and executes. The two artifacts
+// are never the same bytes.
 type ExternalPackageRef struct {
-	PackageID    string `json:"packageId"`
-	Digest       string `json:"digest"`
+	PackageID    string            `json:"packageId"`
+	Digest       string            `json:"digest"`
+	SHA256       string            `json:"sha256,omitempty"`
+	FileSize     int64             `json:"fileSize,omitempty"`
+	DownloadPath string            `json:"downloadPath,omitempty"`
+	Frame        *ExternalFrameRef `json:"frame,omitempty"`
+}
+
+// ExternalFrameRef is the verified executable artifact claim for one
+// external Widget component: the sandbox frame hash, size, and
+// player-authenticated download path the Player verifies before
+// activation.
+type ExternalFrameRef struct {
 	SHA256       string `json:"sha256"`
 	FileSize     int64  `json:"fileSize"`
 	DownloadPath string `json:"downloadPath"`
@@ -65,6 +84,18 @@ func (s *Service) compileWidgetComponent(provider string, raw json.RawMessage) (
 }
 
 func (s *Service) compileWidgetComponentForSchema(provider string, raw json.RawMessage, schemaVersion int) (*WidgetPresentation, error) {
+	return s.compileWidgetComponentForABI(provider, raw, schemaVersion, contentdefs.ExternalRuntimeVersion)
+}
+
+// compileWidgetFrameComponent returns a Widget's executable external
+// component (manifest v19), or nil for release Widgets and for
+// external Widgets without a snapshotted frame. Only Players
+// reporting widget.external-runtime@2 select it.
+func (s *Service) compileWidgetFrameComponent(provider string, raw json.RawMessage) (*WidgetPresentation, error) {
+	return s.compileWidgetComponentForABI(provider, raw, contentdefs.ComponentPresentationSchemaVersion, contentdefs.ExternalRuntimeFrameVersion)
+}
+
+func (s *Service) compileWidgetComponentForABI(provider string, raw json.RawMessage, schemaVersion, externalABI int) (*WidgetPresentation, error) {
 	if schemaVersion != componentPresentationSchemaLegacy && schemaVersion != contentdefs.ComponentPresentationSchemaVersion {
 		return nil, fmt.Errorf("unsupported component presentation schema %d", schemaVersion)
 	}
@@ -72,28 +103,48 @@ func (s *Service) compileWidgetComponentForSchema(provider string, raw json.RawM
 	if !ok || definition.Component == nil {
 		return nil, nil
 	}
+	isExternal := definition.Source.Normalized().Kind == contentdefs.SourceKindPackage
+	if externalABI == contentdefs.ExternalRuntimeFrameVersion && !isExternal {
+		return nil, nil
+	}
 	spec := *definition.Component
 	required := map[string]int{spec.Capability(): spec.Version}
 	var external *ExternalPackageRef
-	if definition.Source.Normalized().Kind == contentdefs.SourceKindPackage {
+	if isExternal {
 		// External components need schema 3: the package block has no
 		// schema 2 form, so legacy Players keep the compatibility
 		// presentation.
 		if schemaVersion == componentPresentationSchemaLegacy {
 			return nil, nil
 		}
-		ref, ok, err := s.externalPackageRef(definition)
-		if err != nil {
-			return nil, err
+		if externalABI == contentdefs.ExternalRuntimeFrameVersion {
+			ref, ok, err := s.externalFrameRef(definition)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				// No snapshotted frame: the Widget stays on its
+				// v18 bundle claim or compatibility presentation
+				// rather than naming a document the Player
+				// cannot fetch.
+				return nil, nil
+			}
+			required = map[string]int{contentdefs.ExternalRuntimeCapability: contentdefs.ExternalRuntimeFrameVersion}
+			external = ref
+		} else {
+			ref, ok, err := s.externalPackageRef(definition)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				// No verified bundle: the Widget stays on its
+				// compatibility presentation rather than naming code
+				// the Player cannot fetch.
+				return nil, nil
+			}
+			required = map[string]int{contentdefs.ExternalRuntimeCapability: contentdefs.ExternalRuntimeVersion}
+			external = ref
 		}
-		if !ok {
-			// No verified bundle: the Widget stays on its
-			// compatibility presentation rather than naming code
-			// the Player cannot fetch.
-			return nil, nil
-		}
-		required = map[string]int{contentdefs.ExternalRuntimeCapability: contentdefs.ExternalRuntimeVersion}
-		external = ref
 	}
 	configuration := map[string]any{}
 	if len(raw) > 0 && string(raw) != "null" {
@@ -172,6 +223,35 @@ func (s *Service) externalPackageRef(definition contentdefs.WidgetDefinition) (*
 		SHA256:       payload.SHA256Hex,
 		FileSize:     payload.Size,
 		DownloadPath: "/api/v1/player/packages/" + source.PackageID + "/widgets/" + nestedID,
+	}, true, nil
+}
+
+// externalFrameRef builds the verified executable claim for a
+// package-contributed Widget: the package identity and pinned digest
+// plus the assembled sandbox frame hash, size, and download. It
+// answers ok=false when no frame is snapshotted; a definition outside
+// its own package namespace is corruption and errors.
+func (s *Service) externalFrameRef(definition contentdefs.WidgetDefinition) (*ExternalPackageRef, bool, error) {
+	source := definition.Source.Normalized()
+	nestedID, ok := strings.CutPrefix(definition.ID, source.PackageID+".")
+	if !ok || nestedID == "" {
+		return nil, false, fmt.Errorf("Widget %q escapes package %q", definition.ID, source.PackageID)
+	}
+	if s.packagePayloads == nil {
+		return nil, false, nil
+	}
+	payload, ok := s.packagePayloads.WidgetPayload(source.PackageID, nestedID)
+	if !ok || payload.FrameSHA256Hex == "" || payload.FrameSize <= 0 {
+		return nil, false, nil
+	}
+	return &ExternalPackageRef{
+		PackageID: source.PackageID,
+		Digest:    payload.PackageDigest,
+		Frame: &ExternalFrameRef{
+			SHA256:       payload.FrameSHA256Hex,
+			FileSize:     payload.FrameSize,
+			DownloadPath: "/api/v1/player/packages/" + source.PackageID + "/widgets/" + nestedID + "/frame",
+		},
 	}, true, nil
 }
 

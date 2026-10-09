@@ -96,6 +96,37 @@ fn renderer_media_refs<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Ren
     bounded_vec(d, super::presentation::MAX_CONTENT_REFS)
 }
 
+/// A renderer-visible frame grant: the `projection.widgetFrames`
+/// authorization entry plus the byte size the renderer's serve allowlist
+/// enforces. The digests remain daemon-verified; `uri` is an opaque
+/// capability valid only for the current renderer generation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RendererFrameRef {
+    #[serde(deserialize_with = "frame_capability_uri")]
+    pub uri: SafeText<128>,
+    pub package_id: SafeText<128>,
+    pub package_digest: crate::Sha256Digest,
+    pub frame_digest: crate::Sha256Digest,
+    pub size_bytes: u64,
+}
+
+fn frame_capability_uri<'de, D: serde::Deserializer<'de>>(d: D) -> Result<SafeText<128>, D::Error> {
+    let uri = SafeText::<128>::deserialize(d)?;
+    let Some(capability) = uri.as_str().strip_prefix("tcwidget://cap/") else {
+        return Err(D::Error::custom("invalid renderer frame capability URI"));
+    };
+    if capability.len() != 64 || !capability.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(D::Error::custom("invalid renderer frame capability URI"));
+    }
+    Ok(uri)
+}
+
+fn renderer_frame_refs<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<RendererFrameRef>, D::Error> {
+    bounded_vec(d, super::presentation::MAX_CONTENT_REFS)
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PresentationActivate {
@@ -105,6 +136,10 @@ pub struct PresentationActivate {
     pub presentation: PresentationDocument,
     #[serde(deserialize_with = "renderer_media_refs")]
     pub content: Vec<RendererMediaRef>,
+    /// The activation's authorized frame allowlist, present only on
+    /// sessions that negotiated [`super::RENDERER_FEATURE_WIDGET_FRAMES`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty", deserialize_with = "renderer_frame_refs")]
+    pub frames: Vec<RendererFrameRef>,
     #[serde(default)]
     pub timing: Option<SyncTiming>,
     /// Inputs for the trusted runtime's render-tree projection of `widget`
@@ -138,6 +173,43 @@ pub struct ProjectionContext {
     /// Absent means the runtime's defaults.
     #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "playback_context")]
     pub playback: Option<Value>,
+    /// Authorization table: every sandbox frame the references may
+    /// execute. Present only on sessions that negotiated
+    /// [`super::RENDERER_FEATURE_WIDGET_FRAMES`]; the projector joins
+    /// each manifest frame claim to its authorized URI and rejects the
+    /// activation on any mismatch. Absent when the activation carries
+    /// no external Widgets.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "optional_widget_frames")]
+    pub widget_frames: Option<Vec<RendererFrameRef>>,
+    /// Media aliases for opaque sandbox frames, mirroring [`Self::media`].
+    /// Some engines refuse subresource loads from opaque origins to
+    /// capability schemes, so hosts that serve frames over loopback HTTP
+    /// authorize the same variants a second time in a form frames can
+    /// load. The projector prefers this table for Widget component
+    /// media and falls back to [`Self::media`]; hosts whose frames load
+    /// capability URIs directly omit it.
+    #[serde(default, skip_serializing_if = "Option::is_none", deserialize_with = "optional_media_aliases")]
+    pub widget_media: Option<Vec<MediaAlias>>,
+}
+
+fn optional_media_aliases<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Vec<MediaAlias>>, D::Error> {
+    let aliases = Option::<Vec<MediaAlias>>::deserialize(d)?;
+    if let Some(aliases) = &aliases
+        && aliases.len() > MAX_MEDIA_ALIASES
+    {
+        return Err(D::Error::custom(format!("list has more than {MAX_MEDIA_ALIASES} entries")));
+    }
+    Ok(aliases)
+}
+
+fn optional_widget_frames<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Vec<RendererFrameRef>>, D::Error> {
+    let frames = Option::<Vec<RendererFrameRef>>::deserialize(d)?;
+    if let Some(frames) = &frames
+        && frames.len() > super::presentation::MAX_CONTENT_REFS
+    {
+        return Err(D::Error::custom("list has more than 1024 entries"));
+    }
+    Ok(frames)
 }
 
 /// Largest playback section carried in a projection context.
@@ -868,6 +940,86 @@ mod tests {
 
         assert!(matches!(Event::decode("noise.report", json!({"status": "inactive"})), Err(EventError::Unknown(_))));
         assert!(matches!(Event::decode("noise.level", json!({"rms": 0.5})), Err(EventError::Unknown(_))));
+    }
+
+    #[test]
+    fn widget_media_mirrors_the_alias_bound_and_omits_when_empty() {
+        let alias = json!({
+            "assetId": "844f4a48-a47c-4fbd-8a84-f8d61cc64b6a",
+            "variantId": "46784d73-3daf-45cf-8ff0-7cb4a3d12852",
+            "uri": format!("http://127.0.0.1:8471/media/{}", "d".repeat(64)),
+        });
+        let mut projection = json!({"schema": 19, "clockOffsetMs": 0, "manifest": {}, "media": []});
+        let parsed: ProjectionContext = serde_json::from_value(projection.clone()).expect("parses");
+        assert!(parsed.widget_media.is_none());
+        assert!(!serde_json::to_value(&parsed).expect("json").as_object().expect("obj").contains_key("widgetMedia"));
+        projection["widgetMedia"] = json!([alias]);
+        let parsed: ProjectionContext = serde_json::from_value(projection.clone()).expect("parses");
+        assert_eq!(parsed.widget_media.expect("table").len(), 1);
+        projection["widgetMedia"] = json!([alias.clone(), alias]);
+        let parsed: ProjectionContext = serde_json::from_value(projection).expect("parses");
+        assert_eq!(parsed.widget_media.expect("table").len(), 2);
+    }
+
+    #[test]
+    fn frame_refs_pin_the_widget_scheme_and_bound_the_list() {
+        let entry = json!({
+            "uri": format!("tcwidget://cap/{}", "d".repeat(64)),
+            "packageId": "acme.athletics",
+            "packageDigest": "e".repeat(64),
+            "frameDigest": "f".repeat(64),
+            "sizeBytes": 512,
+        });
+        let parsed: RendererFrameRef = serde_json::from_value(entry.clone()).expect("valid");
+        assert_eq!(parsed.size_bytes, 512);
+        for bad_uri in [
+            format!("tcmedia://cap/{}", "d".repeat(64)),
+            "tcwidget://cap/short".to_string(),
+            format!("tcwidget://cap/{}", "D".repeat(64)),
+            format!("tcwidget://cap/{}/extra", "d".repeat(64)),
+            format!("tcwidget://cap/{}#frag", "d".repeat(64)),
+        ] {
+            let mut bad = entry.clone();
+            bad["uri"] = json!(bad_uri);
+            assert!(serde_json::from_value::<RendererFrameRef>(bad).is_err());
+        }
+        // The projection table omits when empty, parses when present, and
+        // refuses an entry that is not a frame capability.
+        let mut projection = json!({"schema": 19, "clockOffsetMs": 0, "manifest": {}, "media": []});
+        let parsed: ProjectionContext = serde_json::from_value(projection.clone()).expect("parses");
+        assert!(parsed.widget_frames.is_none());
+        assert!(!serde_json::to_value(&parsed).expect("json").as_object().expect("obj").contains_key("widgetFrames"));
+        projection["widgetFrames"] = json!([entry]);
+        let parsed: ProjectionContext = serde_json::from_value(projection.clone()).expect("parses");
+        assert_eq!(parsed.widget_frames.expect("frames").len(), 1);
+        projection["widgetFrames"] = json!([{"uri": "tcmedia://cap/".to_string() + &"d".repeat(64),
+            "packageId": "acme.athletics", "packageDigest": "e".repeat(64),
+            "frameDigest": "f".repeat(64), "sizeBytes": 512}]);
+        assert!(serde_json::from_value::<ProjectionContext>(projection).is_err());
+    }
+
+    #[test]
+    fn frame_table_uris_match_the_shared_contract() {
+        let fixture: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../../../packages/player-contracts/fixtures/widget-frames.json"
+        ))
+        .expect("fixture parses");
+        for case in fixture["tableUris"].as_array().expect("corpus") {
+            let uri = case["uri"].as_str().expect("uri");
+            let entry = serde_json::json!({
+                "uri": uri,
+                "packageId": "acme.athletics",
+                "packageDigest": "e".repeat(64),
+                "frameDigest": "f".repeat(64),
+                "sizeBytes": 512,
+            });
+            assert_eq!(
+                serde_json::from_value::<RendererFrameRef>(entry).is_ok(),
+                case["accepted"].as_bool().expect("accepted"),
+                "{}",
+                case["name"].as_str().unwrap_or(uri),
+            );
+        }
     }
 
     #[test]

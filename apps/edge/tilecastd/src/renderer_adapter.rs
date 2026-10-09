@@ -6,7 +6,7 @@ use edge_ipc::SessionHandle;
 use edge_protocol::ipc::event::{
     ActivationRef, Event, EvidenceKind, Identify, KioskPolicy, MediaAlias, MediaChannelDescriptor, PluginState,
     PresentationClear, PreviewRequest, ProjectionContext, RendererCommand, RendererCommandKind, RendererConfigure,
-    RendererMediaRef, RendererShutdown, SyncTiming,
+    RendererFrameRef, RendererMediaRef, RendererShutdown, SyncTiming,
 };
 use edge_protocol::ipc::presentation::{ItemKind, PresentationDocument, parse_content_uri};
 use edge_protocol::{Sha256Digest, bounded::SafeText};
@@ -19,6 +19,7 @@ use serde_json::Value;
 
 use crate::{
     media::{MediaCapability, MediaRegistry},
+    media_channel::{ReadExpect, grant_live},
     presentation::Activation,
 };
 
@@ -186,6 +187,13 @@ pub(crate) fn packaged_profile() -> player_core::PackagedRendererProfile {
             crate::widget_capabilities::WIDGET_COMPONENTS
                 .iter()
                 .map(|(name, version)| (token(*name), *version))
+                // The frame execution ABI is one capability for every
+                // downloaded Widget, not a discovered component: this
+                // release confines served frames, so it offers it.
+                .chain(std::iter::once((
+                    token(edge_protocol::frames::EXTERNAL_RUNTIME_CAPABILITY),
+                    edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+                )))
                 .collect(),
         )
         .expect("bounded installed runtime profile"),
@@ -227,14 +235,63 @@ pub(crate) fn prepare(activation: &Activation, clock_offset_ms: i64) -> Result<R
             stream: activation.extras.streams.get(&reference.sha256).cloned(),
         })
         .collect();
+    let frames = activation
+        .frames
+        .iter()
+        .map(|reference| player_core::VerifiedFrameRef {
+            package_id: reference.package_id.clone(),
+            package_digest: reference.package_digest,
+            sha256: reference.sha256,
+            size_bytes: reference.size_bytes,
+        })
+        .collect();
     RendererActivation::new(
         RendererActivationRef { activation_id: activation.id, generation: activation.generation },
         prepared_document(&activation.document)?,
         activation.renderer_metadata.clone(),
         content,
+        frames,
         Some(payload(serde_json::to_value(context).map_err(invalid)?)?),
     )
     .map_err(invalid)
+}
+
+/// Minted grants for one activation, by usage. Media and frame grants
+/// share the registry's token space but never each other's URIs.
+#[derive(Debug, Default)]
+struct CachedGrants {
+    media: HashMap<Sha256Digest, MediaCapability>,
+    frames: HashMap<Sha256Digest, MediaCapability>,
+}
+
+/// Whether the renderer session negotiated sandbox-frame delivery. Frame
+/// members cross only negotiated sessions; anything else fails the
+/// activation rather than executing a frame the renderer cannot confine.
+fn session_grants_frames(session: &SessionHandle) -> bool {
+    session.features().iter().any(|feature| feature.as_str() == edge_protocol::ipc::RENDERER_FEATURE_WIDGET_FRAMES)
+}
+
+/// Joins verified frame claims to their minted `tcwidget://` capabilities:
+/// the renderer's serve allowlist and the `projection.widgetFrames`
+/// authorization table. Every claim must have a grant; a missing one
+/// fails the activation rather than executing a frame unconfined.
+fn frame_authorization_table(
+    frames: &[player_core::VerifiedFrameRef],
+    grants: &HashMap<Sha256Digest, MediaCapability>,
+) -> Result<Vec<RendererFrameRef>, RendererPortError> {
+    frames
+        .iter()
+        .map(|frame| {
+            let uri = grants.get(&frame.sha256).ok_or(RendererPortError::InvalidActivation)?.frame_uri();
+            Ok(RendererFrameRef {
+                uri: SafeText::new(uri).map_err(invalid)?,
+                package_id: frame.package_id.clone(),
+                package_digest: frame.package_digest,
+                frame_digest: frame.sha256,
+                size_bytes: frame.size_bytes,
+            })
+        })
+        .collect()
 }
 
 /// One host endpoint owns resource grants for its live renderer session.
@@ -244,7 +301,11 @@ pub(crate) struct EdgeRendererPort {
     channel: MediaChannelDescriptor,
     clock: edge_protocol::time::SharedClock,
     registry: Arc<Mutex<MediaRegistry>>,
-    media: Mutex<Option<(ActivationRef, HashMap<Sha256Digest, MediaCapability>)>>,
+    media: Mutex<Option<(ActivationRef, CachedGrants)>>,
+    /// Ephemeral loopback media port, set once the daemon binds it. Opaque
+    /// frames cannot load `tcmedia:` subresources, so their media aliases
+    /// are mirrored as loopback URLs only while this port is known.
+    loopback_port: Mutex<Option<u16>>,
 }
 
 impl EdgeRendererPort {
@@ -254,7 +315,16 @@ impl EdgeRendererPort {
         registry: Arc<Mutex<MediaRegistry>>,
         clock: edge_protocol::time::SharedClock,
     ) -> Self {
-        Self { session, channel, registry, clock, media: Mutex::new(None) }
+        Self { session, channel, registry, clock, media: Mutex::new(None), loopback_port: Mutex::new(None) }
+    }
+
+    /// Records the loopback media port once the daemon binds it. Activations
+    /// built before the bind omit the opaque-frame media table rather than
+    /// emit unusable URLs.
+    pub(crate) fn set_loopback_port(&self, port: u16) {
+        if let Ok(mut slot) = self.loopback_port.lock() {
+            *slot = Some(port);
+        }
     }
 
     fn send(&self, event: Event) -> Result<(), RendererPortError> {
@@ -267,6 +337,44 @@ fn wire_document(
     resolve: &impl Fn(Sha256Digest) -> Option<String>,
 ) -> Result<Value, RendererPortError> {
     document.resolve(resolve).map_err(invalid)
+}
+
+/// Mirrors resolved capability aliases as loopback URLs for opaque frames.
+/// Each alias URI is a `tcmedia://cap/<token>` the port minted through the
+/// activation bindings; the token is re-checked live before its URL is
+/// published, so a generation that retired between grant and fill fails the
+/// activation instead of handing frames a dead URL.
+fn widget_media_table(
+    registry: &MediaRegistry,
+    session: edge_protocol::ids::SessionId,
+    aliases: &[MediaAlias],
+    port: Option<u16>,
+    now_ms: i64,
+) -> Result<Option<Vec<MediaAlias>>, RendererPortError> {
+    if aliases.is_empty() {
+        return Ok(None);
+    }
+    let Some(port) = port else {
+        // An unbound endpoint is an activation failure, not permission to
+        // leak an unusable tcmedia URI into an opaque sandbox frame.
+        tracing::warn!(component = "media", event = "loopback_unbound_frames_have_no_media");
+        return Err(RendererPortError::ResourceUnavailable);
+    };
+    let mut table = Vec::with_capacity(aliases.len());
+    for alias in aliases {
+        let token = alias
+            .uri
+            .as_str()
+            .strip_prefix("tcmedia://cap/")
+            .and_then(MediaCapability::parse)
+            .ok_or(RendererPortError::InvalidActivation)?;
+        if !grant_live(registry, session, token.as_str(), ReadExpect::Media, now_ms) {
+            return Err(RendererPortError::InvalidActivation);
+        }
+        let uri = SafeText::new(crate::media_http::media_url(port, token.as_str())).map_err(invalid)?;
+        table.push(MediaAlias { asset_id: alias.asset_id, variant_id: alias.variant_id, uri });
+    }
+    Ok(Some(table))
 }
 
 impl EdgeRendererPort {
@@ -286,9 +394,9 @@ impl RendererPort for EdgeRendererPort {
         let mut media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
         if media.as_ref().is_none_or(|(cached, _)| *cached != reference) {
             let mut registry = self.registry.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
-            let grants = if activation.content().is_empty() {
+            let grants = if activation.content().is_empty() && activation.frames().is_empty() {
                 registry.drain_active(now_ms);
-                HashMap::new()
+                CachedGrants::default()
             } else {
                 let content: Vec<_> = activation
                     .content()
@@ -297,6 +405,16 @@ impl RendererPort for EdgeRendererPort {
                         sha256: object.sha256,
                         size_bytes: object.size_bytes,
                         mime_type: object.mime_type.clone(),
+                    })
+                    .collect();
+                let frames: Vec<_> = activation
+                    .frames()
+                    .iter()
+                    .map(|frame| edge_protocol::ipc::presentation::FrameRef {
+                        package_id: frame.package_id.clone(),
+                        package_digest: frame.package_digest,
+                        sha256: frame.sha256,
+                        size_bytes: frame.size_bytes,
                     })
                     .collect();
                 let streams: HashMap<_, _> = activation
@@ -310,17 +428,24 @@ impl RendererPort for EdgeRendererPort {
                         tracing::error!(component = "media", event = "capability_prepare_failed", error = %error);
                         RendererPortError::ResourceUnavailable
                     })?;
+                let prepared_frames = registry
+                    .prepare_frames(self.session.id(), reference.generation, now_ms, &frames)
+                    .map_err(|error| {
+                        registry.retire(reference.generation);
+                        tracing::error!(component = "media", event = "frame_prepare_failed", error = %error);
+                        RendererPortError::ResourceUnavailable
+                    })?;
                 if let Err(error) = registry.activate(self.session.id(), reference.generation, now_ms) {
                     registry.retire(reference.generation);
                     tracing::error!(component = "media", event = "capability_activate_failed", error = %error);
                     return Err(RendererPortError::ResourceUnavailable);
                 }
-                prepared
+                CachedGrants { media: prepared, frames: prepared_frames }
             };
             *media = Some((reference, grants));
         }
         let grants = &media.as_ref().expect("current generation has grants").1;
-        let resolve = |object| grants.get(&object).map(MediaCapability::uri);
+        let resolve = |object| grants.media.get(&object).map(MediaCapability::uri);
         let presentation = wire_document(activation.document(), &resolve)?;
         let content: Vec<RendererMediaRef> = activation
             .content()
@@ -334,6 +459,12 @@ impl RendererPort for EdgeRendererPort {
                 })
             })
             .collect::<Result<_, RendererPortError>>()?;
+        let frames = frame_authorization_table(activation.frames(), &grants.frames)?;
+        if !frames.is_empty() && !session_grants_frames(&self.session) {
+            // The renderer never negotiated frame delivery: fail the
+            // activation rather than execute frames it cannot confine.
+            return Err(RendererPortError::InvalidActivation);
+        }
         let context = activation.runtime_context().ok_or(RendererPortError::InvalidActivation)?;
         let mut context: RuntimeContext =
             serde_json::from_value(context.resolve(resolve).map_err(invalid)?).map_err(invalid)?;
@@ -342,6 +473,25 @@ impl RendererPort for EdgeRendererPort {
         }
         if let Some(projection) = &mut context.projection {
             projection.clock_offset_ms = context.clock_offset_ms;
+            if !frames.is_empty() {
+                if projection.widget_frames.is_some() {
+                    // Core never builds the authorization table; a table
+                    // already present means a confused upstream.
+                    return Err(RendererPortError::InvalidActivation);
+                }
+                projection.widget_frames = Some(frames.clone());
+                if projection.widget_media.is_some() {
+                    // Same rule for the opaque-frame media table: only the
+                    // port mirrors aliases onto the loopback transport.
+                    return Err(RendererPortError::InvalidActivation);
+                }
+                let registry = self.registry.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+                let port = *self.loopback_port.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+                projection.widget_media =
+                    widget_media_table(&registry, self.session.id(), &context.aliases, port, now_ms)?;
+            }
+        } else if !frames.is_empty() {
+            return Err(RendererPortError::InvalidActivation);
         }
         let plugins = if context.server_presentation {
             let plugin_content = content
@@ -360,7 +510,7 @@ impl RendererPort for EdgeRendererPort {
         };
         let sent = self
             .session
-            .send_presentation(reference, presentation, content, context.timing, context.projection)
+            .send_presentation(reference, presentation, content, frames, context.timing, context.projection)
             .map_err(|_| RendererPortError::QueueUnavailable);
         let plugins_sent = self.send(Event::PluginState(plugins));
         sent.and(plugins_sent)
@@ -490,6 +640,8 @@ mod tests {
             clock_offset_ms: 0,
             media: vec![],
             playback: None,
+            widget_frames: None,
+            widget_media: None,
             manifest: json!({"widgets": [{"presentation": {"schemaVersion": 2, "kind": "component",
                 "requiredCapabilities": {"widget.tilecast.clock": 2, "content.text": 1}}}]}),
         };
@@ -544,6 +696,7 @@ mod tests {
                 mime_type: SafeText::new("image/png").unwrap(),
                 stream: None,
             }],
+            Vec::new(),
             None,
         )
         .unwrap();
@@ -633,6 +786,7 @@ mod tests {
                 size_bytes: 4,
                 mime_type: SafeText::new("image/png").unwrap(),
             }],
+            frames: Vec::new(),
             timing: Some(SyncTiming {
                 group_id: SafeText::new("group").unwrap(),
                 anchor_unix_ms: 42,
@@ -664,6 +818,53 @@ mod tests {
     }
 
     #[test]
+    fn packaged_profile_offers_the_frame_execution_abi_at_two() {
+        use player_core::RendererRequirement;
+        let name =
+            || edge_protocol::bounded::ShortToken::new(edge_protocol::frames::EXTERNAL_RUNTIME_CAPABILITY).unwrap();
+        packaged_profile()
+            .check(&RendererRequirement::WidgetComponent {
+                name: name(),
+                version: edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+            })
+            .expect("external-runtime @2");
+        assert!(
+            packaged_profile()
+                .check(&RendererRequirement::WidgetComponent {
+                    name: name(),
+                    version: edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION + 1,
+                })
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn frame_table_joins_claims_to_confined_uris() {
+        let package = Sha256Digest::parse(&"e".repeat(64)).unwrap();
+        let document = Sha256Digest::parse(&"f".repeat(64)).unwrap();
+        let claim = player_core::VerifiedFrameRef {
+            package_id: SafeText::new("acme.athletics").unwrap(),
+            package_digest: package,
+            sha256: document,
+            size_bytes: 512,
+        };
+        let token = MediaCapability::parse(&"c".repeat(64)).unwrap();
+        let table =
+            frame_authorization_table(std::slice::from_ref(&claim), &HashMap::from([(document, token)])).unwrap();
+        assert_eq!(table.len(), 1);
+        assert_eq!(table[0].package_id.as_str(), "acme.athletics");
+        assert_eq!(table[0].package_digest, package);
+        assert_eq!(table[0].frame_digest, document);
+        assert_eq!(table[0].size_bytes, 512);
+        assert!(table[0].uri.as_str().starts_with("tcwidget://cap/"));
+        assert_eq!(
+            frame_authorization_table(std::slice::from_ref(&claim), &HashMap::new()),
+            Err(RendererPortError::InvalidActivation)
+        );
+        assert!(frame_authorization_table(&[], &HashMap::new()).unwrap().is_empty());
+    }
+
+    #[test]
     fn extras_streams_become_content_backends_while_uris_stay_opaque() {
         use crate::presentation::{ActivationSource, ServerExtras};
         let digest = Sha256Digest::of(b"streamed");
@@ -692,6 +893,7 @@ mod tests {
                     mime_type: SafeText::new("image/png").unwrap(),
                 },
             ],
+            frames: Vec::new(),
             timing: None,
             source: ActivationSource::ServerManifest,
             extras: ServerExtras {
@@ -710,5 +912,63 @@ mod tests {
             prepared.document().resolve(&|object| objects.contains_key(&object).then(|| "tcmedia://cap/x".into()));
         let encoded = serde_json::to_string(&resolved.unwrap()).unwrap();
         assert!(!encoded.contains("api/v1"));
+    }
+
+    fn granted_alias(session: edge_protocol::ids::SessionId) -> (MediaRegistry, MediaAlias, String) {
+        use edge_protocol::ipc::presentation::ContentRef;
+        let digest = Sha256Digest::of(b"frame media");
+        let content = ContentRef { sha256: digest, size_bytes: 11, mime_type: SafeText::new("image/png").unwrap() };
+        let mut registry = MediaRegistry::new();
+        registry.bind_renderer(crate::media::RendererInstance { session, uid: 0, pid: 0, start_ticks: 0 });
+        let token = registry
+            .prepare(session, 7, 1_700_000_000_000, &[content], &HashMap::new())
+            .unwrap()
+            .remove(&digest)
+            .unwrap();
+        registry.activate(session, 7, 1_700_000_000_000).unwrap();
+        let alias = MediaAlias {
+            asset_id: uuid::Uuid::new_v4(),
+            variant_id: uuid::Uuid::new_v4(),
+            uri: SafeText::new(token.uri()).unwrap(),
+        };
+        (registry, alias, token.as_str().to_owned())
+    }
+
+    #[test]
+    fn widget_media_table_mirrors_live_aliases_onto_loopback() {
+        let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
+        let (registry, alias, token) = granted_alias(session);
+        let table = widget_media_table(&registry, session, std::slice::from_ref(&alias), Some(8471), 1_700_000_000_000)
+            .unwrap()
+            .unwrap();
+        assert_eq!(table.len(), 1);
+        assert_eq!(table[0].asset_id, alias.asset_id);
+        assert_eq!(table[0].variant_id, alias.variant_id);
+        assert_eq!(table[0].uri.as_str(), format!("http://127.0.0.1:8471/media/{token}"));
+    }
+
+    #[test]
+    fn widget_media_table_requires_port_when_aliases_are_present() {
+        let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
+        let (registry, alias, _) = granted_alias(session);
+        assert!(widget_media_table(&registry, session, &[], Some(8471), 1_700_000_000_000).unwrap().is_none());
+        assert!(widget_media_table(&registry, session, &[alias], None, 1_700_000_000_000).is_err());
+    }
+
+    #[test]
+    fn widget_media_table_rejects_unresolved_and_retired_aliases() {
+        let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
+        let (mut registry, alias, _) = granted_alias(session);
+        // An alias URI that is not a minted capability means a confused
+        // upstream; it must fail the activation, not mint a loopback URL.
+        let unresolved = MediaAlias {
+            uri: SafeText::new(format!("tcmedia://variant/{}/{}", uuid::Uuid::nil(), uuid::Uuid::nil())).unwrap(),
+            ..alias.clone()
+        };
+        assert!(widget_media_table(&registry, session, &[unresolved], Some(8471), 1_700_000_000_000).is_err());
+        // A generation that retired between grant and fill hands frames a
+        // dead URL unless the fill fails loudly.
+        registry.retire(7);
+        assert!(widget_media_table(&registry, session, &[alias], Some(8471), 1_700_000_000_000).is_err());
     }
 }

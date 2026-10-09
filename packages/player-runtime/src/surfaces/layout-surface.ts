@@ -22,7 +22,7 @@ import { layoutPayload, objectFit } from "../engine/model";
 import { zoneEntry, zoneMachine, type ZoneActor } from "../engine/zone-machine";
 import { applyAutoFit, buildRenderNode } from "../compat/render-tree-dom";
 import type { MediaSurface, SurfaceEnvironment, SurfaceSink } from "./surface";
-import type { WidgetMount } from "@tilecast/widget-sdk/mount";
+import type { WidgetExecution } from "@tilecast/widget-sdk/executor";
 
 export class LayoutSurface implements MediaSurface {
   readonly element: HTMLDivElement;
@@ -32,7 +32,7 @@ export class LayoutSurface implements MediaSurface {
   private readonly nested: MediaSurface[] = [];
   private youtubeZones = 0;
   private active = false;
-  private readonly widgetMounts: WidgetMount[] = [];
+  private readonly widgetMounts: WidgetExecution[] = [];
   private disposed = false;
 
   constructor(

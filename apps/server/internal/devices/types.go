@@ -345,11 +345,17 @@ type Heartbeat struct {
 	DisplayControlProvider            string            `json:"displayControlProvider,omitempty"`
 	DisplayControlProviders           []string          `json:"displayControlProviders,omitempty"`
 	DisplayControlCapabilities        map[string]string `json:"displayControlCapabilities,omitempty"`
-	DisplayPowerState                 string            `json:"displayPowerState,omitempty"`
-	DisplayPowerStateConfirmed        *bool             `json:"displayPowerStateConfirmed,omitempty"`
-	DisplayPowerStateObservedAt       *time.Time        `json:"displayPowerStateObservedAt,omitempty"`
-	DisplayControlPolicyState         string            `json:"displayControlPolicyState,omitempty"`
-	DisplayControlError               string            `json:"displayControlError,omitempty"`
+	// PlayerCapabilities is the generic versioned capability status:
+	// capability IDs to the registry version and diagnostic provider.
+	// Nil keeps the stored report; an empty map clears it. Reporters
+	// populate it from the same probe that feeds the legacy display
+	// control fields above.
+	PlayerCapabilities          map[string]PlayerCapabilityReport `json:"playerCapabilities,omitempty"`
+	DisplayPowerState           string                            `json:"displayPowerState,omitempty"`
+	DisplayPowerStateConfirmed  *bool                             `json:"displayPowerStateConfirmed,omitempty"`
+	DisplayPowerStateObservedAt *time.Time                        `json:"displayPowerStateObservedAt,omitempty"`
+	DisplayControlPolicyState   string                            `json:"displayControlPolicyState,omitempty"`
+	DisplayControlError         string                            `json:"displayControlError,omitempty"`
 
 	// Presentation Network capability and state, reported by the Linux probe.
 	//
@@ -386,6 +392,14 @@ type Heartbeat struct {
 	// Players released with it keep sending it, and strict decoding would
 	// otherwise refuse their whole heartbeat. It is accepted and ignored.
 	RetiredNoiseMeter json.RawMessage `json:"noiseMeter,omitempty"`
+}
+
+// PlayerCapabilityReport is one entry of the generic capability status:
+// the registry version the player implements and the provider serving
+// it. Provider is diagnostic metadata, never behavior.
+type PlayerCapabilityReport struct {
+	Version  int    `json:"version"`
+	Provider string `json:"provider"`
 }
 
 func addressString(address netip.Addr) *string {

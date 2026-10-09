@@ -279,6 +279,8 @@ on_decide_policy (WebKitWebView *view, WebKitPolicyDecision *decision, WebKitPol
   WebKitNavigationAction *action =
     webkit_navigation_policy_decision_get_navigation_action (WEBKIT_NAVIGATION_POLICY_DECISION (decision));
   const char *uri = webkit_uri_request_get_uri (webkit_navigation_action_get_request (action));
+  /* A subset of src/view.c: fixtures mount no sandbox frames, so the
+   * tcwidget://cap/ exception lives only in the production policy. */
   if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION && g_str_has_prefix (uri, "tilecast://runtime/"))
     webkit_policy_decision_use (decision);
   else

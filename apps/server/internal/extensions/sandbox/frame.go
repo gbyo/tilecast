@@ -7,7 +7,10 @@
 package sandbox
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -33,4 +36,39 @@ func Assemble(bundle string) (string, error) {
 		return "", errors.New("sandbox frame template must hold exactly one bundle slot")
 	}
 	return strings.Replace(Template, BundlePlaceholder, EscapeInlineScript(bundle), 1), nil
+}
+
+// MaxFrameBytes bounds one assembled sandbox frame document: a
+// maximum-size Widget bundle plus the bootstrap template with
+// headroom. The frame test pins the template far below the headroom
+// so a template change cannot silently eat the bundle budget.
+const MaxFrameBytes = int64(1<<20 + 1<<16)
+
+// AssembledFrame is one deterministically assembled sandbox frame: the
+// exact document bytes Players verify and cache, with the hash and
+// size manifest compilation and the delivery endpoint agree on.
+type AssembledFrame struct {
+	Document  string
+	SHA256Hex string
+	Size      int64
+}
+
+// AssembleFrame assembles one verified bundle and reports the exact
+// bytes, hash, and size every consumer agrees on. It fails closed on
+// an oversized document: Players verify exact size before activation,
+// so the Server must never name bytes it cannot serve.
+func AssembleFrame(bundle string) (AssembledFrame, error) {
+	document, err := Assemble(bundle)
+	if err != nil {
+		return AssembledFrame{}, err
+	}
+	if int64(len(document)) > MaxFrameBytes {
+		return AssembledFrame{}, fmt.Errorf("sandbox frame exceeds %d bytes", MaxFrameBytes)
+	}
+	sum := sha256.Sum256([]byte(document))
+	return AssembledFrame{
+		Document:  document,
+		SHA256Hex: hex.EncodeToString(sum[:]),
+		Size:      int64(len(document)),
+	}, nil
 }

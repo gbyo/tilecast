@@ -40,6 +40,26 @@ func NewService(db *pgxpool.Pool, playlists *playlists.Service, notifier Notifie
 
 func (s *Service) MaximumDuration() time.Duration { return s.maximumDuration }
 
+// TargetScreens returns the screens a takeover currently addresses,
+// through its screen states. Scoped callers authorize these before
+// acting on the takeover.
+func (s *Service) TargetScreens(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := s.db.Query(ctx, `SELECT screen_id FROM takeover_screen_states WHERE takeover_id=$1`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	screens := []uuid.UUID{}
+	for rows.Next() {
+		var screen uuid.UUID
+		if err := rows.Scan(&screen); err != nil {
+			return nil, err
+		}
+		screens = append(screens, screen)
+	}
+	return screens, rows.Err()
+}
+
 func (s *Service) ValidatePlaylist(ctx context.Context, playlistID uuid.UUID, targets plugin.ScreenTargets, userSelectable bool) error {
 	if playlistID == uuid.Nil {
 		return fmt.Errorf("playlist is missing")

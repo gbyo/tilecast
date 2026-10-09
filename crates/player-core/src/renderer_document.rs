@@ -35,6 +35,18 @@ pub struct ContentRef {
     pub stream: Option<StreamSource>,
 }
 
+/// One verified Widget frame authorized for an activation generation.
+/// The digest selects bytes from the frame domain; the package pair
+/// identifies the frame table entry the Runtime joins. Frames are
+/// always documents; the serving layer names `text/html` itself.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FrameRef {
+    pub package_id: SafeText<128>,
+    pub package_digest: Sha256Digest,
+    pub sha256: Sha256Digest,
+    pub size_bytes: u64,
+}
+
 /// Projection-supplied native semantics. Core never infers these from JSON.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RendererMetadata {

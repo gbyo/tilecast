@@ -35,6 +35,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/registry"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
@@ -363,6 +364,11 @@ func (s *Service) ResolveCustom(ctx context.Context, repoURL string) (Resolution
 	if err != nil {
 		return Resolution{}, fmt.Errorf("%w: %v", ErrManifestInvalid, err)
 	}
+	if manifest.Capabilities != nil {
+		if err := services.ValidateGrants(manifest.Capabilities.Services); err != nil {
+			return Resolution{}, fmt.Errorf("%w: %v", ErrManifestInvalid, err)
+		}
+	}
 	digest, err := s.registry.Resolve(ctx, manifest.Distribution.OCI, release.Tag)
 	if err != nil {
 		return Resolution{}, mapRegistryError(manifest.Distribution.OCI, release.Tag, err)
@@ -554,6 +560,11 @@ func (s *Service) materialize(ctx context.Context, resolution Resolution) (packa
 	verified, err := packages.VerifyLayout(layoutDir)
 	if err != nil {
 		return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
+	}
+	if verified.Manifest.Capabilities != nil {
+		if err := services.ValidateGrants(verified.Manifest.Capabilities.Services); err != nil {
+			return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
+		}
 	}
 	// Identity, version, origin, and compatibility range must agree: the
 	// review showed the discovered manifest, and activation runs the

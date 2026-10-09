@@ -55,7 +55,8 @@ pub use manifest_content::{
     manifest_pin_holder, stream_claims,
 };
 pub use manifest_resources::{
-    AssetPolicy, ManifestAsset, NATIVE_MANIFEST_SCHEMAS, NativeManifest, NativeManifestError, StreamClaim, StreamReason,
+    AssetPolicy, ManifestAsset, ManifestBundle, ManifestFrame, NATIVE_MANIFEST_SCHEMAS, NativeManifest,
+    NativeManifestError, StreamClaim, StreamReason,
 };
 pub use manifest_worker::{
     ManifestFailureKind, ManifestPreparationCoordinator, ManifestPreparationStatus, ManifestWorkerFailure,
@@ -93,8 +94,8 @@ pub use renderer_commands::{
 };
 pub use renderer_coordinator::{RecoverySnapshot, RendererCoordinator, RendererDispatch};
 pub use renderer_document::{
-    ContentRef as VerifiedContentRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError, RendererMetadata,
-    StreamSource,
+    ContentRef as VerifiedContentRef, FrameRef as VerifiedFrameRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError,
+    RendererMetadata, StreamSource,
 };
 pub use renderer_port::{
     CapturedFrame, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererPort, RendererPortError,

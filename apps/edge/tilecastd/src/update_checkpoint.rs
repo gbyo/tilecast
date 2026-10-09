@@ -697,7 +697,7 @@ mod tests {
     use edge_state::{OpenOptions, StateDb};
 
     const NEXT_MIGRATION: &[edge_state::Migration] =
-        &[edge_state::Migration { version: 12, name: "test_probe", sql: "CREATE TABLE probe (id INTEGER);" }];
+        &[edge_state::Migration { version: 13, name: "test_probe", sql: "CREATE TABLE probe (id INTEGER);" }];
 
     fn now(ms: i64) -> Timestamp {
         Timestamp::from_unix_millis(ms).expect("test clock")

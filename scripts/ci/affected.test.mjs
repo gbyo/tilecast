@@ -231,6 +231,66 @@ test("plugin surfaces follow their consumers", () => {
   );
   assert.equal(affected(["plugins/weather/service.go"]).server, true);
 });
+test("the package guest SDK and samples ride the package lanes", () => {
+  for (const path of [
+    "packages/package-guest-sdk/Cargo.toml",
+    "packages/package-guest-sdk/src/lib.rs",
+    "packages/package-samples/hello-services/tilecast.package.json",
+    "packages/package-samples/hello-services/guest/src/lib.rs",
+    "packages/package-samples/hello-services/runtime/hello_services.wasm",
+  ]) {
+    const result = affected([path]);
+    for (const area of ["plugins", "server", "container", "e2e"])
+      assert.equal(result[area], true, `${path}: ${area}`);
+    assert.equal(result.player_core, false, path);
+    assert.equal(result.ios, false, path);
+  }
+  assert.deepEqual(
+    selected(["packages/package-samples/hello-services/README.md"]),
+    ["docs"],
+  );
+});
+test("external Widget fixture changes reach every host and shared SDK", () => {
+  for (const path of [
+    "packages/player-contracts/fixtures/widget-package/bundle.js",
+    "packages/player-contracts/fixtures/widget-package/hostile.js",
+  ]) {
+    const result = affected([path]);
+    for (const area of [
+      "widgets",
+      "server",
+      "dashboard",
+      "runtime",
+      "browser_player",
+      "android",
+      "windows",
+      "edge_rust",
+      "edge_wpe",
+      "edge_conformance",
+      "player_core",
+    ]) {
+      assert.equal(result[area], true, `${path}: ${area}`);
+    }
+  }
+});
+test("the player capability registry selects its browser, server, and Rust consumers", () => {
+  const result = affected([
+    "packages/player-contracts/player-capabilities.json",
+  ]);
+  for (const area of [
+    "browser_player",
+    "server",
+    "player_core",
+    "container",
+    "e2e",
+    "android",
+    "windows",
+    "edge_rust",
+  ])
+    assert.equal(result[area], true, area);
+  assert.equal(result.ios, false);
+  assert.equal(result.docs, false);
+});
 test("new data source catalog has server, Studio and conformance", () => {
   const result = affected([
     "data-sources/announcements/tilecast.datasource.json",
@@ -347,6 +407,28 @@ test("player contract sources select every native consumer and their drift gate"
     ])
       assert.equal(result[area], true, `${path}: ${area}`);
   }
+});
+test("the widget-frames fixture selects the protocol lane and the shared crates", () => {
+  const result = affected([
+    "packages/player-contracts/fixtures/widget-frames.json",
+  ]);
+  for (const area of [
+    "protocol",
+    "player_core",
+    "server",
+    "android",
+    "runtime",
+    "windows",
+    "linux",
+    "edge_rust",
+    "edge_server",
+    "edge_wpe",
+    "edge_conformance",
+    "browser_player",
+  ])
+    assert.equal(result[area], true, area);
+  assert.equal(result.ios, false);
+  assert.equal(result.docs, false);
 });
 test("shared schema contracts distinguish players from ordinary API consumers", () => {
   for (const path of [
@@ -538,6 +620,13 @@ test("Browser Player has its own lane and follows the Runtime and the server cod
   assert.deepEqual(selected(["apps/player-web/src/application.ts"]), [
     "browser_player",
   ]);
+  // The Companion extension rides the Browser Player lane.
+  for (const path of [
+    "apps/browser-companion/src/background.ts",
+    "packages/companion-protocol/src/protocol.ts",
+  ]) {
+    assert.deepEqual(selected([path]), ["browser_player"], path);
+  }
   for (const path of [
     "apps/server/internal/web/player.go",
     "apps/server/internal/httpapi/browser_player.go",

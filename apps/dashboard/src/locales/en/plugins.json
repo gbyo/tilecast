@@ -367,7 +367,7 @@
       "title": "Permissions & behavior",
       "pending": "Requested permissions are listed in the install review, before anything is installed.",
       "noneTitle": "No special permissions",
-      "noneBody": "This plugin doesn't request network access, local storage, background jobs, or a custom Studio interface."
+      "noneBody": "This plugin doesn't request network access, local storage, background jobs, a custom Studio interface, or Tilecast services."
     },
     "capabilities": {
       "network": {
@@ -386,6 +386,16 @@
       "studioUI": {
         "title": "Studio interface",
         "body": "Adds its own configuration interface to Studio."
+      },
+      "service": {
+        "version": "Version {{version}}",
+        "operationMutating": "{{title}} (changes data)",
+        "categories": {
+          "read": "Read",
+          "directory": "Directory",
+          "manage": "Manage",
+          "audit": "Audit"
+        }
       }
     },
     "requirements": {

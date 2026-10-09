@@ -325,7 +325,14 @@ impl player_core::OfflineActivationHost for Host {
             .presentation
             .lock()
             .await
-            .activate_server_presentation(identity, resolved.document, resolved.content, extras, time.local_ms)
+            .activate_server_presentation(
+                identity,
+                resolved.document,
+                resolved.content,
+                resolved.frames,
+                extras,
+                time.local_ms,
+            )
             .map(|reference| player_core::RendererActivationRef {
                 activation_id: reference.activation_id,
                 generation: reference.generation,

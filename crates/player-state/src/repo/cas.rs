@@ -13,6 +13,7 @@ pub enum Domain {
     Update,
     RendererBundle,
     WidgetBundle,
+    WidgetFrame,
     LegacyState,
 }
 
@@ -23,6 +24,7 @@ impl Domain {
             Self::Update => "update",
             Self::RendererBundle => "renderer_bundle",
             Self::WidgetBundle => "widget_bundle",
+            Self::WidgetFrame => "widget_frame",
             Self::LegacyState => "legacy_state",
         }
     }
@@ -32,6 +34,7 @@ impl Domain {
             "update" => Self::Update,
             "renderer_bundle" => Self::RendererBundle,
             "widget_bundle" => Self::WidgetBundle,
+            "widget_frame" => Self::WidgetFrame,
             "legacy_state" => Self::LegacyState,
             _ => Self::Media,
         }
@@ -44,6 +47,7 @@ impl Domain {
             Self::LegacyState => 1,
             Self::RendererBundle => 2,
             Self::WidgetBundle => 2,
+            Self::WidgetFrame => 2,
             Self::Update => 3,
         }
     }

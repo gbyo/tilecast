@@ -27,7 +27,8 @@ use std::collections::BTreeMap;
 use edge_protocol::bounded::{SafeText, ShortToken};
 use edge_protocol::ipc::event::{MediaAlias, ProjectionContext};
 use edge_protocol::ipc::presentation::{
-    ContentRef, ItemKind, PresentationDocument, PresentationFeature, PresentationItem, StatusSurface, content_uri,
+    ContentRef, FrameRef, ItemKind, PresentationDocument, PresentationFeature, PresentationItem, StatusSurface,
+    content_uri,
 };
 use edge_protocol::{ScreenId, Sha256Digest};
 use serde_json::Value;
@@ -104,6 +105,9 @@ pub struct ResolvedPresentation {
     /// to one and shows a playlist.
     pub timing: Option<GroupTiming>,
     pub content: Vec<ContentRef>,
+    /// Every verified frame claim of the manifest, granted alongside the
+    /// content so the port can authorize the projection's frame table.
+    pub frames: Vec<FrameRef>,
     pub projection: Option<ProjectionContext>,
     pub plugins: Vec<Value>,
     pub plugin_aliases: Vec<MediaAlias>,
@@ -142,6 +146,8 @@ pub enum ManifestError {
     Schedule,
     #[error("manifest contains an invalid Widget bundle claim")]
     Bundle,
+    #[error("manifest contains an invalid Widget frame claim")]
+    Frame,
     #[error("presentation is incompatible with this renderer: {0}")]
     Incompatible(Incompatibility),
 }
@@ -158,6 +164,7 @@ impl ManifestError {
             Self::DeliveryPolicy => "manifest_delivery_policy_invalid",
             Self::Schedule => "manifest_schedule_invalid",
             Self::Bundle => "manifest_bundle_invalid",
+            Self::Frame => "manifest_frame_invalid",
             Self::Incompatible(reason) => reason.code(),
         }
     }
@@ -175,6 +182,7 @@ impl From<player_core::NativeManifestError> for ManifestError {
             player_core::NativeManifestError::DeliveryPolicy => Self::DeliveryPolicy,
             player_core::NativeManifestError::Schedule => Self::Schedule,
             player_core::NativeManifestError::Bundle => Self::Bundle,
+            player_core::NativeManifestError::Frame => Self::Frame,
         }
     }
 }
@@ -494,6 +502,25 @@ impl Candidate {
         })
     }
 
+    /// Every verified frame claim, deduplicated by document digest like
+    /// the content map. Core fetched and verified each one before this
+    /// manifest became a candidate; the port mints one grant per claim.
+    fn frame_refs(&self) -> Result<Vec<FrameRef>, ManifestError> {
+        let mut frames = Vec::with_capacity(self.required_frames.len());
+        for claim in &self.required_frames {
+            if frames.iter().any(|existing: &FrameRef| existing.sha256 == claim.digest) {
+                continue;
+            }
+            frames.push(FrameRef {
+                package_id: SafeText::new(claim.package_id.clone()).map_err(|_| ManifestError::Frame)?,
+                package_digest: claim.package_digest,
+                sha256: claim.digest,
+                size_bytes: claim.size_bytes,
+            });
+        }
+        Ok(frames)
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn status(
         &self,
@@ -683,6 +710,7 @@ impl Candidate {
             (None, None) => None,
         };
         let (plugins, plugin_aliases, plugin_content) = self.plugins(now_ms)?;
+        let frames = self.frame_refs()?;
         let finish = |document: PresentationDocument,
                       mut content: Vec<ContentRef>,
                       projection: Option<ProjectionContext>,
@@ -696,6 +724,7 @@ impl Candidate {
                 document,
                 timing: None,
                 content,
+                frames: frames.clone(),
                 projection,
                 plugins: plugins.clone(),
                 plugin_aliases: plugin_aliases.clone(),
@@ -991,7 +1020,20 @@ impl Candidate {
         let _ = now_ms;
         let playback = (!config.runtime.playback.context.is_empty())
             .then(|| Value::Object(config.runtime.playback.context.clone()));
-        Ok((ProjectionContext { schema: 1, clock_offset_ms: 0, manifest, media, playback }, content))
+        // Frame claims join their grants at the port, after Core prepared
+        // them; the manifest projection never invents the table itself.
+        Ok((
+            ProjectionContext {
+                schema: 1,
+                clock_offset_ms: 0,
+                manifest,
+                media,
+                playback,
+                widget_frames: None,
+                widget_media: None,
+            },
+            content,
+        ))
     }
 
     /// Supported built-in plugins, their media aliases and content.
@@ -1146,12 +1188,12 @@ mod tests {
 
     #[test]
     fn accepts_every_schema_the_server_compiler_emits_and_nothing_else() {
-        for schema in [11, 12, 13, 14, 15, 16, 17, 18] {
+        for schema in [11, 12, 13, 14, 15, 16, 17, 18, 19] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert!(parse(value).is_ok(), "schema {schema}");
         }
-        for schema in [10, 19] {
+        for schema in [10, 20] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert_eq!(parse(value).unwrap_err(), ManifestError::Schema, "schema {schema}");
@@ -1436,7 +1478,7 @@ mod tests {
             let reasons = incompatibilities(&candidate.document, &candidate.assets);
             assert_eq!(reasons.first().map(Incompatibility::code), Some("presentation_incompatible_widget_capability"));
         }
-        value["schemaVersion"] = serde_json::json!(19);
+        value["schemaVersion"] = serde_json::json!(20);
         assert!(parse(value).is_err(), "a manifest schema from a later release is refused");
     }
 

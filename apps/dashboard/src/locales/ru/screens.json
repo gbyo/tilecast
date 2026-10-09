@@ -1128,6 +1128,7 @@
     "factLastHealthy": "Последнее нормальное воспроизведение",
     "factUpdateReadiness": "Готовность к обновлению",
     "factDisplayControl": "Управление экраном",
+    "factPlayerCapabilities": "Возможности проигрывателя",
     "providerCapabilities": "{{provider}} · возможностей: {{count}}",
     "factDisplayState": "Состояние экрана",
     "displayNotConfirmed": " · команда отправлена, не подтверждена",

@@ -93,6 +93,12 @@ const rules = [
   [/^apps\/player-android\//, ["android"]],
   // Browser Player and the server code that authenticates and serves it.
   [/^apps\/player-web\//, ["browser_player"]],
+  // The optional Companion extension and its page protocol ride the
+  // Browser Player lane: the validator tests and builds them together.
+  [
+    /^(apps\/browser-companion|packages\/companion-protocol)\//,
+    ["browser_player"],
+  ],
   [
     /^apps\/server\/internal\/(web\/player|httpapi\/browser_player|devices\/browser)/,
     ["browser_player"],
@@ -119,6 +125,27 @@ const rules = [
   [/^apps\/ios\//, ["ios"]],
   // The iOS app runs the shared server-address corpus in its tests.
   [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],
+  // The v19 sandbox-frame fixture is pinned by player-types, edge-protocol,
+  // tilecast-windows, and player-runtime; Android and WPE mirror it in
+  // their own suites. It rides the protocol lane plus the shared crates.
+  [
+    /^packages\/player-contracts\/fixtures\/widget-frames\.json$/,
+    ["protocol", "player_core"],
+  ],
+  // External Widget conformance fixtures are executed by the shared Widget
+  // SDK and projected by the Runtime, then exercised by native hosts.
+  // Keep each changed fixture on the relevant cross-player validation lanes.
+  [
+    /^packages\/player-contracts\/fixtures\/widget-package\//,
+    ["widgets", "protocol", "player_core"],
+  ],
+  // The versioned Player Capability registry is replayed by the server
+  // drift test, imported by the Browser Player providers, and mirrored
+  // in player-types.
+  [
+    /^packages\/player-contracts\/player-capabilities\.json$/,
+    ["browser_player", "server", "player_core"],
+  ],
   // The iOS app's navigation icons are generated from Studio's icon mapping.
   [/^apps\/dashboard\/src\/navigation\/NavigationIcon\.tsx$/, ["ios"]],
   // Studio and the iOS app both run the native bridge contract's fixtures.
@@ -211,6 +238,13 @@ const rules = [
     ],
   ],
   [/^packages\/package-sdk\//, ["plugins", "server", "docs"]],
+  // The reference Wasm guest SDK and its Hello Services sample ride the
+  // package lanes: plugins validates the sample manifest, and the server
+  // suite runs the committed sample module through the real host.
+  [
+    /^(packages\/package-guest-sdk|packages\/package-samples)\//,
+    ["plugins", "server"],
+  ],
   [/^packages\/edge-protocol\//, edgeAreas],
   [/^apps\/player-windows\//, ["windows"]],
   [/^apps\/edge\/(tilecastd|tilecastctl|crates)\//, ["edge_rust"]],

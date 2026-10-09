@@ -370,7 +370,7 @@
       "title": "Permisos y comportamiento",
       "pending": "Los permisos solicitados aparecen en la revisión de instalación, antes de instalar nada.",
       "noneTitle": "Sin permisos especiales",
-      "noneBody": "Este complemento no solicita acceso a la red, almacenamiento local, tareas en segundo plano ni una interfaz de Studio propia."
+      "noneBody": "Este complemento no solicita acceso a la red, almacenamiento local, tareas en segundo plano, una interfaz de Studio propia ni servicios de Tilecast."
     },
     "capabilities": {
       "network": {
@@ -390,6 +390,16 @@
       "studioUI": {
         "title": "Interfaz de Studio",
         "body": "Añade su propia interfaz de configuración a Studio."
+      },
+      "service": {
+        "version": "Versión {{version}}",
+        "operationMutating": "{{title}} (modifica datos)",
+        "categories": {
+          "read": "Lectura",
+          "directory": "Directorio",
+          "manage": "Gestión",
+          "audit": "Auditoría"
+        }
       }
     },
     "requirements": {

@@ -20,6 +20,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/sandbox"
 	"github.com/tilecast/tilecast/apps/server/internal/testdb"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
@@ -414,6 +415,16 @@ func TestRebuildSnapshotsWidgetPayload(t *testing.T) {
 	}
 	if payload.Size != int64(len(testWidgetBundle)) {
 		t.Fatalf("bundle size = %d", payload.Size)
+	}
+	frame, err := sandbox.AssembleFrame(testWidgetBundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload.FrameSHA256Hex != frame.SHA256Hex {
+		t.Fatalf("frame hash = %q, want %q", payload.FrameSHA256Hex, frame.SHA256Hex)
+	}
+	if payload.FrameSize != frame.Size {
+		t.Fatalf("frame size = %d, want %d", payload.FrameSize, frame.Size)
 	}
 	if _, ok := f.service.WidgetPayload("acme.athletics", "missing"); ok {
 		t.Fatal("unknown contribution has a bundle")

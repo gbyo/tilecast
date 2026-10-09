@@ -1105,6 +1105,7 @@
     "factLastHealthy": "Última reproducción sana",
     "factUpdateReadiness": "Preparación de actualización",
     "factDisplayControl": "Control de pantalla",
+    "factPlayerCapabilities": "Capacidades del reproductor",
     "providerCapabilities": "{{provider}} · {{count}} capacidades",
     "factDisplayState": "Estado de la pantalla",
     "displayNotConfirmed": " · comando enviado, sin confirmar",

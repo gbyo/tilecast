@@ -20,6 +20,7 @@ COPY packages/presentation-model/package.json packages/presentation-model/packag
 COPY packages/native-bridge-schema/package.json packages/native-bridge-schema/package.json
 COPY packages/player-activity/package.json packages/player-activity/package.json
 COPY packages/player-active-hours/package.json packages/player-active-hours/package.json
+COPY packages/companion-protocol/package.json packages/companion-protocol/package.json
 RUN --mount=type=cache,id=tilecast-npm,target=/root/.npm npm ci
 
 FROM node-deps AS dashboard-build
@@ -62,6 +63,10 @@ COPY packages/native-bridge-schema packages/native-bridge-schema
 # Vite resolves both from src through the package's import condition.
 COPY packages/player-activity packages/player-activity
 COPY packages/player-active-hours packages/player-active-hours
+# The Companion bridge imports the page protocol from src, and the capability
+# providers import the versioned registry JSON by relative path.
+COPY packages/companion-protocol packages/companion-protocol
+COPY packages/player-contracts/player-capabilities.json packages/player-contracts/player-capabilities.json
 COPY widgets widgets
 COPY data-sources data-sources
 COPY plugins plugins

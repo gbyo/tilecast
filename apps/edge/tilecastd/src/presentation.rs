@@ -39,7 +39,7 @@ use edge_protocol::ipc::event::{
     RendererCommandKind, RendererConfigure, RendererMediaRef, RendererProgress, RendererReady, SyncTiming,
 };
 use edge_protocol::ipc::presentation::{
-    ContentRef, PresentationDocument, PresentationError, StatusSurface, validate_content_references,
+    ContentRef, FrameRef, PresentationDocument, PresentationError, StatusSurface, validate_content_references,
 };
 use edge_protocol::ipc::status::RendererStatus;
 use player_core::RendererPort;
@@ -55,6 +55,19 @@ fn policy_time(now_ms: i64) -> Timestamp {
 
 fn semantic_ref(reference: ActivationRef) -> player_core::RendererActivationRef {
     player_core::RendererActivationRef { activation_id: reference.activation_id, generation: reference.generation }
+}
+
+/// Names a Widget mount failure for the last-error status. The runtime
+/// reports every mount outcome as `widget <code>`; the daemon records
+/// the bounded category, never the raw mount detail.
+fn widget_failure_code<'a>(code: &'a str, message: &str) -> &'a str {
+    if !message.starts_with("widget ") {
+        return code;
+    }
+    if message.starts_with("widget widget_ready_timeout") {
+        return "widget_sandbox_timeout";
+    }
+    "widget_execution_failed"
 }
 
 pub use player_core::ActivationSource;
@@ -98,6 +111,7 @@ pub struct Activation {
     pub document: PresentationDocument,
     pub renderer_metadata: player_core::RendererMetadata,
     pub content: Vec<ContentRef>,
+    pub frames: Vec<FrameRef>,
     pub timing: Option<SyncTiming>,
     pub source: ActivationSource,
     pub extras: ServerExtras,
@@ -120,6 +134,8 @@ impl Activation {
             generation: self.generation,
             presentation: document,
             content,
+            // Fallback activations carry no media and no frames.
+            frames: Vec::new(),
             timing,
             projection,
         }))
@@ -179,6 +195,10 @@ pub struct PresentationEngine {
     /// Corrected-minus-local wall offset handed to the runtime for
     /// time-dependent projection (countdowns, date-selected records).
     clock_offset_ms: i64,
+    /// Ephemeral loopback media port, set once the daemon binds it. The
+    /// renderer port mirrors capability aliases onto loopback URLs for
+    /// opaque frames only while this port is known.
+    loopback_port: Option<u16>,
 }
 
 /// Recovery facts for heartbeat diagnostics. Core owns the ladder; Edge
@@ -223,11 +243,16 @@ impl PresentationEngine {
             last_restart: None,
             activity: None,
             clock_offset_ms: 0,
+            loopback_port: None,
         }
     }
 
     pub fn set_clock_offset(&mut self, offset_ms: i64) {
         self.clock_offset_ms = offset_ms;
+    }
+
+    pub fn set_loopback_port(&mut self, port: u16) {
+        self.loopback_port = Some(port);
     }
 
     /// Issues a new activation and sends it if a ready renderer is connected.
@@ -239,7 +264,7 @@ impl PresentationEngine {
         source: ActivationSource,
         now_ms: i64,
     ) -> Result<ActivationRef, PresentationError> {
-        self.activate_revision(document, content, timing, source, None, ServerExtras::default(), now_ms)
+        self.activate_revision(document, content, Vec::new(), timing, source, None, ServerExtras::default(), now_ms)
     }
 
     /// Activates a prepared server presentation. The identity binds renderer
@@ -249,6 +274,7 @@ impl PresentationEngine {
         identity: PlaybackIdentity,
         document: PresentationDocument,
         content: Vec<ContentRef>,
+        frames: Vec<FrameRef>,
         extras: ServerExtras,
         now_ms: i64,
     ) -> Result<ActivationRef, PresentationError> {
@@ -264,6 +290,7 @@ impl PresentationEngine {
         self.activate_revision(
             document,
             content,
+            frames,
             timing,
             ActivationSource::ServerManifest,
             Some(identity),
@@ -277,6 +304,7 @@ impl PresentationEngine {
         &mut self,
         document: PresentationDocument,
         content: Vec<ContentRef>,
+        frames: Vec<FrameRef>,
         timing: Option<SyncTiming>,
         source: ActivationSource,
         identity: Option<PlaybackIdentity>,
@@ -300,6 +328,7 @@ impl PresentationEngine {
             document,
             renderer_metadata,
             content,
+            frames,
             timing,
             source,
             extras,
@@ -375,6 +404,9 @@ impl PresentationEngine {
             self.media_registry.clone(),
             self.clock.clone(),
         );
+        if let Some(loopback) = self.loopback_port {
+            port.set_loopback_port(loopback);
+        }
         let _ = port.configure(&self.configure.kiosk);
         self.renderer = Some(RendererLink { session, ready: None, port, remote_web_restarting: false });
         self.native.connected(connection, policy_time(now_ms));
@@ -455,7 +487,11 @@ impl PresentationEngine {
         item_id: Option<&str>,
         message: &str,
     ) {
-        if self.native.rejected(*session.id().as_uuid(), semantic_ref(activation), ShortToken::new(code).ok()) {
+        if self.native.rejected(
+            *session.id().as_uuid(),
+            semantic_ref(activation),
+            ShortToken::new(widget_failure_code(code, message)).ok(),
+        ) {
             self.signal(crate::activity::Signal::PlaybackError {
                 item_id: item_id.map(str::to_owned),
                 message: message.to_owned(),
@@ -477,6 +513,7 @@ impl PresentationEngine {
                     let _ = self.activate_revision(
                         current.document,
                         current.content,
+                        current.frames,
                         current.timing,
                         current.source,
                         current.identity,
@@ -782,6 +819,7 @@ impl PresentationEngine {
         self.activate_revision(
             current.document,
             current.content,
+            current.frames,
             current.timing,
             current.source,
             current.identity,
@@ -923,6 +961,15 @@ mod tests {
             ManualClock::new(Timestamp::from_unix_millis(1_000).expect("test clock")),
             1_000,
         )
+    }
+
+    #[test]
+    fn widget_failures_record_bounded_categories_not_mount_detail() {
+        assert_eq!(widget_failure_code("playback_error", "widget widget_ready_timeout"), "widget_sandbox_timeout");
+        assert_eq!(widget_failure_code("playback_error", "widget widget_resolve_failed"), "widget_execution_failed");
+        assert_eq!(widget_failure_code("playback_error", "widget frame_error"), "widget_execution_failed");
+        assert_eq!(widget_failure_code("playback_error", "a video stalled"), "playback_error");
+        assert_eq!(widget_failure_code("decode_error", "widget widget_ready_timeout"), "widget_sandbox_timeout");
     }
 
     #[test]

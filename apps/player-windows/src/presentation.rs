@@ -23,7 +23,7 @@
 use player_core::{
     ActivationSource, HealAction, RendererActivation, RendererActivationRef, RendererCoordinator, RendererDispatch,
     RendererMetadata, RendererPort, RendererProfileMismatch, RendererRequirement, SemanticRendererCommand,
-    SemanticRendererProgress, SupervisorConfig, VerifiedContentRef,
+    SemanticRendererProgress, SupervisorConfig, VerifiedContentRef, VerifiedFrameRef,
 };
 use player_types::bounded::{SafeText, ShortToken};
 use player_types::ids::ActivationId;
@@ -84,6 +84,7 @@ pub struct Activation {
     pub document: Value,
     pub renderer_metadata: RendererMetadata,
     pub content: Vec<VerifiedContentRef>,
+    pub frames: Vec<VerifiedFrameRef>,
     pub timing: Option<GroupTiming>,
     pub source: ActivationSource,
     pub extras: ServerExtras,
@@ -228,7 +229,7 @@ impl PresentationEngine {
         source: ActivationSource,
         now_ms: i64,
     ) -> Result<bridge::ActivationRef, PresentationError> {
-        self.activate_revision(document, content, timing, source, None, ServerExtras::default(), now_ms)
+        self.activate_revision(document, content, Vec::new(), timing, source, None, ServerExtras::default(), now_ms)
     }
 
     /// Activates a prepared server presentation. The identity binds renderer
@@ -256,6 +257,7 @@ impl PresentationEngine {
         self.activate_revision(
             resolved.document,
             resolved.content,
+            resolved.frames,
             timing,
             ActivationSource::ServerManifest,
             Some(identity),
@@ -269,6 +271,7 @@ impl PresentationEngine {
         &mut self,
         document: Value,
         content: Vec<VerifiedContentRef>,
+        frames: Vec<VerifiedFrameRef>,
         timing: Option<GroupTiming>,
         source: ActivationSource,
         identity: Option<PlaybackIdentity>,
@@ -297,6 +300,7 @@ impl PresentationEngine {
             document,
             renderer_metadata,
             content,
+            frames,
             timing,
             source,
             extras,
@@ -578,6 +582,7 @@ impl PresentationEngine {
                     let _ = self.activate_revision(
                         current.document,
                         current.content,
+                        current.frames,
                         current.timing,
                         current.source,
                         current.identity,
@@ -698,6 +703,7 @@ impl PresentationEngine {
         self.activate_revision(
             current.document,
             current.content,
+            current.frames,
             current.timing,
             current.source,
             current.identity,
@@ -838,6 +844,7 @@ fn prepare(
         crate::renderer_adapter::payload(activation.document.clone())?,
         activation.renderer_metadata.clone(),
         activation.content.clone(),
+        activation.frames.clone(),
         Some(crate::renderer_adapter::payload(context)?),
     )
     .map_err(invalid)
@@ -1045,12 +1052,16 @@ use crate::daemon::DaemonContext;
 /// The host capabilities the Runtime reads before its first frame: setup
 /// entry is available, synchronized timelines are anchored by the host,
 /// remote web renders in host views, and `discovery.list` browses the LAN.
+/// Verified sandbox frames are served from the `tcwidget://` scheme handler,
+/// which sees every subframe navigation, so the Runtime keeps its default
+/// iframe-sandbox attribute on top of the served response policy.
 fn host_capabilities() -> Value {
     serde_json::json!({
         "remoteWeb": "host-view",
         "synchronizedPlayback": true,
         "setup": true,
         "discovery": true,
+        "externalFrames": true,
     })
 }
 
@@ -1428,6 +1439,15 @@ async fn handle_runtime_message(context: &DaemonContext, ui: &UiHandle, message:
 mod tests {
     use super::*;
     use player_types::bounded::SafeText;
+
+    #[test]
+    fn host_grants_verified_frames_to_the_runtime() {
+        let capabilities = host_capabilities();
+        assert_eq!(capabilities["externalFrames"], serde_json::json!(true));
+        // Attribute sandboxing is the contract default; the host only
+        // names it when the serving layer needs bare navigations.
+        assert!(capabilities.get("externalFrameSandbox").is_none());
+    }
 
     fn test_engine() -> (PresentationEngine, tokio::sync::mpsc::Receiver<crate::ui::UiCommand>, uuid::Uuid) {
         let media = Arc::new(Mutex::new(MediaRegistry::new()));

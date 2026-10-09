@@ -564,3 +564,55 @@ fn edge_state_binding(bound: &player_state::repo::manifests::Binding) -> player_
         bound_at: now(),
     }
 }
+
+#[test]
+fn migration_12_keeps_cas_rows_and_admits_widget_frames() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    // Simulate a device last migrated at version 11 with cached objects.
+    let v11: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 11)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v11).expect("migrate to v11");
+    let media = "ab".repeat(32);
+    let bundle = "cd".repeat(32);
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 12, 'media', 'image/png', 'origin', 'verified', 1, 1, 1)",
+            [&media],
+        )
+        .expect("seed cached object");
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_bundle', 'text/javascript', 'origin', 'verified', 1, 1, 1)",
+            [&bundle],
+        )
+        .expect("seed cached bundle");
+    assert!(
+        connection
+            .execute(
+                "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_frame', 'text/html', 'origin', 'verified', 1, 1, 1)",
+                ["ef".repeat(32)],
+            )
+            .is_err(),
+        "v11 rejects the new domain"
+    );
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
+    for (sha, domain) in [(&media, "media"), (&bundle, "widget_bundle")] {
+        let kept: String = connection
+            .query_row("SELECT domain FROM cas_objects WHERE sha256 = ?1", [sha], |r| r.get(0))
+            .expect("cached object survives");
+        assert_eq!(kept, domain);
+    }
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_frame', 'text/html', 'origin', 'verified', 1, 1, 1)",
+            ["ef".repeat(32)],
+        )
+        .expect("v12 admits widget frames");
+}

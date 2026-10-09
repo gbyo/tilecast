@@ -336,6 +336,7 @@ mod tests {
                 mime_type: SafeText::new("image/png").unwrap(),
                 stream: None,
             }],
+            Vec::new(),
             None,
         )
         .unwrap()
@@ -387,6 +388,7 @@ mod tests {
             next.document().clone(),
             wrong_metadata,
             next.content().to_vec(),
+            next.frames().to_vec(),
             None,
         )
         .unwrap();

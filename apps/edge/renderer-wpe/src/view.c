@@ -3,8 +3,10 @@
  *
  * Security model (docs/tilecast-edge.md §10.2–10.3, §17):
  *   - The view loads only tilecast://runtime/index.html, the shared Tilecast
- *     Player Runtime (packages/player-runtime) that Electron also hosts. Every other
- *     navigation, new window and permission request is refused.
+ *     Player Runtime (packages/player-runtime) that Electron also hosts.
+ *     Navigations are confined to the runtime tree plus exact daemon-minted
+ *     tcwidget://cap/ sandbox-frame URIs; every other navigation, new window
+ *     and permission request is refused.
  *   - The bridge script is injected only into the top frame of pages under
  *     tilecast://runtime/. Remote content never gets the bridge, and
  *     in this renderer version no remote content is loaded at all.
@@ -273,7 +275,24 @@ on_decide_policy (WebKitWebView *view, WebKitPolicyDecision *decision, WebKitPol
   WebKitNavigationAction *action =
     webkit_navigation_policy_decision_get_navigation_action (WEBKIT_NAVIGATION_POLICY_DECISION (decision));
   const char *uri = webkit_uri_request_get_uri (webkit_navigation_action_get_request (action));
-  if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION && g_str_has_prefix (uri, "tilecast://runtime/")) {
+  /* Sandbox frames are iframe navigations to exact daemon-minted capability
+   * URIs, each carrying the executor's `#hello` attach fragment (read back
+   * from location.hash inside the frame). The fragment never reaches the
+   * capability resolver — schemes.c strips it — so the policy judges the
+   * bare URI with the same exact matcher. The served document stays
+   * confined: an opaque origin under the response `sandbox allow-scripts`
+   * directive, no bridge injection outside the tilecast://runtime/ top
+   * frame, and no daemon access except through the runtime's relay.
+   * Top-level navigation still cannot leave the runtime tree or reach an
+   * unminted URI. */
+  g_autofree char *bare = g_strdup (uri);
+  if (bare != NULL) {
+    char *hash = strchr (bare, '#');
+    if (hash != NULL)
+      *hash = '\0';
+  }
+  gboolean trusted = g_str_has_prefix (uri, "tilecast://runtime/") || tc_is_widget_capability_uri (bare);
+  if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION && trusted) {
     webkit_policy_decision_use (decision);
   } else {
     g_warning ("view: refused navigation away from the trusted runtime");

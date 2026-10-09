@@ -80,6 +80,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "installation_mismatch",
         sql: include_str!("../migrations/0011_installation_mismatch.sql"),
     },
+    Migration {
+        version: 12,
+        name: "widget_frame_domain",
+        sql: include_str!("../migrations/0012_widget_frame_domain.sql"),
+    },
 ];
 
 pub fn latest_schema_version() -> u32 {

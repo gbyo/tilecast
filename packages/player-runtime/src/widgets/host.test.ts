@@ -56,12 +56,15 @@ const payload = (
   regional: { locale: "en-US", timeZone: "UTC", hourCycle: "locale" },
 });
 
-function environment() {
+function environment(
+  options: { externalFrameSandbox?: "attribute" | "response" } = {},
+) {
   const clock = new ManualClock({ wallMs: WALL });
   const widgets = new host.RuntimeWidgetHost({
     clock,
     animationScale: 0,
     reducedMotion: () => true,
+    externalFrameSandbox: options.externalFrameSandbox,
   });
   widgets.setClockOffset(90_000);
   const log: string[] = [];
@@ -397,5 +400,86 @@ describe("Layout zones", () => {
     );
 
     expect(log.some((entry) => entry.includes("stale_failure"))).toBe(false);
+  });
+});
+
+describe("Executor selection", () => {
+  it("mounts a payload with an execution descriptor in a sandbox frame", () => {
+    const { widgets } = environment();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const states: WidgetMountState[] = [];
+    const external: RuntimeWidgetComponentPayload = {
+      ...payload({ title: "Friday" }),
+      component: {
+        type: "acme.athletics.scoreboard",
+        version: 2,
+        config: { title: "Friday" },
+        dataSources: [],
+        media: [],
+        empty: "render",
+      },
+      execution: {
+        kind: "sandboxed",
+        frameUrl: "https://frames.example/f/ok.html",
+      },
+    };
+    const execution = widgets.mount(container, external, (state) =>
+      states.push(state),
+    );
+    const frame = container.querySelector("iframe");
+    expect(frame?.getAttribute("sandbox")).toBe("allow-scripts");
+    expect(frame?.getAttribute("src")).toMatch(
+      /^https:\/\/frames\.example\/f\/ok\.html#[A-Za-z0-9_-]{22}$/,
+    );
+    // No trusted element mounts beside the frame.
+    expect(container.querySelector("[data-tilecast-widget]")).toBeNull();
+    expect(execution.state).toEqual({ state: "pending" });
+    execution.dispose();
+    expect(container.querySelector("iframe")).toBeNull();
+    container.remove();
+  });
+
+  it("mounts a payload without one through the trusted registry", () => {
+    withAdoptedStyleSheets(true);
+    const { widgets } = environment();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const execution = widgets.mount(container, payload(), () => undefined);
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.querySelector("[data-tilecast-widget]")).not.toBeNull();
+    execution.dispose();
+    container.remove();
+  });
+
+  it("navigates response-sandboxed frames bare from the host option", () => {
+    const { widgets } = environment({ externalFrameSandbox: "response" });
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const external: RuntimeWidgetComponentPayload = {
+      ...payload({ title: "Friday" }),
+      component: {
+        type: "acme.athletics.scoreboard",
+        version: 2,
+        config: { title: "Friday" },
+        dataSources: [],
+        media: [],
+        empty: "render",
+      },
+      execution: {
+        kind: "sandboxed",
+        frameUrl: "/player/widget-frame/1/capability",
+      },
+    };
+    const execution = widgets.mount(container, external, () => undefined);
+    const frame = container.querySelector("iframe");
+    // Bare so the serving worker sees the navigation; the response
+    // sandbox directive sandboxes the document instead.
+    expect(frame?.getAttribute("sandbox")).toBeNull();
+    expect(frame?.getAttribute("src")).toMatch(
+      /^\/player\/widget-frame\/1\/capability#[A-Za-z0-9_-]{22}$/,
+    );
+    execution.dispose();
+    container.remove();
   });
 });

@@ -25,3 +25,16 @@ describe("Runtime readiness support", () => {
     );
   });
 });
+
+describe("external frame execution", () => {
+  it("reports the frame ABI only when the host serves frames", () => {
+    expect(
+      runtimeSupport({}, false).widgetComponents["widget.external-runtime"],
+    ).toBeUndefined();
+    expect(
+      runtimeSupport({}, false, true).widgetComponents[
+        "widget.external-runtime"
+      ],
+    ).toBe(2);
+  });
+});

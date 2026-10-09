@@ -286,6 +286,7 @@ mod tests {
             document: playing(ids),
             timing: None,
             content: Vec::new(),
+            frames: Vec::new(),
             projection: None,
             plugins: Vec::new(),
             plugin_aliases: Vec::new(),

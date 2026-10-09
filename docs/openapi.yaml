@@ -5356,6 +5356,62 @@ paths:
             },
           "404": { description: Package or bundle unavailable },
         }
+  /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame:
+    parameters:
+      - {
+          in: path,
+          name: packageId,
+          required: true,
+          schema: { type: string, maxLength: 128 },
+        }
+      - {
+          in: path,
+          name: widgetId,
+          required: true,
+          schema: { type: string, maxLength: 80 },
+        }
+    get:
+      operationId: downloadPackageWidgetFrame
+      description: >-
+        Download a package Widget sandbox frame. Requires an authenticated player credential.
+      security: [{ deviceBearer: [] }]
+      parameters:
+        - {
+            in: header,
+            name: Range,
+            schema: { type: string, example: bytes=0-1048575 },
+          }
+        - { in: header, name: If-Range, schema: { type: string } }
+        - { in: header, name: If-None-Match, schema: { type: string } }
+      responses:
+        "200":
+          description: Complete Widget sandbox frame document
+          content:
+            text/html:
+              schema: { type: string, format: binary }
+        "206":
+          description: Requested byte range
+          content:
+            text/html:
+              schema: { type: string, format: binary }
+        "304": { description: ETag matched }
+        "401": { description: Device credential invalid or revoked }
+        "403": { description: Screen disabled }
+        "404": { description: Package or frame unavailable }
+        "416": { description: Range not satisfiable }
+    head:
+      operationId: inspectPackageWidgetFrame
+      description: >-
+        Inspect a package Widget sandbox frame. Requires an authenticated player credential.
+      security: [{ deviceBearer: [] }]
+      responses:
+        {
+          "200":
+            {
+              description: "ETag, Content-Length, MIME type, and Accept-Ranges",
+            },
+          "404": { description: Package or frame unavailable },
+        }
   /api/v1/playlists:
     get:
       operationId: listPlaylists
@@ -12357,6 +12413,28 @@ components:
           description: Sandboxed Studio UI entry.
           properties:
             entry: { type: string }
+        services:
+          type: array
+          description: Requested Tilecast service grants with registry-resolved display metadata.
+          items:
+            type: object
+            required: [id, version, name, description, category, operations]
+            properties:
+              id: { type: string }
+              version: { type: integer }
+              name: { type: string }
+              description: { type: string }
+              category: { type: string, enum: [read, directory, manage, audit] }
+              operations:
+                type: array
+                items:
+                  type: object
+                  required: [name, title, description, mutating]
+                  properties:
+                    name: { type: string }
+                    title: { type: string }
+                    description: { type: string }
+                    mutating: { type: boolean }
     PluginInUseError:
       type: object
       required: [error]

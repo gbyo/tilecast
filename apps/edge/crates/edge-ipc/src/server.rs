@@ -31,7 +31,9 @@ use std::time::Duration;
 use async_trait::async_trait;
 use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ids::SessionId;
-use edge_protocol::ipc::event::{ActivationRef, Event, ProjectionContext, RendererMediaRef, SyncTiming};
+use edge_protocol::ipc::event::{
+    ActivationRef, Event, ProjectionContext, RendererFrameRef, RendererMediaRef, SyncTiming,
+};
 use edge_protocol::ipc::message::{
     ErrorBody, EventFrame, Frame, Goodbye, Hello, MessageError, RejectCode, Rejected, Response, Welcome,
 };
@@ -200,14 +202,23 @@ impl SessionHandle {
         reference: ActivationRef,
         presentation: Value,
         content: Vec<RendererMediaRef>,
+        frames: Vec<RendererFrameRef>,
         timing: Option<SyncTiming>,
         projection: Option<ProjectionContext>,
     ) -> Result<(), SendError> {
         if self.inner.role != Role::Renderer {
             return Err(SendError::NotPermitted);
         }
+        // Frame members cross only negotiated sessions; an older renderer
+        // sees exactly the bytes it has always seen.
+        let negotiated = self
+            .features()
+            .iter()
+            .any(|feature| feature.as_str() == edge_protocol::ipc::RENDERER_FEATURE_WIDGET_FRAMES);
+        let frames = if negotiated { frames } else { Vec::new() };
         let mut outbound = self.inner.outbound.lock().unwrap_or_else(|p| p.into_inner());
-        let payload = presentation_payload(outbound.next_seq, reference, presentation, content, timing, projection);
+        let payload =
+            presentation_payload(outbound.next_seq, reference, presentation, content, frames, timing, projection);
         if payload.len() > MAX_FRAME_BYTES {
             return Err(SendError::TooLarge);
         }
@@ -255,6 +266,7 @@ fn presentation_payload(
     reference: ActivationRef,
     presentation: Value,
     content: Vec<RendererMediaRef>,
+    frames: Vec<RendererFrameRef>,
     timing: Option<SyncTiming>,
     projection: Option<ProjectionContext>,
 ) -> Vec<u8> {
@@ -262,6 +274,9 @@ fn presentation_payload(
         "activationId": reference.activation_id, "generation": reference.generation,
         "presentation": presentation, "content": content, "timing": timing,
     });
+    if !frames.is_empty() {
+        data["frames"] = serde_json::to_value(frames).expect("typed frame refs");
+    }
     if let Some(projection) = projection {
         data["projection"] = serde_json::to_value(projection).expect("typed projection");
     }
@@ -686,6 +701,7 @@ mod policy_tests {
             include_str!(
                 "../../../../../packages/edge-protocol/fixtures/ipc/valid/event-activate-projection-playback.json"
             ),
+            include_str!("../../../../../packages/edge-protocol/fixtures/ipc/valid/event-activate-frames.json"),
         ] {
             let raw: Value = serde_json::from_str(fixture).unwrap();
             let expected = Frame::decode(&serde_json::to_vec(&raw["frame"]).unwrap()).unwrap();
@@ -697,6 +713,7 @@ mod policy_tests {
                 ActivationRef { activation_id: activation.activation_id, generation: activation.generation },
                 serde_json::to_value(&activation.presentation).unwrap(),
                 activation.content.clone(),
+                activation.frames.clone(),
                 activation.timing.clone(),
                 activation.projection.clone(),
             );
@@ -705,10 +722,36 @@ mod policy_tests {
     }
 
     #[test]
+    fn frames_cross_only_negotiated_sessions() {
+        use edge_protocol::bounded::SafeText;
+        use edge_protocol::ipc::RENDERER_FEATURE_WIDGET_FRAMES;
+        let entry = RendererFrameRef {
+            uri: SafeText::new(format!("tcwidget://cap/{}", "d".repeat(64))).unwrap(),
+            package_id: SafeText::new("acme.athletics").unwrap(),
+            package_digest: edge_protocol::Sha256Digest::parse(&"e".repeat(64)).unwrap(),
+            frame_digest: edge_protocol::Sha256Digest::parse(&"f".repeat(64)).unwrap(),
+            size_bytes: 512,
+        };
+        let (plain, mut receiver) = endpoint(Role::Renderer);
+        plain.send_presentation(reference(), serde_json::json!({}), vec![], vec![entry.clone()], None, None).unwrap();
+        let OutboundFrame::Presentation(payload) = receiver.try_recv().unwrap() else { panic!("presentation") };
+        let frame: Value = serde_json::from_slice(&payload).unwrap();
+        assert!(frame["data"].get("frames").is_none());
+        let (mut negotiated, mut receiver) = endpoint(Role::Renderer);
+        Arc::get_mut(&mut negotiated.inner).expect("sole owner").features =
+            vec![ShortToken::new(RENDERER_FEATURE_WIDGET_FRAMES).unwrap()];
+        negotiated.send_presentation(reference(), serde_json::json!({}), vec![], vec![entry], None, None).unwrap();
+        let OutboundFrame::Presentation(payload) = receiver.try_recv().unwrap() else { panic!("presentation") };
+        let frame: Value = serde_json::from_slice(&payload).unwrap();
+        assert_eq!(frame["data"]["frames"].as_array().unwrap().len(), 1);
+        assert_eq!(frame["data"]["frames"][0]["packageId"], "acme.athletics");
+    }
+
+    #[test]
     fn opaque_presentation_keeps_runtime_fields_and_transport_sequence() {
         let (session, mut receiver) = endpoint(Role::Renderer);
         let presentation = serde_json::json!({"state": "playing", "futureTransition": {"visualOption": 17}});
-        session.send_presentation(reference(), presentation.clone(), vec![], None, None).unwrap();
+        session.send_presentation(reference(), presentation.clone(), vec![], vec![], None, None).unwrap();
         let OutboundFrame::Presentation(payload) = receiver.try_recv().unwrap() else { panic!("presentation") };
         let frame: Value = serde_json::from_slice(&payload).unwrap();
         assert_eq!(frame["seq"], 1);
@@ -721,7 +764,7 @@ mod policy_tests {
     fn opaque_presentation_preserves_role_frame_bounds_and_backpressure() {
         let (observer, _receiver) = endpoint(Role::Tilecastctl);
         assert_eq!(
-            observer.send_presentation(reference(), serde_json::json!({}), vec![], None, None),
+            observer.send_presentation(reference(), serde_json::json!({}), vec![], vec![], None, None),
             Err(SendError::NotPermitted)
         );
         let (renderer, _receiver) = endpoint(Role::Renderer);
@@ -730,6 +773,7 @@ mod policy_tests {
                 reference(),
                 serde_json::json!({"huge": "x".repeat(MAX_FRAME_BYTES)}),
                 vec![],
+                vec![],
                 None,
                 None
             ),
@@ -737,10 +781,12 @@ mod policy_tests {
         );
         assert_eq!(renderer.inner.outbound.lock().unwrap().next_seq, 1);
         for _ in 0..OUTBOUND_QUEUE_FRAMES {
-            renderer.send_presentation(reference(), serde_json::json!({"state": "setup"}), vec![], None, None).unwrap();
+            renderer
+                .send_presentation(reference(), serde_json::json!({"state": "setup"}), vec![], vec![], None, None)
+                .unwrap();
         }
         assert_eq!(
-            renderer.send_presentation(reference(), serde_json::json!({"state": "setup"}), vec![], None, None),
+            renderer.send_presentation(reference(), serde_json::json!({"state": "setup"}), vec![], vec![], None, None),
             Err(SendError::Closed)
         );
         assert!(renderer.is_closed());

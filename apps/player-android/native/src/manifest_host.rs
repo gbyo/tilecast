@@ -91,7 +91,17 @@ pub mod profile {
                     .into_iter()
                     .chain(std::iter::once((token("web.remote"), WEB_RUNTIME_VERSION)))
                     .collect(),
-                WIDGET_COMPONENTS.iter().map(|(name, version)| (token(name), *version)).collect(),
+                WIDGET_COMPONENTS
+                    .iter()
+                    .map(|(name, version)| (token(name), *version))
+                    // The frame execution ABI is one capability for every
+                    // downloaded Widget, not a discovered component: this
+                    // release confines served frames, so it offers it.
+                    .chain(std::iter::once((
+                        token(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY),
+                        player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+                    )))
+                    .collect(),
             )
             .expect("bounded installed runtime profile"),
         )
@@ -162,6 +172,8 @@ pub enum ManifestError {
     Schedule,
     #[error("manifest contains an invalid Widget bundle claim")]
     Bundle,
+    #[error("manifest contains an invalid Widget frame claim")]
+    Frame,
     #[error("manifest is incompatible with this renderer")]
     Incompatible(Incompatibility),
 }
@@ -178,6 +190,7 @@ impl ManifestError {
             Self::DeliveryPolicy => "manifest_delivery_policy_invalid",
             Self::Schedule => "manifest_schedule_invalid",
             Self::Bundle => "manifest_bundle_invalid",
+            Self::Frame => "manifest_frame_invalid",
             Self::Incompatible(reason) => reason.code(),
         }
     }
@@ -195,6 +208,7 @@ impl From<NativeManifestError> for ManifestError {
             NativeManifestError::DeliveryPolicy => Self::DeliveryPolicy,
             NativeManifestError::Schedule => Self::Schedule,
             NativeManifestError::Bundle => Self::Bundle,
+            NativeManifestError::Frame => Self::Frame,
         }
     }
 }
@@ -739,6 +753,26 @@ mod tests {
         }
         let missing = ShortToken::new("plugin.brand_bug").expect("token");
         assert!(packaged.check(&RendererRequirement::Feature(missing)).is_err());
+    }
+
+    #[test]
+    fn packaged_profile_offers_the_frame_execution_abi_at_two() {
+        let packaged = profile::packaged();
+        let name = || ShortToken::new(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY).expect("token");
+        packaged
+            .check(&RendererRequirement::WidgetComponent {
+                name: name(),
+                version: player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+            })
+            .expect("external-runtime @2");
+        assert!(
+            packaged
+                .check(&RendererRequirement::WidgetComponent {
+                    name: name(),
+                    version: player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION + 1,
+                })
+                .is_err()
+        );
     }
 
     const INSTALLATION: &str = "39e0c9bd-0e84-4e4d-a1f9-4cdbc1e96035";

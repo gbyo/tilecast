@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use edge_cas::ContentStore;
+use edge_protocol::ids::SessionId;
 use edge_protocol::time::SharedClock;
 use edge_server::AuthenticatedServer;
 use player_core::{OriginBlobSource, StreamReadError, StreamSource};
@@ -53,14 +54,44 @@ impl StreamBackend {
 #[derive(Debug, Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Request {
-    Head { capability: String },
-    Read { capability: String, offset: u64, length: u32 },
+    Head {
+        capability: String,
+        #[serde(default)]
+        expect: ReadExpect,
+    },
+    Read {
+        capability: String,
+        offset: u64,
+        length: u32,
+        #[serde(default)]
+        expect: ReadExpect,
+    },
+}
+
+/// Which grant usage a channel read expects. Absent means media: renderers
+/// older than frames never send the field and never hold frame tokens, so
+/// the default keeps them working. Frame reads always name `frame`
+/// explicitly; the daemon resolves with the matching registry method and
+/// a media capability presented for a frame read is denied like an
+/// unknown token.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum ReadExpect {
+    #[default]
+    Media,
+    Frame,
 }
 
 impl Request {
     fn capability(&self) -> &str {
         match self {
-            Self::Head { capability } | Self::Read { capability, .. } => capability,
+            Self::Head { capability, .. } | Self::Read { capability, .. } => capability,
+        }
+    }
+
+    fn expect(&self) -> ReadExpect {
+        match self {
+            Self::Head { expect, .. } | Self::Read { expect, .. } => *expect,
         }
     }
 }
@@ -260,7 +291,7 @@ async fn deny_reason(stream: &mut UnixStream, reason: &str) -> std::io::Result<(
 /// after the bytes arrive the relationship is re-checked, so a
 /// revocation, mismatch, or re-pair mid-read never releases another
 /// installation's bytes.
-async fn network_read(
+pub(crate) async fn network_read(
     backend: &StreamBackend,
     grant: &MediaGrant,
     source: &StreamSource,
@@ -289,6 +320,24 @@ async fn network_read(
     }
 }
 
+/// Whether a capability is still live for the usage the peer named.
+/// Media and frame grants share the registry but resolve from disjoint
+/// tables; every liveness check funnels through here so the two can
+/// never drift apart again.
+pub(crate) fn grant_live(
+    registry: &MediaRegistry,
+    session: SessionId,
+    capability: &str,
+    expect: ReadExpect,
+    now_ms: i64,
+) -> bool {
+    match expect {
+        ReadExpect::Media => registry.resolve(session, capability, now_ms),
+        ReadExpect::Frame => registry.resolve_frame(session, capability, now_ms),
+    }
+    .is_some()
+}
+
 async fn serve(
     mut stream: UnixStream,
     registry: Arc<Mutex<MediaRegistry>>,
@@ -303,15 +352,43 @@ async fn serve(
         Ok(Ok(request)) => request,
         _ => return deny(&mut stream).await,
     };
+    let expect = request.expect();
     let grant = {
         let Ok(registry) = registry.lock() else { return deny(&mut stream).await };
         registry.renderer().and_then(|renderer| {
             (renderer.uid == credentials.uid() && lineage.belongs_to(renderer, pid))
-                .then(|| registry.resolve(renderer.session, request.capability(), clock.now().unix_millis()).cloned())
+                .then(|| {
+                    let now = clock.now().unix_millis();
+                    match expect {
+                        ReadExpect::Media => registry.resolve(renderer.session, request.capability(), now),
+                        ReadExpect::Frame => registry.resolve_frame(renderer.session, request.capability(), now),
+                    }
+                    .cloned()
+                })
                 .flatten()
         })
     };
-    let Some(grant) = grant else { return deny(&mut stream).await };
+    let Some(grant) = grant else {
+        // Daemon-side attribution only: the socket answer stays bare so
+        // unknown and retired tokens are indistinguishable on the wire.
+        let retired = registry.lock().is_ok_and(|registry| registry.retired_token(request.capability()));
+        tracing::warn!(
+            component = "media",
+            event = "grant_denied",
+            reason = if retired {
+                match expect {
+                    ReadExpect::Frame => "widget_grant_revoked",
+                    ReadExpect::Media => "media_grant_revoked",
+                }
+            } else {
+                match expect {
+                    ReadExpect::Frame => "widget_grant_unknown",
+                    ReadExpect::Media => "media_grant_unknown",
+                }
+            },
+        );
+        return deny(&mut stream).await;
+    };
     if grant.read_mode != ReadMode::Seekable {
         return deny(&mut stream).await;
     }
@@ -324,7 +401,7 @@ async fn serve(
     };
     let capability = request.capability().to_owned();
     let still_valid = registry.lock().is_ok_and(|registry| {
-        registry.resolve(grant.renderer_session, &capability, clock.now().unix_millis()).is_some()
+        grant_live(&registry, grant.renderer_session, &capability, expect, clock.now().unix_millis())
     });
     if !still_valid {
         return deny(&mut stream).await;
@@ -369,7 +446,7 @@ async fn serve(
                 .await;
                 let Ok(Ok(bytes)) = bytes else { return deny(&mut stream).await };
                 let still_valid = registry.lock().is_ok_and(|registry| {
-                    registry.resolve(grant.renderer_session, &capability, clock.now().unix_millis()).is_some()
+                    grant_live(&registry, grant.renderer_session, &capability, expect, clock.now().unix_millis())
                 });
                 if !still_valid {
                     return deny(&mut stream).await;
@@ -394,7 +471,7 @@ async fn serve(
                 }
             };
             let still_valid = registry.lock().is_ok_and(|registry| {
-                registry.resolve(grant.renderer_session, &capability, clock.now().unix_millis()).is_some()
+                grant_live(&registry, grant.renderer_session, &capability, expect, clock.now().unix_millis())
             });
             if !still_valid {
                 return deny(&mut stream).await;
@@ -422,11 +499,28 @@ mod fixture_tests {
         let head: Request =
             serde_json::from_str(include_str!("../../../../packages/edge-protocol/fixtures/media/head-request.json"))
                 .unwrap();
-        assert!(matches!(head, Request::Head { capability } if capability == CAP));
+        assert!(matches!(&head, Request::Head { capability, .. } if capability == CAP));
+        assert_eq!(head.expect(), ReadExpect::Media);
         let read: Request =
             serde_json::from_str(include_str!("../../../../packages/edge-protocol/fixtures/media/read-request.json"))
                 .unwrap();
-        assert!(matches!(read, Request::Read { capability, offset: 2, length: 3 } if capability == CAP));
+        assert!(matches!(&read, Request::Read { capability, offset: 2, length: 3, .. } if capability == CAP));
+        assert_eq!(read.expect(), ReadExpect::Media);
+        // Frame reads name their usage explicitly; anything else is denied.
+        let head: Request = serde_json::from_str(include_str!(
+            "../../../../packages/edge-protocol/fixtures/media/head-frame-request.json"
+        ))
+        .unwrap();
+        assert_eq!(head.expect(), ReadExpect::Frame);
+        let read: Request = serde_json::from_str(include_str!(
+            "../../../../packages/edge-protocol/fixtures/media/read-frame-request.json"
+        ))
+        .unwrap();
+        assert_eq!(read.expect(), ReadExpect::Frame);
+        assert!(serde_json::from_str::<Request>(
+            r#"{"op":"head","capability":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","expect":"video"}"#
+        )
+        .is_err());
         for (fixture, expected) in [
             (
                 include_str!("../../../../packages/edge-protocol/fixtures/media/head-response.json"),
@@ -447,9 +541,48 @@ mod fixture_tests {
 }
 
 #[cfg(test)]
+mod grant_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    use edge_protocol::Sha256Digest;
+    use edge_protocol::bounded::SafeText;
+    use edge_protocol::ipc::presentation::{ContentRef, FrameRef};
+
+    #[test]
+    fn liveness_checks_follow_the_named_usage() {
+        let session = SessionId::from_uuid(uuid::Uuid::new_v4());
+        let mut registry = MediaRegistry::new();
+        registry.bind_renderer(RendererInstance { session, uid: 1000, pid: 1234, start_ticks: 1 });
+        let content = ContentRef {
+            sha256: Sha256Digest::parse(&"a".repeat(64)).unwrap(),
+            size_bytes: 42,
+            mime_type: SafeText::new("image/png").unwrap(),
+        };
+        let streams: HashMap<Sha256Digest, player_core::StreamSource> = HashMap::new();
+        let media = registry.prepare(session, 1, 0, std::slice::from_ref(&content), &streams).unwrap();
+        let media_token = media[&content.sha256].as_str().to_owned();
+        let frame = FrameRef {
+            package_id: SafeText::new("acme.athletics").unwrap(),
+            package_digest: Sha256Digest::parse(&"e".repeat(64)).unwrap(),
+            sha256: Sha256Digest::parse(&"f".repeat(64)).unwrap(),
+            size_bytes: 42,
+        };
+        let frames = registry.prepare_frames(session, 1, 0, std::slice::from_ref(&frame)).unwrap();
+        let frame_token = frames[&frame.sha256].as_str().to_owned();
+        // A cached frame read revalidates in the frame table: resolving
+        // it as media denies bytes head just approved.
+        assert!(grant_live(&registry, session, &media_token, ReadExpect::Media, 0));
+        assert!(!grant_live(&registry, session, &media_token, ReadExpect::Frame, 0));
+        assert!(grant_live(&registry, session, &frame_token, ReadExpect::Frame, 0));
+        assert!(!grant_live(&registry, session, &frame_token, ReadExpect::Media, 0));
+    }
+}
+
+#[cfg(test)]
 mod stream_tests {
     use super::*;
-    use crate::media::GenerationState;
+    use crate::media::{GenerationState, MediaGrantKind};
     use edge_protocol::ids::SessionId;
     use http_body_util::Full;
     use hyper::body::Incoming;
@@ -542,6 +675,7 @@ mod stream_tests {
         MediaGrant {
             renderer_session: SessionId::from_uuid(uuid::Uuid::nil()),
             generation: 1,
+            kind: MediaGrantKind::Media,
             sha256: digest,
             size_bytes: size,
             mime_type: "video/mp4".into(),

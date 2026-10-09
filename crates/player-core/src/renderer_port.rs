@@ -6,7 +6,7 @@ use player_types::{
 
 use crate::renderer_document::MAX_CONTENT_REFS;
 use crate::renderer_resources::{MAX_RESOURCE_BINDINGS, MAX_RUNTIME_PAYLOAD_BYTES};
-use crate::{PreparedActivationError, RendererMetadata, RuntimePayload, VerifiedContentRef};
+use crate::{PreparedActivationError, RendererMetadata, RuntimePayload, VerifiedContentRef, VerifiedFrameRef};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RendererActivationRef {
@@ -22,6 +22,7 @@ pub struct RendererActivation {
     document: RuntimePayload,
     metadata: RendererMetadata,
     content: Vec<VerifiedContentRef>,
+    frames: Vec<VerifiedFrameRef>,
     runtime_context: Option<RuntimePayload>,
 }
 
@@ -31,25 +32,32 @@ impl RendererActivation {
         document: RuntimePayload,
         metadata: RendererMetadata,
         content: Vec<VerifiedContentRef>,
+        frames: Vec<VerifiedFrameRef>,
         runtime_context: Option<RuntimePayload>,
     ) -> Result<Self, PreparedActivationError> {
         metadata.validate()?;
         let payloads = std::iter::once(&document).chain(runtime_context.iter());
         if content.len() > MAX_CONTENT_REFS
+            || frames.len() > MAX_CONTENT_REFS
             || payloads.clone().map(RuntimePayload::encoded_len).fold(0usize, usize::saturating_add)
                 > MAX_RUNTIME_PAYLOAD_BYTES
             || payloads.clone().map(|payload| payload.bindings().len()).sum::<usize>() > MAX_RESOURCE_BINDINGS
         {
             return Err(PreparedActivationError::TooLarge);
         }
+        // Bindings name digests; media and frame placeholders share the
+        // namespace, so either list may cover a binding. The host fails
+        // a digest claimed by both rather than guess its grant.
         for payload in payloads {
             for binding in payload.bindings() {
-                if !content.iter().any(|object| object.sha256 == binding.object) {
+                let listed = content.iter().any(|object| object.sha256 == binding.object)
+                    || frames.iter().any(|frame| frame.sha256 == binding.object);
+                if !listed {
                     return Err(PreparedActivationError::UnlistedObject);
                 }
             }
         }
-        Ok(Self { reference, document, metadata, content, runtime_context })
+        Ok(Self { reference, document, metadata, content, frames, runtime_context })
     }
 
     pub fn reference(&self) -> RendererActivationRef {
@@ -80,6 +88,10 @@ impl RendererActivation {
 
     pub fn content(&self) -> &[VerifiedContentRef] {
         &self.content
+    }
+
+    pub fn frames(&self) -> &[VerifiedFrameRef] {
+        &self.frames
     }
 
     pub fn runtime_context(&self) -> Option<&RuntimePayload> {
@@ -221,6 +233,7 @@ mod tests {
                 mime_type: SafeText::new("image/png").unwrap(),
                 stream: None,
             }],
+            Vec::new(),
             None,
         )
         .unwrap();
@@ -243,7 +256,7 @@ mod tests {
         }];
         let half = RuntimePayload::new(json!("x".repeat(MAX_RUNTIME_PAYLOAD_BYTES / 2)), vec![]).unwrap();
         assert_eq!(
-            RendererActivation::new(reference(), half.clone(), metadata(), content.clone(), Some(half)),
+            RendererActivation::new(reference(), half.clone(), metadata(), content.clone(), Vec::new(), Some(half)),
             Err(PreparedActivationError::TooLarge)
         );
         let payload = |count| {
@@ -256,7 +269,7 @@ mod tests {
             .unwrap()
         };
         assert_eq!(
-            RendererActivation::new(reference(), payload(600), metadata(), content, Some(payload(500))),
+            RendererActivation::new(reference(), payload(600), metadata(), content, Vec::new(), Some(payload(500))),
             Err(PreparedActivationError::TooLarge)
         );
     }
@@ -281,9 +294,51 @@ mod tests {
                     capture_state: crate::CaptureState::Setup
                 },
                 vec![],
+                Vec::new(),
                 Some(context)
             ),
             Err(PreparedActivationError::UnlistedObject)
+        );
+    }
+
+    #[test]
+    fn frame_refs_cover_frame_bindings_and_count_against_the_ref_bound() {
+        use crate::VerifiedFrameRef;
+        let frame = Sha256Digest::of(b"frame");
+        let payload = RuntimePayload::new(
+            json!({"widgetFrames": [{"uri": ""}]}),
+            vec![ObjectBinding { pointer: SafeText::new("/widgetFrames/0/uri").unwrap(), object: frame }],
+        )
+        .unwrap();
+        let frames = vec![VerifiedFrameRef {
+            package_id: SafeText::new("acme.athletics").unwrap(),
+            package_digest: Sha256Digest::of(b"package"),
+            sha256: frame,
+            size_bytes: 4242,
+        }];
+        let activation =
+            RendererActivation::new(reference(), payload, metadata(), Vec::new(), frames.clone(), None).unwrap();
+        assert_eq!(activation.frames(), frames.as_slice());
+        assert!(activation.content().is_empty());
+        let oversized = vec![
+            VerifiedFrameRef {
+                package_id: SafeText::new("acme.athletics").unwrap(),
+                package_digest: Sha256Digest::of(b"package"),
+                sha256: frame,
+                size_bytes: 4242,
+            };
+            crate::renderer_document::MAX_CONTENT_REFS + 1
+        ];
+        assert_eq!(
+            RendererActivation::new(
+                reference(),
+                RuntimePayload::new(json!({"state": "setup"}), vec![]).unwrap(),
+                metadata(),
+                Vec::new(),
+                oversized,
+                None
+            ),
+            Err(PreparedActivationError::TooLarge)
         );
     }
 

@@ -30,6 +30,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
 
@@ -49,6 +50,9 @@ var (
 	// ErrInvalid answers a malformed activation: bad digest, unknown source
 	// or trust value, or empty references.
 	ErrInvalid = errors.New("invalid package activation")
+	// ErrServiceUnknown answers a manifest requesting a service the
+	// registry does not know.
+	ErrServiceUnknown = errors.New("package requests an unknown service")
 )
 
 var digestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
@@ -259,6 +263,11 @@ func (s *Service) Activate(ctx context.Context, activation Activation) (Installe
 	if err := packagemanifest.Validate(manifest); err != nil {
 		return InstalledPackage{}, err
 	}
+	if manifest.Capabilities != nil {
+		if err := services.ValidateGrants(manifest.Capabilities.Services); err != nil {
+			return InstalledPackage{}, fmt.Errorf("%w: %v", ErrServiceUnknown, err)
+		}
+	}
 	if !digestPattern.MatchString(activation.Digest) {
 		return InstalledPackage{}, fmt.Errorf("%w: digest must be a sha256 digest", ErrInvalid)
 	}
@@ -363,6 +372,11 @@ func (s *Service) Rollback(ctx context.Context, packageID string, userID uuid.UU
 	}
 	if err := packagemanifest.Validate(snapshot.Manifest); err != nil {
 		return InstalledPackage{}, err
+	}
+	if snapshot.Manifest.Capabilities != nil {
+		if err := services.ValidateGrants(snapshot.Manifest.Capabilities.Services); err != nil {
+			return InstalledPackage{}, fmt.Errorf("%w: %v", ErrServiceUnknown, err)
+		}
 	}
 	if !packagemanifest.SatisfiesTilecastRange(snapshot.Manifest.Tilecast.Version, s.tilecastVersion) {
 		return InstalledPackage{}, fmt.Errorf("package requires Tilecast %s: %w", snapshot.Manifest.Tilecast.Version, ErrIncompatible)
