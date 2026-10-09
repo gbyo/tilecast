@@ -493,6 +493,14 @@ export interface ProjectionContextV1 {
     uri: string;
   }[];
   /**
+   * Host-authorized media aliases for opaque sandbox Widgets. Edge maps
+   * existing, generation-scoped media grants onto loopback HTTP URLs because
+   * WPE rejects custom-scheme loads inside opaque-origin frames. If absent,
+   * the host's ordinary media table is used (Browser, Android, Windows).
+   * This table must never contain device credentials or origin URLs.
+   */
+  widgetMedia?: { assetId: string; variantId: string; uri: string }[];
+  /**
    * The accepted player configuration's playback section: regional
    * formatting and layout playlist-zone defaults. Optional and additive;
    * absent means the projection defaults.
