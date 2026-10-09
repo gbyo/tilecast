@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/version"
 )
 
@@ -121,19 +122,44 @@ func (w *Worker) startup(ctx context.Context) {
 	if _, err := RecoverInterrupted(ctx, w.cfg.DatabaseURL, w.cfg.MediaRoot, w.cfg.UpdatesRoot, w.logger); err != nil {
 		w.logger.Error("restore recovery failed", "error", err)
 	}
-	if _, err := w.svc.db.Exec(ctx, `UPDATE backup_jobs SET status = 'failed', error_code = 'interrupted', error_message = 'The job was interrupted by a server restart.', completed_at = now(), updated_at = now() WHERE status = 'running'`); err != nil {
+	if err := failExpiredRunningJobs(ctx, w.svc.db, time.Now()); err != nil {
 		w.logger.Error("failing interrupted backup jobs failed", "error", err)
 	}
-	tmpDir := filepath.Join(w.svc.root, "tmp")
-	if entries, err := os.ReadDir(tmpDir); err == nil {
-		for _, entry := range entries {
-			os.RemoveAll(filepath.Join(tmpDir, entry.Name()))
-		}
-	}
+	clearOrphanedTemp(filepath.Join(w.svc.root, "tmp"), time.Now())
 	if err := w.svc.ReconcileDisk(ctx); err != nil {
 		w.logger.Error("backup catalog reconciliation failed", "error", err)
 	}
 	w.tickSchedule(ctx)
+}
+
+// backupLease is how long a running job's claim stays valid without progress.
+// Another process reclaims a job only after its lease lapses, so recovery
+// uses the same window before it treats a job or a temporary file as dead.
+const backupLease = 15 * time.Minute
+
+// failExpiredRunningJobs fails running jobs whose lease has lapsed. A job held
+// by a live process keeps its lease fresh through its progress updates, so it
+// is not failed just because another server process started.
+func failExpiredRunningJobs(ctx context.Context, db *pgxpool.Pool, now time.Time) error {
+	_, err := db.Exec(ctx, `UPDATE backup_jobs SET status = 'failed', error_code = 'interrupted', error_message = 'The job was interrupted by a server restart.', completed_at = now(), updated_at = now() WHERE status = 'running' AND locked_at < $1`, now.Add(-backupLease))
+	return err
+}
+
+// clearOrphanedTemp removes temporary files that no process has touched for a
+// full lease. A live job keeps writing its archive, so a recent file belongs to
+// it and stays.
+func clearOrphanedTemp(tmpDir string, now time.Time) {
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		info, err := entry.Info()
+		if err != nil || info.ModTime().After(now.Add(-backupLease)) {
+			continue
+		}
+		os.RemoveAll(filepath.Join(tmpDir, entry.Name()))
+	}
 }
 
 func (w *Worker) claimAndRun(ctx context.Context) {
