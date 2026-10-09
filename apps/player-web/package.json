@@ -15,7 +15,7 @@
     "test:e2e:frames": "npm run build && playwright test -c e2e/frames/playwright.config.ts"
   },
   "dependencies": {
-    "@noble/hashes": "2.2.0",
+    "@noble/hashes": "2.4.0",
     "@tilecast/companion-protocol": "*",
     "@tilecast/player-active-hours": "*",
     "@tilecast/player-activity": "*",
@@ -24,11 +24,11 @@
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@tilecast/api-schema": "*",
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.4",
     "fake-indexeddb": "^6.2.4",
-    "sharp": "0.35.4",
-    "typescript": "~6.0.3",
-    "vite": "^8.3.2",
+    "sharp": "0.35.5",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.3",
     "vitest": "^5.0.2"
   }
 }
