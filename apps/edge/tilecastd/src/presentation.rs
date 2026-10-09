@@ -24,7 +24,7 @@
 //! `player.ts#buildPresentation`) calls [`PresentationEngine::activate`] the
 //! same way, after its content is verified and pinned in the CAS.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -82,6 +82,10 @@ pub struct ServerExtras {
     pub projection: Option<ProjectionContext>,
     pub plugins: Vec<serde_json::Value>,
     pub plugin_aliases: Vec<MediaAlias>,
+    /// Network backends for this activation's stream-backed videos, by
+    /// content digest. Only digests also in the activation content gain
+    /// grants; anything else here is never attached.
+    pub streams: HashMap<edge_protocol::Sha256Digest, player_core::StreamSource>,
 }
 
 #[derive(Debug, Clone)]

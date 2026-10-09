@@ -83,6 +83,15 @@ heartbeat field ships server-first: the strict HTTP fallback rejects a
 heartbeat with unknown fields, so the server accepts a field before any
 player sends it.
 
+Edge also reports stream-backed video: the `media-streaming` presentation
+capability and the activation's `streamBackedAssetCount`, the number of
+videos playing through origin range reads without a complete local copy.
+A count of zero is known-empty; omission means a player that never reports
+it. The server persists the count and passes it through `playerHealth`.
+A `download`-policy video that does not fit the store fails preparation
+with `media_cache_too_small` in `lastSynchronizationError`; it never
+falls back to streaming.
+
 ### Release family
 
 A heartbeat may carry `playerFamily` (`android`, `electron-linux`, `edge` or `windows`) and, for Tilecast Edge and Windows Player, `playerArchitecture` (`x86_64` or `aarch64`). The server records only these values; another value is recorded as absent and never rejects the heartbeat. Player Updates target a release only at screens of its family and architecture. A player that does not report a family keeps the family its platform always meant: `linux` is `electron-linux`, `windows` is `windows`, and every other platform is `android`.

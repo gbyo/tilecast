@@ -766,6 +766,25 @@ impl AuthenticatedServer {
         }
         request.send().await.map_err(|_| ServerError::Network)
     }
+
+    /// Fetches exactly `bytes=offset..=end` of an authenticated download,
+    /// always guarded by `If-Range` (for stream-backed media reads). Unlike
+    /// [`Self::get_range`], the range is sent even at offset zero: the
+    /// caller rejects anything but an exact 206 answer.
+    pub async fn get_bounded_range(
+        &self,
+        path: &crate::download::PlayerDownloadPath,
+        offset: u64,
+        end: u64,
+        validator: &str,
+    ) -> Result<reqwest::Response, ServerError> {
+        self.raw_request(reqwest::Method::GET, path.as_str())
+            .header(reqwest::header::RANGE, format!("bytes={offset}-{end}"))
+            .header(reqwest::header::IF_RANGE, validator)
+            .send()
+            .await
+            .map_err(|_| ServerError::Network)
+    }
 }
 
 #[cfg(test)]

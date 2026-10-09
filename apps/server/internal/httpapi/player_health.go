@@ -41,6 +41,7 @@ type playerHealthInput struct {
 	SafeMode                  bool
 	SafeModeReason            string
 	RecoveryLevel             *int
+	StreamBackedAssetCount    *int
 	LastRendererFailure       string
 	LastRendererRestartAt     *time.Time
 	LastRendererRestartReason string
@@ -65,6 +66,9 @@ type playerHealth struct {
 	LastRecoveryReason string     `json:"lastRecoveryReason,omitempty"`
 	LastRecoveryAt     *time.Time `json:"lastRecoveryAt,omitempty"`
 	RecoveryLevel      *int       `json:"recoveryLevel,omitempty"`
+	// Stream-backed videos in the current activation: content without a
+	// complete local copy. Nil is unreported (legacy players).
+	StreamBackedAssetCount *int `json:"streamBackedAssetCount,omitempty"`
 	// Update and rollback facts, present only when relevant.
 	UpdateState string `json:"updateState,omitempty"`
 	UpdateError string `json:"updateError,omitempty"`
@@ -83,6 +87,7 @@ func derivePlayerHealth(now time.Time, input playerHealthInput) playerHealth {
 		health.LastProgressAt = progressAt
 	}
 	health.ObservedAt = latestHealthTime(input.LastContactAt, input.TelemetryObservedAt, progressAt)
+	health.StreamBackedAssetCount = input.StreamBackedAssetCount
 
 	switch input.Status {
 	case devices.StatusDisabled:

@@ -508,6 +508,7 @@ impl Daemon {
                     cas,
                     context.clock.clone(),
                     Arc::new(ProcLineage),
+                    Some(media_channel::StreamBackend::new(context.command_server.subscribe())),
                 )
                 .with_context(|| format!("binding {}", path.display()))
             })

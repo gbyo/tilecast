@@ -227,3 +227,30 @@ func TestDerivePlayerHealthReportsLastRecoveryAction(t *testing.T) {
 		t.Fatalf("recoveryLevel=%v, want 2", health.RecoveryLevel)
 	}
 }
+
+func TestDerivePlayerHealthPassesStreamBackedCountThrough(t *testing.T) {
+	now := time.Now().UTC()
+	three := 3
+	health := derivePlayerHealth(now, playerHealthInput{
+		Status: devices.StatusOnline, LastContactAt: healthTime(now, time.Minute),
+		PlaybackState: "playing", LastHealthyPlaybackAt: healthTime(now, 3*time.Minute),
+		StreamBackedAssetCount: &three,
+		TelemetryObservedAt:    healthTime(now, 2*time.Minute), TelemetryRendererState: "healthy",
+		TelemetryLastProgressAt: healthTime(now, 3*time.Minute),
+	})
+	if health.State != playerHealthHealthy {
+		t.Fatalf("state=%q, want %q", health.State, playerHealthHealthy)
+	}
+	if health.StreamBackedAssetCount == nil || *health.StreamBackedAssetCount != 3 {
+		t.Fatalf("streamBackedAssetCount=%v, want 3", health.StreamBackedAssetCount)
+	}
+	unreported := derivePlayerHealth(now, playerHealthInput{
+		Status: devices.StatusOnline, LastContactAt: healthTime(now, time.Minute),
+		PlaybackState: "playing", LastHealthyPlaybackAt: healthTime(now, 3*time.Minute),
+		TelemetryObservedAt: healthTime(now, 2*time.Minute), TelemetryRendererState: "healthy",
+		TelemetryLastProgressAt: healthTime(now, 3*time.Minute),
+	})
+	if unreported.StreamBackedAssetCount != nil {
+		t.Fatalf("streamBackedAssetCount=%v, want nil for legacy players", unreported.StreamBackedAssetCount)
+	}
+}
