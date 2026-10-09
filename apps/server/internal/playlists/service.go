@@ -1179,6 +1179,12 @@ func (s *Service) AssignPresentation(ctx context.Context, screenID uuid.UUID, pl
 		return Assignment{}, err
 	}
 	defer tx.Rollback(ctx)
+	// Lock the screen before reading its group. A concurrent Display Group
+	// membership change locks the same row, so this assignment either sees the
+	// new membership or commits before the membership changes.
+	if _, err = tx.Exec(ctx, `SELECT 1 FROM screens WHERE id=$1 FOR UPDATE`, screenID); err != nil {
+		return Assignment{}, err
+	}
 	// Review is checked here rather than in the HTTP layer so single
 	// assignment, bulk assignment, and anything added later all pass through
 	// it. The gate is nil unless the approval feature is wired in.
