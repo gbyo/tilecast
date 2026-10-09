@@ -363,7 +363,7 @@ async fn answer(state: &State, request: &Request<Incoming>) -> Response<Body> {
                         }
                         Err(error) => {
                             tracing::warn!(component = "media", event = "loopback_origin_read_failed", error = %error);
-                            return None;
+                            None
                         }
                     }
                 }
