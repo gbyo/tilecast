@@ -490,6 +490,12 @@ func serve() {
 				}
 				deviceService.ExpireAirplaySessions(shutdownCtx)
 				handler.ReconcileAirplaySessions(shutdownCtx)
+				if err := authService.PurgeExpiredSessions(shutdownCtx); err != nil {
+					logger.Error("session purge failed", "error", err)
+				}
+				if err := authService.PurgeExpiredChallenges(shutdownCtx); err != nil {
+					logger.Error("challenge purge failed", "error", err)
+				}
 				updateService.Cleanup(shutdownCtx, cfg.Updates.RetentionDays)
 				// The catalog refreshes itself while stale; an
 				// operator's manual refresh stays available for
