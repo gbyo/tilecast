@@ -486,7 +486,7 @@ Integration tokens are a third authentication boundary, separate from the dashbo
 
 Scopes are a closed set: `data_source:write` and `activity:read`. Token routes take no session and no CSRF token, and each names the scope it needs:
 
-- `PUT /integration/data-sources/{id}/rows` — replaces the rows of a Manual Table Data Source, at most 500 per write. Column keys must already exist on the source; a write cannot create or delete a source or change its columns. Routed through the ordinary update so the cached player payload, audit entry, and bound Widgets stay consistent.
+- `PUT /integration/data-sources/{id}/rows` — replaces the rows of a Manual Table Data Source, at most 500 per write. Column keys must already exist on the source; a write cannot create or delete a source or change its columns. Routed through the ordinary update so the cached player payload, audit entry, and bound Widgets stay consistent. A write that races a Studio edit to the same source returns `409 data_source_changed` and writes nothing; retry it.
 - `GET /integration/activity/fleet` and `GET /integration/metrics` — bounded fleet counts as JSON and as Prometheus text. There is no `online` count: presence lives in the process-local socket hub, which these reads cannot see, so the field reported is `recent` (contacted within two minutes).
 
 A token is attributed to the account that created it, and stops working if that account is removed. Owner-only management lives at `GET/POST /integration-tokens` and `DELETE /integration-tokens/{id}`; a token can never mint or revoke another. See [Integration tokens](integrations.md).
