@@ -128,7 +128,7 @@ export function DataSourcesPage() {
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateDataSource(id, csrf),
     onSuccess: (created) => {
-      toast.add({ title: "Data Source duplicated.", type: "success" });
+      toast.add({ title: t("dataSources.duplicated"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       void navigate(`/data-sources/${created.id}`);
     },
