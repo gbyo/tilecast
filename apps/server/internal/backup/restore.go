@@ -162,6 +162,14 @@ func Apply(ctx context.Context, opts ApplyOptions) (ApplyResult, error) {
 		cleanupStaging(opts.MediaRoot, opts.UpdatesRoot)
 		return ApplyResult{}, err
 	}
+	if err := discardInterruptedUploads(ctx, opts.DatabaseURL); err != nil {
+		rollbackErr := rollbackDatabase(ctx, opts.DatabaseURL)
+		cleanupStaging(opts.MediaRoot, opts.UpdatesRoot)
+		if rollbackErr != nil {
+			return ApplyResult{}, fmt.Errorf("discarding interrupted uploads failed (%v) and database rollback also failed: %w", err, rollbackErr)
+		}
+		return ApplyResult{}, fmt.Errorf("discarding interrupted uploads failed; the previous state was restored: %w", err)
+	}
 
 	opts.Progress("activating_files", 80)
 	if err := activateStagedFiles(opts.MediaRoot, opts.UpdatesRoot); err != nil {
@@ -201,6 +209,22 @@ func cleanupStaging(mediaRoot, updatesRoot string) {
 
 // restoreDatabase rebuilds the database from the archive inside a fresh
 // public schema. The previous schema stays renamed until finalizeDatabase.
+// discardInterruptedUploads removes restored upload sessions that were still in
+// progress. The archive omits their temporary files, so resuming one would
+// append to an empty file at the saved offset and corrupt the media object.
+// Removing the session makes a resume fail cleanly, and the upload starts again.
+func discardInterruptedUploads(ctx context.Context, databaseURL string) error {
+	conn, err := pgx.Connect(ctx, databaseURL)
+	if err != nil {
+		return fmt.Errorf("connect to discard uploads: %w", err)
+	}
+	defer conn.Close(ctx)
+	if _, err := conn.Exec(ctx, `DELETE FROM upload_sessions WHERE status IN ('pending','uploading','finalizing')`); err != nil {
+		return fmt.Errorf("discard interrupted uploads: %w", err)
+	}
+	return nil
+}
+
 func restoreDatabase(ctx context.Context, opts ApplyOptions, manifest Manifest) error {
 	conn, err := pgx.Connect(ctx, opts.DatabaseURL)
 	if err != nil {

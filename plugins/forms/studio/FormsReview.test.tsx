@@ -12,7 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryRouter } from "react-router";
 import { FormDataSourcePage } from "./FormDataSourcePage";
-import { StudioSessionProvider } from "@tilecast/studio/testing";
+import { StudioSessionProvider, i18n } from "@tilecast/studio/testing";
 import { ApprovalsPage } from "./ApprovalsPage";
 import { formsApi } from "./api";
 import { ApiError } from "@tilecast/studio";
@@ -265,6 +265,31 @@ describe("Responses tab and record review", () => {
       toState: "approved",
       version: 3,
     });
+  });
+
+  it("shows a refused transition in the Studio language, not the server text", async () => {
+    await i18n.changeLanguage("ru");
+    try {
+      vi.spyOn(formsApi, "getForm").mockResolvedValue(form(["approve"]));
+      vi.spyOn(formsApi, "getFormRecord").mockResolvedValue(detail());
+      vi.spyOn(formsApi, "transitionFormRecord").mockRejectedValue(
+        new ApiError("Server English text", 403, "forbidden"),
+      );
+      const user = userEvent.setup();
+      renderReview("/plugins/forms/f1?tab=responses&record=rec1");
+
+      await user.click(
+        await screen.findByRole("button", { name: /Утвердить|Approve/ }),
+      );
+      expect(
+        await screen.findByText(
+          "Ваша роль не позволяет выполнить это действие.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Server English text")).toBeNull();
+    } finally {
+      await i18n.changeLanguage("en");
+    }
   });
 
   it("requires a note before requesting changes", async () => {

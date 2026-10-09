@@ -45,6 +45,17 @@ describe("Forms plugin", () => {
     );
   });
 
+  it("offers creation only to roles the server accepts", async () => {
+    vi.spyOn(formsApi, "listForms").mockResolvedValue([]);
+    renderPluginRoute(<FormsPluginPage />, {
+      path: "/plugins/forms",
+      patterns: ["/plugins/forms"],
+      role: "contributor",
+    });
+    expect(await screen.findByText("No forms yet")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Create form/ })).toBeNull();
+  });
+
   it("renders only the load error when the initial forms query fails", async () => {
     vi.spyOn(formsApi, "listForms").mockRejectedValue(new Error("offline"));
 

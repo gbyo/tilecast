@@ -1113,6 +1113,7 @@
   },
   "dataSources": {
     "deleteSuccess": "Источник данных удалён.",
+    "duplicated": "Источник данных скопирован.",
     "calendar": {
       "addCalendar": "Добавить календарь",
       "calendarsLegend": "Календари",
