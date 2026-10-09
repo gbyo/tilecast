@@ -508,6 +508,20 @@ func (s *Service) failUploadOn(ctx context.Context, db finalizationDB, id uuid.U
 }
 
 func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error {
+	conn, err := s.db.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+	// Finalization holds this advisory lock for its whole hand-off. Waiting for
+	// it means a cancellation cannot land between a finalizer's status check and
+	// its asset registration.
+	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(hashtextextended($1,0))`, id.String()); err != nil {
+		return err
+	}
+	defer func() {
+		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock(hashtextextended($1,0))`, id.String())
+	}()
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
