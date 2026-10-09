@@ -19,6 +19,7 @@ use serde_json::Value;
 
 use crate::{
     media::{MediaCapability, MediaRegistry},
+    media_channel::{ReadExpect, grant_live},
     presentation::Activation,
 };
 
@@ -301,6 +302,10 @@ pub(crate) struct EdgeRendererPort {
     clock: edge_protocol::time::SharedClock,
     registry: Arc<Mutex<MediaRegistry>>,
     media: Mutex<Option<(ActivationRef, CachedGrants)>>,
+    /// Ephemeral loopback media port, set once the daemon binds it. Opaque
+    /// frames cannot load `tcmedia:` subresources, so their media aliases
+    /// are mirrored as loopback URLs only while this port is known.
+    loopback_port: Mutex<Option<u16>>,
 }
 
 impl EdgeRendererPort {
@@ -310,7 +315,16 @@ impl EdgeRendererPort {
         registry: Arc<Mutex<MediaRegistry>>,
         clock: edge_protocol::time::SharedClock,
     ) -> Self {
-        Self { session, channel, registry, clock, media: Mutex::new(None) }
+        Self { session, channel, registry, clock, media: Mutex::new(None), loopback_port: Mutex::new(None) }
+    }
+
+    /// Records the loopback media port once the daemon binds it. Activations
+    /// built before the bind omit the opaque-frame media table rather than
+    /// emit unusable URLs.
+    pub(crate) fn set_loopback_port(&self, port: u16) {
+        if let Ok(mut slot) = self.loopback_port.lock() {
+            *slot = Some(port);
+        }
     }
 
     fn send(&self, event: Event) -> Result<(), RendererPortError> {
@@ -323,6 +337,43 @@ fn wire_document(
     resolve: &impl Fn(Sha256Digest) -> Option<String>,
 ) -> Result<Value, RendererPortError> {
     document.resolve(resolve).map_err(invalid)
+}
+
+/// Mirrors resolved capability aliases as loopback URLs for opaque frames.
+/// Each alias URI is a `tcmedia://cap/<token>` the port minted through the
+/// activation bindings; the token is re-checked live before its URL is
+/// published, so a generation that retired between grant and fill fails the
+/// activation instead of handing frames a dead URL.
+fn widget_media_table(
+    registry: &MediaRegistry,
+    session: edge_protocol::ids::SessionId,
+    aliases: &[MediaAlias],
+    port: Option<u16>,
+    now_ms: i64,
+) -> Result<Option<Vec<MediaAlias>>, RendererPortError> {
+    if aliases.is_empty() {
+        return Ok(None);
+    }
+    let Some(port) = port else {
+        tracing::warn!(component = "media", event = "loopback_unbound_frames_have_no_media");
+        return Ok(None);
+    };
+    let mut table = Vec::with_capacity(aliases.len());
+    for alias in aliases {
+        let token = alias
+            .uri
+            .as_str()
+            .strip_prefix("tcmedia://cap/")
+            .and_then(MediaCapability::parse)
+            .ok_or(RendererPortError::InvalidActivation)?;
+        if !grant_live(registry, session, token.as_str(), ReadExpect::Media, now_ms) {
+            return Err(RendererPortError::InvalidActivation);
+        }
+        let uri =
+            SafeText::new(crate::media_http::media_url(port, token.as_str())).map_err(invalid)?;
+        table.push(MediaAlias { asset_id: alias.asset_id, variant_id: alias.variant_id, uri });
+    }
+    Ok(Some(table))
 }
 
 impl EdgeRendererPort {
@@ -428,6 +479,15 @@ impl RendererPort for EdgeRendererPort {
                     return Err(RendererPortError::InvalidActivation);
                 }
                 projection.widget_frames = Some(frames.clone());
+                if projection.widget_media.is_some() {
+                    // Same rule for the opaque-frame media table: only the
+                    // port mirrors aliases onto the loopback transport.
+                    return Err(RendererPortError::InvalidActivation);
+                }
+                let registry = self.registry.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+                let port = *self.loopback_port.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+                projection.widget_media =
+                    widget_media_table(&registry, self.session.id(), &context.aliases, port, now_ms)?;
             }
         } else if !frames.is_empty() {
             return Err(RendererPortError::InvalidActivation);
@@ -851,5 +911,89 @@ mod tests {
             prepared.document().resolve(&|object| objects.contains_key(&object).then(|| "tcmedia://cap/x".into()));
         let encoded = serde_json::to_string(&resolved.unwrap()).unwrap();
         assert!(!encoded.contains("api/v1"));
+    }
+
+    fn granted_alias(session: edge_protocol::ids::SessionId) -> (MediaRegistry, MediaAlias, String) {
+        use edge_protocol::ipc::presentation::ContentRef;
+        let digest = Sha256Digest::of(b"frame media");
+        let content = ContentRef {
+            sha256: digest,
+            size_bytes: 11,
+            mime_type: SafeText::new("image/png").unwrap(),
+        };
+        let mut registry = MediaRegistry::new();
+        registry.bind_renderer(crate::media::RendererInstance {
+            session,
+            uid: 0,
+            pid: 0,
+            start_ticks: 0,
+        });
+        let token = registry
+            .prepare(session, 7, 1_700_000_000_000, &[content], &HashMap::new())
+            .unwrap()
+            .remove(&digest)
+            .unwrap();
+        registry.activate(session, 7, 1_700_000_000_000).unwrap();
+        let alias = MediaAlias {
+            asset_id: uuid::Uuid::new_v4(),
+            variant_id: uuid::Uuid::new_v4(),
+            uri: SafeText::new(token.uri()).unwrap(),
+        };
+        (registry, alias, token.as_str().to_owned())
+    }
+
+    #[test]
+    fn widget_media_table_mirrors_live_aliases_onto_loopback() {
+        let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
+        let (registry, alias, token) = granted_alias(session);
+        let table =
+            widget_media_table(&registry, session, &[alias.clone()], Some(8471), 1_700_000_000_000)
+                .unwrap()
+                .unwrap();
+        assert_eq!(table.len(), 1);
+        assert_eq!(table[0].asset_id, alias.asset_id);
+        assert_eq!(table[0].variant_id, alias.variant_id);
+        assert_eq!(table[0].uri.as_str(), format!("http://127.0.0.1:8471/media/{token}"));
+    }
+
+    #[test]
+    fn widget_media_table_omits_without_aliases_or_port() {
+        let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
+        let (registry, alias, _) = granted_alias(session);
+        assert!(
+            widget_media_table(&registry, session, &[], Some(8471), 1_700_000_000_000)
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            widget_media_table(&registry, session, &[alias], None, 1_700_000_000_000).unwrap().is_none()
+        );
+    }
+
+    #[test]
+    fn widget_media_table_rejects_unresolved_and_retired_aliases() {
+        let session = edge_protocol::ids::SessionId::from_uuid(uuid::Uuid::new_v4());
+        let (mut registry, alias, _) = granted_alias(session);
+        // An alias URI that is not a minted capability means a confused
+        // upstream; it must fail the activation, not mint a loopback URL.
+        let unresolved = MediaAlias {
+            uri: SafeText::new(format!(
+                "tcmedia://variant/{}/{}",
+                uuid::Uuid::nil(),
+                uuid::Uuid::nil()
+            ))
+            .unwrap(),
+            ..alias.clone()
+        };
+        assert!(
+            widget_media_table(&registry, session, &[unresolved], Some(8471), 1_700_000_000_000)
+                .is_err()
+        );
+        // A generation that retired between grant and fill hands frames a
+        // dead URL unless the fill fails loudly.
+        registry.retire(7);
+        assert!(
+            widget_media_table(&registry, session, &[alias], Some(8471), 1_700_000_000_000).is_err()
+        );
     }
 }

@@ -195,6 +195,10 @@ pub struct PresentationEngine {
     /// Corrected-minus-local wall offset handed to the runtime for
     /// time-dependent projection (countdowns, date-selected records).
     clock_offset_ms: i64,
+    /// Ephemeral loopback media port, set once the daemon binds it. The
+    /// renderer port mirrors capability aliases onto loopback URLs for
+    /// opaque frames only while this port is known.
+    loopback_port: Option<u16>,
 }
 
 /// Recovery facts for heartbeat diagnostics. Core owns the ladder; Edge
@@ -239,11 +243,16 @@ impl PresentationEngine {
             last_restart: None,
             activity: None,
             clock_offset_ms: 0,
+            loopback_port: None,
         }
     }
 
     pub fn set_clock_offset(&mut self, offset_ms: i64) {
         self.clock_offset_ms = offset_ms;
+    }
+
+    pub fn set_loopback_port(&mut self, port: u16) {
+        self.loopback_port = Some(port);
     }
 
     /// Issues a new activation and sends it if a ready renderer is connected.
@@ -395,6 +404,9 @@ impl PresentationEngine {
             self.media_registry.clone(),
             self.clock.clone(),
         );
+        if let Some(loopback) = self.loopback_port {
+            port.set_loopback_port(loopback);
+        }
         let _ = port.configure(&self.configure.kiosk);
         self.renderer = Some(RendererLink { session, ready: None, port, remote_web_restarting: false });
         self.native.connected(connection, policy_time(now_ms));

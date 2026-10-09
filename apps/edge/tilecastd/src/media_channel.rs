@@ -76,7 +76,7 @@ enum Request {
 /// unknown token.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
-enum ReadExpect {
+pub(crate) enum ReadExpect {
     #[default]
     Media,
     Frame,
@@ -291,7 +291,7 @@ async fn deny_reason(stream: &mut UnixStream, reason: &str) -> std::io::Result<(
 /// after the bytes arrive the relationship is re-checked, so a
 /// revocation, mismatch, or re-pair mid-read never releases another
 /// installation's bytes.
-async fn network_read(
+pub(crate) async fn network_read(
     backend: &StreamBackend,
     grant: &MediaGrant,
     source: &StreamSource,
@@ -324,7 +324,7 @@ async fn network_read(
 /// Media and frame grants share the registry but resolve from disjoint
 /// tables; every liveness check funnels through here so the two can
 /// never drift apart again.
-fn grant_live(registry: &MediaRegistry, session: SessionId, capability: &str, expect: ReadExpect, now_ms: i64) -> bool {
+pub(crate) fn grant_live(registry: &MediaRegistry, session: SessionId, capability: &str, expect: ReadExpect, now_ms: i64) -> bool {
     match expect {
         ReadExpect::Media => registry.resolve(session, capability, now_ms),
         ReadExpect::Frame => registry.resolve_frame(session, capability, now_ms),
