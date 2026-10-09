@@ -1078,6 +1078,7 @@
   },
   "dataSources": {
     "deleteSuccess": "Fuente de datos eliminada.",
+    "duplicated": "Fuente de datos duplicada.",
     "calendar": {
       "addCalendar": "Agregar calendario",
       "calendarsLegend": "Calendarios",
