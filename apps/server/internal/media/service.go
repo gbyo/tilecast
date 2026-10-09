@@ -515,7 +515,8 @@ func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error 
 	defer tx.Rollback(ctx) //nolint:errcheck
 	var key string
 	var status UploadStatus
-	err = tx.QueryRow(ctx, `SELECT temporary_storage_key,status FROM upload_sessions WHERE id=$1 AND created_by=$2 FOR UPDATE`, id, userID).Scan(&key, &status)
+	var marker *string
+	err = tx.QueryRow(ctx, `SELECT temporary_storage_key,status,failure_code FROM upload_sessions WHERE id=$1 AND created_by=$2 FOR UPDATE`, id, userID).Scan(&key, &status, &marker)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -526,9 +527,16 @@ func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error 
 		return ErrUploadUnavailable
 	}
 	if status == UploadCancelled {
+		if err = tx.Commit(ctx); err != nil {
+			return err
+		}
+		// A cancellation whose file delete failed stays marked until the file is gone.
+		if marker != nil && *marker == uploadCancelledCleanupPending {
+			return s.removeCancelledUpload(ctx, id, key)
+		}
 		return nil
 	}
-	if _, err = tx.Exec(ctx, `UPDATE upload_sessions SET status='cancelled',failure_code=NULL WHERE id=$1`, id); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE upload_sessions SET status='cancelled',failure_code=$2 WHERE id=$1`, id, uploadCancelledCleanupPending); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs (id,user_id,action,resource_type,resource_id) VALUES ($1,$2,'media.upload_cancelled','upload',$3)`, uuid.New(), userID, id.String()); err != nil {
@@ -537,7 +545,55 @@ func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error 
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
-	return s.storage.Delete(key)
+	return s.removeCancelledUpload(ctx, id, key)
+}
+
+// uploadCancelledCleanupPending marks a cancelled session whose temporary file
+// has not been removed yet. The cleanup worker and a repeated cancellation both
+// retry the removal until it succeeds.
+const uploadCancelledCleanupPending = "upload_cancelled_cleanup_pending"
+
+// removeCancelledUpload deletes a cancelled session's temporary file, then clears
+// the marker. A failed delete leaves the marker in place for a later retry.
+func (s *Service) removeCancelledUpload(ctx context.Context, id uuid.UUID, key string) error {
+	if err := s.storage.Delete(key); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(ctx, `UPDATE upload_sessions SET failure_code=NULL WHERE id=$1 AND status='cancelled' AND failure_code=$2`, id, uploadCancelledCleanupPending)
+	return err
+}
+
+// retryCancelledCleanup removes temporary files of cancelled uploads whose first
+// removal failed. Cleanup runs periodically so an orphan is not kept indefinitely.
+func (s *Service) retryCancelledCleanup(ctx context.Context) error {
+	rows, err := s.db.Query(ctx, `SELECT id,temporary_storage_key FROM upload_sessions WHERE status='cancelled' AND failure_code=$1 ORDER BY created_at LIMIT 32`, uploadCancelledCleanupPending)
+	if err != nil {
+		return err
+	}
+	type pending struct {
+		id  uuid.UUID
+		key string
+	}
+	var items []pending
+	for rows.Next() {
+		var item pending
+		if err := rows.Scan(&item.id, &item.key); err != nil {
+			rows.Close()
+			return err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, item := range items {
+		if err := s.removeCancelledUpload(ctx, item.id, item.key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // assetOrigin returns the origin ('library' or 'form_attachment') of a live asset, or ErrNotFound.
@@ -592,7 +648,7 @@ func (s *Service) getAsset(ctx context.Context, id uuid.UUID, allowFormAttachmen
 			}
 		}
 	}
-	_ = s.db.QueryRow(ctx, `SELECT count(DISTINCT playlist_id) FROM playlist_items WHERE asset_id=$1`, id).Scan(&asset.PlaylistUsage)
+	_ = s.db.QueryRow(ctx, `SELECT count(DISTINCT i.playlist_id) FROM playlist_items i JOIN playlists p ON p.id=i.playlist_id AND p.deleted_at IS NULL WHERE i.asset_id=$1`, id).Scan(&asset.PlaylistUsage)
 	asset.PlaylistsUsing, err = s.playlistUsage(ctx, id)
 	if err != nil {
 		return Asset{}, err
@@ -793,7 +849,7 @@ func (s *Service) ListAssets(ctx context.Context, o ListOptions) (ListResult, er
 		if o.Archived && a.ArchivedAt == nil && a.ExpiresAt != nil {
 			a.ArchivedAt = a.ExpiresAt
 		}
-		_ = s.db.QueryRow(ctx, `SELECT count(DISTINCT playlist_id) FROM playlist_items WHERE asset_id=$1`, a.ID).Scan(&a.PlaylistUsage)
+		_ = s.db.QueryRow(ctx, `SELECT count(DISTINCT i.playlist_id) FROM playlist_items i JOIN playlists p ON p.id=i.playlist_id AND p.deleted_at IS NULL WHERE i.asset_id=$1`, a.ID).Scan(&a.PlaylistUsage)
 		a.LayoutUsage, err = s.layoutUsage(ctx, a.ID)
 		if err != nil {
 			return ListResult{}, err
@@ -943,7 +999,7 @@ func (s *Service) ArchiveAssets(ctx context.Context, ids []uuid.UUID, userID uui
 	}
 	for _, id := range ids {
 		var inUse bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlist_items WHERE asset_id=$1) OR EXISTS(SELECT 1 FROM website_assets WHERE fallback_image_asset_id=$1) OR EXISTS(SELECT 1 FROM widgets JOIN assets widget_asset ON widget_asset.id=widgets.asset_id AND widget_asset.deleted_at IS NULL WHERE widgets.configuration->>'fallbackImageAssetId'=$1::text) OR EXISTS(SELECT 1 FROM organization_runtime_settings WHERE settings->>'branding.logo_asset_id'=$1::text OR settings->>'branding.icon_asset_id'=$1::text) OR EXISTS(SELECT 1 FROM layout_draft_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset')) OR EXISTS(SELECT 1 FROM layout_revision_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))`, id).Scan(&inUse); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlist_items i JOIN playlists p ON p.id=i.playlist_id AND p.deleted_at IS NULL WHERE i.asset_id=$1) OR EXISTS(SELECT 1 FROM website_assets WHERE fallback_image_asset_id=$1) OR EXISTS(SELECT 1 FROM widgets JOIN assets widget_asset ON widget_asset.id=widgets.asset_id AND widget_asset.deleted_at IS NULL WHERE widgets.configuration->>'fallbackImageAssetId'=$1::text) OR EXISTS(SELECT 1 FROM organization_runtime_settings WHERE settings->>'branding.logo_asset_id'=$1::text OR settings->>'branding.icon_asset_id'=$1::text) OR EXISTS(SELECT 1 FROM layout_draft_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset')) OR EXISTS(SELECT 1 FROM layout_revision_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))`, id).Scan(&inUse); err != nil {
 			return err
 		}
 		if inUse {
@@ -1047,7 +1103,7 @@ func (s *Service) DeleteAsset(ctx context.Context, id, userID uuid.UUID) error {
 	}
 	defer tx.Rollback(ctx)
 	var inUse bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlist_items WHERE asset_id=$1) OR EXISTS(SELECT 1 FROM website_assets WHERE fallback_image_asset_id=$1) OR EXISTS(SELECT 1 FROM widgets JOIN assets widget_asset ON widget_asset.id=widgets.asset_id AND widget_asset.deleted_at IS NULL WHERE widgets.configuration->>'fallbackImageAssetId'=$1::text) OR EXISTS(SELECT 1 FROM organization_runtime_settings WHERE settings->>'branding.logo_asset_id'=$1::text OR settings->>'branding.icon_asset_id'=$1::text) OR EXISTS(SELECT 1 FROM layout_draft_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset')) OR EXISTS(SELECT 1 FROM layout_revision_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))`, id).Scan(&inUse); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlist_items i JOIN playlists p ON p.id=i.playlist_id AND p.deleted_at IS NULL WHERE i.asset_id=$1) OR EXISTS(SELECT 1 FROM website_assets WHERE fallback_image_asset_id=$1) OR EXISTS(SELECT 1 FROM widgets JOIN assets widget_asset ON widget_asset.id=widgets.asset_id AND widget_asset.deleted_at IS NULL WHERE widgets.configuration->>'fallbackImageAssetId'=$1::text) OR EXISTS(SELECT 1 FROM organization_runtime_settings WHERE settings->>'branding.logo_asset_id'=$1::text OR settings->>'branding.icon_asset_id'=$1::text) OR EXISTS(SELECT 1 FROM layout_draft_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset')) OR EXISTS(SELECT 1 FROM layout_revision_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))`, id).Scan(&inUse); err != nil {
 		return err
 	}
 	if inUse {
