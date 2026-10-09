@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -150,4 +151,93 @@ func TestPlayerCommandsPostgreSQLDelivery(t *testing.T) {
 type commandPollItem struct {
 	ID    uuid.UUID `json:"id"`
 	State string    `json:"state"`
+}
+
+func TestQueueCommandRefusesArchivedAndDeletedScreens(t *testing.T) {
+	databaseURL := os.Getenv("TEST_DATABASE_URL")
+	if databaseURL == "" {
+		t.Skip("TEST_DATABASE_URL is not set")
+	}
+	ctx := context.Background()
+	lockPool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lockPool.Close()
+	lock, err := lockPool.Acquire(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Release()
+	if _, err = lock.Exec(ctx, `SELECT pg_advisory_lock(7421999)`); err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Exec(ctx, `SELECT pg_advisory_unlock(7421999)`) //nolint:errcheck
+	if err = database.Migrate(ctx, databaseURL); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	pool, err := database.Open(ctx, databaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Close()
+	if _, err = pool.Exec(ctx, `TRUNCATE organization_settings CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+
+	organizationID, userID, liveID, archivedID, deletedID := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	if _, err = pool.Exec(ctx, `INSERT INTO organization_settings(singleton,organization_name,id) VALUES(true,'Archive Command Test',$1)`, organizationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Operator','operator','unused','owner',TRUE)`, userID); err != nil {
+		t.Fatal(err)
+	}
+	for _, screen := range []uuid.UUID{liveID, archivedID, deletedID} {
+		if _, err = pool.Exec(ctx, `INSERT INTO screens(id,organization_id,player_installation_id,name,platform,device_manufacturer,device_model,android_version,player_version,screen_width,screen_height,density,locale,timezone) VALUES($1,$2,$3,'Command screen','android-tv','Test','Test','14','0.10.1',1920,1080,1,'en-US','UTC')`, screen, organizationID, uuid.NewString()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = pool.Exec(ctx, `UPDATE screens SET archived_at=now(),archived_reason='test',enabled=FALSE WHERE id=$1`, archivedID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, `UPDATE screens SET deleted_at=now(),enabled=FALSE WHERE id=$1`, deletedID); err != nil {
+		t.Fatal(err)
+	}
+
+	s := &server{
+		db:      pool,
+		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		devices: devices.NewService(pool, devices.NewPresenceHub(), ""),
+		operations: OperationsConfig{
+			CommandRetentionDays:        30,
+			MaxPendingCommands:          10,
+			DefaultCommandExpiryMinutes: 60,
+		},
+	}
+	queue := func(screen uuid.UUID) error {
+		_, _, err := s.queueCommand(ctx, screen, userID, "sync_now", []byte(`{}`), uuid.New())
+		return err
+	}
+	countCommands := func(screen uuid.UUID) int {
+		var count int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM player_commands WHERE screen_id=$1`, screen).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		return count
+	}
+
+	if err = queue(liveID); err != nil {
+		t.Fatalf("live screen command: %v", err)
+	}
+	if got := countCommands(liveID); got != 1 {
+		t.Fatalf("live screen commands = %d, want 1", got)
+	}
+	for _, screen := range []uuid.UUID{archivedID, deletedID} {
+		if err = queue(screen); !errors.Is(err, errScreenNotFound) {
+			t.Fatalf("screen %s command error = %v, want errScreenNotFound", screen, err)
+		}
+		if got := countCommands(screen); got != 0 {
+			t.Fatalf("screen %s commands = %d, want 0", screen, got)
+		}
+	}
 }
