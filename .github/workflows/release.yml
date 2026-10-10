@@ -458,6 +458,12 @@ jobs:
           for directory in "$RUNNER_TEMP"/artifacts/*/; do
             sources+=("$directory")
           done
+          # download-artifact makes a subdirectory for each artifact only when
+          # several match. A resumed run with nothing to build downloads just
+          # tilecast-release-reuse, and its files land in the directory itself.
+          if [ -n "$(find "$RUNNER_TEMP/artifacts" -maxdepth 1 -type f -print -quit)" ]; then
+            sources+=("$RUNNER_TEMP/artifacts")
+          fi
           python3 scripts/release/release_assemble.py collect --version "$VERSION" --channel "$CHANNEL" \
             --out "$RUNNER_TEMP/assets" --source "${sources[@]}"
 
@@ -556,7 +562,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/upload"
           for file in "$RUNNER_TEMP"/assets/*; do
             name="$(basename "$file")"
-            if [ -e "$RUNNER_TEMP/artifacts/tilecast-release-reuse/$name" ] && [ "$name" != SHA256SUMS ] && [ "$name" != tilecast-release.json ]; then
+            if { [ -e "$RUNNER_TEMP/artifacts/tilecast-release-reuse/$name" ] || [ -e "$RUNNER_TEMP/artifacts/$name" ]; } && [ "$name" != SHA256SUMS ] && [ "$name" != tilecast-release.json ]; then
               continue
             fi
             cp "$file" "$RUNNER_TEMP/upload/$name"

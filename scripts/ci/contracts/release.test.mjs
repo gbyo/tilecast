@@ -717,3 +717,22 @@ test("the Edge bridge is a separate, verified, never-latest pre-release", () => 
     /stamp_version\.py --version "\$RELEASE_VERSION" --edge-only/,
   );
 });
+
+test("assemble collects the reused assets of a resume that builds nothing", () => {
+  // actions/download-artifact extracts a lone matching artifact straight into
+  // its path. A run that resumes a complete draft downloads only
+  // tilecast-release-reuse, so the directory itself must be a source.
+  const steps = workflow("release.yml").jobs.assemble.steps;
+  const collect = steps.find(
+    (step) => step.name === "Collect the release assets",
+  );
+  assert.match(
+    collect.run,
+    /find "\$RUNNER_TEMP\/artifacts" -maxdepth 1 -type f/,
+  );
+  assert.match(collect.run, /sources\+=\("\$RUNNER_TEMP\/artifacts"\)/);
+  const upload = steps.find((step) =>
+    step.run?.includes("artifacts/tilecast-release-reuse/$name"),
+  );
+  assert.match(upload.run, /\|\| \[ -e "\$RUNNER_TEMP\/artifacts\/\$name" \]/);
+});
