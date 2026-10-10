@@ -143,11 +143,17 @@ class InputTests(unittest.TestCase):
                 self.assertRegex(key, r"^[0-9a-f]{16}$")
                 self.assertEqual(inputs.wpe_tag("x86_64"), f"wpe-2.54.0-{key}-x86_64")
                 self.assertEqual(inputs.wpe_tar("aarch64"), f"wpe-2.54.0-{key}-aarch64.tar")
+                # The registry tag is the legacy release tag without its "wpe-"
+                # prefix, so every published prebuild maps to exactly one tag.
+                self.assertEqual(inputs.wpe_ref("x86_64"), f"ghcr.io/gbyo/tilecast-wpe:2.54.0-{key}-x86_64")
+                self.assertEqual(inputs.wpe_ref("aarch64").split(":", 1)[1], inputs.wpe_tag("aarch64")[len("wpe-"):])
                 for bad in ["x64", "arm64", "x86_64;evil", ""]:
                     with self.subTest(bad=bad), self.assertRaises(ValueError):
                         inputs.wpe_tag(bad)
                     with self.subTest(bad=bad), self.assertRaises(ValueError):
                         inputs.wpe_tar(bad)
+                    with self.subTest(bad=bad), self.assertRaises(ValueError):
+                        inputs.wpe_ref(bad)
 
     def test_wpe_version_parsing_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
