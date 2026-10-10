@@ -167,7 +167,19 @@ The ones most often relevant here:
   `make edge-test` from the repository root. These select Edge packages.
   `--workspace` also includes future native products.
 - Edge release version is `apps/edge/release/VERSION`. Do not read it from
-  root package metadata. Keep one root lockfile and toolchain.
+  root package metadata. Keep one root lockfile and toolchain. A coordinated
+  release stamps its version over this file in the release checkout
+  (`scripts/release/stamp_version.py`) and commits nothing.
+- The update version code comes from one ordering shared with the server, the
+  Windows Player and the Android build
+  (`edge_release::manifest::version_code`, `stage-release.py`,
+  `packages/player-contracts/fixtures/release-versions.json`). A Beta and its
+  Stable have different codes. The helper that installs an update is the
+  previous release's, so a screen on an older rule cannot install a release
+  written under a new one. Change the rule only with a bridge release.
+- Edge release builds never publish. `.github/workflows/release.yml` assembles
+  and publishes the coordinated release. The private WPE WebKit prebuild lives
+  in GHCR (`ghcr.io/gbyo/tilecast-wpe`); see `docs/release-process.md`.
 - Keep the dependency direction in [`README.md`](README.md).
 - Shared Player crates must not depend on Edge or its wire layer. Run
   `python3 scripts/ci/check-player-architecture.py` from the repository root.

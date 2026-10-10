@@ -85,15 +85,50 @@ func NewGitHubProvider(token string) *GitHubProvider {
 	return &GitHubProvider{client: client, apiBase: "https://api.github.com", oauthBase: "https://github.com", token: strings.TrimSpace(token)}
 }
 
+const (
+	releasesPageSize = 100
+	// maxReleasePages bounds one check at 500 releases. The repository also
+	// publishes Server and WPE releases, so the newest player release is not
+	// always on the first page, and an old one can be several pages deep.
+	maxReleasePages     = 5
+	maxReleasePageBytes = 8 << 20
+)
+
+// Releases lists published GitHub releases, newest first, across up to
+// maxReleasePages pages. Only the first page is conditional: GitHub's ETag
+// covers one page, and a new release always lands on the first. A 304 on the
+// first page therefore means nothing changed.
 func (p *GitHubProvider) Releases(ctx context.Context, etag string) (ProviderResult, error) {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, p.apiBase+"/repos/"+GitHubOwner+"/"+GitHubRepo+"/releases?per_page=30", nil)
+	var result ProviderResult
+	for page := 1; page <= maxReleasePages; page++ {
+		pageResult, count, err := p.releasesPage(ctx, page, etag)
+		if page == 1 {
+			result.ETag, result.RateReset, result.NotModified = pageResult.ETag, pageResult.RateReset, pageResult.NotModified
+		}
+		if err != nil {
+			return result, err
+		}
+		if result.NotModified {
+			return result, nil
+		}
+		result.Releases = append(result.Releases, pageResult.Releases...)
+		if count < releasesPageSize {
+			break
+		}
+	}
+	return result, nil
+}
+
+func (p *GitHubProvider) releasesPage(ctx context.Context, page int, etag string) (ProviderResult, int, error) {
+	pageURL := fmt.Sprintf("%s/repos/%s/%s/releases?per_page=%d&page=%d", p.apiBase, GitHubOwner, GitHubRepo, releasesPageSize, page)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
 	p.headers(req)
-	if etag != "" {
+	if etag != "" && page == 1 {
 		req.Header.Set("If-None-Match", etag)
 	}
 	response, err := p.client.Do(req)
 	if err != nil {
-		return ProviderResult{}, fmt.Errorf("GitHub release request failed: %w", err)
+		return ProviderResult{}, 0, fmt.Errorf("GitHub release request failed: %w", err)
 	}
 	defer response.Body.Close()
 	result := ProviderResult{ETag: response.Header.Get("ETag")}
@@ -103,27 +138,24 @@ func (p *GitHubProvider) Releases(ctx context.Context, etag string) (ProviderRes
 	}
 	if response.StatusCode == http.StatusNotModified {
 		result.NotModified = true
-		return result, nil
+		return result, 0, nil
 	}
 	if response.StatusCode == http.StatusForbidden && response.Header.Get("X-RateLimit-Remaining") == "0" {
-		return result, errors.New("GitHub API rate limit reached")
+		return result, 0, errors.New("GitHub API rate limit reached")
 	}
 	if response.StatusCode != http.StatusOK {
-		return result, fmt.Errorf("GitHub Releases returned HTTP %d", response.StatusCode)
+		return result, 0, fmt.Errorf("GitHub Releases returned HTTP %d", response.StatusCode)
 	}
-	body := io.LimitReader(response.Body, 2<<20)
-	decoder := json.NewDecoder(body)
-	if err := decoder.Decode(&result.Releases); err != nil {
-		return result, errors.New("GitHub returned an invalid release response")
+	var releases []ProviderRelease
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxReleasePageBytes)).Decode(&releases); err != nil {
+		return result, 0, errors.New("GitHub returned an invalid release response")
 	}
-	filtered := result.Releases[:0]
-	for _, release := range result.Releases {
+	for _, release := range releases {
 		if !release.Draft {
-			filtered = append(filtered, release)
+			result.Releases = append(result.Releases, release)
 		}
 	}
-	result.Releases = filtered
-	return result, nil
+	return result, len(releases), nil
 }
 
 func (p *GitHubProvider) Download(ctx context.Context, rawURL string, maximum int64) ([]byte, error) {

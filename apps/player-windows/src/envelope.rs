@@ -130,6 +130,9 @@ fn validate(envelope: &UpdateEnvelope) -> Result<(), EnvelopeError> {
     if !matches!(envelope.channel.as_str(), "stable" | "beta") {
         return Err(EnvelopeError::Invalid("invalid channel"));
     }
+    if crate::update::version_channel(&envelope.version_name).is_some_and(|implied| implied != envelope.channel) {
+        return Err(EnvelopeError::Invalid("the channel does not match the version"));
+    }
     if envelope.release_notes.len() > MAX_RELEASE_NOTES {
         return Err(EnvelopeError::Invalid("release notes too long"));
     }
@@ -225,6 +228,29 @@ mod tests {
         let bytes = serde_json::to_vec(&edge_only).expect("fixture");
         let (signature, key) = sign(&bytes);
         assert!(verify_envelope(&bytes, &signature, &key).is_err(), "edge-only field");
+    }
+
+    /// A Beta and its Stable carry distinct codes, and the channel must be the
+    /// one the version name implies, so a Beta can update to the next Beta or
+    /// to Stable and a Beta can never be offered as Stable.
+    #[test]
+    fn unified_versions_carry_their_own_code_and_channel() {
+        let unified = |name: &str, code: u64, channel: &str| {
+            let mut document = envelope();
+            document["versionName"] = serde_json::json!(name);
+            document["versionCode"] = serde_json::json!(code);
+            document["channel"] = serde_json::json!(channel);
+            document["artifactAssetName"] = serde_json::json!(format!("tilecast-windows-{name}-x86_64.msix"));
+            let bytes = serde_json::to_vec(&document).expect("fixture");
+            let (signature, key) = sign(&bytes);
+            verify_envelope(&bytes, &signature, &key).map(|verified| verified.envelope.version_code)
+        };
+        assert_eq!(unified("0.26.0-beta.1", 2_600_001, "beta").expect("beta verifies"), 2_600_001);
+        assert_eq!(unified("0.26.0", 2_600_099, "stable").expect("stable verifies"), 2_600_099);
+        assert!(unified("0.26.0", 2_600_001, "stable").is_err(), "the legacy code of a Stable is refused");
+        assert!(unified("0.26.0-beta.1", 2_600_001, "stable").is_err(), "a Beta cannot be Stable");
+        assert!(unified("0.26.0", 2_600_099, "beta").is_err(), "a Stable cannot be Beta");
+        assert!(unified("0.26.0-rc.1", 2_600_001, "beta").is_err(), "only beta.N names exist");
     }
 
     #[test]

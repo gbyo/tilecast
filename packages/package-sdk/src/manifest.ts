@@ -494,7 +494,11 @@ export function satisfiesTilecastRange(
   range: string,
   version: string,
 ): boolean {
-  const current = parseTilecastVersion(version);
+  // A Beta release satisfies the ranges its core satisfies; any other
+  // suffix, such as a development build's "-dev", stays unparseable.
+  const current = parseTilecastVersion(
+    version.trim().replace(/-beta\.[1-9][0-9]?$/, ""),
+  );
   if (!current) return false;
   const clauses = range.trim().split(/\s+/);
   if (clauses.length === 0 || clauses.some((clause) => clause === "")) {

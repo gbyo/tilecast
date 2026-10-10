@@ -322,22 +322,73 @@ pub fn is_version_name(value: &str) -> bool {
         && (value.contains('-') == !pre.is_empty())
 }
 
-/// The monotonic version code of a version name, as the release build writes
-/// it (`apps/edge/release/stage-release.py`, and the Linux Player's
-/// `parseVersionCode`): `MAJOR * 1_000_000 + MINOR * 1_000 + PATCH`. The
-/// prerelease part does not count. `None` for an invalid name or a part of
-/// 1000 or more, which would collide.
-pub fn version_code(version_name: &str) -> Option<u64> {
+/// The legacy code of the first coordinated release, 0.26.0. Every version
+/// below it keeps its legacy code, so every version that shipped before the
+/// unified release keeps working; every unified code is above every one.
+pub const UNIFIED_CUTOVER_CORE_CODE: u64 = 26_000;
+/// The largest update version code; it keeps every code inside the Android
+/// `versionCode` range.
+pub const MAXIMUM_VERSION_CODE: u64 = 2_100_000_000;
+
+/// Splits a version name into its version code and the channel the name
+/// implies, or `None` for an invalid name. Below the cutover the code is the
+/// legacy `MAJOR * 1_000_000 + MINOR * 1_000 + PATCH`, the prerelease part
+/// does not count, and no channel is implied. From the cutover on a name is
+/// `X.Y.Z` (Stable) or `X.Y.Z-beta.N` (Beta, N from 1 to 98) and the code is
+/// that core code times 100 plus a slot: N for a Beta, 99 for Stable. A Beta
+/// therefore sorts below its own Stable and above the previous release.
+fn parse_version(version_name: &str) -> Option<(u64, Option<&'static str>)> {
     if !is_version_name(version_name) {
         return None;
     }
-    let core = version_name.split_once('-').map_or(version_name, |(core, _)| core);
+    let (core, suffix) = match version_name.split_once('-') {
+        Some((core, suffix)) => (core, Some(suffix)),
+        None => (version_name, None),
+    };
     let mut parts = core.split('.').map(|part| part.parse::<u64>().ok());
     let (major, minor, patch) = (parts.next()??, parts.next()??, parts.next()??);
     if minor >= 1_000 || patch >= 1_000 || major >= 1_000_000 {
         return None;
     }
-    Some(major * 1_000_000 + minor * 1_000 + patch)
+    let core_code = major * 1_000_000 + minor * 1_000 + patch;
+    if core_code < UNIFIED_CUTOVER_CORE_CODE {
+        return Some((core_code, None));
+    }
+    let (slot, channel) = match suffix {
+        None => (99, "stable"),
+        Some(suffix) => {
+            let number = suffix.strip_prefix("beta.")?;
+            // 1 to 98 with no sign and no leading zero.
+            if number.is_empty()
+                || number.len() > 2
+                || number.starts_with('0')
+                || !number.bytes().all(|b| b.is_ascii_digit())
+            {
+                return None;
+            }
+            let number: u64 = number.parse().ok()?;
+            if number > 98 {
+                return None;
+            }
+            (number, "beta")
+        }
+    };
+    let code = core_code * 100 + slot;
+    (code <= MAXIMUM_VERSION_CODE).then_some((code, Some(channel)))
+}
+
+/// The monotonic version code of a version name: the one ordering the
+/// server, Tilecast Edge, the Windows Player, the Android build, and the
+/// release scripts share. `packages/player-contracts/fixtures/
+/// release-versions.json` is the corpus each of them runs.
+pub fn version_code(version_name: &str) -> Option<u64> {
+    parse_version(version_name).map(|(code, _)| code)
+}
+
+/// The channel a version name implies: `stable` for `X.Y.Z` and `beta` for
+/// `X.Y.Z-beta.N` from the cutover on, `None` below it.
+pub fn version_channel(version_name: &str) -> Option<&'static str> {
+    parse_version(version_name).and_then(|(_, channel)| channel)
 }
 
 /// A relative path of plain components.
@@ -372,6 +423,51 @@ mod tests {
         assert_eq!(der[12..], decode_key(DEFAULT_PUBLIC_KEY).unwrap());
     }
 
+    #[derive(serde::Deserialize)]
+    struct VersionCorpus {
+        codes: Vec<CorpusCode>,
+        invalid: Vec<String>,
+        ordered: Vec<String>,
+        channels: Vec<CorpusChannel>,
+        #[serde(rename = "cutoverCoreCode")]
+        cutover_core_code: u64,
+        #[serde(rename = "maximumCode")]
+        maximum_code: u64,
+    }
+    #[derive(serde::Deserialize)]
+    struct CorpusCode {
+        name: String,
+        code: u64,
+    }
+    #[derive(serde::Deserialize)]
+    struct CorpusChannel {
+        name: String,
+        channel: Option<String>,
+    }
+
+    fn corpus() -> VersionCorpus {
+        serde_json::from_str(include_str!("../../../../../packages/player-contracts/fixtures/release-versions.json"))
+            .expect("the shared release version corpus parses")
+    }
+
+    #[test]
+    fn version_codes_match_the_shared_corpus() {
+        let corpus = corpus();
+        assert_eq!(corpus.cutover_core_code, UNIFIED_CUTOVER_CORE_CODE);
+        assert_eq!(corpus.maximum_code, MAXIMUM_VERSION_CODE);
+        for case in &corpus.codes {
+            assert_eq!(version_code(&case.name), Some(case.code), "{}", case.name);
+        }
+        for name in &corpus.invalid {
+            assert_eq!(version_code(name), None, "{name:?} must be invalid");
+        }
+        for case in &corpus.channels {
+            assert_eq!(version_channel(&case.name), case.channel.as_deref(), "{}", case.name);
+        }
+        let codes: Vec<u64> = corpus.ordered.iter().map(|name| version_code(name).expect("valid")).collect();
+        assert!(codes.windows(2).all(|pair| pair[0] < pair[1]), "codes must strictly increase: {codes:?}");
+    }
+
     #[test]
     fn names_codes_and_keys_are_checked() {
         for good in ["0.1.0", "10.20.30", "1.2.3-rc.1"] {
@@ -381,7 +477,8 @@ mod tests {
             assert!(!is_version_name(bad), "{bad}");
         }
         assert_eq!(version_code("0.1.0"), Some(1_000));
-        assert_eq!(version_code("1.2.3-rc.1"), Some(1_002_003));
+        assert_eq!(version_code("0.2.3-rc.1"), Some(2_003), "a shipped preview keeps its legacy code");
+        assert_eq!(version_code("1.2.3-rc.1"), None, "from the cutover on only Stable and Beta names exist");
         assert_eq!(version_code("1.2000.0"), None, "a part of 1000 or more would collide");
         assert!(is_release_path("share/tilecast/renderer-web/index.html"));
         for bad in ["/etc/passwd", "a/../b", "a//b", "./a", "a/b c"] {

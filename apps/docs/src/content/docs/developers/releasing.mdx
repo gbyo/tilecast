@@ -1,0 +1,83 @@
+---
+title: Releasing Tilecast
+description: Cut a Beta or Stable release, resume one that stopped, and understand what the release workflow checks before it publishes.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+Maintainers publish a release by dispatching one workflow. It builds every platform from one commit on `main`, assembles a draft GitHub release, verifies it, and publishes it. For the exact contract, see the [release process](https://github.com/gbyo/tilecast/blob/main/docs/release-process.md). For what users see, see [Releases and downloads](../../reference/releases/).
+
+## Versions
+
+A release is `X.Y.Z` for Stable or `X.Y.Z-beta.N` for Beta, from `0.26.0` on. `N` runs from 1 to 98. The tag is the same name with a leading `v`.
+
+The version decides the order of updates. Beta 1, Beta 2, Stable, and the next version always go up, so a Beta can update to the next Beta or to Stable. You never bump a version in a platform's own files. The release build writes the version into its own checkout and commits nothing.
+
+The version must be newer than what's already published:
+
+- A Stable release must be newer than every published Stable release.
+- A Beta release must be newer than every published release.
+
+Check the [releases page](https://github.com/gbyo/tilecast/releases) before you choose.
+
+## Cut a release
+
+<Steps>
+
+1. Merge your changes to `main` and let the checks pass. The release commit must be on `main`.
+
+2. Open **Actions**, choose **Tilecast Release**, and select **Run workflow** on `main`.
+
+3. Enter the version, such as `0.26.0-beta.1`. Leave **Publish** on to publish when the draft verifies. Turn it off to stop at a verified draft.
+
+4. Watch the run. The first jobs validate the version and run the server checks. The platform builds follow: the Server image, Edge for both architectures, Windows for x64 and ARM64, and Android.
+
+5. Read the job summary. It shows the release notes the workflow wrote.
+
+</Steps>
+
+Don't push a release tag. A tag never starts a release. Publishing creates the tag at the release commit.
+
+To promote a Beta, dispatch the Stable version, such as `0.26.0`. It's a new build of the commit you dispatch from.
+
+## What the workflow checks
+
+A release publishes only when every required platform passes. A Stable release requires every platform. A Beta may leave out Windows. iOS is shipped through the App Store and never blocks a release.
+
+Before it publishes, the workflow:
+
+- runs the server's own importer over the assembled files, so a release it accepts is one the server imports,
+- checks every signature, file size, hash, and version, and pins the Android signing certificate,
+- uploads to a draft, downloads the draft back, and verifies it a second time,
+- checks the version order again against the releases as they are at that moment.
+
+Published releases are immutable. If something is wrong with a published release, publish a new version. Never try to edit or delete a published release.
+
+## Resume a release
+
+If a run stops, dispatch the same version again.
+
+- With no draft, it builds everything.
+- With a draft, it reuses every platform whose signed files still verify and builds only the rest. Verified files aren't rebuilt or signed again.
+- With a published release, it builds nothing and finishes the Server image tags it still owes.
+
+If a draft looks wrong, delete the draft on GitHub and dispatch again.
+
+## Server image tags
+
+The Server image gets its version tag first. The moving tags change only after the release is published, and only to the digest the release records:
+
+- `stable` and `latest` move to the newest published Stable release.
+- `beta` moves to the newest published release of either kind.
+
+A tag never moves backwards. A hotfix to an older Stable line moves `stable` but not `beta` while a newer Beta exists.
+
+## Secrets
+
+Release builds need the update signing keys, the Android keystore, and the Windows signing certificate as repository secrets. A missing secret fails that platform's build with its name. The public key you supply must equal the key committed in `apps/edge/release/tilecast-update-key.pem`. The [release process](https://github.com/gbyo/tilecast/blob/main/docs/release-process.md) lists each secret.
+
+## WebKit prebuilds
+
+Edge releases need a private WPE WebKit build that takes about two hours to compile. A separate workflow builds it once for each set of inputs and publishes it to GitHub Packages as `ghcr.io/gbyo/tilecast-wpe`. Release builds pull it, check it, and fall back to a cached copy or a full compile when it isn't there. The prebuild is an OCI artifact, not a runnable image.
+
+The old WPE prebuilds were GitHub releases. The **WPE Prebuild Backfill** workflow copies them to GitHub Packages after checking each one. The **WPE Release Cleanup** workflow can then delete the old releases. It deletes nothing unless you turn off its dry run and type its confirmation.

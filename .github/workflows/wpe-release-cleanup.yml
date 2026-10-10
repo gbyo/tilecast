@@ -1,0 +1,91 @@
+name: WPE Release Cleanup
+
+# Deletes the old wpe-* GitHub Releases (and their tags) once their prebuilds
+# are safe in GHCR. Nothing runs automatically and nothing is deleted by
+# default: this workflow exists so the cleanup is one reviewed, guarded step
+# rather than a manual sweep.
+#
+# A release is deleted only when ALL of these hold:
+#   * dry_run is off and confirm is exactly "delete-wpe-releases";
+#   * wpe-backfill.yml has published it: GHCR holds exactly the release's tar
+#     (migrate-wpe-prebuild.sh check verifies digest, architecture and inputs);
+#   * nothing in this repository still reads a wpe-* release URL.
+# Releases that fail any check are left alone and reported.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Report what would be deleted and delete nothing
+        required: false
+        default: true
+        type: boolean
+      confirm:
+        description: Type delete-wpe-releases to allow deletion
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+  packages: read
+  attestations: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oras-project/setup-oras@v2
+        with:
+          version: 1.3.4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The release workflows pull from GHCR. A workflow, script or document
+      # that still names an old release URL would break when it is deleted.
+      - name: Nothing still depends on the old release URLs
+        run: |
+          set -euo pipefail
+          if git grep -nE 'releases/download/wpe-|gh release (download|view) [^ ]*wpe-|inputs\.py wpe-tag' -- \
+            ':!.github/workflows/wpe-release-cleanup.yml' ':!.github/workflows/wpe-backfill.yml' \
+            ':!apps/edge/release/migrate-wpe-prebuild.sh' ':!apps/edge/release/test_wpe_prebuild_scripts.py' \
+            ':!docs/release-process.md' ':!apps/docs'; then
+            echo "The files above still read an old WPE prebuild release. Fix them before deleting." >&2
+            exit 1
+          fi
+
+      - name: Delete the releases whose prebuilds are safe in GHCR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          delete=false
+          if [ "$DRY_RUN" != true ] && [ "$CONFIRM" = delete-wpe-releases ]; then
+            delete=true
+          fi
+          mapfile -t tags < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName \
+            --jq '.[].tagName | select(test("^wpe-[0-9A-Za-z.]+-[0-9a-f]{16}-(x86_64|aarch64)$"))')
+          unsafe=0
+          for tag in "${tags[@]}"; do
+            if apps/edge/release/migrate-wpe-prebuild.sh check "$tag"; then
+              if $delete; then
+                gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+                echo "Deleted $tag."
+              else
+                echo "Would delete $tag (dry run, or the confirmation is missing)."
+              fi
+            else
+              echo "Keeping $tag: its prebuild is not verified in GHCR." >&2
+              unsafe=1
+            fi
+          done
+          test "${#tags[@]}" -gt 0 || echo "No old WPE prebuild releases remain."
+          exit "$unsafe"

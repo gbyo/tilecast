@@ -143,11 +143,17 @@ class InputTests(unittest.TestCase):
                 self.assertRegex(key, r"^[0-9a-f]{16}$")
                 self.assertEqual(inputs.wpe_tag("x86_64"), f"wpe-2.54.0-{key}-x86_64")
                 self.assertEqual(inputs.wpe_tar("aarch64"), f"wpe-2.54.0-{key}-aarch64.tar")
+                # The registry tag is the legacy release tag without its "wpe-"
+                # prefix, so every published prebuild maps to exactly one tag.
+                self.assertEqual(inputs.wpe_ref("x86_64"), f"ghcr.io/gbyo/tilecast-wpe:2.54.0-{key}-x86_64")
+                self.assertEqual(inputs.wpe_ref("aarch64").split(":", 1)[1], inputs.wpe_tag("aarch64")[len("wpe-"):])
                 for bad in ["x64", "arm64", "x86_64;evil", ""]:
                     with self.subTest(bad=bad), self.assertRaises(ValueError):
                         inputs.wpe_tag(bad)
                     with self.subTest(bad=bad), self.assertRaises(ValueError):
                         inputs.wpe_tar(bad)
+                    with self.subTest(bad=bad), self.assertRaises(ValueError):
+                        inputs.wpe_ref(bad)
 
     def test_wpe_version_parsing_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -182,3 +188,23 @@ class InputTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReleaseVersionNumbering(unittest.TestCase):
+    """The release scripts derive the same update version code as the server,
+    Edge, and the Windows Player (scripts/release/release_version.py)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.stage = load("stage-release")
+        cls.envelope = load("envelope")
+
+    def test_stage_release_uses_the_shared_ordering(self):
+        self.assertEqual(self.stage.version_code("0.2.1-preview.1"), 2001)
+        self.assertEqual(self.stage.version_code("0.26.0-beta.1"), 2600001)
+        self.assertEqual(self.stage.version_code("0.26.0"), 2600099)
+
+    def test_stage_release_refuses_a_name_the_ordering_does_not_define(self):
+        for name in ("0.26.0-rc.1", "1.2.3-hotfix", "21.0.0"):
+            with self.assertRaises(SystemExit, msg=name):
+                self.stage.version_code(name)

@@ -1,0 +1,219 @@
+name: Tilecast Edge Bridge Release
+
+# The one Edge release that is not part of a coordinated release.
+#
+# A Tilecast Edge screen that runs 0.2.1 or older refuses every unified release
+# (0.26.0-beta.1 and later): its update helper computes a release's version code
+# with the older rule. This workflow builds the bridge, an Edge-only release with
+# a version those helpers accept (0.2.2) and the helper that understands both
+# rules, so a screen installs the bridge first and the unified releases after.
+# docs/release-process.md explains why, which versions need it, and the steps an
+# operator takes.
+#
+# Dispatch it from main with the bridge version. It builds both architectures,
+# verifies the assets as the server imports them, runs the *shipped* 0.2.1
+# update helper (built from its tag) over the real bridge to prove that helper
+# installs it, and writes a draft GitHub pre-release tagged edge-vX.Y.Z-preview.N
+# in the layout every Edge preview had. It publishes only when publish is on, and
+# a published release is immutable. It never moves a Server image alias and never
+# creates a coordinated release or a tag a coordinated release could use.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Bridge version without the leading v. A valid version below 0.26.0 that is newer than every Edge preview, for example 0.2.2
+        required: true
+        type: string
+      preview:
+        description: Preview number of the tag, edge-vX.Y.Z-preview.N
+        required: false
+        default: "1"
+        type: string
+      publish:
+        description: Publish the verified draft. Leave off to build and verify only; dispatch the same version again with publish on to resume
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  actions: read
+  contents: read
+  checks: write
+
+# The coordinated release and the bridge share one lock: neither races the other.
+concurrency:
+  group: tilecast-release
+  cancel-in-progress: false
+
+env:
+  UPDATE_KEY: apps/edge/release/tilecast-update-key.pem
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.identity.outputs.tag }}
+      version: ${{ steps.identity.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: The release commit must be part of main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor HEAD refs/remotes/origin/main; then
+            echo "This commit carries changes main does not contain. Merge it and dispatch from main." >&2
+            exit 1
+          fi
+
+      - name: Name the bridge release
+        id: identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRIDGE_VERSION: ${{ inputs.version }}
+          PREVIEW: ${{ inputs.preview }}
+        run: |
+          set -euo pipefail
+          gh release list --limit 1000 --json tagName,isDraft > "$RUNNER_TEMP/releases.json"
+          python3 scripts/release/edge_bridge.py identity --version "$BRIDGE_VERSION" --preview "$PREVIEW" \
+            --releases "$RUNNER_TEMP/releases.json" | tee -a "$GITHUB_OUTPUT"
+
+  edge:
+    needs: prepare
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/edge-release.yml
+    with:
+      release_version: ${{ needs.prepare.outputs.version }}
+      channel: beta
+      bridge: true
+      verify_reproducible: true
+    secrets: inherit
+
+  assemble:
+    needs: [prepare, edge]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      ready: ${{ steps.draft.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+
+      - name: Download the Edge build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: ${{ runner.temp }}/artifacts
+          pattern: tilecast-edge-release-*
+
+      - name: Collect the bridge assets
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          sources=()
+          for directory in "$RUNNER_TEMP"/artifacts/*/; do
+            sources+=("$directory")
+          done
+          python3 scripts/release/edge_bridge.py collect --version "$VERSION" --out "$RUNNER_TEMP/bridge" --source "${sources[@]}"
+
+      # The server's own importer, in bridge mode: both architectures, signed by
+      # the update key, at the legacy code and the Beta channel an Edge 0.2.1
+      # screen accepts.
+      - name: Verify the bridge as the server imports it
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          (cd apps/server && go build -o "$RUNNER_TEMP/tilecast-release-verify" ./cmd/tilecast-release-verify)
+          python3 scripts/release/edge_bridge.py verify --version "$VERSION" --dir "$RUNNER_TEMP/bridge" \
+            --public-key "$UPDATE_KEY" --verifier "$RUNNER_TEMP/tilecast-release-verify"
+
+      # The shipped 0.2.1 helper, built from its tag, installs and confirms the
+      # real bridge on top of the real published preview. If it refuses, no
+      # deployed screen could install this release, so nothing is published.
+      - name: The shipped 0.2.1 update helper installs the bridge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/preview"
+          gh release download edge-v0.2.1-preview.1 --dir "$RUNNER_TEMP/preview" \
+            --pattern 'tilecast-edge-update-x86_64.json*' --pattern 'tilecast-edge-0.2.1-x86_64.tar.zst'
+          python3 scripts/release/edge_bridge.py arrange --version "$VERSION" --dir "$RUNNER_TEMP/bridge" \
+            --base-dir "$RUNNER_TEMP/preview" --arch x86_64 --out "$RUNNER_TEMP/oracle"
+          python3 apps/edge/release/legacy_oracle.py assets --assets "$RUNNER_TEMP/oracle" --bridge-version "$VERSION"
+
+      - name: Write the release notes
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: python3 scripts/release/edge_bridge.py notes --version "$VERSION" --tag "$TAG" --out "$RUNNER_TEMP/notes.md"
+
+      # Assets are added to a draft only. Dispatching the same version again
+      # resumes the draft and replaces its assets with the verified set.
+      - name: Create or update the draft pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          if python3 scripts/release/github_release.py find "$TAG" > "$RUNNER_TEMP/found.json"; then
+            test "$(jq -r .draft "$RUNNER_TEMP/found.json")" = true || { echo "$TAG is already published." >&2; exit 1; }
+            test "$(jq -r .target "$RUNNER_TEMP/found.json")" = "$GITHUB_SHA" || { echo "The draft $TAG targets another commit. Delete it to start over." >&2; exit 1; }
+            python3 scripts/release/github_release.py notes "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            python3 scripts/release/github_release.py create "$TAG" --target "$GITHUB_SHA" \
+              --title "Tilecast Edge $VERSION (bridge)" --notes-file "$RUNNER_TEMP/notes.md" --prerelease
+          fi
+          python3 scripts/release/github_release.py upload "$TAG" --dir "$RUNNER_TEMP/bridge" --replace
+          python3 scripts/release/github_release.py prune "$TAG" --dir "$RUNNER_TEMP/bridge"
+
+      - name: Verify the draft as GitHub holds it
+        id: draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release/github_release.py download "$TAG" --dir "$RUNNER_TEMP/readback"
+          python3 scripts/release/edge_bridge.py verify --version "$VERSION" --dir "$RUNNER_TEMP/readback" \
+            --public-key "$UPDATE_KEY" --verifier "$RUNNER_TEMP/tilecast-release-verify"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: [prepare, assemble]
+    if: ${{ inputs.publish && needs.assemble.outputs.ready == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Never latest: the latest release is the coordinated release.
+      - name: Publish the verified draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release/github_release.py publish "$TAG" --not-latest
+          git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+          test "$(git rev-parse "$TAG^{commit}")" = "$GITHUB_SHA"

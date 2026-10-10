@@ -1,0 +1,87 @@
+---
+title: Releases and downloads
+description: Find the Stable and Beta releases of Tilecast, see where each platform's download lives, and learn how versions and updates are ordered.
+---
+
+Every Tilecast version is one release. It can hold the Server, Tilecast Edge, the Windows Player, and the Android Player, all built from the same code. A Beta may leave out the Windows Player. Download links, update files, and container images for a version all carry that version number.
+
+## Pick a channel
+
+| Channel         | Version example | Choose it when                                                             |
+| --------------- | --------------- | -------------------------------------------------------------------------- |
+| **Stable**      | `0.26.0`        | You run Tilecast for real screens. This is the recommended channel.        |
+| **Beta**        | `0.26.0-beta.1` | You want to test the next Stable release before it ships.                  |
+| **Development** | `0.0.0-dev`     | You build from `main` to try new work. It can change or break at any time. |
+
+A Beta is a preview of the next Stable version. `0.26.0-beta.1` and `0.26.0-beta.2` come before `0.26.0`. A screen on a Beta updates to the next Beta or to Stable. A screen on Stable updates to the next Stable release, or to a Beta if you deploy one.
+
+Tilecast is still before version 1.0. Stable means stable compared with Development. It isn't a claim of long-term support.
+
+Development isn't a release. It has no download page, and no GitHub release is created for it.
+
+## Where each download lives
+
+Tilecast uses three places, and each has one job.
+
+| Place                                                          | Holds                                                                                           | Use it for                                              |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| [GitHub Releases](https://github.com/gbyo/tilecast/releases)   | The Edge archives, Windows packages, Android APK, signed update files, checksums, and the notes | Installing a Player and updating screens                |
+| [GitHub Packages](https://github.com/gbyo?tab=packages) (GHCR) | The Server container image                                                                      | Installing or updating Tilecast Server                  |
+| GitHub Actions artifacts                                       | Temporary build output that passes between the steps of a release                               | Nothing. They aren't releases. Don't install from them. |
+
+Only a published GitHub release is a release. Once published, its files never change.
+
+## What you download for each platform
+
+| Platform                       | Where             | What you get                                                                       |
+| ------------------------------ | ----------------- | ---------------------------------------------------------------------------------- |
+| Tilecast Server                | GitHub Packages   | `ghcr.io/gbyo/tilecast-server:<version>`, plus the moving tags `stable` and `beta` |
+| Browser Player                 | Inside the Server | Nothing separate. It's the same version as the Server.                             |
+| Tilecast Edge (Linux)          | GitHub Releases   | One `.tar.zst` for `x86_64` and one for `aarch64`                                  |
+| Windows Player                 | GitHub Releases   | One `.msix` for x64 and one for ARM64                                              |
+| Android TV, Google TV, Fire TV | GitHub Releases   | `tilecast-player.apk`                                                              |
+| iOS and iPadOS                 | Apple's App Store | Not a GitHub download. Its availability follows Apple's review.                    |
+
+The Android file is always named `tilecast-player.apk`. The Edge and Windows files carry the version in their names.
+
+The notes of each release list every platform in groups and say which ones the release doesn't include. A Beta may leave out the Windows Player. A Stable release always has every platform. If a platform is missing, the notes say why.
+
+## Server images
+
+`TILECAST_VERSION` in `deploy/docker/.env` picks the Server version:
+
+- `stable` follows the newest Stable release.
+- `beta` follows the newest release of either kind, so it moves to Stable when Stable catches up.
+- A version such as `0.26.0` stays on that release until you change it.
+
+The tag `latest` is a compatibility name for `stable`. Don't set `TILECAST_VERSION=development` on a production install. See [Update Tilecast Server](../../administration/server-updates/).
+
+## How updates reach your screens
+
+You install a Player once. After that, Tilecast Server reads the signed update files from the same GitHub release, and you deploy them from **Settings** > **Player updates**. Players download from your server, never from GitHub. See [Update Tilecast Player](../../administration/player-updates/).
+
+One release can hold an Android update, two Edge updates, and two Windows updates. Studio imports each one on its own. If one update file fails verification, the others still import, and Studio shows the reason.
+
+Studio checks every update before you can deploy it. It checks the signature, the file's size and hash, and that the version, channel, and platform in the signed file match the release.
+
+## Check a download
+
+Each release has a `SHA256SUMS` file. Download it beside the files you want, then compare:
+
+```sh title="Folder with your downloads"
+sha256sum -c SHA256SUMS --ignore-missing
+```
+
+`tilecast-release.json` is a machine-readable list of everything in the release.
+
+## If you already run an older release
+
+Releases published before this scheme stay where they are, and their download links keep working. Studio still imports them.
+
+- **Android and Linux Players** keep updating. Every new version is newer than every old one.
+- **Edge screens** that run `0.2.1` or older can't install a release from the new scheme directly. They check the old version rule and refuse it, and keep running. Update them to the Edge bridge release (`0.2.2`) first, then to a unified release. Edge `0.2.2` or later needs no bridge.
+- **Server installs** that used `latest` keep working. `latest` moves to the first Stable release.
+
+A hotfix for one platform doesn't rebuild the others. The notes of that release link to the earlier release that built each unchanged platform, and say "carried forward". Those platforms keep their earlier version, so Studio shows no new update for them. A carried-forward Server image has no tag of the new version: pull `stable` or the earlier version tag.
+
+New releases are named `v0.26.0` or `v0.26.0-beta.1`. Older names such as `player-v0.25.0` and `edge-v0.2.1-preview.1` belong to the releases that came before.

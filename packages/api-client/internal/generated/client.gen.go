@@ -4730,6 +4730,7 @@ func (e SystemHealthStatus) Valid() bool {
 
 // Defines values for SystemStatusChannel.
 const (
+	SystemStatusChannelBeta        SystemStatusChannel = "beta"
 	SystemStatusChannelDevelopment SystemStatusChannel = "development"
 	SystemStatusChannelStable      SystemStatusChannel = "stable"
 )
@@ -4737,6 +4738,8 @@ const (
 // Valid indicates whether the value is a known member of the SystemStatusChannel enum.
 func (e SystemStatusChannel) Valid() bool {
 	switch e {
+	case SystemStatusChannelBeta:
+		return true
 	case SystemStatusChannelDevelopment:
 		return true
 	case SystemStatusChannelStable:

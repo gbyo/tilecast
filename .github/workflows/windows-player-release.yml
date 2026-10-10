@@ -1,14 +1,44 @@
 name: Tilecast Windows Player Release
 
-# Builds signed Tilecast Player for Windows releases, one MSIX per
-# architecture, each with its Tilecast-signed update envelope. Native
-# builds on native runners: x64 on windows-latest, ARM64 on
-# windows-11-arm. Emulation is never ARM64 support. It uploads the
-# artifacts and their build provenance attestation. Publishing a GitHub
-# release is a separate, human step.
+# Builds signed Tilecast Player for Windows release artifacts, one MSIX per
+# architecture, each with its Tilecast-signed update envelope. Native builds on
+# native runners: x64 on windows-latest, ARM64 on windows-11-arm. Emulation is
+# never ARM64 support. It uploads the artifacts and their build provenance
+# attestation as temporary Actions artifacts. It never publishes: the
+# coordinated release (release.yml) calls it and publishes every platform
+# together.
+#
+# Run on its own (workflow_dispatch) it is a release-candidate build check that
+# builds whatever version the checkout carries, or stamps release_version when
+# one is given, and publishes nothing.
 on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: Coordinated release version to stamp, for example 0.26.0-beta.1
+        required: true
+        type: string
+      channel:
+        description: Update channel in the signed envelope
+        required: true
+        type: string
+      arches:
+        description: JSON list of architectures to build
+        required: false
+        default: '["x86_64","aarch64"]'
+        type: string
+      release_notes:
+        description: Optional public release summary recorded in the envelope
+        required: false
+        default: ""
+        type: string
   workflow_dispatch:
     inputs:
+      release_version:
+        description: Optional coordinated release version to stamp; the checkout's own version when empty
+        required: false
+        default: ""
+        type: string
       channel:
         description: Update channel in the signed envelope; beta for a GitHub prerelease
         required: false
@@ -21,6 +51,7 @@ on:
         description: Optional public release summary recorded in the envelope
         required: false
         default: ""
+        type: string
 
 permissions:
   contents: read
@@ -34,14 +65,9 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        include:
-          - arch: x86_64
-            runner: windows-latest
-            target: x86_64-pc-windows-msvc
-          - arch: aarch64
-            runner: windows-11-arm
-            target: aarch64-pc-windows-msvc
-    runs-on: ${{ matrix.runner }}
+        arch: ${{ fromJSON(inputs.arches || '["x86_64","aarch64"]') }}
+    # Native builds on native runners; emulation is never ARM64 support.
+    runs-on: ${{ matrix.arch == 'aarch64' && 'windows-11-arm' || 'windows-latest' }}
     timeout-minutes: 120
     permissions:
       contents: read
@@ -50,8 +76,16 @@ jobs:
     defaults:
       run:
         shell: bash
+    env:
+      RUST_TARGET: ${{ matrix.arch == 'aarch64' && 'aarch64-pc-windows-msvc' || 'x86_64-pc-windows-msvc' }}
     steps:
       - uses: actions/checkout@v7
+
+      - name: Stamp the release version
+        if: inputs.release_version != ''
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: python scripts/release/stamp_version.py --version "$RELEASE_VERSION"
 
       - uses: actions/setup-node@v7
         with:
@@ -101,27 +135,27 @@ jobs:
       - name: Build the player
         run: |
           set -euo pipefail
-          rustup target add ${{ matrix.target }}
-          cargo build --release --target ${{ matrix.target }} -p tilecast-windows \
+          rustup target add "$RUST_TARGET"
+          cargo build --release --target "$RUST_TARGET" -p tilecast-windows \
             --bin tilecast-windows --bin tilecast-msix-version
 
       - name: Stage, package and sign
         env:
           MSIX_PUBLISHER: ${{ secrets.TILECAST_MSIX_PUBLISHER }}
           MSIX_PFX_PASSWORD: ${{ secrets.TILECAST_MSIX_PFX_PASSWORD }}
-          CHANNEL: ${{ inputs.channel }}
+          CHANNEL: ${{ inputs.channel || 'stable' }}
           NOTES: ${{ inputs.release_notes }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/windows-release"
           python apps/player-windows/release/stage-windows-release.py \
-            --exe "target/${{ matrix.target }}/release/tilecast-windows.exe" \
+            --exe "target/$RUST_TARGET/release/tilecast-windows.exe" \
             --runtime-dir packages/player-runtime/dist/runtime \
             --arch ${{ matrix.arch }} \
             --channel "$CHANNEL" \
             --publisher "$MSIX_PUBLISHER" \
             --version-file apps/player-windows/release/VERSION \
-            --msix-version-bin "target/${{ matrix.target }}/release/tilecast-msix-version.exe" \
+            --msix-version-bin "target/$RUST_TARGET/release/tilecast-msix-version.exe" \
             --template apps/player-windows/release/AppxManifest.xml.template \
             --assets apps/player-windows/release/Assets \
             --out "$RUNNER_TEMP/windows-release" \
@@ -137,6 +171,16 @@ jobs:
             openssl base64 -A > "$envelope.sig"
           openssl pkeyutl -verify -rawin -pubin -inkey "$RUNNER_TEMP/tilecast-signing/update-public.pem" -in "$envelope" \
             -sigfile <(openssl base64 -d -A -in "$envelope.sig")
+
+      - name: The release reports the stamped version
+        if: inputs.release_version != ''
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+          envelope="$RUNNER_TEMP/windows-release/tilecast-windows-update-${{ matrix.arch }}.json"
+          test "$(jq -er .versionName "$envelope")" = "$RELEASE_VERSION"
+          test "$(jq -er .versionCode "$envelope")" = "$(python scripts/release/release_version.py code "$RELEASE_VERSION")"
 
       - name: Remove ephemeral signing files
         if: always()

@@ -12,10 +12,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -87,34 +87,16 @@ var edgeVersionPattern = regexp.MustCompile(`^[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}
 // (Tilecast Edge, Windows Player) is built for, in `uname -m` spelling.
 var EnvelopeArchitectures = map[string]bool{"x86_64": true, "aarch64": true}
 
-// versionCodeFromName is the version code of an envelope version name, as the
-// release build writes it: MAJOR*1000000 + MINOR*1000 + PATCH. The prerelease
-// part does not count; a part of 1000 or more would collide and is invalid.
-func versionCodeFromName(name string) (int64, bool) {
-	if len(name) > 64 || !edgeVersionPattern.MatchString(name) {
-		return 0, false
-	}
-	core := strings.SplitN(name, "-", 2)[0]
-	parts := strings.Split(core, ".")
-	major, errMajor := strconv.ParseInt(parts[0], 10, 64)
-	minor, errMinor := strconv.ParseInt(parts[1], 10, 64)
-	patch, errPatch := strconv.ParseInt(parts[2], 10, 64)
-	if errMajor != nil || errMinor != nil || errPatch != nil || major >= 1_000_000 || minor >= 1000 || patch >= 1000 {
-		return 0, false
-	}
-	return major*1_000_000 + minor*1000 + patch, true
-}
-
 // EdgeVersionCode is the version code of an Edge version name.
 func EdgeVersionCode(name string) (int64, bool) {
-	return versionCodeFromName(name)
+	return VersionCode(name)
 }
 
 // WindowsVersionCode is the version code of a Windows Player version name. It
 // shares the Edge scheme; the MSIX package version is a separate deterministic
 // mapping applied by the Windows release build.
 func WindowsVersionCode(name string) (int64, bool) {
-	return versionCodeFromName(name)
+	return VersionCode(name)
 }
 
 // EdgeArtifactName is the archive name of an Edge release.
@@ -406,6 +388,12 @@ func ParseAndVerifyManifest(raw, signature []byte, key ed25519.PublicKey) (Manif
 		if manifest.MinimumSDK < SupportedMinSDK || manifest.MinimumSDK > 35 {
 			return Manifest{}, errors.New("update minimum SDK is unsupported")
 		}
+		// Android releases before the unified release carry any increasing
+		// versionCode. From the cutover on, the code and channel follow the
+		// shared ordering so a Beta can update to the next Beta or Stable.
+		if !validateVersionIdentity(manifest) {
+			return Manifest{}, errors.New("update version name, version code, and channel do not agree")
+		}
 	}
 	return manifest, nil
 }
@@ -423,7 +411,7 @@ func validateEdgeManifest(m Manifest) error {
 		return errors.New("edge update envelope architecture is invalid")
 	}
 	code, ok := EdgeVersionCode(m.VersionName)
-	if !ok || code != m.VersionCode || m.VersionCode <= LinuxBaselineVersionCode {
+	if !ok || code != m.VersionCode || m.VersionCode <= LinuxBaselineVersionCode || !validateVersionIdentity(m) {
 		return errors.New("edge update envelope version is invalid")
 	}
 	if len(m.ReleaseNotes) > edgeMaxReleaseNotes {
@@ -457,7 +445,7 @@ func validateWindowsManifest(m Manifest) error {
 		return errors.New("windows update envelope architecture is invalid")
 	}
 	code, ok := WindowsVersionCode(m.VersionName)
-	if !ok || code != m.VersionCode || m.VersionCode <= LinuxBaselineVersionCode {
+	if !ok || code != m.VersionCode || m.VersionCode <= LinuxBaselineVersionCode || !validateVersionIdentity(m) {
 		return errors.New("windows update envelope version is invalid")
 	}
 	if len(m.ReleaseNotes) > edgeMaxReleaseNotes {
@@ -564,10 +552,17 @@ func (s *Service) ImportUpload(ctx context.Context, artifactPath, artifactName s
 	return ImportedRelease{ID: id, Manifest: manifest, Source: "upload", CacheStatus: "cached", VerificationStatus: "verified"}, nil
 }
 
+// rejectedPrefix starts the recorded status of a check that read the release
+// list but rejected an asset in it. It tells a rejection from a failure.
+const rejectedPrefix = "Rejected release asset: "
+
 func (s *Service) Check(ctx context.Context) error {
 	var etag string
 	var previousFailed bool
-	_ = s.db.QueryRow(ctx, `SELECT COALESCE(etag,''),safe_error IS NOT NULL FROM update_provider_state WHERE provider='github'`).Scan(&etag, &previousFailed)
+	// A rejection is not a failed check: the release list was read, and a
+	// rejected asset stays rejected until the release list changes. Only a
+	// transport or provider failure makes the next check ignore the stored ETag.
+	_ = s.db.QueryRow(ctx, `SELECT COALESCE(etag,''),safe_error IS NOT NULL AND safe_error NOT LIKE $1 FROM update_provider_state WHERE provider='github'`, rejectedPrefix+"%").Scan(&etag, &previousFailed)
 	if previousFailed {
 		etag = ""
 	}
@@ -577,10 +572,20 @@ func (s *Service) Check(ctx context.Context) error {
 		return err
 	}
 	if result.NotModified {
-		_, _ = s.db.Exec(ctx, `UPDATE update_provider_state SET last_checked_at=now(),safe_error=NULL,updated_at=now() WHERE provider='github'`)
+		// An unchanged release list leaves a recorded rejection in place.
+		_, _ = s.db.Exec(ctx, `UPDATE update_provider_state SET last_checked_at=now(),safe_error=CASE WHEN safe_error LIKE $1 THEN safe_error ELSE NULL END,updated_at=now() WHERE provider='github'`, rejectedPrefix+"%")
 		return nil
 	}
-	encoded, err := json.Marshal(result.Releases)
+	// The stored document is the releases that carry player assets, not the
+	// whole repository history: Server images and WPE prebuilds are releases
+	// too, and a deep history must not bloat this row.
+	playerReleases := make([]ProviderRelease, 0, len(result.Releases))
+	for _, release := range result.Releases {
+		if len(releaseSpecs(release.Assets)) > 0 {
+			playerReleases = append(playerReleases, release)
+		}
+	}
+	encoded, err := json.Marshal(playerReleases)
 	if err != nil {
 		return fmt.Errorf("encode GitHub release response: %w", err)
 	}
@@ -588,140 +593,35 @@ func (s *Service) Check(ctx context.Context) error {
 		return fmt.Errorf("store GitHub release response: %w", err)
 	}
 	var imported int
-	var firstImportError error
-	for _, release := range result.Releases {
-		if importErr := s.importRelease(ctx, release); importErr != nil {
-			if firstImportError == nil {
-				firstImportError = importErr
-			}
-		} else {
-			imported++
+	var problems []error
+	transient := false
+	for _, release := range playerReleases {
+		count, releaseProblems := s.importRelease(ctx, release)
+		imported += count
+		for _, problem := range releaseProblems {
+			slog.Warn("GitHub release asset rejected", "tag", release.Tag, "error", problem)
+			var retry transientError
+			transient = transient || errors.As(problem, &retry)
+			problems = append(problems, fmt.Errorf("%s: %w", release.Tag, problem))
 		}
 	}
-	if imported == 0 && firstImportError != nil {
-		_, _ = s.db.Exec(ctx, `UPDATE update_provider_state SET safe_error=$1,updated_at=now() WHERE provider='github'`, safeError(firstImportError))
-		return firstImportError
-	}
-	return nil
-}
-
-func (s *Service) importRelease(ctx context.Context, release ProviderRelease) error {
-	assets := map[string]Asset{}
-	for _, asset := range release.Assets {
-		assets[asset.Name] = asset
-	}
-	// An envelope release (Tilecast Edge, Windows Player) carries one signed
-	// envelope per architecture. A GitHub release that carries any envelope
-	// imports only envelopes.
-	type envelopeImport struct {
-		name   string
-		family string
-		head   string
-	}
-	var envelopes []envelopeImport
-	for name := range assets {
-		if !strings.HasSuffix(name, ".json") {
-			continue
-		}
-		switch {
-		case strings.HasPrefix(name, edgeGitHubManifestHead):
-			envelopes = append(envelopes, envelopeImport{name, FamilyEdge, edgeGitHubManifestHead})
-		case strings.HasPrefix(name, windowsGitHubManifestHead):
-			envelopes = append(envelopes, envelopeImport{name, FamilyWindows, windowsGitHubManifestHead})
-		}
-	}
-	if len(envelopes) > 0 {
-		sort.Slice(envelopes, func(i, j int) bool { return envelopes[i].name < envelopes[j].name })
-		var firstError error
-		imported := 0
-		for _, envelope := range envelopes {
-			if err := s.importEnvelopeRelease(ctx, release, assets, envelope.name, envelope.family, envelope.head); err != nil {
-				if firstError == nil {
-					firstError = err
-				}
-				continue
-			}
-			imported++
-		}
-		if imported == 0 {
-			return firstError
-		}
+	if len(problems) == 0 {
 		return nil
 	}
-	// A Linux release is identified by its distinct manifest asset name; anything
-	// else is treated as the original Android APK release layout.
-	platform := PlatformAndroid
-	manifestName, signatureName, artifactName := "tilecast-player-update.json", "tilecast-player-update.json.sig", AndroidArtifactName
-	if _, ok := assets["tilecast-player-update-linux.json"]; ok {
-		platform = PlatformLinux
-		manifestName, signatureName, artifactName = "tilecast-player-update-linux.json", "tilecast-player-update-linux.json.sig", LinuxArtifactName
+	// A rejected asset is never dropped silently: the first reason is kept
+	// for the dashboard even when other families imported. A rejection keeps
+	// the stored ETag, so an unchanged release list is not downloaded and
+	// verified again. An incomplete download is recorded as a plain error,
+	// which makes the next check read the releases again.
+	recorded := safeError(problems[0])
+	if !transient {
+		recorded = safeError(fmt.Errorf("%s%w", rejectedPrefix, problems[0]))
 	}
-	manifestAsset, manifestOK := assets[manifestName]
-	signatureAsset, signatureOK := assets[signatureName]
-	artifactAsset, artifactOK := assets[artifactName]
-	if !manifestOK || !signatureOK || !artifactOK {
-		return errors.New("release is missing required Tilecast Player assets")
+	_, _ = s.db.Exec(ctx, `UPDATE update_provider_state SET safe_error=$1,updated_at=now() WHERE provider='github'`, recorded)
+	if imported == 0 {
+		return problems[0]
 	}
-	raw, err := s.provider.Download(ctx, manifestAsset.URL, 128<<10)
-	if err != nil {
-		return err
-	}
-	signature, err := s.provider.Download(ctx, signatureAsset.URL, 4<<10)
-	if err != nil {
-		return err
-	}
-	manifest, err := ParseAndVerifyManifest(raw, signature, s.key)
-	if err != nil {
-		return err
-	}
-	if manifest.NormalizedPlatform() != platform || ArchitectureRequired(manifest.NormalizedFamily()) {
-		return errors.New("release asset set does not match the signed manifest platform")
-	}
-	id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("github:%d", release.ID)))
-	return s.storeGitHubRelease(ctx, id, release, manifest, raw, signature, artifactAsset)
-}
-
-// importEnvelopeRelease imports the envelope release of one family and
-// architecture from a GitHub release: the per-architecture envelope, its
-// signature, and the artifact that the verified envelope names.
-func (s *Service) importEnvelopeRelease(ctx context.Context, release ProviderRelease, assets map[string]Asset, manifestName, family, head string) error {
-	signatureAsset, ok := assets[manifestName+".sig"]
-	if !ok {
-		return errors.New(family + " release is missing its envelope signature")
-	}
-	raw, err := s.provider.Download(ctx, assets[manifestName].URL, 16<<10)
-	if err != nil {
-		return err
-	}
-	signature, err := s.provider.Download(ctx, signatureAsset.URL, 4<<10)
-	if err != nil {
-		return err
-	}
-	manifest, err := ParseAndVerifyManifest(raw, signature, s.key)
-	if err != nil {
-		return err
-	}
-	if manifest.NormalizedFamily() != family || manifestName != head+manifest.Arch+".json" {
-		return errors.New(family + " release asset names do not match the signed envelope")
-	}
-	artifactAsset, ok := assets[manifest.ArtifactAssetName]
-	if !ok {
-		return errors.New(family + " release is missing the artifact its envelope names")
-	}
-	id := uuid.NewSHA1(uuid.NameSpaceURL, []byte(fmt.Sprintf("github:%d:%s:%s", release.ID, family, manifest.Arch)))
-	return s.storeGitHubRelease(ctx, id, release, manifest, raw, signature, artifactAsset)
-}
-
-func (s *Service) storeGitHubRelease(ctx context.Context, id uuid.UUID, release ProviderRelease, manifest Manifest, raw, signature []byte, artifactAsset Asset) error {
-	expectedChannel := "stable"
-	if release.Prerelease {
-		expectedChannel = "beta"
-	}
-	if manifest.Channel != expectedChannel || manifest.ArtifactSize() != artifactAsset.Size || manifest.ArtifactSize() > s.maxAPK {
-		return errors.New("GitHub asset metadata does not match the signed update manifest")
-	}
-	_, err := s.db.Exec(ctx, `INSERT INTO player_releases(id,github_release_id,github_tag,platform,player_family,architecture,channel,version_code,version_name,application_id,minimum_sdk,release_notes,published_at,apk_name,apk_size,apk_sha256,signing_certificate_sha256,manifest,manifest_bytes,manifest_signature,state_schema_version,apk_download_url,verification_status) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb,$19,$20,$21,$22,'verified_manifest') ON CONFLICT(github_release_id,player_family,architecture) DO UPDATE SET manifest=EXCLUDED.manifest,manifest_bytes=EXCLUDED.manifest_bytes,manifest_signature=EXCLUDED.manifest_signature,updated_at=now()`, id, release.ID, release.Tag, manifest.NormalizedPlatform(), manifest.NormalizedFamily(), manifest.Architecture(), manifest.Channel, manifest.VersionCode, manifest.VersionName, manifestApplicationID(manifest), manifestMinimumSDK(manifest), manifest.ReleaseNotes, release.PublishedAt, manifest.AssetName(), manifest.ArtifactSize(), manifest.ArtifactHash(), strings.ToLower(manifest.SigningCertificateSHA256), string(raw), raw, strings.TrimSpace(string(signature)), manifestStateSchema(manifest), artifactAsset.URL)
-	return err
+	return nil
 }
 
 func (s *Service) Cache(ctx context.Context, releaseID uuid.UUID) error {
@@ -911,8 +811,14 @@ func (s *Service) Purge(ctx context.Context, releaseID uuid.UUID) (bool, error) 
 	return !referenced, nil
 }
 
+// Cleanup removes releases that nothing needs any more: older than the
+// retention period, not used by a deployment, and superseded. The newest
+// release of each player family, architecture, and channel is never removed
+// for age alone. A coordinated release can carry a platform forward unchanged
+// from an earlier release, so the newest build of a platform may be months
+// older than the release that lists it.
 func (s *Service) Cleanup(ctx context.Context, retentionDays int) {
-	rows, err := s.db.Query(ctx, `DELETE FROM player_releases pr WHERE pr.updated_at<now()-make_interval(days=>$1) AND NOT EXISTS(SELECT 1 FROM update_deployments d WHERE d.release_id=pr.id) RETURNING id`, retentionDays)
+	rows, err := s.db.Query(ctx, `DELETE FROM player_releases pr WHERE pr.updated_at<now()-make_interval(days=>$1) AND NOT EXISTS(SELECT 1 FROM update_deployments d WHERE d.release_id=pr.id) AND EXISTS(SELECT 1 FROM player_releases newer WHERE newer.player_family=pr.player_family AND newer.architecture=pr.architecture AND newer.channel=pr.channel AND newer.version_code>pr.version_code) RETURNING id`, retentionDays)
 	if err != nil {
 		return
 	}

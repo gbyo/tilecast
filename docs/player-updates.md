@@ -10,7 +10,13 @@ Android and Fire OS installers may still require local confirmation.
 
 ## Release contract
 
-Every stable release, and every GitHub prerelease used as the beta channel, must contain exactly named assets:
+One coordinated GitHub release carries the Player platforms for a version. Android and Edge are required for every release. The Windows Player is required for Stable and optional for Beta.
+The release is `vX.Y.Z` (Stable) or `vX.Y.Z-beta.N` (Beta, a GitHub
+pre-release). [`release-process.md`](release-process.md) specifies the
+process. Tilecast Server imports each Player family in the release on its own.
+A release that carries only some of the families imports those families.
+
+Each family in a release must contain exactly named assets:
 
 Android:
 
@@ -18,7 +24,8 @@ Android:
 - `tilecast-player-update.json`
 - `tilecast-player-update.json.sig`
 
-Linux:
+Linux (the legacy Electron Player; not part of a coordinated release, and
+imported only from the existing `player-linux-v*` releases):
 
 - `tilecast-player.AppImage`
 - `tilecast-player-update-linux.json`
@@ -35,6 +42,11 @@ Windows Player (one set for each architecture, `x86_64` or `aarch64`):
 - `tilecast-windows-<version>-<arch>.msix`
 - `tilecast-windows-update-<arch>.json`
 - `tilecast-windows-update-<arch>.json.sig`
+
+A coordinated release also contains `SHA256SUMS`, the inventory
+`tilecast-release.json`, and for Edge the signed release manifest and the SBOM
+of each architecture. The server ignores these files. A GitHub release for the
+Server or for a WPE prebuild has no Player assets, and the server ignores it.
 
 A direct upload of an Edge release names the envelope `tilecast-edge-update.json`
 and its signature `tilecast-edge-update.json.sig`. A direct upload of a Windows
@@ -81,7 +93,31 @@ Every release belongs to one Player family:
 
 A manifest without `playerFamily` is `android`, `electron-linux` or `windows`
 by its platform. Version codes must increase within one family and
-architecture. A deployment reaches only screens of its release's family: a
+architecture.
+
+### Version ordering
+
+The version code of a coordinated release is `(MAJOR * 1000000 + MINOR * 1000 +
+PATCH) * 100 + slot`. The slot is the Beta number for a Beta and 99 for Stable.
+Beta 1, Beta 2, Stable, and the next version therefore have increasing codes,
+and a screen on a Beta can update to the next Beta or to Stable. A version below
+`0.26.0` keeps its legacy code, which ignores the suffix. The server, Edge, the
+Windows Player, and the Android build apply this rule to the version name, the
+version code, and the channel, and each refuses a signed manifest in which they
+disagree. See [`release-process.md`](release-process.md) for the rule and for
+the screens that need a bridge release.
+
+The record of a release is keyed by the GitHub release ID, the family, and the
+architecture. One GitHub release can therefore hold an Android release, two Edge
+releases, and two Windows releases. A GitHub release that is complete in the
+database is not downloaded again. The server reads up to five pages of 100
+releases, so a Server release or a WPE prebuild release cannot hide a Player
+release. A family that fails verification is recorded as the reason of the last
+check and in the server log. It does not stop the other families.
+
+Studio maps a GitHub pre-release to the `beta` channel and any other release to
+the `stable` channel. The server refuses a manifest whose signed channel is the
+other one. A deployment reaches only screens of its release's family: a
 screen reports its family (`playerFamily`) and, for Edge and Windows, its
 architecture (`playerArchitecture`) in the heartbeat. An Edge or Windows
 screen that has not reported them, or reports another architecture, is
@@ -108,38 +144,38 @@ Never rotate the Android signing key casually: Android accepts an APK update onl
 
 For a local signed build, set `TILECAST_ANDROID_KEYSTORE_PATH`, `TILECAST_ANDROID_KEYSTORE_PASSWORD`, `TILECAST_ANDROID_KEY_ALIAS`, `TILECAST_ANDROID_KEY_PASSWORD`, `TILECAST_UPDATE_MANIFEST_PRIVATE_KEY`, `TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_FILE`, `ANDROID_HOME`, and run `scripts/build-player-release.sh`. Outputs go to ignored `release-output/` unless overridden.
 
-## GitHub Actions secrets
+## Release builds
 
-The `Tilecast Player Release` workflow requires `TILECAST_ANDROID_KEYSTORE_BASE64`, both Android key passwords, `TILECAST_ANDROID_KEY_ALIAS`, `TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM`, and `TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM`. It refuses missing secrets and non-increasing version codes, builds and verifies the signed APK, extracts package and version metadata from the APK, signs and verifies the update manifest, verifies APK size/hash agreement, and publishes the three assets. Secret files exist only in the Actions runner temporary directory.
+The workflow `.github/workflows/release.yml` builds, signs, and publishes every
+platform. It reads the secrets below and fails closed when one is missing. The
+workflows `player-release.yml` (Android), `windows-player-release.yml`, and
+`edge-release.yml` build one platform and upload Actions artifacts. They never
+publish. A tag push does not start a release. The tags `player-v*` and `server-v*`
+no longer publish anything.
 
-Pushing a tag named `player-v<versionName>` publishes a release automatically. The tag version must exactly match Android `versionName`; tags containing `beta` publish as prereleases, while other tags publish to the stable channel. The workflow may also be run manually for an existing matching tag, with an explicit stable or beta channel. Release notes are generated by GitHub when a manual summary is not supplied.
+Android needs `TILECAST_ANDROID_KEYSTORE_BASE64`, the two Android key passwords,
+`TILECAST_ANDROID_KEY_ALIAS`, `TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM`, and
+`TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM`. The build checks that the public key
+equals the repository key, builds and verifies the signed APK, extracts package
+and version metadata from the APK, signs and verifies the update manifest, and
+verifies that the APK size and hash agree. The build checks the APK signing
+certificate against the pinned permanent certificate. Secret files exist only in
+the Actions runner temporary directory.
 
-## Windows release build
+Windows builds natively: x64 on `windows-latest` and ARM64 on `windows-11-arm`.
+Emulation is never ARM64 support. It needs the two update keys, the code-signing
+identity `TILECAST_MSIX_PFX_BASE64` with `TILECAST_MSIX_PFX_PASSWORD`, and the
+manifest publisher `TILECAST_MSIX_PUBLISHER`. The public key must match the
+repository key in `apps/edge/release/tilecast-update-key.pem`, and the PFX
+subject must equal the manifest publisher, or the build fails before it
+compiles. Each architecture builds the Player and the `tilecast-msix-version`
+helper, stages the executable with its Player Runtime artifact, renders the MSIX
+manifest from the template, packs and signs the package with the Windows SDK,
+writes the update envelope, and signs it with the Tilecast Ed25519 key. A build
+provenance attestation covers the package and the envelope.
 
-The `Tilecast Windows Player Release` workflow builds the Windows
-Player natively on Windows runners: x64 on `windows-latest`, ARM64 on
-`windows-11-arm`. Emulation is never ARM64 support. It runs only by
-manual dispatch with an explicit stable or beta channel and an
-optional release summary. Publishing a GitHub release stays a
-separate, human step.
-
-The workflow requires `TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM` and
-`TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM`, the code-signing identity
-`TILECAST_MSIX_PFX_BASE64` with `TILECAST_MSIX_PFX_PASSWORD`, and the
-manifest publisher `TILECAST_MSIX_PUBLISHER`. It refuses missing
-secrets. The public key must match the repository key in
-`apps/edge/release/tilecast-update-key.pem`, and the PFX subject must
-equal the manifest publisher, or the build fails before it compiles.
-
-Each architecture builds the Player and the `tilecast-msix-version`
-helper, stages the executable with its Player Runtime artifact,
-renders the MSIX manifest from the template, packs and signs the
-package with the Windows SDK, and writes the unsigned update envelope.
-It then signs the envelope with the Tilecast Ed25519 update key and
-verifies the signature before upload. Secret files exist only in the
-Actions runner temporary directory. The workflow uploads the package,
-the envelope, and its signature per architecture, with a build
-provenance attestation over all of them.
+The release workflow runs the server importer over the assets before it
+publishes. See [`release-process.md`](release-process.md).
 
 ## Studio and player flow
 

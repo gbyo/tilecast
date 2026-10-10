@@ -12,7 +12,7 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 <Steps>
 
 1. Choose **Android**, **Linux**, **Tilecast Edge**, or **Windows** under **Player platform**.
-2. Select **Sync from GitHub** to import releases from [Tilecast releases](https://github.com/gbyo/tilecast/releases), or select **Upload release** to add signed files directly.
+2. Select **Sync from GitHub** to import releases from [Tilecast releases](https://github.com/gbyo/tilecast/releases), or select **Upload release** to add signed files directly. One Tilecast release holds the Android, Edge, and Windows updates for its version, and Sync imports each one on its own. A Beta release imports as the Beta channel and a Stable release as Stable. See [Releases and downloads](../../reference/releases/).
 3. For a direct upload, choose all three files from the same signed release:
 
    | Platform      | Player file                              | Manifest                            | Signature                               |
@@ -28,7 +28,7 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 For Windows and Edge, upload each architecture separately. Published Windows GitHub assets use architecture-specific names such as `tilecast-windows-update-x86_64.json`. For a **direct Windows upload**, save a local copy of the matching JSON and signature with the generic filenames in the table. Do not change their contents or mix architectures.
 
-GitHub releases show verification and cache status. If a release is verified but not cached, select **Download** to cache it. A release must be verified and cached before you can deploy it. The Windows preview is not available until a signed Windows release is published.
+If an update file in a release fails verification, Sync still imports the other platforms in that release and shows the reason for the one it rejected. GitHub releases show verification and cache status. If a release is verified but not cached, select **Download** to cache it. A release must be verified and cached before you can deploy it. The Windows preview is not available until a signed Windows release is published.
 
 ## Deploy a release
 

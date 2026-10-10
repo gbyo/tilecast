@@ -98,6 +98,10 @@ describe("tilecast compatibility ranges", () => {
     ["=1.4.2", "1.4.3", false],
     [">2.0.0", "2.0.1", true],
     [">2.0.0", "2.0.0", false],
+    [">=0.20.0 <1.0.0", "0.26.0-beta.1", true],
+    [">=0.27.0", "0.26.0-beta.12", false],
+    [">=0.26.0", "0.26.0-beta.0", false],
+    [">=0.20.0", "0.26.0-rc.1", false],
   ])("%s satisfies %s is %s", (range, version, expected) => {
     expect(satisfiesTilecastRange(range, version)).toBe(expected);
   });

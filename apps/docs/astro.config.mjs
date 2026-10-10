@@ -271,6 +271,7 @@ export default defineConfig({
               slug: "developers/external-packages",
             },
             { label: "iOS development", slug: "developers/ios-app" },
+            { label: "Releasing Tilecast", slug: "developers/releasing" },
           ],
         },
         {
@@ -288,6 +289,7 @@ export default defineConfig({
               slug: "reference/content-definitions",
             },
             { label: "Capability reference", slug: "players/capabilities" },
+            { label: "Releases and downloads", slug: "reference/releases" },
           ],
         },
         { slug: "privacy" },

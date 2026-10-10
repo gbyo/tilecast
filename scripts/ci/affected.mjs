@@ -122,6 +122,29 @@ const rules = [
     /^packages\/settings-schema\/active-hours-fixtures\.json$/,
     ["player_core", "linux", "browser_player"],
   ],
+  // The release version ordering is one rule written in Go (the server), Rust
+  // (Edge and the Windows Player) and Python (the release scripts and the
+  // Edge release build). Each runs the shared corpus, so the corpus selects
+  // every one of them. The Python implementation also feeds the Edge release
+  // build, whose tests run in the Edge Rust lane.
+  [
+    /^packages\/player-contracts\/fixtures\/release-versions\.json$/,
+    ["server", "edge_rust", "windows", "ci"],
+  ],
+  [/^scripts\/release\/release_version\.py$/, ["ci", "edge_rust"]],
+  [/^scripts\/release\//, ["ci"]],
+  // Which components a hotfix may carry forward unchanged is decided from each
+  // build's real inputs: scripts/release/test_release_inputs.py reads the Cargo,
+  // Go, npm, Gradle and Docker graphs. These files define those graphs and
+  // otherwise select only their own area, so they also select that check. The
+  // root manifests, the lockfiles and the workflows already select it.
+  [
+    /^(deploy\/docker\/Dockerfile|apps\/server\/go\.mod|apps\/player-android\/(app\/)?(build|settings)\.gradle\.kts|apps\/(edge|player-windows|player-android\/native)(\/.+)?\/Cargo\.toml|apps\/(dashboard|player-web)\/package\.json|packages\/player-runtime\/package\.json)$/,
+    ["ci"],
+  ],
+  // The release pipeline test builds the server's release verifier and runs
+  // the real importer over signed assets, so the importer selects it.
+  [/^apps\/server\/(internal\/updates|cmd\/tilecast-release-verify)\//, ["ci"]],
   [/^apps\/ios\//, ["ios"]],
   // The iOS app runs the shared server-address corpus in its tests.
   [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],

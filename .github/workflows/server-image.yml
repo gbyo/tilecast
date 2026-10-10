@@ -1,8 +1,9 @@
 name: Server container image
 
 # Development images from main. This workflow publishes development and
-# sha-<commit> tags only; it must never move stable or latest. Stable
-# releases are published by server-release.yml from server-vX.Y.Z tags.
+# sha-<commit> tags only; it must never move stable, latest or beta, and it
+# never creates a release. Stable and Beta images are published by the
+# coordinated release (release.yml, through server-release.yml).
 on:
   push:
     branches: [main]

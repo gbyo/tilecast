@@ -62,6 +62,10 @@ var (
 	numericHostPattern    = regexp.MustCompile(`^[0-9.]+$`)
 	rangeClausePattern    = regexp.MustCompile(`^(>=|<=|>|<|=)?(\d{1,5}(?:\.\d{1,5}){0,2})$`)
 	versionPattern        = regexp.MustCompile(`^(\d{1,5})(?:\.(\d{1,5}))?(?:\.(\d{1,5}))?$`)
+	// betaSuffixPattern is the "-beta.N" a Beta release carries. A Beta server
+	// satisfies the ranges its release core satisfies; any other suffix, such
+	// as a development build's "-dev", stays unparseable.
+	betaSuffixPattern = regexp.MustCompile(`-beta\.[1-9][0-9]?$`)
 )
 
 // Contribution types name the existing extension contract the nested
@@ -425,7 +429,7 @@ func InNamespace(contributionID, packageID string) bool {
 // manifest compatibility range. Every space-separated clause must hold.
 // Unknown input fails closed.
 func SatisfiesTilecastRange(versionRange, version string) bool {
-	current, ok := parseTilecastVersion(version)
+	current, ok := parseTilecastVersion(betaSuffixPattern.ReplaceAllString(strings.TrimSpace(version), ""))
 	if !ok {
 		return false
 	}

@@ -1,0 +1,46 @@
+{
+  "version": "0.26.0-beta.1",
+  "channel": "beta",
+  "components": [
+    {
+      "family": "android",
+      "architecture": "",
+      "manifest": "tilecast-player-update.json",
+      "artifact": "tilecast-player.apk",
+      "versionName": "0.26.0-beta.1",
+      "versionCode": 2600001,
+      "channel": "beta",
+      "sizeBytes": 1024,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "family": "edge",
+      "architecture": "aarch64",
+      "manifest": "tilecast-edge-update-aarch64.json",
+      "artifact": "tilecast-edge-0.26.0-beta.1-aarch64.tar.zst",
+      "versionName": "0.26.0-beta.1",
+      "versionCode": 2600001,
+      "channel": "beta",
+      "sizeBytes": 2048,
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "family": "edge",
+      "architecture": "x86_64",
+      "manifest": "tilecast-edge-update-x86_64.json",
+      "artifact": "tilecast-edge-0.26.0-beta.1-x86_64.tar.zst",
+      "versionName": "0.26.0-beta.1",
+      "versionCode": 2600001,
+      "channel": "beta",
+      "sizeBytes": 4096,
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "problems": [
+    {
+      "family": "windows",
+      "architecture": "aarch64",
+      "message": "invalid update manifest signature"
+    }
+  ]
+}
