@@ -41,17 +41,19 @@ bundled catalog snapshot until the first refresh succeeds. See
 
 ## Server releases
 
-Tilecast Server ships two release channels. Stable is the recommended channel for normal self-hosted installs. Development tracks `main` and may change frequently or break. Tilecast as a whole is still pre-1.0, so Stable means stable relative to Development, not a maturity claim. There are no other channels.
+Tilecast Server ships three channels. Stable is the recommended channel for normal self-hosted installs. Beta gives early access to the next Stable release. Development tracks `main` and may change frequently or break. Tilecast as a whole is still pre-1.0, so Stable means stable relative to Development, not a maturity claim. There are no other channels.
 
-Stable releases are GitHub Releases cut from `server-vX.Y.Z` tags by `.github/workflows/server-release.yml`. Each release publishes one image under three aliases that always refer to the same artifact:
+Server releases are part of one coordinated Tilecast release. The workflow `.github/workflows/release.yml` publishes the Server image, Tilecast Edge, the Windows Player, and the Android Player from one commit under one version. [`release-process.md`](release-process.md) is the full specification.
 
-- `ghcr.io/gbyo/tilecast-server:X.Y.Z`
-- `ghcr.io/gbyo/tilecast-server:stable`
-- `ghcr.io/gbyo/tilecast-server:latest` (compatibility alias for the latest Stable release)
+- A Stable release is `vX.Y.Z`. It publishes `ghcr.io/gbyo/tilecast-server:X.Y.Z`. When it is the newest Stable release, it also moves `stable` and `latest`.
+- A Beta release is `vX.Y.Z-beta.N`. It is a GitHub pre-release. It publishes `ghcr.io/gbyo/tilecast-server:X.Y.Z-beta.N` and moves `beta` when it is the newest release of either kind.
+- A Stable release also moves `beta` when it is newer than the current Beta, so Beta installs follow Stable.
 
-Development builds from `main` publish `development` and `sha-<commit>` tags through `.github/workflows/server-image.yml`. That workflow never moves `stable` or `latest`.
+An alias always names the same artifact as the version tag that it was promoted from. An alias never moves backwards, and it never moves for a release that is not published. `latest` is a compatibility alias for `stable`.
 
-Normal installs run a published image. `TILECAST_VERSION` in `deploy/docker/.env` is the one place that selects the installed server version. Keep `stable` to follow Stable releases, or pin an explicit release for controlled upgrades. Never point production installs at `development` unless the intent is to track `main`. A Stable upgrade is a version change:
+Development builds from `main` publish `development` and `sha-<commit>` tags through `.github/workflows/server-image.yml`. That workflow never creates a release and never moves `stable`, `latest`, or `beta`.
+
+Normal installs run a published image. `TILECAST_VERSION` in `deploy/docker/.env` is the one place that selects the installed server version. Keep `stable` to follow Stable releases. Set `beta` to test the next Stable release. Pin an explicit version, for example `0.26.0`, for controlled upgrades. Never point production installs at `development` unless the intent is to track `main`. An upgrade is a version change:
 
 ```sh
 # Take and verify a backup first.
@@ -66,9 +68,11 @@ Installations that still use the former Compose file with a `build:` section und
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml -f deploy/docker/compose.dev.yml up -d --build
 ```
 
-The running server reports its build identity through `tilecastVersion`, `channel`, `buildCommit`, and `buildDate` in the system status response. Stable builds report the bare tag version with channel `stable`. Development builds report `0.0.0-dev` with channel `development` plus their real commit, so they are never mistaken for a Stable release. The same identity is stamped into backup manifests (`tilecastVersion`, `serverChannel`, `buildCommit`, `buildDate`); archives written before these fields existed remain valid and decode with empty values.
+The running server reports its build identity through `tilecastVersion`, `channel`, `buildCommit`, and `buildDate` in the system status response. Stable builds report the bare version with channel `stable`. Beta builds report `X.Y.Z-beta.N` with channel `beta`. Development builds report `0.0.0-dev` with channel `development` plus their real commit, so they are never mistaken for a release. The same identity is stamped into backup manifests (`tilecastVersion`, `serverChannel`, `buildCommit`, `buildDate`); archives written before these fields existed remain valid and decode with empty values.
 
-To cut a Stable release, update `main`, tag it (`git tag server-vX.Y.Z`), and push the tag. Check the latest published Server release before selecting a tag; historical first-release plans do not establish which tag currently exists.
+A Beta server satisfies the compatibility range of an extension package in the same way as its Stable release. A Beta and the Stable release of the same version have the same core version.
+
+To cut a release, dispatch the `Tilecast Release` workflow from `main` with the version. Do not push a tag. Check the published releases before you choose a version. The workflow refuses a version that is not newer than the published releases. See [`release-process.md`](release-process.md).
 
 ## Data and upgrades
 

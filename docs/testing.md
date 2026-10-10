@@ -35,6 +35,8 @@ The graph selects these contracts:
 | Edge installer or units | Rust and migration under systemd                                                       |
 | Server player protocol  | Server, Android, runtime and real-server Edge tests                                    |
 | Activity contract       | Player protocol contracts and activity parity                                          |
+| Release version corpus  | Server, Edge, Windows and the CI contract, which run the same corpus                   |
+| Release scripts         | CI workflow contracts, which run the release script tests                              |
 | Documentation           | Documentation checks                                                                   |
 
 Unknown shared packages select all areas. Workflow, dependency, and classifier changes also select all areas. Add a consumer rule and tests when you add a shared package.
@@ -197,7 +199,7 @@ Pull request CI runs the `millionco/react-doctor@v2` action in `ci-dashboard.yml
 
 The checkout uses `fetch-depth: 0` so the action can find the merge base. The action sets `REACT_DOCTOR_NO_TELEMETRY` to stop crash reporting. The workflow pins the react-doctor `version` input to the version in `apps/dashboard/package.json`: change both together.
 
-The `dashboard_ci` job in `pr-validation.yml` grants `issues: write` and `pull-requests: write` for the comments, and keeps `checks: write` for test reporting. A called workflow cannot request more than its caller grants, so `server-release.yml` grants the same permissions to its `dashboard_ci` job.
+The `dashboard_ci` job in `pr-validation.yml` grants `issues: write` and `pull-requests: write` for the comments, and keeps `checks: write` for test reporting. A called workflow cannot request more than its caller grants, so `release.yml` grants the same permissions to its `dashboard_ci` job.
 
 ## Public documentation captures
 

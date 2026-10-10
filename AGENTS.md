@@ -79,6 +79,40 @@ Read [`docs/player-core.md`](docs/player-core.md) and [`docs/player-core-readine
 
 Do not depend on Edge crates or Edge wire framing from shared Player crates. Keep independent platform behavior consistent through natural-owner contracts and conformance fixtures, not copied implementations. Preserve shipped SQLite migration bytes and all Edge security, offline, crash, update, and renderer-isolation guarantees. Host adapters provide time and random IDs; pure shared values do not perform I/O. Run `python3 scripts/ci/check-player-architecture.py` when changing the shared architecture.
 
+## Releases
+
+Tilecast publishes one coordinated release per version: `vX.Y.Z` (Stable) or
+`vX.Y.Z-beta.N` (Beta), from 0.26.0 on. Development is not a release: `main`
+publishes Development server images only. Read
+[`docs/release-process.md`](docs/release-process.md) before you change a release
+workflow, a version rule, or a release script.
+
+- `.github/workflows/release.yml` is the only workflow that publishes a
+  coordinated release, by manual dispatch from `main`. A tag push never starts
+  one. The platform workflows (`edge-release.yml`, `windows-player-release.yml`,
+  `player-release.yml`, `server-release.yml`) are building blocks: they build and
+  upload Actions artifacts and never create a GitHub release. The legacy Electron
+  Linux Player keeps `linux-player-release.yml` for its own line.
+- The update version code is one rule, `(core code) * 100 + slot` from 0.26.0 on,
+  implemented in the Go server, Edge, the Windows Player and the release scripts.
+  `packages/player-contracts/fixtures/release-versions.json` is the one corpus
+  each implementation runs. Change the rule everywhere and in the corpus in one
+  change. A Beta and its Stable must have different codes.
+- `scripts/release/contract.json` says which platforms a Stable and a Beta
+  release require. A missing required build, signature or artifact fails the
+  release. Never describe an unavailable platform as shipped. iOS is App Store
+  distributed and never gates a release.
+- A published release is immutable. Assets are added to the draft only. A release
+  resumes from its draft or its published release and never rebuilds or re-signs
+  a verified platform.
+- Server image aliases (`stable`, `latest`, `beta`) move only through
+  `scripts/release/release_plan.py`, after publication, from a verified digest.
+  Never move one from a Development build.
+- The WPE WebKit prebuild is an immutable OCI artifact in
+  `ghcr.io/gbyo/tilecast-wpe`. Do not create GitHub releases for it.
+- Release builds stamp the version into the platform version sources in their own
+  checkout and commit nothing. Do not bump a platform version for a release.
+
 ## Server conventions
 
 ### Process and dependencies

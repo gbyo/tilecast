@@ -9,14 +9,15 @@ import { Steps } from "@astrojs/starlight/components";
 
 ## Server release channels
 
-Tilecast Server has two release channels:
+Tilecast Server has three release channels:
 
-- **Stable** is the recommended channel for normal installations. Stable releases are published as versioned images such as `ghcr.io/gbyo/tilecast-server:0.11.0`, with `stable` and `latest` as aliases for the latest Stable release.
+- **Stable** is the recommended channel for normal installations. Stable releases are published as versioned images such as `ghcr.io/gbyo/tilecast-server:0.26.0`, with `stable` and `latest` as aliases for the newest Stable release.
+- **Beta** lets you test the next Stable release. Beta images are versioned like `ghcr.io/gbyo/tilecast-server:0.26.0-beta.1`, and `beta` names the newest release of either kind. When Stable catches up, `beta` moves to it.
 - **Development** tracks `main` through the `development` image tag and may be unstable. Use it only for development and testing.
 
-Tilecast itself is still pre-1.0, so Stable means stable relative to Development, not a claim of mature or enterprise stability.
+Tilecast itself is still pre-1.0, so Stable means stable relative to Development, not a claim of mature or enterprise stability. See [Releases and downloads](../../reference/releases/) for how versions are ordered.
 
-`TILECAST_VERSION` in `deploy/docker/.env` is the one place that selects the installed server version. Keep `stable` to follow Stable releases, or pin an explicit release for controlled upgrades.
+`TILECAST_VERSION` in `deploy/docker/.env` is the one place that selects the installed server version. Keep `stable` to follow Stable releases, use `beta` to test early, or pin an explicit release for controlled upgrades.
 
 ## Before you update
 
@@ -39,7 +40,7 @@ This one-time transition is the last update that touches the Git checkout. Confi
 
 <Steps>
 
-1. Set `TILECAST_VERSION` in `deploy/docker/.env` to the release you want to install, for example `0.11.0`.
+1. Set `TILECAST_VERSION` in `deploy/docker/.env` to the release you want to install, for example `0.26.0`.
 
 2. Pull the new image and recreate the services without deleting their volumes.
 
@@ -83,7 +84,7 @@ docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml pull
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml up -d
 ```
 
-Development builds report a `-dev` version and the `development` channel in **Settings** → **Operations**, so they are never mistaken for a Stable release. To build and run the server from a source checkout instead, add the development Compose override:
+Stable and Beta builds report their version and channel there too. Development builds report a `-dev` version and the `development` channel in **Settings** → **Operations**, so they are never mistaken for a release. To build and run the server from a source checkout instead, add the development Compose override:
 
 ```sh title="Repository root · Run from source"
 docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml -f deploy/docker/compose.dev.yml up -d --build
@@ -91,6 +92,6 @@ docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml -f dep
 
 ## Player versions are separate
 
-Updating Tilecast Server does not update Android, stable Linux, or Edge Players.
+Updating Tilecast Server does not update Android, Windows, or Edge Players, even though they ship in the same release.
 
 Use [Player updates](../player-updates/) for Player releases and follow any server/Player update order listed in the release notes.
