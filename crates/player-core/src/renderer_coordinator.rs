@@ -168,10 +168,7 @@ impl RendererCoordinator {
     }
 
     pub fn evaluate_recovery(&mut self, now: Timestamp) -> HealAction {
-        let playback_expected = self
-            .current
-            .as_ref()
-            .is_some_and(|(_, metadata)| !metadata.expectations.is_empty());
+        let playback_expected = self.current.as_ref().is_some_and(|(_, metadata)| !metadata.expectations.is_empty());
         if self.connected.is_none() || !playback_expected {
             // Policy/status surfaces such as off-hours sleep, disabled, setup,
             // pairing, and idle are intentional states with no playback
