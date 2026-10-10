@@ -71,7 +71,9 @@ jobs:
 
       - name: Stamp the release version
         if: inputs.release_version != ''
-        run: python3 scripts/release/stamp_version.py --version '${{ inputs.release_version }}'
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: python3 scripts/release/stamp_version.py --version "$RELEASE_VERSION"
 
       - name: Resolve the version being built
         id: release
@@ -210,6 +212,7 @@ jobs:
 
       - name: Verify release contract
         env:
+          STAMPED_VERSION: ${{ inputs.release_version }}
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
           RELEASE_CHANNEL: ${{ inputs.channel }}
         run: |
@@ -227,7 +230,7 @@ jobs:
             "$(sha256sum "$output/tilecast-player.apk" | awk '{print $1}')"
           # A coordinated release carries the shared version code, so a Beta
           # can update to the next Beta or to Stable.
-          if [ -n "${{ inputs.release_version }}" ]; then
+          if [ -n "$STAMPED_VERSION" ]; then
             test "$(jq -r .versionCode "$output/tilecast-player-update.json")" = \
               "$(python3 scripts/release/release_version.py code "$RELEASE_VERSION")"
           fi

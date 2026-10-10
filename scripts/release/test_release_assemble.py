@@ -238,7 +238,7 @@ class Notes(Fixture):
         self.assertIn("https://github.com/gbyo/tilecast/releases/download/v0.26.0-beta.1/tilecast-player.apk", text)
         self.assertIn("A **Beta** release", text)
 
-    def test_the_server_digest_line_is_the_one_a_resumed_release_reads(self):
+    def test_the_notes_show_the_server_digest_for_readers(self):
         _, _, inventory = self.build(REQUIRED_BETA)
         text = ra.notes(self.contract, inventory)
         self.assertRegex(text, re.compile(r"^- digest: `sha256:[0-9a-f]{64}`$", re.M))

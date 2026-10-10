@@ -15,6 +15,7 @@ Usage:
   github_release.py create TAG --target SHA --title T --notes-file F [--prerelease]
   github_release.py download TAG --dir D            every asset, draft or published
   github_release.py upload TAG --dir D [--replace]  every file in D; --replace is for drafts
+  github_release.py prune TAG --dir D               delete draft assets that are not files of D
   github_release.py notes TAG --notes-file F        replace the notes of a draft
   github_release.py publish TAG [--latest|--not-latest]
 """
@@ -165,6 +166,20 @@ class Client:
             uploaded.append(name)
         return uploaded
 
+    def prune(self, release, directory):
+        """Deletes the draft's assets that are not files of `directory`, so a
+        resumed draft holds exactly the assembled set. Only a draft can be
+        pruned: a published release is immutable."""
+        if not release["draft"]:
+            raise GitHubError("a published release is immutable: its assets cannot be deleted")
+        keep = set(os.listdir(directory))
+        removed = []
+        for asset in release["assets"]:
+            if asset["name"] not in keep:
+                self.delete_asset(asset["id"])
+                removed.append(asset["name"])
+        return sorted(removed)
+
     def _upload_one(self, release, name, path):
         url = urllib.parse.urlsplit(self.uploads)
         target = f"/repos/{self.repository}/releases/{release['id']}/assets?name={urllib.parse.quote(name)}"
@@ -189,7 +204,7 @@ class Client:
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["find", "create", "download", "upload", "notes", "publish"])
+    parser.add_argument("command", choices=["find", "create", "download", "upload", "prune", "notes", "publish"])
     parser.add_argument("tag")
     parser.add_argument("--target")
     parser.add_argument("--title")
@@ -223,6 +238,9 @@ def main(argv=None):
         elif args.command == "upload":
             names = client.upload(client.require(args.tag), args.dir, replace=args.replace)
             print(f"uploaded {len(names)} assets: {', '.join(names)}")
+        elif args.command == "prune":
+            names = client.prune(client.require(args.tag), args.dir)
+            print(f"deleted {len(names)} stray draft assets: {', '.join(names)}")
         elif args.command == "notes":
             release = client.require(args.tag)
             if not release["draft"]:

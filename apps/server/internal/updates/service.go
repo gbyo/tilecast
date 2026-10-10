@@ -552,10 +552,17 @@ func (s *Service) ImportUpload(ctx context.Context, artifactPath, artifactName s
 	return ImportedRelease{ID: id, Manifest: manifest, Source: "upload", CacheStatus: "cached", VerificationStatus: "verified"}, nil
 }
 
+// rejectedPrefix starts the recorded status of a check that read the release
+// list but rejected an asset in it. It tells a rejection from a failure.
+const rejectedPrefix = "Rejected release asset: "
+
 func (s *Service) Check(ctx context.Context) error {
 	var etag string
 	var previousFailed bool
-	_ = s.db.QueryRow(ctx, `SELECT COALESCE(etag,''),safe_error IS NOT NULL FROM update_provider_state WHERE provider='github'`).Scan(&etag, &previousFailed)
+	// A rejection is not a failed check: the release list was read, and a
+	// rejected asset stays rejected until the release list changes. Only a
+	// transport or provider failure makes the next check ignore the stored ETag.
+	_ = s.db.QueryRow(ctx, `SELECT COALESCE(etag,''),safe_error IS NOT NULL AND safe_error NOT LIKE $1 FROM update_provider_state WHERE provider='github'`, rejectedPrefix+"%").Scan(&etag, &previousFailed)
 	if previousFailed {
 		etag = ""
 	}
@@ -565,7 +572,8 @@ func (s *Service) Check(ctx context.Context) error {
 		return err
 	}
 	if result.NotModified {
-		_, _ = s.db.Exec(ctx, `UPDATE update_provider_state SET last_checked_at=now(),safe_error=NULL,updated_at=now() WHERE provider='github'`)
+		// An unchanged release list leaves a recorded rejection in place.
+		_, _ = s.db.Exec(ctx, `UPDATE update_provider_state SET last_checked_at=now(),safe_error=CASE WHEN safe_error LIKE $1 THEN safe_error ELSE NULL END,updated_at=now() WHERE provider='github'`, rejectedPrefix+"%")
 		return nil
 	}
 	// The stored document is the releases that carry player assets, not the
@@ -586,11 +594,14 @@ func (s *Service) Check(ctx context.Context) error {
 	}
 	var imported int
 	var problems []error
+	transient := false
 	for _, release := range playerReleases {
 		count, releaseProblems := s.importRelease(ctx, release)
 		imported += count
 		for _, problem := range releaseProblems {
 			slog.Warn("GitHub release asset rejected", "tag", release.Tag, "error", problem)
+			var retry transientError
+			transient = transient || errors.As(problem, &retry)
 			problems = append(problems, fmt.Errorf("%s: %w", release.Tag, problem))
 		}
 	}
@@ -598,9 +609,15 @@ func (s *Service) Check(ctx context.Context) error {
 		return nil
 	}
 	// A rejected asset is never dropped silently: the first reason is kept
-	// for the dashboard even when other families imported, and the next
-	// check re-reads the releases instead of trusting the cached response.
-	_, _ = s.db.Exec(ctx, `UPDATE update_provider_state SET safe_error=$1,updated_at=now() WHERE provider='github'`, safeError(problems[0]))
+	// for the dashboard even when other families imported. A rejection keeps
+	// the stored ETag, so an unchanged release list is not downloaded and
+	// verified again. An incomplete download is recorded as a plain error,
+	// which makes the next check read the releases again.
+	recorded := safeError(problems[0])
+	if !transient {
+		recorded = safeError(fmt.Errorf("%s%w", rejectedPrefix, problems[0]))
+	}
+	_, _ = s.db.Exec(ctx, `UPDATE update_provider_state SET safe_error=$1,updated_at=now() WHERE provider='github'`, recorded)
 	if imported == 0 {
 		return problems[0]
 	}

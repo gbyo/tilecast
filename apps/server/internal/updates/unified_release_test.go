@@ -203,7 +203,8 @@ func TestReleaseRecordIDsAreDistinctPerFamilyAndArchitecture(t *testing.T) {
 		}
 		seen[id] = key[0] + "/" + key[1]
 	}
-	if recordID(900, FamilyEdge, "x86_64") != recordID(900, FamilyEdge, "x86_64") || recordID(900, FamilyEdge, "x86_64") == recordID(901, FamilyEdge, "x86_64") {
+	first, again := recordID(900, FamilyEdge, "x86_64"), recordID(900, FamilyEdge, "x86_64")
+	if first != again || first == recordID(901, FamilyEdge, "x86_64") {
 		t.Fatal("record ids must be deterministic and distinct across releases")
 	}
 	// Android keeps the id it had before the unified release.

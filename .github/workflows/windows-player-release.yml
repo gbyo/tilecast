@@ -83,7 +83,9 @@ jobs:
 
       - name: Stamp the release version
         if: inputs.release_version != ''
-        run: python scripts/release/stamp_version.py --version '${{ inputs.release_version }}'
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: python scripts/release/stamp_version.py --version "$RELEASE_VERSION"
 
       - uses: actions/setup-node@v7
         with:

@@ -10,7 +10,7 @@ Android and Fire OS installers may still require local confirmation.
 
 ## Release contract
 
-One coordinated GitHub release carries every Player platform for a version.
+One coordinated GitHub release carries the Player platforms for a version. Android and Edge are required for every release. The Windows Player is required for Stable and optional for Beta.
 The release is `vX.Y.Z` (Stable) or `vX.Y.Z-beta.N` (Beta, a GitHub
 pre-release). [`release-process.md`](release-process.md) specifies the
 process. Tilecast Server imports each Player family in the release on its own.

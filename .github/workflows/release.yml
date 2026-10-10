@@ -458,6 +458,10 @@ jobs:
             cp "$file" "$RUNNER_TEMP/upload/$name"
           done
           python3 scripts/release/github_release.py upload "$TAG" --dir "$RUNNER_TEMP/upload" --replace
+          # A resumed draft can hold assets an earlier run uploaded for a
+          # platform that was rejected since. Drop everything the assembly
+          # does not hold, so the read back sees exactly the assembled set.
+          python3 scripts/release/github_release.py prune "$TAG" --dir "$RUNNER_TEMP/assets"
 
       # What the draft now holds, read back from GitHub, must be exactly what
       # was assembled and must still verify. After publication it is immutable.

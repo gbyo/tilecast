@@ -298,6 +298,16 @@ test("a release is verified as the server would import it, then as GitHub holds 
     collect < verify && verify < build && build < upload && upload < readback,
     "expected collect < verify < build < upload < read back",
   );
+  // Stray assets from an earlier run are pruned from the draft (never from a
+  // published release) before the read back.
+  assert.match(
+    steps[upload].run,
+    /github_release\.py prune "\$TAG" --dir "\$RUNNER_TEMP\/assets"/,
+  );
+  assert.ok(
+    steps[upload].run.indexOf("github_release.py upload") <
+      steps[upload].run.indexOf("github_release.py prune"),
+  );
   // The read back verifies the downloaded draft against its inventory.
   assert.match(steps[readback].run, /github_release\.py download/);
   assert.match(steps[readback].run, /release_assemble\.py verify/);
@@ -504,11 +514,16 @@ test("the release workflow stamps and checks one version on every platform", () 
     ["player-release.yml", /versionCode/],
   ]) {
     const raw = readFileSync(`.github/workflows/${file}`, "utf8");
-    assert.match(
-      raw,
-      /stamp_version\.py --version '\$\{\{ inputs\.release_version \}\}'/,
-      file,
-    );
+    // The version reaches the shell through the environment, never by
+    // interpolating a caller-controlled input into the script text.
+    assert.match(raw, /stamp_version\.py --version "\$RELEASE_VERSION"/, file);
+    for (const job of Object.values(workflow(file).jobs))
+      for (const step of job.steps)
+        assert.doesNotMatch(
+          step.run ?? "",
+          /\$\{\{\s*inputs\./,
+          `${file}: ${step.name ?? step.run}`,
+        );
     assert.match(raw, /release_version\.py code/, file);
     assert.match(raw, check, file);
   }

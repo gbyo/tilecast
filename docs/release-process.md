@@ -177,8 +177,9 @@ Every release contains these assets in addition to the platform files:
 
 The inventory and the notes are deterministic. The same inputs give the same
 bytes. The notes group the release by Server, Tilecast Edge, Windows, Android,
-and iOS and Browser availability. The server digest line has the exact form
-`- digest: \`sha256:<hash>\`` so a resumed run can read it.
+and iOS and Browser availability. A resumed run reads the Server image digest
+from the `server` component of `tilecast-release.json`, never from the notes.
+The digest line in the notes is for readers only.
 
 ## The release workflow
 
@@ -293,7 +294,11 @@ other repository. It imports each release in these steps:
    family, and the architecture. The tag and the version code are unique for a
    family and architecture.
 5. It records each rejected asset. Studio shows the first reason as the last
-   check status. The server writes every reason to its log.
+   check status, with the prefix `Rejected release asset:`. The server writes
+   every reason to its log. A rejection is not a failed check. The server keeps
+   the stored ETag, so an unchanged release list is not downloaded and verified
+   again. An incomplete download is a plain error, and the next check reads the
+   releases again.
 
 A release that is complete in the database is not downloaded again. An optional
 family that is absent does not stop the family that is present.

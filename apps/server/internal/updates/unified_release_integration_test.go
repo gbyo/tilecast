@@ -411,3 +411,40 @@ func TestDirectUploadFollowsTheUnifiedOrdering(t *testing.T) {
 		t.Fatalf("stored %d releases, want 4", got)
 	}
 }
+
+// A rejected asset is a status, not a failed check: the stored ETag stays, so an
+// unchanged release list is neither downloaded nor verified again, and the
+// recorded rejection survives a check that finds nothing changed.
+func TestRejectionKeepsTheETagAndIsNotRetriedUntilTheListChanges(t *testing.T) {
+	pool := updatesTestPool(t)
+	f := newReleaseFixture(t)
+	f.unified("0.26.0")
+	release := f.release(6001, "v0.26.0", false)
+	f.corruptSignature(release, windowsGitHubManifestHead+"x86_64.json")
+	provider := f.provider(release)
+	service := newUpdatesService(t, pool, f, provider)
+	ctx := context.Background()
+	if err := service.Check(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var etag string
+	var recorded *string
+	if err := pool.QueryRow(ctx, `SELECT COALESCE(etag,''),safe_error FROM update_provider_state WHERE provider='github'`).Scan(&etag, &recorded); err != nil {
+		t.Fatal(err)
+	}
+	if etag != `"fixture"` || recorded == nil || !strings.HasPrefix(*recorded, rejectedPrefix) {
+		t.Fatalf("etag=%q safe_error=%v", etag, recorded)
+	}
+	downloaded := provider.downloads
+	for range 2 {
+		if err := service.Check(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if provider.downloads != downloaded {
+		t.Fatalf("an unchanged release list was downloaded again: %d -> %d", downloaded, provider.downloads)
+	}
+	if err := pool.QueryRow(ctx, `SELECT safe_error FROM update_provider_state WHERE provider='github'`).Scan(&recorded); err != nil || recorded == nil || !strings.HasPrefix(*recorded, rejectedPrefix) {
+		t.Fatalf("the rejection was cleared by an unchanged check: %v %v", recorded, err)
+	}
+}

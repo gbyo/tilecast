@@ -100,6 +100,13 @@ func (p ReleaseProblem) Error() string {
 
 func (p ReleaseProblem) Unwrap() error { return p.Err }
 
+// transientError marks a failure that a later check can resolve without any
+// change to the release: a download that did not complete. Every other problem
+// is a rejection of what the release holds, and rechecking cannot change it.
+type transientError struct{ error }
+
+func (e transientError) Unwrap() error { return e.error }
+
 // ReleaseCandidate is one verified player release found in a GitHub release:
 // the signed manifest bytes and the artifact asset the manifest names. The
 // artifact's own bytes are verified when it is cached, or by
@@ -150,11 +157,11 @@ func discoverSpec(ctx context.Context, provider Provider, key ed25519.PublicKey,
 	}
 	raw, err := provider.Download(ctx, manifestAsset.URL, manifestLimit)
 	if err != nil {
-		return ReleaseCandidate{}, err
+		return ReleaseCandidate{}, transientError{err}
 	}
 	signature, err := provider.Download(ctx, signatureAsset.URL, 4<<10)
 	if err != nil {
-		return ReleaseCandidate{}, err
+		return ReleaseCandidate{}, transientError{err}
 	}
 	manifest, err := ParseAndVerifyManifest(raw, signature, key)
 	if err != nil {

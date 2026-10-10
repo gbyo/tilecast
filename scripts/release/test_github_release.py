@@ -190,6 +190,19 @@ class ClientTests(unittest.TestCase):
         with self.assertRaisesRegex(gr.GitHubError, "HTTP 422"):
             self.client.upload(self.client.require("v1"), self.dir)
 
+    def test_prune_removes_only_draft_assets_the_assembly_does_not_hold(self):
+        self.fake.new_release("v1", assets=[("keep.bin", b"1"), ("stray.bin", b"2"), ("old.json", b"3")])
+        self.files(keep_bin=b"1")
+        removed = self.client.prune(self.client.require("v1"), self.dir)
+        self.assertEqual(removed, ["old.json", "stray.bin"])
+        self.assertEqual([a["name"] for a in self.fake.releases[0]["assets"]], ["keep.bin"])
+
+    def test_a_published_release_is_never_pruned(self):
+        self.fake.new_release("v1", draft=False, assets=[("stray.bin", b"2")])
+        with self.assertRaisesRegex(gr.GitHubError, "immutable"):
+            self.client.prune(self.client.require("v1"), self.dir)
+        self.assertEqual(len(self.fake.releases[0]["assets"]), 1)
+
     def test_publish_flips_a_draft_and_is_idempotent(self):
         self.fake.new_release("v1")
         release = self.client.require("v1")
