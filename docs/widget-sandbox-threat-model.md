@@ -97,12 +97,22 @@ Evidence by engine:
   harness must see no request leave the frame. A control run with
   `https:`/`http:` restored to the header leaks the requests, so the test
   detects the weakness.
-- **Android WebView, WebView2, and WPE: header pinned, engine run
-  outstanding.** Their headers equal the contract and are unit tested, but
-  no run has yet shown that the engine enforces the header inside an
-  opaque-origin frame loaded from a custom scheme. WPE needs particular
-  care because it rejects custom-scheme loads inside opaque-origin frames;
-  the loopback route is the only passive source it allows.
+- **WPE (Edge): proven on WPE WebKit 2.54.** The headless widget scenario
+  (`apps/edge/renderer-wpe/tests/e2e_headless.py`) runs the hostile Widget
+  with the same passive vectors plus `sendBeacon`, aimed at a reachable
+  loopback canary outside the `/media/` route, and requires that the
+  canary sees no request while the granted media still loads over the
+  loopback route. A control run with `http:` restored to the header leaks
+  the image, `srcset`, poster, CSS, preload, font, video, and audio
+  requests, so the test detects the weakness. WPE rejects custom-scheme
+  loads inside opaque-origin frames, so frames receive loopback media URLs
+  (`widgetMedia`), never `tcmedia:`. WebKit writes no page console messages
+  for the renderer's ephemeral session, so the proof is the canary, not a
+  violation log.
+- **Android WebView and WebView2: header pinned, engine run outstanding.**
+  Their headers equal the contract and are unit tested, but no run has yet
+  shown that the engine enforces the header inside an opaque-origin frame
+  loaded from a custom scheme.
 
 Remaining limits:
 
@@ -120,8 +130,8 @@ Remaining limits:
   the daemon's port.
 
 **Release gate for untrusted external packages:** run the passive-vector
-Widget on Android WebView, WebView2, and WPE, with each engine showing a
-policy violation and no outbound request. Until then,
+Widget on Android WebView and WebView2, with each engine showing a policy
+violation and no outbound request (WPE has passed this gate). Until then,
 `widget.external-runtime@2` is not security-qualified for general
 third-party execution on those hosts, regardless of unit-test success.
 A malicious Widget may also consume CPU/memory or render misleading content
