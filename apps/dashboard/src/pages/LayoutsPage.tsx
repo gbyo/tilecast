@@ -417,7 +417,7 @@ export function LayoutsPage() {
     onSuccess: (layout) => {
       pendingAnnouncementRef.current = null;
       setPendingAnnouncementLayoutId(undefined);
-      toast.add({ title: "Layout created.", type: "success" });
+      toast.add({ title: t("library.toastCreated"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       void navigate(`/layouts/${layout.id}`);
     },

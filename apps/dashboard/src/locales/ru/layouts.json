@@ -11,6 +11,7 @@
     "line": "Линия"
   },
   "library": {
+    "toastCreated": "Макет создан.",
     "toastDuplicated": "Макет скопирован.",
     "toastDeleted": "Макет удалён.",
     "title": "Макеты",

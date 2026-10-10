@@ -11,6 +11,7 @@
     "line": "Línea"
   },
   "library": {
+    "toastCreated": "Diseño creado.",
     "toastDuplicated": "Diseño duplicado.",
     "toastDeleted": "Diseño eliminado.",
     "title": "Diseños",

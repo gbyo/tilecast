@@ -11,6 +11,7 @@
     "line": "Line"
   },
   "library": {
+    "toastCreated": "Layout created.",
     "toastDuplicated": "Layout duplicated.",
     "toastDeleted": "Layout deleted.",
     "title": "Layouts",
