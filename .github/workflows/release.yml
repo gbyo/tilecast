@@ -458,6 +458,13 @@ jobs:
           for directory in "$RUNNER_TEMP"/artifacts/*/; do
             sources+=("$directory")
           done
+          # download-artifact makes a subdirectory for each artifact only when
+          # several match. A lone artifact lands in the directory itself: the
+          # reused assets of a resume that builds nothing, or the one platform a
+          # release builds while it carries the others forward.
+          if [ -n "$(find "$RUNNER_TEMP/artifacts" -maxdepth 1 -type f -print -quit)" ]; then
+            sources+=("$RUNNER_TEMP/artifacts")
+          fi
           python3 scripts/release/release_assemble.py collect --version "$VERSION" --channel "$CHANNEL" \
             --out "$RUNNER_TEMP/assets" --source "${sources[@]}"
 
