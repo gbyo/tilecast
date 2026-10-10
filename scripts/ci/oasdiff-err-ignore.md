@@ -19,11 +19,15 @@ after the Player reports the required presentation schema and capability.
 Older Player profiles retain their previous versions. PostgreSQL coverage in
 `TestClockComponentChosenForEachPlayer` and
 `TestEmptyComponentPolicyPreservesOlderPlayerAutoSkip` verifies that boundary.
+A channel entry names the build channel that the Server reports. Only a Beta
+release build reports `beta`, and Studio ships in the same image as the Server
+that reports it, so the one consumer of the value moves with it.
 Unreleased-stack entries name endpoints that are new in the same unmerged PR
 stack as the change: no release has ever served the base contract, so no
 released client can break, and the only consumer (Studio) moves in the same
 change. Other new findings describe behavior changes and must be fixed.
 
+GET /api/v1/system/status added the new `beta` enum value to the `data/channel` response property for the response status `200`: only a Beta release build reports it; Studio ships in the same image.
 GET /api/v1/player/manifest added the new `16.00` enum value to the `data/schemaVersion` response property for the response status `200`: correct the released component version; only Players with presentation schema 2 and the required Widget capability receive it.
 GET /api/v1/player/manifest added the new `17.00` enum value to the `data/schemaVersion` response property for the response status `200`: schema 3 is explicitly negotiated; older Players keep schema 2 or the compatibility presentation.
 

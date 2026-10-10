@@ -1,0 +1,567 @@
+name: Tilecast Release
+
+# One coordinated release per version. A Stable release is vX.Y.Z and a Beta
+# release is vX.Y.Z-beta.N, both from 0.26.0 on. Development is not a release:
+# main publishes Development server images (server-image.yml) and never creates
+# a GitHub release.
+#
+# Dispatch this workflow from main with the version. It builds every platform
+# from that one commit, collects the results into ONE draft GitHub release,
+# verifies the draft, and publishes it:
+#
+#   prepare   validate the version and its ordering against the published
+#             releases, and reuse what an earlier run of this version already
+#             built and verified
+#   gates     the server shipping bundle's validation (as server releases always
+#             required)
+#   build     Server image (GHCR, version tag only), Tilecast Edge x86_64 and
+#             aarch64, Windows x64 and ARM64, Android and Fire TV
+#   assemble  apply the release contract (scripts/release/contract.json), run
+#             the server's own importer over the assets (tilecast-release-verify),
+#             write SHA256SUMS, tilecast-release.json and the notes, upload to
+#             the draft, download it back and verify it again
+#   publish   publish the draft. Releases are immutable from here on
+#   promote   move the Server image aliases to the published digest
+#
+# Nothing is published until every required platform has built, signed and
+# verified. Rerunning the same version resumes: a platform whose signed assets
+# already verify in the draft is reused and never rebuilt or re-signed; a
+# published release resumes at alias promotion. docs/release-process.md is the
+# full procedure, including what each platform needs.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the leading v. 0.26.0 for Stable, 0.26.0-beta.1 for Beta
+        required: true
+        type: string
+      publish:
+        description: Publish the verified draft. Turn off to build and verify the draft only; a later run resumes from it
+        required: false
+        default: true
+        type: boolean
+      verify_reproducible:
+        description: Build each Edge tree a second time and require identical file digests
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  actions: read
+  contents: read
+  checks: write
+
+# One global release lock. Two releases must never race the shared aliases or
+# publish out of order; a second run waits for the first to finish. (GitHub
+# keeps one pending run per group, so queue releases one at a time.)
+concurrency:
+  group: tilecast-release
+  cancel-in-progress: false
+
+env:
+  UPDATE_KEY: apps/edge/release/tilecast-update-key.pem
+  ANDROID_CERTIFICATE_SHA256: e718f5807d11c45c54477ab57c067516ddb1ed8a74194b4f46f882db16905733
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      channel: ${{ steps.version.outputs.channel }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      state: ${{ steps.plan.outputs.state }}
+      previous_tag: ${{ steps.plan.outputs.previous_tag }}
+      edge_arches: ${{ steps.resume.outputs.edge_arches }}
+      windows_arches: ${{ steps.resume.outputs.windows_arches }}
+      build_android: ${{ steps.resume.outputs.build_android }}
+      digest: ${{ steps.resume.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+
+      - name: Validate the version
+        id: version
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          # Only vX.Y.Z and vX.Y.Z-beta.N from 0.26.0 on. Product-specific
+          # tags (player-v*, server-v*, edge-v*) are not coordinated releases.
+          python3 scripts/release/release_version.py tag "v$RELEASE_VERSION" | tee -a "$GITHUB_OUTPUT"
+
+      # The release commit is the dispatched commit. It must be part of main:
+      # main may advance after the release starts.
+      - name: Reject a release commit outside main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if git merge-base --is-ancestor HEAD refs/remotes/origin/main; then
+            echo "The release commit $GITHUB_SHA is on main."
+            exit 0
+          fi
+          echo "This commit carries changes main does not contain:" >&2
+          git log --oneline --no-decorate refs/remotes/origin/main..HEAD >&2
+          echo "Merge the release commit to main and dispatch from main." >&2
+          exit 1
+
+      - name: Plan the release against the published releases
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release list --limit 1000 --json tagName,isDraft,isPrerelease > "$RUNNER_TEMP/releases.json"
+          # Refuses a Stable that is not newer than the newest Stable, and a Beta
+          # that is not newer than every published release.
+          python3 scripts/release/release_plan.py --tag "$TAG" --releases "$RUNNER_TEMP/releases.json" | tee "$RUNNER_TEMP/plan.json"
+          {
+            echo "state=$(jq -r .state "$RUNNER_TEMP/plan.json")"
+            echo "previous_tag=$(jq -r .previousTag "$RUNNER_TEMP/plan.json")"
+          } >> "$GITHUB_OUTPUT"
+
+      # An immutable release fixes its tag to a commit when it is published.
+      # A tag with no published release, or a published release made from
+      # another commit, cannot be built from this checkout.
+      - name: Check the tag against the release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          STATE: ${{ steps.plan.outputs.state }}
+        run: |
+          set -euo pipefail
+          remote="$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)"
+          case "$STATE" in
+            published)
+              # A lightweight tag lists once; an annotated tag lists again, peeled.
+              tagged="$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}" | tail -n1 | cut -f1)"
+              if [ "$tagged" != "$GITHUB_SHA" ]; then
+                echo "$TAG is published at $tagged. Resume it by dispatching from that commit, not $GITHUB_SHA." >&2
+                exit 1
+              fi ;;
+            draft)
+              target="$(python3 scripts/release/github_release.py find "$TAG" | jq -r .target)"
+              if [ "$target" != "$GITHUB_SHA" ]; then
+                echo "The draft for $TAG targets $target, not $GITHUB_SHA. Delete the draft to start over from this commit." >&2
+                exit 1
+              fi ;;
+            new)
+              if [ -n "$remote" ]; then
+                echo "The tag $TAG exists ($remote) but has no release. A release tag is never reused." >&2
+                exit 1
+              fi ;;
+          esac
+
+      # A resumed draft keeps every platform whose signed manifest, signature
+      # and artifact still verify, byte for byte; only the rest is built again.
+      - name: Resume what the draft already holds
+        id: resume
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          CHANNEL: ${{ steps.version.outputs.channel }}
+          STATE: ${{ steps.plan.outputs.state }}
+        run: |
+          set -euo pipefail
+          pending='["edge-x86_64","edge-aarch64","windows-x86_64","windows-aarch64","android"]'
+          digest=""
+          mkdir -p "$RUNNER_TEMP/reuse"
+          if [ "$STATE" != "new" ]; then
+            (cd apps/server && go build -o "$RUNNER_TEMP/tilecast-release-verify" ./cmd/tilecast-release-verify)
+            python3 scripts/release/github_release.py download "$TAG" --dir "$RUNNER_TEMP/draft"
+            if [ -f "$RUNNER_TEMP/draft/tilecast-release.json" ]; then
+              digest="$(jq -r '[.components[] | select(.id == "server" and .status == "available") | .digest][0] // ""' "$RUNNER_TEMP/draft/tilecast-release.json")"
+            fi
+            # The verifier exits 1 when it finds problems; the report says which.
+            "$RUNNER_TEMP/tilecast-release-verify" --dir "$RUNNER_TEMP/draft" --public-key "$UPDATE_KEY" \
+              --version "$VERSION" --android-certificate "$ANDROID_CERTIFICATE_SHA256" > "$RUNNER_TEMP/draft-report.json" || true
+            result="$(python3 scripts/release/release_assemble.py resume --version "$VERSION" --channel "$CHANNEL" \
+              --assets "$RUNNER_TEMP/draft" --report "$RUNNER_TEMP/draft-report.json" --out "$RUNNER_TEMP/reuse")"
+            echo "$result"
+            pending="$(jq -c .pending <<<"$result")"
+          fi
+          if [ "$STATE" = "published" ]; then
+            pending='[]'
+          fi
+          {
+            echo "edge_arches=$(jq -c '[.[] | select(startswith("edge-")) | sub("edge-"; "")]' <<<"$pending")"
+            echo "windows_arches=$(jq -c '[.[] | select(startswith("windows-")) | sub("windows-"; "")]' <<<"$pending")"
+            echo "build_android=$(jq -r 'index("android") != null' <<<"$pending")"
+            echo "digest=$digest"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tilecast-release-reuse
+          path: ${{ runner.temp }}/reuse
+          if-no-files-found: ignore
+
+  # The Stable shipping bundle: everything packaged into or materially required
+  # by the server image. A release cannot publish until all of it passes.
+  # Android, Edge, and Windows are validated by their own build jobs below.
+  server_ci:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published'
+    uses: ./.github/workflows/ci-server.yml
+
+  dashboard_ci:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published'
+    # A called workflow cannot request more than its caller grants, and
+    # ci-dashboard.yml requests the pull request comment permissions. The React
+    # Doctor step is skipped on release runs, so nothing uses them here.
+    permissions:
+      actions: read
+      contents: read
+      checks: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/ci-dashboard.yml
+
+  container_ci:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published'
+    uses: ./.github/workflows/validate-container.yml
+
+  browser_ci:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published'
+    uses: ./.github/workflows/validate-browser.yml
+
+  plugins_ci:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published'
+    uses: ./.github/workflows/validate-plugins.yml
+
+  widgets_ci:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published'
+    uses: ./.github/workflows/validate-widgets.yml
+
+  sources_ci:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published'
+    uses: ./.github/workflows/validate-data-sources.yml
+
+  contracts_ci:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published'
+    uses: ./.github/workflows/validate-cli.yml
+
+  server_image:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/server-release.yml
+    with:
+      stage: build
+      version: ${{ needs.prepare.outputs.version }}
+      channel: ${{ needs.prepare.outputs.channel }}
+      existing_digest: ${{ needs.prepare.outputs.digest }}
+
+  edge:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published' && needs.prepare.outputs.edge_arches != '[]'
+    permissions:
+      contents: read
+      packages: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/edge-release.yml
+    with:
+      release_version: ${{ needs.prepare.outputs.version }}
+      channel: ${{ needs.prepare.outputs.channel }}
+      arches: ${{ needs.prepare.outputs.edge_arches }}
+      verify_reproducible: ${{ inputs.verify_reproducible }}
+    secrets: inherit
+
+  windows:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published' && needs.prepare.outputs.windows_arches != '[]'
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/windows-player-release.yml
+    with:
+      release_version: ${{ needs.prepare.outputs.version }}
+      channel: ${{ needs.prepare.outputs.channel }}
+      arches: ${{ needs.prepare.outputs.windows_arches }}
+      release_notes: Tilecast ${{ needs.prepare.outputs.version }}
+    secrets: inherit
+
+  android:
+    needs: prepare
+    if: needs.prepare.outputs.state != 'published' && needs.prepare.outputs.build_android == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/player-release.yml
+    with:
+      release_version: ${{ needs.prepare.outputs.version }}
+      channel: ${{ needs.prepare.outputs.channel }}
+      release_notes: Tilecast ${{ needs.prepare.outputs.version }}
+    secrets: inherit
+
+  assemble:
+    needs:
+      - prepare
+      - server_ci
+      - dashboard_ci
+      - container_ci
+      - browser_ci
+      - plugins_ci
+      - widgets_ci
+      - sources_ci
+      - contracts_ci
+      - server_image
+      - edge
+      - windows
+      - android
+    # Runs even when a platform build failed, so the contract can decide
+    # whether that platform was required. It never runs for a published release.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.state != 'published' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      ready: ${{ steps.draft.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+
+      - name: Require the validation gates
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          failed="$(jq -r 'to_entries[] | select(.key | test("_ci$")) | select(.value.result != "success") | "\(.key)=\(.value.result)"' <<<"$RESULTS")"
+          if [ -n "$failed" ]; then
+            echo "A release needs every validation gate to pass. Not passed:" >&2
+            echo "$failed" >&2
+            exit 1
+          fi
+
+      - name: Download the platform build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: ${{ runner.temp }}/artifacts
+          pattern: tilecast-*
+
+      - name: Collect the release assets
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          CHANNEL: ${{ needs.prepare.outputs.channel }}
+        run: |
+          set -euo pipefail
+          sources=()
+          for directory in "$RUNNER_TEMP"/artifacts/*/; do
+            sources+=("$directory")
+          done
+          python3 scripts/release/release_assemble.py collect --version "$VERSION" --channel "$CHANNEL" \
+            --out "$RUNNER_TEMP/assets" --source "${sources[@]}"
+
+      # The server's own importer, run over the directory: a release this check
+      # accepts is a release the server discovers, verifies and offers to screens.
+      - name: Verify signatures, artifacts and metadata
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          (cd apps/server && go build -o "$RUNNER_TEMP/tilecast-release-verify" ./cmd/tilecast-release-verify)
+          "$RUNNER_TEMP/tilecast-release-verify" --dir "$RUNNER_TEMP/assets" --public-key "$UPDATE_KEY" \
+            --version "$VERSION" --android-certificate "$ANDROID_CERTIFICATE_SHA256" > "$RUNNER_TEMP/report.json" || true
+          jq . "$RUNNER_TEMP/report.json"
+
+      - name: Release notes baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          PREVIOUS: ${{ needs.prepare.outputs.previous_tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PREVIOUS" ]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
+              -f tag_name="$TAG" -f target_commitish="$GITHUB_SHA" -f previous_tag_name="$PREVIOUS" \
+              --jq .body > "$RUNNER_TEMP/changes.md"
+          else
+            echo "First coordinated Tilecast release." > "$RUNNER_TEMP/changes.md"
+          fi
+
+      - name: Apply the release contract and write the inventory, checksums and notes
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+          CHANNEL: ${{ needs.prepare.outputs.channel }}
+          SERVER_DIGEST: ${{ needs.server_image.outputs.digest || needs.prepare.outputs.digest }}
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          # Per component, why a build is missing. A matrix job reports one
+          # result for all of its architectures.
+          jq '{
+            "server": .server_image.result,
+            "edge-x86_64": .edge.result, "edge-aarch64": .edge.result,
+            "windows-x86_64": .windows.result, "windows-aarch64": .windows.result,
+            "android": .android.result
+          }' <<<"$RESULTS" > "$RUNNER_TEMP/results.json"
+          python3 scripts/release/release_assemble.py build --version "$VERSION" --channel "$CHANNEL" \
+            --commit "$GITHUB_SHA" --assets "$RUNNER_TEMP/assets" --report "$RUNNER_TEMP/report.json" \
+            --results "$RUNNER_TEMP/results.json" --server-digest "$SERVER_DIGEST" \
+            --changes "$RUNNER_TEMP/changes.md" --notes-out "$RUNNER_TEMP/notes.md"
+
+      # The draft is the only place assets are added. It is reused across runs:
+      # assets that came from an earlier verified build are not uploaded again.
+      - name: Create or update the draft release and upload the assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          PRERELEASE: ${{ needs.prepare.outputs.prerelease }}
+          STATE: ${{ needs.prepare.outputs.state }}
+        run: |
+          set -euo pipefail
+          prerelease=()
+          if [ "$PRERELEASE" = true ]; then
+            prerelease=(--prerelease)
+          fi
+          if [ "$STATE" = new ]; then
+            python3 scripts/release/github_release.py create "$TAG" --target "$GITHUB_SHA" \
+              --title "Tilecast $VERSION" --notes-file "$RUNNER_TEMP/notes.md" "${prerelease[@]}"
+          else
+            python3 scripts/release/github_release.py notes "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          # Upload what this run built, and the two release-wide files. What
+          # the draft already holds from a verified earlier build stays as it is.
+          mkdir -p "$RUNNER_TEMP/upload"
+          for file in "$RUNNER_TEMP"/assets/*; do
+            name="$(basename "$file")"
+            if [ -e "$RUNNER_TEMP/artifacts/tilecast-release-reuse/$name" ] && [ "$name" != SHA256SUMS ] && [ "$name" != tilecast-release.json ]; then
+              continue
+            fi
+            cp "$file" "$RUNNER_TEMP/upload/$name"
+          done
+          python3 scripts/release/github_release.py upload "$TAG" --dir "$RUNNER_TEMP/upload" --replace
+
+      # What the draft now holds, read back from GitHub, must be exactly what
+      # was assembled and must still verify. After publication it is immutable.
+      - name: Verify the draft as GitHub holds it
+        id: draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          CHANNEL: ${{ needs.prepare.outputs.channel }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release/github_release.py download "$TAG" --dir "$RUNNER_TEMP/readback"
+          "$RUNNER_TEMP/tilecast-release-verify" --dir "$RUNNER_TEMP/readback" --public-key "$UPDATE_KEY" \
+            --version "$VERSION" --android-certificate "$ANDROID_CERTIFICATE_SHA256" > "$RUNNER_TEMP/readback-report.json" || true
+          python3 scripts/release/release_assemble.py verify --version "$VERSION" --channel "$CHANNEL" \
+            --assets "$RUNNER_TEMP/readback" --report "$RUNNER_TEMP/readback-report.json"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize the draft
+        run: |
+          {
+            echo "## Draft release ${{ needs.prepare.outputs.tag }}"
+            echo
+            cat "$RUNNER_TEMP/notes.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    needs: [prepare, assemble]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && (needs.prepare.outputs.state == 'published' || needs.assemble.outputs.ready == 'true') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
+      aliases: ${{ steps.aliases.outputs.aliases }}
+      digest: ${{ steps.aliases.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Publishing is the commit point. The ordering is checked again against
+      # the releases as they are now, so a release that finished while this one
+      # was running cannot be followed by an older one.
+      - name: Publish the verified draft
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          CHANNEL: ${{ needs.prepare.outputs.channel }}
+          STATE: ${{ needs.prepare.outputs.state }}
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          if [ "$STATE" != published ]; then
+            gh release list --limit 1000 --json tagName,isDraft,isPrerelease > "$RUNNER_TEMP/releases.json"
+            python3 scripts/release/release_plan.py --tag "$TAG" --releases "$RUNNER_TEMP/releases.json" > /dev/null
+            if [ "$PUBLISH" != true ]; then
+              echo "published=false" >> "$GITHUB_OUTPUT"
+              echo "The draft $TAG is verified and not published. Dispatch the same version with publish on to resume." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            latest=(--not-latest)
+            if [ "$CHANNEL" = stable ]; then
+              latest=(--latest)
+            fi
+            python3 scripts/release/github_release.py publish "$TAG" "${latest[@]}"
+            # Publishing created the tag at the release commit.
+            git fetch --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+            test "$(git rev-parse "$TAG^{commit}")" = "$GITHUB_SHA"
+          fi
+          echo "published=true" >> "$GITHUB_OUTPUT"
+
+      # The aliases and the digest come from the release as it is published, so
+      # a resumed run promotes the same image the release records.
+      - name: Resolve the aliases and the image digest
+        id: aliases
+        if: steps.publish.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release list --limit 1000 --json tagName,isDraft,isPrerelease > "$RUNNER_TEMP/releases.json"
+          python3 scripts/release/release_plan.py --tag "$TAG" --releases "$RUNNER_TEMP/releases.json" > "$RUNNER_TEMP/plan.json"
+          jq . "$RUNNER_TEMP/plan.json"
+          gh release download "$TAG" --pattern tilecast-release.json --dir "$RUNNER_TEMP/published"
+          digest="$(jq -er '[.components[] | select(.id == "server" and .status == "available") | .digest][0]' "$RUNNER_TEMP/published/tilecast-release.json")"
+          {
+            echo "aliases=$(jq -c '[.aliases | to_entries[] | select(.value) | .key]' "$RUNNER_TEMP/plan.json")"
+            echo "digest=$digest"
+          } >> "$GITHUB_OUTPUT"
+
+  promote:
+    needs: [prepare, publish]
+    if: ${{ !cancelled() && needs.publish.outputs.published == 'true' && needs.publish.outputs.aliases != '[]' }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/server-release.yml
+    with:
+      stage: promote
+      version: ${{ needs.prepare.outputs.version }}
+      channel: ${{ needs.prepare.outputs.channel }}
+      digest: ${{ needs.publish.outputs.digest }}
+      aliases: ${{ needs.publish.outputs.aliases }}

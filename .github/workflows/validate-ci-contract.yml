@@ -18,6 +18,13 @@ jobs:
           cache: npm
       - name: Validate dependency-free CI helpers
         run: node --test scripts/ci/doctor.test.mjs scripts/ci/required.test.mjs scripts/ci/demo-schedule-window.test.mjs
+      # The release pipeline test builds tilecast-release-verify from the server module.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - name: Validate the coordinated release scripts
+        run: python3 -m unittest discover -s scripts/release -p 'test_*.py'
       - name: Validate native Player dependency direction
         run: |
           python3 -m unittest discover -s scripts/ci -p 'test_player_architecture.py'

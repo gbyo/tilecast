@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "repository": "gbyo/tilecast",
+  "serverImage": "ghcr.io/gbyo/tilecast-server",
+  "docsUrl": "https://tilecast.org",
+  "groups": {
+    "server": "Server",
+    "edge": "Tilecast Edge (Linux)",
+    "windows": "Windows",
+    "android": "Android and Fire TV",
+    "ios": "iOS and iPadOS",
+    "browser": "Browser"
+  },
+  "components": [
+    {
+      "id": "server",
+      "group": "server",
+      "label": "Server container image",
+      "kind": "image",
+      "required": ["stable", "beta"]
+    },
+    {
+      "id": "edge-x86_64",
+      "group": "edge",
+      "label": "Linux x86_64",
+      "kind": "player",
+      "family": "edge",
+      "architecture": "x86_64",
+      "required": ["stable", "beta"],
+      "assets": [
+        {
+          "name": "tilecast-edge-{version}-x86_64.tar.zst",
+          "role": "download"
+        },
+        { "name": "tilecast-edge-update-x86_64.json", "role": "update" },
+        { "name": "tilecast-edge-update-x86_64.json.sig", "role": "signature" },
+        { "name": "tilecast-edge-{version}-x86_64.json", "role": "manifest" },
+        {
+          "name": "tilecast-edge-{version}-x86_64.json.sig",
+          "role": "signature"
+        },
+        {
+          "name": "tilecast-edge-{version}-x86_64.sbom.cdx.json",
+          "role": "sbom"
+        }
+      ]
+    },
+    {
+      "id": "edge-aarch64",
+      "group": "edge",
+      "label": "Linux aarch64",
+      "kind": "player",
+      "family": "edge",
+      "architecture": "aarch64",
+      "required": ["stable", "beta"],
+      "assets": [
+        {
+          "name": "tilecast-edge-{version}-aarch64.tar.zst",
+          "role": "download"
+        },
+        { "name": "tilecast-edge-update-aarch64.json", "role": "update" },
+        {
+          "name": "tilecast-edge-update-aarch64.json.sig",
+          "role": "signature"
+        },
+        { "name": "tilecast-edge-{version}-aarch64.json", "role": "manifest" },
+        {
+          "name": "tilecast-edge-{version}-aarch64.json.sig",
+          "role": "signature"
+        },
+        {
+          "name": "tilecast-edge-{version}-aarch64.sbom.cdx.json",
+          "role": "sbom"
+        }
+      ]
+    },
+    {
+      "id": "windows-x86_64",
+      "group": "windows",
+      "label": "Windows x64",
+      "kind": "player",
+      "family": "windows",
+      "architecture": "x86_64",
+      "required": ["stable"],
+      "assets": [
+        {
+          "name": "tilecast-windows-{version}-x86_64.msix",
+          "role": "download"
+        },
+        { "name": "tilecast-windows-update-x86_64.json", "role": "update" },
+        {
+          "name": "tilecast-windows-update-x86_64.json.sig",
+          "role": "signature"
+        }
+      ]
+    },
+    {
+      "id": "windows-aarch64",
+      "group": "windows",
+      "label": "Windows ARM64",
+      "kind": "player",
+      "family": "windows",
+      "architecture": "aarch64",
+      "required": ["stable"],
+      "assets": [
+        {
+          "name": "tilecast-windows-{version}-aarch64.msix",
+          "role": "download"
+        },
+        { "name": "tilecast-windows-update-aarch64.json", "role": "update" },
+        {
+          "name": "tilecast-windows-update-aarch64.json.sig",
+          "role": "signature"
+        }
+      ]
+    },
+    {
+      "id": "android",
+      "group": "android",
+      "label": "Android TV, Google TV and Fire TV",
+      "kind": "player",
+      "family": "android",
+      "architecture": "",
+      "required": ["stable", "beta"],
+      "assets": [
+        { "name": "tilecast-player.apk", "role": "download" },
+        { "name": "tilecast-player-update.json", "role": "update" },
+        { "name": "tilecast-player-update.json.sig", "role": "signature" }
+      ]
+    }
+  ],
+  "external": [
+    {
+      "id": "ios",
+      "group": "ios",
+      "label": "iOS and iPadOS app",
+      "status": "app-store",
+      "note": "Distributed through Apple's App Store, not as a GitHub release asset. Its availability follows Apple review and never gates a Tilecast release.",
+      "docs": "/developers/ios-app/"
+    },
+    {
+      "id": "browser",
+      "group": "browser",
+      "label": "Browser Player",
+      "status": "bundled",
+      "note": "Bundled with the server image. It is the same version as the server and needs no separate download.",
+      "docs": "/players/install-browser/"
+    }
+  ],
+  "releaseAssets": [
+    { "name": "SHA256SUMS", "role": "checksums" },
+    { "name": "tilecast-release.json", "role": "inventory" }
+  ]
+}

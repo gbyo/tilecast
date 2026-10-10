@@ -3,6 +3,7 @@ package updates
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -357,5 +358,56 @@ func TestCheckFailsWhenNothingCanBeImported(t *testing.T) {
 	}
 	if got := len(storedReleases(t, pool)); got != 0 {
 		t.Fatalf("stored %d releases from an untrusted signer", got)
+	}
+}
+
+// A direct upload follows the same ordering as a GitHub release: a Beta, the
+// next Beta and Stable import in order, and an older or equal version is
+// refused.
+func TestDirectUploadFollowsTheUnifiedOrdering(t *testing.T) {
+	pool := updatesTestPool(t)
+	f := newReleaseFixture(t)
+	service := newUpdatesService(t, pool, f, f.provider())
+	ctx := context.Background()
+
+	upload := func(version string) (ImportedRelease, error) {
+		t.Helper()
+		f.reset()
+		f.windows(version, VersionChannel(version), "x86_64")
+		var raw, signature []byte
+		var artifact []byte
+		var artifactName string
+		for _, asset := range f.assets {
+			switch {
+			case asset.Name == windowsGitHubManifestHead+"x86_64.json":
+				raw = f.downloads[asset.URL]
+			case asset.Name == windowsGitHubManifestHead+"x86_64.json.sig":
+				signature = f.downloads[asset.URL]
+			default:
+				artifact, artifactName = f.artifacts[asset.URL], asset.Name
+			}
+		}
+		path := filepath.Join(t.TempDir(), artifactName)
+		if err := os.WriteFile(path, artifact, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return service.ImportUpload(ctx, path, artifactName, raw, signature, nil)
+	}
+
+	for _, version := range []string{"0.26.0-beta.1", "0.26.0-beta.2", "0.26.0", "0.26.1-beta.1"} {
+		if result, err := upload(version); err != nil || result.Duplicate {
+			t.Fatalf("%s: %+v %v", version, result, err)
+		}
+	}
+	// A Beta cannot follow the Stable of its own version, and the same
+	// version is a duplicate rather than a new release.
+	if _, err := upload("0.26.0-beta.3"); err == nil || !strings.Contains(err.Error(), "newer than every imported release") {
+		t.Fatalf("a Beta older than the newest import was accepted: %v", err)
+	}
+	if result, err := upload("0.26.1-beta.1"); err != nil || !result.Duplicate {
+		t.Fatalf("the same version again must be a duplicate: %+v %v", result, err)
+	}
+	if got := len(storedReleases(t, pool)); got != 4 {
+		t.Fatalf("stored %d releases, want 4", got)
 	}
 }

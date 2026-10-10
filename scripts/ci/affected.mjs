@@ -122,6 +122,20 @@ const rules = [
     /^packages\/settings-schema\/active-hours-fixtures\.json$/,
     ["player_core", "linux", "browser_player"],
   ],
+  // The release version ordering is one rule written in Go (the server), Rust
+  // (Edge and the Windows Player) and Python (the release scripts and the
+  // Edge release build). Each runs the shared corpus, so the corpus selects
+  // every one of them. The Python implementation also feeds the Edge release
+  // build, whose tests run in the Edge Rust lane.
+  [
+    /^packages\/player-contracts\/fixtures\/release-versions\.json$/,
+    ["server", "edge_rust", "windows", "ci"],
+  ],
+  [/^scripts\/release\/release_version\.py$/, ["ci", "edge_rust"]],
+  [/^scripts\/release\//, ["ci"]],
+  // The release pipeline test builds the server's release verifier and runs
+  // the real importer over signed assets, so the importer selects it.
+  [/^apps\/server\/(internal\/updates|cmd\/tilecast-release-verify)\//, ["ci"]],
   [/^apps\/ios\//, ["ios"]],
   // The iOS app runs the shared server-address corpus in its tests.
   [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],

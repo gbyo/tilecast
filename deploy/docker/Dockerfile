@@ -76,7 +76,8 @@ FROM golang:1.27-alpine AS server
 RUN apk add --no-cache ca-certificates git
 # Build identity injected into apps/server/internal/version. Development is
 # the default so an unparameterized local build can never claim to be Stable.
-# Stable releases inject VERSION_NUMBER from the server-vX.Y.Z tag.
+# Stable and Beta releases inject VERSION_NUMBER and VERSION_CHANNEL from the
+# vX.Y.Z or vX.Y.Z-beta.N release tag (.github/workflows/server-release.yml).
 ARG VERSION_NUMBER=0.0.0-dev
 ARG VERSION_CHANNEL=development
 ARG VERSION_COMMIT=local

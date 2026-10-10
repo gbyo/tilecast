@@ -1,209 +1,78 @@
-name: Tilecast Server Release
+name: Tilecast Server Image Release
 
-# Stable server releases from server-vX.Y.Z tags. The tag is the
-# authoritative Stable version: no source-version-bump commit is needed.
+# The Server container image of a coordinated release. It never creates a
+# GitHub release and is not triggered by a tag: release.yml calls it twice.
 #
-# Cutting a release:
-#   git switch main
-#   git pull --ff-only
-#   git tag server-vX.Y.Z
-#   git push origin server-vX.Y.Z
+#   stage: build    build the container once, publish only the immutable
+#                   version tag (X.Y.Z or X.Y.Z-beta.N) and report its digest D.
+#   stage: promote  point the moving aliases at D, after the GitHub release
+#                   that records D has been published.
 #
-# The release is staged so a failure can never leave the Stable aliases
-# pointing at an unreleased build:
-#   1. build the container once and publish only the immutable X.Y.Z tag;
-#   2. resolve and verify the published digest D; the GitHub Release records D;
-#   3. create the GitHub Release;
-#   4. create stable and latest from D, never from the mutable version tag.
-# If alias promotion fails after the GitHub Release exists, Stable stays on
-# the previous release; rerunning the workflow recovers D from the existing
-# release and resumes at promotion instead of rebuilding.
+# Staged so a failure can never leave an alias pointing at an unreleased build:
+#   1. build and publish only the immutable version tag;
+#   2. resolve and verify the published digest D;
+#   3. (release.yml) assemble, verify and publish the one GitHub release, which
+#      records D in tilecast-release.json and its notes;
+#   4. create the aliases from D, never from the mutable version tag.
+# If alias promotion fails after the release is published, the aliases stay on
+# the previous release; rerunning the coordinated release recovers D from the
+# published release and resumes at promotion instead of rebuilding.
 #
-# Only this workflow may move stable or latest; server-image.yml publishes
-# Development images from main and never touches them.
+# Aliases (release.yml decides which a release may move, so none moves
+# backwards): stable and latest name the newest Stable release; beta names the
+# newest release of either kind. Only this workflow moves them. server-image.yml
+# publishes Development images from main and never touches them.
 on:
-  push:
-    tags:
-      - "server-v*"
+  workflow_call:
+    inputs:
+      stage:
+        description: build or promote
+        required: true
+        type: string
+      version:
+        description: Release version without the leading v, for example 0.26.0-beta.1
+        required: true
+        type: string
+      channel:
+        description: stable or beta
+        required: true
+        type: string
+      existing_digest:
+        description: build only. The digest an earlier run recorded; the image is not rebuilt
+        required: false
+        default: ""
+        type: string
+      digest:
+        description: promote only. The verified digest the aliases will name
+        required: false
+        default: ""
+        type: string
+      aliases:
+        description: promote only. JSON list of the aliases to move
+        required: false
+        default: "[]"
+        type: string
+    outputs:
+      digest:
+        description: The verified digest of the published version tag
+        value: ${{ jobs.build.outputs.digest }}
 
 permissions:
-  actions: read
   contents: read
-  checks: write
-
-# One global Stable-release lock across all tags. Per-tag groups would let
-# two different Stable releases race the shared stable/latest aliases: both
-# could pass the increasing-version check before either release exists, and
-# the older one could finish last and move Stable backwards.
-concurrency:
-  group: tilecast-server-stable-release
-  cancel-in-progress: false
+  packages: write
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: gbyo/tilecast-server
 
 jobs:
-  # The Stable shipping bundle: everything packaged into or materially
-  # required by the server image. The release cannot publish until all of
-  # it passes. Android, Linux Player, and Edge validation are deliberately
-  # excluded: they ship separately and must not gate a server release.
-  server_ci:
-    uses: ./.github/workflows/ci-server.yml
-
-  dashboard_ci:
-    # A called workflow cannot request more than its caller grants, and
-    # ci-dashboard.yml requests the pull request comment permissions. The React
-    # Doctor step is skipped on release runs, so nothing uses them here.
-    permissions:
-      actions: read
-      contents: read
-      checks: write
-      issues: write
-      pull-requests: write
-    uses: ./.github/workflows/ci-dashboard.yml
-
-  container_ci:
-    uses: ./.github/workflows/validate-container.yml
-
-  browser_ci:
-    uses: ./.github/workflows/validate-browser.yml
-
-  plugins_ci:
-    uses: ./.github/workflows/validate-plugins.yml
-
-  widgets_ci:
-    uses: ./.github/workflows/validate-widgets.yml
-
-  sources_ci:
-    uses: ./.github/workflows/validate-data-sources.yml
-
-  contracts_ci:
-    uses: ./.github/workflows/validate-cli.yml
-
-  release:
-    needs:
-      [
-        server_ci,
-        dashboard_ci,
-        container_ci,
-        browser_ci,
-        plugins_ci,
-        widgets_ci,
-        sources_ci,
-        contracts_ci,
-      ]
+  build:
+    if: inputs.stage == 'build'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
+    outputs:
+      digest: ${{ steps.verify.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Resolve and validate release
-        id: release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          tag="$GITHUB_REF_NAME"
-          if ! [[ "$tag" =~ ^server-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Release tag must use server-v<major>.<minor>.<patch> with no suffix." >&2
-            exit 1
-          fi
-          version="${tag#server-v}"
-
-          exists=false
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            exists=true
-            echo "Release $tag already exists; this run resumes at alias promotion."
-          fi
-
-          # GitHub's generated release notes are repository-wide by default.
-          # Tilecast has independent Server, Player, Linux Player, and Edge
-          # release trains, so always scope Server notes to the previous
-          # published server-vX.Y.Z release. The first Server release has no
-          # meaningful previous Server tag, so use an explicit first-release
-          # note instead of comparing against an unrelated component release.
-          if [ "$exists" != "true" ]; then
-            previous_tag="$(
-              gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 \
-                --json tagName,publishedAt \
-                --jq '[.[] | select(.tagName | test("^server-v[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(.publishedAt) | reverse | .[0].tagName // ""'
-            )"
-            if [ -n "$previous_tag" ]; then
-              notes="$(gh api --method POST "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-                -f tag_name="$tag" \
-                -f target_commitish="$GITHUB_SHA" \
-                -f previous_tag_name="$previous_tag" \
-                --jq .body)"
-            else
-              notes="First Stable Tilecast Server release."
-            fi
-            if [ -z "$notes" ]; then
-              notes="Tilecast Server $version"
-            fi
-            printf '%s\n' "$notes" > "$RUNNER_TEMP/tilecast-release-notes.md"
-          fi
-
-          {
-            echo "tag=$tag"
-            echo "version=$version"
-            echo "exists=$exists"
-          } >> "$GITHUB_OUTPUT"
-
-      # The release tag must point at a commit that is part of main, not an
-      # unmerged side branch. Checking the reverse direction would require
-      # the tag to contain the newest main commit at this instant, so a
-      # valid release could fail merely because another PR merged after the
-      # tag was pushed. Main is free to advance after tagging.
-      - name: Reject a stable release tag outside main
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-          if git merge-base --is-ancestor HEAD refs/remotes/origin/main; then
-            echo "Release tag points at a commit on main."
-            exit 0
-          fi
-          echo "This stable release tag is not on main; it carries commits main does not contain:" >&2
-          git log --oneline --no-decorate refs/remotes/origin/main..HEAD >&2
-          echo >&2
-          echo "Merge the release commit to main and retag from current main." >&2
-          exit 1
-
-      # Under the global lock this guarantees an older queued release can
-      # never move Stable backwards: versions must strictly increase across
-      # published stable releases.
-      - name: Reject a non-increasing stable version
-        if: steps.release.outputs.exists != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        run: |
-          set -euo pipefail
-          to_number() {
-            IFS='.' read -r major minor patch <<<"$1"
-            echo $((10#$major * 1000000 + 10#$minor * 1000 + 10#$patch))
-          }
-          current="$(to_number "$RELEASE_VERSION")"
-          previous=0
-          while IFS= read -r release_tag; do
-            candidate_version="${release_tag#server-v}"
-            if ! [[ "$candidate_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              continue
-            fi
-            candidate="$(to_number "$candidate_version")"
-            if [ "$candidate" -gt "$previous" ]; then
-              previous="$candidate"
-            fi
-          done < <(gh release list --repo "$GITHUB_REPOSITORY" --limit 100 --json tagName --jq '.[].tagName | select(startswith("server-v"))')
-          if [ "$current" -le "$previous" ]; then
-            echo "Stable version $RELEASE_VERSION must be greater than the latest published stable version." >&2
-            exit 1
-          fi
 
       - uses: docker/setup-buildx-action@v4
 
@@ -214,32 +83,65 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # A version tag is immutable. A run resumes from the digest an earlier
+      # run recorded; failing that, from a tag an interrupted run published
+      # for this very commit. A tag from any other commit is never reused.
+      - name: Resolve an image that is already published
+        id: existing
+        env:
+          RECORDED_DIGEST: ${{ inputs.existing_digest }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          image="$REGISTRY/$IMAGE_NAME"
+          digest=""
+          if [ -n "$RECORDED_DIGEST" ]; then
+            if ! [[ "$RECORDED_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "The recorded digest has an unexpected shape: $RECORDED_DIGEST" >&2
+              exit 1
+            fi
+            docker buildx imagetools inspect "$image@$RECORDED_DIGEST" >/dev/null
+            digest="$RECORDED_DIGEST"
+            echo "Resuming with the recorded image $digest."
+          elif raw="$(docker buildx imagetools inspect --raw "$image:$RELEASE_VERSION" 2>/dev/null)"; then
+            revision="$(printf '%s' "$raw" | jq -r '.annotations["org.opencontainers.image.revision"] // ""')"
+            published="$(printf '%s' "$raw" | jq -r '.annotations["org.opencontainers.image.version"] // ""')"
+            if [ "$revision" != "$GITHUB_SHA" ] || [ "$published" != "$RELEASE_VERSION" ]; then
+              echo "$image:$RELEASE_VERSION already exists from another build (commit '${revision:-unknown}')." >&2
+              echo "A version tag is immutable. Delete that package version or choose a new version." >&2
+              exit 1
+            fi
+            digest="$(docker buildx imagetools inspect "$image:$RELEASE_VERSION" --format '{{json .Manifest}}' | jq -er .digest)"
+            echo "Adopting the image an interrupted run published for this commit: $digest."
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
       - name: Extract image metadata
         id: meta
+        if: steps.existing.outputs.digest == ''
         uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ steps.release.outputs.version }}
+            type=raw,value=${{ inputs.version }}
           labels: |
             org.opencontainers.image.title=Tilecast Server
             org.opencontainers.image.description=Self-hosted Tilecast server and Studio dashboard
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+            org.opencontainers.image.version=${{ inputs.version }}
           annotations: |
             org.opencontainers.image.title=Tilecast Server
             org.opencontainers.image.description=Self-hosted Tilecast server and Studio dashboard
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.version=${{ steps.release.outputs.version }}
+            org.opencontainers.image.version=${{ inputs.version }}
         env:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
-      # Stage 1: publish only the immutable versioned tag. The Stable
-      # aliases do not move until the GitHub Release exists.
+      # Stage 1: publish only the immutable versioned tag. No alias moves.
       - name: Build and publish the versioned image once
-        if: steps.release.outputs.exists != 'true'
+        if: steps.existing.outputs.digest == ''
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -249,8 +151,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
           build-args: |
-            VERSION_NUMBER=${{ steps.release.outputs.version }}
-            VERSION_CHANNEL=stable
+            VERSION_NUMBER=${{ inputs.version }}
+            VERSION_CHANNEL=${{ inputs.channel }}
             VERSION_COMMIT=${{ github.sha }}
             VERSION_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
           cache-from: type=gha
@@ -258,14 +160,13 @@ jobs:
           provenance: mode=max
           sbom: true
 
-      # Stage 2: resolve and verify the published digest. The digest becomes
-      # a step output so promotion consumes exactly what was verified, and
-      # the GitHub Release records it for resumed runs.
+      # Stage 2: resolve and verify the published digest. The digest becomes a
+      # step output so promotion consumes exactly what was verified.
       - name: Verify the published versioned image
         id: verify
-        if: steps.release.outputs.exists != 'true'
         env:
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          EXISTING_DIGEST: ${{ steps.existing.outputs.digest }}
         run: |
           set -euo pipefail
           image="$REGISTRY/$IMAGE_NAME"
@@ -276,83 +177,35 @@ jobs:
             echo "Verified digest has an unexpected shape: ${digest:-<empty>}." >&2
             exit 1
           fi
-          {
-            printf '\n## Server image\n\n'
-            printf -- '- `ghcr.io/gbyo/tilecast-server:%s`\n' "$RELEASE_VERSION"
-            printf -- '- `ghcr.io/gbyo/tilecast-server:stable`\n'
-            printf -- '- `ghcr.io/gbyo/tilecast-server:latest`\n'
-            printf -- '- digest: `%s`\n' "$digest"
-          } >> "$RUNNER_TEMP/tilecast-release-notes.md"
+          if [ -n "$EXISTING_DIGEST" ] && [ "$digest" != "$EXISTING_DIGEST" ]; then
+            echo "The version tag names $digest, not the recorded $EXISTING_DIGEST." >&2
+            exit 1
+          fi
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
           echo "Versioned image verified at $digest."
 
-      # Stage 3: the GitHub Release is the commit point. Only after it
-      # exists may the Stable aliases move.
-      - name: Publish Tilecast Server GitHub Release
-        if: steps.release.outputs.exists != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        run: |
-          set -euo pipefail
-          gh release create "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
-            --title "Tilecast Server $RELEASE_VERSION" \
-            --notes-file "$RUNNER_TEMP/tilecast-release-notes.md"
+  promote:
+    if: inputs.stage == 'promote'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v4
 
-      # Resolve the single digest promotion may consume. Fresh runs use the
-      # digest verified above; resumed runs recover the digest recorded in
-      # the existing release notes and confirm it still exists. There is no
-      # mutable tag resolution between verification and promotion, and a
-      # resumed run never guesses from the version tag.
-      - name: Resolve the digest to promote
-        id: promote
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.release.outputs.tag }}
-          RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
-          VERIFIED_DIGEST: ${{ steps.verify.outputs.digest }}
-        run: |
-          set -euo pipefail
-          image="$REGISTRY/$IMAGE_NAME"
-          if [ "$RELEASE_EXISTS" = "true" ]; then
-            body="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body)"
-            digest="$(printf '%s' "$body" | grep -o '^- digest: `sha256:[0-9a-f]\{64\}`$' | head -1 | grep -o 'sha256:[0-9a-f]\{64\}' || true)"
-            if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-              echo "Existing release $RELEASE_TAG records no valid image digest; refusing to guess from the version tag." >&2
-              exit 1
-            fi
-            docker buildx imagetools inspect "$image@$digest" >/dev/null
-            echo "Resumed run: promoting the digest recorded by $RELEASE_TAG: $digest."
-          else
-            digest="$VERIFIED_DIGEST"
-            if ! [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-              echo "Verified digest has an unexpected shape: ${digest:-<empty>}." >&2
-              exit 1
-            fi
-          fi
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Stage 4: point the Stable aliases at the verified digest. No
-      # rebuild: this is a registry-native tag operation, so the aliases
-      # can only ever name the already-verified, already-released artifact.
-      - name: Promote the verified digest to the Stable aliases
+      # Stage 4: point the aliases at the verified digest. No rebuild: this is
+      # a registry-native tag operation, so an alias can only ever name the
+      # already-verified, already-released artifact.
+      - uses: actions/checkout@v7
+
+      - name: Promote the verified digest to its aliases
         env:
-          PROMOTE_DIGEST: ${{ steps.promote.outputs.digest }}
-        run: |
-          set -euo pipefail
-          image="$REGISTRY/$IMAGE_NAME"
-          source="$image@$PROMOTE_DIGEST"
-          docker buildx imagetools create \
-            --tag "$image:stable" \
-            --tag "$image:latest" \
-            "$source"
-          expected="$(docker buildx imagetools inspect "$source" --format '{{json .Manifest}}')"
-          stable_manifest="$(docker buildx imagetools inspect "$image:stable" --format '{{json .Manifest}}')"
-          latest_manifest="$(docker buildx imagetools inspect "$image:latest" --format '{{json .Manifest}}')"
-          test -n "$expected"
-          test "$stable_manifest" = "$expected"
-          test "$latest_manifest" = "$expected"
-          echo "stable and latest now name $PROMOTE_DIGEST."
+          PROMOTE_DIGEST: ${{ inputs.digest }}
+          ALIASES: ${{ inputs.aliases }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        run: scripts/release/promote-server-aliases.sh

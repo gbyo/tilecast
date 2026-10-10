@@ -385,6 +385,27 @@ test("activity ingestion, derivation and shared evidence select parity", () => {
   ])
     assert.equal(affected([path]).edge_activity, true, path);
 });
+test("the release version corpus selects every implementation of the ordering", () => {
+  const result = affected([
+    "packages/player-contracts/fixtures/release-versions.json",
+  ]);
+  for (const area of ["server", "edge_rust", "windows", "ci"])
+    assert.equal(result[area], true, area);
+  // The Python implementation feeds the Edge release build.
+  assert.equal(
+    affected(["scripts/release/release_version.py"]).edge_rust,
+    true,
+  );
+  // Release coordination scripts need only the CI contract lane.
+  const scripts = affected(["scripts/release/release_assemble.py"]);
+  assert.equal(scripts.ci, true);
+  assert.equal(scripts.android, false);
+  assert.equal(scripts.server, false);
+  // The pipeline test runs the server's importer over signed assets.
+  const importer = affected(["apps/server/internal/updates/discovery.go"]);
+  assert.equal(importer.server, true);
+  assert.equal(importer.ci, true);
+});
 test("player contract sources select every native consumer and their drift gate", () => {
   for (const path of [
     "packages/manifest-schema/presentation-capabilities.json",

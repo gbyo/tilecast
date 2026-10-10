@@ -204,3 +204,29 @@ func TestReadsABase64RawKeyAndRejectsAnotherSigner(t *testing.T) {
 		t.Fatalf("a release signed by another key verified: code=%d components=%d problems=%d", code, len(result.Components), len(result.Problems))
 	}
 }
+
+// scripts/release/release_assemble.py reads this report. The same file is its
+// test input, so a change to the report's shape fails here and in Python.
+func TestReportMatchesTheDocumentTheAssemblyScriptReads(t *testing.T) {
+	expected, err := os.ReadFile("../../../../scripts/release/testdata/verify-report.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := func(letter string) string { return strings.Repeat(letter, 64) }
+	value := report{
+		Version: "0.26.0-beta.1", Channel: "beta",
+		Components: []component{
+			{Family: "android", Architecture: "", Manifest: "tilecast-player-update.json", Artifact: "tilecast-player.apk", VersionName: "0.26.0-beta.1", VersionCode: 2600001, Channel: "beta", SizeBytes: 1024, SHA256: digest("a")},
+			{Family: "edge", Architecture: "aarch64", Manifest: "tilecast-edge-update-aarch64.json", Artifact: "tilecast-edge-0.26.0-beta.1-aarch64.tar.zst", VersionName: "0.26.0-beta.1", VersionCode: 2600001, Channel: "beta", SizeBytes: 2048, SHA256: digest("b")},
+			{Family: "edge", Architecture: "x86_64", Manifest: "tilecast-edge-update-x86_64.json", Artifact: "tilecast-edge-0.26.0-beta.1-x86_64.tar.zst", VersionName: "0.26.0-beta.1", VersionCode: 2600001, Channel: "beta", SizeBytes: 4096, SHA256: digest("c")},
+		},
+		Problems: []problem{{Family: "windows", Architecture: "aarch64", Message: "invalid update manifest signature"}},
+	}
+	encoded, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(encoded)+"\n" != string(expected) {
+		t.Fatalf("the report document changed:\n%s\nwant:\n%s", encoded, expected)
+	}
+}
