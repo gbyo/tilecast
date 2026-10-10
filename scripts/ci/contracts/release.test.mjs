@@ -718,10 +718,11 @@ test("the Edge bridge is a separate, verified, never-latest pre-release", () => 
   );
 });
 
-test("assemble collects the reused assets of a resume that builds nothing", () => {
+test("assemble collects a lone downloaded artifact that has no subdirectory", () => {
   // actions/download-artifact extracts a lone matching artifact straight into
-  // its path. A run that resumes a complete draft downloads only
-  // tilecast-release-reuse, so the directory itself must be a source.
+  // its path: the reused assets of a resume that builds nothing, or the one
+  // platform a release builds while it carries the others forward. The
+  // directory itself must then be a source.
   const steps = workflow("release.yml").jobs.assemble.steps;
   const collect = steps.find(
     (step) => step.name === "Collect the release assets",
@@ -731,8 +732,10 @@ test("assemble collects the reused assets of a resume that builds nothing", () =
     /find "\$RUNNER_TEMP\/artifacts" -maxdepth 1 -type f/,
   );
   assert.match(collect.run, /sources\+=\("\$RUNNER_TEMP\/artifacts"\)/);
+  // The upload that skips reused assets looks only in the reuse artifact's own
+  // directory: a lone build artifact in the root is never taken for reuse.
   const upload = steps.find((step) =>
     step.run?.includes("artifacts/tilecast-release-reuse/$name"),
   );
-  assert.match(upload.run, /\|\| \[ -e "\$RUNNER_TEMP\/artifacts\/\$name" \]/);
+  assert.doesNotMatch(upload.run, /artifacts\/\$name/);
 });
