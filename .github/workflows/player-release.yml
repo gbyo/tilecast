@@ -64,6 +64,10 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # Puts sdkmanager on PATH. The pinned NDK below is installed with it when
+      # the cache misses, as in ci-android.yml.
+      - uses: android-actions/setup-android@v4
+
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -144,7 +148,7 @@ jobs:
             target
           key: player-android-rust-${{ runner.os }}-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}-cargo-ndk-4.1.2
       - run: rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-      - run: cargo install cargo-ndk --version 4.1.2 --locked
+      - run: cargo ndk --version 2>/dev/null | grep -qx 'cargo-ndk 4.1.2' || cargo install cargo-ndk --version 4.1.2 --locked
       - name: Restore pinned NDK
         id: ndk-cache
         uses: actions/cache@v6
