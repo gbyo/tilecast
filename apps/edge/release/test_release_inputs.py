@@ -182,3 +182,23 @@ class InputTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReleaseVersionNumbering(unittest.TestCase):
+    """The release scripts derive the same update version code as the server,
+    Edge, and the Windows Player (scripts/release/release_version.py)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.stage = load("stage-release")
+        cls.envelope = load("envelope")
+
+    def test_stage_release_uses_the_shared_ordering(self):
+        self.assertEqual(self.stage.version_code("0.2.1-preview.1"), 2001)
+        self.assertEqual(self.stage.version_code("0.26.0-beta.1"), 2600001)
+        self.assertEqual(self.stage.version_code("0.26.0"), 2600099)
+
+    def test_stage_release_refuses_a_name_the_ordering_does_not_define(self):
+        for name in ("0.26.0-rc.1", "1.2.3-hotfix", "21.0.0"):
+            with self.assertRaises(SystemExit, msg=name):
+                self.stage.version_code(name)

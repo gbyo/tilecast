@@ -157,15 +157,15 @@ func serve() {
 	})
 	// Extension packages install through the installer and pipeline
 	// services. Release identities are reserved so a package can never
-	// shadow bundled behavior, and unsigned packages stay disabled on
-	// stable releases even when the development flag is set. Reservation
+	// shadow bundled behavior, and unsigned packages stay disabled on release
+	// builds even when the development flag is set. Reservation
 	// checks the release catalog only: the effective catalog also holds
 	// installed packages' own contributions, which an update, rollback,
 	// or reinstall of the same package must not collide with.
 	reservedIdentities := releaseReservedIdentities(releaseDefinitions)
 	allowUnsigned := cfg.Packages.AllowUnsigned
-	if allowUnsigned && version.Channel == version.ChannelStable {
-		logger.Warn("unsigned extension packages are disabled on stable releases", "flag", "TILECAST_ALLOW_UNSIGNED_EXTENSIONS")
+	if allowUnsigned && version.IsRelease() {
+		logger.Warn("unsigned extension packages are disabled on release builds", "flag", "TILECAST_ALLOW_UNSIGNED_EXTENSIONS")
 		allowUnsigned = false
 	}
 	installerOptions := []installer.Option{installer.WithReserved(reservedIdentities)}

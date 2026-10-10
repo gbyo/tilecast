@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "description": "Tilecast release version names, their update version codes, and MSIX package versions. The server, Edge, Windows, Android build, and release scripts all derive a version code from a version name; every implementation runs this corpus.",
+  "rule": "A name below the unified cutover (core code under 26000) keeps its legacy code, MAJOR*1000000 + MINOR*1000 + PATCH, and the prerelease suffix is ignored. From the cutover on, a name is X.Y.Z (Stable) or X.Y.Z-beta.N with N in 1..98 (Beta), and its code is (MAJOR*1000000 + MINOR*1000 + PATCH) * 100 + slot, where slot is N for a Beta and 99 for Stable. The code never exceeds 2100000000, the Android versionCode ceiling.",
+  "cutoverCoreCode": 26000,
+  "maximumCode": 2100000000,
+  "codes": [
+    {
+      "name": "0.0.0-dev",
+      "code": 0
+    },
+    {
+      "name": "0.1.0",
+      "code": 1000
+    },
+    {
+      "name": "0.2.1",
+      "code": 2001
+    },
+    {
+      "name": "0.2.1-preview.1",
+      "code": 2001
+    },
+    {
+      "name": "0.2.0-preview.2",
+      "code": 2000
+    },
+    {
+      "name": "0.17.0",
+      "code": 17000
+    },
+    {
+      "name": "0.25.0",
+      "code": 25000
+    },
+    {
+      "name": "0.25.999",
+      "code": 25999
+    },
+    {
+      "name": "0.25.0-beta.1",
+      "code": 25000
+    },
+    {
+      "name": "0.26.0-beta.1",
+      "code": 2600001
+    },
+    {
+      "name": "0.26.0-beta.2",
+      "code": 2600002
+    },
+    {
+      "name": "0.26.0-beta.98",
+      "code": 2600098
+    },
+    {
+      "name": "0.26.0",
+      "code": 2600099
+    },
+    {
+      "name": "0.26.1-beta.1",
+      "code": 2600101
+    },
+    {
+      "name": "0.26.1",
+      "code": 2600199
+    },
+    {
+      "name": "0.27.0-beta.1",
+      "code": 2700001
+    },
+    {
+      "name": "1.0.0-beta.1",
+      "code": 100000001
+    },
+    {
+      "name": "1.0.0",
+      "code": 100000099
+    },
+    {
+      "name": "20.999.999",
+      "code": 2099999999
+    }
+  ],
+  "invalid": [
+    "",
+    "1.2",
+    "1.2.3.4",
+    "v0.26.0",
+    "0.26.0 ",
+    "0.26.0-",
+    "0.26.0-beta",
+    "0.26.0-beta.0",
+    "0.26.0-beta.99",
+    "0.26.0-beta.01",
+    "0.26.0-beta.1.2",
+    "0.26.0-Beta.1",
+    "0.26.0-rc.1",
+    "0.26.0-preview.1",
+    "0.26.0-beta.1+build",
+    "0.29.2-hotfix",
+    "1.2.3-rc.1",
+    "21.0.0",
+    "0.1000.0",
+    "0.26.1000",
+    "1000000.0.0"
+  ],
+  "ordered": [
+    "0.25.0",
+    "0.26.0-beta.1",
+    "0.26.0-beta.2",
+    "0.26.0-beta.98",
+    "0.26.0",
+    "0.26.1-beta.1",
+    "0.26.1",
+    "0.27.0-beta.1",
+    "0.27.0",
+    "1.0.0-beta.1",
+    "1.0.0",
+    "20.999.999"
+  ],
+  "channels": [
+    {
+      "name": "0.26.0",
+      "channel": "stable"
+    },
+    {
+      "name": "0.26.0-beta.3",
+      "channel": "beta"
+    },
+    {
+      "name": "0.2.1-preview.1",
+      "channel": null
+    },
+    {
+      "name": "0.25.0",
+      "channel": null
+    }
+  ],
+  "msix": [
+    {
+      "name": "0.26.0-beta.1",
+      "channel": "beta",
+      "package": "0.26.0.1"
+    },
+    {
+      "name": "0.26.0-beta.98",
+      "channel": "beta",
+      "package": "0.26.0.98"
+    },
+    {
+      "name": "0.26.0",
+      "channel": "stable",
+      "package": "0.26.0.99"
+    },
+    {
+      "name": "0.26.1-beta.1",
+      "channel": "beta",
+      "package": "0.26.1.1"
+    },
+    {
+      "name": "1.0.0",
+      "channel": "stable",
+      "package": "1.0.0.99"
+    },
+    {
+      "name": "0.1.0",
+      "channel": "stable",
+      "package": "0.1.0.2"
+    },
+    {
+      "name": "0.1.0-rc.1",
+      "channel": "beta",
+      "package": "0.1.0.1"
+    }
+  ],
+  "msixInvalid": [
+    {
+      "name": "0.26.0-beta.1",
+      "channel": "stable"
+    },
+    {
+      "name": "0.26.0",
+      "channel": "beta"
+    },
+    {
+      "name": "0.26.0",
+      "channel": "nightly"
+    },
+    {
+      "name": "0.26.0-rc.1",
+      "channel": "beta"
+    },
+    {
+      "name": "21.0.0",
+      "channel": "stable"
+    },
+    {
+      "name": "0.1.0",
+      "channel": ""
+    }
+  ]
+}

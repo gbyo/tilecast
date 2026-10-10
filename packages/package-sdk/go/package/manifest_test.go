@@ -151,6 +151,12 @@ func TestSatisfiesTilecastRange(t *testing.T) {
 		{">2.0.0", "2.0.0", false},
 		{">=1.2.0 || <2.0.0", "1.5.0", false},
 		{">=1.2.0", "one.two.three", false},
+		// A Beta release satisfies the ranges its core satisfies.
+		{">=0.20.0 <1.0.0", "0.26.0-beta.1", true},
+		{">=0.27.0", "0.26.0-beta.12", false},
+		{">=0.26.0", "0.26.0-beta.0", false},
+		{">=0.20.0", "0.26.0-rc.1", false},
+		{">=0.0.0", "0.0.0-dev", false},
 		{"", "1.5.0", false},
 		{">=1.2.0", "", false},
 	} {

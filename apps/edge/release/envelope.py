@@ -17,8 +17,10 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../scripts/release"))
+import release_version  # noqa: E402
 
 
 def sha256(path):
@@ -46,8 +48,14 @@ def main():
     version = manifest["versionName"]
     if manifest["arch"] != args.arch:
         sys.exit(f"envelope: the tree is for {manifest['arch']}, not {args.arch}")
-    if not re.fullmatch(r"[0-9]{1,9}\.[0-9]{1,9}\.[0-9]{1,9}(-[0-9A-Za-z.]+)?", version):
+    code = release_version.version_code(version)
+    if code is None:
         sys.exit(f"envelope: invalid version {version}")
+    if code != manifest["versionCode"]:
+        sys.exit(f"envelope: the release manifest has version code {manifest['versionCode']}, not {code}")
+    implied = release_version.version_channel(version)
+    if implied is not None and implied != args.channel:
+        sys.exit(f"envelope: version {version} is a {implied} release, not {args.channel}")
     archive_name = f"tilecast-edge-{version}-{args.arch}.tar.zst"
     if os.path.basename(args.archive) != archive_name:
         sys.exit(f"envelope: the archive must be named {archive_name}")

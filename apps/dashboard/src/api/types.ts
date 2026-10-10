@@ -1038,7 +1038,7 @@ export type MaintenanceAction =
 
 export type SystemStatus = {
   tilecastVersion: string;
-  channel: "stable" | "development";
+  channel: "stable" | "beta" | "development";
   buildCommit: string;
   buildDate: string;
   uptimeSeconds: number;

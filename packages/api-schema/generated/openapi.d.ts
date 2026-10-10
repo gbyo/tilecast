@@ -7368,7 +7368,7 @@ export interface components {
     SystemStatus: {
       tilecastVersion: string;
       /** @enum {string} */
-      channel: "stable" | "development";
+      channel: "stable" | "beta" | "development";
       buildCommit: string;
       buildDate: string;
       uptimeSeconds: number;

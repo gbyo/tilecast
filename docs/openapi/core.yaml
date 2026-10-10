@@ -11391,7 +11391,7 @@ components:
         ]
       properties:
         tilecastVersion: { type: string }
-        channel: { type: string, enum: [stable, development] }
+        channel: { type: string, enum: [stable, beta, development] }
         buildCommit: { type: string }
         buildDate: { type: string }
         uptimeSeconds: { type: integer, minimum: 0 }
