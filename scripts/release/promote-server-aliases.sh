@@ -10,7 +10,12 @@
 # this script is the last guard:
 #   * only stable, latest and beta can move;
 #   * only a Stable release can move stable and latest;
-#   * the digest must exist, and every alias must name it afterwards.
+#   * the digest must exist, and every alias must name it afterwards;
+#   * an alias never moves to an older Tilecast version than it names now, and
+#     a version never names two images. The version is the OCI version
+#     annotation every release build writes, so a Server carried forward from
+#     an earlier release (release_reuse.py) can be promoted without moving an
+#     alias backwards.
 # An empty list is not an error: a release that is not the newest of its kind
 # owes no alias.
 #
@@ -54,8 +59,41 @@ for alias in "${aliases[@]}"; do
   esac
 done
 
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source_ref="$image@$digest"
 "$docker" buildx imagetools inspect "$source_ref" > /dev/null
+
+version_of() {
+  "$docker" buildx imagetools inspect --raw "$1" 2>/dev/null | jq -r '.annotations["org.opencontainers.image.version"] // ""' 2>/dev/null || true
+}
+new_version=$(version_of "$source_ref")
+if [ -z "$new_version" ]; then
+  echo "The image $digest carries no version annotation, so its place in the release order cannot be proven." >&2
+  exit 1
+fi
+for alias in "${aliases[@]}"; do
+  current=$("$docker" buildx imagetools inspect "$image:$alias" --format '{{json .Manifest}}' 2>/dev/null | jq -r '.digest // ""' 2>/dev/null || true)
+  if [ -z "$current" ] || [ "$current" = "$digest" ]; then
+    continue
+  fi
+  current_version=$(version_of "$image@$current")
+  if [ -z "$current_version" ]; then
+    continue
+  fi
+  order=$(python3 "$here/release_version.py" compare "$current_version" "$new_version" 2>/dev/null || echo invalid)
+  case "$order" in
+    -1) ;;
+    1)
+      echo "Refusing to move $alias backwards from $current_version to $new_version." >&2
+      exit 1 ;;
+    0)
+      echo "Refusing to move $alias: $new_version is already $current, not $digest." >&2
+      exit 1 ;;
+    *)
+      echo "Cannot compare $current_version with $new_version; $alias stays where it is." >&2
+      exit 1 ;;
+  esac
+done
 tags=()
 for alias in "${aliases[@]}"; do
   tags+=(--tag "$image:$alias")

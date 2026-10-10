@@ -811,8 +811,14 @@ func (s *Service) Purge(ctx context.Context, releaseID uuid.UUID) (bool, error) 
 	return !referenced, nil
 }
 
+// Cleanup removes releases that nothing needs any more: older than the
+// retention period, not used by a deployment, and superseded. The newest
+// release of each player family, architecture, and channel is never removed
+// for age alone. A coordinated release can carry a platform forward unchanged
+// from an earlier release, so the newest build of a platform may be months
+// older than the release that lists it.
 func (s *Service) Cleanup(ctx context.Context, retentionDays int) {
-	rows, err := s.db.Query(ctx, `DELETE FROM player_releases pr WHERE pr.updated_at<now()-make_interval(days=>$1) AND NOT EXISTS(SELECT 1 FROM update_deployments d WHERE d.release_id=pr.id) RETURNING id`, retentionDays)
+	rows, err := s.db.Query(ctx, `DELETE FROM player_releases pr WHERE pr.updated_at<now()-make_interval(days=>$1) AND NOT EXISTS(SELECT 1 FROM update_deployments d WHERE d.release_id=pr.id) AND EXISTS(SELECT 1 FROM player_releases newer WHERE newer.player_family=pr.player_family AND newer.architecture=pr.architecture AND newer.channel=pr.channel AND newer.version_code>pr.version_code) RETURNING id`, retentionDays)
 	if err != nil {
 		return
 	}

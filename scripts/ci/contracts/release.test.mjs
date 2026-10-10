@@ -60,6 +60,7 @@ test("a coordinated release is a manual dispatch, never a tag push", () => {
   assert.deepEqual(Object.keys(release.on), ["workflow_dispatch"]);
   assert.deepEqual(Object.keys(release.on.workflow_dispatch.inputs).sort(), [
     "publish",
+    "reuse_unchanged",
     "verify_reproducible",
     "version",
   ]);
@@ -360,8 +361,14 @@ test("the release caller grants every called workflow its permissions", () => {
     checks: "write",
   });
   // The jobs that talk to the releases API ask for exactly what they need.
-  for (const job of ["prepare", "assemble", "publish"]) {
-    assert.deepEqual(release.jobs[job].permissions, { contents: "write" }, job);
+  // prepare and assemble also read the earlier Server image from the registry.
+  assert.deepEqual(release.jobs.publish.permissions, { contents: "write" });
+  for (const job of ["prepare", "assemble"]) {
+    assert.deepEqual(
+      release.jobs[job].permissions,
+      { contents: "write", packages: "read" },
+      job,
+    );
   }
   // A reusable workflow cannot elevate beyond its caller, so every called
   // workflow must fit inside the grant of the job that calls it. A calling
@@ -573,5 +580,140 @@ test("release files select their validation", () => {
     selected([".github/workflows/validate-data-sources.yml"]).includes(
       "sources",
     ),
+  );
+});
+
+test("components are carried forward only through a recorded, re-verified plan", () => {
+  const release = workflow("release.yml");
+  const steps = (job) => release.jobs[job].steps;
+  const named = (job, name) =>
+    steps(job).find((step) => step.name?.startsWith(name));
+
+  // The decision is made once, in prepare, after a resumed draft's own
+  // components are known, and it can only be turned off, never forced on.
+  const prepare = steps("prepare").map((step) => step.id);
+  assert.ok(prepare.indexOf("resume") < prepare.indexOf("reuse"));
+  const reuse = steps("prepare").find((step) => step.id === "reuse");
+  assert.match(reuse.run, /release_reuse\.py plan/);
+  assert.match(reuse.run, /--pending "\$pending"/);
+  assert.match(reuse.run, /--reuse "\$REUSE"/);
+  assert.equal(
+    reuse.env.REUSE,
+    "${{ inputs.reuse_unchanged && 'on' || 'off' }}",
+  );
+  assert.equal(reuse.env.BASELINE, "${{ steps.plan.outputs.previous_tag }}");
+  assert.equal(reuse.env.NEAREST, "${{ steps.plan.outputs.nearest_tag }}");
+  // The build jobs read the decision, not the resume step.
+  const outputs = release.jobs.prepare.outputs;
+  for (const key of [
+    "edge_arches",
+    "windows_arches",
+    "build_android",
+    "build_server",
+  ])
+    assert.match(outputs[key], /steps\.reuse\.outputs\./, key);
+  // Only what a plan says to build, and the draft does not hold, is built.
+  assert.match(reuse.run, /select\(\.action == "build"/);
+
+  // A resumed draft is resumed by image tag only for an image it built itself:
+  // a Server carried forward has no tag of this version.
+  const resume = steps("prepare").find((step) => step.id === "resume");
+  assert.match(resume.run, /\.origin != "inherited"/);
+
+  // The image job is skipped for a carried-forward Server.
+  assert.match(release.jobs.server_image.if, /build_server == 'true'/);
+
+  // The plan travels to assemble as a file artifact, outside the tilecast-*
+  // pattern that assemble collects release assets from.
+  const upload = steps("prepare").find(
+    (step) =>
+      step.uses?.startsWith("actions/upload-artifact") &&
+      step.with.name === "release-reuse-plan",
+  );
+  assert.ok(upload);
+  const download = steps("assemble").find(
+    (step) =>
+      step.uses?.startsWith("actions/download-artifact") &&
+      step.with.name === "release-reuse-plan",
+  );
+  assert.ok(download);
+
+  // Assemble reads the earlier releases again before anything is written, and
+  // passes the same plan to the inventory.
+  const order = steps("assemble").map((step) => step.name ?? "");
+  const verify = order.findIndex((name) =>
+    name.startsWith("Verify what is carried forward"),
+  );
+  const login = order.findIndex(
+    (name, index) =>
+      name.startsWith("Log in to GitHub Container Registry") && index < verify,
+  );
+  const build = order.findIndex((name) =>
+    name.startsWith("Apply the release contract"),
+  );
+  assert.ok(
+    login >= 0 && login < verify && verify < build,
+    "log in, then re-verify, then build the inventory",
+  );
+  assert.match(
+    named("assemble", "Verify what is carried forward").run,
+    /release_reuse\.py reverify/,
+  );
+  assert.match(
+    named("assemble", "Apply the release contract").run,
+    /--reuse-plan "\$RUNNER_TEMP\/reuse-plan\/reuse-plan\.json"/,
+  );
+
+  // Nothing carried forward is uploaded: the draft holds only what was assembled.
+  const upload_step = named("assemble", "Create or update the draft");
+  assert.match(upload_step.run, /github_release\.py prune/);
+});
+
+test("the Edge bridge is a separate, verified, never-latest pre-release", () => {
+  const bridge = workflow("edge-bridge-release.yml");
+  assert.deepEqual(Object.keys(bridge.on), ["workflow_dispatch"]);
+  assert.equal(bridge.on.workflow_dispatch.inputs.publish.default, false);
+  // It shares the release lock, so it never races a coordinated release.
+  assert.equal(bridge.concurrency.group, "tilecast-release");
+  assert.equal(bridge.concurrency["cancel-in-progress"], false);
+  // No input is interpolated into a shell script.
+  for (const job of Object.values(bridge.jobs))
+    for (const step of job.steps ?? [])
+      assert.doesNotMatch(step.run ?? "", /\$\{\{\s*inputs\./, step.name);
+  // Edge only, Beta channel, stamped as a bridge, and never the Server image.
+  const edge = bridge.jobs.edge;
+  assert.equal(edge.uses, "./.github/workflows/edge-release.yml");
+  assert.equal(edge.with.bridge, true);
+  assert.equal(edge.with.channel, "beta");
+  const raw = readFileSync(".github/workflows/edge-bridge-release.yml", "utf8");
+  assert.doesNotMatch(raw, /packages: write/);
+  assert.doesNotMatch(raw, /server-release\.yml/);
+  // The shipped helper must install the real bridge before a draft exists.
+  const steps = bridge.jobs.assemble.steps.map((step) => step.name ?? "");
+  const oracle = steps.findIndex((name) =>
+    name.startsWith("The shipped 0.2.1 update helper"),
+  );
+  const draft = steps.findIndex((name) =>
+    name.startsWith("Create or update the draft"),
+  );
+  const verify = steps.findIndex((name) =>
+    name.startsWith("Verify the bridge as the server imports it"),
+  );
+  assert.ok(verify >= 0 && verify < oracle && oracle < draft);
+  // Publishing needs a verified draft, and is never the latest release.
+  const publish = bridge.jobs.publish;
+  assert.match(publish.if, /assemble\.outputs\.ready == 'true'/);
+  assert.match(
+    publish.steps.map((s) => s.run ?? "").join("\n"),
+    /publish "\$TAG" --not-latest/,
+  );
+  // The edge build stamps only Edge for a bridge.
+  const edgeRelease = readFileSync(
+    ".github/workflows/edge-release.yml",
+    "utf8",
+  );
+  assert.match(
+    edgeRelease,
+    /stamp_version\.py --version "\$RELEASE_VERSION" --edge-only/,
   );
 });

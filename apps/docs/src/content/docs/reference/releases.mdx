@@ -79,7 +79,9 @@ sha256sum -c SHA256SUMS --ignore-missing
 Releases published before this scheme stay where they are, and their download links keep working. Studio still imports them.
 
 - **Android and Linux Players** keep updating. Every new version is newer than every old one.
-- **Edge preview screens** that run `0.2.1-preview.1` or older can't install a release from the new scheme by themselves. They check the old version rule and refuse it, and keep running. Reinstall them with the new Edge release, or use a bridge release if your maintainers publish one.
+- **Edge screens** that run `0.2.1` or older can't install a release from the new scheme directly. They check the old version rule and refuse it, and keep running. Update them to the Edge bridge release (`0.2.2`) first, then to a unified release. Edge `0.2.2` or later needs no bridge.
 - **Server installs** that used `latest` keep working. `latest` moves to the first Stable release.
+
+A hotfix for one platform doesn't rebuild the others. The notes of that release link to the earlier release that built each unchanged platform, and say "carried forward". Those platforms keep their earlier version, so Studio shows no new update for them. A carried-forward Server image has no tag of the new version: pull `stable` or the earlier version tag.
 
 New releases are named `v0.26.0` or `v0.26.0-beta.1`. Older names such as `player-v0.25.0` and `edge-v0.2.1-preview.1` belong to the releases that came before.

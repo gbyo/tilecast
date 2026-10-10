@@ -133,6 +133,15 @@ const rules = [
   ],
   [/^scripts\/release\/release_version\.py$/, ["ci", "edge_rust"]],
   [/^scripts\/release\//, ["ci"]],
+  // Which components a hotfix may carry forward unchanged is decided from each
+  // build's real inputs: scripts/release/test_release_inputs.py reads the Cargo,
+  // Go, npm, Gradle and Docker graphs. These files define those graphs and
+  // otherwise select only their own area, so they also select that check. The
+  // root manifests, the lockfiles and the workflows already select it.
+  [
+    /^(deploy\/docker\/Dockerfile|apps\/server\/go\.mod|apps\/player-android\/(app\/)?(build|settings)\.gradle\.kts|apps\/(edge|player-windows|player-android\/native)(\/.+)?\/Cargo\.toml|apps\/(dashboard|player-web)\/package\.json|packages\/player-runtime\/package\.json)$/,
+    ["ci"],
+  ],
   // The release pipeline test builds the server's release verifier and runs
   // the real importer over signed assets, so the importer selects it.
   [/^apps\/server\/(internal\/updates|cmd\/tilecast-release-verify)\//, ["ci"]],

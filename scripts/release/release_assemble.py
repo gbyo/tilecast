@@ -15,6 +15,11 @@ component's files are.
   verify   re-check a directory of assets, for example a draft downloaded back
            from GitHub, against the inventory it carries
 
+A component may be carried forward from an earlier release instead of built
+(release_reuse.py). Such a component is listed in the inventory with
+origin "inherited" and the release that supplied it; its files stay in that
+release and are not assets of this one.
+
 Signatures, artifact hashes and package metadata are verified by
 tilecast-release-verify (apps/server/cmd/tilecast-release-verify), which runs
 the server's own importer over the directory; this script consumes its report.
@@ -27,7 +32,8 @@ Usage:
   release_assemble.py resume  --version V --channel C --assets DRAFT --report verify.json --out DIR
   release_assemble.py build   --version V --channel C --commit SHA --assets DIR
                               --report verify.json [--results results.json]
-                              [--server-digest sha256:...] [--changes FILE] --notes-out FILE
+                              [--server-digest sha256:...] [--reuse-plan plan.json]
+                              [--changes FILE] --notes-out FILE
   release_assemble.py verify  --version V --channel C --assets DIR --report verify.json
 """
 import argparse
@@ -143,7 +149,31 @@ def collect(contract, version, sources, out):
 
 # ---- build ------------------------------------------------------------------
 
-def component_status(contract, component, version, channel, assets_dir, report, results, server_digest):
+def plan_item(plan, component_id):
+    return next((i for i in (plan or {}).get("components", []) if i["id"] == component_id), None)
+
+
+def inherited_entry(entry, item):
+    """The inventory entry of a component carried forward from an earlier
+    release: everything it says is what that release verified and published."""
+    entry.update(
+        status="available",
+        origin="inherited",
+        versionName=item["versionName"],
+        versionCode=item["versionCode"],
+        channel=item["channel"],
+        source=item["source"],
+        reason=item["reason"],
+        inputs=item["inputs"],
+    )
+    if "assets" in item:
+        entry.update(assets=item["assets"])
+    else:
+        entry.update(image=item["image"], tag=item["tag"], digest=item["digest"])
+    return entry
+
+
+def component_status(contract, component, version, channel, assets_dir, report, results, server_digest, plan=None):
     """Returns the inventory entry for one contract component."""
     entry = {
         "id": component["id"],
@@ -151,15 +181,32 @@ def component_status(contract, component, version, channel, assets_dir, report, 
         "label": component["label"],
         "required": is_required(component, channel),
     }
+    item = plan_item(plan, component["id"])
+    inherited = item is not None and item["action"] == "inherit"
+    fingerprint = ((plan or {}).get("inputs") or {}).get(component["id"])
+    why = item["reason"] if item else ""
     if component["kind"] == "image":
+        if inherited:
+            if server_digest:
+                raise ReleaseError("the server image is both carried forward and built")
+            return inherited_entry(entry, item)
         if server_digest:
-            entry.update(status="available", image=contract["serverImage"], tag=version, digest=server_digest)
+            entry.update(
+                status="available", origin="built", image=contract["serverImage"], tag=version, digest=server_digest,
+                versionName=version, versionCode=rv.parse_tag("v" + version).code, channel=channel,
+            )
+            if fingerprint:
+                entry.update(inputs=fingerprint, reason=why)
         else:
             entry.update(status="unavailable", reason=reason_for(component, results, "the image was not published"))
         return entry
     entry.update(family=component["family"], architecture=component["architecture"])
     names = [expand(asset["name"], version) for asset in component["assets"]]
     present = [name for name in names if os.path.isfile(os.path.join(assets_dir, name))]
+    if inherited:
+        if present:
+            raise ReleaseError(f"{component['id']} is both carried forward and built: {', '.join(present)}")
+        return inherited_entry(entry, item)
     verified = [
         item for item in report["components"]
         if item["family"] == component["family"] and item["architecture"] == component["architecture"]
@@ -172,6 +219,7 @@ def component_status(contract, component, version, channel, assets_dir, report, 
         item = verified[0]
         entry.update(
             status="available",
+            origin="built",
             versionName=item["versionName"],
             versionCode=item["versionCode"],
             channel=item["channel"],
@@ -185,6 +233,8 @@ def component_status(contract, component, version, channel, assets_dir, report, 
                 for asset, name in zip(component["assets"], names)
             ],
         )
+        if fingerprint:
+            entry.update(inputs=fingerprint, reason=why)
         return entry
     if problems:
         reason = "verification failed: " + "; ".join(sorted({item["message"] for item in problems}))
@@ -204,7 +254,7 @@ def reason_for(component, results, default):
     return default
 
 
-def build(contract, version, channel, commit, assets_dir, report, results, server_digest):
+def build(contract, version, channel, commit, assets_dir, report, results, server_digest, plan=None):
     parsed = rv.parse_tag("v" + version)
     if parsed.channel != channel:
         raise ReleaseError(f"{version} is a {parsed.channel} version, not {channel}")
@@ -215,7 +265,7 @@ def build(contract, version, channel, commit, assets_dir, report, results, serve
         if name not in allowed:
             raise ReleaseError(f"{name} is not an asset of the release contract")
     components = [
-        component_status(contract, c, version, channel, assets_dir, report, results, server_digest)
+        component_status(contract, c, version, channel, assets_dir, report, results, server_digest, plan)
         for c in contract["components"]
     ]
     missing = [c for c in components if c["required"] and c["status"] != "available"]
@@ -236,8 +286,11 @@ def build(contract, version, channel, commit, assets_dir, report, results, serve
         {key: item[key] for key in ("id", "group", "label", "status", "note", "docs")}
         for item in contract["external"]
     ]
+    # Only what this release carries is an asset of it. An inherited
+    # component's files stay in the release that published them.
     published = sorted(
-        asset["name"] for component in components if component["status"] == "available"
+        asset["name"] for component in components
+        if component["status"] == "available" and component.get("origin") != "inherited"
         for asset in component.get("assets", [])
     )
     inventory = {
@@ -250,6 +303,7 @@ def build(contract, version, channel, commit, assets_dir, report, results, serve
         "prerelease": channel == "beta",
         "versionCode": parsed.code,
         "commit": commit,
+        "reuse": reuse_record(plan),
         "components": components,
         "external": external,
         "assets": [
@@ -261,6 +315,13 @@ def build(contract, version, channel, commit, assets_dir, report, results, serve
     write_json(os.path.join(assets_dir, INVENTORY), inventory)
     write_checksums(assets_dir)
     return inventory
+
+
+def reuse_record(plan):
+    """Which earlier releases this one was planned against, for the audit."""
+    if not plan:
+        return {"baseline": None, "newest": None}
+    return {"baseline": plan.get("baseline"), "newest": plan.get("newest")}
 
 
 def write_json(path, value):
@@ -350,9 +411,12 @@ def verify(contract, version, channel, assets_dir, report):
             problems.append(f"{CHECKSUMS} lists {name}, which is not a release asset")
     verified = {(item["family"], item["architecture"]) for item in report["components"]}
     for component in inventory.get("components", []):
-        if component["status"] == "available" and component.get("family"):
-            if (component["family"], component["architecture"]) not in verified:
-                problems.append(f"{component['id']} does not verify")
+        if component["status"] != "available":
+            continue
+        if component.get("origin") == "inherited":
+            problems.extend(inherited_problems(component, inventory))
+        elif component.get("family") and (component["family"], component["architecture"]) not in verified:
+            problems.append(f"{component['id']} does not verify")
     for component in contract["components"]:
         if is_required(component, channel):
             entry = next((c for c in inventory.get("components", []) if c["id"] == component["id"]), None)
@@ -361,13 +425,44 @@ def verify(contract, version, channel, assets_dir, report):
     # A rejected build is only acceptable when the inventory already says the
     # component is unavailable, so its assets are not in the release.
     available = {(c["family"], c["architecture"]) for c in inventory.get("components", [])
-                 if c["status"] == "available" and "family" in c}
+                 if c["status"] == "available" and c.get("origin") != "inherited" and "family" in c}
     for item in report["problems"]:
         if not item["family"] or (item["family"], item["architecture"]) in available:
             problems.append(f"{item['family']} {item['architecture']}: {item['message']}".strip().replace("  ", " "))
     if problems:
         raise ReleaseError("; ".join(problems))
     return inventory
+
+
+def inherited_problems(component, inventory):
+    """Why an inherited inventory entry is not trustworthy, as sentences. Its
+    files are not in this release, so the shape of the entry is what is
+    checked here; reuse was verified against the earlier release when the
+    release was planned and again before it was assembled."""
+    found = []
+    name = component["id"]
+    source = component.get("source") or {}
+    if not (source.get("tag") and source.get("commit") and source.get("inventorySha256") and source.get("url")):
+        found.append(f"inherited component {name} does not say which release supplied it")
+    if source.get("tag") == inventory.get("tag"):
+        found.append(f"inherited component {name} names this release as its source")
+    inputs = component.get("inputs") or {}
+    if not str(inputs.get("digest", "")).startswith("sha256:"):
+        found.append(f"inherited component {name} records no build inputs")
+    code = component.get("versionCode")
+    if not isinstance(code, int) or code > inventory.get("versionCode", 0):
+        found.append(f"inherited component {name} is newer than this release")
+    if component.get("channel") == "beta" and inventory.get("channel") == "stable":
+        found.append(f"inherited component {name} is a Beta build in a Stable release")
+    if component.get("assets"):
+        for asset in component["assets"]:
+            if not asset.get("sha256") or not asset.get("name"):
+                found.append(f"inherited component {name} has an asset without a hash")
+    elif component.get("family"):
+        found.append(f"inherited component {name} lists no assets")
+    elif not str(component.get("digest", "")).startswith("sha256:"):
+        found.append(f"inherited component {name} records no image digest")
+    return found
 
 
 # ---- notes ------------------------------------------------------------------
@@ -382,7 +477,8 @@ def human_size(size):
 
 def notes(contract, inventory, changes=""):
     version, channel, repository = inventory["version"], inventory["channel"], inventory["repository"]
-    release_url = f"https://github.com/{repository}/releases/download/v{version}"
+    base_url = f"https://github.com/{repository}/releases"
+    release_url = f"{base_url}/download/v{version}"
     groups = contract["groups"]
     by_group = {}
     for component in inventory["components"]:
@@ -394,7 +490,16 @@ def notes(contract, inventory, changes=""):
             "It is published as a GitHub pre-release and updates to the next Beta or to Stable.",
         ]
     else:
-        lines += ["A **Stable** release. Every platform below is the same Tilecast version, built from one commit."]
+        lines += ["A **Stable** release."]
+    carried = [c for c in inventory["components"] if c.get("origin") == "inherited"]
+    if carried:
+        lines += [
+            "",
+            "Platforms marked *carried forward* did not change, so this release does not build them again. "
+            "They keep the version, signature and hashes of the release that built them, and link to that release.",
+        ]
+    else:
+        lines += ["", "Every platform below is this version, built from one commit."]
     lines += ["", f"Built from commit `{inventory['commit']}`. Update version code: `{inventory['versionCode']}`.", ""]
 
     def section(group):
@@ -406,14 +511,25 @@ def notes(contract, inventory, changes=""):
         server = by_group[group][0]
         if server["status"] == "available":
             aliases = "`stable` and `latest`" if channel == "stable" else "`beta`"
-            lines += [
-                f"- `{server['image']}:{server['tag']}`",
-                f"- Moving tag: {aliases} (`{server['image']}:{'stable' if channel == 'stable' else 'beta'}`)",
-                f"- digest: `{server['digest']}`",
-                "",
-                "The Browser Player is bundled with the server image and is the same version.",
-                "",
-            ]
+            if server.get("origin") == "inherited":
+                lines += [
+                    f"- `{server['image']}:{server['tag']}`, carried forward unchanged from "
+                    f"[{server['source']['tag']}]({server['source']['url']}). This release publishes no image of its own.",
+                    f"- digest: `{server['digest']}`",
+                    f"- Moving tag: {aliases} names this same image.",
+                    "",
+                    f"The Browser Player is bundled with the server image and stays at version {server['tag']}.",
+                    "",
+                ]
+            else:
+                lines += [
+                    f"- `{server['image']}:{server['tag']}`",
+                    f"- Moving tag: {aliases} (`{server['image']}:{'stable' if channel == 'stable' else 'beta'}`)",
+                    f"- digest: `{server['digest']}`",
+                    "",
+                    "The Browser Player is bundled with the server image and is the same version.",
+                    "",
+                ]
         else:
             lines += [f"Not included: {server['reason']}.", ""]
     for group in ("edge", "windows", "android"):
@@ -423,6 +539,14 @@ def notes(contract, inventory, changes=""):
                 lines.append(f"- **{component['label']}**: not included in this release ({component['reason']}).")
                 continue
             download = next(a for a in component["assets"] if a["role"] == "download")
+            if component.get("origin") == "inherited":
+                source = component["source"]
+                lines.append(
+                    f"- **{component['label']}**: [`{download['name']}`]({base_url}/download/{source['tag']}/{download['name']}) "
+                    f"({human_size(download['sizeBytes'])}, SHA-256 `{download['sha256']}`). "
+                    f"Carried forward unchanged: version {component['versionName']} from [{source['tag']}]({source['url']})."
+                )
+                continue
             lines.append(
                 f"- **{component['label']}**: [`{download['name']}`]({release_url}/{download['name']}) "
                 f"({human_size(download['sizeBytes'])}, SHA-256 `{download['sha256']}`)"
@@ -431,12 +555,23 @@ def notes(contract, inventory, changes=""):
         if group == "edge":
             lines += ["Each architecture ships a signed update envelope, its signature and a software bill of materials.", ""]
         else:
-            lines += ["Studio imports the signed update envelope from this release for screens it manages.", ""]
+            lines += ["Studio imports the signed update envelope from the release that holds it, for screens it manages.", ""]
     for item in inventory["external"]:
         if item["group"] == "browser":
             continue
         section(item["group"])
         lines += [f"{item['note']} See [the guide]({contract['docsUrl']}{item['docs']}).", ""]
+    if carried:
+        lines += ["## Carried forward from earlier releases", ""]
+        for component in carried:
+            source = component["source"]
+            what = f"{component['versionName']}" if component.get("family") else f"image {component['tag']}"
+            lines.append(f"- {component['label']}: {what} from [{source['tag']}]({source['url']}), commit `{source['commit'][:12]}`. {component['reason']}.")
+        lines += [
+            "",
+            "Studio keeps offering these screens the version they already have; an unchanged platform is not a new update.",
+            "",
+        ]
     unavailable = [c for c in inventory["components"] if c["status"] != "available" and not c["required"]]
     if unavailable:
         lines += ["## Not included in this release", ""]
@@ -476,6 +611,7 @@ def main(argv=None):
     parser.add_argument("--report")
     parser.add_argument("--results")
     parser.add_argument("--server-digest", default="")
+    parser.add_argument("--reuse-plan")
     parser.add_argument("--changes")
     parser.add_argument("--notes-out")
     args = parser.parse_args(argv)
@@ -498,12 +634,15 @@ def main(argv=None):
             inventory = build(
                 contract, args.version, args.channel, args.commit, args.assets, read_json(args.report),
                 read_json(args.results) if args.results else {}, digest,
+                read_json(args.reuse_plan) if args.reuse_plan else None,
             )
             changes = open(args.changes).read() if args.changes and os.path.isfile(args.changes) else ""
             with open(args.notes_out, "w") as handle:
                 handle.write(notes(contract, inventory, changes))
             available = [c["id"] for c in inventory["components"] if c["status"] == "available"]
-            print(f"build: {len(inventory['assets'])} assets; available: {', '.join(available)}")
+            carried = [c["id"] for c in inventory["components"] if c.get("origin") == "inherited"]
+            print(f"build: {len(inventory['assets'])} assets; available: {', '.join(available)}"
+                  + (f"; carried forward: {', '.join(carried)}" if carried else ""))
         else:
             if not (args.assets and args.report):
                 parser.error("verify needs --assets and --report")

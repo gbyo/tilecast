@@ -16,8 +16,8 @@ An Edge update changes only Tilecast Edge. It doesn't update Tilecast Server, th
 
 Edge releases come from the same Tilecast release as the Server, Windows, and Android, so an Edge version matches the Server version it shipped with. A screen on a Beta can update to the next Beta or to Stable.
 
-:::caution[Preview screens older than the unified release]
-An Edge screen that runs `0.2.1-preview.1` or older can't install a release from the unified scheme (`0.26.0` and later). It checks the older version rule, refuses the update, and keeps running. Install the new release on that screen with the Edge installer, or ask your maintainers whether a bridge release is available. See [Releases and downloads](../../reference/releases/).
+:::caution[Screens that run Edge 0.2.1 or older]
+An Edge screen that runs `0.2.1` or older can't install a unified release (`0.26.0-beta.1` and later). Its update helper checks the older version rule, refuses the update, and keeps running. No screen on those versions can update directly. Update it to the bridge release first (Edge `0.2.2`, if your maintainers have published it), wait for the screen to confirm it, then deploy the unified release. Update one screen first. If the bridge doesn't come up, the screen goes back to its earlier release by itself. See [Releases and downloads](../../reference/releases/) and the [release process](https://github.com/gbyo/tilecast/blob/main/docs/release-process.md#edge-021-and-older-need-the-bridge).
 :::
 
 ## How it differs from the AppImage Player

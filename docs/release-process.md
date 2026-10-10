@@ -83,13 +83,13 @@ implies. A `-beta.N` name must be `beta`. A name without a suffix must be
 The first coordinated version is `0.26.0`. The audit of every version that
 shipped before the unified release found these codes:
 
-| Line                  | Highest shipped version         | Code  |
-| --------------------- | ------------------------------- | ----- |
-| Android               | `0.25.0` (`versionCode` 46)     | 46    |
-| Electron Linux Player | `0.17.0`                        | 17000 |
-| Tilecast Edge         | `0.2.1-preview.1`               | 2001  |
-| Windows Player        | None. It is not published yet.  | None  |
-| Server                | None. No Server release exists. | None  |
+| Line                  | Highest shipped version               | Code  |
+| --------------------- | ------------------------------------- | ----- |
+| Android               | `0.25.0` (`versionCode` 46)           | 46    |
+| Electron Linux Player | `0.17.0`                              | 17000 |
+| Tilecast Edge         | `0.2.1` (tag `edge-v0.2.1-preview.1`) | 2001  |
+| Windows Player        | None. It is not published yet.        | None  |
+| Server                | None. No Server release exists.       | None  |
 
 The lowest unified code is `2600001`. It is above every shipped code. A
 version below `0.26.0` keeps the legacy code `MAJOR * 1000000 + MINOR * 1000 +
@@ -249,6 +249,60 @@ any other commit stops the release. A version tag is immutable.
 Dispatch with `publish` off to build and verify the draft without publishing.
 A later run with `publish` on resumes from that draft.
 
+## Carrying components forward
+
+A fix for one platform does not rebuild the others. If v0.26.0 shipped Server,
+Edge, Windows, and Android, and v0.26.1 fixes only Windows, v0.26.1 builds
+Windows and records the rest as **inherited** from v0.26.0. An inherited
+component keeps the version, version code, signed manifest, hashes, and assets
+that v0.26.0 published. Nothing is copied, relabeled, or signed again, and the
+files stay in v0.26.0. The notes of v0.26.1 link to them. Studio already holds
+those records from v0.26.0, so it shows the same version and offers no update.
+
+Reuse is the conservative path. A component is carried forward only if all of
+these are true. If any is false, it is built, and the plan says which:
+
+| Rule                  | Meaning                                                                                                                                                                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reuse is on           | `reuse_unchanged` is on (the default). Turn it off to build everything.                                                                                                                                                                   |
+| A baseline exists     | The previous published release: the previous Stable for a Stable, the previous release of either kind for a Beta. Its tag must be at the commit its inventory records.                                                                    |
+| Inputs are identical  | The component's build inputs match the ones its earlier build recorded in `tilecast-release.json`. The inputs are the whole repository tree minus the paths `scripts/release/contract.json` says the component is not built from.         |
+| Channel is compatible | A Stable build can go into any release. A Beta build only goes into another Beta, because it is stamped Beta.                                                                                                                             |
+| Nothing newer exists  | No published release between the baseline and this one holds a newer build of the component. An older build is never carried past a newer one, so no channel or alias moves backwards.                                                    |
+| Assets still verify   | The earlier assets verify today with the server's importer (`tilecast-release-verify`) at the version they were built as. The Server image digest must exist in the registry and carry the version and commit annotations of its release. |
+
+The input rule lists exclusions, not inclusions, so an unlisted path counts. A
+new directory, a lockfile, a toolchain pin, or a shared crate forces a rebuild.
+`scripts/release/test_release_inputs.py` reads the Cargo, Go, npm, Gradle, and
+Docker graphs and fails if an exclusion hides a real input. The input check does
+not refresh dependencies that a build fetches without a pin. Turn `reuse_unchanged`
+off to rebuild.
+
+The plan (`prepare`) runs `release_reuse.py plan`. `assemble` runs
+`release_reuse.py reverify` before it writes anything. If the earlier release was
+deleted or its assets changed in between, the release stops. Dispatch it again.
+A published release is immutable, but an administrator can delete it. Studio
+keeps the records it imported, and cleanup never removes the newest record of a
+platform and channel for age alone.
+
+`tilecast-release.json` marks each component `origin` `built` or `inherited`, with
+the build `inputs` fingerprint and a `reason`. An inherited component also has
+`source` (tag, commit, inventory digest, URL) and the real `versionName`,
+`versionCode`, `channel`, and asset hashes. `reuse` records the baseline. A
+component is in one state: built, inherited, `unavailable` (with a reason), or
+external (iOS is distributed by Apple, the Browser Player is bundled with the
+Server).
+
+A Server that is carried forward is the earlier image, byte for byte, at its own
+tag. This release publishes no tag of its own version for it, because that would
+label an image that reports an older version. Its digest is promoted to the
+aliases. `promote-server-aliases.sh` refuses to move an alias to an older version
+than it names or to name one version with two images.
+
+A resumed draft keeps a component it already built. A component that the draft
+does not hold is planned again. A Server that the draft recorded as built is
+resumed by its tag. One that was inherited is planned again.
+
 ## Server image aliases
 
 | Alias    | Names                                                    |
@@ -321,16 +375,78 @@ The old tag triggers for `player-v*` and `server-v*` are removed. A new tag with
 those names does nothing. Download links to existing release assets continue to
 work.
 
-A Tilecast Edge screen that runs `0.2.1-preview.1` or older checks the legacy
-rule. It computes the legacy code for a unified name and refuses the envelope.
-This is a safe failure. The screen keeps its release and reports the failure. To
-move such a screen to the unified line, install a release built with this change
-by the Edge installer. Alternatively, publish one bridge release at a legacy
-name, for example `0.2.2-preview.1`, from a build of this change. The bridge
-envelope carries the legacy code. The screen installs it. The bridge release
-knows both rules and can then install every unified release. Android screens
-need no bridge: Android compares only the `versionCode` integer, and every
-unified code is larger.
+### Edge 0.2.1 and older need the bridge
+
+The shipped Edge versions are `0.1.0`, `0.2.0`, and `0.2.1` (the tags are
+`edge-v0.1.0-preview.1`, `edge-v0.2.0-preview.2`, and `edge-v0.2.1-preview.1`).
+The update helper that is installed on such a screen runs the whole update: it
+verifies the envelope, stages the archive, and activates the release. In
+`edge-release::envelope`, it requires `version_code(versionName) ==
+versionCode` with the legacy formula. A unified release has `core * 100 + slot`,
+so the helper refuses every one of them with `release_manifest_invalid`. The
+screen keeps running its release. No version of the unified scheme can pass that
+check, because the legacy code of `0.26.0-beta.1`, `0.26.0-beta.2`, and `0.26.0`
+is the same number. **Every Edge screen that runs `0.2.1` or older needs the
+bridge. None can update directly.**
+
+The bridge is an Edge-only release with a name those helpers accept, `0.2.2`
+(code 2002, Beta channel, tag `edge-v0.2.2-preview.1`), built from a commit that
+carries the new helper. It uses the layout of every Edge preview. The shipped
+helper installs it. The helper inside it knows both rules and installs
+`0.26.0-beta.1` and `0.26.0`.
+
+`edge-bridge-release.yml` builds it. It publishes nothing unless `publish` is on:
+
+1. `edge_bridge.py identity` accepts only a valid version below `0.26.0` that is
+   newer than every Edge preview, with a new tag.
+2. `edge-release.yml` builds both architectures with `bridge` on. This stamps
+   only Edge (`stamp_version.py --edge-only`).
+3. `tilecast-release-verify --bridge` checks both architectures as the server
+   imports them. `edge_bridge.py verify` checks that the release is exactly the
+   Edge assets and checksums.
+4. `legacy_oracle.py assets` checks out the shipped `edge-v0.2.1-preview.1` tag,
+   adds one test module to its update helper, and runs the **shipped helper's own
+   state machine** over the real published preview and the real bridge: stage,
+   activate, confirm. If it refuses, nothing is published.
+5. The draft is created as a pre-release, read back, and verified again. Publishing
+   is a separate job and is never "latest".
+
+`legacy_oracle.py path` runs the whole cross-version path on synthetic releases
+in about half a minute: the shipped helper refuses every unified release,
+installs the bridge, and confirms it. Then this branch's helper reads the layout
+and the transaction record the shipped helper left, installs the unified Beta,
+and then the unified Stable. `bridge_path_tests.rs` also covers a failing
+candidate (safe mode, no server, no evidence, silent daemon) which rolls back to
+the bridge, an interruption at every activation point, a forged or altered
+envelope, and a Beta of a version that is already Stable.
+
+What an operator does, with several screens:
+
+1. Publish the bridge (see [First release after this change](#first-release-after-this-change)).
+2. In Studio, deploy the bridge to one screen that runs `0.2.1` or older. Wait
+   until it confirms and plays. A failed update rolls back by itself.
+3. Deploy the bridge to the rest of those screens in groups.
+4. Wait at least a minute after a screen confirms the bridge. The old helper
+   process exits after a minute without a request. A unified deployment sent
+   sooner can reach it and fail with a `release_manifest_invalid` refusal. The
+   screen keeps the bridge. Send the deployment again.
+5. Deploy `v0.26.0-beta.1` (or Stable) to the screens that run the bridge. A
+   screen that runs `0.2.2` or later needs nothing more for future unified
+   releases.
+
+A failed bridge does not strand a screen. The old helper arms its guard before it
+changes anything, so a candidate that does not confirm in ten minutes, or does not
+start after a power loss, is rolled back to the installed release. Signatures are
+always verified with the Tilecast update key. Pairing and configuration live in
+the state directory, which the helper does not change. A newer state schema is
+migrated by the new daemon and refused by an old one, and the helper reports that
+refusal.
+
+Not verified in this change: the shipped helper on real systemd (`legacy_oracle.py`
+uses the helper's in-memory host), the bridge on real hardware, and the aarch64
+build against the shipped helper. The workflow runs the oracle for x86_64.
+Android screens need no bridge: Android compares only the `versionCode` integer,
+and every unified code is larger.
 
 ## WPE WebKit prebuilds
 
@@ -409,6 +525,13 @@ workflow only if a consumer appears.
 Dispatch with `version` set to `0.26.0`. The release is a new build from the
 commit that you dispatch from. It is not a rename of the Beta.
 
+### Release a hotfix for one platform
+
+Dispatch the next version, for example `0.26.1`, from the commit with the fix.
+Read the plan in the `prepare` job: it lists, for every component, whether it is
+built or inherited, and why. Turn `reuse_unchanged` off to build everything. See
+[Carrying components forward](#carrying-components-forward).
+
 ### Resume or recover
 
 Dispatch the same version. Use the table in [Resuming a release](#resuming-a-release).
@@ -432,8 +555,9 @@ Do these steps in order:
    linked to `gbyo/tilecast`.
 4. Run `wpe-release-cleanup.yml` with `dry_run` on and read the result. Then run
    it with `dry_run` off and `confirm` set.
-5. If preview Edge screens are deployed, publish a bridge release. See
-   [Releases that shipped earlier](#releases-that-shipped-earlier).
+5. If Edge screens that run `0.2.1` or older are deployed, dispatch
+   `Tilecast Edge Bridge Release` with `0.2.2`, then publish it, and move those
+   screens through it. See [Edge 0.2.1 and older need the bridge](#edge-021-and-older-need-the-bridge).
 6. Dispatch `Tilecast Release` with `0.26.0-beta.1`.
 7. After a Beta period, dispatch `0.26.0`.
 
@@ -451,10 +575,12 @@ Do these steps in order:
 
 ## Tests
 
-| Test                                                                                           | Covers                                                                                                                                                 |
-| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `go test ./internal/updates ./internal/version ./cmd/tilecast-release-verify` in `apps/server` | The version rule, discovery of every family, independent failure, repeat imports, duplicate detection, channel mapping, pagination, the verify command |
-| `cargo test -p edge-release -p tilecast-windows`                                               | The version rule and the channel agreement on a screen                                                                                                 |
-| `python3 -m unittest discover -s scripts/release`                                              | The version rule, stamping, planning, aliases, contract, assembly, resume, and the GitHub client                                                       |
-| `python3 -m unittest discover -s release` in `apps/edge`                                       | The WPE publish, fetch, and migration scripts                                                                                                          |
-| `node --test scripts/ci/contracts/*.test.mjs`                                                  | The structure of the release workflows                                                                                                                 |
+| Test                                                                                           | Covers                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `go test ./internal/updates ./internal/version ./cmd/tilecast-release-verify` in `apps/server` | The version rule, discovery of every family, independent failure, repeat imports, duplicate detection, channel mapping, pagination, the verify command                   |
+| `cargo test -p edge-release -p tilecast-windows`                                               | The version rule and the channel agreement on a screen                                                                                                                   |
+| `python3 -m unittest discover -s scripts/release`                                              | The version rule, stamping, planning, aliases, contract, assembly, resume, carrying components forward, the build-input rules, the bridge tooling, and the GitHub client |
+| `python3 apps/edge/release/legacy_oracle.py path`                                              | The shipped 0.2.1 helper and this branch's helper on the whole preview, bridge, Beta, Stable path (needs the tag and cargo)                                              |
+| `cargo test -p tilecast-edge-update bridge_path`                                               | This branch's helper on the same path, failures, and rollbacks                                                                                                           |
+| `python3 -m unittest discover -s release` in `apps/edge`                                       | The WPE publish, fetch, and migration scripts                                                                                                                            |
+| `node --test scripts/ci/contracts/*.test.mjs`                                                  | The structure of the release workflows                                                                                                                                   |

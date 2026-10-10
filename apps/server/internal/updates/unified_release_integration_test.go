@@ -448,3 +448,71 @@ func TestRejectionKeepsTheETagAndIsNotRetriedUntilTheListChanges(t *testing.T) {
 		t.Fatalf("the rejection was cleared by an unchanged check: %v %v", recorded, err)
 	}
 }
+
+// A hotfix release that rebuilds one platform lists only that platform. The
+// platforms it carries forward stay available from the release that built
+// them, keep the version they shipped with, and are not offered as new.
+func TestAHotfixKeepsTheCarriedForwardPlatformsAtTheirOwnVersion(t *testing.T) {
+	pool := updatesTestPool(t)
+	f := newReleaseFixture(t)
+	f.unified("0.26.0")
+	original := f.release(6001, "v0.26.0", false)
+	for _, arch := range []string{"x86_64", "aarch64"} {
+		f.windows("0.26.1", "stable", arch)
+	}
+	hotfix := f.release(6002, "v0.26.1", false)
+	service := newUpdatesService(t, pool, f, f.provider(hotfix, original))
+	ctx := context.Background()
+	if err := service.Check(ctx); err != nil {
+		t.Fatal(err)
+	}
+	latest := func() map[string]storedRelease {
+		newest := map[string]storedRelease{}
+		for _, release := range storedReleases(t, pool) {
+			key := release.Family + "/" + release.Arch
+			if current, ok := newest[key]; !ok || release.Code > current.Code {
+				newest[key] = release
+			}
+		}
+		return newest
+	}
+	want := map[string][2]string{
+		"android/":        {"0.26.0", "v0.26.0"},
+		"edge/x86_64":     {"0.26.0", "v0.26.0"},
+		"edge/aarch64":    {"0.26.0", "v0.26.0"},
+		"windows/x86_64":  {"0.26.1", "v0.26.1"},
+		"windows/aarch64": {"0.26.1", "v0.26.1"},
+	}
+	check := func(when string) {
+		t.Helper()
+		got := latest()
+		if len(got) != len(want) {
+			t.Fatalf("%s: newest releases = %+v", when, got)
+		}
+		for key, expected := range want {
+			if got[key].Name != expected[0] || got[key].Tag != expected[1] {
+				t.Errorf("%s: newest %s is %s from %s, want %s from %s", when, key, got[key].Name, got[key].Tag, expected[0], expected[1])
+			}
+		}
+	}
+	check("after the hotfix is imported")
+	if got := len(storedReleases(t, pool)); got != 7 {
+		t.Fatalf("stored %d, want the five of v0.26.0 and the two Windows builds of v0.26.1", got)
+	}
+
+	// Months later nothing has changed on GitHub, so no check re-imports
+	// anything. Cleanup must still leave every platform's newest build in
+	// place, and may remove only what a newer build supersedes.
+	if _, err := pool.Exec(ctx, `UPDATE player_releases SET updated_at=now()-interval '200 days'`); err != nil {
+		t.Fatal(err)
+	}
+	service.Cleanup(ctx, 90)
+	check("after cleanup")
+	var older int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM player_releases WHERE player_family='windows' AND version_name='0.26.0'`).Scan(&older); err != nil || older != 0 {
+		t.Fatalf("the superseded Windows 0.26.0 builds were kept: count=%d err=%v", older, err)
+	}
+	if got := len(storedReleases(t, pool)); got != 5 {
+		t.Fatalf("stored %d after cleanup, want one newest build per platform", got)
+	}
+}

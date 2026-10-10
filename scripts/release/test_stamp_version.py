@@ -69,6 +69,23 @@ class StampVersion(unittest.TestCase):
         self.assertIn("versionCode", result.stderr)
         self.assertEqual((root / "apps/edge/release/VERSION").read_text(), "0.2.1\n")
 
+    def test_the_bridge_stamps_only_edge_and_only_with_a_legacy_compatible_version(self):
+        root = self.tree()
+        result = run(root, "--version", "0.2.2", "--edge-only")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((root / "apps/edge/release/VERSION").read_text(), "0.2.2\n")
+        self.assertEqual((root / "apps/player-windows/release/VERSION").read_text(), "0.1.0\n")
+        self.assertIn('versionName = "0.25.0"', (root / "apps/player-android/app/build.gradle.kts").read_text())
+        self.assertEqual(run(root, "--version", "0.2.2", "--edge-only", "--check").returncode, 0)
+        # A unified version is not a bridge: it stamps every platform, or nothing.
+        for version in ("0.26.0", "0.26.0-beta.1", "1.0.0", "0.2", "v0.2.2", "0.2.2-"):
+            self.assertNotEqual(run(root, "--version", version, "--edge-only").returncode, 0, version)
+        self.assertEqual((root / "apps/edge/release/VERSION").read_text(), "0.2.2\n")
+
+    def test_a_legacy_version_is_still_not_a_coordinated_release(self):
+        root = self.tree()
+        self.assertNotEqual(run(root, "--version", "0.2.2").returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

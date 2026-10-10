@@ -10,8 +10,9 @@ name: Tilecast Release
 # verifies the draft, and publishes it:
 #
 #   prepare   validate the version and its ordering against the published
-#             releases, and reuse what an earlier run of this version already
-#             built and verified
+#             releases; reuse what an earlier run of this version already built
+#             and verified; and decide which components are carried forward,
+#             unchanged, from the previous published release instead of built
 #   gates     the server shipping bundle's validation (as server releases always
 #             required)
 #   build     Server image (GHCR, version tag only), Tilecast Edge x86_64 and
@@ -26,8 +27,16 @@ name: Tilecast Release
 # Nothing is published until every required platform has built, signed and
 # verified. Rerunning the same version resumes: a platform whose signed assets
 # already verify in the draft is reused and never rebuilt or re-signed; a
-# published release resumes at alias promotion. docs/release-process.md is the
-# full procedure, including what each platform needs.
+# published release resumes at alias promotion.
+#
+# A hotfix for one platform does not rebuild the others. A component whose build
+# inputs are identical to the previous published release's, and whose published
+# assets still verify with the server's importer, is carried forward: recorded
+# in tilecast-release.json as inherited, with the release that built it, and
+# never copied, relabeled or signed again. When that cannot be proven the
+# component is built. reuse_unchanged turns the whole mechanism off.
+# docs/release-process.md is the full procedure, including what each platform
+# needs.
 on:
   workflow_dispatch:
     inputs:
@@ -42,6 +51,11 @@ on:
         type: boolean
       verify_reproducible:
         description: Build each Edge tree a second time and require identical file digests
+        required: false
+        default: true
+        type: boolean
+      reuse_unchanged:
+        description: Carry a component forward from the previous release when its build inputs are unchanged and its assets still verify. Turn off to build every component
         required: false
         default: true
         type: boolean
@@ -67,16 +81,19 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: read
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
       channel: ${{ steps.version.outputs.channel }}
       prerelease: ${{ steps.version.outputs.prerelease }}
       state: ${{ steps.plan.outputs.state }}
+      nearest_tag: ${{ steps.plan.outputs.nearest_tag }}
       previous_tag: ${{ steps.plan.outputs.previous_tag }}
-      edge_arches: ${{ steps.resume.outputs.edge_arches }}
-      windows_arches: ${{ steps.resume.outputs.windows_arches }}
-      build_android: ${{ steps.resume.outputs.build_android }}
+      edge_arches: ${{ steps.reuse.outputs.edge_arches }}
+      windows_arches: ${{ steps.reuse.outputs.windows_arches }}
+      build_android: ${{ steps.reuse.outputs.build_android }}
+      build_server: ${{ steps.reuse.outputs.build_server }}
       digest: ${{ steps.resume.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
@@ -127,6 +144,7 @@ jobs:
           {
             echo "state=$(jq -r .state "$RUNNER_TEMP/plan.json")"
             echo "previous_tag=$(jq -r .previousTag "$RUNNER_TEMP/plan.json")"
+            echo "nearest_tag=$(jq -r .nearestTag "$RUNNER_TEMP/plan.json")"
           } >> "$GITHUB_OUTPUT"
 
       # An immutable release fixes its tag to a commit when it is published.
@@ -161,6 +179,19 @@ jobs:
               fi ;;
           esac
 
+      # The server's own importer, built once: it verifies a resumed draft, and
+      # every earlier release a component may be carried forward from.
+      - name: Build the release verifier
+        run: (cd apps/server && go build -o "$RUNNER_TEMP/tilecast-release-verify" ./cmd/tilecast-release-verify)
+
+      # An earlier Server image is read from the registry to prove it is there.
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       # A resumed draft keeps every platform whose signed manifest, signature
       # and artifact still verify, byte for byte; only the rest is built again.
       - name: Resume what the draft already holds
@@ -177,10 +208,12 @@ jobs:
           digest=""
           mkdir -p "$RUNNER_TEMP/reuse"
           if [ "$STATE" != "new" ]; then
-            (cd apps/server && go build -o "$RUNNER_TEMP/tilecast-release-verify" ./cmd/tilecast-release-verify)
             python3 scripts/release/github_release.py download "$TAG" --dir "$RUNNER_TEMP/draft"
             if [ -f "$RUNNER_TEMP/draft/tilecast-release.json" ]; then
-              digest="$(jq -r '[.components[] | select(.id == "server" and .status == "available") | .digest][0] // ""' "$RUNNER_TEMP/draft/tilecast-release.json")"
+              # Only an image this release built is resumed by tag. A Server
+              # carried forward from an earlier release has no tag of this
+              # version; whether to carry it forward is decided again below.
+              digest="$(jq -r '[.components[] | select(.id == "server" and .status == "available" and .origin != "inherited") | .digest][0] // ""' "$RUNNER_TEMP/draft/tilecast-release.json")"
             fi
             # The verifier exits 1 when it finds problems; the report says which.
             "$RUNNER_TEMP/tilecast-release-verify" --dir "$RUNNER_TEMP/draft" --public-key "$UPDATE_KEY" \
@@ -194,11 +227,54 @@ jobs:
             pending='[]'
           fi
           {
-            echo "edge_arches=$(jq -c '[.[] | select(startswith("edge-")) | sub("edge-"; "")]' <<<"$pending")"
-            echo "windows_arches=$(jq -c '[.[] | select(startswith("windows-")) | sub("windows-"; "")]' <<<"$pending")"
-            echo "build_android=$(jq -r 'index("android") != null' <<<"$pending")"
+            echo "pending=$pending"
             echo "digest=$digest"
           } >> "$GITHUB_OUTPUT"
+
+      # Carry a component forward from the previous published release when its
+      # build inputs are identical and its assets still verify; build it
+      # otherwise. The plan records every decision and its reason, and is the
+      # only thing that lets a component be absent from this release's assets.
+      - name: Decide what to carry forward from earlier releases
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          STATE: ${{ steps.plan.outputs.state }}
+          BASELINE: ${{ steps.plan.outputs.previous_tag }}
+          NEAREST: ${{ steps.plan.outputs.nearest_tag }}
+          REUSE: ${{ inputs.reuse_unchanged && 'on' || 'off' }}
+          PLAYERS: ${{ steps.resume.outputs.pending }}
+          RECORDED_DIGEST: ${{ steps.resume.outputs.digest }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/reuse-plan"
+          if [ "$STATE" = published ]; then
+            echo '{"components":[],"inputs":{}}' > "$RUNNER_TEMP/reuse-plan/reuse-plan.json"
+            build='[]'
+          else
+            # The Server is pending unless the draft already holds a built image.
+            pending="$(jq -nc --argjson players "$PLAYERS" --arg digest "$RECORDED_DIGEST" '$players + (if $digest == "" then ["server"] else [] end)')"
+            python3 scripts/release/release_reuse.py plan --version "$VERSION" --commit "$GITHUB_SHA" \
+              --baseline "$BASELINE" --newest "$NEAREST" --reuse "$REUSE" --pending "$pending" \
+              --verifier "$RUNNER_TEMP/tilecast-release-verify" --public-key "$UPDATE_KEY" \
+              --android-certificate "$ANDROID_CERTIFICATE_SHA256" --workdir "$RUNNER_TEMP/reuse-work" \
+              --repo . --out "$RUNNER_TEMP/reuse-plan/reuse-plan.json"
+            # What to build: pending, and not carried forward.
+            build="$(jq -c --argjson pending "$pending" '[.components[] | select(.action == "build" and (.id as $id | $pending | index($id) != null)) | .id]' "$RUNNER_TEMP/reuse-plan/reuse-plan.json")"
+          fi
+          {
+            echo "edge_arches=$(jq -c '[.[] | select(startswith("edge-")) | sub("edge-"; "")]' <<<"$build")"
+            echo "windows_arches=$(jq -c '[.[] | select(startswith("windows-")) | sub("windows-"; "")]' <<<"$build")"
+            echo "build_android=$(jq -r 'index("android") != null' <<<"$build")"
+            # The image job also resumes a recorded image, which it verifies by tag.
+            echo "build_server=$(jq -r --arg digest "$RECORDED_DIGEST" 'index("server") != null or $digest != ""' <<<"$build")"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-reuse-plan
+          path: ${{ runner.temp }}/reuse-plan
 
       - uses: actions/upload-artifact@v7
         with:
@@ -260,7 +336,7 @@ jobs:
 
   server_image:
     needs: prepare
-    if: needs.prepare.outputs.state != 'published'
+    if: needs.prepare.outputs.state != 'published' && needs.prepare.outputs.build_server == 'true'
     permissions:
       contents: read
       packages: write
@@ -335,6 +411,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: read
     outputs:
       ready: ${{ steps.draft.outputs.ready }}
     steps:
@@ -365,6 +442,12 @@ jobs:
           path: ${{ runner.temp }}/artifacts
           pattern: tilecast-*
 
+      - name: Download the reuse plan
+        uses: actions/download-artifact@v7
+        with:
+          name: release-reuse-plan
+          path: ${{ runner.temp }}/reuse-plan
+
       - name: Collect the release assets
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -389,6 +472,26 @@ jobs:
           "$RUNNER_TEMP/tilecast-release-verify" --dir "$RUNNER_TEMP/assets" --public-key "$UPDATE_KEY" \
             --version "$VERSION" --android-certificate "$ANDROID_CERTIFICATE_SHA256" > "$RUNNER_TEMP/report.json" || true
           jq . "$RUNNER_TEMP/report.json"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # What this release carries forward is read again from the earlier
+      # release as it is now. If it is gone, changed, or no longer accepted by
+      # the importer, the release stops here rather than describe an asset that
+      # cannot be downloaded: dispatch it again to build that component.
+      - name: Verify what is carried forward from earlier releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release/release_reuse.py reverify --plan "$RUNNER_TEMP/reuse-plan/reuse-plan.json" \
+            --verifier "$RUNNER_TEMP/tilecast-release-verify" --public-key "$UPDATE_KEY" \
+            --android-certificate "$ANDROID_CERTIFICATE_SHA256" --workdir "$RUNNER_TEMP/reverify-work"
 
       - name: Release notes baseline
         env:
@@ -424,6 +527,7 @@ jobs:
           python3 scripts/release/release_assemble.py build --version "$VERSION" --channel "$CHANNEL" \
             --commit "$GITHUB_SHA" --assets "$RUNNER_TEMP/assets" --report "$RUNNER_TEMP/report.json" \
             --results "$RUNNER_TEMP/results.json" --server-digest "$SERVER_DIGEST" \
+            --reuse-plan "$RUNNER_TEMP/reuse-plan/reuse-plan.json" \
             --changes "$RUNNER_TEMP/changes.md" --notes-out "$RUNNER_TEMP/notes.md"
 
       # The draft is the only place assets are added. It is reused across runs:

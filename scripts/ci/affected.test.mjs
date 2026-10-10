@@ -712,3 +712,20 @@ test("the Browser capability matrix selects every generated consumer", () => {
       assert.equal(result[area], true, `${path} ${area}`);
   }
 });
+
+test("a change to a build graph reruns the release input checks and nothing else new", () => {
+  for (const file of [
+    "deploy/docker/Dockerfile",
+    "apps/server/go.mod",
+    "apps/player-windows/Cargo.toml",
+    "apps/edge/tilecastd/Cargo.toml",
+    "apps/edge/crates/edge-release/Cargo.toml",
+    "apps/player-android/native/Cargo.toml",
+    "apps/player-android/app/build.gradle.kts",
+    "apps/dashboard/package.json",
+    "packages/player-runtime/package.json",
+  ])
+    assert.equal(affected([file]).ci, true, file);
+  assert.equal(affected(["apps/player-windows/src/main.rs"]).ci, false);
+  assert.equal(affected(["apps/player-windows/Cargo.toml"]).windows, true);
+});

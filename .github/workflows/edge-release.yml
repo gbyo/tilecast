@@ -37,6 +37,11 @@ on:
         required: false
         default: true
         type: boolean
+      bridge:
+        description: Build the Edge bridge release (edge-bridge-release.yml). Stamps only Edge, with a legacy-compatible version below 0.26.0
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       release_version:
@@ -86,7 +91,16 @@ jobs:
         if: inputs.release_version != ''
         env:
           RELEASE_VERSION: ${{ inputs.release_version }}
-        run: python3 scripts/release/stamp_version.py --version "$RELEASE_VERSION"
+          BRIDGE: ${{ inputs.bridge && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          # The bridge is the one Edge build that is not a coordinated release:
+          # it stamps Edge only, with a version a deployed 0.2.1 screen accepts.
+          if [ "$BRIDGE" = true ]; then
+            python3 scripts/release/stamp_version.py --version "$RELEASE_VERSION" --edge-only
+          else
+            python3 scripts/release/stamp_version.py --version "$RELEASE_VERSION"
+          fi
 
       - uses: oras-project/setup-oras@v2
         with:

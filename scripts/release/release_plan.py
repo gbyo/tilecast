@@ -105,6 +105,10 @@ def plan(tag, releases):
     # against the previous Stable, a Beta against whatever came just before.
     earlier = [v for v in versions if v.code < version.code]
     previous = newest(earlier, "stable") if version.channel == "stable" else newest(earlier)
+    # The newest published release below this one, of either kind. Reuse
+    # compares it with the baseline so an older build is never carried past a
+    # newer one.
+    nearest = newest(earlier)
     return {
         "tag": f"v{version.name}",
         "version": version.name,
@@ -113,6 +117,7 @@ def plan(tag, releases):
         "versionCode": version.code,
         "state": state,
         "previousTag": f"v{previous.name}" if previous else "",
+        "nearestTag": f"v{nearest.name}" if nearest else "",
         "aliases": aliases_for(version, versions),
     }
 

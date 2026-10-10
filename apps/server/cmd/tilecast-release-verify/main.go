@@ -11,6 +11,11 @@
 //	tilecast-release-verify --dir assets --public-key update-public.pem \
 //	    --version 0.26.0-beta.1 [--android-certificate SHA256]
 //
+// With --bridge it checks the Edge bridge release instead: an Edge-only release
+// whose version name and code follow the legacy rule (below 0.26.0), so that a
+// screen running Edge 0.2.1 or older can install it. See
+// docs/release-process.md.
+//
 // It prints one JSON document and exits 1 when anything is rejected. Problems
 // are listed beside the components that did verify, so the caller can tell a
 // missing optional platform from a corrupt required one.
@@ -86,6 +91,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	keyPath := flags.String("public-key", "", "trusted update public key: PEM or base64 raw Ed25519")
 	version := flags.String("version", "", "release version, for example 0.26.0-beta.1")
 	androidCertificate := flags.String("android-certificate", "", "pinned Android signing certificate SHA-256 (optional)")
+	bridge := flags.Bool("bridge", false, "verify an Edge bridge release: a legacy version below 0.26.0, Edge assets only")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
@@ -98,7 +104,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 2
 	}
-	result, err := verifyDirectory(context.Background(), *dir, key, *version, strings.ToLower(*androidCertificate))
+	result, err := verifyDirectory(context.Background(), *dir, key, *version, strings.ToLower(*androidCertificate), *bridge)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 2
@@ -151,9 +157,15 @@ func (dirProvider) Open(context.Context, string) (*http.Response, error) {
 	return nil, errors.New("artifacts are verified from the directory")
 }
 
-func verifyDirectory(ctx context.Context, dir string, key ed25519.PublicKey, version, androidCertificate string) (report, error) {
+func verifyDirectory(ctx context.Context, dir string, key ed25519.PublicKey, version, androidCertificate string, bridge bool) (report, error) {
 	channel := updates.VersionChannel(version)
-	if _, ok := updates.VersionCode(version); !ok || !updates.IsUnifiedVersion(version) || channel == "" {
+	if bridge {
+		// An Edge preview was always a GitHub pre-release on the Beta channel.
+		channel = "beta"
+		if _, ok := updates.VersionCode(version); !ok || updates.IsUnifiedVersion(version) {
+			return report{}, fmt.Errorf("%q is not a bridge version: it must be a valid version below 0.26.0, which an Edge 0.2.1 screen accepts", version)
+		}
+	} else if _, ok := updates.VersionCode(version); !ok || !updates.IsUnifiedVersion(version) || channel == "" {
 		return report{}, fmt.Errorf("%q is not a unified release version: use X.Y.Z or X.Y.Z-beta.N from 0.26.0 on", version)
 	}
 	entries, err := os.ReadDir(dir)
@@ -179,6 +191,9 @@ func verifyDirectory(ctx context.Context, dir string, key ed25519.PublicKey, ver
 			result.Problems = append(result.Problems, problem{manifest.NormalizedFamily(), manifest.Architecture(), message})
 		}
 		switch {
+		case bridge && manifest.NormalizedFamily() != updates.FamilyEdge:
+			reject("a bridge release carries Tilecast Edge only")
+			continue
 		case manifest.NormalizedFamily() == updates.FamilyElectronLinux:
 			reject("the legacy Electron Linux Player is not part of a coordinated release")
 			continue

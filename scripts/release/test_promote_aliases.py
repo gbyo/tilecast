@@ -12,6 +12,7 @@ SCRIPT = Path(__file__).with_name("promote-server-aliases.sh")
 IMAGE = "ghcr.io/gbyo/tilecast-server"
 NEW = "sha256:" + "a" * 64
 OLD = "sha256:" + "b" * 64
+NEWER = "sha256:" + "c" * 64
 
 FAKE_DOCKER = r"""#!/usr/bin/env python3
 import json, os, sys
@@ -23,7 +24,14 @@ with open(registry + ".log", "a") as log:
 assert args[:2] == ["buildx", "imagetools"], args
 if args[2] == "inspect":
     ref = args[3]
-    if "@" in ref:
+    if "--raw" in args:
+        ref = args[-1]
+        digest = ref.split("@", 1)[1] if "@" in ref else state["tags"].get(ref.rsplit(":", 1)[1])
+        if digest not in state["digests"]:
+            sys.exit(1)
+        version = state.get("versions", {}).get(digest)
+        print(json.dumps({"annotations": {"org.opencontainers.image.version": version} if version else {}}))
+    elif "@" in ref:
         digest = ref.split("@", 1)[1]
         if digest not in state["digests"]:
             sys.exit(1)
@@ -54,7 +62,10 @@ class PromoteAliases(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp())
         self.registry = self.root / "registry.json"
-        self.registry.write_text(json.dumps({"digests": [NEW, OLD], "tags": {"stable": OLD, "latest": OLD, "beta": OLD}}))
+        self.registry.write_text(json.dumps({
+            "digests": [NEW, OLD, NEWER], "tags": {"stable": OLD, "latest": OLD, "beta": OLD},
+            "versions": {OLD: "0.26.0", NEW: "0.26.1", NEWER: "0.27.0-beta.1"},
+        }))
         docker = self.root / "docker"
         docker.write_text(FAKE_DOCKER)
         docker.chmod(0o755)
@@ -107,7 +118,7 @@ class PromoteAliases(unittest.TestCase):
         for digest in ("", "latest", "sha256:abc", "sha256:" + "G" * 64, "0.26.0"):
             result = self.promote(digest=digest)
             self.assertNotEqual(result.returncode, 0, digest)
-        unknown = self.promote(digest="sha256:" + "c" * 64)
+        unknown = self.promote(digest="sha256:" + "d" * 64)
         self.assertNotEqual(unknown.returncode, 0, "a digest that is not in the registry")
         self.assertEqual(self.tags(), {"stable": OLD, "latest": OLD, "beta": OLD})
 
@@ -121,6 +132,53 @@ class PromoteAliases(unittest.TestCase):
         self.assertIn(f"{IMAGE}@{NEW}", log)
         self.assertNotIn("0.26.0", log)
         self.assertEqual(log.count("imagetools create"), 1, "one registry operation moves every alias")
+
+    def set_state(self, **changes):
+        state = json.loads(self.registry.read_text())
+        for key, value in changes.items():
+            state[key].update(value) if isinstance(value, dict) else state.__setitem__(key, value)
+        self.registry.write_text(json.dumps(state))
+
+    def test_an_alias_never_moves_to_an_older_version(self):
+        self.set_state(tags={"stable": NEW, "latest": NEW, "beta": NEWER})
+        # 0.26.0's image is promoted by a Beta release that carried it forward,
+        # while the beta alias already names 0.27.0-beta.1.
+        result = self.promote(digest=OLD, aliases=("beta",), channel="beta")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("backwards", result.stderr)
+        self.assertEqual(self.tags()["beta"], NEWER)
+
+    def test_one_alias_moving_backwards_stops_every_alias(self):
+        self.set_state(tags={"stable": OLD, "latest": OLD, "beta": NEWER})
+        result = self.promote(digest=NEW)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(self.tags(), {"stable": OLD, "latest": OLD, "beta": NEWER}, "nothing moved")
+
+    def test_a_carried_forward_image_may_be_promoted_to_the_aliases_that_already_name_it(self):
+        self.set_state(tags={"stable": OLD, "latest": OLD, "beta": OLD})
+        result = self.promote(digest=OLD)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.tags(), {"stable": OLD, "latest": OLD, "beta": OLD})
+
+    def test_a_hotfix_may_carry_the_older_server_to_a_stable_alias_that_is_older_still(self):
+        self.set_state(tags={"stable": OLD, "latest": OLD, "beta": NEWER})
+        result = self.promote(digest=NEW, aliases=("stable", "latest"))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.tags(), {"stable": NEW, "latest": NEW, "beta": NEWER})
+
+    def test_a_version_never_names_two_images(self):
+        self.set_state(digests=[NEW, OLD, NEWER, "sha256:" + "e" * 64], versions={"sha256:" + "e" * 64: "0.26.1"})
+        self.set_state(tags={"stable": "sha256:" + "e" * 64})
+        result = self.promote(digest=NEW, aliases=("stable",))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("already", result.stderr)
+
+    def test_an_image_without_a_version_annotation_is_refused(self):
+        self.set_state(versions={NEW: ""})
+        result = self.promote(digest=NEW)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no version annotation", result.stderr)
+        self.assertEqual(self.tags(), {"stable": OLD, "latest": OLD, "beta": OLD})
 
     def test_a_failed_registry_operation_fails_the_promotion(self):
         result = self.promote(FAKE_CREATE_FAILS="1")

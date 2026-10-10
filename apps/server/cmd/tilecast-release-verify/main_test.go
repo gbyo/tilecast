@@ -230,3 +230,56 @@ func TestReportMatchesTheDocumentTheAssemblyScriptReads(t *testing.T) {
 		t.Fatalf("the report document changed:\n%s\nwant:\n%s", encoded, expected)
 	}
 }
+
+// The bridge is an Edge-only release with a legacy-compatible name: a screen
+// running Edge 0.2.1 or older refuses every unified version, so this is the one
+// release it can install. It was always a GitHub pre-release on the Beta channel.
+func TestBridgeModeAcceptsALegacyEdgeReleaseAndRefusesAnythingElse(t *testing.T) {
+	r := newReleaseDir(t)
+	for _, arch := range []string{"x86_64", "aarch64"} {
+		r.envelope("edge", "0.2.2", "beta", arch)
+	}
+	result, code, stderr := r.verify("0.2.2", "--bridge")
+	if code != 0 || len(result.Problems) != 0 || len(result.Components) != 2 || result.Channel != "beta" {
+		t.Fatalf("code=%d report=%+v stderr=%s", code, result, stderr)
+	}
+	for _, component := range result.Components {
+		if component.Family != "edge" || component.VersionName != "0.2.2" || component.VersionCode != 2002 {
+			t.Errorf("unexpected component %+v", component)
+		}
+	}
+	// Without --bridge, a version before the cutover is not a release version.
+	if _, code, stderr := r.verify("0.2.2"); code != 2 || !strings.Contains(stderr, "not a unified release version") {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+	// A unified version is not a bridge version: that is what the bridge is for.
+	if _, code, stderr := r.verify("0.26.0-beta.1", "--bridge"); code != 2 || !strings.Contains(stderr, "not a bridge version") {
+		t.Fatalf("code=%d stderr=%s", code, stderr)
+	}
+	if _, code, _ := r.verify("not-a-version", "--bridge"); code != 2 {
+		t.Fatalf("code=%d", code)
+	}
+}
+
+func TestBridgeModeRefusesOtherFamiliesAndWrongChannelsAndTamperedFiles(t *testing.T) {
+	r := newReleaseDir(t)
+	r.envelope("edge", "0.2.2", "beta", "x86_64")
+	r.envelope("windows", "0.2.2", "beta", "x86_64")
+	result, code, _ := r.verify("0.2.2", "--bridge")
+	if code != 1 || len(result.Components) != 1 || len(result.Problems) == 0 {
+		t.Fatalf("a Windows build in a bridge release: code=%d report=%+v", code, result)
+	}
+
+	stable := newReleaseDir(t)
+	stable.envelope("edge", "0.2.2", "stable", "x86_64")
+	if result, code, _ := stable.verify("0.2.2", "--bridge"); code != 1 || len(result.Components) != 0 {
+		t.Fatalf("a bridge on the Stable channel: code=%d report=%+v", code, result)
+	}
+
+	tampered := newReleaseDir(t)
+	tampered.envelope("edge", "0.2.2", "beta", "x86_64")
+	tampered.write(updates.EdgeArtifactName("0.2.2", "x86_64"), []byte("swapped"))
+	if result, code, _ := tampered.verify("0.2.2", "--bridge"); code != 1 || len(result.Components) != 0 {
+		t.Fatalf("a swapped artifact: code=%d report=%+v", code, result)
+	}
+}
