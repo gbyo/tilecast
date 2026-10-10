@@ -240,6 +240,13 @@ the release:
 | A draft exists | Downloads the draft. Verifies each platform. Reuses a platform whose manifest, signature, and artifact still verify. Builds the rest. The draft must target the same commit. |
 | Published      | Builds nothing. Promotes the aliases that the release still owns. The run must start from the tagged commit.                                                                 |
 
+A draft has no tag until it is published. With immutable releases, GitHub
+reports the tag of a draft as `untagged-<hash>` unless the latest write named
+the tag. `github_release.py` names the tag in every write to a draft and in the
+publish request. A listing can trail a write by a second or two, so a lookup
+that finds nothing is tried again for a short time. A draft that shows an
+`untagged-` tag was changed by another tool. Delete it and dispatch again.
+
 A reused platform is not rebuilt and not signed again. Its bytes stay as they
 are. An asset uploaded by an interrupted run is replaced only in a draft. The
 Server image resumes from the digest in the draft inventory, or from a version

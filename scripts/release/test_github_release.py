@@ -21,6 +21,11 @@ class FakeGitHub:
         self.redirect_to = None
         self.storage_data = b""
         self.storage_authorization = "unset"
+        # With immutable releases GitHub reports a draft's tag as untagged-<hash>
+        # unless the latest write named the tag.
+        self.untagged_on_create = False
+        self.patches = []
+        self.hidden_listings = 0
 
     def new_release(self, tag, draft=True, prerelease=False, assets=()):
         release = {"id": self.next_id, "tag_name": tag, "draft": draft, "prerelease": prerelease,
@@ -64,6 +69,9 @@ def handler_for(fake):
                 fake.storage_authorization = self.headers.get("Authorization")
                 return self._send(200, fake.storage_data, "application/octet-stream")
             if segments[-1] == "releases":
+                if fake.hidden_listings > 0:
+                    fake.hidden_listings -= 1
+                    return self._send(200, [])
                 page = int(parse_qs(parts.query).get("page", ["1"])[0])
                 chunk = fake.releases[(page - 1) * 100: page * 100]
                 return self._send(200, [self._public(r) for r in chunk])
@@ -92,6 +100,8 @@ def handler_for(fake):
                 payload = json.loads(body)
                 release = fake.new_release(payload["tag_name"], draft=payload["draft"], prerelease=payload["prerelease"])
                 release.update(target_commitish=payload["target_commitish"], name=payload["name"], body=payload["body"])
+                if fake.untagged_on_create:
+                    release["tag_name"] = f"untagged-{release['id']}"
                 return self._send(201, self._public(release))
             if segments[-1] == "assets":
                 release = self._release(int(segments[-2]))
@@ -113,6 +123,9 @@ def handler_for(fake):
                 return self._send(422, {"message": "Validation Failed"})
             release.update({k: v for k, v in payload.items() if k in ("draft", "body")})
             release["latest"] = payload.get("make_latest")
+            if release["draft"]:
+                release["tag_name"] = payload.get("tag_name") or f"untagged-{release['id']}"
+            fake.patches.append(payload)
             return self._send(200, self._public(release))
 
         def do_DELETE(self):
@@ -134,6 +147,7 @@ class ClientTests(unittest.TestCase):
         self.addCleanup(self.server.shutdown)
         base = f"http://127.0.0.1:{self.server.server_address[1]}"
         self.client = gr.Client("gbyo/tilecast", token="secret-token", api=base, uploads=base)
+        self.client.lookup_delay = 0
         self.dir = tempfile.mkdtemp()
 
     def files(self, **named):
@@ -157,6 +171,36 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(release["tag_name"], "v0.26.0-beta.1")
         with self.assertRaisesRegex(gr.GitHubError, "already exists"):
             self.client.create("v0.26.0-beta.1", "deadbeef", "x", "n", True)
+
+    def test_a_created_draft_is_found_again_when_github_reports_it_untagged(self):
+        self.fake.untagged_on_create = True
+        self.client.create("v0.26.0-beta.1", "deadbeef", "t", "n", True)
+        self.assertEqual(self.client.require("v0.26.0-beta.1")["draft"], True)
+
+    def test_every_write_to_a_draft_names_its_tag(self):
+        self.client.create("v1", "sha", "t", "first", False)
+        self.client.update(self.client.require("v1")["id"], "v1", {"body": "second"})
+        self.assertTrue(all(patch.get("tag_name") == "v1" for patch in self.fake.patches), self.fake.patches)
+        self.assertEqual(self.client.require("v1")["body"], "second")
+
+    def test_notes_never_hide_a_draft(self):
+        self.fake.new_release("v1")
+        with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as notes:
+            notes.write("resumed")
+        self.addCleanup(os.unlink, notes.name)
+        original = gr.Client
+        gr.Client = lambda: self.client
+        try:
+            self.assertEqual(gr.main(["notes", "v1", "--notes-file", notes.name]), 0)
+        finally:
+            gr.Client = original
+        self.assertEqual(self.client.require("v1")["body"], "resumed")
+
+    def test_publish_names_the_tag(self):
+        self.fake.new_release("v1")
+        self.client.publish(self.client.require("v1"), latest=True)
+        self.assertEqual(self.fake.patches[-1]["tag_name"], "v1")
+        self.assertEqual(self.fake.patches[-1]["draft"], False)
 
     def test_upload_then_download_round_trips_every_byte(self):
         self.client.create("v1", "sha", "t", "n", False)
@@ -238,6 +282,12 @@ class ClientTests(unittest.TestCase):
         release["assets"][0]["size"] = 99
         with self.assertRaisesRegex(gr.GitHubError, "expected 99"):
             self.client.download(self.client.require("v1"), tempfile.mkdtemp())
+
+    def test_a_listing_that_lags_a_create_is_retried(self):
+        self.fake.new_release("v1")
+        self.fake.hidden_listings = 3
+        self.assertEqual(self.client.require("v1")["tag_name"], "v1")
+        self.assertEqual(self.fake.hidden_listings, 0)
 
     def test_a_missing_release_is_an_error(self):
         with self.assertRaisesRegex(gr.GitHubError, "there is no release"):

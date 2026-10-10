@@ -24,6 +24,7 @@ import http.client
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -64,6 +65,9 @@ class Client:
         self.token = token or os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
         self.api = api.rstrip("/")
         self.uploads = uploads.rstrip("/")
+        # A release listing can trail a write by a second or two.
+        self.lookup_attempts = 6
+        self.lookup_delay = 2.0
 
     def _headers(self, extra=None):
         headers = {
@@ -110,22 +114,36 @@ class Client:
             page += 1
 
     def require(self, tag):
-        release = self.find(tag)
-        if release is None:
-            raise GitHubError(f"there is no release {tag}")
-        return release
+        """The release, or an error. The listing that find() reads can lag a
+        create by a second or two, so a miss is retried briefly."""
+        for attempt in range(self.lookup_attempts):
+            release = self.find(tag)
+            if release is not None:
+                return release
+            if attempt + 1 < self.lookup_attempts:
+                time.sleep(self.lookup_delay)
+        raise GitHubError(f"there is no release {tag}")
 
     def create(self, tag, target, title, notes, prerelease):
         if self.find(tag) is not None:
             raise GitHubError(f"release {tag} already exists")
         # Always a draft: the tag does not exist until the draft is published.
-        return self._json("POST", f"/repos/{self.repository}/releases", {
+        created = self._json("POST", f"/repos/{self.repository}/releases", {
             "tag_name": tag, "target_commitish": target, "name": title, "body": notes,
             "draft": True, "prerelease": prerelease, "generate_release_notes": False,
         }, expected=(201,))
+        # Name the tag again in a write of its own. See update().
+        return self.update(created["id"], tag, {})
 
-    def update(self, release_id, fields):
-        return self._json("PATCH", f"/repos/{self.repository}/releases/{release_id}", fields)
+    def update(self, release_id, tag, fields):
+        """Writes `fields` to a release and names its tag in the same request.
+
+        With immutable releases, a draft has no tag until it is published.
+        GitHub reports the tag of a draft as untagged-<hash> unless the latest
+        write named the tag, so a write without tag_name makes find() unable to
+        see the draft, and a publish without it could tag the release
+        untagged-<hash>. Every write therefore carries the tag."""
+        return self._json("PATCH", f"/repos/{self.repository}/releases/{release_id}", {**fields, "tag_name": tag})
 
     def download(self, release, directory):
         os.makedirs(directory, exist_ok=True)
@@ -199,7 +217,7 @@ class Client:
     def publish(self, release, latest):
         if not release["draft"]:
             return release
-        return self.update(release["id"], {"draft": False, "make_latest": "true" if latest else "false"})
+        return self.update(release["id"], release["tag_name"], {"draft": False, "make_latest": "true" if latest else "false"})
 
 
 def main(argv=None):
@@ -246,7 +264,7 @@ def main(argv=None):
             if not release["draft"]:
                 raise GitHubError("a published release's notes are not changed by the release workflow")
             with open(args.notes_file) as handle:
-                client.update(release["id"], {"body": handle.read()})
+                client.update(release["id"], args.tag, {"body": handle.read()})
             print(f"updated the notes of draft {args.tag}")
         elif args.command == "publish":
             release = client.require(args.tag)
