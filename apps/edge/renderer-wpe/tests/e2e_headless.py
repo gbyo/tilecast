@@ -839,6 +839,9 @@ PASSIVE_VECTORS = """
 """
 
 
+EXFIL_OBSERVATION_SECONDS = 5.0
+
+
 def png_bytes():
     """A decodable 1x1 PNG, hand-rolled so the test needs no image tools."""
     import struct
@@ -1137,6 +1140,23 @@ def media_socket_ask(runtime_dir, request):
         return json.loads(reply)
 
 
+def assert_no_exfil(state, window=EXFIL_OBSERVATION_SECONDS):
+    """Watches the canary for a bounded window instead of one instant.
+
+    The probe reports ready once its fetch settles, but media preload,
+    prefetch, nested frames and objects keep loading after that, so a late
+    canary request would land after a single check.
+    """
+    deadline = time.monotonic() + window
+    while True:
+        with state.lock:
+            hits, paths = state.exfil_hits, list(state.exfil_paths)
+        assert hits == 0, f"the hostile frame reached the network: {paths}"
+        if time.monotonic() >= deadline:
+            return
+        time.sleep(0.25)
+
+
 def scenario_widget(args):
     with tempfile.TemporaryDirectory() as workdir:
         installation = str(uuid.uuid4())
@@ -1200,8 +1220,7 @@ def scenario_widget(args):
             # messages for an ephemeral session, so the renderer log holds
             # no CSP trace to look for.)
             assert "zone-probe" in zones, "the hostile probe never settled its fetch"
-            with state.lock:
-                assert state.exfil_hits == 0, f"the hostile frame reached the network: {state.exfil_paths}"
+            assert_no_exfil(state)
             # The media socket refuses unknown capabilities with a bare
             # denial. (Retired-vs-unknown attribution is daemon-side and
             # covered by the registry unit test; this probe cannot pass
@@ -1221,6 +1240,13 @@ def scenario_widget(args):
             wait_for("Widget evidence after the renderer restart",
                      lambda: [e for e in accepted_evidence(stack, mark) if e[0] == "widget_shown"],
                      timeout=180, interval=1)
+            # The restarted renderer loads the hostile frame again and replays
+            # every passive vector, so the canary stays under watch.
+            wait_for("the hostile probe zone after the renderer restart",
+                     lambda: [e for e in accepted_evidence(stack, mark)
+                              if e[0] == "layout_zone_rendered" and e[2] == "zone-probe"],
+                     timeout=180, interval=1)
+            assert_no_exfil(state)
             assert stack.status()["presentation"]["generation"] == generation, "activation changed"
             print("widget: renderer restart kept the activation and the Widgets reported again")
 
