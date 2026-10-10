@@ -191,7 +191,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         "nativePresentationCapabilities": native,
         // The remote web environment serves surfaces once the UI thread
         // starts; its process events maintain the flag.
-        "webRuntimeVersion": i32::from(context.remote_web_available.load(std::sync::atomic::Ordering::Acquire)),
+        "webRuntimeVersion": if context.remote_web_available.load(std::sync::atomic::Ordering::Acquire) { crate::renderer_adapter::profile::WEB_RUNTIME_VERSION } else { 0 },
     });
     // `lastMeaningfulProgressAt` is a telemetry field, not a heartbeat one:
     // the server's strict HTTP heartbeat decoding refuses the whole message

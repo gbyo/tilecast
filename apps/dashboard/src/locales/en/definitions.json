@@ -1,4 +1,13 @@
 {
+  "canva": {
+    "fields": {
+      "canvaUrl": {
+        "label": "Canva design link",
+        "description": "Paste a public design view link, Smart embed link, iframe src URL, or canva.link short link. Publish a public embed in Canva first."
+      },
+      "refreshIntervalSeconds": { "label": "Reload interval" }
+    }
+  },
   "website": {
     "fields": {
       "url": {

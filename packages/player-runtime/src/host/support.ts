@@ -16,7 +16,7 @@ export function runtimeSupport(
     presentationSchemas: [1, 2, COMPONENT_PRESENTATION_SCHEMA_VERSION],
     declarativeCapabilities: {
       ...SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES,
-      ...(remoteWeb ? { "web.remote": 1 } : {}),
+      ...(remoteWeb ? { "web.remote": 2 } : {}),
     },
     widgetComponents: {
       ...widgetComponents,

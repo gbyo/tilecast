@@ -40,7 +40,12 @@ func (s *server) compileWidgetPreview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "runtime_unavailable", "The presentation compiler is unavailable.")
 		return
 	}
-	presentation, err := s.playlists.CompileWidgetPresentation(body.Provider, body.Configuration, s.orgPrivateHTTP(r))
+	configuration, err := s.media.PrepareWebIntegrationPreview(r.Context(), body.Provider, body.Configuration)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_presentation", err.Error())
+		return
+	}
+	presentation, err := s.playlists.CompileWidgetPresentation(body.Provider, configuration, s.orgPrivateHTTP(r))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_presentation", err.Error())
 		return

@@ -17,13 +17,16 @@
           {
             "key": "canvaUrl",
             "label": "Canva design link",
-            "description": "Use Canva's public design or Smart Embed link.",
+            "labelKey": "definitions:canva.fields.canvaUrl.label",
+            "description": "Paste a public design view link, Smart embed link, iframe src URL, or canva.link short link. Publish a public embed in Canva first.",
+            "descriptionKey": "definitions:canva.fields.canvaUrl.description",
             "control": "url",
             "required": true
           },
           {
             "key": "refreshIntervalSeconds",
             "label": "Reload interval",
+            "labelKey": "definitions:canva.fields.refreshIntervalSeconds.label",
             "control": "integer",
             "required": true,
             "minimum": 60,
@@ -52,10 +55,10 @@
       "setup": {
         "eyebrow": "Canva",
         "steps": [
-          "Publish the Canva design for public viewing.",
-          "Copy its public design link and paste it here."
+          "In Canva, select Share > See all > Embed and publish a public embed.",
+          "Paste the Smart embed link or the src URL from the HTML iframe. Public view and design short links are also accepted."
         ],
-        "tip": "Canva controls presentation timing inside its embed. Tilecast does not bypass private-design access."
+        "tip": "A public view link alone does not enable embedding. Private designs and login are not supported. If the preview is blank, check Embed publishing in Canva or export an image, video, or PDF for Tilecast. Tilecast does not set Canva slide timing or autoplay."
       },
       "deprecation": {}
     },

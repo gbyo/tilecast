@@ -1,4 +1,13 @@
 {
+  "canva": {
+    "fields": {
+      "canvaUrl": {
+        "label": "Ссылка на дизайн Canva",
+        "description": "Вставьте ссылку для публичного просмотра, Smart embed, URL из атрибута src iframe или короткую ссылку canva.link. Сначала опубликуйте общедоступное встраивание в Canva."
+      },
+      "refreshIntervalSeconds": { "label": "Интервал перезагрузки" }
+    }
+  },
   "website": {
     "fields": {
       "url": {

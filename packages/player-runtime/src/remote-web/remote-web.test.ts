@@ -42,6 +42,34 @@ const website = {
 };
 
 describe("remote web spec", () => {
+  it("preserves the compiled Canva embed and its existing playback policy", () => {
+    const url =
+      "https://www.canva.com/design/DAGabcdefgh/token_123456/view?access=keep&embed=";
+    const spec = specFromWebDescriptor({
+      mode: "remote",
+      url,
+      allowedHosts: ["www.canva.com"],
+      loadTimeoutSeconds: 30,
+      lifecycle: "keep_warm",
+      warmSeconds: 60,
+      onlineOnly: true,
+      fallbackBehavior: "placeholder",
+      reload: { mode: "periodic", intervalSeconds: 1800 },
+    })!;
+    expect(spec.content).toMatchObject({
+      url,
+      allowedHosts: ["www.canva.com"],
+      zoomPercent: 100,
+      cookiePolicy: "first_party",
+    });
+    expect(spec.presentation).toMatchObject({
+      reloadIntervalSeconds: 1800,
+      lifecycle: "keep_warm",
+      warmSeconds: 60,
+      onlineOnly: true,
+      failureBehavior: "placeholder",
+    });
+  });
   it("normalizes a Website asset and bounds every value", () => {
     const spec = specFromWebsite("https://example.org/board", website)!;
     expect(spec.content).toEqual({

@@ -21,6 +21,16 @@ func WebPresentationURL(definition WidgetDefinition, configuration map[string]an
 		return "", nil, errors.New("web integration descriptor is missing")
 	}
 	raw, _ := configuration[spec.URLField].(string)
+	if spec.Transform == "canva_embed" {
+		parsed, err := CanvaURL(raw)
+		if err != nil {
+			return "", nil, err
+		}
+		if parsed.Host == "canva.link" {
+			return "", nil, errors.New("Canva short link must be resolved before playback; save the Widget again")
+		}
+		return parsed.String(), []string{"www.canva.com"}, nil
+	}
 	parsed, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil || len(raw) > 2048 {
 		return "", nil, errors.New("integration URL must be an HTTPS URL")
@@ -98,14 +108,6 @@ func WebPresentationURL(definition WidgetDefinition, configuration map[string]an
 			query.Set("delayms", fmt.Sprint(seconds*1000))
 		}
 		parsed.RawQuery = query.Encode()
-	case "canva_embed":
-		parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
-		if len(parts) < 2 || parts[0] != "design" || !googleDocumentID.MatchString(parts[1]) {
-			return "", nil, errors.New("Canva URL must be a public design link")
-		}
-		query := url.Values{}
-		query.Set("embed", "")
-		parsed.RawQuery = strings.TrimSuffix(query.Encode(), "=")
 	default:
 		return "", nil, errors.New("web integration transform is unsupported")
 	}

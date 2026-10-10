@@ -1000,6 +1000,9 @@
         "configurationProblem": "The preview can't show this configuration yet.",
         "renderFailed": "This Widget couldn't render in the preview.",
         "webInvalid": "Studio can't preview this address.",
+        "canvaUnverified": "URL validated; preview could not be verified. If blank or blocked, open Canva and publish a public embed through Share > See all > Embed. Private designs require login and cannot play unattended. Test on the target Player before assigning.",
+        "openCanva": "Open in Canva",
+        "canvaRestricted": "Studio's security policy blocks Canva frames. Open in Canva to check the public embed. Compatible Players use isolated web views; test playback on the target Player. You can also export an image, video, or PDF and upload it as media.",
         "webNoAddress": "Enter a web address to see it here.",
         "webUnavailable": "Preview unavailable. Screens show this integration in an isolated player view.",
         "webViewOnly": "Live web previews need permission to edit Widgets. Screens show this page in an isolated player view."

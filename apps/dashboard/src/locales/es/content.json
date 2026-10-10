@@ -1033,6 +1033,9 @@
         "configurationProblem": "La vista previa todavía no puede mostrar esta configuración.",
         "renderFailed": "Este widget no se pudo mostrar en la vista previa.",
         "webInvalid": "Studio no puede previsualizar esta dirección.",
+        "canvaUnverified": "URL validada; no se pudo verificar la vista previa. Si está vacía o bloqueada, abre Canva y publica una inserción pública desde Compartir > Ver todo > Insertar. Los diseños privados requieren iniciar sesión y no pueden reproducirse sin supervisión. Prueba en el Player de destino antes de asignar.",
+        "openCanva": "Abrir en Canva",
+        "canvaRestricted": "La política de seguridad de Studio bloquea los marcos de Canva. Abre Canva para comprobar la inserción pública. Los Players compatibles usan vistas web aisladas; prueba la reproducción en el Player de destino. También puedes exportar una imagen, un vídeo o un PDF y subirlo como contenido multimedia.",
         "webNoAddress": "Introduce una dirección web para verla aquí.",
         "webUnavailable": "Vista previa no disponible. Las pantallas muestran esta integración en una vista aislada del reproductor.",
         "webViewOnly": "Las vistas previas web en vivo requieren permiso para editar widgets. Las pantallas muestran esta página en una vista aislada del reproductor."

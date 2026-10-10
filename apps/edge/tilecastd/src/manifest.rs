@@ -80,7 +80,7 @@ pub mod profile {
 
     /// The `web.remote` declarative capability: remote web in the isolated
     /// helper, shown through the renderer's remote web surface.
-    pub const WEB_RUNTIME_VERSION: u32 = 1;
+    pub const WEB_RUNTIME_VERSION: u32 = 2;
 
     /// Presentation schemas the runtime renders: 1 (declarative and web),
     /// 2 (first-class Widget components), and 3 (component empty policy).
@@ -1292,7 +1292,7 @@ mod tests {
             (
                 Box::new(|v| {
                     v["widgets"] = serde_json::json!([{"assetId": WIDGET, "name": "Next",
-                        "presentation": {"schemaVersion": 1, "kind": "web", "requiredCapabilities": {"web.remote": 2},
+                        "presentation": {"schemaVersion": 1, "kind": "web", "requiredCapabilities": {"web.remote": 3},
                             "web": {"mode": "remote", "url": "https://next.example.org/"}}}]);
                 }),
                 "presentation_incompatible_widget_capability",
