@@ -132,8 +132,13 @@ class Client:
             "tag_name": tag, "target_commitish": target, "name": title, "body": notes,
             "draft": True, "prerelease": prerelease, "generate_release_notes": False,
         }, expected=(201,))
-        # Name the tag again in a write of its own. See update().
-        return self.update(created["id"], tag, {})
+        # Name the tag again in a write of its own. See update(). A draft whose
+        # tag could not be pinned cannot be found again, so it is removed.
+        try:
+            return self.update(created["id"], tag, {})
+        except GitHubError:
+            self.delete_release(created["id"])
+            raise
 
     def update(self, release_id, tag, fields):
         """Writes `fields` to a release and names its tag in the same request.
@@ -160,6 +165,9 @@ class Client:
                 raise GitHubError(f"{asset['name']} downloaded with {os.path.getsize(path)} bytes, expected {asset['size']}")
             names.append(asset["name"])
         return sorted(names)
+
+    def delete_release(self, release_id):
+        self._request("DELETE", f"{self.api}/repos/{self.repository}/releases/{release_id}", expected=(204,)).close()
 
     def delete_asset(self, asset_id):
         self._request("DELETE", f"{self.api}/repos/{self.repository}/releases/assets/{asset_id}", expected=(204,)).close()

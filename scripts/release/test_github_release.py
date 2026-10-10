@@ -26,6 +26,7 @@ class FakeGitHub:
         self.untagged_on_create = False
         self.patches = []
         self.hidden_listings = 0
+        self.reject_patches = False
 
     def new_release(self, tag, draft=True, prerelease=False, assets=()):
         release = {"id": self.next_id, "tag_name": tag, "draft": draft, "prerelease": prerelease,
@@ -119,6 +120,8 @@ def handler_for(fake):
             fake.requests.append(("PATCH", self.path, self.headers.get("Authorization")))
             release = self._release(int(self.path.strip("/").split("/")[-1]))
             payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+            if fake.reject_patches:
+                return self._send(500, {"message": "Server Error"})
             if release is None or (not release["draft"] and payload.get("body") is not None):
                 return self._send(422, {"message": "Validation Failed"})
             release.update({k: v for k, v in payload.items() if k in ("draft", "body")})
@@ -130,7 +133,11 @@ def handler_for(fake):
 
         def do_DELETE(self):
             fake.requests.append(("DELETE", self.path, self.headers.get("Authorization")))
-            asset_id = int(self.path.strip("/").split("/")[-1])
+            segments = self.path.strip("/").split("/")
+            if segments[-2] == "releases":
+                fake.releases = [r for r in fake.releases if r["id"] != int(segments[-1])]
+                return self._send(204)
+            asset_id = int(segments[-1])
             for release in fake.releases:
                 release["assets"] = [a for a in release["assets"] if a["id"] != asset_id]
             return self._send(204)
@@ -176,6 +183,12 @@ class ClientTests(unittest.TestCase):
         self.fake.untagged_on_create = True
         self.client.create("v0.26.0-beta.1", "deadbeef", "t", "n", True)
         self.assertEqual(self.client.require("v0.26.0-beta.1")["draft"], True)
+
+    def test_a_draft_whose_tag_cannot_be_pinned_is_removed(self):
+        self.fake.reject_patches = True
+        with self.assertRaisesRegex(gr.GitHubError, "HTTP 500"):
+            self.client.create("v1", "sha", "t", "n", False)
+        self.assertEqual(self.fake.releases, [])
 
     def test_every_write_to_a_draft_names_its_tag(self):
         self.client.create("v1", "sha", "t", "first", False)
