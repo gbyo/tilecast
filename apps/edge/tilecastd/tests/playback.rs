@@ -1918,6 +1918,25 @@ async fn outside_active_hours_the_screen_rests_until_a_takeover_outranks_it() {
     tokio::time::sleep(Duration::from_secs(1)).await;
     assert!(!renderer.log.lock().unwrap().activations.iter().any(|a| shows(a, &asset)));
 
+    // Off-hours is an intentional policy surface, not stalled playback. Drive
+    // synthetic supervision well past the complete recovery window and prove
+    // it neither executes a recovery rung nor latches safe mode.
+    {
+        let mut engine = player.context.presentation.lock().await;
+        let restart_count = engine.restart_count();
+        let mut at = now_ms() + 10 * 60_000;
+        for _ in 0..40 {
+            assert_eq!(engine.tick(at), player_core::HealAction::None);
+            at += 100_000;
+        }
+        assert!(!engine.is_safe_mode());
+        assert_eq!(engine.restart_count(), restart_count);
+        let snapshot = engine.recovery_report().snapshot;
+        assert_eq!((snapshot.escalation_step, snapshot.ladder_runs, snapshot.last_action_at_ms), (0, 0, None));
+    }
+    assert_eq!(heartbeat(&player.context).await["safeMode"], false);
+    assert!(matches!(renderer.last().unwrap().presentation, PresentationDocument::Sleep { .. }));
+
     let urgent = Asset::new("urgent", "image/png");
     harness.fake.add_asset(&urgent, AssetMode::Serve);
     let takeover_playlist = uuid::Uuid::new_v4().to_string();

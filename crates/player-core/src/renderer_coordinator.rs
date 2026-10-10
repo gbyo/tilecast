@@ -168,7 +168,13 @@ impl RendererCoordinator {
     }
 
     pub fn evaluate_recovery(&mut self, now: Timestamp) -> HealAction {
-        if self.connected.is_none() || self.current.is_none() {
+        let playback_expected = self.current.as_ref().is_some_and(|(_, metadata)| !metadata.expectations.is_empty());
+        if self.connected.is_none() || !playback_expected {
+            // Policy/status surfaces such as off-hours sleep, disabled, setup,
+            // pairing, and idle are intentional states with no playback
+            // progress contract. Keep the stall clock current while they are
+            // shown so an intentional static surface can never walk the
+            // recovery ladder or enter safe mode.
             self.supervisor.reset_clock(now.unix_millis());
             return HealAction::None;
         }
@@ -476,6 +482,45 @@ mod tests {
         core.clear();
         assert_eq!(core.retry_recovery(now(2_000_000)), HealAction::None);
         assert!(!core.clear_safe_mode(now(2_000_000)));
+    }
+
+    #[test]
+    fn recovery_ignores_presentations_without_playback_expectations() {
+        let mut core = coordinator();
+        let connection = uuid::Uuid::from_u128(1);
+        core.connected(connection, now(0));
+        core.ready(connection, ConnectedRendererProfile(support()));
+
+        let reference = core
+            .begin_activation(
+                ActivationId::from_uuid(uuid::Uuid::new_v4()),
+                RendererMetadata {
+                    requirements: vec![],
+                    expectations: HashMap::new(),
+                    requires_content_evidence: false,
+                    capture_state: CaptureState::Presentation,
+                },
+                now(0),
+            )
+            .unwrap();
+        core.accepted(connection, reference);
+
+        // An intentional policy/status surface can remain static for far
+        // longer than the full recovery window without triggering a rung.
+        for at in [180_000, 600_000, 3_600_000, 7_200_000] {
+            assert_eq!(core.evaluate_recovery(now(at)), HealAction::None);
+        }
+        assert_eq!(
+            core.recovery_snapshot(),
+            RecoverySnapshot { escalation_step: 0, ladder_runs: 0, last_action_at_ms: None }
+        );
+        assert!(!core.is_safe_mode());
+
+        // Returning to real content arms recovery again from the new
+        // activation's clock rather than from time spent on the policy surface.
+        let _prepared = activation(&mut core, 7_200_000);
+        assert_eq!(core.evaluate_recovery(now(7_379_999)), HealAction::None);
+        assert_eq!(core.evaluate_recovery(now(7_380_000)), HealAction::Reactivate);
     }
 
     #[test]
