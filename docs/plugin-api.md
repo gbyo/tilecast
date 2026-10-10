@@ -731,17 +731,17 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 
 ## Migration status
 
-| Milestone | Scope                                                                             | Status  |
-| --------- | --------------------------------------------------------------------------------- | ------- |
-| 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI                  | Done    |
-| 2         | Countdown Bar in `plugins/countdown-bar/`                                         | Done    |
-| 3         | Generic runtime surface host                                                      | Done    |
-| 4         | Retire Brand Bug and Noise Meter with compatibility shims                         | Done    |
-| 5         | Emergency Alerts                                                                  | Done    |
-| 6         | Forms                                                                             | Done    |
-| 7         | Remove the remaining special cases; freeze the v1 contract                        | Done    |
-| 8         | Multi-zone authoring shipped under its Layout contract                            | Done    |
-| 9         | Proof of play shipped under its Activity contract                                 | Done    |
+| Milestone | Scope                                                            | Status |
+| --------- | ---------------------------------------------------------------- | ------ |
+| 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI | Done   |
+| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done   |
+| 3         | Generic runtime surface host                                     | Done   |
+| 4         | Retire Brand Bug and Noise Meter with compatibility shims        | Done   |
+| 5         | Emergency Alerts                                                 | Done   |
+| 6         | Forms                                                            | Done   |
+| 7         | Remove the remaining special cases; freeze the v1 contract       | Done   |
+| 8         | Multi-zone authoring shipped under its Layout contract           | Done   |
+| 9         | Proof of play shipped under its Activity contract                | Done   |
 
 Countdown Bar has moved completely, including its Player renderer. Brand Bug
 and Noise Meter are retired: their old installation rows and data remain, but
