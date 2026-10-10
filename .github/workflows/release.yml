@@ -437,13 +437,13 @@ jobs:
           fi
 
       - name: Download the platform build artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/artifacts
           pattern: tilecast-*
 
       - name: Download the reuse plan
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-reuse-plan
           path: ${{ runner.temp }}/reuse-plan

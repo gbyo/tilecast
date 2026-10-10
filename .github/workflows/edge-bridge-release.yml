@@ -113,7 +113,7 @@ jobs:
           cache-dependency-path: apps/server/go.sum
 
       - name: Download the Edge build artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           path: ${{ runner.temp }}/artifacts
           pattern: tilecast-edge-release-*
