@@ -1,4 +1,13 @@
 {
+  "canva": {
+    "fields": {
+      "canvaUrl": {
+        "label": "Enlace del diseño de Canva",
+        "description": "Pega un enlace de vista pública, un enlace de inserción inteligente, la URL src del iframe o un enlace corto de canva.link. Publica primero una inserción pública en Canva."
+      },
+      "refreshIntervalSeconds": { "label": "Intervalo de recarga" }
+    }
+  },
   "website": {
     "fields": {
       "url": {

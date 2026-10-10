@@ -113,7 +113,7 @@ pub use crate::widget_capabilities::{COMPONENT_PRESENTATION_SCHEMA, WIDGET_COMPO
 
 /// The `web.remote` declarative capability: remote web in the Android
 /// remote host, shown through the renderer's remote web surface.
-pub const WEB_RUNTIME_VERSION: u32 = 1;
+pub const WEB_RUNTIME_VERSION: u32 = 2;
 
 /// What the renderer cannot safely provide, and why.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -13,7 +13,10 @@ import type {
   RuntimeRemoteWebSpecV1,
 } from "../host/contract";
 import { RemoteWebPort } from "../remote-web/port";
-import { normalizeFailureBehavior } from "../remote-web/spec";
+import {
+  normalizeFailureBehavior,
+  specFromWebDescriptor,
+} from "../remote-web/spec";
 import { HostRemoteWebSurface } from "./remote-web-surface";
 import type { SurfaceEnvironment, SurfaceSink } from "./surface";
 
@@ -116,6 +119,7 @@ function harness(
       ok: true,
       target: { kind: "media-uri", uri: "tcweb://cap/1" },
     }),
+  presentationSpec?: RuntimeRemoteWebSpecV1,
 ): Harness {
   const clock = new ManualClock({ wallMs: 1_000_000 });
   const sink = {
@@ -146,7 +150,7 @@ function harness(
   host.state.createImpl = createImpl;
   const port = new RemoteWebPort(host.remoteWeb, clock);
   const surface = new HostRemoteWebSurface({
-    spec: spec(behavior, fallbackSrc),
+    spec: presentationSpec ?? spec(behavior, fallbackSrc),
     audioEnabled: false,
     port,
     env,
@@ -242,6 +246,34 @@ describe("normalizeFailureBehavior", () => {
 });
 
 describe("Website failure policies", () => {
+  it("reloads a Canva descriptor and cancels timers while keeping the hidden surface warm", async () => {
+    const canva = specFromWebDescriptor({
+      mode: "remote",
+      url: "https://www.canva.com/design/DAGabcdefgh/view?embed=",
+      allowedHosts: ["www.canva.com"],
+      lifecycle: "keep_warm",
+      warmSeconds: 60,
+      reload: { mode: "periodic", intervalSeconds: 60 },
+      onlineOnly: true,
+      fallbackBehavior: "placeholder",
+    })!;
+    const h = harness("placeholder", null, undefined, canva);
+    const reload = vi.spyOn(h.host.remoteWeb, "reload");
+    const id = await loadWithFrame(h);
+    await h.surface.activate();
+    for (let second = 0; second < 60; second++) {
+      h.clock.advance(1_000);
+      h.surface.element
+        .querySelector("video")!
+        .dispatchEvent(new Event("timeupdate"));
+    }
+    expect(reload).toHaveBeenCalledWith(id);
+    h.surface.dispose();
+    expect(h.port.describe().warm).toBe(1);
+    h.clock.advance(60_000);
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(h.host.state.destroyed).toContain(id);
+  });
   it("skip clears the surface and finishes through the failure path", async () => {
     const h = harness("skip", null, () =>
       Promise.resolve({ ok: false, code: "helper_terminated" }),

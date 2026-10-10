@@ -21,7 +21,7 @@ describe("Runtime readiness support", () => {
       runtimeSupport({}, false).declarativeCapabilities["web.remote"],
     ).toBeUndefined();
     expect(runtimeSupport({}, true).declarativeCapabilities["web.remote"]).toBe(
-      1,
+      2,
     );
   });
 });

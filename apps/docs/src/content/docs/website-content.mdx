@@ -24,6 +24,25 @@ The editor previews the page in a browser frame. Some sites refuse to appear ins
 
 The Website App appears in the Media library's **Websites** filter and in the content picker. Add it to a Playlist as fullscreen content or place it in a Layout with other content.
 
+## Add a Canva design
+
+<Steps>
+
+1. In Canva, open your design and select **Share** > **See all** > **Embed**. Publish a **public** embed. A public view link alone doesn't enable embedding.
+2. Copy the **Smart embed link** or the `src` address from the HTML iframe. Tilecast accepts the address, not the full HTML code.
+3. In Studio, create a **Canva** Widget and paste the link into **Canva design link**. Public design view links and `https://canva.link/...` links that redirect to a design view are also accepted. Tilecast resolves short links automatically when you preview or save.
+4. Set **Reload interval**, name the Widget, then select **Save Widget**. Assign it to a Playlist or Layout after testing on your target Player.
+
+</Steps>
+
+Tilecast keeps the design's access path and query parameters, removes `utm_*` tracking fields, and selects Canva's embed view. Editor, template, presentation-control, and published website links aren't supported by the Canva Widget. If a short link is expired or can't be resolved, copy a new public embed link from Canva.
+
+Studio's production security policy blocks external Canva frames. Studio reports a confirmed block and keeps **Open in Canva** available. In environments that allow external frames, Studio labels the attempted preview **unverified**: a browser frame can report loading even when Canva shows an access error or blocks embedding. If the preview is blank, select **Open in Canva**, check that the embed is still published, and test the embed address in a signed-out browser. Private embeds require a Canva account and cookie access; they aren't suitable for unattended Tilecast playback. See [Canva's embedding instructions](https://www.canva.com/help/embed-designs/).
+
+Canva needs a network connection and a Player with periodic web reload support (`web.remote@2`). Updated Android, Edge, Windows, and legacy Linux Electron Players provide that contract. Browser Player currently can't play remote websites or Canva. Studio uses a browser iframe; native Players use isolated web views. A working Studio preview doesn't establish that a particular TV or browser engine can play the design. Test the actual device, including fullscreen, Layout sizing, reload, and network recovery.
+
+Tilecast doesn't control Canva autoplay, looping, or page timing. For a timed presentation, export an MP4 and upload it as [media](../media/). For static or offline content, export an image or PDF. See the [Canva engineering contract and manual checks](https://github.com/gbyo/tilecast/blob/main/docs/widgets-and-layouts.md#canva-link-and-preview-contract) for supported URL shapes and platform verification.
+
 ## Choose where the Player can connect
 
 Use HTTPS for public websites. HTTP is accepted only when both the server environment variable `TILECAST_WEBSITE_ALLOW_PRIVATE_HTTP=true` and **Settings** > **Websites** > **Private HTTP enabled** allow it, and the URL uses a private-network host.

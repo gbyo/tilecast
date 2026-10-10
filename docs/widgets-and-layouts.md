@@ -124,11 +124,86 @@ Release-owned Web Integration definitions provide provider-specific names, setup
 
 The initial integrations are **Google Sheets — Display, Google Slides, Canva, Grafana, Power BI, Tableau, Looker Studio, Airtable, and Smartsheet**. They require the provider's public/published/embed mechanism and cannot bypass authentication, `X-Frame-Options`, or CSP. Private documents and dashboards need a future server-side Connection. **Notion** remains visible but disabled with a specific explanation rather than pretending an unsupported mechanism works. The **Google Sheets Data** placeholder is removed; the existing Google Sheet Data Source is the structured-record path.
 
-Google Sheets — Display is a visual web App for showing the spreadsheet itself; the existing Google Sheet Data Source is the structured-record path for a published CSV and powers lists, tables, cards, tickers, and News. Google Slides and Sheets normal links are converted on the Server to their provider embed/preview forms. Canva accepts only public `www.canva.com/design/...` links. Dashboard Apps accept only the provider's documented public/embed path, except Grafana, whose self-hosted hostname is selected by the submitted HTTPS URL and then pinned in the manifest.
+Google Sheets — Display is a visual web App for showing the spreadsheet itself; the existing Google Sheet Data Source is the structured-record path for a published CSV and powers lists, tables, cards, tickers, and News. Google Slides and Sheets normal links are converted on the Server to their provider embed/preview forms. Canva accepts design view/embed links and supported `canva.link` design redirects. Dashboard Apps accept only the provider's documented public/embed path, except Grafana, whose self-hosted hostname is selected by the submitted HTTPS URL and then pinned in the manifest.
 
 Future Google Connections may add private authenticated Sheets and a Slides API/export path behind Tilecast-managed slide images for offline-capable slideshows. That path is separate from the Widget migration and changes no Widget contract: private Sheets arrive as the same Google Sheet records, and managed slide images arrive as Tilecast media.
 
 Web Integration Apps that opt into periodic reload require manifest v15 and `web.remote@2`. The closed reload mode is `periodic`, with an interval from 30 seconds through 24 hours. Android and Linux reuse their existing website reload timer, do not reload a hidden destroyed view, and preserve the descriptor's warm lifecycle and offline placeholder behavior. Assignment compatibility rejects Players that only report web runtime 1. Manifest v14 semantics and cached v1-v14 manifests remain unchanged; v15 also formalizes the optional canvas/viewport fields used by video-wall playback.
+
+### Canva link and preview contract
+
+Use Canva **Share > See all > Embed** to publish a public embed.
+Copy the Smart embed link or the `src` URL from the HTML iframe.
+Tilecast accepts HTTPS `/design/<id>/view` and `/design/<id>/<access-path>/view` URLs on `www.canva.com` or `canva.com`.
+Presentation designs use these same view URLs.
+Tilecast sets the `embed` query field and preserves other query fields except `utm_*` tracking fields.
+Tilecast removes fragments and one trailing slash.
+Encoded path characters must decode to the same supported path shape.
+The canonical playback host is `www.canva.com`.
+Existing saved view links compile without a database migration.
+Editor, template, `/present`, website, and other path shapes are unsupported.
+
+The Server resolves `https://canva.link/<slug>` only during preview or save.
+Each redirect must stay on a supported Canva URL.
+The resolver stops when it receives a supported design destination.
+It allows at most five requests within five seconds.
+It reads no response body and caps response headers at 16 KiB.
+The existing Source transport pins connections to public DNS results.
+Installation private-network permission does not apply.
+The resolver sends no cookies or authorization headers and uses no proxy.
+Save stores the resolved design URL in `canvaUrl`.
+Manifest compilation does not contact Canva.
+An expired short link or a short link to a published website requires a new design embed link.
+
+URL validation does not prove public access or embedding permission.
+Canva requires a separate public embed publication.
+Private embeds need Canva login and cookies; Tilecast does not support this workflow.
+Studio uses the shared presentation iframe with its existing sandbox.
+The production Studio CSP permits only same-origin frames and blocks Canva frames.
+An enforced browser CSP event changes the preview to an unavailable explanation.
+The global Studio policy remains unchanged.
+Studio environments that permit external frames can show the embed.
+Studio reports the Canva preview as unverified even after an iframe load event.
+Studio cannot inspect cross-origin content or detect every remote error page.
+**Open in Canva** opens the submitted provider link for troubleshooting.
+Changing or clearing the URL removes the previous Canva frame.
+Compilation failure shows an error instead of the previous design.
+Tilecast does not fetch thumbnails or scrape Canva pages.
+
+Canva keeps the existing online-only placeholder, 30-second load timeout, periodic reload, and 60-second warm lifecycle.
+Shared Runtime, Android, Edge, and Windows profiles report `web.remote@2` for existing periodic reload support.
+Older version-1 Players require an update.
+Browser Player has no remote website surface and cannot play Canva.
+Legacy Linux Electron reports version 2.
+Native hosts load remote content in isolated views; Studio uses an iframe.
+Provider restrictions can produce different results on each surface.
+Tilecast does not add autoplay, loop, or slide-transition parameters.
+Export video for unattended timed presentations or use existing image/PDF media for static content.
+
+Provider references: [Canva embedding](https://www.canva.com/help/embed-designs/),
+[public view links](https://www.canva.com/en_in/help/sharing-your-design-as-a-public-view-link/), and
+[Canva iframe restrictions](https://www.canva.dev/blog/engineering/how-canva-makes-content-embeddable-and-why-you-should-too/).
+
+### Manual Canva verification
+
+Automated tests use deterministic fixtures and do not contact Canva.
+For live verification, use a non-sensitive design that you own.
+To test the real short-link resolver separately, run this command from `apps/server`:
+
+```sh
+TILECAST_CANVA_LIVE_URL='https://canva.link/<your-public-design-slug>' go test ./internal/media -run TestCanvaLiveShortLink -count=1
+```
+
+This check verifies the redirect destination, not remote playback.
+
+1. Publish a public embed in Canva. Open its iframe `src` URL in a signed-out browser.
+2. Create a Canva Widget. Paste the public view link, embed URL, and short link in separate attempts. Check the unverified preview or the Studio CSP explanation. Use **Open in Canva** to check the design. Check that access query fields remain in the saved URL.
+3. Paste an editor link or an expired short link. Check the error and recovery guidance. Clear the URL. Check that the previous design disappears.
+4. Save and assign the Widget to a Player that reports `web.remote@2`. Test fullscreen and a Layout placement. Check clipping, sizing, reload, and transitions to another item.
+5. Disconnect the Player network. Check the unavailable placeholder. Restore the network and reactivate the item. Check recovery. Do not expect offline Canva content.
+6. Repeat on Edge/WPE, Android TV, Fire TV, Windows/WebView2, and legacy Linux Electron when those targets are available. Record OS and engine versions. A Studio preview or build does not prove device compatibility.
+
+Physical Fire TV, Google TV WebView, WPE, and WebView2 Canva validation remains required before a device-specific playback claim.
 
 ## Layouts
 
