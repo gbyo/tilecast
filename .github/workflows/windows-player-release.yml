@@ -171,8 +171,12 @@ jobs:
           envelope="$RUNNER_TEMP/windows-release/tilecast-windows-update-${{ matrix.arch }}.json"
           openssl pkeyutl -sign -rawin -inkey "$RUNNER_TEMP/tilecast-signing/update-private.pem" -in "$envelope" |
             openssl base64 -A > "$envelope.sig"
+          # openssl.exe cannot open a bash process substitution, so the decoded
+          # signature goes to a file in the signing directory, which is removed
+          # at the end of the job and is never uploaded.
+          openssl base64 -d -A -in "$envelope.sig" > "$RUNNER_TEMP/tilecast-signing/envelope.sig.bin"
           openssl pkeyutl -verify -rawin -pubin -inkey "$RUNNER_TEMP/tilecast-signing/update-public.pem" -in "$envelope" \
-            -sigfile <(openssl base64 -d -A -in "$envelope.sig")
+            -sigfile "$RUNNER_TEMP/tilecast-signing/envelope.sig.bin"
 
       - name: The release reports the stamped version
         if: inputs.release_version != ''
