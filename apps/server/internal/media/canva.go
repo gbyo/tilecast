@@ -45,10 +45,14 @@ func resolveCanvaShortLink(ctx context.Context, raw string, client *http.Client)
 			return "", errors.New("Canva short link has too many redirects; copy its public embed link instead")
 		}
 		seen[u.String()] = true
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+		// The request authority is fixed independently of the submitted URL.
+		// Only the validated short-link path and query are caller-controlled.
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://canva.link/", nil)
 		if err != nil {
 			return "", errors.New("Canva short link is invalid; copy the link again")
 		}
+		request.URL.Path = u.Path
+		request.URL.RawQuery = u.RawQuery
 		// No incoming headers, cookies, credentials, cookie jar, or proxy.
 		request.Header.Set("User-Agent", "Tilecast-Canva-Link/1")
 		response, err := client.Do(request)
