@@ -18,6 +18,9 @@ class FakeGitHub:
         self.next_id = 100
         self.requests = []
         self.reject_uploads = False
+        self.redirect_to = None
+        self.storage_data = b""
+        self.storage_authorization = "unset"
 
     def new_release(self, tag, draft=True, prerelease=False, assets=()):
         release = {"id": self.next_id, "tag_name": tag, "draft": draft, "prerelease": prerelease,
@@ -56,6 +59,10 @@ def handler_for(fake):
             fake.requests.append(("GET", self.path, self.headers.get("Authorization")))
             parts = urlsplit(self.path)
             segments = parts.path.strip("/").split("/")
+            if segments[0] == "storage":
+                # The storage host the asset API redirects to.
+                fake.storage_authorization = self.headers.get("Authorization")
+                return self._send(200, fake.storage_data, "application/octet-stream")
             if segments[-1] == "releases":
                 page = int(parse_qs(parts.query).get("page", ["1"])[0])
                 chunk = fake.releases[(page - 1) * 100: page * 100]
@@ -65,6 +72,13 @@ def handler_for(fake):
                 for release in fake.releases:
                     for asset in release["assets"]:
                         if asset["id"] == asset_id:
+                            if fake.redirect_to:
+                                fake.storage_data = asset["data"]
+                                self.send_response(302)
+                                self.send_header("Location", fake.redirect_to + "/storage/blob")
+                                self.send_header("Content-Length", "0")
+                                self.end_headers()
+                                return
                             return self._send(200, asset["data"], "application/octet-stream")
             return self._send(404, {"message": "Not Found"})
 
@@ -194,6 +208,17 @@ class ClientTests(unittest.TestCase):
     def test_the_token_is_sent_as_a_bearer_credential(self):
         self.client.find("v1")
         self.assertTrue(all(auth == "Bearer secret-token" for _, _, auth in self.fake.requests))
+
+    def test_a_download_redirect_to_another_host_never_carries_the_token(self):
+        self.fake.new_release("v1", draft=False, assets=[("a.bin", b"payload")])
+        # The same server answers on two host names, so the redirect leaves the
+        # host the token was sent to.
+        port = self.server.server_address[1]
+        self.fake.redirect_to = f"http://localhost:{port}"
+        out = tempfile.mkdtemp()
+        self.assertEqual(self.client.download(self.client.require("v1"), out), ["a.bin"])
+        self.assertEqual(open(os.path.join(out, "a.bin"), "rb").read(), b"payload")
+        self.assertIsNone(self.fake.storage_authorization, "the token was sent to the storage host")
 
     def test_a_short_download_is_an_error(self):
         release = self.fake.new_release("v1", draft=False, assets=[("a.bin", b"abcdef")])

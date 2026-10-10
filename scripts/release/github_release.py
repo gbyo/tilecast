@@ -36,6 +36,27 @@ class GitHubError(Exception):
     pass
 
 
+class _RedirectWithoutCredentials(urllib.request.HTTPRedirectHandler):
+    """Follows a redirect but never sends the GitHub token to another host.
+
+    An asset download redirects from api.github.com to a storage host. urllib
+    would forward the Authorization header there, which leaks the token and
+    makes the storage host refuse the request.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        follow = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if follow is not None and urllib.parse.urlsplit(newurl).netloc != urllib.parse.urlsplit(req.full_url).netloc:
+            for name in [h for h in follow.headers if h.lower() == "authorization"]:
+                del follow.headers[name]
+            for name in [h for h in follow.unredirected_hdrs if h.lower() == "authorization"]:
+                del follow.unredirected_hdrs[name]
+        return follow
+
+
+_OPENER = urllib.request.build_opener(_RedirectWithoutCredentials)
+
+
 class Client:
     def __init__(self, repository=REPOSITORY, token=None, api=API, uploads=UPLOADS):
         self.repository = repository
@@ -60,7 +81,7 @@ class Client:
         if isinstance(body, (dict, list)):
             request.add_header("Content-Type", "application/json")
         try:
-            response = urllib.request.urlopen(request, timeout=600)
+            response = _OPENER.open(request, timeout=600)
         except urllib.error.HTTPError as error:
             if error.code in expected:
                 return error
@@ -71,8 +92,8 @@ class Client:
         return response
 
     def _json(self, method, path, body=None, expected=(200,)):
-        response = self._request(method, self.api + path, body, expected=expected)
-        raw = response.read()
+        with self._request(method, self.api + path, body, expected=expected) as response:
+            raw = response.read()
         return json.loads(raw) if raw else None
 
     # A release is found by listing, because only a listing includes drafts.
@@ -110,11 +131,10 @@ class Client:
         names = []
         for asset in release["assets"]:
             path = os.path.join(directory, asset["name"])
-            response = self._request(
+            with self._request(
                 "GET", f"{self.api}/repos/{self.repository}/releases/assets/{asset['id']}",
                 headers={"Accept": "application/octet-stream"},
-            )
-            with open(path, "wb") as handle:
+            ) as response, open(path, "wb") as handle:
                 while chunk := response.read(1 << 20):
                     handle.write(chunk)
             if os.path.getsize(path) != asset["size"]:
@@ -123,7 +143,7 @@ class Client:
         return sorted(names)
 
     def delete_asset(self, asset_id):
-        self._request("DELETE", f"{self.api}/repos/{self.repository}/releases/assets/{asset_id}", expected=(204,))
+        self._request("DELETE", f"{self.api}/repos/{self.repository}/releases/assets/{asset_id}", expected=(204,)).close()
 
     def upload(self, release, directory, replace=False):
         """Uploads every file of `directory`. An existing asset of the same
