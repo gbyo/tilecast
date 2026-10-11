@@ -1,4 +1,6 @@
 import type {
+  PlayerRelease,
+  Screen,
   UpdateDeployment,
   UpdateDeploymentScreen,
   UpdateDeploymentScreenState,
@@ -137,6 +139,27 @@ function stateText(key: string): StateText {
   return stateTexts[key] ?? { label: key };
 }
 
+// The architecture is part of a release's identity. ARM64 and x86_64
+// releases often share the same version and channel.
+export function releaseDisplayLabel(
+  release: Pick<PlayerRelease, "versionName" | "architecture">,
+  channelLabel: string,
+): string {
+  return [release.versionName, release.architecture, channelLabel]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+// Use the same strict architecture check as the server for Edge/Windows.
+// Screen selections already include members of selected Display Groups.
+export function mismatchedArchitectureScreens<T extends Pick<Screen, "playerArchitecture">>(
+  screens: readonly T[],
+  release: Pick<PlayerRelease, "playerFamily" | "architecture"> | undefined,
+): T[] {
+  if (!release || (release.playerFamily !== "edge" && release.playerFamily !== "windows")) return [];
+  return screens.filter((screen) => screen.playerArchitecture !== release.architecture);
+}
+
 export function screenUpdateMeaning(state: string): ScreenUpdateMeaning {
   const known = state in meaningConfigs;
   const key = known ? state : "unknown";
@@ -158,7 +181,7 @@ export function screenUpdateMeaning(state: string): ScreenUpdateMeaning {
 // thing that says why this particular screen stopped.
 export function screenUpdateDetail(screen: UpdateDeploymentScreen) {
   const meaning = screenUpdateMeaning(screen.state);
-  if (screen.state === "failed" && screen.safeError) return screen.safeError;
+  if ((screen.state === "failed" || screen.state === "incompatible") && screen.safeError) return screen.safeError;
   return meaning.detail;
 }
 
