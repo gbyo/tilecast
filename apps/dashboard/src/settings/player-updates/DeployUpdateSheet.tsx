@@ -17,14 +17,24 @@ import { Alert, AlertTitle, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import {
   Combobox,
-  ComboboxInput,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
   ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-  ComboboxGroup,
-  ComboboxLabel,
   ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
 } from "../../components/ui/combobox";
 import {
   Field,
@@ -38,7 +48,6 @@ import {
 } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
-import { ScrollArea } from "../../components/ui/scroll-area";
 import { Switch } from "../../components/ui/switch";
 import { Spinner } from "../../components/ui/spinner";
 import { toast } from "../../components/ui/toast";
@@ -74,6 +83,7 @@ export function DeployUpdateSheet({
   const [windowStart, setWindowStart] = useState("");
   const [canary, setCanary] = useState(false);
   const [canarySize, setCanarySize] = useState(1);
+  const targetAnchor = useComboboxAnchor();
   const release = releases.find((r) => r.id === releaseId);
   const choices = useMemo(
     () => [
@@ -211,7 +221,7 @@ export function DeployUpdateSheet({
         title: t(`updates.console.steps.${stageKey}`),
       })}
       footer={footer}
-      wide
+      presentation="dialog"
     >
       <ol className="grid grid-cols-3 gap-2" aria-label={t("updates.console.workspaceViews")}>
         {(["release", "targets", "rollout"] as const).map((key, index) => (
@@ -248,40 +258,48 @@ export function DeployUpdateSheet({
             aria-label={t("updates.panel.releaseLabel")}
           >
             {releases.map((r) => (
-              <Field
+              <Card
                 key={r.id}
-                orientation="horizontal"
-                className="gap-3 rounded-lg border p-4 transition-colors hover:bg-accent/30"
+                size="sm"
+                className={
+                  releaseId === r.id
+                    ? "ring-2 ring-primary/50"
+                    : "transition-colors hover:bg-accent/20"
+                }
               >
-                <RadioGroupItem
-                  id={`release-${r.id}`}
-                  aria-label={`${r.versionName} · ${artifactIdentity(r, t)} · ${r.channel === "beta" ? t("updates.panel.channelBeta") : t("updates.panel.channelStable")}`}
-                  value={r.id}
-                  disabled={!deployable(r)}
-                />
-                <FieldContent>
-                  <FieldLabel
-                    htmlFor={`release-${r.id}`}
-                    className="flex flex-wrap gap-2"
-                  >
-                    {r.versionName}
-                    <Badge variant="outline">
-                      {r.channel === "beta"
-                        ? t("updates.panel.channelBeta")
-                        : t("updates.panel.channelStable")}
-                    </Badge>
-                    <span className="basis-full text-sm font-medium">
-                      {artifactIdentity(r, t)}
-                    </span>
-                  </FieldLabel>
-                  <FieldDescription>
-                    {formatBytes(r.apkSizeBytes, locale)} ·{" "}
-                    {new Date(r.publishedAt).toLocaleDateString(locale)}
-                    {!deployable(r) &&
-                      ` · ${t("updates.console.prepareFirst")}`}
-                  </FieldDescription>
-                </FieldContent>
-              </Field>
+                <CardContent>
+                  <Field orientation="horizontal" className="gap-3">
+                    <RadioGroupItem
+                      id={`release-${r.id}`}
+                      aria-label={`${r.versionName} · ${artifactIdentity(r, t)} · ${r.channel === "beta" ? t("updates.panel.channelBeta") : t("updates.panel.channelStable")}`}
+                      value={r.id}
+                      disabled={!deployable(r)}
+                    />
+                    <FieldContent>
+                      <FieldLabel
+                        htmlFor={`release-${r.id}`}
+                        className="flex flex-wrap gap-2"
+                      >
+                        {r.versionName}
+                        <Badge variant="outline">
+                          {r.channel === "beta"
+                            ? t("updates.panel.channelBeta")
+                            : t("updates.panel.channelStable")}
+                        </Badge>
+                        <span className="basis-full text-sm font-medium">
+                          {artifactIdentity(r, t)}
+                        </span>
+                      </FieldLabel>
+                      <FieldDescription>
+                        {formatBytes(r.apkSizeBytes, locale)} ·{" "}
+                        {new Date(r.publishedAt).toLocaleDateString(locale)}
+                        {!deployable(r) &&
+                          ` · ${t("updates.console.prepareFirst")}`}
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+                </CardContent>
+              </Card>
             ))}
           </RadioGroup>
         </FieldSet>
@@ -307,11 +325,31 @@ export function DeployUpdateSheet({
               inputValue={search}
               onInputValueChange={setSearch}
             >
-              <ComboboxInput
-                id="update-target-search"
-                placeholder={t("updates.panel.searchPlaceholder")}
-              />
-              <ComboboxContent>
+              <ComboboxChips ref={targetAnchor}>
+                <ComboboxValue>
+                  {(value: TargetChoice[]) =>
+                    value.map((item) => (
+                      <ComboboxChip
+                        key={`${item.type}-${item.value}`}
+                        removeLabel={t("updates.console.removeTarget", {
+                          name: item.label,
+                        })}
+                      >
+                        {item.label}
+                      </ComboboxChip>
+                    ))
+                  }
+                </ComboboxValue>
+                <ComboboxChipsInput
+                  id="update-target-search"
+                  placeholder={
+                    selected.length
+                      ? undefined
+                      : t("updates.panel.searchPlaceholder")
+                  }
+                />
+              </ComboboxChips>
+              <ComboboxContent anchor={targetAnchor}>
                 <ComboboxEmpty>
                   {t("updates.console.noTargetMatch")}
                 </ComboboxEmpty>
@@ -425,32 +463,6 @@ export function DeployUpdateSheet({
                   count: result?.targetCount ?? 0,
                 })}
           </p>
-          {!!selected.length && (
-            <ScrollArea className="max-h-32">
-              <div className="grid gap-1">
-                {selected.map((item) => (
-                  <div
-                    key={`${item.type}-${item.value}`}
-                    className="flex items-center justify-between gap-2 text-sm"
-                  >
-                    <span>{item.label}</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      aria-label={t("updates.console.removeTarget", {
-                        name: item.label,
-                      })}
-                      onClick={() =>
-                        setSelected(selected.filter((s) => s !== item))
-                      }
-                    >
-                      {t("common:actions.remove")}
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
         </>
       )}
       {stage === 3 && (
@@ -539,29 +551,34 @@ export function DeployUpdateSheet({
               </Field>
             )}
           </FieldGroup>
-          <section
-            className="grid gap-1 border-t pt-4"
+          <Card
+            size="sm"
+            role="region"
             aria-label={t("updates.console.review")}
           >
-            <h3 className="mb-1 text-sm font-semibold">
-              {t("updates.console.review")}
-            </h3>
-            <strong className="text-sm">{release?.versionName}</strong>
-            <p className="text-sm">{release && artifactIdentity(release, t)}</p>
-            <p className="text-sm">
-              {t("updates.console.targetCount", {
-                count: result?.targetCount ?? 0,
-              })}{" "}
-              · {modeLabel(mode, t)}
-              {canary &&
-                ` · ${t("updates.console.canarySummary", { count: canarySize })}`}
-            </p>
-            {mode === "maintenance_window" && windowStart && (
+            <CardHeader>
+              <CardTitle>{t("updates.console.review")}</CardTitle>
+            </CardHeader>
+            <CardContent className="gap-1">
+              <strong className="text-sm">{release?.versionName}</strong>
               <p className="text-sm">
-                {new Date(windowStart).toLocaleString(locale)}
+                {release && artifactIdentity(release, t)}
               </p>
-            )}
-          </section>
+              <p className="text-sm">
+                {t("updates.console.targetCount", {
+                  count: result?.targetCount ?? 0,
+                })}{" "}
+                · {modeLabel(mode, t)}
+                {canary &&
+                  ` · ${t("updates.console.canarySummary", { count: canarySize })}`}
+              </p>
+              {mode === "maintenance_window" && windowStart && (
+                <p className="text-sm">
+                  {new Date(windowStart).toLocaleString(locale)}
+                </p>
+              )}
+            </CardContent>
+          </Card>
           <p className="text-sm text-muted-foreground">
             {releaseUpdateTab(release ?? { platform: "android" }) === "android"
               ? t("updates.panel.androidNote")
