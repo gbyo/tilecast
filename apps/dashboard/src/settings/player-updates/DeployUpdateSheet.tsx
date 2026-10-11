@@ -90,6 +90,60 @@ function releaseGroupKey(releases: PlayerRelease[]) {
     .join(":");
 }
 
+function automaticBuildForScreens(
+  group: PlayerRelease[] | undefined,
+  screens: Screen[],
+) {
+  if (!group?.length) return undefined;
+  if (group.length === 1) return group[0];
+  const matching = group.filter(
+    (release) =>
+      !release.architecture ||
+      screens.some(
+        (screen) => screen.playerArchitecture === release.architecture,
+      ),
+  );
+  return matching.length === 1 ? matching[0] : undefined;
+}
+
+function initialDeployChoice(
+  releases: PlayerRelease[],
+  screens: Screen[],
+  initialFamily: UpdateFamilyTab,
+  preselected?: string,
+) {
+  const release = releases.find((item) => item.id === preselected);
+  const family = release ? releaseUpdateTab(release) : initialFamily;
+  const groups = groupReleases(
+    releases.filter((item) => releaseUpdateTab(item) === family),
+  );
+  const group =
+    (release
+      ? groups.find((items) => items.some((item) => item.id === release.id))
+      : undefined) ?? (groups.length === 1 ? groups[0] : undefined);
+  const familyScreens = screens.filter(
+    (screen) => screenUpdateTab(screen) === family,
+  );
+  const build = release ?? automaticBuildForScreens(group, familyScreens);
+  return {
+    family,
+    groupId: group ? releaseGroupKey(group) : "",
+    releaseId: build?.id ?? "",
+  };
+}
+
+function matchingScreenCount(
+  release: PlayerRelease | undefined,
+  screens: Screen[],
+) {
+  if (!release) return 0;
+  return screens.filter(
+    (screen) =>
+      !release.architecture ||
+      screen.playerArchitecture === release.architecture,
+  ).length;
+}
+
 function UpdateSelectionStep({
   family,
   releaseGroups,
@@ -896,48 +950,17 @@ export function DeployUpdateSheet({
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const client = useQueryClient();
-  const initialRelease = releases.find((item) => item.id === preselected);
-  const initialReleaseFamily = initialRelease
-    ? releaseUpdateTab(initialRelease)
-    : initialFamily;
-  const initialGroups = groupReleases(
-    releases.filter(
-      (item) => releaseUpdateTab(item) === initialReleaseFamily,
-    ),
+  const initial = initialDeployChoice(
+    releases,
+    screens,
+    initialFamily,
+    preselected,
   );
-  const initialGroup =
-    (initialRelease
-      ? initialGroups.find((items) =>
-          items.some((item) => item.id === initialRelease.id),
-        )
-      : undefined) ?? (initialGroups.length === 1 ? initialGroups[0] : undefined);
-  const initialFamilyScreens = screens.filter(
-    (screen) => screenUpdateTab(screen) === initialReleaseFamily,
-  );
-  const initialMatchingBuilds = (initialGroup ?? []).filter(
-    (item) =>
-      !item.architecture ||
-      initialFamilyScreens.some(
-        (screen) => screen.playerArchitecture === item.architecture,
-      ),
-  );
-  const automaticInitialRelease =
-    initialRelease ??
-    (initialGroup?.length === 1
-      ? initialGroup[0]
-      : initialMatchingBuilds.length === 1
-        ? initialMatchingBuilds[0]
-        : undefined);
 
   const [stage, setStage] = useState(1);
-  const [family, setFamily] =
-    useState<UpdateFamilyTab>(initialReleaseFamily);
-  const [releaseGroupId, setReleaseGroupId] = useState(
-    initialGroup ? releaseGroupKey(initialGroup) : "",
-  );
-  const [releaseId, setReleaseId] = useState(
-    automaticInitialRelease?.id ?? "",
-  );
+  const [family, setFamily] = useState<UpdateFamilyTab>(initial.family);
+  const [releaseGroupId, setReleaseGroupId] = useState(initial.groupId);
+  const [releaseId, setReleaseId] = useState(initial.releaseId);
   const [selected, setSelected] = useState<TargetChoice[]>([]);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<UpdateDeploymentMode>("install_now");
@@ -984,13 +1007,7 @@ export function DeployUpdateSheet({
     [familyScreens, familyGroups],
   );
 
-  const selectedBuildScreenCount = release
-    ? familyScreens.filter(
-        (screen) =>
-          !release.architecture ||
-          screen.playerArchitecture === release.architecture,
-      ).length
-    : 0;
+  const selectedBuildScreenCount = matchingScreenCount(release, familyScreens);
 
   const selection = {
     releaseId,
@@ -1107,21 +1124,8 @@ export function DeployUpdateSheet({
     const next = releaseGroups.find(
       (items) => releaseGroupKey(items) === key,
     );
-    const matching = (next ?? []).filter(
-      (item) =>
-        !item.architecture ||
-        familyScreens.some(
-          (screen) => screen.playerArchitecture === item.architecture,
-        ),
-    );
-    const automatic =
-      next?.length === 1
-        ? next[0]
-        : matching.length === 1
-          ? matching[0]
-          : undefined;
     setReleaseGroupId(key);
-    setReleaseId(automatic?.id ?? "");
+    setReleaseId(automaticBuildForScreens(next, familyScreens)?.id ?? "");
     setSelected([]);
   }
 
