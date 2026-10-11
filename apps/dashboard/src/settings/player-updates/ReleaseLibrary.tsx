@@ -203,7 +203,7 @@ export function ReleaseLibrary({
   function artifact(release: PlayerRelease, details = false) {
     const readiness = releaseReadiness(release, t);
     return (
-      <div key={release.id} className="grid gap-1 py-2">
+      <div key={release.id} className="grid gap-2 rounded-lg bg-muted/30 px-3 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="grid gap-1">
             <p className="flex flex-wrap items-center gap-2 text-sm">
@@ -300,7 +300,7 @@ export function ReleaseLibrary({
     );
   }
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-5">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold">
@@ -345,20 +345,20 @@ export function ReleaseLibrary({
         </Alert>
       )}
       {grouped.length ? (
-        <ItemGroup render={<ul />} className="gap-0 divide-y">
+        <ItemGroup render={<ul />} className="grid gap-4">
           {grouped.map((variants) => {
             const release = variants[0]!;
             return (
               <Item
                 key={release.id}
                 render={<li />}
-                className="rounded-none px-0"
+                className="rounded-xl border bg-card px-4 py-4 sm:px-5"
               >
                 <ItemContent>
                   <ItemTitle className="flex-wrap [display:flex] [-webkit-line-clamp:unset]">
                     <Button
                       variant="link"
-                      className="h-auto p-0 font-semibold"
+                      className="h-auto p-0 text-lg font-semibold tracking-tight"
                       onClick={() => setDetailIds(variants.map((r) => r.id))}
                     >
                       {release.versionName}
@@ -369,7 +369,7 @@ export function ReleaseLibrary({
                         : t("updates.panel.channelStable")}
                     </Badge>
                   </ItemTitle>
-                  <ItemDescription className="line-clamp-none text-xs">
+                  <ItemDescription className="line-clamp-none text-sm">
                     {artifactIdentity({ ...release, architecture: "" }, t)} ·{" "}
                     {release.source === "upload"
                       ? t("updates.panel.sourceUpload")
