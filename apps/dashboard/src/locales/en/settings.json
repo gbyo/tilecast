@@ -1298,6 +1298,8 @@
       "noReleasesForFamily": "No releases are available for {{family}}.",
       "prepareAndContinue": "Prepare & continue",
       "preparingBuild": "Preparing build…",
+      "startingPreparation": "Starting preparation…",
+      "preparationContinuesHint": "Preparation continues on the server. You can close this dialog and come back later.",
       "prepareBuildFailed": "Tilecast could not prepare this build.",
       "prepareBuildTimedOut": "Preparing this build took too long. Try again.",
       "families": {
