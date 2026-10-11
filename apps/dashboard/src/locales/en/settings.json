@@ -1278,11 +1278,13 @@
   "updates": {
     "console": {
       "incompatibleTargets": "Incompatible screens: {{count}}.",
-      "playerFamily": "Player family",
+      "playerFamily": "Player type",
       "playerFamilyHint": "Choose which Tilecast Player you are updating. You can change this without leaving the deployment flow.",
+      "chooseVersion": "Choose a version",
       "versionLabel": "Version",
-      "buildLabel": "Build",
-      "buildHint": "Choose the CPU build that matches the screens you want to update.",
+      "buildLabel": "Architecture",
+      "buildHint": "Choose the CPU architecture that matches the screens you want to update.",
+      "singleBuildHint": "This version has one build for this Player type, so Tilecast selected it for you.",
       "architectures": {
         "x86_64": "Intel / AMD 64-bit",
         "aarch64": "ARM64",
@@ -1311,7 +1313,7 @@
         "cancelled": "Cancelled"
       },
       "deployments": "Deployments",
-      "releases": "Releases",
+      "releases": "Release catalog",
       "workspaceViews": "Player update views",
       "fleetCount": "{{count}} screens",
       "fleetCount_one": "{{count}} screen",
@@ -1334,12 +1336,12 @@
       "continue": "Continue",
       "step": "{{stage}} of 3 — {{title}}",
       "steps": {
-        "release": "Version & build",
+        "release": "Update",
         "targets": "Targets",
         "rollout": "Rollout"
       },
       "stepHints": {
-        "release": "Choose the player type, version, and build. Tilecast downloads and verifies the build here if needed.",
+        "release": "Choose the Player type and version. Pick an architecture only when more than one build applies.",
         "targets": "Search screens or Display Groups. Tilecast checks every resolved screen.",
         "rollout": "Choose when to install and review the deployment before starting."
       },
@@ -1358,6 +1360,7 @@
       },
       "windowHint": "This browser's local time. Players install at or after this instant.",
       "futureWindow": "Choose a future date and time.",
+      "rolloutSafeguards": "Rollout safeguards",
       "canaryRollout": "Canary rollout",
       "canaryHint": "Update a small cohort first. Continue only after every canary succeeds.",
       "invalidCanary": "Use 1–50 canary screens, fewer than the eligible targets. Remove already-current screens before using canaries.",
