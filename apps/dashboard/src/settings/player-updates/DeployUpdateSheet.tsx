@@ -21,6 +21,11 @@ import { Alert, AlertTitle, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../../components/ui/collapsible";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -431,81 +436,84 @@ export function DeployUpdateSheet({
                 ))}
               </SelectContent>
             </Select>
-            <FieldDescription>
-              {t("updates.console.playerFamilyHint")}
-            </FieldDescription>
           </Field>
 
-          <FieldSet>
-            <FieldLegend>{t("updates.console.versionLabel")}</FieldLegend>
+          <Field>
+            <FieldLabel htmlFor="update-version">
+              {t("updates.console.versionLabel")}
+            </FieldLabel>
             {releaseGroups.length ? (
-              <RadioGroup
-                value={releaseGroupId}
-                onValueChange={(value) => {
-                  const next = releaseGroups.find(
-                    (items) => releaseGroupKey(items) === String(value),
-                  );
-                  setReleaseGroupId(String(value));
-                  setReleaseId(next?.length === 1 ? next[0]!.id : "");
-                  setPreparedRelease(undefined);
-                  setSelected([]);
-                }}
-                aria-label={t("updates.console.versionLabel")}
-              >
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {releaseGroups.map((variants) => {
+              <>
+                <Select
+                  items={releaseGroups.map((variants) => {
                     const representative = variants[0]!;
-                    const key = releaseGroupKey(variants);
-                    return (
-                      <Card
-                        key={key}
-                        size="sm"
-                        className={
-                          releaseGroupId === key
-                            ? "ring-2 ring-primary/50"
-                            : "transition-colors hover:bg-accent/20"
-                        }
-                      >
-                        <CardContent>
-                          <Field orientation="horizontal" className="gap-3">
-                            <RadioGroupItem
-                              id={`release-version-${key}`}
-                              value={key}
-                              aria-label={`${representative.versionName} · ${
-                                representative.channel === "beta"
-                                  ? t("updates.panel.channelBeta")
-                                  : t("updates.panel.channelStable")
-                              }`}
-                            />
-                            <FieldContent>
-                              <FieldLabel
-                                htmlFor={`release-version-${key}`}
-                                className="flex flex-wrap gap-2"
-                              >
-                                {representative.versionName}
-                                <Badge variant="outline">
-                                  {representative.channel === "beta"
-                                    ? t("updates.panel.channelBeta")
-                                    : t("updates.panel.channelStable")}
-                                </Badge>
-                              </FieldLabel>
-                              <FieldDescription>
-                                {new Date(
-                                  representative.publishedAt,
-                                ).toLocaleDateString(locale)}
-                                {" · "}
-                                {representative.source === "github"
-                                  ? t("updates.panel.sourceGitHub")
-                                  : t("updates.panel.sourceUpload")}
-                              </FieldDescription>
-                            </FieldContent>
-                          </Field>
-                        </CardContent>
-                      </Card>
-                    );
+                    return {
+                      value: releaseGroupKey(variants),
+                      label: `${representative.versionName} · ${
+                        representative.channel === "beta"
+                          ? t("updates.panel.channelBeta")
+                          : t("updates.panel.channelStable")
+                      }`,
+                    };
                   })}
-                </div>
-              </RadioGroup>
+                  value={releaseGroupId}
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    const next = releaseGroups.find(
+                      (items) => releaseGroupKey(items) === String(value),
+                    );
+                    const matching = (next ?? []).filter(
+                      (item) =>
+                        !item.architecture ||
+                        familyScreens.some(
+                          (screen) =>
+                            screen.playerArchitecture === item.architecture,
+                        ),
+                    );
+                    const automatic =
+                      next?.length === 1
+                        ? next[0]
+                        : matching.length === 1
+                          ? matching[0]
+                          : undefined;
+                    setReleaseGroupId(String(value));
+                    setReleaseId(automatic?.id ?? "");
+                    setPreparedRelease(undefined);
+                    setSelected([]);
+                  }}
+                >
+                  <SelectTrigger id="update-version">
+                    <SelectValue
+                      placeholder={t("updates.console.chooseVersion")}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {releaseGroups.map((variants) => {
+                      const representative = variants[0]!;
+                      const key = releaseGroupKey(variants);
+                      return (
+                        <SelectItem key={key} value={key}>
+                          {representative.versionName} ·{" "}
+                          {representative.channel === "beta"
+                            ? t("updates.panel.channelBeta")
+                            : t("updates.panel.channelStable")}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                {releaseGroup && (
+                  <FieldDescription>
+                    {new Date(
+                      releaseGroup[0]!.publishedAt,
+                    ).toLocaleDateString(locale)}
+                    {" · "}
+                    {releaseGroup[0]!.source === "github"
+                      ? t("updates.panel.sourceGitHub")
+                      : t("updates.panel.sourceUpload")}
+                  </FieldDescription>
+                )}
+              </>
             ) : (
               <Alert>
                 <AlertDescription>
@@ -515,13 +523,15 @@ export function DeployUpdateSheet({
                 </AlertDescription>
               </Alert>
             )}
-          </FieldSet>
+          </Field>
 
           {releaseGroup && (
             <FieldSet>
               <FieldLegend>{t("updates.console.buildLabel")}</FieldLegend>
               <FieldDescription>
-                {t("updates.console.buildHint")}
+                {releaseGroup.length === 1
+                  ? t("updates.console.singleBuildHint")
+                  : t("updates.console.buildHint")}
               </FieldDescription>
               <RadioGroup
                 value={releaseId}
@@ -560,7 +570,7 @@ export function DeployUpdateSheet({
                               aria-label={`${architectureLabel(
                                 item.architecture,
                                 t,
-                              )} · ${item.architecture || familyLabel(family, t)}`}
+                              )} (${item.architecture || familyLabel(family, t)})`}
                             />
                             <FieldContent>
                               <FieldLabel
@@ -789,38 +799,82 @@ export function DeployUpdateSheet({
       )}
       {stage === 3 && (
         <>
+          <Card
+            size="sm"
+            role="region"
+            aria-label={t("updates.console.review")}
+          >
+            <CardHeader>
+              <CardTitle>{t("updates.console.review")}</CardTitle>
+            </CardHeader>
+            <CardContent className="gap-1">
+              <strong className="text-sm">{release?.versionName}</strong>
+              {release && (
+                <p className="text-sm text-muted-foreground">
+                  {familyLabel(family, t)}
+                  {release.architecture &&
+                    ` · ${architectureLabel(release.architecture, t)} (${release.architecture})`}
+                </p>
+              )}
+              <p className="text-sm">
+                {t("updates.console.targetCount", {
+                  count: result?.targetCount ?? 0,
+                })}{" "}
+                · {modeLabel(mode, t)}
+                {canary &&
+                  ` · ${t("updates.console.canarySummary", { count: canarySize })}`}
+              </p>
+              {mode === "maintenance_window" && windowStart && (
+                <p className="text-sm">
+                  {new Date(windowStart).toLocaleString(locale)}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           <FieldGroup className="gap-5">
-            <FieldSet>
-              <FieldLegend variant="label">
+            <Field>
+              <FieldLabel htmlFor="update-mode">
                 {t("updates.panel.modeLabel")}
-              </FieldLegend>
-              <RadioGroup
-                value={mode}
-                onValueChange={(value) =>
-                  setMode(value as UpdateDeploymentMode)
-                }
-              >
-                {(
+              </FieldLabel>
+              <Select
+                items={(
                   [
                     "install_now",
                     "download_only",
                     "maintenance_window",
                   ] as const
-                ).map((value) => (
-                  <Field key={value} orientation="horizontal">
-                    <RadioGroupItem id={value} value={value} />
-                    <FieldContent>
-                      <FieldLabel htmlFor={value}>
-                        {modeLabel(value, t)}
-                      </FieldLabel>
-                      <FieldDescription>
-                        {t(`updates.console.modeHints.${value}`)}
-                      </FieldDescription>
-                    </FieldContent>
-                  </Field>
-                ))}
-              </RadioGroup>
-            </FieldSet>
+                ).map((value) => ({
+                  value,
+                  label: modeLabel(value, t),
+                }))}
+                value={mode}
+                onValueChange={(value) =>
+                  value && setMode(value as UpdateDeploymentMode)
+                }
+              >
+                <SelectTrigger id="update-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(
+                    [
+                      "install_now",
+                      "download_only",
+                      "maintenance_window",
+                    ] as const
+                  ).map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {modeLabel(value, t)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {t(`updates.console.modeHints.${mode}`)}
+              </FieldDescription>
+            </Field>
+
             {mode === "maintenance_window" && (
               <Field>
                 <FieldLabel htmlFor="update-window">
@@ -839,68 +893,68 @@ export function DeployUpdateSheet({
                 )}
               </Field>
             )}
-            <Field orientation="horizontal">
-              <Switch
-                id="update-canary"
-                checked={canary}
-                onCheckedChange={setCanary}
-              />
-              <FieldContent>
-                <FieldLabel htmlFor="update-canary">
-                  {t("updates.console.canaryRollout")}
-                </FieldLabel>
-                <FieldDescription>
-                  {t("updates.console.canaryHint")}
-                </FieldDescription>
-              </FieldContent>
-            </Field>
-            {canary && (
-              <Field>
-                <FieldLabel htmlFor="update-canary-count">
-                  {t("updates.panel.canaryLabel")}
-                </FieldLabel>
-                <Input
-                  id="update-canary-count"
-                  type="number"
-                  min={1}
-                  max={Math.min(50, (result?.eligibleCount ?? 0) - 1)}
-                  value={canarySize}
-                  onChange={(e) => setCanarySize(Number(e.target.value))}
-                />
-                {invalidCanary && (
-                  <FieldError>{t("updates.console.invalidCanary")}</FieldError>
+
+            <Collapsible>
+              <CollapsibleTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="justify-start px-0"
+                  />
+                }
+              >
+                {t("updates.console.rolloutSafeguards")}
+                {canary && (
+                  <Badge variant="secondary">
+                    {t("updates.console.canarySummary", {
+                      count: canarySize,
+                    })}
+                  </Badge>
                 )}
-              </Field>
-            )}
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-3">
+                <div className="rounded-lg border bg-muted/20 p-3">
+                  <Field orientation="horizontal">
+                    <Switch
+                      id="update-canary"
+                      checked={canary}
+                      onCheckedChange={setCanary}
+                    />
+                    <FieldContent>
+                      <FieldLabel htmlFor="update-canary">
+                        {t("updates.console.canaryRollout")}
+                      </FieldLabel>
+                      <FieldDescription>
+                        {t("updates.console.canaryHint")}
+                      </FieldDescription>
+                    </FieldContent>
+                  </Field>
+                  {canary && (
+                    <Field className="mt-3">
+                      <FieldLabel htmlFor="update-canary-count">
+                        {t("updates.panel.canaryLabel")}
+                      </FieldLabel>
+                      <Input
+                        id="update-canary-count"
+                        type="number"
+                        min={1}
+                        max={Math.min(50, (result?.eligibleCount ?? 0) - 1)}
+                        value={canarySize}
+                        onChange={(e) => setCanarySize(Number(e.target.value))}
+                      />
+                      {invalidCanary && (
+                        <FieldError>
+                          {t("updates.console.invalidCanary")}
+                        </FieldError>
+                      )}
+                    </Field>
+                  )}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </FieldGroup>
-          <Card
-            size="sm"
-            role="region"
-            aria-label={t("updates.console.review")}
-          >
-            <CardHeader>
-              <CardTitle>{t("updates.console.review")}</CardTitle>
-            </CardHeader>
-            <CardContent className="gap-1">
-              <strong className="text-sm">{release?.versionName}</strong>
-              <p className="text-sm">
-                {release && artifactIdentity(release, t)}
-              </p>
-              <p className="text-sm">
-                {t("updates.console.targetCount", {
-                  count: result?.targetCount ?? 0,
-                })}{" "}
-                · {modeLabel(mode, t)}
-                {canary &&
-                  ` · ${t("updates.console.canarySummary", { count: canarySize })}`}
-              </p>
-              {mode === "maintenance_window" && windowStart && (
-                <p className="text-sm">
-                  {new Date(windowStart).toLocaleString(locale)}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+
           <p className="text-sm text-muted-foreground">
             {releaseUpdateTab(release ?? { platform: "android" }) === "android"
               ? t("updates.panel.androidNote")
