@@ -94,10 +94,10 @@ export function DeploymentList({
                     </Badge>
                     <Button
                       variant="ghost"
-                      size="icon-sm"
-                      aria-label={t("updates.console.viewRollout")}
+                      size="sm"
                       onClick={() => onOpen(item)}
                     >
+                      {t("updates.console.viewRollout")}
                       <ChevronRight aria-hidden="true" />
                     </Button>
                   </CardAction>
@@ -108,7 +108,6 @@ export function DeploymentList({
                     failedCount={
                       item.failedCount + (item.incompatibleCount ?? 0)
                     }
-                    compact
                   />
                   <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                     <span className="text-muted-foreground">
