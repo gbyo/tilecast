@@ -45,6 +45,8 @@ A Playlist zone supports image and video items only. Studio previews those items
 
 Images use their item duration or the Player's default image duration. Videos start at their start offset and play to their end offset, or to the end of the media when no end offset is set. A looping zone repeats a single video from its start offset; a non-looping zone pauses its final video at its end offset. The preview uses organization playback defaults for items that use Player defaults. See the [playback settings](../administration/player-policies/) for policy controls.
 
+The Player keeps the outgoing zone item visible while the next image loads or video becomes playable. The image duration starts when the image appears. A slow or failed zone does not delay the rest of the Layout. Media load or play failures appear as zone failures in Activity and use the configured fallback. The [Runtime readiness contract](https://github.com/gbyo/tilecast/blob/main/docs/player-runtime.md) defines the reported evidence. Canvas evidence alone does not confirm that every child is working.
+
 If a Widget reports an error after it first renders, the Player reports a failure for that zone and keeps the Layout active so its other content can continue.
 
 ## Show changing values in text

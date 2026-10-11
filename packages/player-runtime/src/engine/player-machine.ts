@@ -115,6 +115,7 @@ export const playerMachine = setup({
         WEBSITE_FAILED: { actions: "forward" },
         WEBSITE_RECOVERED: { actions: "forward" },
         FALLBACK_SHOWN: { actions: "forward" },
+        ZONE_FAILED: { actions: "forward" },
       },
     },
   },

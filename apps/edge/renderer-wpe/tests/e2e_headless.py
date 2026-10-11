@@ -260,7 +260,7 @@ def scenario_fixture(args):
                 timeout=60,
             )
             evidence = wait_for(
-                "evidence for every item kind",
+                "item evidence and real Layout playlist-zone H.264 progress",
                 lambda: fixture_evidence(stack),
                 timeout=120,
                 interval=1.0,
@@ -276,6 +276,7 @@ def scenario_fixture(args):
             assert presentation["generation"] == status["renderer"]["currentActivationGeneration"], presentation
             assert status["renderer"].get("engineVersion") and status["renderer"].get("gstreamerVersion"), status
             print(f"fixture: generation {status['renderer']['currentActivationGeneration']}, evidence {sorted(evidence)}")
+            print("fixture: zone-video H.264 readiness and video_progress confirmed inside item-layout-video")
         except Exception:
             stack.dump_logs()
             raise
@@ -764,7 +765,15 @@ def fixture_evidence(stack):
                     if kind in line:
                         seen.add(kind)
     required = {"image_shown", "video_progress", "widget_shown", "layout_shown", "item_transition"}
-    return seen if required <= seen else None
+    nested = set(accepted_evidence(stack))
+    # Canvas and selection evidence cannot prove that GStreamer decoded the
+    # nested H.264. Require progress from this Layout's specific video zone.
+    child_ready = ("layout_zone_rendered", "item-layout-video", "zone-video")
+    child_progress = ("video_progress", "item-layout-video", "zone-video")
+    # Reach the next Layout too: the four-second clip must not stall the
+    # Runtime during its fifteen-second native-looping occurrence.
+    next_layout = ("layout_zone_rendered", "item-layout", "zone-image")
+    return seen if required <= seen and {child_ready, child_progress, next_layout} <= nested else None
 
 
 # ---------------------------------------------------------------- widget

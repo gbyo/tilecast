@@ -23,6 +23,8 @@ import { zoneEntry, zoneMachine, type ZoneActor } from "../engine/zone-machine";
 import { applyAutoFit, buildRenderNode } from "../compat/render-tree-dom";
 import type { MediaSurface, SurfaceEnvironment, SurfaceSink } from "./surface";
 import type { WidgetExecution } from "@tilecast/widget-sdk/executor";
+import { ImageSurface } from "./image-surface";
+import { HtmlVideoSurface } from "./video-surface";
 
 export class LayoutSurface implements MediaSurface {
   readonly element: HTMLDivElement;
@@ -30,6 +32,8 @@ export class LayoutSurface implements MediaSurface {
   private readonly zones: ZoneActor[] = [];
   private readonly zoneTeardowns: (() => void)[] = [];
   private readonly nested: MediaSurface[] = [];
+  private readonly playlistLifecycles: { activate(): void; pause(): void }[] =
+    [];
   private youtubeZones = 0;
   private active = false;
   private readonly widgetMounts: WidgetExecution[] = [];
@@ -79,18 +83,18 @@ export class LayoutSurface implements MediaSurface {
   }
 
   activate(): Promise<void> {
+    if (this.disposed || this.active) return Promise.resolve();
     applyAutoFit(this.element);
     this.active = true;
+    for (const zone of this.playlistLifecycles) zone.activate();
     for (const surface of this.nested) void surface.activate();
     return Promise.resolve();
   }
 
   pause(): void {
     this.active = false;
+    for (const zone of this.playlistLifecycles) zone.pause();
     for (const surface of this.nested) surface.pause();
-    for (const video of Array.from(this.element.querySelectorAll("video"))) {
-      if (!video.closest(".tc-remote-web")) video.pause();
-    }
   }
 
   seek(): Promise<void> {
@@ -102,7 +106,10 @@ export class LayoutSurface implements MediaSurface {
     this.disposed = true;
     this.timers.cancelAll();
     for (const surface of this.nested) surface.dispose();
-    for (const zone of this.zones) zone.stop();
+    for (const zone of this.zones) {
+      zone.send({ type: "PAUSE", epoch: zone.getSnapshot().context.epoch });
+      zone.stop();
+    }
     for (const teardown of this.zoneTeardowns) teardown();
     for (const mount of this.widgetMounts) mount.dispose();
   }
@@ -170,13 +177,18 @@ export class LayoutSurface implements MediaSurface {
     } else if (zone.image) {
       const img = document.createElement("img");
       img.alt = "";
-      img.src = zone.image.src;
       img.style.width = "100%";
       img.style.height = "100%";
       img.style.objectFit = objectFit(zone.image.fit);
       // On load, not on append: an image that never decodes is not evidence
       // that anything appeared in the zone.
       img.onload = rendered;
+      img.onerror = () => zoneFailed("image failed to load");
+      img.src = zone.image.src;
+      this.zoneTeardowns.push(() => {
+        img.onload = null;
+        img.onerror = null;
+      });
       el.appendChild(img);
     } else if (zone.remoteWeb) {
       this.startRemoteZone(el, zone, rendered);
@@ -184,7 +196,9 @@ export class LayoutSurface implements MediaSurface {
       this.startZonePlaylist(
         el,
         zone.playlistItems,
+        zone.id,
         rendered,
+        zoneFailed,
         zone.loop ?? true,
         zone.fallback ?? "background",
       );
@@ -266,13 +280,18 @@ export class LayoutSurface implements MediaSurface {
   private startZonePlaylist(
     container: HTMLElement,
     items: RuntimeLayoutZonePlaylistItem[],
-    onAdvance: () => void,
+    zoneId: string,
+    onReady: () => void,
+    zoneFailed: (message: string) => void,
     loop: boolean,
     fallback: "hide" | "background" | "previous",
   ): void {
     container.style.position = "relative";
-    let activeElement: HTMLElement | null = null;
-    let lastGood: HTMLElement | null = null;
+    container.style.visibility = "visible";
+    const owned = new Set<MediaSurface>();
+    let visible: MediaSurface | null = null;
+    let current: { activate(): void; pause(): void } | null = null;
+    let mounted = -1;
     let transition: Animation[] = [];
     let transitionToken = 0;
     const cancelTransition = () => {
@@ -280,158 +299,183 @@ export class LayoutSurface implements MediaSurface {
       for (const animation of transition) animation.cancel();
       transition = [];
     };
-    const releaseNode = (node: HTMLElement) => {
-      if (node instanceof HTMLVideoElement) {
-        node.onloadedmetadata = null;
-        node.ontimeupdate = null;
-        node.onended = null;
-        node.onloadeddata = null;
-        node.onerror = null;
-        node.pause();
-        node.removeAttribute("src");
-        node.load();
-      } else if (node instanceof HTMLImageElement) {
-        node.onload = null;
-        node.onerror = null;
-      }
-      node.remove();
+    const release = (surface: MediaSurface) => {
+      surface.dispose();
+      surface.element.remove();
+      owned.delete(surface);
     };
-    const teardown = () => {
-      cancelTransition();
-      for (const child of Array.from(container.children)) {
-        releaseNode(child as HTMLElement);
-      }
-      activeElement = null;
-      lastGood = null;
-    };
-    this.zoneTeardowns.push(teardown);
     const actor = createActor(zoneMachine, {
-      input: { items, loop, clock: this.env.clock, onAdvance },
+      input: { items, loop, clock: this.env.clock, onReady },
     });
-    let mounted = -1;
-    const failed = (epoch: number) => {
-      if (epoch !== mounted || this.disposed) return;
+    this.zoneTeardowns.push(() => {
       cancelTransition();
-      const decision = resolveZoneFallback(true, fallback, lastGood !== null);
-      if (decision === "previous" && lastGood) {
-        for (const child of Array.from(container.children)) {
-          if (child !== lastGood) releaseNode(child as HTMLElement);
-        }
-        if (lastGood instanceof HTMLVideoElement) lastGood.pause();
-        container.replaceChildren(lastGood);
-        activeElement = lastGood;
-      } else {
-        for (const child of Array.from(container.children))
-          releaseNode(child as HTMLElement);
-        activeElement = null;
-        if (decision === "hide") {
-          container.style.visibility = "hidden";
-        }
-      }
-      actor.send({ type: "MEDIA_FAILED", epoch });
-    };
+      for (const surface of owned) release(surface);
+      visible = null;
+      current = null;
+    });
+    this.playlistLifecycles.push({
+      activate: () => {
+        actor.send({ type: "RESUME", epoch: mounted });
+        current?.activate();
+      },
+      pause: () => {
+        actor.send({ type: "PAUSE", epoch: mounted });
+        current?.pause();
+      },
+    });
+
     actor.subscribe((snapshot) => {
-      const { shown, epoch } = snapshot.context;
+      const { epoch } = snapshot.context;
       if (epoch === mounted || this.disposed) return;
       mounted = epoch;
       const selected = zoneEntry(snapshot.context);
       if (!selected) return;
       const { entry } = selected;
-      container.style.visibility = "visible";
-      const outgoing = activeElement;
-      // A rapid retry can interrupt a previous dissolve. Keep only the latest
-      // outgoing layer before staging the next one.
       cancelTransition();
-      for (const child of Array.from(container.children)) {
-        if (child !== outgoing && child !== lastGood)
-          releaseNode(child as HTMLElement);
+      for (const surface of owned) {
+        if (surface !== visible) release(surface);
       }
-      const incoming = document.createElement(
-        entry.kind === "video" ? "video" : "img",
-      ) as HTMLVideoElement | HTMLImageElement;
-      incoming.style.position = "absolute";
-      incoming.style.inset = "0";
-      incoming.style.width = "100%";
-      incoming.style.height = "100%";
-      incoming.style.objectFit = objectFit(entry.fit);
-      incoming.style.borderRadius = `${entry.radius ?? 0}px`;
-      const accept = () => {
-        if (epoch !== mounted || this.disposed) return;
-        const previous = lastGood;
-        lastGood = incoming;
-        if (
-          previous &&
-          previous !== incoming &&
-          (previous !== outgoing || !previous.isConnected)
-        )
-          releaseNode(previous);
-      };
-      incoming.onerror = () => failed(epoch);
-      if (entry.kind === "video") {
-        const next = incoming as HTMLVideoElement;
-        next.src = entry.src;
-        next.muted = entry.muted;
-        next.volume = Math.min(Math.max(entry.volume, 0), 1);
-        next.autoplay = true;
-        next.loop = selected.loop;
-        next.playsInline = true;
-        if (entry.videoStartOffsetMs && entry.videoStartOffsetMs > 0) {
-          next.onloadedmetadata = () => {
-            next.currentTime = entry.videoStartOffsetMs! / 1_000;
-          };
+      let failedOnce = false;
+      let prepared = false;
+      let accepted = false;
+      let activating = false;
+      let activation = 0;
+      const isCurrent = () =>
+        !this.disposed && epoch === mounted && !failedOnce;
+      const failed = (message: string) => {
+        if (!isCurrent()) return;
+        failedOnce = true;
+        activation += 1;
+        cancelTransition();
+        zoneFailed(message);
+        const decision = resolveZoneFallback(true, fallback, visible !== null);
+        for (const surface of owned) {
+          if (decision !== "previous" || surface !== visible) release(surface);
         }
-        next.ontimeupdate = () => {
-          if (
-            entry.videoEndOffsetMs != null &&
-            next.currentTime >= entry.videoEndOffsetMs / 1_000
-          ) {
-            next.pause();
-            actor.send({ type: "MEDIA_ENDED", epoch });
-          }
-        };
-        next.onloadeddata = accept;
-        next.onended = () => actor.send({ type: "MEDIA_ENDED", epoch });
-        next.onerror = () => failed(epoch);
-        container.appendChild(next);
-        void next.play().catch(() => failed(epoch));
-      } else {
-        const img = incoming as HTMLImageElement;
-        img.alt = "";
-        img.src = entry.src;
-        img.onload = accept;
-        container.appendChild(img);
-      }
-      activeElement = incoming;
-      if (
-        outgoing &&
-        (entry.transition === "fade" || entry.transition === "crossfade") &&
-        typeof incoming.animate === "function"
-      ) {
-        const options: KeyframeAnimationOptions = {
-          duration: 300,
-          easing: "ease",
-          fill: "both",
-        };
-        transition = [
-          incoming.animate([{ opacity: 0 }, { opacity: 1 }], options),
-          outgoing.animate([{ opacity: 1 }, { opacity: 0 }], options),
-        ];
-        const running = transition;
-        const token = transitionToken;
-        void Promise.all(running.map((animation) => animation.finished))
-          .catch(() => undefined)
-          .then(() => {
-            if (token !== transitionToken) return;
-            if (outgoing.parentElement === container) {
-              if (outgoing === lastGood) outgoing.remove();
-              else releaseNode(outgoing);
-            }
-            if (transition === running) transition = [];
-          });
-      } else if (outgoing) {
-        if (outgoing === lastGood) outgoing.remove();
-        else releaseNode(outgoing);
-      }
+        if (decision === "previous" && visible) {
+          visible.pause();
+          visible.element.style.visibility = "visible";
+        } else {
+          visible = null;
+          container.style.visibility =
+            decision === "hide" ? "hidden" : "visible";
+        }
+        actor.send({ type: "MEDIA_FAILED", epoch });
+      };
+      let completed = false;
+      const zoneSink: SurfaceSink = {
+        ...this.env.sink,
+        failed,
+        ended: (source) => {
+          if (!isCurrent() || !this.active || !accepted || completed) return;
+          completed = true;
+          if (selected.loop) return;
+          if (source === "end-offset") incoming.pause();
+          actor.send({ type: "MEDIA_ENDED", epoch });
+        },
+        resumed: () => {
+          completed = false;
+        },
+        evidence: (kind) => {
+          if (isCurrent() && this.active && accepted)
+            this.env.sink.evidence(kind, zoneId);
+        },
+      };
+      const item: RuntimeItem = {
+        id: entry.id,
+        kind: entry.kind,
+        src: entry.src,
+        durationMs: entry.durationMs,
+        fitMode: entry.fit,
+        audioEnabled: !entry.muted,
+        volume: entry.volume,
+        videoStartOffsetMs: entry.videoStartOffsetMs ?? null,
+        videoEndOffsetMs: entry.videoEndOffsetMs ?? null,
+      };
+      const incoming =
+        entry.kind === "video"
+          ? new HtmlVideoSurface(item, { ...this.env, sink: zoneSink }, epoch)
+          : new ImageSurface(item);
+      const element = incoming.element;
+      element.style.position = "absolute";
+      element.style.inset = "0";
+      element.style.width = "100%";
+      element.style.height = "100%";
+      element.style.borderRadius = `${entry.radius ?? 0}px`;
+      element.style.visibility = "hidden";
+      owned.add(incoming);
+      container.appendChild(element);
+
+      const show = () => {
+        const outgoing = visible;
+        visible = incoming;
+        if (!outgoing || outgoing === incoming) return;
+        if (
+          (entry.transition === "fade" || entry.transition === "crossfade") &&
+          this.env.animationScale > 0 &&
+          typeof element.animate === "function"
+        ) {
+          const options: KeyframeAnimationOptions = {
+            duration: 300 * this.env.animationScale,
+            easing: "ease",
+            fill: "both",
+          };
+          transition = [
+            element.animate([{ opacity: 0 }, { opacity: 1 }], options),
+            outgoing.element.animate([{ opacity: 1 }, { opacity: 0 }], options),
+          ];
+          const running = transition;
+          const token = transitionToken;
+          void Promise.all(running.map((animation) => animation.finished))
+            .catch(() => undefined)
+            .then(() => {
+              if (token !== transitionToken) return;
+              release(outgoing);
+              if (transition === running) transition = [];
+            });
+        } else release(outgoing);
+      };
+      const activate = () => {
+        if (!isCurrent() || !this.active || !prepared || activating) return;
+        activating = true;
+        const token = ++activation;
+        container.style.visibility = "visible";
+        element.style.visibility = "visible";
+        // Enabling native looping on a prepared, paused video can stall
+        // WebKit's play call. Apply the policy once playback has started.
+        if (incoming instanceof HtmlVideoSurface) incoming.element.loop = false;
+        void incoming.activate().then(
+          () => {
+            if (!isCurrent() || token !== activation) return;
+            activating = false;
+            if (!this.active) return;
+            if (incoming instanceof HtmlVideoSurface)
+              incoming.element.loop = selected.loop;
+            if (accepted) return;
+            accepted = true;
+            show();
+            actor.send({ type: "MEDIA_READY", epoch });
+          },
+          (error: unknown) =>
+            failed(String((error as Error)?.message ?? error)),
+        );
+      };
+      current = {
+        activate,
+        pause: () => {
+          activation += 1;
+          activating = false;
+          for (const surface of owned) surface.pause();
+        },
+      };
+      incoming.prepare().then(
+        () => {
+          if (!isCurrent()) return;
+          prepared = true;
+          activate();
+        },
+        (error: unknown) => failed(String((error as Error)?.message ?? error)),
+      );
     });
     this.zones.push(actor);
     actor.start();

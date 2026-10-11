@@ -91,7 +91,7 @@ The playback lifecycle is explicit XState 5 state machines (`src/engine`). They 
 
 - **Player** (`player-machine.ts`): which surface owns the screen (`status`, `sleep`, `playing`). Every presentation re-enters `playing`, which stops the invoked presentation actor and starts a new one. This is how a takeover, a manifest change, a synchronized boundary or a re-projection interrupts playback.
 - **Presentation** (`presentation-machine.ts`): one actor per presentation generation. The occurrence states are `routing` (mount), `preparing` (staged on the hidden layer), `showing`, `advancing` (the one-task hand-off), `failed` (isolation and back-off) and `skipping` (empty widgets). One completion arbiter per occurrence decides between restart in place, advance and ignore.
-- **Zone** (`zone-machine.ts`): one actor per Layout playlist zone, stopped with its Layout.
+- **Zone** (`zone-machine.ts`): one actor per Layout playlist zone, stopped with its Layout. Selection increments the epoch. Only `MEDIA_READY` for that epoch starts the image duration and reports child readiness. Pause preserves the remaining image duration. Stale media events cannot affect a newer epoch.
 
 The machines do not use XState `after` delays or browser timers. `src/clock/scheduler.ts` is the only user of browser timers. The machines ask it for monotonic deadlines and receive typed events (`DURATION_DUE`, `ADVANCE_DUE`, `BACKOFF_DUE`). Deadlines are owned by a timer group per occurrence. Mounting the next occurrence cancels the group, so nothing scheduled for a replaced item can act on its successor.
 
@@ -115,10 +115,23 @@ The timeline math (`clock/synchronized.ts`) is shared with the Electron main pro
 
 - **Views** are Lit 3 components in light DOM (`src/views`): `<tc-player>`, `<tc-status-surface>` and `<tc-outside-hours>`. They render the engine's view state and decide nothing about playback. Style bindings use `cssProps` (CSSOM only), because Lit's `styleMap` writes a `style` attribute, which `style-src 'self'` refuses.
 - **Surfaces** implement `MediaSurface` (`prepare`, `activate`, `pause`, `seek`, `dispose`): `ImageSurface`, `HtmlVideoSurface`, `WidgetSurface`, `LayoutSurface`, the legacy Electron `WebviewWebsiteSurface`, and `HostRemoteWebSurface` for host-owned remote web. Edge supplies that host view through the isolated WPE helper. The engine depends on the interface only, so another native media pipeline, if hardware testing ever justifies one, needs no change to the engine.
-- **The stage** (`surfaces/stage.ts`) is the only code that creates or destroys media elements. The playback layers carry no Lit bindings, so no reactive update can replace an active `<video>`. An incoming occurrence is prepared on the hidden layer. The outgoing surface is paused and released when the transition finishes, so two full-screen decoders overlap for the transition and no longer.
+- **The stage** (`surfaces/stage.ts`) owns fullscreen media surfaces. Layout playlist zones own nested instances of the same `ImageSurface` and `HtmlVideoSurface`. The playback layers carry no Lit bindings, so no reactive update can replace an active `<video>`. An incoming occurrence is prepared on the hidden layer. The outgoing surface is paused and released when the transition finishes, so two full-screen decoders overlap for the transition and no longer.
 - **Transitions** use the Web Animations API (`transitions/crossfade.ts`). A transition has one clock and one `finished` signal. A takeover or a newer swap cancels it, which puts both layers in their resting state at once.
 - **Video evidence**: `HtmlVideoSurface` reports `video-progress` only while decoded frames are presented, when `requestVideoFrameCallback` is available and has fired. Otherwise it falls back to advancing media time. The API makes evidence stronger; playback never requires it.
+- **Layout child readiness**: `layout-shown` reports the visible canvas. A playlist zone prepares media while hidden. Images become ready after successful load. Videos become ready at `canplay`. The zone activates media only when the parent Layout is active. It reports `layout-zone-rendered` after successful activation. Selection, append, and transition start do not prove child readiness. A fade or crossfade keeps outgoing good media until incoming media is ready. Video progress carries the zone ID. Load and play failures report a zone error, apply the configured fallback, and advance or retry the zone. Static image load failures also report a zone error. Other zones continue to play.
+- **Zone video loops**: the zone applies the native loop policy after playback starts. It disables native looping before each play attempt. This sequence prevents a WebKit stall when a prepared, paused video starts with native looping enabled. Trimmed videos still use zone advances to restore their authored start offset.
 - **Plugin surfaces** come from the runtime surface host (`src/plugins`). The host finds each runtime plugin when the runtime is built, gives it one container for each surface that it declares, arbitrates each slot by the declared tier and the claimed priority, and sets the content-stage insets and the corner lift. A plugin draws only inside its containers. [plugin-api.md](plugin-api.md#player-runtime) is the contract.
+
+### 5.1 Layout promotion follow-up
+
+Player Core currently accepts both `LayoutShown` and `LayoutZoneRendered` as
+content evidence for `Expectation::Layout`. The tests in
+`crates/player-core/src/supervisor.rs` preserve this rule. A background-only
+Layout needs canvas evidence for promotion. The current expectation does not
+identify Layouts that require child evidence. Thus canvas evidence can still
+promote a Layout whose children all fail. A follow-up must supply explicit
+child expectations to Core and test failed-child and background-only promotion.
+This Runtime correction preserves the existing Core promotion rule.
 
 ## 6. Compatibility code and the widget seam
 

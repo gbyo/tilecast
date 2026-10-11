@@ -23,8 +23,8 @@ export interface ZoneInput {
   items: RuntimeLayoutZonePlaylistItem[];
   loop?: boolean;
   clock: RuntimeClock;
-  /** Every advance is fresh evidence that the zone is alive. */
-  onAdvance: () => void;
+  /** Called only when the selected media is ready and visible. */
+  onReady: () => void;
 }
 
 export interface ZoneContext {
@@ -34,13 +34,22 @@ export interface ZoneContext {
   shown: number;
   /** Distinguishes retries of one item from stale media callbacks. */
   epoch: number;
+  ready: boolean;
+  paused: boolean;
+  failed: boolean;
+  clock: RuntimeClock;
+  deadline: number | null;
+  remainingMs: number | null;
   timers: TimerGroup;
-  onAdvance: () => void;
+  onReady: () => void;
 }
 
 export type ZoneEvent =
+  | { type: "MEDIA_READY"; epoch: number }
   | { type: "MEDIA_ENDED"; epoch: number }
   | { type: "MEDIA_FAILED"; epoch: number }
+  | { type: "PAUSE"; epoch: number }
+  | { type: "RESUME"; epoch: number }
   | { type: "NEXT"; epoch: number }
   | { type: "RETRY"; epoch: number };
 
@@ -82,22 +91,54 @@ export const zoneMachine = setup({
     advance: assign(({ context }) => ({
       shown: context.shown + 1,
       epoch: context.epoch + 1,
+      ready: false,
+      failed: false,
+      deadline: null,
+      remainingMs: null,
     })),
-    retryCurrent: assign(({ context }) => ({ epoch: context.epoch + 1 })),
-    announce: ({ context }) => context.onAdvance(),
-    schedule: ({ context, self }) => {
+    retryCurrent: assign(({ context }) => ({
+      epoch: context.epoch + 1,
+      ready: false,
+      failed: false,
+      deadline: null,
+      remainingMs: null,
+    })),
+    markReady: assign({ ready: true }),
+    markFailed: assign({ ready: false, failed: true }),
+    pause: assign(({ context }) => ({
+      paused: true,
+      remainingMs:
+        context.deadline === null
+          ? context.remainingMs
+          : Math.max(0, context.deadline - context.clock.monotonicNow()),
+      deadline: null,
+    })),
+    resume: assign({ paused: false }),
+    announce: ({ context }) => context.onReady(),
+    schedule: assign(({ context, self }) => {
       context.timers.cancelAll();
       const current = zoneEntry(context);
-      if (!current || current.entry.kind !== "image") return;
-      if (!canAdvance(context)) return;
+      if (
+        context.paused ||
+        !context.ready ||
+        !current ||
+        current.entry.kind !== "image" ||
+        !canAdvance(context)
+      )
+        return {};
       const epoch = context.epoch;
-      context.timers.after(
+      const duration =
+        context.remainingMs ??
         // Zero reads as unset, so two zero-length images do not swap at
         // timer speed.
-        positiveDurationMs(current.entry.durationMs) ?? ZONE_IMAGE_DEFAULT_MS,
-        () => self.send({ type: "NEXT", epoch }),
-      );
-    },
+        positiveDurationMs(current.entry.durationMs) ??
+        ZONE_IMAGE_DEFAULT_MS;
+      context.timers.after(duration, () => self.send({ type: "NEXT", epoch }));
+      return {
+        deadline: context.clock.monotonicNow() + duration,
+        remainingMs: null,
+      };
+    }),
     retryLater: ({ context, self }) => {
       context.timers.cancelAll();
       const epoch = context.epoch;
@@ -114,8 +155,14 @@ export const zoneMachine = setup({
     loop: input.loop ?? true,
     shown: 0,
     epoch: 0,
+    ready: false,
+    paused: false,
+    failed: false,
+    clock: input.clock,
+    deadline: null,
+    remainingMs: null,
     timers: new TimerGroup(input.clock),
-    onAdvance: input.onAdvance,
+    onReady: input.onReady,
   }),
   initial: "start",
   states: {
@@ -124,9 +171,26 @@ export const zoneMachine = setup({
     },
     idle: {},
     showing: {
-      entry: ["advance", "announce", "schedule"],
+      entry: "advance",
       exit: "stopTimers",
       on: {
+        PAUSE: { guard: "current", actions: ["pause", "stopTimers"] },
+        RESUME: [
+          {
+            guard: ({ context, event }) =>
+              event.epoch === context.epoch && context.failed,
+            actions: ["resume", "retryLater"],
+          },
+          { guard: "current", actions: ["resume", "schedule"] },
+        ],
+        MEDIA_READY: {
+          guard: ({ context, event }) =>
+            event.epoch === context.epoch &&
+            !context.ready &&
+            !context.failed &&
+            !context.paused,
+          actions: ["markReady", "announce", "schedule"],
+        },
         NEXT: {
           guard: ({ context, event }) =>
             event.epoch === context.epoch && canAdvance(context),
@@ -135,7 +199,7 @@ export const zoneMachine = setup({
         },
         RETRY: {
           guard: "current",
-          actions: ["retryCurrent", "schedule"],
+          actions: "retryCurrent",
         },
         MEDIA_ENDED: {
           guard: ({ context, event }) =>
@@ -152,7 +216,7 @@ export const zoneMachine = setup({
             target: "showing",
             reenter: true,
           },
-          { guard: "current", actions: "retryLater" },
+          { guard: "current", actions: ["markFailed", "retryLater"] },
         ],
       },
     },
