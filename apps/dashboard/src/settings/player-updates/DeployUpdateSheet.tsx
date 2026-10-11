@@ -127,6 +127,7 @@ export function DeployUpdateSheet({
     initialGroup ? releaseGroupKey(initialGroup) : "",
   );
   const [releaseId, setReleaseId] = useState(preselected ?? "");
+  const [preparedRelease, setPreparedRelease] = useState<PlayerRelease>();
   const [selected, setSelected] = useState<TargetChoice[]>([]);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<UpdateDeploymentMode>("install_now");
@@ -142,7 +143,10 @@ export function DeployUpdateSheet({
   const releaseGroup = releaseGroups.find(
     (items) => releaseGroupKey(items) === releaseGroupId,
   );
-  const release = releases.find((item) => item.id === releaseId);
+  const release =
+    preparedRelease?.id === releaseId
+      ? preparedRelease
+      : releases.find((item) => item.id === releaseId);
   const readiness = release ? releaseReadiness(release, t) : undefined;
   const familyScreens = useMemo(
     () => screens.filter((screen) => screenUpdateTab(screen) === family),
@@ -234,7 +238,10 @@ export function DeployUpdateSheet({
       }
       throw new Error(t("updates.console.prepareBuildTimedOut"));
     },
-    onSuccess: () => setStage(2),
+    onSuccess: (refreshed) => {
+      setPreparedRelease(refreshed);
+      setStage(2);
+    },
     onSettled: () =>
       client.invalidateQueries({ queryKey: ["player-releases"] }),
   });
@@ -409,6 +416,7 @@ export function DeployUpdateSheet({
                 setFamily(value as UpdateFamilyTab);
                 setReleaseGroupId("");
                 setReleaseId("");
+                setPreparedRelease(undefined);
                 setSelected([]);
               }}
             >
@@ -439,6 +447,7 @@ export function DeployUpdateSheet({
                   );
                   setReleaseGroupId(String(value));
                   setReleaseId(next?.length === 1 ? next[0]!.id : "");
+                  setPreparedRelease(undefined);
                   setSelected([]);
                 }}
                 aria-label={t("updates.console.versionLabel")}
@@ -519,6 +528,7 @@ export function DeployUpdateSheet({
                 onValueChange={(value) => {
                   if (value !== releaseId) {
                     setReleaseId(String(value));
+                    setPreparedRelease(undefined);
                     setSelected([]);
                   }
                 }}
