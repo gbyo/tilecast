@@ -37,12 +37,13 @@ import {
   EmptyDescription,
 } from "../../components/ui/empty";
 import {
-  ItemGroup,
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemDescription,
-} from "../../components/ui/item";
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
 import { Progress } from "../../components/ui/progress";
 import { Spinner } from "../../components/ui/spinner";
 import { toast } from "../../components/ui/toast";
@@ -345,43 +346,43 @@ export function ReleaseLibrary({
         </Alert>
       )}
       {grouped.length ? (
-        <ItemGroup render={<ul />} className="grid gap-4">
+        <div className="grid gap-4">
           {grouped.map((variants) => {
             const release = variants[0]!;
             return (
-              <Item
-                key={release.id}
-                render={<li />}
-                className="rounded-xl border bg-card px-4 py-4 sm:px-5"
-              >
-                <ItemContent>
-                  <ItemTitle className="flex-wrap [display:flex] [-webkit-line-clamp:unset]">
+              <Card key={release.id} size="sm">
+                <CardHeader>
+                  <CardTitle className="flex flex-wrap items-center gap-2">
                     <Button
                       variant="link"
-                      className="h-auto p-0 text-lg font-semibold tracking-tight"
+                      className="h-auto p-0 text-base font-semibold"
                       onClick={() => setDetailIds(variants.map((r) => r.id))}
                     >
                       {release.versionName}
                     </Button>
-                    <Badge variant="outline">
-                      {release.channel === "beta"
-                        ? t("updates.panel.channelBeta")
-                        : t("updates.panel.channelStable")}
-                    </Badge>
-                  </ItemTitle>
-                  <ItemDescription className="line-clamp-none text-sm">
+                  </CardTitle>
+                  <CardDescription>
                     {artifactIdentity({ ...release, architecture: "" }, t)} ·{" "}
                     {release.source === "upload"
                       ? t("updates.panel.sourceUpload")
                       : t("updates.panel.sourceGitHub")}{" "}
                     · {new Date(release.publishedAt).toLocaleDateString(locale)}
-                  </ItemDescription>
+                  </CardDescription>
+                  <CardAction>
+                    <Badge variant="outline">
+                      {release.channel === "beta"
+                        ? t("updates.panel.channelBeta")
+                        : t("updates.panel.channelStable")}
+                    </Badge>
+                  </CardAction>
+                </CardHeader>
+                <CardContent className="gap-2">
                   {variants.map((r) => artifact(r))}
-                </ItemContent>
-              </Item>
+                </CardContent>
+              </Card>
             );
           })}
-        </ItemGroup>
+        </div>
       ) : (
         <Empty className="gap-2 py-8">
           <EmptyHeader>
