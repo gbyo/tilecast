@@ -1283,6 +1283,27 @@
     "console": {
       "incompatibleTargets": "Несовместимые экраны: {{count}}.",
       "playerFamily": "Семейство плеера",
+      "playerFamilyHint": "Выберите Tilecast Player для обновления. Тип плеера можно сменить, не выходя из мастера.",
+      "versionLabel": "Версия",
+      "buildLabel": "Сборка",
+      "buildHint": "Выберите сборку для архитектуры процессора нужных экранов.",
+      "architectures": {
+        "x86_64": "Intel / AMD 64-bit",
+        "aarch64": "ARM64",
+        "standard": "Стандартная сборка"
+      },
+      "buildReady": "Готово",
+      "buildPrepareNeeded": "Будет загружено",
+      "buildScreenCount": "Подходящих экранов: {{count}}",
+      "buildScreenCount_one": "Подходящий экран: {{count}}",
+      "buildScreenCount_other": "Подходящих экранов: {{count}}",
+      "buildScreenCount_few": "Подходящих экрана: {{count}}",
+      "buildScreenCount_many": "Подходящих экранов: {{count}}",
+      "noReleasesForFamily": "Нет доступных выпусков для {{family}}.",
+      "prepareAndContinue": "Подготовить и продолжить",
+      "preparingBuild": "Подготовка сборки…",
+      "prepareBuildFailed": "Tilecast не удалось подготовить эту сборку.",
+      "prepareBuildTimedOut": "Подготовка сборки заняла слишком много времени. Повторите попытку.",
       "families": {
         "android": "Android",
         "linux": "Linux Legacy",
@@ -1325,12 +1346,12 @@
       "continue": "Продолжить",
       "step": "{{stage}} из 3 — {{title}}",
       "steps": {
-        "release": "Выпуск",
+        "release": "Версия и сборка",
         "targets": "Целевые экраны",
         "rollout": "Развёртывание"
       },
       "stepHints": {
-        "release": "Выберите один проверенный файл с архитектурой ваших экранов.",
+        "release": "Выберите тип плеера, версию и сборку. При необходимости Tilecast загрузит и проверит сборку здесь.",
         "targets": "Найдите экраны или Группы экранов. Tilecast проверяет каждый включённый экран.",
         "rollout": "Выберите время установки и проверьте развёртывание перед запуском."
       },
