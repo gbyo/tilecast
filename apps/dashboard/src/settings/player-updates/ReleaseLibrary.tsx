@@ -357,34 +357,37 @@ export function ReleaseLibrary({
               const release = variants[0]!;
               return (
                 <Card key={release.id} size="sm">
-                <CardHeader>
-                  <CardTitle className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="link"
-                      className="h-auto p-0 text-base font-semibold"
-                      onClick={() => setDetailIds(variants.map((r) => r.id))}
-                    >
-                      {release.versionName}
-                    </Button>
-                  </CardTitle>
-                  <CardDescription>
-                    {artifactIdentity({ ...release, architecture: "" }, t)} ·{" "}
-                    {release.source === "upload"
-                      ? t("updates.panel.sourceUpload")
-                      : t("updates.panel.sourceGitHub")}{" "}
-                    · {new Date(release.publishedAt).toLocaleDateString(locale)}
-                  </CardDescription>
-                  <CardAction>
-                    <Badge variant="outline">
-                      {release.channel === "beta"
-                        ? t("updates.panel.channelBeta")
-                        : t("updates.panel.channelStable")}
-                    </Badge>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="gap-2">
-                  {variants.map((r) => artifact(r))}
-                </CardContent>
+                  <CardHeader>
+                    <CardTitle className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="link"
+                        className="h-auto p-0 text-base font-semibold"
+                        onClick={() =>
+                          setDetailIds(variants.map((r) => r.id))
+                        }
+                      >
+                        {release.versionName}
+                      </Button>
+                    </CardTitle>
+                    <CardDescription>
+                      {artifactIdentity({ ...release, architecture: "" }, t)} ·{" "}
+                      {release.source === "upload"
+                        ? t("updates.panel.sourceUpload")
+                        : t("updates.panel.sourceGitHub")}{" "}
+                      ·{" "}
+                      {new Date(release.publishedAt).toLocaleDateString(locale)}
+                    </CardDescription>
+                    <CardAction>
+                      <Badge variant="outline">
+                        {release.channel === "beta"
+                          ? t("updates.panel.channelBeta")
+                          : t("updates.panel.channelStable")}
+                      </Badge>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent className="gap-2">
+                    {variants.map((r) => artifact(r))}
+                  </CardContent>
                 </Card>
               );
             })}
