@@ -135,9 +135,21 @@ function PlayerUpdatesWorkspace({
   const deploymentItems = (deployments.data?.items ?? []).filter(
     (d) => releaseUpdateTab(d) === family,
   );
-  const familyScreens = (screens.data?.items ?? []).filter(
-    (s) => screenUpdateTab(s) === family,
+  const screenItems = screens.data?.items ?? [];
+  const familyScreens = screenItems.filter(
+    (screen) => screenUpdateTab(screen) === family,
   );
+  const familyOptions = families.map((value) => {
+    const count = screenItems.filter(
+      (screen) => screenUpdateTab(screen) === value,
+    ).length;
+    return {
+      value,
+      label: `${familyLabel(value, t)} · ${t("updates.console.fleetCount", {
+        count,
+      })}`,
+    };
+  });
   const attentionDeployments = deploymentItems.filter(
     (item) =>
       (item.status === "active" || item.status === "paused") &&
@@ -182,27 +194,54 @@ function PlayerUpdatesWorkspace({
         onValueChange={(value) => changeView(String(value))}
         className="gap-4"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b">
-          <TabsList
-            variant="line"
-            aria-label={t("updates.console.workspaceViews")}
-          >
-            <TabsTrigger value="deployments">
-              {t("updates.console.deployments")}
-              {attentionDeployments > 0 && (
-                <Badge
-                  variant="destructive"
-                  className="ml-1 h-5 min-w-5 rounded-full px-1.5 text-[10px]"
-                >
-                  {attentionDeployments}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="releases">
-              {t("updates.console.releases")}
-            </TabsTrigger>
-          </TabsList>
-          <div className="flex flex-wrap items-center gap-2 pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <TabsList
+              variant="line"
+              aria-label={t("updates.console.workspaceViews")}
+            >
+              <TabsTrigger value="deployments">
+                {t("updates.console.deployments")}
+                {attentionDeployments > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="ml-1 h-5 min-w-5 rounded-full px-1.5 text-[10px]"
+                  >
+                    {attentionDeployments}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="releases">
+                {t("updates.console.releases")}
+              </TabsTrigger>
+            </TabsList>
+            <Select
+              items={familyOptions}
+              value={family}
+              onValueChange={(value) => {
+                if (!value || value === family) return;
+                const next = new URLSearchParams(params);
+                if (value === "android") next.delete("platform");
+                else next.set("platform", value);
+                setParams(next);
+              }}
+            >
+              <SelectTrigger
+                aria-label={t("updates.console.playerFamily")}
+                className="h-8 min-w-52"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {familyOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {manageable && (
               <Button
                 disabled={!screens.data || !groups.data}
@@ -212,7 +251,7 @@ function PlayerUpdatesWorkspace({
                 {t("updates.panel.deployAction")}
               </Button>
             )}
-            {owner && (
+            {owner && view === "releases" && (
               <Button
                 variant="outline"
                 disabled={sync.isPending}
@@ -226,7 +265,7 @@ function PlayerUpdatesWorkspace({
                 {t("updates.console.sync")}
               </Button>
             )}
-            {owner && (
+            {owner && view === "releases" && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -251,39 +290,6 @@ function PlayerUpdatesWorkspace({
               </DropdownMenu>
             )}
           </div>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
-          <p className="text-sm text-muted-foreground">
-            {t("updates.console.fleetCount", { count: familyScreens.length })}
-          </p>
-          <Select
-            items={families.map((value) => ({
-              value,
-              label: familyLabel(value, t),
-            }))}
-            value={family}
-            onValueChange={(value) => {
-              if (!value || value === family) return;
-              const next = new URLSearchParams(params);
-              if (value === "android") next.delete("platform");
-              else next.set("platform", value);
-              setParams(next);
-            }}
-          >
-            <SelectTrigger
-              aria-label={t("updates.console.playerFamily")}
-              className="min-w-44"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="end">
-              {families.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {familyLabel(value, t)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
         <TabsContent value="deployments">
           {deployments.isPending ? (
