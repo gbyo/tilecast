@@ -13,11 +13,11 @@ test("Player Updates preserves its family and view through browser navigation", 
     page.getByRole("tab", { name: "Deployments", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   const family = page.getByRole("combobox", {
-    name: "Player family",
+    name: "Player type",
     exact: true,
   });
   await expect(family).toBeVisible();
-  await page.getByRole("tab", { name: "Releases", exact: true }).click();
+  await page.getByRole("tab", { name: "Release catalog", exact: true }).click();
   await family.click();
   await page.getByRole("option", { name: "Windows", exact: true }).click();
   await expect(page).toHaveURL(
@@ -25,11 +25,11 @@ test("Player Updates preserves its family and view through browser navigation", 
   );
   await page.goBack();
   await expect(
-    page.getByRole("combobox", { name: "Player family", exact: true }),
+    page.getByRole("combobox", { name: "Player type", exact: true }),
   ).toContainText("Tilecast Edge");
   await page.reload();
   await expect(
-    page.getByRole("tab", { name: "Releases", exact: true }),
+    page.getByRole("tab", { name: "Release catalog", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await page.goBack();
   await expect(
@@ -59,7 +59,7 @@ for (const viewport of [
       exact: true,
     });
     await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText("1 of 3 — Release");
+    await expect(dialog).toContainText("1 of 3 — Update");
     await expect(
       dialog.getByRole("button", { name: "Continue", exact: true }),
     ).toBeDisabled();
