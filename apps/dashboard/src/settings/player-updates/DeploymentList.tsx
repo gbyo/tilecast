@@ -39,6 +39,7 @@ import {
 import { DeploymentMeter } from "./UpdateDeploymentDetail";
 import { deploymentHeadline } from "../playerUpdateStates";
 import {
+  architectureLabel,
   deploymentNeedsAttention,
   familyLabel,
   deploymentStatus,
@@ -74,7 +75,7 @@ function deploymentIdentity(
 ) {
   return [
     familyLabel(releaseUpdateTab(item), t),
-    item.architecture,
+    item.architecture ? architectureLabel(item.architecture, t) : undefined,
     modeLabel(item.mode, t),
     relativeTime(item.completedAt ?? item.createdAt, t),
   ]
@@ -195,8 +196,11 @@ export function DeploymentList({
                   <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
                     {item.versionName}
                     {item.architecture && (
-                      <span className="font-mono text-xs font-normal text-muted-foreground">
-                        {item.architecture}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {architectureLabel(item.architecture, t)}
+                        <span className="ml-1 font-mono">
+                          ({item.architecture})
+                        </span>
                       </span>
                     )}
                   </CardTitle>
@@ -268,7 +272,9 @@ export function DeploymentList({
                         <span className="font-medium">{item.versionName}</span>
                         <span className="text-xs text-muted-foreground">
                           {familyLabel(releaseUpdateTab(item), t)}
-                          {item.architecture ? ` · ${item.architecture}` : ""}
+                          {item.architecture
+                            ? ` · ${architectureLabel(item.architecture, t)} (${item.architecture})`
+                            : ""}
                         </span>
                       </div>
                     </TableCell>
