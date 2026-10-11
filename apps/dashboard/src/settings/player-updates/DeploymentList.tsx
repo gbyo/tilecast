@@ -58,6 +58,19 @@ function attentionScreenCount(item: UpdateDeployment) {
   );
 }
 
+function historyStatus(
+  item: UpdateDeployment,
+  t: TFunction<["settings", "common"]>,
+) {
+  if (
+    item.status === "completed" &&
+    (item.failedCount > 0 || (item.incompatibleCount ?? 0) > 0)
+  ) {
+    return t("updates.console.status.completedWithIssues");
+  }
+  return deploymentStatus(item.status, t);
+}
+
 function unfinishedScreenCount(item: UpdateDeployment) {
   return Math.max(
     0,
@@ -295,7 +308,7 @@ export function DeploymentList({
                               : "outline"
                           }
                         >
-                          {deploymentStatus(item.status, t)}
+                          {historyStatus(item, t)}
                         </Badge>
                         {(item.failedCount > 0 ||
                           (item.incompatibleCount ?? 0) > 0) && (
