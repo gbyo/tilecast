@@ -30,7 +30,13 @@ import {
   TabsTrigger,
   TabsContent,
 } from "../../components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 import { Spinner } from "../../components/ui/spinner";
 import { toast } from "../../components/ui/toast";
 import { DeploymentList } from "./DeploymentList";
@@ -224,28 +230,37 @@ function PlayerUpdatesWorkspace({
           </TabsTrigger>
         </TabsList>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-          <span className="text-sm text-muted-foreground">{t("updates.console.playerFamily")}</span>
-          <ToggleGroup
-            aria-label={t("updates.console.playerFamily")}
-            value={[family]}
-            onValueChange={(values) => {
-              const value = values[0];
+          <span className="text-sm text-muted-foreground">
+            {t("updates.console.playerFamily")}
+          </span>
+          <Select
+            items={families.map((value) => ({
+              value,
+              label: familyLabel(value, t),
+            }))}
+            value={family}
+            onValueChange={(value) => {
               if (!value || value === family) return;
               const next = new URLSearchParams(params);
               if (value === "android") next.delete("platform");
               else next.set("platform", value);
               setParams(next);
             }}
-            variant="outline"
-            spacing={1}
-            className="flex flex-wrap justify-start"
           >
-            {families.map((value) => (
-              <ToggleGroupItem key={value} value={value}>
-                {familyLabel(value, t)}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+            <SelectTrigger
+              aria-label={t("updates.console.playerFamily")}
+              className="min-w-44"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {families.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {familyLabel(value, t)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <TabsContent value="deployments">
           {deployments.isPending ? (
