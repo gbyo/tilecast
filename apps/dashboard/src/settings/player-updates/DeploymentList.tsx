@@ -1,4 +1,5 @@
 import { ChevronRight, CircleAlert } from "lucide-react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { UpdateDeployment } from "../../api/types";
 import { releaseUpdateTab } from "../../playerPlatform";
@@ -69,7 +70,7 @@ function unfinishedScreenCount(item: UpdateDeployment) {
 
 function deploymentIdentity(
   item: UpdateDeployment,
-  t: ReturnType<typeof useTranslation<["settings", "common"]>>["t"],
+  t: TFunction<["settings", "common"]>,
 ) {
   return [
     familyLabel(releaseUpdateTab(item), t),
