@@ -3,14 +3,38 @@ import { useTranslation } from "react-i18next";
 import type { UpdateDeployment } from "../../api/types";
 import { releaseUpdateTab } from "../../playerPlatform";
 import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import {
-  Empty, EmptyHeader, EmptyTitle, EmptyDescription,
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyDescription,
 } from "../../components/ui/empty";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
 import { DeploymentMeter } from "./UpdateDeploymentDetail";
 import { deploymentHeadline } from "../playerUpdateStates";
 import {
-  familyLabel, deploymentNeedsAttention, deploymentStatus,
-  modeLabel, relativeTime, sortDeployments,
+  familyLabel,
+  deploymentNeedsAttention,
+  deploymentStatus,
+  modeLabel,
+  relativeTime,
+  sortDeployments,
 } from "./model";
 
 export function DeploymentList({
@@ -23,96 +47,178 @@ export function DeploymentList({
   const { t } = useTranslation(["settings", "common"]);
   const sorted = sortDeployments(items);
   const active = sorted.filter(
-    (item) => item.status === "active" || item.status === "paused" || deploymentNeedsAttention(item),
+    (item) =>
+      item.status === "active" ||
+      item.status === "paused" ||
+      deploymentNeedsAttention(item),
   );
-  const history = sorted.filter((item) => !active.some((a) => a.id === item.id));
+  const activeIds = new Set(active.map((item) => item.id));
+  const history = sorted.filter((item) => !activeIds.has(item.id));
 
   return (
     <div className="grid gap-8">
-      {active.length > 0 && (
-        <section className="grid gap-3" aria-label={t("updates.console.activeDeployments")}>
-          <h2 className="text-base font-semibold">{t("updates.console.activeDeployments")}</h2>
-          <div className="grid gap-3">
+      {!!active.length && (
+        <section
+          className="grid gap-3"
+          aria-label={t("updates.console.activeDeployments")}
+        >
+          <h2 className="text-base font-semibold">
+            {t("updates.console.activeDeployments")}
+          </h2>
+          <div className="grid gap-4 xl:grid-cols-2">
             {active.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onOpen(item)}
-                className="group w-full rounded-xl border bg-card p-5 text-left transition-colors hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="grid gap-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold tracking-tight">{item.versionName}</h3>
-                      <Badge variant={item.failedCount || item.incompatibleCount ? "destructive" : "secondary"}>
-                        {deploymentStatus(item.status, t)}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {familyLabel(releaseUpdateTab(item), t)}
-                      {item.architecture ? ` · ${item.architecture}` : ""}
-                      {" · "}{modeLabel(item.mode, t)}
-                    </p>
-                  </div>
-                  <ChevronRight aria-hidden="true" className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                </div>
-                <div className="mt-5 grid gap-2">
+              <Card key={item.id}>
+                <CardHeader>
+                  <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
+                    {item.versionName}
+                    {item.architecture && (
+                      <span className="font-mono text-xs font-normal text-muted-foreground">
+                        {item.architecture}
+                      </span>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    {familyLabel(releaseUpdateTab(item), t)} ·{" "}
+                    {modeLabel(item.mode, t)} ·{" "}
+                    {relativeTime(item.completedAt ?? item.createdAt, t)}
+                  </CardDescription>
+                  <CardAction className="flex items-center gap-1">
+                    <Badge
+                      variant={
+                        item.failedCount || item.incompatibleCount
+                          ? "destructive"
+                          : "secondary"
+                      }
+                    >
+                      {deploymentStatus(item.status, t)}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("updates.console.viewRollout")}
+                      onClick={() => onOpen(item)}
+                    >
+                      <ChevronRight aria-hidden="true" />
+                    </Button>
+                  </CardAction>
+                </CardHeader>
+                <CardContent>
                   <DeploymentMeter
                     {...item}
-                    failedCount={item.failedCount + (item.incompatibleCount ?? 0)}
+                    failedCount={
+                      item.failedCount + (item.incompatibleCount ?? 0)
+                    }
                     compact
                   />
-                  <p className="text-sm text-muted-foreground">
-                    {item.incompatibleCount
-                      ? t("updates.console.incompatibleTargets", { count: item.incompatibleCount })
-                      : deploymentHeadline(item)}
-                  </p>
-                </div>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {t("updates.console.targetCount", { count: item.targetCount })}
-                  {" · "}{relativeTime(item.completedAt ?? item.createdAt, t)}
-                </p>
-              </button>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span className="text-muted-foreground">
+                      {item.incompatibleCount
+                        ? t("updates.console.incompatibleTargets", {
+                            count: item.incompatibleCount,
+                          })
+                        : deploymentHeadline(item)}
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {t("updates.console.targetCount", {
+                        count: item.targetCount,
+                      })}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </section>
       )}
-      <section className="grid gap-3" aria-label={t("updates.console.recentDeployments")}>
-        <h2 className="text-base font-semibold">{t("updates.console.recentDeployments")}</h2>
-        {history.length > 0 ? (
-          <div className="overflow-hidden rounded-xl border">
-            <ul className="divide-y">
-              {history.map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => onOpen(item)}
-                    className="group flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition-colors hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                  >
-                    <div className="grid min-w-0 gap-1">
-                      <span className="font-medium">{item.versionName}</span>
-                      <span className="text-sm text-muted-foreground">
-                        {familyLabel(releaseUpdateTab(item), t)}
-                        {" · "}{t("updates.console.targetCount", { count: item.targetCount })}
-                        {" · "}{relativeTime(item.completedAt ?? item.createdAt, t)}
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <Badge variant={item.failedCount || item.incompatibleCount ? "destructive" : "outline"}>
+
+      <section
+        className="grid gap-3"
+        aria-label={t("updates.console.recentDeployments")}
+      >
+        <h2 className="text-base font-semibold">
+          {t("updates.console.recentDeployments")}
+        </h2>
+        {history.length ? (
+          <div className="overflow-hidden rounded-xl ring-1 ring-foreground/10">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("updates.console.releases")}</TableHead>
+                  <TableHead>{t("updates.console.screens")}</TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    {t("updates.panel.modeLabel")}
+                  </TableHead>
+                  <TableHead>
+                    {t("updates.console.statusLabel", { defaultValue: "Status" })}
+                  </TableHead>
+                  <TableHead className="hidden sm:table-cell">
+                    {t("updates.console.completedLabel", {
+                      defaultValue: "Completed",
+                    })}
+                  </TableHead>
+                  <TableHead className="w-10">
+                    <span className="sr-only">
+                      {t("updates.console.viewRollout")}
+                    </span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {history.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div className="grid gap-0.5">
+                        <span className="font-medium">{item.versionName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {familyLabel(releaseUpdateTab(item), t)}
+                          {item.architecture ? ` · ${item.architecture}` : ""}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {item.targetCount}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {modeLabel(item.mode, t)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          item.failedCount || item.incompatibleCount
+                            ? "destructive"
+                            : "outline"
+                        }
+                      >
                         {deploymentStatus(item.status, t)}
                       </Badge>
-                      <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    </TableCell>
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">
+                      {relativeTime(item.completedAt ?? item.createdAt, t)}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={t("updates.console.viewRollout")}
+                        onClick={() => onOpen(item)}
+                      >
+                        <ChevronRight aria-hidden="true" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         ) : (
           <Empty className="gap-2 py-8">
             <EmptyHeader>
-              <EmptyTitle className="text-sm">{t("updates.console.noHistory")}</EmptyTitle>
-              <EmptyDescription>{t("updates.console.noHistoryHint")}</EmptyDescription>
+              <EmptyTitle className="text-sm">
+                {t("updates.console.noHistory")}
+              </EmptyTitle>
+              <EmptyDescription>
+                {t("updates.console.noHistoryHint")}
+              </EmptyDescription>
             </EmptyHeader>
           </Empty>
         )}
