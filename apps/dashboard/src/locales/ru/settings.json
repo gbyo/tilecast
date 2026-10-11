@@ -1337,6 +1337,8 @@
       "selectedCount_few": "Выбрано экранов: {{count}}",
       "selectedCount_many": "Выбрано экранов: {{count}}",
       "activeDeployments": "Активные развёртывания и требующие внимания",
+      "needsAttention": "Требует внимания",
+      "inProgress": "Выполняется",
       "noActiveDeployments": "Сейчас нет выполняющихся обновлений проигрывателей.",
       "recentDeployments": "Последние развёртывания",
       "noHistory": "Нет завершённых развёртываний",
