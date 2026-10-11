@@ -1323,20 +1323,11 @@ export function DeployUpdateSheet({
       open
       onOpenChange={(open) => !open && !busy && onClose()}
       title={t("updates.panel.deployAction")}
-      description={t("updates.console.step", {
-        stage,
-        title: t(`updates.console.steps.${stageKey}`),
-      })}
+      description={t(`updates.console.stepHints.${stageKey}`)}
       footer={footer}
       presentation="dialog"
     >
       <DeploymentStepRail stage={stage} />
-      <h2 className="text-lg font-semibold">
-        {t(`updates.console.steps.${stageKey}`)}
-      </h2>
-      <p className="text-sm text-muted-foreground">
-        {t(`updates.console.stepHints.${stageKey}`)}
-      </p>
       {stage === 1 && (
         <UpdateSelectionStep
           family={family}
