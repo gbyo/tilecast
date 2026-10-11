@@ -433,11 +433,7 @@ function PlayerUpdatesTabs({
               <Alert variant="destructive">
                 <AlertDescription>
                   {apiErrorMessage(releasesError)}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onRetryReleases}
-                  >
+                  <Button variant="outline" size="sm" onClick={onRetryReleases}>
                     {t("common:actions.retry")}
                   </Button>
                 </AlertDescription>

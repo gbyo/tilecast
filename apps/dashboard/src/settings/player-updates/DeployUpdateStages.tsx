@@ -92,7 +92,9 @@ export function DeployReleaseStage({
       </FieldLegend>
       {!releases.some(deployable) && (
         <Alert>
-          <AlertDescription>{t("updates.console.noReadyRelease")}</AlertDescription>
+          <AlertDescription>
+            {t("updates.console.noReadyRelease")}
+          </AlertDescription>
         </Alert>
       )}
       <RadioGroup
@@ -362,7 +364,9 @@ function SelectedTargets({
                 name: item.label,
               })}
               onClick={() =>
-                onSelectedChange(selected.filter((candidate) => candidate !== item))
+                onSelectedChange(
+                  selected.filter((candidate) => candidate !== item),
+                )
               }
             >
               {t("common:actions.remove")}
@@ -450,28 +454,26 @@ function RolloutModeFields({
   return (
     <>
       <FieldSet>
-        <FieldLegend variant="label">{t("updates.panel.modeLabel")}</FieldLegend>
+        <FieldLegend variant="label">
+          {t("updates.panel.modeLabel")}
+        </FieldLegend>
         <RadioGroup
           value={mode}
-          onValueChange={(value) =>
-            onModeChange(value as UpdateDeploymentMode)
-          }
+          onValueChange={(value) => onModeChange(value as UpdateDeploymentMode)}
         >
-          {(["install_now", "download_only", "maintenance_window"] as const).map(
-            (value) => (
-              <Field key={value} orientation="horizontal">
-                <RadioGroupItem id={value} value={value} />
-                <FieldContent>
-                  <FieldLabel htmlFor={value}>
-                    {modeLabel(value, t)}
-                  </FieldLabel>
-                  <FieldDescription>
-                    {t(`updates.console.modeHints.${value}`)}
-                  </FieldDescription>
-                </FieldContent>
-              </Field>
-            ),
-          )}
+          {(
+            ["install_now", "download_only", "maintenance_window"] as const
+          ).map((value) => (
+            <Field key={value} orientation="horizontal">
+              <RadioGroupItem id={value} value={value} />
+              <FieldContent>
+                <FieldLabel htmlFor={value}>{modeLabel(value, t)}</FieldLabel>
+                <FieldDescription>
+                  {t(`updates.console.modeHints.${value}`)}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          ))}
         </RadioGroup>
       </FieldSet>
       {mode === "maintenance_window" && (

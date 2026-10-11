@@ -51,12 +51,7 @@ function targetsReady(
   fetching: boolean,
   error: boolean,
 ) {
-  return (
-    !!preview?.targetCount &&
-    !preview.blockedCount &&
-    !fetching &&
-    !error
-  );
+  return !!preview?.targetCount && !preview.blockedCount && !fetching && !error;
 }
 
 function rolloutReady(
@@ -102,7 +97,10 @@ export function useDeployUpdateModel({
   const [canarySize, setCanarySize] = useState(1);
 
   const release = releases.find((item) => item.id === releaseId);
-  const screenIds = useMemo(() => screens.map((screen) => screen.id), [screens]);
+  const screenIds = useMemo(
+    () => screens.map((screen) => screen.id),
+    [screens],
+  );
   const choices = useMemo<TargetChoice[]>(
     () => [
       ...screens.map((screen) => ({
@@ -134,10 +132,7 @@ export function useDeployUpdateModel({
   const candidates = useQuery({
     queryKey: ["update-candidates", releaseId, screenIds],
     queryFn: () =>
-      api.previewUpdateDeployment(
-        { releaseId, screenIds, groupIds: [] },
-        csrf,
-      ),
+      api.previewUpdateDeployment({ releaseId, screenIds, groupIds: [] }, csrf),
     enabled: Boolean(release) && screenIds.length > 0,
     staleTime: 0,
     refetchInterval: 10_000,

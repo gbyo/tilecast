@@ -43,9 +43,7 @@ export function DeployUpdateSheet({
   return (
     <UpdateSurface
       open
-      onOpenChange={(open) =>
-        !open && !model.deploy.isPending && onClose()
-      }
+      onOpenChange={(open) => !open && !model.deploy.isPending && onClose()}
       title={t("updates.panel.deployAction")}
       description={description}
       footer={

@@ -323,8 +323,7 @@ function DeploymentScreenRows({ state }: { state: UpdateDeploymentState }) {
                   )}
                 </ItemTitle>
                 <ItemDescription className="line-clamp-none text-xs">
-                  {item.previousVersionCode ?? "—"} →{" "}
-                  {item.expectedVersionCode}
+                  {item.previousVersionCode ?? "—"} → {item.expectedVersionCode}
                   {status && ` · ${screenT(`status.${status}`)}`} ·{" "}
                   {relativeTime(item.updatedAt, t)}
                 </ItemDescription>
@@ -345,10 +344,7 @@ function DeploymentScreenRows({ state }: { state: UpdateDeploymentState }) {
                       value={percent}
                       aria-label={t("updates.downloadProgress", {
                         percent,
-                        size: formatBytes(
-                          deployment.artifactSizeBytes,
-                          locale,
-                        ),
+                        size: formatBytes(deployment.artifactSizeBytes, locale),
                       })}
                     />
                     <span className="text-xs tabular-nums text-muted-foreground">
@@ -385,7 +381,9 @@ function DeploymentScreenRows({ state }: { state: UpdateDeploymentState }) {
       {!state.visible.length && (
         <Empty className="py-6">
           <EmptyTitle className="text-sm">
-            {state.all.length ? t("updates.emptyFilter") : t("updates.emptyNone")}
+            {state.all.length
+              ? t("updates.emptyFilter")
+              : t("updates.emptyNone")}
           </EmptyTitle>
         </Empty>
       )}
