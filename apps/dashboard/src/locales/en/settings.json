@@ -1304,6 +1304,7 @@
       "selectedCount_one": "{{count}} screen selected",
       "selectedCount_other": "{{count}} screens selected",
       "activeDeployments": "Active deployments and attention",
+      "noActiveDeployments": "No player updates are currently running.",
       "recentDeployments": "Recent deployments",
       "noHistory": "No completed deployments",
       "noHistoryHint": "Completed rollouts appear here.",
