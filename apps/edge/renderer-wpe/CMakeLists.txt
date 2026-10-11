@@ -41,6 +41,12 @@ add_library(tilecast-rw-protocol STATIC ${TC_WEB_HELPER_SRC}/rw-protocol.c)
 target_link_libraries(tilecast-rw-protocol PUBLIC PkgConfig::GIO PkgConfig::JSONGLIB)
 target_include_directories(tilecast-rw-protocol PUBLIC ${TC_WEB_HELPER_SRC})
 
+# Pixel validation and the one deep copy of a presented WPE buffer (GLib only,
+# so tests/test_preview_pixels.c runs without a WPE graphics stack).
+add_library(tilecast-preview-pixels STATIC src/preview-pixels.c)
+target_link_libraries(tilecast-preview-pixels PUBLIC PkgConfig::GIO PkgConfig::DRM)
+target_include_directories(tilecast-preview-pixels PUBLIC src)
+
 add_executable(tilecast-renderer-wpe
   src/main.c
   src/drm-probe.c
@@ -50,7 +56,7 @@ add_executable(tilecast-renderer-wpe
   src/schemes.c
   src/remote-web.c
   src/view.c)
-target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-media-client tilecast-rw-protocol tilecast-rw-channel PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
+target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-preview-pixels tilecast-media-client tilecast-rw-protocol tilecast-rw-channel PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
 
 # GStreamer source for tcmedia:// loaded into the web process (see
 # src/gst-tcmedia.c). Installed to lib/gstreamer-1.0 of the Edge release.
@@ -64,6 +70,10 @@ enable_testing()
 add_executable(test-validate tests/test_validate.c)
 target_link_libraries(test-validate PRIVATE tilecast-validate)
 add_test(NAME validate COMMAND test-validate)
+
+add_executable(test-preview-pixels tests/test_preview_pixels.c)
+target_link_libraries(test-preview-pixels PRIVATE tilecast-preview-pixels)
+add_test(NAME preview-pixels COMMAND test-preview-pixels)
 
 add_executable(test-media-client tests/test_media_client.c)
 target_link_libraries(test-media-client PRIVATE tilecast-media-client)
