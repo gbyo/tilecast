@@ -752,7 +752,9 @@ export function PlayerUpdatesPanel({
     (item) =>
       item.verificationStatus === "verified" && item.cacheStatus === "cached",
   );
-  const selectedRelease = deployableReleases.find((item) => item.id === releaseId);
+  const selectedRelease = deployableReleases.find(
+    (item) => item.id === releaseId,
+  );
   const releaseLabel = (item: PlayerRelease) =>
     releaseDisplayLabel(
       item,
@@ -1834,18 +1836,16 @@ export function PlayerUpdatesPanel({
                       {selectedScreens.length === 1
                         ? t("updates.panel.confirmSummaryOne", {
                             count: selectedScreens.length,
-                            version:
-                              (selectedRelease
-                                ? releaseLabel(selectedRelease)
-                                : t("updates.panel.versionFallback")),
+                            version: selectedRelease
+                              ? releaseLabel(selectedRelease)
+                              : t("updates.panel.versionFallback"),
                             mode: modeDisplayName.toLowerCase(),
                           })
                         : t("updates.panel.confirmSummaryOther", {
                             count: selectedScreens.length,
-                            version:
-                              (selectedRelease
-                                ? releaseLabel(selectedRelease)
-                                : t("updates.panel.versionFallback")),
+                            version: selectedRelease
+                              ? releaseLabel(selectedRelease)
+                              : t("updates.panel.versionFallback"),
                             mode: modeDisplayName.toLowerCase(),
                           })}
                     </p>
