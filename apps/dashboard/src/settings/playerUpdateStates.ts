@@ -152,12 +152,20 @@ export function releaseDisplayLabel(
 
 // Use the same strict architecture check as the server for Edge/Windows.
 // Screen selections already include members of selected Display Groups.
-export function mismatchedArchitectureScreens<T extends Pick<Screen, "playerArchitecture">>(
+export function mismatchedArchitectureScreens<
+  T extends Pick<Screen, "playerArchitecture">,
+>(
   screens: readonly T[],
   release: Pick<PlayerRelease, "playerFamily" | "architecture"> | undefined,
 ): T[] {
-  if (!release || (release.playerFamily !== "edge" && release.playerFamily !== "windows")) return [];
-  return screens.filter((screen) => screen.playerArchitecture !== release.architecture);
+  if (
+    !release ||
+    (release.playerFamily !== "edge" && release.playerFamily !== "windows")
+  )
+    return [];
+  return screens.filter(
+    (screen) => screen.playerArchitecture !== release.architecture,
+  );
 }
 
 export function screenUpdateMeaning(state: string): ScreenUpdateMeaning {
