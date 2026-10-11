@@ -105,7 +105,8 @@ export function ReleaseLibrary({
     },
   });
   const grouped = groupReleases(items);
-  const detailed = items.filter((r) => detailIds?.includes(r.id));
+  const detailIdSet = new Set(detailIds ?? []);
+  const detailed = items.filter((r) => detailIdSet.has(r.id));
   const github = catalog?.githubAuth;
   function progress(release: PlayerRelease) {
     if (release.cacheStatus !== "downloading") return null;
