@@ -2,7 +2,12 @@ import { createActor } from "xstate";
 import { describe, expect, it } from "vitest";
 import { ManualClock } from "../clock/scheduler";
 import type { RuntimeLayoutZonePlaylistItem } from "../host/contract";
-import { zoneEntry, zoneMachine, ZONE_RETRY_MS } from "./zone-machine";
+import {
+  zoneEntry,
+  zoneMachine,
+  zoneOwesContinuingEvidence,
+  ZONE_RETRY_MS,
+} from "./zone-machine";
 import fixtures from "../../../presentation-model/fixtures/zone-policy.json";
 
 function item(
@@ -177,5 +182,47 @@ describe("layout playlist-zone playback", () => {
     clock.advance(1);
     expect(actor.getSnapshot().context.shown).toBe(2);
     actor.stop();
+  });
+});
+
+describe("zones that owe continuing render evidence", () => {
+  const images = (count: number, durationMs: number | null = 100) =>
+    Array.from({ length: count }, (_, i) => ({
+      ...item(String(i)),
+      durationMs,
+    }));
+
+  it("is true only for a looping rotation of short images", () => {
+    expect(zoneOwesContinuingEvidence({ playlistItems: images(2) })).toBe(true);
+    expect(
+      zoneOwesContinuingEvidence({
+        loop: true,
+        playlistItems: images(3, null),
+      }),
+    ).toBe(true);
+    expect(
+      zoneOwesContinuingEvidence({ playlistItems: images(2, 120_000) }),
+    ).toBe(true);
+  });
+
+  it("is false for a zone that renders once and holds", () => {
+    expect(zoneOwesContinuingEvidence({})).toBe(false);
+    expect(zoneOwesContinuingEvidence({ playlistItems: images(1) })).toBe(
+      false,
+    );
+    expect(
+      zoneOwesContinuingEvidence({ loop: false, playlistItems: images(3) }),
+    ).toBe(false);
+  });
+
+  it("is false when the Runtime cannot bound how long an entry stays", () => {
+    expect(
+      zoneOwesContinuingEvidence({
+        playlistItems: [...images(2), item("clip", "video")],
+      }),
+    ).toBe(false);
+    expect(
+      zoneOwesContinuingEvidence({ playlistItems: images(2, 120_001) }),
+    ).toBe(false);
   });
 });

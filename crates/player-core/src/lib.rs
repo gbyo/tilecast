@@ -16,6 +16,7 @@ mod offline_activation;
 mod offline_driver;
 mod origin;
 mod pairing;
+mod playback_health;
 mod preview;
 mod renderer_commands;
 mod renderer_coordinator;
@@ -84,6 +85,7 @@ pub use pairing::{
     PAIRING_RETRY, PairingCoordinator, PairingError, PairingHost, PairingMetadataProvider, PairingOutcome,
     PairingStatus,
 };
+pub use playback_health::{HealthTolerances, PlaybackHealth, Stall, StallReason};
 pub use preview::{
     PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,
     PreviewHost, drive_preview,
@@ -92,7 +94,7 @@ pub use renderer_commands::{
     RendererCommandBroker, RendererCommandError, SemanticRendererCommandResult, StartupWebsiteClear,
     WEBSITE_DATA_CLEAR_TIMEOUT,
 };
-pub use renderer_coordinator::{RecoverySnapshot, RendererCoordinator, RendererDispatch};
+pub use renderer_coordinator::{RecoveryCause, RecoverySnapshot, RendererCoordinator, RendererDispatch};
 pub use renderer_document::{
     ContentRef as VerifiedContentRef, FrameRef as VerifiedFrameRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError,
     RendererMetadata, StreamSource,

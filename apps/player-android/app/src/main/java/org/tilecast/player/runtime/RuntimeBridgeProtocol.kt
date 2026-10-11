@@ -60,6 +60,7 @@ object RuntimeBridgeProtocol {
         "item-started", "item-transition", "image-shown", "video-progress",
         "widget-shown", "widget-alive", "widget-empty",
         "layout-shown", "layout-alive", "layout-zone-rendered",
+        "layout-zone-declared", "layout-zone-rotating",
         "website-loaded", "website-alive", "surface-shown",
     )
 
