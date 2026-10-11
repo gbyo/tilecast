@@ -1213,8 +1213,6 @@ export function DeployUpdateSheet({
       client.invalidateQueries({ queryKey: ["player-releases"] }),
   });
   const result = preview.data;
-  const blocked =
-    result?.screens.filter((s) => s.outcome === "incompatible") ?? [];
   const invalidCanary =
     canary &&
     (!Number.isInteger(canarySize) ||
@@ -1299,62 +1297,25 @@ export function DeployUpdateSheet({
   }
 
   const footer = (
-    <div className="flex w-full flex-wrap items-center justify-between gap-2">
-      <Button
-        variant="ghost"
-        disabled={busy}
-        onClick={() => (stage === 1 ? onClose() : setStage(stage - 1))}
-      >
-        {stage === 1
-          ? selectedBuildPreparing
-            ? t("common:actions.close")
-            : t("common:actions.cancel")
-          : t("common:actions.back")}
-      </Button>
-      <Button
-        disabled={
-          busy ||
-          (stage === 1
-            ? !release ||
-              selectedBuildScreenCount === 0 ||
-              selectedBuildPreparing ||
-              (!deployable(release) && !canPrepareSelected)
-            : stage === 2
-              ? !result?.targetCount ||
-                !!result.blockedCount ||
-                preview.isFetching ||
-                preview.isError
-              : !ready)
-        }
-        onClick={() => {
-          if (stage === 3) {
-            deploy.mutate();
-            return;
-          }
-          if (stage === 2) {
-            setStage(3);
-            return;
-          }
-          if (!release) return;
-          if (deployable(release)) {
-            setStage(2);
-            return;
-          }
-          if (canPrepareSelected) prepare.mutate(release);
-        }}
-      >
-        {(deploy.isPending || prepare.isPending) && <Spinner />}
-        {stage === 3
-          ? t("updates.panel.deployAction")
-          : stage === 1 && selectedBuildPreparing
-            ? t("updates.console.preparingBuild")
-            : stage === 1 && release && !deployable(release)
-              ? prepare.isPending
-                ? t("updates.console.startingPreparation")
-                : t("updates.console.prepareBuildAction")
-              : t("updates.console.continue")}
-      </Button>
-    </div>
+    <DeployFooter
+      stage={stage}
+      busy={busy}
+      release={release}
+      selectedBuildScreenCount={selectedBuildScreenCount}
+      selectedBuildPreparing={selectedBuildPreparing}
+      canPrepareSelected={canPrepareSelected}
+      result={result}
+      previewFetching={preview.isFetching}
+      previewError={!!preview.error}
+      ready={ready}
+      deployPending={deploy.isPending}
+      preparePending={prepare.isPending}
+      onClose={onClose}
+      onBack={() => setStage(stage - 1)}
+      onContinue={() => setStage(stage + 1)}
+      onDeploy={() => deploy.mutate()}
+      onPrepare={() => release && prepare.mutate(release)}
+    />
   );
   return (
     <UpdateSurface
@@ -1426,60 +1387,17 @@ export function DeployUpdateSheet({
           result={result}
         />
       )}
-      {(preview.error || candidates.error) && stage > 1 && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {apiErrorMessage(preview.error ?? candidates.error)}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                void preview.refetch();
-                void candidates.refetch();
-              }}
-            >
-              {t("common:actions.retry")}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-      {stage > 1 && blocked.length > 0 && (
-        <Alert variant="destructive">
-          <AlertTitle>{t("updates.console.blockedTitle")}</AlertTitle>
-          <AlertDescription>
-            <ul>
-              {blocked.map((s) => (
-                <li key={s.screenId}>
-                  <strong>{s.screenName}</strong>: {s.reason}
-                </li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      )}
-      {stage > 1 && !!result?.offlineCount && (
-        <Alert>
-          <AlertDescription>
-            {t("updates.console.offlineWarning", {
-              count: result.offlineCount,
-            })}
-          </AlertDescription>
-        </Alert>
-      )}
-      {stage > 1 && !!result?.alreadyCurrentCount && (
-        <Alert>
-          <AlertDescription>
-            {t("updates.console.currentWarning", {
-              count: result.alreadyCurrentCount,
-            })}
-          </AlertDescription>
-        </Alert>
-      )}
-      {deploy.error && (
-        <Alert variant="destructive">
-          <AlertDescription>{apiErrorMessage(deploy.error)}</AlertDescription>
-        </Alert>
-      )}
+      <DeploymentWarnings
+        stage={stage}
+        previewError={preview.error}
+        candidatesError={candidates.error}
+        onRetry={() => {
+          void preview.refetch();
+          void candidates.refetch();
+        }}
+        result={result}
+        deployError={deploy.error}
+      />
     </UpdateSurface>
   );
 }
