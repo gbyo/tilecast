@@ -1331,6 +1331,8 @@
       "selectedCount_other": "{{count}} pantallas seleccionadas",
       "selectedCount_many": "{{count}} pantallas seleccionadas",
       "activeDeployments": "Despliegues activos y pendientes de atención",
+      "needsAttention": "Requiere atención",
+      "inProgress": "En curso",
       "noActiveDeployments": "No hay actualizaciones de reproductores en curso.",
       "recentDeployments": "Despliegues recientes",
       "noHistory": "No hay despliegues completados",
