@@ -216,8 +216,8 @@ build is not cached, **Prepare build** starts the existing server-side cache
 operation from the deployment workflow. Preparation continues independently of
 the dialog; Studio polls the release catalog every second while a build is
 downloading and shows actual bytes against the signed artifact size. An operator
-may close the dialog and return later. If the dialog remains open, it advances
-when the selected build becomes verified and cached. Owners and Administrators
+may close the dialog and return later. If the dialog remains open, **Continue**
+becomes available when the selected build becomes verified and cached. Owners and Administrators
 may prepare a build because both roles may create update deployments; release
 source configuration, direct upload and cache cleanup remain Owner operations.
 
@@ -312,8 +312,9 @@ badges state screen counts rather than mixing deployment counts with target
 counts. If no rollout is live, Studio shows an explicit all-clear instead of
 dropping directly into history.
 
-The Deployments tab carries an attention badge even while the operator is
-browsing Release catalog. Selecting an attention row opens the rollout detail
+The Deployments tab carries a fleet-wide attention badge even while the operator is
+browsing Release catalog. A family-scoped view also surfaces attention in other
+Player types with a direct switch action. Selecting an attention row opens the rollout detail
 already filtered to affected screens. Deployment and history surfaces use the
 same operator-facing architecture labels as the deployment workflow while
 preserving the exact architecture identifier.
