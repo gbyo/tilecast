@@ -2,7 +2,13 @@ import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { MoreHorizontal, RefreshCw, Rocket, Upload } from "lucide-react";
+import {
+  CircleAlert,
+  MoreHorizontal,
+  RefreshCw,
+  Rocket,
+  Upload,
+} from "lucide-react";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
 import { apiErrorMessage } from "../../i18n";
@@ -128,12 +134,20 @@ function PlayerUpdatesWorkspace({
     else next.set("view", "releases");
     setParams(next);
   }
+  function changeFamily(value: UpdateFamilyTab) {
+    if (value === family) return;
+    const next = new URLSearchParams(params);
+    if (value === "android") next.delete("platform");
+    else next.set("platform", value);
+    setParams(next);
+  }
   const closeSource = useCallback(() => setSource(false), []);
   const releaseItems = (releases.data?.items ?? []).filter(
     (r) => releaseUpdateTab(r) === family,
   );
-  const deploymentItems = (deployments.data?.items ?? []).filter(
-    (d) => releaseUpdateTab(d) === family,
+  const allDeployments = deployments.data?.items ?? [];
+  const deploymentItems = allDeployments.filter(
+    (deployment) => releaseUpdateTab(deployment) === family,
   );
   const screenItems = screens.data?.items ?? [];
   const familyScreens = screenItems.filter(
@@ -150,11 +164,26 @@ function PlayerUpdatesWorkspace({
       })}`,
     };
   });
-  const attentionDeployments = deploymentItems.filter(
-    (item) =>
-      (item.status === "active" || item.status === "paused") &&
-      deploymentNeedsAttention(item),
-  ).length;
+  const attentionByFamily = families.map((value) => ({
+    family: value,
+    count: allDeployments.filter(
+      (item) =>
+        releaseUpdateTab(item) === value &&
+        (item.status === "active" || item.status === "paused") &&
+        deploymentNeedsAttention(item),
+    ).length,
+  }));
+  const attentionDeployments = attentionByFamily.reduce(
+    (total, item) => total + item.count,
+    0,
+  );
+  const otherAttention = attentionByFamily.filter(
+    (item) => item.family !== family && item.count > 0,
+  );
+  const otherAttentionCount = otherAttention.reduce(
+    (total, item) => total + item.count,
+    0,
+  );
   async function showDeployment(
     id: string,
     name: string,
@@ -218,13 +247,9 @@ function PlayerUpdatesWorkspace({
             <Select
               items={familyOptions}
               value={family}
-              onValueChange={(value) => {
-                if (!value || value === family) return;
-                const next = new URLSearchParams(params);
-                if (value === "android") next.delete("platform");
-                else next.set("platform", value);
-                setParams(next);
-              }}
+              onValueChange={(value) =>
+                value && changeFamily(value as UpdateFamilyTab)
+              }
             >
               <SelectTrigger
                 aria-label={t("updates.console.playerFamily")}
@@ -291,6 +316,40 @@ function PlayerUpdatesWorkspace({
             )}
           </div>
         </div>
+        {view === "deployments" && otherAttention.length > 0 && (
+          <div
+            className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm"
+            role="status"
+          >
+            <CircleAlert
+              className="size-4 shrink-0 text-destructive"
+              aria-hidden="true"
+            />
+            <span className="text-muted-foreground">
+              {t("updates.console.attentionElsewhere", {
+                count: otherAttentionCount,
+              })}
+            </span>
+            <div className="flex flex-wrap gap-1">
+              {otherAttention.map((item) => (
+                <Button
+                  key={item.family}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => changeFamily(item.family)}
+                >
+                  {familyLabel(item.family, t)}
+                  <Badge
+                    variant="destructive"
+                    className="h-5 min-w-5 rounded-full px-1.5 text-[10px]"
+                  >
+                    {item.count}
+                  </Badge>
+                </Button>
+              ))}
+            </div>
+          </div>
+        )}
         <TabsContent value="deployments">
           {deployments.isPending ? (
             <LoadingRows />
