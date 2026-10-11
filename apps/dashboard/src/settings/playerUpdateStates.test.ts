@@ -6,7 +6,7 @@ import {
   deploymentSegments,
   filterDeploymentScreens,
   releaseDisplayLabel,
-  mismatchedArchitectureScreens,
+  screenMatchesReleaseArchitecture,
   screenDownloadPercent,
   screenStateCounts,
   screenUpdateDetail,
@@ -183,50 +183,32 @@ describe("screen list ordering and filters", () => {
 });
 
 describe("release selection architecture", () => {
-  it("distinguishes two releases with the same version and channel", () => {
-    expect(
-      releaseDisplayLabel(
-        { versionName: "0.26.0-beta.6", architecture: "x86_64" },
-        "Beta",
-      ),
-    ).toBe("0.26.0-beta.6 · x86_64 · Beta");
-    expect(
-      releaseDisplayLabel(
-        { versionName: "0.26.0-beta.6", architecture: "aarch64" },
-        "Beta",
-      ),
-    ).toBe("0.26.0-beta.6 · aarch64 · Beta");
-    expect(
-      releaseDisplayLabel(
-        { versionName: "0.26.0-beta.6", architecture: "" },
-        "Beta",
-      ),
-    ).toBe("0.26.0-beta.6 · Beta");
+  it("distinguishes releases that share a version and channel", () => {
+    const intel = { versionName: "0.26.0-beta.6", architecture: "x86_64" };
+    const arm = { ...intel, architecture: "aarch64" };
+    const android = { ...intel, architecture: "" };
+
+    const intelLabel = releaseDisplayLabel(intel, "Beta");
+    const armLabel = releaseDisplayLabel(arm, "Beta");
+    expect(intelLabel).toBe("0.26.0-beta.6 · x86_64 · Beta");
+    expect(armLabel).toBe("0.26.0-beta.6 · aarch64 · Beta");
+    expect(intelLabel).not.toBe(armLabel);
+    expect(releaseDisplayLabel(android, "Beta")).toBe("0.26.0-beta.6 · Beta");
   });
 
-  it("rejects wrong or unknown architectures, including screens selected through groups", () => {
-    const screens = [
-      { name: "Cafeteria Left", playerArchitecture: "x86_64" },
-      { name: "Cafeteria Right", playerArchitecture: "aarch64" },
-      { name: "Library", playerArchitecture: undefined },
-    ];
-    expect(
-      mismatchedArchitectureScreens(screens, {
-        playerFamily: "edge",
-        architecture: "x86_64",
-      }),
-    ).toEqual([screens[1], screens[2]]);
-    expect(
-      mismatchedArchitectureScreens(screens, {
-        playerFamily: "windows",
-        architecture: "x86_64",
-      }),
-    ).toEqual([screens[1], screens[2]]);
-    expect(
-      mismatchedArchitectureScreens(screens, {
-        playerFamily: "android",
-        architecture: "",
-      }),
-    ).toEqual([]);
+  it("rejects mismatched and unknown architectures", () => {
+    const intel = { playerArchitecture: "x86_64" };
+    const arm = { playerArchitecture: "aarch64" };
+    const unknown = { playerArchitecture: undefined };
+    const edge = { playerFamily: "edge", architecture: "x86_64" } as const;
+    const windows = { ...edge, playerFamily: "windows" } as const;
+    const android = { ...edge, playerFamily: "android" } as const;
+
+    expect(screenMatchesReleaseArchitecture(intel, edge)).toBe(true);
+    expect(screenMatchesReleaseArchitecture(arm, edge)).toBe(false);
+    expect(screenMatchesReleaseArchitecture(unknown, edge)).toBe(false);
+    expect(screenMatchesReleaseArchitecture(arm, windows)).toBe(false);
+    expect(screenMatchesReleaseArchitecture(arm, android)).toBe(true);
+    expect(screenMatchesReleaseArchitecture(unknown, undefined)).toBe(true);
   });
 });
