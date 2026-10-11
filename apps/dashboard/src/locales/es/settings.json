@@ -1299,7 +1299,7 @@
       "buildScreenCount_other": "{{count}} pantallas compatibles",
       "buildScreenCount_many": "{{count}} pantallas compatibles",
       "noReleasesForFamily": "No hay versiones disponibles para {{family}}.",
-      "prepareAndContinue": "Preparar y continuar",
+      "prepareBuildAction": "Preparar compilación",
       "preparingBuild": "Preparando compilación…",
       "startingPreparation": "Iniciando preparación…",
       "preparationContinuesHint": "La preparación continúa en el servidor. Puedes cerrar este cuadro y volver más tarde.",
