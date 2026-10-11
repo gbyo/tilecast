@@ -127,6 +127,9 @@ describe("Player Updates workspace", () => {
     const history = screen.getByRole("table");
     expect(within(history).getByText("0.25.0")).toBeInTheDocument();
     expect(within(history).getAllByText("Completed").length).toBeGreaterThan(0);
+    expect(
+      within(history).getByText("Incompatible screens: 1."),
+    ).toBeInTheDocument();
   });
   it("defaults to Deployments, shows one semantic row, and keeps GitHub auth out of page chrome", async () => {
     mount();
