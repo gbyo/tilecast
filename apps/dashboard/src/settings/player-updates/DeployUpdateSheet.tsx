@@ -119,11 +119,29 @@ export function DeployUpdateSheet({
       (item) => releaseUpdateTab(item) === initialReleaseFamily,
     ),
   );
-  const initialGroup = initialRelease
-    ? initialGroups.find((items) =>
-        items.some((item) => item.id === initialRelease.id),
-      )
-    : undefined;
+  const initialGroup =
+    (initialRelease
+      ? initialGroups.find((items) =>
+          items.some((item) => item.id === initialRelease.id),
+        )
+      : undefined) ?? (initialGroups.length === 1 ? initialGroups[0] : undefined);
+  const initialFamilyScreens = screens.filter(
+    (screen) => screenUpdateTab(screen) === initialReleaseFamily,
+  );
+  const initialMatchingBuilds = (initialGroup ?? []).filter(
+    (item) =>
+      !item.architecture ||
+      initialFamilyScreens.some(
+        (screen) => screen.playerArchitecture === item.architecture,
+      ),
+  );
+  const automaticInitialRelease =
+    initialRelease ??
+    (initialGroup?.length === 1
+      ? initialGroup[0]
+      : initialMatchingBuilds.length === 1
+        ? initialMatchingBuilds[0]
+        : undefined);
 
   const [stage, setStage] = useState(1);
   const [family, setFamily] =
@@ -131,7 +149,9 @@ export function DeployUpdateSheet({
   const [releaseGroupId, setReleaseGroupId] = useState(
     initialGroup ? releaseGroupKey(initialGroup) : "",
   );
-  const [releaseId, setReleaseId] = useState(preselected ?? "");
+  const [releaseId, setReleaseId] = useState(
+    automaticInitialRelease?.id ?? "",
+  );
   const [preparedRelease, setPreparedRelease] = useState<PlayerRelease>();
   const [selected, setSelected] = useState<TargetChoice[]>([]);
   const [search, setSearch] = useState("");
@@ -183,6 +203,14 @@ export function DeployUpdateSheet({
     ],
     [familyScreens, familyGroups],
   );
+
+  const selectedBuildScreenCount = release
+    ? familyScreens.filter(
+        (screen) =>
+          !release.architecture ||
+          screen.playerArchitecture === release.architecture,
+      ).length
+    : 0;
 
   const selection = {
     releaseId,
@@ -325,7 +353,9 @@ export function DeployUpdateSheet({
         disabled={
           busy ||
           (stage === 1
-            ? !release || (!deployable(release) && !canPrepareSelected)
+            ? !release ||
+              selectedBuildScreenCount === 0 ||
+              (!deployable(release) && !canPrepareSelected)
             : stage === 2
               ? !result?.targetCount ||
                 !!result.blockedCount ||
