@@ -234,6 +234,7 @@ main (int argc, char **argv)
   tc_remote_web_stop (&host);
   g_clear_pointer (&host.runtime_support, json_node_unref);
 
+  tc_preview_detach_view (&host);
   g_clear_object (&host.view);
   g_clear_object (&host.network_session);
   g_clear_object (&host.web_context);

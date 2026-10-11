@@ -1,15 +1,26 @@
 /*
  * preview.request: a bounded JPEG of what the view shows, for the Studio
- * live preview (M8).
+ * live preview and Watch Live (M8).
  *
  * The daemon decides when a preview may be taken; it never asks during a
  * protected state (setup, pairing, safe mode), and this code never runs on
- * its own. The renderer takes one snapshot of the visible view, scales it to
- * fit the requested bounds with GStreamer (appsrc ! videoconvert !
- * videoscale ! jpegenc ! appsink, the GStreamer the renderer already uses)
- * and answers renderer.preview. A JPEG over the byte bound is encoded again
- * at a lower quality; if it still does not fit, the answer is
- * "unavailable", never a truncated image.
+ * its own. The renderer captures the view, scales it to fit the requested
+ * bounds with GStreamer (appsrc ! videoconvert ! videoscale ! jpegenc !
+ * appsink, the GStreamer the renderer already uses) and answers
+ * renderer.preview. A JPEG over the byte bound is encoded again at a lower
+ * quality; if it still does not fit, the answer is "unavailable", never a
+ * truncated image.
+ *
+ * Where the pixels come from:
+ *   - Primary: the WPEPlatform buffer the view last presented to the
+ *     display (WPEView::buffer-rendered). It is what the display shows, with
+ *     HTML video and every compositing layer in it. wpe_buffer_import_to_pixels()
+ *     returns memory the buffer owns, so the pixels are copied at once, on
+ *     the main thread, and only the copy goes to the encoder.
+ *   - Fallback: webkit_web_view_get_snapshot(). WebKit paints a snapshot
+ *     itself, and a hardware-decoded video layer can be missing from it (a
+ *     black rectangle). It is used only when the presented buffer cannot be
+ *     read; the two never run for one request.
  *
  * A preview must never disturb playback, so:
  *   - one capture at a time; a request while one is running is answered
@@ -18,9 +29,15 @@
  *     in time is answered "snapshot_timeout", and the late snapshot, if it
  *     ever arrives, is dropped;
  *   - encoding runs on a worker thread, never on the main loop that serves
- *     IPC and the web view.
+ *     IPC and the web view;
+ *   - any failure to read the presented buffer degrades to the fallback, and
+ *     a failure of both is an "unavailable" answer, never a renderer fault.
+ *
+ * Watch Live asks several times a second, so a log line per capture is debug
+ * level; the backend and the reason for a fallback are logged when they change.
  */
 #include "host.h"
+#include "preview-pixels.h"
 
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
@@ -50,6 +67,7 @@ typedef struct {
 
   /* Encoder input, set on the main thread before the worker starts. */
   GBytes *pixels;
+  TcPixelFormat format;
   guint width;
   guint height;
   guint stride;
@@ -62,6 +80,90 @@ typedef struct {
 
 /* The capture WebKit or the encoder still owns; NULL when idle. */
 static PreviewRequest *in_flight;
+
+typedef enum {
+  BACKEND_NONE,
+  BACKEND_PRESENTED_BUFFER,
+  BACKEND_WEBKIT_SNAPSHOT,
+} CaptureBackend;
+
+/* What the view presented last, and what the log has already said about it.
+ * Main thread only. */
+static struct {
+  WPEView *view;
+  gulong rendered_handler;
+  gulong released_handler;
+  /* The one buffer the view presented last; a strong reference. */
+  WPEBuffer *buffer;
+  CaptureBackend logged_backend;
+  const char *logged_reason;
+  char logged_description[96];
+  const char *logged_unavailable;
+  gint64 last_slow_warning;
+} presented;
+
+/* Anything over this on the main thread is worth one warning a minute. */
+#define TC_PREVIEW_SLOW_IMPORT_US (60 * 1000)
+#define TC_PREVIEW_SLOW_WARNING_INTERVAL_US (60 * G_USEC_PER_SEC)
+
+static void
+on_buffer_rendered (WPEView *view, WPEBuffer *buffer, gpointer user_data)
+{
+  (void) view;
+  (void) user_data;
+  if (presented.buffer == buffer)
+    return;
+  WPEBuffer *previous = presented.buffer;
+  presented.buffer = g_object_ref (buffer);
+  g_clear_object (&previous);
+}
+
+static void
+on_buffer_released (WPEView *view, WPEBuffer *buffer, gpointer user_data)
+{
+  (void) view;
+  (void) user_data;
+  /* The view hands the previous buffer back before it presents the next.
+   * Keep a reference only while the display still shows the buffer. */
+  if (presented.buffer == buffer)
+    g_clear_object (&presented.buffer);
+}
+
+void
+tc_preview_clear_presented_buffer (TcHost *host)
+{
+  (void) host;
+  g_clear_object (&presented.buffer);
+}
+
+void
+tc_preview_attach_view (TcHost *host, WPEView *view)
+{
+  (void) host;
+  if (presented.view == view)
+    return;
+  tc_preview_detach_view (host);
+  if (view == NULL)
+    return;
+  presented.view = view;
+  g_object_add_weak_pointer (G_OBJECT (view), (gpointer *) &presented.view);
+  presented.rendered_handler = g_signal_connect (view, "buffer-rendered", G_CALLBACK (on_buffer_rendered), NULL);
+  presented.released_handler = g_signal_connect (view, "buffer-released", G_CALLBACK (on_buffer_released), NULL);
+}
+
+void
+tc_preview_detach_view (TcHost *host)
+{
+  tc_preview_clear_presented_buffer (host);
+  if (presented.view == NULL)
+    return;
+  g_signal_handler_disconnect (presented.view, presented.rendered_handler);
+  g_signal_handler_disconnect (presented.view, presented.released_handler);
+  g_object_remove_weak_pointer (G_OBJECT (presented.view), (gpointer *) &presented.view);
+  presented.view = NULL;
+  presented.rendered_handler = 0;
+  presented.released_handler = 0;
+}
 
 static void
 request_free (PreviewRequest *request)
@@ -99,10 +201,16 @@ send_result (TcHost *host, const char *request_id, const char *jpeg_base64, guin
   }
   json_builder_end_object (builder);
   json_builder_end_object (builder);
-  if (unavailable_code != NULL)
-    g_message ("preview: unavailable (%s)", unavailable_code);
-  else
-    g_message ("preview: captured %ux%u", width, height);
+  /* A failing capture repeats at the Watch Live rate; say a failure once
+   * until a capture succeeds again. */
+  if (unavailable_code != NULL) {
+    if (g_strcmp0 (presented.logged_unavailable, unavailable_code) != 0)
+      g_message ("preview: unavailable (%s)", unavailable_code);
+    presented.logged_unavailable = g_intern_string (unavailable_code);
+  } else {
+    presented.logged_unavailable = NULL;
+    g_debug ("preview: captured %ux%u", width, height);
+  }
   tc_ipc_send_event (host, "renderer.preview", json_builder_get_root (builder));
 }
 
@@ -116,12 +224,12 @@ fit (guint width, guint height, guint max_width, guint max_height, guint *out_wi
   *out_height = MAX (2, ((guint) (height * scale)) & ~1u);
 }
 
-/* Encodes one BGRx frame to JPEG at `quality`, scaled to out_width x
- * out_height, by `deadline` (monotonic). Returns NULL on any pipeline
- * failure or when the deadline passes. Runs on the worker thread. */
+/* Encodes one 32-bit frame (BGRx or BGRA) to JPEG at `quality`, scaled to
+ * out_width x out_height, by `deadline` (monotonic). Returns NULL on any
+ * pipeline failure or when the deadline passes. Runs on the worker thread. */
 static GBytes *
-encode (GBytes *pixels, guint width, guint height, guint stride, guint out_width, guint out_height, int quality,
-        gint64 deadline)
+encode (GBytes *pixels, TcPixelFormat format, guint width, guint height, guint stride, guint out_width,
+        guint out_height, int quality, gint64 deadline)
 {
   gint64 remaining = deadline - g_get_monotonic_time ();
   if (remaining <= 0)
@@ -136,9 +244,10 @@ encode (GBytes *pixels, guint width, guint height, guint stride, guint out_width
     return NULL;
   GstElement *source = gst_bin_get_by_name (GST_BIN (pipeline), "src");
   GstElement *sink = gst_bin_get_by_name (GST_BIN (pipeline), "sink");
-  g_autoptr (GstCaps) caps = gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, "BGRx", "width", G_TYPE_INT,
-                                                  (int) width, "height", G_TYPE_INT, (int) height, "framerate",
-                                                  GST_TYPE_FRACTION, 0, 1, NULL);
+  g_autoptr (GstCaps) caps =
+    gst_caps_new_simple ("video/x-raw", "format", G_TYPE_STRING, tc_pixel_format_gst_name (format), "width",
+                         G_TYPE_INT, (int) width, "height", G_TYPE_INT, (int) height, "framerate", GST_TYPE_FRACTION,
+                         0, 1, NULL);
   g_object_set (source, "caps", caps, "format", GST_FORMAT_TIME, NULL);
   GBytes *result = NULL;
   if (gst_element_set_state (pipeline, GST_STATE_PLAYING) != GST_STATE_CHANGE_FAILURE) {
@@ -184,8 +293,9 @@ encode_in_thread (GTask *task, gpointer source_object, gpointer task_data, GCanc
   PreviewRequest *request = task_data;
   static const int qualities[] = { 80, 60, 40 };
   for (guint i = 0; i < G_N_ELEMENTS (qualities); i++) {
-    g_autoptr (GBytes) jpeg = encode (request->pixels, request->width, request->height, request->stride,
-                                      request->out_width, request->out_height, qualities[i], request->deadline);
+    g_autoptr (GBytes) jpeg =
+      encode (request->pixels, request->format, request->width, request->height, request->stride, request->out_width,
+              request->out_height, qualities[i], request->deadline);
     if (jpeg == NULL) {
       request->unavailable_code = g_get_monotonic_time () >= request->deadline ? "encode_timeout" : "encode_failed";
       break;
@@ -230,6 +340,145 @@ on_encoded (GObject *source, GAsyncResult *result, gpointer user_data)
   finish (request);
 }
 
+/* Fit, then encode on a worker thread. `request->pixels` is request-owned
+ * memory (or WebKit's snapshot bytes, which the request references). */
+static void
+start_encoder (PreviewRequest *request)
+{
+  fit (request->width, request->height, request->max_width, request->max_height, &request->out_width,
+       &request->out_height);
+  g_autoptr (GTask) task = g_task_new (NULL, NULL, on_encoded, request);
+  g_task_set_task_data (task, request, NULL);
+  g_task_run_in_thread (task, encode_in_thread);
+}
+
+/* --- Backend reporting ------------------------------------------------- */
+
+/* Says which backend produced captures and why it changed. A change is one
+ * line; the same backend with the same reason is silent. `description` is a
+ * short, fixed-vocabulary string (size, buffer kind, format): never pixels,
+ * URLs or tokens. */
+static void
+report_backend (CaptureBackend backend, const char *reason, const char *description)
+{
+  gboolean changed;
+  if (backend == BACKEND_PRESENTED_BUFFER)
+    changed = presented.logged_backend != backend || g_strcmp0 (presented.logged_description, description) != 0;
+  else
+    changed = presented.logged_backend != backend || g_strcmp0 (presented.logged_reason, reason) != 0;
+  if (!changed)
+    return;
+  presented.logged_backend = backend;
+  presented.logged_reason = reason;
+  g_strlcpy (presented.logged_description, description ? description : "", sizeof presented.logged_description);
+  if (backend == BACKEND_PRESENTED_BUFFER)
+    g_message ("preview: using presented WPE buffer %s", description);
+  else
+    g_message ("preview: WPE buffer import unavailable (%s); falling back to WebKit snapshot", reason);
+}
+
+/* --- Presented WPE buffer ---------------------------------------------- */
+
+/* Why the presented buffer could not be used. Fixed strings: the log and a
+ * pointer comparison both rely on that. */
+#define REASON_NO_BUFFER "no_presented_buffer"
+#define REASON_BUFFER_KIND "unsupported_buffer_type"
+#define REASON_FORMAT "unsupported_format"
+#define REASON_IMPORT_UNSUPPORTED "import_unsupported"
+#define REASON_IMPORT_FAILED "import_failed"
+#define REASON_NO_PIXELS "import_returned_nothing"
+
+static const char *
+pixels_reason (TcPixelsStatus status)
+{
+  switch (status) {
+  case TC_PIXELS_BAD_DIMENSIONS:
+    return "buffer_bad_dimensions";
+  case TC_PIXELS_BAD_SIZE:
+    return "buffer_bad_size";
+  case TC_PIXELS_BAD_STRIDE:
+    return "buffer_bad_stride";
+  case TC_PIXELS_TOO_LARGE:
+    return "buffer_too_large";
+  case TC_PIXELS_OK:
+    break;
+  }
+  return "buffer_invalid";
+}
+
+/* Copies what the display shows into `request`. Returns NULL on success, or
+ * the reason this buffer cannot be read (the caller falls back to a WebKit
+ * snapshot). Runs on the main thread, and the copy is the last use of the
+ * WPE buffer: wpe_buffer_import_to_pixels() returns memory the buffer owns
+ * and may unmap or reuse once the view releases it. */
+static const char *
+copy_presented_buffer (PreviewRequest *request, char description[96])
+{
+  if (presented.buffer == NULL)
+    return REASON_NO_BUFFER;
+  g_autoptr (WPEBuffer) buffer = g_object_ref (presented.buffer);
+  int width = wpe_buffer_get_width (buffer);
+  int height = wpe_buffer_get_height (buffer);
+  TcPixelFormat format;
+  guint declared_stride = 0;
+  const char *kind;
+  guint64 modifier = 0;
+  if (WPE_IS_BUFFER_DMA_BUF (buffer)) {
+    kind = "dmabuf";
+    if (!tc_pixel_format_from_drm_fourcc (wpe_buffer_dma_buf_get_format (WPE_BUFFER_DMA_BUF (buffer)), &format))
+      return REASON_FORMAT;
+    modifier = wpe_buffer_dma_buf_get_modifier (WPE_BUFFER_DMA_BUF (buffer));
+  } else if (WPE_IS_BUFFER_SHM (buffer)) {
+    kind = "shm";
+    if (wpe_buffer_shm_get_format (WPE_BUFFER_SHM (buffer)) != WPE_PIXEL_FORMAT_ARGB8888)
+      return REASON_FORMAT;
+    format = TC_PIXEL_FORMAT_BGRA;
+    declared_stride = wpe_buffer_shm_get_stride (WPE_BUFFER_SHM (buffer));
+  } else {
+    return REASON_BUFFER_KIND;
+  }
+
+  gint64 started = g_get_monotonic_time ();
+  g_autoptr (GError) error = NULL;
+  /* (transfer none): owned by `buffer`. */
+  GBytes *imported = wpe_buffer_import_to_pixels (buffer, &error);
+  if (imported == NULL) {
+    g_debug ("preview: WPE buffer import failed: %s", error ? error->message : "unknown");
+    return error != NULL && error->domain == WPE_BUFFER_ERROR && error->code == WPE_BUFFER_ERROR_NOT_SUPPORTED
+             ? REASON_IMPORT_UNSUPPORTED
+             : REASON_IMPORT_FAILED;
+  }
+  gsize size = 0;
+  const guint8 *data = g_bytes_get_data (imported, &size);
+  if (data == NULL)
+    return REASON_NO_PIXELS;
+  TcPixelsStatus status;
+  GBytes *copy = tc_pixels_copy (data, size, width, height, declared_stride, &status);
+  if (copy == NULL)
+    return pixels_reason (status);
+
+  gint64 elapsed = g_get_monotonic_time () - started;
+  if (elapsed > TC_PREVIEW_SLOW_IMPORT_US
+      && (presented.last_slow_warning == 0
+          || started - presented.last_slow_warning > TC_PREVIEW_SLOW_WARNING_INTERVAL_US)) {
+    presented.last_slow_warning = started;
+    g_warning ("preview: reading the presented WPE buffer took %" G_GINT64_FORMAT " ms on the main loop",
+               elapsed / 1000);
+  }
+  g_debug ("preview: copied the presented WPE buffer in %" G_GINT64_FORMAT " us", elapsed);
+
+  request->pixels = copy;
+  request->format = format;
+  request->width = (guint) width;
+  request->height = (guint) height;
+  request->stride = (guint) width * 4;
+  g_snprintf (description, 96, "%dx%d %s %s modifier 0x%" G_GINT64_MODIFIER "x", width, height, kind,
+              format == TC_PIXEL_FORMAT_BGRX ? "XRGB8888" : "ARGB8888", modifier);
+  return NULL;
+}
+
+/* --- WebKit snapshot (compatibility fallback) --------------------------- */
+
 static gboolean
 on_snapshot_timeout (gpointer user_data)
 {
@@ -251,7 +500,8 @@ on_snapshot (GObject *object, GAsyncResult *result, gpointer user_data)
   g_autoptr (GError) error = NULL;
   g_autoptr (WebKitImage) image = webkit_web_view_get_snapshot_finish (WEBKIT_WEB_VIEW (object), result, &error);
   if (image == NULL) {
-    g_message ("preview: snapshot failed: %s", error ? error->message : "unknown");
+    if (g_strcmp0 (presented.logged_unavailable, "snapshot_failed") != 0)
+      g_message ("preview: snapshot failed: %s", error ? error->message : "unknown");
     answer (request, NULL, "snapshot_failed");
     finish (request);
     return;
@@ -273,13 +523,11 @@ on_snapshot (GObject *object, GAsyncResult *result, gpointer user_data)
     return;
   }
   request->pixels = g_bytes_ref (pixels);
+  request->format = TC_PIXEL_FORMAT_BGRX;
   request->width = width;
   request->height = height;
   request->stride = stride;
-  fit (width, height, request->max_width, request->max_height, &request->out_width, &request->out_height);
-  g_autoptr (GTask) task = g_task_new (NULL, NULL, on_encoded, request);
-  g_task_set_task_data (task, request, NULL);
-  g_task_run_in_thread (task, encode_in_thread);
+  start_encoder (request);
 }
 
 void
@@ -327,7 +575,16 @@ tc_preview_capture (TcHost *host, JsonObject *data)
   request->max_bytes = (guint) max_bytes;
   request->deadline = g_get_monotonic_time () + TC_PREVIEW_DEADLINE_US;
   in_flight = request;
-  g_message ("preview: snapshot requested");
+
+  char description[96] = "";
+  const char *reason = copy_presented_buffer (request, description);
+  if (reason == NULL) {
+    report_backend (BACKEND_PRESENTED_BUFFER, NULL, description);
+    start_encoder (request);
+    return;
+  }
+  report_backend (BACKEND_WEBKIT_SNAPSHOT, reason, NULL);
+  g_debug ("preview: snapshot requested");
   request->timeout_source = g_timeout_add (TC_PREVIEW_SNAPSHOT_TIMEOUT_MS, on_snapshot_timeout, request);
   webkit_web_view_get_snapshot (host->view, WEBKIT_SNAPSHOT_REGION_VISIBLE, WEBKIT_SNAPSHOT_OPTIONS_NONE, NULL,
                                 on_snapshot, request);

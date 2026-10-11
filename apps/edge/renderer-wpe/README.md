@@ -32,6 +32,18 @@ Layout and Widget items arrive as references (`{"layoutId"}`, `{"widgetAssetId"}
 
 The host copies only known, bounded fields into IPC events. Host-to-page delivery calls one fixed function with GVariant arguments; no script source is concatenated. The daemon replaces internal hash URIs with opaque, renderer-generation capabilities before sending an activation.
 
+## Live preview and Watch Live capture
+
+`preview.request` is answered with a bounded JPEG (`src/preview.c`). `tilecastd` sends it for the Studio preview and for each Watch Live frame, one at a time. The daemon owns when a capture may happen; the renderer owns where the pixels come from.
+
+- **Primary source: the presented WPE buffer.** `tc_preview_attach_view()` follows `WPEView::buffer-rendered` and `WPEView::buffer-released` and keeps a reference to the one buffer the view presented last. On the DRM platform this is the buffer that the last page flip committed to the display, so it contains HTML video and every other layer. No history of buffers is kept. The reference is dropped when the view releases that buffer, when the web process stops, and when the renderer stops.
+- **Copy before encode.** `wpe_buffer_import_to_pixels()` returns memory that the WPE buffer owns. The renderer copies the pixels on its main thread (`tc_pixels_copy()` in `src/preview-pixels.c`) and gives only the copy to the worker-thread GStreamer encoder (`appsrc ! videoconvert ! videoscale ! jpegenc ! appsink`). The rest of the pipeline is unchanged: size and byte bounds, quality retries, the capture deadline, and one capture at a time (`preview_busy`).
+- **Formats.** A DMA-BUF buffer is accepted as `DRM_FORMAT_XRGB8888` (`BGRx`) or `DRM_FORMAT_ARGB8888` (`BGRA`); a shared-memory buffer as ARGB8888 (`BGRA`). The release architectures are little-endian. A DMA-BUF import reports no stride, so the stride is the returned size divided by the height. The size must divide evenly and the stride must hold a full row. `tests/test_preview_pixels.c` checks this with truncated, malformed and overflowing sizes.
+- **Fallback: WebKit snapshot.** `webkit_web_view_get_snapshot()` is used for a request only when the presented buffer cannot be read: no buffer yet, import not supported, unknown format, a GBM mapping failure, or an invalid size or stride. A WebKit snapshot can leave out a hardware-decoded video layer, so it is a compatibility path. The two paths never run together, and a capture problem never changes playback.
+- **Logs.** The backend is logged when it changes: `preview: using presented WPE buffer 1920x1080 dmabuf XRGB8888 modifier 0x0`, or `preview: WPE buffer import unavailable (<reason>); falling back to WebKit snapshot`. Per-capture lines are debug level (`G_MESSAGES_DEBUG=all`). A log line never contains pixels, content URLs or credentials.
+
+The headless end-to-end test runs this path with SHM buffers. The DMA-BUF import on a physical DRM display has no CI coverage; the release canary checks it.
+
 ## Build and test
 
 ```sh
@@ -42,7 +54,7 @@ docker run --rm -v "$PWD/../../..:/src" -v tilecast-edge-target:/target \
   tilecast-edge-dev /src/apps/edge/renderer-wpe/ci/run-e2e.sh all
 ```
 
-`ci/run-e2e.sh` builds `tilecastd`, `tilecastctl` and the renderer, runs the C unit tests, assembles the runtime, runs the projection tests (`tests/bridge_projection.test.mjs`), and runs `tests/e2e_headless.py`. That script starts a real daemon and renderer on `WPE_PLATFORM=headless` and checks the lifecycle through `tilecastctl`.
+`ci/run-e2e.sh` builds `tilecastd`, `tilecastctl` and the renderer, runs the C unit tests (including `test-preview-pixels`), assembles the runtime, runs the projection tests (`tests/bridge_projection.test.mjs`), and runs `tests/e2e_headless.py`. That script starts a real daemon and renderer on `WPE_PLATFORM=headless` and checks the lifecycle through `tilecastctl`.
 
 `ci/run-conformance.sh` builds the test-only `tilecast-runtime-conformance` runner (`tests/conformance.c`) and runs the Player Runtime conformance fixtures under WPE WebKit headless, for comparison with the Electron run (`packages/player-runtime/conformance`).
 
@@ -51,6 +63,5 @@ docker run --rm -v "$PWD/../../..:/src" -v tilecast-edge-target:/target \
 These features are not advertised in `renderer.ready`, so `tilecastd` never activates presentations that need them:
 
 - Websites and YouTube: they need the isolation design in `docs/tilecast-edge.md` §10.5.
-- Live preview: `preview.request` is answered `preview_not_implemented`.
 - Synchronized playback.
 - Browser microphone capture: it is always denied, and the Noise Meter moves to PipeWire in `tilecastd`.
