@@ -109,7 +109,7 @@ export function DeploymentList({
     0,
   );
   const movingScreens = moving.reduce(
-    (sum, item) => sum + unfinishedScreenCount(item),
+    (sum, item) => sum + Math.max(1, unfinishedScreenCount(item)),
     0,
   );
 
