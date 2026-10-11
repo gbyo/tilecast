@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
@@ -127,7 +127,6 @@ export function DeployUpdateSheet({
     initialGroup ? releaseGroupKey(initialGroup) : "",
   );
   const [releaseId, setReleaseId] = useState(preselected ?? "");
-  const [advanceAfterPrepare, setAdvanceAfterPrepare] = useState(false);
   const [selected, setSelected] = useState<TargetChoice[]>([]);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<UpdateDeploymentMode>("install_now");
@@ -145,10 +144,20 @@ export function DeployUpdateSheet({
   );
   const release = releases.find((item) => item.id === releaseId);
   const readiness = release ? releaseReadiness(release, t) : undefined;
-  const familyScreens = screens.filter((screen) => screenUpdateTab(screen) === family);
-  const familyScreenIds = new Set(familyScreens.map((screen) => screen.id));
-  const familyGroups = groups.filter((group) =>
-    group.screens.some((screen) => familyScreenIds.has(screen.id)),
+  const familyScreens = useMemo(
+    () => screens.filter((screen) => screenUpdateTab(screen) === family),
+    [screens, family],
+  );
+  const familyScreenIds = useMemo(
+    () => new Set(familyScreens.map((screen) => screen.id)),
+    [familyScreens],
+  );
+  const familyGroups = useMemo(
+    () =>
+      groups.filter((group) =>
+        group.screens.some((screen) => familyScreenIds.has(screen.id)),
+      ),
+    [groups, familyScreenIds],
   );
   const choices = useMemo(
     () => [
@@ -175,13 +184,21 @@ export function DeployUpdateSheet({
   // screen options their authoritative reason. A second resolves the selection,
   // including group membership and duplicates, for review.
   const candidates = useQuery({
-    queryKey: ["update-candidates", releaseId, screens.map((s) => s.id)],
+    queryKey: [
+      "update-candidates",
+      releaseId,
+      familyScreens.map((screen) => screen.id),
+    ],
     queryFn: () =>
       api.previewUpdateDeployment(
-        { releaseId, screenIds: screens.map((s) => s.id), groupIds: [] },
+        {
+          releaseId,
+          screenIds: familyScreens.map((screen) => screen.id),
+          groupIds: [],
+        },
         csrf,
       ),
-    enabled: !!release && screens.length > 0,
+    enabled: !!release && familyScreens.length > 0,
     staleTime: 0,
     refetchInterval: 10_000,
   });
@@ -191,6 +208,35 @@ export function DeployUpdateSheet({
     enabled: !!release && selected.length > 0,
     staleTime: 0,
     refetchInterval: 5_000,
+  });
+  const prepare = useMutation({
+    mutationFn: async (selectedRelease: PlayerRelease) => {
+      if (selectedRelease.cacheStatus !== "downloading") {
+        await api.cachePlayerRelease(selectedRelease.id, csrf);
+      }
+      for (let attempt = 0; attempt < 900; attempt += 1) {
+        const catalog = await api.playerReleases();
+        client.setQueryData(["player-releases"], catalog);
+        const refreshed = catalog.items.find(
+          (item) => item.id === selectedRelease.id,
+        );
+        if (refreshed && deployable(refreshed)) return refreshed;
+        if (
+          refreshed?.cacheStatus === "failed" ||
+          refreshed?.verificationStatus === "failed"
+        ) {
+          throw new Error(
+            refreshed.verificationError ??
+              t("updates.console.prepareBuildFailed"),
+          );
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+      }
+      throw new Error(t("updates.console.prepareBuildTimedOut"));
+    },
+    onSuccess: () => setStage(2),
+    onSettled: () =>
+      client.invalidateQueries({ queryKey: ["player-releases"] }),
   });
   const result = preview.data;
   const candidateById = new Map(
@@ -244,7 +290,7 @@ export function DeployUpdateSheet({
         }),
         type: "success",
       });
-      onCreated(created.id);
+      onCreated(created.id, family);
     },
   });
   const stageKey =
