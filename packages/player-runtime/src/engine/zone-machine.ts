@@ -18,6 +18,38 @@ import {
 /** A zone entry that failed to play is retried after this long. */
 export const ZONE_RETRY_MS = 2_000;
 export const ZONE_IMAGE_DEFAULT_MS = 10_000;
+/**
+ * The longest an image may stay up in a zone the host holds to continuing
+ * render evidence. The host's tolerance for a quiet zone is five minutes, so
+ * this keeps a healthy rotation well inside it.
+ */
+export const ZONE_ROTATION_MAX_ENTRY_MS = 120_000;
+
+/**
+ * Whether a playlist zone keeps producing render evidence for as long as it is
+ * healthy. A zone that renders once and holds owes nothing more, like a still
+ * image. A zone owes continuing evidence only when it advances on a bounded
+ * cadence the Runtime itself controls: it loops, has more than one entry, and
+ * every entry is an image with a short duration. A video entry ends when the
+ * media ends, which no timer here bounds, so such a zone is not held to a
+ * cadence it cannot promise.
+ */
+export function zoneOwesContinuingEvidence(zone: {
+  loop?: boolean;
+  playlistItems?: readonly Pick<
+    RuntimeLayoutZonePlaylistItem,
+    "kind" | "durationMs"
+  >[];
+}): boolean {
+  const entries = zone.playlistItems ?? [];
+  if (entries.length < 2 || (zone.loop ?? true) === false) return false;
+  return entries.every(
+    (entry) =>
+      entry.kind === "image" &&
+      (positiveDurationMs(entry.durationMs) ?? ZONE_IMAGE_DEFAULT_MS) <=
+        ZONE_ROTATION_MAX_ENTRY_MS,
+  );
+}
 
 export interface ZoneInput {
   items: RuntimeLayoutZonePlaylistItem[];

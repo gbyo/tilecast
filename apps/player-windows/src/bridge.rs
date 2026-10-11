@@ -121,6 +121,8 @@ pub const EVIDENCE_KINDS: &[&str] = &[
     "layout-shown",
     "layout-alive",
     "layout-zone-rendered",
+    "layout-zone-declared",
+    "layout-zone-rotating",
     "website-loaded",
     "website-alive",
     "surface-shown",

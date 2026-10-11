@@ -170,7 +170,13 @@ for (const name of names) {
         // The legacy baseline runs in real time, so evidence that races
         // (two zones finishing in the same frame) is compared as a set.
         return (checkpoint.evidence ?? [])
-          .filter((e) => !e.startsWith("surface-shown"))
+          .filter(
+            (e) =>
+              !e.startsWith("surface-shown") &&
+              // Declarations are new; the old renderer had no such report.
+              !e.startsWith("layout-zone-declared") &&
+              !e.startsWith("layout-zone-rotating"),
+          )
           .sort();
       }
       return field === "results" ? [] : checkpoint[field];

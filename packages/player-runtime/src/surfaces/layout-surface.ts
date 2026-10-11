@@ -19,7 +19,12 @@ import type {
 } from "../host/contract";
 import { TimerGroup } from "../clock/scheduler";
 import { layoutPayload, objectFit } from "../engine/model";
-import { zoneEntry, zoneMachine, type ZoneActor } from "../engine/zone-machine";
+import {
+  zoneEntry,
+  zoneMachine,
+  zoneOwesContinuingEvidence,
+  type ZoneActor,
+} from "../engine/zone-machine";
 import { applyAutoFit, buildRenderNode } from "../compat/render-tree-dom";
 import type { MediaSurface, SurfaceEnvironment, SurfaceSink } from "./surface";
 import type { WidgetExecution } from "@tilecast/widget-sdk/executor";
@@ -34,6 +39,7 @@ export class LayoutSurface implements MediaSurface {
   private active = false;
   private readonly widgetMounts: WidgetExecution[] = [];
   private disposed = false;
+  private readonly declarations: { id: string; rotating: boolean }[] = [];
 
   constructor(
     item: RuntimeItem,
@@ -70,6 +76,12 @@ export class LayoutSurface implements MediaSurface {
     const h = payload.canvasHeight || 1080;
     for (const zone of payload.zones) {
       canvas.appendChild(this.buildZone(zone, w, h));
+      if (zone.id) {
+        this.declarations.push({
+          id: zone.id,
+          rotating: zoneOwesContinuingEvidence(zone),
+        });
+      }
     }
     this.element = canvas;
   }
@@ -81,6 +93,13 @@ export class LayoutSurface implements MediaSurface {
   activate(): Promise<void> {
     applyAutoFit(this.element);
     this.active = true;
+    // Tell the host what each mounted zone owes before it can go silent.
+    for (const zone of this.declarations) {
+      this.env.sink.evidence(
+        zone.rotating ? "layout-zone-rotating" : "layout-zone-declared",
+        zone.id,
+      );
+    }
     for (const surface of this.nested) void surface.activate();
     return Promise.resolve();
   }

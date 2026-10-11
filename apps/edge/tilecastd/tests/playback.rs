@@ -869,6 +869,19 @@ impl FakeRenderer {
             .unwrap();
     }
 
+    async fn zone_evidence(&self, activation: &PresentationActivate, kind: EvidenceKind, item: &str, zone: &str) {
+        let reference = ActivationRef { activation_id: activation.activation_id, generation: activation.generation };
+        self.client
+            .send_event(Event::RendererProgress(RendererProgress {
+                activation: reference,
+                item_id: Some(SafeText::new(item.to_owned()).unwrap()),
+                kind,
+                zone_id: Some(SafeText::new(zone.to_owned()).unwrap()),
+            }))
+            .await
+            .unwrap();
+    }
+
     fn stop(self) {
         self.task.abort();
     }
@@ -2061,6 +2074,159 @@ async fn safe_mode_holds_its_surface_until_exit_safe_mode_and_sync_now_reconcile
     wait_for("the sync result", || harness.fake.results_for(&sync).into_iter().next()).await;
     assert_eq!(harness.fake.results_for(&sync)[0]["code"], "synchronized");
     assert!(harness.fake.manifest_requests.load(Ordering::SeqCst) > before, "sync_now reconciled the manifest");
+    renderer.stop();
+    player.stop().await;
+}
+
+// ------------------------------------------------------------ playback health
+
+/// A layout item with two zones, assigned and committed. The renderer accepts
+/// but reports nothing until the test does, as a Runtime would.
+async fn layout_player(harness: &Harness) -> (Player, FakeRenderer, PresentationActivate, String) {
+    let background = Asset::new("background", "image/png");
+    harness.fake.add_asset(&background, AssetMode::Serve);
+    let layout = uuid::Uuid::new_v4().to_string();
+    let item = uuid::Uuid::new_v4().to_string();
+    harness.fake.set_manifest(with(manifest(harness.screen, 3, &[&background]), |m| {
+        m["schemaVersion"] = json!(13);
+        m["layouts"] = json!([{"id": layout, "document": {"schemaVersion": 2,
+            "canvas": {"width": 1920, "height": 1080, "backgroundAssetId": background.asset_id.to_string(),
+                "backgroundVariantId": background.variant_id.to_string()},
+            "placements": []}}]);
+        m["playlist"]["items"] = json!([{"id": item, "assetId": layout, "layoutId": layout, "assetType": "layout",
+            "deliveryPolicy": "stream", "durationMs": 5000, "fitMode": "contain", "transition": "none",
+            "audioEnabled": false, "volume": 0}]);
+    }));
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    let activation = wait_for("the layout activation", || {
+        renderer.last().filter(|a| matches!(&a.presentation, PresentationDocument::Playing { .. }))
+    })
+    .await;
+    let (item_id, _) = first_item(&activation).unwrap();
+    (player, renderer, activation, item_id)
+}
+
+/// What the Runtime reports as a layout starts: the item, the zones it
+/// mounted, the layout and the zones that have rendered.
+async fn start_layout(renderer: &FakeRenderer, activation: &PresentationActivate, item: &str, rendered: &[&str]) {
+    renderer.evidence(activation, EvidenceKind::ItemStarted, Some(item)).await;
+    for zone in ["clock", "banner"] {
+        renderer.zone_evidence(activation, EvidenceKind::LayoutZoneDeclared, item, zone).await;
+    }
+    renderer.evidence(activation, EvidenceKind::LayoutShown, Some(item)).await;
+    for zone in rendered {
+        renderer.zone_evidence(activation, EvidenceKind::LayoutZoneRendered, item, zone).await;
+    }
+}
+
+fn progress_report(
+    engine: &tilecastd::presentation::PresentationEngine,
+    kind: EvidenceKind,
+    item: &str,
+    zone: Option<&str>,
+) -> RendererProgress {
+    let current = engine.current().expect("an activation");
+    RendererProgress {
+        activation: ActivationRef { activation_id: current.id, generation: current.generation },
+        item_id: Some(SafeText::new(item.to_owned()).unwrap()),
+        kind,
+        zone_id: zone.map(|zone| SafeText::new(zone.to_owned()).unwrap()),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_static_layout_with_periodic_liveness_stays_healthy_for_hours() {
+    let harness = Harness::new().await;
+    let (player, renderer, activation, item) = layout_player(&harness).await;
+    start_layout(&renderer, &activation, &item, &["clock", "banner"]).await;
+    let binding = harness.binding();
+    wait_until("promotion on layout evidence", || async { player.stage(&binding, Stage::Active).await.is_some() })
+        .await;
+
+    // Eight hours in thirty-second steps: the Runtime reports `layout_alive`
+    // and nothing else. Beta.4 treated the first three silent minutes as a
+    // stall and walked the recovery ladder into Safe Mode from here.
+    let mut engine = player.context.presentation.lock().await;
+    let connection = engine.renderer_connection().expect("a connected renderer");
+    let restarts = engine.restart_count();
+    let started = now_ms();
+    for step in 1..=(8 * 3600 / 30) {
+        let at = started + step * 30_000;
+        let report = progress_report(&engine, EvidenceKind::LayoutAlive, &item, None);
+        engine.progress_for(connection, &report, Timestamp::from_unix_millis(at).unwrap());
+        assert_eq!(engine.tick(at), player_core::HealAction::None, "step {step}");
+    }
+    assert!(!engine.is_safe_mode());
+    assert_eq!(engine.restart_count(), restarts);
+    assert!(engine.playback_health(started + 8 * 3_600_000).is_healthy());
+    let snapshot = engine.recovery_report().snapshot;
+    assert_eq!((snapshot.escalation_step, snapshot.ladder_runs, snapshot.last_action_at_ms), (0, 0, None));
+    drop(engine);
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_zone_that_never_renders_still_reaches_safe_mode_and_previews_stay_protected() {
+    use player_core::PreviewHost as _;
+    let harness = Harness::new().await;
+    let (player, renderer, activation, item) = layout_player(&harness).await;
+    start_layout(&renderer, &activation, &item, &["clock"]).await;
+    let binding = harness.binding();
+    wait_until("promotion on layout evidence", || async { player.stage(&binding, Stage::Active).await.is_some() })
+        .await;
+
+    // The Runtime keeps reporting `layout_alive`, so only the zone that owes
+    // its first render is wrong. A reactivation restarts the Runtime's item,
+    // which reports the same broken layout again.
+    let mut actions = Vec::new();
+    {
+        let mut engine = player.context.presentation.lock().await;
+        let connection = engine.renderer_connection().expect("a connected renderer");
+        let started = now_ms();
+        let mut generation = engine.current().expect("an activation").generation;
+        for step in 1..=(6 * 3600 / 30) {
+            let at = started + step * 30_000;
+            let when = Timestamp::from_unix_millis(at).unwrap();
+            let report = |engine: &_, kind, zone| progress_report(engine, kind, &item, zone);
+            if engine.current().expect("an activation").generation != generation {
+                generation = engine.current().unwrap().generation;
+                for (kind, zone) in [
+                    (EvidenceKind::ItemStarted, None),
+                    (EvidenceKind::LayoutZoneDeclared, Some("clock")),
+                    (EvidenceKind::LayoutZoneDeclared, Some("banner")),
+                    (EvidenceKind::LayoutShown, None),
+                    (EvidenceKind::LayoutZoneRendered, Some("clock")),
+                ] {
+                    let r = report(&engine, kind, zone);
+                    engine.progress_for(connection, &r, when);
+                }
+            }
+            let r = report(&engine, EvidenceKind::LayoutAlive, None);
+            engine.progress_for(connection, &r, when);
+            let action = engine.tick(at);
+            if action != player_core::HealAction::None {
+                actions.push((step * 30, action));
+            }
+            if engine.is_safe_mode() {
+                break;
+            }
+        }
+        assert!(engine.is_safe_mode(), "a zone that never renders is real: {actions:?}");
+    }
+    assert_eq!(actions[0].1, player_core::HealAction::Reactivate);
+    assert!(actions[0].0 > 5 * 60, "liveness holds recovery off only until the zone's tolerance: {actions:?}");
+    assert_eq!(actions.last().unwrap().1, player_core::HealAction::EnterSafeMode);
+    wait_for("the safe-mode surface", || {
+        renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::SafeMode { .. }))
+    })
+    .await;
+    // Fixing the trigger does not open the protected state to capture.
+    assert_eq!(
+        player.context.capture_preview(640, 360, 4096).await.unwrap_err(),
+        player_core::CaptureError::ProtectedState
+    );
     renderer.stop();
     player.stop().await;
 }

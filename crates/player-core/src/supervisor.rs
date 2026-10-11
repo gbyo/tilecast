@@ -14,6 +14,10 @@ pub enum ProgressEvidence {
     LayoutShown,
     LayoutAlive,
     LayoutZoneRendered,
+    /// The Runtime declares a Layout zone that owes one first render.
+    LayoutZoneDeclared,
+    /// The Runtime declares a Layout zone that owes first and continuing renders.
+    LayoutZoneRotating,
     WebsiteLoaded,
     WebsiteAlive,
     SurfaceShown,
@@ -144,8 +148,10 @@ pub enum Expectation {
 ///
 /// Ported from `progressSignalFor` and render-progress rules: liveness pings
 /// (`*_alive`) count only for indefinite content, frame changes only where
-/// motion is expected, and an empty widget is not progress. This is the
-/// guard that keeps a player from reporting healthy over a frozen display.
+/// motion is expected, and an empty widget is not progress. This decides what
+/// proves an activation and what is logged as evidence. It does not decide
+/// recovery: the supervisor is fed by content-aware playback health
+/// (`playback_health`), which also accepts liveness while nothing else is owed.
 pub(crate) fn is_meaningful(kind: ProgressEvidence, expectation: Expectation) -> bool {
     match kind {
         ProgressEvidence::ItemStarted
@@ -161,7 +167,10 @@ pub(crate) fn is_meaningful(kind: ProgressEvidence, expectation: Expectation) ->
         ProgressEvidence::WidgetAlive | ProgressEvidence::LayoutAlive | ProgressEvidence::WebsiteAlive => {
             expectation == Expectation::Indefinite
         }
-        ProgressEvidence::WidgetEmpty => false,
+        // Declarations describe what a Layout owes; they are not progress.
+        ProgressEvidence::WidgetEmpty | ProgressEvidence::LayoutZoneDeclared | ProgressEvidence::LayoutZoneRotating => {
+            false
+        }
     }
 }
 
@@ -244,6 +253,8 @@ mod tests {
                 ProgressEvidence::WebsiteAlive,
                 ProgressEvidence::WidgetEmpty,
                 ProgressEvidence::SurfaceShown,
+                ProgressEvidence::LayoutZoneDeclared,
+                ProgressEvidence::LayoutZoneRotating,
             ] {
                 assert!(!is_content_evidence(kind, expectation), "{kind:?} is not proof of {expectation:?}");
             }

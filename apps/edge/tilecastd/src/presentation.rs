@@ -199,6 +199,9 @@ pub struct PresentationEngine {
     /// renderer port mirrors capability aliases onto loopback URLs for
     /// opaque frames only while this port is known.
     loopback_port: Option<u16>,
+    /// The stall last written to the log, so a stall is reported when it
+    /// starts and when it ends rather than on every supervision tick.
+    reported_stall: Option<(player_core::StallReason, Option<String>, Option<String>)>,
 }
 
 /// Recovery facts for heartbeat diagnostics. Core owns the ladder; Edge
@@ -244,6 +247,7 @@ impl PresentationEngine {
             activity: None,
             clock_offset_ms: 0,
             loopback_port: None,
+            reported_stall: None,
         }
     }
 
@@ -396,6 +400,11 @@ impl PresentationEngine {
         self.current.iter().flat_map(|a| a.content.iter().map(|c| c.sha256)).collect()
     }
 
+    /// The connected renderer's connection identity.
+    pub fn renderer_connection(&self) -> Option<uuid::Uuid> {
+        self.renderer.as_ref().map(|link| *link.session.id().as_uuid())
+    }
+
     pub fn renderer_connected(&mut self, session: SessionHandle, now_ms: i64) {
         let connection = *session.id().as_uuid();
         let port = crate::renderer_adapter::EdgeRendererPort::new(
@@ -450,13 +459,19 @@ impl PresentationEngine {
     }
 
     pub fn progress(&mut self, session: &SessionHandle, report: &RendererProgress, now: Timestamp) -> bool {
+        self.progress_for(*session.id().as_uuid(), report, now)
+    }
+
+    /// The report of an identified renderer connection. Core accepts it only
+    /// for the current connection and activation.
+    pub fn progress_for(&mut self, connection: uuid::Uuid, report: &RendererProgress, now: Timestamp) -> bool {
         let semantic = player_core::SemanticRendererProgress {
             activation: semantic_ref(report.activation),
             kind: crate::renderer_adapter::evidence(report.kind),
             item_id: report.item_id.clone(),
             zone_id: report.zone_id.clone(),
         };
-        let decision = self.native.progress(*session.id().as_uuid(), &semantic, now);
+        let decision = self.native.progress(connection, &semantic, now);
         if let Some(kind) = decision.activity_signal {
             self.signal(crate::activity::Signal::Renderer {
                 kind,
@@ -502,7 +517,44 @@ impl PresentationEngine {
     /// Periodic supervision. Returns the action taken, for logging/tests.
     pub fn tick(&mut self, now_ms: i64) -> HealAction {
         let action = self.native.evaluate_recovery(policy_time(now_ms));
+        self.report_stall_transition(now_ms);
         self.execute_recovery(action, now_ms)
+    }
+
+    /// What the content on screen owes and whether it is paying, for
+    /// telemetry and diagnostics.
+    pub fn playback_health(&self, now_ms: i64) -> player_core::PlaybackHealth {
+        self.native.playback_health(policy_time(now_ms))
+    }
+
+    /// Whether the item on screen is expected to be moving, once it started.
+    pub fn expected_motion(&self) -> Option<bool> {
+        self.native.current_expectation().map(|expectation| expectation == player_core::Expectation::Video)
+    }
+
+    /// Writes one line when playback becomes stalled and one when it recovers.
+    /// The detail names the content kind, reason, item and zone, never a
+    /// location, so it is safe for any log.
+    fn report_stall_transition(&mut self, now_ms: i64) {
+        let health = self.playback_health(now_ms);
+        let key = health.stall().map(|stall| (stall.reason, stall.item_id.clone(), stall.zone_id.clone()));
+        if key == self.reported_stall {
+            return;
+        }
+        match health.stall() {
+            Some(stall) => tracing::warn!(
+                component = "presentation",
+                event = "playback_stalled",
+                reason = stall.reason.as_str(),
+                expectation = stall.expectation.as_str(),
+                item = stall.item_id.as_deref().unwrap_or(""),
+                zone = stall.zone_id.as_deref().unwrap_or(""),
+                since_unix_ms = stall.since_ms,
+                stalled_for_ms = stall.duration_ms(now_ms)
+            ),
+            None => tracing::info!(component = "presentation", event = "playback_recovered"),
+        }
+        self.reported_stall = key;
     }
 
     fn execute_recovery(&mut self, action: HealAction, now_ms: i64) -> HealAction {
@@ -546,7 +598,21 @@ impl PresentationEngine {
             }
         }
         if action != HealAction::None {
-            tracing::warn!(component = "presentation", event = "heal_action", action = ?action);
+            let cause = self.native.last_recovery().filter(|cause| cause.action == action);
+            let recovery = self.native.recovery_snapshot();
+            tracing::warn!(
+                component = "presentation",
+                event = "heal_action",
+                action = ?action,
+                reason = cause.map_or("", |cause| cause.stall.reason.as_str()),
+                expectation = cause.map_or("", |cause| cause.stall.expectation.as_str()),
+                item = cause.and_then(|cause| cause.stall.item_id.as_deref()).unwrap_or(""),
+                zone = cause.and_then(|cause| cause.stall.zone_id.as_deref()).unwrap_or(""),
+                since_unix_ms = cause.map_or(0, |cause| cause.stall.since_ms),
+                stalled_for_ms = cause.map_or(0, |cause| cause.stalled_for_ms()),
+                escalation_step = recovery.escalation_step,
+                ladder_runs = recovery.ladder_runs
+            );
             if let Some(event) = self.native.recovery_event(action) {
                 self.signal(crate::activity::Signal::Event(Box::new(event)));
             }

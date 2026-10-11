@@ -86,6 +86,8 @@ Layouts are judged per zone, because a whole-layout signal hides the case that m
 
 Every heartbeat carries `lastMeaningfulProgressAt`, `stallStartedAt`, `stallDurationMs`, `stallReason`, `expectedMotion` and `rendererResponding`. The stall is measured from when progress was last _seen_, not from when it was noticed, so the duration reflects how long the screen has actually been wrong rather than the poll interval.
 
+Native Players apply the same table. Tilecast Edge, Windows, and Android decide health in Player Core ([Playback health](player-core.md#playback-health)). A liveness report resets the recovery supervisor only while the content owes nothing else, so a static Layout, Widget, or Website that renders once is not recovered, and a frozen zone, a page that never rendered, or a stopped video is.
+
 `stallReason` names the content failure where the content is the evidence — a frozen video reports `video_position_frozen`, not `renderer_not_responding`, because the player has no evidence the renderer died. Blaming the renderer is reserved for indefinite content, where the probe genuinely is the only signal.
 
 ## Recovery and safe mode

@@ -466,8 +466,8 @@ pub struct PresentationRejected {
 
 /// Evidence of what is actually on screen. The vocabulary is the one the
 /// reference web runtime already reports; the daemon maps it to meaningful
-/// progress exactly as `apps/player-linux/src/core/render-progress.ts` does
-/// (for example `renderer_alive` counts only for indefinite content).
+/// progress exactly as `apps/player-linux/src/core/render-progress.ts` does:
+/// liveness feeds recovery only while the content owes nothing else.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EvidenceKind {
@@ -481,6 +481,11 @@ pub enum EvidenceKind {
     LayoutShown,
     LayoutAlive,
     LayoutZoneRendered,
+    /// The Runtime mounted this zone and it owes one first render. Not progress.
+    LayoutZoneDeclared,
+    /// Like [`Self::LayoutZoneDeclared`], and the zone also owes continuing
+    /// renders while healthy. Not progress.
+    LayoutZoneRotating,
     WebsiteLoaded,
     WebsiteAlive,
     FrameChanged,
@@ -502,6 +507,8 @@ impl EvidenceKind {
             Self::LayoutShown => "layout_shown",
             Self::LayoutAlive => "layout_alive",
             Self::LayoutZoneRendered => "layout_zone_rendered",
+            Self::LayoutZoneDeclared => "layout_zone_declared",
+            Self::LayoutZoneRotating => "layout_zone_rotating",
             Self::WebsiteLoaded => "website_loaded",
             Self::WebsiteAlive => "website_alive",
             Self::FrameChanged => "frame_changed",
