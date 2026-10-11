@@ -87,7 +87,7 @@ import {
 } from "./UpdateDeploymentDrawer";
 import {
   deploymentHeadline,
-  mismatchedArchitectureScreens,
+  screenMatchesReleaseArchitecture,
   releaseDisplayLabel,
   screenUpdateMeaning,
 } from "./playerUpdateStates";
@@ -762,9 +762,8 @@ export function PlayerUpdatesPanel({
         ? t("updates.panel.channelBeta")
         : t("updates.panel.channelStable"),
     );
-  const architectureMismatches = mismatchedArchitectureScreens(
-    selectedScreens,
-    selectedRelease,
+  const architectureMismatches = selectedScreens.filter(
+    (screen) => !screenMatchesReleaseArchitecture(screen, selectedRelease),
   );
   const platformLabel = updateTabLabel(platform);
   // Deployment modes read from the server as slugs; known slugs resolve to
