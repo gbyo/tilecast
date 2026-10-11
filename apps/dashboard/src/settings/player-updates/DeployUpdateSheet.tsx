@@ -176,6 +176,20 @@ function UpdateSelectionStep({
   const { t } = useTranslation(["settings", "common"]);
   const locale = useFormatLocale();
   const readiness = release ? releaseReadiness(release, t) : undefined;
+  const versionLabel = (variants: PlayerRelease[]) => {
+    const representative = variants[0]!;
+    return [
+      representative.versionName,
+      representative.channel === "beta"
+        ? t("updates.panel.channelBeta")
+        : t("updates.panel.channelStable"),
+      representative.source === "upload"
+        ? architectureLabel(representative.architecture, t)
+        : undefined,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  };
   return (
     <div className="grid gap-6">
       <Field>
@@ -212,17 +226,10 @@ function UpdateSelectionStep({
         {releaseGroups.length ? (
           <>
             <Select
-              items={releaseGroups.map((variants) => {
-                const representative = variants[0]!;
-                return {
-                  value: releaseGroupKey(variants),
-                  label: `${representative.versionName} · ${
-                    representative.channel === "beta"
-                      ? t("updates.panel.channelBeta")
-                      : t("updates.panel.channelStable")
-                  }`,
-                };
-              })}
+              items={releaseGroups.map((variants) => ({
+                value: releaseGroupKey(variants),
+                label: versionLabel(variants),
+              }))}
               value={releaseGroupId}
               onValueChange={(value) => value && onVersionChange(String(value))}
             >
@@ -233,14 +240,10 @@ function UpdateSelectionStep({
               </SelectTrigger>
               <SelectContent>
                 {releaseGroups.map((variants) => {
-                  const representative = variants[0]!;
                   const key = releaseGroupKey(variants);
                   return (
                     <SelectItem key={key} value={key}>
-                      {representative.versionName} ·{" "}
-                      {representative.channel === "beta"
-                        ? t("updates.panel.channelBeta")
-                        : t("updates.panel.channelStable")}
+                      {versionLabel(variants)}
                     </SelectItem>
                   );
                 })}
