@@ -120,10 +120,10 @@ describe("guided deployment", () => {
 
     const view = mount("r1", [cold]);
     expect(
-      screen.getByRole("button", { name: "Prepare & continue" }),
+      screen.getByRole("button", { name: "Prepare build" }),
     ).toBeEnabled();
     await userEvent.click(
-      screen.getByRole("button", { name: "Prepare & continue" }),
+      screen.getByRole("button", { name: "Prepare build" }),
     );
     await waitFor(() =>
       expect(api.cachePlayerRelease).toHaveBeenCalledWith("r1", "csrf"),
