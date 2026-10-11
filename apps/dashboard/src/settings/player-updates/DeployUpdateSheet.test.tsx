@@ -70,20 +70,21 @@ describe("guided deployment", () => {
   it("requires a concrete artifact, distinguishes architectures, and preserves valid Back state", async () => {
     mount();
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("combobox", { name: "Version" }));
     await userEvent.click(
-      screen.getByRole("radio", { name: /0.26.0-beta.6/ }),
+      await screen.findByRole("option", { name: /0.26.0-beta.6/ }),
     );
     expect(
       screen.getByRole("radio", {
-        name: /Intel \/ AMD 64-bit · x86_64/,
+        name: "Intel / AMD 64-bit (x86_64)",
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("radio", { name: /ARM64 · aarch64/ }),
+      screen.getByRole("radio", { name: "ARM64 (aarch64)" }),
     ).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("radio", {
-        name: /Intel \/ AMD 64-bit · x86_64/,
+        name: "Intel / AMD 64-bit (x86_64)",
       }),
     );
     await goTargets();
@@ -96,7 +97,7 @@ describe("guided deployment", () => {
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(
       screen.getByRole("radio", {
-        name: /Intel \/ AMD 64-bit · x86_64/,
+        name: "Intel / AMD 64-bit (x86_64)",
       }),
     ).toHaveAttribute("aria-checked", "true");
   });
@@ -198,7 +199,10 @@ describe("guided deployment", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("radio", { name: "Maintenance window" }),
+      screen.getByRole("combobox", { name: "Deployment mode" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Maintenance window" }),
     );
     expect(
       screen.getByText("Choose a future date and time."),
@@ -206,10 +210,18 @@ describe("guided deployment", () => {
     expect(
       screen.getByRole("button", { name: "Deploy update" }),
     ).toBeDisabled();
-    await userEvent.click(screen.getByRole("radio", { name: "Install now" }));
+    await userEvent.click(
+      screen.getByRole("combobox", { name: "Deployment mode" }),
+    );
+    await userEvent.click(
+      await screen.findByRole("option", { name: "Install now" }),
+    );
     expect(
       screen.queryByText("Choose a future date and time."),
     ).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Rollout safeguards" }),
+    );
     await userEvent.click(
       screen.getByRole("switch", { name: "Canary rollout" }),
     );
