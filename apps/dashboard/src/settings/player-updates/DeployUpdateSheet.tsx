@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type {
@@ -11,7 +11,11 @@ import type {
 import { useAuth } from "../../auth/AuthProvider";
 import { apiErrorMessage, useFormatLocale } from "../../i18n";
 import { formatBytes } from "../../lib/formatBytes";
-import { releaseUpdateTab } from "../../playerPlatform";
+import {
+  releaseUpdateTab,
+  screenUpdateTab,
+  type UpdateFamilyTab,
+} from "../../playerPlatform";
 import { DateTimeInput } from "../../components/date-picker";
 import { Alert, AlertTitle, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
@@ -49,12 +53,35 @@ import {
 import { Input } from "../../components/ui/input";
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
 import { Switch } from "../../components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 import { Spinner } from "../../components/ui/spinner";
 import { toast } from "../../components/ui/toast";
 import { UpdateSurface } from "./UpdateSurface";
-import { artifactIdentity, deployable, modeLabel } from "./model";
+import {
+  architectureLabel,
+  artifactIdentity,
+  deployable,
+  families,
+  familyLabel,
+  groupReleases,
+  modeLabel,
+  releaseReadiness,
+} from "./model";
 
 type TargetChoice = { value: string; label: string; type: "screen" | "group" };
+
+function releaseGroupKey(releases: PlayerRelease[]) {
+  return releases
+    .map((release) => release.id)
+    .sort()
+    .join(":");
+}
 export function DeployUpdateSheet({
   releases,
   screens,
