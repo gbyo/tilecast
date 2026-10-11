@@ -46,7 +46,7 @@ Cache removal asks for confirmation and is unavailable while an active or paused
 
 1. Select **Deploy update** from either Player Updates view. You can also start from a build's **Deploy** action in **Release catalog**.
 2. In **Update**, choose the **Player type** and **Version**. If that version has multiple CPU builds, choose **Intel / AMD 64-bit** (`x86_64`) or **ARM64** (`aarch64`). Tilecast automatically selects an unambiguous build when only one applies to the current fleet.
-3. If the build is not cached yet, select **Prepare & continue**. Preparation runs on the server and shows progress; you can close the dialog and return later. If you leave it open, the workflow continues when the build becomes ready.
+3. If the build is not cached yet, select **Prepare build**. Preparation runs on the server and shows progress; you can close the dialog and return later. If you leave it open, the workflow continues when the build becomes ready.
 4. In **Targets**, search for screens or Display Groups. Add targets or use **Select all eligible**. Review the resolved screen count and warnings, then select **Continue**.
 5. In **Rollout**, choose **Install now**, **Download only**, or **Maintenance window**. For a maintenance window, choose a future date and time in your browser's local timezone.
 6. Open **Rollout safeguards** only when you need a canary cohort. Choose a size smaller than the eligible fleet; remaining screens wait until every canary succeeds.
