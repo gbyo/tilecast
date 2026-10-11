@@ -194,7 +194,11 @@ function PlayerUpdatesWorkspace({
                 disabled={sync.isPending}
                 onClick={() => sync.mutate()}
               >
-                {sync.isPending ? <Spinner /> : <RefreshCw aria-hidden="true" />}
+                {sync.isPending ? (
+                  <Spinner />
+                ) : (
+                  <RefreshCw aria-hidden="true" />
+                )}
                 {t("updates.console.sync")}
               </Button>
             )}
