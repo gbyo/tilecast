@@ -338,7 +338,11 @@ export function DeployUpdateSheet({
         disabled={busy}
         onClick={() => (stage === 1 ? onClose() : setStage(stage - 1))}
       >
-        {stage === 1 ? t("common:actions.cancel") : t("common:actions.back")}
+        {stage === 1
+          ? selectedBuildPreparing
+            ? t("common:actions.close")
+            : t("common:actions.cancel")
+          : t("common:actions.back")}
       </Button>
       <Button
         disabled={
@@ -402,21 +406,36 @@ export function DeployUpdateSheet({
         aria-label={t("updates.panel.deployAction")}
       >
         {(["release", "targets", "rollout"] as const).map((key, index) => (
-          <li
-            key={key}
-            className={`rounded-lg border px-3 py-3 ${
-              stage === index + 1
-                ? "border-primary bg-accent"
-                : stage > index + 1
-                  ? "border-primary/40"
-                  : "border-border"
-            }`}
-            aria-current={stage === index + 1 ? "step" : undefined}
-          >
-            <span className="block text-xs font-medium text-muted-foreground">
-              {index + 1}
-            </span>
-            <span className="text-sm font-semibold">
+          <li key={key} className="grid min-w-0 gap-1">
+            <div className="flex items-center gap-2">
+              <span
+                className={`grid size-6 shrink-0 place-items-center rounded-full border text-xs font-semibold ${
+                  stage === index + 1
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : stage > index + 1
+                      ? "border-primary/40 bg-primary/10 text-foreground"
+                      : "border-border text-muted-foreground"
+                }`}
+                aria-current={stage === index + 1 ? "step" : undefined}
+              >
+                {index + 1}
+              </span>
+              {index < 2 && (
+                <span
+                  className={`h-px min-w-2 flex-1 ${
+                    stage > index + 1 ? "bg-primary/40" : "bg-border"
+                  }`}
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+            <span
+              className={`truncate text-xs ${
+                stage === index + 1
+                  ? "font-semibold text-foreground"
+                  : "text-muted-foreground"
+              }`}
+            >
               {t(`updates.console.steps.${key}`)}
             </span>
           </li>
@@ -549,13 +568,82 @@ export function DeployUpdateSheet({
             )}
           </Field>
 
-          {releaseGroup && (
+          {releaseGroup?.length === 1 && release && (
+            <Card size="sm">
+              <CardContent className="grid gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="grid gap-0.5">
+                    <span className="text-sm font-medium">
+                      {architectureLabel(release.architecture, t)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {release.architecture && (
+                        <>
+                          <span className="font-mono">
+                            {release.architecture}
+                          </span>
+                          {" · "}
+                        </>
+                      )}
+                      {t("updates.console.buildScreenCount", {
+                        count: selectedBuildScreenCount,
+                      })}
+                      {" · "}
+                      {formatBytes(release.apkSizeBytes, locale)}
+                    </span>
+                  </div>
+                  <Badge
+                    variant={deployable(release) ? "outline" : "secondary"}
+                  >
+                    {deployable(release)
+                      ? t("updates.console.buildReady")
+                      : selectedBuildPreparing
+                        ? t("updates.console.preparingBuild")
+                        : t("updates.console.buildPrepareNeeded")}
+                  </Badge>
+                </div>
+                {readiness?.detail && (
+                  <p
+                    className={
+                      readiness.tone === "danger"
+                        ? "text-xs text-destructive"
+                        : "text-xs text-muted-foreground"
+                    }
+                  >
+                    {readiness.detail}
+                  </p>
+                )}
+                {selectedBuildPreparing && (
+                  <div className="grid gap-1">
+                    <Progress
+                      value={
+                        release.apkSizeBytes > 0
+                          ? Math.min(
+                              100,
+                              Math.round(
+                                (release.downloadedBytes /
+                                  release.apkSizeBytes) *
+                                  100,
+                              ),
+                            )
+                          : 0
+                      }
+                      aria-label={t("updates.console.preparingBuild")}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("updates.console.preparationContinuesHint")}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {releaseGroup && releaseGroup.length > 1 && (
             <FieldSet>
               <FieldLegend>{t("updates.console.buildLabel")}</FieldLegend>
               <FieldDescription>
-                {releaseGroup.length === 1
-                  ? t("updates.console.singleBuildHint")
-                  : t("updates.console.buildHint")}
+                {t("updates.console.buildHint")}
               </FieldDescription>
               <RadioGroup
                 value={releaseId}
