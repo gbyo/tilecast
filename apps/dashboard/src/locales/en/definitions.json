@@ -1,4 +1,113 @@
 {
+  "event-scroller": {
+    "fields": {
+      "dataSourceId": {
+        "label": "Data Source",
+        "description": "Connect a calendar or another records source."
+      },
+      "titleField": {
+        "label": "Title field"
+      },
+      "startField": {
+        "label": "Start field"
+      },
+      "endField": {
+        "label": "End field"
+      },
+      "locationField": {
+        "label": "Location field"
+      },
+      "categoryField": {
+        "label": "Category field"
+      },
+      "heading": {
+        "label": "Heading"
+      },
+      "maximumItems": {
+        "label": "Maximum events"
+      },
+      "hideEnded": {
+        "label": "Hide past events",
+        "description": "Ended events leave the board using the Player clock. Events without an end stay through their local day."
+      },
+      "showWeekday": {
+        "label": "Show weekday"
+      },
+      "showDate": {
+        "label": "Show date"
+      },
+      "showTime": {
+        "label": "Show time"
+      },
+      "showLocation": {
+        "label": "Show location"
+      },
+      "showCategory": {
+        "label": "Show category"
+      },
+      "showDividers": {
+        "label": "Show dividers"
+      },
+      "dateStyle": {
+        "label": "Date style",
+        "options": {
+          "short": "Short month and day",
+          "day": "Day of month",
+          "numeric": "Numeric month and day"
+        }
+      },
+      "emptyText": {
+        "label": "Empty message",
+        "description": "Leave blank to use the standard empty message."
+      },
+      "flow": {
+        "label": "Flow",
+        "options": {
+          "auto": "Auto",
+          "vertical": "Vertical",
+          "horizontal": "Horizontal"
+        }
+      },
+      "verticalDirection": {
+        "label": "Vertical direction",
+        "options": {
+          "up": "Up",
+          "down": "Down"
+        }
+      },
+      "horizontalDirection": {
+        "label": "Horizontal direction",
+        "options": {
+          "left": "Left",
+          "right": "Right"
+        }
+      },
+      "scrollSpeed": {
+        "label": "Scroll speed",
+        "description": "1 is slow, 10 is fast. The reading pace stays consistent as you add events."
+      },
+      "scrolling": {
+        "label": "Scrolling enabled"
+      },
+      "density": {
+        "label": "Density",
+        "options": {
+          "compact": "Compact",
+          "comfortable": "Comfortable",
+          "spacious": "Spacious"
+        }
+      },
+      "backgroundColor": {
+        "label": "Background"
+      },
+      "foregroundColor": {
+        "label": "Foreground"
+      },
+      "accentColor": {
+        "label": "Accent"
+      }
+    }
+  },
   "canva": {
     "fields": {
       "canvaUrl": {

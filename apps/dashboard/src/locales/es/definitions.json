@@ -1,4 +1,113 @@
 {
+  "event-scroller": {
+    "fields": {
+      "dataSourceId": {
+        "label": "Fuente de datos",
+        "description": "Conecta un calendario u otra fuente de registros."
+      },
+      "titleField": {
+        "label": "Campo de título"
+      },
+      "startField": {
+        "label": "Campo de inicio"
+      },
+      "endField": {
+        "label": "Campo de fin"
+      },
+      "locationField": {
+        "label": "Campo de ubicación"
+      },
+      "categoryField": {
+        "label": "Campo de categoría"
+      },
+      "heading": {
+        "label": "Encabezado"
+      },
+      "maximumItems": {
+        "label": "Máximo de eventos"
+      },
+      "hideEnded": {
+        "label": "Ocultar eventos pasados",
+        "description": "Los eventos terminados desaparecen según el reloj del Player. Los eventos sin fin permanecen hasta el final del día local."
+      },
+      "showWeekday": {
+        "label": "Mostrar día de la semana"
+      },
+      "showDate": {
+        "label": "Mostrar fecha"
+      },
+      "showTime": {
+        "label": "Mostrar hora"
+      },
+      "showLocation": {
+        "label": "Mostrar ubicación"
+      },
+      "showCategory": {
+        "label": "Mostrar categoría"
+      },
+      "showDividers": {
+        "label": "Mostrar separadores"
+      },
+      "dateStyle": {
+        "label": "Estilo de fecha",
+        "options": {
+          "short": "Mes abreviado y día",
+          "day": "Día del mes",
+          "numeric": "Mes y día numéricos"
+        }
+      },
+      "emptyText": {
+        "label": "Mensaje vacío",
+        "description": "Déjalo vacío para usar el mensaje estándar."
+      },
+      "flow": {
+        "label": "Orientación",
+        "options": {
+          "auto": "Automática",
+          "vertical": "Vertical",
+          "horizontal": "Horizontal"
+        }
+      },
+      "verticalDirection": {
+        "label": "Dirección vertical",
+        "options": {
+          "up": "Arriba",
+          "down": "Abajo"
+        }
+      },
+      "horizontalDirection": {
+        "label": "Dirección horizontal",
+        "options": {
+          "left": "Izquierda",
+          "right": "Derecha"
+        }
+      },
+      "scrollSpeed": {
+        "label": "Velocidad de desplazamiento",
+        "description": "1 es lento, 10 es rápido. El ritmo de lectura se mantiene al añadir eventos."
+      },
+      "scrolling": {
+        "label": "Desplazamiento activado"
+      },
+      "density": {
+        "label": "Densidad",
+        "options": {
+          "compact": "Compacta",
+          "comfortable": "Cómoda",
+          "spacious": "Amplia"
+        }
+      },
+      "backgroundColor": {
+        "label": "Fondo"
+      },
+      "foregroundColor": {
+        "label": "Texto"
+      },
+      "accentColor": {
+        "label": "Acento"
+      }
+    }
+  },
   "canva": {
     "fields": {
       "canvaUrl": {

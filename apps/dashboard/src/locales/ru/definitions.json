@@ -1,4 +1,113 @@
 {
+  "event-scroller": {
+    "fields": {
+      "dataSourceId": {
+        "label": "Источник данных",
+        "description": "Подключите календарь или другой источник записей."
+      },
+      "titleField": {
+        "label": "Поле названия"
+      },
+      "startField": {
+        "label": "Поле начала"
+      },
+      "endField": {
+        "label": "Поле окончания"
+      },
+      "locationField": {
+        "label": "Поле места"
+      },
+      "categoryField": {
+        "label": "Поле категории"
+      },
+      "heading": {
+        "label": "Заголовок"
+      },
+      "maximumItems": {
+        "label": "Максимум событий"
+      },
+      "hideEnded": {
+        "label": "Скрывать прошедшие события",
+        "description": "Завершённые события исчезают по часам Player. События без окончания остаются до конца местного дня."
+      },
+      "showWeekday": {
+        "label": "Показывать день недели"
+      },
+      "showDate": {
+        "label": "Показывать дату"
+      },
+      "showTime": {
+        "label": "Показывать время"
+      },
+      "showLocation": {
+        "label": "Показывать место"
+      },
+      "showCategory": {
+        "label": "Показывать категорию"
+      },
+      "showDividers": {
+        "label": "Показывать разделители"
+      },
+      "dateStyle": {
+        "label": "Стиль даты",
+        "options": {
+          "short": "Краткий месяц и день",
+          "day": "День месяца",
+          "numeric": "Месяц и день цифрами"
+        }
+      },
+      "emptyText": {
+        "label": "Сообщение при отсутствии событий",
+        "description": "Оставьте пустым для стандартного сообщения."
+      },
+      "flow": {
+        "label": "Ориентация",
+        "options": {
+          "auto": "Автоматически",
+          "vertical": "Вертикально",
+          "horizontal": "Горизонтально"
+        }
+      },
+      "verticalDirection": {
+        "label": "Вертикальное направление",
+        "options": {
+          "up": "Вверх",
+          "down": "Вниз"
+        }
+      },
+      "horizontalDirection": {
+        "label": "Горизонтальное направление",
+        "options": {
+          "left": "Влево",
+          "right": "Вправо"
+        }
+      },
+      "scrollSpeed": {
+        "label": "Скорость прокрутки",
+        "description": "1 — медленно, 10 — быстро. Темп чтения сохраняется при добавлении событий."
+      },
+      "scrolling": {
+        "label": "Включить прокрутку"
+      },
+      "density": {
+        "label": "Плотность",
+        "options": {
+          "compact": "Компактная",
+          "comfortable": "Обычная",
+          "spacious": "Просторная"
+        }
+      },
+      "backgroundColor": {
+        "label": "Фон"
+      },
+      "foregroundColor": {
+        "label": "Текст"
+      },
+      "accentColor": {
+        "label": "Акцент"
+      }
+    }
+  },
   "canva": {
     "fields": {
       "canvaUrl": {

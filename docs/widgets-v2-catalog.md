@@ -74,6 +74,13 @@ The fates are:
 
 ### 3.2 Information
 
+Event Scroller (`event-scroller`, `tilecast.event-scroller`) is a V2-only
+Widget for a continuous event board. The gallery shows it in Information.
+It reads prepared records through mapped title, start, end, location, and
+category fields. It has no legacy fallback. Players must report its component
+capability before assignment. See [Event Scroller](widgets-v2.md#event-scroller)
+for its display and time rules.
+
 | Provider               | Name                 | Fate     | Component               | Notes                                                                       |
 | ---------------------- | -------------------- | -------- | ----------------------- | --------------------------------------------------------------------------- |
 | `news`                 | News                 | V2       | `tilecast.news`         | Shipped in #731.                                                            |
@@ -200,7 +207,7 @@ publishes the same typed object fields with semantic roles. Saved
 The gallery shows these groups:
 
 - **Essentials**: Text, Clock, Countdown, QR Code.
-- **Information**: News, Weather, Status, Agenda.
+- **Information**: News, Weather, Status, Agenda, Event Scroller.
 - **Data display**: List, Table, Cards, Menu Board, Ticker, Metrics,
   Progress, Spotlight, Chart, Timeline.
 - **Integrations**: the Web Integrations in §3.4.

@@ -7,6 +7,8 @@
  * and remote web content are never pixel-compared.
  */
 
+import eventScrollerFixture from "../../../widgets/event-scroller/fixtures/default.json" with { type: "json" };
+
 const WALL = "2026-09-01T16:00:00.000Z";
 const VIEWPORT = { width: 1280, height: 720 };
 
@@ -186,6 +188,59 @@ const componentLayout = {
       component: clockComponent({ format: "12" }),
     },
   ],
+};
+
+const eventScrollerComponent = (
+  config = {},
+  documents = eventScrollerFixture.documents,
+) => ({
+  component: {
+    type: "tilecast.event-scroller",
+    version: 1,
+    config: { ...eventScrollerFixture.configuration, ...config },
+    dataSources: [eventScrollerFixture.configuration.dataSourceId],
+    media: [],
+    empty: "skip-eligible",
+  },
+  documents,
+  media: {},
+  regional: { locale: "en-US", timeZone: "America/New_York", hourCycle: "h12" },
+});
+
+const scrollerBoundaryDocuments = {
+  [eventScrollerFixture.configuration.dataSourceId]: {
+    schemaVersion: 1,
+    datasets: [
+      {
+        id: "events",
+        kind: "records",
+        cache: { usingCachedData: true, unavailable: false },
+        fields: [
+          { key: "title", label: "Title", type: "text" },
+          { key: "start", label: "Start", type: "datetime" },
+          { key: "end", label: "End", type: "datetime" },
+        ],
+        records: [
+          {
+            id: "current",
+            values: {
+              title: { kind: "text", text: "Current event" },
+              start: { kind: "datetime", datetime: "2026-09-01T15:00:00Z" },
+              end: { kind: "datetime", datetime: "2026-09-01T16:00:05Z" },
+            },
+          },
+          {
+            id: "next",
+            values: {
+              title: { kind: "text", text: "Next event" },
+              start: { kind: "datetime", datetime: "2026-09-01T16:01:00Z" },
+              end: { kind: "datetime", datetime: "2026-09-01T16:02:00Z" },
+            },
+          },
+        ],
+      },
+    ],
+  },
 };
 
 /** The one stable current-widget compatibility fixture. */
@@ -768,6 +823,154 @@ export const fixtures = [
             // Wide strip: one row.
             styles: [
               { selector: ".stack", property: "flex-direction", value: "row" },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: "event-scroller",
+    description:
+      "Event Scroller under the runtime CSP: offline expiry and cap refill, static reduced motion, fullscreen board and adaptive Layout rail.",
+    steps: [
+      {
+        present: {
+          presentation: playing([
+            item("events-fullscreen", {
+              kind: "widget",
+              durationMs: null,
+              widget: eventScrollerComponent(),
+            }),
+          ]),
+          activation: activation(1),
+        },
+      },
+      { checkpoint: "fullscreen", visual: true },
+      {
+        assertWidgets: [
+          {
+            type: "tilecast.event-scroller",
+            textIncludes: ["WILDCAT ATHLETICS", "JV Volleyball", "5:30 PM"],
+            styles: [
+              {
+                selector: ".track",
+                property: "flex-direction",
+                value: "column",
+              },
+              { selector: ".track", property: "animation-name", value: "none" },
+              { selector: ".track", property: "transform", value: "none" },
+            ],
+          },
+        ],
+      },
+      {
+        present: {
+          presentation: playing([
+            item("events-clock", {
+              kind: "widget",
+              durationMs: null,
+              widget: eventScrollerComponent(
+                { maximumItems: 1 },
+                scrollerBoundaryDocuments,
+              ),
+            }),
+          ]),
+          activation: activation(2),
+        },
+      },
+      { checkpoint: "cached-current" },
+      {
+        assertWidgets: [
+          { type: "tilecast.event-scroller", textIncludes: ["Current event"] },
+        ],
+      },
+      { advance: 5008 },
+      { checkpoint: "expired-refilled" },
+      {
+        assertWidgets: [
+          { type: "tilecast.event-scroller", textIncludes: ["Next event"] },
+        ],
+      },
+      {
+        present: {
+          presentation: playing([
+            item("events-layout", {
+              kind: "layout",
+              durationMs: null,
+              layout: {
+                canvasWidth: 1920,
+                canvasHeight: 1080,
+                background: "#0e141b",
+                zones: [
+                  {
+                    id: "board",
+                    x: 60,
+                    y: 60,
+                    width: 1200,
+                    height: 650,
+                    layer: 1,
+                    opacity: 1,
+                    component: eventScrollerComponent(),
+                  },
+                  {
+                    id: "sidebar",
+                    x: 1340,
+                    y: 60,
+                    width: 500,
+                    height: 960,
+                    layer: 1,
+                    opacity: 1,
+                    component: eventScrollerComponent({
+                      heading: "",
+                      showLocation: true,
+                      showCategory: true,
+                    }),
+                  },
+                  {
+                    id: "rail",
+                    x: 60,
+                    y: 810,
+                    width: 1200,
+                    height: 180,
+                    layer: 1,
+                    opacity: 1,
+                    component: eventScrollerComponent({ heading: "" }),
+                  },
+                ],
+              },
+            }),
+          ]),
+          activation: activation(3),
+        },
+      },
+      { checkpoint: "layout", visual: true },
+      {
+        assertWidgets: [
+          {
+            type: "tilecast.event-scroller",
+            textIncludes: ["JV Volleyball"],
+            styles: [
+              {
+                selector: ".track",
+                property: "flex-direction",
+                value: "column",
+              },
+            ],
+          },
+          {
+            type: "tilecast.event-scroller",
+            textIncludes: ["JV Volleyball"],
+            styles: [
+              { selector: ".location", property: "display", value: "none" },
+              { selector: ".category", property: "display", value: "none" },
+            ],
+          },
+          {
+            type: "tilecast.event-scroller",
+            textIncludes: ["JV Volleyball"],
+            styles: [
+              { selector: ".track", property: "flex-direction", value: "row" },
             ],
           },
         ],
