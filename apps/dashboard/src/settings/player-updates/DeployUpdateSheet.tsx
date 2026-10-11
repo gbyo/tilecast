@@ -253,9 +253,17 @@ export function DeployUpdateSheet({
     },
   });
   useEffect(() => {
-    if (advanceAfterPrepare && release && deployable(release)) {
+    if (!advanceAfterPrepare || !release) return;
+    if (deployable(release)) {
       setAdvanceAfterPrepare(false);
       setStage(2);
+      return;
+    }
+    if (
+      release.cacheStatus === "failed" ||
+      release.verificationStatus === "failed"
+    ) {
+      setAdvanceAfterPrepare(false);
     }
   }, [advanceAfterPrepare, release]);
   const result = preview.data;
@@ -315,7 +323,8 @@ export function DeployUpdateSheet({
   });
   const stageKey =
     stage === 1 ? "release" : stage === 2 ? "targets" : "rollout";
-  const selectedBuildPreparing = release?.cacheStatus === "downloading";
+  const selectedBuildPreparing =
+    advanceAfterPrepare || release?.cacheStatus === "downloading";
   const canPrepareSelected =
     !!release &&
     !deployable(release) &&
@@ -493,7 +502,8 @@ export function DeployUpdateSheet({
                           : undefined;
                     setReleaseGroupId(String(value));
                     setReleaseId(automatic?.id ?? "");
-                        setSelected([]);
+                    setAdvanceAfterPrepare(false);
+                    setSelected([]);
                   }}
                 >
                   <SelectTrigger id="update-version">
@@ -552,7 +562,8 @@ export function DeployUpdateSheet({
                 onValueChange={(value) => {
                   if (value !== releaseId) {
                     setReleaseId(String(value));
-                        setSelected([]);
+                    setAdvanceAfterPrepare(false);
+                    setSelected([]);
                   }
                 }}
                 aria-label={t("updates.console.buildLabel")}
