@@ -295,20 +295,25 @@ export function DeployUpdateSheet({
   });
   const stageKey =
     stage === 1 ? "release" : stage === 2 ? "targets" : "rollout";
+  const canPrepareSelected =
+    !!release &&
+    !deployable(release) &&
+    (release.cacheStatus === "downloading" || !!readiness?.cacheable);
+  const busy = deploy.isPending || prepare.isPending;
   const footer = (
     <div className="flex w-full flex-wrap items-center justify-between gap-2">
       <Button
         variant="ghost"
-        disabled={deploy.isPending}
+        disabled={busy}
         onClick={() => (stage === 1 ? onClose() : setStage(stage - 1))}
       >
         {stage === 1 ? t("common:actions.cancel") : t("common:actions.back")}
       </Button>
       <Button
         disabled={
-          deploy.isPending ||
+          busy ||
           (stage === 1
-            ? !release || !deployable(release)
+            ? !release || (!deployable(release) && !canPrepareSelected)
             : stage === 2
               ? !result?.targetCount ||
                 !!result.blockedCount ||
@@ -316,19 +321,38 @@ export function DeployUpdateSheet({
                 preview.isError
               : !ready)
         }
-        onClick={() => (stage === 3 ? deploy.mutate() : setStage(stage + 1))}
+        onClick={() => {
+          if (stage === 3) {
+            deploy.mutate();
+            return;
+          }
+          if (stage === 2) {
+            setStage(3);
+            return;
+          }
+          if (!release) return;
+          if (deployable(release)) {
+            setStage(2);
+            return;
+          }
+          if (canPrepareSelected) prepare.mutate(release);
+        }}
       >
-        {deploy.isPending && <Spinner />}
+        {(deploy.isPending || prepare.isPending) && <Spinner />}
         {stage === 3
           ? t("updates.panel.deployAction")
-          : t("updates.console.continue")}
+          : stage === 1 && release && !deployable(release)
+            ? prepare.isPending
+              ? t("updates.console.preparingBuild")
+              : t("updates.console.prepareAndContinue")
+            : t("updates.console.continue")}
       </Button>
     </div>
   );
   return (
     <UpdateSurface
       open
-      onOpenChange={(open) => !open && !deploy.isPending && onClose()}
+      onOpenChange={(open) => !open && !busy && onClose()}
       title={t("updates.panel.deployAction")}
       description={t("updates.console.step", {
         stage,
@@ -369,73 +393,228 @@ export function DeployUpdateSheet({
         {t(`updates.console.stepHints.${stageKey}`)}
       </p>
       {stage === 1 && (
-        <FieldSet>
-          <FieldLegend variant="label" className="sr-only">
-            {t("updates.panel.releaseLabel")}
-          </FieldLegend>
-          {!releases.some(deployable) && (
-            <Alert>
+        <div className="grid gap-6">
+          <Field>
+            <FieldLabel htmlFor="update-player-family">
+              {t("updates.console.playerFamily")}
+            </FieldLabel>
+            <Select
+              items={families.map((value) => ({
+                value,
+                label: familyLabel(value, t),
+              }))}
+              value={family}
+              onValueChange={(value) => {
+                if (!value || value === family) return;
+                setFamily(value as UpdateFamilyTab);
+                setReleaseGroupId("");
+                setReleaseId("");
+                setSelected([]);
+              }}
+            >
+              <SelectTrigger id="update-player-family">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {families.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {familyLabel(value, t)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              {t("updates.console.playerFamilyHint")}
+            </FieldDescription>
+          </Field>
+
+          <FieldSet>
+            <FieldLegend>{t("updates.console.versionLabel")}</FieldLegend>
+            {releaseGroups.length ? (
+              <RadioGroup
+                value={releaseGroupId}
+                onValueChange={(value) => {
+                  const next = releaseGroups.find(
+                    (items) => releaseGroupKey(items) === String(value),
+                  );
+                  setReleaseGroupId(String(value));
+                  setReleaseId(next?.length === 1 ? next[0]!.id : "");
+                  setSelected([]);
+                }}
+                aria-label={t("updates.console.versionLabel")}
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {releaseGroups.map((variants) => {
+                    const representative = variants[0]!;
+                    const key = releaseGroupKey(variants);
+                    return (
+                      <Card
+                        key={key}
+                        size="sm"
+                        className={
+                          releaseGroupId === key
+                            ? "ring-2 ring-primary/50"
+                            : "transition-colors hover:bg-accent/20"
+                        }
+                      >
+                        <CardContent>
+                          <Field orientation="horizontal" className="gap-3">
+                            <RadioGroupItem
+                              id={`release-version-${key}`}
+                              value={key}
+                              aria-label={`${representative.versionName} · ${
+                                representative.channel === "beta"
+                                  ? t("updates.panel.channelBeta")
+                                  : t("updates.panel.channelStable")
+                              }`}
+                            />
+                            <FieldContent>
+                              <FieldLabel
+                                htmlFor={`release-version-${key}`}
+                                className="flex flex-wrap gap-2"
+                              >
+                                {representative.versionName}
+                                <Badge variant="outline">
+                                  {representative.channel === "beta"
+                                    ? t("updates.panel.channelBeta")
+                                    : t("updates.panel.channelStable")}
+                                </Badge>
+                              </FieldLabel>
+                              <FieldDescription>
+                                {new Date(
+                                  representative.publishedAt,
+                                ).toLocaleDateString(locale)}
+                                {" · "}
+                                {representative.source === "github"
+                                  ? t("updates.panel.sourceGitHub")
+                                  : t("updates.panel.sourceUpload")}
+                              </FieldDescription>
+                            </FieldContent>
+                          </Field>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </RadioGroup>
+            ) : (
+              <Alert>
+                <AlertDescription>
+                  {t("updates.console.noReleasesForFamily", {
+                    family: familyLabel(family, t),
+                  })}
+                </AlertDescription>
+              </Alert>
+            )}
+          </FieldSet>
+
+          {releaseGroup && (
+            <FieldSet>
+              <FieldLegend>{t("updates.console.buildLabel")}</FieldLegend>
+              <FieldDescription>
+                {t("updates.console.buildHint")}
+              </FieldDescription>
+              <RadioGroup
+                value={releaseId}
+                onValueChange={(value) => {
+                  if (value !== releaseId) {
+                    setReleaseId(String(value));
+                    setSelected([]);
+                  }
+                }}
+                aria-label={t("updates.console.buildLabel")}
+              >
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {releaseGroup.map((item) => {
+                    const itemReadiness = releaseReadiness(item, t);
+                    const matchingScreens = familyScreens.filter(
+                      (screen) =>
+                        !item.architecture ||
+                        screen.playerArchitecture === item.architecture,
+                    ).length;
+                    return (
+                      <Card
+                        key={item.id}
+                        size="sm"
+                        className={
+                          releaseId === item.id
+                            ? "ring-2 ring-primary/50"
+                            : "transition-colors hover:bg-accent/20"
+                        }
+                      >
+                        <CardContent>
+                          <Field orientation="horizontal" className="gap-3">
+                            <RadioGroupItem
+                              id={`release-build-${item.id}`}
+                              value={item.id}
+                              aria-label={`${architectureLabel(
+                                item.architecture,
+                                t,
+                              )} · ${item.architecture || familyLabel(family, t)}`}
+                            />
+                            <FieldContent>
+                              <FieldLabel
+                                htmlFor={`release-build-${item.id}`}
+                                className="flex flex-wrap gap-2"
+                              >
+                                {architectureLabel(item.architecture, t)}
+                                <Badge
+                                  variant={
+                                    deployable(item) ? "outline" : "secondary"
+                                  }
+                                >
+                                  {deployable(item)
+                                    ? t("updates.console.buildReady")
+                                    : item.cacheStatus === "downloading"
+                                      ? t("updates.console.preparingBuild")
+                                      : t("updates.console.buildPrepareNeeded")}
+                                </Badge>
+                              </FieldLabel>
+                              <FieldDescription>
+                                {item.architecture && (
+                                  <>
+                                    <span className="font-mono">
+                                      {item.architecture}
+                                    </span>
+                                    {" · "}
+                                  </>
+                                )}
+                                {t("updates.console.buildScreenCount", {
+                                  count: matchingScreens,
+                                })}
+                                {" · "}
+                                {formatBytes(item.apkSizeBytes, locale)}
+                              </FieldDescription>
+                              {itemReadiness.detail && (
+                                <p
+                                  className={
+                                    itemReadiness.tone === "danger"
+                                      ? "text-xs text-destructive"
+                                      : "text-xs text-muted-foreground"
+                                  }
+                                >
+                                  {itemReadiness.detail}
+                                </p>
+                              )}
+                            </FieldContent>
+                          </Field>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </RadioGroup>
+            </FieldSet>
+          )}
+
+          {prepare.error && (
+            <Alert variant="destructive">
               <AlertDescription>
-                {t("updates.console.noReadyRelease")}
+                {apiErrorMessage(prepare.error)}
               </AlertDescription>
             </Alert>
           )}
-          <RadioGroup
-            value={releaseId}
-            onValueChange={(value) => {
-              if (value !== releaseId) {
-                setReleaseId(String(value));
-                setSelected([]);
-              }
-            }}
-            aria-label={t("updates.panel.releaseLabel")}
-          >
-            {releases.map((r) => (
-              <Card
-                key={r.id}
-                size="sm"
-                className={
-                  releaseId === r.id
-                    ? "ring-2 ring-primary/50"
-                    : "transition-colors hover:bg-accent/20"
-                }
-              >
-                <CardContent>
-                  <Field orientation="horizontal" className="gap-3">
-                    <RadioGroupItem
-                      id={`release-${r.id}`}
-                      aria-label={`${r.versionName} · ${artifactIdentity(r, t)} · ${r.channel === "beta" ? t("updates.panel.channelBeta") : t("updates.panel.channelStable")}`}
-                      value={r.id}
-                      disabled={!deployable(r)}
-                    />
-                    <FieldContent>
-                      <FieldLabel
-                        htmlFor={`release-${r.id}`}
-                        className="flex flex-wrap gap-2"
-                      >
-                        {r.versionName}
-                        <Badge variant="outline">
-                          {r.channel === "beta"
-                            ? t("updates.panel.channelBeta")
-                            : t("updates.panel.channelStable")}
-                        </Badge>
-                        <span className="basis-full text-sm font-medium">
-                          {artifactIdentity(r, t)}
-                        </span>
-                      </FieldLabel>
-                      <FieldDescription>
-                        {formatBytes(r.apkSizeBytes, locale)} ·{" "}
-                        {new Date(r.publishedAt).toLocaleDateString(locale)}
-                        {!deployable(r) &&
-                          ` · ${t("updates.console.prepareFirst")}`}
-                      </FieldDescription>
-                    </FieldContent>
-                  </Field>
-                </CardContent>
-              </Card>
-            ))}
-          </RadioGroup>
-        </FieldSet>
+        </div>
       )}
       {stage === 2 && (
         <>
