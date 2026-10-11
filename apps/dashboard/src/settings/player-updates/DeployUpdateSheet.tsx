@@ -159,7 +159,9 @@ export function DeployUpdateSheet({
       api.createUpdateDeployment(
         {
           ...selection,
-          name: `${release ? artifactIdentity(release, t) : "Tilecast Player"} ${release?.versionName}`,
+          name: release
+            ? `${artifactIdentity(release, t)} ${release.versionName}`
+            : "",
           mode,
           canarySize: canary ? canarySize : 0,
           maintenanceWindowStart:
@@ -223,7 +225,7 @@ export function DeployUpdateSheet({
       footer={footer}
       presentation="dialog"
     >
-      <ol className="grid grid-cols-3 gap-2" aria-label={t("updates.console.workspaceViews")}>
+      <ol className="grid grid-cols-3 gap-2" aria-label={t("updates.panel.deployAction")}>
         {(["release", "targets", "rollout"] as const).map((key, index) => (
           <li key={key} className={`rounded-lg border px-3 py-3 ${stage === index + 1 ? "border-primary bg-accent" : stage > index + 1 ? "border-primary/40" : "border-border"}`} aria-current={stage === index + 1 ? "step" : undefined}>
             <span className="block text-xs font-medium text-muted-foreground">{index + 1}</span>
