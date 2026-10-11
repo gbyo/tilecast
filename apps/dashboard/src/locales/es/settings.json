@@ -1301,6 +1301,8 @@
       "noReleasesForFamily": "No hay versiones disponibles para {{family}}.",
       "prepareAndContinue": "Preparar y continuar",
       "preparingBuild": "Preparando compilación…",
+      "startingPreparation": "Iniciando preparación…",
+      "preparationContinuesHint": "La preparación continúa en el servidor. Puedes cerrar este cuadro y volver más tarde.",
       "prepareBuildFailed": "Tilecast no pudo preparar esta compilación.",
       "prepareBuildTimedOut": "La preparación de esta compilación tardó demasiado. Inténtalo de nuevo.",
       "families": {
