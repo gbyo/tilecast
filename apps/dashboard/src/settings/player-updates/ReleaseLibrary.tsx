@@ -147,7 +147,11 @@ export function ReleaseLibrary({
           <Button
             variant="outline"
             size="sm"
-            disabled={!deployable(release)}
+            disabled={
+              !deployable(release) &&
+              release.cacheStatus !== "downloading" &&
+              !readiness.cacheable
+            }
             onClick={() => {
               setDetailIds(undefined);
               onDeploy(release.id);
