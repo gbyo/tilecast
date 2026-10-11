@@ -10,6 +10,15 @@
   },
   "providers": [
     {
+      "provider": "event-scroller",
+      "name": "Event Scroller",
+      "fate": "v2",
+      "component": "tilecast.event-scroller",
+      "creation": true,
+      "pr": "Event Scroller",
+      "status": "done"
+    },
+    {
       "provider": "text",
       "name": "Text",
       "fate": "v2",

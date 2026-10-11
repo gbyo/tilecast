@@ -51,6 +51,75 @@ No nonce and no `unsafe-inline` is necessary. The Android WebView baseline is re
 
 ## 2. Ownership
 
+### Event Scroller
+
+Event Scroller uses one component, `tilecast.event-scroller`, for fullscreen,
+Layout zones, and Studio preview. Its normal view shows single-line rows with
+date, title, and time columns. The optional heading stays fixed.
+The generic inspector supplies all controls. Its recommended frame is
+1920 × 1080. The preview is time-sensitive.
+
+The Widget reads any prepared records dataset. It requires a nonblank text
+title and a typed date or datetime start. Optional end, location, and category
+fields use semantic roles or known keys. Automatic mapping does not guess
+optional text fields by type. The Widget never fetches data.
+
+The component keeps all usable records. At display time it removes ended
+events, sorts starts in chronological order, then applies `maximumItems`.
+Equal starts keep source order. This order lets later events fill the cap when
+earlier events expire. Agenda retains its existing cap-before-filter behavior.
+
+Datetime ends are exclusive instants. Without an end, the event stays through
+its start day in the screen time zone. A date-only start names a calendar day;
+it sorts at the first instant of that local day. A date-only end includes its
+named local day. Calendar Data Sources already supply exclusive datetime ends.
+Date-only starts show no clock time. Dates use the screen locale. Datetime
+labels use the screen time zone and hour cycle. No format string is authorable.
+
+`ClockController` uses the corrected Widget clock. It wakes at datetime ends
+or at a minute boundary. Local-day changes remove open-ended events even with
+cached offline records. No expiry causes a fetch. An empty component reports
+`no_records`. Its `skip-eligible` policy follows the fullscreen and Layout rules
+in §6. Its compatibility fallback is `none`.
+
+`flow` accepts `auto`, `vertical`, or `horizontal`. Auto selects the horizontal
+rail when the container aspect ratio exceeds 4 and its height is at most
+360 pixels. Other containers use vertical rows. Forced flow stays on its
+selected axis. Container queries remove location below 1100 pixels, category
+below 700 pixels, and date below 300 pixels. Long titles truncate on one line.
+
+Scrolling uses exactly two identical logical groups. CSS gives each group a
+minimum size equal to the viewport on the movement axis. Grid rows distribute
+spare vertical space for short lists. Flex distributes spare horizontal space.
+This is the default `rowLayout: fill`. With `rowLayout: natural`, rows keep
+their intrinsic height and start at the top or left of the group. The group
+retains its viewport minimum. A short natural list can leave space after its
+last row; this is an explicit author choice.
+The track transforms by 50 percent of its own size with linear keyframes.
+The second group is hidden from accessibility. No layout measurement or
+JavaScript animation loop controls motion.
+
+The Style controls apply integer percentages to container-relative values.
+`textScale` accepts 50 through 300 for event text. `headingScale` accepts
+50 through 200 for the heading. `rowSpacing`, `contentPadding`, and
+`headingSpacing` accept 0 through 200. Each defaults to 100. Row spacing scales
+vertical row padding and the density minimum in fill mode. Natural mode removes
+that minimum and extra row stretch. Outer padding scales the board gutter.
+Heading spacing scales its lower padding and margin. Zero removes that space.
+The heading and event size controls are independent. Large text still uses
+single-line truncation. Bounded CSSOM properties apply these values under CSP.
+Configurations without these controls retain the default appearance.
+
+`scrollSpeed` accepts 1 through 10. The duration in seconds is
+`max(6, visibleEventCount) × (14 - scrollSpeed)`, bounded by the 100-event cap.
+The default speed is 3. Each event gets the same reading pace above six events;
+short lists get at least one calm viewport traversal. Separate vertical and
+horizontal direction controls have defaults `up` and `left`.
+
+With reduced motion or scrolling disabled, the component renders one static
+list from the start. CSS also disables transforms and hides the second group
+when `prefers-reduced-motion` applies. Static lists clip to the viewport.
+
 A **Data Source** owns acquisition, parsing, sanitization, refresh, caching, typed Data Documents, attribution, date-selection policy and diagnostics. Nothing in this document changes that.
 
 Data Document v1 has a `schemaVersion` and a list of datasets. Each dataset has an ID, a kind and a required `cache` object. The cache object has `usingCachedData` and `unavailable` flags. It can also have `cachedAt`, `staleAt`, `lastModified` and `upstreamExpiry` values. A dataset can also carry attribution, a time zone, units and date-selection rules. The document has no cache object at its root. The SDK types follow the manifest v16 schema.

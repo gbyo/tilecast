@@ -1,4 +1,141 @@
 {
+  "event-scroller": {
+    "fields": {
+      "dataSourceId": {
+        "label": "Fuente de datos",
+        "description": "Conecta un calendario u otra fuente de registros."
+      },
+      "titleField": {
+        "label": "Campo de título"
+      },
+      "startField": {
+        "label": "Campo de inicio"
+      },
+      "endField": {
+        "label": "Campo de fin"
+      },
+      "locationField": {
+        "label": "Campo de ubicación"
+      },
+      "categoryField": {
+        "label": "Campo de categoría"
+      },
+      "heading": {
+        "label": "Encabezado"
+      },
+      "maximumItems": {
+        "label": "Máximo de eventos"
+      },
+      "hideEnded": {
+        "label": "Ocultar eventos pasados",
+        "description": "Los eventos terminados desaparecen según el reloj del Player. Los eventos sin fin permanecen hasta el final del día local."
+      },
+      "showWeekday": {
+        "label": "Mostrar día de la semana"
+      },
+      "showDate": {
+        "label": "Mostrar fecha"
+      },
+      "showTime": {
+        "label": "Mostrar hora"
+      },
+      "showLocation": {
+        "label": "Mostrar ubicación"
+      },
+      "showCategory": {
+        "label": "Mostrar categoría"
+      },
+      "showDividers": {
+        "label": "Mostrar separadores"
+      },
+      "dateStyle": {
+        "label": "Estilo de fecha",
+        "options": {
+          "short": "Mes abreviado y día",
+          "day": "Día del mes",
+          "numeric": "Mes y día numéricos"
+        }
+      },
+      "emptyText": {
+        "label": "Mensaje vacío",
+        "description": "Déjalo vacío para usar el mensaje estándar."
+      },
+      "flow": {
+        "label": "Orientación",
+        "options": {
+          "auto": "Automática",
+          "vertical": "Vertical",
+          "horizontal": "Horizontal"
+        }
+      },
+      "verticalDirection": {
+        "label": "Dirección vertical",
+        "options": {
+          "up": "Arriba",
+          "down": "Abajo"
+        }
+      },
+      "horizontalDirection": {
+        "label": "Dirección horizontal",
+        "options": {
+          "left": "Izquierda",
+          "right": "Derecha"
+        }
+      },
+      "scrollSpeed": {
+        "label": "Velocidad de desplazamiento",
+        "description": "1 es lento, 10 es rápido. El ritmo de lectura se mantiene al añadir eventos."
+      },
+      "scrolling": {
+        "label": "Desplazamiento activado"
+      },
+      "textScale": {
+        "label": "Tamaño del texto (%)",
+        "description": "100 usa el tamaño automático. Auméntalo para mostrar el texto de los eventos más grande."
+      },
+      "headingScale": {
+        "label": "Tamaño del encabezado (%)",
+        "description": "Cambia el tamaño del encabezado sin modificar el texto de los eventos."
+      },
+      "rowLayout": {
+        "label": "Distribución de filas",
+        "description": "El espaciado natural mantiene las filas juntas. Las listas cortas pueden dejar espacio después del último evento.",
+        "options": {
+          "fill": "Llenar el área visible",
+          "natural": "Espaciado natural"
+        }
+      },
+      "rowSpacing": {
+        "label": "Espaciado de filas (%)",
+        "description": "Ajusta el espacio encima y debajo del texto de los eventos. Elige Espaciado natural para quitar el espacio adicional que llena el área visible."
+      },
+      "contentPadding": {
+        "label": "Margen interior del panel (%)",
+        "description": "Ajusta el espacio alrededor del panel. 0 lo elimina; 100 usa el margen automático."
+      },
+      "headingSpacing": {
+        "label": "Espaciado del encabezado (%)",
+        "description": "Ajusta el espacio debajo del encabezado y alrededor de su línea divisoria."
+      },
+      "density": {
+        "label": "Densidad",
+        "options": {
+          "compact": "Compacta",
+          "comfortable": "Cómoda",
+          "spacious": "Amplia"
+        }
+      },
+      "backgroundColor": {
+        "label": "Fondo"
+      },
+      "foregroundColor": {
+        "label": "Texto"
+      },
+      "accentColor": {
+        "label": "Acento"
+      }
+    }
+  },
   "canva": {
     "fields": {
       "canvaUrl": {

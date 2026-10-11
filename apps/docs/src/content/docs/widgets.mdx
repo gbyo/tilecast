@@ -19,20 +19,21 @@ Some Widgets, such as Clock and QR Code, need no Data Source. You enter their co
 
 Choose by what you want people to see. The **Works with** column says what kind of Data Source each one needs.
 
-| Widget           | Use it to show                                                                             | Works with                                                         |
-| ---------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
-| **Clock**        | The current time, in a **Standard**, **Minimal**, or **Analog** style.                     | No Data Source.                                                    |
-| **QR Code**      | A scannable link or text, with an optional heading and instruction.                        | No Data Source.                                                    |
-| **List**         | Short rows, each with main and secondary text, such as announcements or a staff directory. | Any records source.                                                |
-| **Table**        | Rows and columns that people compare, such as a bus schedule or game results.              | Any records source. You choose the columns.                        |
-| **Cards**        | Records that each stand on their own, with a title, body, badge, and optional image.       | Any records source.                                                |
-| **Ticker**       | One continuous scrolling line of short items, such as headlines or closures.               | Any records source, such as a feed, Manual Table, or Google Sheet. |
-| **News**         | Feed headlines with an optional summary, publication time, and source name.                | An RSS / Atom Feed, or another source with headline fields.        |
-| **Menu Board**   | Items with descriptions and aligned prices, grouped into sections.                         | Menu Items, or another source with item names and prices.          |
-| **Status**       | A current status, severity, message, and optional effective or expiry time.                | An object source, such as Status Message.                          |
-| **Alert Banner** | One urgent message in a shallow horizontal strip, such as a closure or severe alert.       | An object source with a message field. Severity is optional.       |
-| **Agenda**       | Events shown as an agenda, a current and next view, or a schedule board.                   | A Calendar, Events, or another source with a start date or time.   |
-| **Weather**      | Current conditions and a forecast of several days.                                         | A Weather Data Source.                                             |
+| Widget             | Use it to show                                                                             | Works with                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| **Clock**          | The current time, in a **Standard**, **Minimal**, or **Analog** style.                     | No Data Source.                                                    |
+| **QR Code**        | A scannable link or text, with an optional heading and instruction.                        | No Data Source.                                                    |
+| **List**           | Short rows, each with main and secondary text, such as announcements or a staff directory. | Any records source.                                                |
+| **Table**          | Rows and columns that people compare, such as a bus schedule or game results.              | Any records source. You choose the columns.                        |
+| **Cards**          | Records that each stand on their own, with a title, body, badge, and optional image.       | Any records source.                                                |
+| **Ticker**         | One continuous scrolling line of short items, such as headlines or closures.               | Any records source, such as a feed, Manual Table, or Google Sheet. |
+| **News**           | Feed headlines with an optional summary, publication time, and source name.                | An RSS / Atom Feed, or another source with headline fields.        |
+| **Menu Board**     | Items with descriptions and aligned prices, grouped into sections.                         | Menu Items, or another source with item names and prices.          |
+| **Status**         | A current status, severity, message, and optional effective or expiry time.                | An object source, such as Status Message.                          |
+| **Alert Banner**   | One urgent message in a shallow horizontal strip, such as a closure or severe alert.       | An object source with a message field. Severity is optional.       |
+| **Agenda**         | Events shown as an agenda, a current and next view, or a schedule board.                   | A Calendar, Events, or another source with a start date or time.   |
+| **Event Scroller** | A scrolling event board with a fixed heading, or a horizontal rail in a short, wide zone.  | Any records source with event titles and start dates or times.     |
+| **Weather**        | Current conditions and a forecast of several days.                                         | A Weather Data Source.                                             |
 
 A **records source** is any Data Source that provides rows of fields, such as a feed, a CSV file, a Google Sheet, a Manual Table, or a plugin source like Forms. See [Connect a Data Source](../data-sources/).
 
@@ -49,6 +50,51 @@ Status uses the screen's time zone for date-only effective and expiry fields. An
 Studio no longer offers feed-specific Widgets, such as **Custom RSS**, **Atom Feed**, **RSS Ticker**, **News Feed**, and the publisher Apps. The older QR Code Widget and **QR Call to Action** are replaced by the current **QR Code**. **School Status Banner** maps to Status. **Alert Banner** is a first-class strip Widget. **Now and Next** and **School Schedule** are Agenda styles. **Recognition Board** is now Cards. For feeds, use **News** or **Ticker** with an **RSS / Atom Feed** Data Source. Widgets you already saved with the older choices keep working, and you can still edit them.
 
 ## Create a Widget
+
+### Show a scrolling event board
+
+Choose **Event Scroller** for a TV showing games, meetings, services, or
+community events. It shows one line per event, with the date on the left, the
+title in the middle, and the time on the right. An optional **Heading** stays
+above the moving rows.
+
+Connect a Calendar, Events, Manual Table, Google Sheet, or plugin records
+source. Map **Title field** and **Start field**. Map **End field**, **Location
+field**, and **Category field** when your source supplies them. Events need a
+title and a date or time to appear. Optional fields aren't guessed from
+unrelated text columns.
+
+Under **Behavior**, leave **Flow** on **Auto** for a vertical board that changes
+to a horizontal rail in a short, wide Layout zone. Choose **Vertical** or
+**Horizontal** to keep that orientation. Set each direction and adjust
+**Scroll speed**: 1 is slow and 10 is fast. Turn off **Scrolling enabled** for
+a static list. Reduced-motion playback also uses a static list.
+
+**Hide past events** is on by default. Events with no end stay through their
+local start day. Date-only values keep their calendar day and show no clock
+time. Past events leave the board as the Player clock advances, including when
+it uses cached data offline. **Maximum events** limits relevant events, so past
+rows don't prevent later events from appearing. The empty message stays visible
+in Layouts; an empty fullscreen playlist item can advance.
+
+Under **Style**, use **Text size (%)** to enlarge event text and **Heading
+size (%)** to resize the heading separately. 100 keeps the automatic size;
+150 makes it one and a half times as large. Text still adapts to the zone.
+
+To reduce the space above and below each event, choose **Natural spacing**
+under **Row layout**, then lower **Row spacing (%)**. **Fill viewport** keeps
+rows spread across the available height. Natural spacing keeps rows together;
+a short list can leave space after its last event. Use **Outer padding (%)**
+for the space around the board and **Heading spacing (%)** for the space below
+the heading. Set a spacing control to 0 to remove that space.
+
+Use **Density**, colors, and the date, time, location, category, and divider
+controls to fit your screen. Larger text can truncate sooner. Long titles stay on one line. Smaller zones hide
+secondary fields to keep the title readable. Event Scroller requires a Player
+version that supports its component. See the [Event Scroller contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md#event-scroller)
+for the exact time and movement rules.
+
+### Save your Widget
 
 An Owner, Administrator, or Editor can create and edit Widgets.
 
@@ -154,7 +200,7 @@ Current Linux Players and Tilecast Edge show the Widgets in the table above the 
 
 Android Players, and Linux Players that haven't been updated, show a compatibility version instead. It shows the same information, but it can look different from the preview. For example, the Clock shows the time on its own, without the chosen style. To see the current design, [update the Player](../players/update-a-player/).
 
-**News** and **QR Code** have no compatibility version. Tilecast won't assign them to a screen whose Player can't show them. Use a current Linux Player or Tilecast Edge for these Widgets. For the technical rules, see [Widgets V2](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md).
+**News**, **QR Code**, and **Event Scroller** have no compatibility version. Tilecast won't assign them to a screen whose Player can't show them. Use a current Linux Player or Tilecast Edge for these Widgets. For the technical rules, see [Widgets V2](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md).
 
 ## Reuse a Widget
 

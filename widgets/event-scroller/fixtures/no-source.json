@@ -1,0 +1,32 @@
+{
+  "name": "No source",
+  "configuration": {
+    "dataSourceId": "",
+    "titleField": "",
+    "startField": "",
+    "endField": "",
+    "locationField": "",
+    "categoryField": "",
+    "heading": "",
+    "maximumItems": 20,
+    "hideEnded": true,
+    "showWeekday": true,
+    "showDate": true,
+    "showTime": true,
+    "showLocation": true,
+    "showCategory": false,
+    "showDividers": true,
+    "dateStyle": "short",
+    "emptyText": "",
+    "flow": "auto",
+    "verticalDirection": "up",
+    "horizontalDirection": "left",
+    "scrollSpeed": 3,
+    "scrolling": true,
+    "density": "comfortable",
+    "backgroundColor": "",
+    "foregroundColor": "",
+    "accentColor": ""
+  },
+  "expect": "empty"
+}
