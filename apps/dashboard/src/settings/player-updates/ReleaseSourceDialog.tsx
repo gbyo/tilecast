@@ -47,8 +47,10 @@ export function ReleaseSourceDialog({
       }
       return api.startGitHubDeviceAuthorization(csrf);
     },
-    onSuccess: (result) =>
-      setFlow({ ...result, retryAfterSeconds: result.pollIntervalSeconds }),
+    onSuccess: (result) => {
+      setFlow({ ...result, retryAfterSeconds: result.pollIntervalSeconds });
+      void client.invalidateQueries({ queryKey: ["player-releases"] });
+    },
     onError: (error) => {
       const message = apiErrorMessage(error);
       setError(message);
@@ -96,11 +98,15 @@ export function ReleaseSourceDialog({
             setError(message);
             toast.add({ title: message, type: "error" });
           } else
-            setFlow({
-              ...flow,
-              retryAfterSeconds:
-                result.retryAfterSeconds ?? flow.pollIntervalSeconds,
-            });
+            setFlow((current) =>
+              current
+                ? {
+                    ...current,
+                    retryAfterSeconds:
+                      result.retryAfterSeconds ?? current.pollIntervalSeconds,
+                  }
+                : current,
+            );
         })
         .catch((error) => {
           if (!disposed) {
