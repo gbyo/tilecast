@@ -37,7 +37,9 @@ pub trait LiveStreamHost: Send + Sync {
         max_bytes: u32,
     ) -> Result<CapturedFrame, CaptureError>;
     async fn presentation_protected(&self) -> bool;
-    fn supports_540p10_watch_live(&self) -> bool { false }
+    fn supports_540p10_watch_live(&self) -> bool {
+        false
+    }
     fn now(&self) -> Timestamp;
     fn live_frames(&self) -> &tokio::sync::watch::Sender<Option<LiveFrame>>;
 }
