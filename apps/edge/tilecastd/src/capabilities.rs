@@ -9,6 +9,7 @@ use std::sync::atomic::Ordering;
 
 use edge_protocol::bounded::{DetailText, ShortToken};
 use edge_protocol::capability::{Capability, CapabilityId, CapabilityState, ids};
+use edge_protocol::ipc::event::RendererPlatform;
 
 use crate::daemon::{DaemonContext, StateMode};
 
@@ -72,10 +73,37 @@ async fn daemon_capabilities(context: &DaemonContext) -> Vec<Capability> {
     out
 }
 
+/// Applies what the connected renderer reports about its own platform.
+///
+/// The daemon cannot open the display devices: its sandbox excludes them on
+/// purpose. A renderer that initialized a backend has proved that backend
+/// works, so the daemon records it as available and never contradicts the
+/// renderer with its own weaker probe.
+fn apply_renderer_platform(
+    capabilities: &mut [Capability],
+    platform: Option<RendererPlatform>,
+    now: edge_protocol::Timestamp,
+) {
+    let id = match platform {
+        Some(RendererPlatform::Drm) => ids::RENDERER_WPE_DRM,
+        Some(RendererPlatform::Wayland) => ids::RENDERER_WPE_WAYLAND,
+        Some(RendererPlatform::Headless) | None => return,
+    };
+    let Some(capability) = capabilities.iter_mut().find(|capability| capability.id.as_str() == id) else {
+        return;
+    };
+    let mut reported = Capability::new(capability.id.clone(), CapabilityState::Available, now);
+    reported.provider = ShortToken::new("tilecast-renderer-wpe").ok();
+    reported.detail = Some(DetailText::lossy("Reported by the connected renderer."));
+    *capability = reported;
+}
+
 /// Probes, persists and returns whether the revision changed.
 pub async fn refresh(context: &DaemonContext) -> bool {
     let now = context.now();
     let mut capabilities = context.capabilities.lock().await.probe_all(now).await;
+    let platform = context.presentation.lock().await.ready_info().map(|ready| ready.renderer.platform);
+    apply_renderer_platform(&mut capabilities, platform, now);
     for capability in daemon_capabilities(context).await {
         if !capabilities.iter().any(|c| c.id == capability.id) {
             capabilities.push(capability);
@@ -95,6 +123,54 @@ pub async fn refresh(context: &DaemonContext) -> bool {
         Err(error) => {
             tracing::warn!(component = "capabilities", event = "persist_failed", error = %error);
             false
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn now() -> edge_protocol::Timestamp {
+        edge_protocol::Timestamp::from_unix_seconds(1_000).expect("time")
+    }
+
+    /// What the daemon's own probe reported on beta.4 for a renderer that was
+    /// rendering on DRM.
+    fn probed() -> Vec<Capability> {
+        let mut drm =
+            Capability::new(CapabilityId::new(ids::RENDERER_WPE_DRM).unwrap(), CapabilityState::Blocked, now());
+        drm.reason_code = ShortToken::new("drm_permission_denied").ok();
+        let wayland =
+            Capability::new(CapabilityId::new(ids::RENDERER_WPE_WAYLAND).unwrap(), CapabilityState::Supported, now());
+        vec![drm, wayland]
+    }
+
+    #[test]
+    fn a_renderer_running_on_drm_is_never_blocked_by_the_daemons_probe() {
+        let mut capabilities = probed();
+        apply_renderer_platform(&mut capabilities, Some(RendererPlatform::Drm), now());
+        let drm = &capabilities[0];
+        assert_eq!(drm.state, CapabilityState::Available);
+        assert_eq!(drm.reason_code, None);
+        assert_eq!(drm.provider.as_ref().map(|p| p.as_str()), Some("tilecast-renderer-wpe"));
+        assert_eq!(capabilities[1].state, CapabilityState::Supported, "other backends are untouched");
+    }
+
+    #[test]
+    fn a_renderer_on_wayland_marks_wayland_only() {
+        let mut capabilities = probed();
+        apply_renderer_platform(&mut capabilities, Some(RendererPlatform::Wayland), now());
+        assert_eq!(capabilities[1].state, CapabilityState::Available);
+        assert_eq!(capabilities[0].state, CapabilityState::Blocked);
+    }
+
+    #[test]
+    fn without_a_renderer_report_the_probe_stands() {
+        for platform in [None, Some(RendererPlatform::Headless)] {
+            let mut capabilities = probed();
+            apply_renderer_platform(&mut capabilities, platform, now());
+            assert_eq!(capabilities, probed());
         }
     }
 }
