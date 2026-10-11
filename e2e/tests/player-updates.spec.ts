@@ -19,7 +19,7 @@ test("Player Updates preserves its family and view through browser navigation", 
   await expect(family).toBeVisible();
   await page.getByRole("tab", { name: "Release catalog", exact: true }).click();
   await family.click();
-  await page.getByRole("option", { name: "Windows", exact: true }).click();
+  await page.getByRole("option", { name: /Windows/ }).click();
   await expect(page).toHaveURL(
     /platform=windows.*keep=bookmark.*view=releases/,
   );
