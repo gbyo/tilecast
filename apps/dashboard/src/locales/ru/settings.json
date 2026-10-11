@@ -1304,6 +1304,8 @@
       "noReleasesForFamily": "Нет доступных выпусков для {{family}}.",
       "prepareAndContinue": "Подготовить и продолжить",
       "preparingBuild": "Подготовка сборки…",
+      "startingPreparation": "Запуск подготовки…",
+      "preparationContinuesHint": "Подготовка продолжается на сервере. Это окно можно закрыть и вернуться позже.",
       "prepareBuildFailed": "Tilecast не удалось подготовить эту сборку.",
       "prepareBuildTimedOut": "Подготовка сборки заняла слишком много времени. Повторите попытку.",
       "families": {
