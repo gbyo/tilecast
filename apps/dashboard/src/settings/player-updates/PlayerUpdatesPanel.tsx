@@ -6,6 +6,7 @@ import { MoreHorizontal, RefreshCw, Rocket, Upload } from "lucide-react";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
 import { apiErrorMessage } from "../../i18n";
+import { screenQueries } from "../../data/screens";
 import {
   releaseUpdateTab,
   screenUpdateTab,
@@ -93,8 +94,7 @@ function PlayerUpdatesWorkspace({
         : 15_000,
   });
   const screens = useQuery({
-    queryKey: ["screens"],
-    queryFn: api.screens,
+    ...screenQueries.list(),
     refetchInterval: 10_000,
   });
   const groups = useQuery({
