@@ -497,17 +497,26 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 	for index, target := range targets {
 		isCanary := canarySize > 0 && index < canarySize
 		state := "pending"
+		var safeError *string
 		if !target.recent {
 			state = "offline"
 		}
 		if minimumSDK != nil && target.sdk != nil && *target.sdk < *minimumSDK {
 			state = "incompatible"
+			reason := fmt.Sprintf("This release requires Android SDK %d, but this screen reports SDK %d.", *minimumSDK, *target.sdk)
+			safeError = &reason
 		}
 		// The family already matches by the query above; the shared rule
 		// additionally requires the reported architecture for an
 		// architecture-specific release.
 		if !updates.ScreenMatchesRelease(family, architecture, family, target.architecture) {
 			state = "incompatible"
+			reported := target.architecture
+			if reported == "" {
+				reported = "an unknown architecture"
+			}
+			reason := fmt.Sprintf("This release requires %s architecture, but this screen reports %s.", architecture, reported)
+			safeError = &reason
 		}
 		if target.current != nil && *target.current >= versionCode {
 			state = "already_current"
@@ -515,7 +524,7 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 		if canarySize > 0 && !isCanary && (state == "pending" || state == "offline") {
 			state = "held"
 		}
-		if _, err = tx.Exec(r.Context(), `INSERT INTO screen_update_states(deployment_id,screen_id,previous_version_code,expected_version_code,permission_status,state,completed_at,is_canary)VALUES($1,$2,$3,$4,$5,$6,CASE WHEN $6 IN('already_current','incompatible') THEN now() END,$7)`, id, target.id, target.current, versionCode, target.permission, state, isCanary); err != nil {
+		if _, err = tx.Exec(r.Context(), `INSERT INTO screen_update_states(deployment_id,screen_id,previous_version_code,expected_version_code,permission_status,state,completed_at,is_canary,safe_error)VALUES($1,$2,$3,$4,$5,$6,CASE WHEN $6 IN('already_current','incompatible') THEN now() END,$7,$8)`, id, target.id, target.current, versionCode, target.permission, state, isCanary, safeError); err != nil {
 			s.internalError(w, r, err)
 			return
 		}
