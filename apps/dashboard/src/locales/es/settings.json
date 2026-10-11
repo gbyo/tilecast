@@ -1281,6 +1281,26 @@
     "console": {
       "incompatibleTargets": "Pantallas incompatibles: {{count}}.",
       "playerFamily": "Familia de reproductor",
+      "playerFamilyHint": "Elige qué Tilecast Player vas a actualizar. Puedes cambiarlo sin salir del flujo de despliegue.",
+      "versionLabel": "Versión",
+      "buildLabel": "Compilación",
+      "buildHint": "Elige la compilación de CPU que corresponda a las pantallas que quieres actualizar.",
+      "architectures": {
+        "x86_64": "Intel / AMD de 64 bits",
+        "aarch64": "ARM64",
+        "standard": "Compilación estándar"
+      },
+      "buildReady": "Lista",
+      "buildPrepareNeeded": "Se descargará",
+      "buildScreenCount": "{{count}} pantallas compatibles",
+      "buildScreenCount_one": "{{count}} pantalla compatible",
+      "buildScreenCount_other": "{{count}} pantallas compatibles",
+      "buildScreenCount_many": "{{count}} pantallas compatibles",
+      "noReleasesForFamily": "No hay versiones disponibles para {{family}}.",
+      "prepareAndContinue": "Preparar y continuar",
+      "preparingBuild": "Preparando compilación…",
+      "prepareBuildFailed": "Tilecast no pudo preparar esta compilación.",
+      "prepareBuildTimedOut": "La preparación de esta compilación tardó demasiado. Inténtalo de nuevo.",
       "families": {
         "android": "Android",
         "linux": "Linux heredado",
@@ -1320,12 +1340,12 @@
       "continue": "Continuar",
       "step": "{{stage}} de 3 — {{title}}",
       "steps": {
-        "release": "Versión",
+        "release": "Versión y compilación",
         "targets": "Destinos",
         "rollout": "Despliegue"
       },
       "stepHints": {
-        "release": "Elige un archivo verificado. Su arquitectura debe coincidir con las pantallas.",
+        "release": "Elige el tipo de reproductor, la versión y la compilación. Tilecast la descarga y verifica aquí si hace falta.",
         "targets": "Busca pantallas o Grupos de pantallas. Tilecast comprueba cada pantalla incluida.",
         "rollout": "Elige cuándo instalar y revisa el despliegue antes de iniciarlo."
       },
