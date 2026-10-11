@@ -184,12 +184,24 @@ describe("screen list ordering and filters", () => {
 
 describe("release selection architecture", () => {
   it("distinguishes two releases with the same version and channel", () => {
-    expect(releaseDisplayLabel({ versionName: "0.26.0-beta.6", architecture: "x86_64" }, "Beta"))
-      .toBe("0.26.0-beta.6 · x86_64 · Beta");
-    expect(releaseDisplayLabel({ versionName: "0.26.0-beta.6", architecture: "aarch64" }, "Beta"))
-      .toBe("0.26.0-beta.6 · aarch64 · Beta");
-    expect(releaseDisplayLabel({ versionName: "0.26.0-beta.6", architecture: "" }, "Beta"))
-      .toBe("0.26.0-beta.6 · Beta");
+    expect(
+      releaseDisplayLabel(
+        { versionName: "0.26.0-beta.6", architecture: "x86_64" },
+        "Beta",
+      ),
+    ).toBe("0.26.0-beta.6 · x86_64 · Beta");
+    expect(
+      releaseDisplayLabel(
+        { versionName: "0.26.0-beta.6", architecture: "aarch64" },
+        "Beta",
+      ),
+    ).toBe("0.26.0-beta.6 · aarch64 · Beta");
+    expect(
+      releaseDisplayLabel(
+        { versionName: "0.26.0-beta.6", architecture: "" },
+        "Beta",
+      ),
+    ).toBe("0.26.0-beta.6 · Beta");
   });
 
   it("rejects wrong or unknown architectures, including screens selected through groups", () => {
@@ -198,11 +210,23 @@ describe("release selection architecture", () => {
       { name: "Cafeteria Right", playerArchitecture: "aarch64" },
       { name: "Library", playerArchitecture: undefined },
     ];
-    expect(mismatchedArchitectureScreens(screens, { playerFamily: "edge", architecture: "x86_64" }))
-      .toEqual([screens[1], screens[2]]);
-    expect(mismatchedArchitectureScreens(screens, { playerFamily: "windows", architecture: "x86_64" }))
-      .toEqual([screens[1], screens[2]]);
-    expect(mismatchedArchitectureScreens(screens, { playerFamily: "android", architecture: "" }))
-      .toEqual([]);
+    expect(
+      mismatchedArchitectureScreens(screens, {
+        playerFamily: "edge",
+        architecture: "x86_64",
+      }),
+    ).toEqual([screens[1], screens[2]]);
+    expect(
+      mismatchedArchitectureScreens(screens, {
+        playerFamily: "windows",
+        architecture: "x86_64",
+      }),
+    ).toEqual([screens[1], screens[2]]);
+    expect(
+      mismatchedArchitectureScreens(screens, {
+        playerFamily: "android",
+        architecture: "",
+      }),
+    ).toEqual([]);
   });
 });
