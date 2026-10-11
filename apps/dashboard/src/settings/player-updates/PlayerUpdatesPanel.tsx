@@ -337,7 +337,6 @@ function PlayerUpdatesWorkspace({
           onImported={() => {
             setUpload(false);
             changeView("releases");
-            void client.invalidateQueries({ queryKey: ["player-releases"] });
           }}
         />
       )}
