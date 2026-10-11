@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
@@ -56,6 +56,7 @@ import {
   FieldError,
 } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
+import { Progress } from "../../components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
 import { Switch } from "../../components/ui/switch";
 import {
@@ -152,7 +153,7 @@ export function DeployUpdateSheet({
   const [releaseId, setReleaseId] = useState(
     automaticInitialRelease?.id ?? "",
   );
-  const [preparedRelease, setPreparedRelease] = useState<PlayerRelease>();
+  const [advanceAfterPrepare, setAdvanceAfterPrepare] = useState(false);
   const [selected, setSelected] = useState<TargetChoice[]>([]);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<UpdateDeploymentMode>("install_now");
@@ -168,10 +169,7 @@ export function DeployUpdateSheet({
   const releaseGroup = releaseGroups.find(
     (items) => releaseGroupKey(items) === releaseGroupId,
   );
-  const release =
-    preparedRelease?.id === releaseId
-      ? preparedRelease
-      : releases.find((item) => item.id === releaseId);
+  const release = releases.find((item) => item.id === releaseId);
   const readiness = release ? releaseReadiness(release, t) : undefined;
   const familyScreens = useMemo(
     () => screens.filter((screen) => screenUpdateTab(screen) === family),
@@ -247,37 +245,19 @@ export function DeployUpdateSheet({
     refetchInterval: 5_000,
   });
   const prepare = useMutation({
-    mutationFn: async (selectedRelease: PlayerRelease) => {
-      if (selectedRelease.cacheStatus !== "downloading") {
-        await api.cachePlayerRelease(selectedRelease.id, csrf);
-      }
-      for (let attempt = 0; attempt < 900; attempt += 1) {
-        const catalog = await api.playerReleases();
-        client.setQueryData(["player-releases"], catalog);
-        const refreshed = catalog.items.find(
-          (item) => item.id === selectedRelease.id,
-        );
-        if (refreshed && deployable(refreshed)) return refreshed;
-        if (
-          refreshed?.cacheStatus === "failed" ||
-          refreshed?.verificationStatus === "failed"
-        ) {
-          throw new Error(
-            refreshed.verificationError ??
-              t("updates.console.prepareBuildFailed"),
-          );
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1_000));
-      }
-      throw new Error(t("updates.console.prepareBuildTimedOut"));
+    mutationFn: (selectedRelease: PlayerRelease) =>
+      api.cachePlayerRelease(selectedRelease.id, csrf),
+    onSuccess: () => {
+      setAdvanceAfterPrepare(true);
+      return client.invalidateQueries({ queryKey: ["player-releases"] });
     },
-    onSuccess: (refreshed) => {
-      setPreparedRelease(refreshed);
-      setStage(2);
-    },
-    onSettled: () =>
-      client.invalidateQueries({ queryKey: ["player-releases"] }),
   });
+  useEffect(() => {
+    if (advanceAfterPrepare && release && deployable(release)) {
+      setAdvanceAfterPrepare(false);
+      setStage(2);
+    }
+  }, [advanceAfterPrepare, release]);
   const result = preview.data;
   const candidateById = new Map(
     candidates.data?.screens.map((s) => [s.screenId, s]),
@@ -335,10 +315,12 @@ export function DeployUpdateSheet({
   });
   const stageKey =
     stage === 1 ? "release" : stage === 2 ? "targets" : "rollout";
+  const selectedBuildPreparing = release?.cacheStatus === "downloading";
   const canPrepareSelected =
     !!release &&
     !deployable(release) &&
-    (release.cacheStatus === "downloading" || !!readiness?.cacheable);
+    !selectedBuildPreparing &&
+    !!readiness?.cacheable;
   const busy = deploy.isPending || prepare.isPending;
   const footer = (
     <div className="flex w-full flex-wrap items-center justify-between gap-2">
@@ -355,6 +337,7 @@ export function DeployUpdateSheet({
           (stage === 1
             ? !release ||
               selectedBuildScreenCount === 0 ||
+              selectedBuildPreparing ||
               (!deployable(release) && !canPrepareSelected)
             : stage === 2
               ? !result?.targetCount ||
@@ -383,11 +366,13 @@ export function DeployUpdateSheet({
         {(deploy.isPending || prepare.isPending) && <Spinner />}
         {stage === 3
           ? t("updates.panel.deployAction")
-          : stage === 1 && release && !deployable(release)
-            ? prepare.isPending
-              ? t("updates.console.preparingBuild")
-              : t("updates.console.prepareAndContinue")
-            : t("updates.console.continue")}
+          : stage === 1 && selectedBuildPreparing
+            ? t("updates.console.preparingBuild")
+            : stage === 1 && release && !deployable(release)
+              ? prepare.isPending
+                ? t("updates.console.startingPreparation")
+                : t("updates.console.prepareAndContinue")
+              : t("updates.console.continue")}
       </Button>
     </div>
   );
@@ -451,7 +436,6 @@ export function DeployUpdateSheet({
                 setFamily(value as UpdateFamilyTab);
                 setReleaseGroupId("");
                 setReleaseId("");
-                setPreparedRelease(undefined);
                 setSelected([]);
               }}
             >
@@ -508,8 +492,7 @@ export function DeployUpdateSheet({
                           : undefined;
                     setReleaseGroupId(String(value));
                     setReleaseId(automatic?.id ?? "");
-                    setPreparedRelease(undefined);
-                    setSelected([]);
+                        setSelected([]);
                   }}
                 >
                   <SelectTrigger id="update-version">
@@ -568,8 +551,7 @@ export function DeployUpdateSheet({
                 onValueChange={(value) => {
                   if (value !== releaseId) {
                     setReleaseId(String(value));
-                    setPreparedRelease(undefined);
-                    setSelected([]);
+                        setSelected([]);
                   }
                 }}
                 aria-label={t("updates.console.buildLabel")}
@@ -645,6 +627,32 @@ export function DeployUpdateSheet({
                                 >
                                   {itemReadiness.detail}
                                 </p>
+                              )}
+                              {item.cacheStatus === "downloading" && (
+                                <div className="grid gap-1 pt-1">
+                                  <Progress
+                                    value={
+                                      item.apkSizeBytes > 0
+                                        ? Math.min(
+                                            100,
+                                            Math.round(
+                                              (item.downloadedBytes /
+                                                item.apkSizeBytes) *
+                                                100,
+                                            ),
+                                          )
+                                        : 0
+                                    }
+                                    aria-label={t(
+                                      "updates.console.preparingBuild",
+                                    )}
+                                  />
+                                  <p className="text-xs text-muted-foreground">
+                                    {t(
+                                      "updates.console.preparationContinuesHint",
+                                    )}
+                                  </p>
+                                </div>
                               )}
                             </FieldContent>
                           </Field>
