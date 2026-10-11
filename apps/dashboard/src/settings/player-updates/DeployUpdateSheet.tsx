@@ -436,6 +436,7 @@ export function DeployUpdateSheet({
                 setFamily(value as UpdateFamilyTab);
                 setReleaseGroupId("");
                 setReleaseId("");
+                setAdvanceAfterPrepare(false);
                 setSelected([]);
               }}
             >
