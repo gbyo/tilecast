@@ -230,7 +230,9 @@ describe("guided deployment", () => {
     ).toHaveValue(1);
     const summary = screen.getByRole("region", { name: "Deployment review" });
     expect(summary).toHaveTextContent(release.versionName);
-    expect(summary).toHaveTextContent("Tilecast Edge · x86_64");
+    expect(summary).toHaveTextContent(
+      "Tilecast Edge · Intel / AMD 64-bit (x86_64)",
+    );
     expect(summary).toHaveTextContent(
       "2 screens · Install now · 1 canary screen",
     );
