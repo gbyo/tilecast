@@ -226,7 +226,6 @@ function PlayerUpdatesWorkspace({
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
           <p className="text-sm text-muted-foreground">
-            {familyLabel(family, t)} ·{" "}
             {t("updates.console.fleetCount", { count: familyScreens.length })}
           </p>
           <Select
