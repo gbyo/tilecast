@@ -1302,7 +1302,7 @@
       "buildScreenCount_few": "Подходящих экрана: {{count}}",
       "buildScreenCount_many": "Подходящих экранов: {{count}}",
       "noReleasesForFamily": "Нет доступных выпусков для {{family}}.",
-      "prepareAndContinue": "Подготовить и продолжить",
+      "prepareBuildAction": "Подготовить сборку",
       "preparingBuild": "Подготовка сборки…",
       "startingPreparation": "Запуск подготовки…",
       "preparationContinuesHint": "Подготовка продолжается на сервере. Это окно можно закрыть и вернуться позже.",
