@@ -139,33 +139,24 @@ function stateText(key: string): StateText {
   return stateTexts[key] ?? { label: key };
 }
 
-// The architecture is part of a release's identity. ARM64 and x86_64
-// releases often share the same version and channel.
+// Edge and ARM64 releases can share the same version and channel.
 export function releaseDisplayLabel(
   release: Pick<PlayerRelease, "versionName" | "architecture">,
   channelLabel: string,
 ): string {
-  return [release.versionName, release.architecture, channelLabel]
-    .filter(Boolean)
-    .join(" · ");
+  const parts = [release.versionName, release.architecture, channelLabel];
+  return parts.filter(Boolean).join(" · ");
 }
 
-// Use the same strict architecture check as the server for Edge/Windows.
-// Screen selections already include members of selected Display Groups.
-export function mismatchedArchitectureScreens<
-  T extends Pick<Screen, "playerArchitecture">,
->(
-  screens: readonly T[],
+// The server rejects missing as well as mismatched CPU architectures.
+export function screenMatchesReleaseArchitecture(
+  screen: Pick<Screen, "playerArchitecture">,
   release: Pick<PlayerRelease, "playerFamily" | "architecture"> | undefined,
-): T[] {
-  if (
-    !release ||
-    (release.playerFamily !== "edge" && release.playerFamily !== "windows")
-  )
-    return [];
-  return screens.filter(
-    (screen) => screen.playerArchitecture !== release.architecture,
-  );
+): boolean {
+  if (!release) return true;
+  const needsArchitecture =
+    release.playerFamily === "edge" || release.playerFamily === "windows";
+  return !needsArchitecture || screen.playerArchitecture === release.architecture;
 }
 
 export function screenUpdateMeaning(state: string): ScreenUpdateMeaning {
