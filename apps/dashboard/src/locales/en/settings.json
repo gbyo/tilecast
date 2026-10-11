@@ -1277,6 +1277,7 @@
   },
   "updates": {
     "console": {
+      "incompatibleTargets": "Incompatible screens: {{count}}.",
       "playerFamily": "Player family",
       "families": {
         "android": "Android",

@@ -1281,6 +1281,7 @@
   },
   "updates": {
     "console": {
+      "incompatibleTargets": "Несовместимые экраны: {{count}}.",
       "playerFamily": "Семейство плеера",
       "families": {
         "android": "Android",

@@ -285,6 +285,8 @@ Players never contact GitHub for deployment.
 
 The default **Deployments** view shows active deployments and recent history.
 Attention states sort before normal progress.
+Deployment summaries include incompatible target counts.
+Those targets need attention and do not count as work in progress.
 Studio omits an empty active section.
 Each deployment has one responsive row with its artifact, architecture,
 status, family, mode, time, and target count.

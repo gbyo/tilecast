@@ -94,6 +94,32 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Player Updates workspace", () => {
+  it("prioritizes incompatible targets without offering them a retry", async () => {
+    vi.mocked(api.updateDeployments).mockResolvedValue({
+      items: [
+        { ...deployment, id: "normal", failedCount: 0, waitingForUserCount: 0 },
+        {
+          ...deployment,
+          id: "blocked",
+          status: "completed",
+          failedCount: 0,
+          waitingForUserCount: 0,
+          incompatibleCount: 1,
+        },
+      ],
+    });
+    mount();
+    expect(
+      await screen.findByText("Incompatible screens: 1."),
+    ).toBeInTheDocument();
+    const first = screen
+      .getAllByRole("button", { name: "View rollout" })[0]!
+      .closest("li")!;
+    expect(
+      within(first).getByText("Incompatible screens: 1."),
+    ).toBeInTheDocument();
+    expect(within(first).queryByText(/needs a retry/)).not.toBeInTheDocument();
+  });
   it("defaults to Deployments, shows one semantic row, and keeps GitHub auth out of page chrome", async () => {
     mount();
     expect(screen.getByRole("tab", { name: "Deployments" })).toHaveAttribute(

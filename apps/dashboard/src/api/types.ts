@@ -1786,6 +1786,7 @@ export type UpdateDeployment = {
   failedCount: number;
   waitingForUserCount: number;
   rolloutMode?: string;
+  incompatibleCount?: number;
   rolloutPhase?: string;
   canarySize?: number;
   pauseReason?: string;

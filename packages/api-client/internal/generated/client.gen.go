@@ -11805,16 +11805,17 @@ type UpdateDeploymentStatus string
 
 // UpdateDeploymentSummary defines model for UpdateDeploymentSummary.
 type UpdateDeploymentSummary struct {
-	Architecture string               `json:"architecture"`
-	CanarySize   int                  `json:"canarySize"`
-	CompletedAt  *time.Time           `json:"completedAt,omitempty"`
-	CreatedAt    time.Time            `json:"createdAt"`
-	FailedCount  int                  `json:"failedCount"`
-	Id           openapi_types.UUID   `json:"id"`
-	LastFailure  *string              `json:"lastFailure"`
-	Mode         UpdateDeploymentMode `json:"mode"`
-	Name         string               `json:"name"`
-	PauseReason  *string              `json:"pauseReason"`
+	Architecture      string               `json:"architecture"`
+	CanarySize        int                  `json:"canarySize"`
+	CompletedAt       *time.Time           `json:"completedAt,omitempty"`
+	CreatedAt         time.Time            `json:"createdAt"`
+	FailedCount       int                  `json:"failedCount"`
+	Id                openapi_types.UUID   `json:"id"`
+	IncompatibleCount *int                 `json:"incompatibleCount,omitempty"`
+	LastFailure       *string              `json:"lastFailure"`
+	Mode              UpdateDeploymentMode `json:"mode"`
+	Name              string               `json:"name"`
+	PauseReason       *string              `json:"pauseReason"`
 
 	// Platform The Player operating-system platform. The set grows with new players; clients must tolerate values they do not recognize.
 	Platform PlayerPlatform `json:"platform"`

@@ -8799,6 +8799,7 @@ export interface components {
       failedCount: number;
       waitingForUserCount: number;
       rolloutMode: components["schemas"]["UpdateRolloutMode"];
+      incompatibleCount?: number;
       rolloutPhase: components["schemas"]["UpdateRolloutPhase"];
       canarySize: number;
       pauseReason: string | null;

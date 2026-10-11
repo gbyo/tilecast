@@ -141,6 +141,7 @@ export function deploymentNeedsAttention(item: UpdateDeployment) {
   return (
     item.status === "paused" ||
     item.failedCount > 0 ||
+    (item.incompatibleCount ?? 0) > 0 ||
     item.waitingForUserCount > 0
   );
 }

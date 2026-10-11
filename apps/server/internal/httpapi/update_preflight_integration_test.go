@@ -133,6 +133,17 @@ func TestUpdatePreviewMatchesCreationWithoutWrites(t *testing.T) {
 	if created.Data.TargetCount != 5 {
 		t.Fatalf("creation must exclude other family, count=%d", created.Data.TargetCount)
 	}
+	listRequest := requestWithTestPrincipal(httptest.NewRequest(http.MethodGet, "/api/v1/update-deployments", nil), auth.Session{User: auth.User{ID: f.user, Role: "owner"}})
+	listResponse := httptest.NewRecorder()
+	f.server.listUpdateDeployments(listResponse, listRequest)
+	var listed struct {
+		Data struct {
+			Items []struct{ IncompatibleCount int }
+		}
+	}
+	if err := json.Unmarshal(listResponse.Body.Bytes(), &listed); err != nil || listResponse.Code != 200 || len(listed.Data.Items) != 1 || listed.Data.Items[0].IncompatibleCount != 2 {
+		t.Fatalf("incompatible summary: %d %s", listResponse.Code, listResponse.Body)
+	}
 	for _, target := range preview.Screens {
 		if target.Family != "edge" {
 			if got := f.state(t, created.Data.ID, target.ID); got != "not_targeted" {

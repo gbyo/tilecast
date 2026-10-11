@@ -55,7 +55,13 @@ export function DeploymentList({
                 {item.architecture && (
                   <span className="font-mono text-xs">{item.architecture}</span>
                 )}
-                <Badge variant={item.failedCount ? "destructive" : "outline"}>
+                <Badge
+                  variant={
+                    item.failedCount || item.incompatibleCount
+                      ? "destructive"
+                      : "outline"
+                  }
+                >
                   {deploymentStatus(item.status, t)}
                 </Badge>
               </ItemTitle>
@@ -66,10 +72,18 @@ export function DeploymentList({
                 {t("updates.console.targetCount", { count: item.targetCount })}
               </ItemDescription>
               <div className="mt-2 max-w-xl">
-                <DeploymentMeter {...item} compact />
+                <DeploymentMeter
+                  {...item}
+                  failedCount={item.failedCount + (item.incompatibleCount ?? 0)}
+                  compact
+                />
               </div>
               <p className="text-xs text-muted-foreground">
-                {deploymentHeadline(item)}
+                {item.incompatibleCount
+                  ? t("updates.console.incompatibleTargets", {
+                      count: item.incompatibleCount,
+                    })
+                  : deploymentHeadline(item)}
               </p>
             </ItemContent>
             <ItemActions>

@@ -13824,6 +13824,7 @@ components:
         failedCount: { type: integer, minimum: 0 }
         waitingForUserCount: { type: integer, minimum: 0 }
         rolloutMode: { $ref: "#/components/schemas/UpdateRolloutMode" }
+        incompatibleCount: { type: integer, minimum: 0 }
         rolloutPhase: { $ref: "#/components/schemas/UpdateRolloutPhase" }
         canarySize: { type: integer, minimum: 0, maximum: 50 }
         pauseReason: { type: [string, "null"] }

@@ -1279,6 +1279,7 @@
   },
   "updates": {
     "console": {
+      "incompatibleTargets": "Pantallas incompatibles: {{count}}.",
       "playerFamily": "Familia de reproductor",
       "families": {
         "android": "Android",
