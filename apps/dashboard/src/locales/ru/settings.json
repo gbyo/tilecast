@@ -1318,6 +1318,7 @@
         "active": "Активно",
         "paused": "Приостановлено",
         "completed": "Завершено",
+        "completedWithIssues": "Завершено с проблемами",
         "cancelled": "Отменено"
       },
       "deployments": "Развёртывания",
