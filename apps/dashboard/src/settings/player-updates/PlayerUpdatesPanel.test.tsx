@@ -118,11 +118,11 @@ describe("Player Updates workspace", () => {
     });
     mount();
 
-    const active = await screen.findByRole("region", {
-      name: "Active deployments",
+    const progress = await screen.findByRole("region", {
+      name: /In progress/,
     });
-    expect(within(active).getByText("0.26.0-beta.6")).toBeInTheDocument();
-    expect(within(active).queryByText("0.25.0")).not.toBeInTheDocument();
+    expect(within(progress).getByText("0.26.0-beta.6")).toBeInTheDocument();
+    expect(within(progress).queryByText("0.25.0")).not.toBeInTheDocument();
 
     const history = screen.getByRole("table");
     expect(within(history).getByText("0.25.0")).toBeInTheDocument();
@@ -133,10 +133,9 @@ describe("Player Updates workspace", () => {
   });
   it("defaults to Deployments, shows one semantic row, and keeps GitHub auth out of page chrome", async () => {
     mount();
-    expect(screen.getByRole("tab", { name: "Deployments" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    const deploymentsTab = screen.getByRole("tab", { name: /Deployments/ });
+    expect(deploymentsTab).toHaveAttribute("aria-selected", "true");
+    expect(within(deploymentsTab).getByText("1")).toBeInTheDocument();
     expect(
       await screen.findByText("1 screen needs a retry."),
     ).toBeInTheDocument();
@@ -291,8 +290,11 @@ describe("Player Updates workspace", () => {
       await screen.findByRole("button", { name: "View rollout" }),
     );
     expect(await screen.findByText("Not enough storage.")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("ARM Hall")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Lobby")).not.toBeInTheDocument();
     expect(
-      within(screen.getByRole("dialog")).getByText("Tilecast Edge · x86_64"),
+      within(dialog).getByText("Tilecast Edge · x86_64"),
     ).toBeInTheDocument();
     cleanup();
     mount("/settings/player/updates?platform=edge&view=releases", false);
