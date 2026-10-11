@@ -354,9 +354,9 @@ export function ReleaseLibrary({
         <>
           <div className="grid gap-4">
             {visibleGroups.map((variants) => {
-            const release = variants[0]!;
-            return (
-              <Card key={release.id} size="sm">
+              const release = variants[0]!;
+              return (
+                <Card key={release.id} size="sm">
                 <CardHeader>
                   <CardTitle className="flex flex-wrap items-center gap-2">
                     <Button
@@ -385,8 +385,8 @@ export function ReleaseLibrary({
                 <CardContent className="gap-2">
                   {variants.map((r) => artifact(r))}
                 </CardContent>
-              </Card>
-            );
+                </Card>
+              );
             })}
           </div>
           {grouped.length > 5 && (
