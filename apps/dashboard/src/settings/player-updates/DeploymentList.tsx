@@ -1,4 +1,4 @@
-import { ChevronRight, CircleAlert } from "lucide-react";
+import { CheckCircle2, ChevronRight, CircleAlert } from "lucide-react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { UpdateDeployment } from "../../api/types";
@@ -226,6 +226,13 @@ export function DeploymentList({
             ))}
           </div>
         </section>
+      )}
+
+      {!operational.length && (
+        <div className="flex items-center gap-2 rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+          <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+          {t("updates.console.noActiveDeployments")}
+        </div>
       )}
 
       <section
