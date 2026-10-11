@@ -149,7 +149,7 @@ export function DeployUpdateSheet({
       api.createUpdateDeployment(
         {
           ...selection,
-          name: `Tilecast Player ${release?.versionName}`,
+          name: release ? `${artifactIdentity(release, t)} ${release.versionName}` : "",
           mode,
           canarySize: canary ? canarySize : 0,
           maintenanceWindowStart:
