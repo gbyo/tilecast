@@ -25,6 +25,7 @@ export function UpdateSurface({
   description,
   children,
   footer,
+  wide = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,6 +33,7 @@ export function UpdateSurface({
   description: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  wide?: boolean;
 }) {
   const desktop = useDesktopLayout();
   const body = (
@@ -43,7 +45,7 @@ export function UpdateSurface({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-4 sm:max-w-2xl"
+        className={wide ? "flex w-full flex-col gap-4 sm:max-w-3xl" : "flex w-full flex-col gap-4 sm:max-w-2xl"}
       >
         <SheetHeader className="shrink-0">
           <SheetTitle>{title}</SheetTitle>
