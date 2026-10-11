@@ -156,7 +156,8 @@ export function screenMatchesReleaseArchitecture(
   if (!release) return true;
   const needsArchitecture =
     release.playerFamily === "edge" || release.playerFamily === "windows";
-  return !needsArchitecture || screen.playerArchitecture === release.architecture;
+  if (!needsArchitecture) return true;
+  return screen.playerArchitecture === release.architecture;
 }
 
 export function screenUpdateMeaning(state: string): ScreenUpdateMeaning {
