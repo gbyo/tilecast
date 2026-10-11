@@ -9123,6 +9123,9 @@ paths:
   /api/v1/update-deployments/preview:
     post:
       operationId: previewUpdateDeployment
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      parameters:
+        - { $ref: "#/components/parameters/CSRFToken" }
       summary: Preview resolved Player update targets
       description: >-
         Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot
