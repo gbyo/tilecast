@@ -43,7 +43,8 @@ export function DeploymentList({
       item.status === "paused" ||
       deploymentNeedsAttention(item),
   );
-  const history = sorted.filter((item) => !active.includes(item));
+  const activeIds = new Set(active.map((item) => item.id));
+  const history = sorted.filter((item) => !activeIds.has(item.id));
   function rows(entries: UpdateDeployment[]) {
     return (
       <ItemGroup render={<ul />} className="gap-0 divide-y">
