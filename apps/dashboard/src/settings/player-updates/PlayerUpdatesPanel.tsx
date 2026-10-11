@@ -30,7 +30,13 @@ import {
   TabsTrigger,
   TabsContent,
 } from "../../components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 import { Spinner } from "../../components/ui/spinner";
 import { toast } from "../../components/ui/toast";
 import { DeploymentList } from "./DeploymentList";
@@ -137,58 +143,7 @@ function PlayerUpdatesWorkspace({
     setDeploymentId(id);
   }
   return (
-    <div className="grid min-w-0 gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {familyLabel(family, t)} ·{" "}
-          {t("updates.console.fleetCount", { count: familyScreens.length })}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {manageable && (
-            <Button
-              disabled={!screens.data || !groups.data}
-              onClick={() => setDraft({})}
-            >
-              <Rocket aria-hidden="true" />
-              {t("updates.panel.deployAction")}
-            </Button>
-          )}
-          {owner && (
-            <Button
-              variant="outline"
-              disabled={sync.isPending}
-              onClick={() => sync.mutate()}
-            >
-              {sync.isPending ? <Spinner /> : <RefreshCw aria-hidden="true" />}
-              {t("updates.console.sync")}
-            </Button>
-          )}
-          {owner && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t("updates.console.more")}
-                  />
-                }
-              >
-                <MoreHorizontal aria-hidden="true" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setUpload(true)}>
-                  <Upload aria-hidden="true" />
-                  {t("updates.panel.uploadRelease")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSource(true)}>
-                  {t("updates.console.configureSource")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
+    <div className="grid min-w-0 gap-6">
       {manageable && (screens.error || groups.error) && (
         <Alert variant="destructive">
           <AlertDescription>
@@ -206,44 +161,106 @@ function PlayerUpdatesWorkspace({
           </AlertDescription>
         </Alert>
       )}
-      <ToggleGroup
-        aria-label={t("updates.console.playerFamily")}
-        value={[family]}
-        onValueChange={(values) => {
-          const value = values[0];
-          if (!value || value === family) return;
-          const next = new URLSearchParams(params);
-          if (value === "android") next.delete("platform");
-          else next.set("platform", value);
-          setParams(next);
-        }}
-        variant="outline"
-        spacing={1}
-        className="flex flex-wrap justify-start"
-      >
-        {families.map((value) => (
-          <ToggleGroupItem key={value} value={value}>
-            {familyLabel(value, t)}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
       <Tabs
         value={view}
         onValueChange={(value) => changeView(String(value))}
         className="gap-4"
       >
-        <TabsList
-          variant="line"
-          aria-label={t("updates.console.workspaceViews")}
-          className="mb-1"
-        >
-          <TabsTrigger value="deployments">
-            {t("updates.console.deployments")}
-          </TabsTrigger>
-          <TabsTrigger value="releases">
-            {t("updates.console.releases")}
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b">
+          <TabsList
+            variant="line"
+            aria-label={t("updates.console.workspaceViews")}
+          >
+            <TabsTrigger value="deployments">
+              {t("updates.console.deployments")}
+            </TabsTrigger>
+            <TabsTrigger value="releases">
+              {t("updates.console.releases")}
+            </TabsTrigger>
+          </TabsList>
+          <div className="flex flex-wrap items-center gap-2 pb-2">
+            {manageable && (
+              <Button
+                disabled={!screens.data || !groups.data}
+                onClick={() => setDraft({})}
+              >
+                <Rocket aria-hidden="true" />
+                {t("updates.panel.deployAction")}
+              </Button>
+            )}
+            {owner && (
+              <Button
+                variant="outline"
+                disabled={sync.isPending}
+                onClick={() => sync.mutate()}
+              >
+                {sync.isPending ? (
+                  <Spinner />
+                ) : (
+                  <RefreshCw aria-hidden="true" />
+                )}
+                {t("updates.console.sync")}
+              </Button>
+            )}
+            {owner && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("updates.console.more")}
+                    />
+                  }
+                >
+                  <MoreHorizontal aria-hidden="true" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setUpload(true)}>
+                    <Upload aria-hidden="true" />
+                    {t("updates.panel.uploadRelease")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setSource(true)}>
+                    {t("updates.console.configureSource")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+          <p className="text-sm text-muted-foreground">
+            {t("updates.console.fleetCount", { count: familyScreens.length })}
+          </p>
+          <Select
+            items={families.map((value) => ({
+              value,
+              label: familyLabel(value, t),
+            }))}
+            value={family}
+            onValueChange={(value) => {
+              if (!value || value === family) return;
+              const next = new URLSearchParams(params);
+              if (value === "android") next.delete("platform");
+              else next.set("platform", value);
+              setParams(next);
+            }}
+          >
+            <SelectTrigger
+              aria-label={t("updates.console.playerFamily")}
+              className="min-w-44"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {families.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {familyLabel(value, t)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <TabsContent value="deployments">
           {deployments.isPending ? (
             <LoadingRows />
