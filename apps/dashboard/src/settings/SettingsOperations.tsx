@@ -85,7 +85,12 @@ import {
   DeploymentMeter,
   UpdateDeploymentDrawer,
 } from "./UpdateDeploymentDrawer";
-import { deploymentHeadline, screenUpdateMeaning } from "./playerUpdateStates";
+import {
+  deploymentHeadline,
+  mismatchedArchitectureScreens,
+  releaseDisplayLabel,
+  screenUpdateMeaning,
+} from "./playerUpdateStates";
 
 type MaintenanceActionKey =
   | "operations.system.actions.expired-upload-cleanup.label"
@@ -746,6 +751,18 @@ export function PlayerUpdatesPanel({
   const deployableReleases = releaseItems.filter(
     (item) =>
       item.verificationStatus === "verified" && item.cacheStatus === "cached",
+  );
+  const selectedRelease = deployableReleases.find((item) => item.id === releaseId);
+  const releaseLabel = (item: PlayerRelease) =>
+    releaseDisplayLabel(
+      item,
+      item.channel === "beta"
+        ? t("updates.panel.channelBeta")
+        : t("updates.panel.channelStable"),
+    );
+  const architectureMismatches = mismatchedArchitectureScreens(
+    selectedScreens,
+    selectedRelease,
   );
   const platformLabel = updateTabLabel(platform);
   // Deployment modes read from the server as slugs; known slugs resolve to
@@ -1496,7 +1513,7 @@ export function PlayerUpdatesPanel({
                       },
                       ...deployableReleases.map((item) => ({
                         value: item.id,
-                        label: `${item.versionName} · ${item.channel}`,
+                        label: releaseLabel(item),
                       })),
                     ]}
                     name="release"
@@ -1512,18 +1529,9 @@ export function PlayerUpdatesPanel({
                     >
                       <SelectValue>
                         {releaseId
-                          ? (() => {
-                              const selected = deployableReleases.find(
-                                (item) => item.id === releaseId,
-                              );
-                              return selected
-                                ? `${selected.versionName} · ${
-                                    selected.channel === "beta"
-                                      ? t("updates.panel.channelBeta")
-                                      : t("updates.panel.channelStable")
-                                  }`
-                                : releaseId;
-                            })()
+                          ? selectedRelease
+                            ? releaseLabel(selectedRelease)
+                            : releaseId
                           : deployableReleases.length
                             ? t("updates.panel.selectRelease")
                             : t("updates.panel.noRelease")}
@@ -1537,10 +1545,7 @@ export function PlayerUpdatesPanel({
                       </SelectItem>
                       {deployableReleases.map((item) => (
                         <SelectItem key={item.id} value={item.id}>
-                          {item.versionName} ·{" "}
-                          {item.channel === "beta"
-                            ? t("updates.panel.channelBeta")
-                            : t("updates.panel.channelStable")}
+                          {releaseLabel(item)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1733,6 +1738,21 @@ export function PlayerUpdatesPanel({
                   </div>
                 </div>
               </div>
+              {architectureMismatches.length > 0 && selectedRelease && (
+                <Alert variant="destructive" role="alert">
+                  <AlertDescription>
+                    {t("updates.panel.architectureMismatch", {
+                      architecture: selectedRelease.architecture,
+                      screens: architectureMismatches
+                        .map(
+                          (screen) =>
+                            `${screen.name} (${screen.playerArchitecture || t("updates.panel.architectureUnknown")})`,
+                        )
+                        .join(", "),
+                    })}
+                  </AlertDescription>
+                </Alert>
+              )}
               {(deploy.error || deploySuccess) && (
                 <div className="mt-4 grid gap-3">
                   <Alert
@@ -1783,6 +1803,7 @@ export function PlayerUpdatesPanel({
                   disabled={
                     !releaseId ||
                     !selectedScreens.length ||
+                    architectureMismatches.length > 0 ||
                     windowMissing ||
                     deploy.isPending
                   }
@@ -1814,17 +1835,17 @@ export function PlayerUpdatesPanel({
                         ? t("updates.panel.confirmSummaryOne", {
                             count: selectedScreens.length,
                             version:
-                              releaseItems.find((item) => item.id === releaseId)
-                                ?.versionName ??
-                              t("updates.panel.versionFallback"),
+                              (selectedRelease
+                                ? releaseLabel(selectedRelease)
+                                : t("updates.panel.versionFallback")),
                             mode: modeDisplayName.toLowerCase(),
                           })
                         : t("updates.panel.confirmSummaryOther", {
                             count: selectedScreens.length,
                             version:
-                              releaseItems.find((item) => item.id === releaseId)
-                                ?.versionName ??
-                              t("updates.panel.versionFallback"),
+                              (selectedRelease
+                                ? releaseLabel(selectedRelease)
+                                : t("updates.panel.versionFallback")),
                             mode: modeDisplayName.toLowerCase(),
                           })}
                     </p>
