@@ -17,7 +17,9 @@ impl player_core::LiveStreamHost for DaemonContext {
     async fn presentation_protected(&self) -> bool {
         presentation_protected(self).await
     }
-    fn supports_540p10_watch_live(&self) -> bool { true }
+    fn supports_540p10_watch_live(&self) -> bool {
+        true
+    }
     fn now(&self) -> edge_protocol::Timestamp {
         DaemonContext::now(self)
     }
