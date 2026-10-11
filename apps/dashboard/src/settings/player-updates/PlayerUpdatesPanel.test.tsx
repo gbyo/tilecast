@@ -150,6 +150,43 @@ describe("Player Updates workspace", () => {
       screen.queryByRole("button", { name: "Connect GitHub" }),
     ).not.toBeInTheDocument();
   });
+  it("surfaces attention from another Player type without leaving it hidden behind the filter", async () => {
+    vi.mocked(api.updateDeployments).mockResolvedValue({
+      items: [
+        {
+          ...deployment,
+          id: "edge-progress",
+          failedCount: 0,
+          waitingForUserCount: 0,
+        },
+        {
+          ...deployment,
+          id: "windows-failure",
+          platform: "windows",
+          playerFamily: "windows",
+          architecture: "x86_64",
+          failedCount: 1,
+          waitingForUserCount: 0,
+        },
+      ],
+    });
+    mount();
+    const deploymentsTab = screen.getByRole("tab", { name: /Deployments/ });
+    await waitFor(() =>
+      expect(within(deploymentsTab).getByText("1")).toBeInTheDocument(),
+    );
+    expect(
+      await screen.findByText(
+        "1 rollout needs attention in another Player type.",
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Windows/ }));
+    expect(screen.getByTestId("url")).toHaveTextContent("platform=windows");
+    expect(
+      await screen.findByText("1 screen needs a retry."),
+    ).toBeInTheDocument();
+  });
+
   it("uses a compact table for completed deployment history", async () => {
     vi.mocked(api.updateDeployments).mockResolvedValue({
       items: [
