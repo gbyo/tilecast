@@ -136,100 +136,161 @@ export function ReleaseSourceDialog({
               : t("updates.console.sourceHint")}
           </DialogDescription>
         </DialogHeader>
-        {flow ? (
-          <div className="grid gap-3">
-            <Field>
-              <FieldLabel>{t("updates.panel.oneTimeCode")}</FieldLabel>
-              <strong className="select-all font-mono text-xl tracking-widest">
-                {flow.userCode}
-              </strong>
-            </Field>
-            <a
-              href={flow.verificationUri}
-              target="_blank"
-              rel="noreferrer"
-              className={buttonVariants({ variant: "default" })}
-            >
-              <ExternalLink aria-hidden="true" />
-              {t("updates.panel.openGitHub")}
-            </a>
-            <p
-              role="status"
-              className="flex items-center gap-2 text-sm text-muted-foreground"
-            >
-              <Spinner />
-              {t("updates.panel.waitingAuth")}
-            </p>
-          </div>
-        ) : github.connected ? (
-          <p className="text-sm">
-            {github.login
-              ? t("updates.panel.authorizedAs", { login: github.login })
-              : t("updates.panel.authorizedToken")}
-          </p>
-        ) : !github.available && !configured ? (
-          <Field>
-            <FieldLabel htmlFor="github-client-id">
-              {t("updates.setup.clientIdLabel")}
-            </FieldLabel>
-            <FieldDescription>{t("updates.setup.intro")}</FieldDescription>
-            <a
-              className="text-sm underline"
-              href="https://github.com/settings/developers"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {t("updates.setup.openApps")}
-            </a>
-            <Input
-              id="github-client-id"
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              autoComplete="off"
-            />
-            <FieldDescription>
-              {t("updates.console.deviceFlowHint")}
-            </FieldDescription>
-          </Field>
-        ) : null}
+        <ReleaseSourceBody
+          github={github}
+          configured={configured}
+          clientId={clientId}
+          flow={flow}
+          onClientIdChange={setClientId}
+        />
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            {t("common:actions.cancel")}
-          </Button>
-          {!flow &&
-            (github.canDisconnect ? (
-              <Button
-                variant="outline"
-                disabled={disconnect.isPending}
-                onClick={() => disconnect.mutate()}
-              >
-                {disconnect.isPending && <Spinner />}
-                {t("updates.panel.disconnect")}
-              </Button>
-            ) : !github.connected ? (
-              <Button
-                disabled={
-                  start.isPending ||
-                  (!github.available &&
-                    !configured &&
-                    !/^[A-Za-z0-9._-]{8,128}$/.test(clientId.trim()))
-                }
-                onClick={() => {
-                  setError("");
-                  start.mutate();
-                }}
-              >
-                {start.isPending && <Spinner />}
-                {t("updates.panel.connect")}
-              </Button>
-            ) : null)}
-        </DialogFooter>
+        <ReleaseSourceFooter
+          github={github}
+          configured={configured}
+          clientId={clientId}
+          flow={flow}
+          startPending={start.isPending}
+          disconnectPending={disconnect.isPending}
+          onCancel={onClose}
+          onStart={() => {
+            setError("");
+            start.mutate();
+          }}
+          onDisconnect={() => disconnect.mutate()}
+        />
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ReleaseSourceBody({
+  github,
+  configured,
+  clientId,
+  flow,
+  onClientIdChange,
+}: {
+  github: GitHubAuthStatus;
+  configured: boolean;
+  clientId: string;
+  flow?: GitHubDeviceStart & { retryAfterSeconds: number };
+  onClientIdChange: (value: string) => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  if (flow) {
+    return (
+      <div className="grid gap-3">
+        <Field>
+          <FieldLabel>{t("updates.panel.oneTimeCode")}</FieldLabel>
+          <strong className="select-all font-mono text-xl tracking-widest">
+            {flow.userCode}
+          </strong>
+        </Field>
+        <a
+          href={flow.verificationUri}
+          target="_blank"
+          rel="noreferrer"
+          className={buttonVariants({ variant: "default" })}
+        >
+          <ExternalLink aria-hidden="true" />
+          {t("updates.panel.openGitHub")}
+        </a>
+        <p
+          role="status"
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+        >
+          <Spinner />
+          {t("updates.panel.waitingAuth")}
+        </p>
+      </div>
+    );
+  }
+  if (github.connected) {
+    return (
+      <p className="text-sm">
+        {github.login
+          ? t("updates.panel.authorizedAs", { login: github.login })
+          : t("updates.panel.authorizedToken")}
+      </p>
+    );
+  }
+  if (github.available || configured) return null;
+  return (
+    <Field>
+      <FieldLabel htmlFor="github-client-id">
+        {t("updates.setup.clientIdLabel")}
+      </FieldLabel>
+      <FieldDescription>{t("updates.setup.intro")}</FieldDescription>
+      <a
+        className="text-sm underline"
+        href="https://github.com/settings/developers"
+        target="_blank"
+        rel="noreferrer"
+      >
+        {t("updates.setup.openApps")}
+      </a>
+      <Input
+        id="github-client-id"
+        value={clientId}
+        onChange={(event) => onClientIdChange(event.target.value)}
+        autoComplete="off"
+      />
+      <FieldDescription>{t("updates.console.deviceFlowHint")}</FieldDescription>
+    </Field>
+  );
+}
+
+function ReleaseSourceFooter({
+  github,
+  configured,
+  clientId,
+  flow,
+  startPending,
+  disconnectPending,
+  onCancel,
+  onStart,
+  onDisconnect,
+}: {
+  github: GitHubAuthStatus;
+  configured: boolean;
+  clientId: string;
+  flow?: GitHubDeviceStart & { retryAfterSeconds: number };
+  startPending: boolean;
+  disconnectPending: boolean;
+  onCancel: () => void;
+  onStart: () => void;
+  onDisconnect: () => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  const clientIdReady =
+    github.available ||
+    configured ||
+    /^[A-Za-z0-9._-]{8,128}$/.test(clientId.trim());
+  return (
+    <DialogFooter>
+      <Button variant="ghost" onClick={onCancel}>
+        {t("common:actions.cancel")}
+      </Button>
+      {!flow && github.canDisconnect && (
+        <Button
+          variant="outline"
+          disabled={disconnectPending}
+          onClick={onDisconnect}
+        >
+          {disconnectPending && <Spinner />}
+          {t("updates.panel.disconnect")}
+        </Button>
+      )}
+      {!flow && !github.canDisconnect && !github.connected && (
+        <Button disabled={startPending || !clientIdReady} onClick={onStart}>
+          {startPending && <Spinner />}
+          {t("updates.panel.connect")}
+        </Button>
+      )}
+    </DialogFooter>
   );
 }
