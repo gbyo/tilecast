@@ -11,7 +11,7 @@
 //! stale data is never intentionally emitted. An inactive, expired,
 //! malformed, or incomplete session fails closed to no streaming.
 //!
-//! Bounds mirrored from the server contract: 640x360, 100 KiB, 125 ms target
+//! Bounds mirror the server maximum: 960x540, 100 KiB, 100 ms target
 //! interval (about 8 FPS). Server numbers are never trusted for allocations
 //! or timing: dimensions and byte limits are clamped to the local maximums,
 //! and the capture cadence has a local lower bound.
@@ -19,14 +19,14 @@
 use serde_json::Value;
 
 /// Local maximum frame dimensions (the server's `MaxWidth`/`MaxHeight`).
-pub const MAX_WIDTH: u32 = 640;
+pub const MAX_WIDTH: u32 = 960;
 /// Local maximum frame dimensions (the server's `MaxWidth`/`MaxHeight`).
-pub const MAX_HEIGHT: u32 = 360;
+pub const MAX_HEIGHT: u32 = 540;
 /// Local maximum encoded frame bytes (the server's `MaxFrameBytes`).
 pub const MAX_FRAME_BYTES: usize = 100 * 1024;
 /// Lower bound for the capture cadence: a faster server interval never speeds
-/// captures up past the protocol's 125 ms target.
-pub const MIN_FRAME_INTERVAL_MILLIS: u64 = 125;
+/// captures beyond the protocol's 100 ms minimum.
+pub const MIN_FRAME_INTERVAL_MILLIS: u64 = 100;
 /// Minimum pause between captures so a zero elapsed time cannot busy-loop.
 pub const MIN_CAPTURE_PAUSE_MILLIS: u64 = 25;
 
@@ -190,8 +190,8 @@ mod tests {
         let session_id = SESSION_ID.parse::<uuid::Uuid>().unwrap();
         let jpeg = [0xFF, 0xD8, 0x01, 0xFF, 0xD9];
         assert!(encode_live_stream_frame(&session_id, 1, 0, 360, &jpeg).is_none());
-        assert!(encode_live_stream_frame(&session_id, 1, 641, 360, &jpeg).is_none());
-        assert!(encode_live_stream_frame(&session_id, 1, 640, 361, &jpeg).is_none());
+        assert!(encode_live_stream_frame(&session_id, 1, 961, 360, &jpeg).is_none());
+        assert!(encode_live_stream_frame(&session_id, 1, 640, 541, &jpeg).is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, b"GIF89a").is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, &[0xFF, 0xD8, 0xFF]).is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, &[0xFF, 0xD8, 0x01, 0x02]).is_none());

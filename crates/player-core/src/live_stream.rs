@@ -37,19 +37,20 @@ pub trait LiveStreamHost: Send + Sync {
         max_bytes: u32,
     ) -> Result<CapturedFrame, CaptureError>;
     async fn presentation_protected(&self) -> bool;
+    fn supports_540p10_watch_live(&self) -> bool { false }
     fn now(&self) -> Timestamp;
     fn live_frames(&self) -> &tokio::sync::watch::Sender<Option<LiveFrame>>;
 }
 
 #[async_trait::async_trait]
 pub trait LiveStreamApi: Send + Sync {
-    async fn live_stream_session(&self) -> Result<LiveStreamSession, ServerError>;
+    async fn live_stream_session(&self, edge_540p10: bool) -> Result<LiveStreamSession, ServerError>;
 }
 
 #[async_trait::async_trait]
 impl LiveStreamApi for AuthenticatedServer {
-    async fn live_stream_session(&self) -> Result<LiveStreamSession, ServerError> {
-        AuthenticatedServer::live_stream_session(self).await
+    async fn live_stream_session(&self, edge_540p10: bool) -> Result<LiveStreamSession, ServerError> {
+        AuthenticatedServer::live_stream_session_with_profile(self, edge_540p10).await
     }
 }
 
@@ -198,7 +199,7 @@ pub async fn drive_live_stream<H, A>(
                 host.live_frames().send_replace(None);
                 IDLE_RECONCILE
             }
-            Some(api) => match api.live_stream_session().await {
+            Some(api) => match api.live_stream_session(host.supports_540p10_watch_live()).await {
                 Err(error) => {
                     tracing::debug!(
                         component = "live_stream",
@@ -389,7 +390,7 @@ mod tests {
 
     #[async_trait::async_trait]
     impl LiveStreamApi for Api {
-        async fn live_stream_session(&self) -> Result<LiveStreamSession, ServerError> {
+        async fn live_stream_session(&self, _edge_540p10: bool) -> Result<LiveStreamSession, ServerError> {
             let session = self.session.lock().unwrap().clone();
             self.fetched.send(()).await.unwrap();
             Ok(session)
