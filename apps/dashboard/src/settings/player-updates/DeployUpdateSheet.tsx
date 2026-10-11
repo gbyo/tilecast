@@ -486,6 +486,8 @@ function TargetsStep({
   result?: UpdateDeploymentPreview;
 }) {
   const { t } = useTranslation(["settings", "common"]);
+  const { t: screenT } = useTranslation("screens");
+  const targetAnchor = useComboboxAnchor();
   const candidateById = new Map(
     candidates?.screens.map((screen) => [screen.screenId, screen]),
   );
@@ -891,8 +893,6 @@ export function DeployUpdateSheet({
   onCreated: (id: string, family: UpdateFamilyTab) => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
-  const { t: screenT } = useTranslation("screens");
-  const locale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const client = useQueryClient();
@@ -944,8 +944,6 @@ export function DeployUpdateSheet({
   const [windowStart, setWindowStart] = useState("");
   const [canary, setCanary] = useState(false);
   const [canarySize, setCanarySize] = useState(1);
-  const targetAnchor = useComboboxAnchor();
-
   const familyReleases = releases.filter(
     (item) => releaseUpdateTab(item) === family,
   );
