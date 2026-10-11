@@ -2,6 +2,16 @@
 
 The generated [OpenAPI specification](openapi.yaml) is the canonical endpoint schema, composed from `docs/openapi/core.yaml` and extension fragments. This document explains cross-endpoint and operational behavior, not a second source of schema truth.
 
+`POST /api/v1/update-deployments/preview` checks a release and its direct or
+Display Group targets without writing deployment, command, audit, or cache data.
+It requires an Owner or Administrator session, CSRF, and write scope.
+The response includes resolved targets, compatibility reasons, and eligible,
+offline, already-current, and blocked counts.
+Preview and creation use the same resolver.
+Creation checks current metadata again in its transaction.
+Preview does not reserve targets or grant authorization.
+See [Player updates](player-updates.md#deployment-preflight-and-creation).
+
 The Server exposes JSON endpoints under `/api/v1`. Successful responses use `{"data": ...}`. Errors use `{"error":{"code":"...","message":"..."}}`. Unknown JSON fields and request bodies over 1 MiB are rejected.
 
 Player updates use release check/cache endpoints, Owner-only GitHub device-authorization start/poll/disconnect endpoints, deployment list/detail/create/cancel/retry endpoints, and device-authenticated update metadata, byte-range APK, and status endpoints. Only targeted screens can retrieve APK data. GitHub access tokens are never included in API responses. See [player-updates.md](player-updates.md) and `openapi.yaml`.

@@ -1,50 +1,73 @@
 ---
 title: Update Tilecast Player
-description: Add verified Android, Linux, Tilecast Edge, and Windows Player releases and deploy them to compatible screens.
+description: Prepare a signed Player release, check its target screens, and follow the rollout.
 ---
 
-Use **Settings** > **Player updates** to deploy signed Tilecast Player releases. This updates Player apps; it does not update Tilecast Server, containers, or the host operating system. Owners manage releases. Owners and Administrators can create deployments.
+Use **Settings** > **Player updates** to deploy signed Tilecast Player releases. Owners manage releases and the release source. Owners and Administrators can deploy updates. This updates the Player app; server, container, and operating-system updates have separate procedures.
 
 import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
-## Add a release
+## Find or add a release
+
+Choose **Android**, **Linux Legacy**, **Tilecast Edge**, or **Windows** in the **Player family** filter, then open **Releases**. Your family and view stay in the URL, so bookmarks and browser navigation restore them.
 
 <Steps>
 
-1. Choose **Android**, **Linux**, **Tilecast Edge**, or **Windows** under **Player platform**.
-2. Select **Sync from GitHub** to import releases from [Tilecast releases](https://github.com/gbyo/tilecast/releases), or select **Upload release** to add signed files directly. One Tilecast release holds the Android, Edge, and Windows updates for its version, and Sync imports each one on its own. A Beta release imports as the Beta channel and a Stable release as Stable. See [Releases and downloads](../../reference/releases/).
-3. For a direct upload, choose all three files from the same signed release:
-
-   | Platform      | Player file                              | Manifest                            | Signature                               |
-   | ------------- | ---------------------------------------- | ----------------------------------- | --------------------------------------- |
-   | Android       | `tilecast-player.apk`                    | `tilecast-player-update.json`       | `tilecast-player-update.json.sig`       |
-   | Linux         | `tilecast-player.AppImage`               | `tilecast-player-update-linux.json` | `tilecast-player-update-linux.json.sig` |
-   | Tilecast Edge | `tilecast-edge-<version>-<arch>.tar.zst` | `tilecast-edge-update.json`         | `tilecast-edge-update.json.sig`         |
-   | Windows       | `tilecast-windows-<version>-<arch>.msix` | `tilecast-windows-update.json`      | `tilecast-windows-update.json.sig`      |
-
-   Select **Upload and verify**. Tilecast verifies the files before adding the release to its update cache.
+1. Select **Sync releases** to import available Player artifacts from [Tilecast releases](https://github.com/gbyo/tilecast/releases). One coordinated release contains the Android, Edge, and Windows artifacts for its version. See [Releases and downloads](../../reference/releases/).
+2. Open a version to read its notes and check verification and cache status.
+3. Select **Prepare artifact** from the artifact's action menu if a verified GitHub release isn't cached yet. Wait for it to become ready.
 
 </Steps>
 
-For Windows and Edge, upload each architecture separately. Published Windows GitHub assets use architecture-specific names such as `tilecast-windows-update-x86_64.json`. For a **direct Windows upload**, save a local copy of the matching JSON and signature with the generic filenames in the table. Do not change their contents or mix architectures.
+Edge and Windows versions can have both `x86_64` and `aarch64` artifacts. The library groups those variants under the GitHub version, but each deployment uses one architecture. Direct uploads remain separate entries.
 
-If an update file in a release fails verification, Sync still imports the other platforms in that release and shows the reason for the one it rejected. GitHub releases show verification and cache status. If a release is verified but not cached, select **Download** to cache it. A release must be verified and cached before you can deploy it. The Windows preview is not available until a signed Windows release is published.
+If GitHub reports an error, the library keeps the releases it already has and shows the error. Use **Sync releases** to retry. Owners can open **More** > **Configure source** to configure GitHub's OAuth App client ID, connect with a device code, or disconnect a local connection. An environment-managed token must be changed on the server.
 
-## Deploy a release
+### Upload signed files directly
+
+Open **More** > **Upload release**. Choose or drop the three files from the same signed release:
+
+| Family        | Player file                              | Manifest                            | Signature                               |
+| ------------- | ---------------------------------------- | ----------------------------------- | --------------------------------------- |
+| Android       | `tilecast-player.apk`                    | `tilecast-player-update.json`       | `tilecast-player-update.json.sig`       |
+| Linux Legacy  | `tilecast-player.AppImage`               | `tilecast-player-update-linux.json` | `tilecast-player-update-linux.json.sig` |
+| Tilecast Edge | `tilecast-edge-<version>-<arch>.tar.zst` | `tilecast-edge-update.json`         | `tilecast-edge-update.json.sig`         |
+| Windows       | `tilecast-windows-<version>-<arch>.msix` | `tilecast-windows-update.json`      | `tilecast-windows-update.json.sig`      |
+
+Select **Upload and verify**. Transfer shows actual upload progress. Verification has its own waiting state, and the release becomes available only after the server verifies it.
+
+Cache removal asks for confirmation and is unavailable while an active or paused deployment uses the release. A GitHub artifact can be downloaded again. A purged direct upload must be uploaded again.
+
+## Deploy an update
 
 <Steps>
 
-1. Select **Deploy update**.
-2. Choose a **Verified release** and select screen and/or Display Group targets for the selected platform.
-3. Choose **Download only**, **Download and request installation**, or **Maintenance window**. For a maintenance window, choose the local time at which each Player may install.
-4. Set **Canary screens** if you want the remaining targets to wait until every canary reconnects. Use `0` to deploy to all selected targets at once.
-5. Review the confirmation, then select **Deploy update**.
+1. Select **Deploy update**, or choose an artifact's **Deploy** action in **Releases**.
+2. Choose a ready release in **Release**. Check the architecture for Edge or Windows, then select **Continue**.
+3. Search for screens or Display Groups in **Targets**. Add targets or use **Select all eligible**. Review the resolved screen count and warnings, then select **Continue**.
+4. Choose **Install now**, **Download only**, or **Maintenance window** in **Rollout**. For a maintenance window, choose a future date and time in your browser's local timezone.
+5. Enable **Canary rollout** if you want a small cohort to update first. Choose a size smaller than the eligible fleet. Remaining screens wait until every canary succeeds.
+6. Review the version, architecture, screen count, mode, and optional canary size. Select **Deploy update**.
 
 </Steps>
 
-Offline Players begin after they reconnect. Canceling a deployment stops screens that haven't finished; screens already updated stay on the new release.
+You can go **Back** without losing your draft. Changing Player family discards it.
 
-## Platform limits
+Tilecast checks group membership, duplicate targets, Player family, architecture, and known Android SDK requirements before submission. Incompatible screen choices show the reason. A selected group containing an incompatible member blocks deployment and names the affected screen. Creation checks the current metadata again, so the preview is advisory.
+
+Offline screens can receive queued commands after reconnecting, within the seven-day command expiry. Already-current screens receive no update command. They must be removed from a canary selection. **Download only** caches the artifact on the Player without requesting installation.
+
+## Follow a rollout
+
+**Deployments** opens by default. Active deployments and attention states appear before recent history. Each row shows a version, architecture, status, target count, and a sentence describing the outcome.
+
+Select **View rollout** to inspect screens. Use **Needs attention**, **In progress**, **Finished**, or **All**, and search by screen name. Each screen shows its current and expected version, canary status, and last report. Downloading shows actual bytes and percentage; installation and reconnection show status without a percentage.
+
+Failed and incompatible screens show their reported reason. **Retry** is available only for failed screens and only to Owners and Administrators. A screen waiting for permission or TV approval needs action at the display.
+
+**Cancel deployment** asks for confirmation. It stops unfinished targets and leaves already-installed updates in place.
+
+## Player limits
 
 <Tabs syncKey="player-platform">
 
@@ -56,30 +79,24 @@ The operating system may require local installation permission or approval on ea
 
 <TabItem label="Linux">
 
-This update path applies to Players running as a managed AppImage. Each Linux Player restarts into the new version.
+Linux Legacy updates apply to Players running as a managed AppImage. Each Player restarts into the new version.
 
 </TabItem>
 
 <TabItem label="Tilecast Edge">
 
-Tilecast Edge releases are built for one architecture, `x86_64` or `aarch64`. A release reaches only Edge screens that report the same architecture, and never reaches an Electron Linux or Android screen. Upload one release for each architecture you use.
+Choose the architecture reported by the Edge screen. Edge installs the release beside the current one, restarts into it, and keeps it only after it reconnects and shows content for two minutes. If it can't confirm the release, or loses power before confirmation, it returns to the previous release and reports failure.
 
-An Edge screen installs the release beside the current one, restarts into it, and keeps it only after it reconnects and shows content for two minutes. If it can't, or if it loses power before then, it returns to its previous release on its own and the deployment shows the screen as failed. See [Update Tilecast Edge](#update-tilecast-edge).
+An Edge update never requires pairing again. See [Update Tilecast Edge](../../edge/updates/) for rollback reasons and recovery.
 
 </TabItem>
 
 <TabItem label="Windows">
 
-Windows packages are signed MSIX files, one for `x86_64` and one for `aarch64`. A release reaches only Windows screens reporting the same architecture. The Player checks the signed Tilecast update envelope and the Windows package publisher identity before installing, then relaunches and reports its new version. The PC must trust the package publisher certificate. See [Install Tilecast Player on Windows](../../players/install-windows/) and [Windows update troubleshooting](../../troubleshooting/player-updates/).
+Choose the architecture reported by the Windows Player. Windows uses a signed MSIX package and must permit installation. The PC must trust the package publisher certificate. The deployment settles after the new Player reconnects and meets the health checks. See [Install Tilecast Player on Windows](../../players/install-windows/) and [Windows update troubleshooting](../../troubleshooting/player-updates/).
 
 </TabItem>
 
 </Tabs>
 
-## Update Tilecast Edge
-
-An Edge update finishes only when the screen confirms it. In **Deployment history**, an Edge screen moves through downloading, installing, and reconnecting, and becomes succeeded only after the new release has run for two minutes with a server connection and content on screen.
-
-If the new release doesn't start, keeps restarting, can't reconnect, or the screen restarts before it confirms, the screen goes back to the release it ran before. The deployment shows that screen as failed with the reason, and the same deployment doesn't try that release on that screen again. Deploy a fixed release when one is available.
-
-An update never needs the screen to be paired again. See [Update Tilecast Edge](../../edge/updates/) for what happens on the screen, the rollback reasons, and recovery.
+See the [Player update engineering contract](https://github.com/gbyo/tilecast/blob/main/docs/player-updates.md) for exact signed-file requirements, preflight rules, and deployment lifecycle.

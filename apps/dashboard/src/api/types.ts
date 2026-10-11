@@ -1761,12 +1761,21 @@ export type GitHubDevicePoll = {
 export type UpdateDeploymentMode =
   "download_only" | "install_now" | "maintenance_window";
 
+export type UpdateDeploymentSelection = {
+  releaseId: string;
+  screenIds: string[];
+  groupIds: string[];
+};
+export type UpdateDeploymentPreview =
+  import("@tilecast/api-schema/generated/openapi").components["schemas"]["UpdateDeploymentPreview"];
+
 export type UpdateDeployment = {
   id: string;
   name: string;
   mode: string;
   status: string;
   createdAt: string;
+  completedAt?: string | null;
   platform: PlayerPlatform;
   playerFamily?: PlayerFamily;
   architecture?: string;
@@ -1825,7 +1834,7 @@ export type UpdateDeploymentDetail = {
   mode: string;
   status: string;
   createdAt: string;
-  completedAt?: string;
+  completedAt?: string | null;
   platform: PlayerPlatform;
   playerFamily?: PlayerFamily;
   architecture?: string;

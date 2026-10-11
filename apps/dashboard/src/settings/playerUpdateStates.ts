@@ -158,7 +158,11 @@ export function screenUpdateMeaning(state: string): ScreenUpdateMeaning {
 // thing that says why this particular screen stopped.
 export function screenUpdateDetail(screen: UpdateDeploymentScreen) {
   const meaning = screenUpdateMeaning(screen.state);
-  if (screen.state === "failed" && screen.safeError) return screen.safeError;
+  if (
+    (screen.state === "failed" || screen.state === "incompatible") &&
+    screen.safeError
+  )
+    return screen.safeError;
   return meaning.detail;
 }
 
