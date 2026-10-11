@@ -17,6 +17,7 @@ import {
   useOpenNativePresentation,
 } from "../../native-presentation/openNativePresentation";
 import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
   DropdownMenu,
@@ -45,8 +46,11 @@ import { ReleaseLibrary } from "./ReleaseLibrary";
 import { ReleaseSourceDialog } from "./ReleaseSourceDialog";
 import { ReleaseUploadDialog } from "./ReleaseUploadDialog";
 import { LoadingRows, UpdateDeploymentDetail } from "./UpdateDeploymentDetail";
-import { families, familyLabel } from "./model";
-import { screenUpdateMeaning } from "../playerUpdateStates";
+import { deploymentNeedsAttention, families, familyLabel } from "./model";
+import {
+  screenUpdateMeaning,
+  type ScreenFilter,
+} from "../playerUpdateStates";
 
 export function PlayerUpdatesPanel(props: {
   owner: boolean;
@@ -79,7 +83,10 @@ function PlayerUpdatesWorkspace({
   const [draft, setDraft] = useState<{ releaseId?: string }>();
   const [source, setSource] = useState(false);
   const [upload, setUpload] = useState(false);
-  const [deploymentId, setDeploymentId] = useState<string>();
+  const [deployment, setDeployment] = useState<{
+    id: string;
+    filter: ScreenFilter;
+  }>();
   const openNative = useOpenNativePresentation();
   const releases = useQuery({
     queryKey: ["player-releases"],
@@ -131,7 +138,16 @@ function PlayerUpdatesWorkspace({
   const familyScreens = (screens.data?.items ?? []).filter(
     (s) => screenUpdateTab(s) === family,
   );
-  async function showDeployment(id: string, name: string) {
+  const attentionDeployments = deploymentItems.filter(
+    (item) =>
+      (item.status === "active" || item.status === "paused") &&
+      deploymentNeedsAttention(item),
+  ).length;
+  async function showDeployment(
+    id: string,
+    name: string,
+    filter: ScreenFilter = "all",
+  ) {
     if (
       await openNative({
         path: presentationPath("update-deployment", id),
@@ -140,7 +156,7 @@ function PlayerUpdatesWorkspace({
       })
     )
       return;
-    setDeploymentId(id);
+    setDeployment({ id, filter });
   }
   return (
     <div className="grid min-w-0 gap-6">
@@ -173,6 +189,14 @@ function PlayerUpdatesWorkspace({
           >
             <TabsTrigger value="deployments">
               {t("updates.console.deployments")}
+              {attentionDeployments > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="ml-1 h-5 min-w-5 rounded-full px-1.5 text-[10px]"
+                >
+                  {attentionDeployments}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="releases">
               {t("updates.console.releases")}
@@ -284,8 +308,8 @@ function PlayerUpdatesWorkspace({
               {deployments.data && (
                 <DeploymentList
                   items={deploymentItems}
-                  onOpen={(item) =>
-                    void showDeployment(item.id, item.versionName)
+                  onOpen={(item, focus = "all") =>
+                    void showDeployment(item.id, item.versionName, focus)
                   }
                 />
               )}
@@ -358,14 +382,15 @@ function PlayerUpdatesWorkspace({
           }}
         />
       )}
-      {deploymentId && (
+      {deployment && (
         <UpdateDeploymentDetail
-          key={deploymentId}
-          deploymentId={deploymentId}
+          key={deployment.id}
+          deploymentId={deployment.id}
           screens={screens.data?.items ?? []}
           manageable={manageable}
+          initialFilter={deployment.filter}
           open
-          onOpenChange={(open) => !open && setDeploymentId(undefined)}
+          onOpenChange={(open) => !open && setDeployment(undefined)}
         />
       )}
     </div>
