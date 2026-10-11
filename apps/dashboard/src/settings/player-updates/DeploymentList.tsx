@@ -30,7 +30,6 @@ import { DeploymentMeter } from "./UpdateDeploymentDetail";
 import { deploymentHeadline } from "../playerUpdateStates";
 import {
   familyLabel,
-  deploymentNeedsAttention,
   deploymentStatus,
   modeLabel,
   relativeTime,
@@ -47,13 +46,12 @@ export function DeploymentList({
   const { t } = useTranslation(["settings", "common"]);
   const sorted = sortDeployments(items);
   const active = sorted.filter(
-    (item) =>
-      item.status === "active" ||
-      item.status === "paused" ||
-      deploymentNeedsAttention(item),
+    (item) => item.status === "active" || item.status === "paused",
   );
   const activeIds = new Set(active.map((item) => item.id));
-  const history = sorted.filter((item) => !activeIds.has(item.id));
+  const history = sorted
+    .filter((item) => !activeIds.has(item.id))
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 
   return (
     <div className="grid gap-8">
