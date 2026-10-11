@@ -172,6 +172,7 @@ export class HtmlVideoSurface implements RestartableSurface {
 
   private watchFrames(): void {
     const video = this.element;
+    if (this.frameHandle !== null) return;
     // Capability-detected: older engines play without it.
     if (typeof video.requestVideoFrameCallback !== "function") return;
     const onFrame = () => {

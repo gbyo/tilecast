@@ -10,6 +10,10 @@ import { LayoutSurface } from "./layout-surface";
 import fixtures from "../../../presentation-model/fixtures/zone-policy.json";
 import type { SurfaceEnvironment, SurfaceSink } from "./surface";
 
+const settle = async () => {
+  for (let i = 0; i < 8; i++) await Promise.resolve();
+};
+
 let originalAnimate: PropertyDescriptor | undefined;
 let animate: ReturnType<typeof vi.fn>;
 
@@ -114,23 +118,27 @@ function playlistZone(
 }
 
 describe("LayoutSurface playlist zones", () => {
-  it.each(fixtures.fallback)("$name", (fixture) => {
+  it.each(fixtures.fallback)("$name", async (fixture) => {
     const first = playlistZone().playlistItems![0]!;
     const { surface, clock } = surfaceFor([
       playlistZone({
         fallback: fixture.fallback as "hide" | "background" | "previous",
-        playlistItems: [
-          first,
-          { ...first, id: "second", src: "tcmedia://second" },
-        ],
+        playlistItems: fixture.hasPrevious
+          ? [first, { ...first, id: "second", src: "tcmedia://second" }]
+          : [first],
       }),
     ]);
     const zone = surface.element.firstElementChild as HTMLElement;
     const previous = zone.firstElementChild as HTMLImageElement;
-    if (fixture.hasPrevious) previous.onload?.(new Event("load"));
-    clock.advance(100);
-    const current = zone.firstElementChild as HTMLImageElement;
-    if (fixture.failed) current.onerror?.(new Event("error"));
+    await surface.activate();
+    if (fixture.hasPrevious) {
+      previous.dispatchEvent(new Event("load"));
+      await settle();
+      clock.advance(100);
+    }
+    const current = zone.lastElementChild as HTMLImageElement;
+    current.dispatchEvent(new Event(fixture.failed ? "error" : "load"));
+    await settle();
     if (fixture.expected === "previous")
       expect(zone.firstElementChild).toBe(previous);
     else if (fixture.expected === "current")
@@ -141,18 +149,19 @@ describe("LayoutSurface playlist zones", () => {
     );
     surface.dispose();
   });
-  it("applies item radius and hides a failed zone when selected", () => {
+  it("applies item radius and hides a failed zone when selected", async () => {
     const { surface } = surfaceFor([playlistZone({ fallback: "hide" })]);
     const zone = surface.element.firstElementChild as HTMLElement;
     const image = zone.firstElementChild as HTMLImageElement;
     expect(image.style.borderRadius).toBe("12px");
-    image.onerror?.(new Event("error"));
+    image.dispatchEvent(new Event("error"));
+    await settle();
     expect(zone.style.visibility).toBe("hidden");
     expect(zone.childElementCount).toBe(0);
     surface.dispose();
   });
 
-  it("restores the last loaded item for the previous-item fallback", () => {
+  it("restores the last loaded item for the previous-item fallback", async () => {
     const zone = playlistZone({
       fallback: "previous",
       playlistItems: [
@@ -174,16 +183,19 @@ describe("LayoutSurface playlist zones", () => {
     const { surface, clock } = surfaceFor([zone]);
     const container = surface.element.firstElementChild as HTMLElement;
     const first = container.firstElementChild as HTMLImageElement;
-    first.onload?.(new Event("load"));
+    await surface.activate();
+    first.dispatchEvent(new Event("load"));
+    await settle();
     clock.advance(100);
-    const last = container.firstElementChild as HTMLImageElement;
+    const last = container.lastElementChild as HTMLImageElement;
     expect(last.src).toContain("tcmedia://last");
-    last.onerror?.(new Event("error"));
+    last.dispatchEvent(new Event("error"));
+    await settle();
     expect(container.firstElementChild).toBe(first);
     surface.dispose();
   });
 
-  it("uses the item transition when it mounts the next image", () => {
+  it("uses the item transition when the next image is ready", async () => {
     const zone = playlistZone({
       loop: true,
       playlistItems: [
@@ -205,8 +217,14 @@ describe("LayoutSurface playlist zones", () => {
     const { surface, clock } = surfaceFor([zone]);
     const first = surface.element.firstElementChild!
       .firstElementChild as HTMLImageElement;
-    first.onload?.(new Event("load"));
+    await surface.activate();
+    first.dispatchEvent(new Event("load"));
+    await settle();
     clock.advance(100);
+    surface.element
+      .querySelectorAll("img")[1]!
+      .dispatchEvent(new Event("load"));
+    await settle();
     expect(animate).toHaveBeenCalledTimes(2);
     surface.dispose();
   });
@@ -217,7 +235,7 @@ function makeSurface(zone: RuntimeLayoutZone) {
 }
 
 describe("LayoutSurface video-zone timing", () => {
-  it("reapplies a single looping video's start offset on each pass", () => {
+  it("reapplies a single looping video's start offset on each pass", async () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
     vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
@@ -228,17 +246,20 @@ describe("LayoutSurface video-zone timing", () => {
     const surface = makeSurface(zone);
     const first = surface.element.querySelector("video")!;
     expect(first.loop).toBe(false);
-    first.onloadedmetadata?.(new Event("loadedmetadata"));
+    first.dispatchEvent(new Event("loadedmetadata"));
+    await surface.activate();
+    first.dispatchEvent(new Event("canplay"));
+    await settle();
     expect(first.currentTime).toBe(2);
-    first.onended?.(new Event("ended"));
-    const second = surface.element.querySelector("video")!;
+    first.dispatchEvent(new Event("ended"));
+    const second = surface.element.querySelectorAll("video")[1]!;
     expect(second).not.toBe(first);
-    second.onloadedmetadata?.(new Event("loadedmetadata"));
+    second.dispatchEvent(new Event("loadedmetadata"));
     expect(second.currentTime).toBe(2);
     surface.dispose();
   });
 
-  it("holds a non-looping final video at its authored end offset", () => {
+  it("holds a non-looping final video at its authored end offset", async () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     const pause = vi
       .spyOn(HTMLMediaElement.prototype, "pause")
@@ -250,13 +271,16 @@ describe("LayoutSurface video-zone timing", () => {
     ];
     const surface = makeSurface(zone);
     const video = surface.element.querySelector("video")!;
+    await surface.activate();
+    video.dispatchEvent(new Event("canplay"));
+    await settle();
     video.currentTime = 5;
-    video.ontimeupdate?.(new Event("timeupdate"));
+    video.dispatchEvent(new Event("timeupdate"));
     expect(pause).toHaveBeenCalledOnce();
     expect(surface.element.querySelector("video")).toBe(video);
     surface.dispose();
   });
-  it("starts at the item offset and advances at its end offset", () => {
+  it("starts at the item offset and advances at its end offset", async () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
     vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
@@ -296,15 +320,18 @@ describe("LayoutSurface video-zone timing", () => {
     const surface = makeSurface(zone);
     const container = surface.element.firstElementChild as HTMLElement;
     const video = container.firstElementChild as HTMLVideoElement;
-    video.onloadedmetadata?.(new Event("loadedmetadata"));
+    video.dispatchEvent(new Event("loadedmetadata"));
     expect(video.currentTime).toBe(2);
+    await surface.activate();
+    video.dispatchEvent(new Event("canplay"));
+    await settle();
     video.currentTime = 5;
-    video.ontimeupdate?.(new Event("timeupdate"));
-    expect(container.firstElementChild?.tagName).toBe("IMG");
+    video.dispatchEvent(new Event("timeupdate"));
+    expect(container.lastElementChild?.tagName).toBe("IMG");
     surface.dispose();
   });
 
-  it("advances a video without an end offset when the media ends", () => {
+  it("advances a video without an end offset when the media ends", async () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
     vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(() => {});
@@ -342,8 +369,11 @@ describe("LayoutSurface video-zone timing", () => {
     const surface = makeSurface(zone);
     const container = surface.element.firstElementChild as HTMLElement;
     const video = container.firstElementChild as HTMLVideoElement;
-    video.onended?.(new Event("ended"));
-    expect(container.firstElementChild?.tagName).toBe("IMG");
+    await surface.activate();
+    video.dispatchEvent(new Event("canplay"));
+    await settle();
+    video.dispatchEvent(new Event("ended"));
+    expect(container.lastElementChild?.tagName).toBe("IMG");
     surface.dispose();
   });
 });

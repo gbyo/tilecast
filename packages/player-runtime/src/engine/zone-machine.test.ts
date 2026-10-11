@@ -35,7 +35,7 @@ describe("layout playlist-zone playback", () => {
         items: Array.from({ length: fixture.count }, (_, i) => item(String(i))),
         loop: fixture.loop,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
@@ -72,10 +72,14 @@ describe("layout playlist-zone playback", () => {
         items: [item("first"), item("clip", "video")],
         loop: true,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
+    actor.send({
+      type: "MEDIA_READY",
+      epoch: actor.getSnapshot().context.epoch,
+    });
     clock.advance(100);
     expect(zoneEntry(actor.getSnapshot().context)?.entry.id).toBe("clip");
     clock.advance(100_000);
@@ -94,7 +98,7 @@ describe("layout playlist-zone playback", () => {
         items: [item("first"), item("last")],
         loop: false,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
@@ -115,7 +119,7 @@ describe("layout playlist-zone playback", () => {
         items: [item("first"), item("last")],
         loop: true,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
@@ -139,7 +143,7 @@ describe("layout playlist-zone playback", () => {
         items: [item("first"), item("last")],
         loop: false,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
@@ -173,10 +177,14 @@ describe("layout playlist-zone playback", () => {
         items: [zero, { ...item("b"), durationMs: 0 }],
         loop: true,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
+    actor.send({
+      type: "MEDIA_READY",
+      epoch: actor.getSnapshot().context.epoch,
+    });
     clock.advance(9_999);
     expect(actor.getSnapshot().context.shown).toBe(1);
     clock.advance(1);

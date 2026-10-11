@@ -65,6 +65,40 @@ const playing = (
 });
 
 describe("playback controller", () => {
+  it("reports current Layout zone failures through the playback-error reporter", () => {
+    const h = harness();
+    h.controller.present({
+      type: "presentation",
+      presentation: playing([
+        item("layout", {
+          kind: "layout",
+          layout: {
+            canvasWidth: 100,
+            canvasHeight: 100,
+            background: "#000",
+            zones: [],
+          },
+        }),
+      ]),
+    });
+    h.ready();
+    const mount = h.stage()!.mount;
+    h.controller.surface({
+      type: "ZONE_FAILED",
+      mount: mount - 1,
+      zoneId: "stale",
+      message: "failed",
+    });
+    expect(h.log).not.toContain("error:layout:zone stale: failed");
+    h.controller.surface({
+      type: "ZONE_FAILED",
+      mount,
+      zoneId: "clip",
+      message: "video failed",
+    });
+    expect(h.log).toContain("error:layout:zone clip: video failed");
+    expect(h.stage()!.item.id).toBe("layout");
+  });
   it("routes status and sleep surfaces and reports them once painted", () => {
     const h = harness();
     h.controller.present({
