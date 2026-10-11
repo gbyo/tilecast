@@ -1209,8 +1209,9 @@ export function DeployUpdateSheet({
   const prepare = useMutation({
     mutationFn: (selectedRelease: PlayerRelease) =>
       api.cachePlayerRelease(selectedRelease.id, csrf),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: ["player-releases"] }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["player-releases"] });
+    },
   });
   const result = preview.data;
   const invalidCanary =
