@@ -1339,7 +1339,7 @@
       },
       "incompatible": {
         "label": "Incompatible",
-        "detail": "Esta versión no puede ejecutarse en la versión de Android de esta pantalla."
+        "detail": "Esta versión no es compatible con los requisitos del dispositivo de esta pantalla."
       },
       "unknown": {
         "label": "Desconocido",
@@ -1574,6 +1574,7 @@
       "edgeNote": "Cada pantalla de Tilecast Edge descarga y verifica la versión, se reinicia con ella y la confirma cuando se vuelve a conectar y muestra contenido. Una pantalla que no puede confirmarla vuelve sola a su versión anterior.",
       "verifyingEdge": "Verificando el sobre firmado y el hash del archivo de la versión…",
       "architectureUnknown": "arquitectura no informada",
+      "architectureMismatch": "Esta versión requiere {{architecture}}. Las siguientes pantallas seleccionadas indican otra arquitectura o una desconocida: {{screens}}. Elige una versión compatible o quita esas pantallas.",
       "edgeArchive": "archivo de la versión",
       "windowsNote": "Cada reproductor de Windows descarga y verifica el paquete, lo instala y se reinicia con la nueva versión.",
       "verifyingWindows": "Verificando el sobre firmado y el hash del paquete…"
