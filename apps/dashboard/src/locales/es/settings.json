@@ -1280,11 +1280,13 @@
   "updates": {
     "console": {
       "incompatibleTargets": "Pantallas incompatibles: {{count}}.",
-      "playerFamily": "Familia de reproductor",
+      "playerFamily": "Tipo de reproductor",
       "playerFamilyHint": "Elige qué Tilecast Player vas a actualizar. Puedes cambiarlo sin salir del flujo de despliegue.",
+      "chooseVersion": "Elige una versión",
       "versionLabel": "Versión",
-      "buildLabel": "Compilación",
-      "buildHint": "Elige la compilación de CPU que corresponda a las pantallas que quieres actualizar.",
+      "buildLabel": "Arquitectura",
+      "buildHint": "Elige la arquitectura de CPU que corresponda a las pantallas que quieres actualizar.",
+      "singleBuildHint": "Esta versión tiene una sola compilación para este tipo de reproductor, así que Tilecast la seleccionó.",
       "architectures": {
         "x86_64": "Intel / AMD de 64 bits",
         "aarch64": "ARM64",
@@ -1314,7 +1316,7 @@
         "cancelled": "Cancelado"
       },
       "deployments": "Despliegues",
-      "releases": "Versiones",
+      "releases": "Catálogo de versiones",
       "workspaceViews": "Vistas de actualizaciones",
       "fleetCount": "{{count}} pantallas",
       "fleetCount_one": "{{count}} pantalla",
@@ -1340,12 +1342,12 @@
       "continue": "Continuar",
       "step": "{{stage}} de 3 — {{title}}",
       "steps": {
-        "release": "Versión y compilación",
+        "release": "Actualización",
         "targets": "Destinos",
         "rollout": "Despliegue"
       },
       "stepHints": {
-        "release": "Elige el tipo de reproductor, la versión y la compilación. Tilecast la descarga y verifica aquí si hace falta.",
+        "release": "Elige el tipo de reproductor y la versión. Elige una arquitectura solo cuando haya más de una compilación aplicable.",
         "targets": "Busca pantallas o Grupos de pantallas. Tilecast comprueba cada pantalla incluida.",
         "rollout": "Elige cuándo instalar y revisa el despliegue antes de iniciarlo."
       },
@@ -1364,6 +1366,7 @@
       },
       "windowHint": "Hora local de este navegador. Los reproductores instalan a partir de ese momento.",
       "futureWindow": "Elige una fecha y hora futuras.",
+      "rolloutSafeguards": "Protecciones del despliegue",
       "canaryRollout": "Despliegue canario",
       "canaryHint": "Actualiza primero un grupo pequeño. Continúa solo cuando todos tengan éxito.",
       "invalidCanary": "Usa entre 1 y 50 pantallas canarias, menos que los destinos aptos. Quita las pantallas ya actualizadas antes de usar canarios.",
