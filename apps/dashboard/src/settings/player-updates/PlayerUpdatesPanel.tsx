@@ -137,12 +137,12 @@ function PlayerUpdatesWorkspace({
     setDeploymentId(id);
   }
   return (
-    <div className="grid min-w-0 gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {familyLabel(family, t)} ·{" "}
-          {t("updates.console.fleetCount", { count: familyScreens.length })}
-        </p>
+    <div className="grid min-w-0 gap-6">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="grid gap-1">
+          <h2 className="text-2xl font-semibold tracking-tight">{t("updates.panel.title", { defaultValue: "Player Updates" })}</h2>
+          <p className="text-sm text-muted-foreground">{t("updates.console.fleetCount", { count: familyScreens.length })} · {familyLabel(family, t)}</p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {manageable && (
             <Button
@@ -188,7 +188,7 @@ function PlayerUpdatesWorkspace({
             </DropdownMenu>
           )}
         </div>
-      </div>
+      </header>
       {manageable && (screens.error || groups.error) && (
         <Alert variant="destructive">
           <AlertDescription>
@@ -206,6 +206,25 @@ function PlayerUpdatesWorkspace({
           </AlertDescription>
         </Alert>
       )}
+      <Tabs
+        value={view}
+        onValueChange={(value) => changeView(String(value))}
+        className="gap-4"
+      >
+        <TabsList
+          variant="line"
+          aria-label={t("updates.console.workspaceViews")}
+          className="mb-1"
+        >
+          <TabsTrigger value="deployments">
+            {t("updates.console.deployments")}
+          </TabsTrigger>
+          <TabsTrigger value="releases">
+            {t("updates.console.releases")}
+          </TabsTrigger>
+        </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
+          <span className="text-sm text-muted-foreground">{t("updates.console.playerFamily")}</span>
       <ToggleGroup
         aria-label={t("updates.console.playerFamily")}
         value={[family]}
@@ -227,23 +246,7 @@ function PlayerUpdatesWorkspace({
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
-      <Tabs
-        value={view}
-        onValueChange={(value) => changeView(String(value))}
-        className="gap-4"
-      >
-        <TabsList
-          variant="line"
-          aria-label={t("updates.console.workspaceViews")}
-          className="mb-1"
-        >
-          <TabsTrigger value="deployments">
-            {t("updates.console.deployments")}
-          </TabsTrigger>
-          <TabsTrigger value="releases">
-            {t("updates.console.releases")}
-          </TabsTrigger>
-        </TabsList>
+        </div>
         <TabsContent value="deployments">
           {deployments.isPending ? (
             <LoadingRows />
