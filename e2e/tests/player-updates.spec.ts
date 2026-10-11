@@ -59,7 +59,8 @@ for (const viewport of [
       exact: true,
     });
     await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText("1 of 3 — Update");
+    await expect(dialog.locator('[aria-current="step"]')).toHaveText("1");
+    await expect(dialog.getByText("Update", { exact: true })).toBeVisible();
     await expect(
       dialog.getByRole("combobox", { name: "Player type", exact: true }),
     ).toBeVisible();
