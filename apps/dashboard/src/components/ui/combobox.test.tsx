@@ -51,7 +51,10 @@ describe("Combobox accessible names", () => {
           <ComboboxValue>
             {(value: Fruit[]) =>
               value.map((item) => (
-                <ComboboxChip key={item.id} removeLabel={`Remove ${item.label}`}>
+                <ComboboxChip
+                  key={item.id}
+                  removeLabel={`Remove ${item.label}`}
+                >
                   {item.label}
                 </ComboboxChip>
               ))
