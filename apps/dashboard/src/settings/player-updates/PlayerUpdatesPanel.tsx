@@ -349,7 +349,6 @@ function PlayerUpdatesWorkspace({
                   manageable={manageable}
                   syncError={sync.error}
                   onDeploy={(id) => setDraft({ releaseId: id })}
-                  onConfigure={() => setSource(true)}
                 />
               )}
             </>
