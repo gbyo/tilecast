@@ -1296,7 +1296,7 @@
       "buildScreenCount_one": "{{count}} matching screen",
       "buildScreenCount_other": "{{count}} matching screens",
       "noReleasesForFamily": "No releases are available for {{family}}.",
-      "prepareAndContinue": "Prepare & continue",
+      "prepareBuildAction": "Prepare build",
       "preparingBuild": "Preparing build…",
       "startingPreparation": "Starting preparation…",
       "preparationContinuesHint": "Preparation continues on the server. You can close this dialog and come back later.",
