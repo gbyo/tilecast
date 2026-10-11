@@ -147,9 +147,7 @@ export function DeploymentList({
                   <TableHead className="hidden md:table-cell">
                     {t("updates.panel.modeLabel")}
                   </TableHead>
-                  <TableHead>
-                    {t("updates.panel.status")}
-                  </TableHead>
+                  <TableHead>{t("updates.panel.status")}</TableHead>
                   <TableHead className="hidden sm:table-cell">
                     {t("updates.console.status.completed")}
                   </TableHead>
