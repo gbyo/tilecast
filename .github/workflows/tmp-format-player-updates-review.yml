@@ -1,6 +1,7 @@
 name: Temporary Player Updates formatter
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - fix/player-updates-review-followup
