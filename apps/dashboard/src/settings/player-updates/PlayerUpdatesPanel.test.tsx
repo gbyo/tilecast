@@ -114,7 +114,7 @@ describe("Player Updates workspace", () => {
     ).toBeInTheDocument();
     const first = screen
       .getAllByRole("button", { name: "View rollout" })[0]!
-      .closest('[data-slot="card"]')!;
+      .closest('[data-slot="card"]') as HTMLElement;
     expect(
       within(first).getByText("Incompatible screens: 1."),
     ).toBeInTheDocument();
