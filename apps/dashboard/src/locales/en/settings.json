@@ -1279,6 +1279,25 @@
     "console": {
       "incompatibleTargets": "Incompatible screens: {{count}}.",
       "playerFamily": "Player family",
+      "playerFamilyHint": "Choose which Tilecast Player you are updating. You can change this without leaving the deployment flow.",
+      "versionLabel": "Version",
+      "buildLabel": "Build",
+      "buildHint": "Choose the CPU build that matches the screens you want to update.",
+      "architectures": {
+        "x86_64": "Intel / AMD 64-bit",
+        "aarch64": "ARM64",
+        "standard": "Standard build"
+      },
+      "buildReady": "Ready",
+      "buildPrepareNeeded": "Will download",
+      "buildScreenCount": "{{count}} matching screens",
+      "buildScreenCount_one": "{{count}} matching screen",
+      "buildScreenCount_other": "{{count}} matching screens",
+      "noReleasesForFamily": "No releases are available for {{family}}.",
+      "prepareAndContinue": "Prepare & continue",
+      "preparingBuild": "Preparing build…",
+      "prepareBuildFailed": "Tilecast could not prepare this build.",
+      "prepareBuildTimedOut": "Preparing this build took too long. Try again.",
       "families": {
         "android": "Android",
         "linux": "Linux Legacy",
@@ -1315,12 +1334,12 @@
       "continue": "Continue",
       "step": "{{stage}} of 3 — {{title}}",
       "steps": {
-        "release": "Release",
+        "release": "Version & build",
         "targets": "Targets",
         "rollout": "Rollout"
       },
       "stepHints": {
-        "release": "Choose one verified artifact. Match its architecture to your screens.",
+        "release": "Choose the player type, version, and build. Tilecast downloads and verifies the build here if needed.",
         "targets": "Search screens or Display Groups. Tilecast checks every resolved screen.",
         "rollout": "Choose when to install and review the deployment before starting."
       },
