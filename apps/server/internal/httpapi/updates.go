@@ -520,6 +520,7 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 		}
 		if target.current != nil && *target.current >= versionCode {
 			state = "already_current"
+			safeError = nil
 		}
 		if canarySize > 0 && !isCanary && (state == "pending" || state == "offline") {
 			state = "held"
