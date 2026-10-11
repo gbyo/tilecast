@@ -135,7 +135,9 @@ describe("Player Updates workspace", () => {
     mount();
     const deploymentsTab = screen.getByRole("tab", { name: /Deployments/ });
     expect(deploymentsTab).toHaveAttribute("aria-selected", "true");
-    expect(within(deploymentsTab).getByText("1")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(deploymentsTab).getByText("1")).toBeInTheDocument(),
+    );
     expect(
       await screen.findByText("1 screen needs a retry."),
     ).toBeInTheDocument();
@@ -172,21 +174,21 @@ describe("Player Updates workspace", () => {
   it("uses URL-backed view and family with back/forward, preserving unrelated parameters", async () => {
     mount("/settings/player/updates?platform=edge&keep=yes");
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Releases" }));
+    await user.click(screen.getByRole("tab", { name: "Release catalog" }));
     expect(await screen.findByText("Release library")).toBeInTheDocument();
     expect(screen.getByTestId("url")).toHaveTextContent("keep=yes");
     expect(screen.getByTestId("url")).toHaveTextContent("view=releases");
-    const family = screen.getByRole("combobox", { name: "Player family" });
+    const family = screen.getByRole("combobox", { name: "Player type" });
     await user.click(family);
     await user.click(await screen.findByRole("option", { name: "Windows" }));
     expect(screen.getByTestId("url")).toHaveTextContent("platform=windows");
     await user.click(screen.getByRole("button", { name: "History back" }));
     expect(
-      screen.getByRole("combobox", { name: "Player family" }),
+      screen.getByRole("combobox", { name: "Player type" }),
     ).toHaveTextContent("Tilecast Edge");
     await user.click(screen.getByRole("button", { name: "History forward" }));
     expect(
-      screen.getByRole("combobox", { name: "Player family" }),
+      screen.getByRole("combobox", { name: "Player type" }),
     ).toHaveTextContent("Windows");
   });
   it("discards a draft when navigating to another family and back", async () => {
@@ -194,7 +196,15 @@ describe("Player Updates workspace", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Deploy update" }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: /x86_64/ }));
+    await user.click(screen.getByRole("combobox", { name: "Version" }));
+    await user.click(
+      await screen.findByRole("option", { name: /0.26.0-beta.6/ }),
+    );
+    await user.click(
+      screen.getByRole("radio", {
+        name: "Intel / AMD 64-bit (x86_64)",
+      }),
+    );
     // Browser navigation can change the URL while the modal draft is open.
     await act(async () => {
       await navigateHistory("/settings/player/updates?platform=windows");
@@ -218,10 +228,10 @@ describe("Player Updates workspace", () => {
     expect(screen.getByText("x86_64")).toBeInTheDocument();
     expect(screen.getByText("aarch64")).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("button", { name: "Deploy aarch64" }),
+      screen.getByRole("button", { name: "Deploy ARM64" }),
     );
     const radio = await screen.findByRole("radio", {
-      name: /0.26.0-beta.6.*Beta.*aarch64/,
+      name: "ARM64 (aarch64)",
     });
     // A concrete artifact is selected, even though the version is shared.
     expect(
