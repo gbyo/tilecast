@@ -352,15 +352,24 @@ function PlayerUpdatesWorkspace({
       </Tabs>
       {draft && manageable && (
         <DeployUpdateSheet
-          releases={releaseItems}
+          releases={releases.data?.items ?? []}
           screens={screens.data?.items ?? []}
           groups={groups.data?.items ?? []}
+          initialFamily={family}
           preselected={draft.releaseId}
           onClose={() => setDraft(undefined)}
-          onCreated={(id) => {
+          onCreated={(id, createdFamily) => {
             setDraft(undefined);
-            changeView("deployments");
             void client.invalidateQueries({ queryKey: ["update-deployments"] });
+            if (createdFamily !== family) {
+              const next = new URLSearchParams(params);
+              next.delete("view");
+              if (createdFamily === "android") next.delete("platform");
+              else next.set("platform", createdFamily);
+              setParams(next);
+              return;
+            }
+            changeView("deployments");
             void showDeployment(id, t("updates.deploymentTitle"));
           }}
         />
