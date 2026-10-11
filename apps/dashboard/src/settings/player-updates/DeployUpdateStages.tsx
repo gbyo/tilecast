@@ -401,10 +401,200 @@ export function DeployRolloutStage({
   onCanaryChange: (value: boolean) => void;
   onCanarySizeChange: (value: number) => void;
 }) {
+  return (
+    <>
+      <FieldGroup className="gap-5">
+        <RolloutModeFields
+          mode={mode}
+          windowStart={windowStart}
+          invalidWindow={invalidWindow}
+          onModeChange={onModeChange}
+          onWindowStartChange={onWindowStartChange}
+        />
+        <CanaryFields
+          result={result}
+          canary={canary}
+          canarySize={canarySize}
+          invalidCanary={invalidCanary}
+          onCanaryChange={onCanaryChange}
+          onCanarySizeChange={onCanarySizeChange}
+        />
+      </FieldGroup>
+      <RolloutReview
+        release={release}
+        result={result}
+        mode={mode}
+        windowStart={windowStart}
+        canary={canary}
+        canarySize={canarySize}
+      />
+      <RolloutNote release={release} />
+    </>
+  );
+}
+
+function RolloutModeFields({
+  mode,
+  windowStart,
+  invalidWindow,
+  onModeChange,
+  onWindowStartChange,
+}: {
+  mode: UpdateDeploymentMode;
+  windowStart: string;
+  invalidWindow: boolean;
+  onModeChange: (value: UpdateDeploymentMode) => void;
+  onWindowStartChange: (value: string) => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  return (
+    <>
+      <FieldSet>
+        <FieldLegend variant="label">{t("updates.panel.modeLabel")}</FieldLegend>
+        <RadioGroup
+          value={mode}
+          onValueChange={(value) =>
+            onModeChange(value as UpdateDeploymentMode)
+          }
+        >
+          {(["install_now", "download_only", "maintenance_window"] as const).map(
+            (value) => (
+              <Field key={value} orientation="horizontal">
+                <RadioGroupItem id={value} value={value} />
+                <FieldContent>
+                  <FieldLabel htmlFor={value}>
+                    {modeLabel(value, t)}
+                  </FieldLabel>
+                  <FieldDescription>
+                    {t(`updates.console.modeHints.${value}`)}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+            ),
+          )}
+        </RadioGroup>
+      </FieldSet>
+      {mode === "maintenance_window" && (
+        <Field>
+          <FieldLabel htmlFor="update-window">
+            {t("updates.panel.windowLabel")}
+          </FieldLabel>
+          <DateTimeInput
+            id="update-window"
+            value={windowStart}
+            onChange={onWindowStartChange}
+          />
+          <FieldDescription>{t("updates.console.windowHint")}</FieldDescription>
+          {invalidWindow && (
+            <FieldError>{t("updates.console.futureWindow")}</FieldError>
+          )}
+        </Field>
+      )}
+    </>
+  );
+}
+
+function CanaryFields({
+  result,
+  canary,
+  canarySize,
+  invalidCanary,
+  onCanaryChange,
+  onCanarySizeChange,
+}: {
+  result?: UpdateDeploymentPreview;
+  canary: boolean;
+  canarySize: number;
+  invalidCanary: boolean;
+  onCanaryChange: (value: boolean) => void;
+  onCanarySizeChange: (value: number) => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  return (
+    <>
+      <Field orientation="horizontal">
+        <Switch
+          id="update-canary"
+          checked={canary}
+          onCheckedChange={onCanaryChange}
+        />
+        <FieldContent>
+          <FieldLabel htmlFor="update-canary">
+            {t("updates.console.canaryRollout")}
+          </FieldLabel>
+          <FieldDescription>{t("updates.console.canaryHint")}</FieldDescription>
+        </FieldContent>
+      </Field>
+      {canary && (
+        <Field>
+          <FieldLabel htmlFor="update-canary-count">
+            {t("updates.panel.canaryLabel")}
+          </FieldLabel>
+          <Input
+            id="update-canary-count"
+            type="number"
+            min={1}
+            max={Math.min(50, (result?.eligibleCount ?? 0) - 1)}
+            value={canarySize}
+            onChange={(event) => onCanarySizeChange(Number(event.target.value))}
+          />
+          {invalidCanary && (
+            <FieldError>{t("updates.console.invalidCanary")}</FieldError>
+          )}
+        </Field>
+      )}
+    </>
+  );
+}
+
+function RolloutReview({
+  release,
+  result,
+  mode,
+  windowStart,
+  canary,
+  canarySize,
+}: {
+  release?: PlayerRelease;
+  result?: UpdateDeploymentPreview;
+  mode: UpdateDeploymentMode;
+  windowStart: string;
+  canary: boolean;
+  canarySize: number;
+}) {
   const { t } = useTranslation(["settings", "common"]);
   const locale = useFormatLocale();
+  return (
+    <section
+      className="grid gap-1 border-t pt-4"
+      aria-label={t("updates.console.review")}
+    >
+      <h3 className="mb-1 text-sm font-semibold">
+        {t("updates.console.review")}
+      </h3>
+      <strong className="text-sm">{release?.versionName}</strong>
+      <p className="text-sm">{release && artifactIdentity(release, t)}</p>
+      <p className="text-sm">
+        {t("updates.console.targetCount", {
+          count: result?.targetCount ?? 0,
+        })}{" "}
+        · {modeLabel(mode, t)}
+        {canary &&
+          ` · ${t("updates.console.canarySummary", { count: canarySize })}`}
+      </p>
+      {mode === "maintenance_window" && windowStart && (
+        <p className="text-sm">
+          {new Date(windowStart).toLocaleString(locale)}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function RolloutNote({ release }: { release?: PlayerRelease }) {
+  const { t } = useTranslation(["settings", "common"]);
   const family = releaseUpdateTab(release ?? { platform: "android" });
-  const noteKey =
+  const key =
     family === "android"
       ? "updates.panel.androidNote"
       : family === "edge"
@@ -412,106 +602,7 @@ export function DeployRolloutStage({
         : family === "windows"
           ? "updates.panel.windowsNote"
           : "updates.panel.linuxNote";
-  return (
-    <>
-      <FieldGroup className="gap-5">
-        <FieldSet>
-          <FieldLegend variant="label">{t("updates.panel.modeLabel")}</FieldLegend>
-          <RadioGroup
-            value={mode}
-            onValueChange={(value) =>
-              onModeChange(value as UpdateDeploymentMode)
-            }
-          >
-            {(["install_now", "download_only", "maintenance_window"] as const).map(
-              (value) => (
-                <Field key={value} orientation="horizontal">
-                  <RadioGroupItem id={value} value={value} />
-                  <FieldContent>
-                    <FieldLabel htmlFor={value}>{modeLabel(value, t)}</FieldLabel>
-                    <FieldDescription>
-                      {t(`updates.console.modeHints.${value}`)}
-                    </FieldDescription>
-                  </FieldContent>
-                </Field>
-              ),
-            )}
-          </RadioGroup>
-        </FieldSet>
-        {mode === "maintenance_window" && (
-          <Field>
-            <FieldLabel htmlFor="update-window">
-              {t("updates.panel.windowLabel")}
-            </FieldLabel>
-            <DateTimeInput
-              id="update-window"
-              value={windowStart}
-              onChange={onWindowStartChange}
-            />
-            <FieldDescription>{t("updates.console.windowHint")}</FieldDescription>
-            {invalidWindow && (
-              <FieldError>{t("updates.console.futureWindow")}</FieldError>
-            )}
-          </Field>
-        )}
-        <Field orientation="horizontal">
-          <Switch
-            id="update-canary"
-            checked={canary}
-            onCheckedChange={onCanaryChange}
-          />
-          <FieldContent>
-            <FieldLabel htmlFor="update-canary">
-              {t("updates.console.canaryRollout")}
-            </FieldLabel>
-            <FieldDescription>{t("updates.console.canaryHint")}</FieldDescription>
-          </FieldContent>
-        </Field>
-        {canary && (
-          <Field>
-            <FieldLabel htmlFor="update-canary-count">
-              {t("updates.panel.canaryLabel")}
-            </FieldLabel>
-            <Input
-              id="update-canary-count"
-              type="number"
-              min={1}
-              max={Math.min(50, (result?.eligibleCount ?? 0) - 1)}
-              value={canarySize}
-              onChange={(event) => onCanarySizeChange(Number(event.target.value))}
-            />
-            {invalidCanary && (
-              <FieldError>{t("updates.console.invalidCanary")}</FieldError>
-            )}
-          </Field>
-        )}
-      </FieldGroup>
-      <section
-        className="grid gap-1 border-t pt-4"
-        aria-label={t("updates.console.review")}
-      >
-        <h3 className="mb-1 text-sm font-semibold">
-          {t("updates.console.review")}
-        </h3>
-        <strong className="text-sm">{release?.versionName}</strong>
-        <p className="text-sm">{release && artifactIdentity(release, t)}</p>
-        <p className="text-sm">
-          {t("updates.console.targetCount", {
-            count: result?.targetCount ?? 0,
-          })}{" "}
-          · {modeLabel(mode, t)}
-          {canary &&
-            ` · ${t("updates.console.canarySummary", { count: canarySize })}`}
-        </p>
-        {mode === "maintenance_window" && windowStart && (
-          <p className="text-sm">
-            {new Date(windowStart).toLocaleString(locale)}
-          </p>
-        )}
-      </section>
-      <p className="text-sm text-muted-foreground">{t(noteKey)}</p>
-    </>
-  );
+  return <p className="text-sm text-muted-foreground">{t(key)}</p>;
 }
 
 export function DeployAlerts({
