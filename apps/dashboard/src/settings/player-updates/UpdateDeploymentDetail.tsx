@@ -302,7 +302,7 @@ export function useUpdateDeployment({
                       </div>
                     )}
                   </ItemContent>
-                  {manageable && item.state === "failed" && (
+                  {manageable && active && item.state === "failed" && (
                     <ItemActions>
                       <Button
                         variant="outline"
