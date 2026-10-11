@@ -10,7 +10,10 @@
 //! * a renderer connected on the intended output, not incompatible and not in
 //!   safe mode;
 //! * the current activation accepted by the renderer, with meaningful
-//!   playback evidence, and fresh progress during the window.
+//!   playback evidence, and, when the presentation is server content that
+//!   plays, fresh progress during the window. A `policy` surface or an idle
+//!   status surface is correct without moving, so it settles on accepted
+//!   evidence held steady for the window instead.
 //!
 //! Some conditions end settlement at once: they cannot improve by waiting.
 
@@ -89,6 +92,18 @@ pub fn evaluate(status: Option<&DaemonStatus>, expected: &Expectation) -> Verdic
         return Verdict::NotYet("no_playback_evidence");
     }
     Verdict::Ready
+}
+
+/// Whether the renderer must report fresh progress during the stable window.
+///
+/// Server content is expected to move, so a frozen screen there is a failure.
+/// A policy surface (after hours) or an idle status surface is a valid static
+/// presentation: it holds accepted evidence without advancing progress.
+pub fn requires_fresh_progress(status: Option<&DaemonStatus>, expected: &Expectation) -> bool {
+    if expected.kind == Kind::CleanInstall {
+        return false;
+    }
+    status.and_then(|s| s.presentation.as_ref()).is_none_or(|p| p.source.as_str() == "server_manifest")
 }
 
 /// A compact, secret-free record of the sample that decided settlement.
@@ -212,6 +227,18 @@ pub(crate) mod tests {
         assert_eq!(evaluate(Some(&surface), &EXPECTED), Verdict::NotYet("presentation_not_current"));
         surface.presentation.as_mut().unwrap().target_manifest_sha256 = None;
         assert_eq!(evaluate(Some(&surface), &EXPECTED), Verdict::Ready, "no assignment: the idle surface is right");
+    }
+
+    #[test]
+    fn only_server_content_must_show_fresh_progress() {
+        let mut playing = status(6_000);
+        assert!(requires_fresh_progress(Some(&playing), &EXPECTED));
+        playing.presentation.as_mut().unwrap().source = ShortToken::new("policy").unwrap();
+        assert!(!requires_fresh_progress(Some(&playing), &EXPECTED), "after-hours policy is static");
+        assert_eq!(evaluate(Some(&playing), &EXPECTED), Verdict::Ready);
+        playing.presentation.as_mut().unwrap().source = ShortToken::new("status_surface").unwrap();
+        playing.presentation.as_mut().unwrap().target_manifest_sha256 = None;
+        assert!(!requires_fresh_progress(Some(&playing), &EXPECTED), "idle surface is static");
     }
 
     #[test]

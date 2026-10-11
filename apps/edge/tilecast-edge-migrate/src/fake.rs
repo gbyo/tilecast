@@ -30,6 +30,9 @@ pub enum Edge {
     Incompatible,
     /// Accepted with evidence once, then the screen freezes.
     Frozen,
+    /// Shows an after-hours policy surface: accepted with evidence, healthy,
+    /// and never advancing renderer progress.
+    StaticPolicy,
     /// The legacy player comes back while Edge settles.
     LegacyReturns,
     /// A fresh installation on its setup surface (clean install).
@@ -234,6 +237,13 @@ impl World {
                 status.renderer.incompatible_reason = Some(edge_protocol::bounded::SafeText::lossy("website"))
             }
             Edge::Frozen => status.renderer.last_progress_at = Timestamp::from_unix_millis(self.daemon_started_ms),
+            Edge::StaticPolicy => {
+                status.renderer.last_progress_at = Timestamp::from_unix_millis(self.daemon_started_ms);
+                let presentation = status.presentation.as_mut().unwrap();
+                presentation.source = ShortToken::new("policy").unwrap();
+                presentation.manifest_sha256 = None;
+                presentation.target_manifest_sha256 = None;
+            }
             Edge::Unpaired => {
                 status.server = None;
                 status.link.state = ShortToken::new("unbound").unwrap();
