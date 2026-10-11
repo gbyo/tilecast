@@ -15,10 +15,7 @@ const releases = [
   release,
   { ...release, id: "r2", architecture: "aarch64" },
 ];
-function mount(
-  preselected?: string,
-  releaseItems = releases,
-) {
+function mount(preselected?: string, releaseItems = releases) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -242,7 +239,9 @@ describe("guided deployment", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Deploy update" }),
     );
-    await waitFor(() => expect(created).toHaveBeenCalledWith("created", "edge"));
+    await waitFor(() =>
+      expect(created).toHaveBeenCalledWith("created", "edge"),
+    );
     expect(api.createUpdateDeployment).toHaveBeenCalledWith(
       expect.objectContaining({
         releaseId: "r1",
