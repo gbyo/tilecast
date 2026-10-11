@@ -1325,6 +1325,8 @@
       "selectedCount_one": "{{count}} screen selected",
       "selectedCount_other": "{{count}} screens selected",
       "activeDeployments": "Active deployments and attention",
+      "needsAttention": "Needs attention",
+      "inProgress": "In progress",
       "noActiveDeployments": "No player updates are currently running.",
       "recentDeployments": "Recent deployments",
       "noHistory": "No completed deployments",
