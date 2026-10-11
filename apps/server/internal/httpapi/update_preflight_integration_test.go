@@ -62,7 +62,7 @@ func TestStaleUpdateAttemptsAndPausedRolloutsExpire(t *testing.T) {
 
 	staleScreen := f.screen(t, "Stale Lobby", "linux", "edge", "x86_64", 1000)
 	staleDeployment, _ := f.deploy(t, release, staleScreen)
-	if _, err := f.pool.Exec(f.ctx, `UPDATE player_commands SET state='expired',expires_at=now()-interval '1 hour',completed_at=now()-interval '1 hour' WHERE type='install_player_update' AND payload->>'deploymentId'=$1`, staleDeployment.String()); err != nil {
+	if _, err := f.pool.Exec(f.ctx, `UPDATE player_commands SET state='expired',created_at=now()-interval '8 days',expires_at=now()-interval '1 hour',completed_at=now()-interval '1 hour' WHERE type='install_player_update' AND payload->>'deploymentId'=$1`, staleDeployment.String()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.pool.Exec(f.ctx, `UPDATE screen_update_states SET updated_at=now()-interval '8 days' WHERE deployment_id=$1 AND screen_id=$2`, staleDeployment, staleScreen); err != nil {
