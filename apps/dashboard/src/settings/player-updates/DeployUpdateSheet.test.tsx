@@ -16,10 +16,10 @@ function mount(preselected?: string, releaseItems = releases) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  render(
+  const view = (items: typeof releaseItems) => (
     <QueryClientProvider client={client}>
       <DeployUpdateSheet
-        releases={releaseItems}
+        releases={items}
         screens={fleet}
         groups={groups}
         initialFamily="edge"
@@ -27,8 +27,14 @@ function mount(preselected?: string, releaseItems = releases) {
         onClose={() => {}}
         onCreated={created}
       />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const rendered = render(view(releaseItems));
+  return {
+    ...rendered,
+    rerenderReleases: (items: typeof releaseItems) =>
+      rendered.rerender(view(items)),
+  };
 }
 beforeEach(() => {
   created = vi.fn();
@@ -111,33 +117,27 @@ describe("guided deployment", () => {
       id: cold.id,
       cacheStatus: "downloading",
     });
-    vi.spyOn(api, "playerReleases").mockResolvedValue({
-      repository: "Gibsonmb71/tilecast",
-      manifestKeyConfigured: true,
-      githubAuth: {
-        available: true,
-        connected: false,
-        source: "anonymous",
-        canDisconnect: false,
-      },
-      items: [
-        {
-          ...cold,
-          cacheStatus: "cached",
-          verificationStatus: "verified",
-        },
-      ],
-    });
 
-    mount("r1", [cold]);
+    const view = mount("r1", [cold]);
     expect(
       screen.getByRole("button", { name: "Prepare & continue" }),
     ).toBeEnabled();
     await userEvent.click(
       screen.getByRole("button", { name: "Prepare & continue" }),
     );
+    await waitFor(() =>
+      expect(api.cachePlayerRelease).toHaveBeenCalledWith("r1", "csrf"),
+    );
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
+
+    view.rerenderReleases([
+      {
+        ...cold,
+        cacheStatus: "cached",
+        verificationStatus: "verified",
+      },
+    ]);
     await screen.findByRole("combobox", { name: /targets/i });
-    expect(api.cachePlayerRelease).toHaveBeenCalledWith("r1", "csrf");
     expect(screen.getByText(/0.26.0-beta.6/)).toBeInTheDocument();
   });
 
