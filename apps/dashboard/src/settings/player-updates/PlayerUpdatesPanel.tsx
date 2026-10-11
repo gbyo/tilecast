@@ -537,7 +537,6 @@ function PlayerUpdateOverlays({
   );
 }
 
-}
 export function canDeployPlayerUpdates(role: string | undefined) {
   return role === "owner" || role === "administrator";
 }
