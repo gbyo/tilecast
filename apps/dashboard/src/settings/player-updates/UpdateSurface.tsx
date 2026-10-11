@@ -89,7 +89,10 @@ export function UpdateSurface({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-4 sm:max-w-2xl">
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-4 sm:max-w-2xl"
+      >
         <SheetHeader className="shrink-0">
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>{description}</SheetDescription>
