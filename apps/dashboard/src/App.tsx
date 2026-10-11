@@ -1,7 +1,6 @@
 import { Navigate, useRoutes, type RouteObject } from "react-router";
 import { api } from "./api/client";
 import { Toaster } from "./components/ui/toast";
-import { GitHubOAuthSetupPortal } from "./components/GitHubOAuthSetupPortal";
 import { StudioRoutesProvider } from "./navigation/studioRoutes";
 import type { StudioNavigationMetadata } from "./navigation/studioNavigation";
 import { NativeHostProvider } from "./native-host/NativeHostProvider";
@@ -735,7 +734,6 @@ export function App() {
       <NativeAuthLifecycle />
       <NativePresentationNavigation />
       <NativeMediaIntakeRefresh />
-      <GitHubOAuthSetupPortal />
       <StudioRoutesProvider routes={studioRoutes}>
         <RoutedApp />
       </StudioRoutesProvider>

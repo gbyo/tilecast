@@ -5282,6 +5282,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/update-deployments/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Preview resolved Player update targets
+     * @description Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot without writes or commands. Creation repeats the same target expansion and compatibility checks. Offline screens receive a queued command. Other families appear as incompatible in preview and remain excluded from creation. Already-current screens do not receive an update.
+     */
+    post: operations["previewUpdateDeployment"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/update-deployments/{id}": {
     parameters: {
       query?: never;
@@ -5317,7 +5337,7 @@ export interface paths {
     put?: never;
     /**
      * Cancel pending update work on every screen the deployment reaches
-     * @description Requires an authenticated dashboard user.
+     * @description Requires an Owner or Administrator with CSRF and write scope. Cancels active or paused work. Installed updates stay installed.
      */
     post: operations["cancelUpdateDeployment"];
     delete?: never;
@@ -8766,6 +8786,8 @@ export interface components {
       status: components["schemas"]["UpdateDeploymentStatus"];
       /** Format: date-time */
       createdAt: string;
+      /** Format: date-time */
+      completedAt?: string | null;
       platform: components["schemas"]["PlayerPlatform"];
       playerFamily: components["schemas"]["PlayerFamily"];
       architecture: string;
@@ -8777,6 +8799,7 @@ export interface components {
       failedCount: number;
       waitingForUserCount: number;
       rolloutMode: components["schemas"]["UpdateRolloutMode"];
+      incompatibleCount?: number;
       rolloutPhase: components["schemas"]["UpdateRolloutPhase"];
       canarySize: number;
       pauseReason: string | null;
@@ -9947,6 +9970,33 @@ export interface components {
       };
       /** Format: uuid */
       idempotencyKey?: string | null;
+    };
+    UpdateDeploymentSelection: {
+      /** Format: uuid */
+      releaseId: string;
+      screenIds: string[];
+      groupIds: string[];
+    };
+    UpdateDeploymentPreview: {
+      targetCount: number;
+      eligibleCount: number;
+      alreadyCurrentCount: number;
+      offlineCount: number;
+      blockedCount: number;
+      screens: components["schemas"]["UpdateDeploymentPreviewScreen"][];
+    };
+    UpdateDeploymentPreviewScreen: {
+      /** Format: uuid */
+      screenId: string;
+      screenName: string;
+      /** Format: int64 */
+      currentVersionCode: number | null;
+      playerFamily: string;
+      playerArchitecture: string;
+      recentlyContacted: boolean;
+      /** @enum {string} */
+      outcome: "eligible" | "already_current" | "offline" | "incompatible";
+      reason: string | null;
     };
     UpdateDeploymentRequest: {
       /** Format: uuid */
@@ -26108,6 +26158,46 @@ export interface operations {
         content?: never;
       };
       /** @description Invalid or unverified release/targets */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  previewUpdateDeployment: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UpdateDeploymentSelection"];
+      };
+    };
+    responses: {
+      /** @description Advisory target preview */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["UpdateDeploymentPreview"];
+          };
+        };
+      };
+      /** @description Targets outside the caller's screen scope */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid selection or unverified release */
       422: {
         headers: {
           [name: string]: unknown;

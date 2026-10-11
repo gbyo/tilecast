@@ -317,7 +317,7 @@ def scenario_selftest(args):
         if code != 0 or report["outcome"] != "passed":
             stack.dump_logs()
             raise AssertionError(f"self-test failed: {report}")
-        assert report["expectedItems"] == report["provenItems"] and len(report["expectedItems"]) == 4, report
+        assert report["expectedItems"] == report["provenItems"] and len(report["expectedItems"]) == 5, report
         renderer = report["renderer"]
         assert renderer["platform"] == "headless" and "video" in renderer["features"], renderer
         assert renderer["engineVersion"] and renderer["gstreamerVersion"], renderer

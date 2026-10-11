@@ -2176,6 +2176,11 @@ describe("Screenshot lightbox", () => {
   it("moves with the arrow keys and stops at the ends", async () => {
     const user = userEvent.setup();
     const { dialog } = await openShot(user, "Forecast");
+    const next = within(dialog).getByRole("button", {
+      name: "Next screenshot",
+    });
+    next.focus();
+    expect(next).toHaveFocus();
     await user.keyboard("{ArrowRight}");
     expect(within(dialog).getByText("2 of 3")).toBeVisible();
     await user.keyboard("{ArrowRight}{ArrowRight}");
@@ -2219,6 +2224,11 @@ describe("Screenshot lightbox", () => {
     try {
       const user = userEvent.setup();
       const { dialog } = await openShot(user, "Forecast");
+      const next = within(dialog).getByRole("button", {
+        name: "Next screenshot",
+      });
+      next.focus();
+      expect(next).toHaveFocus();
       await user.keyboard("{ArrowLeft}");
       expect(within(dialog).getByText("2 of 3")).toBeVisible();
       await user.keyboard("{ArrowRight}");

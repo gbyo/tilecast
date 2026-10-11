@@ -4872,6 +4872,30 @@ func (e UpdateDeploymentMode) Valid() bool {
 	}
 }
 
+// Defines values for UpdateDeploymentPreviewScreenOutcome.
+const (
+	UpdateDeploymentPreviewScreenOutcomeAlreadyCurrent UpdateDeploymentPreviewScreenOutcome = "already_current"
+	UpdateDeploymentPreviewScreenOutcomeEligible       UpdateDeploymentPreviewScreenOutcome = "eligible"
+	UpdateDeploymentPreviewScreenOutcomeIncompatible   UpdateDeploymentPreviewScreenOutcome = "incompatible"
+	UpdateDeploymentPreviewScreenOutcomeOffline        UpdateDeploymentPreviewScreenOutcome = "offline"
+)
+
+// Valid indicates whether the value is a known member of the UpdateDeploymentPreviewScreenOutcome enum.
+func (e UpdateDeploymentPreviewScreenOutcome) Valid() bool {
+	switch e {
+	case UpdateDeploymentPreviewScreenOutcomeAlreadyCurrent:
+		return true
+	case UpdateDeploymentPreviewScreenOutcomeEligible:
+		return true
+	case UpdateDeploymentPreviewScreenOutcomeIncompatible:
+		return true
+	case UpdateDeploymentPreviewScreenOutcomeOffline:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpdateDeploymentStatus.
 const (
 	UpdateDeploymentStatusActive    UpdateDeploymentStatus = "active"
@@ -11712,6 +11736,31 @@ type UpdateDeploymentList struct {
 // UpdateDeploymentMode defines model for UpdateDeploymentMode.
 type UpdateDeploymentMode string
 
+// UpdateDeploymentPreview defines model for UpdateDeploymentPreview.
+type UpdateDeploymentPreview struct {
+	AlreadyCurrentCount int                             `json:"alreadyCurrentCount"`
+	BlockedCount        int                             `json:"blockedCount"`
+	EligibleCount       int                             `json:"eligibleCount"`
+	OfflineCount        int                             `json:"offlineCount"`
+	Screens             []UpdateDeploymentPreviewScreen `json:"screens"`
+	TargetCount         int                             `json:"targetCount"`
+}
+
+// UpdateDeploymentPreviewScreen defines model for UpdateDeploymentPreviewScreen.
+type UpdateDeploymentPreviewScreen struct {
+	CurrentVersionCode *int64                               `json:"currentVersionCode"`
+	Outcome            UpdateDeploymentPreviewScreenOutcome `json:"outcome"`
+	PlayerArchitecture string                               `json:"playerArchitecture"`
+	PlayerFamily       string                               `json:"playerFamily"`
+	Reason             *string                              `json:"reason"`
+	RecentlyContacted  bool                                 `json:"recentlyContacted"`
+	ScreenId           openapi_types.UUID                   `json:"screenId"`
+	ScreenName         string                               `json:"screenName"`
+}
+
+// UpdateDeploymentPreviewScreenOutcome defines model for UpdateDeploymentPreviewScreen.Outcome.
+type UpdateDeploymentPreviewScreenOutcome string
+
 // UpdateDeploymentRequest defines model for UpdateDeploymentRequest.
 type UpdateDeploymentRequest struct {
 	CanarySize *int                  `json:"canarySize,omitempty"`
@@ -11744,20 +11793,29 @@ type UpdateDeploymentScreen struct {
 	UpdatedAt           time.Time          `json:"updatedAt"`
 }
 
+// UpdateDeploymentSelection defines model for UpdateDeploymentSelection.
+type UpdateDeploymentSelection struct {
+	GroupIds  []openapi_types.UUID `json:"groupIds"`
+	ReleaseId openapi_types.UUID   `json:"releaseId"`
+	ScreenIds []openapi_types.UUID `json:"screenIds"`
+}
+
 // UpdateDeploymentStatus defines model for UpdateDeploymentStatus.
 type UpdateDeploymentStatus string
 
 // UpdateDeploymentSummary defines model for UpdateDeploymentSummary.
 type UpdateDeploymentSummary struct {
-	Architecture string               `json:"architecture"`
-	CanarySize   int                  `json:"canarySize"`
-	CreatedAt    time.Time            `json:"createdAt"`
-	FailedCount  int                  `json:"failedCount"`
-	Id           openapi_types.UUID   `json:"id"`
-	LastFailure  *string              `json:"lastFailure"`
-	Mode         UpdateDeploymentMode `json:"mode"`
-	Name         string               `json:"name"`
-	PauseReason  *string              `json:"pauseReason"`
+	Architecture      string               `json:"architecture"`
+	CanarySize        int                  `json:"canarySize"`
+	CompletedAt       *time.Time           `json:"completedAt,omitempty"`
+	CreatedAt         time.Time            `json:"createdAt"`
+	FailedCount       int                  `json:"failedCount"`
+	Id                openapi_types.UUID   `json:"id"`
+	IncompatibleCount *int                 `json:"incompatibleCount,omitempty"`
+	LastFailure       *string              `json:"lastFailure"`
+	Mode              UpdateDeploymentMode `json:"mode"`
+	Name              string               `json:"name"`
+	PauseReason       *string              `json:"pauseReason"`
 
 	// Platform The Player operating-system platform. The set grows with new players; clients must tolerate values they do not recognize.
 	Platform PlayerPlatform `json:"platform"`
@@ -14212,6 +14270,9 @@ type CancelTakeoverJSONRequestBody CancelTakeoverJSONBody
 
 // CreateUpdateDeploymentJSONRequestBody defines body for CreateUpdateDeployment for application/json ContentType.
 type CreateUpdateDeploymentJSONRequestBody = UpdateDeploymentRequest
+
+// PreviewUpdateDeploymentJSONRequestBody defines body for PreviewUpdateDeployment for application/json ContentType.
+type PreviewUpdateDeploymentJSONRequestBody = UpdateDeploymentSelection
 
 // CreateUploadSessionJSONRequestBody defines body for CreateUploadSession for application/json ContentType.
 type CreateUploadSessionJSONRequestBody = CreateUploadRequest
@@ -18180,6 +18241,24 @@ type ClientInterface interface {
 	// Corresponds with POST /api/v1/update-deployments (the `CreateUpdateDeployment` operationId).
 	CreateUpdateDeployment(ctx context.Context, body CreateUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PreviewUpdateDeploymentWithBody Preview resolved Player update targets
+	//
+	// Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot without writes or commands. Creation repeats the same target expansion and compatibility checks. Offline screens receive a queued command. Other families appear as incompatible in preview and remain excluded from creation. Already-current screens do not receive an update.
+	//
+	// Takes any type of body and a specified content type.
+	//
+	// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
+	PreviewUpdateDeploymentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreviewUpdateDeployment Preview resolved Player update targets
+	//
+	// Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot without writes or commands. Creation repeats the same target expansion and compatibility checks. Offline screens receive a queued command. Other families appear as incompatible in preview and remain excluded from creation. Already-current screens do not receive an update.
+	//
+	// Takes a body of the `application/json` content type.
+	//
+	// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
+	PreviewUpdateDeployment(ctx context.Context, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetUpdateDeployment Read the deployment header, release artifact size, and per-screen update state for the screens in the caller's scope
 	//
 	// Requires an authenticated dashboard user.
@@ -18189,7 +18268,7 @@ type ClientInterface interface {
 
 	// CancelUpdateDeployment Cancel pending update work on every screen the deployment reaches
 	//
-	// Requires an authenticated dashboard user.
+	// Requires an Owner or Administrator with CSRF and write scope. Cancels active or paused work. Installed updates stay installed.
 	//
 	// Corresponds with POST /api/v1/update-deployments/{id}/cancel (the `CancelUpdateDeployment` operationId).
 	CancelUpdateDeployment(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -26674,6 +26753,44 @@ func (c *Client) CreateUpdateDeployment(ctx context.Context, body CreateUpdateDe
 	return c.Client.Do(req)
 }
 
+// PreviewUpdateDeploymentWithBody Preview resolved Player update targets
+//
+// Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot without writes or commands. Creation repeats the same target expansion and compatibility checks. Offline screens receive a queued command. Other families appear as incompatible in preview and remain excluded from creation. Already-current screens do not receive an update.
+//
+// Takes any type of body and a specified content type.
+//
+// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
+func (c *Client) PreviewUpdateDeploymentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewUpdateDeploymentRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PreviewUpdateDeployment Preview resolved Player update targets
+//
+// Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot without writes or commands. Creation repeats the same target expansion and compatibility checks. Offline screens receive a queued command. Other families appear as incompatible in preview and remain excluded from creation. Already-current screens do not receive an update.
+//
+// Takes a body of the `application/json` content type.
+//
+// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
+func (c *Client) PreviewUpdateDeployment(ctx context.Context, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewUpdateDeploymentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetUpdateDeployment Read the deployment header, release artifact size, and per-screen update state for the screens in the caller's scope
 //
 // Requires an authenticated dashboard user.
@@ -26693,7 +26810,7 @@ func (c *Client) GetUpdateDeployment(ctx context.Context, id ResourceID, reqEdit
 
 // CancelUpdateDeployment Cancel pending update work on every screen the deployment reaches
 //
-// Requires an authenticated dashboard user.
+// Requires an Owner or Administrator with CSRF and write scope. Cancels active or paused work. Installed updates stay installed.
 //
 // Corresponds with POST /api/v1/update-deployments/{id}/cancel (the `CancelUpdateDeployment` operationId).
 func (c *Client) CancelUpdateDeployment(ctx context.Context, id ResourceID, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -45635,6 +45752,46 @@ func NewCreateUpdateDeploymentRequestWithBody(server string, contentType string,
 	return req, nil
 }
 
+// NewPreviewUpdateDeploymentRequest calls the generic PreviewUpdateDeployment builder with application/json body
+func NewPreviewUpdateDeploymentRequest(server string, body PreviewUpdateDeploymentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPreviewUpdateDeploymentRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPreviewUpdateDeploymentRequestWithBody constructs an http.Request for the PreviewUpdateDeployment method, with any body, and a specified content type
+func NewPreviewUpdateDeploymentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/update-deployments/preview")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetUpdateDeploymentRequest constructs an http.Request for the GetUpdateDeployment method
 func NewGetUpdateDeploymentRequest(server string, id ResourceID) (*http.Request, error) {
 	var err error
@@ -50546,6 +50703,24 @@ type ClientWithResponsesInterface interface {
 	// Corresponds with POST /api/v1/update-deployments (the `CreateUpdateDeployment` operationId).
 	CreateUpdateDeploymentWithResponse(ctx context.Context, body CreateUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUpdateDeploymentResponse, error)
 
+	// PreviewUpdateDeploymentWithBodyWithResponse Preview resolved Player update targets
+	//
+	// Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot without writes or commands. Creation repeats the same target expansion and compatibility checks. Offline screens receive a queued command. Other families appear as incompatible in preview and remain excluded from creation. Already-current screens do not receive an update.
+	//
+	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
+	PreviewUpdateDeploymentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error)
+
+	// PreviewUpdateDeploymentWithResponse Preview resolved Player update targets
+	//
+	// Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot without writes or commands. Creation repeats the same target expansion and compatibility checks. Offline screens receive a queued command. Other families appear as incompatible in preview and remain excluded from creation. Already-current screens do not receive an update.
+	//
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
+	PreviewUpdateDeploymentWithResponse(ctx context.Context, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error)
+
 	// GetUpdateDeploymentWithResponse Read the deployment header, release artifact size, and per-screen update state for the screens in the caller's scope
 	//
 	// Requires an authenticated dashboard user.
@@ -50557,7 +50732,7 @@ type ClientWithResponsesInterface interface {
 
 	// CancelUpdateDeploymentWithResponse Cancel pending update work on every screen the deployment reaches
 	//
-	// Requires an authenticated dashboard user.
+	// Requires an Owner or Administrator with CSRF and write scope. Cancels active or paused work. Installed updates stay installed.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	//
@@ -67364,6 +67539,51 @@ func (r CreateUpdateDeploymentResponse) ContentType() string {
 	return ""
 }
 
+type PreviewUpdateDeploymentResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data UpdateDeploymentPreview `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PreviewUpdateDeploymentResponse) GetJSON200() *struct {
+	Data UpdateDeploymentPreview `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r PreviewUpdateDeploymentResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PreviewUpdateDeploymentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreviewUpdateDeploymentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreviewUpdateDeploymentResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetUpdateDeploymentResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -75398,6 +75618,36 @@ func (c *ClientWithResponses) CreateUpdateDeploymentWithResponse(ctx context.Con
 	return ParseCreateUpdateDeploymentResponse(rsp)
 }
 
+// PreviewUpdateDeploymentWithBodyWithResponse Preview resolved Player update targets
+//
+// Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot without writes or commands. Creation repeats the same target expansion and compatibility checks. Offline screens receive a queued command. Other families appear as incompatible in preview and remain excluded from creation. Already-current screens do not receive an update.
+//
+// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
+func (c *ClientWithResponses) PreviewUpdateDeploymentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error) {
+	rsp, err := c.PreviewUpdateDeploymentWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewUpdateDeploymentResponse(rsp)
+}
+
+// PreviewUpdateDeploymentWithResponse Preview resolved Player update targets
+//
+// Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot without writes or commands. Creation repeats the same target expansion and compatibility checks. Offline screens receive a queued command. Other families appear as incompatible in preview and remain excluded from creation. Already-current screens do not receive an update.
+//
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
+func (c *ClientWithResponses) PreviewUpdateDeploymentWithResponse(ctx context.Context, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error) {
+	rsp, err := c.PreviewUpdateDeployment(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreviewUpdateDeploymentResponse(rsp)
+}
+
 // GetUpdateDeploymentWithResponse Read the deployment header, release artifact size, and per-screen update state for the screens in the caller's scope
 //
 // Requires an authenticated dashboard user.
@@ -75415,7 +75665,7 @@ func (c *ClientWithResponses) GetUpdateDeploymentWithResponse(ctx context.Contex
 
 // CancelUpdateDeploymentWithResponse Cancel pending update work on every screen the deployment reaches
 //
-// Requires an authenticated dashboard user.
+// Requires an Owner or Administrator with CSRF and write scope. Cancels active or paused work. Installed updates stay installed.
 //
 // Returns a wrapper object for the known response body format(s).
 //
@@ -87107,6 +87357,40 @@ func ParseCreateUpdateDeploymentResponse(rsp *http.Response) (*CreateUpdateDeplo
 			return nil, err
 		}
 		response.JSON201 = &dest
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParsePreviewUpdateDeploymentResponse parses an HTTP response from a PreviewUpdateDeploymentWithResponse call
+func ParsePreviewUpdateDeploymentResponse(rsp *http.Response) (*PreviewUpdateDeploymentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreviewUpdateDeploymentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data UpdateDeploymentPreview `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case rsp.StatusCode == 403:
 		break // No content-type

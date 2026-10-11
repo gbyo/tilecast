@@ -311,6 +311,7 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireScope("read")).Get("/update-deployments", s.listUpdateDeployments)
 			dashboard.With(s.requireScope("read")).Get("/update-deployments/{id}", s.getUpdateDeployment)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.operationsRateLimit, s.requireCSRF, s.requireScope("write")).Post("/update-deployments", s.createUpdateDeployment)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Post("/update-deployments/preview", s.previewUpdateDeployment)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Post("/update-deployments/{id}/cancel", s.cancelUpdateDeployment)
 			dashboard.With(s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("write")).Post("/update-deployments/{id}/screens/{screenId}/retry", s.retryUpdateScreen)
 			dashboard.With(s.requireTakeoverScope, s.requireScope("read")).Get("/takeovers/{id}", s.getTakeover)
