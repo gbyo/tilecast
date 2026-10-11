@@ -116,6 +116,15 @@ async fn every_crash_point_recovers_to_exactly_one_player() {
 }
 
 #[tokio::test]
+async fn a_static_policy_surface_settles_without_fresh_progress() {
+    let host = FakeHost::migration().with(|w| w.edge = Edge::StaticPolicy);
+    let dir = tempfile::tempdir().unwrap();
+    let attempt = migrator(&host, &dir).run(&options()).await.unwrap();
+    assert_eq!(attempt.phase, Phase::Accepted, "{:?}", attempt.reason);
+    assert_one_stack(&host, Phase::Accepted, "static policy");
+}
+
+#[tokio::test]
 async fn failed_settlement_rolls_back_with_its_reason() {
     for (edge, reason) in [
         (Edge::NeverConnects, "settlement_timeout: server_not_connected"),
