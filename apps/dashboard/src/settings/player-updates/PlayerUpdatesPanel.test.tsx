@@ -138,6 +138,27 @@ describe("Player Updates workspace", () => {
       screen.queryByRole("button", { name: "Connect GitHub" }),
     ).not.toBeInTheDocument();
   });
+  it("uses a compact table for completed deployment history", async () => {
+    vi.mocked(api.updateDeployments).mockResolvedValue({
+      items: [
+        {
+          ...deployment,
+          id: "completed",
+          status: "completed",
+          succeededCount: 3,
+          failedCount: 0,
+          waitingForUserCount: 0,
+        },
+      ],
+    });
+    mount();
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText(release.versionName)).toBeInTheDocument();
+    expect(within(table).getByText("Completed")).toBeInTheDocument();
+    expect(
+      within(table).getByRole("button", { name: "View rollout" }),
+    ).toBeInTheDocument();
+  });
   it("uses URL-backed view and family with back/forward, preserving unrelated parameters", async () => {
     mount("/settings/player/updates?platform=edge&keep=yes");
     const user = userEvent.setup();
