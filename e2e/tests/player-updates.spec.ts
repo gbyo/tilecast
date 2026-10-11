@@ -61,8 +61,11 @@ for (const viewport of [
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText("1 of 3 — Update");
     await expect(
-      dialog.getByRole("button", { name: "Continue", exact: true }),
-    ).toBeDisabled();
+      dialog.getByRole("combobox", { name: "Player type", exact: true }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("combobox", { name: "Version", exact: true }),
+    ).toBeVisible();
     await expect(
       dialog.getByRole("button", { name: "Cancel", exact: true }),
     ).toBeInViewport();
