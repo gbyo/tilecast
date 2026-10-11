@@ -212,7 +212,7 @@ operator-facing architecture labels (**Intel / AMD 64-bit** and **ARM64**) while
 retaining the exact `x86_64` or `aarch64` identifier.
 
 A deployment still selects one concrete release record. If a verified GitHub
-build is not cached, **Prepare & continue** starts the existing server-side cache
+build is not cached, **Prepare build** starts the existing server-side cache
 operation from the deployment workflow. Preparation continues independently of
 the dialog; Studio polls the release catalog every second while a build is
 downloading and shows actual bytes against the signed artifact size. An operator
@@ -256,7 +256,7 @@ Drawer with the same state and footer.
    then chooses **Intel / AMD 64-bit** (`x86_64`) or **ARM64** (`aarch64`).
    An unambiguous version/build is selected automatically. A build matching no
    known screen in that Player family cannot continue. If the selected verified
-   GitHub build is not cached, **Prepare & continue** starts its server-side
+   GitHub build is not cached, **Prepare build** starts its server-side
    preparation without requiring a detour through Release catalog.
 2. **Targets** searches screens and Display Groups from the chosen Player family.
    Server preflight expands groups and removes duplicate screens.
