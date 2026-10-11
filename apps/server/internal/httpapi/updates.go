@@ -571,10 +571,16 @@ func (s *server) reconcileUpdateDeployments(ctx context.Context) {
 	// school day. Uptime carries that weight instead — see devices.SettledUptimeSeconds.
 	_, _ = s.db.Exec(ctx, `UPDATE screen_update_states st SET state='succeeded',reconnect_at=COALESCE(st.reconnect_at,now()),completed_at=now(),updated_at=now() WHERE st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current') AND NOT `+edgeDeploymentSQL+` AND EXISTS(SELECT 1 FROM screens sc JOIN screen_player_status ps ON ps.screen_id=sc.id WHERE sc.id=st.screen_id AND sc.last_heartbeat_at>now()-interval '5 minutes' AND ps.player_version_code>=st.expected_version_code AND (sc.uptime_seconds IS NULL OR sc.uptime_seconds>=$1) AND NOT ps.safe_mode AND (ps.update_error IS NULL OR ps.update_error=''))`, devices.SettledUptimeSeconds)
 	_, _ = s.db.Exec(ctx, `UPDATE update_deployments d SET status='paused',rollout_phase='paused',paused_at=now(),pause_reason='A canary did not reconnect within ten minutes.' WHERE d.status='active' AND d.rollout_phase='canary' AND EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.is_canary AND st.state IN('installing','reconnecting') AND st.updated_at<now()-interval '10 minutes')`)
-	// The aggregate follows the targets: an active deployment with no unfinished
-	// target is finished, whichever path finished the last one. Idempotent, so a
-	// deployment that is already completed keeps its original completion time.
-	_, _ = s.db.Exec(ctx, `UPDATE update_deployments d SET status='completed',completed_at=COALESCE(d.completed_at,now()) WHERE d.status='active' AND EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id) AND NOT EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current'))`)
+	// Player install commands expire after seven days. A deployment must not outlive
+	// the command that could still advance it: once the deployment window itself is
+	// seven days old, settle every remaining non-terminal target as failed. For a
+	// scheduled rollout the clock begins at the maintenance window, not creation.
+	_, _ = s.db.Exec(ctx, `UPDATE screen_update_states st SET state='failed',safe_error=COALESCE(NULLIF(st.safe_error,''),'Update deployment expired after seven days.'),completed_at=COALESCE(st.completed_at,now()),updated_at=now() FROM update_deployments d WHERE d.id=st.deployment_id AND d.status IN('active','paused') AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current') AND COALESCE(d.maintenance_window_start,d.started_at,d.created_at)<now()-interval '7 days'`)
+	// The aggregate follows the targets: an active or paused deployment with no
+	// unfinished target is finished, whichever path finished the last one.
+	// Idempotent, so a deployment that is already completed keeps its original
+	// completion time.
+	_, _ = s.db.Exec(ctx, `UPDATE update_deployments d SET status='completed',rollout_phase='completed',completed_at=COALESCE(d.completed_at,now()) WHERE d.status IN('active','paused') AND EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id) AND NOT EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current'))`)
 }
 
 // A deployment is not a screen, so the update-deployment routes cannot be
