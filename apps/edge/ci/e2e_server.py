@@ -955,7 +955,7 @@ def main():
             positions = []
             for index, live_jpeg in enumerate(live_frames):
                 live_frame = Frame.from_jpeg(tools["ffmpeg"], live_jpeg)
-                assert (live_frame.width, live_frame.height) == (640, 360), (live_frame.width, live_frame.height)
+                assert (live_frame.width, live_frame.height) == (960, 540), (live_frame.width, live_frame.height)
                 positions.append(assert_video_under_overlay(live_frame, f"Watch Live frame {index}")["box_x"])
             assert max(positions) - min(positions) >= 20, f"the video did not move in Watch Live: {positions}"
             assert len({round(position) for position in positions}) >= 3, positions
