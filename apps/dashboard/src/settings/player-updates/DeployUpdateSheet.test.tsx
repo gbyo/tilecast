@@ -11,10 +11,7 @@ vi.mock("../../auth/AuthProvider", () => ({
   useAuth: () => ({ status: { csrfToken: "csrf", user: { role: "owner" } } }),
 }));
 let created = vi.fn();
-const releases = [
-  release,
-  { ...release, id: "r2", architecture: "aarch64" },
-];
+const releases = [release, { ...release, id: "r2", architecture: "aarch64" }];
 function mount(preselected?: string, releaseItems = releases) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
