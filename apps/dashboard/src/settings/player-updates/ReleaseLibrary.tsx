@@ -80,6 +80,7 @@ export function ReleaseLibrary({
   const client = useQueryClient();
   const [detailIds, setDetailIds] = useState<string[]>();
   const [purging, setPurging] = useState<PlayerRelease>();
+  const [showAll, setShowAll] = useState(false);
   const cache = useMutation({
     mutationFn: (id: string) =>
       api.cachePlayerRelease(id, auth.status?.csrfToken ?? ""),
@@ -106,6 +107,7 @@ export function ReleaseLibrary({
     },
   });
   const grouped = groupReleases(items);
+  const visibleGroups = showAll ? grouped : grouped.slice(0, 5);
   const detailed = items.filter((r) => detailIds?.includes(r.id));
   const github = catalog?.githubAuth;
   function progress(release: PlayerRelease) {
@@ -350,7 +352,7 @@ export function ReleaseLibrary({
       )}
       {grouped.length ? (
         <div className="grid gap-4">
-          {grouped.map((variants) => {
+          {visibleGroups.map((variants) => {
             const release = variants[0]!;
             return (
               <Card key={release.id} size="sm">
@@ -385,7 +387,28 @@ export function ReleaseLibrary({
               </Card>
             );
           })}
-        </div>
+        <>
+          </div>
+          {grouped.length > 5 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+              <span>
+                {t("updates.panel.showing", {
+                  shown: visibleGroups.length,
+                  total: grouped.length,
+                })}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAll((value) => !value)}
+              >
+                {showAll
+                  ? t("updates.panel.showFewer")
+                  : t("updates.panel.showAll", { total: grouped.length })}
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <Empty className="gap-2 py-8">
           <EmptyHeader>
