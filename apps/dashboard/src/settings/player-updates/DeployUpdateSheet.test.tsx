@@ -183,6 +183,7 @@ describe("guided deployment", () => {
     expect(api.createUpdateDeployment).toHaveBeenCalledWith(
       expect.objectContaining({
         releaseId: "r1",
+        name: "Tilecast Edge · x86_64 0.26.0-beta.6",
         screenIds: ["s1", "s2"],
         groupIds: [],
         mode: "install_now",
