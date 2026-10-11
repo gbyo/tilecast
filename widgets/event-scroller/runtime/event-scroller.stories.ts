@@ -26,6 +26,28 @@ export const FewEvents = story(few);
 export const ManyEvents = story(many);
 export const Compact = story(withConfig({ density: "compact" }));
 export const Spacious = story(withConfig({ density: "spacious" }));
+export const LargerText = story(
+  withConfig({ textScale: 160, headingScale: 120 }),
+);
+export const TightRows = story(
+  withConfig({
+    textScale: 135,
+    rowLayout: "natural",
+    rowSpacing: 10,
+    contentPadding: 30,
+    headingSpacing: 25,
+  }),
+);
+export const NaturalSpacing = story(withConfig({ rowLayout: "natural" }));
+export const LargeRail = story(
+  withConfig({
+    textScale: 160,
+    headingScale: 90,
+    rowSpacing: 10,
+    contentPadding: 30,
+  }),
+  "strip",
+);
 export const NoHeading = story(withConfig({ heading: "" }));
 export const AutoRail = story(standard, "strip");
 export const Horizontal = story(

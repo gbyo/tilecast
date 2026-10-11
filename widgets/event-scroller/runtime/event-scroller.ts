@@ -65,6 +65,15 @@ export class TilecastEventScrollerWidget extends TilecastWidgetElement<
       "--tc-event-horizontal-reverse",
       this.config.horizontalDirection === "right" ? "reverse" : "normal",
     );
+    for (const [property, amount] of [
+      ["text-scale", this.config.textScale],
+      ["heading-scale", this.config.headingScale],
+      ["row-spacing", this.config.rowSpacing],
+      ["content-padding", this.config.contentPadding],
+      ["heading-spacing", this.config.headingSpacing],
+    ] as const) {
+      this.style.setProperty(`--tc-event-${property}`, String(amount / 100));
+    }
   }
   protected override presentationState() {
     if (this.empty !== null)
@@ -111,6 +120,7 @@ export class TilecastEventScrollerWidget extends TilecastWidgetElement<
       class="board"
       data-flow=${config.flow}
       data-density=${config.density}
+      data-row-layout=${config.rowLayout}
       data-vertical-direction=${config.verticalDirection}
       ?data-dividers=${config.showDividers}
       ?data-still=${still}

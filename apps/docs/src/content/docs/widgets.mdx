@@ -77,8 +77,19 @@ it uses cached data offline. **Maximum events** limits relevant events, so past
 rows don't prevent later events from appearing. The empty message stays visible
 in Layouts; an empty fullscreen playlist item can advance.
 
+Under **Style**, use **Text size (%)** to enlarge event text and **Heading
+size (%)** to resize the heading separately. 100 keeps the automatic size;
+150 makes it one and a half times as large. Text still adapts to the zone.
+
+To reduce the space above and below each event, choose **Natural spacing**
+under **Row layout**, then lower **Row spacing (%)**. **Fill viewport** keeps
+rows spread across the available height. Natural spacing keeps rows together;
+a short list can leave space after its last event. Use **Outer padding (%)**
+for the space around the board and **Heading spacing (%)** for the space below
+the heading. Set a spacing control to 0 to remove that space.
+
 Use **Density**, colors, and the date, time, location, category, and divider
-controls to fit your screen. Long titles stay on one line. Smaller zones hide
+controls to fit your screen. Larger text can truncate sooner. Long titles stay on one line. Smaller zones hide
 secondary fields to keep the title readable. Event Scroller requires a Player
 version that supports its component. See the [Event Scroller contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md#event-scroller)
 for the exact time and movement rules.

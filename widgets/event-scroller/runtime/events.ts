@@ -42,6 +42,12 @@ export interface EventScrollerConfig {
   readonly horizontalDirection: "left" | "right";
   readonly scrollSpeed: number;
   readonly density: "compact" | "comfortable" | "spacious";
+  readonly rowLayout: "fill" | "natural";
+  readonly textScale: number;
+  readonly headingScale: number;
+  readonly rowSpacing: number;
+  readonly contentPadding: number;
+  readonly headingSpacing: number;
   readonly dateStyle: "short" | "day" | "numeric";
   readonly background: string | null;
   readonly foreground: string | null;
@@ -82,6 +88,7 @@ export function parseEventScrollerConfig(
     verticalDirection: ["up", "down"],
     horizontalDirection: ["left", "right"],
     density: ["comfortable", "compact", "spacious"],
+    rowLayout: ["fill", "natural"],
     dateStyle: ["short", "day", "numeric"],
   } as const;
   const selected: Record<string, string> = {};
@@ -123,6 +130,35 @@ export function parseEventScrollerConfig(
   }
   const maximumItems = raw["maximumItems"] ?? 20;
   const scrollSpeed = raw["scrollSpeed"] ?? 3;
+  const sizing = {} as Record<
+    | "textScale"
+    | "headingScale"
+    | "rowSpacing"
+    | "contentPadding"
+    | "headingSpacing",
+    number
+  >;
+  for (const [key, minimum, maximum] of [
+    ["textScale", 50, 300],
+    ["headingScale", 50, 200],
+    ["rowSpacing", 0, 200],
+    ["contentPadding", 0, 200],
+    ["headingSpacing", 0, 200],
+  ] as const) {
+    const amount = raw[key] ?? 100;
+    if (
+      !Number.isInteger(amount) ||
+      typeof amount !== "number" ||
+      amount < minimum ||
+      amount > maximum
+    ) {
+      return {
+        ok: false,
+        problem: `${key} must be an integer from ${minimum} to ${maximum}`,
+      };
+    }
+    sizing[key] = amount;
+  }
   if (
     typeof maximumItems !== "number" ||
     !Number.isInteger(maximumItems) ||
@@ -147,6 +183,7 @@ export function parseEventScrollerConfig(
     config: {
       ...mappings,
       ...flags,
+      ...sizing,
       ...(selected as Pick<EventScrollerConfig, keyof typeof choices>),
       heading: boundText(raw["heading"] ?? "", 120),
       emptyText: boundText(raw["emptyText"] ?? "", 200),

@@ -91,9 +91,24 @@ below 700 pixels, and date below 300 pixels. Long titles truncate on one line.
 Scrolling uses exactly two identical logical groups. CSS gives each group a
 minimum size equal to the viewport on the movement axis. Grid rows distribute
 spare vertical space for short lists. Flex distributes spare horizontal space.
+This is the default `rowLayout: fill`. With `rowLayout: natural`, rows keep
+their intrinsic height and start at the top or left of the group. The group
+retains its viewport minimum. A short natural list can leave space after its
+last row; this is an explicit author choice.
 The track transforms by 50 percent of its own size with linear keyframes.
 The second group is hidden from accessibility. No layout measurement or
 JavaScript animation loop controls motion.
+
+The Style controls apply integer percentages to container-relative values.
+`textScale` accepts 50 through 300 for event text. `headingScale` accepts
+50 through 200 for the heading. `rowSpacing`, `contentPadding`, and
+`headingSpacing` accept 0 through 200. Each defaults to 100. Row spacing scales
+vertical row padding and the density minimum in fill mode. Natural mode removes
+that minimum and extra row stretch. Outer padding scales the board gutter.
+Heading spacing scales its lower padding and margin. Zero removes that space.
+The heading and event size controls are independent. Large text still uses
+single-line truncation. Bounded CSSOM properties apply these values under CSP.
+Configurations without these controls retain the default appearance.
 
 `scrollSpeed` accepts 1 through 10. The duration in seconds is
 `max(6, visibleEventCount) × (14 - scrollSpeed)`, bounded by the 100-event cap.

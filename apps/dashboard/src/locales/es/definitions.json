@@ -89,6 +89,34 @@
       "scrolling": {
         "label": "Desplazamiento activado"
       },
+      "textScale": {
+        "label": "Tamaño del texto (%)",
+        "description": "100 usa el tamaño automático. Auméntalo para mostrar el texto de los eventos más grande."
+      },
+      "headingScale": {
+        "label": "Tamaño del encabezado (%)",
+        "description": "Cambia el tamaño del encabezado sin modificar el texto de los eventos."
+      },
+      "rowLayout": {
+        "label": "Distribución de filas",
+        "description": "El espaciado natural mantiene las filas juntas. Las listas cortas pueden dejar espacio después del último evento.",
+        "options": {
+          "fill": "Llenar el área visible",
+          "natural": "Espaciado natural"
+        }
+      },
+      "rowSpacing": {
+        "label": "Espaciado de filas (%)",
+        "description": "Ajusta el espacio encima y debajo del texto de los eventos. Elige Espaciado natural para quitar el espacio adicional que llena el área visible."
+      },
+      "contentPadding": {
+        "label": "Margen interior del panel (%)",
+        "description": "Ajusta el espacio alrededor del panel. 0 lo elimina; 100 usa el margen automático."
+      },
+      "headingSpacing": {
+        "label": "Espaciado del encabezado (%)",
+        "description": "Ajusta el espacio debajo del encabezado y alrededor de su línea divisoria."
+      },
       "density": {
         "label": "Densidad",
         "options": {

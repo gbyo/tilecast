@@ -6,7 +6,7 @@ export const eventScrollerStyles = css`
     inset: 0;
     display: flex;
     flex-direction: column;
-    padding: var(--tc-gutter);
+    padding: calc(var(--tc-gutter) * var(--tc-event-content-padding));
     min-width: 0;
     min-height: 0;
     overflow: hidden;
@@ -20,6 +20,11 @@ export const eventScrollerStyles = css`
     --group-inline: 100%;
     --track-inline: 100%;
     --row-font: clamp(12px, min(5cqh, 3.1cqw), 72px);
+    --heading-font: clamp(14px, min(6cqh, 4cqw), 100px);
+    --heading-gap: min(3cqh, 3cqw);
+    --heading-padding: min(2cqh, 2cqw);
+    --row-minimum: calc(var(--row-size) * var(--tc-event-row-spacing));
+    --row-growth: 1fr;
   }
   .board[data-density="compact"] {
     --row-size: clamp(36px, min(11cqh, 10cqw), 130px);
@@ -27,14 +32,25 @@ export const eventScrollerStyles = css`
   .board[data-density="spacious"] {
     --row-size: clamp(52px, min(19cqh, 16cqw), 230px);
   }
+  .board[data-row-layout="natural"] {
+    --row-minimum: 0px;
+    --row-growth: auto;
+  }
+  .board[data-row-layout="natural"] .group {
+    align-content: start;
+    align-items: start;
+    justify-content: start;
+  }
   .heading {
     flex: none;
-    font-size: clamp(14px, min(6cqh, 4cqw), 100px);
+    font-size: calc(var(--heading-font) * var(--tc-event-heading-scale));
     font-weight: 650;
     letter-spacing: -0.025em;
     line-height: 1.15;
-    margin-bottom: min(3cqh, 3cqw);
-    padding-bottom: min(2cqh, 2cqw);
+    margin-bottom: calc(var(--heading-gap) * var(--tc-event-heading-spacing));
+    padding-bottom: calc(
+      var(--heading-padding) * var(--tc-event-heading-spacing)
+    );
     border-bottom: var(--tc-stroke) solid var(--tc-color-accent);
     white-space: nowrap;
     overflow: hidden;
@@ -59,7 +75,7 @@ export const eventScrollerStyles = css`
   .group {
     display: var(--group-display);
     grid-template-columns: minmax(0, 1fr);
-    grid-auto-rows: minmax(var(--row-size), 1fr);
+    grid-auto-rows: minmax(max-content, var(--row-growth));
     flex: none;
     min-block-size: var(--group-block);
     min-inline-size: var(--group-inline);
@@ -71,9 +87,10 @@ export const eventScrollerStyles = css`
     align-items: center;
     gap: var(--row-gap);
     min-width: 0;
-    padding-block: 0.5em;
+    min-block-size: var(--row-minimum);
+    padding-block: calc(0.5em * var(--tc-event-row-spacing));
     box-sizing: border-box;
-    font-size: var(--row-font);
+    font-size: calc(var(--row-font) * var(--tc-event-text-scale));
     line-height: 1.2;
   }
   .board[data-dividers] .row {
@@ -192,9 +209,9 @@ export const eventScrollerStyles = css`
       display: none;
     }
     .heading {
-      font-size: clamp(12px, 14cqh, 50px);
-      margin-bottom: 2cqh;
-      padding-bottom: 2cqh;
+      --heading-font: clamp(12px, 14cqh, 50px);
+      --heading-gap: 2cqh;
+      --heading-padding: 2cqh;
     }
   }
   @container tc-widget (max-width: 1100px) {

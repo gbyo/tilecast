@@ -365,6 +365,98 @@
         }
       },
       {
+        "key": "textScale",
+        "label": "Text size (%)",
+        "labelKey": "definitions:event-scroller.fields.textScale.label",
+        "description": "100 uses the automatic size. Increase it for larger event text.",
+        "descriptionKey": "definitions:event-scroller.fields.textScale.description",
+        "control": "integer",
+        "default": 100,
+        "minimum": 50,
+        "maximum": 300,
+        "ui": { "section": "appearance", "order": 1, "slider": true }
+      },
+      {
+        "key": "headingScale",
+        "label": "Heading size (%)",
+        "labelKey": "definitions:event-scroller.fields.headingScale.label",
+        "description": "Resize the heading independently of the event text.",
+        "descriptionKey": "definitions:event-scroller.fields.headingScale.description",
+        "control": "integer",
+        "default": 100,
+        "minimum": 50,
+        "maximum": 200,
+        "ui": {
+          "section": "appearance",
+          "order": 2,
+          "slider": true,
+          "visibleWhen": { "key": "heading", "notEquals": "" }
+        }
+      },
+      {
+        "key": "rowLayout",
+        "label": "Row layout",
+        "labelKey": "definitions:event-scroller.fields.rowLayout.label",
+        "description": "Natural spacing keeps rows together. Short lists can leave space after the last event.",
+        "descriptionKey": "definitions:event-scroller.fields.rowLayout.description",
+        "control": "select",
+        "default": "fill",
+        "options": [
+          {
+            "value": "fill",
+            "label": "Fill viewport",
+            "labelKey": "definitions:event-scroller.fields.rowLayout.options.fill"
+          },
+          {
+            "value": "natural",
+            "label": "Natural spacing",
+            "labelKey": "definitions:event-scroller.fields.rowLayout.options.natural"
+          }
+        ],
+        "ui": { "section": "appearance", "order": 3, "styleCard": true }
+      },
+      {
+        "key": "rowSpacing",
+        "label": "Row spacing (%)",
+        "labelKey": "definitions:event-scroller.fields.rowSpacing.label",
+        "description": "Adjust space above and below event text. Choose Natural spacing to remove the extra space used to fill the viewport.",
+        "descriptionKey": "definitions:event-scroller.fields.rowSpacing.description",
+        "control": "integer",
+        "default": 100,
+        "minimum": 0,
+        "maximum": 200,
+        "ui": { "section": "appearance", "order": 4, "slider": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Outer padding (%)",
+        "labelKey": "definitions:event-scroller.fields.contentPadding.label",
+        "description": "Adjust the space around the board. 0 removes it; 100 uses the automatic padding.",
+        "descriptionKey": "definitions:event-scroller.fields.contentPadding.description",
+        "control": "integer",
+        "default": 100,
+        "minimum": 0,
+        "maximum": 200,
+        "ui": { "section": "appearance", "order": 5, "slider": true }
+      },
+      {
+        "key": "headingSpacing",
+        "label": "Heading spacing (%)",
+        "labelKey": "definitions:event-scroller.fields.headingSpacing.label",
+        "description": "Adjust the space below the heading and around its divider.",
+        "descriptionKey": "definitions:event-scroller.fields.headingSpacing.description",
+        "control": "integer",
+        "default": 100,
+        "minimum": 0,
+        "maximum": 200,
+        "ui": {
+          "section": "appearance",
+          "order": 7,
+          "slider": true,
+          "visibleWhen": { "key": "heading", "notEquals": "" }
+        }
+      },
+      {
         "key": "density",
         "label": "Density",
         "labelKey": "definitions:event-scroller.fields.density.label",
@@ -389,8 +481,9 @@
         ],
         "ui": {
           "section": "appearance",
-          "order": 1,
-          "styleCard": true
+          "order": 6,
+          "styleCard": true,
+          "visibleWhen": { "key": "rowLayout", "equals": "fill" }
         }
       },
       {
@@ -401,7 +494,7 @@
         "default": "",
         "ui": {
           "section": "appearance",
-          "order": 2
+          "order": 8
         }
       },
       {
@@ -412,7 +505,7 @@
         "default": "",
         "ui": {
           "section": "appearance",
-          "order": 3
+          "order": 9
         }
       },
       {
@@ -423,7 +516,7 @@
         "default": "",
         "ui": {
           "section": "appearance",
-          "order": 4
+          "order": 10
         }
       }
     ]
@@ -452,6 +545,12 @@
     "scrollSpeed": 3,
     "scrolling": true,
     "density": "comfortable",
+    "textScale": 100,
+    "headingScale": 100,
+    "rowLayout": "fill",
+    "rowSpacing": 100,
+    "contentPadding": 100,
+    "headingSpacing": 100,
     "backgroundColor": "",
     "foregroundColor": "",
     "accentColor": ""
@@ -568,6 +667,12 @@
         "$config": "density",
         "default": "comfortable"
       },
+      "textScale": { "$config": "textScale", "default": 100 },
+      "headingScale": { "$config": "headingScale", "default": 100 },
+      "rowLayout": { "$config": "rowLayout", "default": "fill" },
+      "rowSpacing": { "$config": "rowSpacing", "default": 100 },
+      "contentPadding": { "$config": "contentPadding", "default": 100 },
+      "headingSpacing": { "$config": "headingSpacing", "default": 100 },
       "background": {
         "$config": "backgroundColor",
         "default": ""

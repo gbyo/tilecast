@@ -975,6 +975,46 @@ export const fixtures = [
           },
         ],
       },
+      {
+        present: {
+          presentation: playing([
+            item("events-sizing", {
+              kind: "widget",
+              durationMs: null,
+              widget: eventScrollerComponent({
+                textScale: 160,
+                headingScale: 120,
+                rowLayout: "natural",
+                rowSpacing: 0,
+                contentPadding: 0,
+                headingSpacing: 0,
+              }),
+            }),
+          ]),
+          activation: activation(4),
+        },
+      },
+      { checkpoint: "author-sizing", visual: true },
+      {
+        assertWidgets: [
+          {
+            type: "tilecast.event-scroller",
+            textIncludes: ["WILDCAT ATHLETICS", "JV Volleyball"],
+            styles: [
+              { selector: ".board", property: "padding-top", value: "0px" },
+              { selector: ".row", property: "padding-top", value: "0px" },
+              { selector: ".row", property: "padding-bottom", value: "0px" },
+              { selector: ".heading", property: "margin-bottom", value: "0px" },
+              {
+                selector: ".heading",
+                property: "padding-bottom",
+                value: "0px",
+              },
+              { selector: ".group", property: "align-content", value: "start" },
+            ],
+          },
+        ],
+      },
     ],
   },
   {

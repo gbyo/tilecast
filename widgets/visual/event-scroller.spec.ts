@@ -44,6 +44,10 @@ for (const story of [
   "many-events",
   "auto-rail",
   "horizontal",
+  "larger-text",
+  "tight-rows",
+  "natural-spacing",
+  "large-rail",
 ]) {
   test(`${story}: two viewport-sized groups and a seamless transform loop`, async ({
     page,
@@ -137,4 +141,118 @@ test("titles truncate without changing the single-line row geometry", async ({
     true,
   );
   expect(new Set(rows.map((row) => Math.round(row.height))).size).toBe(1);
+});
+
+async function sizing(page: import("@playwright/test").Page) {
+  return page.locator("tc-widget-event-scroller").evaluate((widget) => {
+    const root = widget.shadowRoot!;
+    const row = root.querySelector<HTMLElement>(".row")!;
+    const heading = root.querySelector<HTMLElement>(".heading")!;
+    const board = root.querySelector<HTMLElement>(".board")!;
+    const rowStyle = getComputedStyle(row);
+    const headingStyle = getComputedStyle(heading);
+    return {
+      text: parseFloat(rowStyle.fontSize),
+      heading: parseFloat(headingStyle.fontSize),
+      rowHeight: row.getBoundingClientRect().height,
+      rowPadding: parseFloat(rowStyle.paddingTop),
+      rowBorder: parseFloat(rowStyle.borderBottomWidth),
+      outerPadding: parseFloat(getComputedStyle(board).paddingTop),
+      headingMargin: parseFloat(headingStyle.marginBottom),
+      headingPadding: parseFloat(headingStyle.paddingBottom),
+    };
+  });
+}
+
+test("event and heading text grow independently of responsive automatic sizing", async ({
+  page,
+}) => {
+  await open(page);
+  const standard = await sizing(page);
+  await open(page, "larger-text");
+  const larger = await sizing(page);
+  // A taller heading reduces the inner viewport; typography remains container-relative.
+  expect(larger.text).toBeGreaterThan(standard.text * 1.5);
+  expect(larger.heading / standard.heading).toBeCloseTo(1.2, 1);
+  await page.locator("tc-widget-event-scroller").evaluate(async (node) => {
+    const widget = node as HTMLElement & {
+      config: Record<string, unknown>;
+      updateComplete: Promise<unknown>;
+    };
+    widget.config = { ...widget.config, textScale: 100 };
+    await widget.updateComplete;
+  });
+  const changed = await sizing(page);
+  expect(larger.text / changed.text).toBeCloseTo(1.6, 1);
+  expect(changed.heading).toBeCloseTo(larger.heading, 1);
+});
+
+test("natural rows honor spacing and zero padding without viewport stretching", async ({
+  page,
+}) => {
+  await open(page);
+  const standard = await sizing(page);
+  await open(page, "tight-rows");
+  const tight = await sizing(page);
+  expect(tight.text).toBeGreaterThan(standard.text);
+  expect(tight.rowHeight).toBeLessThan(standard.rowHeight);
+  expect(tight.rowPadding / tight.text).toBeCloseTo(0.05, 2);
+  expect(tight.rowHeight).toBeCloseTo(tight.text * 1.3 + tight.rowBorder, 0);
+  expect(tight.outerPadding).toBeLessThan(standard.outerPadding);
+  expect(tight.headingMargin).toBeLessThan(standard.headingMargin);
+  await page.locator("tc-widget-event-scroller").evaluate(async (node) => {
+    const widget = node as HTMLElement & {
+      config: Record<string, unknown>;
+      updateComplete: Promise<unknown>;
+    };
+    widget.config = {
+      ...widget.config,
+      rowSpacing: 0,
+      contentPadding: 0,
+      headingSpacing: 0,
+    };
+    await widget.updateComplete;
+  });
+  const zero = await sizing(page);
+  expect(zero.rowPadding).toBe(0);
+  expect(zero.outerPadding).toBe(0);
+  expect(zero.headingMargin).toBe(0);
+  expect(zero.headingPadding).toBe(0);
+  expect(zero.rowHeight).toBeCloseTo(zero.text * 1.2 + zero.rowBorder, 0);
+});
+
+test("maximum text and row spacing grow rows without clipping or overlapping text", async ({
+  page,
+}) => {
+  await open(page, "larger-text");
+  await page.locator("tc-widget-event-scroller").evaluate(async (node) => {
+    const widget = node as HTMLElement & {
+      config: Record<string, unknown>;
+      updateComplete: Promise<unknown>;
+    };
+    widget.config = {
+      ...widget.config,
+      textScale: 300,
+      rowSpacing: 200,
+      density: "compact",
+    };
+    await widget.updateComplete;
+  });
+  const large = await sizing(page);
+  expect(large.rowHeight).toBeGreaterThanOrEqual(
+    large.text * 3.2 + large.rowBorder - 1,
+  );
+  const rows = await page
+    .locator("tc-widget-event-scroller .group[role='list'] .row")
+    .evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        top: node.getBoundingClientRect().top,
+        bottom: node.getBoundingClientRect().bottom,
+        clipped: node.scrollHeight > node.clientHeight + 1,
+      })),
+    );
+  expect(rows.every((row) => !row.clipped)).toBe(true);
+  expect(
+    rows.slice(1).every((row, index) => row.top >= rows[index]!.bottom - 1),
+  ).toBe(true);
 });

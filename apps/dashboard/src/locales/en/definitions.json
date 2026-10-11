@@ -89,6 +89,31 @@
       "scrolling": {
         "label": "Scrolling enabled"
       },
+      "textScale": {
+        "label": "Text size (%)",
+        "description": "100 uses the automatic size. Increase it for larger event text."
+      },
+      "headingScale": {
+        "label": "Heading size (%)",
+        "description": "Resize the heading independently of the event text."
+      },
+      "rowLayout": {
+        "label": "Row layout",
+        "description": "Natural spacing keeps rows together. Short lists can leave space after the last event.",
+        "options": { "fill": "Fill viewport", "natural": "Natural spacing" }
+      },
+      "rowSpacing": {
+        "label": "Row spacing (%)",
+        "description": "Adjust space above and below event text. Choose Natural spacing to remove the extra space used to fill the viewport."
+      },
+      "contentPadding": {
+        "label": "Outer padding (%)",
+        "description": "Adjust the space around the board. 0 removes it; 100 uses the automatic padding."
+      },
+      "headingSpacing": {
+        "label": "Heading spacing (%)",
+        "description": "Adjust the space below the heading and around its divider."
+      },
       "density": {
         "label": "Density",
         "options": {

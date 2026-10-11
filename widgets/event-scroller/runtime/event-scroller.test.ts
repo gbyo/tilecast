@@ -95,6 +95,12 @@ describe("configuration and authoring", () => {
         scrolling: true,
         scrollSpeed: 3,
         hideEnded: true,
+        textScale: 100,
+        headingScale: 100,
+        rowLayout: "fill",
+        rowSpacing: 100,
+        contentPadding: 100,
+        headingSpacing: 100,
       },
     });
     expect(
@@ -120,10 +126,43 @@ describe("configuration and authoring", () => {
     { titleField: "x".repeat(121) },
     { scrolling: "yes" },
     { density: "huge" },
+    { rowLayout: "spread" },
     { dateStyle: "raw" },
   ])("rejects %j", (value) => {
     expect(parseEventScrollerConfig(value).ok).toBe(false);
   });
+  it.each([
+    ["textScale", 50, 300],
+    ["headingScale", 50, 200],
+    ["rowSpacing", 0, 200],
+    ["contentPadding", 0, 200],
+    ["headingSpacing", 0, 200],
+  ])(
+    "bounds %s and preserves author sizing through configuration projection",
+    (key, minimum, maximum) => {
+      for (const value of [minimum, maximum]) {
+        const projected = compileComponentConfig(
+          manifest.component.configTemplate,
+          { [key]: value },
+        );
+        expect(parseEventScrollerConfig(projected)).toMatchObject({
+          ok: true,
+          config: { [key]: value },
+        });
+      }
+      for (const value of [
+        minimum - 1,
+        maximum + 1,
+        NaN,
+        Infinity,
+        1.5,
+        "100",
+        true,
+      ]) {
+        expect(parseEventScrollerConfig({ [key]: value }).ok).toBe(false);
+      }
+    },
+  );
   it("suggests calendar and common record mappings without guessing optional text fields", () => {
     const slots = Object.fromEntries(
       manifest.configurationSchema.fields
@@ -365,6 +404,45 @@ describe("reading pace", () => {
 });
 
 describe("element lifecycle", () => {
+  it("applies sizing through CSSOM and updates live without adding inline style attributes", async () => {
+    const { root, element, test } = await render(undefined, {
+      textScale: 160,
+      headingScale: 120,
+      rowSpacing: 10,
+      contentPadding: 30,
+      headingSpacing: 25,
+      rowLayout: "natural",
+    });
+    expect(element.style.getPropertyValue("--tc-event-text-scale")).toBe("1.6");
+    expect(element.style.getPropertyValue("--tc-event-heading-scale")).toBe(
+      "1.2",
+    );
+    expect(element.style.getPropertyValue("--tc-event-row-spacing")).toBe(
+      "0.1",
+    );
+    expect(root.querySelector(".board")?.getAttribute("data-row-layout")).toBe(
+      "natural",
+    );
+    element.config = {
+      ...base,
+      textScale: 300,
+      rowSpacing: 0,
+      contentPadding: 0,
+      headingSpacing: 0,
+    };
+    await element.updateComplete;
+    expect(element.style.getPropertyValue("--tc-event-text-scale")).toBe("3");
+    expect(element.style.getPropertyValue("--tc-event-row-spacing")).toBe("0");
+    expect(element.style.getPropertyValue("--tc-event-content-padding")).toBe(
+      "0",
+    );
+    expect(element.style.getPropertyValue("--tc-event-heading-spacing")).toBe(
+      "0",
+    );
+    expect(root.querySelector("[style]")).toBeNull();
+    expect(root.querySelectorAll(".group")).toHaveLength(2);
+    test.dispose();
+  });
   it("renders a fixed optional header and exactly two identical logical groups with one accessible list", async () => {
     const { root, test } = await render();
     expect(root.querySelector(".heading")?.textContent).toBe(
