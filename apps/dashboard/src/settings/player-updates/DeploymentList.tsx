@@ -143,18 +143,16 @@ export function DeploymentList({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("updates.console.releases")}</TableHead>
+                  <TableHead>{t("updates.panel.version")}</TableHead>
                   <TableHead>{t("updates.console.screens")}</TableHead>
                   <TableHead className="hidden md:table-cell">
                     {t("updates.panel.modeLabel")}
                   </TableHead>
                   <TableHead>
-                    {t("updates.console.statusLabel", { defaultValue: "Status" })}
+                    {t("updates.panel.status")}
                   </TableHead>
                   <TableHead className="hidden sm:table-cell">
-                    {t("updates.console.completedLabel", {
-                      defaultValue: "Completed",
-                    })}
+                    {t("updates.console.status.completed")}
                   </TableHead>
                   <TableHead className="w-10">
                     <span className="sr-only">
