@@ -44,6 +44,7 @@ import type {
   UpdateDeployment,
   UpdateDeploymentDetail,
   UpdateDeploymentMode,
+  UpdateDeploymentSelection,
   UptimeReport,
   UptimeWindow,
   User,
@@ -216,6 +217,16 @@ export function createUpdateDeployment(
   csrfToken: string,
 ): Promise<{ id: string; targetCount: number }> {
   return apiPost("/api/v1/update-deployments", { body: input, csrfToken });
+}
+
+export function previewUpdateDeployment(
+  input: UpdateDeploymentSelection,
+  csrfToken: string,
+) {
+  return apiPost("/api/v1/update-deployments/preview", {
+    body: input,
+    csrfToken,
+  });
 }
 
 export function cancelUpdateDeployment(

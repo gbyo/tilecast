@@ -14,7 +14,6 @@ import "./styles/load-reveal.css";
 // Page-specific refinements intentionally load after shared Signal styles.
 import "./styles/screens.css";
 import "./styles/data-sources.css";
-import "./styles/player-updates.css";
 import { DrawerIndentShell } from "./components/ui/drawer";
 import { TooltipProvider } from "./components/ui/tooltip";
 

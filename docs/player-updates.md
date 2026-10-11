@@ -179,66 +179,137 @@ publishes. See [`release-process.md`](release-process.md).
 
 ## Studio and player flow
 
-Owners can either select **Upload release** or **Sync from GitHub** under
-**Settings → Player Updates**. Direct upload accepts the exact three-file set
-above for the release's family. The server applies the same manifest-signature, artifact
-hash/size, platform, and version checks to both sources, plus Android package,
-minimum-SDK, and signing-certificate checks for APKs. A verified direct upload
-is moved atomically into the same private update cache and creates the same
-Player release record used by deployments. GitHub availability is therefore
-optional.
+The full-width **Settings → Player Updates** workspace has a Player family
+filter and two views: **Deployments** and **Releases**. The URL stores the
+family in `platform` and the view in `view`. Studio preserves unrelated
+query parameters. A family change discards the deployment draft.
 
-Tilecast refreshes the GitHub release catalog automatically when the catalog is empty or the previous check is more than 15 minutes old. Studio keeps **Sync from GitHub** as an immediate retry and displays provider, signature, and release-verification failures instead of showing an unexplained empty table.
+Owners select **Sync releases** to refresh the fixed GitHub catalog.
+**More → Upload release** accepts the exact three-file set above.
+The upload dialog separates transfer progress from server verification.
+The server applies the same manifest-signature, artifact hash, size, platform,
+and version checks to both sources.
+Android releases also require valid package, minimum-SDK, and certificate metadata.
+A verified direct upload enters the private update cache atomically.
+GitHub availability is optional.
 
-When a release is being cached, the server records downloaded bytes while the
-artifact streams to disk. The Player Updates page polls that release every
-second during the download and shows the live megabytes downloaded against the
-signed artifact size; it returns to the normal slower refresh interval when no
-release is downloading.
+Tilecast refreshes an empty GitHub catalog or a catalog older than 15 minutes.
+Studio retains existing releases during refresh.
+The Releases view shows provider and verification errors with a retry action.
+GitHub variants with the same tag and release metadata share one library row.
+Direct uploads remain separate.
+Every Edge and Windows artifact shows its architecture.
+One deployment selects one concrete artifact.
 
-Authenticated GitHub requests receive a substantially higher API allowance than anonymous requests. To enable the Studio **Connect GitHub** device flow, create a GitHub OAuth App, enable **Device Flow**, and set its public client ID as `TILECAST_GITHUB_CLIENT_ID`. The OAuth App callback URL is required by GitHub but is not used by device flow; the Tilecast repository URL is an acceptable callback for this fixed public-release integration. No OAuth client secret belongs on Tilecast Server.
+Select **Prepare artifact** on a verified GitHub artifact to cache it.
+During caching, Studio polls every second and shows actual downloaded bytes
+against the signed artifact size.
+Studio uses a slower interval when no artifact is downloading.
+The release detail shows notes, verification state, cache state, and active use.
+Technical details include the artifact name, hash, and signature state.
+Cache removal requires confirmation.
+An active or paused deployment prevents cache removal.
+A purged direct upload must be uploaded again.
 
-The Owner starts sign-in in Studio, opens GitHub's device page, and enters the displayed one-time code. The private device code remains only in server memory. After approval, Tilecast validates the GitHub account and stores the access token in `/data/updates/github-oauth.json` with owner-only file permissions. The token is never returned through the API, audit metadata, diagnostics, or logs. Disconnecting removes the local credential; the GitHub account can separately revoke the OAuth App grant. `TILECAST_GITHUB_TOKEN` remains supported as an environment-managed override and cannot be disconnected from Studio.
+Authenticated GitHub requests receive a higher API allowance.
+The Owner opens **More → Configure source** to configure or connect GitHub.
+To enable the device flow, create a GitHub OAuth App and enable **Device Flow**.
+Set its public client ID in Studio or with `TILECAST_GITHUB_CLIENT_ID`.
+GitHub requires a callback URL but does not use it for device flow.
+The fixed Tilecast repository URL is a valid callback.
+Tilecast Server does not require an OAuth client secret.
 
-Owners and Administrators deploy a fully verified cached release to screens or
-sync groups. Studio and the server restrict each release to screens of its
-family (and architecture, for Edge and Windows). Studio shows Android, Linux,
-Tilecast Edge and Windows on separate tabs. Sync-group membership is resolved
-at deployment start and duplicates are removed. Modes are download only,
-install now, and maintenance window. Screen states distinguish downloading,
-verification, permission/user approval, installation, reconnecting, success,
-failure, cancellation, incompatibility, and already-current. Players always
-retrieve the verified artifact from their paired Tilecast server; the
-player never contacts GitHub.
+The Owner starts sign-in, opens GitHub's device page, and enters the displayed code.
+The private device code stays in server memory.
+After approval, Tilecast validates the account.
+Tilecast stores the token in `/data/updates/github-oauth.json` with owner-only permissions.
+The API, audit metadata, diagnostics, and logs never contain the token.
+Disconnect removes the local credential.
+The GitHub account can revoke the OAuth App grant separately.
+`TILECAST_GITHUB_TOKEN` is an environment-managed override.
+Studio cannot disconnect that override.
+
+## Deployment preflight and creation
+
+Owners and Administrators select **Deploy update** to open a three-stage workflow.
+Desktop uses a right-side Sheet.
+Narrow layouts use a Drawer with the same body and footer.
+
+1. **Release** selects a verified cached artifact.
+   Edge and Windows choices show the family and architecture.
+2. **Targets** searches screens and Display Groups.
+   Server preflight expands groups and removes duplicate screens.
+   Incompatible screen options show the server reason.
+   A selected group with an incompatible member blocks submission.
+   Offline and already-current screens have separate warnings.
+3. **Rollout** selects install now, download only, or maintenance window.
+   The maintenance time control appears only for that mode.
+   The optional canary switch shows the cohort-size control.
+   The final summary shows the artifact, resolved count, mode, and canary size.
+   **Deploy update** submits that review without a second confirmation.
+
+`POST /api/v1/update-deployments/preview` accepts `releaseId`,
+`screenIds`, and `groupIds`.
+The operation requires an Owner or Administrator session, CSRF, and write scope.
+It authorizes direct and expanded targets.
+It reads a consistent database snapshot without changing deployments,
+commands, audit records, release cache, or provider state.
+
+The response includes each screen and its exact incompatibility reason.
+Counts distinguish eligible, offline, already-current, and incompatible targets.
+Eligible count includes offline screens that can receive a queued command.
+Offline count describes the existing 15-minute update-contact criterion.
+It is not the computed fleet status.
+
+Preview and creation use one target-expansion and compatibility resolver.
+Creation evaluates the current metadata again inside its transaction.
+Preview does not reserve targets or grant authorization.
+Creation preserves family exclusion and deterministic canary selection.
+Preview includes wrong-family group members so Studio can show the conflict.
+Unknown Android SDK remains subject to verification on the Player.
+Known SDK below the release minimum is incompatible.
+Current-version rules remain unchanged.
+
+Offline commands wait for the Player to reconnect.
+The commands expire after seven days.
+Already-current screens receive no update command.
+Canary size is 1–50 and must leave targets for the next cohort.
+Studio disallows a canary selection that contains already-current screens.
+The server retains its existing canary rules.
+
+After creation, Studio closes the workflow and opens the new deployment.
+Players retrieve artifacts from their paired Tilecast Server.
+Players never contact GitHub for deployment.
 
 ## Reading a deployment in Studio
 
-The Android, Linux, Tilecast Edge or Windows choice is held in the URL
-(`?platform=linux`, `?platform=edge`, `?platform=windows`), so a reload, a
-bookmark, or the back button all return to the fleet the operator was reading
-rather than to Android.
+The default **Deployments** view shows active deployments and recent history.
+Attention states sort before normal progress.
+Deployment summaries include incompatible target counts.
+Those targets need attention and do not count as work in progress.
+Studio omits an empty active section.
+Each deployment has one responsive row with its artifact, architecture,
+status, family, mode, time, and target count.
+The segmented meter includes text counts.
+Its accompanying sentence describes the next operator action.
 
-**Settings → Player Updates → Deployment history** answers "did this land?"
-without arithmetic. Each row carries one meter divided into updated, waiting on
-someone, failed, and still in progress, and one sentence saying what the
-deployment needs — a retry, someone at a TV, or nothing. Every segment is
-repeated as a number and a word, so no state is carried by colour alone.
+**View rollout** reads `GET /api/v1/update-deployments/{id}`.
+The detail shows mode, phase, canary size, times, and any safe pause reason.
+Search and the **Needs attention**, **In progress**, **Finished**, and **All**
+filters select screen rows.
+Each row shows the current and expected version, canary status, report time,
+and a plain-language state.
+Failed and incompatible rows preserve the exact safe reason.
 
-Opening a row reads `GET /api/v1/update-deployments/{id}` and lists the screens
-the deployment reaches, one row each: the plain-language status, what a person
-has to do about it, the version the screen is coming from and going to, whether
-it is a canary, and when it last reported. States are grouped into needs
-attention, in progress, and finished; screens that need attention sort first and
-carry a marked edge, and the three groups are also filter tabs. Only a running
-download shows a percentage, computed from reported bytes against the release's
-artifact size; every other state shows its place in a Queued → Downloading →
-Installing → Updated trail, because a step is what the player actually reports.
-Failed and cancelled screens show no trail position at all.
-
-A failed screen offers **Retry**, and an active or paused deployment offers
-**Cancel deployment**; both are limited to Owners and Administrators and follow
-the same screen-scope rules as the rest of the update routes. A screen waiting
-for permission or for approval on the TV is never presented as a failure.
+Only a downloading target shows percentage progress.
+Studio computes that percentage from reported bytes and the signed artifact size.
+Other states show a status without invented progress.
+Owners and Administrators can retry failed targets.
+Permission and TV-approval states do not offer retry.
+**Cancel deployment** requires confirmation.
+Cancellation does not revert an installed release.
+Initial loading uses skeleton rows.
+Background refresh retains the current rows.
 
 ## CI publishing
 
@@ -291,4 +362,4 @@ expected version, meets the uptime condition, is not in safe mode, and reports
 no update error. The reconciliation also completes an active deployment when
 all targets are terminal. It runs before the canary pause check.
 
-An offline player cannot receive a new deployment. `WaitingForPermission` and `WaitingForUser` are expected operational states, not failures. Silent installation is not claimed. Physical Fire TV and Google TV validation remains required for each device/OS family.
+An offline Player receives a queued update command after it reconnects within the command expiry period. `WaitingForPermission` and `WaitingForUser` are expected operational states, not failures. Physical Fire TV and Google TV validation remains required for each device/OS family.

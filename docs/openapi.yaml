@@ -8717,6 +8717,29 @@ paths:
                   data: { $ref: "#/components/schemas/UpdateDeploymentCreated" }
         "403": { description: Targets outside the caller's screen scope }
         "422": { description: Invalid or unverified release/targets }
+  /api/v1/update-deployments/preview:
+    post:
+      operationId: previewUpdateDeployment
+      summary: Preview resolved Player update targets
+      description: >-
+        Requires Owner or Administrator, write scope, and CSRF. Reads a snapshot without writes or commands. Creation repeats the same target expansion and compatibility checks. Offline screens receive a queued command. Other families appear as incompatible in preview and remain excluded from creation. Already-current screens do not receive an update.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateDeploymentSelection" }
+      responses:
+        "200":
+          description: Advisory target preview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UpdateDeploymentPreview" }
+        "403": { description: Targets outside the caller's screen scope }
+        "422": { description: Invalid selection or unverified release }
   /api/v1/update-deployments/{id}:
     parameters:
       - { $ref: "#/components/parameters/ResourceID" }
@@ -8742,7 +8765,7 @@ paths:
       - { $ref: "#/components/parameters/ResourceID" }
     post:
       description: >-
-        Requires an authenticated dashboard user.
+        Requires an Owner or Administrator with CSRF and write scope. Cancels active or paused work. Installed updates stay installed.
       operationId: cancelUpdateDeployment
       summary: Cancel pending update work on every screen the deployment reaches
       responses:
@@ -13790,6 +13813,7 @@ components:
         mode: { $ref: "#/components/schemas/UpdateDeploymentMode" }
         status: { $ref: "#/components/schemas/UpdateDeploymentStatus" }
         createdAt: { type: string, format: date-time }
+        completedAt: { type: [string, "null"], format: date-time }
         platform: { $ref: "#/components/schemas/PlayerPlatform" }
         playerFamily: { $ref: "#/components/schemas/PlayerFamily" }
         architecture: { type: string }
@@ -13800,6 +13824,7 @@ components:
         failedCount: { type: integer, minimum: 0 }
         waitingForUserCount: { type: integer, minimum: 0 }
         rolloutMode: { $ref: "#/components/schemas/UpdateRolloutMode" }
+        incompatibleCount: { type: integer, minimum: 0 }
         rolloutPhase: { $ref: "#/components/schemas/UpdateRolloutPhase" }
         canarySize: { type: integer, minimum: 0, maximum: 50 }
         pauseReason: { type: [string, "null"] }
@@ -15395,6 +15420,66 @@ components:
           additionalProperties: true
           description: Per-type command arguments validated at queue time.
         idempotencyKey: { type: [string, "null"], format: uuid }
+    UpdateDeploymentSelection:
+      type: object
+      additionalProperties: false
+      required: [releaseId, screenIds, groupIds]
+      properties:
+        releaseId: { type: string, format: uuid }
+        screenIds:
+          type: array
+          items: { type: string, format: uuid }
+        groupIds:
+          type: array
+          items: { type: string, format: uuid }
+    UpdateDeploymentPreview:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          targetCount,
+          eligibleCount,
+          alreadyCurrentCount,
+          offlineCount,
+          blockedCount,
+          screens,
+        ]
+      properties:
+        targetCount: { type: integer, minimum: 0 }
+        eligibleCount: { type: integer, minimum: 0 }
+        alreadyCurrentCount: { type: integer, minimum: 0 }
+        offlineCount: { type: integer, minimum: 0 }
+        blockedCount: { type: integer, minimum: 0 }
+        screens:
+          type: array
+          items: { $ref: "#/components/schemas/UpdateDeploymentPreviewScreen" }
+    UpdateDeploymentPreviewScreen:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          screenId,
+          screenName,
+          currentVersionCode,
+          playerFamily,
+          playerArchitecture,
+          recentlyContacted,
+          outcome,
+          reason,
+        ]
+      properties:
+        screenId: { type: string, format: uuid }
+        screenName: { type: string }
+        currentVersionCode: { type: [integer, "null"], format: int64 }
+        playerFamily: { type: string }
+        playerArchitecture: { type: string }
+        recentlyContacted: { type: boolean }
+        outcome:
+          {
+            type: string,
+            enum: [eligible, already_current, offline, incompatible],
+          }
+        reason: { type: [string, "null"] }
     UpdateDeploymentRequest:
       type: object
       additionalProperties: false

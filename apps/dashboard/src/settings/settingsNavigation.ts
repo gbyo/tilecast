@@ -206,6 +206,7 @@ export const sectionDetails: Record<
   },
   "player-updates": {
     icon: DownloadCloud,
+    workspace: true,
     titleKey: "nav.sections.player-updates.title",
     descriptionKey: "nav.sections.player-updates.description",
   },

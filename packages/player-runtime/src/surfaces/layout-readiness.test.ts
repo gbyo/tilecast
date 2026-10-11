@@ -37,11 +37,16 @@ function harness(
   extraZones: RuntimeLayoutZone[] = [],
 ) {
   const clock = new ManualClock({ wallMs: 0 });
+  const playbackEvidence = vi.fn();
   const sink: SurfaceSink = {
     ended: vi.fn(),
     failed: vi.fn(),
     resumed: vi.fn(),
-    evidence: vi.fn(),
+    evidence: (kind, zoneId) => {
+      if (kind === "layout-zone-declared" || kind === "layout-zone-rotating")
+        return;
+      playbackEvidence(kind, zoneId);
+    },
     websiteFailed: vi.fn(),
     websiteRecovered: vi.fn(),
     fallbackShown: vi.fn(),
@@ -88,6 +93,7 @@ function harness(
     surface,
     clock,
     sink,
+    playbackEvidence,
     zone: surface.element.firstElementChild as HTMLElement,
   };
 }
@@ -130,7 +136,7 @@ describe("Layout child media readiness", () => {
     started();
     await settle();
     expect(video.loop).toBe(true);
-    expect(h.sink.evidence).toHaveBeenCalledOnce();
+    expect(h.playbackEvidence).toHaveBeenCalledOnce();
   });
 
   it("cancels image timing when disposed", async () => {
@@ -160,7 +166,7 @@ describe("Layout child media readiness", () => {
     await h.surface.activate();
     await settle();
     expect(request).toHaveBeenCalledOnce();
-    expect(h.sink.evidence).toHaveBeenCalledOnce();
+    expect(h.playbackEvidence).toHaveBeenCalledOnce();
     h.surface.dispose();
     expect(cancel).toHaveBeenCalledExactlyOnceWith(1);
     expect(video.hasAttribute("src")).toBe(false);
@@ -181,7 +187,7 @@ describe("Layout child media readiness", () => {
     expect(h.zone.querySelectorAll("img")).toHaveLength(1);
     h.clock.advance(1);
     expect(h.zone.querySelectorAll("img")).toHaveLength(2);
-    expect(h.sink.evidence).toHaveBeenCalledOnce();
+    expect(h.playbackEvidence).toHaveBeenCalledOnce();
   });
 
   it("cannot accept a delayed play result after replacement or disposal", async () => {
@@ -204,7 +210,7 @@ describe("Layout child media readiness", () => {
     clip.dispatchEvent(new Event("timeupdate"));
     await settle();
     expect(h.sink.zoneFailed).toHaveBeenCalledOnce();
-    expect(h.sink.evidence).not.toHaveBeenCalled();
+    expect(h.playbackEvidence).not.toHaveBeenCalled();
     expect(clip.hasAttribute("src")).toBe(false);
     expect(h.zone.querySelector("img")!.src).toContain("next");
     const next = h.zone.querySelector("img")!;
@@ -212,7 +218,7 @@ describe("Layout child media readiness", () => {
     h.surface.dispose();
     load.call(next, new Event("load"));
     await settle();
-    expect(h.sink.evidence).not.toHaveBeenCalled();
+    expect(h.playbackEvidence).not.toHaveBeenCalled();
   });
 
   it("keeps the previous good item when incoming video activation fails", async () => {
@@ -229,7 +235,7 @@ describe("Layout child media readiness", () => {
     await settle();
     expect(h.zone.firstElementChild).toBe(first);
     expect(h.zone.childElementCount).toBe(1);
-    expect(h.sink.evidence).toHaveBeenCalledOnce();
+    expect(h.playbackEvidence).toHaveBeenCalledOnce();
     expect(h.sink.zoneFailed).toHaveBeenCalledWith(
       "zone",
       "video autoplay failed",
@@ -254,14 +260,14 @@ describe("Layout child media readiness", () => {
     ]);
     await expect(h.surface.prepare()).resolves.toBeUndefined();
     await h.surface.activate();
-    expect(h.sink.evidence).not.toHaveBeenCalled();
+    expect(h.playbackEvidence).not.toHaveBeenCalled();
     h.surface.element
       .querySelector('img[src="tcmedia://healthy"]')!
       .dispatchEvent(new Event("load"));
     h.zone.querySelector("video")!.dispatchEvent(new Event("error"));
     await settle();
     expect(h.sink.zoneFailed).toHaveBeenCalledOnce();
-    expect(h.sink.evidence).toHaveBeenCalledExactlyOnceWith(
+    expect(h.playbackEvidence).toHaveBeenCalledExactlyOnceWith(
       "layout-zone-rendered",
       "healthy",
     );
@@ -271,12 +277,12 @@ describe("Layout child media readiness", () => {
   it("does not report selection and gives an image its full duration after load", async () => {
     const h = harness([entry("first"), entry("next")]);
     await h.surface.activate();
-    expect(h.sink.evidence).not.toHaveBeenCalled();
+    expect(h.playbackEvidence).not.toHaveBeenCalled();
     h.clock.advance(8_000);
     expect(h.zone.querySelector("img")!.src).toContain("first");
     h.zone.querySelector("img")!.dispatchEvent(new Event("load"));
     await settle();
-    expect(h.sink.evidence).toHaveBeenCalledExactlyOnceWith(
+    expect(h.playbackEvidence).toHaveBeenCalledExactlyOnceWith(
       "layout-zone-rendered",
       "zone",
     );
@@ -293,21 +299,21 @@ describe("Layout child media readiness", () => {
     expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
     video.dispatchEvent(new Event("loadeddata"));
     await settle();
-    expect(h.sink.evidence).not.toHaveBeenCalled();
+    expect(h.playbackEvidence).not.toHaveBeenCalled();
     video.dispatchEvent(new Event("canplay"));
     await settle();
     expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
-    expect(h.sink.evidence).not.toHaveBeenCalled();
+    expect(h.playbackEvidence).not.toHaveBeenCalled();
     await h.surface.activate();
     await settle();
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
-    expect(h.sink.evidence).toHaveBeenCalledExactlyOnceWith(
+    expect(h.playbackEvidence).toHaveBeenCalledExactlyOnceWith(
       "layout-zone-rendered",
       "zone",
     );
     video.currentTime = 1;
     video.dispatchEvent(new Event("timeupdate"));
-    expect(h.sink.evidence).toHaveBeenCalledWith("video-progress", "zone");
+    expect(h.playbackEvidence).toHaveBeenCalledWith("video-progress", "zone");
   });
 
   it.each(["load", "play"])(
@@ -327,7 +333,7 @@ describe("Layout child media readiness", () => {
         "zone",
         expect.stringContaining("video"),
       );
-      expect(h.sink.evidence).not.toHaveBeenCalled();
+      expect(h.playbackEvidence).not.toHaveBeenCalled();
       expect(h.zone.style.visibility).toBe("hidden");
       expect(h.zone.childElementCount).toBe(0);
     },
@@ -345,12 +351,12 @@ describe("Layout child media readiness", () => {
     load.call(first, new Event("load"));
     error.call(first, new Event("error"));
     await settle();
-    expect(h.sink.evidence).not.toHaveBeenCalled();
+    expect(h.playbackEvidence).not.toHaveBeenCalled();
     expect(h.sink.zoneFailed).toHaveBeenCalledOnce();
     expect(h.zone.querySelector("img")).toBe(next);
     next.dispatchEvent(new Event("load"));
     await settle();
-    expect(h.sink.evidence).toHaveBeenCalledOnce();
+    expect(h.playbackEvidence).toHaveBeenCalledOnce();
   });
 
   it.each(["fade", "crossfade"] as const)(
@@ -397,7 +403,7 @@ describe("Layout child media readiness", () => {
       "zone",
       "image failed to load",
     );
-    expect(h.sink.evidence).not.toHaveBeenCalled();
+    expect(h.playbackEvidence).not.toHaveBeenCalled();
   });
 
   it("requires current-epoch readiness before starting the image timer", () => {

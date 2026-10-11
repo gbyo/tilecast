@@ -7,7 +7,7 @@ import { usePresentationChrome } from "../native-presentation/presentationContex
 import {
   deploymentDescription,
   useUpdateDeployment,
-} from "./UpdateDeploymentDrawer";
+} from "./player-updates/UpdateDeploymentDetail";
 
 /**
  * An update deployment's per-screen status in a native presentation, at
@@ -39,7 +39,7 @@ function UpdateDeploymentBody(
   const { deployment, body, footer } = useUpdateDeployment(props);
   usePresentationChrome({
     header: {
-      title: deployment?.name ?? t("updates.deploymentTitle"),
+      title: deployment?.versionName ?? t("updates.deploymentTitle"),
       subtitle: deploymentDescription(deployment, t),
       navigation: "close",
       navigationLabel: t("common:actions.close"),
