@@ -179,10 +179,19 @@ publishes. See [`release-process.md`](release-process.md).
 
 ## Studio and player flow
 
-The full-width **Settings → Player Updates** workspace has a Player family
-filter and two views: **Deployments** and **Releases**. The URL stores the
-family in `platform` and the view in `view`. Studio preserves unrelated
-query parameters. A family change discards the deployment draft.
+The full-width **Settings → Player Updates** workspace has two views:
+**Deployments** and **Release catalog**. A compact **Player type** selector sits
+in the same operator toolbar as the views, and includes the current screen count
+for each Player family. The URL stores the family in `platform` and the view in
+`view`. Studio preserves unrelated query parameters. Page-level family changes
+discard transient deployment overlays; changing Player type inside the deploy
+workflow resets only choices that no longer apply.
+
+**Deploy update** is the normal operational path and is available from either
+view. The Release catalog is an administrative inventory, not a prerequisite for
+deployment. It exposes release notes, verification state, cached artifacts,
+manual upload and source configuration. Owners see **Sync releases** and release
+maintenance commands only while that catalog is open.
 
 Owners select **Sync releases** to refresh the fixed GitHub catalog.
 **More → Upload release** accepts the exact three-file set above.
@@ -195,16 +204,23 @@ GitHub availability is optional.
 
 Tilecast refreshes an empty GitHub catalog or a catalog older than 15 minutes.
 Studio retains existing releases during refresh.
-The Releases view shows provider and verification errors with a retry action.
-GitHub variants with the same tag and release metadata share one library row.
-Direct uploads remain separate.
-Every Edge and Windows artifact shows its architecture.
-One deployment selects one concrete artifact.
+The Release catalog shows provider and verification errors with a retry action.
+GitHub variants with the same tag and release metadata share one version card.
+Direct uploads remain separate. The five newest version groups are shown first,
+with explicit disclosure for older entries. Edge and Windows builds use
+operator-facing architecture labels (**Intel / AMD 64-bit** and **ARM64**) while
+retaining the exact `x86_64` or `aarch64` identifier.
 
-Select **Prepare artifact** on a verified GitHub artifact to cache it.
-During caching, Studio polls every second and shows actual downloaded bytes
-against the signed artifact size.
-Studio uses a slower interval when no artifact is downloading.
+A deployment still selects one concrete release record. If a verified GitHub
+build is not cached, **Prepare & continue** starts the existing server-side cache
+operation from the deployment workflow. Preparation continues independently of
+the dialog; Studio polls the release catalog every second while a build is
+downloading and shows actual bytes against the signed artifact size. An operator
+may close the dialog and return later. If the dialog remains open, it advances
+when the selected build becomes verified and cached. Owners and Administrators
+may prepare a build because both roles may create update deployments; release
+source configuration, direct upload and cache cleanup remain Owner operations.
+
 The release detail shows notes, verification state, cache state, and active use.
 Technical details include the artifact name, hash, and signature state.
 Cache removal requires confirmation.
@@ -231,22 +247,27 @@ Studio cannot disconnect that override.
 
 ## Deployment preflight and creation
 
-Owners and Administrators select **Deploy update** to open a three-stage workflow.
-Desktop uses a right-side Sheet.
-Narrow layouts use a Drawer with the same body and footer.
+Owners and Administrators select **Deploy update** to open one focused
+three-stage workflow. Desktop uses a centered Dialog; narrow layouts use a
+Drawer with the same state and footer.
 
-1. **Release** selects a verified cached artifact.
-   Edge and Windows choices show the family and architecture.
-2. **Targets** searches screens and Display Groups.
+1. **Update** chooses Player type and version. Versions are grouped independently
+   of architecture. When more than one Edge or Windows build applies, the operator
+   then chooses **Intel / AMD 64-bit** (`x86_64`) or **ARM64** (`aarch64`).
+   An unambiguous version/build is selected automatically. A build matching no
+   known screen in that Player family cannot continue. If the selected verified
+   GitHub build is not cached, **Prepare & continue** starts its server-side
+   preparation without requiring a detour through Release catalog.
+2. **Targets** searches screens and Display Groups from the chosen Player family.
    Server preflight expands groups and removes duplicate screens.
    Incompatible screen options show the server reason.
    A selected group with an incompatible member blocks submission.
    Offline and already-current screens have separate warnings.
-3. **Rollout** selects install now, download only, or maintenance window.
-   The maintenance time control appears only for that mode.
-   The optional canary switch shows the cohort-size control.
-   The final summary shows the artifact, resolved count, mode, and canary size.
-   **Deploy update** submits that review without a second confirmation.
+3. **Rollout** leads with the deployment review and defaults to **Install now**.
+   Deployment mode is one compact choice; the maintenance time control appears
+   only for **Maintenance window**. Canary configuration lives under
+   **Rollout safeguards** and is disclosed only when the operator needs it.
+   **Deploy update** submits the review without a second confirmation.
 
 `POST /api/v1/update-deployments/preview` accepts `releaseId`,
 `screenIds`, and `groupIds`.
@@ -283,15 +304,19 @@ Players never contact GitHub for deployment.
 
 ## Reading a deployment in Studio
 
-The default **Deployments** view shows active deployments and recent history.
-Attention states sort before normal progress.
-Deployment summaries include incompatible target counts.
-Those targets need attention and do not count as work in progress.
-Studio omits an empty active section.
-Each deployment has one responsive row with its artifact, architecture,
-status, family, mode, time, and target count.
-The segmented meter includes text counts.
-Its accompanying sentence describes the next operator action.
+The default **Deployments** view is an operator queue rather than one mixed
+chronological list. Live work that needs intervention appears first under
+**Needs attention** as compact action rows. Healthy live work is separate under
+**In progress**, and terminal work appears in **Recent deployments**. Section
+badges state screen counts rather than mixing deployment counts with target
+counts. If no rollout is live, Studio shows an explicit all-clear instead of
+dropping directly into history.
+
+The Deployments tab carries an attention badge even while the operator is
+browsing Release catalog. Selecting an attention row opens the rollout detail
+already filtered to affected screens. Deployment and history surfaces use the
+same operator-facing architecture labels as the deployment workflow while
+preserving the exact architecture identifier.
 
 **View rollout** reads `GET /api/v1/update-deployments/{id}`.
 The detail shows mode, phase, canary size, times, and any safe pause reason.
