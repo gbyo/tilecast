@@ -225,15 +225,34 @@ export function DeployUpdateSheet({
       footer={footer}
       presentation="dialog"
     >
-      <ol className="grid grid-cols-3 gap-2" aria-label={t("updates.panel.deployAction")}>
+      <ol
+        className="grid grid-cols-3 gap-2"
+        aria-label={t("updates.panel.deployAction")}
+      >
         {(["release", "targets", "rollout"] as const).map((key, index) => (
-          <li key={key} className={`rounded-lg border px-3 py-3 ${stage === index + 1 ? "border-primary bg-accent" : stage > index + 1 ? "border-primary/40" : "border-border"}`} aria-current={stage === index + 1 ? "step" : undefined}>
-            <span className="block text-xs font-medium text-muted-foreground">{index + 1}</span>
-            <span className="text-sm font-semibold">{t(`updates.console.steps.${key}`)}</span>
+          <li
+            key={key}
+            className={`rounded-lg border px-3 py-3 ${
+              stage === index + 1
+                ? "border-primary bg-accent"
+                : stage > index + 1
+                  ? "border-primary/40"
+                  : "border-border"
+            }`}
+            aria-current={stage === index + 1 ? "step" : undefined}
+          >
+            <span className="block text-xs font-medium text-muted-foreground">
+              {index + 1}
+            </span>
+            <span className="text-sm font-semibold">
+              {t(`updates.console.steps.${key}`)}
+            </span>
           </li>
         ))}
       </ol>
-      <h2 className="text-lg font-semibold">{t(`updates.console.steps.${stageKey}`)}</h2>
+      <h2 className="text-lg font-semibold">
+        {t(`updates.console.steps.${stageKey}`)}
+      </h2>
       <p className="text-sm text-muted-foreground">
         {t(`updates.console.stepHints.${stageKey}`)}
       </p>
