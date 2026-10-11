@@ -86,6 +86,7 @@ export function DeployUpdateSheet({
   releases,
   screens,
   groups,
+  initialFamily,
   preselected,
   onClose,
   onCreated,
@@ -93,17 +94,40 @@ export function DeployUpdateSheet({
   releases: PlayerRelease[];
   screens: Screen[];
   groups: ScreenGroup[];
+  initialFamily: UpdateFamilyTab;
   preselected?: string;
   onClose: () => void;
-  onCreated: (id: string) => void;
+  onCreated: (id: string, family: UpdateFamilyTab) => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const { t: screenT } = useTranslation("screens");
   const locale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
+  const client = useQueryClient();
+  const initialRelease = releases.find((item) => item.id === preselected);
+  const initialReleaseFamily = initialRelease
+    ? releaseUpdateTab(initialRelease)
+    : initialFamily;
+  const initialGroups = groupReleases(
+    releases.filter(
+      (item) => releaseUpdateTab(item) === initialReleaseFamily,
+    ),
+  );
+  const initialGroup = initialRelease
+    ? initialGroups.find((items) =>
+        items.some((item) => item.id === initialRelease.id),
+      )
+    : undefined;
+
   const [stage, setStage] = useState(1);
+  const [family, setFamily] =
+    useState<UpdateFamilyTab>(initialReleaseFamily);
+  const [releaseGroupId, setReleaseGroupId] = useState(
+    initialGroup ? releaseGroupKey(initialGroup) : "",
+  );
   const [releaseId, setReleaseId] = useState(preselected ?? "");
+  const [advanceAfterPrepare, setAdvanceAfterPrepare] = useState(false);
   const [selected, setSelected] = useState<TargetChoice[]>([]);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<UpdateDeploymentMode>("install_now");
@@ -111,22 +135,37 @@ export function DeployUpdateSheet({
   const [canary, setCanary] = useState(false);
   const [canarySize, setCanarySize] = useState(1);
   const targetAnchor = useComboboxAnchor();
-  const release = releases.find((r) => r.id === releaseId);
+
+  const familyReleases = releases.filter(
+    (item) => releaseUpdateTab(item) === family,
+  );
+  const releaseGroups = groupReleases(familyReleases);
+  const releaseGroup = releaseGroups.find(
+    (items) => releaseGroupKey(items) === releaseGroupId,
+  );
+  const release = releases.find((item) => item.id === releaseId);
+  const readiness = release ? releaseReadiness(release, t) : undefined;
+  const familyScreens = screens.filter((screen) => screenUpdateTab(screen) === family);
+  const familyScreenIds = new Set(familyScreens.map((screen) => screen.id));
+  const familyGroups = groups.filter((group) =>
+    group.screens.some((screen) => familyScreenIds.has(screen.id)),
+  );
   const choices = useMemo(
     () => [
-      ...screens.map((s) => ({
-        value: s.id,
-        label: s.name,
+      ...familyScreens.map((screen) => ({
+        value: screen.id,
+        label: screen.name,
         type: "screen" as const,
       })),
-      ...groups.map((g) => ({
-        value: g.id,
-        label: g.name,
+      ...familyGroups.map((group) => ({
+        value: group.id,
+        label: group.name,
         type: "group" as const,
       })),
     ],
-    [screens, groups],
+    [familyScreens, familyGroups],
   );
+
   const selection = {
     releaseId,
     screenIds: selected.filter((i) => i.type === "screen").map((i) => i.value),
