@@ -73,7 +73,12 @@ describe("guided deployment", () => {
     await selectEligible();
     expect(screen.getByText("2 screens selected")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("3 of 3 — Rollout")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveAccessibleDescription(
+      "3 of 3 — Rollout",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Rollout" }),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByText("2 screens selected")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
