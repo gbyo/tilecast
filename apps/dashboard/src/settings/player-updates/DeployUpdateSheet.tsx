@@ -149,7 +149,7 @@ export function DeployUpdateSheet({
       api.createUpdateDeployment(
         {
           ...selection,
-          name: `Tilecast Player ${release?.versionName}`,
+          name: `${release ? artifactIdentity(release, t) : "Tilecast Player"} ${release?.versionName}`,
           mode,
           canarySize: canary ? canarySize : 0,
           maintenanceWindowStart:
@@ -211,10 +211,17 @@ export function DeployUpdateSheet({
         title: t(`updates.console.steps.${stageKey}`),
       })}
       footer={footer}
+      wide
     >
-      <h2 className="text-sm font-semibold">
-        {t(`updates.console.steps.${stageKey}`)}
-      </h2>
+      <ol className="grid grid-cols-3 gap-2" aria-label={t("updates.console.workspaceViews")}>
+        {(["release", "targets", "rollout"] as const).map((key, index) => (
+          <li key={key} className={`rounded-lg border px-3 py-3 ${stage === index + 1 ? "border-primary bg-accent" : stage > index + 1 ? "border-primary/40" : "border-border"}`} aria-current={stage === index + 1 ? "step" : undefined}>
+            <span className="block text-xs font-medium text-muted-foreground">{index + 1}</span>
+            <span className="text-sm font-semibold">{t(`updates.console.steps.${key}`)}</span>
+          </li>
+        ))}
+      </ol>
+      <h2 className="text-lg font-semibold">{t(`updates.console.steps.${stageKey}`)}</h2>
       <p className="text-sm text-muted-foreground">
         {t(`updates.console.stepHints.${stageKey}`)}
       </p>
@@ -244,7 +251,7 @@ export function DeployUpdateSheet({
               <Field
                 key={r.id}
                 orientation="horizontal"
-                className="gap-3 border-b pb-3"
+                className="gap-3 rounded-lg border p-4 transition-colors hover:bg-accent/30"
               >
                 <RadioGroupItem
                   id={`release-${r.id}`}
