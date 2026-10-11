@@ -38,13 +38,15 @@ export function main() {
     "npx",
     [
       "prettier",
-      "--check",
+      "--write",
       "--ignore-unknown",
       "--",
       ...files.map((file) => `./${file}`),
     ],
     { stdio: "inherit" },
   );
+  execFileSync("git", ["diff", "--", ...files], { stdio: "inherit" });
+  throw new Error("temporary formatter diff emitted");
 }
 
 if (
