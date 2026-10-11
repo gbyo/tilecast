@@ -929,6 +929,169 @@ function RolloutStep({
   );
 }
 
+
+function DeployFooter({
+  stage,
+  busy,
+  release,
+  selectedBuildScreenCount,
+  selectedBuildPreparing,
+  canPrepareSelected,
+  result,
+  previewFetching,
+  previewError,
+  ready,
+  deployPending,
+  preparePending,
+  onClose,
+  onBack,
+  onContinue,
+  onDeploy,
+  onPrepare,
+}: {
+  stage: number;
+  busy: boolean;
+  release?: PlayerRelease;
+  selectedBuildScreenCount: number;
+  selectedBuildPreparing: boolean;
+  canPrepareSelected: boolean;
+  result?: UpdateDeploymentPreview;
+  previewFetching: boolean;
+  previewError: boolean;
+  ready: boolean;
+  deployPending: boolean;
+  preparePending: boolean;
+  onClose: () => void;
+  onBack: () => void;
+  onContinue: () => void;
+  onDeploy: () => void;
+  onPrepare: () => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  const stageOneBlocked =
+    !release ||
+    selectedBuildScreenCount === 0 ||
+    selectedBuildPreparing ||
+    (!deployable(release) && !canPrepareSelected);
+  const stageTwoBlocked =
+    !result?.targetCount ||
+    !!result.blockedCount ||
+    previewFetching ||
+    previewError;
+  const disabled =
+    busy ||
+    (stage === 1 ? stageOneBlocked : stage === 2 ? stageTwoBlocked : !ready);
+
+  function primaryAction() {
+    if (stage === 3) return onDeploy();
+    if (stage === 2 || (release && deployable(release))) return onContinue();
+    if (release && canPrepareSelected) onPrepare();
+  }
+
+  const primaryLabel =
+    stage === 3
+      ? t("updates.panel.deployAction")
+      : stage === 1 && selectedBuildPreparing
+        ? t("updates.console.preparingBuild")
+        : stage === 1 && release && !deployable(release)
+          ? preparePending
+            ? t("updates.console.startingPreparation")
+            : t("updates.console.prepareBuildAction")
+          : t("updates.console.continue");
+
+  return (
+    <div className="flex w-full flex-wrap items-center justify-between gap-2">
+      <Button
+        variant="ghost"
+        disabled={busy}
+        onClick={stage === 1 ? onClose : onBack}
+      >
+        {stage === 1
+          ? selectedBuildPreparing
+            ? t("common:actions.close")
+            : t("common:actions.cancel")
+          : t("common:actions.back")}
+      </Button>
+      <Button disabled={disabled} onClick={primaryAction}>
+        {(deployPending || preparePending) && <Spinner />}
+        {primaryLabel}
+      </Button>
+    </div>
+  );
+}
+
+function DeploymentWarnings({
+  stage,
+  previewError,
+  candidatesError,
+  onRetry,
+  result,
+  deployError,
+}: {
+  stage: number;
+  previewError: unknown;
+  candidatesError: unknown;
+  onRetry: () => void;
+  result?: UpdateDeploymentPreview;
+  deployError: unknown;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  const blocked =
+    result?.screens.filter((screen) => screen.outcome === "incompatible") ?? [];
+  const compatibilityError = previewError ?? candidatesError;
+  return (
+    <>
+      {compatibilityError && stage > 1 && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            {apiErrorMessage(compatibilityError)}
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              {t("common:actions.retry")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {stage > 1 && blocked.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTitle>{t("updates.console.blockedTitle")}</AlertTitle>
+          <AlertDescription>
+            <ul>
+              {blocked.map((screen) => (
+                <li key={screen.screenId}>
+                  <strong>{screen.screenName}</strong>: {screen.reason}
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+      {stage > 1 && !!result?.offlineCount && (
+        <Alert>
+          <AlertDescription>
+            {t("updates.console.offlineWarning", {
+              count: result.offlineCount,
+            })}
+          </AlertDescription>
+        </Alert>
+      )}
+      {stage > 1 && !!result?.alreadyCurrentCount && (
+        <Alert>
+          <AlertDescription>
+            {t("updates.console.currentWarning", {
+              count: result.alreadyCurrentCount,
+            })}
+          </AlertDescription>
+        </Alert>
+      )}
+      {deployError && (
+        <Alert variant="destructive">
+          <AlertDescription>{apiErrorMessage(deployError)}</AlertDescription>
+        </Alert>
+      )}
+    </>
+  );
+}
+
 export function DeployUpdateSheet({
   releases,
   screens,
