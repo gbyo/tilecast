@@ -253,6 +253,65 @@ section must not require Core to implement its field behavior.
 Preserve revision acceptance, binding, and previous valid configuration.
 Do not duplicate presentation-default calculations in Core.
 
+## Playback health
+
+Core decides whether the content on screen is doing what that content owes.
+A connected renderer, an answering renderer, and healthy playback are three
+different facts. Only the last one is playback health. The reference for the
+semantics is `apps/player-linux/src/core/render-progress.ts`.
+
+The recovery supervisor does not reset on every accepted evidence event. Core
+resets it when an event is a sign of life and the current item is not overdue
+on evidence it owes. Absence of new pixels is not absence of healthy playback.
+Generic renderer liveness must not hide evidence that is still owed.
+
+| Content           | Owes                                     | May stay unchanged            |
+| ----------------- | ---------------------------------------- | ----------------------------- |
+| Still image       | One first render                         | Yes, indefinitely             |
+| Website or Widget | One first render                         | Yes, indefinitely             |
+| Layout            | One first render from each declared zone | Yes, except a rotating zone   |
+| Rotating zone     | Continuing renders at a bounded cadence  | No                            |
+| Video             | Continuing playback progress             | No                            |
+| Indefinite        | Renderer liveness                        | Yes, while liveness continues |
+
+The Runtime declares the zones of a Layout. It reports `layout_zone_declared`
+for a zone that owes one first render and `layout_zone_rotating` for a zone
+that also owes continuing renders. It reports them when the Layout becomes
+visible, with the zone identifier. A declaration is not progress. Only the
+Runtime knows which placements it mounted, so Core and the host never derive
+zones from the manifest. A host that does not forward declarations gets a
+Layout judged on its first render only. That is weaker detection, never a
+false stall.
+
+A zone owes continuing renders only when the Runtime controls its cadence: the
+zone loops, has more than one entry, and every entry is an image of at most two
+minutes. A zone that holds one entry, does not loop, or contains a video
+entry owes its first render only.
+
+`PlaybackHealth` is `Healthy` or `Stalled` with a reason, the time the stall
+began, the item, and the zone when one applies. The reasons use the reference
+vocabulary: `video_position_frozen`, `website_never_rendered`,
+`layout_zones_silent`, and `renderer_not_responding`. The last reason applies
+when the renderer reports nothing at all for the stall threshold.
+
+Intentional differences from the reference player:
+
+- Core does not carry item durations, so it has no `item_overran_expected_duration`
+  rule. The Runtime owns item advancement.
+- A still image that never renders is `website_never_rendered`, with or without
+  an authored duration.
+- An item transition is progress but not proof of a first render.
+- The first-render and zone tolerances are fixed to the reference defaults (90
+  seconds and five minutes). The stall threshold, ladder spacing, and Safe Mode
+  limits are the existing configuration and are unchanged.
+
+Hosts project the result. Edge writes `playback_stalled` and `playback_recovered`
+log lines when the stall state changes, adds the cause to every `heal_action`
+log line and to the `self_heal.attempted` and `safe_mode.entered` Activity
+events, and reports `stallReason`, `playbackStallDurationMs`, and
+`expectedMotion` in telemetry. Logs name content kinds and identifiers and
+never a location.
+
 ## Renderer semantics and authorization
 
 Core uses a semantic `RendererPort` for activate, clear, typed

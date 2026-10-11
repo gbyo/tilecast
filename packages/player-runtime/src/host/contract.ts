@@ -575,6 +575,12 @@ export type HostMessageV1 =
 /**
  * Playback evidence. The vocabulary is the Tilecast player's existing one; the
  * host's supervisor decides what counts as meaningful for each item kind.
+ *
+ * `layout-zone-declared` and `layout-zone-rotating` are not progress. A Layout
+ * reports one per zone it actually mounted, with the zone's id, so the host
+ * knows which zones owe a first `layout-zone-rendered` and which also owe
+ * continuing ones. Only the Runtime knows this: it alone decides which
+ * placements become zones.
  */
 export const EVIDENCE_KINDS = [
   "item-started",
@@ -587,6 +593,8 @@ export const EVIDENCE_KINDS = [
   "layout-shown",
   "layout-alive",
   "layout-zone-rendered",
+  "layout-zone-declared",
+  "layout-zone-rotating",
   "website-loaded",
   "website-alive",
   "surface-shown",

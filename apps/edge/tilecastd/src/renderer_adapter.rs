@@ -580,6 +580,8 @@ pub fn evidence(kind: EvidenceKind) -> player_core::ProgressEvidence {
         EvidenceKind::LayoutShown => Semantic::LayoutShown,
         EvidenceKind::LayoutAlive => Semantic::LayoutAlive,
         EvidenceKind::LayoutZoneRendered => Semantic::LayoutZoneRendered,
+        EvidenceKind::LayoutZoneDeclared => Semantic::LayoutZoneDeclared,
+        EvidenceKind::LayoutZoneRotating => Semantic::LayoutZoneRotating,
         EvidenceKind::WebsiteLoaded => Semantic::WebsiteLoaded,
         EvidenceKind::WebsiteAlive => Semantic::WebsiteAlive,
         EvidenceKind::SurfaceShown => Semantic::SurfaceShown,

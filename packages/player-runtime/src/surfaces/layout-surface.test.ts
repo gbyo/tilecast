@@ -377,3 +377,58 @@ describe("LayoutSurface video-zone timing", () => {
     surface.dispose();
   });
 });
+
+describe("LayoutSurface zone declarations", () => {
+  it("declares every mounted zone when it is activated, rotating ones apart", async () => {
+    const evidence: [string, string | undefined][] = [];
+    const recording = {
+      ...sink,
+      evidence: (kind: string, zoneId?: string) =>
+        void evidence.push([kind, zoneId]),
+    } as SurfaceSink;
+    const item = playlistZone().playlistItems![0]!;
+    const zones = [
+      playlistZone({ id: "static", playlistItems: [item] }),
+      playlistZone({
+        id: "promo",
+        loop: true,
+        playlistItems: [item, { ...item, id: "second" }],
+      }),
+      playlistZone({ id: "", playlistItems: [item] }),
+    ];
+    const layout: RuntimeLayoutPayload = {
+      canvasWidth: 100,
+      canvasHeight: 100,
+      background: "#000",
+      zones,
+    };
+    const surface = new LayoutSurface(
+      {
+        id: "layout",
+        kind: "layout",
+        src: "",
+        durationMs: null,
+        fitMode: "contain",
+        audioEnabled: false,
+        volume: 0,
+        videoStartOffsetMs: null,
+        videoEndOffsetMs: null,
+        layout,
+      },
+      {
+        clock: new ManualClock({ wallMs: 0 }),
+        sink: recording,
+        animationScale: 1,
+      },
+    );
+    expect(evidence.filter(([kind]) => kind.includes("declared"))).toEqual([]);
+    await surface.activate();
+    expect(
+      evidence.filter(([kind]) => kind !== "layout-zone-rendered"),
+    ).toEqual([
+      ["layout-zone-declared", "static"],
+      ["layout-zone-rotating", "promo"],
+    ]);
+    surface.dispose();
+  });
+});

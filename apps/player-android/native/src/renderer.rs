@@ -1657,6 +1657,8 @@ pub fn evidence_kind(kind: &str) -> Option<ProgressEvidence> {
         "layout-shown" => Some(ProgressEvidence::LayoutShown),
         "layout-alive" => Some(ProgressEvidence::LayoutAlive),
         "layout-zone-rendered" => Some(ProgressEvidence::LayoutZoneRendered),
+        "layout-zone-declared" => Some(ProgressEvidence::LayoutZoneDeclared),
+        "layout-zone-rotating" => Some(ProgressEvidence::LayoutZoneRotating),
         "website-loaded" => Some(ProgressEvidence::WebsiteLoaded),
         "website-alive" => Some(ProgressEvidence::WebsiteAlive),
         "surface-shown" => Some(ProgressEvidence::SurfaceShown),

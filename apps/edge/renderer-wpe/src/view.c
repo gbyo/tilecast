@@ -128,8 +128,8 @@ copy_activation (JsonBuilder *builder, JsonObject *message)
 
 static const char *const EVIDENCE_KINDS[] = {
   "item_started", "item_transition", "video_progress", "image_shown", "widget_shown", "widget_empty",
-  "widget_alive", "layout_shown", "layout_alive", "layout_zone_rendered", "website_loaded", "website_alive",
-  "frame_changed", "surface_shown", NULL,
+  "widget_alive", "layout_shown", "layout_alive", "layout_zone_rendered", "layout_zone_declared",
+  "layout_zone_rotating", "website_loaded", "website_alive", "frame_changed", "surface_shown", NULL,
 };
 
 static gboolean

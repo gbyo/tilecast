@@ -6,10 +6,11 @@ use player_types::{
 };
 
 use crate::{
-    ConnectedRendererProfile, HealAction, PackagedRendererProfile, PreparedActivationError, RendererActivation,
-    RendererActivationRef, RendererMetadata, RendererPort, RendererPortError, RendererProfileMismatch,
-    RendererProgressDecision, RendererRequirement, RendererTracker, SemanticRendererCommand, SemanticRendererProgress,
-    SupervisorConfig, SupervisorState,
+    ConnectedRendererProfile, HealAction, HealthTolerances, PackagedRendererProfile, PlaybackHealth,
+    PreparedActivationError, RendererActivation, RendererActivationRef, RendererMetadata, RendererPort,
+    RendererPortError, RendererProfileMismatch, RendererProgressDecision, RendererRequirement, RendererTracker,
+    SemanticRendererCommand, SemanticRendererProgress, Stall, StallReason, SupervisorConfig, SupervisorState,
+    playback_health::{PlaybackHealthTracker, bears_liveness},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,6 +31,21 @@ pub struct RecoverySnapshot {
     pub last_action_at_ms: Option<i64>,
 }
 
+/// Why the last recovery action ran, for host logs, Activity and diagnostics.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecoveryCause {
+    pub action: HealAction,
+    pub stall: Stall,
+    /// When the action ran, in Unix milliseconds.
+    pub at_ms: i64,
+}
+
+impl RecoveryCause {
+    pub fn stalled_for_ms(&self) -> i64 {
+        self.stall.duration_ms(self.at_ms)
+    }
+}
+
 /// Hosts retain their projection inputs. Core owns native activation identity,
 /// requirements, evidence expectations, and recovery timing, never Runtime fields.
 #[derive(Debug)]
@@ -42,6 +58,9 @@ pub struct RendererCoordinator {
     tracker: RendererTracker,
     supervisor: SupervisorState,
     config: SupervisorConfig,
+    health: PlaybackHealthTracker,
+    tolerances: HealthTolerances,
+    last_recovery: Option<RecoveryCause>,
 }
 
 impl RendererCoordinator {
@@ -55,6 +74,9 @@ impl RendererCoordinator {
             tracker: RendererTracker::default(),
             supervisor: SupervisorState::new(now.unix_millis()),
             config,
+            health: PlaybackHealthTracker::default(),
+            tolerances: HealthTolerances::default(),
+            last_recovery: None,
         }
     }
 
@@ -69,6 +91,7 @@ impl RendererCoordinator {
         self.next_generation += 1;
         self.current = Some((reference, metadata));
         self.tracker.activate(reference);
+        self.health.clear();
         self.supervisor.reset_clock(now.unix_millis());
         Ok(reference)
     }
@@ -77,6 +100,7 @@ impl RendererCoordinator {
         self.connection = Some(connection);
         self.connected = None;
         self.tracker.connected(connection);
+        self.health.clear();
         self.supervisor.reset_clock(now.unix_millis());
     }
 
@@ -89,6 +113,7 @@ impl RendererCoordinator {
     pub fn disconnected(&mut self, connection: uuid::Uuid) {
         self.tracker.disconnected(connection);
         if self.connection == Some(connection) {
+            self.health.clear();
             self.connection = None;
             self.connected = None;
         }
@@ -129,6 +154,7 @@ impl RendererCoordinator {
     pub fn clear(&mut self) {
         self.current = None;
         self.tracker.clear();
+        self.health.clear();
     }
 
     pub fn accepted(&mut self, connection: uuid::Uuid, reference: RendererActivationRef) {
@@ -155,8 +181,27 @@ impl RendererCoordinator {
         };
         let expectation = metadata.expectation_for(report.item_id.as_ref().map(|id| id.as_str()));
         let decision = self.tracker.progress(connection, report, expectation, now);
-        if decision.meaningful {
-            self.supervisor.on_progress(now.unix_millis(), &self.config);
+        if decision.current {
+            let now_ms = now.unix_millis();
+            let concerns_current_item = self.health.record(
+                report.kind,
+                expectation,
+                report.item_id.as_ref().map(|id| id.as_str()),
+                report.zone_id.as_ref().map(|zone| zone.as_str()),
+                now_ms,
+            );
+            // The supervisor is fed by playback health, not by the raw
+            // arrival of evidence. Liveness from content that owes nothing
+            // else keeps it fed, so a static layout, widget or website is
+            // never mistaken for a stall. Liveness while content-specific
+            // evidence is still owed does not, so generic renderer liveness
+            // cannot hide a frozen zone, video or page that never rendered.
+            if concerns_current_item
+                && bears_liveness(report.kind, expectation)
+                && self.health.assess(now_ms, &self.tolerances).is_healthy()
+            {
+                self.supervisor.on_progress(now_ms, &self.config);
+            }
         }
         decision
     }
@@ -168,8 +213,7 @@ impl RendererCoordinator {
     }
 
     pub fn evaluate_recovery(&mut self, now: Timestamp) -> HealAction {
-        let playback_expected = self.current.as_ref().is_some_and(|(_, metadata)| !metadata.expectations.is_empty());
-        if self.connected.is_none() || !playback_expected {
+        if !self.playback_expected() {
             // Policy/status surfaces such as off-hours sleep, disabled, setup,
             // pairing, and idle are intentional states with no playback
             // progress contract. Keep the stall clock current while they are
@@ -178,7 +222,60 @@ impl RendererCoordinator {
             self.supervisor.reset_clock(now.unix_millis());
             return HealAction::None;
         }
-        self.supervisor.evaluate(now.unix_millis(), &self.config)
+        let stall = self.playback_health(now).stall().cloned();
+        let action = self.supervisor.evaluate(now.unix_millis(), &self.config);
+        if action != HealAction::None
+            && let Some(stall) = stall
+        {
+            self.last_recovery = Some(RecoveryCause { action, stall, at_ms: now.unix_millis() });
+        }
+        action
+    }
+
+    fn playback_expected(&self) -> bool {
+        self.connected.is_some() && self.current.as_ref().is_some_and(|(_, metadata)| !metadata.expectations.is_empty())
+    }
+
+    /// What the content on screen owes and whether it is paying. This is the
+    /// one source for recovery diagnostics and telemetry; the supervisor's
+    /// own thresholds and ladder are unchanged.
+    ///
+    /// Content-specific evidence that is owed comes first. When nothing owed
+    /// is overdue but the renderer has reported nothing at all for the stall
+    /// threshold, the renderer is not responding.
+    pub fn playback_health(&self, now: Timestamp) -> PlaybackHealth {
+        if self.supervisor.safe_mode || !self.playback_expected() {
+            return PlaybackHealth::Healthy;
+        }
+        let now_ms = now.unix_millis();
+        let health = self.health.assess(now_ms, &self.tolerances);
+        if !health.is_healthy() {
+            return health;
+        }
+        if now_ms - self.supervisor.last_progress_at_ms >= self.config.stall_threshold_ms {
+            let (item_id, expectation) = self
+                .health
+                .current()
+                .map_or((None, crate::Expectation::Indefinite), |(id, expectation)| (Some(id.to_owned()), expectation));
+            return PlaybackHealth::Stalled(Stall {
+                reason: StallReason::RendererNotResponding,
+                expectation,
+                since_ms: self.supervisor.last_progress_at_ms,
+                item_id,
+                zone_id: None,
+            });
+        }
+        PlaybackHealth::Healthy
+    }
+
+    /// What kind of evidence the item on screen owes, once it has started.
+    pub fn current_expectation(&self) -> Option<crate::Expectation> {
+        self.health.current().map(|(_, expectation)| expectation)
+    }
+
+    /// Why the most recent recovery action ran.
+    pub fn last_recovery(&self) -> Option<&RecoveryCause> {
+        self.last_recovery.as_ref()
     }
 
     /// Only semantic renderer actions are issued here. Reprojection and the
@@ -256,7 +353,20 @@ impl RendererCoordinator {
         let mut event = crate::ActivityEvent::new(event_type, "reliability");
         event.severity = Some(severity.into());
         event.failure_code = Some(code.into());
-        event.metadata = Some(serde_json::json!({"escalationStep": self.supervisor.escalation_step}));
+        let mut metadata = serde_json::json!({"escalationStep": self.supervisor.escalation_step});
+        if let Some(cause) = self.last_recovery.as_ref().filter(|cause| cause.action == action) {
+            let object = metadata.as_object_mut().expect("object literal");
+            object.insert("stallReason".into(), cause.stall.reason.as_str().into());
+            object.insert("expectation".into(), cause.stall.expectation.as_str().into());
+            object.insert("stallDurationMs".into(), cause.stalled_for_ms().into());
+            if let Some(item) = &cause.stall.item_id {
+                object.insert("itemId".into(), item.as_str().into());
+            }
+            if let Some(zone) = &cause.stall.zone_id {
+                object.insert("zoneId".into(), zone.as_str().into());
+            }
+        }
+        event.metadata = Some(metadata);
         Some(event)
     }
 }
@@ -266,7 +376,7 @@ mod tests {
     use super::*;
     use crate::{
         CaptureState, Expectation, ObjectBinding, ProgressEvidence, RendererCaptureRequest, RendererSupport,
-        RuntimePayload, VerifiedContentRef,
+        RuntimePayload, StallReason, VerifiedContentRef,
     };
     use player_types::{Sha256Digest, bounded::SafeText};
     use serde_json::json;
@@ -464,7 +574,16 @@ mod tests {
         assert_eq!(event.event_type, "self_heal.attempted");
         assert_eq!(event.severity.as_deref(), Some("warning"));
         assert_eq!(event.failure_code.as_deref(), Some("recreate_renderer"));
-        assert_eq!(event.metadata, Some(json!({"escalationStep": core.supervisor.escalation_step})));
+        // No item ever started, so the renderer was silent: the cause says so.
+        assert_eq!(
+            event.metadata,
+            Some(json!({
+                "escalationStep": core.supervisor.escalation_step,
+                "stallReason": "renderer_not_responding",
+                "expectation": "indefinite",
+                "stallDurationMs": 180_000,
+            }))
+        );
         core.dispatch_recovery(&port, reload, uuid::Uuid::new_v4()).unwrap();
         assert_eq!(*port.commands.lock().unwrap(), vec![SemanticRendererCommand::Reload]);
         assert_eq!(core.evaluate_recovery(now(809_999)), HealAction::None);
@@ -521,6 +640,270 @@ mod tests {
         let _prepared = activation(&mut core, 7_200_000);
         assert_eq!(core.evaluate_recovery(now(7_379_999)), HealAction::None);
         assert_eq!(core.evaluate_recovery(now(7_380_000)), HealAction::Reactivate);
+    }
+
+    /// One connected, accepted activation presenting a single item, driven by
+    /// the same evidence a Runtime reports.
+    struct Rig {
+        core: RendererCoordinator,
+        connection: uuid::Uuid,
+        reference: RendererActivationRef,
+    }
+
+    impl Rig {
+        fn new(expectation: Expectation) -> Self {
+            let mut core = coordinator();
+            let reference = core
+                .begin_activation(
+                    ActivationId::from_uuid(uuid::Uuid::new_v4()),
+                    RendererMetadata {
+                        requirements: vec![],
+                        expectations: HashMap::from([(SafeText::new("item").unwrap(), expectation)]),
+                        requires_content_evidence: true,
+                        capture_state: CaptureState::Presentation,
+                    },
+                    now(0),
+                )
+                .unwrap();
+            let connection = uuid::Uuid::from_u128(7);
+            core.connected(connection, now(0));
+            core.ready(connection, ConnectedRendererProfile(support()));
+            core.accepted(connection, reference);
+            Self { core, connection, reference }
+        }
+
+        fn report(&mut self, kind: ProgressEvidence, zone: Option<&str>, at_ms: i64) {
+            let report = SemanticRendererProgress {
+                activation: self.reference,
+                kind,
+                item_id: Some(SafeText::new("item").unwrap()),
+                zone_id: zone.map(|zone| SafeText::new(zone).unwrap()),
+            };
+            self.core.progress(self.connection, &report, now(at_ms));
+        }
+
+        /// Runs the supervision tick every ten seconds from `from_ms` up to
+        /// `until_ms` and returns every action that fired. `each` supplies the
+        /// evidence the Runtime would report at that moment.
+        fn run(&mut self, from_ms: i64, until_ms: i64, mut each: impl FnMut(&mut Self, i64)) -> Vec<(i64, HealAction)> {
+            let mut actions = Vec::new();
+            let mut at = from_ms;
+            while at <= until_ms {
+                each(self, at);
+                let action = self.core.evaluate_recovery(now(at));
+                if action != HealAction::None {
+                    actions.push((at, action));
+                }
+                at += 10_000;
+            }
+            actions
+        }
+    }
+
+    const SEC: i64 = 1_000;
+    const MIN: i64 = 60_000;
+    const HOUR: i64 = 60 * MIN;
+
+    /// The Runtime reports its liveness every thirty seconds.
+    fn every_30s(at: i64) -> bool {
+        at % (30 * SEC) == 0
+    }
+
+    #[test]
+    fn a_static_layout_with_periodic_liveness_never_recovers() {
+        let mut rig = Rig::new(Expectation::Layout);
+        rig.report(ProgressEvidence::ItemStarted, None, SEC);
+        rig.report(ProgressEvidence::LayoutZoneDeclared, Some("clock"), SEC);
+        rig.report(ProgressEvidence::LayoutZoneDeclared, Some("banner"), SEC);
+        rig.report(ProgressEvidence::LayoutShown, None, 2 * SEC);
+        rig.report(ProgressEvidence::LayoutZoneRendered, Some("clock"), 3 * SEC);
+        rig.report(ProgressEvidence::LayoutZoneRendered, Some("banner"), 3 * SEC);
+        // Fourteen hours, far beyond the generic stall threshold and the
+        // time the recovery ladder needs to reach Safe Mode.
+        let actions = rig.run(10 * SEC, 14 * HOUR, |rig, at| {
+            if every_30s(at) {
+                rig.report(ProgressEvidence::LayoutAlive, None, at);
+            }
+        });
+        assert_eq!(actions, vec![]);
+        assert!(!rig.core.is_safe_mode());
+        assert!(rig.core.playback_health(now(14 * HOUR)).is_healthy());
+    }
+
+    #[test]
+    fn a_layout_with_a_zone_that_never_renders_recovers_once_tolerance_expires() {
+        let mut rig = Rig::new(Expectation::Layout);
+        rig.report(ProgressEvidence::ItemStarted, None, SEC);
+        rig.report(ProgressEvidence::LayoutZoneDeclared, Some("clock"), SEC);
+        rig.report(ProgressEvidence::LayoutZoneDeclared, Some("banner"), SEC);
+        rig.report(ProgressEvidence::LayoutShown, None, 2 * SEC);
+        rig.report(ProgressEvidence::LayoutZoneRendered, Some("clock"), 3 * SEC);
+        let actions = rig.run(10 * SEC, 20 * MIN, |rig, at| {
+            if every_30s(at) {
+                rig.report(ProgressEvidence::LayoutAlive, None, at);
+            }
+        });
+        let (first_at, first) = actions[0];
+        assert_eq!(first, HealAction::Reactivate);
+        // Liveness may keep the supervisor fed while the zone's tolerance of
+        // five minutes runs, but not after.
+        assert!(first_at > 5 * MIN + 3 * MIN - 30 * SEC, "recovery began too early at {first_at}");
+        assert!(first_at <= 5 * MIN + 3 * MIN + 30 * SEC, "recovery began too late at {first_at}");
+        let cause = rig.core.last_recovery().unwrap();
+        assert_eq!(cause.stall.reason, StallReason::LayoutZonesSilent);
+        assert_eq!(cause.stall.zone_id.as_deref(), Some("banner"));
+        assert_eq!(cause.stall.item_id.as_deref(), Some("item"));
+    }
+
+    #[test]
+    fn a_rotating_zone_that_stops_is_detected_while_layout_liveness_continues() {
+        let mut rig = Rig::new(Expectation::Layout);
+        rig.report(ProgressEvidence::ItemStarted, None, SEC);
+        rig.report(ProgressEvidence::LayoutZoneDeclared, Some("clock"), SEC);
+        rig.report(ProgressEvidence::LayoutZoneRotating, Some("promo"), SEC);
+        rig.report(ProgressEvidence::LayoutShown, None, 2 * SEC);
+        rig.report(ProgressEvidence::LayoutZoneRendered, Some("clock"), 3 * SEC);
+        let promo_stops_at = 10 * MIN;
+        let actions = rig.run(10 * SEC, 40 * MIN, |rig, at| {
+            if at < promo_stops_at && at % (10 * SEC) == 0 {
+                rig.report(ProgressEvidence::LayoutZoneRendered, Some("promo"), at);
+            }
+            if every_30s(at) {
+                rig.report(ProgressEvidence::LayoutAlive, None, at);
+                rig.report(ProgressEvidence::LayoutZoneRendered, Some("clock"), at);
+            }
+        });
+        assert!(
+            actions.iter().all(|(at, _)| *at > promo_stops_at),
+            "a healthy rotating zone is never recovered: {actions:?}"
+        );
+        let (first_at, first) = actions[0];
+        assert_eq!(first, HealAction::Reactivate);
+        assert!(first_at > promo_stops_at + 5 * MIN);
+        let cause = rig.core.last_recovery().unwrap();
+        assert_eq!(
+            (cause.stall.reason, cause.stall.zone_id.as_deref()),
+            (StallReason::LayoutZonesSilent, Some("promo"))
+        );
+        assert!(cause.stall.since_ms >= promo_stops_at - 10 * SEC && cause.stall.since_ms <= promo_stops_at);
+    }
+
+    #[test]
+    fn a_static_website_or_widget_never_recovers_after_its_first_render() {
+        for (expectation, shown, alive) in [
+            (Expectation::Website, ProgressEvidence::WebsiteLoaded, ProgressEvidence::WebsiteAlive),
+            (Expectation::Website, ProgressEvidence::WidgetShown, ProgressEvidence::WidgetAlive),
+        ] {
+            let mut rig = Rig::new(expectation);
+            rig.report(ProgressEvidence::ItemStarted, None, SEC);
+            rig.report(shown, None, 5 * SEC);
+            let actions = rig.run(10 * SEC, 14 * HOUR, |rig, at| {
+                if every_30s(at) {
+                    rig.report(alive, None, at);
+                }
+            });
+            assert_eq!(actions, vec![], "{shown:?} then {alive:?}");
+            assert!(!rig.core.is_safe_mode());
+        }
+    }
+
+    #[test]
+    fn a_website_that_never_renders_recovers_even_though_the_renderer_stays_alive() {
+        let mut rig = Rig::new(Expectation::Website);
+        rig.report(ProgressEvidence::ItemStarted, None, SEC);
+        let actions = rig.run(10 * SEC, 30 * MIN, |rig, at| {
+            if every_30s(at) {
+                rig.report(ProgressEvidence::WebsiteAlive, None, at);
+            }
+        });
+        let (first_at, first) = actions[0];
+        assert_eq!(first, HealAction::Reactivate);
+        assert!(first_at > 90 * SEC + 3 * MIN - 30 * SEC && first_at <= 90 * SEC + 3 * MIN + 30 * SEC, "{first_at}");
+        let cause = rig.core.last_recovery().unwrap();
+        assert_eq!(cause.stall.reason, StallReason::NeverRendered);
+        assert_eq!(cause.stall.since_ms, SEC);
+    }
+
+    #[test]
+    fn a_frozen_video_recovers_and_the_ladder_still_escalates_to_safe_mode() {
+        let mut rig = Rig::new(Expectation::Video);
+        rig.report(ProgressEvidence::ItemStarted, None, SEC);
+        let freezes_at = MIN;
+        let actions = rig.run(10 * SEC, 3 * HOUR, |rig, at| {
+            if at < freezes_at && at % (2 * SEC) == 0 {
+                rig.report(ProgressEvidence::VideoProgress, None, at);
+            }
+        });
+        let sequence: Vec<HealAction> = actions.iter().map(|(_, action)| *action).collect();
+        assert_eq!(
+            &sequence[..4],
+            &[HealAction::Reactivate, HealAction::ReloadRenderer, HealAction::RestartRenderer, HealAction::Reactivate]
+        );
+        assert_eq!(sequence.last(), Some(&HealAction::EnterSafeMode));
+        assert!(rig.core.is_safe_mode());
+        // Thresholds are unchanged: the first rung is the stall threshold
+        // after the last progress, then the configured spacing.
+        // The last progress landed on the tick before the freeze.
+        assert_eq!(actions[0].0, freezes_at - 10 * SEC + 3 * MIN);
+        assert_eq!(actions[1].0 - actions[0].0, 90 * SEC);
+        let cause = rig.core.last_recovery().unwrap();
+        assert_eq!(cause.action, HealAction::EnterSafeMode);
+        assert_eq!(cause.stall.reason, StallReason::VideoFrozen);
+        let event = rig.core.recovery_event(HealAction::EnterSafeMode).unwrap();
+        assert_eq!(event.metadata.as_ref().unwrap()["stallReason"], "video_position_frozen");
+        assert_eq!(event.metadata.as_ref().unwrap()["expectation"], "video");
+        assert_eq!(event.metadata.as_ref().unwrap()["itemId"], "item");
+    }
+
+    #[test]
+    fn a_static_page_stays_healthy_when_core_restarts_while_the_renderer_keeps_showing_it() {
+        let mut rig = Rig::new(Expectation::Website);
+        // No `item_started` or `website_loaded`: the renderer reported both
+        // to the previous daemon process. Only its liveness arrives.
+        let actions = rig.run(10 * SEC, 6 * HOUR, |rig, at| {
+            if every_30s(at) {
+                rig.report(ProgressEvidence::WebsiteAlive, None, at);
+            }
+        });
+        assert_eq!(actions, vec![]);
+    }
+
+    #[test]
+    fn liveness_for_a_departed_item_neither_feeds_nor_stalls_the_current_one() {
+        let mut rig = Rig::new(Expectation::Website);
+        rig.report(ProgressEvidence::ItemStarted, None, SEC);
+        rig.report(ProgressEvidence::WebsiteLoaded, None, 2 * SEC);
+        let stale = SemanticRendererProgress {
+            activation: rig.reference,
+            kind: ProgressEvidence::WebsiteAlive,
+            item_id: Some(SafeText::new("departed").unwrap()),
+            zone_id: None,
+        };
+        rig.core.progress(rig.connection, &stale, now(2 * MIN));
+        assert_eq!(rig.core.evaluate_recovery(now(3 * MIN + 2 * SEC)), HealAction::Reactivate);
+    }
+
+    #[test]
+    fn declarations_and_empty_widgets_are_not_signs_of_life() {
+        let mut rig = Rig::new(Expectation::Layout);
+        rig.report(ProgressEvidence::ItemStarted, None, SEC);
+        rig.report(ProgressEvidence::LayoutShown, None, 2 * SEC);
+        rig.report(ProgressEvidence::LayoutZoneDeclared, Some("zone"), 2 * MIN);
+        rig.report(ProgressEvidence::WidgetEmpty, None, 2 * MIN);
+        assert_eq!(rig.core.evaluate_recovery(now(3 * MIN + 3 * SEC)), HealAction::Reactivate);
+    }
+
+    #[test]
+    fn a_silent_renderer_is_reported_as_not_responding_not_as_a_content_stall() {
+        let mut rig = Rig::new(Expectation::Website);
+        rig.report(ProgressEvidence::ItemStarted, None, SEC);
+        rig.report(ProgressEvidence::WebsiteLoaded, None, 2 * SEC);
+        assert!(rig.core.playback_health(now(3 * MIN)).is_healthy());
+        let health = rig.core.playback_health(now(5 * MIN));
+        let stall = health.stall().expect("no evidence for longer than the stall threshold");
+        assert_eq!(stall.reason, StallReason::RendererNotResponding);
+        assert_eq!(stall.expectation, Expectation::Website);
+        assert_eq!(rig.core.evaluate_recovery(now(5 * MIN)), HealAction::Reactivate);
     }
 
     #[test]

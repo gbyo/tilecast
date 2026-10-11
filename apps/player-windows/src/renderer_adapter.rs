@@ -266,6 +266,8 @@ pub fn evidence(kind: &str) -> Option<player_core::ProgressEvidence> {
         "layout-shown" => Semantic::LayoutShown,
         "layout-alive" => Semantic::LayoutAlive,
         "layout-zone-rendered" => Semantic::LayoutZoneRendered,
+        "layout-zone-declared" => Semantic::LayoutZoneDeclared,
+        "layout-zone-rotating" => Semantic::LayoutZoneRotating,
         "website-loaded" => Semantic::WebsiteLoaded,
         "website-alive" => Semantic::WebsiteAlive,
         "surface-shown" => Semantic::SurfaceShown,
