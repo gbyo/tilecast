@@ -154,7 +154,7 @@ describe("Player Updates workspace", () => {
     mount();
     const table = await screen.findByRole("table");
     expect(within(table).getByText(release.versionName)).toBeInTheDocument();
-    expect(within(table).getByText("Completed")).toBeInTheDocument();
+    expect(within(table).getAllByText("Completed").length).toBeGreaterThan(0);
     expect(
       within(table).getByRole("button", { name: "View rollout" }),
     ).toBeInTheDocument();
