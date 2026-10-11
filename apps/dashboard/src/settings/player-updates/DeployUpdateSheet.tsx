@@ -367,7 +367,7 @@ export function DeployUpdateSheet({
             : stage === 1 && release && !deployable(release)
               ? prepare.isPending
                 ? t("updates.console.startingPreparation")
-                : t("updates.console.prepareAndContinue")
+                : t("updates.console.prepareBuildAction")
               : t("updates.console.continue")}
       </Button>
     </div>
