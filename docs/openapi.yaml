@@ -2889,6 +2889,15 @@ paths:
       description: >-
         Read the screen's current live stream session, if any. Requires an authenticated player credential.
       security: [{ deviceBearer: [] }]
+      parameters:
+        - name: captureProfile
+          in: query
+          required: false
+          description: >-
+            Optional Watch Live capture profile supported by this Player. Omit it to retain the legacy 640x360 at 8 FPS profile.
+          schema:
+            type: string
+            enum: [edge-540p10]
       responses:
         "200":
           description: Current live stream session

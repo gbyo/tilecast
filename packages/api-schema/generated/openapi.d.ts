@@ -16807,7 +16807,10 @@ export interface operations {
   };
   getPlayerLiveStreamSession: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Optional Watch Live capture profile supported by this Player. Omit it to retain the legacy 640x360 at 8 FPS profile. */
+        captureProfile?: "edge-540p10";
+      };
       header?: never;
       path?: never;
       cookie?: never;
