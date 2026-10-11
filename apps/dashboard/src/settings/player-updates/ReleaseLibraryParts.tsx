@@ -556,7 +556,7 @@ export function PurgeReleaseDialog({
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error && (
+        {error != null && (
           <Alert variant="destructive">
             <AlertDescription>{apiErrorMessage(error)}</AlertDescription>
           </Alert>
