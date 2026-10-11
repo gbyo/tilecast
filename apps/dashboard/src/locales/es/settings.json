@@ -1315,6 +1315,7 @@
         "active": "Activo",
         "paused": "En pausa",
         "completed": "Completado",
+        "completedWithIssues": "Completado con incidencias",
         "cancelled": "Cancelado"
       },
       "deployments": "Despliegues",
