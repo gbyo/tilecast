@@ -175,7 +175,7 @@ describe("Player Updates workspace", () => {
     mount("/settings/player/updates?platform=edge&keep=yes");
     const user = userEvent.setup();
     await user.click(screen.getByRole("tab", { name: "Release catalog" }));
-    expect(await screen.findByText("Release library")).toBeInTheDocument();
+    expect(await screen.findByText("GitHub · Anonymous")).toBeInTheDocument();
     expect(screen.getByTestId("url")).toHaveTextContent("keep=yes");
     expect(screen.getByTestId("url")).toHaveTextContent("view=releases");
     const family = screen.getByRole("combobox", { name: "Player type" });
@@ -221,7 +221,7 @@ describe("Player Updates workspace", () => {
   });
   it("groups only GitHub tag variants and names each deployment action's architecture", async () => {
     mount("/settings/player/updates?platform=edge&view=releases");
-    await screen.findByText("Release library");
+    await screen.findByText("GitHub · Anonymous");
     expect(
       screen.getAllByRole("button", { name: "0.26.0-beta.6" }),
     ).toHaveLength(1);
@@ -308,7 +308,7 @@ describe("Player Updates workspace", () => {
     ).toBeInTheDocument();
     cleanup();
     mount("/settings/player/updates?platform=edge&view=releases", false);
-    await screen.findByText("Release library");
+    await screen.findByText("GitHub · Anonymous");
     expect(
       screen.queryByRole("button", { name: /Deploy/ }),
     ).not.toBeInTheDocument();
