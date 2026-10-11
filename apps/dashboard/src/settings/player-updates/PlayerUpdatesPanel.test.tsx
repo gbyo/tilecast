@@ -94,14 +94,22 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Player Updates workspace", () => {
-  it("prioritizes incompatible targets without offering them a retry", async () => {
+  it("keeps terminal deployments with failures in history", async () => {
     vi.mocked(api.updateDeployments).mockResolvedValue({
       items: [
-        { ...deployment, id: "normal", failedCount: 0, waitingForUserCount: 0 },
+        {
+          ...deployment,
+          id: "normal",
+          versionName: "0.26.0-beta.6",
+          failedCount: 0,
+          waitingForUserCount: 0,
+        },
         {
           ...deployment,
           id: "blocked",
+          versionName: "0.25.0",
           status: "completed",
+          completedAt: "2026-08-11T10:00:00Z",
           failedCount: 0,
           waitingForUserCount: 0,
           incompatibleCount: 1,
@@ -109,16 +117,16 @@ describe("Player Updates workspace", () => {
       ],
     });
     mount();
-    expect(
-      await screen.findByText("Incompatible screens: 1."),
-    ).toBeInTheDocument();
-    const first = screen
-      .getAllByRole("button", { name: "View rollout" })[0]!
-      .closest('[data-slot="card"]') as HTMLElement;
-    expect(
-      within(first).getByText("Incompatible screens: 1."),
-    ).toBeInTheDocument();
-    expect(within(first).queryByText(/needs a retry/)).not.toBeInTheDocument();
+
+    const active = await screen.findByRole("region", {
+      name: "Active deployments",
+    });
+    expect(within(active).getByText("0.26.0-beta.6")).toBeInTheDocument();
+    expect(within(active).queryByText("0.25.0")).not.toBeInTheDocument();
+
+    const history = screen.getByRole("table");
+    expect(within(history).getByText("0.25.0")).toBeInTheDocument();
+    expect(within(history).getAllByText("Completed").length).toBeGreaterThan(0);
   });
   it("defaults to Deployments, shows one semantic row, and keeps GitHub auth out of page chrome", async () => {
     mount();
