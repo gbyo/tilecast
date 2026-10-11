@@ -549,7 +549,7 @@ const edgeDeploymentSQL = `EXISTS(SELECT 1 FROM update_deployments ed JOIN playe
 // demonstrably healthy at the expected version is a reporting bug, not an
 // operational state, and Studio must not show it as progress forever.
 //
-// Bounded on purpose: three fixed statements, no per-row work, no retries. The
+// Bounded on purpose: four fixed statements, no per-row work, no retries. The
 // order matters — settle first, so a canary that did reconnect healthily is not
 // then paused for failing to.
 func (s *server) reconcileUpdateDeployments(ctx context.Context) {
@@ -956,7 +956,7 @@ func (s *server) playerUpdateStatus(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	tag, err := s.db.Exec(r.Context(), `UPDATE screen_update_states SET state=$3,downloaded_bytes=$4,permission_status=NULLIF($5,''),installer_status=NULLIF($6,''),safe_error=NULLIF($7,''),download_started_at=CASE WHEN $3='downloading' THEN COALESCE(download_started_at,now()) ELSE download_started_at END,downloaded_at=CASE WHEN $3 IN('downloaded','verifying','ready','waiting_for_permission','waiting_for_user','installing','reconnecting') THEN COALESCE(downloaded_at,now()) ELSE downloaded_at END,install_started_at=CASE WHEN $3='installing' THEN COALESCE(install_started_at,now()) ELSE install_started_at END,reconnect_at=CASE WHEN $3 IN('reconnecting','succeeded') THEN COALESCE(reconnect_at,now()) ELSE reconnect_at END,completed_at=CASE WHEN $3='succeeded' THEN now() ELSE completed_at END,updated_at=now() WHERE deployment_id=$1 AND screen_id=$2 AND state NOT IN('cancelled','succeeded')`, deployment, principal.ScreenID, body.State, body.DownloadedBytes, body.PermissionStatus, body.InstallerStatus, body.Error)
+	tag, err := s.db.Exec(r.Context(), `UPDATE screen_update_states SET state=$3,downloaded_bytes=$4,permission_status=NULLIF($5,''),installer_status=NULLIF($6,''),safe_error=NULLIF($7,''),download_started_at=CASE WHEN $3='downloading' THEN COALESCE(download_started_at,now()) ELSE download_started_at END,downloaded_at=CASE WHEN $3 IN('downloaded','verifying','ready','waiting_for_permission','waiting_for_user','installing','reconnecting') THEN COALESCE(downloaded_at,now()) ELSE downloaded_at END,install_started_at=CASE WHEN $3='installing' THEN COALESCE(install_started_at,now()) ELSE install_started_at END,reconnect_at=CASE WHEN $3 IN('reconnecting','succeeded') THEN COALESCE(reconnect_at,now()) ELSE reconnect_at END,completed_at=CASE WHEN $3='succeeded' THEN now() ELSE completed_at END,updated_at=now() WHERE deployment_id=$1 AND screen_id=$2 AND state NOT IN('cancelled','succeeded') AND EXISTS(SELECT 1 FROM update_deployments d WHERE d.id=$1 AND d.status IN('active','paused'))`, deployment, principal.ScreenID, body.State, body.DownloadedBytes, body.PermissionStatus, body.InstallerStatus, body.Error)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
