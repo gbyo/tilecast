@@ -204,7 +204,10 @@ export function ReleaseLibrary({
   function artifact(release: PlayerRelease, details = false) {
     const readiness = releaseReadiness(release, t);
     return (
-      <div key={release.id} className="grid gap-2 rounded-lg bg-muted/30 px-3 py-3">
+      <div
+        key={release.id}
+        className="grid gap-2 rounded-lg bg-muted/30 px-3 py-3"
+      >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="grid gap-1">
             <p className="flex flex-wrap items-center gap-2 text-sm">
