@@ -484,7 +484,7 @@ func (s *server) createUpdateDeployment(w http.ResponseWriter, r *http.Request) 
 		if state == "pending" || state == "offline" {
 			payload, _ := json.Marshal(updateCommandPayload(id, input.ReleaseID, release.family, release.versionCode, release.hash, input.Mode, input.MaintenanceWindowStart))
 			commandID := uuid.New()
-			if _, err = tx.Exec(r.Context(), `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at) SELECT $1,organization_id,id,'install_player_update',$2::jsonb,$1,$3,now()+interval '7 days' FROM screens WHERE id=$4`, commandID, string(payload), user.ID, target.ID); err != nil {
+			if _, err = tx.Exec(r.Context(), `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at) SELECT $1,organization_id,id,'install_player_update',$2::jsonb,$1,$3,GREATEST(now(),COALESCE($5,now()))+interval '7 days' FROM screens WHERE id=$4`, commandID, string(payload), user.ID, target.ID, input.MaintenanceWindowStart); err != nil {
 				s.internalError(w, r, err)
 				return
 			}
@@ -545,13 +545,13 @@ func normalizedCanarySize(requested, targetCount int) int {
 const edgeDeploymentSQL = `EXISTS(SELECT 1 FROM update_deployments ed JOIN player_releases er ON er.id=ed.release_id WHERE ed.id=st.deployment_id AND er.player_family='edge')`
 
 // reconcileUpdateDeployments settles what the live heartbeat path should already
-// have settled. It exists because a target stuck mid-install while its screen is
-// demonstrably healthy at the expected version is a reporting bug, not an
-// operational state, and Studio must not show it as progress forever.
+// have settled and closes update attempts that can no longer make progress.
+// Studio reads call it before listing/detail so old update work cannot remain
+// operationally active forever.
 //
-// Bounded on purpose: three fixed statements, no per-row work, no retries. The
-// order matters — settle first, so a canary that did reconnect healthily is not
-// then paused for failing to.
+// Bounded on purpose: five fixed statements, no per-row work, no retries. The
+// order matters: settle healthy targets first, then apply canary protection,
+// expire dead attempts, close abandoned pauses, and finally aggregate targets.
 func (s *server) reconcileUpdateDeployments(ctx context.Context) {
 	// A screen counts as reconnected when it is currently heartbeating, reports a
 	// version code at or above the expected one, has been up long enough for that
@@ -570,7 +570,20 @@ func (s *server) reconcileUpdateDeployments(ctx context.Context) {
 	// all, so an update it had plainly finished could not settle until its next
 	// school day. Uptime carries that weight instead — see devices.SettledUptimeSeconds.
 	_, _ = s.db.Exec(ctx, `UPDATE screen_update_states st SET state='succeeded',reconnect_at=COALESCE(st.reconnect_at,now()),completed_at=now(),updated_at=now() WHERE st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current') AND NOT `+edgeDeploymentSQL+` AND EXISTS(SELECT 1 FROM screens sc JOIN screen_player_status ps ON ps.screen_id=sc.id WHERE sc.id=st.screen_id AND sc.last_heartbeat_at>now()-interval '5 minutes' AND ps.player_version_code>=st.expected_version_code AND (sc.uptime_seconds IS NULL OR sc.uptime_seconds>=$1) AND NOT ps.safe_mode AND (ps.update_error IS NULL OR ps.update_error=''))`, devices.SettledUptimeSeconds)
+
 	_, _ = s.db.Exec(ctx, `UPDATE update_deployments d SET status='paused',rollout_phase='paused',paused_at=now(),pause_reason='A canary did not reconnect within ten minutes.' WHERE d.status='active' AND d.rollout_phase='canary' AND EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.is_canary AND st.state IN('installing','reconnecting') AND st.updated_at<now()-interval '10 minutes')`)
+
+	// Update commands have a seven-day attempt window. A retry creates a newer
+	// command and therefore a new deadline; maintenance-window commands expire
+	// seven days after the scheduled start. If command history has already been
+	// cleaned up, updated_at is the conservative fallback deadline.
+	_, _ = s.db.Exec(ctx, `UPDATE screen_update_states st SET state='failed',safe_error=COALESCE(NULLIF(st.safe_error,''),'Update attempt expired after seven days without completing.'),completed_at=COALESCE(st.completed_at,now()),updated_at=now() WHERE st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current','held') AND EXISTS(SELECT 1 FROM update_deployments d WHERE d.id=st.deployment_id AND d.status='active') AND COALESCE((SELECT max(pc.expires_at) FROM player_commands pc WHERE pc.screen_id=st.screen_id AND pc.type='install_player_update' AND pc.payload->>'deploymentId'=st.deployment_id::text),st.updated_at+interval '7 days')<=now() AND NOT EXISTS(SELECT 1 FROM player_commands pc WHERE pc.screen_id=st.screen_id AND pc.type='install_player_update' AND pc.payload->>'deploymentId'=st.deployment_id::text AND pc.state IN('pending','delivered','acknowledged','running') AND pc.expires_at>now())`)
+
+	// Paused canary rollouts require a person. They get the same seven-day
+	// intervention window, then the server gives up instead of preserving an
+	// indefinitely active deployment and held targets.
+	_, _ = s.db.Exec(ctx, `WITH stale AS (SELECT id FROM update_deployments WHERE status='paused' AND COALESCE(paused_at,started_at,created_at)<now()-interval '7 days'),screen_states AS (UPDATE screen_update_states SET state='cancelled',completed_at=COALESCE(completed_at,now()),updated_at=now() WHERE deployment_id IN(SELECT id FROM stale) AND state NOT IN('succeeded','failed','cancelled','incompatible','already_current') RETURNING deployment_id),commands AS (UPDATE player_commands SET state='cancelled',completed_at=COALESCE(completed_at,now()),updated_at=now() WHERE type='install_player_update' AND payload->>'deploymentId' IN(SELECT id::text FROM stale) AND state IN('pending','delivered','acknowledged','running') RETURNING id) UPDATE update_deployments d SET status='cancelled',cancelled_at=COALESCE(d.cancelled_at,now()) WHERE d.id IN(SELECT id FROM stale)`)
+
 	// The aggregate follows the targets: an active deployment with no unfinished
 	// target is finished, whichever path finished the last one. Idempotent, so a
 	// deployment that is already completed keeps its original completion time.
@@ -804,7 +817,7 @@ func (s *server) retryUpdateScreen(w http.ResponseWriter, r *http.Request) {
 	}
 	user := principal.User
 	command := uuid.New()
-	_, err := s.db.Exec(r.Context(), `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at) SELECT $1,organization_id,id,'install_player_update',$2::jsonb,$1,$3,now()+interval '7 days' FROM screens WHERE id=$4`, command, string(payload), user.ID, screen)
+	_, err := s.db.Exec(r.Context(), `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at) SELECT $1,organization_id,id,'install_player_update',$2::jsonb,$1,$3,GREATEST(now(),COALESCE($5,now()))+interval '7 days' FROM screens WHERE id=$4`, command, string(payload), user.ID, screen, window)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -1004,7 +1017,7 @@ func (s *server) advanceCanaryDeployment(ctx context.Context, deployment uuid.UU
 	for _, screen := range screens {
 		payload, _ := json.Marshal(updateCommandPayload(deployment, release, family, version, hash, mode, window))
 		command := uuid.New()
-		_, _ = s.db.Exec(ctx, `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at) SELECT $1,organization_id,id,'install_player_update',$2::jsonb,$1,$3,now()+interval '7 days' FROM screens WHERE id=$4`, command, string(payload), creator, screen)
+		_, _ = s.db.Exec(ctx, `INSERT INTO player_commands(id,organization_id,screen_id,type,payload,idempotency_key,created_by,expires_at) SELECT $1,organization_id,id,'install_player_update',$2::jsonb,$1,$3,GREATEST(now(),COALESCE($5,now()))+interval '7 days' FROM screens WHERE id=$4`, command, string(payload), creator, screen, window)
 		s.devices.Notify(screen, map[string]any{"type": "commands.available"})
 	}
 	_, _ = s.db.Exec(ctx, `UPDATE update_deployments SET rollout_phase='full' WHERE id=$1 AND status='active'`, deployment)
