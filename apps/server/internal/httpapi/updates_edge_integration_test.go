@@ -187,7 +187,7 @@ func TestEdgeAndElectronReleasesNeverReachEachOthersScreens(t *testing.T) {
 	}
 	// Architecture rejections must name the actual mismatch, not Android SDK.
 	for screen, expected := range map[uuid.UUID]string{
-		edgeArm: "requires x86_64 architecture, but this screen reports aarch64",
+		edgeArm:    "requires x86_64 architecture, but this screen reports aarch64",
 		unreported: "requires x86_64 architecture, but this screen reports an unknown architecture",
 	} {
 		var reason string
