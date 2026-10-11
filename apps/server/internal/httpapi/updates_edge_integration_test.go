@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -183,6 +184,19 @@ func TestEdgeAndElectronReleasesNeverReachEachOthersScreens(t *testing.T) {
 	_ = f.pool.QueryRow(f.ctx, `SELECT count(*) FROM player_commands WHERE screen_id=ANY($1) AND type='install_player_update'`, []uuid.UUID{edgeArm, unreported, electron, android}).Scan(&armCommands)
 	if armCommands != 0 {
 		t.Fatalf("an incompatible or other-family screen got %d install commands", armCommands)
+	}
+	// Architecture rejections must name the actual mismatch, not Android SDK.
+	for screen, expected := range map[uuid.UUID]string{
+		edgeArm: "requires x86_64 architecture, but this screen reports aarch64",
+		unreported: "requires x86_64 architecture, but this screen reports an unknown architecture",
+	} {
+		var reason string
+		if err := f.pool.QueryRow(f.ctx, `SELECT safe_error FROM screen_update_states WHERE deployment_id=$1 AND screen_id=$2`, edge, screen).Scan(&reason); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(reason, expected) {
+			t.Fatalf("unexpected architecture error for screen %s: %q", screen, reason)
+		}
 	}
 
 	// The symmetric proof for the native ARM64 release artifact: an
