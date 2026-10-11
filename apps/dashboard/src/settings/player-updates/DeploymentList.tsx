@@ -175,15 +175,28 @@ export function DeploymentList({
                       {modeLabel(item.mode, t)}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          item.failedCount || item.incompatibleCount
-                            ? "destructive"
-                            : "outline"
-                        }
-                      >
-                        {deploymentStatus(item.status, t)}
-                      </Badge>
+                      <div className="grid gap-1">
+                        <Badge
+                          className="w-fit"
+                          variant={
+                            item.failedCount || item.incompatibleCount
+                              ? "destructive"
+                              : "outline"
+                          }
+                        >
+                          {deploymentStatus(item.status, t)}
+                        </Badge>
+                        {(item.failedCount > 0 ||
+                          (item.incompatibleCount ?? 0) > 0) && (
+                          <span className="text-xs text-muted-foreground">
+                            {item.incompatibleCount
+                              ? t("updates.console.incompatibleTargets", {
+                                  count: item.incompatibleCount,
+                                })
+                              : deploymentHeadline(item)}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {relativeTime(item.completedAt ?? item.createdAt, t)}
