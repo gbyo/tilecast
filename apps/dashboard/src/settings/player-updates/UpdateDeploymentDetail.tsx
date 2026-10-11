@@ -145,9 +145,9 @@ export function useUpdateDeployment({
   };
 }
 
-type UpdateDeploymentState = ReturnType<typeof useUpdateDeployment>;
+export type UpdateDeploymentState = ReturnType<typeof useUpdateDeployment>;
 
-function DeploymentBody({ state }: { state: UpdateDeploymentState }) {
+export function DeploymentBody({ state }: { state: UpdateDeploymentState }) {
   const { t } = useTranslation(["settings", "common"]);
   return (
     <>
@@ -432,7 +432,7 @@ function CancelDeploymentDialog({ state }: { state: UpdateDeploymentState }) {
   );
 }
 
-function DeploymentFooter({ state }: { state: UpdateDeploymentState }) {
+export function DeploymentFooter({ state }: { state: UpdateDeploymentState }) {
   const { t } = useTranslation(["settings", "common"]);
   if (!state.manageable || !state.active) return null;
   return (
