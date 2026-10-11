@@ -49,6 +49,7 @@ import { Spinner } from "../../components/ui/spinner";
 import { toast } from "../../components/ui/toast";
 import { UpdateSurface } from "./UpdateSurface";
 import {
+  architectureLabel,
   artifactIdentity,
   deployable,
   groupReleases,
@@ -153,8 +154,9 @@ export function ReleaseLibrary({
             }}
           >
             {t("updates.console.deployArtifact", {
-              architecture:
-                release.architecture || artifactIdentity(release, t),
+              architecture: release.architecture
+                ? architectureLabel(release.architecture, t)
+                : artifactIdentity(release, t),
             })}
           </Button>
         )}
@@ -213,9 +215,16 @@ export function ReleaseLibrary({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="grid gap-1">
             <p className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="font-mono font-medium">
-                {release.architecture || artifactIdentity(release, t)}
+              <span className="font-medium">
+                {release.architecture
+                  ? architectureLabel(release.architecture, t)
+                  : artifactIdentity(release, t)}
               </span>
+              {release.architecture && (
+                <span className="font-mono text-xs text-muted-foreground">
+                  {release.architecture}
+                </span>
+              )}
               <span
                 className={
                   readiness.tone === "danger"
