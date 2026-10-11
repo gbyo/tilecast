@@ -119,15 +119,15 @@ export function DeploymentList({
       {!!attention.length && (
         <section
           className="grid gap-3"
-          aria-label={t("updates.filter.attention", {
-            count: attentionScreens,
-          })}
+          aria-label={t("updates.console.needsAttention")}
         >
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold">
-              {t("updates.filter.attention", { count: attentionScreens })}
+              {t("updates.console.needsAttention")}
             </h2>
-            <Badge variant="destructive">{attention.length}</Badge>
+            <Badge variant="destructive">
+              {t("updates.console.targetCount", { count: attentionScreens })}
+            </Badge>
           </div>
           <ItemGroup
             render={<ul />}
@@ -184,11 +184,16 @@ export function DeploymentList({
       {!!moving.length && (
         <section
           className="grid gap-3"
-          aria-label={t("updates.filter.progress", { count: movingScreens })}
+          aria-label={t("updates.console.inProgress")}
         >
-          <h2 className="text-base font-semibold">
-            {t("updates.filter.progress", { count: movingScreens })}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-semibold">
+              {t("updates.console.inProgress")}
+            </h2>
+            <Badge variant="secondary">
+              {t("updates.console.targetCount", { count: movingScreens })}
+            </Badge>
+          </div>
           <div className="grid gap-4 xl:grid-cols-2">
             {moving.map((item) => (
               <Card key={item.id}>
