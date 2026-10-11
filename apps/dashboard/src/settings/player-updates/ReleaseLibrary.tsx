@@ -351,8 +351,9 @@ export function ReleaseLibrary({
         </Alert>
       )}
       {grouped.length ? (
-        <div className="grid gap-4">
-          {visibleGroups.map((variants) => {
+        <>
+          <div className="grid gap-4">
+            {visibleGroups.map((variants) => {
             const release = variants[0]!;
             return (
               <Card key={release.id} size="sm">
@@ -386,8 +387,7 @@ export function ReleaseLibrary({
                 </CardContent>
               </Card>
             );
-          })}
-        <>
+            })}
           </div>
           {grouped.length > 5 && (
             <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
