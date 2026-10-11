@@ -306,7 +306,7 @@ func (s *server) routes() chi.Router {
 			dashboard.With(s.requireRoles("owner"), s.operationsRateLimit, s.requireCSRF, s.requireScope("write")).Post("/player-releases/github/device", s.startGitHubDeviceAuthorization)
 			dashboard.With(s.requireRoles("owner"), s.requireCSRF, s.requireScope("write")).Post("/player-releases/github/device/poll", s.pollGitHubDeviceAuthorization)
 			dashboard.With(s.requireRoles("owner"), s.requireCSRF, s.requireScope("admin")).Delete("/player-releases/github", s.disconnectGitHub)
-			dashboard.With(s.requireRoles("owner"), s.operationsRateLimit, s.requireCSRF, s.blockDuringBackup, s.requireScope("admin")).Post("/player-releases/{id}/cache", s.cachePlayerRelease)
+			dashboard.With(s.requireRoles("owner", "administrator"), s.operationsRateLimit, s.requireCSRF, s.blockDuringBackup, s.requireScope("admin")).Post("/player-releases/{id}/cache", s.cachePlayerRelease)
 			dashboard.With(s.requireRoles("owner"), s.operationsRateLimit, s.requireCSRF, s.blockDuringBackup, s.requireScope("admin")).Delete("/player-releases/{id}", s.deletePlayerRelease)
 			dashboard.With(s.requireScope("read")).Get("/update-deployments", s.listUpdateDeployments)
 			dashboard.With(s.requireScope("read")).Get("/update-deployments/{id}", s.getUpdateDeployment)
