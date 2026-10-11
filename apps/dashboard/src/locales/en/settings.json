@@ -1312,6 +1312,7 @@
         "active": "Active",
         "paused": "Paused",
         "completed": "Completed",
+        "completedWithIssues": "Completed with issues",
         "cancelled": "Cancelled"
       },
       "deployments": "Deployments",
