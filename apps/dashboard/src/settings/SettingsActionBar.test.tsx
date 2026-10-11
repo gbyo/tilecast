@@ -18,7 +18,9 @@ describe("SettingsActionBar", () => {
       />,
     );
 
-    const status = screen.getByText("Unsaved changes").closest('[aria-live="polite"]');
+    const status = screen
+      .getByText("Unsaved changes")
+      .closest('[aria-live="polite"]');
     expect(status).not.toBeNull();
     expect(status).toHaveClass("fixed", "left-1/2", "z-40");
     expect(status).not.toHaveClass("sticky");
