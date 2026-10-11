@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
@@ -153,7 +153,6 @@ export function DeployUpdateSheet({
   const [releaseId, setReleaseId] = useState(
     automaticInitialRelease?.id ?? "",
   );
-  const [advanceAfterPrepare, setAdvanceAfterPrepare] = useState(false);
   const [selected, setSelected] = useState<TargetChoice[]>([]);
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<UpdateDeploymentMode>("install_now");
@@ -247,25 +246,9 @@ export function DeployUpdateSheet({
   const prepare = useMutation({
     mutationFn: (selectedRelease: PlayerRelease) =>
       api.cachePlayerRelease(selectedRelease.id, csrf),
-    onSuccess: () => {
-      setAdvanceAfterPrepare(true);
-      return client.invalidateQueries({ queryKey: ["player-releases"] });
-    },
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: ["player-releases"] }),
   });
-  useEffect(() => {
-    if (!advanceAfterPrepare || !release) return;
-    if (deployable(release)) {
-      setAdvanceAfterPrepare(false);
-      setStage(2);
-      return;
-    }
-    if (
-      release.cacheStatus === "failed" ||
-      release.verificationStatus === "failed"
-    ) {
-      setAdvanceAfterPrepare(false);
-    }
-  }, [advanceAfterPrepare, release]);
   const result = preview.data;
   const candidateById = new Map(
     candidates.data?.screens.map((s) => [s.screenId, s]),
@@ -324,7 +307,7 @@ export function DeployUpdateSheet({
   const stageKey =
     stage === 1 ? "release" : stage === 2 ? "targets" : "rollout";
   const selectedBuildPreparing =
-    advanceAfterPrepare || release?.cacheStatus === "downloading";
+    prepare.isPending || release?.cacheStatus === "downloading";
   const canPrepareSelected =
     !!release &&
     !deployable(release) &&
@@ -464,7 +447,6 @@ export function DeployUpdateSheet({
                 setFamily(value as UpdateFamilyTab);
                 setReleaseGroupId("");
                 setReleaseId("");
-                setAdvanceAfterPrepare(false);
                 setSelected([]);
               }}
             >
@@ -521,8 +503,7 @@ export function DeployUpdateSheet({
                           : undefined;
                     setReleaseGroupId(String(value));
                     setReleaseId(automatic?.id ?? "");
-                    setAdvanceAfterPrepare(false);
-                    setSelected([]);
+                        setSelected([]);
                   }}
                 >
                   <SelectTrigger id="update-version">
@@ -650,8 +631,7 @@ export function DeployUpdateSheet({
                 onValueChange={(value) => {
                   if (value !== releaseId) {
                     setReleaseId(String(value));
-                    setAdvanceAfterPrepare(false);
-                    setSelected([]);
+                        setSelected([]);
                   }
                 }}
                 aria-label={t("updates.console.buildLabel")}
