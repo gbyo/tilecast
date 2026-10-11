@@ -318,6 +318,8 @@ on_web_process_terminated (WebKitWebView *view, WebKitWebProcessTerminationReaso
   TcHost *host = user_data;
   host->web_process_terminations++;
   g_warning ("view: web process terminated (reason %d); reloading the runtime", (int) reason);
+  /* The dead process's last buffer is not what the display will show. */
+  tc_preview_clear_presented_buffer (host);
   tc_remote_web_reset (host);
   tc_protocol_send_health (host, "degraded", "web_process_terminated");
   tc_view_reload_runtime (host);
@@ -449,6 +451,7 @@ tc_view_create (TcHost *host, GError **error)
   g_signal_connect (host->view, "load-failed", G_CALLBACK (on_load_failed), host);
 
   WPEView *wpe_view = webkit_web_view_get_wpe_view (host->view);
+  tc_preview_attach_view (host, wpe_view);
   WPEToplevel *toplevel = wpe_view_get_toplevel (wpe_view);
   if (toplevel == NULL) {
     toplevel = wpe_display_create_toplevel (host->display, 1);
