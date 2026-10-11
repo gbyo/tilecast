@@ -138,6 +138,7 @@ export function groupReleases(releases: PlayerRelease[]) {
   );
 }
 export function deploymentNeedsAttention(item: UpdateDeployment) {
+  if (item.status !== "active" && item.status !== "paused") return false;
   return (
     item.status === "paused" ||
     item.failedCount > 0 ||
