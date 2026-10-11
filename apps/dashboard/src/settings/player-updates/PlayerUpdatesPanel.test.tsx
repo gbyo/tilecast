@@ -168,7 +168,7 @@ describe("Player Updates workspace", () => {
     expect(screen.getByTestId("url")).toHaveTextContent("view=releases");
     const family = screen.getByRole("combobox", { name: "Player family" });
     await user.click(family);
-    await user.click(screen.getByRole("option", { name: "Windows" }));
+    await user.click(await screen.findByRole("option", { name: "Windows" }));
     expect(screen.getByTestId("url")).toHaveTextContent("platform=windows");
     await user.click(screen.getByRole("button", { name: "History back" }));
     expect(
