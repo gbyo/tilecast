@@ -7,6 +7,7 @@ import type {
   Screen,
   ScreenGroup,
   UpdateDeploymentMode,
+  UpdateDeploymentPreview,
 } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { apiErrorMessage, useFormatLocale } from "../../i18n";
@@ -452,6 +453,221 @@ function DeploymentStepRail({ stage }: { stage: number }) {
         </li>
       ))}
     </ol>
+  );
+}
+
+function TargetsStep({
+  release,
+  choices,
+  selected,
+  onSelectedChange,
+  search,
+  onSearchChange,
+  screens,
+  groups,
+  candidates,
+  candidatesError,
+  candidatesFetching,
+  previewFetching,
+  result,
+}: {
+  release?: PlayerRelease;
+  choices: TargetChoice[];
+  selected: TargetChoice[];
+  onSelectedChange: (value: TargetChoice[]) => void;
+  search: string;
+  onSearchChange: (value: string) => void;
+  screens: Screen[];
+  groups: ScreenGroup[];
+  candidates?: UpdateDeploymentPreview;
+  candidatesError: boolean;
+  candidatesFetching: boolean;
+  previewFetching: boolean;
+  result?: UpdateDeploymentPreview;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  const { t: screenT } = useTranslation("screens");
+  const targetAnchor = useComboboxAnchor();
+  const candidateById = new Map(
+    candidates?.screens.map((screen) => [screen.screenId, screen]),
+  );
+  const releaseDescription = release
+    ? [
+        release.versionName,
+        familyLabel(releaseUpdateTab(release), t),
+        release.architecture
+          ? `${architectureLabel(release.architecture, t)} (${release.architecture})`
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+
+  return (
+    <>
+      <p className="text-sm font-medium">{releaseDescription}</p>
+      <Field>
+        <FieldLabel htmlFor="update-target-search">
+          {t("updates.panel.targetsLabel")}
+        </FieldLabel>
+        <Combobox
+          multiple
+          items={choices}
+          value={selected}
+          onValueChange={onSelectedChange}
+          itemToStringLabel={(item: TargetChoice) => item.label}
+          isItemEqualToValue={(a: TargetChoice, b: TargetChoice) =>
+            a.value === b.value && a.type === b.type
+          }
+          inputValue={search}
+          onInputValueChange={onSearchChange}
+        >
+          <ComboboxChips ref={targetAnchor}>
+            <ComboboxValue>
+              {(value: TargetChoice[]) =>
+                value.map((item) => (
+                  <ComboboxChip
+                    key={`${item.type}-${item.value}`}
+                    removeLabel={t("updates.console.removeTarget", {
+                      name: item.label,
+                    })}
+                  >
+                    {item.label}
+                  </ComboboxChip>
+                ))
+              }
+            </ComboboxValue>
+            <ComboboxChipsInput
+              id="update-target-search"
+              placeholder={
+                selected.length ? undefined : t("updates.panel.searchPlaceholder")
+              }
+            />
+          </ComboboxChips>
+          <ComboboxContent anchor={targetAnchor}>
+            <ComboboxEmpty>
+              {t("updates.console.noTargetMatch")}
+            </ComboboxEmpty>
+            <ComboboxList>
+              {(["screen", "group"] as const).map((type) => (
+                <ComboboxGroup key={type}>
+                  <ComboboxLabel>
+                    {type === "screen"
+                      ? t("updates.console.screens")
+                      : t("updates.panel.groupsHeading")}
+                  </ComboboxLabel>
+                  {choices
+                    .filter(
+                      (item) =>
+                        item.type === type &&
+                        item.label.toLowerCase().includes(search.toLowerCase()),
+                    )
+                    .map((choice) => {
+                      const screen = screens.find(
+                        (item) => item.id === choice.value,
+                      );
+                      const group = groups.find(
+                        (item) => item.id === choice.value,
+                      );
+                      const candidate = candidateById.get(choice.value);
+                      const disabled =
+                        choice.type === "screen" &&
+                        (!candidate ||
+                          candidate.outcome === "incompatible" ||
+                          candidatesError);
+                      return (
+                        <ComboboxItem
+                          key={`${type}-${choice.value}`}
+                          value={choice}
+                          disabled={disabled}
+                          className="items-start data-disabled:opacity-100"
+                        >
+                          <div className="grid min-w-0 gap-0.5">
+                            <span className="font-medium">{choice.label}</span>
+                            {screen && (
+                              <span className="text-xs text-muted-foreground">
+                                {screen.playerVersion} ·{" "}
+                                {screenT(`status.${screen.status}`)}
+                                {screen.playerArchitecture &&
+                                  ` · ${architectureLabel(
+                                    screen.playerArchitecture,
+                                    t,
+                                  )} (${screen.playerArchitecture})`}
+                              </span>
+                            )}
+                            {group && (
+                              <span className="text-xs text-muted-foreground">
+                                {t("updates.console.groupMembers", {
+                                  count: group.membershipCount,
+                                  eligible: group.screens.filter((member) => {
+                                    const groupCandidate = candidateById.get(
+                                      member.id,
+                                    );
+                                    return (
+                                      groupCandidate &&
+                                      groupCandidate.outcome !== "incompatible"
+                                    );
+                                  }).length,
+                                })}
+                              </span>
+                            )}
+                            {candidate?.reason && (
+                              <span className="text-xs text-destructive">
+                                {candidate.reason}
+                              </span>
+                            )}
+                            {disabled && !candidate && (
+                              <span className="text-xs text-muted-foreground">
+                                {t("updates.console.checkingCompatibility")}
+                              </span>
+                            )}
+                          </div>
+                        </ComboboxItem>
+                      );
+                    })}
+                </ComboboxGroup>
+              ))}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      </Field>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={candidatesFetching || candidatesError || !candidates}
+          onClick={() =>
+            onSelectedChange(
+              choices.filter(
+                (choice) =>
+                  choice.type === "screen" &&
+                  candidateById.get(choice.value)?.outcome !== "incompatible" &&
+                  candidateById.get(choice.value)?.outcome !==
+                    "already_current" &&
+                  candidateById.has(choice.value),
+              ),
+            )
+          }
+        >
+          {t("updates.console.selectEligible")}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!selected.length}
+          onClick={() => onSelectedChange([])}
+        >
+          {t("updates.panel.clearSelection")}
+        </Button>
+      </div>
+      <p role="status" className="text-sm font-medium">
+        {previewFetching
+          ? t("updates.console.checkingCompatibility")
+          : t("updates.console.selectedCount", {
+              count: result?.targetCount ?? 0,
+            })}
+      </p>
+    </>
   );
 }
 
