@@ -114,7 +114,7 @@ describe("Player Updates workspace", () => {
     ).toBeInTheDocument();
     const first = screen
       .getAllByRole("button", { name: "View rollout" })[0]!
-      .closest("li")!;
+      .closest('[data-slot="card"]')!;
     expect(
       within(first).getByText("Incompatible screens: 1."),
     ).toBeInTheDocument();
@@ -145,17 +145,18 @@ describe("Player Updates workspace", () => {
     expect(await screen.findByText("Release library")).toBeInTheDocument();
     expect(screen.getByTestId("url")).toHaveTextContent("keep=yes");
     expect(screen.getByTestId("url")).toHaveTextContent("view=releases");
-    await user.click(screen.getByRole("button", { name: "Windows" }));
+    const family = screen.getByRole("combobox", { name: "Player family" });
+    await user.click(family);
+    await user.click(screen.getByRole("option", { name: "Windows" }));
     expect(screen.getByTestId("url")).toHaveTextContent("platform=windows");
     await user.click(screen.getByRole("button", { name: "History back" }));
     expect(
-      screen.getByRole("button", { name: "Tilecast Edge" }),
-    ).toHaveAttribute("aria-pressed", "true");
+      screen.getByRole("combobox", { name: "Player family" }),
+    ).toHaveTextContent("Tilecast Edge");
     await user.click(screen.getByRole("button", { name: "History forward" }));
-    expect(screen.getByRole("button", { name: "Windows" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("combobox", { name: "Player family" }),
+    ).toHaveTextContent("Windows");
   });
   it("discards a draft when navigating to another family and back", async () => {
     mount();
