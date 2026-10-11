@@ -88,6 +88,577 @@ function releaseGroupKey(releases: PlayerRelease[]) {
     .sort()
     .join(":");
 }
+
+function UpdateSelectionStep({
+  family,
+  releaseGroups,
+  releaseGroupId,
+  releaseGroup,
+  releaseId,
+  release,
+  familyScreens,
+  selectedBuildScreenCount,
+  selectedBuildPreparing,
+  prepareError,
+  onFamilyChange,
+  onVersionChange,
+  onBuildChange,
+}: {
+  family: UpdateFamilyTab;
+  releaseGroups: PlayerRelease[][];
+  releaseGroupId: string;
+  releaseGroup?: PlayerRelease[];
+  releaseId: string;
+  release?: PlayerRelease;
+  familyScreens: Screen[];
+  selectedBuildScreenCount: number;
+  selectedBuildPreparing: boolean;
+  prepareError: unknown;
+  onFamilyChange: (family: UpdateFamilyTab) => void;
+  onVersionChange: (key: string) => void;
+  onBuildChange: (id: string) => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  const locale = useFormatLocale();
+  const readiness = release ? releaseReadiness(release, t) : undefined;
+  return (
+    <div className="grid gap-6">
+      <Field>
+        <FieldLabel htmlFor="update-player-family">
+          {t("updates.console.playerFamily")}
+        </FieldLabel>
+        <Select
+          items={families.map((value) => ({
+            value,
+            label: familyLabel(value, t),
+          }))}
+          value={family}
+          onValueChange={(value) =>
+            value && onFamilyChange(value as UpdateFamilyTab)
+          }
+        >
+          <SelectTrigger id="update-player-family">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {families.map((value) => (
+              <SelectItem key={value} value={value}>
+                {familyLabel(value, t)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+
+      <Field>
+        <FieldLabel htmlFor="update-version">
+          {t("updates.console.versionLabel")}
+        </FieldLabel>
+        {releaseGroups.length ? (
+          <>
+            <Select
+              items={releaseGroups.map((variants) => {
+                const representative = variants[0]!;
+                return {
+                  value: releaseGroupKey(variants),
+                  label: `${representative.versionName} · ${
+                    representative.channel === "beta"
+                      ? t("updates.panel.channelBeta")
+                      : t("updates.panel.channelStable")
+                  }`,
+                };
+              })}
+              value={releaseGroupId}
+              onValueChange={(value) => value && onVersionChange(String(value))}
+            >
+              <SelectTrigger id="update-version">
+                <SelectValue
+                  placeholder={t("updates.console.chooseVersion")}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {releaseGroups.map((variants) => {
+                  const representative = variants[0]!;
+                  const key = releaseGroupKey(variants);
+                  return (
+                    <SelectItem key={key} value={key}>
+                      {representative.versionName} ·{" "}
+                      {representative.channel === "beta"
+                        ? t("updates.panel.channelBeta")
+                        : t("updates.panel.channelStable")}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            {releaseGroup && (
+              <FieldDescription>
+                {new Date(releaseGroup[0]!.publishedAt).toLocaleDateString(
+                  locale,
+                )}
+                {" · "}
+                {releaseGroup[0]!.source === "github"
+                  ? t("updates.panel.sourceGitHub")
+                  : t("updates.panel.sourceUpload")}
+              </FieldDescription>
+            )}
+          </>
+        ) : (
+          <Alert>
+            <AlertDescription>
+              {t("updates.console.noReleasesForFamily", {
+                family: familyLabel(family, t),
+              })}
+            </AlertDescription>
+          </Alert>
+        )}
+      </Field>
+
+      {releaseGroup?.length === 1 && release && (
+        <Card size="sm">
+          <CardContent className="grid gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="grid gap-0.5">
+                <span className="text-sm font-medium">
+                  {architectureLabel(release.architecture, t)}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {release.architecture && (
+                    <>
+                      <span className="font-mono">{release.architecture}</span>
+                      {" · "}
+                    </>
+                  )}
+                  {t("updates.console.buildScreenCount", {
+                    count: selectedBuildScreenCount,
+                  })}
+                  {" · "}
+                  {formatBytes(release.apkSizeBytes, locale)}
+                </span>
+              </div>
+              <Badge variant={deployable(release) ? "outline" : "secondary"}>
+                {deployable(release)
+                  ? t("updates.console.buildReady")
+                  : selectedBuildPreparing
+                    ? t("updates.console.preparingBuild")
+                    : t("updates.console.buildPrepareNeeded")}
+              </Badge>
+            </div>
+            {readiness?.detail && (
+              <p
+                className={
+                  readiness.tone === "danger"
+                    ? "text-xs text-destructive"
+                    : "text-xs text-muted-foreground"
+                }
+              >
+                {readiness.detail}
+              </p>
+            )}
+            {selectedBuildPreparing && (
+              <div className="grid gap-1">
+                <Progress
+                  value={
+                    release.apkSizeBytes > 0
+                      ? Math.min(
+                          100,
+                          Math.round(
+                            (release.downloadedBytes / release.apkSizeBytes) *
+                              100,
+                          ),
+                        )
+                      : 0
+                  }
+                  aria-label={t("updates.console.preparingBuild")}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("updates.console.preparationContinuesHint")}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {releaseGroup && releaseGroup.length > 1 && (
+        <FieldSet>
+          <FieldLegend>{t("updates.console.buildLabel")}</FieldLegend>
+          <FieldDescription>{t("updates.console.buildHint")}</FieldDescription>
+          <RadioGroup
+            value={releaseId}
+            onValueChange={(value) => onBuildChange(String(value))}
+            aria-label={t("updates.console.buildLabel")}
+          >
+            <div className="grid gap-2 sm:grid-cols-2">
+              {releaseGroup.map((item) => {
+                const itemReadiness = releaseReadiness(item, t);
+                const matchingScreens = familyScreens.filter(
+                  (screen) =>
+                    !item.architecture ||
+                    screen.playerArchitecture === item.architecture,
+                ).length;
+                const preparing =
+                  releaseId === item.id && selectedBuildPreparing;
+                return (
+                  <Card
+                    key={item.id}
+                    size="sm"
+                    className={
+                      releaseId === item.id
+                        ? "ring-2 ring-primary/50"
+                        : "transition-colors hover:bg-accent/20"
+                    }
+                  >
+                    <CardContent>
+                      <Field orientation="horizontal" className="gap-3">
+                        <RadioGroupItem
+                          id={`release-build-${item.id}`}
+                          value={item.id}
+                          aria-label={`${architectureLabel(
+                            item.architecture,
+                            t,
+                          )} (${item.architecture || familyLabel(family, t)})`}
+                        />
+                        <FieldContent>
+                          <FieldLabel
+                            htmlFor={`release-build-${item.id}`}
+                            className="flex flex-wrap gap-2"
+                          >
+                            {architectureLabel(item.architecture, t)}
+                            <Badge
+                              variant={
+                                deployable(item) ? "outline" : "secondary"
+                              }
+                            >
+                              {deployable(item)
+                                ? t("updates.console.buildReady")
+                                : preparing ||
+                                    item.cacheStatus === "downloading"
+                                  ? t("updates.console.preparingBuild")
+                                  : t("updates.console.buildPrepareNeeded")}
+                            </Badge>
+                          </FieldLabel>
+                          <FieldDescription>
+                            {item.architecture && (
+                              <>
+                                <span className="font-mono">
+                                  {item.architecture}
+                                </span>
+                                {" · "}
+                              </>
+                            )}
+                            {t("updates.console.buildScreenCount", {
+                              count: matchingScreens,
+                            })}
+                            {" · "}
+                            {formatBytes(item.apkSizeBytes, locale)}
+                          </FieldDescription>
+                          {itemReadiness.detail && (
+                            <p
+                              className={
+                                itemReadiness.tone === "danger"
+                                  ? "text-xs text-destructive"
+                                  : "text-xs text-muted-foreground"
+                              }
+                            >
+                              {itemReadiness.detail}
+                            </p>
+                          )}
+                          {(preparing ||
+                            item.cacheStatus === "downloading") && (
+                            <div className="grid gap-1 pt-1">
+                              <Progress
+                                value={
+                                  item.apkSizeBytes > 0
+                                    ? Math.min(
+                                        100,
+                                        Math.round(
+                                          (item.downloadedBytes /
+                                            item.apkSizeBytes) *
+                                            100,
+                                        ),
+                                      )
+                                    : 0
+                                }
+                                aria-label={t(
+                                  "updates.console.preparingBuild",
+                                )}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                {t("updates.console.preparationContinuesHint")}
+                              </p>
+                            </div>
+                          )}
+                        </FieldContent>
+                      </Field>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </RadioGroup>
+        </FieldSet>
+      )}
+
+      {prepareError && (
+        <Alert variant="destructive">
+          <AlertDescription>{apiErrorMessage(prepareError)}</AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+}
+
+function DeploymentStepRail({ stage }: { stage: number }) {
+  const { t } = useTranslation(["settings", "common"]);
+  return (
+    <ol
+      className="grid grid-cols-3 gap-2"
+      aria-label={t("updates.panel.deployAction")}
+    >
+      {(["release", "targets", "rollout"] as const).map((key, index) => (
+        <li key={key} className="grid min-w-0 gap-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={`grid size-6 shrink-0 place-items-center rounded-full border text-xs font-semibold ${
+                stage === index + 1
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : stage > index + 1
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border text-muted-foreground"
+              }`}
+              aria-current={stage === index + 1 ? "step" : undefined}
+            >
+              {index + 1}
+            </span>
+            {index < 2 && (
+              <span
+                className={`h-px min-w-2 flex-1 ${
+                  stage > index + 1 ? "bg-primary/40" : "bg-border"
+                }`}
+                aria-hidden="true"
+              />
+            )}
+          </div>
+          <span
+            className={`truncate text-xs ${
+              stage === index + 1
+                ? "font-semibold text-foreground"
+                : "text-muted-foreground"
+            }`}
+          >
+            {t(`updates.console.steps.${key}`)}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function RolloutStep({
+  release,
+  family,
+  mode,
+  onModeChange,
+  windowStart,
+  onWindowStartChange,
+  invalidWindow,
+  canary,
+  onCanaryChange,
+  canarySize,
+  onCanarySizeChange,
+  invalidCanary,
+  result,
+}: {
+  release?: PlayerRelease;
+  family: UpdateFamilyTab;
+  mode: UpdateDeploymentMode;
+  onModeChange: (mode: UpdateDeploymentMode) => void;
+  windowStart: string;
+  onWindowStartChange: (value: string) => void;
+  invalidWindow: boolean;
+  canary: boolean;
+  onCanaryChange: (checked: boolean) => void;
+  canarySize: number;
+  onCanarySizeChange: (value: number) => void;
+  invalidCanary: boolean;
+  result?: import("../../api/types").UpdateDeploymentPreview;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  const locale = useFormatLocale();
+  const playerFamily = release ? releaseUpdateTab(release) : family;
+  const noteKey =
+    playerFamily === "android"
+      ? "androidNote"
+      : playerFamily === "edge"
+        ? "edgeNote"
+        : playerFamily === "windows"
+          ? "windowsNote"
+          : "linuxNote";
+
+  return (
+    <>
+      <Card size="sm" role="region" aria-label={t("updates.console.review")}>
+        <CardHeader>
+          <CardTitle>{t("updates.console.review")}</CardTitle>
+        </CardHeader>
+        <CardContent className="gap-1">
+          <strong className="text-sm">{release?.versionName}</strong>
+          {release && (
+            <p className="text-sm text-muted-foreground">
+              {familyLabel(family, t)}
+              {release.architecture &&
+                ` · ${architectureLabel(release.architecture, t)} (${release.architecture})`}
+            </p>
+          )}
+          <p className="text-sm">
+            {t("updates.console.targetCount", {
+              count: result?.targetCount ?? 0,
+            })}{" "}
+            · {modeLabel(mode, t)}
+            {canary &&
+              ` · ${t("updates.console.canarySummary", { count: canarySize })}`}
+          </p>
+          {mode === "maintenance_window" && windowStart && (
+            <p className="text-sm">
+              {new Date(windowStart).toLocaleString(locale)}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <FieldGroup className="gap-5">
+        <Field>
+          <FieldLabel htmlFor="update-mode">
+            {t("updates.panel.modeLabel")}
+          </FieldLabel>
+          <Select
+            items={(
+              [
+                "install_now",
+                "download_only",
+                "maintenance_window",
+              ] as const
+            ).map((value) => ({
+              value,
+              label: modeLabel(value, t),
+            }))}
+            value={mode}
+            onValueChange={(value) =>
+              value && onModeChange(value as UpdateDeploymentMode)
+            }
+          >
+            <SelectTrigger id="update-mode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(
+                [
+                  "install_now",
+                  "download_only",
+                  "maintenance_window",
+                ] as const
+              ).map((value) => (
+                <SelectItem key={value} value={value}>
+                  {modeLabel(value, t)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <FieldDescription>
+            {t(`updates.console.modeHints.${mode}`)}
+          </FieldDescription>
+        </Field>
+
+        {mode === "maintenance_window" && (
+          <Field>
+            <FieldLabel htmlFor="update-window">
+              {t("updates.panel.windowLabel")}
+            </FieldLabel>
+            <DateTimeInput
+              id="update-window"
+              value={windowStart}
+              onChange={onWindowStartChange}
+            />
+            <FieldDescription>
+              {t("updates.console.windowHint")}
+            </FieldDescription>
+            {invalidWindow && (
+              <FieldError>{t("updates.console.futureWindow")}</FieldError>
+            )}
+          </Field>
+        )}
+
+        <Collapsible>
+          <CollapsibleTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                className="justify-start px-0"
+              />
+            }
+          >
+            {t("updates.console.rolloutSafeguards")}
+            {canary && (
+              <Badge variant="secondary">
+                {t("updates.console.canarySummary", {
+                  count: canarySize,
+                })}
+              </Badge>
+            )}
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <div className="rounded-lg border bg-muted/20 p-3">
+              <Field orientation="horizontal">
+                <Switch
+                  id="update-canary"
+                  checked={canary}
+                  onCheckedChange={onCanaryChange}
+                />
+                <FieldContent>
+                  <FieldLabel htmlFor="update-canary">
+                    {t("updates.console.canaryRollout")}
+                  </FieldLabel>
+                  <FieldDescription>
+                    {t("updates.console.canaryHint")}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+              {canary && (
+                <Field className="mt-3">
+                  <FieldLabel htmlFor="update-canary-count">
+                    {t("updates.panel.canaryLabel")}
+                  </FieldLabel>
+                  <Input
+                    id="update-canary-count"
+                    type="number"
+                    min={1}
+                    max={Math.min(50, (result?.eligibleCount ?? 0) - 1)}
+                    value={canarySize}
+                    onChange={(e) =>
+                      onCanarySizeChange(Number(e.target.value))
+                    }
+                  />
+                  {invalidCanary && (
+                    <FieldError>
+                      {t("updates.console.invalidCanary")}
+                    </FieldError>
+                  )}
+                </Field>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </FieldGroup>
+
+      <p className="text-sm text-muted-foreground">
+        {t(`updates.panel.${noteKey}`)}
+      </p>
+    </>
+  );
+}
+
 export function DeployUpdateSheet({
   releases,
   screens,
