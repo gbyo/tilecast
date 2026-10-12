@@ -1280,12 +1280,12 @@
   "updates": {
     "console": {
       "incompatibleTargets": "Pantallas incompatibles: {{count}}.",
-      "playerFamily": "Tipo de reproductor",
+      "playerFamily": "Familia de reproductor",
       "playerFamilyHint": "Elige qué Tilecast Player vas a actualizar. Puedes cambiarlo sin salir del flujo de despliegue.",
       "chooseVersion": "Elige una versión",
       "versionLabel": "Versión",
-      "buildLabel": "Arquitectura",
-      "buildHint": "Elige la arquitectura de CPU que corresponda a las pantallas que quieres actualizar.",
+      "buildLabel": "Compilación",
+      "buildHint": "Elige la compilación de CPU que corresponda a las pantallas que quieres actualizar.",
       "singleBuildHint": "Esta versión tiene una sola compilación para este tipo de reproductor, así que Tilecast la seleccionó.",
       "architectures": {
         "x86_64": "Intel / AMD de 64 bits",
@@ -1319,7 +1319,7 @@
         "cancelled": "Cancelado"
       },
       "deployments": "Despliegues",
-      "releases": "Catálogo de versiones",
+      "releases": "Versiones",
       "workspaceViews": "Vistas de actualizaciones",
       "fleetCount": "{{count}} pantallas",
       "fleetCount_one": "{{count}} pantalla",
@@ -1351,12 +1351,12 @@
       "continue": "Continuar",
       "step": "{{stage}} de 3 — {{title}}",
       "steps": {
-        "release": "Actualización",
+        "release": "Versión y compilación",
         "targets": "Destinos",
         "rollout": "Despliegue"
       },
       "stepHints": {
-        "release": "Elige el tipo de reproductor y la versión. Elige una arquitectura solo cuando haya más de una compilación aplicable.",
+        "release": "Elige el tipo de reproductor, la versión y la compilación. Tilecast la descarga y verifica aquí si hace falta.",
         "targets": "Busca pantallas o Grupos de pantallas. Tilecast comprueba cada pantalla incluida.",
         "rollout": "Elige cuándo instalar y revisa el despliegue antes de iniciarlo."
       },
@@ -1422,7 +1422,8 @@
       "certificate": "SHA-256 del certificado de firma",
       "releaseNotes": "Notas de la versión",
       "noNotes": "No hay notas de la versión.",
-      "trustedKeyMissing": "Configura la clave pública de confianza en el servidor antes de importar versiones."
+      "trustedKeyMissing": "Configura la clave pública de confianza en el servidor antes de importar versiones.",
+      "prepareAndContinue": "Preparar y continuar"
     },
     "states": {
       "held": {
