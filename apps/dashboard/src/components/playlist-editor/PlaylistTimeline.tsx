@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import {
   Fragment,
+  useState,
   type DragEvent,
   type KeyboardEvent,
   type ReactNode,
@@ -61,6 +62,7 @@ import {
   itemHasTransitionOverride,
   playlistDurationLabel,
   playlistItemSummary,
+  type PlaylistDropEdge,
   type PlaylistTransition,
 } from "./playlistEditorModel";
 import {
@@ -110,10 +112,18 @@ export function PlaylistTimeline({
   onRemove: (itemId: string) => void;
   onDragStart: (itemId: string) => void;
   onDragEnd: () => void;
-  onDrop: (event: DragEvent, targetId: string) => void;
+  onDrop: (
+    event: DragEvent,
+    targetId: string,
+    edge: PlaylistDropEdge,
+  ) => void;
 }) {
   const { t } = useTranslation("playlists");
   const tagDriven = sourceType === "tag";
+  const [dropTarget, setDropTarget] = useState<{
+    itemId: string;
+    edge: PlaylistDropEdge;
+  }>();
   const runAction = (itemId: string, action: PlaylistItemActionId) => {
     if (action === "inspect") onSelect(itemId);
     else if (action === "move-up") onMove(itemId, -1);
@@ -181,10 +191,20 @@ export function PlaylistTimeline({
               selected={selectedItemId === item.id}
               playlistTransition={playlistTransition}
               dragged={draggedItemId === item.id}
+              dropEdge={
+                dropTarget?.itemId === item.id ? dropTarget.edge : undefined
+              }
               onAction={(action) => runAction(item.id, action)}
               onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
-              onDrop={onDrop}
+              onDragOver={(edge) => setDropTarget({ itemId: item.id, edge })}
+              onDragEnd={() => {
+                setDropTarget(undefined);
+                onDragEnd();
+              }}
+              onDrop={(event, targetId, edge) => {
+                setDropTarget(undefined);
+                onDrop(event, targetId, edge);
+              }}
             />
           ))}
         </ItemGroup>
@@ -201,8 +221,10 @@ function PlaylistTimelineItem({
   selected,
   playlistTransition,
   dragged,
+  dropEdge,
   onAction,
   onDragStart,
+  onDragOver,
   onDragEnd,
   onDrop,
 }: {
@@ -213,10 +235,16 @@ function PlaylistTimelineItem({
   selected: boolean;
   playlistTransition: PlaylistTransition;
   dragged: boolean;
+  dropEdge?: PlaylistDropEdge;
   onAction: (action: PlaylistItemActionId) => void;
   onDragStart: (itemId: string) => void;
+  onDragOver: (edge: PlaylistDropEdge) => void;
   onDragEnd: () => void;
-  onDrop: (event: DragEvent, targetId: string) => void;
+  onDrop: (
+    event: DragEvent,
+    targetId: string,
+    edge: PlaylistDropEdge,
+  ) => void;
 }) {
   const { t } = useTranslation("playlists");
   const override =
@@ -251,11 +279,19 @@ function PlaylistTimelineItem({
             variant={selected ? "muted" : "default"}
             data-selected={selected || undefined}
             data-playlist-item={item.id}
-            className={`relative flex-nowrap py-2 hover:bg-muted/50 has-[[data-slot=playlist-item-inspect]:focus-visible]:border-ring has-[[data-slot=playlist-item-inspect]:focus-visible]:ring-[3px] has-[[data-slot=playlist-item-inspect]:focus-visible]:ring-ring/50 data-selected:border-border ${dragged ? "opacity-50" : ""}`}
+            className={`relative flex-nowrap py-2 hover:bg-muted/50 has-[[data-slot=playlist-item-inspect]:focus-visible]:border-ring has-[[data-slot=playlist-item-inspect]:focus-visible]:ring-[3px] has-[[data-slot=playlist-item-inspect]:focus-visible]:ring-ring/50 data-selected:border-border ${dragged ? "opacity-50" : ""} ${dropEdge === "before" ? "before:pointer-events-none before:absolute before:inset-x-2 before:top-0 before:z-20 before:h-0.5 before:rounded-full before:bg-primary" : ""} ${dropEdge === "after" ? "after:pointer-events-none after:absolute after:inset-x-2 after:bottom-0 after:z-20 after:h-0.5 after:rounded-full after:bg-primary" : ""}`}
             onDragOver={(event) => {
-              if (canManage) event.preventDefault();
+              if (!canManage || dragged) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+              onDragOver(dropEdgeForEvent(event));
             }}
-            onDrop={(event) => onDrop(event, item.id)}
+            onDrop={(event) => {
+              if (!canManage || dragged) return;
+              event.preventDefault();
+              event.stopPropagation();
+              onDrop(event, item.id, dropEdgeForEvent(event));
+            }}
             onKeyDown={onRowKeyDown}
           />
         }
@@ -273,6 +309,10 @@ function PlaylistTimelineItem({
               onDragStart={(event) => {
                 event.stopPropagation();
                 event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData(
+                  "application/x-tilecast-playlist-item",
+                  item.id,
+                );
                 event.dataTransfer.setData("text/plain", item.id);
                 onDragStart(item.id);
               }}
@@ -367,6 +407,11 @@ function PlaylistTimelineItem({
       </ContextMenuContent>
     </ContextMenu>
   );
+}
+
+function dropEdgeForEvent(event: DragEvent<HTMLElement>): PlaylistDropEdge {
+  const bounds = event.currentTarget.getBoundingClientRect();
+  return event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
 }
 
 type MenuItemComponent = (props: {
