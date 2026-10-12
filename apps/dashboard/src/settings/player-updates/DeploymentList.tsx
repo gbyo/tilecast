@@ -39,7 +39,6 @@ import {
 import { DeploymentMeter } from "./UpdateDeploymentDetail";
 import { deploymentHeadline } from "../playerUpdateStates";
 import {
-  architectureLabel,
   deploymentNeedsAttention,
   familyLabel,
   deploymentStatus,
@@ -52,21 +51,10 @@ export type DeploymentOpenFocus = "all" | "attention";
 
 function attentionScreenCount(item: UpdateDeployment) {
   return (
-    item.failedCount + item.waitingForUserCount + (item.incompatibleCount ?? 0)
+    item.failedCount +
+    item.waitingForUserCount +
+    (item.incompatibleCount ?? 0)
   );
-}
-
-function historyStatus(
-  item: UpdateDeployment,
-  t: TFunction<["settings", "common"]>,
-) {
-  if (
-    item.status === "completed" &&
-    (item.failedCount > 0 || (item.incompatibleCount ?? 0) > 0)
-  ) {
-    return t("updates.console.status.completedWithIssues");
-  }
-  return deploymentStatus(item.status, t);
 }
 
 function unfinishedScreenCount(item: UpdateDeployment) {
@@ -86,7 +74,7 @@ function deploymentIdentity(
 ) {
   return [
     familyLabel(releaseUpdateTab(item), t),
-    item.architecture ? architectureLabel(item.architecture, t) : undefined,
+    item.architecture,
     modeLabel(item.mode, t),
     relativeTime(item.completedAt ?? item.createdAt, t),
   ]
@@ -130,15 +118,15 @@ export function DeploymentList({
       {!!attention.length && (
         <section
           className="grid gap-3"
-          aria-label={t("updates.console.needsAttention")}
+          aria-label={t("updates.filter.attention", {
+            count: attentionScreens,
+          })}
         >
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold">
-              {t("updates.console.needsAttention")}
+              {t("updates.filter.attention", { count: attentionScreens })}
             </h2>
-            <Badge variant="destructive">
-              {t("updates.console.targetCount", { count: attentionScreens })}
-            </Badge>
+            <Badge variant="destructive">{attention.length}</Badge>
           </div>
           <ItemGroup
             render={<ul />}
@@ -195,16 +183,11 @@ export function DeploymentList({
       {!!moving.length && (
         <section
           className="grid gap-3"
-          aria-label={t("updates.console.inProgress")}
+          aria-label={t("updates.filter.progress", { count: movingScreens })}
         >
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-semibold">
-              {t("updates.console.inProgress")}
-            </h2>
-            <Badge variant="secondary">
-              {t("updates.console.targetCount", { count: movingScreens })}
-            </Badge>
-          </div>
+          <h2 className="text-base font-semibold">
+            {t("updates.filter.progress", { count: movingScreens })}
+          </h2>
           <div className="grid gap-4 xl:grid-cols-2">
             {moving.map((item) => (
               <Card key={item.id}>
@@ -212,11 +195,8 @@ export function DeploymentList({
                   <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
                     {item.versionName}
                     {item.architecture && (
-                      <span className="text-xs font-normal text-muted-foreground">
-                        {architectureLabel(item.architecture, t)}
-                        <span className="ml-1 font-mono">
-                          ({item.architecture})
-                        </span>
+                      <span className="font-mono text-xs font-normal text-muted-foreground">
+                        {item.architecture}
                       </span>
                     )}
                   </CardTitle>
@@ -288,9 +268,7 @@ export function DeploymentList({
                         <span className="font-medium">{item.versionName}</span>
                         <span className="text-xs text-muted-foreground">
                           {familyLabel(releaseUpdateTab(item), t)}
-                          {item.architecture
-                            ? ` · ${architectureLabel(item.architecture, t)} (${item.architecture})`
-                            : ""}
+                          {item.architecture ? ` · ${item.architecture}` : ""}
                         </span>
                       </div>
                     </TableCell>
@@ -306,7 +284,7 @@ export function DeploymentList({
                               : "outline"
                           }
                         >
-                          {historyStatus(item, t)}
+                          {deploymentStatus(item.status, t)}
                         </Badge>
                         {(item.failedCount > 0 ||
                           (item.incompatibleCount ?? 0) > 0) && (
