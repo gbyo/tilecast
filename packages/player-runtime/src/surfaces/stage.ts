@@ -274,7 +274,9 @@ export class Stage {
       case "image":
         return new ImageSurface(item);
       case "video":
-        return new HtmlVideoSurface(item, env, entry.mount);
+        return new HtmlVideoSurface(item, env, entry.mount, {
+          presentFirstFrame: true,
+        });
       case "widget":
         return widgetComponent(item)
           ? new ComponentWidgetSurface(item, env)
