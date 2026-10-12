@@ -89,8 +89,8 @@ The runtime owns the load timers and the reload policy. The host owns the allowl
 
 The playback lifecycle is explicit XState 5 state machines (`src/engine`). They never touch the DOM.
 
-- **Player** (`player-machine.ts`): which surface owns the screen (`status`, `sleep`, `playing`). Every presentation re-enters `playing`, which stops the invoked presentation actor and starts a new one. This is how a takeover, a manifest change, a synchronized boundary or a re-projection interrupts playback.
-- **Presentation** (`presentation-machine.ts`): one actor per presentation generation. The occurrence states are `routing` (mount), `preparing` (staged on the hidden layer), `showing`, `advancing` (the one-task hand-off), `failed` (isolation and back-off) and `skipping` (empty widgets). One completion arbiter per occurrence decides between restart in place, advance and ignore.
+- **Player** (`player-machine.ts`): which surface owns the screen (`status`, `sleep`, `playing`). Every host presentation re-enters `playing`, which stops the invoked presentation actor and starts a new one. This is how a takeover, a manifest change or a re-projection interrupts playback. A synchronized occurrence boundary is not a host presentation. It reaches the running actor as `OCCURRENCE` (section 4.1).
+- **Presentation** (`presentation-machine.ts`): one actor per host presentation. The occurrence states are `routing` (mount), `preparing` (staged on the hidden layer), `showing`, `advancing` (the one-task hand-off), `failed` (isolation and back-off) and `skipping` (empty widgets). One completion arbiter per occurrence decides between restart in place, advance and ignore.
 - **Zone** (`zone-machine.ts`): one actor per Layout playlist zone, stopped with its Layout. Selection increments the epoch. Only `MEDIA_READY` for that epoch starts the image duration and reports child readiness. Pause preserves the remaining image duration. Stale media events cannot affect a newer epoch.
 
 The machines do not use XState `after` delays or browser timers. `src/clock/scheduler.ts` is the only user of browser timers. The machines ask it for monotonic deadlines and receive typed events (`DURATION_DUE`, `ADVANCE_DUE`, `BACKOFF_DUE`). Deadlines are owned by a timer group per occurrence. Mounting the next occurrence cancels the group, so nothing scheduled for a replaced item can act on its successor.
@@ -107,9 +107,71 @@ The playback rules are the Electron player's, unchanged: `engine/playback-policy
 
 ## 4. Synchronized playback
 
-`engine/timeline.ts` drives a group's shared timeline. At activation it reads the wall clock once, corrected by the host's `clockOffsetMs`, to place the screen in the cycle. From then on the position comes from the monotonic clock, so an NTP step or a manual clock change never jumps what is on screen. At each boundary the timeline reports the outgoing item's transition and re-presents the playlist rotated to the expected item. The presentation machine has no local authority under a shared timeline. Four times a second the timeline publishes the expected position, and the visible video surface applies the existing drift-correction bands.
+`engine/timeline.ts` drives a group's shared timeline. At activation it reads the wall clock once, corrected by the host's `clockOffsetMs`, to place the screen in the cycle. From then on the position comes from the monotonic clock, so an NTP step or a manual clock change never jumps what is on screen. At each boundary the timeline reports the outgoing item's transition and hands over the playlist rotated to the expected item. The presentation machine has no local authority under a shared timeline. Four times a second the timeline publishes the expected position, and the visible video surface corrects its drift (section 4.2). The timeline publishes the position of a new occurrence after it mounts that occurrence. A correction for the new occurrence cannot reach the video that the previous occurrence left on screen.
 
 The timeline math (`clock/synchronized.ts`) is shared with the Electron main process, which builds the anchor from the active manifest (`apps/player-linux/src/main/runtime-messages.ts`). On Edge, `tilecastd` builds the same anchor and effective durations from the manifest (`manifest.rs`, `group_timing`) and sends them as `timing` with the activation. The anchor is fixed for that activation; the offset is the daemon's current one each time the timing is sent, so a restarted renderer rejoins with the best estimate. Neither host re-activates for a later offset sample.
+
+### 4.1 Shared occurrence boundaries
+
+The timeline marks each hand-over as one of two kinds:
+
+- `activation`: a new presentation. It replaces the running presentation. The first hand-over after `activate()` is always an activation, and so is every projection refresh and manifest change.
+- `boundary`: the same presentation reached its next shared occurrence.
+
+A boundary does not replace the presentation actor. The controller sends `OCCURRENCE` to the player machine. The player machine checks that the generation is newer, stores the rotated presentation, and forwards the event. The presentation machine accepts it only under shared authority, only for a newer generation, and only with items. It then mounts the first item of the rotated list. The occurrence starts with the state that a new actor has: index 0, no failures, and a new completion arbiter. The mount numbering continues.
+
+The evidence order does not change. The timeline reports `item-transition` for the outgoing item. The machine reports `item-started` when the new occurrence mounts. A single-item loop therefore still ends each lap with an `item-transition` and starts the next with an `item-started`. Local completion stays suppressed. A `RETRY` command still mounts the occurrence again from the start. A host `PRESENT` still replaces the actor.
+
+Before this change a single video that looped on a Mirror screen replaced the actor, took a new mount and created and released a decoder on every lap. Five laps took 6 actors, 6 mounts and 6 `HTMLVideoElement` instances. They now take 1 actor, 6 mounts and 1 element.
+
+#### Video surface reuse
+
+A stage entry that is a shared boundary carries `sharedBoundary`. The stage then asks `videoReuseVerdict` (`engine/playback-policy.ts`) whether the video on screen can carry the new occurrence. This is the only place that decides. The item id alone never decides. The surface can be reused only if all of these are true:
+
+- The boundary is a shared boundary, and the incoming item is a video.
+- The surface is on the visible layer, is not disposed, has not failed, has shown a first frame, and has `readyState` of `HAVE_CURRENT_DATA` or more.
+- The item id, `src`, fit mode, audio setting, volume and end offset are the same.
+- The start offset of the new occurrence is not negative and is before the end offset.
+
+If the verdict is yes, the stage calls `HtmlVideoSurface.rebind()`. The element and its decoder stay. These things move to the new occurrence: the item, the sink and mount that route its reports, the offsets, the evidence counters and the drift corrector. The element seeks to the start of the occurrence. The aim is later by the last measured seek latency. The occurrence becomes ready when the seek is complete and a frame is available.
+
+Events for the previous occurrence can still arrive. Until the seek is complete, the surface ignores `ended`, `timeupdate` and presented frames. Report routing uses the new sink, so no report reaches the old mount. If the seek does not complete in `VIDEO_REBIND_TIMEOUT_MS` (5 s), or `play()` is refused, the occurrence fails. The surface is then not reused again, and the next boundary creates a new decoder.
+
+If the verdict is no, the stage creates a new surface on the hidden layer. This is the path for all other cases. A different item or file is the ordinary case. Any other reason is an unexpected remount, and the diagnostics count it with the reason.
+
+The runtime does not set `loop` on the element, and it does not remove crossfades between different items.
+
+### 4.2 Drift correction
+
+`engine/video-sync.ts` decides how a video returns to the shared position. The thresholds are the existing ones: ignore below 80 ms, nudge the playback rate between 80 ms and 250 ms, seek above 250 ms. The corrector adds the rules that make a correction safe to repeat:
+
+- A seek is a state. The corrector measures nothing until the element has finished seeking and its media time has advanced on two evaluations, at least 500 ms after `seeked`.
+- A `currentTime` that has not changed is stale. The corrector does not read it as drift. After 3 s it is a stall. A presented frame no older than 400 ms stands in for a stale `currentTime`. A frame callback is never required.
+- A `currentTime` that changes in coarse steps is corrected by half a step, and half a step is not read as drift.
+- A correction needs two readings that agree on the direction. The smaller of the two is the drift.
+- The rate nudge starts above 80 ms and ends below 40 ms. It changes at most once a second. A rate change can flush a GStreamer pipeline, so a reading that is near an edge must not change it on every evaluation.
+- A seek is not repeated for 1 s after the previous one settled. The wait doubles for each seek that does not converge, up to 8 s, and a spell of 3 s inside the seek band clears it.
+- A seek aims ahead of the shared position by the seek latency that the corrector measured, up to 2 s. The estimate is the last time the media was known not to have moved, so the aim cannot be too far ahead.
+
+The thresholds are not relaxed. The simulation in `engine/test-support/sim-video.ts` models three behaviors reported from GStreamer pipelines: slow seeks, a frozen `currentTime` after a seek, and a coarse `currentTime`. It is a model, not hardware. For one minute of playback, it gives these results:
+
+| Modeled pipeline                       | Previous corrector               | Settle-aware corrector  |
+| -------------------------------------- | -------------------------------- | ----------------------- |
+| Seek 800 ms, resume 700 ms, 5 s behind | 60 seeks, picture frozen 59.75 s | 2 seeks, frozen 3 s     |
+| In sync, `currentTime` in 400 ms steps | 30 seeks, 180 rate changes       | 0 seeks, 2 rate changes |
+| Decoder at 0.85 of real time           | 59 seeks, frozen 35 s            | 9 seeks, frozen 5.4 s   |
+
+In the third case the video is far from the shared position for more of the minute (46.9 s, against 43.6 s). The decoder cannot keep up. The corrector trades a small amount of precision for much less freezing.
+
+### 4.3 Diagnostics
+
+`engine/diagnostics.ts` keeps fixed-size counters, a ring of the last 32 notes, drift totals and rate-limited log lines. Nothing grows with uptime and nothing runs for each frame. The counters are `presentation-actors`, `occurrence-boundaries`, `decoders-created`, `decoders-reused`, `unexpected-remounts`, `seeks-correction`, `seeks-occurrence`, `seeks-settled`, `seek-timeouts`, `settle-timeouts`, `rate-changes`, `stale-readings`, `stalls` and `reuse-failures`. The snapshot also holds the reasons for rejected reuse and the drift totals (samples, maximum, and counts above 80 ms and 250 ms).
+
+A log line has a limit of one for each kind in 5 s and 12 in a minute in total. A conformance run logs nothing. Read the snapshot with `__tilecastRuntime.diagnostics()`. `describe()` does not include it, because the conformance suite compares `describe()` between engines.
+
+### 4.4 Hardware qualification
+
+The tests prove the counts of actors, mounts and decoders, the evidence order, the seek and rebind behavior, and the corrector against a model. They do not prove smooth playback. A headless WPE run does not decode video to a display. Before a release that relies on this change, run a Mirror group with a single looping video on an older Linux PC and read `diagnostics()` after several minutes. `decoders-created` must stay at 1 for each presentation, and `unexpected-remounts` must stay at 0. A rise in `seeks-correction` or `stalls` shows a pipeline that cannot hold the shared position.
 
 ## 5. Views, surfaces and transitions
 
