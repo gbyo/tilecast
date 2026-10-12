@@ -164,6 +164,7 @@ fn stream_sources(
 
 #[derive(Debug, PartialEq)]
 struct SelectionKey {
+    source: &'static str,
     playlist: Option<uuid::Uuid>,
     layout: Option<uuid::Uuid>,
     schedule: Option<uuid::Uuid>,
@@ -173,6 +174,7 @@ struct SelectionKey {
 impl From<&PlaybackIdentity> for SelectionKey {
     fn from(identity: &PlaybackIdentity) -> Self {
         Self {
+            source: identity.selection_source,
             playlist: identity.playlist_id,
             layout: identity.layout_id,
             schedule: identity.schedule_id,
@@ -227,6 +229,7 @@ impl player_core::OfflineActivationHost for Host {
         // After a mismatch gate the content is empty and this is a no-op.
         {
             let mut resume = self.0.resume.lock().unwrap_or_else(|poison| poison.into_inner());
+            resume.observe_manifest(&candidate.document, &candidate.digest.to_hex(), candidate.version);
             crate::resume::maybe_rotate(
                 &mut resume,
                 &mut resolved,
@@ -276,6 +279,20 @@ impl player_core::OfflineActivationHost for Host {
             evidence: engine.current_has_activation_evidence(),
             playing: matches!(&activation.document, PresentationDocument::Playing { items, .. } if !items.is_empty()),
         })
+    }
+    fn preserve_plugin_generation(
+        &self,
+        candidate: &player_core::NativeManifest,
+        current: &Self::Key,
+        projection: &mut player_core::OfflineProjection<Self::Projection, Self::Key>,
+    ) {
+        if let PresentationDocument::Playing { generation: active, .. } = &current.document
+            && let PresentationDocument::Playing { generation: pending, .. } = &mut projection.projection.document
+            && *pending == candidate.version.max(0) as u64
+        {
+            *pending = *active;
+            projection.key.document = projection.projection.document.clone();
+        }
     }
     async fn health(&self) -> player_core::OfflineRendererHealth {
         let engine = self.0.presentation.lock().await;
@@ -341,6 +358,23 @@ impl player_core::OfflineActivationHost for Host {
                 tracing::warn!(component = "activation", event = "activation_rejected", error = %error);
                 "activation_rejected"
             })
+    }
+    async fn refresh_plugins(
+        &self,
+        previous: player_types::Sha256Digest,
+        native: &player_core::NativeManifest,
+        resolved: &Self::Projection,
+        time: player_core::ActivationTime,
+    ) -> Result<bool, &'static str> {
+        let candidate = Candidate::from_native(native.clone());
+        let identity = identity(&candidate, resolved);
+        let streams = stream_sources(&self.0, &candidate, &resolved.content);
+        self.0.presentation.lock().await.refresh_plugins(
+            previous,
+            identity,
+            resolved,
+            extras(resolved, time.offset_ms, streams),
+        )
     }
     fn promoted(&self) {
         self.0.manifest_wake.notify_one();

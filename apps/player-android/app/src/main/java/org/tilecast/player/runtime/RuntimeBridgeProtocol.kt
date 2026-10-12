@@ -7,6 +7,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 
 /** Typed subset of `TilecastRuntimeHostV1` messages crossing the Android bridge.
  *
@@ -42,7 +43,7 @@ object RuntimeBridgeProtocol {
                 HostMessage.Presentation(
                     body = obj,
                     activationId = activation?.get("activationId")?.jsonPrimitive?.contentOrNull?.take(64),
-                    generation = activation?.get("generation")?.jsonPrimitive?.intOrNull?.toLong(),
+                    generation = activation?.get("generation")?.jsonPrimitive?.longOrNull,
                 )
             }
             "plugins" -> HostMessage.Plugins(obj)

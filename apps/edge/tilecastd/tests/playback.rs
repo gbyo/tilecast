@@ -1231,6 +1231,88 @@ async fn settle() {
 // ------------------------------------------------------------ scenarios
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn plugin_only_revisions_preserve_playback_identity_and_grants() {
+    plugin_revision_case(false).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn plugin_only_revisions_preserve_the_synchronized_video_timeline() {
+    plugin_revision_case(true).await;
+}
+
+async fn plugin_revision_case(synchronized: bool) {
+    let harness = Harness::new().await;
+    let video = Asset::new("video", "video/mp4");
+    harness.fake.add_asset(&video, AssetMode::Serve);
+    let document = if synchronized {
+        grouped(harness.screen, 3, &[&video], &[uuid::Uuid::new_v4()])
+    } else {
+        manifest(harness.screen, 3, &[&video])
+    };
+    harness.fake.set_manifest(document);
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    let binding = harness.binding();
+    wait_until("initial video committed", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 3)
+    })
+    .await;
+    let initial = renderer.last().unwrap();
+    let activations = renderer.activation_count();
+    let current_item = player.context.presentation.lock().await.current_item();
+    let mut document = player.stage(&binding, Stage::Active).await.unwrap().document;
+    for version in 4..7 {
+        document["manifestVersion"] = json!(version);
+        document["plugins"] = json!([{"id":"badge", "type":"countdown_bar", "version":1,
+            "config":{"label": format!("revision-{version}")}}]);
+        harness.fake.set_manifest(document.clone());
+        player.push();
+        wait_until("plugin-only promotion", || async {
+            player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == version)
+        })
+        .await;
+        let engine = player.context.presentation.lock().await;
+        assert_eq!(engine.current().unwrap().id, initial.activation_id);
+        assert_eq!(engine.current().unwrap().generation, initial.generation);
+        assert_eq!(engine.current_item(), current_item);
+        assert!(engine.current_is_accepted() && engine.current_has_activation_evidence());
+        drop(engine);
+        settle().await;
+        assert_eq!(renderer.activation_count(), activations, "no presentation activation for plugin state");
+        let latest = renderer.log.lock().unwrap().plugins.last().unwrap().clone();
+        assert_eq!(latest.plugins[0]["config"]["label"], format!("revision-{version}"));
+        assert_eq!(renderer.last().unwrap().content, initial.content, "media capabilities remain unchanged");
+        assert_eq!(renderer.last().unwrap().timing, initial.timing, "shared timeline remains unchanged");
+    }
+    document["manifestVersion"] = json!(7);
+    document["plugins"] = json!([]);
+    harness.fake.set_manifest(document.clone());
+    player.push();
+    wait_until("plugin removal promoted", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 7)
+    })
+    .await;
+    assert!(renderer.log.lock().unwrap().plugins.last().unwrap().plugins.is_empty());
+    assert_eq!(renderer.activation_count(), activations);
+    document["manifestVersion"] = json!(8);
+    document["playlist"]["items"][0]["durationMs"] = json!(20_000);
+    harness.fake.set_manifest(document);
+    player.push();
+    wait_until("changed presentation prepared", || async {
+        player.stage(&binding, Stage::Pending).await.is_some_and(|pending| pending.version == 8)
+    })
+    .await;
+    item_boundary(&renderer).await;
+    wait_until("real timing change promoted", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 8)
+    })
+    .await;
+    assert!(renderer.activation_count() > activations);
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     let harness = Harness::new().await;
     let image = Asset::new("image", "image/png");

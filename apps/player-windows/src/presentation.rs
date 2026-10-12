@@ -321,6 +321,57 @@ impl PresentationEngine {
         Ok(reference)
     }
 
+    pub fn refresh_plugins(
+        &mut self,
+        previous: Sha256Digest,
+        identity: PlaybackIdentity,
+        resolved: &ResolvedPresentation,
+    ) -> Result<bool, &'static str> {
+        let Some(current) = self.current.as_ref() else { return Ok(false) };
+        let projection = |value: &Option<Value>| {
+            value.clone().map(|mut value| {
+                if let Some(object) = value.as_object_mut() {
+                    object.remove("clockOffsetMs");
+                }
+                if let Some(manifest) = value.get_mut("manifest") {
+                    *manifest = player_core::manifest_without_plugin_revision(manifest);
+                }
+                value
+            })
+        };
+        if current.source != ActivationSource::ServerManifest
+            || current.manifest() != Some(previous)
+            || current.document != resolved.document
+            || current.content != resolved.content
+            || current.frames != resolved.frames
+            || current.timing != resolved.timing
+            || projection(&current.extras.projection) != projection(&resolved.projection)
+        {
+            return Ok(false);
+        }
+        if !self.current_is_accepted() || !self.current_has_activation_evidence() || self.current_has_renderer_error() {
+            return Err("plugin_refresh_renderer_unready");
+        }
+        validate_media_aliases(&resolved.plugin_aliases, &current.content).map_err(|_| "plugin_refresh_invalid")?;
+        for plugin in &resolved.plugins {
+            validate_content_uris(plugin, &current.content).map_err(|_| "plugin_refresh_invalid")?;
+        }
+        let mut next = current.clone();
+        next.identity = Some(identity);
+        next.extras.projection = resolved.projection.clone();
+        next.extras.plugins = resolved.plugins.clone();
+        next.extras.plugin_aliases = resolved.plugin_aliases.clone();
+        let prepared = prepare(&next, self.clock_offset_ms).map_err(|_| "plugin_refresh_invalid")?;
+        let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else {
+            return Err("plugin_refresh_renderer_unready");
+        };
+        link.port()
+            .update_plugins(prepared.reference(), prepared.runtime_context().ok_or("plugin_refresh_invalid")?)
+            .map_err(|_| "plugin_refresh_delivery_failed")?;
+        self.current = Some(next);
+        Ok(true)
+    }
+
     pub fn current(&self) -> Option<&Activation> {
         self.current.as_ref()
     }
@@ -1493,6 +1544,89 @@ mod tests {
             crate::ui::UiCommand::Post { message } => message,
             other => panic!("expected a post, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn plugin_refresh_preserves_activation_evidence_and_reuses_grants() {
+        let (mut engine, mut commands, session) = test_engine();
+        let digest = Sha256Digest::of(b"pixels");
+        let manifest = Sha256Digest::of(b"manifest-1");
+        let identity = PlaybackIdentity {
+            manifest,
+            manifest_version: 1,
+            selection_source: "direct",
+            playlist_id: Some(uuid::Uuid::from_u128(17)),
+            layout_id: None,
+            schedule_id: None,
+            takeover_id: None,
+            next_transition_ms: None,
+        };
+        let mut resolved = ResolvedPresentation {
+            document: image_document(&digest),
+            content: image_content(digest),
+            frames: vec![],
+            timing: None,
+            projection: None,
+            plugins: vec![],
+            plugin_aliases: vec![],
+            next_transition_ms: None,
+            selection: player_core::Selection {
+                playlist_id: identity.playlist_id,
+                layout_id: None,
+                schedule_id: None,
+                takeover_id: None,
+                source: player_core::Source::Direct,
+                next_transition_ms: None,
+                playback_anchor_ms: None,
+            },
+        };
+        let reference =
+            engine.activate_server_presentation(identity.clone(), resolved.clone(), 1_000).expect("initial activation");
+        engine.renderer_ready(session, ready());
+        let presentation = next_post(&mut commands);
+        let media_uri = presentation["presentation"]["items"][0]["src"].clone();
+        let _ = next_post(&mut commands);
+        engine.accepted(session, &reference);
+        assert!(engine.progress(
+            session,
+            &bridge::EvidenceReport {
+                activation: Some(reference.clone()),
+                item_id: Some("item-1".into()),
+                kind: "image-shown".into(),
+                zone_id: None,
+            },
+            2_000
+        ));
+        let item = engine.current_item();
+        let updated_identity =
+            PlaybackIdentity { manifest: Sha256Digest::of(b"manifest-2"), manifest_version: 2, ..identity };
+        resolved.plugins = vec![
+            serde_json::json!({"type":"countdown_bar", "version":1, "logo": crate::projection::content_uri(&digest)}),
+        ];
+        // A full queue fails delivery without advancing identity or evidence.
+        let ui = engine.renderer.as_ref().expect("live renderer").port().ui();
+        for _ in 0..32 {
+            ui.post(serde_json::json!({"test":true})).expect("fill bounded queue");
+        }
+        assert!(engine.refresh_plugins(manifest, updated_identity.clone(), &resolved).is_err());
+        assert_eq!(engine.current_manifest(), Some(manifest));
+        while commands.try_recv().is_ok() {}
+        assert!(engine.refresh_plugins(manifest, updated_identity.clone(), &resolved).expect("refresh plugins"));
+        let message = next_post(&mut commands);
+        assert_eq!(message["type"], "plugins");
+        assert_eq!(message["plugins"][0]["logo"], media_uri);
+        assert!(commands.try_recv().is_err(), "no second presentation message");
+        assert_eq!(engine.current().expect("current activation").reference(), reference);
+        assert_eq!(engine.current_manifest(), Some(updated_identity.manifest));
+        assert_eq!(engine.current_item(), item);
+        assert!(engine.current_is_accepted() && engine.current_has_activation_evidence());
+        resolved.projection = Some(serde_json::json!({"newLayoutOption":true}));
+        assert!(
+            !engine
+                .refresh_plugins(updated_identity.manifest, updated_identity, &resolved)
+                .expect("compare changed projection"),
+            "equal IDs cannot hide changed projection inputs"
+        );
     }
 
     #[test]

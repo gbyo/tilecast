@@ -95,6 +95,18 @@ You can also list, install, and remove plugins with `tilecast plugin` in the [co
 
 See [Configure Emergency Alerts](../emergency-alerts/) for coverage, matching rules, display modes, and poll health.
 
+## Plugin changes during playback
+
+Edge, Windows, and Android Players update plugin surfaces without restarting
+the presentation when the manifest changes only plugin state. The current
+playlist item and synchronized playback continue. If delivery fails, the
+Player retries and keeps the previous committed manifest.
+
+Changes to content, Layouts, Widgets, playback timing, or required resources
+still use the normal presentation activation path. See the
+[Player protocol](https://github.com/gbyo/tilecast/blob/main/docs/player-protocol.md)
+for the exact refresh conditions.
+
 ## Plugin guides
 
 - [Countdown Bar](./countdown-bar/) for timed overlays, targeting, priority, and urgency.

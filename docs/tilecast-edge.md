@@ -213,7 +213,7 @@ The daemon records a running marker at start and clears it on clean shutdown. A 
 
 An ordinary playlist restarts at its last reliably presented item after a daemon restart, reboot, or power cut. The daemon writes one checkpoint row on accepted item evidence: the server binding, manifest version and digest, playlist, item, and presentation time. Only a new triple writes; duplicate evidence costs no transaction.
 
-At cold start the first ordinary playlist projection rotates to the checkpointed item when the binding, manifest, playlist, and 24-hour freshness all still match, and when `resumeAfterRestart` is not false (the server default is true). The rotation reorders the projected items in memory; it never rewrites the server manifest. The applied rotation sticks for the session, so repeated projections keep one stable activation key. Synchronized groups, takeovers, layouts, and changed manifests always start from the head. Anything invalid falls back to the ordinary order.
+At cold start the first ordinary playlist projection rotates to the checkpointed item when the binding, manifest, playlist, and 24-hour freshness all still match, and when `resumeAfterRestart` is not false (the server default is true). The rotation reorders the projected items in memory; it never rewrites the server manifest. The applied rotation sticks for the session, so repeated projections keep one stable activation key. A proven plugin-only revision retains that rotation. Synchronized groups, takeovers, layouts, and presentation changes start from the head. Anything invalid falls back to the ordinary order.
 
 ## 7. Local IPC
 

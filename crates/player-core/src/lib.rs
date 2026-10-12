@@ -17,6 +17,7 @@ mod offline_driver;
 mod origin;
 mod pairing;
 mod playback_health;
+mod plugin_refresh;
 mod preview;
 mod renderer_commands;
 mod renderer_coordinator;
@@ -86,6 +87,7 @@ pub use pairing::{
     PairingStatus,
 };
 pub use playback_health::{HealthTolerances, PlaybackHealth, Stall, StallReason};
+pub use plugin_refresh::{is_plugin_only_revision, manifest_without_plugin_revision};
 pub use preview::{
     PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,
     PreviewHost, drive_preview,

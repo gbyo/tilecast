@@ -842,6 +842,20 @@ impl RendererPort for AndroidRendererPort {
         self.platform.request(&envelope.to_string())
     }
 
+    fn update_plugins(
+        &self,
+        reference: RendererActivationRef,
+        context: &RuntimePayload,
+    ) -> Result<(), RendererPortError> {
+        let (grants, _) = self.grants_for(reference.generation)?;
+        let context = wire_document(context, &|object| grants.get(&object).map(|grant| grant.uri.clone()))?;
+        self.platform.request(&serde_json::json!({
+            "op": "plugins", "activationId": reference.activation_id.to_string(), "generation": reference.generation,
+            "plugins": context.get("plugins").cloned().unwrap_or(serde_json::json!([])),
+            "clockOffsetMs": context.get("clockOffsetMs").and_then(serde_json::Value::as_i64).unwrap_or(0),
+        }).to_string())
+    }
+
     fn clear(&self, reason: &ShortToken) -> Result<(), RendererPortError> {
         self.platform.request(&serde_json::json!({"op": "clear", "reason": reason.as_str()}).to_string())
     }
@@ -1204,6 +1218,71 @@ impl PresentationEngine {
             queued: self.incompatible_reason.is_none() && self.link.as_ref().is_some_and(|link| link.ready.is_some()),
             incompatible_reason: self.incompatible_reason.clone(),
         })
+    }
+
+    pub(crate) fn refresh_plugins(
+        &mut self,
+        previous: Sha256Digest,
+        request: ActivateRequest,
+    ) -> Result<bool, &'static str> {
+        let Some(current) = self.current.as_ref() else { return Ok(false) };
+        let comparable = |value: &serde_json::Value| {
+            let mut value = value.clone();
+            if let Some(object) = value.as_object_mut() {
+                for field in ["plugins", "pluginAliases", "clockOffsetMs"] {
+                    object.remove(field);
+                }
+            }
+            for field in ["timing", "projection"] {
+                if let Some(object) = value.get_mut(field).and_then(serde_json::Value::as_object_mut) {
+                    object.remove("clockOffsetMs");
+                }
+            }
+            if let Some(manifest) = value.pointer_mut("/projection/manifest") {
+                *manifest = player_core::manifest_without_plugin_revision(manifest);
+            }
+            value
+        };
+        if current.request.source != ActivationSource::ServerManifest
+            || current.request.identity.as_ref().map(|identity| identity.manifest) != Some(previous)
+            || current.request.content != request.content
+            || current.request.frames != request.frames
+            || comparable(&current.request.envelope) != comparable(&request.envelope)
+        {
+            return Ok(false);
+        }
+        if !self.current_is_accepted()
+            || !self.current_has_activation_evidence()
+            || self.current_has_renderer_error()
+            || self.link.as_ref().is_none_or(|link| link.ready.is_none())
+        {
+            return Err("plugin_refresh_renderer_unready");
+        }
+        let media = request.content.iter().map(|entry| ((entry.asset_id, entry.variant_id), entry.digest)).collect();
+        let mut context = serde_json::json!({
+            "timing": request.envelope.get("timing"), "projection": request.envelope.get("projection"),
+            "plugins": request.envelope.get("plugins"), "pluginAliases": request.envelope.get("pluginAliases"),
+            "clockOffsetMs": request.clock_offset_ms,
+        });
+        let mut uris = current.uris.clone();
+        let mut bindings = Vec::new();
+        scan_bindings(&mut context, "", &media, &mut uris, &mut bindings).map_err(|_| "plugin_refresh_invalid")?;
+        let context = RuntimePayload::new(context, bindings).map_err(|_| "plugin_refresh_invalid")?;
+        let activation = RendererActivation::new(
+            current.reference,
+            current.activation.document().clone(),
+            current.activation.metadata().clone(),
+            current.activation.content().to_vec(),
+            current.activation.frames().to_vec(),
+            Some(context),
+        )
+        .map_err(|_| "plugin_refresh_invalid")?;
+        self.port
+            .update_plugins(current.reference, activation.runtime_context().ok_or("plugin_refresh_invalid")?)
+            .map_err(|_| "plugin_refresh_delivery_failed")?;
+        self.current = Some(Prepared { request, reference: current.reference, activation, uris });
+        self.refresh_snapshot();
+        Ok(true)
     }
 
     /// Pushes the current activation to a ready renderer. Without one
@@ -1955,6 +2034,59 @@ mod tests {
         assert_eq!(parse_media_uri("tcmedia:not-a-uuid/also-not"), None);
         assert_eq!(evidence_kind("frame-changed"), None);
         assert_eq!(evidence_kind("bogus"), None);
+    }
+
+    #[tokio::test]
+    async fn plugin_refresh_dispatches_narrow_operation_and_preserves_evidence_and_grants() {
+        let mut test = scratch().await;
+        let bytes = b"pixels";
+        let digest = seed(&test.engine.port.cas, bytes).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let raw = playing_request(&digest, bytes.len() as u64, "image");
+        let outcome = test.engine.activate(&raw, now(BASE_MS)).await.expect("initial activation");
+        assert!(test.engine.accepted(1, &outcome.activation_id, outcome.generation));
+        test.engine.progress(
+            1,
+            &outcome.activation_id,
+            outcome.generation,
+            "image-shown",
+            Some("item-1"),
+            None,
+            now(BASE_MS + 1_000),
+        );
+        assert!(test.engine.current_has_activation_evidence());
+        let original_grants = test.engine.port.grants_for(outcome.generation).expect("initial grants");
+        let original_activation_time = test.engine.last_activation_at;
+        let mut request = parse_activate_request(&raw).expect("activation request");
+        let previous = request.identity.as_ref().expect("server identity").manifest;
+        let next = Sha256Digest::of(b"manifest-2");
+        request.identity.as_mut().expect("server identity").manifest = next;
+        request.identity.as_mut().expect("server identity").manifest_version = 8;
+        request.envelope["plugins"] = serde_json::json!([{"type":"countdown_bar", "version":1}]);
+        test.platform.answer(-4);
+        assert!(test.engine.refresh_plugins(previous, request.clone()).is_err());
+        assert_eq!(test.engine.current_activation().expect("current activation").manifest, Some(previous));
+        test.platform.answer(0);
+        assert!(test.engine.refresh_plugins(previous, request.clone()).expect("refresh plugins"));
+        let requests: Vec<serde_json::Value> = test
+            .platform
+            .requests()
+            .iter()
+            .map(|request| serde_json::from_str(request).expect("native request"))
+            .collect();
+        assert_eq!(requests.iter().filter(|request| request["op"] == "activate").count(), 1);
+        let message = requests.last().expect("plugin request");
+        assert_eq!(message["op"], "plugins");
+        assert_eq!(message["activationId"], outcome.activation_id);
+        assert_eq!(message["generation"], outcome.generation);
+        assert_eq!(test.engine.current_activation().expect("current activation").manifest, Some(next));
+        assert_eq!(test.engine.last_activation_at, original_activation_time);
+        assert!(test.engine.current_is_accepted() && test.engine.current_has_activation_evidence());
+        let grants = test.engine.port.grants_for(outcome.generation).expect("retained grants");
+        assert_eq!(grants.0[&digest].uri, original_grants.0[&digest].uri);
+        request.envelope["projection"] = serde_json::json!({"futureLayoutOption": true});
+        assert!(!test.engine.refresh_plugins(next, request).expect("compare changed projection"));
     }
 
     #[tokio::test]
