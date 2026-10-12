@@ -6,6 +6,7 @@
  */
 import type { EvidenceKind, RuntimeItem } from "../host/contract";
 import type { RuntimeClock } from "../clock/scheduler";
+import type { PlaybackDiagnostics } from "../engine/diagnostics";
 import type { RuntimeWidgetHost } from "../widgets/host";
 
 export interface MediaSurface {
@@ -75,6 +76,8 @@ export interface SurfaceEnvironment {
   remoteWeb?: (item: RuntimeItem, sink: SurfaceSink) => MediaSurface | null;
   /** First-class Widget mounting; absent where no Widget can run. */
   widgets?: RuntimeWidgetHost;
+  /** Bounded counters and rate-limited notes about playback health. */
+  diagnostics?: PlaybackDiagnostics;
 }
 
 export type SurfaceFactory = (

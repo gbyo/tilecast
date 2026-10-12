@@ -5,9 +5,15 @@
  * Every new presentation replaces the previous one outright. Re-entering the
  * `playing` state stops the invoked presentation actor (cancelling all of its
  * deadlines) and invokes a fresh one, which is how a takeover, a manifest
- * change, a synchronized boundary or a re-projection interrupts whatever was
- * running. The stage keeps the outgoing frame on screen until the incoming
- * occurrence is ready, so replacement never exposes black.
+ * change or a re-projection interrupts whatever was running. The stage keeps
+ * the outgoing frame on screen until the incoming occurrence is ready, so
+ * replacement never exposes black.
+ *
+ * A shared timeline's ordinary occurrence boundary is not a replacement. The
+ * presentation is the same one; the group has simply reached its next item. It
+ * arrives as `OCCURRENCE`, which the running presentation actor takes itself,
+ * so a single video looping on a group does not rebuild the whole actor, and
+ * what it renders, once per lap.
  */
 import { assign, sendTo, setup } from "xstate";
 import type { RuntimePresentation } from "../host/contract";
@@ -37,6 +43,10 @@ export interface PlayerContext extends PlayerInput {
 
 export type PlayerEvent =
   | { type: "PRESENT"; presentation: RuntimePresentation }
+  | {
+      type: "OCCURRENCE";
+      presentation: Extract<RuntimePresentation, { state: "playing" }>;
+    }
   | { type: "RETRY" }
   | { type: "SKIP" }
   | SurfaceEvent;
@@ -53,11 +63,29 @@ export const playerMachine = setup({
   guards: {
     playing: ({ context }) => context.presentation?.state === "playing",
     sleeping: ({ context }) => context.presentation?.state === "sleep",
+    /** A boundary from a timeline that has been replaced is ignored. */
+    newerGeneration: ({ context, event }) =>
+      event.type === "OCCURRENCE" &&
+      context.presentation?.state === "playing" &&
+      event.presentation.generation > context.presentation.generation,
   },
   actions: {
     store: assign({
       presentation: ({ event }) =>
         event.type === "PRESENT" ? event.presentation : null,
+    }),
+    adoptOccurrence: assign({
+      presentation: ({ event }) =>
+        event.type === "OCCURRENCE" ? event.presentation : null,
+    }),
+    forwardOccurrence: sendTo(PRESENTATION_ACTOR_ID, ({ event }) => {
+      const presentation =
+        event.type === "OCCURRENCE" ? event.presentation : null;
+      return {
+        type: "OCCURRENCE" as const,
+        items: presentation?.items ?? [],
+        generation: presentation?.generation ?? 0,
+      };
     }),
     forward: sendTo(
       PRESENTATION_ACTOR_ID,
@@ -105,6 +133,10 @@ export const playerMachine = setup({
         },
       },
       on: {
+        OCCURRENCE: {
+          guard: "newerGeneration",
+          actions: ["adoptOccurrence", "forwardOccurrence"],
+        },
         RETRY: { actions: "forward" },
         SKIP: { actions: "forward" },
         SURFACE_READY: { actions: "forward" },

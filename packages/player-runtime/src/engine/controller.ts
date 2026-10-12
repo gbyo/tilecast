@@ -32,7 +32,12 @@ import {
   type StageMemory,
 } from "./player-machine";
 import type { SurfaceEvent } from "./presentation-machine";
-import { SynchronizedTimeline, type SyncPosition } from "./timeline";
+import { PlaybackDiagnostics } from "./diagnostics";
+import {
+  SynchronizedTimeline,
+  type PresentKind,
+  type SyncPosition,
+} from "./timeline";
 
 export type RuntimeViewState =
   | { mode: "waiting" }
@@ -66,6 +71,8 @@ export interface ControllerOptions {
   reports: HostReports;
   /** Whether the host supplies synchronized timing (a capability). */
   synchronizedPlayback: boolean;
+  /** Shared with the stage so one instance describes the whole engine. */
+  diagnostics?: PlaybackDiagnostics;
 }
 
 type Playing = Extract<RuntimePresentation, { state: "playing" }>;
@@ -77,6 +84,7 @@ export class PlaybackController {
   private readonly memory: StageMemory = { nextMount: 1, lastItemId: null };
   private readonly timeline: SynchronizedTimeline;
   private readonly projectionTimers: TimerGroup;
+  readonly diagnostics: PlaybackDiagnostics;
   private readonly listeners = new Set<(state: RuntimeViewState) => void>();
   private readonly syncListeners = new Set<(p: SyncPosition | null) => void>();
   private activation: ActivationRefV1 | null = null;
@@ -90,6 +98,8 @@ export class PlaybackController {
   constructor(private readonly options: ControllerOptions) {
     this.clock = options.clock;
     this.reports = options.reports;
+    this.diagnostics =
+      options.diagnostics ?? new PlaybackDiagnostics({ clock: options.clock });
     const reporter: EngineReporter = {
       evidence: (kind, itemId, zoneId) =>
         this.reports.evidence(this.activation, kind, itemId, zoneId),
@@ -103,7 +113,7 @@ export class PlaybackController {
     this.timeline = new SynchronizedTimeline(
       this.clock,
       reporter,
-      (presentation) => this.run(presentation),
+      (presentation, kind) => this.runShared(presentation, kind),
       (position) => {
         this.lastSync = position;
         for (const listener of this.syncListeners) listener(position);
@@ -252,7 +262,23 @@ export class PlaybackController {
 
   private run(presentation: RuntimePresentation | Playing): void {
     this.presentKey += 1;
+    this.diagnostics.count("presentation-actors");
     this.player.send({ type: "PRESENT", presentation });
+  }
+
+  /**
+   * What the shared timeline hands over. An activation replaces the running
+   * presentation. A boundary is the same presentation reaching its next
+   * occurrence, which the running actor takes itself; the player is replaced
+   * only when it is not in a state that can.
+   */
+  private runShared(presentation: Playing, kind: PresentKind): void {
+    if (kind === "boundary" && this.player.getSnapshot().matches("playing")) {
+      this.diagnostics.count("occurrence-boundaries");
+      this.player.send({ type: "OCCURRENCE", presentation });
+      return;
+    }
+    this.run(presentation);
   }
 
   private onPlayerSnapshot(): void {

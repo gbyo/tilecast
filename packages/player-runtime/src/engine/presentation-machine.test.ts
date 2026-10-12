@@ -531,3 +531,106 @@ describe("presentation machine", () => {
     expect(h.log.some((entry) => entry.includes("stale"))).toBe(false);
   });
 });
+
+describe("presentation machine: shared occurrence boundaries", () => {
+  const video = (id: string) => item(id, { kind: "video" });
+  const occurrence = (
+    h: ReturnType<typeof harness>,
+    items: RuntimeItem[],
+    generation: number,
+  ) => h.actor.send({ type: "OCCURRENCE", items, generation });
+
+  it("mounts the next occurrence in the same actor, with a new mount", () => {
+    const h = harness([video("v")], true);
+    h.ready();
+    const first = h.mount();
+    occurrence(h, [video("v")], 8);
+    expect(h.mount()).toBe(first + 1);
+    expect(h.stage()).toMatchObject({
+      generation: 8,
+      phase: "preparing",
+      sharedBoundary: true,
+      transition: "none",
+    });
+    expect(h.log).toEqual(["item-started:v", "item-started:v"]);
+  });
+
+  it("marks only the occurrence it was given, not a retry of it", () => {
+    const h = harness([video("v")], true);
+    occurrence(h, [video("v")], 8);
+    expect(h.stage()!.sharedBoundary).toBe(true);
+    h.actor.send({ type: "RETRY" });
+    expect(h.stage()!.sharedBoundary).toBeUndefined();
+  });
+
+  it("does not mark the first occurrence of a presentation", () => {
+    const h = harness([video("v")], true);
+    expect(h.stage()!.sharedBoundary).toBeUndefined();
+  });
+
+  it("ignores a boundary from an older or equal generation", () => {
+    const h = harness([video("v")], true);
+    const mount = h.mount();
+    occurrence(h, [video("w")], 7);
+    occurrence(h, [video("w")], 3);
+    expect(h.mount()).toBe(mount);
+    expect(h.stage()!.item.id).toBe("v");
+  });
+
+  it("ignores an empty boundary", () => {
+    const h = harness([video("v")], true);
+    const mount = h.mount();
+    occurrence(h, [], 9);
+    expect(h.mount()).toBe(mount);
+  });
+
+  it("is not accepted by a presentation that is locally authoritative", () => {
+    const h = harness([item("a"), item("b")], false);
+    const mount = h.mount();
+    occurrence(h, [item("b")], 9);
+    expect(h.mount()).toBe(mount);
+    expect(h.stage()!.item.id).toBe("a");
+  });
+
+  it("starts the new occurrence clean after a failure", () => {
+    const h = harness([video("v")], true);
+    h.actor.send({ type: "SURFACE_FAILED", mount: h.mount(), message: "x" });
+    expect(h.state()).toBe("failed");
+    occurrence(h, [video("v")], 8);
+    expect(h.state()).toBe("preparing");
+    expect(h.actor.getSnapshot().context.consecutiveFailures).toBe(0);
+  });
+
+  it("drops what the previous occurrence still had in flight", () => {
+    const h = harness([item("a", { durationMs: 70_000 })], true);
+    h.ready();
+    const before = h.log.length;
+    occurrence(h, [item("b", { durationMs: 70_000 })], 8);
+    h.clock.advance(120_000);
+    // The new occurrence was never shown, so nothing is re-reported for it,
+    // and the old image's 30 s heartbeat is gone.
+    expect(h.log.slice(before)).toEqual(["item-started:b"]);
+  });
+
+  it("answers only the newest mount", () => {
+    const h = harness([video("v")], true);
+    const first = h.mount();
+    occurrence(h, [video("v")], 8);
+    h.actor.send({ type: "SURFACE_READY", mount: first });
+    expect(h.state()).toBe("preparing");
+    h.ready();
+    expect(h.state()).toBe("showing");
+  });
+
+  it("never completes a shared occurrence locally", () => {
+    const h = harness([video("v")], true);
+    occurrence(h, [video("v")], 8);
+    h.ready();
+    h.actor.send({ type: "SURFACE_ENDED", mount: h.mount(), source: "ended" });
+    h.clock.advance(120_000);
+    expect(h.state()).toBe("showing");
+    expect(
+      h.log.filter((entry) => entry.startsWith("item-transition")),
+    ).toEqual([]);
+  });
+});
