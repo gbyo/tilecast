@@ -549,7 +549,7 @@ const edgeDeploymentSQL = `EXISTS(SELECT 1 FROM update_deployments ed JOIN playe
 // demonstrably healthy at the expected version is a reporting bug, not an
 // operational state, and Studio must not show it as progress forever.
 //
-// Bounded on purpose: three fixed statements, no per-row work, no retries. The
+// Bounded on purpose: four fixed statements, no per-row work, no retries. The
 // order matters — settle first, so a canary that did reconnect healthily is not
 // then paused for failing to.
 func (s *server) reconcileUpdateDeployments(ctx context.Context) {
@@ -571,10 +571,16 @@ func (s *server) reconcileUpdateDeployments(ctx context.Context) {
 	// school day. Uptime carries that weight instead — see devices.SettledUptimeSeconds.
 	_, _ = s.db.Exec(ctx, `UPDATE screen_update_states st SET state='succeeded',reconnect_at=COALESCE(st.reconnect_at,now()),completed_at=now(),updated_at=now() WHERE st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current') AND NOT `+edgeDeploymentSQL+` AND EXISTS(SELECT 1 FROM screens sc JOIN screen_player_status ps ON ps.screen_id=sc.id WHERE sc.id=st.screen_id AND sc.last_heartbeat_at>now()-interval '5 minutes' AND ps.player_version_code>=st.expected_version_code AND (sc.uptime_seconds IS NULL OR sc.uptime_seconds>=$1) AND NOT ps.safe_mode AND (ps.update_error IS NULL OR ps.update_error=''))`, devices.SettledUptimeSeconds)
 	_, _ = s.db.Exec(ctx, `UPDATE update_deployments d SET status='paused',rollout_phase='paused',paused_at=now(),pause_reason='A canary did not reconnect within ten minutes.' WHERE d.status='active' AND d.rollout_phase='canary' AND EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.is_canary AND st.state IN('installing','reconnecting') AND st.updated_at<now()-interval '10 minutes')`)
-	// The aggregate follows the targets: an active deployment with no unfinished
-	// target is finished, whichever path finished the last one. Idempotent, so a
-	// deployment that is already completed keeps its original completion time.
-	_, _ = s.db.Exec(ctx, `UPDATE update_deployments d SET status='completed',completed_at=COALESCE(d.completed_at,now()) WHERE d.status='active' AND EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id) AND NOT EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current'))`)
+	// Player install commands expire after seven days. A deployment must not outlive
+	// the command that could still advance it: once the deployment window itself is
+	// seven days old, settle every remaining non-terminal target as failed. For a
+	// scheduled rollout the clock begins at the maintenance window, not creation.
+	_, _ = s.db.Exec(ctx, `UPDATE screen_update_states st SET state='failed',safe_error=COALESCE(NULLIF(st.safe_error,''),'Update deployment expired after seven days.'),completed_at=COALESCE(st.completed_at,now()),updated_at=now() FROM update_deployments d WHERE d.id=st.deployment_id AND d.status IN('active','paused') AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current') AND COALESCE(d.maintenance_window_start,d.started_at,d.created_at)<now()-interval '7 days'`)
+	// The aggregate follows the targets: an active or paused deployment with no
+	// unfinished target is finished, whichever path finished the last one.
+	// Idempotent, so a deployment that is already completed keeps its original
+	// completion time.
+	_, _ = s.db.Exec(ctx, `UPDATE update_deployments d SET status='completed',rollout_phase='completed',completed_at=COALESCE(d.completed_at,now()) WHERE d.status IN('active','paused') AND EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id) AND NOT EXISTS(SELECT 1 FROM screen_update_states st WHERE st.deployment_id=d.id AND st.state NOT IN('succeeded','failed','cancelled','incompatible','already_current'))`)
 }
 
 // A deployment is not a screen, so the update-deployment routes cannot be
@@ -950,7 +956,7 @@ func (s *server) playerUpdateStatus(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	tag, err := s.db.Exec(r.Context(), `UPDATE screen_update_states SET state=$3,downloaded_bytes=$4,permission_status=NULLIF($5,''),installer_status=NULLIF($6,''),safe_error=NULLIF($7,''),download_started_at=CASE WHEN $3='downloading' THEN COALESCE(download_started_at,now()) ELSE download_started_at END,downloaded_at=CASE WHEN $3 IN('downloaded','verifying','ready','waiting_for_permission','waiting_for_user','installing','reconnecting') THEN COALESCE(downloaded_at,now()) ELSE downloaded_at END,install_started_at=CASE WHEN $3='installing' THEN COALESCE(install_started_at,now()) ELSE install_started_at END,reconnect_at=CASE WHEN $3 IN('reconnecting','succeeded') THEN COALESCE(reconnect_at,now()) ELSE reconnect_at END,completed_at=CASE WHEN $3='succeeded' THEN now() ELSE completed_at END,updated_at=now() WHERE deployment_id=$1 AND screen_id=$2 AND state NOT IN('cancelled','succeeded')`, deployment, principal.ScreenID, body.State, body.DownloadedBytes, body.PermissionStatus, body.InstallerStatus, body.Error)
+	tag, err := s.db.Exec(r.Context(), `UPDATE screen_update_states SET state=$3,downloaded_bytes=$4,permission_status=NULLIF($5,''),installer_status=NULLIF($6,''),safe_error=NULLIF($7,''),download_started_at=CASE WHEN $3='downloading' THEN COALESCE(download_started_at,now()) ELSE download_started_at END,downloaded_at=CASE WHEN $3 IN('downloaded','verifying','ready','waiting_for_permission','waiting_for_user','installing','reconnecting') THEN COALESCE(downloaded_at,now()) ELSE downloaded_at END,install_started_at=CASE WHEN $3='installing' THEN COALESCE(install_started_at,now()) ELSE install_started_at END,reconnect_at=CASE WHEN $3 IN('reconnecting','succeeded') THEN COALESCE(reconnect_at,now()) ELSE reconnect_at END,completed_at=CASE WHEN $3='succeeded' THEN now() ELSE completed_at END,updated_at=now() WHERE deployment_id=$1 AND screen_id=$2 AND state NOT IN('cancelled','succeeded') AND EXISTS(SELECT 1 FROM update_deployments d WHERE d.id=$1 AND d.status IN('active','paused'))`, deployment, principal.ScreenID, body.State, body.DownloadedBytes, body.PermissionStatus, body.InstallerStatus, body.Error)
 	if err != nil {
 		s.internalError(w, r, err)
 		return

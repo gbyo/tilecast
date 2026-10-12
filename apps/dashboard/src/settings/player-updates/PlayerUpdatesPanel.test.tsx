@@ -94,7 +94,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Player Updates workspace", () => {
-  it("prioritizes incompatible targets without offering them a retry", async () => {
+  it("keeps terminal failures in history instead of active rollouts", async () => {
     vi.mocked(api.updateDeployments).mockResolvedValue({
       items: [
         { ...deployment, id: "normal", failedCount: 0, waitingForUserCount: 0 },
@@ -109,16 +109,20 @@ describe("Player Updates workspace", () => {
       ],
     });
     mount();
+    const table = await screen.findByRole("table");
     expect(
-      await screen.findByText("Incompatible screens: 1."),
+      within(table).getByText("Incompatible screens: 1."),
     ).toBeInTheDocument();
-    const first = screen
+    expect(
+      within(table).getByRole("button", { name: "View rollout" }),
+    ).toBeInTheDocument();
+    const activeCard = screen
       .getAllByRole("button", { name: "View rollout" })[0]!
-      .closest('[data-slot="card"]') as HTMLElement;
+      .closest('[data-slot="card"]');
+    expect(activeCard).not.toBeNull();
     expect(
-      within(first).getByText("Incompatible screens: 1."),
-    ).toBeInTheDocument();
-    expect(within(first).queryByText(/needs a retry/)).not.toBeInTheDocument();
+      within(activeCard as HTMLElement).queryByText("Incompatible screens: 1."),
+    ).not.toBeInTheDocument();
   });
   it("defaults to Deployments, shows one semantic row, and keeps GitHub auth out of page chrome", async () => {
     mount();

@@ -30,7 +30,6 @@ import { DeploymentMeter } from "./UpdateDeploymentDetail";
 import { deploymentHeadline } from "../playerUpdateStates";
 import {
   familyLabel,
-  deploymentNeedsAttention,
   deploymentStatus,
   modeLabel,
   relativeTime,
@@ -47,13 +46,12 @@ export function DeploymentList({
   const { t } = useTranslation(["settings", "common"]);
   const sorted = sortDeployments(items);
   const active = sorted.filter(
-    (item) =>
-      item.status === "active" ||
-      item.status === "paused" ||
-      deploymentNeedsAttention(item),
+    (item) => item.status === "active" || item.status === "paused",
   );
   const activeIds = new Set(active.map((item) => item.id));
-  const history = sorted.filter((item) => !activeIds.has(item.id));
+  const history = sorted
+    .filter((item) => !activeIds.has(item.id))
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 
   return (
     <div className="grid gap-8">
@@ -177,15 +175,28 @@ export function DeploymentList({
                       {modeLabel(item.mode, t)}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          item.failedCount || item.incompatibleCount
-                            ? "destructive"
-                            : "outline"
-                        }
-                      >
-                        {deploymentStatus(item.status, t)}
-                      </Badge>
+                      <div className="grid gap-1">
+                        <Badge
+                          className="w-fit"
+                          variant={
+                            item.failedCount || item.incompatibleCount
+                              ? "destructive"
+                              : "outline"
+                          }
+                        >
+                          {deploymentStatus(item.status, t)}
+                        </Badge>
+                        {(item.failedCount > 0 ||
+                          (item.incompatibleCount ?? 0) > 0) && (
+                          <span className="text-xs text-muted-foreground">
+                            {item.incompatibleCount
+                              ? t("updates.console.incompatibleTargets", {
+                                  count: item.incompatibleCount,
+                                })
+                              : deploymentHeadline(item)}
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {relativeTime(item.completedAt ?? item.createdAt, t)}

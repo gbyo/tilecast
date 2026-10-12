@@ -118,6 +118,9 @@ describe("rollout detail", () => {
     expect(
       screen.queryByRole("button", { name: "Cancel deployment" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Retry" }),
+    ).not.toBeInTheDocument();
   });
   it("prefers incompatible safe_error over an Android-specific fallback", async () => {
     vi.mocked(api.updateDeployment).mockResolvedValue({
