@@ -263,9 +263,7 @@ describe("PlaylistEditor panes", () => {
       key: "ArrowDown",
       altKey: true,
     });
-    await waitFor(() =>
-      expect(visibleOrder()).toEqual(["item-b", "item-a"]),
-    );
+    await waitFor(() => expect(visibleOrder()).toEqual(["item-b", "item-a"]));
     expect(reorder).toHaveBeenCalledTimes(1);
     expect(reorder).toHaveBeenLastCalledWith(
       "p1",
@@ -279,9 +277,7 @@ describe("PlaylistEditor panes", () => {
       key: "ArrowUp",
       altKey: true,
     });
-    await waitFor(() =>
-      expect(visibleOrder()).toEqual(["item-a", "item-b"]),
-    );
+    await waitFor(() => expect(visibleOrder()).toEqual(["item-a", "item-b"]));
     expect(reorder).toHaveBeenCalledTimes(1);
 
     pending[0]!.resolve(responseFor(pending[0]!.itemIds));
@@ -295,9 +291,7 @@ describe("PlaylistEditor panes", () => {
     expect(visibleOrder()).toEqual(["item-a", "item-b"]);
 
     pending[1]!.resolve(responseFor(pending[1]!.itemIds));
-    await waitFor(() =>
-      expect(visibleOrder()).toEqual(["item-a", "item-b"]),
-    );
+    await waitFor(() => expect(visibleOrder()).toEqual(["item-a", "item-b"]));
   });
 
   it("puts playback defaults in a compact authoring bar and reports bulk changes with a toast", async () => {
