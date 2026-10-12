@@ -261,9 +261,10 @@ export function StoreDetail({
           signer: installedPackage?.signerIdentity,
           source: installedPackage?.sourceReference,
           runtimeModule: installedPackage?.runtime?.module,
-          jobIds: installedPackage?.capabilities?.background?.jobs.map(
-            (job) => job.id,
-          ),
+          jobIds: [
+            ...(installedPackage?.capabilities?.background?.jobs ?? []),
+            ...(installedPackage?.capabilities?.realtime?.jobs ?? []),
+          ].map((job) => job.id),
           contributions: installedPackage?.contributions,
         },
         t,
@@ -272,7 +273,10 @@ export function StoreDetail({
 
   const manageable = canInstall && managed;
   const settings = manageable && installedPackage?.capabilities?.studioUI;
-  const jobs = manageable && installedPackage?.capabilities?.background;
+  const jobs =
+    manageable &&
+    (installedPackage?.capabilities?.background ||
+      installedPackage?.capabilities?.realtime);
   const hasManageBlock = manageable && installedPackage !== undefined;
 
   return (

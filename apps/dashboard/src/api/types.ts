@@ -1443,6 +1443,7 @@ export type PackageServiceGrant = {
 export type PackageCapabilities = {
   network?: { hosts: string[] };
   background?: { jobs: { id: string; intervalMinutes: number }[] };
+  realtime?: { jobs: { id: string; intervalSeconds: number }[] };
   storage?: boolean;
   studioUI?: { entry: string };
   services?: PackageServiceGrant[];
@@ -1451,7 +1452,9 @@ export type PackageCapabilities = {
 /** One declared package background job with the scheduler cursor. */
 export type PackageJob = {
   jobId: string;
-  intervalMinutes: number;
+  intervalMinutes?: number;
+  intervalSeconds?: number;
+  kind?: "ordinary" | "realtime";
   nextRunAt: string;
   lastRunAt?: string;
   lastStatus: string;

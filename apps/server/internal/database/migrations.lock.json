@@ -754,5 +754,11 @@
     "file": "00127_player_capabilities.sql",
     "owner": "core",
     "sha256": "80c2fb6aba9631681319bd50913f4010351bde28ade2e797688a01849cdb1bb1"
+  },
+  {
+    "version": 128,
+    "file": "00128_external_plugin_runtime.sql",
+    "owner": "core",
+    "sha256": "91e1e538d2164ba748e801f8aada3680a2593022ffac80d7ea29120dcce9a08d"
   }
 ]

@@ -92,9 +92,9 @@ func (f *contributionsFixture) seedPackage(t *testing.T, packageID, digest strin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = f.pool.Exec(ctx, `INSERT INTO installed_packages(organization_id,package_id,package_version,digest,source_kind,source_reference,registry_reference,trust_state,manifest)
-		VALUES($1,$2,$3,$4,'custom','https://github.com/acme/tilecast-test','ghcr.io/acme/tilecast-test','verified',$5)`,
-		organizationID, packageID, manifest.PackageVersion, digest, encoded); err != nil {
+	if _, err = f.pool.Exec(ctx, `INSERT INTO installed_packages(organization_id,package_id,package_version,digest,source_kind,source_reference,registry_reference,trust_state,manifest,execution_epoch,storage_epoch)
+		VALUES($1,$2,$3,$4,'custom','https://github.com/acme/tilecast-test','ghcr.io/acme/tilecast-test','verified',$5,$6,$7)`,
+		organizationID, packageID, manifest.PackageVersion, digest, encoded, uuid.New(), uuid.New()); err != nil {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()

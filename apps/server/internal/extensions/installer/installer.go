@@ -30,6 +30,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/execution"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
@@ -80,6 +81,8 @@ const (
 
 // InstalledPackage is one activated package row.
 type InstalledPackage struct {
+	ExecutionEpoch    uuid.UUID `json:"-"`
+	StorageEpoch      uuid.UUID `json:"-"`
 	PackageID         string
 	Version           string
 	Digest            string
@@ -173,7 +176,7 @@ func NewService(db *pgxpool.Pool, tilecastVersion string, options ...Option) *Se
 func (s *Service) List(ctx context.Context) ([]InstalledPackage, error) {
 	rows, err := s.db.Query(ctx, `SELECT package_id,package_version,digest,source_kind,
 		source_reference,registry_reference,signer_identity,trust_state,
-		installed_at,installed_by,activated_at,previous_activation IS NOT NULL
+		installed_at,installed_by,activated_at,previous_activation IS NOT NULL,execution_epoch,storage_epoch
 		FROM installed_packages ORDER BY package_id`)
 	if err != nil {
 		return nil, err
@@ -185,7 +188,7 @@ func (s *Service) List(ctx context.Context) ([]InstalledPackage, error) {
 		if err := rows.Scan(&item.PackageID, &item.Version, &item.Digest,
 			&item.SourceKind, &item.SourceReference, &item.RegistryReference,
 			&item.SignerIdentity, &item.Trust, &item.InstalledAt,
-			&item.InstalledBy, &item.ActivatedAt, &item.HasPrevious); err != nil {
+			&item.InstalledBy, &item.ActivatedAt, &item.HasPrevious, &item.ExecutionEpoch, &item.StorageEpoch); err != nil {
 			return nil, err
 		}
 		out = append(out, item)
@@ -193,17 +196,52 @@ func (s *Service) List(ctx context.Context) ([]InstalledPackage, error) {
 	return out, rows.Err()
 }
 
+// ExecutionSnapshot reads code identity and capability declarations from one
+// row version. An update cannot pair replaced code with newly granted rights.
+func (s *Service) ExecutionSnapshot(ctx context.Context, packageID string) (InstalledPackage, packagemanifest.Manifest, error) {
+	var item InstalledPackage
+	var raw []byte
+	err := s.db.QueryRow(ctx, `SELECT package_id,package_version,digest,source_kind,
+		source_reference,registry_reference,signer_identity,trust_state,
+		installed_at,installed_by,activated_at,previous_activation IS NOT NULL,execution_epoch,storage_epoch,manifest
+		FROM installed_packages WHERE package_id=$1`, packageID).Scan(
+		&item.PackageID, &item.Version, &item.Digest, &item.SourceKind,
+		&item.SourceReference, &item.RegistryReference, &item.SignerIdentity,
+		&item.Trust, &item.InstalledAt, &item.InstalledBy, &item.ActivatedAt,
+		&item.HasPrevious, &item.ExecutionEpoch, &item.StorageEpoch, &raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return InstalledPackage{}, packagemanifest.Manifest{}, ErrNotFound
+	}
+	if err != nil {
+		return InstalledPackage{}, packagemanifest.Manifest{}, err
+	}
+	manifest, err := packagemanifest.Parse(raw)
+	if err != nil {
+		return InstalledPackage{}, packagemanifest.Manifest{}, err
+	}
+	if item.PackageID != manifest.PackageID || item.Version != manifest.PackageVersion {
+		return InstalledPackage{}, packagemanifest.Manifest{}, ErrInvalid
+	}
+	return item, manifest, nil
+}
+
+func (s *Service) ExecutionCurrent(ctx context.Context, packageID string, epoch uuid.UUID) (bool, error) {
+	var current bool
+	err := s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM installed_packages WHERE package_id=$1 AND execution_epoch=$2)`, packageID, epoch).Scan(&current)
+	return current, err
+}
+
 // Get reports one activated package.
 func (s *Service) Get(ctx context.Context, packageID string) (InstalledPackage, error) {
 	var item InstalledPackage
 	err := s.db.QueryRow(ctx, `SELECT package_id,package_version,digest,source_kind,
 		source_reference,registry_reference,signer_identity,trust_state,
-		installed_at,installed_by,activated_at,previous_activation IS NOT NULL
+		installed_at,installed_by,activated_at,previous_activation IS NOT NULL,execution_epoch,storage_epoch
 		FROM installed_packages WHERE package_id=$1`, packageID).Scan(
 		&item.PackageID, &item.Version, &item.Digest, &item.SourceKind,
 		&item.SourceReference, &item.RegistryReference, &item.SignerIdentity,
 		&item.Trust, &item.InstalledAt, &item.InstalledBy, &item.ActivatedAt,
-		&item.HasPrevious)
+		&item.HasPrevious, &item.ExecutionEpoch, &item.StorageEpoch)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return InstalledPackage{}, ErrNotFound
@@ -296,6 +334,9 @@ func (s *Service) Activate(ctx context.Context, activation Activation) (Installe
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
+	if _, err := execution.Lock(ctx, tx, manifest.PackageID); err != nil {
+		return InstalledPackage{}, err
+	}
 	var current *installedRow
 	row, err := lockRow(ctx, tx, manifest.PackageID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -355,6 +396,9 @@ func (s *Service) Rollback(ctx context.Context, packageID string, userID uuid.UU
 		return InstalledPackage{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err := execution.Lock(ctx, tx, packageID); err != nil {
+		return InstalledPackage{}, err
+	}
 
 	current, err := lockRow(ctx, tx, packageID)
 	if err != nil {
@@ -437,6 +481,9 @@ func (s *Service) Remove(ctx context.Context, packageID string, userID uuid.UUID
 		return err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err := execution.Lock(ctx, tx, packageID); err != nil {
+		return err
+	}
 
 	var installed InstalledPackage
 	var manifestRaw []byte
@@ -669,20 +716,20 @@ func insertRow(ctx context.Context, tx pgx.Tx, activation Activation, manifest p
 	var installed InstalledPackage
 	err = tx.QueryRow(ctx, `INSERT INTO installed_packages(organization_id,package_id,
 		package_version,digest,source_kind,source_reference,registry_reference,
-		signer_identity,trust_state,manifest,installed_by)
-		SELECT id,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10 FROM organization_settings WHERE singleton
+		signer_identity,trust_state,manifest,installed_by,execution_epoch,storage_epoch)
+		SELECT id,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12 FROM organization_settings WHERE singleton
 		RETURNING package_id,package_version,digest,source_kind,source_reference,
 		registry_reference,signer_identity,trust_state,installed_at,installed_by,
-		activated_at,previous_activation IS NOT NULL`,
+		activated_at,previous_activation IS NOT NULL,execution_epoch,storage_epoch`,
 		manifest.PackageID, manifest.PackageVersion, activation.Digest,
 		string(activation.SourceKind), activation.SourceReference,
 		activation.RegistryReference, activation.SignerIdentity,
 		string(activation.Trust), manifestJSON,
-		nullableUser(activation.InstalledBy)).Scan(
+		nullableUser(activation.InstalledBy), uuid.New(), uuid.New()).Scan(
 		&installed.PackageID, &installed.Version, &installed.Digest,
 		&installed.SourceKind, &installed.SourceReference, &installed.RegistryReference,
 		&installed.SignerIdentity, &installed.Trust, &installed.InstalledAt,
-		&installed.InstalledBy, &installed.ActivatedAt, &installed.HasPrevious)
+		&installed.InstalledBy, &installed.ActivatedAt, &installed.HasPrevious, &installed.ExecutionEpoch, &installed.StorageEpoch)
 	return installed, err
 }
 
@@ -694,19 +741,19 @@ func updateRow(ctx context.Context, tx pgx.Tx, current *installedRow, activation
 	var installed InstalledPackage
 	err = tx.QueryRow(ctx, `UPDATE installed_packages SET package_version=$1,
 		digest=$2,source_kind=$3,source_reference=$4,registry_reference=$5,
-		signer_identity=$6,trust_state=$7,manifest=$8,activated_at=now(),previous_activation=$9
+		signer_identity=$6,trust_state=$7,manifest=$8,activated_at=now(),previous_activation=$9,execution_epoch=$12
 		WHERE organization_id=$10 AND package_id=$11
 		RETURNING package_id,package_version,digest,source_kind,source_reference,
 		registry_reference,signer_identity,trust_state,installed_at,installed_by,
-		activated_at,previous_activation IS NOT NULL`,
+		activated_at,previous_activation IS NOT NULL,execution_epoch,storage_epoch`,
 		manifest.PackageVersion, activation.Digest, string(activation.SourceKind),
 		activation.SourceReference, activation.RegistryReference,
 		activation.SignerIdentity, string(activation.Trust), manifestJSON, previous,
-		current.organizationID, manifest.PackageID).Scan(
+		current.organizationID, manifest.PackageID, uuid.New()).Scan(
 		&installed.PackageID, &installed.Version, &installed.Digest,
 		&installed.SourceKind, &installed.SourceReference, &installed.RegistryReference,
 		&installed.SignerIdentity, &installed.Trust, &installed.InstalledAt,
-		&installed.InstalledBy, &installed.ActivatedAt, &installed.HasPrevious)
+		&installed.InstalledBy, &installed.ActivatedAt, &installed.HasPrevious, &installed.ExecutionEpoch, &installed.StorageEpoch)
 	return installed, err
 }
 
@@ -719,19 +766,19 @@ func restoreRow(ctx context.Context, tx pgx.Tx, current *installedRow, snapshot 
 	err = tx.QueryRow(ctx, `UPDATE installed_packages SET package_version=$1,
 		digest=$2,source_kind=$3,source_reference=$4,registry_reference=$5,
 		signer_identity=$6,trust_state=$7,manifest=$8,activated_at=now(),
-		previous_activation=NULL
+		previous_activation=NULL,execution_epoch=$11
 		WHERE organization_id=$9 AND package_id=$10
 		RETURNING package_id,package_version,digest,source_kind,source_reference,
 		registry_reference,signer_identity,trust_state,installed_at,installed_by,
-		activated_at,previous_activation IS NOT NULL`,
+		activated_at,previous_activation IS NOT NULL,execution_epoch,storage_epoch`,
 		snapshot.Version, snapshot.Digest, string(snapshot.SourceKind),
 		snapshot.SourceReference, snapshot.RegistryReference,
 		snapshot.SignerIdentity, string(snapshot.Trust), manifestJSON,
-		current.organizationID, current.packageID).Scan(
+		current.organizationID, current.packageID, uuid.New()).Scan(
 		&installed.PackageID, &installed.Version, &installed.Digest,
 		&installed.SourceKind, &installed.SourceReference, &installed.RegistryReference,
 		&installed.SignerIdentity, &installed.Trust, &installed.InstalledAt,
-		&installed.InstalledBy, &installed.ActivatedAt, &installed.HasPrevious)
+		&installed.InstalledBy, &installed.ActivatedAt, &installed.HasPrevious, &installed.ExecutionEpoch, &installed.StorageEpoch)
 	return installed, err
 }
 

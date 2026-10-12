@@ -387,6 +387,10 @@
         "body_many": "Ejecuta {{count}} de tareas programadas.",
         "body_other": "Ejecuta {{count}} tareas programadas."
       },
+      "realtime": {
+        "title": "Actividad en segundo plano de alta frecuencia",
+        "body": "Ejecuta una tarea limitada en segundo plano cada pocos segundos, incluso cuando Studio está cerrado."
+      },
       "studioUI": {
         "title": "Interfaz de Studio",
         "body": "Añade su propia interfaz de configuración a Studio."

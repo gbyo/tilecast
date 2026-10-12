@@ -7,7 +7,7 @@ External packages are untrusted third-party code installed at runtime. Their ser
 
 ## Request service grants
 
-Use Package API v3 and list each service in `capabilities.services` with its `{id, version}`. The install review shows every grant and the operations it unlocks before anything installs. Unknown services fail the review.
+Use Package API v3 or v4 and list each service in `capabilities.services` with its `{id, version}`. The install review shows every grant and the operations it unlocks before anything installs. Unknown services fail the review.
 
 Ten services exist at version 1: organization, instance, screens, targets, content, managed presentations, takeovers, the basic user directory, audit events, and Player display control. For the full inventory, see the [package service capabilities engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/package-services.md).
 
@@ -18,6 +18,14 @@ Guests call `tilecast.call_v1` with an operation token such as `screens.read@1/l
 The reference guest SDK (`packages/package-guest-sdk`) owns the unsafe boundary, envelope parsing, and typed shapes. The Hello Services sample (`packages/package-samples/hello-services`) shows a scheduled job that reads screens and writes one audit event.
 
 Background jobs run as the system with no user actor. Studio interface calls run as the signed-in account with that operation's dashboard role policy.
+
+## Poll a source every few seconds
+
+Use Package API v4 when your integration needs frequent server-side updates. Declare one job in `capabilities.realtime.jobs` with an `id` and `intervalSeconds` between 5 and 60. Its ID must differ from your ordinary jobs. Keep ordinary jobs on their existing minute-based schedule.
+
+Studio identifies this as **High-frequency background activity** during install review and shows the seconds cadence under **Background jobs**. The realtime runner gives the whole job four seconds, including host calls, and gives each fetch at most three seconds. Make repeated execution safe: a server crash can cause another attempt after its lease expires.
+
+An update, rollback, or removal stops the previous activation's code. Package storage survives updates and rollbacks; removing and reinstalling a package starts with empty storage. See the [package execution contract](https://github.com/gbyo/tilecast/blob/main/docs/packages.md#external-runtime) for the exact bounds.
 
 ## Request Player operations
 

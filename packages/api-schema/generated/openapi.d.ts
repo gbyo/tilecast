@@ -7774,7 +7774,10 @@ export interface components {
     /** @description One declared package background job with the scheduler cursor. */
     PackageJob: {
       jobId: string;
-      intervalMinutes: number;
+      intervalMinutes?: number;
+      intervalSeconds?: number;
+      /** @enum {string} */
+      kind?: "ordinary" | "realtime";
       /** Format: date-time */
       nextRunAt: string;
       /** Format: date-time */
@@ -7837,6 +7840,13 @@ export interface components {
         jobs: {
           id: string;
           intervalMinutes: number;
+        }[];
+      };
+      /** @description One bounded high-frequency background job, separately reviewed. */
+      realtime?: {
+        jobs: {
+          id: string;
+          intervalSeconds: number;
         }[];
       };
       /** @description Request plugin-owned key/value storage. */

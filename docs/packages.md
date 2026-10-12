@@ -12,10 +12,10 @@ runtime exists) plugin behavior. The contribution contracts themselves
 
 `tilecast.package.json` is the manifest. Required fields:
 
-- `apiVersion`: `1`, `2`, or `3`. Version 1 carries content
+- `apiVersion`: `1`, `2`, `3`, or `4`. Version 1 carries content
   contributions only. Version 2 adds the external runtime module and
   capability requests below. Version 3 adds versioned Tilecast service
-  grants for the runtime module.
+  grants for the runtime module. Version 4 adds one realtime job.
 - `packageId`: qualified identity of two or more dot-separated segments,
   for example `acme.athletics`. The `tilecast` namespace is reserved for
   the release.
@@ -54,16 +54,23 @@ A version 2 manifest may add `runtime` and `capabilities`:
 - `capabilities.studioUI.entry`: `./relative` self-contained HTML page
   for the sandboxed Studio interface.
 
-A version 3 manifest may also add `capabilities.services`: one to
+A version 3 or 4 manifest may also add `capabilities.services`: one to
 sixteen grants of `{id, version}` naming a versioned Tilecast service,
 for example `{id: "screens.read", version: 1}`. Each grant names a
 service the registry knows; unknown services fail the install review.
 Grants are unique within the manifest. Service grants require a
 runtime module. See [Package services](#package-services).
 
+A version 4 manifest may add `capabilities.realtime.jobs`:
+exactly one job with a stable `id` and `intervalSeconds` (5 to 60).
+Its ID must differ from each ordinary job ID.
+The install review shows this request as high-frequency background activity.
+The request requires a runtime module with the `run_job` export.
+Versions 1 to 3 reject this field.
+
 Capabilities are requests, not grants. The install review shows every
 request before anything installs. Network, background, storage, and
-service requests require a runtime module. The Studio interface may
+service and realtime requests require a runtime module. The Studio interface may
 stand alone. A version 1 manifest requests no capabilities.
 
 Two validators enforce the same rules: the TypeScript validator in
@@ -240,6 +247,29 @@ re-runs the job after the lease expires. A guest failure records
 `last_status = error` with the message and reschedules on the same
 interval. The first overdue pass runs at startup, then the scheduler
 polls every minute.
+
+The realtime scheduler uses a separate one-second due scan.
+It claims at most four jobs per pass and runs at most four guests at once.
+A realtime claim holds a fifteen-second lease.
+The host limits the complete invocation to four seconds.
+An approved fetch within this invocation has a three-second limit.
+The scheduler skips missed intervals after a delayed run.
+It does not run a queue of missed polls.
+The ordinary scheduler keeps its minute-based intervals and thirty-second
+invocation limit.
+
+Each claim carries an application-generated claim token and an activation
+epoch. Completion updates only that claim and epoch.
+Update, rollback, and reinstall create a new execution epoch.
+The host checks the epoch before execution.
+It checks running guests once per second and cancels a stale guest.
+Guest service calls and storage mutations check the epoch under the package
+lifecycle fence. A stale guest cannot publish data during cancellation delay.
+Package storage survives update and rollback.
+Reinstall creates a new storage epoch and starts with empty storage.
+A delayed cleanup cannot delete the storage of a new installation.
+The host caches at most eight verified module byte sets in memory.
+A cache miss reads the retained verified artifact again.
 
 The Studio interface serves the entry page from
 `GET /api/v1/packages/{packageId}/studio/frame`, readable by any

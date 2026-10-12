@@ -18,6 +18,25 @@ async function renderReview(
 describe("InstallReview capabilities", () => {
   afterEach(cleanup);
 
+  it("reviews realtime activity separately with its seconds cadence", async () => {
+    await renderReview(
+      installReview({
+        capabilities: {
+          realtime: { jobs: [{ id: "refresh", intervalSeconds: 5 }] },
+        },
+      }),
+    );
+    expect(
+      screen.getByText("High-frequency background activity"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Every 5 seconds")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Runs one bounded background job every few seconds, including when Studio is closed.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("says plainly that a content package asks for nothing special", async () => {
     await renderReview(installReview());
     expect(screen.getByText("No special permissions")).toBeInTheDocument();

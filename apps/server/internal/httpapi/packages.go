@@ -212,7 +212,8 @@ type reviewCapabilities struct {
 			IntervalMinutes int    `json:"intervalMinutes"`
 		} `json:"jobs"`
 	} `json:"background,omitempty"`
-	Storage  bool `json:"storage,omitempty"`
+	Realtime *packagemanifest.RealtimeCapability `json:"realtime,omitempty"`
+	Storage  bool                                `json:"storage,omitempty"`
 	StudioUI *struct {
 		Entry string `json:"entry"`
 	} `json:"studioUI,omitempty"`
@@ -247,6 +248,9 @@ func summarizeCapabilities(manifest packagemanifest.Manifest) (*reviewCapabiliti
 	}
 	if caps.Storage != nil && *caps.Storage {
 		review.Storage = true
+	}
+	if caps.Realtime != nil {
+		review.Realtime = &packagemanifest.RealtimeCapability{Jobs: append([]packagemanifest.RealtimeJob{}, caps.Realtime.Jobs...)}
 	}
 	if caps.StudioUI != nil {
 		review.StudioUI = &struct {
