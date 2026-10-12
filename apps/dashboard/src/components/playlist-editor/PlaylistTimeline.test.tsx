@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
+  createEvent,
   fireEvent,
   render,
   screen,
@@ -220,9 +221,15 @@ describe("PlaylistTimeline row actions", () => {
     expect(handlers.onDragStart).toHaveBeenCalledWith("c");
     expect(data.get("application/x-tilecast-playlist-item")).toBe("c");
 
-    fireEvent.dragOver(alpha, { dataTransfer, clientY: 105 });
+    const fireDragAt = (type: "dragOver" | "drop", clientY: number) => {
+      const event = createEvent[type](alpha, { dataTransfer });
+      Object.defineProperty(event, "clientY", { value: clientY });
+      fireEvent(alpha, event);
+    };
+
+    fireDragAt("dragOver", 105);
     expect(alpha.className).toContain("before:top-0");
-    fireEvent.drop(alpha, { dataTransfer, clientY: 105 });
+    fireDragAt("drop", 105);
     expect(handlers.onDrop).toHaveBeenCalledWith(
       expect.anything(),
       "a",
@@ -232,9 +239,9 @@ describe("PlaylistTimeline row actions", () => {
     fireEvent.dragStart(screen.getByRole("button", { name: "Reorder Gamma" }), {
       dataTransfer,
     });
-    fireEvent.dragOver(alpha, { dataTransfer, clientY: 135 });
+    fireDragAt("dragOver", 135);
     expect(alpha.className).toContain("after:bottom-0");
-    fireEvent.drop(alpha, { dataTransfer, clientY: 135 });
+    fireDragAt("drop", 135);
     expect(handlers.onDrop).toHaveBeenLastCalledWith(
       expect.anything(),
       "a",
