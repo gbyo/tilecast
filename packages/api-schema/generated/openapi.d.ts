@@ -26172,7 +26172,10 @@ export interface operations {
   previewUpdateDeployment: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        /** @description Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it. */
+        "X-CSRF-Token"?: components["parameters"]["CSRFToken"];
+      };
       path?: never;
       cookie?: never;
     };

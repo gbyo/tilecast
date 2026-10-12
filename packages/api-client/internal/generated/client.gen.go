@@ -13786,6 +13786,12 @@ type CancelTakeoverParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// PreviewUpdateDeploymentParams defines parameters for PreviewUpdateDeployment.
+type PreviewUpdateDeploymentParams struct {
+	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
+	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
+}
+
 // CreateUploadSessionParams defines parameters for CreateUploadSession.
 type CreateUploadSessionParams struct {
 	// XCSRFToken Cookie-backed browser requests only, and only on unsafe methods. Bearer grants never send it.
@@ -18272,7 +18278,7 @@ type ClientInterface interface {
 	// Takes any type of body and a specified content type.
 	//
 	// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
-	PreviewUpdateDeploymentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PreviewUpdateDeploymentWithBody(ctx context.Context, params *PreviewUpdateDeploymentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PreviewUpdateDeployment Preview resolved Player update targets
 	//
@@ -18281,7 +18287,7 @@ type ClientInterface interface {
 	// Takes a body of the `application/json` content type.
 	//
 	// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
-	PreviewUpdateDeployment(ctx context.Context, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	PreviewUpdateDeployment(ctx context.Context, params *PreviewUpdateDeploymentParams, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetUpdateDeployment Read the deployment header, release artifact size, and per-screen update state for the screens in the caller's scope
 	//
@@ -26784,8 +26790,8 @@ func (c *Client) CreateUpdateDeployment(ctx context.Context, body CreateUpdateDe
 // Takes any type of body and a specified content type.
 //
 // Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
-func (c *Client) PreviewUpdateDeploymentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPreviewUpdateDeploymentRequestWithBody(c.Server, contentType, body)
+func (c *Client) PreviewUpdateDeploymentWithBody(ctx context.Context, params *PreviewUpdateDeploymentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewUpdateDeploymentRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -26803,8 +26809,8 @@ func (c *Client) PreviewUpdateDeploymentWithBody(ctx context.Context, contentTyp
 // Takes a body of the `application/json` content type.
 //
 // Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
-func (c *Client) PreviewUpdateDeployment(ctx context.Context, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPreviewUpdateDeploymentRequest(c.Server, body)
+func (c *Client) PreviewUpdateDeployment(ctx context.Context, params *PreviewUpdateDeploymentParams, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreviewUpdateDeploymentRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -45804,18 +45810,18 @@ func NewCreateUpdateDeploymentRequestWithBody(server string, contentType string,
 }
 
 // NewPreviewUpdateDeploymentRequest calls the generic PreviewUpdateDeployment builder with application/json body
-func NewPreviewUpdateDeploymentRequest(server string, body PreviewUpdateDeploymentJSONRequestBody) (*http.Request, error) {
+func NewPreviewUpdateDeploymentRequest(server string, params *PreviewUpdateDeploymentParams, body PreviewUpdateDeploymentJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewPreviewUpdateDeploymentRequestWithBody(server, "application/json", bodyReader)
+	return NewPreviewUpdateDeploymentRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewPreviewUpdateDeploymentRequestWithBody constructs an http.Request for the PreviewUpdateDeployment method, with any body, and a specified content type
-func NewPreviewUpdateDeploymentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewPreviewUpdateDeploymentRequestWithBody(server string, params *PreviewUpdateDeploymentParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -45839,6 +45845,21 @@ func NewPreviewUpdateDeploymentRequestWithBody(server string, contentType string
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XCSRFToken != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", *params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-CSRF-Token", headerParam0)
+		}
+
+	}
 
 	return req, nil
 }
@@ -50761,7 +50782,7 @@ type ClientWithResponsesInterface interface {
 	// Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
-	PreviewUpdateDeploymentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error)
+	PreviewUpdateDeploymentWithBodyWithResponse(ctx context.Context, params *PreviewUpdateDeploymentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error)
 
 	// PreviewUpdateDeploymentWithResponse Preview resolved Player update targets
 	//
@@ -50770,7 +50791,7 @@ type ClientWithResponsesInterface interface {
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
 	// Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
-	PreviewUpdateDeploymentWithResponse(ctx context.Context, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error)
+	PreviewUpdateDeploymentWithResponse(ctx context.Context, params *PreviewUpdateDeploymentParams, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error)
 
 	// GetUpdateDeploymentWithResponse Read the deployment header, release artifact size, and per-screen update state for the screens in the caller's scope
 	//
@@ -75676,8 +75697,8 @@ func (c *ClientWithResponses) CreateUpdateDeploymentWithResponse(ctx context.Con
 // Takes any type of body and a specified content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
-func (c *ClientWithResponses) PreviewUpdateDeploymentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error) {
-	rsp, err := c.PreviewUpdateDeploymentWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) PreviewUpdateDeploymentWithBodyWithResponse(ctx context.Context, params *PreviewUpdateDeploymentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error) {
+	rsp, err := c.PreviewUpdateDeploymentWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -75691,8 +75712,8 @@ func (c *ClientWithResponses) PreviewUpdateDeploymentWithBodyWithResponse(ctx co
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
 // Corresponds with POST /api/v1/update-deployments/preview (the `PreviewUpdateDeployment` operationId).
-func (c *ClientWithResponses) PreviewUpdateDeploymentWithResponse(ctx context.Context, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error) {
-	rsp, err := c.PreviewUpdateDeployment(ctx, body, reqEditors...)
+func (c *ClientWithResponses) PreviewUpdateDeploymentWithResponse(ctx context.Context, params *PreviewUpdateDeploymentParams, body PreviewUpdateDeploymentJSONRequestBody, reqEditors ...RequestEditorFn) (*PreviewUpdateDeploymentResponse, error) {
+	rsp, err := c.PreviewUpdateDeployment(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

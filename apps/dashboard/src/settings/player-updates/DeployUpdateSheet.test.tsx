@@ -73,7 +73,12 @@ describe("guided deployment", () => {
     await selectEligible();
     expect(screen.getByText("2 screens selected")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("3 of 3 — Rollout")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveAccessibleDescription(
+      "3 of 3 — Rollout",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Rollout" }),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByText("2 screens selected")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -182,6 +187,7 @@ describe("guided deployment", () => {
     expect(api.createUpdateDeployment).toHaveBeenCalledWith(
       expect.objectContaining({
         releaseId: "r1",
+        name: "Tilecast Edge · x86_64 0.26.0-beta.6",
         screenIds: ["s1", "s2"],
         groupIds: [],
         mode: "install_now",
