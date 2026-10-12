@@ -17,10 +17,27 @@ import {
   type VideoSyncState,
 } from "../engine/playback-policy";
 import type { SyncPosition } from "../engine/timeline";
+import type { TimerHandle } from "../clock/scheduler";
 import type { RestartableSurface, SurfaceEnvironment } from "./surface";
 
 /** Advancing video re-reports progress on this cadence. */
 export const VIDEO_PROGRESS_INTERVAL_MS = 10_000;
+
+/**
+ * The longest a video may take to present its first frame on the hidden layer.
+ * Past this the swap goes ahead anyway: a stalled decoder must delay the
+ * playlist by a bounded amount, never hold it on the previous item.
+ */
+export const VIDEO_FIRST_FRAME_TIMEOUT_MS = 1_500;
+
+export interface HtmlVideoOptions {
+  /**
+   * Hold `prepare()` until a decoded frame has been presented. For a surface
+   * the stage dissolves in: the outgoing layer must stay up until this one
+   * has pixels. Layout zones run their own swap and leave it off.
+   */
+  presentFirstFrame?: boolean;
+}
 
 export class HtmlVideoSurface implements RestartableSurface {
   readonly element: HTMLVideoElement;
@@ -32,6 +49,8 @@ export class HtmlVideoSurface implements RestartableSurface {
   private lastReportedTime = -1;
   private framesSinceReport = 0;
   private frameHandle: number | null = null;
+  private prerollFrame: number | null = null;
+  private prerollTimer: TimerHandle | null = null;
   /**
    * Set by the first presented-frame callback. Until then (or on an engine
    * whose callback never fires) progress falls back to media time, so the
@@ -46,6 +65,7 @@ export class HtmlVideoSurface implements RestartableSurface {
     private readonly item: RuntimeItem,
     private readonly env: SurfaceEnvironment,
     mount: number,
+    private readonly options: HtmlVideoOptions = {},
   ) {
     const video = document.createElement("video");
     video.style.objectFit = objectFit(item.fitMode);
@@ -70,9 +90,16 @@ export class HtmlVideoSurface implements RestartableSurface {
       this.on("canplay", () => {
         if (this.shown) return;
         this.shown = true;
-        // Swapping on the first playable frame is what keeps the outgoing
-        // layer on screen exactly until this video has something to show.
-        resolve();
+        // The outgoing layer stays on screen until this video has a frame
+        // to show, not merely until it could play: a paused video presents
+        // nothing, and on some engines the first frame trails `play()` by
+        // longer than the dissolve, so the layer would fade in empty and
+        // the picture would then pop in.
+        if (this.options.presentFirstFrame) {
+          this.presentFirstFrame().then(resolve);
+        } else {
+          resolve();
+        }
       });
       this.on("error", () => {
         const message = "video failed: " + (video.error?.message || "unknown");
@@ -95,6 +122,11 @@ export class HtmlVideoSurface implements RestartableSurface {
   }
 
   activate(): Promise<void> {
+    // The first frame was presented muted; the item's own audio setting
+    // applies from the moment the video is on screen.
+    if (this.options.presentFirstFrame) {
+      this.element.muted = !this.item.audioEnabled;
+    }
     this.watchFrames();
     return this.element.play().then(
       () => undefined,
@@ -155,11 +187,48 @@ export class HtmlVideoSurface implements RestartableSurface {
       video.cancelVideoFrameCallback(this.frameHandle);
       this.frameHandle = null;
     }
+    this.endPreroll();
     video.pause();
     // Detaching a playing element leaves it decoding into a surface nobody
     // can see; dropping the source releases the decoder now.
     video.removeAttribute("src");
     video.load();
+  }
+
+  /**
+   * Start playing, muted, on the hidden layer and settle once a decoded frame
+   * has been presented (or the bound passes, or the engine cannot say). The
+   * shared timeline expects this video to be a little ahead of its occurrence
+   * start at worst, which the drift bands already absorb.
+   */
+  private presentFirstFrame(): Promise<void> {
+    const video = this.element;
+    if (typeof video.requestVideoFrameCallback !== "function") {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const done = () => {
+        this.endPreroll();
+        resolve();
+      };
+      video.muted = true;
+      this.prerollFrame = video.requestVideoFrameCallback(done);
+      this.prerollTimer = this.env.clock.at(
+        this.env.clock.monotonicNow() + VIDEO_FIRST_FRAME_TIMEOUT_MS,
+        done,
+      );
+      // A refused play() is reported by activate(); do not hold the swap.
+      video.play().catch(done);
+    });
+  }
+
+  private endPreroll(): void {
+    if (this.prerollFrame !== null) {
+      this.element.cancelVideoFrameCallback(this.prerollFrame);
+      this.prerollFrame = null;
+    }
+    this.prerollTimer?.cancel();
+    this.prerollTimer = null;
   }
 
   private on(type: string, listener: () => void): void {

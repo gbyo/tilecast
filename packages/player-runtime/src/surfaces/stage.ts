@@ -144,6 +144,11 @@ export class Stage {
   }
 
   private stage(entry: StageEntry): void {
+    // While a transition runs, the hidden layer is still the outgoing one and
+    // on screen under the dissolve. Emptying it then would expose its black
+    // backdrop, so the transition settles first.
+    this.transition?.cancel();
+    this.transition = null;
     const layer = this.back;
     this.empty(layer);
     this.fillSequence += 1;
@@ -269,7 +274,9 @@ export class Stage {
       case "image":
         return new ImageSurface(item);
       case "video":
-        return new HtmlVideoSurface(item, env, entry.mount);
+        return new HtmlVideoSurface(item, env, entry.mount, {
+          presentFirstFrame: true,
+        });
       case "widget":
         return widgetComponent(item)
           ? new ComponentWidgetSurface(item, env)
