@@ -91,6 +91,7 @@ export class PlayerRoot extends LitElement {
         animationScale: bindings.animationScale,
         remoteWeb: bindings.remoteWeb,
         widgets: bindings.widgets,
+        diagnostics: bindings.controller.diagnostics,
       });
       this.unsubscribers.push(
         bindings.controller.subscribe((view) => this.onView(view)),

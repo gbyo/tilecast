@@ -131,6 +131,14 @@ export function installProbe(options: ProbeOptions): void {
           : null,
       };
     },
+    /**
+     * Playback health counters and recent notes: decoder creation and reuse,
+     * occurrence boundaries, seeks and drift. Kept apart from `describe()`,
+     * which the conformance suite compares between engines.
+     */
+    diagnostics() {
+      return controller.diagnostics.snapshot();
+    },
     async settled(): Promise<void> {
       // An incoming occurrence prepares on the hidden layer; wait (bounded)
       // until the engine has shown or failed it.

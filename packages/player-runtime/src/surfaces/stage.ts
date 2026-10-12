@@ -16,17 +16,20 @@
 import type { EvidenceKind, RuntimeCapabilitiesV1 } from "../host/contract";
 import type { RuntimeClock } from "../clock/scheduler";
 import type { StageEntry } from "../engine/model";
+import { PlaybackDiagnostics } from "../engine/diagnostics";
 import type { SurfaceEvent } from "../engine/presentation-machine";
 import type { SyncPosition } from "../engine/timeline";
 import {
   shouldClearOutgoingLayer,
   shouldPauseOutgoingLayer,
+  videoReuseVerdict,
+  type VideoReuseRejection,
 } from "../engine/playback-policy";
 import { swapLayers, type RunningTransition } from "../transitions/crossfade";
 import { ImageSurface } from "./image-surface";
 import { LayoutSurface } from "./layout-surface";
 import { isRestartable, type MediaSurface, type SurfaceSink } from "./surface";
-import { HtmlVideoSurface } from "./video-surface";
+import { HtmlVideoSurface, videoPlaybackConfig } from "./video-surface";
 import { HostRemoteWebSurface } from "./remote-web-surface";
 import { WebviewWebsiteSurface } from "./website-surface";
 import type { RemoteWebPort } from "../remote-web/port";
@@ -55,13 +58,28 @@ export interface StageOptions {
   /** Present when the host advertises `remoteWeb: "host-view"`. */
   remoteWeb?: RemoteWebPort | null;
   widgets?: RuntimeWidgetHost;
+  /** Shared with the controller so one instance describes the whole engine. */
+  diagnostics?: PlaybackDiagnostics;
 }
+
+/**
+ * Why a video that could not be carried over is nothing to remark on: the
+ * playlist moved to different media, so a new decoder is simply required.
+ */
+const ORDINARY_REJECTIONS: ReadonlySet<VideoReuseRejection> = new Set([
+  "item-changed",
+  "source-changed",
+  "not-video",
+  "not-a-shared-boundary",
+]);
 
 export class Stage {
   private front: Layer;
   private back: Layer;
   private transition: RunningTransition | null = null;
   private fillSequence = 0;
+  /** The mount the engine currently wants on screen. */
+  private currentMount: number | null = null;
 
   constructor(
     layerA: HTMLDivElement,
@@ -87,6 +105,7 @@ export class Stage {
   /** Render the engine's current occurrence. */
   update(entry: StageEntry | null): void {
     if (!entry) return;
+    this.currentMount = entry.mount;
     if (entry.phase === "skipping") {
       if (this.back.mount === entry.mount) this.empty(this.back);
       if (this.front.mount === entry.mount) this.empty(this.front);
@@ -124,10 +143,12 @@ export class Stage {
     if (!position || position.kind !== "video") return;
     const surface = this.front.surface;
     // A video still staged on the hidden layer is not corrected: the previous
-    // occurrence owns the screen until the incoming one can play.
+    // occurrence owns the screen until the incoming one can play. Nor is the
+    // visible one when the engine has already moved on to a newer occurrence.
     if (
       surface instanceof HtmlVideoSurface &&
-      this.front.el.classList.contains("visible")
+      this.front.el.classList.contains("visible") &&
+      this.front.mount === this.currentMount
     ) {
       surface.correct(position);
     }
@@ -143,7 +164,66 @@ export class Stage {
     return { front: layer(this.front), back: layer(this.back) };
   }
 
+  /**
+   * Carry the video on screen to the next shared occurrence of itself instead
+   * of decoding it again. Everything about whether that is safe is decided by
+   * `videoReuseVerdict`; this only gathers the facts and acts on the answer.
+   */
+  private reuseFront(entry: StageEntry): boolean {
+    const front = this.front;
+    const surface = front.surface;
+    if (!(surface instanceof HtmlVideoSurface) || front.mount === null) {
+      return false;
+    }
+    const verdict = videoReuseVerdict({
+      sharedBoundary: entry.sharedBoundary === true,
+      incomingIsVideo: entry.item.kind === "video",
+      surface: surface.reuseState(front.el.classList.contains("visible")),
+      outgoing: surface.playbackConfig(),
+      incoming: videoPlaybackConfig(entry.item),
+      incomingStartMs: entry.item.videoStartOffsetMs,
+    });
+    const diagnostics = this.options.diagnostics;
+    if (!verdict.reuse) {
+      diagnostics?.reuseRejected(verdict.reason);
+      // The same media was on screen and a second decoder is about to be
+      // started anyway: that is the remount this exists to prevent.
+      if (!ORDINARY_REJECTIONS.has(verdict.reason)) {
+        diagnostics?.note("unexpected-remounts", {
+          item: entry.item.id,
+          reason: verdict.reason,
+        });
+      }
+      return false;
+    }
+    // A staged occurrence that never became ready is stale now. One that is
+    // fading out is left to its transition's own cleanup.
+    if (!this.transition && this.back.surface) this.empty(this.back);
+    const mount = entry.mount;
+    front.mount = mount;
+    front.restarts = entry.restarts;
+    diagnostics?.count("decoders-reused");
+    surface.rebind(entry.item, this.sink(mount), mount).then(
+      () => {
+        if (front.surface === surface && front.mount === mount) {
+          this.options.send({ type: "SURFACE_READY", mount });
+        }
+      },
+      (error: unknown) => {
+        if (front.surface !== surface || front.mount !== mount) return;
+        diagnostics?.count("reuse-failures");
+        this.options.send({
+          type: "SURFACE_FAILED",
+          mount,
+          message: String((error as Error)?.message ?? error),
+        });
+      },
+    );
+    return true;
+  }
+
   private stage(entry: StageEntry): void {
+    if (entry.sharedBoundary && this.reuseFront(entry)) return;
     // While a transition runs, the hidden layer is still the outgoing one and
     // on screen under the dissolve. Emptying it then would expose its black
     // backdrop, so the transition settles first.
@@ -159,6 +239,9 @@ export class Stage {
     let surface: MediaSurface;
     try {
       surface = this.create(entry, sink);
+      if (entry.item.kind === "video") {
+        this.options.diagnostics?.count("decoders-created");
+      }
     } catch (error) {
       this.options.send({
         type: "SURFACE_FAILED",
@@ -268,6 +351,9 @@ export class Stage {
       remoteWeb: (item: RuntimeItem, zoneSink: SurfaceSink) =>
         this.remoteSurface(item, zoneSink, entry.mount),
       widgets: this.options.widgets,
+      ...(this.options.diagnostics
+        ? { diagnostics: this.options.diagnostics }
+        : {}),
     };
     const item = entry.item;
     switch (item.kind) {

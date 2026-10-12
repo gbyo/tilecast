@@ -19,6 +19,7 @@ import {
   type RuntimeClock,
 } from "./clock/scheduler";
 import { PlaybackController } from "./engine/controller";
+import { PlaybackDiagnostics } from "./engine/diagnostics";
 import { runtimeDiscovery } from "./plugins/discovery";
 import { RuntimeSurfaceHost } from "./plugins/host";
 import { RemoteWebPort } from "./remote-web/port";
@@ -62,8 +63,17 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
   const capabilities = host.capabilities;
   if (conformance) document.documentElement.classList.add("tc-conformance");
 
+  // Counters and a short ring are always kept; log lines are rate-limited.
+  // Conformance runs stay quiet so their output remains comparable.
+  const diagnostics = new PlaybackDiagnostics({
+    clock,
+    ...(conformance
+      ? {}
+      : { log: (line: string) => console.info(`tilecast runtime: ${line}`) }),
+  });
   const controller = new PlaybackController({
     clock,
+    diagnostics,
     synchronizedPlayback: capabilities.synchronizedPlayback,
     reports: {
       evidence: (activation, kind, itemId, zoneId) =>
