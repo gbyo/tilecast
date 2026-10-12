@@ -361,9 +361,7 @@ export function ReleaseLibrary({
                       <Button
                         variant="link"
                         className="h-auto p-0 text-base font-semibold"
-                        onClick={() =>
-                          setDetailIds(variants.map((r) => r.id))
-                        }
+                        onClick={() => setDetailIds(variants.map((r) => r.id))}
                       >
                         {release.versionName}
                       </Button>

@@ -52,9 +52,7 @@ export type DeploymentOpenFocus = "all" | "attention";
 
 function attentionScreenCount(item: UpdateDeployment) {
   return (
-    item.failedCount +
-    item.waitingForUserCount +
-    (item.incompatibleCount ?? 0)
+    item.failedCount + item.waitingForUserCount + (item.incompatibleCount ?? 0)
   );
 }
 

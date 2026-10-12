@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, cleanup, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  cleanup,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -97,7 +103,11 @@ describe("guided deployment", () => {
     await selectEligible();
     expect(screen.getByText("2 screens selected")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("3 of 3 — Rollout")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog")).getByText("3", {
+        selector: '[aria-current="step"]',
+      }),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByText("2 screens selected")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -119,9 +129,7 @@ describe("guided deployment", () => {
     });
 
     const view = mount("r1", [cold]);
-    expect(
-      screen.getByRole("button", { name: "Prepare build" }),
-    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Prepare build" })).toBeEnabled();
     await userEvent.click(
       screen.getByRole("button", { name: "Prepare build" }),
     );
@@ -137,7 +145,11 @@ describe("guided deployment", () => {
         verificationStatus: "verified",
       },
     ]);
-    await screen.findByRole("combobox", { name: /targets/i });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("combobox");
     expect(screen.getByText(/0.26.0-beta.6/)).toBeInTheDocument();
   });
 

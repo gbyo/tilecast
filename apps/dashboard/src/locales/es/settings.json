@@ -1338,6 +1338,7 @@
       "attentionElsewhere": "{{count}} despliegues requieren atención en otros tipos de reproductor.",
       "attentionElsewhere_one": "{{count}} despliegue requiere atención en otro tipo de reproductor.",
       "attentionElsewhere_other": "{{count}} despliegues requieren atención en otros tipos de reproductor.",
+      "attentionElsewhere_many": "{{count}} de despliegues requieren atención en otros tipos de reproductor.",
       "inProgress": "En curso",
       "noActiveDeployments": "No hay actualizaciones de reproductores en curso.",
       "recentDeployments": "Despliegues recientes",

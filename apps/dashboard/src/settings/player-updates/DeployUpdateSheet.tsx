@@ -202,9 +202,7 @@ function UpdateSelectionStep({
             label: familyLabel(value, t),
           }))}
           value={family}
-          onValueChange={(value) =>
-            value && onFamilyChange(value as UpdateFamilyTab)
-          }
+          onValueChange={(value) => value && onFamilyChange(value)}
         >
           <SelectTrigger id="update-player-family">
             <SelectValue />
@@ -234,9 +232,7 @@ function UpdateSelectionStep({
               onValueChange={(value) => value && onVersionChange(String(value))}
             >
               <SelectTrigger id="update-version">
-                <SelectValue
-                  placeholder={t("updates.console.chooseVersion")}
-                />
+                <SelectValue placeholder={t("updates.console.chooseVersion")} />
               </SelectTrigger>
               <SelectContent>
                 {releaseGroups.map((variants) => {
@@ -372,17 +368,25 @@ function UpdateSelectionStep({
                         <RadioGroupItem
                           id={`release-build-${item.id}`}
                           value={item.id}
-                          aria-label={`${architectureLabel(
-                            item.architecture,
-                            t,
-                          )} (${item.architecture || familyLabel(family, t)})`}
+                          aria-labelledby={`release-build-${item.id}-name`}
                         />
                         <FieldContent>
                           <FieldLabel
                             htmlFor={`release-build-${item.id}`}
                             className="flex flex-wrap gap-2"
                           >
-                            {architectureLabel(item.architecture, t)}
+                            <span aria-hidden="true">
+                              {architectureLabel(item.architecture, t)}
+                            </span>
+                            <span
+                              id={`release-build-${item.id}-name`}
+                              className="sr-only"
+                            >
+                              {`${architectureLabel(
+                                item.architecture,
+                                t,
+                              )} (${item.architecture || familyLabel(family, t)})`}
+                            </span>
                             <Badge
                               variant={
                                 deployable(item) ? "outline" : "secondary"
@@ -438,9 +442,7 @@ function UpdateSelectionStep({
                                       )
                                     : 0
                                 }
-                                aria-label={t(
-                                  "updates.console.preparingBuild",
-                                )}
+                                aria-label={t("updates.console.preparingBuild")}
                               />
                               <p className="text-xs text-muted-foreground">
                                 {t("updates.console.preparationContinuesHint")}
@@ -458,7 +460,7 @@ function UpdateSelectionStep({
         </FieldSet>
       )}
 
-      {prepareError && (
+      {prepareError != null && (
         <Alert variant="destructive">
           <AlertDescription>{apiErrorMessage(prepareError)}</AlertDescription>
         </Alert>
@@ -597,14 +599,14 @@ function TargetsStep({
             <ComboboxChipsInput
               id="update-target-search"
               placeholder={
-                selected.length ? undefined : t("updates.panel.searchPlaceholder")
+                selected.length
+                  ? undefined
+                  : t("updates.panel.searchPlaceholder")
               }
             />
           </ComboboxChips>
           <ComboboxContent anchor={targetAnchor}>
-            <ComboboxEmpty>
-              {t("updates.console.noTargetMatch")}
-            </ComboboxEmpty>
+            <ComboboxEmpty>{t("updates.console.noTargetMatch")}</ComboboxEmpty>
             <ComboboxList>
               {(["screen", "group"] as const).map((type) => (
                 <ComboboxGroup key={type}>
@@ -807,30 +809,20 @@ function RolloutStep({
           </FieldLabel>
           <Select
             items={(
-              [
-                "install_now",
-                "download_only",
-                "maintenance_window",
-              ] as const
+              ["install_now", "download_only", "maintenance_window"] as const
             ).map((value) => ({
               value,
               label: modeLabel(value, t),
             }))}
             value={mode}
-            onValueChange={(value) =>
-              value && onModeChange(value as UpdateDeploymentMode)
-            }
+            onValueChange={(value) => value && onModeChange(value)}
           >
             <SelectTrigger id="update-mode">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {(
-                [
-                  "install_now",
-                  "download_only",
-                  "maintenance_window",
-                ] as const
+                ["install_now", "download_only", "maintenance_window"] as const
               ).map((value) => (
                 <SelectItem key={value} value={value}>
                   {modeLabel(value, t)}
@@ -909,9 +901,7 @@ function RolloutStep({
                     min={1}
                     max={Math.min(50, (result?.eligibleCount ?? 0) - 1)}
                     value={canarySize}
-                    onChange={(e) =>
-                      onCanarySizeChange(Number(e.target.value))
-                    }
+                    onChange={(e) => onCanarySizeChange(Number(e.target.value))}
                   />
                   {invalidCanary && (
                     <FieldError>
@@ -931,7 +921,6 @@ function RolloutStep({
     </>
   );
 }
-
 
 function DeployFooter({
   stage,
@@ -1286,9 +1275,7 @@ export function DeployUpdateSheet({
   }
 
   function changeVersion(key: string) {
-    const next = releaseGroups.find(
-      (items) => releaseGroupKey(items) === key,
-    );
+    const next = releaseGroups.find((items) => releaseGroupKey(items) === key);
     setReleaseGroupId(key);
     setReleaseId(automaticBuildForScreens(next, familyScreens)?.id ?? "");
     setSelected([]);

@@ -53,10 +53,7 @@ import { ReleaseSourceDialog } from "./ReleaseSourceDialog";
 import { ReleaseUploadDialog } from "./ReleaseUploadDialog";
 import { LoadingRows, UpdateDeploymentDetail } from "./UpdateDeploymentDetail";
 import { deploymentNeedsAttention, families, familyLabel } from "./model";
-import {
-  screenUpdateMeaning,
-  type ScreenFilter,
-} from "../playerUpdateStates";
+import { screenUpdateMeaning, type ScreenFilter } from "../playerUpdateStates";
 
 export function PlayerUpdatesPanel(props: {
   owner: boolean;
@@ -150,9 +147,6 @@ function PlayerUpdatesWorkspace({
     (deployment) => releaseUpdateTab(deployment) === family,
   );
   const screenItems = screens.data?.items ?? [];
-  const familyScreens = screenItems.filter(
-    (screen) => screenUpdateTab(screen) === family,
-  );
   const familyOptions = families.map((value) => {
     const count = screenItems.filter(
       (screen) => screenUpdateTab(screen) === value,
@@ -247,9 +241,7 @@ function PlayerUpdatesWorkspace({
             <Select
               items={familyOptions}
               value={family}
-              onValueChange={(value) =>
-                value && changeFamily(value as UpdateFamilyTab)
-              }
+              onValueChange={(value) => value && changeFamily(value)}
             >
               <SelectTrigger
                 aria-label={t("updates.console.playerFamily")}

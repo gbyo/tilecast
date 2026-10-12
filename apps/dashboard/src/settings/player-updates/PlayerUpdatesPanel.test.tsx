@@ -212,7 +212,9 @@ describe("Player Updates workspace", () => {
     mount("/settings/player/updates?platform=edge&keep=yes");
     const user = userEvent.setup();
     await user.click(screen.getByRole("tab", { name: "Release catalog" }));
-    expect(await screen.findByText("GitHub · Anonymous")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/^GitHub · Anonymous API access/),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("url")).toHaveTextContent("keep=yes");
     expect(screen.getByTestId("url")).toHaveTextContent("view=releases");
     const family = screen.getByRole("combobox", { name: "Player type" });
@@ -258,15 +260,13 @@ describe("Player Updates workspace", () => {
   });
   it("groups only GitHub tag variants and names each deployment action's architecture", async () => {
     mount("/settings/player/updates?platform=edge&view=releases");
-    await screen.findByText("GitHub · Anonymous");
+    await screen.findByText(/^GitHub · Anonymous API access/);
     expect(
       screen.getAllByRole("button", { name: "0.26.0-beta.6" }),
     ).toHaveLength(1);
     expect(screen.getByText("x86_64")).toBeInTheDocument();
     expect(screen.getByText("aarch64")).toBeInTheDocument();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Deploy ARM64" }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "Deploy ARM64" }));
     const radio = await screen.findByRole("radio", {
       name: "ARM64 (aarch64)",
     });
@@ -345,7 +345,7 @@ describe("Player Updates workspace", () => {
     ).toBeInTheDocument();
     cleanup();
     mount("/settings/player/updates?platform=edge&view=releases", false);
-    await screen.findByText("GitHub · Anonymous");
+    await screen.findByText(/^GitHub · Anonymous API access/);
     expect(
       screen.queryByRole("button", { name: /Deploy/ }),
     ).not.toBeInTheDocument();
