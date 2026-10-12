@@ -111,13 +111,9 @@ export interface SimResult {
 
 export interface SimStrategy {
   /** Called once per drift evaluation; returns nothing, mutates the video. */
-  tick(input: {
-    video: SimVideo;
-    nowMs: number;
-    expectedMs: number;
-  }): void;
+  tick(input: { video: SimVideo; nowMs: number; expectedMs: number }): void;
   /** Called when the model fires `seeked`. */
-  seeked?(nowMs: number): void;
+  seeked?(nowMs: number, video: SimVideo): void;
 }
 
 /**
@@ -137,7 +133,7 @@ export function simulate(
   let nowMs = start;
   let farMs = 0;
   let maxAbs = 0;
-  video.onSeeked = () => strategy.seeked?.(nowMs);
+  video.onSeeked = () => strategy.seeked?.(nowMs, video);
   for (let elapsed = 0; elapsed < durationMs; elapsed += STEP) {
     nowMs += STEP;
     video.step(STEP, nowMs);

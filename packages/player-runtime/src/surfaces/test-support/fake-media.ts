@@ -23,12 +23,12 @@ export interface FakeMediaState {
 }
 
 export interface RecordedSeek {
-  element: HTMLVideoElement;
+  element: HTMLMediaElement;
   toMs: number;
 }
 
 export interface RecordedRate {
-  element: HTMLVideoElement;
+  element: HTMLMediaElement;
   rate: number;
 }
 
@@ -231,23 +231,24 @@ export class FakeMedia {
         return id;
       },
     );
-    defineVideo("cancelVideoFrameCallback", function (
-      this: HTMLVideoElement,
-      id: number,
-    ) {
-      self.state(this).frameCallbacks.delete(id);
-    });
+    defineVideo(
+      "cancelVideoFrameCallback",
+      function (this: HTMLVideoElement, id: number) {
+        self.state(this).frameCallbacks.delete(id);
+      },
+    );
 
     const create = document.createElement.bind(document);
-    const spy = vi
-      .spyOn(document, "createElement")
-      .mockImplementation(((tag: string, options?: ElementCreationOptions) => {
-        const element = create(tag, options);
-        if (tag.toLowerCase() === "video") {
-          self.created.push(element as HTMLVideoElement);
-        }
-        return element;
-      }) as typeof document.createElement);
+    const spy = vi.spyOn(document, "createElement").mockImplementation(((
+      tag: string,
+      options?: ElementCreationOptions,
+    ) => {
+      const element = create(tag, options);
+      if (tag.toLowerCase() === "video") {
+        self.created.push(element as HTMLVideoElement);
+      }
+      return element;
+    }) as typeof document.createElement);
     this.restore.push(() => spy.mockRestore());
   }
 }
