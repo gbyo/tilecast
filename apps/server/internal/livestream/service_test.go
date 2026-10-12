@@ -152,3 +152,32 @@ func TestExpiredSessionStopsSubscribers(t *testing.T) {
 		t.Fatal("expired session did not stop subscribers")
 	}
 }
+
+func TestEdgeProfileOptInAndLegacyBounds(t *testing.T) {
+	screenID := uuid.New()
+	service := NewService(nil)
+	initial := service.Start(screenID)
+	if initial.MaxWidth != 640 || initial.MaxHeight != 360 || initial.FrameIntervalMillis != 125 {
+		t.Fatalf("unexpected default profile: %+v", initial)
+	}
+	unchanged := service.SelectProfile(screenID, false)
+	if unchanged != initial {
+		t.Fatalf("legacy request changed session: %+v", unchanged)
+	}
+	upgraded := service.SelectProfile(screenID, true)
+	if upgraded.ID != initial.ID || upgraded.MaxWidth != 960 || upgraded.MaxHeight != 540 || upgraded.FrameIntervalMillis != 100 || upgraded.MaxFrameBytes != 100*1024 {
+		t.Fatalf("bad negotiated profile: %+v", upgraded)
+	}
+	jpeg := []byte{0xff, 0xd8, 1, 0xff, 0xd9}
+	if err := service.Publish(screenID, initial.ID, Frame{CapturedAt: time.Now(), Width: 960, Height: 540, JPEG: jpeg}); err != nil {
+		t.Fatalf("upgraded frame rejected: %v", err)
+	}
+	if err := service.Publish(screenID, initial.ID, Frame{CapturedAt: time.Now(), Width: 961, Height: 540, JPEG: jpeg}); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("oversized frame accepted: %v", err)
+	}
+	other := uuid.New()
+	legacy := service.Start(other)
+	if err := service.Publish(other, legacy.ID, Frame{CapturedAt: time.Now(), Width: 960, Height: 540, JPEG: jpeg}); !errors.Is(err, ErrInvalidFrame) {
+		t.Fatalf("unnegotiated high resolution accepted: %v", err)
+	}
+}

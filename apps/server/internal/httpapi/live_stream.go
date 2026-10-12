@@ -56,7 +56,7 @@ func (s *server) endLiveStream(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) playerLiveStreamSession(w http.ResponseWriter, r *http.Request) {
 	principal := r.Context().Value(deviceContextKey).(devices.DevicePrincipal)
-	writeJSON(w, http.StatusOK, map[string]any{"data": s.liveStreams.Current(principal.ScreenID)})
+	writeJSON(w, http.StatusOK, map[string]any{"data": s.liveStreams.SelectProfile(principal.ScreenID, r.URL.Query().Get("captureProfile") == "edge-540p10")})
 }
 
 func (s *server) watchLiveStream(w http.ResponseWriter, r *http.Request) {
