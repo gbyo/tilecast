@@ -6,8 +6,9 @@
  * grouped video that judders. They are cheap to count and expensive to log, so
  * everything here is a fixed-size counter, a small ring of recent entries, or
  * a rate-limited log line. Nothing grows with uptime and nothing runs per
- * frame. Counters are read through the probe (`describe().engine`); log lines
- * go to whatever sink the host gave the runtime, which in production is the
+ * frame. Counters are read through the probe (`__tilecastRuntime.diagnostics()`),
+ * never `describe()`, which conformance compares between engines. Log lines go
+ * to whatever sink the host gave the runtime, which in production is the
  * renderer console.
  */
 import type { RuntimeClock } from "../clock/scheduler";
