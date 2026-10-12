@@ -33,12 +33,13 @@ import {
   EmptyDescription,
 } from "../../components/ui/empty";
 import {
-  ItemGroup,
-  Item,
-  ItemContent,
-  ItemTitle,
-  ItemDescription,
-} from "../../components/ui/item";
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
 import { Progress } from "../../components/ui/progress";
 import { Spinner } from "../../components/ui/spinner";
 import { UpdateSurface } from "./UpdateSurface";
@@ -164,33 +165,37 @@ export function ReleaseGroupList({
     );
   }
   return (
-    <ItemGroup render={<ul />} className="gap-0 divide-y">
+    <div className="grid gap-4">
       {groups.map((variants) => {
         const release = variants[0]!;
         return (
-          <Item key={release.id} render={<li />} className="rounded-none px-0">
-            <ItemContent>
-              <ItemTitle className="flex-wrap [display:flex] [-webkit-line-clamp:unset]">
+          <Card key={release.id} size="sm">
+            <CardHeader>
+              <CardTitle className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="link"
-                  className="h-auto p-0 font-semibold"
+                  className="h-auto p-0 text-base font-semibold"
                   onClick={() => onOpenDetails(variants.map((item) => item.id))}
                 >
                   {release.versionName}
                 </Button>
-                <Badge variant="outline">
-                  {release.channel === "beta"
-                    ? t("updates.panel.channelBeta")
-                    : t("updates.panel.channelStable")}
-                </Badge>
-              </ItemTitle>
-              <ItemDescription className="line-clamp-none text-xs">
+              </CardTitle>
+              <CardDescription>
                 {artifactIdentity({ ...release, architecture: "" }, t)} ·{" "}
                 {release.source === "upload"
                   ? t("updates.panel.sourceUpload")
                   : t("updates.panel.sourceGitHub")}{" "}
                 · {new Date(release.publishedAt).toLocaleDateString(locale)}
-              </ItemDescription>
+              </CardDescription>
+              <CardAction>
+                <Badge variant="outline">
+                  {release.channel === "beta"
+                    ? t("updates.panel.channelBeta")
+                    : t("updates.panel.channelStable")}
+                </Badge>
+              </CardAction>
+            </CardHeader>
+            <CardContent className="gap-2">
               {variants.map((item) => (
                 <ReleaseArtifact
                   key={item.id}
@@ -204,11 +209,11 @@ export function ReleaseGroupList({
                   onRequestPurge={onRequestPurge}
                 />
               ))}
-            </ItemContent>
-          </Item>
+            </CardContent>
+          </Card>
         );
       })}
-    </ItemGroup>
+    </div>
   );
 }
 
@@ -237,7 +242,7 @@ function ReleaseArtifact({
   const locale = useFormatLocale();
   const readiness = releaseReadiness(release, t);
   return (
-    <div className="grid gap-1 py-2">
+    <div className="grid gap-2 rounded-lg bg-muted/30 px-3 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="grid gap-1">
           <p className="flex flex-wrap items-center gap-2 text-sm">

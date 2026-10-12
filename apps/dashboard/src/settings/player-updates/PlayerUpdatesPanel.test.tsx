@@ -94,7 +94,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("Player Updates workspace", () => {
-  it("prioritizes incompatible targets without offering them a retry", async () => {
+  it("keeps terminal failures in history instead of active rollouts", async () => {
     vi.mocked(api.updateDeployments).mockResolvedValue({
       items: [
         { ...deployment, id: "normal", failedCount: 0, waitingForUserCount: 0 },
@@ -109,16 +109,20 @@ describe("Player Updates workspace", () => {
       ],
     });
     mount();
+    const table = await screen.findByRole("table");
     expect(
-      await screen.findByText("Incompatible screens: 1."),
+      within(table).getByText("Incompatible screens: 1."),
     ).toBeInTheDocument();
-    const first = screen
+    expect(
+      within(table).getByRole("button", { name: "View rollout" }),
+    ).toBeInTheDocument();
+    const activeCard = screen
       .getAllByRole("button", { name: "View rollout" })[0]!
-      .closest("li")!;
+      .closest('[data-slot="card"]');
+    expect(activeCard).not.toBeNull();
     expect(
-      within(first).getByText("Incompatible screens: 1."),
-    ).toBeInTheDocument();
-    expect(within(first).queryByText(/needs a retry/)).not.toBeInTheDocument();
+      within(activeCard as HTMLElement).queryByText("Incompatible screens: 1."),
+    ).not.toBeInTheDocument();
   });
   it("defaults to Deployments, shows one semantic row, and keeps GitHub auth out of page chrome", async () => {
     mount();
@@ -138,6 +142,27 @@ describe("Player Updates workspace", () => {
       screen.queryByRole("button", { name: "Connect GitHub" }),
     ).not.toBeInTheDocument();
   });
+  it("uses a compact table for completed deployment history", async () => {
+    vi.mocked(api.updateDeployments).mockResolvedValue({
+      items: [
+        {
+          ...deployment,
+          id: "completed",
+          status: "completed",
+          succeededCount: 3,
+          failedCount: 0,
+          waitingForUserCount: 0,
+        },
+      ],
+    });
+    mount();
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText(release.versionName)).toBeInTheDocument();
+    expect(within(table).getAllByText("Completed").length).toBeGreaterThan(0);
+    expect(
+      within(table).getByRole("button", { name: "View rollout" }),
+    ).toBeInTheDocument();
+  });
   it("uses URL-backed view and family with back/forward, preserving unrelated parameters", async () => {
     mount("/settings/player/updates?platform=edge&keep=yes");
     const user = userEvent.setup();
@@ -145,17 +170,18 @@ describe("Player Updates workspace", () => {
     expect(await screen.findByText("Release library")).toBeInTheDocument();
     expect(screen.getByTestId("url")).toHaveTextContent("keep=yes");
     expect(screen.getByTestId("url")).toHaveTextContent("view=releases");
-    await user.click(screen.getByRole("button", { name: "Windows" }));
+    const family = screen.getByRole("combobox", { name: "Player family" });
+    await user.click(family);
+    await user.click(await screen.findByRole("option", { name: "Windows" }));
     expect(screen.getByTestId("url")).toHaveTextContent("platform=windows");
     await user.click(screen.getByRole("button", { name: "History back" }));
     expect(
-      screen.getByRole("button", { name: "Tilecast Edge" }),
-    ).toHaveAttribute("aria-pressed", "true");
+      screen.getByRole("combobox", { name: "Player family" }),
+    ).toHaveTextContent("Tilecast Edge");
     await user.click(screen.getByRole("button", { name: "History forward" }));
-    expect(screen.getByRole("button", { name: "Windows" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("combobox", { name: "Player family" }),
+    ).toHaveTextContent("Windows");
   });
   it("discards a draft when navigating to another family and back", async () => {
     mount();

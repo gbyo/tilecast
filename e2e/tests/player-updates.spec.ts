@@ -12,18 +12,21 @@ test("Player Updates preserves its family and view through browser navigation", 
   await expect(
     page.getByRole("tab", { name: "Deployments", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
-  await expect(
-    page.getByRole("group", { name: "Player family", exact: true }),
-  ).toBeVisible();
+  const family = page.getByRole("combobox", {
+    name: "Player family",
+    exact: true,
+  });
+  await expect(family).toBeVisible();
   await page.getByRole("tab", { name: "Releases", exact: true }).click();
-  await page.getByRole("button", { name: "Windows", exact: true }).click();
+  await family.click();
+  await page.getByRole("option", { name: "Windows", exact: true }).click();
   await expect(page).toHaveURL(
     /platform=windows.*keep=bookmark.*view=releases/,
   );
   await page.goBack();
   await expect(
-    page.getByRole("button", { name: "Tilecast Edge", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+    page.getByRole("combobox", { name: "Player family", exact: true }),
+  ).toContainText("Tilecast Edge");
   await page.reload();
   await expect(
     page.getByRole("tab", { name: "Releases", exact: true }),

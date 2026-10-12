@@ -58,6 +58,7 @@ export function DeployUpdateSheet({
           onDeploy={() => model.deploy.mutate()}
         />
       }
+      presentation="dialog"
     >
       <DeployStageIntro stage={model.stage} stageKey={model.stageKey} />
       {model.stage === 1 && (

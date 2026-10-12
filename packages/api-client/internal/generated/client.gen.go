@@ -5859,6 +5859,21 @@ func (e TestNotificationWebhook200JSONResponseBodyDataDelivered) Valid() bool {
 	}
 }
 
+// Defines values for GetPlayerLiveStreamSessionParamsCaptureProfile.
+const (
+	Edge540p10 GetPlayerLiveStreamSessionParamsCaptureProfile = "edge-540p10"
+)
+
+// Valid indicates whether the value is a known member of the GetPlayerLiveStreamSessionParamsCaptureProfile enum.
+func (e GetPlayerLiveStreamSessionParamsCaptureProfile) Valid() bool {
+	switch e {
+	case Edge540p10:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IngestPlayerTelemetry202JSONResponseBodyDataAccepted.
 const (
 	IngestPlayerTelemetry202JSONResponseBodyDataAcceptedTrue IngestPlayerTelemetry202JSONResponseBodyDataAccepted = true
@@ -13124,6 +13139,15 @@ type DownloadPlayerVariantParams struct {
 	IfNoneMatch *string `json:"If-None-Match,omitempty"`
 }
 
+// GetPlayerLiveStreamSessionParams defines parameters for GetPlayerLiveStreamSession.
+type GetPlayerLiveStreamSessionParams struct {
+	// CaptureProfile Optional Watch Live capture profile supported by this Player. Omit it to retain the legacy 640x360 at 8 FPS profile.
+	CaptureProfile *GetPlayerLiveStreamSessionParamsCaptureProfile `form:"captureProfile,omitempty" json:"captureProfile,omitempty"`
+}
+
+// GetPlayerLiveStreamSessionParamsCaptureProfile defines parameters for GetPlayerLiveStreamSession.
+type GetPlayerLiveStreamSessionParamsCaptureProfile string
+
 // PlayerLivenessJSONBody defines parameters for PlayerLiveness.
 type PlayerLivenessJSONBody = map[string]interface{}
 
@@ -16893,7 +16917,7 @@ type ClientInterface interface {
 	// GetPlayerLiveStreamSession performs a GET /api/v1/player/live-stream-session (the `GetPlayerLiveStreamSession` operationId) request.
 	//
 	// Read the screen's current live stream session, if any. Requires an authenticated player credential.
-	GetPlayerLiveStreamSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetPlayerLiveStreamSession(ctx context.Context, params *GetPlayerLiveStreamSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PlayerLivenessWithBody performs a POST /api/v1/player/liveness (the `PlayerLiveness` operationId) request,
 	// with any type of body and a specified content type.
@@ -23185,8 +23209,8 @@ func (c *Client) PlayerHeartbeat(ctx context.Context, body PlayerHeartbeatJSONRe
 // GetPlayerLiveStreamSession performs a GET /api/v1/player/live-stream-session (the `GetPlayerLiveStreamSession` operationId) request.
 //
 // Read the screen's current live stream session, if any. Requires an authenticated player credential.
-func (c *Client) GetPlayerLiveStreamSession(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetPlayerLiveStreamSessionRequest(c.Server)
+func (c *Client) GetPlayerLiveStreamSession(ctx context.Context, params *GetPlayerLiveStreamSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetPlayerLiveStreamSessionRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -38486,7 +38510,7 @@ func NewPlayerHeartbeatRequestWithBody(server string, contentType string, body i
 }
 
 // NewGetPlayerLiveStreamSessionRequest constructs an http.Request for the GetPlayerLiveStreamSession method
-func NewGetPlayerLiveStreamSessionRequest(server string) (*http.Request, error) {
+func NewGetPlayerLiveStreamSessionRequest(server string, params *GetPlayerLiveStreamSessionParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -38502,6 +38526,33 @@ func NewGetPlayerLiveStreamSessionRequest(server string) (*http.Request, error) 
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if params.CaptureProfile != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "captureProfile", *params.CaptureProfile, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else {
+				for _, qp := range strings.Split(queryFrag, "&") {
+					rawQueryFragments = append(rawQueryFragments, qp)
+				}
+			}
+
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
 	}
 
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
@@ -49076,7 +49127,7 @@ type ClientWithResponsesInterface interface {
 	// Read the screen's current live stream session, if any. Requires an authenticated player credential.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	GetPlayerLiveStreamSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPlayerLiveStreamSessionResponse, error)
+	GetPlayerLiveStreamSessionWithResponse(ctx context.Context, params *GetPlayerLiveStreamSessionParams, reqEditors ...RequestEditorFn) (*GetPlayerLiveStreamSessionResponse, error)
 
 	// PlayerLivenessWithBodyWithResponse performs a POST /api/v1/player/liveness (the `PlayerLiveness` operationId) request,
 	// with any type of body and a specified content type.
@@ -72659,8 +72710,8 @@ func (c *ClientWithResponses) PlayerHeartbeatWithResponse(ctx context.Context, b
 // Read the screen's current live stream session, if any. Requires an authenticated player credential.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) GetPlayerLiveStreamSessionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetPlayerLiveStreamSessionResponse, error) {
-	rsp, err := c.GetPlayerLiveStreamSession(ctx, reqEditors...)
+func (c *ClientWithResponses) GetPlayerLiveStreamSessionWithResponse(ctx context.Context, params *GetPlayerLiveStreamSessionParams, reqEditors ...RequestEditorFn) (*GetPlayerLiveStreamSessionResponse, error) {
+	rsp, err := c.GetPlayerLiveStreamSession(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

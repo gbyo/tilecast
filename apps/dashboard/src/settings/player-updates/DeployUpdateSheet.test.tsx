@@ -102,10 +102,9 @@ describe("guided deployment", () => {
     await userEvent.click(
       await screen.findByRole("option", { name: /Main building/ }),
     );
-    expect(screen.getByRole("combobox")).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
+    expect(
+      screen.getByRole("button", { name: "Remove Main building" }),
+    ).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByText("2 screens selected")).toBeInTheDocument(),
     );

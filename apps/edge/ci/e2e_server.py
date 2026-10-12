@@ -16,7 +16,10 @@ Electron player's on-disk format, then checks that tilecastd:
    back in the ordinary heartbeat; and plays the committed Layout from its
    cache after a restart with the server stopped; with ``--web-helper`` a
    published Website layout also loads through the isolated remote web
-   helper and is reported back the same way;
+   helper and is reported back the same way; and checks that the Studio
+   preview and Watch Live frames show a playlist video zone under a
+   transparent overlay (the Beta 6 field failure: the video region was
+   black), and that the renderer read the presented WPE buffer to do so;
 4. deletes the credential only after the server says it was revoked.
 
 No Edge-specific server configuration or endpoint is involved: Edge 1 uses
@@ -43,6 +46,7 @@ import re
 import shutil
 import signal
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -51,6 +55,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+import zlib
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 EDGE = os.path.join(ROOT, "apps", "edge")
@@ -198,6 +203,123 @@ def read_mjpeg_frames(url, opener, want, timeout):
         if response is not None:
             response.close()
     return frames
+
+
+def png_with_alpha(width, height, opaque_columns, color):
+    """A width x height RGBA PNG whose left ``opaque_columns`` columns are the
+    opaque ``color`` and the rest fully transparent. The standard library
+    writes it, so the test needs no imaging package."""
+    def chunk(kind, body):
+        return (struct.pack(">I", len(body)) + kind + body
+                + struct.pack(">I", zlib.crc32(kind + body) & 0xFFFFFFFF))
+
+    row = b"\x00" + (bytes(color) + b"\xff") * opaque_columns + b"\x00\x00\x00\x00" * (width - opaque_columns)
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(row * height, 9)) + chunk(b"IEND", b""))
+
+
+def jpeg_size(jpeg):
+    """(width, height) from the first start-of-frame marker of a JPEG."""
+    index = 2
+    while index + 9 <= len(jpeg):
+        assert jpeg[index] == 0xFF, jpeg[index:index + 2]
+        marker = jpeg[index + 1]
+        if 0xC0 <= marker <= 0xC2:
+            return int.from_bytes(jpeg[index + 7:index + 9], "big"), int.from_bytes(jpeg[index + 5:index + 7], "big")
+        index += 2 + int.from_bytes(jpeg[index + 2:index + 4], "big")
+    raise AssertionError("a JPEG without a frame header")
+
+
+class Frame:
+    """A decoded RGB frame (``rgb`` is packed rgb24)."""
+
+    def __init__(self, width, height, rgb):
+        assert len(rgb) == width * height * 3, (len(rgb), width, height)
+        self.width, self.height, self.rgb = width, height, rgb
+
+    @classmethod
+    def from_jpeg(cls, ffmpeg, jpeg):
+        """FFmpeg, already required by this test for media, does the decoding."""
+        width, height = jpeg_size(jpeg)
+        rgb = subprocess.run(
+            [ffmpeg, "-loglevel", "error", "-f", "image2pipe", "-c:v", "mjpeg", "-i", "pipe:0", "-f", "rawvideo",
+             "-pix_fmt", "rgb24", "pipe:1"], input=jpeg, capture_output=True, check=True).stdout
+        return cls(width, height, rgb)
+
+    def pixels(self, box, step=2):
+        """Pixels of a box given as fractions of the frame (x0, y0, x1, y1)."""
+        x0, y0, x1, y1 = box
+        for y in range(int(y0 * self.height), int(y1 * self.height), step):
+            row = y * self.width * 3
+            for x in range(int(x0 * self.width), int(x1 * self.width), step):
+                yield x, self.rgb[row + x * 3], self.rgb[row + x * 3 + 1], self.rgb[row + x * 3 + 2]
+
+
+# The field Layout: a looping video zone under a transparent overlay. The
+# overlay's opaque strip covers the left quarter of the 1920x1080 canvas; the
+# exposed video is a flat sky-blue field with a white box that moves right
+# and wraps, so a frozen or missing video is distinguishable from a live one.
+OVERLAY_BOX = (0.02, 0.1, 0.21, 0.9)
+VIDEO_BOX = (0.30, 0.05, 0.98, 0.95)
+
+
+def is_overlay(r, g, b):
+    return r >= 215 and 70 <= g <= 150 and b <= 70
+
+
+def is_sky(r, g, b):
+    return r <= 80 and 110 <= g <= 215 and b >= 190
+
+
+def is_white(r, g, b):
+    return r >= 200 and g >= 200 and b >= 200
+
+
+def is_black(r, g, b):
+    return max(r, g, b) < 30
+
+
+def composition(frame):
+    """What a captured frame shows: how much of the overlay strip, of the
+    exposed sky-blue video, of black and of the moving white box it holds,
+    and the box's mean x position (None when the box is not in the frame)."""
+    overlay = [is_overlay(*p[1:]) for p in frame.pixels(OVERLAY_BOX)]
+    video = list(frame.pixels(VIDEO_BOX))
+    white = [p[0] for p in video if is_white(*p[1:])]
+    return {
+        "overlay": sum(overlay) / len(overlay),
+        "sky": sum(is_sky(*p[1:]) for p in video) / len(video),
+        "black": sum(is_black(*p[1:]) for p in video) / len(video),
+        "white": len(white) / len(video),
+        "box_x": sum(white) / len(white) if white else None,
+    }
+
+
+def assert_video_under_overlay(frame, what):
+    """The Beta 6 failure was a black rectangle where the video plays while
+    the overlay stayed visible. Both layers must be present, composited."""
+    result = composition(frame)
+    assert result["overlay"] >= 0.9, f"{what}: the overlay is missing: {result}"
+    assert result["black"] <= 0.05, f"{what}: the video region is black: {result}"
+    assert result["sky"] >= 0.8, f"{what}: the video region is not the video: {result}"
+    assert result["white"] >= 0.003, f"{what}: the moving box is missing from the video: {result}"
+    return result
+
+
+def renderer_log_since(path, since):
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        handle.seek(since)
+        return handle.read()
+
+
+def assert_presented_buffer_capture(renderer_log, since, what):
+    """The renderer says which backend it captured with when it changes. The
+    presented WPE buffer must be in use, never the WebKit snapshot fallback."""
+    text = renderer_log_since(renderer_log, since)
+    assert "preview: using presented WPE buffer" in text, f"{what}: no presented-buffer capture was logged:\n{text[-1500:]}"
+    assert "falling back to WebKit snapshot" not in text, f"{what}: the renderer fell back to a WebKit snapshot:\n{text[-1500:]}"
+    return next(line.strip() for line in text.splitlines() if "preview: using presented WPE buffer" in line)
 
 
 def item(asset_id, duration_ms=None):
@@ -587,6 +709,7 @@ def main():
 
         if args.renderer:
             daemon_log_path = os.path.join(work, "tilecastd.log")
+            renderer_log_path = os.path.join(work, "renderer.log")
             helper = None
             if args.web_helper:
                 helper = WebHelper(args.web_helper, web_root)
@@ -728,6 +851,57 @@ def main():
                 finally:
                     fixture.shutdown()
 
+            # The Beta 6 field failure: a Layout with a looping playlist video
+            # zone behind a transparent overlay played, but Studio showed the
+            # overlay over a black rectangle. Preview and Watch Live below
+            # check the frames' contents, not only that a JPEG arrived.
+            ffmpeg("-f", "lavfi", "-i", "color=c=0x00a0ff:size=1280x720:rate=30",
+                   "-f", "lavfi", "-i", "color=c=white:size=120x70:rate=30", "-t", "60",
+                   "-filter_complex", "[0][1]overlay=x=400+mod(t*150\\,400):y=300,format=yuv420p",
+                   "-c:v", "libx264", "-preset", "ultrafast", "-profile:v", "baseline", "-pix_fmt", "yuv420p",
+                   "-movflags", "+faststart", os.path.join(media, "field.mp4"))
+            with open(os.path.join(media, "overlay.png"), "wb") as handle:
+                handle.write(png_with_alpha(1920, 1080, 480, (255, 106, 0)))
+            field_video = upload(client, os.path.join(media, "field.mp4"), "video/mp4")
+            overlay = upload(client, os.path.join(media, "overlay.png"), "image/png")
+            _, field_playlist = client.call("POST", "/api/v1/playlists",
+                                            {"name": "Field video", "description": "", "sourceType": "static"},
+                                            expect=(200, 201))
+            field_playlist_id = field_playlist["data"]["id"]
+            _, field_playlist = client.call("POST", f"/api/v1/playlists/{field_playlist_id}/items",
+                                            item(field_video["id"]), expect=(200, 201))
+            client.call("POST", f"/api/v1/playlists/{field_playlist_id}/publish",
+                        {"expectedDraftRevision": field_playlist["data"]["draftRevision"]}, expect=(200, 201))
+            _, field_layout = client.call("POST", "/api/v1/layouts", {
+                "name": "Video under overlay", "description": "", "orientation": "landscape",
+                "canvasWidth": 1920, "canvasHeight": 1080}, expect=(200, 201))
+            field_layout_id = field_layout["data"]["id"]
+            field_document = {
+                "schemaVersion": 2,
+                "canvas": {"width": 1920, "height": 1080, "orientation": "landscape", "backgroundColor": "#000000",
+                           "safeAreaPercent": 0},
+                "placements": [
+                    {"id": str(uuid.uuid4()), "type": "playlistZone", "name": "Video zone", "x": 0, "y": 0,
+                     "width": 1920, "height": 1080, "layer": 1, "opacity": 1, "visible": True, "locked": False,
+                     "playlistId": field_playlist_id, "playback": {"fit": "cover", "muted": True, "loop": True}},
+                    {"id": str(uuid.uuid4()), "type": "asset", "name": "Directional overlay", "x": 0, "y": 0,
+                     "width": 1920, "height": 1080, "layer": 2, "opacity": 1, "visible": True, "locked": False,
+                     "assetId": overlay["id"], "playback": {"fit": "stretch"}}]}
+            _, field_layout = client.call("PUT", f"/api/v1/layouts/{field_layout_id}/draft",
+                                          {"expectedDraftRevision": field_layout["data"]["draftRevision"],
+                                           "document": field_document}, expect=200)
+            client.call("POST", f"/api/v1/layouts/{field_layout_id}/publish",
+                        {"expectedDraftRevision": field_layout["data"]["draftRevision"]}, expect=(200, 201))
+            mark = os.path.getsize(daemon_log_path)
+            capture_mark = os.path.getsize(renderer_log_path)
+            _, assignment = client.call("PUT", f"/api/v1/screens/{screen_id}/playlist-assignment",
+                                        {"layoutId": field_layout_id}, expect=200)
+            field_version = assignment["data"]["manifestVersion"]
+            wait_for(lambda: evidence(daemon_log_path, mark, ("layout_shown", "layout_zone_rendered", "video_progress")),
+                     "video-zone layout evidence", timeout=240)
+            wait_for(lambda: reported(field_version), "the heartbeat to report the video-zone layout", timeout=150)
+            print("video zone: manifest", field_version, "playing under a transparent overlay")
+
             # Studio live preview: a lease makes Edge ask the renderer for a
             # snapshot and upload the bounded JPEG it encodes.
             client.call("POST", f"/api/v1/screens/{screen_id}/preview-session", {"forceCapture": True}, expect=200)
@@ -747,6 +921,10 @@ def main():
             assert jpeg[:3] == b"\xff\xd8\xff" and jpeg[-2:] == b"\xff\xd9", jpeg[:8]
             assert len(jpeg) == preview["fileSize"] <= 500 * 1024, (len(jpeg), preview)
             print("preview:", f"{preview['width']}x{preview['height']} JPEG of {len(jpeg)} bytes from the renderer")
+            preview_frame = Frame.from_jpeg(tools["ffmpeg"], jpeg)
+            assert (preview_frame.width, preview_frame.height) == (preview["width"], preview["height"]), preview
+            print("preview content:", assert_video_under_overlay(preview_frame, "the Studio preview"))
+            print("preview backend:", assert_presented_buffer_capture(renderer_log_path, capture_mark, "the Studio preview"))
 
             # Studio Watch Live: a lease makes Edge reconcile the
             # live-stream session and send bounded TCLS frames on its
@@ -766,12 +944,24 @@ def main():
             try:
                 live_frames = read_mjpeg_frames(
                     f"{BASE}/api/v1/screens/{screen_id}/live-stream/{live_id}/mjpeg",
-                    client.opener, want=3, timeout=60)
+                    client.opener, want=16, timeout=90)
             finally:
                 stop_renew.set()
                 renewer.join(timeout=10)
-            assert len(live_frames) >= 3, f"only {len(live_frames)} live frames arrived"
+            assert len(live_frames) >= 16, f"only {len(live_frames)} live frames arrived"
             print("live:", f"{len(live_frames)} bounded JPEG frames from the renderer")
+            # Every frame shows the video under the overlay, and the video
+            # moves: a frozen overlay or background would repeat one position.
+            positions = []
+            for index, live_jpeg in enumerate(live_frames):
+                live_frame = Frame.from_jpeg(tools["ffmpeg"], live_jpeg)
+                assert (live_frame.width, live_frame.height) == (960, 540), (live_frame.width, live_frame.height)
+                positions.append(assert_video_under_overlay(live_frame, f"Watch Live frame {index}")["box_x"])
+            assert max(positions) - min(positions) >= 20, f"the video did not move in Watch Live: {positions}"
+            assert len({round(position) for position in positions}) >= 3, positions
+            assert len(set(live_frames)) >= 3, "Watch Live repeated one frame"
+            print("live content: the video moves under the overlay in every frame", [round(p) for p in positions])
+            print("live backend:", assert_presented_buffer_capture(renderer_log_path, capture_mark, "Watch Live"))
             client.call("DELETE", f"/api/v1/screens/{screen_id}/live-stream/{live_id}", expect=204)
             status, _ = client.call("GET", f"/api/v1/screens/{screen_id}/live-stream/{live_id}/mjpeg")
             assert status == 404, f"the ended session still streams: {status}"

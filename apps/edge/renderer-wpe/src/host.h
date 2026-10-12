@@ -136,6 +136,13 @@ void tc_protocol_send_health (TcHost *host, const char *state, const char *reaso
 
 /* preview.c: answers preview.request with a bounded JPEG of the view. */
 void tc_preview_capture (TcHost *host, JsonObject *data);
+/* Follows the buffers the view presents, so a capture shows what the display
+ * shows (HTML video included). Attach once, before the first frame. */
+void tc_preview_attach_view (TcHost *host, WPEView *view);
+/* Drops the retained buffer, for example after the web process died. */
+void tc_preview_clear_presented_buffer (TcHost *host);
+/* Disconnects from the view and drops the retained buffer. */
+void tc_preview_detach_view (TcHost *host);
 
 /* drm-probe.c: --probe-drm. Prints one JSON object; returns the exit status. */
 int tc_drm_probe (const char *dri_dir);

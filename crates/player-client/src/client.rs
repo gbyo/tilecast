@@ -712,11 +712,19 @@ impl AuthenticatedServer {
     /// lease. An inactive, expired, malformed, or incomplete session fails
     /// closed to no streaming rather than affecting playback.
     pub async fn live_stream_session(&self) -> Result<crate::live_stream::LiveStreamSession, ServerError> {
-        let response = self
-            .request(reqwest::Method::GET, "/api/v1/player/live-stream-session")
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+        self.live_stream_session_with_profile(false).await
+    }
+
+    pub async fn live_stream_session_with_profile(
+        &self,
+        edge_540p10: bool,
+    ) -> Result<crate::live_stream::LiveStreamSession, ServerError> {
+        let path = if edge_540p10 {
+            "/api/v1/player/live-stream-session?captureProfile=edge-540p10"
+        } else {
+            "/api/v1/player/live-stream-session"
+        };
+        let response = self.request(reqwest::Method::GET, path).send().await.map_err(|_| ServerError::Network)?;
         let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
         Ok(crate::live_stream::live_stream_session(&data))
     }

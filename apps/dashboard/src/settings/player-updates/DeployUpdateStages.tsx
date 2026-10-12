@@ -15,14 +15,24 @@ import { Alert, AlertTitle, AlertDescription } from "../../components/ui/alert";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../components/ui/card";
+import {
   Combobox,
-  ComboboxInput,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
   ComboboxContent,
-  ComboboxList,
-  ComboboxItem,
-  ComboboxGroup,
-  ComboboxLabel,
   ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxItem,
+  ComboboxLabel,
+  ComboboxList,
+  ComboboxValue,
+  useComboboxAnchor,
 } from "../../components/ui/combobox";
 import {
   Field,
@@ -36,7 +46,6 @@ import {
 } from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
-import { ScrollArea } from "../../components/ui/scroll-area";
 import { Switch } from "../../components/ui/switch";
 import { Spinner } from "../../components/ui/spinner";
 import { artifactIdentity, deployable, modeLabel } from "./model";
@@ -58,7 +67,32 @@ export function DeployStageIntro({
   const { t } = useTranslation(["settings", "common"]);
   return (
     <>
-      <h2 className="text-sm font-semibold">
+      <ol
+        className="grid grid-cols-3 gap-2"
+        aria-label={t("updates.panel.deployAction")}
+      >
+        {(["release", "targets", "rollout"] as const).map((key, index) => (
+          <li
+            key={key}
+            className={`rounded-lg border px-3 py-3 ${
+              stage === index + 1
+                ? "border-primary bg-accent"
+                : stage > index + 1
+                  ? "border-primary/40"
+                  : "border-border"
+            }`}
+            aria-current={stage === index + 1 ? "step" : undefined}
+          >
+            <span className="block text-xs font-medium text-muted-foreground">
+              {index + 1}
+            </span>
+            <span className="text-sm font-semibold">
+              {t(`updates.console.steps.${key}`)}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <h2 className="text-lg font-semibold">
         {t(`updates.console.steps.${stageKey}`)}
       </h2>
       <p className="text-sm text-muted-foreground">
@@ -103,40 +137,48 @@ export function DeployReleaseStage({
         aria-label={t("updates.panel.releaseLabel")}
       >
         {releases.map((release) => (
-          <Field
+          <Card
             key={release.id}
-            orientation="horizontal"
-            className="gap-3 border-b pb-3"
+            size="sm"
+            className={
+              releaseId === release.id
+                ? "ring-2 ring-primary/50"
+                : "transition-colors hover:bg-accent/20"
+            }
           >
-            <RadioGroupItem
-              id={`release-${release.id}`}
-              aria-label={`${release.versionName} · ${artifactIdentity(release, t)} · ${release.channel === "beta" ? t("updates.panel.channelBeta") : t("updates.panel.channelStable")}`}
-              value={release.id}
-              disabled={!deployable(release)}
-            />
-            <FieldContent>
-              <FieldLabel
-                htmlFor={`release-${release.id}`}
-                className="flex flex-wrap gap-2"
-              >
-                {release.versionName}
-                <Badge variant="outline">
-                  {release.channel === "beta"
-                    ? t("updates.panel.channelBeta")
-                    : t("updates.panel.channelStable")}
-                </Badge>
-                <span className="basis-full text-sm font-medium">
-                  {artifactIdentity(release, t)}
-                </span>
-              </FieldLabel>
-              <FieldDescription>
-                {formatBytes(release.apkSizeBytes, locale)} ·{" "}
-                {new Date(release.publishedAt).toLocaleDateString(locale)}
-                {!deployable(release) &&
-                  ` · ${t("updates.console.prepareFirst")}`}
-              </FieldDescription>
-            </FieldContent>
-          </Field>
+            <CardContent>
+              <Field orientation="horizontal" className="gap-3">
+                <RadioGroupItem
+                  id={`release-${release.id}`}
+                  aria-label={`${release.versionName} · ${artifactIdentity(release, t)} · ${release.channel === "beta" ? t("updates.panel.channelBeta") : t("updates.panel.channelStable")}`}
+                  value={release.id}
+                  disabled={!deployable(release)}
+                />
+                <FieldContent>
+                  <FieldLabel
+                    htmlFor={`release-${release.id}`}
+                    className="flex flex-wrap gap-2"
+                  >
+                    {release.versionName}
+                    <Badge variant="outline">
+                      {release.channel === "beta"
+                        ? t("updates.panel.channelBeta")
+                        : t("updates.panel.channelStable")}
+                    </Badge>
+                    <span className="basis-full text-sm font-medium">
+                      {artifactIdentity(release, t)}
+                    </span>
+                  </FieldLabel>
+                  <FieldDescription>
+                    {formatBytes(release.apkSizeBytes, locale)} ·{" "}
+                    {new Date(release.publishedAt).toLocaleDateString(locale)}
+                    {!deployable(release) &&
+                      ` · ${t("updates.console.prepareFirst")}`}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+            </CardContent>
+          </Card>
         ))}
       </RadioGroup>
     </FieldSet>
@@ -176,6 +218,7 @@ export function DeployTargetStage({
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const normalizedSearch = search.toLowerCase();
+  const targetAnchor = useComboboxAnchor();
   const screenById = useMemo(
     () => new Map(screens.map((screen) => [screen.id, screen])),
     [screens],
@@ -214,11 +257,31 @@ export function DeployTargetStage({
           inputValue={search}
           onInputValueChange={onSearchChange}
         >
-          <ComboboxInput
-            id="update-target-search"
-            placeholder={t("updates.panel.searchPlaceholder")}
-          />
-          <ComboboxContent>
+          <ComboboxChips ref={targetAnchor}>
+            <ComboboxValue>
+              {(value: TargetChoice[]) =>
+                value.map((item) => (
+                  <ComboboxChip
+                    key={`${item.type}-${item.value}`}
+                    removeLabel={t("updates.console.removeTarget", {
+                      name: item.label,
+                    })}
+                  >
+                    {item.label}
+                  </ComboboxChip>
+                ))
+              }
+            </ComboboxValue>
+            <ComboboxChipsInput
+              id="update-target-search"
+              placeholder={
+                selected.length
+                  ? undefined
+                  : t("updates.panel.searchPlaceholder")
+              }
+            />
+          </ComboboxChips>
+          <ComboboxContent anchor={targetAnchor}>
             <ComboboxEmpty>{t("updates.console.noTargetMatch")}</ComboboxEmpty>
             <ComboboxList>
               {(["screen", "group"] as const).map((type) => (
@@ -271,10 +334,6 @@ export function DeployTargetStage({
               count: result?.targetCount ?? 0,
             })}
       </p>
-      <SelectedTargets
-        selected={selected}
-        onSelectedChange={onSelectedChange}
-      />
     </>
   );
 }
@@ -336,45 +395,6 @@ function TargetChoiceRow({
         )}
       </div>
     </ComboboxItem>
-  );
-}
-
-function SelectedTargets({
-  selected,
-  onSelectedChange,
-}: {
-  selected: TargetChoice[];
-  onSelectedChange: (value: TargetChoice[]) => void;
-}) {
-  const { t } = useTranslation(["settings", "common"]);
-  if (!selected.length) return null;
-  return (
-    <ScrollArea className="max-h-32">
-      <div className="grid gap-1">
-        {selected.map((item) => (
-          <div
-            key={`${item.type}-${item.value}`}
-            className="flex items-center justify-between gap-2 text-sm"
-          >
-            <span>{item.label}</span>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label={t("updates.console.removeTarget", {
-                name: item.label,
-              })}
-              onClick={() =>
-                onSelectedChange(
-                  selected.filter((candidate) => candidate !== item),
-                )
-              }
-            >
-              {t("common:actions.remove")}
-            </Button>
-          </div>
-        ))}
-      </div>
-    </ScrollArea>
   );
 }
 
@@ -567,29 +587,28 @@ function RolloutReview({
   const { t } = useTranslation(["settings", "common"]);
   const locale = useFormatLocale();
   return (
-    <section
-      className="grid gap-1 border-t pt-4"
-      aria-label={t("updates.console.review")}
-    >
-      <h3 className="mb-1 text-sm font-semibold">
-        {t("updates.console.review")}
-      </h3>
-      <strong className="text-sm">{release?.versionName}</strong>
-      <p className="text-sm">{release && artifactIdentity(release, t)}</p>
-      <p className="text-sm">
-        {t("updates.console.targetCount", {
-          count: result?.targetCount ?? 0,
-        })}{" "}
-        · {modeLabel(mode, t)}
-        {canary &&
-          ` · ${t("updates.console.canarySummary", { count: canarySize })}`}
-      </p>
-      {mode === "maintenance_window" && windowStart && (
+    <Card size="sm" role="region" aria-label={t("updates.console.review")}>
+      <CardHeader>
+        <CardTitle>{t("updates.console.review")}</CardTitle>
+      </CardHeader>
+      <CardContent className="gap-1">
+        <strong className="text-sm">{release?.versionName}</strong>
+        <p className="text-sm">{release && artifactIdentity(release, t)}</p>
         <p className="text-sm">
-          {new Date(windowStart).toLocaleString(locale)}
+          {t("updates.console.targetCount", {
+            count: result?.targetCount ?? 0,
+          })}{" "}
+          · {modeLabel(mode, t)}
+          {canary &&
+            ` · ${t("updates.console.canarySummary", { count: canarySize })}`}
         </p>
-      )}
-    </section>
+        {mode === "maintenance_window" && windowStart && (
+          <p className="text-sm">
+            {new Date(windowStart).toLocaleString(locale)}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

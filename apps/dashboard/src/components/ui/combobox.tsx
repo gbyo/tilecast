@@ -241,9 +241,11 @@ function ComboboxChip({
   className,
   children,
   showRemove = true,
+  removeLabel,
   ...props
 }: ComboboxPrimitive.Chip.Props & {
   showRemove?: boolean;
+  removeLabel?: string;
 }) {
   const { t } = useTranslation("common");
   return (
@@ -263,7 +265,7 @@ function ComboboxChip({
           data-slot="combobox-chip-remove"
         >
           <XIcon className="pointer-events-none" />
-          <span className="sr-only">{t("actions.remove")}</span>
+          <span className="sr-only">{removeLabel ?? t("actions.remove")}</span>
         </ComboboxPrimitive.ChipRemove>
       )}
     </ComboboxPrimitive.Chip>

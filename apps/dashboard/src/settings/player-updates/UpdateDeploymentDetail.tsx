@@ -360,7 +360,7 @@ function DeploymentScreenRows({ state }: { state: UpdateDeploymentState }) {
                   </div>
                 )}
               </ItemContent>
-              {state.manageable && item.state === "failed" && (
+              {state.manageable && state.active && item.state === "failed" && (
                 <ItemActions>
                   <Button
                     variant="outline"

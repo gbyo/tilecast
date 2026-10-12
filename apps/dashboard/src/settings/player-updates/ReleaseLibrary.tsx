@@ -77,7 +77,7 @@ export function ReleaseLibrary({
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-5">
       <ReleaseLibraryHeader
         catalog={catalog}
         owner={owner}

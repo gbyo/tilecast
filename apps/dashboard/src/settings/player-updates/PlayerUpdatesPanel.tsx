@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -37,7 +37,13 @@ import {
   TabsTrigger,
   TabsContent,
 } from "../../components/ui/tabs";
-import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 import { Spinner } from "../../components/ui/spinner";
 import { toast } from "../../components/ui/toast";
 import { DeploymentList } from "./DeploymentList";
@@ -143,6 +149,7 @@ function PlayerUpdatesWorkspace({
       return;
     setDeploymentId(id);
   }
+  const inventoryError = screens.error ?? groups.error;
   function changeFamily(value: string) {
     if (!value || value === family) return;
     const next = new URLSearchParams(params);
@@ -151,27 +158,37 @@ function PlayerUpdatesWorkspace({
     setParams(next);
   }
   return (
-    <div className="grid min-w-0 gap-4">
-      <PlayerUpdatesToolbar
-        family={family}
-        fleetCount={familyScreens.length}
-        manageable={manageable}
-        owner={owner}
-        inventoryReady={!!screens.data && !!groups.data}
-        inventoryError={screens.error ?? groups.error}
-        syncPending={sync.isPending}
-        onDeploy={() => setDraft({})}
-        onSync={() => sync.mutate()}
-        onUpload={() => setUpload(true)}
-        onConfigure={() => setSource(true)}
-        onRetryInventory={() => {
-          void screens.refetch();
-          void groups.refetch();
-        }}
-      />
-      <PlayerFamilySwitch family={family} onChange={changeFamily} />
+    <div className="grid min-w-0 gap-6">
+      {manageable && inventoryError && (
+        <InventoryAlert
+          error={inventoryError}
+          onRetry={() => {
+            void screens.refetch();
+            void groups.refetch();
+          }}
+        />
+      )}
       <PlayerUpdatesTabs
         view={view}
+        actions={
+          <PlayerUpdateActions
+            manageable={manageable}
+            owner={owner}
+            inventoryReady={!!screens.data && !!groups.data}
+            syncPending={sync.isPending}
+            onDeploy={() => setDraft({})}
+            onSync={() => sync.mutate()}
+            onUpload={() => setUpload(true)}
+            onConfigure={() => setSource(true)}
+          />
+        }
+        familySwitch={
+          <PlayerFamilySwitch
+            family={family}
+            fleetCount={familyScreens.length}
+            onChange={changeFamily}
+          />
+        }
         deploymentsPending={deployments.isPending}
         deploymentsError={deployments.error}
         deploymentsReady={!!deployments.data}
@@ -223,122 +240,133 @@ function PlayerUpdatesWorkspace({
   );
 }
 
-function PlayerUpdatesToolbar({
-  family,
-  fleetCount,
+function PlayerUpdateActions({
   manageable,
   owner,
   inventoryReady,
-  inventoryError,
   syncPending,
   onDeploy,
   onSync,
   onUpload,
   onConfigure,
-  onRetryInventory,
 }: {
-  family: UpdateFamilyTab;
-  fleetCount: number;
   manageable: boolean;
   owner: boolean;
   inventoryReady: boolean;
-  inventoryError: unknown;
   syncPending: boolean;
   onDeploy: () => void;
   onSync: () => void;
   onUpload: () => void;
   onConfigure: () => void;
-  onRetryInventory: () => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   return (
-    <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {familyLabel(family, t)} ·{" "}
-          {t("updates.console.fleetCount", { count: fleetCount })}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {manageable && (
-            <Button disabled={!inventoryReady} onClick={onDeploy}>
-              <Rocket aria-hidden="true" />
-              {t("updates.panel.deployAction")}
-            </Button>
-          )}
-          {owner && (
-            <Button variant="outline" disabled={syncPending} onClick={onSync}>
-              {syncPending ? <Spinner /> : <RefreshCw aria-hidden="true" />}
-              {t("updates.console.sync")}
-            </Button>
-          )}
-          {owner && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t("updates.console.more")}
-                  />
-                }
-              >
-                <MoreHorizontal aria-hidden="true" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onUpload}>
-                  <Upload aria-hidden="true" />
-                  {t("updates.panel.uploadRelease")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={onConfigure}>
-                  {t("updates.console.configureSource")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
-      {manageable && inventoryError && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {apiErrorMessage(inventoryError)}
-            <Button variant="outline" size="sm" onClick={onRetryInventory}>
-              {t("common:actions.retry")}
-            </Button>
-          </AlertDescription>
-        </Alert>
+    <div className="flex flex-wrap items-center gap-2 pb-2">
+      {manageable && (
+        <Button disabled={!inventoryReady} onClick={onDeploy}>
+          <Rocket aria-hidden="true" />
+          {t("updates.panel.deployAction")}
+        </Button>
       )}
-    </>
+      {owner && (
+        <Button variant="outline" disabled={syncPending} onClick={onSync}>
+          {syncPending ? <Spinner /> : <RefreshCw aria-hidden="true" />}
+          {t("updates.console.sync")}
+        </Button>
+      )}
+      {owner && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={t("updates.console.more")}
+              />
+            }
+          >
+            <MoreHorizontal aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onUpload}>
+              <Upload aria-hidden="true" />
+              {t("updates.panel.uploadRelease")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onConfigure}>
+              {t("updates.console.configureSource")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+}
+
+function InventoryAlert({
+  error,
+  onRetry,
+}: {
+  error: unknown;
+  onRetry: () => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>
+        {apiErrorMessage(error)}
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          {t("common:actions.retry")}
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 }
 
 function PlayerFamilySwitch({
   family,
+  fleetCount,
   onChange,
 }: {
   family: UpdateFamilyTab;
+  fleetCount: number;
   onChange: (value: string) => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   return (
-    <ToggleGroup
-      aria-label={t("updates.console.playerFamily")}
-      value={[family]}
-      onValueChange={(values) => onChange(values[0] ?? "")}
-      variant="outline"
-      spacing={1}
-      className="flex flex-wrap justify-start"
-    >
-      {families.map((value) => (
-        <ToggleGroupItem key={value} value={value}>
-          {familyLabel(value, t)}
-        </ToggleGroupItem>
-      ))}
-    </ToggleGroup>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+      <p className="text-sm text-muted-foreground">
+        {t("updates.console.fleetCount", { count: fleetCount })}
+      </p>
+      <Select
+        items={families.map((value) => ({
+          value,
+          label: familyLabel(value, t),
+        }))}
+        value={family}
+        onValueChange={(value) => onChange(value ?? "")}
+      >
+        <SelectTrigger
+          aria-label={t("updates.console.playerFamily")}
+          className="min-w-44"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="end">
+          {families.map((value) => (
+            <SelectItem key={value} value={value}>
+              {familyLabel(value, t)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
 function PlayerUpdatesTabs({
   view,
+  actions,
+  familySwitch,
   deploymentsPending,
   deploymentsError,
   deploymentsReady,
@@ -358,6 +386,8 @@ function PlayerUpdatesTabs({
   onConfigure,
 }: {
   view: "deployments" | "releases";
+  actions: ReactNode;
+  familySwitch: ReactNode;
   deploymentsPending: boolean;
   deploymentsError: unknown;
   deploymentsReady: boolean;
@@ -383,18 +413,21 @@ function PlayerUpdatesTabs({
       onValueChange={(value) => onViewChange(String(value))}
       className="gap-4"
     >
-      <TabsList
-        variant="line"
-        aria-label={t("updates.console.workspaceViews")}
-        className="mb-1"
-      >
-        <TabsTrigger value="deployments">
-          {t("updates.console.deployments")}
-        </TabsTrigger>
-        <TabsTrigger value="releases">
-          {t("updates.console.releases")}
-        </TabsTrigger>
-      </TabsList>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b">
+        <TabsList
+          variant="line"
+          aria-label={t("updates.console.workspaceViews")}
+        >
+          <TabsTrigger value="deployments">
+            {t("updates.console.deployments")}
+          </TabsTrigger>
+          <TabsTrigger value="releases">
+            {t("updates.console.releases")}
+          </TabsTrigger>
+        </TabsList>
+        {actions}
+      </div>
+      {familySwitch}
       <TabsContent value="deployments">
         {deploymentsPending ? (
           <LoadingRows />
