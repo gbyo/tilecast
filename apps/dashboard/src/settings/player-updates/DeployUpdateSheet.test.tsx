@@ -1,13 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
-import {
-  render,
-  screen,
-  cleanup,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { render, screen, cleanup, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -22,10 +16,10 @@ function mount(preselected?: string, releaseItems = releases) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  const view = (items: typeof releaseItems) => (
+  render(
     <QueryClientProvider client={client}>
       <DeployUpdateSheet
-        releases={items}
+        releases={releaseItems}
         screens={fleet}
         groups={groups}
         initialFamily="edge"
@@ -33,14 +27,8 @@ function mount(preselected?: string, releaseItems = releases) {
         onClose={() => {}}
         onCreated={created}
       />
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
-  const rendered = render(view(releaseItems));
-  return {
-    ...rendered,
-    rerenderReleases: (items: typeof releaseItems) =>
-      rendered.rerender(view(items)),
-  };
 }
 beforeEach(() => {
   created = vi.fn();
@@ -82,38 +70,33 @@ describe("guided deployment", () => {
   it("requires a concrete artifact, distinguishes architectures, and preserves valid Back state", async () => {
     mount();
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-    await userEvent.click(screen.getByRole("combobox", { name: "Version" }));
     await userEvent.click(
-      await screen.findByRole("option", { name: /0.26.0-beta.6/ }),
+      screen.getByRole("radio", { name: /0.26.0-beta.6/ }),
     );
     expect(
       screen.getByRole("radio", {
-        name: "Intel / AMD 64-bit (x86_64)",
+        name: /Intel \/ AMD 64-bit · x86_64/,
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("radio", { name: "ARM64 (aarch64)" }),
+      screen.getByRole("radio", { name: /ARM64 · aarch64/ }),
     ).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("radio", {
-        name: "Intel / AMD 64-bit (x86_64)",
+        name: /Intel \/ AMD 64-bit · x86_64/,
       }),
     );
     await goTargets();
     await selectEligible();
     expect(screen.getByText("2 screens selected")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-    expect(
-      within(screen.getByRole("dialog")).getByText("3", {
-        selector: '[aria-current="step"]',
-      }),
-    ).toBeInTheDocument();
+    expect(screen.getByText("3 of 3 — Rollout")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByText("2 screens selected")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(
       screen.getByRole("radio", {
-        name: "Intel / AMD 64-bit (x86_64)",
+        name: /Intel \/ AMD 64-bit · x86_64/,
       }),
     ).toHaveAttribute("aria-checked", "true");
   });
@@ -127,29 +110,33 @@ describe("guided deployment", () => {
       id: cold.id,
       cacheStatus: "downloading",
     });
-
-    const view = mount("r1", [cold]);
-    expect(screen.getByRole("button", { name: "Prepare build" })).toBeEnabled();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Prepare build" }),
-    );
-    await waitFor(() =>
-      expect(api.cachePlayerRelease).toHaveBeenCalledWith("r1", "csrf"),
-    );
-    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
-
-    view.rerenderReleases([
-      {
-        ...cold,
-        cacheStatus: "cached",
-        verificationStatus: "verified",
+    vi.spyOn(api, "playerReleases").mockResolvedValue({
+      repository: "Gibsonmb71/tilecast",
+      manifestKeyConfigured: true,
+      githubAuth: {
+        available: true,
+        connected: false,
+        source: "anonymous",
+        canDisconnect: false,
       },
-    ]);
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled(),
+      items: [
+        {
+          ...cold,
+          cacheStatus: "cached",
+          verificationStatus: "verified",
+        },
+      ],
+    });
+
+    mount("r1", [cold]);
+    expect(
+      screen.getByRole("button", { name: "Prepare & continue" }),
+    ).toBeEnabled();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Prepare & continue" }),
     );
-    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("combobox");
+    await screen.findByRole("combobox", { name: /targets/i });
+    expect(api.cachePlayerRelease).toHaveBeenCalledWith("r1", "csrf");
     expect(screen.getByText(/0.26.0-beta.6/)).toBeInTheDocument();
   });
 
@@ -211,10 +198,7 @@ describe("guided deployment", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("combobox", { name: "Deployment mode" }),
-    );
-    await userEvent.click(
-      await screen.findByRole("option", { name: "Maintenance window" }),
+      screen.getByRole("radio", { name: "Maintenance window" }),
     );
     expect(
       screen.getByText("Choose a future date and time."),
@@ -222,18 +206,10 @@ describe("guided deployment", () => {
     expect(
       screen.getByRole("button", { name: "Deploy update" }),
     ).toBeDisabled();
-    await userEvent.click(
-      screen.getByRole("combobox", { name: "Deployment mode" }),
-    );
-    await userEvent.click(
-      await screen.findByRole("option", { name: "Install now" }),
-    );
+    await userEvent.click(screen.getByRole("radio", { name: "Install now" }));
     expect(
       screen.queryByText("Choose a future date and time."),
     ).not.toBeInTheDocument();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Rollout safeguards" }),
-    );
     await userEvent.click(
       screen.getByRole("switch", { name: "Canary rollout" }),
     );
@@ -242,9 +218,7 @@ describe("guided deployment", () => {
     ).toHaveValue(1);
     const summary = screen.getByRole("region", { name: "Deployment review" });
     expect(summary).toHaveTextContent(release.versionName);
-    expect(summary).toHaveTextContent(
-      "Tilecast Edge · Intel / AMD 64-bit (x86_64)",
-    );
+    expect(summary).toHaveTextContent("Tilecast Edge · x86_64");
     expect(summary).toHaveTextContent(
       "2 screens · Install now · 1 canary screen",
     );

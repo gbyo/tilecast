@@ -65,6 +65,7 @@ export function ReleaseLibrary({
   manageable,
   syncError,
   onDeploy,
+  onConfigure,
 }: {
   items: PlayerRelease[];
   catalog?: PlayerReleaseList;
@@ -72,6 +73,7 @@ export function ReleaseLibrary({
   manageable: boolean;
   syncError?: unknown;
   onDeploy: (id: string) => void;
+  onConfigure: () => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const locale = useFormatLocale();
@@ -318,16 +320,28 @@ export function ReleaseLibrary({
   }
   return (
     <div className="grid gap-5">
-      <p className="text-xs text-muted-foreground">
-        {t("updates.panel.sourceGitHub")} ·{" "}
-        {github?.connected
-          ? github.login
-            ? t("updates.panel.authorizedAs", { login: github.login })
-            : t("updates.panel.authorizedToken")
-          : t("updates.panel.anonymous")}
-        {catalog?.lastCheckedAt &&
-          ` · ${t("updates.console.checked", { time: relativeTime(catalog.lastCheckedAt, t) })}`}
-      </p>
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold">
+            {t("updates.console.releaseLibrary")}
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("updates.panel.sourceGitHub")} ·{" "}
+            {github?.connected
+              ? github.login
+                ? t("updates.panel.authorizedAs", { login: github.login })
+                : t("updates.panel.authorizedToken")
+              : t("updates.panel.anonymous")}
+            {catalog?.lastCheckedAt &&
+              ` · ${t("updates.console.checked", { time: relativeTime(catalog.lastCheckedAt, t) })}`}
+          </p>
+        </div>
+        {owner && (
+          <Button variant="ghost" size="sm" onClick={onConfigure}>
+            {t("updates.console.configureSource")}
+          </Button>
+        )}
+      </header>
       {(syncError || catalog?.providerError) && (
         <Alert variant="destructive">
           <AlertTitle>{t("updates.panel.syncErrorTitle")}</AlertTitle>
@@ -361,7 +375,9 @@ export function ReleaseLibrary({
                       <Button
                         variant="link"
                         className="h-auto p-0 text-base font-semibold"
-                        onClick={() => setDetailIds(variants.map((r) => r.id))}
+                        onClick={() =>
+                          setDetailIds(variants.map((r) => r.id))
+                        }
                       >
                         {release.versionName}
                       </Button>

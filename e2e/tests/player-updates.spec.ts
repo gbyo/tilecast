@@ -13,23 +13,23 @@ test("Player Updates preserves its family and view through browser navigation", 
     page.getByRole("tab", { name: "Deployments", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   const family = page.getByRole("combobox", {
-    name: "Player type",
+    name: "Player family",
     exact: true,
   });
   await expect(family).toBeVisible();
-  await page.getByRole("tab", { name: "Release catalog", exact: true }).click();
+  await page.getByRole("tab", { name: "Releases", exact: true }).click();
   await family.click();
-  await page.getByRole("option", { name: /Windows/ }).click();
+  await page.getByRole("option", { name: "Windows", exact: true }).click();
   await expect(page).toHaveURL(
     /platform=windows.*keep=bookmark.*view=releases/,
   );
   await page.goBack();
   await expect(
-    page.getByRole("combobox", { name: "Player type", exact: true }),
+    page.getByRole("combobox", { name: "Player family", exact: true }),
   ).toContainText("Tilecast Edge");
   await page.reload();
   await expect(
-    page.getByRole("tab", { name: "Release catalog", exact: true }),
+    page.getByRole("tab", { name: "Releases", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await page.goBack();
   await expect(
@@ -59,14 +59,10 @@ for (const viewport of [
       exact: true,
     });
     await expect(dialog).toBeVisible();
-    await expect(dialog.locator('[aria-current="step"]')).toHaveText("1");
-    await expect(dialog.getByText("Update", { exact: true })).toBeVisible();
+    await expect(dialog).toContainText("1 of 3 — Release");
     await expect(
-      dialog.getByRole("combobox", { name: "Player type", exact: true }),
-    ).toBeVisible();
-    // The demo catalog is synced from GitHub, so the dialog may show its
-    // empty-catalog alert instead of a Version picker; the field renders either way.
-    await expect(dialog.getByText("Version", { exact: true })).toBeVisible();
+      dialog.getByRole("button", { name: "Continue", exact: true }),
+    ).toBeDisabled();
     await expect(
       dialog.getByRole("button", { name: "Cancel", exact: true }),
     ).toBeInViewport();
