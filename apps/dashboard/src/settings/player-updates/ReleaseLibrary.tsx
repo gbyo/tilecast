@@ -49,6 +49,7 @@ import { Spinner } from "../../components/ui/spinner";
 import { toast } from "../../components/ui/toast";
 import { UpdateSurface } from "./UpdateSurface";
 import {
+  architectureLabel,
   artifactIdentity,
   deployable,
   groupReleases,
@@ -64,7 +65,6 @@ export function ReleaseLibrary({
   manageable,
   syncError,
   onDeploy,
-  onConfigure,
 }: {
   items: PlayerRelease[];
   catalog?: PlayerReleaseList;
@@ -72,7 +72,6 @@ export function ReleaseLibrary({
   manageable: boolean;
   syncError?: unknown;
   onDeploy: (id: string) => void;
-  onConfigure: () => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const locale = useFormatLocale();
@@ -80,6 +79,7 @@ export function ReleaseLibrary({
   const client = useQueryClient();
   const [detailIds, setDetailIds] = useState<string[]>();
   const [purging, setPurging] = useState<PlayerRelease>();
+  const [showAll, setShowAll] = useState(false);
   const cache = useMutation({
     mutationFn: (id: string) =>
       api.cachePlayerRelease(id, auth.status?.csrfToken ?? ""),
@@ -106,6 +106,7 @@ export function ReleaseLibrary({
     },
   });
   const grouped = groupReleases(items);
+  const visibleGroups = showAll ? grouped : grouped.slice(0, 5);
   const detailed = items.filter((r) => detailIds?.includes(r.id));
   const github = catalog?.githubAuth;
   function progress(release: PlayerRelease) {
@@ -144,15 +145,20 @@ export function ReleaseLibrary({
           <Button
             variant="outline"
             size="sm"
-            disabled={!deployable(release)}
+            disabled={
+              !deployable(release) &&
+              release.cacheStatus !== "downloading" &&
+              !readiness.cacheable
+            }
             onClick={() => {
               setDetailIds(undefined);
               onDeploy(release.id);
             }}
           >
             {t("updates.console.deployArtifact", {
-              architecture:
-                release.architecture || artifactIdentity(release, t),
+              architecture: release.architecture
+                ? architectureLabel(release.architecture, t)
+                : artifactIdentity(release, t),
             })}
           </Button>
         )}
@@ -211,9 +217,16 @@ export function ReleaseLibrary({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="grid gap-1">
             <p className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="font-mono font-medium">
-                {release.architecture || artifactIdentity(release, t)}
+              <span className="font-medium">
+                {release.architecture
+                  ? architectureLabel(release.architecture, t)
+                  : artifactIdentity(release, t)}
               </span>
+              {release.architecture && (
+                <span className="font-mono text-xs text-muted-foreground">
+                  {release.architecture}
+                </span>
+              )}
               <span
                 className={
                   readiness.tone === "danger"
@@ -305,28 +318,16 @@ export function ReleaseLibrary({
   }
   return (
     <div className="grid gap-5">
-      <header className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold">
-            {t("updates.console.releaseLibrary")}
-          </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {t("updates.panel.sourceGitHub")} ·{" "}
-            {github?.connected
-              ? github.login
-                ? t("updates.panel.authorizedAs", { login: github.login })
-                : t("updates.panel.authorizedToken")
-              : t("updates.panel.anonymous")}
-            {catalog?.lastCheckedAt &&
-              ` · ${t("updates.console.checked", { time: relativeTime(catalog.lastCheckedAt, t) })}`}
-          </p>
-        </div>
-        {owner && (
-          <Button variant="ghost" size="sm" onClick={onConfigure}>
-            {t("updates.console.configureSource")}
-          </Button>
-        )}
-      </header>
+      <p className="text-xs text-muted-foreground">
+        {t("updates.panel.sourceGitHub")} ·{" "}
+        {github?.connected
+          ? github.login
+            ? t("updates.panel.authorizedAs", { login: github.login })
+            : t("updates.panel.authorizedToken")
+          : t("updates.panel.anonymous")}
+        {catalog?.lastCheckedAt &&
+          ` · ${t("updates.console.checked", { time: relativeTime(catalog.lastCheckedAt, t) })}`}
+      </p>
       {(syncError || catalog?.providerError) && (
         <Alert variant="destructive">
           <AlertTitle>{t("updates.panel.syncErrorTitle")}</AlertTitle>
@@ -349,43 +350,65 @@ export function ReleaseLibrary({
         </Alert>
       )}
       {grouped.length ? (
-        <div className="grid gap-4">
-          {grouped.map((variants) => {
-            const release = variants[0]!;
-            return (
-              <Card key={release.id} size="sm">
-                <CardHeader>
-                  <CardTitle className="flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="link"
-                      className="h-auto p-0 text-base font-semibold"
-                      onClick={() => setDetailIds(variants.map((r) => r.id))}
-                    >
-                      {release.versionName}
-                    </Button>
-                  </CardTitle>
-                  <CardDescription>
-                    {artifactIdentity({ ...release, architecture: "" }, t)} ·{" "}
-                    {release.source === "upload"
-                      ? t("updates.panel.sourceUpload")
-                      : t("updates.panel.sourceGitHub")}{" "}
-                    · {new Date(release.publishedAt).toLocaleDateString(locale)}
-                  </CardDescription>
-                  <CardAction>
-                    <Badge variant="outline">
-                      {release.channel === "beta"
-                        ? t("updates.panel.channelBeta")
-                        : t("updates.panel.channelStable")}
-                    </Badge>
-                  </CardAction>
-                </CardHeader>
-                <CardContent className="gap-2">
-                  {variants.map((r) => artifact(r))}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+        <>
+          <div className="grid gap-4">
+            {visibleGroups.map((variants) => {
+              const release = variants[0]!;
+              return (
+                <Card key={release.id} size="sm">
+                  <CardHeader>
+                    <CardTitle className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="link"
+                        className="h-auto p-0 text-base font-semibold"
+                        onClick={() => setDetailIds(variants.map((r) => r.id))}
+                      >
+                        {release.versionName}
+                      </Button>
+                    </CardTitle>
+                    <CardDescription>
+                      {artifactIdentity({ ...release, architecture: "" }, t)} ·{" "}
+                      {release.source === "upload"
+                        ? t("updates.panel.sourceUpload")
+                        : t("updates.panel.sourceGitHub")}{" "}
+                      ·{" "}
+                      {new Date(release.publishedAt).toLocaleDateString(locale)}
+                    </CardDescription>
+                    <CardAction>
+                      <Badge variant="outline">
+                        {release.channel === "beta"
+                          ? t("updates.panel.channelBeta")
+                          : t("updates.panel.channelStable")}
+                      </Badge>
+                    </CardAction>
+                  </CardHeader>
+                  <CardContent className="gap-2">
+                    {variants.map((r) => artifact(r))}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          {grouped.length > 5 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+              <span>
+                {t("updates.panel.showing", {
+                  shown: visibleGroups.length,
+                  total: grouped.length,
+                })}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAll((value) => !value)}
+              >
+                {showAll
+                  ? t("updates.panel.showFewer")
+                  : t("updates.panel.showAll", { total: grouped.length })}
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
         <Empty className="gap-2 py-8">
           <EmptyHeader>

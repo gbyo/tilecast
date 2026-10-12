@@ -2,7 +2,13 @@ import { useCallback, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { MoreHorizontal, RefreshCw, Rocket, Upload } from "lucide-react";
+import {
+  CircleAlert,
+  MoreHorizontal,
+  RefreshCw,
+  Rocket,
+  Upload,
+} from "lucide-react";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
 import { apiErrorMessage } from "../../i18n";
@@ -17,6 +23,7 @@ import {
   useOpenNativePresentation,
 } from "../../native-presentation/openNativePresentation";
 import { Alert, AlertDescription } from "../../components/ui/alert";
+import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
   DropdownMenu,
@@ -45,8 +52,8 @@ import { ReleaseLibrary } from "./ReleaseLibrary";
 import { ReleaseSourceDialog } from "./ReleaseSourceDialog";
 import { ReleaseUploadDialog } from "./ReleaseUploadDialog";
 import { LoadingRows, UpdateDeploymentDetail } from "./UpdateDeploymentDetail";
-import { families, familyLabel } from "./model";
-import { screenUpdateMeaning } from "../playerUpdateStates";
+import { deploymentNeedsAttention, families, familyLabel } from "./model";
+import { screenUpdateMeaning, type ScreenFilter } from "../playerUpdateStates";
 
 export function PlayerUpdatesPanel(props: {
   owner: boolean;
@@ -79,7 +86,10 @@ function PlayerUpdatesWorkspace({
   const [draft, setDraft] = useState<{ releaseId?: string }>();
   const [source, setSource] = useState(false);
   const [upload, setUpload] = useState(false);
-  const [deploymentId, setDeploymentId] = useState<string>();
+  const [deployment, setDeployment] = useState<{
+    id: string;
+    filter: ScreenFilter;
+  }>();
   const openNative = useOpenNativePresentation();
   const releases = useQuery({
     queryKey: ["player-releases"],
@@ -121,17 +131,58 @@ function PlayerUpdatesWorkspace({
     else next.set("view", "releases");
     setParams(next);
   }
+  function changeFamily(value: UpdateFamilyTab) {
+    if (value === family) return;
+    const next = new URLSearchParams(params);
+    if (value === "android") next.delete("platform");
+    else next.set("platform", value);
+    setParams(next);
+  }
   const closeSource = useCallback(() => setSource(false), []);
   const releaseItems = (releases.data?.items ?? []).filter(
     (r) => releaseUpdateTab(r) === family,
   );
-  const deploymentItems = (deployments.data?.items ?? []).filter(
-    (d) => releaseUpdateTab(d) === family,
+  const allDeployments = deployments.data?.items ?? [];
+  const deploymentItems = allDeployments.filter(
+    (deployment) => releaseUpdateTab(deployment) === family,
   );
-  const familyScreens = (screens.data?.items ?? []).filter(
-    (s) => screenUpdateTab(s) === family,
+  const screenItems = screens.data?.items ?? [];
+  const familyOptions = families.map((value) => {
+    const count = screenItems.filter(
+      (screen) => screenUpdateTab(screen) === value,
+    ).length;
+    return {
+      value,
+      label: `${familyLabel(value, t)} · ${t("updates.console.fleetCount", {
+        count,
+      })}`,
+    };
+  });
+  const attentionByFamily = families.map((value) => ({
+    family: value,
+    count: allDeployments.filter(
+      (item) =>
+        releaseUpdateTab(item) === value &&
+        (item.status === "active" || item.status === "paused") &&
+        deploymentNeedsAttention(item),
+    ).length,
+  }));
+  const attentionDeployments = attentionByFamily.reduce(
+    (total, item) => total + item.count,
+    0,
   );
-  async function showDeployment(id: string, name: string) {
+  const otherAttention = attentionByFamily.filter(
+    (item) => item.family !== family && item.count > 0,
+  );
+  const otherAttentionCount = otherAttention.reduce(
+    (total, item) => total + item.count,
+    0,
+  );
+  async function showDeployment(
+    id: string,
+    name: string,
+    filter: ScreenFilter = "all",
+  ) {
     if (
       await openNative({
         path: presentationPath("update-deployment", id),
@@ -140,7 +191,7 @@ function PlayerUpdatesWorkspace({
       })
     )
       return;
-    setDeploymentId(id);
+    setDeployment({ id, filter });
   }
   return (
     <div className="grid min-w-0 gap-6">
@@ -166,19 +217,48 @@ function PlayerUpdatesWorkspace({
         onValueChange={(value) => changeView(String(value))}
         className="gap-4"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b">
-          <TabsList
-            variant="line"
-            aria-label={t("updates.console.workspaceViews")}
-          >
-            <TabsTrigger value="deployments">
-              {t("updates.console.deployments")}
-            </TabsTrigger>
-            <TabsTrigger value="releases">
-              {t("updates.console.releases")}
-            </TabsTrigger>
-          </TabsList>
-          <div className="flex flex-wrap items-center gap-2 pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <TabsList
+              variant="line"
+              aria-label={t("updates.console.workspaceViews")}
+            >
+              <TabsTrigger value="deployments">
+                {t("updates.console.deployments")}
+                {attentionDeployments > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="ml-1 h-5 min-w-5 rounded-full px-1.5 text-[10px]"
+                  >
+                    {attentionDeployments}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="releases">
+                {t("updates.console.releases")}
+              </TabsTrigger>
+            </TabsList>
+            <Select
+              items={familyOptions}
+              value={family}
+              onValueChange={(value) => value && changeFamily(value)}
+            >
+              <SelectTrigger
+                aria-label={t("updates.console.playerFamily")}
+                className="h-8 min-w-52"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {familyOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             {manageable && (
               <Button
                 disabled={!screens.data || !groups.data}
@@ -188,7 +268,7 @@ function PlayerUpdatesWorkspace({
                 {t("updates.panel.deployAction")}
               </Button>
             )}
-            {owner && (
+            {owner && view === "releases" && (
               <Button
                 variant="outline"
                 disabled={sync.isPending}
@@ -202,7 +282,7 @@ function PlayerUpdatesWorkspace({
                 {t("updates.console.sync")}
               </Button>
             )}
-            {owner && (
+            {owner && view === "releases" && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -228,39 +308,40 @@ function PlayerUpdatesWorkspace({
             )}
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
-          <p className="text-sm text-muted-foreground">
-            {t("updates.console.fleetCount", { count: familyScreens.length })}
-          </p>
-          <Select
-            items={families.map((value) => ({
-              value,
-              label: familyLabel(value, t),
-            }))}
-            value={family}
-            onValueChange={(value) => {
-              if (!value || value === family) return;
-              const next = new URLSearchParams(params);
-              if (value === "android") next.delete("platform");
-              else next.set("platform", value);
-              setParams(next);
-            }}
+        {view === "deployments" && otherAttention.length > 0 && (
+          <div
+            className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm"
+            role="status"
           >
-            <SelectTrigger
-              aria-label={t("updates.console.playerFamily")}
-              className="min-w-44"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent align="end">
-              {families.map((value) => (
-                <SelectItem key={value} value={value}>
-                  {familyLabel(value, t)}
-                </SelectItem>
+            <CircleAlert
+              className="size-4 shrink-0 text-destructive"
+              aria-hidden="true"
+            />
+            <span className="text-muted-foreground">
+              {t("updates.console.attentionElsewhere", {
+                count: otherAttentionCount,
+              })}
+            </span>
+            <div className="flex flex-wrap gap-1">
+              {otherAttention.map((item) => (
+                <Button
+                  key={item.family}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => changeFamily(item.family)}
+                >
+                  {familyLabel(item.family, t)}
+                  <Badge
+                    variant="destructive"
+                    className="h-5 min-w-5 rounded-full px-1.5 text-[10px]"
+                  >
+                    {item.count}
+                  </Badge>
+                </Button>
               ))}
-            </SelectContent>
-          </Select>
-        </div>
+            </div>
+          </div>
+        )}
         <TabsContent value="deployments">
           {deployments.isPending ? (
             <LoadingRows />
@@ -284,8 +365,8 @@ function PlayerUpdatesWorkspace({
               {deployments.data && (
                 <DeploymentList
                   items={deploymentItems}
-                  onOpen={(item) =>
-                    void showDeployment(item.id, item.versionName)
+                  onOpen={(item, focus = "all") =>
+                    void showDeployment(item.id, item.versionName, focus)
                   }
                 />
               )}
@@ -319,7 +400,6 @@ function PlayerUpdatesWorkspace({
                   manageable={manageable}
                   syncError={sync.error}
                   onDeploy={(id) => setDraft({ releaseId: id })}
-                  onConfigure={() => setSource(true)}
                 />
               )}
             </>
@@ -328,15 +408,24 @@ function PlayerUpdatesWorkspace({
       </Tabs>
       {draft && manageable && (
         <DeployUpdateSheet
-          releases={releaseItems}
+          releases={releases.data?.items ?? []}
           screens={screens.data?.items ?? []}
           groups={groups.data?.items ?? []}
+          initialFamily={family}
           preselected={draft.releaseId}
           onClose={() => setDraft(undefined)}
-          onCreated={(id) => {
+          onCreated={(id, createdFamily) => {
             setDraft(undefined);
-            changeView("deployments");
             void client.invalidateQueries({ queryKey: ["update-deployments"] });
+            if (createdFamily !== family) {
+              const next = new URLSearchParams(params);
+              next.delete("view");
+              if (createdFamily === "android") next.delete("platform");
+              else next.set("platform", createdFamily);
+              setParams(next);
+              return;
+            }
+            changeView("deployments");
             void showDeployment(id, t("updates.deploymentTitle"));
           }}
         />
@@ -358,14 +447,15 @@ function PlayerUpdatesWorkspace({
           }}
         />
       )}
-      {deploymentId && (
+      {deployment && (
         <UpdateDeploymentDetail
-          key={deploymentId}
-          deploymentId={deploymentId}
+          key={deployment.id}
+          deploymentId={deployment.id}
           screens={screens.data?.items ?? []}
           manageable={manageable}
+          initialFilter={deployment.filter}
           open
-          onOpenChange={(open) => !open && setDeploymentId(undefined)}
+          onOpenChange={(open) => !open && setDeployment(undefined)}
         />
       )}
     </div>

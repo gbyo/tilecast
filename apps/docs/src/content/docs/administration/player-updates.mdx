@@ -1,25 +1,27 @@
 ---
 title: Update Tilecast Player
-description: Prepare a signed Player release, check its target screens, and follow the rollout.
+description: Choose a Player update, deploy it safely, and follow the rollout.
 ---
 
 Use **Settings** > **Player updates** to deploy signed Tilecast Player releases. Owners manage releases and the release source. Owners and Administrators can deploy updates. This updates the Player app; server, container, and operating-system updates have separate procedures.
 
 import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
-## Find or add a release
+## Release catalog
 
-Choose **Android**, **Linux Legacy**, **Tilecast Edge**, or **Windows** in the **Player family** filter, then open **Releases**. Your family and view stay in the URL, so bookmarks and browser navigation restore them.
+You do not need to prepare a release in a separate view before a normal deployment. **Deploy update** can download and verify the selected build for you.
+
+Open **Release catalog** when you need release notes, verification details, manual uploads, cache management, or older versions. Choose **Android**, **Linux Legacy**, **Tilecast Edge**, or **Windows** with the **Player type** filter. Your filter and view stay in the URL, so bookmarks and browser navigation restore them.
 
 <Steps>
 
-1. Select **Sync releases** to import available Player artifacts from [Tilecast releases](https://github.com/gbyo/tilecast/releases). One coordinated release contains the Android, Edge, and Windows artifacts for its version. See [Releases and downloads](../../reference/releases/).
-2. Open a version to read its notes and check verification and cache status.
-3. Select **Prepare artifact** from the artifact's action menu if a verified GitHub release isn't cached yet. Wait for it to become ready.
+1. Select **Sync releases** to refresh available Player builds from [Tilecast releases](https://github.com/gbyo/tilecast/releases). One coordinated release can contain Android, Edge, and Windows builds for the same version. See [Releases and downloads](../../reference/releases/).
+2. Open a version to read its notes and inspect verification or cache state.
+3. You can still select **Prepare artifact** manually, but deployment does not require this detour: **Deploy update** prepares an uncached verified build in the deployment flow.
 
 </Steps>
 
-Edge and Windows versions can have both `x86_64` and `aarch64` artifacts. The library groups those variants under the GitHub version, but each deployment uses one architecture. Direct uploads remain separate entries.
+Edge and Windows versions can have both **Intel / AMD 64-bit** (`x86_64`) and **ARM64** (`aarch64`) builds. The catalog groups those architectures under one version. Direct uploads remain separate entries.
 
 If GitHub reports an error, the library keeps the releases it already has and shows the error. Use **Sync releases** to retry. Owners can open **More** > **Configure source** to configure GitHub's OAuth App client ID, connect with a device code, or disconnect a local connection. An environment-managed token must be changed on the server.
 
@@ -42,16 +44,17 @@ Cache removal asks for confirmation and is unavailable while an active or paused
 
 <Steps>
 
-1. Select **Deploy update**, or choose an artifact's **Deploy** action in **Releases**.
-2. Choose a ready release in **Release**. Check the architecture for Edge or Windows, then select **Continue**.
-3. Search for screens or Display Groups in **Targets**. Add targets or use **Select all eligible**. Review the resolved screen count and warnings, then select **Continue**.
-4. Choose **Install now**, **Download only**, or **Maintenance window** in **Rollout**. For a maintenance window, choose a future date and time in your browser's local timezone.
-5. Enable **Canary rollout** if you want a small cohort to update first. Choose a size smaller than the eligible fleet. Remaining screens wait until every canary succeeds.
-6. Review the version, architecture, screen count, mode, and optional canary size. Select **Deploy update**.
+1. Select **Deploy update** from either Player Updates view. You can also start from a build's **Deploy** action in **Release catalog**.
+2. In **Update**, choose the **Player type** and **Version**. If that version has multiple CPU builds, choose **Intel / AMD 64-bit** (`x86_64`) or **ARM64** (`aarch64`). Tilecast automatically selects an unambiguous build when only one applies to the current fleet.
+3. If the build is not cached yet, select **Prepare build**. Preparation runs on the server and shows progress; you can close the dialog and return later. If you leave it open, **Continue** becomes available when the build is ready.
+4. In **Targets**, search for screens or Display Groups. Add targets or use **Select all eligible**. Review the resolved screen count and warnings, then select **Continue**.
+5. In **Rollout**, choose **Install now**, **Download only**, or **Maintenance window**. For a maintenance window, choose a future date and time in your browser's local timezone.
+6. Open **Rollout safeguards** only when you need a canary cohort. Choose a size smaller than the eligible fleet; remaining screens wait until every canary succeeds.
+7. Review the version, architecture, screen count, mode, and optional canary size. Select **Deploy update**.
 
 </Steps>
 
-You can go **Back** without losing your draft. Changing Player family discards it.
+You can go **Back** without losing your draft. Changing the Player type inside the deployment flow resets only choices that no longer apply.
 
 Tilecast checks group membership, duplicate targets, Player family, architecture, and known Android SDK requirements before submission. Incompatible screen choices show the reason. A selected group containing an incompatible member blocks deployment and names the affected screen. Creation checks the current metadata again, so the preview is advisory.
 
@@ -59,7 +62,7 @@ Offline screens can receive queued commands after reconnecting, within the seven
 
 ## Follow a rollout
 
-**Deployments** opens by default. Active deployments and attention states appear before recent history. Each row shows a version, architecture, status, target count, and a sentence describing the outcome.
+**Deployments** opens by default. Work requiring intervention is separated into **Needs attention** before healthy **In progress** rollouts, with recent history below. The Deployments tab carries a fleet-wide attention badge. If another Player type has a problem while the page is filtered, Studio names that Player type and provides a direct switch to it. Selecting an attention row opens directly to the affected screens.
 
 Select **View rollout** to inspect screens. Use **Needs attention**, **In progress**, **Finished**, or **All**, and search by screen name. Each screen shows its current and expected version, canary status, and last report. Downloading shows actual bytes and percentage; installation and reconnection show status without a percentage.
 
