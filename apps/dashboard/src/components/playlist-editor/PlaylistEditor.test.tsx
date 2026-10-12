@@ -224,6 +224,82 @@ describe("PlaylistEditor panes", () => {
     expect(screen.getByText("2 items · 0:20")).toBeInTheDocument();
   });
 
+  it("applies rapid reorders immediately and persists them in order", async () => {
+    mockDesktop();
+    mockServer();
+
+    const pending: Array<{
+      itemIds: string[];
+      resolve: (playlist: Playlist) => void;
+    }> = [];
+    const reorder = vi
+      .spyOn(api, "reorderPlaylist")
+      .mockImplementation((_id, itemIds) => {
+        return new Promise<Playlist>((resolve) => {
+          pending.push({ itemIds, resolve });
+        });
+      });
+
+    const responseFor = (itemIds: string[]) => {
+      const result = playlist();
+      const byId = new Map(result.items.map((item) => [item.id, item]));
+      return {
+        ...result,
+        items: itemIds.map((itemId, position) => ({
+          ...byId.get(itemId)!,
+          position,
+        })),
+      };
+    };
+    const visibleOrder = () =>
+      Array.from(document.querySelectorAll("[data-playlist-item]")).map(
+        (element) => element.getAttribute("data-playlist-item"),
+      );
+
+    renderEditor();
+    await screen.findByRole("button", { name: "Inspect Alpha" });
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "Inspect Alpha" }), {
+      key: "ArrowDown",
+      altKey: true,
+    });
+    await waitFor(() =>
+      expect(visibleOrder()).toEqual(["item-b", "item-a"]),
+    );
+    expect(reorder).toHaveBeenCalledTimes(1);
+    expect(reorder).toHaveBeenLastCalledWith(
+      "p1",
+      ["item-b", "item-a"],
+      "token",
+    );
+
+    // Reorder again before the first request returns. The UI should use the
+    // optimistic order immediately, while the server writes remain serialized.
+    fireEvent.keyDown(screen.getByRole("button", { name: "Inspect Alpha" }), {
+      key: "ArrowUp",
+      altKey: true,
+    });
+    await waitFor(() =>
+      expect(visibleOrder()).toEqual(["item-a", "item-b"]),
+    );
+    expect(reorder).toHaveBeenCalledTimes(1);
+
+    pending[0]!.resolve(responseFor(pending[0]!.itemIds));
+    await waitFor(() => expect(reorder).toHaveBeenCalledTimes(2));
+    expect(reorder).toHaveBeenLastCalledWith(
+      "p1",
+      ["item-a", "item-b"],
+      "token",
+    );
+    // The stale first response must not snap the second optimistic move back.
+    expect(visibleOrder()).toEqual(["item-a", "item-b"]);
+
+    pending[1]!.resolve(responseFor(pending[1]!.itemIds));
+    await waitFor(() =>
+      expect(visibleOrder()).toEqual(["item-a", "item-b"]),
+    );
+  });
+
   it("puts playback defaults in a compact authoring bar and reports bulk changes with a toast", async () => {
     mockDesktop();
     mockServer();
