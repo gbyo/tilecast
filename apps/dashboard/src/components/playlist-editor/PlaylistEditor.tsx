@@ -599,11 +599,7 @@ export function PlaylistEditorPage() {
       onMoveToEdge={(itemId, edge) => {
         if (!editableTimeline) return;
         commitOrder(
-          movePlaylistItemToEdge(
-            currentPlaylist()?.items ?? [],
-            itemId,
-            edge,
-          ),
+          movePlaylistItemToEdge(currentPlaylist()?.items ?? [], itemId, edge),
         );
       }}
       onRemove={(itemId) => {
@@ -1030,10 +1026,7 @@ export function PlaylistEditorPage() {
 // below the page chrome, so the region never pushes the document into a
 // second, outer scroll. It re-measures when the chrome above it changes
 // height (a warning appears, the header wraps) or the window resizes.
-function playlistOrderMatches(
-  items: Playlist["items"],
-  itemIds: string[],
-) {
+function playlistOrderMatches(items: Playlist["items"], itemIds: string[]) {
   return (
     items.length === itemIds.length &&
     items.every((item, index) => item.id === itemIds[index])
