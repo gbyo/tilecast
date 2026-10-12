@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -52,6 +53,82 @@ func TestUpdatePreviewAndroidSDKAndCurrentRules(t *testing.T) {
 	var reason string
 	if err := f.pool.QueryRow(f.ctx, `SELECT safe_error FROM screen_update_states WHERE deployment_id=$1 AND screen_id=$2`, deployment, low).Scan(&reason); err != nil || !strings.Contains(reason, "SDK 29") {
 		t.Fatalf("SDK reason: %s %v", reason, err)
+	}
+}
+
+func TestStaleUpdateAttemptsAndPausedRolloutsExpire(t *testing.T) {
+	f := newEdgeFixture(t)
+	release := f.edgeRelease(t, "x86_64")
+
+	staleScreen := f.screen(t, "Stale Lobby", "linux", "edge", "x86_64", 1000)
+	staleDeployment, _ := f.deploy(t, release, staleScreen)
+	if _, err := f.pool.Exec(f.ctx, `UPDATE player_commands SET state='expired',created_at=now()-interval '8 days',expires_at=now()-interval '1 hour',completed_at=now()-interval '1 hour' WHERE type='install_player_update' AND payload->>'deploymentId'=$1`, staleDeployment.String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(f.ctx, `UPDATE screen_update_states SET updated_at=now()-interval '8 days' WHERE deployment_id=$1 AND screen_id=$2`, staleDeployment, staleScreen); err != nil {
+		t.Fatal(err)
+	}
+
+	f.server.reconcileUpdateDeployments(f.ctx)
+
+	var staleStatus, staleReason string
+	if err := f.pool.QueryRow(f.ctx, `SELECT d.status,st.safe_error FROM update_deployments d JOIN screen_update_states st ON st.deployment_id=d.id WHERE d.id=$1 AND st.screen_id=$2`, staleDeployment, staleScreen).Scan(&staleStatus, &staleReason); err != nil {
+		t.Fatal(err)
+	}
+	if staleStatus != "completed" || f.state(t, staleDeployment, staleScreen) != "failed" || !strings.Contains(staleReason, "expired after seven days") {
+		t.Fatalf("stale update did not settle: status=%q state=%q reason=%q", staleStatus, f.state(t, staleDeployment, staleScreen), staleReason)
+	}
+
+	pausedScreen := f.screen(t, "Paused Library", "linux", "edge", "x86_64", 1000)
+	pausedDeployment, _ := f.deploy(t, release, pausedScreen)
+	if _, err := f.pool.Exec(f.ctx, `UPDATE update_deployments SET status='paused',rollout_phase='paused',paused_at=now()-interval '8 days' WHERE id=$1`, pausedDeployment); err != nil {
+		t.Fatal(err)
+	}
+
+	f.server.reconcileUpdateDeployments(f.ctx)
+
+	var pausedStatus, commandState string
+	if err := f.pool.QueryRow(f.ctx, `SELECT status FROM update_deployments WHERE id=$1`, pausedDeployment).Scan(&pausedStatus); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.pool.QueryRow(f.ctx, `SELECT state FROM player_commands WHERE type='install_player_update' AND payload->>'deploymentId'=$1 ORDER BY created_at DESC LIMIT 1`, pausedDeployment.String()).Scan(&commandState); err != nil {
+		t.Fatal(err)
+	}
+	if pausedStatus != "cancelled" || f.state(t, pausedDeployment, pausedScreen) != "cancelled" || commandState != "cancelled" {
+		t.Fatalf("stale pause did not close: status=%q state=%q command=%q", pausedStatus, f.state(t, pausedDeployment, pausedScreen), commandState)
+	}
+}
+
+func TestMaintenanceWindowCommandExpiresAfterScheduledAttemptWindow(t *testing.T) {
+	f := newEdgeFixture(t)
+	release := f.edgeRelease(t, "x86_64")
+	screen := f.screen(t, "Future Window", "linux", "edge", "x86_64", 1000)
+	window := time.Now().UTC().Add(14 * 24 * time.Hour)
+
+	body, _ := json.Marshal(deploymentInput{
+		ReleaseID:              release,
+		Name:                   "Future rollout",
+		Mode:                   "maintenance_window",
+		MaintenanceWindowStart: &window,
+		ScreenIDs:              []uuid.UUID{screen},
+	})
+	request := requestWithTestPrincipal(
+		httptest.NewRequest(http.MethodPost, "/api/v1/update-deployments", bytes.NewReader(body)),
+		auth.Session{User: auth.User{ID: f.user, Role: "owner"}},
+	)
+	response := httptest.NewRecorder()
+	f.server.createUpdateDeployment(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("create status=%d body=%s", response.Code, response.Body.String())
+	}
+
+	var expiresAt time.Time
+	if err := f.pool.QueryRow(f.ctx, `SELECT expires_at FROM player_commands WHERE screen_id=$1 AND type='install_player_update' ORDER BY created_at DESC LIMIT 1`, screen).Scan(&expiresAt); err != nil {
+		t.Fatal(err)
+	}
+	want := window.Add(7 * 24 * time.Hour)
+	if expiresAt.Before(want.Add(-time.Minute)) || expiresAt.After(want.Add(time.Minute)) {
+		t.Fatalf("maintenance command expires at %v, want about %v", expiresAt, want)
 	}
 }
 
