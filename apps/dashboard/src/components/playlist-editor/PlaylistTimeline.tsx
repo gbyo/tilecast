@@ -112,11 +112,7 @@ export function PlaylistTimeline({
   onRemove: (itemId: string) => void;
   onDragStart: (itemId: string) => void;
   onDragEnd: () => void;
-  onDrop: (
-    event: DragEvent,
-    targetId: string,
-    edge: PlaylistDropEdge,
-  ) => void;
+  onDrop: (event: DragEvent, targetId: string, edge: PlaylistDropEdge) => void;
 }) {
   const { t } = useTranslation("playlists");
   const tagDriven = sourceType === "tag";
@@ -240,11 +236,7 @@ function PlaylistTimelineItem({
   onDragStart: (itemId: string) => void;
   onDragOver: (edge: PlaylistDropEdge) => void;
   onDragEnd: () => void;
-  onDrop: (
-    event: DragEvent,
-    targetId: string,
-    edge: PlaylistDropEdge,
-  ) => void;
+  onDrop: (event: DragEvent, targetId: string, edge: PlaylistDropEdge) => void;
 }) {
   const { t } = useTranslation("playlists");
   const override =
