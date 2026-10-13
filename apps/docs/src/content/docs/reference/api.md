@@ -41,6 +41,14 @@ A [personal access token](../../integrations/personal-access-tokens/) reaches th
 
 Integration tokens are intentionally limited. The supported capabilities are **Write Manual Table rows** and **Read fleet health**. They do not provide general Studio access. See [Create an integration token](../../integrations/tokens/) for token lifecycle and [supported integration requests](../../integrations/) for examples.
 
+## Handle limits and retries
+
+Some authentication, pairing, installation, and operator-action routes are rate-limited. A limited request returns HTTP `429` with the error code `rate_limited` and a `Retry-After` header in seconds. Wait at least that long before retrying. Do not loop immediately on a `429`.
+
+Tilecast does not expose one global request quota for the whole API. Limits are attached to sensitive route groups. Management operations that use the shared operator limiter currently allow 60 requests per minute for the same address and signed-in user; other route groups use different limits.
+
+For write requests, follow the concurrency or idempotency field documented by that endpoint when one exists. If a connection fails after sending a write, read the resource before repeating the request blindly. For example, Layout draft writes use `expectedDraftRevision`, and Player commands carry their own idempotency keys.
+
 ## Health and readiness
 
 - `GET /healthz` checks that the server process responds.
