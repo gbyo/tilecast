@@ -215,13 +215,20 @@ player endpoint.
 
 ## External runtime
 
-A version 2 or 3 package runs server behavior in a capability-based
+A version 2, 3, or 4 package runs server behavior in a capability-based
 WebAssembly host (`internal/extensions/wasm`, engine wazero). The host
 imports one module, `tilecast`, with no WASI. The guest calls six host
 functions: key read, key write, approved HTTPS fetch, log line, clock
 read, and service call. Nothing else is reachable. The call input window is 16 KiB. The
 output window is 16 KiB. A job call times out after 30 seconds. A
 Studio interface call times out after 5 seconds.
+
+Package API 1 through 3 retain their input address of zero.
+Package API 4 places input at address 32768. Its input window ends at 49152.
+The output address stays 16384, with a 16384-byte capacity.
+Guests reserve these windows and use the addresses supplied to their exports.
+The non-null input address lets a Rust guest read a valid slice.
+The exports and host import signatures do not change.
 
 Install validation inspects the module bytes before anything is
 retained or executed. The module must carry the Wasm magic and

@@ -110,6 +110,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     plugins: runtimeDiscovery.plugins,
     animationScale,
     reducedMotion,
+    externalPluginFrames: capabilities.externalPluginFrames === true,
     mediaUrl: (assetId, variantId) =>
       host.media
         ? host.media.resolve(assetId, variantId)
@@ -163,7 +164,11 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
       case "plugins":
         pluginMedia.replace(message.media);
         widgets.setClockOffset(message.clockOffsetMs);
-        surfaces.setEntries(message.plugins, message.clockOffsetMs);
+        surfaces.setEntries(
+          message.plugins,
+          message.clockOffsetMs,
+          message.pluginFrames,
+        );
         break;
       case "identify":
         view.identify(String(message.name), Number(message.durationSeconds));
@@ -209,6 +214,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
             widgets.capabilities(),
             remoteWeb !== null,
             capabilities.externalFrames === true,
+            capabilities.externalPluginFrames === true,
           ),
         }),
       ),

@@ -208,18 +208,19 @@ func (s *Service) InvokeJob(ctx context.Context, packageID, jobID string) (int32
 		fetchLimit = 3 * time.Second
 	}
 	result, err := s.host.Invoke(ctx, Call{
-		ExecutionEpoch: prepared.executionEpoch,
-		StorageEpoch:   prepared.storageEpoch,
-		PackageID:      packageID,
-		Digest:         prepared.digest,
-		Module:         prepared.module,
-		Grants:         prepared.grants,
-		Entry:          "run_job",
-		Input:          []byte(jobID),
-		Timeout:        timeout,
-		FetchTimeout:   fetchLimit,
-		Context:        services.ContextBackground,
-		Caller:         s.caller,
+		PackageAPIVersion: prepared.manifest.APIVersion,
+		ExecutionEpoch:    prepared.executionEpoch,
+		StorageEpoch:      prepared.storageEpoch,
+		PackageID:         packageID,
+		Digest:            prepared.digest,
+		Module:            prepared.module,
+		Grants:            prepared.grants,
+		Entry:             "run_job",
+		Input:             []byte(jobID),
+		Timeout:           timeout,
+		FetchTimeout:      fetchLimit,
+		Context:           services.ContextBackground,
+		Caller:            s.caller,
 	})
 	if err != nil {
 		return 0, err
@@ -250,18 +251,19 @@ func (s *Service) InvokeUI(ctx context.Context, packageID string, actor services
 	}
 	defer cancel()
 	return s.host.Invoke(ctx, Call{
-		ExecutionEpoch: prepared.executionEpoch,
-		StorageEpoch:   prepared.storageEpoch,
-		PackageID:      packageID,
-		Digest:         prepared.digest,
-		Module:         prepared.module,
-		Grants:         prepared.grants,
-		Entry:          "handle_ui_request",
-		Input:          request,
-		Timeout:        UICallTimeout,
-		Context:        services.ContextStudio,
-		Actor:          &actor,
-		Caller:         s.caller,
+		PackageAPIVersion: prepared.manifest.APIVersion,
+		ExecutionEpoch:    prepared.executionEpoch,
+		StorageEpoch:      prepared.storageEpoch,
+		PackageID:         packageID,
+		Digest:            prepared.digest,
+		Module:            prepared.module,
+		Grants:            prepared.grants,
+		Entry:             "handle_ui_request",
+		Input:             request,
+		Timeout:           UICallTimeout,
+		Context:           services.ContextStudio,
+		Actor:             &actor,
+		Caller:            s.caller,
 	})
 }
 
