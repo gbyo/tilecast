@@ -457,6 +457,7 @@ mod tests {
 
     fn frame(value: &str) -> FrameRef {
         FrameRef {
+            kind: player_types::frames::FrameKind::Widget,
             package_id: SafeText::new("acme.athletics").unwrap(),
             package_digest: Sha256Digest::parse(&"e".repeat(64)).unwrap(),
             sha256: Sha256Digest::parse(value).unwrap(),

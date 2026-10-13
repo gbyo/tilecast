@@ -335,16 +335,21 @@ fn content_ref(asset: &ManifestAsset) -> Result<ActivationContent, ManifestError
     })
 }
 
-/// Every verified frame claim, deduplicated by document digest like
-/// the content map. Core fetched and verified each one before this
-/// manifest became a candidate; the port mints one grant per claim.
+/// Every distinct package/frame authorization identity. CAS may share
+/// identical bytes; the Runtime still needs each package's table entry.
 fn frame_refs(candidate: &NativeManifest) -> Result<Vec<ActivationFrame>, ManifestError> {
     let mut frames = Vec::with_capacity(candidate.required_frames.len());
     for claim in &candidate.required_frames {
-        if frames.iter().any(|existing: &ActivationFrame| existing.digest == claim.digest) {
+        if frames.iter().any(|existing: &ActivationFrame| {
+            existing.digest == claim.digest
+                && existing.kind == claim.kind
+                && existing.package_id.as_str() == claim.package_id
+                && existing.package_digest == claim.package_digest
+        }) {
             continue;
         }
         frames.push(ActivationFrame {
+            kind: claim.kind,
             package_id: player_types::bounded::SafeText::new(&claim.package_id).map_err(|_| ManifestError::Frame)?,
             package_digest: claim.package_digest,
             digest: claim.digest,

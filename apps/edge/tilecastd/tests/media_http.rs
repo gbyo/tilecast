@@ -95,6 +95,7 @@ async fn loopback_serves_granted_bytes_and_denies_barely() {
     let now = clock.now().unix_millis();
     let token = registry.prepare(session, 7, now, &[content], &HashMap::new()).unwrap().remove(&digest).unwrap();
     let frame = FrameRef {
+        kind: player_types::frames::FrameKind::Widget,
         package_id: SafeText::new("acme.athletics").unwrap(),
         package_digest: Sha256Digest::of(b"package"),
         sha256: Sha256Digest::of(b"frame"),

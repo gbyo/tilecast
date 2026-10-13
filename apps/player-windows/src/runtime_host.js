@@ -9,6 +9,7 @@
  */
 (function () {
   "use strict";
+  if (window.parent !== window || window.location.href !== "tilecast://runtime/index.html") return;
   if (typeof window.chrome === "undefined" || !window.chrome.webview) {
     return;
   }
