@@ -70,6 +70,8 @@ The sidebar holds two cards. **Package status** leads with the current state, su
 
 A Marketplace package does not list what it adds or what it can do until you review it, because Tilecast reads that from the published package. Select **Review & install** to see it before anything installs. On a wide screen the review opens in a dialog; on a phone it opens as a sheet from the bottom. **Cancel** and **Install plugin** stay in view while you scroll.
 
+Package capabilities are requests, not blanket host access. A server runtime that needs outbound network access declares the HTTPS hostnames it needs, and install or update review shows those hosts before activation. Storage, background jobs, Studio interface access, and Tilecast service grants are likewise bounded capabilities. An update can change those requests, which is why **Review update** calls out permission changes before you install the new version.
+
 A capability in the package manifest is a request, not a self-granted permission. Server network access is limited to the HTTPS hostnames the package declares and Tilecast exposes to that package. The package does not receive the Tilecast Server's general network access or Player credentials. Storage, background jobs, and Studio interfaces are separate requested capabilities and are shown in the same review.
 
 ## Manage installed packages
