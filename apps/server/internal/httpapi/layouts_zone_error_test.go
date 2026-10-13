@@ -11,11 +11,11 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 )
 
-// A playlist zone that points at a playlist with Widgets or Websites used to
+// A playlist zone that points at a playlist with unsupported content used to
 // miss writeLayoutError's substring match and surface as a bare 500. It is an
 // operator-fixable validation failure and must say which items to fix.
 func TestPlaylistZoneRejectionIsAnActionableValidationError(t *testing.T) {
-	detail := `Playlist "Morning Announcements" contains items a zone cannot play: Weather (Widget), School Website (Website). Remove them from the Playlist, or place them in the Layout directly.`
+	detail := `Playlist "Morning Announcements" contains items a zone cannot play: Hallway (Layout). Remove unsupported entries from the Playlist. Nested Layouts must play as root content.`
 	for name, write := range map[string]func(*server, http.ResponseWriter, *http.Request, error){
 		"layout":    (*server).writeLayoutError,
 		"editorial": (*server).writeEditorialError,
@@ -37,7 +37,7 @@ func TestPlaylistZoneRejectionIsAnActionableValidationError(t *testing.T) {
 			if body.Error.Code != "layout_playlist_zone_unsupported" {
 				t.Fatalf("code = %q", body.Error.Code)
 			}
-			for _, want := range []string{"support only image and video items", "Weather (Widget)", "School Website (Website)"} {
+			for _, want := range []string{"nested Layouts are unsupported", "Hallway (Layout)"} {
 				if !strings.Contains(body.Error.Message, want) {
 					t.Fatalf("message %q should mention %q", body.Error.Message, want)
 				}

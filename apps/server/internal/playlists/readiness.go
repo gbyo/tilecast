@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 )
 
@@ -60,7 +61,7 @@ func (s *Service) ValidatePresentationInTx(ctx context.Context, tx pgx.Tx, conte
 	if id == uuid.Nil || (contentType != "playlist" && contentType != "layout" && contentType != "asset") {
 		return fmt.Errorf("%w: content reference is invalid", ErrPresentationNotReady)
 	}
-	state := readinessState{tx: tx, at: at.UTC(), visited: map[string]bool{}, active: map[string]bool{}}
+	state := readinessState{tx: tx, at: at.UTC(), visited: map[string]bool{}, active: map[string]bool{}, definitions: s.definitions}
 	switch contentType {
 	case "playlist":
 		return state.playlist(ctx, id, false)
@@ -77,7 +78,7 @@ func (s *Service) ValidatePresentationNowInTx(ctx context.Context, tx pgx.Tx, co
 	if err := s.ValidatePresentationInTx(ctx, tx, contentType, id, at); err != nil {
 		return err
 	}
-	state := readinessState{tx: tx, at: at.UTC(), visited: map[string]bool{}, active: map[string]bool{}}
+	state := readinessState{tx: tx, at: at.UTC(), visited: map[string]bool{}, active: map[string]bool{}, definitions: s.definitions}
 	var err error
 	switch contentType {
 	case "playlist":
@@ -91,10 +92,11 @@ func (s *Service) ValidatePresentationNowInTx(ctx context.Context, tx pgx.Tx, co
 }
 
 type readinessState struct {
-	tx      pgx.Tx
-	at      time.Time
-	visited map[string]bool
-	active  map[string]bool
+	tx          pgx.Tx
+	at          time.Time
+	visited     map[string]bool
+	active      map[string]bool
+	definitions contentdefs.Catalogs
 }
 
 func (s *readinessState) enter(kind string, id uuid.UUID) (func(), error) {
@@ -200,6 +202,9 @@ func (s *readinessState) layout(ctx context.Context, id uuid.UUID, requireAvaila
 	if err = layouts.ValidateDocument(document); err != nil {
 		return fmt.Errorf("%w: layout %q is invalid: %v", ErrPresentationNotReady, name, err)
 	}
+	if err = layouts.ValidatePlaybackLimits(ctx, s.tx, document, s.definitions); err != nil {
+		return fmt.Errorf("%w: layout %q playback limits: %v", ErrPresentationNotReady, name, err)
+	}
 	available := 0
 	if document.Canvas.BackgroundAssetID != nil {
 		if err = s.imageAsset(ctx, *document.Canvas.BackgroundAssetID, false); err != nil {
@@ -249,7 +254,7 @@ func (s *readinessState) layout(ctx context.Context, id uuid.UUID, requireAvaila
 			if placement.PlaylistID == nil {
 				return fmt.Errorf("%w: layout %q playlist zone is missing its playlist", ErrPresentationNotReady, name)
 			}
-			if err = layouts.ValidatePlaylistZoneMediaOnly(ctx, s.tx, placement.PlaylistID); err != nil {
+			if err = layouts.ValidatePlaylistZoneItems(ctx, s.tx, placement.PlaylistID); err != nil {
 				return fmt.Errorf("%w: layout %q playlist zone: %v", ErrPresentationNotReady, name, err)
 			}
 			if err = s.playlist(ctx, *placement.PlaylistID, false); err != nil {
