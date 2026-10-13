@@ -29,7 +29,11 @@ Assign a Playlist or published Layout to the Display Group as fallback content, 
 
 On the **Display** tab, check **Panel preparation** and wait for every required video panel to show **ready**. A geometry change can require new video panels. A queued or failed panel cannot be used; fix the source or geometry and check its status again.
 
-Tilecast keeps the group's presentation position aligned, but each Player and display renders its panel independently. An offline or unprepared member cannot show its panel, so the wall will be incomplete until that screen is ready.
+Tilecast keeps the group's presentation position aligned, but each Player and display renders its panel independently. Span is not a hardware genlock system: panel refresh timing still comes from each Player, GPU, cable, and display. Tilecast prepares panel videos with matching timing and keyframe rules and keeps the shared playback position aligned, but a visible seam can still expose display latency or a Player that cannot decode fast enough.
+
+Bezel compensation changes the panel geometry so content can continue visually behind the physical bezel. It does not calibrate color, brightness, panel latency, or overscan. Configure the displays themselves to use matching picture modes and 1:1 pixel mapping where possible.
+
+An offline or unprepared member cannot show its panel, so the wall will be incomplete until that screen is ready.
 
 ## Next steps
 
