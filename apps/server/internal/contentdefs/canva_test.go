@@ -17,7 +17,7 @@ func TestCanvaURLs(t *testing.T) {
 		wantMode     string
 	}{
 		{"legacy view stays manual", "https://www.canva.com/design/DAGabcdefgh/view", false, false, "view"},
-		{"watch input normalizes manual when disabled", "https://www.canva.com/design/DAGabcdefgh/watch?access=keep", true, false, "view"},
+		{"watch input normalizes manual when disabled", "https://www.canva.com/design/DAGabcdefgh/watch?access=keep&autoplay=1", true, false, "view"},
 		{"view input becomes watch when enabled", "https://www.canva.com/design/DAGabcdefgh/view?access=keep", true, true, "watch"},
 		{"watch stays watch when enabled", "https://www.canva.com/design/DAGabcdefgh/watch?access=keep", true, true, "watch"},
 		{"access path and parameters survive", " https://CANVA.COM:443/design/DAGabcdefgh/access-token_123/view/?utm_source=share&access=keep&present=1#page2 ", true, true, "watch"},
@@ -39,6 +39,12 @@ func TestCanvaURLs(t *testing.T) {
 			}
 			if gotMode := u.Path[strings.LastIndex(u.Path, "/")+1:]; gotMode != tc.wantMode {
 				t.Fatalf("mode = %q, want %q (%s)", gotMode, tc.wantMode, got)
+			}
+			if tc.slideshow && u.Query().Get("autoplay") != "1" {
+				t.Fatalf("slideshow URL is missing autoplay=1: %s", got)
+			}
+			if !tc.slideshow && u.Query().Has("autoplay") {
+				t.Fatalf("manual URL retained autoplay: %s", got)
 			}
 			if original, _ := url.Parse(tc.raw); original != nil && original.Query().Get("access") != "" && u.Query().Get("access") != "keep" {
 				t.Fatal("access parameter lost")
