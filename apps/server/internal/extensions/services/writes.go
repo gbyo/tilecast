@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
 	"github.com/tilecast/tilecast/apps/server/internal/playercaps"
@@ -56,7 +57,7 @@ func packageMetadata(call Call) map[string]any {
 func (d *Dispatcher) managedEnsure(ctx context.Context, call Call) (any, *Denial, *CallError) {
 	// Managed presentations create playlists and data sources, so Studio
 	// callers need content-author roles, matching the dashboard.
-	if failure := studioRole(call, "owner", "administrator", "editor", "contributor"); failure != nil {
+	if failure := studioCapability(call, auth.CapPlaylistEdit); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -146,7 +147,7 @@ func (d *Dispatcher) managedEnsure(ctx context.Context, call Call) (any, *Denial
 }
 
 func (d *Dispatcher) managedUpdateData(ctx context.Context, call Call) (any, *Denial, *CallError) {
-	if failure := studioRole(call, "owner", "administrator", "editor", "contributor"); failure != nil {
+	if failure := studioCapability(call, auth.CapPlaylistEdit); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -241,7 +242,7 @@ func (d *Dispatcher) takeoverActivate(ctx context.Context, call Call) (any, *Den
 	// Takeovers are the most disruptive Studio action: only Owners and
 	// Administrators trigger them from Studio, matching the dashboard.
 	// Background activation runs under the install-time grant.
-	if failure := studioRole(call, "owner", "administrator"); failure != nil {
+	if failure := studioCapability(call, auth.CapScreenAssign); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -346,7 +347,7 @@ func (d *Dispatcher) resolveTargets(ctx context.Context, screens, groups []uuid.
 }
 
 func (d *Dispatcher) takeoverCancel(ctx context.Context, call Call) (any, *Denial, *CallError) {
-	if failure := studioRole(call, "owner", "administrator"); failure != nil {
+	if failure := studioCapability(call, auth.CapScreenAssign); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -469,7 +470,7 @@ func (d *Dispatcher) auditWrite(ctx context.Context, call Call) (any, *Denial, *
 func (d *Dispatcher) playerCommand(ctx context.Context, call Call, operation string) (any, *Denial, *CallError) {
 	// Display commands are Owner/Administrator actions on the dashboard;
 	// Studio package calls match. Background runs under the grant.
-	if failure := studioRole(call, "owner", "administrator"); failure != nil {
+	if failure := studioCapability(call, auth.CapScreenManage); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {

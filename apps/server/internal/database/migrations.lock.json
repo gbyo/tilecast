@@ -760,5 +760,11 @@
     "file": "00128_external_plugin_runtime.sql",
     "owner": "core",
     "sha256": "91e1e538d2164ba748e801f8aada3680a2593022ffac80d7ea29120dcce9a08d"
+  },
+  {
+    "version": 129,
+    "file": "00129_rbac_roles_and_content_access.sql",
+    "owner": "core",
+    "sha256": "d5cdee81a5842d5cda54dd5175f47d779580992431b3b8811dd9e6d5beb70f28"
   }
 ]

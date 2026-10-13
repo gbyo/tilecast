@@ -185,9 +185,9 @@ func (s *server) publishLayout(w http.ResponseWriter, r *http.Request) {
 	}
 	user := principal.User
 	if s.approvals != nil {
-		published, publishErr := s.approvals.SubmitAndPublish(r.Context(), user.ID, user.Role, "layout", id, body.ExpectedDraftRevision)
+		published, publishErr := s.approvals.SubmitAndPublish(r.Context(), user.ID, principal, "layout", id, body.ExpectedDraftRevision)
 		if errors.Is(publishErr, approvals.ErrReviewRequired) {
-			submission, submitErr := s.approvals.SubmitExpected(r.Context(), user.ID, user.Role, "layout", id, nil, body.ExpectedDraftRevision)
+			submission, submitErr := s.approvals.SubmitExpected(r.Context(), user.ID, principal, "layout", id, nil, body.ExpectedDraftRevision)
 			if submitErr != nil {
 				s.writeEditorialError(w, r, submitErr)
 				return
