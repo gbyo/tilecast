@@ -58,6 +58,8 @@ or a current renderer problem still takes priority.
 
 Connection and playback health are separate. A Player can be **Online** and still need attention because it is in safe mode, has a renderer or playback error, is under storage pressure, is out of synchronization, or is not producing the playback evidence expected for its content. Conversely, an intentionally sleeping or unassigned screen is not treated as unhealthy only because nothing is moving.
 
+Activity uses four health states for enabled, paired screens. **Healthy** means the Player is reporting and playing what it should, with no safe mode, current playback error, background-state problem, storage pressure, or synchronization error. **Impaired** means it is still reporting but one of those conditions is active, including expected content not playing. **Offline** means it has passed the same fifteen-minute contact grace used by Fleet's Offline state. **Unmeasured** means Tilecast does not have enough trustworthy status yet, or no playback is currently expected. Missing telemetry is not treated as a zero or a failure.
+
 Static content does not have to change pixels continuously. A still image, Widget, or Website proves its first render and may then remain unchanged. Video must keep reporting progress. A Layout must render every zone it declared, and only zones that are supposed to rotate owe continuing evidence.
 
 See the [Player protocol](https://github.com/gbyo/tilecast/blob/main/docs/player-protocol.md)
