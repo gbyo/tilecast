@@ -118,12 +118,19 @@ func TestCanvaResolutionPinsPublicDNSOnly(t *testing.T) {
 
 func TestCanvaAuthoringStoresCanonicalURL(t *testing.T) {
 	s := &Service{definitions: contentdefs.MustLoad()}
-	raw := json.RawMessage(`{"canvaUrl":"https://www.canva.com/design/DAGabcdefgh/view?access=keep&utm_source=share","refreshIntervalSeconds":1800}`)
+	raw := json.RawMessage(`{"canvaUrl":"https://www.canva.com/design/DAGabcdefgh/view?access=keep&utm_source=share","slideshow":true,"refreshIntervalSeconds":1800}`)
 	got, err := s.PrepareWebIntegrationPreview(context.Background(), "canva", raw)
 	var config map[string]any
 	decodeErr := json.Unmarshal(got, &config)
-	if err != nil || decodeErr != nil || config["canvaUrl"] != "https://www.canva.com/design/DAGabcdefgh/view?access=keep&embed=" {
+	if err != nil || decodeErr != nil || config["canvaUrl"] != "https://www.canva.com/design/DAGabcdefgh/watch?access=keep&autoplay=1&embed=" || config["slideshow"] != true {
 		t.Fatalf("%s %v", got, err)
+	}
+	legacy := json.RawMessage(`{"canvaUrl":"https://www.canva.com/design/DAGabcdefgh/watch?access=keep","refreshIntervalSeconds":1800}`)
+	legacyGot, legacyErr := s.PrepareWebIntegrationPreview(context.Background(), "canva", legacy)
+	var legacyConfig map[string]any
+	legacyDecodeErr := json.Unmarshal(legacyGot, &legacyConfig)
+	if legacyErr != nil || legacyDecodeErr != nil || legacyConfig["canvaUrl"] != "https://www.canva.com/design/DAGabcdefgh/view?access=keep&embed=" {
+		t.Fatalf("legacy=%s err=%v decode=%v", legacyGot, legacyErr, legacyDecodeErr)
 	}
 	other, err := s.PrepareWebIntegrationPreview(context.Background(), "google-slides", raw)
 	if err != nil || string(other) != string(raw) {
