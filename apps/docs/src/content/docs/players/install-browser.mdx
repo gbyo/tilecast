@@ -38,6 +38,10 @@ For a permanent display, install the page as an app from the browser's menu, or 
 
 Regenerating a launch link stops the old one immediately. Update every startup link that uses it. The browser that's already connected keeps its session. **Disable managed recovery** stops launch links from reconnecting the Screen at all.
 
+Use a normal browser profile for a permanent display. Browser Player keeps its device key, verified media records, and recovery state in browser storage. Private or incognito windows can discard that state when they close, so they are not suitable for unattended playback. Persistent offline media also depends on the browser granting persistent storage; without it, the browser may evict downloaded content under storage pressure.
+
+Only one tab can actively own a Browser Player slot. If the same Screen is opened twice in the same browser profile, the second tab does not become another Player for that Screen. Recovering the Screen from another browser installation replaces the active binding, so the older installation must recover again before it can report as that Screen.
+
 ## What a Browser Player can't do
 
 A web page can't control the computer or the TV, so these are unavailable:
