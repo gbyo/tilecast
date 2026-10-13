@@ -12320,11 +12320,21 @@ components:
         source: { $ref: "#/components/schemas/PackageSourceBinding" }
     PackageJob:
       type: object
-      required: [jobId, nextRunAt, lastStatus, lastError, consecutiveFailures]
+      required:
+        [
+          jobId,
+          intervalMinutes,
+          nextRunAt,
+          lastStatus,
+          lastError,
+          consecutiveFailures,
+        ]
       description: One declared package background job with the scheduler cursor.
       properties:
         jobId: { type: string }
-        intervalMinutes: { type: integer }
+        intervalMinutes:
+          type: integer
+          description: Cadence in minutes. Zero for a realtime job; use intervalSeconds.
         intervalSeconds: { type: integer, minimum: 5, maximum: 60 }
         kind: { type: string, enum: [ordinary, realtime] }
         nextRunAt: { type: string, format: date-time }

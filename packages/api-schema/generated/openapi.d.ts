@@ -7774,7 +7774,8 @@ export interface components {
     /** @description One declared package background job with the scheduler cursor. */
     PackageJob: {
       jobId: string;
-      intervalMinutes?: number;
+      /** @description Cadence in minutes. Zero for a realtime job; use intervalSeconds. */
+      intervalMinutes: number;
       intervalSeconds?: number;
       /** @enum {string} */
       kind?: "ordinary" | "realtime";

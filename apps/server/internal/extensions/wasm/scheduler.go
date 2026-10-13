@@ -351,10 +351,11 @@ func syncJobs(ctx context.Context, pool *pgxpool.Pool, packageID string, jobs []
 }
 
 // JobRow is one declared job with its scheduler cursor, for the Studio
-// status surface.
+// status surface. IntervalMinutes is always present for compatibility and is
+// zero for a realtime job, whose cadence is IntervalSeconds.
 type JobRow struct {
 	JobID               string     `json:"jobId"`
-	IntervalMinutes     int        `json:"intervalMinutes,omitempty"`
+	IntervalMinutes     int        `json:"intervalMinutes"`
 	IntervalSeconds     int        `json:"intervalSeconds,omitempty"`
 	Kind                string     `json:"kind"`
 	NextRunAt           time.Time  `json:"nextRunAt"`

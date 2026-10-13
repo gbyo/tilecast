@@ -1452,7 +1452,7 @@ export type PackageCapabilities = {
 /** One declared package background job with the scheduler cursor. */
 export type PackageJob = {
   jobId: string;
-  intervalMinutes?: number;
+  intervalMinutes: number;
   intervalSeconds?: number;
   kind?: "ordinary" | "realtime";
   nextRunAt: string;

@@ -40,6 +40,7 @@ describe("PackageJobs", () => {
       {
         jobId: "refresh",
         kind: "realtime",
+        intervalMinutes: 0,
         intervalSeconds: 5,
         nextRunAt: new Date().toISOString(),
         lastStatus: "never",
