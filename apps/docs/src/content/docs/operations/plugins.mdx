@@ -72,6 +72,8 @@ A Marketplace package does not list what it adds or what it can do until you rev
 
 A capability in the package manifest is a request, not a self-granted permission. Server network access is limited to the HTTPS hostnames the package declares and Tilecast exposes to that package. The package does not receive the Tilecast Server's general network access or Player credentials. Storage, background jobs, and Studio interfaces are separate requested capabilities and are shown in the same review.
 
+Permissions are part of a package version; an Administrator cannot silently edit the allowed-host list of an already installed version. A permission change arrives through an install, update, or restore review and takes effect when that package version activates. Server-side permissions apply to the new package runtime at that point. Players do not receive those server network or storage permissions. If the activation also changes a Widget, plugin surface, or projected plugin state, affected Players receive the resulting manifest change through their normal refresh path.
+
 ## Manage installed packages
 
 Open an installed marketplace or custom package from **Extension packages** to manage it:
