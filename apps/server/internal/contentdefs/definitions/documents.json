@@ -2,7 +2,7 @@
   "widgets": [
     {
       "id": "canva",
-      "version": 1,
+      "version": 2,
       "name": "Canva",
       "description": "Display a published Canva design or presentation.",
       "category": "Design & Documents",
@@ -24,6 +24,14 @@
             "required": true
           },
           {
+            "key": "slideshow",
+            "label": "Slideshow",
+            "labelKey": "definitions:canva.fields.slideshow.label",
+            "description": "Automatically play and advance presentation pages using the timing set in Canva.",
+            "descriptionKey": "definitions:canva.fields.slideshow.description",
+            "control": "boolean"
+          },
+          {
             "key": "refreshIntervalSeconds",
             "label": "Reload interval",
             "labelKey": "definitions:canva.fields.refreshIntervalSeconds.label",
@@ -37,6 +45,7 @@
       },
       "defaultConfiguration": {
         "canvaUrl": "",
+        "slideshow": true,
         "refreshIntervalSeconds": 1800
       },
       "presentationSchemaVersion": 1,
@@ -58,7 +67,7 @@
           "In Canva, select Share > See all > Embed and publish a public embed.",
           "Paste the Smart embed link or the src URL from the HTML iframe. Public view and design short links are also accepted."
         ],
-        "tip": "A public view link alone does not enable embedding. Private designs and login are not supported. If the preview is blank, check Embed publishing in Canva or export an image, video, or PDF for Tilecast. Tilecast does not set Canva slide timing or autoplay."
+        "tip": "A public view link alone does not enable embedding. Private designs and login are not supported. Slideshow uses Canva autoplay and the page timing configured in Canva."
       },
       "deprecation": {}
     },
