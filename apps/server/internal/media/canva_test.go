@@ -122,7 +122,7 @@ func TestCanvaAuthoringStoresCanonicalURL(t *testing.T) {
 	got, err := s.PrepareWebIntegrationPreview(context.Background(), "canva", raw)
 	var config map[string]any
 	decodeErr := json.Unmarshal(got, &config)
-	if err != nil || decodeErr != nil || config["canvaUrl"] != "https://www.canva.com/design/DAGabcdefgh/watch?access=keep&autoplay=1&embed=" || config["slideshow"] != true {
+	if err != nil || decodeErr != nil || config["canvaUrl"] != "https://www.canva.com/design/DAGabcdefgh/watch?access=keep&embed=" || config["slideshow"] != true {
 		t.Fatalf("%s %v", got, err)
 	}
 	legacy := json.RawMessage(`{"canvaUrl":"https://www.canva.com/design/DAGabcdefgh/watch?access=keep","refreshIntervalSeconds":1800}`)
