@@ -34,7 +34,6 @@ const legacyConfig = {
   refreshIntervalSeconds: 1800,
 };
 
-
 it("pastes, previews and saves Canva through the shared editor without claiming remote success", async () => {
   useViewport("tablet");
   mockEditorApi();
