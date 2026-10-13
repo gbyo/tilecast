@@ -18,7 +18,7 @@ func ValidatePackageRuntime(contentDir string, manifest packagemanifest.Manifest
 	if manifest.Runtime == nil && manifest.Capabilities == nil {
 		return nil
 	}
-	jobs := manifest.Capabilities != nil && manifest.Capabilities.Background != nil
+	jobs := manifest.Capabilities != nil && (manifest.Capabilities.Background != nil || manifest.Capabilities.Realtime != nil)
 	studio := manifest.Capabilities != nil && manifest.Capabilities.StudioUI != nil
 	if manifest.Runtime != nil {
 		modulePath, err := contain(contentDir, manifest.Runtime.Module)

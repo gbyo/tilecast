@@ -137,9 +137,9 @@ func TestPluginStoreMarketplaceMerge(t *testing.T) {
 		if err := env.pool.QueryRow(ctx, `SELECT id FROM organization_settings LIMIT 1`).Scan(&organizationID); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := env.pool.Exec(ctx, `INSERT INTO installed_packages(organization_id,package_id,package_version,digest,source_kind,source_reference,registry_reference,trust_state,manifest)
-			VALUES($1,'acme.weather','0.9.0',$2,'marketplace','https://example.com/acme/weather:1.0.0@`+marketplaceTestDigest+`','registry.example.com/acme/weather','verified','{}')`,
-			organizationID, marketplaceTestDigest); err != nil {
+		if _, err := env.pool.Exec(ctx, `INSERT INTO installed_packages(organization_id,package_id,package_version,digest,source_kind,source_reference,registry_reference,trust_state,manifest,execution_epoch,storage_epoch)
+			VALUES($1,'acme.weather','0.9.0',$2,'marketplace','https://example.com/acme/weather:1.0.0@`+marketplaceTestDigest+`','registry.example.com/acme/weather','verified','{}',$3,$4)`,
+			organizationID, marketplaceTestDigest, uuid.New(), uuid.New()); err != nil {
 			t.Fatal(err)
 		}
 

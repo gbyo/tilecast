@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 
@@ -79,6 +81,8 @@ type ServiceCaller interface {
 
 // Call is one guest invocation.
 type Call struct {
+	ExecutionEpoch uuid.UUID
+	StorageEpoch   uuid.UUID
 	// PackageID scopes storage, logs, and the compile cache entry.
 	PackageID string
 	// Digest keys the compiled module cache: the pinned artifact digest.
@@ -93,6 +97,8 @@ type Call struct {
 	Input []byte
 	// Timeout bounds the whole call, guest and host functions alike.
 	Timeout time.Duration
+	// FetchTimeout can tighten approved fetches for short realtime jobs.
+	FetchTimeout time.Duration
 	// Context is the invocation context for service calls: studio or
 	// background.
 	Context string
@@ -116,14 +122,18 @@ type Result struct {
 // context. One host module serves every package, so the grants ride the
 // call, never shared host state.
 type invocation struct {
-	packageID string
-	grants    Grants
-	context   string
-	actor     *services.Actor
-	caller    ServiceCaller
-	store     KVStore
-	fetch     func(ctx context.Context, rawURL string, allow []string) ([]byte, error)
-	logger    *slog.Logger
+	executionEpoch uuid.UUID
+	storageEpoch   uuid.UUID
+	digest         string
+	packageID      string
+	grants         Grants
+	context        string
+	actor          *services.Actor
+	caller         ServiceCaller
+	store          KVStore
+	fetch          func(ctx context.Context, rawURL string, allow []string) ([]byte, error)
+	fetchTimeout   time.Duration
+	logger         *slog.Logger
 }
 
 type invocationKey struct{}
@@ -229,14 +239,18 @@ func (h *Host) Invoke(ctx context.Context, call Call) (Result, error) {
 	ctx, cancel := context.WithTimeout(ctx, call.Timeout)
 	defer cancel()
 	ctx = context.WithValue(ctx, invocationKey{}, &invocation{
-		packageID: call.PackageID,
-		grants:    call.Grants,
-		context:   call.Context,
-		actor:     call.Actor,
-		caller:    call.Caller,
-		store:     h.store,
-		fetch:     h.fetch,
-		logger:    h.logger,
+		executionEpoch: call.ExecutionEpoch,
+		storageEpoch:   call.StorageEpoch,
+		digest:         call.Digest,
+		packageID:      call.PackageID,
+		grants:         call.Grants,
+		context:        call.Context,
+		actor:          call.Actor,
+		caller:         call.Caller,
+		store:          h.store,
+		fetch:          h.fetch,
+		fetchTimeout:   call.FetchTimeout,
+		logger:         h.logger,
 	})
 	instance, err := h.runtime.InstantiateModule(ctx, compiled, wazero.NewModuleConfig())
 	if err != nil {
@@ -363,6 +377,11 @@ func (h *Host) httpFetch(ctx context.Context, mod api.Module, urlPtr, urlLen, ou
 	if !ok {
 		return ErrTooLarge
 	}
+	if call.fetchTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, call.fetchTimeout)
+		defer cancel()
+	}
 	body, err := call.fetch(ctx, rawURL, call.grants.NetworkHosts)
 	if errors.Is(err, errNotAllowlisted) {
 		return ErrNotAllowlisted
@@ -430,12 +449,14 @@ func (h *Host) serviceCall(ctx context.Context, mod api.Module, opPtr, opLen, in
 		return ErrTooLarge
 	}
 	data, denial, failure := call.caller.Call(ctx, services.Call{
-		PackageID: call.packageID,
-		Context:   call.context,
-		Actor:     call.actor,
-		Grants:    call.grants.Services,
-		Operation: operation,
-		Input:     input,
+		ExecutionEpoch: call.executionEpoch,
+		PackageDigest:  call.digest,
+		PackageID:      call.packageID,
+		Context:        call.context,
+		Actor:          call.actor,
+		Grants:         call.grants.Services,
+		Operation:      operation,
+		Input:          input,
 	})
 	if denial != nil {
 		if denial.Kind == services.DenialUnknownOperation {

@@ -383,6 +383,10 @@
         "body_one": "Runs {{count}} scheduled job.",
         "body_other": "Runs {{count}} scheduled jobs."
       },
+      "realtime": {
+        "title": "High-frequency background activity",
+        "body": "Runs one bounded background job every few seconds, including when Studio is closed."
+      },
       "studioUI": {
         "title": "Studio interface",
         "body": "Adds its own configuration interface to Studio."

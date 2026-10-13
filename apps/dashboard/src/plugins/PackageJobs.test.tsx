@@ -35,6 +35,28 @@ describe("PackageJobs", () => {
     jobsStub.mockResolvedValue([]);
   });
 
+  it("shows the separate realtime class and seconds cadence", async () => {
+    jobsStub.mockResolvedValue([
+      {
+        jobId: "refresh",
+        kind: "realtime",
+        intervalMinutes: 0,
+        intervalSeconds: 5,
+        nextRunAt: new Date().toISOString(),
+        lastStatus: "never",
+        lastError: "",
+        consecutiveFailures: 0,
+      },
+    ]);
+    await i18n.changeLanguage("en");
+    renderJobs();
+    expect(
+      await screen.findByText(
+        "High-frequency background activity · Every 5 seconds",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("renders each job with its cadence and outcome", async () => {
     const now = Date.now();
     const at = (minutes: number) =>

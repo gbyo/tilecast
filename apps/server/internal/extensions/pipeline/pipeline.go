@@ -293,7 +293,7 @@ func (s *Service) reconcileWASMJobs(ctx context.Context, operation, packageID st
 	}
 	sync := s.syncJobs
 	if sync == nil {
-		sync = wasm.SyncJobs
+		sync = wasm.SyncInstalledJobs
 	}
 	if err := sync(ctx, s.db, packageID, jobs); err != nil {
 		s.log().ErrorContext(ctx, "package wasm job sync failed after commit",

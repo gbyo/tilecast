@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import prettier from "prettier";
 import { packageManifestJSONSchema } from "../src/manifest.ts";
+import { externalPluginManifestJSONSchema } from "../src/external-plugin.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const path = join(root, "schema", "tilecast-package.schema.json");
@@ -18,3 +19,12 @@ const text = await prettier.format(
 );
 writeFileSync(path, text);
 console.log(`wrote ${path}`);
+const externalPath = join(root, "schema", "external-plugin.schema.json");
+writeFileSync(
+  externalPath,
+  await prettier.format(JSON.stringify(externalPluginManifestJSONSchema()), {
+    ...options,
+    filepath: externalPath,
+  }),
+);
+console.log(`wrote ${externalPath}`);

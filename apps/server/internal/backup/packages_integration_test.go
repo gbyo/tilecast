@@ -56,11 +56,11 @@ func TestSnapshotPackagesPinsActivations(t *testing.T) {
 	digest := "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	if _, err = pool.Exec(ctx, `INSERT INTO installed_packages(organization_id,package_id,
 		package_version,digest,source_kind,source_reference,registry_reference,
-		signer_identity,trust_state,manifest)
+		signer_identity,trust_state,manifest,execution_epoch,storage_epoch)
 		SELECT id,'acme.athletics','2.4.1',$1,'custom',
 		'https://github.com/acme/tilecast-athletics','ghcr.io/acme/tilecast-athletics',
 		'https://github.com/acme/tilecast-athletics/.github/workflows/release.yml',
-		'verified','{}' FROM organization_settings WHERE singleton`, digest); err != nil {
+		'verified','{}',$2,$3 FROM organization_settings WHERE singleton`, digest, uuid.New(), uuid.New()); err != nil {
 		t.Fatal(err)
 	}
 	records, err := snapshotPackages(ctx, pool)

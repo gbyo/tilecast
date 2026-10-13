@@ -470,6 +470,7 @@ func serve() {
 	// External package background jobs run on their declared intervals;
 	// the first overdue pass runs at startup so a restart loses no jobs.
 	go wasm.NewScheduler(db, wasmService.InvokeJob, time.Minute, logger).Run(shutdownCtx)
+	go wasm.NewRealtimeScheduler(db, wasmService.InvokeJob, logger).Run(shutdownCtx)
 	// Refresh the marketplace in the background at startup so a fresh
 	// boot picks up the current catalog without delaying traffic. The
 	// bundled snapshot serves until the refresh lands.

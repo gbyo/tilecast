@@ -12063,7 +12063,11 @@ components:
       description: One declared package background job with the scheduler cursor.
       properties:
         jobId: { type: string }
-        intervalMinutes: { type: integer }
+        intervalMinutes:
+          type: integer
+          description: Cadence in minutes. Zero for a realtime job; use intervalSeconds.
+        intervalSeconds: { type: integer, minimum: 5, maximum: 60 }
+        kind: { type: string, enum: [ordinary, realtime] }
         nextRunAt: { type: string, format: date-time }
         lastRunAt: { type: string, format: date-time }
         lastStatus: { type: string, x-extensible-enum: [never, ok, error] }
@@ -12168,6 +12172,21 @@ components:
                 properties:
                   id: { type: string }
                   intervalMinutes: { type: integer }
+        realtime:
+          type: object
+          required: [jobs]
+          description: One bounded high-frequency background job, separately reviewed.
+          properties:
+            jobs:
+              type: array
+              minItems: 1
+              maxItems: 1
+              items:
+                type: object
+                required: [id, intervalSeconds]
+                properties:
+                  id: { type: string }
+                  intervalSeconds: { type: integer, minimum: 5, maximum: 60 }
         storage:
           {
             type: boolean,

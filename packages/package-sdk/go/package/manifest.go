@@ -22,16 +22,17 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 )
 
 // APIVersion is the latest package manifest version this SDK implements.
-const APIVersion = 3
+const APIVersion = 4
 
 // SupportedAPIVersions lists the manifest versions this release can load.
-var SupportedAPIVersions = []int{1, 2, 3}
+var SupportedAPIVersions = []int{1, 2, 3, 4}
 
 // Service grant bounds. The TypeScript validator mirrors these limits so
 // shared fixtures keep both implementations aligned.
@@ -118,10 +119,11 @@ type Runtime struct {
 // Capabilities declares the bounded capabilities the package requests.
 // Every entry is a request the host reviews; nothing here grants
 // itself. Runtime capabilities are versions 2 and 3; service grants are
-// version 3 only.
+// versions 3 and 4 only. Realtime jobs require version 4.
 type Capabilities struct {
 	Network    *NetworkCapability    `json:"network,omitempty"`
 	Background *BackgroundCapability `json:"background,omitempty"`
+	Realtime   *RealtimeCapability   `json:"realtime,omitempty"`
 	// Storage is a pointer so an explicit false is rejected, mirroring
 	// the TypeScript literal(true): the capability is requested by
 	// presence, never by value.
@@ -154,6 +156,34 @@ type BackgroundCapability struct {
 	Jobs []BackgroundJob `json:"jobs"`
 }
 
+// RealtimeCapability is an explicitly reviewed high-frequency job class.
+// It does not change the ordinary five-minute minimum or scheduler cadence.
+type RealtimeCapability struct {
+	Jobs []RealtimeJob `json:"jobs"`
+}
+
+type RealtimeJob struct {
+	ID              string     `json:"id"`
+	IntervalSeconds IntegerNum `json:"intervalSeconds"`
+}
+
+// IntegerNum accepts JSON integer values such as 5 and 5.0 identically.
+// Contract-specific bounds are still enforced by the authoritative validator.
+type IntegerNum int32
+
+func (number *IntegerNum) UnmarshalJSON(raw []byte) error {
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return err
+	}
+	parsed, ok := value.(float64)
+	if !ok || math.Trunc(parsed) != parsed || parsed < math.MinInt32 || parsed > math.MaxInt32 {
+		return fmt.Errorf("value must be an integer")
+	}
+	*number = IntegerNum(parsed)
+	return nil
+}
+
 // StudioUICapability names the sandboxed Studio UI entry page.
 type StudioUICapability struct {
 	Entry string `json:"entry"`
@@ -182,7 +212,7 @@ func (v *APIVersionNum) UnmarshalJSON(data []byte) error {
 	}
 	number, ok := value.(float64)
 	if !ok {
-		return fmt.Errorf("apiVersion must be 1, 2, or 3")
+		return fmt.Errorf("apiVersion must be 1, 2, 3, or 4")
 	}
 	for _, supported := range SupportedAPIVersions {
 		if number == float64(supported) {
@@ -190,7 +220,7 @@ func (v *APIVersionNum) UnmarshalJSON(data []byte) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("apiVersion must be 1, 2, or 3")
+	return fmt.Errorf("apiVersion must be 1, 2, 3, or 4")
 }
 
 // Parse decodes and validates one package manifest document. Unknown fields
@@ -219,7 +249,7 @@ func Validate(m Manifest) error {
 		}
 	}
 	if !supported {
-		return fmt.Errorf("package manifest: apiVersion must be 1, 2, or 3")
+		return fmt.Errorf("package manifest: apiVersion must be 1, 2, 3, or 4")
 	}
 	if utf8.RuneCountInString(m.PackageID) > 128 || !packageIDPattern.MatchString(m.PackageID) {
 		return fmt.Errorf("package manifest: packageId must be a qualified identity such as acme.athletics")
@@ -301,15 +331,15 @@ func Validate(m Manifest) error {
 // validateCapabilities checks the version 2 and 3 capability
 // declarations: bounded, typed, and explicit. Network, background,
 // storage, and services act through the runtime module, so they require
-// one; a Studio UI may stand alone. Services are version 3 only.
+// one; a Studio UI may stand alone. Services require version 3 or 4.
 func validateCapabilities(apiVersion APIVersionNum, caps *Capabilities, hasRuntime bool) error {
-	if caps.Network == nil && caps.Background == nil && caps.Storage == nil && caps.StudioUI == nil && len(caps.Services) == 0 {
+	if caps.Network == nil && caps.Background == nil && caps.Realtime == nil && caps.Storage == nil && caps.StudioUI == nil && len(caps.Services) == 0 {
 		return fmt.Errorf("package manifest: capabilities must declare at least one capability")
 	}
-	if len(caps.Services) > 0 && apiVersion != 3 {
-		return fmt.Errorf("package manifest: service grants require apiVersion 3")
+	if len(caps.Services) > 0 && apiVersion < 3 {
+		return fmt.Errorf("package manifest: service grants require apiVersion 3 or 4")
 	}
-	if (caps.Network != nil || caps.Background != nil || caps.Storage != nil || len(caps.Services) > 0) && !hasRuntime {
+	if (caps.Network != nil || caps.Background != nil || caps.Realtime != nil || caps.Storage != nil || len(caps.Services) > 0) && !hasRuntime {
 		return fmt.Errorf("package manifest: network, background, storage, and service capabilities require a runtime module")
 	}
 	if caps.Network != nil {
@@ -347,6 +377,25 @@ func validateCapabilities(apiVersion APIVersionNum, caps *Capabilities, hasRunti
 	}
 	if caps.Storage != nil && !*caps.Storage {
 		return fmt.Errorf("package manifest: storage is requested by presence, never by value")
+	}
+	if caps.Realtime != nil {
+		if apiVersion != 4 {
+			return fmt.Errorf("package manifest: realtime jobs require apiVersion 4")
+		}
+		if len(caps.Realtime.Jobs) != 1 {
+			return fmt.Errorf("package manifest: realtime jobs must hold exactly one entry")
+		}
+		job := caps.Realtime.Jobs[0]
+		if !capabilityJobPattern.MatchString(job.ID) || job.IntervalSeconds < 5 || job.IntervalSeconds > 60 {
+			return fmt.Errorf("package manifest: realtime job requires a valid identity and a 5 to 60 second interval")
+		}
+		if caps.Background != nil {
+			for _, ordinary := range caps.Background.Jobs {
+				if ordinary.ID == job.ID {
+					return fmt.Errorf("package manifest: job ids must be unique across job classes")
+				}
+			}
+		}
 	}
 	if len(caps.Services) > MaxServiceGrants {
 		return fmt.Errorf("package manifest: services must hold 1 to %d grants", MaxServiceGrants)

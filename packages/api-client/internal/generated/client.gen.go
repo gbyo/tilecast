@@ -2307,6 +2307,24 @@ func (e PackageInUseErrorErrorCode) Valid() bool {
 	}
 }
 
+// Defines values for PackageJobKind.
+const (
+	Ordinary PackageJobKind = "ordinary"
+	Realtime PackageJobKind = "realtime"
+)
+
+// Valid indicates whether the value is a known member of the PackageJobKind enum.
+func (e PackageJobKind) Valid() bool {
+	switch e {
+	case Ordinary:
+		return true
+	case Realtime:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PackageRollbackConflictErrorErrorCode.
 const (
 	PackageRollbackConflictErrorErrorCodeNoRollback   PackageRollbackConflictErrorErrorCode = "no_rollback"
@@ -8877,6 +8895,14 @@ type PackageCapabilities struct {
 		Hosts []string `json:"hosts"`
 	} `json:"network,omitempty"`
 
+	// Realtime One bounded high-frequency background job, separately reviewed.
+	Realtime *struct {
+		Jobs []struct {
+			Id              string `json:"id"`
+			IntervalSeconds int    `json:"intervalSeconds"`
+		} `json:"jobs"`
+	} `json:"realtime,omitempty"`
+
 	// Services Requested Tilecast service grants with registry-resolved display metadata.
 	Services *[]struct {
 		Category    PackageCapabilitiesServicesCategory `json:"category"`
@@ -8938,14 +8964,21 @@ type PackageInUseErrorErrorCode string
 
 // PackageJob One declared package background job with the scheduler cursor.
 type PackageJob struct {
-	ConsecutiveFailures int        `json:"consecutiveFailures"`
-	IntervalMinutes     int        `json:"intervalMinutes"`
-	JobId               string     `json:"jobId"`
-	LastError           string     `json:"lastError"`
-	LastRunAt           *time.Time `json:"lastRunAt,omitempty"`
-	LastStatus          string     `json:"lastStatus"`
-	NextRunAt           time.Time  `json:"nextRunAt"`
+	ConsecutiveFailures int `json:"consecutiveFailures"`
+
+	// IntervalMinutes Cadence in minutes. Zero for a realtime job; use intervalSeconds.
+	IntervalMinutes int             `json:"intervalMinutes"`
+	IntervalSeconds *int            `json:"intervalSeconds,omitempty"`
+	JobId           string          `json:"jobId"`
+	Kind            *PackageJobKind `json:"kind,omitempty"`
+	LastError       string          `json:"lastError"`
+	LastRunAt       *time.Time      `json:"lastRunAt,omitempty"`
+	LastStatus      string          `json:"lastStatus"`
+	NextRunAt       time.Time       `json:"nextRunAt"`
 }
+
+// PackageJobKind defines model for PackageJob.Kind.
+type PackageJobKind string
 
 // PackageManifestSummary The human-readable face of an installed or resolved package manifest.
 type PackageManifestSummary struct {

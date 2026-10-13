@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/execution"
 
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
@@ -56,12 +57,14 @@ type Actor struct {
 
 // Call is one authorized-or-not service invocation from a guest.
 type Call struct {
-	PackageID string
-	Context   string
-	Actor     *Actor
-	Grants    []packagemanifest.ServiceGrant
-	Operation string
-	Input     []byte
+	ExecutionEpoch uuid.UUID
+	PackageDigest  string
+	PackageID      string
+	Context        string
+	Actor          *Actor
+	Grants         []packagemanifest.ServiceGrant
+	Operation      string
+	Input          []byte
 }
 
 // Denial is a transport-level refusal: unknown operation, missing
@@ -220,6 +223,25 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 	}
 	if len(call.Input) > MaxInputBytes {
 		return nil, nil, &CallError{Code: ErrCodeTooLarge, Message: "input exceeds 32 KiB"}
+	}
+	if call.ExecutionEpoch != uuid.Nil {
+		// Production Wasm supplies this host-only identity. Direct domain
+		// tests do not carry an invocation epoch; guests cannot omit it.
+		tx, err := d.deps.DB.Begin(ctx)
+		if err != nil {
+			return nil, nil, unavailable(err)
+		}
+		defer tx.Rollback(ctx) //nolint:errcheck
+		ctx, err = execution.Lock(ctx, tx, call.PackageID)
+		if err != nil {
+			return nil, nil, unavailable(err)
+		}
+		if _, err := execution.Check(ctx, tx, call.PackageID, call.PackageDigest, call.ExecutionEpoch); err != nil {
+			if errors.Is(err, execution.ErrChanged) {
+				return nil, &Denial{Kind: DenialMissingGrant, Message: "package activation changed"}, nil
+			}
+			return nil, nil, unavailable(err)
+		}
 	}
 	switch operation.Name {
 	case "organization.read@1/get":
