@@ -30,3 +30,16 @@ For a screen problem, check these first:
 5. Local Player or server logs if Studio still does not explain the problem.
 
 Avoid clearing caches, deleting Player state, or recreating a screen as the first step. Those actions can remove useful information and may create a second pairing or content problem.
+
+## Before reinstalling a Player
+
+Use the least destructive recovery that still matches the problem:
+
+1. Confirm power, network reachability, last contact, and the current Player health in Studio.
+2. Read **Activity** and collect the local status or logs while the failure is still present.
+3. If the Player is connected, try **Retry current item** or **Reload playback** for a content problem before restarting the whole app.
+4. Restart the Player only when the renderer or application is actually stuck. On Edge, check Safe Mode and the recovery reason first. On Android, use the on-screen **Restart display** action when Studio reports **Renderer unavailable**.
+5. If the installation can still pair but its credential is damaged, use **Repair existing credential**. If the old hardware or local state is gone, use **Replace hardware for an existing screen** so the logical screen keeps its assignments and history.
+6. Reinstall the Player only after the earlier steps cannot recover the installation.
+
+If the device itself is unreachable, Tilecast cannot run a remote recovery command on it. Use local console, SSH, or other out-of-band access if available. A power cycle can restore a wedged device, but it also removes volatile evidence, so collect logs first when you still can. See [Pair or replace a screen](../screens/pair-and-replace/) for repair and replacement choices.
