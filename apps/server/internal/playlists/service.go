@@ -2198,6 +2198,10 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		}
 	}
 	compiled := make([]*WidgetPresentation, len(manifest.Widgets))
+	zoneWidgets, err := layoutPlaylistWidgets(ctx, s.db, uniqueUUIDs(playlistIDs), uniqueUUIDs(layoutIDs))
+	if err != nil {
+		return Manifest{}, "", err
+	}
 	componentsV2 := make([]*WidgetPresentation, len(manifest.Widgets))
 	componentsV3 := make([]*WidgetPresentation, len(manifest.Widgets))
 	componentsFrame := make([]*WidgetPresentation, len(manifest.Widgets))
@@ -2220,6 +2224,12 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		if err != nil {
 			return Manifest{}, "", fmt.Errorf("%w: Widget “%s” cannot be compiled: %v", ErrConflict, widget.Name, err)
 		}
+		if zoneWidgets[widget.AssetID] {
+			requireLayoutPlaylistWidgets(compiled[index])
+			requireLayoutPlaylistWidgets(componentsV2[index])
+			requireLayoutPlaylistWidgets(componentsV3[index])
+			requireLayoutPlaylistWidgets(componentsFrame[index])
+		}
 		if compiled[index] == nil && componentsV2[index] == nil && componentsV3[index] == nil {
 			canCompileV13 = false
 			break
@@ -2228,6 +2238,9 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	playerCapabilities, capabilityErr := readPlayerPresentationCapabilities(ctx, s.db, screenID)
 	if capabilityErr != nil {
 		return Manifest{}, "", capabilityErr
+	}
+	if len(zoneWidgets) > 0 && playerCapabilities.Native[layoutPlaylistWidgetsCapability] < 1 {
+		return Manifest{}, "", fmt.Errorf("%w: %s requires %s@1 for Layout playlist Widgets", ErrConflict, screenDisplayName(ctx, s.db, screenID), layoutPlaylistWidgetsCapability)
 	}
 	useV13 := false
 	usesComponents := false

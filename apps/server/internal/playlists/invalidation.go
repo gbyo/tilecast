@@ -105,8 +105,9 @@ WITH RECURSIVE refs(kind,id) AS (
 	SET preview_image=NULL,preview_content_type=NULL,preview_width=NULL,preview_height=NULL,
 	    preview_updated_at=NULL,preview_capture_version=NULL
 	FROM refs r
-	WHERE $1::text IN ('asset','widget','playlist','data_source')
-	  AND r.kind='layout' AND r.id=l.id AND l.deleted_at IS NULL
+	WHERE (($1::text IN ('asset','widget','playlist','data_source') AND r.kind='layout' AND r.id=l.id)
+	       OR $1::text='plugin')
+	  AND l.deleted_at IS NULL
 	  AND l.preview_image IS NOT NULL
 	RETURNING l.id
 ), affected(screen_id) AS (

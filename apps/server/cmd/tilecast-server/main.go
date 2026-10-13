@@ -248,6 +248,7 @@ func serve() {
 	pluginService.SetContentDefinitions(contentDefinitions)
 	managedPresentationService.SetContentDefinitions(contentDefinitions)
 	layoutService := layouts.NewService(db)
+	layoutService.SetContentDefinitions(contentDefinitions)
 	layoutService.SetNotifier(deviceService)
 	layoutService.SetManifestInvalidator(playlistService)
 	mediaService.SetAssetInvalidator(playlistService)

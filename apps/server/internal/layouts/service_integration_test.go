@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
@@ -192,8 +193,8 @@ func TestLayoutDraftPublishAndRestoreLifecycle(t *testing.T) {
 	}{
 		{name: "image", assetID: &assetID, shouldPass: true},
 		{name: "video", assetID: &videoA, shouldPass: true},
-		{name: "Widget", assetID: &widgetID, listed: "clock (Widget)"},
-		{name: "Website", assetID: &websiteID, listed: "website (Website)"},
+		{name: "Widget", assetID: &widgetID, shouldPass: true},
+		{name: "Website", assetID: &websiteID, shouldPass: true},
 		{name: "nested Layout", layoutID: &nestedLayout.ID, listed: "Nested (Layout)"},
 	} {
 		playlistID := uuid.New()
@@ -220,19 +221,19 @@ func TestLayoutDraftPublishAndRestoreLifecycle(t *testing.T) {
 		if fixture.shouldPass {
 			// A Playlist that was valid when the Layout published can change
 			// later; assignment readiness runs this same check and must catch it.
-			if err = ValidatePlaylistZoneMediaOnly(ctx, pool, &playlistID); err != nil {
+			if err = ValidatePlaylistZoneItems(ctx, pool, &playlistID); err != nil {
 				t.Fatalf("%s zone playlist is still valid: %v", fixture.name, err)
 			}
-			if _, err = pool.Exec(ctx, `INSERT INTO playlist_items(id,playlist_id,asset_id,position)VALUES($1,$2,$3,1)`, uuid.New(), playlistID, websiteID); err != nil {
+			if _, err = pool.Exec(ctx, `INSERT INTO playlist_items(id,playlist_id,layout_id,position)VALUES($1,$2,$3,1)`, uuid.New(), playlistID, nestedLayout.ID); err != nil {
 				t.Fatal(err)
 			}
-			err = ValidatePlaylistZoneMediaOnly(ctx, pool, &playlistID)
-			if err == nil || !strings.Contains(err.Error(), "website (Website)") || !strings.Contains(err.Error(), `Playlist "`+fixture.name+`"`) {
-				t.Fatalf("a Website added to the %s zone playlist after publication should be reported by name, got %v", fixture.name, err)
+			err = ValidatePlaylistZoneItems(ctx, pool, &playlistID)
+			if err == nil || !strings.Contains(err.Error(), "Nested (Layout)") || !strings.Contains(err.Error(), `Playlist "`+fixture.name+`"`) {
+				t.Fatalf("a nested Layout added to the %s zone playlist after publication should be reported by name, got %v", fixture.name, err)
 			}
 			err = nil
 		}
-		if !fixture.shouldPass && (err == nil || !strings.Contains(err.Error(), "only image and video items")) {
+		if !fixture.shouldPass && (err == nil || !strings.Contains(err.Error(), "nested Layouts are unsupported")) {
 			t.Fatalf("%s zone should be rejected, got %v", fixture.name, err)
 		}
 		if !fixture.shouldPass {
@@ -241,7 +242,7 @@ func TestLayoutDraftPublishAndRestoreLifecycle(t *testing.T) {
 			if !errors.As(err, &unsupported) {
 				t.Fatalf("%s zone rejection should be a PlaylistZoneUnsupportedError, got %T", fixture.name, err)
 			}
-			for _, want := range []string{`Playlist "` + fixture.name + `"`, fixture.listed, "place them in the Layout directly"} {
+			for _, want := range []string{`Playlist "` + fixture.name + `"`, fixture.listed} {
 				if !strings.Contains(err.Error(), want) {
 					t.Fatalf("%s zone rejection %q should mention %q", fixture.name, err.Error(), want)
 				}
@@ -415,5 +416,28 @@ func TestLayoutYouTubePlacementRules(t *testing.T) {
 	}
 	if _, err = service.Publish(ctx, layout.ID, owner.User.ID, layout.DraftRevision); err == nil || !strings.Contains(err.Error(), "only one visible youtube") {
 		t.Fatalf("expected single youtube validation, got %v", err)
+	}
+	playlistID := uuid.New()
+	if _, err = pool.Exec(ctx, `INSERT INTO playlists(id,organization_id,name,created_by) VALUES($1,$2,'YouTube rotation',$3)`, playlistID, organizationID, owner.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	for index, id := range []uuid.UUID{youtubeA, youtubeB} {
+		if _, err = pool.Exec(ctx, `INSERT INTO playlist_items(id,playlist_id,asset_id,position,duration_ms) VALUES($1,$2,$3,$4,10000)`, uuid.New(), playlistID, id, index); err != nil {
+			t.Fatal(err)
+		}
+	}
+	zone := validTestDocument()
+	zone.Placements = append(zone.Placements, Placement{ID: uuid.New(), Type: "playlistZone", Name: "Rotating YouTube", Width: 400, Height: 300, Opacity: 1, Visible: true, PlaylistID: &playlistID})
+	if err = ValidatePlaybackLimits(ctx, pool, zone, contentdefs.MustLoad()); err != nil {
+		t.Fatalf("sequential YouTube items treated as concurrent: %v", err)
+	}
+	zone.Placements[len(zone.Placements)-1].Width = 199
+	if err = ValidatePlaybackLimits(ctx, pool, zone, contentdefs.MustLoad()); err == nil || !strings.Contains(err.Error(), "200 by 200") {
+		t.Fatalf("small YouTube zone accepted: %v", err)
+	}
+	zone.Placements[len(zone.Placements)-1].Width = 400
+	zone.Placements = append(zone.Placements, sized.Placements[len(sized.Placements)-1])
+	if err = ValidatePlaybackLimits(ctx, pool, zone, contentdefs.MustLoad()); err == nil || !strings.Contains(err.Error(), "only one visible youtube") {
+		t.Fatalf("simultaneous placement and zone accepted: %v", err)
 	}
 }
