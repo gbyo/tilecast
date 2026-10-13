@@ -137,7 +137,7 @@ Copy the Smart embed link or the `src` URL from the HTML iframe.
 Tilecast accepts HTTPS `/design/<id>/view`, `/design/<id>/watch`, `/design/<id>/<access-path>/view`, and `/design/<id>/<access-path>/watch` URLs on `www.canva.com` or `canva.com`.
 Presentation designs use these same provider surfaces.
 Tilecast sets the `embed` query field and preserves other query fields except `utm_*` tracking fields.
-The Canva Widget's `slideshow` setting selects the final provider path: enabled uses `/watch`; disabled or omitted uses `/view`.
+The Canva Widget's `slideshow` setting owns the final playback mode: enabled uses `/watch` with `autoplay=1`; disabled or omitted uses `/view` and removes any submitted `autoplay` query field.
 New Canva Widgets default `slideshow` to enabled. Existing saved Widgets that predate the field omit it and therefore retain manual `/view` playback until the author enables Slideshow.
 Tilecast removes fragments and one trailing slash.
 Encoded path characters must decode to the same supported path shape.
