@@ -64,7 +64,9 @@ export function validateClaims(
     const claim = value as Partial<SurfaceClaim> & Record<string, unknown>;
     const slot = claim.slot;
     if (typeof slot !== "string" || !declared.has(slot)) {
-      problems.push(`claim for undeclared slot ${String(slot)}`);
+      problems.push(
+        `claim for undeclared slot ${typeof slot === "string" ? slot : "(invalid)"}`,
+      );
       continue;
     }
     if (seen.has(slot)) {

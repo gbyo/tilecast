@@ -88,6 +88,39 @@ tc_is_widget_capability_uri (const char *value)
 }
 
 gboolean
+tc_frame_refs_valid (JsonNode *node, gboolean plugin_only)
+{
+  if (node == NULL) return TRUE;
+  if (!JSON_NODE_HOLDS_ARRAY (node)) return FALSE;
+  JsonArray *array = json_node_get_array (node);
+  if (json_array_get_length (array) > (plugin_only ? 32 : 1024)) return FALSE;
+  for (guint i = 0; i < json_array_get_length (array); i++) {
+    JsonNode *item = json_array_get_element (array, i);
+    if (!JSON_NODE_HOLDS_OBJECT (item)) return FALSE;
+    JsonObject *entry = json_node_get_object (item);
+    const char *kind = json_object_get_string_member_with_default (entry, "kind", "widget");
+    if (g_strcmp0 (kind, plugin_only ? "external_plugin" : "widget") != 0) return FALSE;
+    g_autoptr (GList) keys = json_object_get_members (entry);
+    for (GList *key = keys; key != NULL; key = key->next) {
+      const char *name = key->data;
+      if (g_strcmp0 (name, "kind") && g_strcmp0 (name, "uri") && g_strcmp0 (name, "packageId")
+          && g_strcmp0 (name, "packageDigest") && g_strcmp0 (name, "frameDigest") && g_strcmp0 (name, "sizeBytes")) return FALSE;
+    }
+    const char *uri = json_object_get_string_member_with_default (entry, "uri", NULL);
+    const char *package = json_object_get_string_member_with_default (entry, "packageId", NULL);
+    const char *digest = json_object_get_string_member_with_default (entry, "packageDigest", NULL);
+    const char *frame = json_object_get_string_member_with_default (entry, "frameDigest", NULL);
+    JsonNode *size = json_object_get_member (entry, "sizeBytes");
+    if (!tc_is_widget_capability_uri (uri) || package == NULL || strlen (package) > 128
+        || !g_utf8_validate (package, -1, NULL) || !strchr (package, '.')
+        || !tc_is_sha256_hex (digest) || !tc_is_sha256_hex (frame) || size == NULL
+        || !JSON_NODE_HOLDS_VALUE (size) || json_node_get_value_type (size) != G_TYPE_INT64
+        || json_node_get_int (size) <= 0 || json_node_get_int (size) > 1114112) return FALSE;
+  }
+  return TRUE;
+}
+
+gboolean
 tc_is_canonical_uuid (const char *value)
 {
   if (value == NULL || strlen (value) != 36)

@@ -143,6 +143,12 @@ describe("external plugin execution", () => {
     expect(fixture(false).frame).toBeNull();
     const value = entry();
     expect(pluginFrameURI(value, [])).toBeNull();
+    expect(pluginFrameURI(value, [null as never])).toBeNull();
+    expect(
+      pluginFrameURI(value, [
+        { ...binding(value), packageDigest: { toString: 12 } as never },
+      ]),
+    ).toBeNull();
     expect(
       pluginFrameURI(value, [{ ...binding(value), packageId: "other" }]),
     ).toBeNull();
@@ -162,6 +168,18 @@ describe("external plugin execution", () => {
   it("bounds state, nesting, deadlines and verified surface declarations", () => {
     const value = entry();
     expect(parseExternalEntry(value, NOW)).toEqual(value);
+    expect(
+      parseExternalEntry(
+        {
+          ...value,
+          package: { ...value.package, packageDigest: { toString: 12 } },
+        },
+        NOW,
+      ),
+    ).toBeNull();
+    expect(
+      parseExternalEntry({ ...value, validUntil: { toString: 12 } }, NOW),
+    ).toBeNull();
     expect(
       parseExternalEntry(
         { ...value, validUntil: new Date(NOW).toISOString() },
@@ -235,7 +253,9 @@ describe("external plugin execution", () => {
       { slot: "corner.bottom-left", priority: 100 },
       Number(message.revision),
     );
-    expect(host.describe().surfaces["corner.bottom-left"]).toBeUndefined();
+    expect(host.describe().surfaces["corner.bottom-left"]?.plugin).toBe(
+      value.id,
+    );
     const revision = Number(
       port.messages.find((m) => m.kind === "state")?.revision,
     );
@@ -254,6 +274,7 @@ describe("external plugin execution", () => {
       "emergency",
     );
     claim({ slot: "overlay", priority: 0 });
+    expect(() => claim({ slot: { toString: 12 }, priority: 0 })).not.toThrow();
     claim({ slot: "corner.top-right", priority: 0, tier: "emergency" });
     expect(host.describe().surfaces["corner.top-right"]).toBeUndefined();
     expect(diagnostics.some((message) => message.includes("undeclared"))).toBe(
@@ -263,6 +284,18 @@ describe("external plugin execution", () => {
       diagnostics.some((message) => message.includes("names a tier")),
     ).toBe(true);
     expect(value.runtime.tier).toBe("live");
+  });
+  it("bounds unanswered claims during state handoff without extending them on another update", () => {
+    const { host, value, frame, attach, clock } = fixture();
+    attach(frame).claim({ slot: "corner.bottom-left", priority: 0 });
+    host.setEntries([{ ...value, state: { count: 0 } }], 0, [binding(value)]);
+    expect(host.describe().surfaces["corner.bottom-left"]?.plugin).toBe(
+      value.id,
+    );
+    clock.advance(400);
+    host.setEntries([{ ...value, state: { count: 1 } }], 0, [binding(value)]);
+    clock.advance(100);
+    expect(host.describe().surfaces["corner.bottom-left"]).toBeUndefined();
   });
   it("hides at an exact deadline between periodic ticks and releases on sleep", () => {
     const { value, host, frame, attach, clock } = fixture();
@@ -316,5 +349,10 @@ describe("external plugin execution", () => {
     host.setEntries([other], 0, [binding(other)]);
     expect(host.element.querySelectorAll("iframe")).toHaveLength(1);
     expect(host.element.querySelector("iframe")?.src).toContain(other.id);
+  });
+  it("refuses duplicate identities even when a third entry repeats the same identity", () => {
+    const { host, value } = fixture();
+    host.setEntries([value, value, value], 0, [binding(value)]);
+    expect(host.element.querySelector("iframe")).toBeNull();
   });
 });

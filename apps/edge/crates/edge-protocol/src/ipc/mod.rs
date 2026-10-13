@@ -95,6 +95,7 @@ pub const MAX_REQUEST_ID_CHARS: usize = 64;
 /// daemon sends `frames` and `projection.widgetFrames` only on sessions
 /// that negotiated it, so an older renderer never sees unknown members.
 pub const RENDERER_FEATURE_WIDGET_FRAMES: &str = "widget-frames-v1";
+pub const RENDERER_FEATURE_PLUGIN_FRAMES: &str = "plugin-frames-v1";
 
 /// Who is on the other end of a session. Closed set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

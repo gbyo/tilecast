@@ -142,6 +142,21 @@ test_runtime_support (void)
   g_assert_false (tc_runtime_support_valid (root));
 }
 
+static void
+test_plugin_frame_fixtures (void)
+{
+  const char *paths[] = { "valid/event-plugin-frames.json", "invalid/event-plugin-frames-unknown-kind.json" };
+  for (guint i = 0; i < G_N_ELEMENTS (paths); i++) {
+    g_autofree char *path = g_build_filename (TC_IPC_FIXTURE_DIR, paths[i], NULL);
+    g_autoptr (JsonParser) parser = json_parser_new ();
+    g_assert_true (json_parser_load_from_file (parser, path, NULL));
+    JsonObject *root = json_node_get_object (json_parser_get_root (parser));
+    JsonObject *frame = json_object_get_object_member (root, "frame");
+    JsonObject *data = json_object_get_object_member (frame, "data");
+    g_assert_cmpint (tc_frame_refs_valid (json_object_get_member (data, "pluginFrames"), TRUE), ==, i == 0);
+  }
+}
+
 int
 main (int argc, char **argv)
 {
@@ -153,5 +168,6 @@ main (int argc, char **argv)
   g_test_add_func ("/validate/clean-paths", test_clean_paths);
   g_test_add_func ("/validate/web-capabilities", test_web_capabilities);
   g_test_add_func ("/validate/runtime-support", test_runtime_support);
+  g_test_add_func ("/validate/plugin-frame-fixtures", test_plugin_frame_fixtures);
   return g_test_run ();
 }

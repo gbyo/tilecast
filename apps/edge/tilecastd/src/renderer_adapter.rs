@@ -285,6 +285,7 @@ fn frame_authorization_table(
         .map(|frame| {
             let uri = grants.get(&frame.sha256).ok_or(RendererPortError::InvalidActivation)?.frame_uri();
             Ok(RendererFrameRef {
+                kind: frame.kind,
                 uri: SafeText::new(uri).map_err(invalid)?,
                 package_id: frame.package_id.clone(),
                 package_digest: frame.package_digest,
@@ -482,7 +483,21 @@ impl RendererPort for EdgeRendererPort {
                 })
             })
             .collect::<Result<_, RendererPortError>>()?;
-        let frames = frame_authorization_table(activation.frames(), &grants.frames)?;
+        let widget_claims: Vec<_> =
+            activation.frames().iter().filter(|frame| frame.kind.is_widget()).cloned().collect();
+        let plugin_claims: Vec<_> =
+            activation.frames().iter().filter(|frame| !frame.kind.is_widget()).cloned().collect();
+        let frames = frame_authorization_table(&widget_claims, &grants.frames)?;
+        let plugin_frames = frame_authorization_table(&plugin_claims, &grants.frames)?;
+        if !plugin_frames.is_empty()
+            && !self
+                .session
+                .features()
+                .iter()
+                .any(|feature| feature.as_str() == edge_protocol::ipc::RENDERER_FEATURE_PLUGIN_FRAMES)
+        {
+            return Err(RendererPortError::InvalidActivation);
+        }
         if !frames.is_empty() && !session_grants_frames(&self.session) {
             // The renderer never negotiated frame delivery: fail the
             // activation rather than execute frames it cannot confine.
@@ -517,13 +532,20 @@ impl RendererPort for EdgeRendererPort {
                 .cloned()
                 .collect();
             PluginState {
+                plugin_frames,
                 plugins: context.plugins,
                 content: plugin_content,
                 clock_offset_ms: context.clock_offset_ms,
                 aliases: context.aliases,
             }
         } else {
-            PluginState { plugins: vec![], content: vec![], clock_offset_ms: context.clock_offset_ms, aliases: vec![] }
+            PluginState {
+                plugin_frames: vec![],
+                plugins: vec![],
+                content: vec![],
+                clock_offset_ms: context.clock_offset_ms,
+                aliases: vec![],
+            }
         };
         let sent = self
             .session
@@ -538,7 +560,25 @@ impl RendererPort for EdgeRendererPort {
         reference: RendererActivationRef,
         context: &RuntimePayload,
     ) -> Result<(), RendererPortError> {
-        let media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+        self.update_plugin_frames(reference, context, &[])
+    }
+
+    fn update_plugin_frames(
+        &self,
+        reference: RendererActivationRef,
+        context: &RuntimePayload,
+        frames: &[player_core::VerifiedFrameRef],
+    ) -> Result<(), RendererPortError> {
+        if !frames.is_empty()
+            && !self
+                .session
+                .features()
+                .iter()
+                .any(|feature| feature.as_str() == edge_protocol::ipc::RENDERER_FEATURE_PLUGIN_FRAMES)
+        {
+            return Err(RendererPortError::InvalidActivation);
+        }
+        let mut media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
         let Some((_, grants)) = media.as_ref().filter(|(cached, _)| {
             cached.activation_id == reference.activation_id && cached.generation == reference.generation
         }) else {
@@ -567,12 +607,55 @@ impl RendererPort for EdgeRendererPort {
                 })
             })
             .collect::<Result<_, RendererPortError>>()?;
-        self.send(Event::PluginState(PluginState {
+        let native_frames: Vec<_> = frames
+            .iter()
+            .map(|frame| edge_protocol::ipc::presentation::FrameRef {
+                kind: frame.kind,
+                package_id: frame.package_id.clone(),
+                package_digest: frame.package_digest,
+                sha256: frame.sha256,
+                size_bytes: frame.size_bytes,
+            })
+            .collect();
+        let now_ms = self.clock.now().unix_millis();
+        let mut registry = self.registry.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+        let update = registry
+            .prepare_plugin_frames(self.session.id(), reference.generation, now_ms, &native_frames)
+            .map_err(|_| RendererPortError::ResourceUnavailable)?;
+        let plugin_frames = match frame_authorization_table(frames, &update.grants) {
+            Ok(table) => table,
+            Err(error) => {
+                let _ = registry.finish_plugin_frames(update, false, now_ms);
+                return Err(error);
+            }
+        };
+        let mut next_frames: HashMap<_, _> = grants
+            .frames
+            .iter()
+            .filter(|(_, token)| {
+                registry
+                    .resolve_frame(self.session.id(), token.as_str(), now_ms)
+                    .is_some_and(|grant| grant.kind == crate::media::MediaGrantKind::Frame)
+            })
+            .map(|(digest, token)| (*digest, token.clone()))
+            .collect();
+        next_frames.extend(update.grants.iter().map(|(digest, token)| (*digest, token.clone())));
+        let delivered = self.send(Event::PluginState(PluginState {
+            plugin_frames,
             plugins: context.plugins,
             aliases: context.aliases,
             content,
             clock_offset_ms: context.clock_offset_ms,
-        }))
+        }));
+        registry
+            .finish_plugin_frames(update, delivered.is_ok(), now_ms)
+            .map_err(|_| RendererPortError::InvalidActivation)?;
+        if delivered.is_ok()
+            && let Some((_, grants)) = media.as_mut()
+        {
+            grants.frames = next_frames;
+        }
+        delivered
     }
 
     fn clear(&self, reason: &edge_protocol::bounded::ShortToken) -> Result<(), RendererPortError> {

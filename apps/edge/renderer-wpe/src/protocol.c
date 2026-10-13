@@ -159,6 +159,10 @@ parse_frames (JsonObject *data, const char *member, gboolean *ok)
   *ok = TRUE;
   if (!json_object_has_member (data, member))
     return refs;
+  if (!tc_frame_refs_valid (json_object_get_member (data, member), g_strcmp0 (member, "pluginFrames") == 0)) {
+    *ok = FALSE;
+    return refs;
+  }
   JsonArray *array = json_object_get_array_member (data, member);
   if (array == NULL || json_array_get_length (array) > TC_MAX_CONTENT_REFS) {
     *ok = FALSE;
@@ -168,7 +172,9 @@ parse_frames (JsonObject *data, const char *member, gboolean *ok)
     JsonObject *entry = json_array_get_object_element (array, i);
     const char *uri = entry ? json_object_get_string_member_with_default (entry, "uri", NULL) : NULL;
     gint64 size = entry ? json_object_get_int_member_with_default (entry, "sizeBytes", -1) : -1;
-    if (!tc_is_widget_capability_uri (uri) || size < 0) {
+    const char *kind = entry ? json_object_get_string_member_with_default (entry, "kind", "widget") : "";
+    if (!tc_is_widget_capability_uri (uri) || size <= 0 || size > 1114112
+        || (g_strcmp0 (kind, "widget") != 0 && g_strcmp0 (kind, "external_plugin") != 0)) {
       *ok = FALSE;
       return refs;
     }
@@ -176,6 +182,7 @@ parse_frames (JsonObject *data, const char *member, gboolean *ok)
     g_strlcpy (ref->uri, uri, sizeof ref->uri);
     ref->size_bytes = (guint64) size;
     ref->mime_type = g_strdup ("text/html");
+    ref->external_plugin = g_strcmp0 (kind, "external_plugin") == 0;
     g_ptr_array_add (refs, ref);
   }
   return refs;
@@ -300,6 +307,12 @@ parse_aliases (JsonObject *data, GPtrArray *content, gboolean *ok)
 static void
 handle_plugins (TcHost *host, JsonObject *data, JsonNode *data_node)
 {
+  gboolean frames_ok = FALSE;
+  g_autoptr (GPtrArray) frames = parse_frames (data, "pluginFrames", &frames_ok);
+  if (!frames_ok || frames->len > 32) return;
+  for (guint i = 0; i < frames->len; i++) {
+    if (!((TcContentRef *) g_ptr_array_index (frames, i))->external_plugin) return;
+  }
   gboolean ok = FALSE;
   GPtrArray *content = parse_content (data, "content", &ok);
   gboolean aliases_ok = FALSE;
@@ -315,6 +328,8 @@ handle_plugins (TcHost *host, JsonObject *data, JsonNode *data_node)
   host->media_aliases = aliases;
   g_ptr_array_unref (host->plugin_content);
   host->plugin_content = content;
+  g_ptr_array_unref (host->plugin_frames);
+  host->plugin_frames = g_steal_pointer (&frames);
   /* Keep the activation's own content allowed alongside the new plugins. */
   g_autoptr (GPtrArray) activation = g_ptr_array_new_with_free_func (tc_content_ref_free);
   if (host->current_activation_json != NULL) {

@@ -269,7 +269,7 @@ static gboolean
 on_decide_policy (WebKitWebView *view, WebKitPolicyDecision *decision, WebKitPolicyDecisionType type, gpointer data)
 {
   (void) view;
-  (void) data;
+  TcHost *host = data;
   if (type == WEBKIT_POLICY_DECISION_TYPE_RESPONSE)
     return FALSE;
   WebKitNavigationAction *action =
@@ -291,7 +291,8 @@ on_decide_policy (WebKitWebView *view, WebKitPolicyDecision *decision, WebKitPol
     if (hash != NULL)
       *hash = '\0';
   }
-  gboolean trusted = g_str_has_prefix (uri, "tilecast://runtime/") || tc_is_widget_capability_uri (bare);
+  gboolean trusted = g_str_has_prefix (uri, "tilecast://runtime/")
+                     || (tc_is_widget_capability_uri (bare) && tc_host_find_frame (host, bare) != NULL);
   if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION && trusted) {
     webkit_policy_decision_use (decision);
   } else {
@@ -337,9 +338,9 @@ on_load_failed (WebKitWebView *view, WebKitLoadEvent event, char *uri, GError *e
 }
 
 static char *
-read_bridge_script (TcHost *host, GError **error)
+read_bridge_script (TcHost *host, const char *name, GError **error)
 {
-  g_autofree char *path = g_build_filename (host->runtime_dir, "tilecast-bridge.js", NULL);
+  g_autofree char *path = g_build_filename (host->runtime_dir, name, NULL);
   char *contents = NULL;
   if (!g_file_get_contents (path, &contents, NULL, error))
     return NULL;
@@ -394,8 +395,11 @@ tc_view_media_socket_stale (TcHost *host)
 gboolean
 tc_view_create (TcHost *host, GError **error)
 {
-  g_autofree char *bridge = read_bridge_script (host, error);
+  g_autofree char *bridge = read_bridge_script (host, "tilecast-bridge.js", error);
   if (bridge == NULL)
+    return FALSE;
+  g_autofree char *relay = read_bridge_script (host, "tilecast-native-relay.js", error);
+  if (relay == NULL)
     return FALSE;
 
   host->web_context = webkit_web_context_new ();
@@ -426,15 +430,23 @@ tc_view_create (TcHost *host, GError **error)
   webkit_settings_set_javascript_can_open_windows_automatically (settings, FALSE);
 
   WebKitUserContentManager *manager = webkit_user_content_manager_new ();
-  static const char *const allow[] = { "tilecast://runtime/*", NULL };
+  static const char *const allow[] = { "tilecast://runtime/index.html", NULL };
+  static const char *const world = "tilecast-native";
+  g_autoptr (WebKitUserScript) native_script = webkit_user_script_new_for_world (
+    relay, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, world, allow, NULL);
+  webkit_user_content_manager_add_script (manager, native_script);
   g_autoptr (WebKitUserScript) script = webkit_user_script_new (
     bridge, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, allow, NULL);
   webkit_user_content_manager_add_script (manager, script);
   g_signal_connect (manager, "script-message-received::tilecast", G_CALLBACK (on_script_message), host);
   g_signal_connect (manager, "script-message-with-reply-received::tilecastRequest", G_CALLBACK (on_script_request),
                     host);
-  webkit_user_content_manager_register_script_message_handler (manager, "tilecast", NULL);
-  webkit_user_content_manager_register_script_message_handler_with_reply (manager, "tilecastRequest", NULL);
+  if (!webkit_user_content_manager_register_script_message_handler (manager, "tilecast", world)
+      || !webkit_user_content_manager_register_script_message_handler_with_reply (manager, "tilecastRequest", world)) {
+    g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED, "native script world could not register");
+    g_object_unref (manager);
+    return FALSE;
+  }
 
   host->view = g_object_new (WEBKIT_TYPE_WEB_VIEW, "display", host->display, "web-context", host->web_context,
                              "network-session", host->network_session, "settings", settings,
