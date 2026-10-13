@@ -27,7 +27,7 @@
             "key": "slideshow",
             "label": "Slideshow",
             "labelKey": "definitions:canva.fields.slideshow.label",
-            "description": "Automatically play and advance presentation pages using the timing set in Canva.",
+            "description": "Open the design in Canva's presentation/watch mode. Canva may still require playback to be started.",
             "descriptionKey": "definitions:canva.fields.slideshow.description",
             "control": "boolean"
           },
@@ -45,7 +45,7 @@
       },
       "defaultConfiguration": {
         "canvaUrl": "",
-        "slideshow": true,
+        "slideshow": false,
         "refreshIntervalSeconds": 1800
       },
       "presentationSchemaVersion": 1,
@@ -67,7 +67,7 @@
           "In Canva, select Share > See all > Embed and publish a public embed.",
           "Paste the Smart embed link or the src URL from the HTML iframe. Public view and design short links are also accepted."
         ],
-        "tip": "A public view link alone does not enable embedding. Private designs and login are not supported. Slideshow uses Canva autoplay and the page timing configured in Canva."
+        "tip": "A public view link alone does not enable embedding. Private designs and login are not supported. Presentation mode uses Canva's watch surface; Tilecast does not force Canva autoplay."
       },
       "deprecation": {}
     },
