@@ -106,6 +106,8 @@ func (s *server) routes() chi.Router {
 		api.With(s.requireDevice).Head("/player/packages/{packageId}/widgets/{widgetId}", s.playerPackageWidget)
 		api.With(s.requireDevice).Get("/player/packages/{packageId}/widgets/{widgetId}/frame", s.playerPackageWidgetFrame)
 		api.With(s.requireDevice).Head("/player/packages/{packageId}/widgets/{widgetId}/frame", s.playerPackageWidgetFrame)
+		api.With(s.requireDevice).Get("/player/packages/{packageId}/plugins/{pluginId}/frame", s.playerPackagePluginFrame)
+		api.With(s.requireDevice).Head("/player/packages/{packageId}/plugins/{pluginId}/frame", s.playerPackagePluginFrame)
 		api.With(s.requireDevice).Get("/player/manifest", s.playerManifest)
 		api.With(s.requireDevice).Get("/player/commands", s.playerCommands)
 		api.With(s.requireDevice).Get("/player/config", s.playerConfig)

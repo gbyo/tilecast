@@ -760,5 +760,11 @@
     "file": "00128_external_plugin_runtime.sql",
     "owner": "core",
     "sha256": "91e1e538d2164ba748e801f8aada3680a2593022ffac80d7ea29120dcce9a08d"
+  },
+  {
+    "version": 129,
+    "file": "00129_external_plugin_surfaces.sql",
+    "owner": "core",
+    "sha256": "3857823215133de890d9f11ef4b573a545c43363593e380322178769b856d534"
   }
 ]

@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 )
 
 // host(), not ::text: last_known_ip is an inet, and casting an inet to text
@@ -149,6 +150,12 @@ func (s *Service) UpdateScreen(ctx context.Context, id, userID uuid.UUID, name s
 		return Screen{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	var previousLocation *uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT location_id FROM screens WHERE id=$1 AND archived_at IS NULL FOR UPDATE`, id).Scan(&previousLocation); errors.Is(err, pgx.ErrNoRows) {
+		return Screen{}, ErrNotFound
+	} else if err != nil {
+		return Screen{}, err
+	}
 	if locationID != nil {
 		var exists bool
 		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM locations WHERE id=$1)`, locationID).Scan(&exists); err != nil {
@@ -172,8 +179,19 @@ func (s *Service) UpdateScreen(ctx context.Context, id, userID uuid.UUID, name s
 	if err := insertAudit(ctx, tx, userID, "screen.updated", id); err != nil {
 		return Screen{}, err
 	}
+	var changes []manifestchanges.Change
+	locationChanged := (previousLocation == nil) != (locationID == nil) || (previousLocation != nil && locationID != nil && *previousLocation != *locationID)
+	if locationChanged {
+		changes, err = manifestchanges.BumpScreens(ctx, tx, []uuid.UUID{id}, "screen.location_changed")
+		if err != nil {
+			return Screen{}, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Screen{}, err
+	}
+	for _, change := range changes {
+		s.ManifestChanged(change.ScreenID, change.Version)
 	}
 	return s.GetScreen(ctx, id)
 }

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
+	externalplugin "github.com/tilecast/tilecast/packages/package-sdk/go/plugin"
 )
 
 // Extraction bounds. Content blobs verify by digest before extraction,
@@ -231,13 +232,17 @@ func ReadContributions(contentDir string, manifest packagemanifest.Manifest) ([]
 			return nil, fmt.Errorf("package content: contribution %q has no readable %s", contribution.Path, file)
 		}
 		var nested struct {
-			APIVersion int    `json:"apiVersion"`
-			ID         string `json:"id"`
+			APIVersion packagemanifest.APIVersionNum `json:"apiVersion"`
+			ID         string                        `json:"id"`
 		}
 		if err := json.Unmarshal(raw, &nested); err != nil {
 			return nil, fmt.Errorf("package content: contribution %q has a corrupt %s", contribution.Path, file)
 		}
-		if nested.APIVersion != 1 {
+		if contribution.Type == packagemanifest.ContributionPlugin && nested.APIVersion == externalplugin.APIVersion {
+			if _, err := externalplugin.Parse(raw); err != nil {
+				return nil, err
+			}
+		} else if nested.APIVersion != 1 {
 			return nil, fmt.Errorf("package content: contribution %q uses unsupported API version %d", contribution.Path, nested.APIVersion)
 		}
 		if !pattern.MatchString(nested.ID) {

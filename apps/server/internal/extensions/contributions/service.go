@@ -18,7 +18,9 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
@@ -46,16 +48,17 @@ type Service struct {
 	// mu serializes Rebuild so a slow rebuild that listed packages before a
 	// concurrent mutation committed cannot replace the catalog after the
 	// newer rebuild already did.
-	mu               sync.Mutex
-	db               *pgxpool.Pool
-	installer        *installer.Service
-	release          *contentdefs.Catalog
-	provider         *contentdefs.Provider
-	contentDir       func(ctx context.Context, ref, digest string) (string, error)
-	localContentDir  func(ctx context.Context, ref, digest string) (string, error)
-	adapterAllowed   func(adapterID string) bool
-	validateAdapters func(catalog *contentdefs.Catalog) error
-	logger           *slog.Logger
+	mu                 sync.Mutex
+	db                 *pgxpool.Pool
+	installer          *installer.Service
+	release            *contentdefs.Catalog
+	provider           *contentdefs.Provider
+	contentDir         func(ctx context.Context, ref, digest string) (string, error)
+	localContentDir    func(ctx context.Context, ref, digest string) (string, error)
+	adapterAllowed     func(adapterID string) bool
+	validateAdapters   func(catalog *contentdefs.Catalog) error
+	logger             *slog.Logger
+	verifiedPluginFile func(context.Context, string, string, string, string, int64) ([]byte, error)
 	// payloads snapshots one verified player bundle per installed
 	// Widget contribution. Like the catalog it swaps atomically, so
 	// manifest compilation never blocks on a rebuild.
@@ -70,10 +73,33 @@ type payloadKey struct {
 
 type payloadSnapshot struct {
 	bundles map[payloadKey]contentdefs.WidgetPayload
+	plugins map[payloadKey]PluginPayload
+	epochs  map[string]uuid.UUID
+}
+
+type loadedPackage struct {
+	widgets []contentdefs.WidgetDefinition
+	sources []contentdefs.DataSourceDefinition
+	bundles map[payloadKey]contentdefs.WidgetPayload
+	plugins map[payloadKey]PluginPayload
+	epoch   uuid.UUID
 }
 
 // Option configures a Service.
 type Option func(*Service)
+
+func WithVerifiedPluginFiles(read func(context.Context, string, string, string, string, int64) ([]byte, error)) Option {
+	return func(s *Service) { s.verifiedPluginFile = read }
+}
+
+func (s *Service) pluginFileReader(ctx context.Context, ref, digest string) func(string, string, int64) ([]byte, error) {
+	if s.verifiedPluginFile == nil {
+		return nil
+	}
+	return func(path, file string, max int64) ([]byte, error) {
+		return s.verifiedPluginFile(ctx, ref, digest, path, file, max)
+	}
+}
 
 // WithLogger sets the rebuild skip log. The default discards it.
 func WithLogger(logger *slog.Logger) Option {
@@ -153,10 +179,16 @@ func SkipsOnly(err error) bool {
 // Validate decodes every Widget and Data Source contribution of a
 // verified package directory. The pipeline runs this before activation
 // so an invalid definition fails the install instead of installing an
-// inert package. Plugin-kind contributions wait for the external plugin
-// runtime and validate as inert.
+// inert package. External API 2 plugins validate their descriptor and frame;
+// external API 1 plugin contributions retain their inert contract.
 func (s *Service) Validate(contentDir string, manifest packagemanifest.Manifest, digest string) error {
 	_, _, _, err := s.decode(contentDir, manifest, digest)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	_, err = decodePluginPayloads(contentDir, manifest, digest, s.pluginFileReader(ctx, manifest.Distribution.OCI, digest))
 	return err
 }
 
@@ -201,28 +233,34 @@ func (s *Service) rebuild(ctx context.Context, contentDir func(ctx context.Conte
 	}
 	composed := s.release
 	bundles := map[payloadKey]contentdefs.WidgetPayload{}
+	pluginPayloads := map[payloadKey]PluginPayload{}
+	epochs := map[string]uuid.UUID{}
 	var skipped []error
 	for _, item := range installed {
-		packageWidgets, packageSources, packageBundles, err := s.loadPackage(ctx, item, contentDir)
+		loaded, err := s.loadPackage(ctx, item, contentDir)
 		if err != nil {
 			skipped = append(skipped, err)
 			continue
 		}
-		next, err := composed.WithExternal(packageWidgets, packageSources)
+		next, err := composed.WithExternal(loaded.widgets, loaded.sources)
 		if err != nil {
 			skipped = append(skipped, SkippedPackage{PackageID: item.PackageID, Err: err})
 			continue
 		}
 		composed = next
-		for key, bundle := range packageBundles {
+		for key, bundle := range loaded.bundles {
 			bundles[key] = bundle
 		}
+		for key, payload := range loaded.plugins {
+			pluginPayloads[key] = payload
+		}
+		epochs[item.PackageID] = loaded.epoch
 	}
 	if err := s.validateAdapters(composed); err != nil {
 		return err
 	}
 	s.provider.Replace(composed)
-	s.payloads.Store(&payloadSnapshot{bundles: bundles})
+	s.payloads.Store(&payloadSnapshot{bundles: bundles, plugins: pluginPayloads, epochs: epochs})
 	for _, skip := range skipped {
 		s.logger.Warn("package contributions skipped", "error", skip)
 	}
@@ -231,20 +269,28 @@ func (s *Service) rebuild(ctx context.Context, contentDir func(ctx context.Conte
 
 // loadPackage reads one installed package's Widget and Data Source
 // definitions from its retained bytes.
-func (s *Service) loadPackage(ctx context.Context, item installer.InstalledPackage, contentDir func(ctx context.Context, ref, digest string) (string, error)) ([]contentdefs.WidgetDefinition, []contentdefs.DataSourceDefinition, map[payloadKey]contentdefs.WidgetPayload, error) {
-	manifest, err := s.installer.Manifest(ctx, item.PackageID)
+func (s *Service) loadPackage(ctx context.Context, item installer.InstalledPackage, contentDir func(ctx context.Context, ref, digest string) (string, error)) (loadedPackage, error) {
+	current, manifest, err := s.installer.ExecutionSnapshot(ctx, item.PackageID)
 	if err != nil {
-		return nil, nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
+		return loadedPackage{}, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}
-	dir, err := contentDir(ctx, item.RegistryReference, item.Digest)
+	dir, err := contentDir(ctx, current.RegistryReference, current.Digest)
 	if err != nil {
-		return nil, nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
+		return loadedPackage{}, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}
-	packageWidgets, packageSources, packageBundles, err := s.decode(dir, manifest, item.Digest)
+	packageWidgets, packageSources, packageBundles, err := s.decode(dir, manifest, current.Digest)
 	if err != nil {
-		return nil, nil, nil, SkippedPackage{PackageID: item.PackageID, Err: err}
+		return loadedPackage{}, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}
-	return packageWidgets, packageSources, packageBundles, nil
+	pluginPayloads, err := decodePluginPayloads(dir, manifest, current.Digest, s.pluginFileReader(ctx, current.RegistryReference, current.Digest))
+	if err != nil {
+		return loadedPackage{}, SkippedPackage{PackageID: item.PackageID, Err: err}
+	}
+	for key, payload := range pluginPayloads {
+		payload.ExecutionEpoch = current.ExecutionEpoch
+		pluginPayloads[key] = payload
+	}
+	return loadedPackage{widgets: packageWidgets, sources: packageSources, bundles: packageBundles, plugins: pluginPayloads, epoch: current.ExecutionEpoch}, nil
 }
 
 // decode reads and validates one package's Widget and Data Source
@@ -260,9 +306,7 @@ func (s *Service) decode(contentDir string, manifest packagemanifest.Manifest, d
 	bundles := map[payloadKey]contentdefs.WidgetPayload{}
 	for _, contribution := range manifest.Contributions {
 		if contribution.Type == packagemanifest.ContributionPlugin {
-			// Plugin behavior waits for the external plugin
-			// runtime. The contribution row stays inert; nothing
-			// executes it.
+			// Plugins use their own versioned decoder and execution contract.
 			continue
 		}
 		file, ok := packages.NestedManifestFile(contribution.Type)

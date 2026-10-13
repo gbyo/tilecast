@@ -62,6 +62,18 @@ func AssembleFrame(bundle string) (AssembledFrame, error) {
 	if err != nil {
 		return AssembledFrame{}, err
 	}
+	return hashFrame(document)
+}
+
+// AssemblePluginFrame shares verification bounds and escaping with Widgets.
+func AssemblePluginFrame(bundle string) (AssembledFrame, error) {
+	if strings.Count(PluginTemplate, PluginBundlePlaceholder) != 1 {
+		return AssembledFrame{}, errors.New("plugin frame template must hold exactly one bundle slot")
+	}
+	return hashFrame(strings.Replace(PluginTemplate, PluginBundlePlaceholder, EscapeInlineScript(bundle), 1))
+}
+
+func hashFrame(document string) (AssembledFrame, error) {
 	if int64(len(document)) > MaxFrameBytes {
 		return AssembledFrame{}, fmt.Errorf("sandbox frame exceeds %d bytes", MaxFrameBytes)
 	}

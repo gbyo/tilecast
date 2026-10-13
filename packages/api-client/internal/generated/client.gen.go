@@ -2064,6 +2064,93 @@ func (e MaintenanceResultStatus) Valid() bool {
 	}
 }
 
+// Defines values for ManifestExternalPluginRuntimeSurfaces.
+const (
+	CornerBottomLeft  ManifestExternalPluginRuntimeSurfaces = "corner.bottom-left"
+	CornerBottomRight ManifestExternalPluginRuntimeSurfaces = "corner.bottom-right"
+	CornerTopLeft     ManifestExternalPluginRuntimeSurfaces = "corner.top-left"
+	CornerTopRight    ManifestExternalPluginRuntimeSurfaces = "corner.top-right"
+	Overlay           ManifestExternalPluginRuntimeSurfaces = "overlay"
+	StripBottom       ManifestExternalPluginRuntimeSurfaces = "strip.bottom"
+	StripTop          ManifestExternalPluginRuntimeSurfaces = "strip.top"
+)
+
+// Valid indicates whether the value is a known member of the ManifestExternalPluginRuntimeSurfaces enum.
+func (e ManifestExternalPluginRuntimeSurfaces) Valid() bool {
+	switch e {
+	case CornerBottomLeft:
+		return true
+	case CornerBottomRight:
+		return true
+	case CornerTopLeft:
+		return true
+	case CornerTopRight:
+		return true
+	case Overlay:
+		return true
+	case StripBottom:
+		return true
+	case StripTop:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ManifestExternalPluginRuntimeTier.
+const (
+	ManifestExternalPluginRuntimeTierAmbient   ManifestExternalPluginRuntimeTier = "ambient"
+	ManifestExternalPluginRuntimeTierEmergency ManifestExternalPluginRuntimeTier = "emergency"
+	ManifestExternalPluginRuntimeTierLive      ManifestExternalPluginRuntimeTier = "live"
+	ManifestExternalPluginRuntimeTierScheduled ManifestExternalPluginRuntimeTier = "scheduled"
+)
+
+// Valid indicates whether the value is a known member of the ManifestExternalPluginRuntimeTier enum.
+func (e ManifestExternalPluginRuntimeTier) Valid() bool {
+	switch e {
+	case ManifestExternalPluginRuntimeTierAmbient:
+		return true
+	case ManifestExternalPluginRuntimeTierEmergency:
+		return true
+	case ManifestExternalPluginRuntimeTierLive:
+		return true
+	case ManifestExternalPluginRuntimeTierScheduled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ManifestExternalPluginType.
+const (
+	ExternalPlugin ManifestExternalPluginType = "external_plugin"
+)
+
+// Valid indicates whether the value is a known member of the ManifestExternalPluginType enum.
+func (e ManifestExternalPluginType) Valid() bool {
+	switch e {
+	case ExternalPlugin:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ManifestExternalPluginVersion.
+const (
+	ManifestExternalPluginVersionN1 ManifestExternalPluginVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the ManifestExternalPluginVersion enum.
+func (e ManifestExternalPluginVersion) Valid() bool {
+	switch e {
+	case ManifestExternalPluginVersionN1:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ManifestScheduleType.
 const (
 	ManifestScheduleTypeOneTime ManifestScheduleType = "one_time"
@@ -3024,6 +3111,9 @@ const (
 	PlayerManifestSchemaVersionN15 PlayerManifestSchemaVersion = 15
 	PlayerManifestSchemaVersionN16 PlayerManifestSchemaVersion = 16
 	PlayerManifestSchemaVersionN17 PlayerManifestSchemaVersion = 17
+	PlayerManifestSchemaVersionN18 PlayerManifestSchemaVersion = 18
+	PlayerManifestSchemaVersionN19 PlayerManifestSchemaVersion = 19
+	PlayerManifestSchemaVersionN20 PlayerManifestSchemaVersion = 20
 )
 
 // Valid indicates whether the value is a known member of the PlayerManifestSchemaVersion enum.
@@ -3042,6 +3132,12 @@ func (e PlayerManifestSchemaVersion) Valid() bool {
 	case PlayerManifestSchemaVersionN16:
 		return true
 	case PlayerManifestSchemaVersionN17:
+		return true
+	case PlayerManifestSchemaVersionN18:
+		return true
+	case PlayerManifestSchemaVersionN19:
+		return true
+	case PlayerManifestSchemaVersionN20:
 		return true
 	default:
 		return false
@@ -8688,6 +8784,52 @@ type ManagedUserList struct {
 	Total int           `json:"total"`
 }
 
+// ManifestBuiltinPlugin defines model for ManifestBuiltinPlugin.
+type ManifestBuiltinPlugin struct {
+	Config  map[string]interface{} `json:"config"`
+	Id      openapi_types.UUID     `json:"id"`
+	Type    string                 `json:"type"`
+	Version int                    `json:"version"`
+}
+
+// ManifestExternalPlugin defines model for ManifestExternalPlugin.
+type ManifestExternalPlugin struct {
+	DefinitionVersion int    `json:"definitionVersion"`
+	Id                string `json:"id"`
+	Package           struct {
+		ContributionId string `json:"contributionId"`
+		Frame          struct {
+			DownloadPath string `json:"downloadPath"`
+			FileSize     int    `json:"fileSize"`
+			Sha256       string `json:"sha256"`
+		} `json:"frame"`
+		PackageDigest string `json:"packageDigest"`
+		PackageId     string `json:"packageId"`
+	} `json:"package"`
+	Runtime struct {
+		Surfaces []ManifestExternalPluginRuntimeSurfaces `json:"surfaces"`
+		Tier     ManifestExternalPluginRuntimeTier       `json:"tier"`
+	} `json:"runtime"`
+
+	// State Canonical JSON is bounded to 16 KiB, 16 nested levels, and 2048 values.
+	State      map[string]interface{}        `json:"state"`
+	Type       ManifestExternalPluginType    `json:"type"`
+	ValidUntil time.Time                     `json:"validUntil"`
+	Version    ManifestExternalPluginVersion `json:"version"`
+}
+
+// ManifestExternalPluginRuntimeSurfaces defines model for ManifestExternalPlugin.Runtime.Surfaces.
+type ManifestExternalPluginRuntimeSurfaces string
+
+// ManifestExternalPluginRuntimeTier defines model for ManifestExternalPlugin.Runtime.Tier.
+type ManifestExternalPluginRuntimeTier string
+
+// ManifestExternalPluginType defines model for ManifestExternalPlugin.Type.
+type ManifestExternalPluginType string
+
+// ManifestExternalPluginVersion defines model for ManifestExternalPlugin.Version.
+type ManifestExternalPluginVersion int
+
 // ManifestResponse defines model for ManifestResponse.
 type ManifestResponse struct {
 	Data PlayerManifest `json:"data"`
@@ -9520,15 +9662,16 @@ type PlayerManifest struct {
 		Height int `json:"height"`
 		Width  int `json:"width"`
 	} `json:"canvas,omitempty"`
-	DataSources          *[]map[string]interface{} `json:"dataSources,omitempty"`
-	GeneratedAt          time.Time                 `json:"generatedAt"`
-	Layout               *map[string]interface{}   `json:"layout,omitempty"`
-	Layouts              *[]map[string]interface{} `json:"layouts,omitempty"`
-	ManifestVersion      int64                     `json:"manifestVersion"`
-	Mode                 PlayerManifestMode        `json:"mode"`
-	Playlist             *map[string]interface{}   `json:"playlist"`
-	PresentationOverride *PresentationOverride     `json:"presentationOverride,omitempty"`
-	Schedules            *[]ManifestSchedule       `json:"schedules,omitempty"`
+	DataSources          *[]map[string]interface{}      `json:"dataSources,omitempty"`
+	GeneratedAt          time.Time                      `json:"generatedAt"`
+	Layout               *map[string]interface{}        `json:"layout,omitempty"`
+	Layouts              *[]map[string]interface{}      `json:"layouts,omitempty"`
+	ManifestVersion      int64                          `json:"manifestVersion"`
+	Mode                 PlayerManifestMode             `json:"mode"`
+	Playlist             *map[string]interface{}        `json:"playlist"`
+	Plugins              *[]PlayerManifest_Plugins_Item `json:"plugins,omitempty"`
+	PresentationOverride *PresentationOverride          `json:"presentationOverride,omitempty"`
+	Schedules            *[]ManifestSchedule            `json:"schedules,omitempty"`
 
 	// SchemaVersion The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
 	SchemaVersion PlayerManifestSchemaVersion `json:"schemaVersion"`
@@ -9546,6 +9689,11 @@ type PlayerManifest struct {
 
 // PlayerManifestMode defines model for PlayerManifest.Mode.
 type PlayerManifestMode string
+
+// PlayerManifest_Plugins_Item defines model for PlayerManifest.plugins.Item.
+type PlayerManifest_Plugins_Item struct {
+	union json.RawMessage
+}
 
 // PlayerManifestSchemaVersion The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
 type PlayerManifestSchemaVersion int
@@ -14622,6 +14770,68 @@ func (t *LoginResult) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// AsManifestBuiltinPlugin returns the union data inside the PlayerManifest_Plugins_Item as a ManifestBuiltinPlugin
+func (t PlayerManifest_Plugins_Item) AsManifestBuiltinPlugin() (ManifestBuiltinPlugin, error) {
+	var body ManifestBuiltinPlugin
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromManifestBuiltinPlugin overwrites any union data inside the PlayerManifest_Plugins_Item as the provided ManifestBuiltinPlugin
+func (t *PlayerManifest_Plugins_Item) FromManifestBuiltinPlugin(v ManifestBuiltinPlugin) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeManifestBuiltinPlugin performs a merge with any union data inside the PlayerManifest_Plugins_Item, using the provided ManifestBuiltinPlugin
+func (t *PlayerManifest_Plugins_Item) MergeManifestBuiltinPlugin(v ManifestBuiltinPlugin) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsManifestExternalPlugin returns the union data inside the PlayerManifest_Plugins_Item as a ManifestExternalPlugin
+func (t PlayerManifest_Plugins_Item) AsManifestExternalPlugin() (ManifestExternalPlugin, error) {
+	var body ManifestExternalPlugin
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromManifestExternalPlugin overwrites any union data inside the PlayerManifest_Plugins_Item as the provided ManifestExternalPlugin
+func (t *PlayerManifest_Plugins_Item) FromManifestExternalPlugin(v ManifestExternalPlugin) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeManifestExternalPlugin performs a merge with any union data inside the PlayerManifest_Plugins_Item, using the provided ManifestExternalPlugin
+func (t *PlayerManifest_Plugins_Item) MergeManifestExternalPlugin(v ManifestExternalPlugin) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t PlayerManifest_Plugins_Item) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *PlayerManifest_Plugins_Item) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // AsPlaylistBulkItemInput0 returns the union data inside the PlaylistBulkItemInput as a PlaylistBulkItemInput0
 func (t PlaylistBulkItemInput) AsPlaylistBulkItemInput0() (PlaylistBulkItemInput0, error) {
 	var body PlaylistBulkItemInput0
@@ -16968,6 +17178,16 @@ type ClientInterface interface {
 	//
 	// Get player manifest. Requires an authenticated player credential.
 	GetPlayerManifest(ctx context.Context, params *GetPlayerManifestParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadPackagePluginFrame performs a GET /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `DownloadPackagePluginFrame` operationId) request.
+	//
+	// Download the deterministically assembled frame of an installed external Plugin API v2 contribution. Requires a device credential. Players verify exact size and SHA-256 before execution. The response confines scripts to an opaque sandbox and denies network and subresource loads.
+	DownloadPackagePluginFrame(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InspectPackagePluginFrame performs a HEAD /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `InspectPackagePluginFrame` operationId) request.
+	//
+	// Inspect an installed external plugin frame with a device credential.
+	InspectPackagePluginFrame(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DownloadPackageWidgetBundle performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `DownloadPackageWidgetBundle` operationId) request.
 	//
@@ -23291,6 +23511,36 @@ func (c *Client) PlayerLiveness(ctx context.Context, body PlayerLivenessJSONRequ
 // Get player manifest. Requires an authenticated player credential.
 func (c *Client) GetPlayerManifest(ctx context.Context, params *GetPlayerManifestParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetPlayerManifestRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DownloadPackagePluginFrame performs a GET /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `DownloadPackagePluginFrame` operationId) request.
+//
+// Download the deterministically assembled frame of an installed external Plugin API v2 contribution. Requires a device credential. Players verify exact size and SHA-256 before execution. The response confines scripts to an opaque sandbox and denies network and subresource loads.
+func (c *Client) DownloadPackagePluginFrame(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadPackagePluginFrameRequest(c.Server, packageId, pluginId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// InspectPackagePluginFrame performs a HEAD /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `InspectPackagePluginFrame` operationId) request.
+//
+// Inspect an installed external plugin frame with a device credential.
+func (c *Client) InspectPackagePluginFrame(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInspectPackagePluginFrameRequest(c.Server, packageId, pluginId)
 	if err != nil {
 		return nil, err
 	}
@@ -38678,6 +38928,88 @@ func NewGetPlayerManifestRequest(server string, params *GetPlayerManifestParams)
 	return req, nil
 }
 
+// NewDownloadPackagePluginFrameRequest constructs an http.Request for the DownloadPackagePluginFrame method
+func NewDownloadPackagePluginFrameRequest(server string, packageId PackageID, pluginId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/packages/%s/plugins/%s/frame", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewInspectPackagePluginFrameRequest constructs an http.Request for the InspectPackagePluginFrame method
+func NewInspectPackagePluginFrameRequest(server string, packageId PackageID, pluginId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "packageId", packageId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "pluginId", pluginId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/packages/%s/plugins/%s/frame", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodHead, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDownloadPackageWidgetBundleRequest constructs an http.Request for the DownloadPackageWidgetBundle method
 func NewDownloadPackageWidgetBundleRequest(server string, packageId string, widgetId string, params *DownloadPackageWidgetBundleParams) (*http.Request, error) {
 	var err error
@@ -49182,6 +49514,20 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetPlayerManifestWithResponse(ctx context.Context, params *GetPlayerManifestParams, reqEditors ...RequestEditorFn) (*GetPlayerManifestResponse, error)
+
+	// DownloadPackagePluginFrameWithResponse performs a GET /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `DownloadPackagePluginFrame` operationId) request.
+	//
+	// Download the deterministically assembled frame of an installed external Plugin API v2 contribution. Requires a device credential. Players verify exact size and SHA-256 before execution. The response confines scripts to an opaque sandbox and denies network and subresource loads.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DownloadPackagePluginFrameWithResponse(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*DownloadPackagePluginFrameResponse, error)
+
+	// InspectPackagePluginFrameWithResponse performs a HEAD /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `InspectPackagePluginFrame` operationId) request.
+	//
+	// Inspect an installed external plugin frame with a device credential.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	InspectPackagePluginFrameWithResponse(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*InspectPackagePluginFrameResponse, error)
 
 	// DownloadPackageWidgetBundleWithResponse performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `DownloadPackageWidgetBundle` operationId) request.
 	//
@@ -60691,6 +61037,74 @@ func (r GetPlayerManifestResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r GetPlayerManifestResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DownloadPackagePluginFrameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r DownloadPackagePluginFrameResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadPackagePluginFrameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadPackagePluginFrameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DownloadPackagePluginFrameResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type InspectPackagePluginFrameResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r InspectPackagePluginFrameResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r InspectPackagePluginFrameResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InspectPackagePluginFrameResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InspectPackagePluginFrameResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -72790,6 +73204,32 @@ func (c *ClientWithResponses) GetPlayerManifestWithResponse(ctx context.Context,
 	return ParseGetPlayerManifestResponse(rsp)
 }
 
+// DownloadPackagePluginFrameWithResponse performs a GET /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `DownloadPackagePluginFrame` operationId) request.
+//
+// Download the deterministically assembled frame of an installed external Plugin API v2 contribution. Requires a device credential. Players verify exact size and SHA-256 before execution. The response confines scripts to an opaque sandbox and denies network and subresource loads.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DownloadPackagePluginFrameWithResponse(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*DownloadPackagePluginFrameResponse, error) {
+	rsp, err := c.DownloadPackagePluginFrame(ctx, packageId, pluginId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadPackagePluginFrameResponse(rsp)
+}
+
+// InspectPackagePluginFrameWithResponse performs a HEAD /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `InspectPackagePluginFrame` operationId) request.
+//
+// Inspect an installed external plugin frame with a device credential.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) InspectPackagePluginFrameWithResponse(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*InspectPackagePluginFrameResponse, error) {
+	rsp, err := c.InspectPackagePluginFrame(ctx, packageId, pluginId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInspectPackagePluginFrameResponse(rsp)
+}
+
 // DownloadPackageWidgetBundleWithResponse performs a GET /api/v1/player/packages/{packageId}/widgets/{widgetId} (the `DownloadPackageWidgetBundle` operationId) request.
 //
 // Download a package Widget player bundle. Requires an authenticated player credential.
@@ -82597,6 +83037,38 @@ func ParseGetPlayerManifestResponse(rsp *http.Response) (*GetPlayerManifestRespo
 	case rsp.StatusCode == 403:
 		break // No content-type
 
+	}
+
+	return response, nil
+}
+
+// ParseDownloadPackagePluginFrameResponse parses an HTTP response from a DownloadPackagePluginFrameWithResponse call
+func ParseDownloadPackagePluginFrameResponse(rsp *http.Response) (*DownloadPackagePluginFrameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadPackagePluginFrameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseInspectPackagePluginFrameResponse parses an HTTP response from a InspectPackagePluginFrameWithResponse call
+func ParseInspectPackagePluginFrameResponse(rsp *http.Response) (*InspectPackagePluginFrameResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InspectPackagePluginFrameResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
 	}
 
 	return response, nil
