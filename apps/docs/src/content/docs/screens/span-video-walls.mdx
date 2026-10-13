@@ -33,7 +33,9 @@ Tilecast keeps the group's presentation position aligned, but each Player and di
 
 For each source video, Tilecast prepares every panel from the same source with constant-frame-rate output and matching keyframe rules. That keeps the panels for that one video aligned. It does not convert every video in a Playlist to one global wall frame rate, so a Playlist that mixes 24, 30, and 60 FPS sources can still change display cadence between items. Qualify mixed-frame-rate content on the actual wall if a seam must be hard to notice.
 
-Bezel compensation changes the panel geometry so content can continue visually behind the physical bezel. It does not calibrate color, brightness, panel latency, or overscan. Configure the displays themselves to use matching picture modes and 1:1 pixel mapping where possible.
+Bezel compensation changes the panel geometry so content can continue visually behind the physical bezel. Enter compensation in pixels, from 0 to 500 on each edge. To convert a physical bezel measurement, divide the panel's active horizontal pixel count by its active width in millimeters, then multiply by the bezel width in millimeters. For a 1920-pixel-wide panel with 509 mm of active width, one millimeter is about 3.77 pixels. If the measured 12 mm gap is the total seam between two equal bezels, split it between the two facing edges: about 23 pixels on each edge.
+
+Use the display's active picture width, not its diagonal size. If the two bezels differ, measure each edge separately instead of splitting the seam equally. Bezel compensation does not calibrate color, brightness, panel latency, or overscan. Configure the displays themselves to use matching picture modes and 1:1 pixel mapping where possible.
 
 An offline or unprepared member cannot show its panel, so the wall will be incomplete until that screen is ready.
 
