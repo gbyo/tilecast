@@ -24,8 +24,8 @@ SELECT s.id,s.name,s.description,COALESCE(l.name,''),s.location_id,s.room_name,s
        s.last_connected_at,s.last_disconnected_at,s.last_heartbeat_at,host(s.last_known_ip),s.created_at,s.updated_at,
        EXISTS(SELECT 1 FROM device_credentials c WHERE c.screen_id=s.id AND c.revoked_at IS NULL),
        s.archived_at,s.archived_reason,
-       sg.id,sg.name,COALESCE(p.name,ly.name),
-       CASE WHEN p.id IS NOT NULL THEN 'playlist' WHEN ly.id IS NOT NULL THEN 'presentation' END,
+       sg.id,sg.name,COALESCE(tp.name,p.name,ly.name),
+       CASE WHEN tp.id IS NOT NULL OR p.id IS NOT NULL THEN 'playlist' WHEN ly.id IS NOT NULL THEN 'presentation' END,
        ps.player_version_code,ps.android_sdk,ps.installer_source,ps.install_permission_status,ps.current_update_deployment_id,ps.update_state,ps.update_downloaded_bytes,ps.update_expected_bytes,ps.update_error,
        ps.player_family,ps.player_architecture,
        EXISTS(SELECT 1 FROM browser_player_slots bp WHERE bp.screen_id=s.id AND bp.active_binding_epoch=0)
@@ -35,6 +35,20 @@ LEFT JOIN screen_group_memberships gm ON gm.screen_id=s.id
 LEFT JOIN screen_groups sg ON sg.id=gm.screen_group_id
 LEFT JOIN screen_playlist_assignments sa ON sa.screen_id=s.id
 LEFT JOIN screen_group_playlist_assignments ga ON ga.screen_group_id=sg.id
+LEFT JOIN LATERAL (
+       SELECT e.playlist_id
+       FROM takeovers e
+       JOIN takeover_screen_states es ON es.takeover_id=e.id
+       WHERE es.screen_id=s.id
+         AND e.status='active'
+         AND e.activated_at IS NOT NULL
+         AND e.activated_at<=now()
+         AND e.expires_at>now()
+         AND es.state NOT IN ('restored','cancelled','expired')
+       ORDER BY e.activated_at DESC,e.id DESC
+       LIMIT 1
+) active_takeover ON TRUE
+LEFT JOIN playlists tp ON tp.id=active_takeover.playlist_id
 LEFT JOIN playlists p ON p.id=COALESCE(ga.playlist_id,sa.playlist_id)
 LEFT JOIN layouts ly ON ly.id=COALESCE(ga.layout_id,sa.layout_id)
 LEFT JOIN screen_player_status ps ON ps.screen_id=s.id`
