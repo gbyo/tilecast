@@ -13,6 +13,9 @@ Widget presentation's capabilities. Nested Layout entries remain unsupported.
   terminal holds, and a bounded retry when every item fails.
 - Surface tests rotate image, component, video, and compatibility Widget.
   They check neighboring content, expected-empty state, errors, and disposal.
+  They check sandbox execution grants and timed remote pages.
+  YouTube tests check fixed slots, completion, duplicate ends, and disposal
+  before the next player mounts.
 - PostgreSQL tests check manifest order, video offsets, Data Documents,
   package frame claims, capability gates, readiness, YouTube limits, and
   transitive invalidation through Widgets, media, Data Sources, and plugins.
@@ -32,10 +35,15 @@ Electron and headless Edge WPE complete `layout-mixed`, `layout`, and
 budget. The Browser Player mixed-zone test passes with the real Server.
 Runtime, Studio, Browser Player, and shared Rust tests pass.
 
-The local Android build cannot start because this checkout has no Android
-SDK. No Android device or emulator is attached. The Runtime PR's Android
-build and the Windows and Edge CI checks pass. This evidence does not qualify
-physical Android TV, Fire TV, Edge display hardware, or a Windows display.
+The CI Android API 34 emulator completes the Runtime conformance suite.
+The `layout-mixed` fixture passes its semantic and static visual comparison
+with Electron. See the
+[qualification run](https://github.com/gbyo/tilecast/actions/runs/38363215281).
+The local Android build cannot start because this checkout has no Android SDK.
+No Android device or emulator is attached locally.
+The Android build and the Windows and Edge required CI checks pass.
+This evidence does not qualify physical Android TV, Fire TV,
+Edge display hardware, or a Windows display.
 Run `layout-mixed` on each release host before hardware qualification.
 
 The local full Go integration run has one existing failure:
@@ -43,6 +51,12 @@ The local full Go integration run has one existing failure:
 The same test fails on pristine `origin/main` with the local PostgreSQL
 fixture. The Server CI for the server PR passes. The local Layout and Playlist
 integration suites pass when that test is excluded.
+
+The feature is also applied to the original working checkout.
+Its Runtime tests, Studio build, mixed preview tests, shared Core checks,
+Layout and Playlist integration tests, and real Browser mixed-zone test pass.
+Broader checks report errors in separate Plugin Store and Edge update work.
+That work remains outside the feature PRs.
 
 ## Commands
 
