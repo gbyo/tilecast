@@ -35,7 +35,7 @@ The Website App appears in the Media library's **Websites** filter and in the co
 
 </Steps>
 
-Tilecast keeps the design's access path and query parameters, removes `utm_*` tracking fields, and selects Canva's embed surface. Slideshow mode uses Canva's `/watch` surface; manual mode uses `/view`. Editor, template, presentation-control, and published website links aren't supported by the Canva Widget. If a short link is expired or can't be resolved, copy a new public embed link from Canva.
+Tilecast keeps the design's access path and query parameters, removes `utm_*` tracking fields, and selects Canva's embed surface. Slideshow mode uses Canva's `/watch` surface with `autoplay=1`; manual mode uses `/view` without autoplay. Editor, template, presentation-control, and published website links aren't supported by the Canva Widget. If a short link is expired or can't be resolved, copy a new public embed link from Canva.
 
 Studio's production security policy blocks external Canva frames. Studio reports a confirmed block and keeps **Open in Canva** available. In environments that allow external frames, Studio labels the attempted preview **unverified**: a browser frame can report loading even when Canva shows an access error or blocks embedding. If the preview is blank, select **Open in Canva**, check that the embed is still published, and test the embed address in a signed-out browser. Private embeds require a Canva account and cookie access; they aren't suitable for unattended Tilecast playback. See [Canva's embedding instructions](https://www.canva.com/help/embed-designs/).
 
