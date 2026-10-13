@@ -10,11 +10,11 @@ import (
 func TestCanvaURLs(t *testing.T) {
 	definition, _ := MustLoad().Widget("canva")
 	tests := []struct {
-		name          string
-		raw           string
-		setSlideshow  bool
-		slideshow     bool
-		wantMode      string
+		name         string
+		raw          string
+		setSlideshow bool
+		slideshow    bool
+		wantMode     string
 	}{
 		{"legacy view stays manual", "https://www.canva.com/design/DAGabcdefgh/view", false, false, "view"},
 		{"watch input normalizes manual when disabled", "https://www.canva.com/design/DAGabcdefgh/watch?access=keep", true, false, "view"},
