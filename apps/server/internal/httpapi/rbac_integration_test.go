@@ -119,9 +119,9 @@ func withRBACEnvironment(t *testing.T, run func(*rbacEnvironment)) {
 	s := &server{
 		db: pool, auth: authService, oauth: oauth.NewService(pool), media: mediaService,
 		playlists: playlistService, devices: deviceService,
-		settings:  settings.NewService(pool, nil, settings.HardLimits{}),
-		campaigns: campaigns.NewService(pool, nil),
-		plugins:   plugins.NewService(pool, nil),
+		settings:          settings.NewService(pool, nil, settings.HardLimits{}),
+		campaigns:         campaigns.NewService(pool, nil),
+		plugins:           plugins.NewService(pool, nil),
 		logger:            slog.New(slog.NewTextHandler(io.Discard, nil)),
 		cookieName:        "tilecast_session",
 		authLimiter:       newRateLimiter(1000, time.Minute),
