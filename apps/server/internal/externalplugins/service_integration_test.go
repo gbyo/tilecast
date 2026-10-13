@@ -250,4 +250,17 @@ func TestScopedTargetPickerAndConfiguration(t *testing.T) {
 	if _, err := f.service.Configure(f.ctx, call, externalplugins.ConfigureInput{ContributionID: "acme.surface.corner", Enabled: true, Configuration: json.RawMessage(`{}`), Targets: targeting.Definition{Mode: "selected", LocationIDs: []uuid.UUID{f.locA}}}); err != nil {
 		t.Fatal(err)
 	}
+	global := f.configure(t, targeting.Definition{Mode: "all"}, 1)
+	for _, enabled := range []bool{true, false} {
+		_, err := f.service.Configure(f.ctx, call, externalplugins.ConfigureInput{ContributionID: "acme.surface.corner", Enabled: enabled,
+			Configuration: json.RawMessage(`{}`), Targets: targeting.Definition{Mode: "selected", LocationIDs: []uuid.UUID{f.locA}},
+			ExpectedConfigurationRevision: global.ConfigurationRevision})
+		if !errors.Is(err, devices.ErrOutOfScope) {
+			t.Fatalf("scoped administrator changed global targets (enabled=%v): %v", enabled, err)
+		}
+	}
+	retained, err := f.service.Get(f.ctx, f.call, "acme.surface.corner")
+	if err != nil || !retained.Enabled || retained.ConfigurationRevision != global.ConfigurationRevision || retained.Targets.Mode != "all" {
+		t.Fatalf("global configuration changed: %+v %v", retained, err)
+	}
 }

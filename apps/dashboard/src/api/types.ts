@@ -1512,7 +1512,23 @@ export type GitHubInstallReview = {
   manifest: PackageManifestSummary;
   compatible: boolean;
   /** id is the package-qualified identity, present on update checks. */
-  contributions: { type: string; path: string; id?: string }[];
+  contributions: {
+    type: string;
+    path: string;
+    id?: string;
+    playerRuntime?: {
+      surfaces: (
+        | "strip.top"
+        | "strip.bottom"
+        | "corner.top-left"
+        | "corner.top-right"
+        | "corner.bottom-left"
+        | "corner.bottom-right"
+        | "overlay"
+      )[];
+      tier: "emergency" | "live" | "scheduled" | "ambient";
+    };
+  }[];
   runtime?: PackageRuntime;
   capabilities?: PackageCapabilities;
   digest: string;

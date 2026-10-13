@@ -3,6 +3,7 @@ package packages
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -197,7 +198,8 @@ type NestedContribution struct {
 	ID   string
 	Path string
 	// Digest is the SHA-256 of the nested definition file.
-	Digest string
+	Digest        string
+	PluginRuntime *externalplugin.Runtime
 }
 
 // ReadContributions reads the nested manifest identity of every manifest
@@ -235,13 +237,16 @@ func ReadContributions(contentDir string, manifest packagemanifest.Manifest) ([]
 			APIVersion packagemanifest.APIVersionNum `json:"apiVersion"`
 			ID         string                        `json:"id"`
 		}
+		var pluginRuntime *externalplugin.Runtime
 		if err := json.Unmarshal(raw, &nested); err != nil {
 			return nil, fmt.Errorf("package content: contribution %q has a corrupt %s", contribution.Path, file)
 		}
 		if contribution.Type == packagemanifest.ContributionPlugin && nested.APIVersion == externalplugin.APIVersion {
-			if _, err := externalplugin.Parse(raw); err != nil {
+			definition, err := externalplugin.Parse(raw)
+			if err != nil {
 				return nil, err
 			}
+			pluginRuntime = &definition.Runtime
 		} else if nested.APIVersion != 1 {
 			return nil, fmt.Errorf("package content: contribution %q uses unsupported API version %d", contribution.Path, nested.APIVersion)
 		}
@@ -253,7 +258,28 @@ func ReadContributions(contentDir string, manifest packagemanifest.Manifest) ([]
 			return nil, fmt.Errorf("package content: contribution %q identity exceeds 128 characters", contribution.Path)
 		}
 		sum := sha256.Sum256(raw)
-		contributions = append(contributions, NestedContribution{Kind: contribution.Type, ID: id, Path: contribution.Path, Digest: hex.EncodeToString(sum[:])})
+		contributions = append(contributions, NestedContribution{Kind: contribution.Type, ID: id, Path: contribution.Path, Digest: hex.EncodeToString(sum[:]), PluginRuntime: pluginRuntime})
 	}
 	return contributions, nil
+}
+
+// ReadVerifiedContributions binds the extracted definitions to the original
+// authenticated layer before they become review or activation metadata.
+func ReadVerifiedContributions(ctx context.Context, layout, contentDir string, verified VerifiedPackage) ([]NestedContribution, error) {
+	items, err := ReadContributions(contentDir, verified.Manifest)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		file, _, _ := nestedManifest(item.Kind)
+		raw, err := ReadVerifiedContentFile(ctx, layout, verified, filepath.ToSlash(filepath.Join(item.Path, file)), MaxNestedManifestBytes)
+		if err != nil {
+			return nil, err
+		}
+		sum := sha256.Sum256(raw)
+		if hex.EncodeToString(sum[:]) != item.Digest {
+			return nil, fmt.Errorf("package contribution cache differs from verified bytes")
+		}
+	}
+	return items, nil
 }

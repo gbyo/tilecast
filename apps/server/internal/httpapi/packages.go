@@ -13,6 +13,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
+	externalplugin "github.com/tilecast/tilecast/packages/package-sdk/go/plugin"
 )
 
 // Package lifecycle routes: resolving a custom repository for review,
@@ -166,9 +167,10 @@ func (s *server) getPackage(w http.ResponseWriter, r *http.Request) {
 // reviewContribution is one manifest contribution. ID is the
 // package-qualified identity, present when the review read the artifact.
 type reviewContribution struct {
-	Type string `json:"type"`
-	Path string `json:"path"`
-	ID   string `json:"id,omitempty"`
+	Type          string                  `json:"type"`
+	Path          string                  `json:"path"`
+	ID            string                  `json:"id,omitempty"`
+	PlayerRuntime *externalplugin.Runtime `json:"playerRuntime,omitempty"`
 }
 
 // reviewRuntime names the external server behavior module.
@@ -336,6 +338,7 @@ func renderReview(resolution pipeline.Resolution, installed installer.InstalledP
 		for _, item := range nested {
 			if item.Kind == contribution.Type && item.Path == contribution.Path {
 				entry.ID = item.ID
+				entry.PlayerRuntime = item.PluginRuntime
 				break
 			}
 		}
@@ -381,7 +384,12 @@ func (s *server) resolveGitHubRepository(w http.ResponseWriter, r *http.Request)
 		s.internalError(w, r, err)
 		return
 	}
-	review, err := renderReview(resolution, installed, isInstalled, nil)
+	nested, err := s.packages.ReviewContributions(r.Context(), resolution)
+	if err != nil {
+		s.writePackageError(w, r, err)
+		return
+	}
+	review, err := renderReview(resolution, installed, isInstalled, nested)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -406,7 +414,12 @@ func (s *server) resolveMarketplacePackage(w http.ResponseWriter, r *http.Reques
 		s.internalError(w, r, err)
 		return
 	}
-	review, err := renderReview(resolution, installed, isInstalled, nil)
+	nested, err := s.packages.ReviewContributions(r.Context(), resolution)
+	if err != nil {
+		s.writePackageError(w, r, err)
+		return
+	}
+	review, err := renderReview(resolution, installed, isInstalled, nested)
 	if err != nil {
 		s.internalError(w, r, err)
 		return

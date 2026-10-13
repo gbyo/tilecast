@@ -1443,6 +1443,63 @@ func (e GitHubDevicePollStatus) Valid() bool {
 	}
 }
 
+// Defines values for GitHubInstallReviewContributionsPlayerRuntimeSurfaces.
+const (
+	GitHubInstallReviewContributionsPlayerRuntimeSurfacesCornerBottomLeft  GitHubInstallReviewContributionsPlayerRuntimeSurfaces = "corner.bottom-left"
+	GitHubInstallReviewContributionsPlayerRuntimeSurfacesCornerBottomRight GitHubInstallReviewContributionsPlayerRuntimeSurfaces = "corner.bottom-right"
+	GitHubInstallReviewContributionsPlayerRuntimeSurfacesCornerTopLeft     GitHubInstallReviewContributionsPlayerRuntimeSurfaces = "corner.top-left"
+	GitHubInstallReviewContributionsPlayerRuntimeSurfacesCornerTopRight    GitHubInstallReviewContributionsPlayerRuntimeSurfaces = "corner.top-right"
+	GitHubInstallReviewContributionsPlayerRuntimeSurfacesOverlay           GitHubInstallReviewContributionsPlayerRuntimeSurfaces = "overlay"
+	GitHubInstallReviewContributionsPlayerRuntimeSurfacesStripBottom       GitHubInstallReviewContributionsPlayerRuntimeSurfaces = "strip.bottom"
+	GitHubInstallReviewContributionsPlayerRuntimeSurfacesStripTop          GitHubInstallReviewContributionsPlayerRuntimeSurfaces = "strip.top"
+)
+
+// Valid indicates whether the value is a known member of the GitHubInstallReviewContributionsPlayerRuntimeSurfaces enum.
+func (e GitHubInstallReviewContributionsPlayerRuntimeSurfaces) Valid() bool {
+	switch e {
+	case GitHubInstallReviewContributionsPlayerRuntimeSurfacesCornerBottomLeft:
+		return true
+	case GitHubInstallReviewContributionsPlayerRuntimeSurfacesCornerBottomRight:
+		return true
+	case GitHubInstallReviewContributionsPlayerRuntimeSurfacesCornerTopLeft:
+		return true
+	case GitHubInstallReviewContributionsPlayerRuntimeSurfacesCornerTopRight:
+		return true
+	case GitHubInstallReviewContributionsPlayerRuntimeSurfacesOverlay:
+		return true
+	case GitHubInstallReviewContributionsPlayerRuntimeSurfacesStripBottom:
+		return true
+	case GitHubInstallReviewContributionsPlayerRuntimeSurfacesStripTop:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GitHubInstallReviewContributionsPlayerRuntimeTier.
+const (
+	GitHubInstallReviewContributionsPlayerRuntimeTierAmbient   GitHubInstallReviewContributionsPlayerRuntimeTier = "ambient"
+	GitHubInstallReviewContributionsPlayerRuntimeTierEmergency GitHubInstallReviewContributionsPlayerRuntimeTier = "emergency"
+	GitHubInstallReviewContributionsPlayerRuntimeTierLive      GitHubInstallReviewContributionsPlayerRuntimeTier = "live"
+	GitHubInstallReviewContributionsPlayerRuntimeTierScheduled GitHubInstallReviewContributionsPlayerRuntimeTier = "scheduled"
+)
+
+// Valid indicates whether the value is a known member of the GitHubInstallReviewContributionsPlayerRuntimeTier enum.
+func (e GitHubInstallReviewContributionsPlayerRuntimeTier) Valid() bool {
+	switch e {
+	case GitHubInstallReviewContributionsPlayerRuntimeTierAmbient:
+		return true
+	case GitHubInstallReviewContributionsPlayerRuntimeTierEmergency:
+		return true
+	case GitHubInstallReviewContributionsPlayerRuntimeTierLive:
+		return true
+	case GitHubInstallReviewContributionsPlayerRuntimeTierScheduled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for IOSSessionRequestClientId.
 const (
 	TilecastIos IOSSessionRequestClientId = "tilecast-ios"
@@ -2066,31 +2123,31 @@ func (e MaintenanceResultStatus) Valid() bool {
 
 // Defines values for ManifestExternalPluginRuntimeSurfaces.
 const (
-	CornerBottomLeft  ManifestExternalPluginRuntimeSurfaces = "corner.bottom-left"
-	CornerBottomRight ManifestExternalPluginRuntimeSurfaces = "corner.bottom-right"
-	CornerTopLeft     ManifestExternalPluginRuntimeSurfaces = "corner.top-left"
-	CornerTopRight    ManifestExternalPluginRuntimeSurfaces = "corner.top-right"
-	Overlay           ManifestExternalPluginRuntimeSurfaces = "overlay"
-	StripBottom       ManifestExternalPluginRuntimeSurfaces = "strip.bottom"
-	StripTop          ManifestExternalPluginRuntimeSurfaces = "strip.top"
+	ManifestExternalPluginRuntimeSurfacesCornerBottomLeft  ManifestExternalPluginRuntimeSurfaces = "corner.bottom-left"
+	ManifestExternalPluginRuntimeSurfacesCornerBottomRight ManifestExternalPluginRuntimeSurfaces = "corner.bottom-right"
+	ManifestExternalPluginRuntimeSurfacesCornerTopLeft     ManifestExternalPluginRuntimeSurfaces = "corner.top-left"
+	ManifestExternalPluginRuntimeSurfacesCornerTopRight    ManifestExternalPluginRuntimeSurfaces = "corner.top-right"
+	ManifestExternalPluginRuntimeSurfacesOverlay           ManifestExternalPluginRuntimeSurfaces = "overlay"
+	ManifestExternalPluginRuntimeSurfacesStripBottom       ManifestExternalPluginRuntimeSurfaces = "strip.bottom"
+	ManifestExternalPluginRuntimeSurfacesStripTop          ManifestExternalPluginRuntimeSurfaces = "strip.top"
 )
 
 // Valid indicates whether the value is a known member of the ManifestExternalPluginRuntimeSurfaces enum.
 func (e ManifestExternalPluginRuntimeSurfaces) Valid() bool {
 	switch e {
-	case CornerBottomLeft:
+	case ManifestExternalPluginRuntimeSurfacesCornerBottomLeft:
 		return true
-	case CornerBottomRight:
+	case ManifestExternalPluginRuntimeSurfacesCornerBottomRight:
 		return true
-	case CornerTopLeft:
+	case ManifestExternalPluginRuntimeSurfacesCornerTopLeft:
 		return true
-	case CornerTopRight:
+	case ManifestExternalPluginRuntimeSurfacesCornerTopRight:
 		return true
-	case Overlay:
+	case ManifestExternalPluginRuntimeSurfacesOverlay:
 		return true
-	case StripBottom:
+	case ManifestExternalPluginRuntimeSurfacesStripBottom:
 		return true
-	case StripTop:
+	case ManifestExternalPluginRuntimeSurfacesStripTop:
 		return true
 	default:
 		return false
@@ -8122,7 +8179,13 @@ type GitHubInstallReview struct {
 		// Id Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest.
 		Id   *string `json:"id,omitempty"`
 		Path string  `json:"path"`
-		Type string  `json:"type"`
+
+		// PlayerRuntime Verified external Player surface permissions. Present for executable plugin contributions.
+		PlayerRuntime *struct {
+			Surfaces []GitHubInstallReviewContributionsPlayerRuntimeSurfaces `json:"surfaces"`
+			Tier     GitHubInstallReviewContributionsPlayerRuntimeTier       `json:"tier"`
+		} `json:"playerRuntime,omitempty"`
+		Type string `json:"type"`
 	} `json:"contributions"`
 
 	// Digest Pinned artifact digest as sha256 colon hex.
@@ -8150,6 +8213,12 @@ type GitHubInstallReview struct {
 	Trust   string  `json:"trust"`
 	Version string  `json:"version"`
 }
+
+// GitHubInstallReviewContributionsPlayerRuntimeSurfaces defines model for GitHubInstallReview.Contributions.PlayerRuntime.Surfaces.
+type GitHubInstallReviewContributionsPlayerRuntimeSurfaces string
+
+// GitHubInstallReviewContributionsPlayerRuntimeTier defines model for GitHubInstallReview.Contributions.PlayerRuntime.Tier.
+type GitHubInstallReviewContributionsPlayerRuntimeTier string
 
 // HeartbeatAccepted defines model for HeartbeatAccepted.
 type HeartbeatAccepted struct {

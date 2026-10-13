@@ -1,5 +1,10 @@
 # External Player plugins
 
+Installation review shows the verified surface set and priority tier for each
+executable contribution. Descriptor bytes must match the authenticated OCI
+layer. A scoped operator must control both previous and new target definitions
+to replace configuration or disable an instance.
+
 Android uses an independent plugin frame grant set for each presentation
 generation. The adapter stages verified files before delivery and commits
 grants after the narrow update succeeds. Media and Widget grants stay active.

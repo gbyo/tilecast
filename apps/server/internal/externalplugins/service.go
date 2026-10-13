@@ -136,6 +136,11 @@ func (s *Service) Configure(ctx context.Context, call Invocation, input Configur
 	if previous.ConfigurationRevision != input.ExpectedConfigurationRevision {
 		return View{}, ErrConflict
 	}
+	if previous.Targets != nil {
+		if err := s.authorize(ctx, tx, call, *previous.Targets); err != nil {
+			return View{}, err
+		}
+	}
 	if input.Enabled && !previous.Enabled {
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('external_plugin_enabled',0))`); err != nil {
 			return View{}, err
