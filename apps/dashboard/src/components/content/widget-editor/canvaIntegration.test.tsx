@@ -18,6 +18,7 @@ afterEach(() => {
 
 const config = {
   canvaUrl: "https://canva.link/abc123",
+  slideshow: true,
   refreshIntervalSeconds: 1800,
 };
 const compiled = (url: string) =>
@@ -34,7 +35,7 @@ it("pastes, previews and saves Canva through the shared editor without claiming 
   const compile = vi
     .mocked(api.compileWidgetPreview)
     .mockResolvedValue(
-      compiled("https://www.canva.com/design/DAGabcdefgh/view?embed="),
+      compiled("https://www.canva.com/design/DAGabcdefgh/watch?embed="),
     );
   const create = vi
     .spyOn(api, "createWidget")
@@ -52,7 +53,7 @@ it("pastes, previews and saves Canva through the shared editor without claiming 
   expect(compile).toHaveBeenLastCalledWith("canva", config, expect.any(String));
   expect(iframe).toHaveAttribute(
     "src",
-    "https://www.canva.com/design/DAGabcdefgh/view?embed=",
+    "https://www.canva.com/design/DAGabcdefgh/watch?embed=",
   );
   expect(iframe.getAttribute("sandbox")).not.toContain("allow-top-navigation");
   expect(screen.getByRole("link", { name: "Open in Canva" })).toHaveAttribute(
@@ -97,7 +98,7 @@ it("clears stale Canva frames while editing and reports errors without retaining
     "true",
   );
   compile.mockResolvedValue(
-    compiled("https://www.canva.com/design/DAGijklmnop/view?embed="),
+    compiled("https://www.canva.com/design/DAGijklmnop/watch?embed="),
   );
   fireEvent.change(input, {
     target: { value: "https://www.canva.com/design/DAGijklmnop/view" },
@@ -106,7 +107,7 @@ it("clears stale Canva frames while editing and reports errors without retaining
     () =>
       expect(screen.getByTitle("Web Widget preview")).toHaveAttribute(
         "src",
-        "https://www.canva.com/design/DAGijklmnop/view?embed=",
+        "https://www.canva.com/design/DAGijklmnop/watch?embed=",
       ),
     { timeout: 3000 },
   );
