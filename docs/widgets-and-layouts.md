@@ -134,9 +134,11 @@ Web Integration Apps that opt into periodic reload require manifest v15 and `web
 
 Use Canva **Share > See all > Embed** to publish a public embed.
 Copy the Smart embed link or the `src` URL from the HTML iframe.
-Tilecast accepts HTTPS `/design/<id>/view` and `/design/<id>/<access-path>/view` URLs on `www.canva.com` or `canva.com`.
-Presentation designs use these same view URLs.
+Tilecast accepts HTTPS `/design/<id>/view`, `/design/<id>/watch`, `/design/<id>/<access-path>/view`, and `/design/<id>/<access-path>/watch` URLs on `www.canva.com` or `canva.com`.
+Presentation designs use these same provider surfaces.
 Tilecast sets the `embed` query field and preserves other query fields except `utm_*` tracking fields.
+The Canva Widget's `slideshow` setting selects the final provider path: enabled uses `/watch`; disabled or omitted uses `/view`.
+New Canva Widgets default `slideshow` to enabled. Existing saved Widgets that predate the field omit it and therefore retain manual `/view` playback until the author enables Slideshow.
 Tilecast removes fragments and one trailing slash.
 Encoded path characters must decode to the same supported path shape.
 The canonical playback host is `www.canva.com`.
@@ -177,8 +179,9 @@ Browser Player has no remote website surface and cannot play Canva.
 Legacy Linux Electron reports version 2.
 Native hosts load remote content in isolated views; Studio uses an iframe.
 Provider restrictions can produce different results on each surface.
-Tilecast does not add autoplay, loop, or slide-transition parameters.
-Export video for unattended timed presentations or use existing image/PDF media for static content.
+Tilecast does not inject autoplay scripts, synthesize navigation input, or add undocumented autoplay, loop, or slide-transition query parameters.
+Slideshow playback uses Canva's `/watch` surface. Canva remains responsible for page duration, animation, and transitions; Tilecast intentionally has no per-slide duration override.
+Export video when playback must be independent of Canva or the network, or use existing image/PDF media for static content.
 
 Provider references: [Canva embedding](https://www.canva.com/help/embed-designs/),
 [public view links](https://www.canva.com/en_in/help/sharing-your-design-as-a-public-view-link/), and
@@ -197,7 +200,7 @@ TILECAST_CANVA_LIVE_URL='https://canva.link/<your-public-design-slug>' go test .
 This check verifies the redirect destination, not remote playback.
 
 1. Publish a public embed in Canva. Open its iframe `src` URL in a signed-out browser.
-2. Create a Canva Widget. Paste the public view link, embed URL, and short link in separate attempts. Check the unverified preview or the Studio CSP explanation. Use **Open in Canva** to check the design. Check that access query fields remain in the saved URL.
+2. Create a Canva Widget. Paste the public view link, watch link, embed URL, and short link in separate attempts. Check the unverified preview or the Studio CSP explanation. Use **Open in Canva** to check the design. Check that access query fields remain in the saved URL. With **Slideshow** enabled, verify the compiled/saved provider URL uses `/watch`; disable it and verify the URL uses `/view`.
 3. Paste an editor link or an expired short link. Check the error and recovery guidance. Clear the URL. Check that the previous design disappears.
 4. Save and assign the Widget to a Player that reports `web.remote@2`. Test fullscreen and a Layout placement. Check clipping, sizing, reload, and transitions to another item.
 5. Disconnect the Player network. Check the unavailable placeholder. Restore the network and reactivate the item. Check recovery. Do not expect offline Canva content.
