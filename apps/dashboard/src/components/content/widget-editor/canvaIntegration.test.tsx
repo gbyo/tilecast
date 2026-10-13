@@ -29,6 +29,12 @@ const compiled = (url: string) =>
     web: { url },
   }) as never;
 
+const legacyConfig = {
+  canvaUrl: "https://www.canva.com/design/DAGabcdefgh/watch?embed=",
+  refreshIntervalSeconds: 1800,
+};
+
+
 it("pastes, previews and saves Canva through the shared editor without claiming remote success", async () => {
   useViewport("tablet");
   mockEditorApi();
@@ -67,6 +73,24 @@ it("pastes, previews and saves Canva through the shared editor without claiming 
   fireEvent.click(screen.getByRole("button", { name: /Save Widget/ }));
   await waitFor(() => expect(create).toHaveBeenCalled());
   expect(create.mock.calls[0]![0].configuration).toEqual(config);
+});
+
+it("keeps saved pre-slideshow Canva widgets in manual mode until the author enables it", async () => {
+  useViewport("tablet");
+  mockEditorApi({ asset: savedWidget("canva", legacyConfig) });
+  const compile = vi
+    .mocked(api.compileWidgetPreview)
+    .mockResolvedValue(
+      compiled("https://www.canva.com/design/DAGabcdefgh/view?embed="),
+    );
+  renderEditorRoute("/widgets/widget-1");
+  await screen.findByTitle("Web Widget preview");
+  expect(screen.getByRole("switch", { name: "Slideshow" })).not.toBeChecked();
+  expect(compile).toHaveBeenLastCalledWith(
+    "canva",
+    legacyConfig,
+    expect.any(String),
+  );
 });
 
 it("clears stale Canva frames while editing and reports errors without retaining a false preview", async () => {
