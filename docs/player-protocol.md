@@ -134,6 +134,17 @@ Playback-relevant changes send only `{ "type": "manifest.changed", "manifestVers
 
 Synchronized playlists use that same boundary rule. Their monotonic shared timeline supplies the boundary, so rapid manifest revisions coalesce without remounting the current item several times. Takeovers and root Layout presentations still activate immediately; root Layouts do not emit playlist boundaries.
 
+Native Players can refresh plugin state without a presentation activation.
+The active and pending manifests must differ only in `plugins` and transport
+metadata (`manifestVersion`, `generatedAt`, `serverTime`). The complete
+projected presentation must remain equal. The Player verifies and pins the
+pending resources before delivery. Edge sends `plugin.state`. Windows and
+Android send the independent Runtime `plugins` message. Delivery retains the
+activation ID, generation, item position, media grants, synchronized timeline,
+and presentation evidence. A failed delivery retries without promotion. A
+successful delivery permits the existing target-fenced manifest promotion.
+Content, Layout, Widget, timing, and resource changes use normal activation.
+
 Delivery is deterministic: Download always caches; Stream requires connectivity; Automatic downloads images and videos up to 256 MiB when cache and reserved disk space permit, otherwise it streams video. The cache limit is 8 GiB, free-space reserve is 1 GiB, and at most two downloads run concurrently.
 
 Manifest schema 18 carries external Widget components. Each component names its package ID, the verified package digest, and the bundle SHA-256, size, and download path. The Player fetches each bundle from `GET /api/v1/player/packages/{packageId}/widgets/{widgetId}` with its device credential, verifies size and SHA-256, and pins the bytes before the manifest becomes pending. A bundle that is missing or fails verification keeps the last known playable presentation active. Retrieval never executes the bundle.

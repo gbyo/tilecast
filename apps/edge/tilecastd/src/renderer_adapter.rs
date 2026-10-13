@@ -531,6 +531,48 @@ impl RendererPort for EdgeRendererPort {
         sent.and(plugins_sent)
     }
 
+    fn update_plugins(
+        &self,
+        reference: RendererActivationRef,
+        context: &RuntimePayload,
+    ) -> Result<(), RendererPortError> {
+        let media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+        let Some((_, grants)) = media.as_ref().filter(|(cached, _)| {
+            cached.activation_id == reference.activation_id && cached.generation == reference.generation
+        }) else {
+            return Err(RendererPortError::InvalidActivation);
+        };
+        let resolve = |object| grants.media.get(&object).map(MediaCapability::uri);
+        let context: RuntimeContext =
+            serde_json::from_value(context.resolve(resolve).map_err(invalid)?).map_err(invalid)?;
+        let content = context
+            .aliases
+            .iter()
+            .map(|alias| {
+                let (digest, _) = grants
+                    .media
+                    .iter()
+                    .find(|(_, grant)| grant.uri() == alias.uri.as_str())
+                    .ok_or(RendererPortError::InvalidActivation)?;
+                let registry = self.registry.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+                let grant = registry
+                    .resolve(self.session.id(), grants.media[digest].as_str(), self.clock.now().unix_millis())
+                    .ok_or(RendererPortError::InvalidActivation)?;
+                Ok(RendererMediaRef {
+                    uri: alias.uri.clone(),
+                    size_bytes: grant.size_bytes,
+                    mime_type: SafeText::new(grant.mime_type.clone()).map_err(invalid)?,
+                })
+            })
+            .collect::<Result<_, RendererPortError>>()?;
+        self.send(Event::PluginState(PluginState {
+            plugins: context.plugins,
+            aliases: context.aliases,
+            content,
+            clock_offset_ms: context.clock_offset_ms,
+        }))
+    }
+
     fn clear(&self, reason: &edge_protocol::bounded::ShortToken) -> Result<(), RendererPortError> {
         self.send(Event::PresentationClear(PresentationClear { reason: reason.clone() }))
     }

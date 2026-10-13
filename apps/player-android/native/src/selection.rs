@@ -112,6 +112,7 @@ pub struct ResolvedPresentation {
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct SelectionKey {
+    source: String,
     playlist: Option<uuid::Uuid>,
     layout: Option<uuid::Uuid>,
     schedule: Option<uuid::Uuid>,
@@ -121,6 +122,7 @@ pub(crate) struct SelectionKey {
 impl From<&PlaybackIdentity> for SelectionKey {
     fn from(identity: &PlaybackIdentity) -> Self {
         Self {
+            source: identity.selection_source.clone(),
             playlist: identity.playlist_id,
             layout: identity.layout_id,
             schedule: identity.schedule_id,
@@ -1088,6 +1090,21 @@ impl OfflineActivationHost for SelectionHost {
         })
     }
 
+    fn preserve_plugin_generation(
+        &self,
+        candidate: &NativeManifest,
+        current: &Self::Key,
+        projection: &mut OfflineProjection<Self::Projection, Self::Key>,
+    ) {
+        if projection.projection.document.get("state").and_then(Value::as_str) == Some("playing")
+            && projection.projection.document.get("generation").and_then(Value::as_u64)
+                == Some(candidate.version.max(0) as u64)
+            && let Some(generation) = current.document.get("generation").and_then(Value::as_u64)
+        {
+            projection.projection.document["generation"] = serde_json::json!(generation);
+            projection.key.document = projection.projection.document.clone();
+        }
+    }
     async fn health(&self) -> OfflineRendererHealth {
         let engine = self.engine.lock().await;
         OfflineRendererHealth { safe_mode: engine.is_safe_mode(), current_error: engine.current_has_renderer_error() }
@@ -1171,6 +1188,24 @@ impl OfflineActivationHost for SelectionHost {
             self.engine.lock().await.activate_request(request, now).await.map_err(|_| "activation_rejected")?;
         let activation_id = outcome.activation_id.parse().map_err(|_| "activation_rejected")?;
         Ok(RendererActivationRef { activation_id, generation: outcome.generation })
+    }
+
+    async fn refresh_plugins(
+        &self,
+        previous: player_types::Sha256Digest,
+        candidate: &NativeManifest,
+        resolved: &Self::Projection,
+        time: ActivationTime,
+    ) -> Result<bool, &'static str> {
+        let request = ActivateRequest {
+            envelope: envelope(resolved, time.offset_ms),
+            content: resolved.content.clone(),
+            frames: resolved.frames.clone(),
+            source: ActivationSource::ServerManifest,
+            identity: Some(identity(candidate, resolved)),
+            clock_offset_ms: time.offset_ms,
+        };
+        self.engine.lock().await.refresh_plugins(previous, request)
     }
 
     fn promoted(&self) {

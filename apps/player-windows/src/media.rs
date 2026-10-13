@@ -136,6 +136,31 @@ impl MediaRegistry {
         }
     }
 
+    /// Reuse only active grants for this exact renderer and generation.
+    pub fn active_grants(
+        &self,
+        session: uuid::Uuid,
+        generation: u64,
+    ) -> Option<HashMap<Sha256Digest, MediaCapability>> {
+        if self.renderer.is_none_or(|renderer| renderer.session != session)
+            || self.generations.get(&generation)?.state != GenerationState::Active
+        {
+            return None;
+        }
+        Some(
+            self.grants
+                .iter()
+                .filter(|(_, grant)| {
+                    grant.session == session
+                        && grant.generation == generation
+                        && grant.kind == MediaGrantKind::Media
+                        && grant.state == GenerationState::Active
+                })
+                .map(|(token, grant)| (grant.sha256, token.clone()))
+                .collect(),
+        )
+    }
+
     pub fn renderer(&self) -> Option<RendererInstance> {
         self.renderer
     }

@@ -141,6 +141,33 @@ active, and a changed binding resets trial state. Core drives offline activation
 ordering and wake timers. Hosts project Runtime documents and supply opaque
 comparison keys. Edge retains Runtime document comparison, projection, and
 surface construction. Core checks packaged and connected support before a trial.
+
+Core also owns the plugin-only manifest refresh decision. The full manifest
+comparison permits changes only to `plugins`, `manifestVersion`, `generatedAt`,
+and `serverTime`. Every other field must be equal, including unknown fields.
+An equal selection key alone does not qualify a revision. The host must also
+compare the complete projected presentation under its engine lock. Content,
+frame claims, timing, projection inputs, and selection must remain equal.
+
+The hosts derive the Runtime document's `generation` from the manifest version.
+For a proven plugin-only revision, they retain the current value before this
+comparison. They also retain it on later projections of that same manifest.
+No presentation field changes as a result of this metadata transfer.
+
+A qualified refresh retains the activation ID and generation. The host sends
+only plugin state through the existing resource grants. It retains the current
+item, synchronized timeline, acceptance, evidence, and recovery state. Failed
+delivery retries without a new presentation activation. Successful delivery
+updates the on-screen manifest identity. Core then promotes the pending
+manifest through the existing target-fenced commit. A restart before this
+commit uses the last committed manifest. Edge retains an applied playlist
+resume rotation across proven plugin-only revisions.
+
+Core retains an in-memory proof for delivered plugin state until promotion.
+The proof names the committed base and the exact digest on screen. A newer
+plugin-only target can replace that delivered state without a presentation
+activation. A changed binding clears the proof. A process restart does not
+restore it.
 Core now owns server relationship verification, credential rejection,
 retry backoff, and persisted policy-clock samples. Core now drives the server
 socket, reconnect and liveness timers, heartbeat fallback, push handling,

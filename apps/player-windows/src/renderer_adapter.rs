@@ -465,6 +465,21 @@ impl RendererPort for WebViewPort {
         }))
     }
 
+    fn update_plugins(
+        &self,
+        reference: player_core::RendererActivationRef,
+        context: &RuntimePayload,
+    ) -> Result<(), RendererPortError> {
+        let media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+        let grants =
+            media.active_grants(self.session, reference.generation).ok_or(RendererPortError::InvalidActivation)?;
+        let context = substitute_grants(context.value().clone(), context.bindings(), &grants)?;
+        self.post(serde_json::json!({
+            "type": "plugins", "plugins": context.get("plugins").cloned().unwrap_or(serde_json::json!([])),
+            "clockOffsetMs": context.get("clockOffsetMs").and_then(Value::as_i64).unwrap_or(0),
+        }))
+    }
+
     fn clear(&self, reason: &player_types::bounded::ShortToken) -> Result<(), RendererPortError> {
         self.post(serde_json::json!({"type": "clear", "reason": reason.as_str()}))
     }

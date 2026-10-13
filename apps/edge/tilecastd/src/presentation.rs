@@ -355,6 +355,60 @@ impl PresentationEngine {
         Ok(reference)
     }
 
+    pub fn refresh_plugins(
+        &mut self,
+        previous: edge_protocol::Sha256Digest,
+        identity: PlaybackIdentity,
+        resolved: &crate::manifest::ResolvedPresentation,
+        extras: ServerExtras,
+    ) -> Result<bool, &'static str> {
+        let Some(current) = self.current.as_ref() else { return Ok(false) };
+        let projection = |value: &Option<ProjectionContext>| {
+            value.clone().map(|mut value| {
+                value.clock_offset_ms = 0;
+                value.manifest = player_core::manifest_without_plugin_revision(&value.manifest);
+                value
+            })
+        };
+        let timing = |value: &Option<SyncTiming>| {
+            value.clone().map(|mut value| {
+                value.clock_offset_ms = 0;
+                value
+            })
+        };
+        if current.source != ActivationSource::ServerManifest
+            || current.manifest() != Some(previous)
+            || current.document != resolved.document
+            || current.content != resolved.content
+            || current.frames != resolved.frames
+            || timing(&current.timing) != timing(&extras.timing)
+            || projection(&current.extras.projection) != projection(&extras.projection)
+        {
+            return Ok(false);
+        }
+        if !self.current_is_accepted() || !self.current_has_activation_evidence() || self.current_has_renderer_error() {
+            return Err("plugin_refresh_renderer_unready");
+        }
+        validate_media_aliases(&extras.plugin_aliases, &current.content).map_err(|_| "plugin_refresh_invalid")?;
+        for plugin in &extras.plugins {
+            edge_protocol::ipc::presentation::validate_value(plugin, &current.content)
+                .map_err(|_| "plugin_refresh_invalid")?;
+        }
+        let mut next = current.clone();
+        next.identity = Some(identity);
+        next.extras = extras;
+        let prepared =
+            crate::renderer_adapter::prepare(&next, self.clock_offset_ms).map_err(|_| "plugin_refresh_invalid")?;
+        let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else {
+            return Err("plugin_refresh_renderer_unready");
+        };
+        link.port()
+            .update_plugins(prepared.reference(), prepared.runtime_context().ok_or("plugin_refresh_invalid")?)
+            .map_err(|_| "plugin_refresh_delivery_failed")?;
+        self.current = Some(next);
+        Ok(true)
+    }
+
     pub fn current(&self) -> Option<&Activation> {
         self.current.as_ref()
     }

@@ -185,6 +185,15 @@ pub trait RendererPort: Send + Sync {
     /// Authorize immutable objects for this generation. The host owns resource
     /// transport, expiry clocks, and platform lifecycle configuration.
     fn activate(&self, activation: &RendererActivation) -> Result<(), RendererPortError>;
+    /// Deliver independent plugin state through existing generation grants.
+    /// Never activate a presentation or replace its resource authorization.
+    fn update_plugins(
+        &self,
+        _reference: RendererActivationRef,
+        _context: &RuntimePayload,
+    ) -> Result<(), RendererPortError> {
+        Err(RendererPortError::NotReady)
+    }
     fn clear(&self, reason: &ShortToken) -> Result<(), RendererPortError>;
     fn send_command(&self, command_id: uuid::Uuid, command: &SemanticRendererCommand) -> Result<(), RendererPortError>;
     fn request_capture(&self, request: RendererCaptureRequest) -> Result<(), RendererPortError>;
