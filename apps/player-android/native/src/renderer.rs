@@ -134,6 +134,7 @@ pub struct ActivationContent {
 /// identifies the frame-table entry the Runtime joins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActivationFrame {
+    pub kind: player_types::frames::FrameKind,
     pub package_id: SafeText<128>,
     pub package_digest: Sha256Digest,
     pub digest: Sha256Digest,
@@ -320,6 +321,12 @@ fn parse_activate_request(raw: &str) -> Result<ActivateRequest, ActivateError> {
     if let Some(requested) = request.get("frames") {
         for entry in requested.as_array().ok_or(ActivateError::Malformed)? {
             frames.push(ActivationFrame {
+                kind: entry
+                    .get("kind")
+                    .map(|kind| serde_json::from_value(kind.clone()))
+                    .transpose()
+                    .map_err(|_| ActivateError::Malformed)?
+                    .unwrap_or_default(),
                 package_id: entry
                     .get("packageId")
                     .and_then(serde_json::Value::as_str)
@@ -1184,6 +1191,7 @@ impl PresentationEngine {
             .frames
             .iter()
             .map(|entry| VerifiedFrameRef {
+                kind: entry.kind,
                 package_id: entry.package_id.clone(),
                 package_digest: entry.package_digest,
                 sha256: entry.digest,

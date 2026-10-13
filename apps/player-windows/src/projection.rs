@@ -361,16 +361,21 @@ impl<'a> Projector<'a> {
         })
     }
 
-    /// Every verified frame claim, deduplicated by document digest like
-    /// the content map. Core fetched and verified each one before this
-    /// manifest became a candidate; the port mints one grant per claim.
+    /// Every distinct package/frame authorization identity. CAS may share
+    /// identical bytes; the Runtime still needs each package's table entry.
     fn frame_refs(&self) -> Result<Vec<VerifiedFrameRef>, ProjectionError> {
         let mut frames = Vec::with_capacity(self.native.required_frames.len());
         for claim in &self.native.required_frames {
-            if frames.iter().any(|existing: &VerifiedFrameRef| existing.sha256 == claim.digest) {
+            if frames.iter().any(|existing: &VerifiedFrameRef| {
+                existing.sha256 == claim.digest
+                    && existing.kind == claim.kind
+                    && existing.package_id.as_str() == claim.package_id
+                    && existing.package_digest == claim.package_digest
+            }) {
                 continue;
             }
             frames.push(VerifiedFrameRef {
+                kind: claim.kind,
                 package_id: player_types::bounded::SafeText::new(claim.package_id.clone())
                     .map_err(|_| ProjectionError::Structure)?,
                 package_digest: claim.package_digest,

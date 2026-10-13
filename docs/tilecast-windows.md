@@ -64,6 +64,22 @@ so the Player cannot cancel a file dialog from a remote page: do not
 assign pages with file inputs to Windows screens. See
 `website-content.md` for the cross-engine browsing-data contract.
 
+The trusted Runtime view intercepts every resource request. It serves only
+packaged Runtime files and authorized media or frame grants. Other requests
+receive a refusal. A child frame may make one initial navigation to a live
+frame grant. Later navigation is refused before a request is sent.
+The host bootstrap runs only in the exact top-level Runtime document.
+Frame code receives no Runtime or native bridge.
+
+Frame grants carry an execution kind. Widget frames retain their media policy.
+External plugin frames deny all image, media, font, and network loads.
+Plugin state can stage an independent frame grant set in the current
+presentation generation. Successful delivery commits that set; failed delivery
+retains the previous set. Unchanged grants are reused. Removed plugin grants
+drain without changing presentation media or Widget grants.
+This delivery path does not establish physical sandbox qualification.
+The generic plugin execution capability must stay absent until qualification.
+
 The WebView2 conformance engine runs the shared Runtime fixture
 corpus through this exact production path and compares it with the
 Electron reference. See `player-runtime.md`.

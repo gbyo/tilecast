@@ -502,16 +502,21 @@ impl Candidate {
         })
     }
 
-    /// Every verified frame claim, deduplicated by document digest like
-    /// the content map. Core fetched and verified each one before this
-    /// manifest became a candidate; the port mints one grant per claim.
+    /// Every distinct package/frame authorization identity. CAS may share
+    /// identical bytes; the Runtime still needs each package's table entry.
     fn frame_refs(&self) -> Result<Vec<FrameRef>, ManifestError> {
         let mut frames = Vec::with_capacity(self.required_frames.len());
         for claim in &self.required_frames {
-            if frames.iter().any(|existing: &FrameRef| existing.sha256 == claim.digest) {
+            if frames.iter().any(|existing: &FrameRef| {
+                existing.sha256 == claim.digest
+                    && existing.kind == claim.kind
+                    && existing.package_id.as_str() == claim.package_id
+                    && existing.package_digest == claim.package_digest
+            }) {
                 continue;
             }
             frames.push(FrameRef {
+                kind: claim.kind,
                 package_id: SafeText::new(claim.package_id.clone()).map_err(|_| ManifestError::Frame)?,
                 package_digest: claim.package_digest,
                 sha256: claim.digest,
