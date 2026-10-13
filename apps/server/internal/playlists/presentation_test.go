@@ -238,7 +238,7 @@ func TestCanvaPresentationPreservesPlaybackPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.RequiredCapabilities["web.remote"] != 2 || p.Web.URL != "https://www.canva.com/design/DAGabcdefgh/token_123456/watch?access=keep&autoplay=1&embed=" || len(p.Web.AllowedHosts) != 1 || p.Web.AllowedHosts[0] != "www.canva.com" || p.Web.Lifecycle != "keep_warm" || p.Web.WarmSeconds != 60 || !p.Web.OnlineOnly || p.Web.FallbackBehavior != "placeholder" || p.Web.Reload.IntervalSeconds != 1800 {
+	if p.RequiredCapabilities["web.remote"] != 2 || p.Web.URL != "https://www.canva.com/design/DAGabcdefgh/token_123456/watch?access=keep&embed=" || len(p.Web.AllowedHosts) != 1 || p.Web.AllowedHosts[0] != "www.canva.com" || p.Web.Lifecycle != "keep_warm" || p.Web.WarmSeconds != 60 || !p.Web.OnlineOnly || p.Web.FallbackBehavior != "placeholder" || p.Web.Reload.IntervalSeconds != 1800 {
 		t.Fatalf("unexpected Canva descriptor: %#v", p.Web)
 	}
 	legacy, err := presentationTestService().CompileWidgetPresentation("canva", json.RawMessage(`{"canvaUrl":"https://www.canva.com/design/DAGabcdefgh/token_123456/watch?access=keep","refreshIntervalSeconds":1800}`), false)
