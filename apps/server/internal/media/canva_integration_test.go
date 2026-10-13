@@ -15,11 +15,11 @@ func TestCanvaCreateEditAndDuplicatePreserveCanonicalLink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "https://www.canva.com/design/DAGabcdefgh/token_123456/watch?access=keep&autoplay=1&embed="
+	want := "https://www.canva.com/design/DAGabcdefgh/token_123456/watch?access=keep&embed="
 	if got := widgetConfiguration(t, service, asset.ID.String())["canvaUrl"]; got != want {
 		t.Fatalf("saved %v", got)
 	}
-	input.Configuration = json.RawMessage(`{"canvaUrl":"https://www.canva.com/design/DAGabcdefgh/token_123456/watch?access=keep&autoplay=1&embed=","slideshow":false,"refreshIntervalSeconds":900}`)
+	input.Configuration = json.RawMessage(`{"canvaUrl":"https://www.canva.com/design/DAGabcdefgh/token_123456/watch?access=keep&embed=","slideshow":false,"refreshIntervalSeconds":900}`)
 	if _, err := service.UpdateWidget(ctx, asset.ID, user, input); err != nil {
 		t.Fatal(err)
 	}
