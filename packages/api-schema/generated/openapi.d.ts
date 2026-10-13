@@ -7911,6 +7911,20 @@ export interface components {
         path: string;
         /** @description Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest. */
         id?: string;
+        /** @description Verified external Player surface permissions. Present for executable plugin contributions. */
+        playerRuntime?: {
+          surfaces: (
+            | "strip.top"
+            | "strip.bottom"
+            | "corner.top-left"
+            | "corner.top-right"
+            | "corner.bottom-left"
+            | "corner.bottom-right"
+            | "overlay"
+          )[];
+          /** @enum {string} */
+          tier: "emergency" | "live" | "scheduled" | "ambient";
+        };
       }[];
       /** @description External server behavior module (manifest version 2 only). */
       runtime?: {

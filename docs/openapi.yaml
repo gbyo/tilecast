@@ -12653,6 +12653,31 @@ components:
               id:
                 type: string
                 description: Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest.
+              playerRuntime:
+                type: object
+                required: [surfaces, tier]
+                description: Verified external Player surface permissions. Present for executable plugin contributions.
+                properties:
+                  surfaces:
+                    type: array
+                    minItems: 1
+                    maxItems: 7
+                    uniqueItems: true
+                    items:
+                      type: string
+                      enum:
+                        [
+                          strip.top,
+                          strip.bottom,
+                          corner.top-left,
+                          corner.top-right,
+                          corner.bottom-left,
+                          corner.bottom-right,
+                          overlay,
+                        ]
+                  tier:
+                    type: string
+                    enum: [emergency, live, scheduled, ambient]
         runtime:
           type: object
           required: [module]

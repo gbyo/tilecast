@@ -53,7 +53,7 @@ export function ContributionReview({ review, installed }: Review) {
   const contributionDiff = installed
     ? diffContributions(installed.contributions, review.contributions)
     : undefined;
-  return contributionDiff ? (
+  const content = contributionDiff ? (
     <ReviewSection title={t("storeDetail.review.contributionChanges")}>
       {contributionDiff.added.length === 0 &&
       contributionDiff.removed.length === 0 ? (
@@ -128,6 +128,45 @@ export function ContributionReview({ review, installed }: Review) {
         </ItemGroup>
       )}
     </ReviewSection>
+  );
+  const executable = review.contributions.filter(
+    (entry) => entry.playerRuntime,
+  );
+  return (
+    <>
+      {content}
+      {executable.length > 0 && (
+        <ReviewSection title={t("playerRuntime.title")}>
+          <div className="grid gap-3">
+            {executable.map((entry) => (
+              <div key={entry.id ?? entry.path} className="text-sm">
+                <p className="font-medium">
+                  {
+                    contributionRows([
+                      { kind: entry.type, path: entry.path },
+                    ])[0]?.name
+                  }
+                </p>
+                <p className="text-muted-foreground">
+                  {t("playerRuntime.allowedSurfaces", {
+                    surfaces: entry
+                      .playerRuntime!.surfaces.map((surface) =>
+                        t(`playerRuntime.surfaces.${surface}`),
+                      )
+                      .join(", "),
+                  })}
+                </p>
+                <p className="text-muted-foreground">
+                  {t("playerRuntime.priority", {
+                    tier: t(`playerRuntime.tiers.${entry.playerRuntime!.tier}`),
+                  })}
+                </p>
+              </div>
+            ))}
+          </div>
+        </ReviewSection>
+      )}
+    </>
   );
 }
 

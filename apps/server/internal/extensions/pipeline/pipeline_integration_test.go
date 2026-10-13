@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -451,6 +452,42 @@ func TestInstallCrossCheckRange(t *testing.T) {
 	f.registry.tags = map[string]string{"v2.4.1": digest}
 	if _, err := f.service.InstallCustom(ctx, "https://github.com/acme/tilecast-athletics", f.userID); !errors.Is(err, ErrCrossCheck) {
 		t.Fatalf("err = %v, want ErrCrossCheck", err)
+	}
+}
+
+func TestInstallCrossCheckRejectsUnreviewedExecutionPermissions(t *testing.T) {
+	for _, feature := range []string{"runtime", "capabilities", "contributions"} {
+		t.Run(feature, func(t *testing.T) {
+			f := newPipelineFixture(t)
+			var manifest map[string]any
+			if err := json.Unmarshal([]byte(pipelineManifest(t, f.oci, "2.4.1")), &manifest); err != nil {
+				t.Fatal(err)
+			}
+			switch feature {
+			case "runtime":
+				manifest["apiVersion"] = 4
+				manifest["runtime"] = map[string]any{"module": "./runtime/guest.wasm"}
+			case "capabilities":
+				manifest["apiVersion"] = 2
+				manifest["capabilities"] = map[string]any{"studioUI": map[string]any{"entry": "./studio/index.html"}}
+			case "contributions":
+				manifest["contributions"] = []any{map[string]any{"type": "plugin", "path": "./plugin"}}
+			}
+			raw, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			layout := t.TempDir()
+			digest, err := packages.WriteLayout(layout, raw, pipelineContent(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.registry.layout = layout
+			f.registry.tags = map[string]string{"v2.4.1": digest}
+			if _, err := f.service.InstallCustom(context.Background(), "https://github.com/acme/tilecast-athletics", f.userID); !errors.Is(err, ErrCrossCheck) {
+				t.Fatalf("unreviewed %s accepted: %v", feature, err)
+			}
+		})
 	}
 }
 
