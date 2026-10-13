@@ -40,11 +40,8 @@ func TestCanvaURLs(t *testing.T) {
 			if gotMode := u.Path[strings.LastIndex(u.Path, "/")+1:]; gotMode != tc.wantMode {
 				t.Fatalf("mode = %q, want %q (%s)", gotMode, tc.wantMode, got)
 			}
-			if tc.slideshow && u.Query().Get("autoplay") != "1" {
-				t.Fatalf("slideshow URL is missing autoplay=1: %s", got)
-			}
-			if !tc.slideshow && u.Query().Has("autoplay") {
-				t.Fatalf("manual URL retained autoplay: %s", got)
+			if u.Query().Has("autoplay") {
+				t.Fatalf("unsupported autoplay query retained: %s", got)
 			}
 			if original, _ := url.Parse(tc.raw); original != nil && original.Query().Get("access") != "" && u.Query().Get("access") != "keep" {
 				t.Fatal("access parameter lost")

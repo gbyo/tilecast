@@ -141,7 +141,7 @@
       },
       "slideshow": {
         "label": "Slideshow",
-        "description": "Automatically play and advance presentation pages using the timing set in Canva."
+        "description": "Open the design in Canva's presentation/watch mode. Canva may still require playback to be started."
       },
       "refreshIntervalSeconds": { "label": "Reload interval" }
     }

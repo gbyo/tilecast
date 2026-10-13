@@ -137,8 +137,8 @@ Copy the Smart embed link or the `src` URL from the HTML iframe.
 Tilecast accepts HTTPS `/design/<id>/view`, `/design/<id>/watch`, `/design/<id>/<access-path>/view`, and `/design/<id>/<access-path>/watch` URLs on `www.canva.com` or `canva.com`.
 Presentation designs use these same provider surfaces.
 Tilecast sets the `embed` query field and preserves other query fields except `utm_*` tracking fields.
-The Canva Widget's `slideshow` setting owns the final playback mode: enabled uses `/watch` with `autoplay=1`; disabled or omitted uses `/view` and removes any submitted `autoplay` query field.
-New Canva Widgets default `slideshow` to enabled. Existing saved Widgets that predate the field omit it and therefore retain manual `/view` playback until the author enables Slideshow.
+The Canva Widget's `slideshow` setting selects the final provider surface: enabled uses `/watch`; disabled or omitted uses `/view`. Tilecast removes any submitted `autoplay` query field because Canva does not document it as an embed control.
+New Canva Widgets default `slideshow` to disabled. Existing saved Widgets that predate the field also remain on manual `/view` playback until the author enables presentation mode.
 Tilecast removes fragments and one trailing slash.
 Encoded path characters must decode to the same supported path shape.
 The canonical playback host is `www.canva.com`.
@@ -180,7 +180,7 @@ Legacy Linux Electron reports version 2.
 Native hosts load remote content in isolated views; Studio uses an iframe.
 Provider restrictions can produce different results on each surface.
 Tilecast does not inject autoplay scripts, synthesize navigation input, or add undocumented autoplay, loop, or slide-transition query parameters.
-Slideshow playback uses Canva's `/watch` surface. Canva remains responsible for page duration, animation, and transitions; Tilecast intentionally has no per-slide duration override.
+Presentation mode uses Canva's `/watch` surface. Canva may still open paused: Tilecast does not inject provider DOM scripts or synthesize the UI action that starts Canva autoplay. Canva remains responsible for page duration, animation, and transitions; Tilecast intentionally has no per-slide duration override.
 Export video when playback must be independent of Canva or the network, or use existing image/PDF media for static content.
 
 Provider references: [Canva embedding](https://www.canva.com/help/embed-designs/),

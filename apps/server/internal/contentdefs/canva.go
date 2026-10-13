@@ -51,7 +51,7 @@ func CanvaURL(raw string) (*url.URL, error) {
 	return u, nil
 }
 
-// CanvaPlaybackURL selects Canva's manual view or autoplay watch surface after
+// CanvaPlaybackURL selects Canva's manual view or watch presentation surface after
 // validating and canonicalizing the provider URL. Short links stay unresolved
 // here; authoring resolves them before playback compilation.
 func CanvaPlaybackURL(raw string, slideshow bool) (*url.URL, error) {
@@ -65,12 +65,11 @@ func CanvaPlaybackURL(raw string, slideshow bool) (*url.URL, error) {
 		return nil, errors.New("Canva design URL is missing a presentation mode")
 	}
 	mode := "view"
-	query := u.Query()
-	query.Del("autoplay")
 	if slideshow {
 		mode = "watch"
-		query.Set("autoplay", "1")
 	}
+	query := u.Query()
+	query.Del("autoplay")
 	u.Path = path[:separator+1] + mode
 	u.RawQuery = query.Encode()
 	return u, nil

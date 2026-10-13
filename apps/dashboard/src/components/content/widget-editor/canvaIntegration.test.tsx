@@ -30,7 +30,7 @@ const compiled = (url: string) =>
   }) as never;
 
 const legacyConfig = {
-  canvaUrl: "https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed=",
+  canvaUrl: "https://www.canva.com/design/DAGabcdefgh/watch?embed=",
   refreshIntervalSeconds: 1800,
 };
 
@@ -41,7 +41,7 @@ it("pastes, previews and saves Canva through the shared editor without claiming 
     .mocked(api.compileWidgetPreview)
     .mockResolvedValue(
       compiled(
-        "https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed=",
+        "https://www.canva.com/design/DAGabcdefgh/watch?embed=",
       ),
     );
   const create = vi
@@ -60,7 +60,7 @@ it("pastes, previews and saves Canva through the shared editor without claiming 
   expect(compile).toHaveBeenLastCalledWith("canva", config, expect.any(String));
   expect(iframe).toHaveAttribute(
     "src",
-    "https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed=",
+    "https://www.canva.com/design/DAGabcdefgh/watch?embed=",
   );
   expect(iframe.getAttribute("sandbox")).not.toContain("allow-top-navigation");
   expect(screen.getByRole("link", { name: "Open in Canva" })).toHaveAttribute(
@@ -101,7 +101,7 @@ it("clears stale Canva frames while editing and reports errors without retaining
     .mocked(api.compileWidgetPreview)
     .mockResolvedValue(
       compiled(
-        "https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed=",
+        "https://www.canva.com/design/DAGabcdefgh/watch?embed=",
       ),
     );
   renderEditorRoute("/widgets/widget-1");
@@ -126,7 +126,7 @@ it("clears stale Canva frames while editing and reports errors without retaining
   );
   compile.mockResolvedValue(
     compiled(
-      "https://www.canva.com/design/DAGijklmnop/watch?autoplay=1&embed=",
+      "https://www.canva.com/design/DAGijklmnop/watch?embed=",
     ),
   );
   fireEvent.change(input, {
@@ -136,7 +136,7 @@ it("clears stale Canva frames while editing and reports errors without retaining
     () =>
       expect(screen.getByTitle("Web Widget preview")).toHaveAttribute(
         "src",
-        "https://www.canva.com/design/DAGijklmnop/watch?autoplay=1&embed=",
+        "https://www.canva.com/design/DAGijklmnop/watch?embed=",
       ),
     { timeout: 3000 },
   );
@@ -149,7 +149,7 @@ it("distinguishes an enforced local CSP block from an unverified external load",
   mockEditorApi({ asset: savedWidget("canva", config) });
   vi.mocked(api.compileWidgetPreview).mockResolvedValue(
     compiled(
-      "https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed=",
+      "https://www.canva.com/design/DAGabcdefgh/watch?embed=",
     ),
   );
   renderEditorRoute("/widgets/widget-1");
