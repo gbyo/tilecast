@@ -32,6 +32,14 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 An offline screen receives the update after it reconnects. Use **Deployment history** to check each screen. Cancelling a deployment stops screens that have not finished; it does not roll back screens that already updated.
 
+### What a canary rollout does
+
+Canary screens are the only targets released at first. The remaining targets stay held until every canary has either updated successfully or was already on that release. Tilecast then releases the held targets automatically.
+
+The rollout pauses instead of continuing when a canary reports an update failure. It also pauses when a canary enters safe mode or remains in the installing or reconnecting state for ten minutes. Review the failed screen and the pause reason in **Deployment history** before continuing or replacing the deployment. A bad canary never automatically releases the held screens.
+
+Canary selection does not change platform compatibility. A release still targets only its Player family and, for architecture-specific Edge and Windows releases, the matching architecture.
+
 ## What to expect on each platform
 
 <Tabs syncKey="player-platform">
