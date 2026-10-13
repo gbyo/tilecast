@@ -9,6 +9,10 @@ import darkScreenshot from "../../../assets/screenshots/live-preview-unavailable
 
 Open a screen's **Overview** tab to use **Live preview**. Tilecast asks the Player for a still image and refreshes it about every 20 seconds while the page is open. Select **Refresh** to request another image.
 
+The preview grid requests captures only for cards that are visible. Each Player captures its own screen, so showing 20 cards does not make one Player capture 20 times; it spreads one capture about every 20 seconds across those 20 Players. A still image is capped at 500 KiB. If all 20 screens repeatedly hit that hard limit, the aggregate Player-to-server traffic would average about 4 Mbit/s before protocol overhead, with similar download traffic when Studio fetches every replacement image. Normal previews are usually much smaller.
+
+Preview JPEG encoding uses CPU on each Player, not a central video encoder on the server. Edge serializes capture work and can suspend previews when capture is unhealthy so playback remains the priority. Scroll preview cards out of view, switch to the table, or close the page when you do not need continuous visual checks. **Watch live** is much heavier than the 20-second still preview.
+
 ## Choose the right view
 
 | Feature                      | Best for                                             | Stored?                                         | What it tells you                                |
