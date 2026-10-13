@@ -1,6 +1,6 @@
 # External package service capabilities
 
-Version 3 external packages call versioned Tilecast services through
+Version 3 and 4 external packages call versioned Tilecast services through
 one host function, `tilecast.call_v1`. This document is the service
 contract: the inventory, the operation shapes, the transport, the
 contexts, and the guest SDK. The manifest side lives in [Extension
@@ -8,9 +8,9 @@ packages](packages.md).
 
 ## Inventory
 
-The service registry (`internal/extensions/services`) owns ten
-services at version 1. No other version exists: a grant for any other
-version fails closed. The install review resolves every grant against
+The service registry (`internal/extensions/services`) owns the supported
+service identities and versions. A grant for an unknown version fails
+closed. The install review resolves every grant against
 the registry and shows the operations it unlocks. An unknown service
 fails the review, the install, and the activation.
 
@@ -24,6 +24,11 @@ validates display targets and resolves them to screen IDs.
 schedules, and screen groups as JSON documents.
 `users.read-basic@1` answers the basic user directory: identifiers,
 names, roles, and activity only.
+
+`targets.resolve@2` adds explicit all, a selected screen/group/location union,
+and a bounded Studio target picker. Scoped directory selections require a
+direct matching account scope. Version 1 keeps its original contract.
+See [External Player plugins](external-player-plugins.md#targets).
 
 Manage services mutate through canonical domain services.
 `managed-presentations.manage@1` owns one data source, one widget, and
@@ -39,6 +44,12 @@ operation (`display.power`, `display.input`, `display.volume`,
 through the Player Capability registry to one persistent command, and
 only for screens that report the matching capability. See [Player
 capabilities](player-capabilities.md).
+
+`plugin-runtime.state@1` owns configuration and expiring Player state for a
+package's own external API 2 plugin contributions. Its operations are `get`,
+`configure`, `publish`, and `clear`. Configuration requires an operator.
+Publication checks the configuration revision and package execution epoch.
+See [External Player plugins](external-player-plugins.md#state-service).
 
 The audit service writes bounded package audit events.
 `audit.write@1/write` accepts only actions under the `package.`

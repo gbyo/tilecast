@@ -1,0 +1,68 @@
+package contributions
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/sandbox"
+	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
+)
+
+const externalDescriptor = `{"apiVersion":2,"id":"corner","definitionVersion":1,"name":"Corner","description":"An external surface.","capabilities":{"playerManifest":true},"runtime":{"surfaces":["corner.bottom-left"],"tier":"ambient"}}`
+const externalBundle = `window.__tilecastExternalPlugin={update:function(state,context,bridge){bridge.claim({slot:'corner.bottom-left',priority:0})}};`
+
+func TestExternalPluginContributionJoinsVerifiedCatalog(t *testing.T) {
+	f := newContributionsFixture(t)
+	manifest := testManifest("acme.surfaces")
+	manifest.Contributions = []packagemanifest.Contribution{{Type: "plugin", Path: "./plugin"}}
+	f.seedPackage(t, manifest.PackageID, testDigestGood, manifest, map[string]string{"plugin/tilecast.plugin.json": externalDescriptor, "plugin/runtime/index.js": externalBundle})
+	if err := f.service.Validate(f.content[testDigestGood], manifest, testDigestGood); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.Rebuild(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	payload, ok := f.service.PluginPayload(manifest.PackageID, "corner")
+	if !ok {
+		t.Fatal("external plugin remained inert")
+	}
+	frame, err := sandbox.AssemblePluginFrame(externalBundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload.ContributionID != "acme.surfaces.corner" || payload.PackageDigest != testDigestGood || payload.FrameSHA256Hex != frame.SHA256Hex || payload.FrameSize != frame.Size {
+		t.Fatalf("incorrect verified metadata: %+v", payload)
+	}
+	payload.Descriptor.Runtime.Surfaces[0] = "overlay"
+	still, _ := f.service.PluginPayload(manifest.PackageID, "corner")
+	if still.Descriptor.Runtime.Surfaces[0] != "corner.bottom-left" {
+		t.Fatal("caller mutated the catalog")
+	}
+	if _, ok := f.service.PluginPayload("acme.other", "corner"); ok {
+		t.Fatal("package namespaces collided")
+	}
+	if err := os.Remove(filepath.Join(f.content[testDigestGood], "plugin/runtime/index.js")); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.Rebuild(context.Background()); err == nil {
+		t.Fatal("missing plugin bundle was accepted")
+	}
+	if _, ok := f.service.PluginPayload(manifest.PackageID, "corner"); ok {
+		t.Fatal("unverified plugin remained executable")
+	}
+}
+
+func TestFrozenExternalPluginAPI1RemainsInert(t *testing.T) {
+	f := newContributionsFixture(t)
+	manifest := testManifest("acme.legacy")
+	manifest.Contributions = []packagemanifest.Contribution{{Type: "plugin", Path: "./plugin"}}
+	f.seedPackage(t, manifest.PackageID, testDigestGood, manifest, map[string]string{"plugin/tilecast.plugin.json": `{"apiVersion":1,"id":"corner"}`})
+	if err := f.service.Rebuild(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := f.service.PluginPayload(manifest.PackageID, "corner"); ok {
+		t.Fatal("compiled-plugin descriptor became executable")
+	}
+}

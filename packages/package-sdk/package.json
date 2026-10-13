@@ -8,6 +8,7 @@
   "exports": {
     "./manifest": "./src/manifest.ts",
     "./external-plugin": "./src/external-plugin.ts",
+    "./player-frame": "./src/player-frame.ts",
     "./schema/external-plugin.schema.json": "./schema/external-plugin.schema.json",
     "./schema/tilecast-package.schema.json": "./schema/tilecast-package.schema.json"
   },
