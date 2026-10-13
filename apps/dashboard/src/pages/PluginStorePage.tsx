@@ -81,7 +81,7 @@ export function PluginStorePage() {
   const [category, setCategory] = useState<StoreCategoryFilter>("All");
   const [source, setSource] = useState<StoreSourceFilter>("all");
   const [addOpen, setAddOpen] = useState(false);
-  const canRefresh = canManage(auth.status?.user?.role);
+  const canRefresh = canManage(auth.status);
 
   const entries = useMemo(() => store.data?.items ?? [], [store.data]);
   const sourceKinds = useMemo(
@@ -145,7 +145,7 @@ export function PluginStorePage() {
 
       <MarketplaceStatusNotice
         marketplace={store.data?.marketplace}
-        canRefresh={canManage(auth.status?.user?.role)}
+        canRefresh={canManage(auth.status)}
         refreshing={refresh.isPending}
         refreshError={refresh.error}
         onRefresh={() => refresh.mutate()}

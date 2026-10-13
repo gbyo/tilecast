@@ -1,6 +1,16 @@
 import type { ScreenScope, ScreenScopes, PlayerReleaseImport } from "./types";
 import { ApiError } from "./errors";
 import {
+  createRole,
+  deleteRole,
+  getMyAccess,
+  getUserContentAccess,
+  listCapabilities,
+  listRoles,
+  putUserContentAccess,
+  updateRole,
+} from "./domains/access";
+import {
   createBrowserPlayer,
   browserPlayerSlot,
   setBrowserRecovery,
@@ -574,6 +584,14 @@ export const api = {
       headers: { "X-CSRF-Token": csrfToken },
       body: JSON.stringify({ scopes }),
     }),
+  roles: listRoles,
+  capabilityCatalog: listCapabilities,
+  createRole,
+  updateRole,
+  deleteRole,
+  userContentAccess: getUserContentAccess,
+  putUserContentAccess,
+  myAccess: getMyAccess,
   integrationTokens: listIntegrationTokens,
   createIntegrationToken,
   revokeIntegrationToken,

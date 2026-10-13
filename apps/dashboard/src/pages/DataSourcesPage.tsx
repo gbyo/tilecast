@@ -67,7 +67,7 @@ import { DataSourceEditor } from "../content/data-sources/dispatcher";
 import { providerLabel, sourceIcon } from "../content/dataSourceProviderMeta";
 import { SourceStatus } from "../content/DataSourcePicker";
 import { UsedByPanel } from "../content/UsedByPanel";
-import { canManageContent } from "./ContentPage";
+import { hasCapability } from "../auth/capabilities";
 
 export function DataSourcesPage() {
   const { t } = useTranslation(["content", "common"]);
@@ -75,7 +75,7 @@ export function DataSourcesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
-  const canManage = canManageContent(auth.status?.user);
+  const canManage = hasCapability(auth.status, "datasource.edit");
   const [search, setSearch] = useState("");
   const [provider, setProvider] = useState("");
   const [sortAscending, setSortAscending] = useState(false);
@@ -614,12 +614,12 @@ export function DataSourceEditorPage() {
           provider={provider}
           dataSource={dataSource}
           csrf={csrf}
-          readOnly={!canManageContent(auth.status?.user)}
+          readOnly={!hasCapability(auth.status, "datasource.edit")}
           onClose={close}
           onSaved={saved}
           page
         />
-      ) : canManageContent(auth.status?.user) ? (
+      ) : hasCapability(auth.status, "datasource.edit") ? (
         <DataSourceCreateShell
           provider={provider}
           definition={definition}

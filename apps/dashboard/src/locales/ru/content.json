@@ -261,7 +261,11 @@
       "queueLabel": "Очередь загрузки",
       "resumePrompt": "Выберите тот же файл, чтобы продолжить загрузку.",
       "retryResume": "Повторить или продолжить {{name}}",
-      "title": "Загрузки"
+      "title": "Загрузки",
+      "destinationLabel": "Загрузить в",
+      "chooseFolder": "Выберите папку",
+      "destinationOption": "Загрузить в {{name}}",
+      "chooseFolderFirst": "Сначала выберите папку для загрузки."
     },
     "website": {
       "advancedSettings": "Дополнительные настройки сайта",

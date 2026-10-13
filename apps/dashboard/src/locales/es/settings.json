@@ -669,7 +669,8 @@
       "integrations": "Tokens de integración",
       "import-export": "Importar y exportar",
       "dependency-graph": "Explorador de dependencias",
-      "preferences": "Preferencias"
+      "preferences": "Preferencias",
+      "roles": "Roles"
     },
     "sections": {
       "general": {
@@ -771,6 +772,10 @@
       "preferences": {
         "title": "Preferencias",
         "description": "Preferencias de apariencia y flujo de trabajo para tu cuenta de Studio."
+      },
+      "roles": {
+        "title": "Roles",
+        "description": "Decide qué puede hacer cada persona. Usa los roles integrados o crea los tuyos y asígnalos en la página Usuarios."
       }
     }
   },

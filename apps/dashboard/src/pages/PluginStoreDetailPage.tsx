@@ -107,7 +107,7 @@ export function PluginStoreDetailPage() {
       key={data.packageId}
       entry={data}
       csrfToken={csrfToken}
-      canInstall={canManage(auth.status?.user?.role)}
+      canInstall={canManage(auth.status)}
       installingPlugin={install.isPending}
       onInstallPlugin={installPlugin}
       installingExternal={packages.install.isPending}

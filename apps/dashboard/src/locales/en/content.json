@@ -241,7 +241,11 @@
       "queueLabel": "Upload queue",
       "resumePrompt": "Select the same file to resume this upload.",
       "retryResume": "Retry or resume {{name}}",
-      "title": "Uploads"
+      "title": "Uploads",
+      "destinationLabel": "Upload to",
+      "chooseFolder": "Choose a folder",
+      "destinationOption": "Upload to {{name}}",
+      "chooseFolderFirst": "Choose a folder to upload into first."
     },
     "website": {
       "advancedSettings": "Advanced website settings",

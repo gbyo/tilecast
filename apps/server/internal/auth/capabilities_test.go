@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -118,5 +120,29 @@ func TestRoleInputValidation(t *testing.T) {
 		if (err == nil) != test.ok {
 			t.Errorf("%s: err=%v, want ok=%v", test.name, err, test.ok)
 		}
+	}
+}
+
+// TestStudioFixtureMatchesBuiltinRoles keeps the Studio test fixture of the
+// built-in roles identical to the server's. Studio itself never maps a role
+// name to authority; only its tests need the built-in bundles, and they must
+// not drift from what the server actually grants.
+func TestStudioFixtureMatchesBuiltinRoles(t *testing.T) {
+	raw, err := os.ReadFile("../../../dashboard/src/test/builtin-capabilities.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := map[string][]string{}
+	if err := json.Unmarshal(raw, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	for _, role := range BuiltinRoleKeys {
+		set, _ := BuiltinCapabilities(role)
+		if got, want := strings.Join(fixture[role], " "), strings.Join(set.Strings(), " "); got != want {
+			t.Errorf("Studio fixture for %s is stale; regenerate apps/dashboard/src/test/builtin-capabilities.json:\n got  %s\n want %s", role, got, want)
+		}
+	}
+	if len(fixture) != len(BuiltinRoleKeys) {
+		t.Errorf("Studio fixture has %d roles, want %d", len(fixture), len(BuiltinRoleKeys))
 	}
 }

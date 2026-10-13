@@ -1876,10 +1876,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description List dashboard user accounts. Requires an Owner or Administrator with the admin scope. */
+    /** @description List dashboard user accounts. Requires the users.manage capability and the admin scope. */
     get: operations["listUsers"];
     put?: never;
-    /** @description Create a dashboard user account. Requires an Owner or Administrator with the admin scope. Only an Owner may create Owner or Administrator accounts. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    /** @description Create a dashboard user account. Requires the users.manage capability and the admin scope. Only an Owner may assign the Owner or Administrator role, or a role that grants a capability the caller does not hold. Cookie-authenticated unsafe requests require X-CSRF-Token. */
     post: operations["createUser"];
     delete?: never;
     options?: never;
@@ -1950,6 +1950,97 @@ export interface paths {
     get: operations["getUserScreenScopes"];
     /** @description Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope. */
     put: operations["putUserScreenScopes"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/{id}/content-access": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Read which part of the Media library an account reaches and which tags it may apply. Requires the users.manage capability and the admin scope. */
+    get: operations["getUserContentAccess"];
+    /** @description Replace an account's content access. Requires the users.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be restricted, nobody can change their own access, and nobody can grant folders or tags outside their own access. */
+    put: operations["putUserContentAccess"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/roles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description List the built-in and custom roles with their capabilities and member counts. Requires users.manage or roles.manage and the admin scope. */
+    get: operations["listRoles"];
+    put?: never;
+    /** @description Create a custom role. Requires the roles.manage capability and the admin scope. A caller other than the Owner may include only capabilities they hold, and never users.manage or roles.manage. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    post: operations["createRole"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/roles/capabilities": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The closed capability vocabulary, with whether the caller may grant each capability in a custom role. Requires users.manage or roles.manage and the admin scope. */
+    get: operations["listCapabilities"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/roles/{key}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: components["schemas"]["UserRole"];
+      };
+      cookie?: never;
+    };
+    /** @description Read one role. Requires users.manage or roles.manage and the admin scope. */
+    get: operations["getRole"];
+    put?: never;
+    post?: never;
+    /** @description Delete a custom role that no account holds. Requires the roles.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    delete: operations["deleteRole"];
+    options?: never;
+    head?: never;
+    /** @description Replace a custom role's name, description, and capabilities. Built-in roles cannot be changed. The change applies to every account on the role at its next request. Requires the roles.manage capability, the admin scope, and authority to grant both the old and the new capabilities. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    patch: operations["updateRole"];
+    trace?: never;
+  };
+  "/api/v1/me/access": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description The signed-in account's role, effective capabilities, and Media content access. Available to every enrolled account with the read scope. */
+    get: operations["getMyAccess"];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -8942,9 +9033,7 @@ export interface components {
     ChallengeTokenRequest: {
       challengeToken: string;
     };
-    /** @enum {string} */
-    AccountRole:
-      "owner" | "administrator" | "editor" | "contributor" | "viewer";
+    AccountRole: components["schemas"]["UserRole"];
     AuthUser: {
       /** Format: uuid */
       id: string;
@@ -8961,6 +9050,8 @@ export interface components {
     MultiFactorMethod: "totp" | "passkey" | "recovery_code";
     SessionCreated: {
       user: components["schemas"]["AuthUser"];
+      /** @description Effective capabilities of the signed-in user's role. */
+      capabilities?: components["schemas"]["Capability"][];
       csrfToken: string;
       authMethod: components["schemas"]["AuthMethod"];
       mfaEnrollmentRequired: boolean;
@@ -11007,6 +11098,11 @@ export interface components {
       mimeType: string;
       /** Format: int64 */
       sizeBytes: number;
+      /**
+       * Format: uuid
+       * @description Folder the asset is created in. Omitted or null is the library root, which only an account with access to the whole library may use; an account with restricted content access must name one of its folders. The server authorizes the folder now and again when the upload completes.
+       */
+      folderId?: string | null;
     };
     UploadSession: {
       /** Format: uuid */
@@ -11025,6 +11121,11 @@ export interface components {
       uploadEndpoint: string;
       /** Format: int64 */
       maximumSizeBytes: number;
+      /**
+       * Format: uuid
+       * @description Destination folder; absent for the library root.
+       */
+      folderId?: string;
     };
     AssetVariant: {
       /** Format: uuid */
@@ -11115,6 +11216,8 @@ export interface components {
       name: string;
       color: string;
       assetCount?: number;
+      /** @description On the tag list, whether the caller may apply or remove this tag. */
+      assignable?: boolean;
     };
     ContentFolder: {
       /** Format: uuid */
@@ -11593,8 +11696,110 @@ export interface components {
       /** Format: date-time */
       lastLoginAt?: string;
     };
+    /**
+     * @description Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
+     * @example owner
+     * @example administrator
+     * @example editor
+     * @example contributor
+     * @example viewer
+     * @example custom.classroom-media
+     */
+    UserRole: string;
+    /** @description One capability from the server's closed vocabulary, such as media.upload or playlist.publish. GET /api/v1/roles/capabilities lists them. */
+    Capability: string;
+    CapabilityDefinition: {
+      key: components["schemas"]["Capability"];
+      /** @enum {string} */
+      group:
+        | "media"
+        | "widgets"
+        | "dataSources"
+        | "playlists"
+        | "layouts"
+        | "campaigns"
+        | "review"
+        | "screens"
+        | "schedules"
+        | "activity"
+        | "plugins"
+        | "administration";
+      requires: components["schemas"]["Capability"][];
+      /** @description Held only by the built-in Owner role. */
+      ownerReserved: boolean;
+      /** @description False for capabilities that administer access; only the Owner may put them in a custom role. */
+      delegable: boolean;
+      /** @description Whether the caller may include it in a custom role. */
+      grantable: boolean;
+    };
+    Role: {
+      key: components["schemas"]["UserRole"];
+      name: string;
+      description: string;
+      builtin: boolean;
+      capabilities: components["schemas"]["Capability"][];
+      /** @description Active accounts on the role. */
+      userCount: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+      /** @description Whether the caller may change or delete the role. */
+      editable: boolean;
+      /** @description Whether the caller may place accounts on the role. */
+      assignable: boolean;
+    };
+    RoleList: {
+      items: components["schemas"]["Role"][];
+    };
+    RoleRequest: {
+      name: string;
+      description?: string;
+      capabilities: components["schemas"]["Capability"][];
+    };
     /** @enum {string} */
-    UserRole: "owner" | "administrator" | "editor" | "contributor" | "viewer";
+    ContentAccessMode: "all" | "restricted";
+    ContentAccessInput: {
+      libraryMode: components["schemas"]["ContentAccessMode"];
+      tagMode: components["schemas"]["ContentAccessMode"];
+      /** @description Granted folders; each covers its descendants. */
+      folderIds?: string[];
+      /** @description Tags the account may apply and remove. */
+      tagIds?: string[];
+    };
+    ContentGrant: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** @description Folder ancestry joined with ' / '. */
+      path?: string;
+    };
+    UserContentAccess: {
+      policy: {
+        libraryMode: components["schemas"]["ContentAccessMode"];
+        tagMode: components["schemas"]["ContentAccessMode"];
+        folders: components["schemas"]["ContentGrant"][];
+        tags: components["schemas"]["ContentGrant"][];
+        /** @description False when the account has no stored policy, which means it reaches no content until one is saved. */
+        configured: boolean;
+      };
+      /** @description The account is an Owner and always reaches everything. */
+      ownerUnrestricted: boolean;
+    };
+    MyAccess: {
+      role: {
+        key: components["schemas"]["UserRole"];
+        name: string;
+        builtin: boolean;
+      };
+      capabilities: components["schemas"]["Capability"][];
+      content: {
+        libraryMode: components["schemas"]["ContentAccessMode"];
+        tagMode: components["schemas"]["ContentAccessMode"];
+        /** @description Folders the account may upload into. Absent when the account reaches the whole library, which may also use the root. */
+        writableFolderIds?: string[];
+      };
+    };
     ManagedUser: {
       /** Format: uuid */
       id: string;
@@ -11631,6 +11836,8 @@ export interface components {
       passkeysUnavailableReason?: string;
       demoMode?: boolean;
       user?: components["schemas"]["User"];
+      /** @description Effective capabilities of the authenticated user's live role. Studio uses them to decide which workspaces and actions to offer; every API route still makes its own decision. */
+      capabilities?: components["schemas"]["Capability"][];
       csrfToken?: string;
       /**
        * @description The factor that completed the session sign-in, or pat or oauth when the caller authenticated with a bearer grant.
@@ -17097,9 +17304,10 @@ export interface operations {
           name: string;
           username: string;
           password: string;
-          /** @enum {string} */
-          role: "owner" | "administrator" | "editor" | "contributor" | "viewer";
+          role: components["schemas"]["UserRole"];
           active?: boolean;
+          /** @description Media library access for the new account. When omitted, the account receives the creator's own library and tag modes with no grants. */
+          contentAccess?: components["schemas"]["ContentAccessInput"];
         };
       };
     };
@@ -17219,9 +17427,7 @@ export interface operations {
           name?: string;
           username?: string;
           password?: string;
-          /** @enum {string} */
-          role?:
-            "owner" | "administrator" | "editor" | "contributor" | "viewer";
+          role?: components["schemas"]["UserRole"];
           active?: boolean;
         };
       };
@@ -17466,6 +17672,449 @@ export interface operations {
       };
       /** @description Scope invalid or account not scopable */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getUserContentAccess: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Content access policy */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["UserContentAccess"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description User not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  putUserContentAccess: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ContentAccessInput"];
+      };
+    };
+    responses: {
+      /** @description Content access replaced */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["UserContentAccess"];
+          };
+        };
+      };
+      /** @description Invalid request body */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role, own account, or grant outside the caller's access */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description User not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Policy invalid or account not restrictable */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listRoles: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Roles */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["RoleList"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  createRole: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RoleRequest"];
+      };
+    };
+    responses: {
+      /** @description Role created */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["Role"];
+          };
+        };
+      };
+      /** @description Invalid request body */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role or capability outside the caller's authority */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Role name already in use */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Name, description, or capability set invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  listCapabilities: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Capability vocabulary */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: {
+              items: components["schemas"]["CapabilityDefinition"][];
+            };
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getRole: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: components["schemas"]["UserRole"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Role */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["Role"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Role not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  deleteRole: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        key: components["schemas"]["UserRole"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Role deleted */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role or capability outside the caller's authority */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Role not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Built-in role or role still assigned */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  updateRole: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-CSRF-Token": string;
+      };
+      path: {
+        key: components["schemas"]["UserRole"];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RoleRequest"];
+      };
+    };
+    responses: {
+      /** @description Role updated */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["Role"];
+          };
+        };
+      };
+      /** @description Invalid request body */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Dashboard authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Insufficient role or capability outside the caller's authority */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Role not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Built-in role or name already in use */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Name, description, or capability set invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getMyAccess: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Effective access */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["MyAccess"];
+          };
+        };
+      };
+      /** @description Dashboard authentication required */
+      401: {
         headers: {
           [name: string]: unknown;
         };
@@ -20282,8 +20931,29 @@ export interface operations {
           };
         };
       };
+      /** @description The role cannot upload media */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Destination folder not found or outside the caller's access */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
       /** @description Upload exceeds the configured maximum */
       413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A folder is required for an account with restricted content access */
+      422: {
         headers: {
           [name: string]: unknown;
         };

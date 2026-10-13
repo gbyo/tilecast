@@ -11,6 +11,7 @@ export { i18n } from "../i18n";
 import type { ReactNode } from "react";
 import { RouterProvider, createMemoryRouter } from "react-router";
 import { StudioSessionProvider } from "./session";
+import { builtinCapabilities } from "../test/capabilities";
 export { StudioSessionProvider };
 
 export function renderPluginRoute(
@@ -19,14 +20,21 @@ export function renderPluginRoute(
     path,
     patterns = [],
     role = "owner",
+    capabilities,
   }: {
     /** The URL to open, for example "/plugins/countdown-bar/new". */
     path: string;
     /** Route patterns the element is mounted at, most specific first. */
     patterns?: string[];
     role?: string;
+    /**
+     * The core capabilities the signed-in user holds. Defaults to the
+     * built-in role's bundle; pass a list to model a custom role.
+     */
+    capabilities?: string[];
   },
 ) {
+  const grants = capabilities ?? builtinCapabilities(role);
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -45,7 +53,9 @@ export function renderPluginRoute(
         session={{
           csrfToken: "csrf",
           role,
-          canManage: role === "owner" || role === "administrator",
+          canManage: grants.includes("plugins.manage"),
+          capabilities: grants,
+          can: (capability) => grants.includes(capability),
           authenticated: true,
           setupRequired: false,
           isLoading: false,

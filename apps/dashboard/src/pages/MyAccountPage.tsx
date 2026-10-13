@@ -3,17 +3,10 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../auth/AuthProvider";
 import type { User } from "../api/types";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
+import { useMyRoleName } from "../settings/access/roleNames";
 
-// Section and role structures hold translation keys, never rendered text.
-// Labels are resolved with t() at render so the page follows language changes.
-const roleKeys = {
-  owner: "roles.owner",
-  administrator: "roles.administrator",
-  editor: "roles.editor",
-  contributor: "roles.contributor",
-  viewer: "roles.viewer",
-} as const satisfies Record<User["role"], string>;
-
+// Section structures hold translation keys, never rendered text. Labels are
+// resolved with t() at render so the page follows language changes.
 const SECTIONS = [
   {
     id: "preferences",
@@ -132,6 +125,7 @@ export function AccountIndexRedirect() {
 /** Which account is being edited, stated once beside the Account heading. */
 function SignedInAs({ user }: { user: User }) {
   const { t } = useTranslation(["account", "common"]);
+  const roleName = useMyRoleName(user.role);
   return (
     <p className="m-0 flex max-w-full min-w-0 items-center gap-3">
       <Avatar className="size-9 shrink-0" aria-hidden="true">
@@ -143,7 +137,8 @@ function SignedInAs({ user }: { user: User }) {
         <span className="sr-only">{t("myAccount.signedInAs")} </span>
         <strong className="truncate text-sm font-semibold">{user.name}</strong>
         <small className="truncate text-xs text-muted-foreground">
-          {user.username} · {t(roleKeys[user.role])}
+          {user.username}
+          {roleName ? ` · ${roleName}` : ""}
         </small>
       </span>
     </p>

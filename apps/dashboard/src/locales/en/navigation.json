@@ -110,5 +110,11 @@
     "title": "This page could not be displayed.",
     "fallback": "An unexpected error occurred while rendering this page.",
     "retry": "Try again"
+  },
+  "access": {
+    "deniedTitle": "This area isn't part of your role",
+    "deniedDescription": "Your role doesn't include this page. Ask an administrator if you need access.",
+    "goTo": "Go to {{destination}}",
+    "goToAccount": "Go to My Account"
   }
 }

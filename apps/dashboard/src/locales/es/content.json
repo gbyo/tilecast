@@ -251,7 +251,11 @@
       "queueLabel": "Cola de subidas",
       "resumePrompt": "Selecciona el mismo archivo para reanudar la subida.",
       "retryResume": "Reintentar o reanudar {{name}}",
-      "title": "Subidas"
+      "title": "Subidas",
+      "destinationLabel": "Subir a",
+      "chooseFolder": "Elige una carpeta",
+      "destinationOption": "Subir a {{name}}",
+      "chooseFolderFirst": "Elige primero una carpeta de destino."
     },
     "website": {
       "advancedSettings": "Ajustes avanzados del sitio web",

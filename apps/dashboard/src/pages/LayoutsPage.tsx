@@ -75,6 +75,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { toast } from "../components/ui/toast";
+import { hasCapability } from "../auth/capabilities";
 
 export type LayoutsT = TFunction<"layouts", undefined>;
 
@@ -334,7 +335,7 @@ export function LayoutsPage() {
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
-  const canManage = auth.status?.user?.role !== "viewer";
+  const canManage = hasCapability(auth.status, "layout.edit");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
