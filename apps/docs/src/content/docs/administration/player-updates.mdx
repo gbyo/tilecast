@@ -57,6 +57,12 @@ Tilecast checks group membership, duplicate targets, Player family, architecture
 
 Offline screens can receive queued commands after reconnecting, within the seven-day command expiry. Already-current screens receive no update command. They must be removed from a canary selection. **Download only** caches the artifact on the Player without requesting installation.
 
+## Choose a canary size
+
+Pick canaries for hardware and location coverage, not only a percentage. A useful starting point for a fleet with similar devices is **1 of 5 screens**, **3 of 50**, or **10 of 500**. Increase the count when the fleet has several Player families, architectures, TV models, or network environments so at least one canary represents each important cohort.
+
+A canary is a safety gate, not a sample for statistical testing. Tilecast holds every non-canary target until all canaries succeed. It pauses the rollout if a canary fails, enters safe mode, or stays in installation or reconnection for ten minutes. Check the canary on the actual display before you release a large mixed fleet.
+
 ## Follow a rollout
 
 **Deployments** opens by default. Active deployments and attention states appear before recent history. Each row shows a version, architecture, status, target count, and a sentence describing the outcome.
