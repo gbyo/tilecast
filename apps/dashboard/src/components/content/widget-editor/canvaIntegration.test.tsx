@@ -30,7 +30,7 @@ const compiled = (url: string) =>
   }) as never;
 
 const legacyConfig = {
-  canvaUrl: "https://www.canva.com/design/DAGabcdefgh/watch?embed=",
+  canvaUrl: "https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed=",
   refreshIntervalSeconds: 1800,
 };
 
@@ -40,7 +40,7 @@ it("pastes, previews and saves Canva through the shared editor without claiming 
   const compile = vi
     .mocked(api.compileWidgetPreview)
     .mockResolvedValue(
-      compiled("https://www.canva.com/design/DAGabcdefgh/watch?embed="),
+      compiled("https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed="),
     );
   const create = vi
     .spyOn(api, "createWidget")
@@ -58,7 +58,7 @@ it("pastes, previews and saves Canva through the shared editor without claiming 
   expect(compile).toHaveBeenLastCalledWith("canva", config, expect.any(String));
   expect(iframe).toHaveAttribute(
     "src",
-    "https://www.canva.com/design/DAGabcdefgh/watch?embed=",
+    "https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed=",
   );
   expect(iframe.getAttribute("sandbox")).not.toContain("allow-top-navigation");
   expect(screen.getByRole("link", { name: "Open in Canva" })).toHaveAttribute(
@@ -98,7 +98,7 @@ it("clears stale Canva frames while editing and reports errors without retaining
   const compile = vi
     .mocked(api.compileWidgetPreview)
     .mockResolvedValue(
-      compiled("https://www.canva.com/design/DAGabcdefgh/watch?embed="),
+      compiled("https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed="),
     );
   renderEditorRoute("/widgets/widget-1");
   await screen.findByTitle("Web Widget preview");
@@ -121,7 +121,7 @@ it("clears stale Canva frames while editing and reports errors without retaining
     "true",
   );
   compile.mockResolvedValue(
-    compiled("https://www.canva.com/design/DAGijklmnop/watch?embed="),
+    compiled("https://www.canva.com/design/DAGijklmnop/watch?autoplay=1&embed="),
   );
   fireEvent.change(input, {
     target: { value: "https://www.canva.com/design/DAGijklmnop/view" },
@@ -130,7 +130,7 @@ it("clears stale Canva frames while editing and reports errors without retaining
     () =>
       expect(screen.getByTitle("Web Widget preview")).toHaveAttribute(
         "src",
-        "https://www.canva.com/design/DAGijklmnop/watch?embed=",
+        "https://www.canva.com/design/DAGijklmnop/watch?autoplay=1&embed=",
       ),
     { timeout: 3000 },
   );
@@ -142,7 +142,7 @@ it("distinguishes an enforced local CSP block from an unverified external load",
   useViewport("tablet");
   mockEditorApi({ asset: savedWidget("canva", config) });
   vi.mocked(api.compileWidgetPreview).mockResolvedValue(
-    compiled("https://www.canva.com/design/DAGabcdefgh/watch?embed="),
+    compiled("https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed="),
   );
   renderEditorRoute("/widgets/widget-1");
   await screen.findByTitle("Web Widget preview");
