@@ -75,7 +75,7 @@ it("clears stale Canva frames while editing and reports errors without retaining
   const compile = vi
     .mocked(api.compileWidgetPreview)
     .mockResolvedValue(
-      compiled("https://www.canva.com/design/DAGabcdefgh/view?embed="),
+      compiled("https://www.canva.com/design/DAGabcdefgh/watch?embed="),
     );
   renderEditorRoute("/widgets/widget-1");
   await screen.findByTitle("Web Widget preview");
@@ -119,7 +119,7 @@ it("distinguishes an enforced local CSP block from an unverified external load",
   useViewport("tablet");
   mockEditorApi({ asset: savedWidget("canva", config) });
   vi.mocked(api.compileWidgetPreview).mockResolvedValue(
-    compiled("https://www.canva.com/design/DAGabcdefgh/view?embed="),
+    compiled("https://www.canva.com/design/DAGabcdefgh/watch?embed="),
   );
   renderEditorRoute("/widgets/widget-1");
   await screen.findByTitle("Web Widget preview");
