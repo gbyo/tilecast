@@ -149,20 +149,8 @@ export interface LayoutZone {
   remoteWeb?: RuntimeRemoteWebSpecV1;
 }
 
-export interface LayoutPlaylistItem {
-  id: string;
-  kind: "image" | "video";
-  src: string;
-  durationMs: number | null;
-  fit: string;
-  muted: boolean;
-  volume: number;
-  loop: boolean;
-  videoStartOffsetMs?: number | null;
-  videoEndOffsetMs?: number | null;
-  radius?: number;
-  transition?: "none" | "fade" | "crossfade";
-}
+export type LayoutPlaylistItem =
+  import("../../host/contract").RuntimeLayoutZonePlaylistItem;
 
 export interface LayoutRenderPayload {
   canvasWidth: number;

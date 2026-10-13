@@ -5,6 +5,7 @@ import type {
   RuntimeItem,
   RuntimeLayoutPayload,
   RuntimeLayoutZone,
+  RuntimeLayoutZoneMediaItem,
 } from "../host/contract";
 import { LayoutSurface } from "./layout-surface";
 import fixtures from "../../../presentation-model/fixtures/zone-policy.json";
@@ -88,7 +89,7 @@ function surfaceFor(
 
 function playlistZone(
   overrides: Partial<RuntimeLayoutZone> = {},
-): RuntimeLayoutZone {
+): RuntimeLayoutZone & { playlistItems: RuntimeLayoutZoneMediaItem[] } {
   return {
     id: "zone",
     x: 0,
@@ -114,7 +115,7 @@ function playlistZone(
       },
     ],
     ...overrides,
-  };
+  } as RuntimeLayoutZone & { playlistItems: RuntimeLayoutZoneMediaItem[] };
 }
 
 describe("LayoutSurface playlist zones", () => {

@@ -314,20 +314,37 @@ export interface RuntimeWidgetComponentPayload {
   execution?: RuntimeWidgetSandboxExecutionV1;
 }
 
-export interface RuntimeLayoutZonePlaylistItem {
+export interface RuntimeLayoutZoneItemTiming {
   id: string;
+  durationMs: number | null;
+  radius?: number;
+  transition?: "none" | "fade" | "crossfade";
+}
+
+export interface RuntimeLayoutZoneMediaItem extends RuntimeLayoutZoneItemTiming {
   kind: "image" | "video";
   src: string;
-  durationMs: number | null;
   fit: string;
   muted: boolean;
   volume: number;
   loop: boolean;
   videoStartOffsetMs?: number | null;
   videoEndOffsetMs?: number | null;
-  radius?: number;
-  transition?: "none" | "fade" | "crossfade";
 }
+
+/** Zone occurrences reuse the same prepared Widget payloads as root items. */
+export type RuntimeLayoutZonePlaylistItem =
+  | RuntimeLayoutZoneMediaItem
+  | (RuntimeLayoutZoneItemTiming & {
+      kind: "widget";
+      widget: RuntimeWidgetPayload | RuntimeWidgetComponentPayload;
+    })
+  | (RuntimeLayoutZoneItemTiming & {
+      kind: "remote-web";
+      remoteWeb: RuntimeRemoteWebSpecV1;
+      audioEnabled?: boolean;
+      volume?: number;
+    });
 
 export interface RuntimeLayoutZone {
   id: string;

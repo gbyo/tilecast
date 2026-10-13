@@ -58,12 +58,20 @@ describe("Layout projection adopts media eligibility fixtures", () => {
       playlists: [{ id: "playlist", items: [item] }],
       assets: asset ? [asset] : [],
     } as unknown as Manifest;
-    const payload = renderLayout(document, {
+    const ctx = {
       manifest,
       widgets: new Map(),
       dataSources: new Map(),
       at: new Date(fixtures.at),
-    });
+    };
+    if (
+      fixture.reason === "unsupported_item_kind" &&
+      !fixture.item?.availableFrom
+    ) {
+      expect(() => renderLayout(document, ctx)).toThrow();
+      return;
+    }
+    const payload = renderLayout(document, ctx);
     expect(
       payload?.zones[0]?.playlistItems?.map((entry) => entry.kind) ?? [],
     ).toEqual(fixture.kind ? [fixture.kind] : []);

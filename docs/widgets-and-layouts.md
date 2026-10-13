@@ -209,7 +209,13 @@ Physical Fire TV, Google TV WebView, WPE, and WebView2 Canva validation remains 
 
 A Layout arranges Media, Widgets, static text, shapes, playlist zones, and groups. Data Sources are never listed as normal draggable content.
 
-A Layout playlist zone supports only image and video items. Studio previews only those items. Layout publication and assignment validation reject a zone Playlist that contains a Widget, Website, or nested Layout, including content added after the Layout was published.
+A Layout playlist zone supports image, video, and Widget items. A Widget uses
+the same component, compatibility presentation, or isolated remote web surface
+as a direct Layout placement. Package Widgets retain their sandbox execution
+and resource grants. The target Player must report `layout.playlist_widgets@1`
+and every capability that the Widget requires. Assignment and manifest
+generation reject unsupported Players. Media-only zones do not require this
+new capability. Nested Layout items are unsupported in playlist zones.
 
 Studio reports an unsupported zone Playlist before publication. The Layout editor reads each visible zone's Playlist and applies `playlistZoneUnsupportedItems` from `@tilecast/presentation-model`, the same rule as `isPlaylistZoneMediaItem` and the server's `ValidatePlaylistZoneMediaOnly`. When a Playlist has an unsupported item, Studio does these things:
 
@@ -220,11 +226,11 @@ Studio reports an unsupported zone Playlist before publication. The Layout edito
 
 Studio rechecks when the window regains focus, so a Playlist that changed after the zone referenced it shows the same report. The server remains the authority. Publication and assignment readiness return `layout_playlist_zone_unsupported` and `presentation_not_ready` with a message that names the Playlist and the items. Do not copy the media rule into another component. Extend the shared helper.
 
-A playlist zone uses the Player's image timing and playback defaults. An image uses its item duration or the configured default image duration. A video starts at its configured start offset and advances at its end offset, or when the media ends if there is no end offset. Videos do not use the image duration timer. A single-item looping zone restarts the video at its start offset. A non-looping zone pauses its final video at its end offset. Studio uses the same rules in the Layout preview.
+A playlist zone uses the Player's timing and playback defaults. An image uses its item duration or the configured default image duration. A Widget uses its item duration or the 30-second Widget default. The duration starts after the surface is ready and visible. Pause preserves the remaining duration. A YouTube Widget with play-until-end enabled advances on media completion. A video starts at its configured start offset and advances at its end offset, or when the media ends if there is no end offset. Videos do not use the image duration timer. A single-item looping zone restarts the video at its start offset. A non-looping zone pauses its final video at its end offset.
 
 Playlist-zone playback settings are part of the Player payload. The zone loop setting decides whether playback returns to the first playable item or stops on the last one. Each item keeps the zone's corner radius and its Playlist transition. When media fails, the fallback setting shows the Layout background, keeps the last successfully loaded item, or hides the zone. A failed item advances when another item is available. At a non-looping final item, the Player retries after two seconds.
 
-Studio filters playlist-zone items with the same availability windows as the Player. It checks both the item and its Media asset at the selected Layout preview date, or at the current time when the date is not valid. A live preview reevaluates at the next availability boundary without a Layout edit.
+Studio filters playlist-zone items with the same availability windows as the Player. It checks both the item and its asset at the selected Layout preview date, or at the current time when the date is not valid. A live preview reevaluates at the next availability boundary without a Layout edit.
 
 A Widget placement stores a Widget ID, bounds, layer, opacity, and visibility. A Widget manifest may publish a Studio-only `authoring.preview.recommendedFrame` so new placements and previews start at geometry that matches the visual purpose instead of inheriting the Layout canvas aspect ratio. The frame is a preferred shape, not a maximum size: a new placement keeps the area of the default placement with the frame's aspect ratio, limited to 80 percent of the canvas on each side, centered when there is no drop position. The hint is never Player configuration; the placed bounds remain ordinary Layout geometry. Alert Banner uses 1920×160, so it places at 1536×128 on a 1920×1080 canvas and at 3072×256 on a 3840×2160 canvas. Its appearance comes from the shared Widget. Studio does not expose placement-level overrides because the Player Runtime does not apply them. Existing saved override values remain accepted for compatibility but have no effect. Publishing permits at most one visible video-capable placement or zone and one audio-emitting placement or zone.
 

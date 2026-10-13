@@ -1,5 +1,5 @@
 /**
- * A layout playlist zone: an independent loop of images and videos inside a
+ * A layout playlist zone: an independent loop of media and Widgets inside a
  * layout, with its own timing. The zone actor decides which entry is shown and
  * when to move on; the layout surface only mounts what it is told and reports
  * media events back. Stopping the actor (when its layout leaves the screen)
@@ -7,7 +7,10 @@
  * decoder warm.
  */
 import { assign, setup, type ActorRefFrom } from "xstate";
-import type { RuntimeLayoutZonePlaylistItem } from "../host/contract";
+import type {
+  RuntimeLayoutZonePlaylistItem,
+  RuntimeRemoteWebSpecV1,
+} from "../host/contract";
 import { TimerGroup, type RuntimeClock } from "../clock/scheduler";
 import { positiveDurationMs } from "../clock/duration";
 import {
@@ -30,22 +33,26 @@ export const ZONE_ROTATION_MAX_ENTRY_MS = 120_000;
  * healthy. A zone that renders once and holds owes nothing more, like a still
  * image. A zone owes continuing evidence only when it advances on a bounded
  * cadence the Runtime itself controls: it loops, has more than one entry, and
- * every entry is an image with a short duration. A video entry ends when the
+ * every entry is timed with a short duration. A video entry ends when the
  * media ends, which no timer here bounds, so such a zone is not held to a
  * cadence it cannot promise.
  */
 export function zoneOwesContinuingEvidence(zone: {
   loop?: boolean;
-  playlistItems?: readonly Pick<
+  playlistItems?: readonly (Pick<
     RuntimeLayoutZonePlaylistItem,
     "kind" | "durationMs"
-  >[];
+  > & { remoteWeb?: RuntimeRemoteWebSpecV1 })[];
 }): boolean {
   const entries = zone.playlistItems ?? [];
   if (entries.length < 2 || (zone.loop ?? true) === false) return false;
   return entries.every(
     (entry) =>
-      entry.kind === "image" &&
+      entry.kind !== "video" &&
+      !(
+        entry.kind === "remote-web" &&
+        entry.remoteWeb?.presentation.playUntilEnd
+      ) &&
       (positiveDurationMs(entry.durationMs) ?? ZONE_IMAGE_DEFAULT_MS) <=
         ZONE_ROTATION_MAX_ENTRY_MS,
   );
@@ -154,7 +161,9 @@ export const zoneMachine = setup({
         context.paused ||
         !context.ready ||
         !current ||
-        current.entry.kind !== "image" ||
+        current.entry.kind === "video" ||
+        (current.entry.kind === "remote-web" &&
+          current.entry.remoteWeb.presentation.playUntilEnd) ||
         !canAdvance(context)
       )
         return {};

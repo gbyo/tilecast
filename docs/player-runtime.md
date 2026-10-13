@@ -91,7 +91,7 @@ The playback lifecycle is explicit XState 5 state machines (`src/engine`). They 
 
 - **Player** (`player-machine.ts`): which surface owns the screen (`status`, `sleep`, `playing`). Every host presentation re-enters `playing`, which stops the invoked presentation actor and starts a new one. This is how a takeover, a manifest change or a re-projection interrupts playback. A synchronized occurrence boundary is not a host presentation. It reaches the running actor as `OCCURRENCE` (section 4.1).
 - **Presentation** (`presentation-machine.ts`): one actor per host presentation. The occurrence states are `routing` (mount), `preparing` (staged on the hidden layer), `showing`, `advancing` (the one-task hand-off), `failed` (isolation and back-off) and `skipping` (empty widgets). One completion arbiter per occurrence decides between restart in place, advance and ignore.
-- **Zone** (`zone-machine.ts`): one actor per Layout playlist zone, stopped with its Layout. Selection increments the epoch. Only `MEDIA_READY` for that epoch starts the image duration and reports child readiness. Pause preserves the remaining image duration. Stale media events cannot affect a newer epoch.
+- **Zone** (`zone-machine.ts`): one actor per Layout playlist zone, stopped with its Layout. Selection increments the epoch. Only `MEDIA_READY` for that epoch starts the image or Widget duration and reports child readiness. Pause preserves the remaining duration. Stale media events cannot affect a newer epoch.
 
 The machines do not use XState `after` delays or browser timers. `src/clock/scheduler.ts` is the only user of browser timers. The machines ask it for monotonic deadlines and receive typed events (`DURATION_DUE`, `ADVANCE_DUE`, `BACKOFF_DUE`). Deadlines are owned by a timer group per occurrence. Mounting the next occurrence cancels the group, so nothing scheduled for a replaced item can act on its successor.
 
@@ -141,6 +141,28 @@ If the verdict is no, the stage creates a new surface on the hidden layer. This 
 
 The runtime does not set `loop` on the element, and it does not remove crossfades between different items.
 
+### Layout playlist item contract
+
+`RuntimeLayoutZonePlaylistItem` is a discriminated union. Image and video
+entries retain their existing fields. A `widget` entry carries the same
+prepared compatibility tree or component payload as a fullscreen Widget.
+A `remote-web` entry carries the same remote web descriptor as a direct
+Widget placement. Nested Layout entries are unsupported.
+
+The Runtime reports `layout.playlist_widgets@1`. The legacy capability profile
+does not report this capability. Server eligibility must require it before
+it sends a mixed zone to a Player. Runtime support alone does not enable
+mixed Playlist authoring.
+
+Direct placements and timed Widgets use one projection helper. Component
+Data Documents, media grants, regional values, and sandbox execution grants
+keep the fullscreen contract. The zone actor owns progression. Component
+ready or expected-empty state permits activation. Compatibility Widgets
+report readiness after their first visible frame. Empty state never advances
+the containing Layout. Disposal cancels the zone actor and releases all
+owned surfaces. YouTube surfaces are released before the next zone occurrence;
+they do not overlap in transitions or remain as a previous-item fallback.
+
 ### 4.2 Drift correction
 
 `engine/video-sync.ts` decides how a video returns to the shared position. The thresholds are the existing ones: ignore below 80 ms, nudge the playback rate between 80 ms and 250 ms, seek above 250 ms. The corrector adds the rules that make a correction safe to repeat:
@@ -177,7 +199,7 @@ The tests prove the counts of actors, mounts and decoders, the evidence order, t
 
 - **Views** are Lit 3 components in light DOM (`src/views`): `<tc-player>`, `<tc-status-surface>` and `<tc-outside-hours>`. They render the engine's view state and decide nothing about playback. Style bindings use `cssProps` (CSSOM only), because Lit's `styleMap` writes a `style` attribute, which `style-src 'self'` refuses.
 - **Surfaces** implement `MediaSurface` (`prepare`, `activate`, `pause`, `seek`, `dispose`): `ImageSurface`, `HtmlVideoSurface`, `WidgetSurface`, `LayoutSurface`, the legacy Electron `WebviewWebsiteSurface`, and `HostRemoteWebSurface` for host-owned remote web. Edge supplies that host view through the isolated WPE helper. The engine depends on the interface only, so another native media pipeline, if hardware testing ever justifies one, needs no change to the engine.
-- **The stage** (`surfaces/stage.ts`) owns fullscreen media surfaces. Layout playlist zones own nested instances of the same `ImageSurface` and `HtmlVideoSurface`. The playback layers carry no Lit bindings, so no reactive update can replace an active `<video>`. An incoming occurrence is prepared on the hidden layer. The outgoing surface is paused and released when the transition finishes, so two full-screen decoders overlap for the transition and no longer.
+- **The stage** (`surfaces/stage.ts`) owns fullscreen media surfaces. Layout playlist zones own nested instances of the same media, Widget, and host-isolated remote web surfaces. The playback layers carry no Lit bindings, so no reactive update can replace an active `<video>`. An incoming occurrence is prepared on the hidden layer. The outgoing surface is paused and released when the transition finishes, so two full-screen decoders overlap for the transition and no longer.
 - **Transitions** use the Web Animations API (`transitions/crossfade.ts`). A transition has one clock and one `finished` signal. Only the incoming layer fades. It paints above the outgoing layer, which stays fully opaque until the transition ends. Each layer has a black backdrop, so fading both layers makes the picture go dark in the middle of the transition. A takeover, a newer swap, or the staging of the next occurrence cancels the transition, which puts both layers in their resting state at once.
 - **Video first frame**: the stage starts a video muted on the hidden layer and treats it as ready only after a decoded frame has been presented, or after 1.5 seconds. A paused video presents nothing, and on some engines the first frame trails `play()` by longer than the 300 ms dissolve, so the layer would fade in empty and the picture would then pop in. The item's audio setting applies when the video is on screen. Layout zones do not use this wait.
 - **Video evidence**: `HtmlVideoSurface` reports `video-progress` only while decoded frames are presented, when `requestVideoFrameCallback` is available and has fired. Otherwise it falls back to advancing media time. The API makes evidence stronger; playback never requires it.
