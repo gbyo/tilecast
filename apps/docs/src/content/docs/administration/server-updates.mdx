@@ -94,4 +94,8 @@ docker compose --env-file deploy/docker/.env -f deploy/docker/compose.yml -f dep
 
 Updating Tilecast Server does not update Android, Windows, or Edge Players, even though they ship in the same release.
 
-Use [Player updates](../player-updates/) for Player releases and follow any server/Player update order listed in the release notes.
+Use [Player updates](../player-updates/) for Player releases. Tilecast supports staggered upgrades through versioned manifests and capability checks, but a release can still cross a compatibility boundary that requires a specific order. The release notes are authoritative for that boundary; do not assume that Server-first is always safe.
+
+When the notes say **Player first**, update and verify the required Player cohort while the old Server is still running, then update Tilecast Server. This is used when the new Server may start sending a contract that only the new Player understands. When the notes say **Server first**, make the Server ready before deploying the Player release.
+
+If the release notes do not name a special order, update Tilecast Server first, verify `/readyz` and Studio, then use a small Player canary before the rest of the fleet. Do not jump both sides across several releases at once when a release in between documents a compatibility boundary.
