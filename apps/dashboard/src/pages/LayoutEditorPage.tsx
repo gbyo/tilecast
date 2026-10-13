@@ -1589,13 +1589,24 @@ export function LayoutEditorPage() {
   ) => {
     if (!document) return;
     // The library list carries no item detail; the zone rule needs it.
-    const detail = await queryClient
-      .fetchQuery({
+    let detail: Playlist;
+    try {
+      detail = await queryClient.fetchQuery({
         queryKey: playlistZoneQueryKey(playlist.id),
         queryFn: () => api.playlist(playlist.id),
         staleTime: 10_000,
-      })
-      .catch(() => playlist);
+      });
+    } catch {
+      // Without the items the zone rule can't be checked, so don't add it unchecked.
+      toast.add({
+        title: t("zoneIssue.checkFailedTitle"),
+        description: t("zoneIssue.checkFailedDescription", {
+          playlist: playlist.name,
+        }),
+        type: "error",
+      });
+      return;
+    }
     const issue = playlistZoneIssue({ id: "", name: playlist.name }, detail);
     if (issue) {
       toast.add({

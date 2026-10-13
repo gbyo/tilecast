@@ -197,7 +197,6 @@ func TestPlaylistAssignmentManifestLifecycle(t *testing.T) {
 	if _, err = service.Assign(ctx, screenID, playlist.ID, owner.User.ID); err != nil {
 		t.Fatal(err)
 	}
-	notificationsBefore = len(notifier.versions)
 
 	tagID := uuid.New()
 	availableFrom := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)

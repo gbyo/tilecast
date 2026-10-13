@@ -447,6 +447,8 @@
     "bannerDescription": "Publicar y asignar este diseño fallará hasta que se corrijan las listas o las zonas. Selecciona una zona marcada para ver los elementos.",
     "tile": "Elementos no admitidos",
     "addRefusedTitle": "No se añadió la zona",
-    "addRefusedDescription": "«{{playlist}}» tiene elementos que una zona de diseño no puede reproducir: {{items}}. Quítalos o colócalos directamente en el diseño."
+    "addRefusedDescription": "«{{playlist}}» tiene elementos que una zona de diseño no puede reproducir: {{items}}. Quítalos o colócalos directamente en el diseño.",
+    "checkFailedTitle": "No se añadió la zona",
+    "checkFailedDescription": "No se pudo comprobar «{{playlist}}» en busca de elementos que una zona no puede reproducir. Inténtalo de nuevo."
   }
 }
