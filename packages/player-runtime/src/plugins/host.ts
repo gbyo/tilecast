@@ -36,6 +36,16 @@ import {
   type ValidClaim,
 } from "./claims";
 import type { DiscoveredRuntimePlugin } from "./discovery";
+import type {
+  ExternalRuntimePluginV1,
+  PluginFrameBindingV1,
+  RuntimePluginV1,
+} from "../host/contract";
+import {
+  ExternalSurface,
+  parseExternalEntry,
+  pluginFrameURI,
+} from "./external";
 
 /** How often the host evaluates when nothing else asks it to. */
 export const SURFACE_TICK_MS = 1_000;
@@ -71,6 +81,9 @@ export interface SurfaceHostOptions {
   stage(): HTMLElement | null;
   diagnostic(pluginId: string, message: string): void;
   document?: Document;
+  externalPluginFrames?: boolean;
+  /** Test seam; production uses the browser's private MessageChannel. */
+  createPluginChannel?(): MessageChannel;
 }
 
 interface Hosted {
@@ -103,11 +116,13 @@ export class RuntimeSurfaceHost {
   readonly element: HTMLElement;
 
   private readonly hosted: Hosted[] = [];
+  private readonly external = new Map<string, ExternalSurface>();
   private readonly timers: TimerGroup;
   private entries: readonly RuntimeManifestEntry[] = [];
   private clockOffsetMs = 0;
   private awake = true;
   private tick: TimerHandle | null = null;
+  private externalDeadline: TimerHandle | null = null;
   private scheduled: TimerHandle | null = null;
   private evaluating = false;
   private again = false;
@@ -179,12 +194,20 @@ export class RuntimeSurfaceHost {
 
   /** The Player manifest's plugin entries changed. Evaluates now. */
   setEntries(
-    entries: readonly RuntimeManifestEntry[],
+    entries: readonly (RuntimePluginV1 | ExternalRuntimePluginV1)[],
     clockOffsetMs: number,
+    frames: readonly PluginFrameBindingV1[] = [],
   ): void {
     if (this.stopped) return;
-    this.entries = Array.isArray(entries) ? entries : [];
+    this.entries = Array.isArray(entries)
+      ? entries.filter(
+          (entry): entry is RuntimePluginV1 =>
+            entry.type !== "external_plugin" && "config" in entry,
+        )
+      : [];
     this.clockOffsetMs = Number.isFinite(clockOffsetMs) ? clockOffsetMs : 0;
+    this.reconcileExternal(entries, frames);
+    this.scheduleExternalDeadline();
     this.tick?.cancel();
     this.tick = this.timers.every(SURFACE_TICK_MS, () =>
       this.requestEvaluation(),
@@ -247,6 +270,8 @@ export class RuntimeSurfaceHost {
     if (this.stopped) return;
     this.stopped = true;
     this.timers.cancelAll();
+    for (const surface of this.external.values()) surface.dispose();
+    this.external.clear();
     for (const hosted of this.hosted) {
       hosted.timers.cancelAll();
       try {
@@ -314,6 +339,23 @@ export class RuntimeSurfaceHost {
 
   private pass(): void {
     const contenders: Contender[] = [];
+    for (const surface of this.external.values()) {
+      surface.update(surface.entry, {
+        wallClockOffsetMs: this.clockOffsetMs,
+        reducedMotion:
+          this.options.reducedMotion() || this.options.animationScale === 0,
+        theme: "dark",
+        locale: "en",
+        awake: this.awake,
+        validUntil: surface.entry.validUntil,
+      });
+      for (const claim of surface.claims())
+        contenders.push({
+          pluginId: surface.entry.id,
+          tier: surface.entry.runtime.tier,
+          claim,
+        });
+    }
     for (const hosted of this.hosted) {
       hosted.claims = [];
       if (!hosted.instance) continue;
@@ -340,6 +382,16 @@ export class RuntimeSurfaceHost {
     this.winners = arbitrate(contenders);
     this.layout = geometry(this.winners);
     this.applyGeometry(this.layout);
+    for (const surface of this.external.values()) {
+      const shown = new Set<SurfaceSlot>();
+      for (const [slot, winner] of this.winners)
+        if (winner.pluginId === surface.entry.id) shown.add(slot);
+      surface.render({
+        shown,
+        topLiftPx: this.layout.topLiftPx,
+        bottomLiftPx: this.layout.bottomLiftPx,
+      });
+    }
 
     for (const hosted of this.hosted) {
       const shown = new Set<SurfaceSlot>();
@@ -383,6 +435,102 @@ export class RuntimeSurfaceHost {
   }
 
   // ------------------------------------------------------------ plugins
+
+  private reconcileExternal(
+    entries: readonly (RuntimePluginV1 | ExternalRuntimePluginV1)[],
+    frames: readonly PluginFrameBindingV1[],
+  ): void {
+    const wanted = new Map<
+      string,
+      { entry: ExternalRuntimePluginV1; uri: string }
+    >();
+    if (
+      this.options.externalPluginFrames &&
+      Array.isArray(entries) &&
+      Array.isArray(frames) &&
+      frames.length <= 32
+    ) {
+      for (const value of entries.slice(0, 64)) {
+        if (value.type !== "external_plugin") continue;
+        const entry = parseExternalEntry(
+          value,
+          this.options.clock.wallNow() + this.clockOffsetMs,
+        );
+        if (!entry) {
+          this.report("external", "invalid or expired external plugin entry");
+          continue;
+        }
+        const uri = pluginFrameURI(entry, frames);
+        if (
+          !uri ||
+          wanted.has(entry.id) ||
+          this.hosted.some((hosted) => hosted.id === entry.id)
+        ) {
+          this.report(
+            entry.id,
+            "external plugin frame grant is missing or ambiguous",
+          );
+          wanted.delete(entry.id);
+          continue;
+        }
+        if (wanted.size < 32) wanted.set(entry.id, { entry, uri });
+      }
+    }
+    for (const [id, surface] of this.external) {
+      const next = wanted.get(id);
+      if (
+        !next ||
+        next.uri !== surface.uri ||
+        next.entry.package.packageDigest !==
+          surface.entry.package.packageDigest ||
+        next.entry.package.frame.sha256 !==
+          surface.entry.package.frame.sha256 ||
+        JSON.stringify(next.entry.runtime) !==
+          JSON.stringify(surface.entry.runtime)
+      ) {
+        surface.dispose();
+        this.external.delete(id);
+      }
+    }
+    for (const [id, { entry, uri }] of wanted) {
+      const existing = this.external.get(id);
+      if (existing) {
+        existing.entry = entry;
+        continue;
+      }
+      try {
+        const surface = new ExternalSurface(entry, uri, {
+          document: this.options.document ?? document,
+          wallNow: () => this.options.clock.wallNow(),
+          monotonicNow: () => this.options.clock.monotonicNow(),
+          changed: () => this.request(id),
+          diagnostic: (message) => this.report(id, message),
+          createChannel: this.options.createPluginChannel,
+        });
+        this.external.set(id, surface);
+        this.element.appendChild(surface.container);
+      } catch {
+        this.report(id, "external plugin frame could not mount");
+      }
+    }
+  }
+
+  private scheduleExternalDeadline(): void {
+    this.externalDeadline?.cancel();
+    this.externalDeadline = null;
+    const now = this.options.clock.wallNow() + this.clockOffsetMs;
+    let next = Infinity;
+    for (const surface of this.external.values()) {
+      const deadline = Date.parse(surface.entry.validUntil);
+      if (deadline > now) next = Math.min(next, deadline - now);
+    }
+    if (Number.isFinite(next))
+      this.externalDeadline = this.timers.after(next, () => {
+        this.externalDeadline = null;
+        this.evaluateNow();
+        this.scheduleExternalDeadline();
+      });
+  }
 
   private context(hosted: Hosted): RuntimePluginContext {
     const { clock } = this.options;

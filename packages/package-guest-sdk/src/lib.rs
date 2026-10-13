@@ -1,4 +1,4 @@
-//! Reference guest SDK for Tilecast Package API v3.
+//! Reference guest SDK for Tilecast Package API v3 and v4.
 //!
 //! Guests call versioned Tilecast services through the `tilecast.call_v1`
 //! host import: one operation token, one JSON input, one JSON envelope
@@ -17,6 +17,10 @@ use std::string::String;
 use std::vec::Vec;
 
 use serde::{Deserialize, Serialize};
+
+pub mod host_io;
+pub mod runtime_state;
+pub mod targets_v2;
 
 /// Maximum JSON input bytes for one service call.
 pub const MAX_INPUT_BYTES: usize = 32 * 1024;
