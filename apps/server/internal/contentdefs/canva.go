@@ -68,6 +68,9 @@ func CanvaPlaybackURL(raw string, slideshow bool) (*url.URL, error) {
 	if slideshow {
 		mode = "watch"
 	}
+	query := u.Query()
+	query.Del("autoplay")
 	u.Path = path[:separator+1] + mode
+	u.RawQuery = query.Encode()
 	return u, nil
 }
