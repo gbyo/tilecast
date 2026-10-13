@@ -139,6 +139,10 @@
         "label": "Canva design link",
         "description": "Paste a public design view link, Smart embed link, iframe src URL, or canva.link short link. Publish a public embed in Canva first."
       },
+      "slideshow": {
+        "label": "Slideshow",
+        "description": "Automatically play and advance presentation pages using the timing set in Canva."
+      },
       "refreshIntervalSeconds": { "label": "Reload interval" }
     }
   },
