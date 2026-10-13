@@ -417,8 +417,13 @@ impl RendererPort for WebViewPort {
         // Frames ride the projection's authorization table, joined by
         // digest. A frame claim without a projection to authorize it
         // fails the activation rather than executing unconfined.
-        if !activation.frames().is_empty() {
-            let table = frame_authorization_table(activation.frames(), &frame_grants)?;
+        let widget_frames: Vec<_> =
+            activation.frames().iter().filter(|frame| frame.kind.is_widget()).cloned().collect();
+        let plugin_frames: Vec<_> =
+            activation.frames().iter().filter(|frame| !frame.kind.is_widget()).cloned().collect();
+        let plugin_table = frame_authorization_table(&plugin_frames, &frame_grants)?;
+        if !widget_frames.is_empty() {
+            let table = frame_authorization_table(&widget_frames, &frame_grants)?;
             let Some(context) = context.as_mut() else {
                 return Err(RendererPortError::InvalidActivation);
             };
@@ -462,6 +467,7 @@ impl RendererPort for WebViewPort {
             "type": "plugins",
             "plugins": plugins,
             "clockOffsetMs": clock_offset_ms,
+            "pluginFrames": plugin_table,
         }))
     }
 
@@ -470,14 +476,39 @@ impl RendererPort for WebViewPort {
         reference: player_core::RendererActivationRef,
         context: &RuntimePayload,
     ) -> Result<(), RendererPortError> {
-        let media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+        self.update_plugin_frames(reference, context, &[])
+    }
+
+    fn update_plugin_frames(
+        &self,
+        reference: player_core::RendererActivationRef,
+        context: &RuntimePayload,
+        frames: &[VerifiedFrameRef],
+    ) -> Result<(), RendererPortError> {
+        let now_ms = self.ui.now_ms();
+        let mut media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
         let grants =
             media.active_grants(self.session, reference.generation).ok_or(RendererPortError::InvalidActivation)?;
         let context = substitute_grants(context.value().clone(), context.bindings(), &grants)?;
-        self.post(serde_json::json!({
+        let update = media
+            .prepare_plugin_frames(self.session, reference.generation, now_ms, frames)
+            .map_err(|_| RendererPortError::ResourceUnavailable)?;
+        let table = match frame_authorization_table(frames, &update.grants) {
+            Ok(table) => table,
+            Err(error) => {
+                let _ = media.finish_plugin_frames(update, false, now_ms);
+                return Err(error);
+            }
+        };
+        let delivered = self.post(serde_json::json!({
             "type": "plugins", "plugins": context.get("plugins").cloned().unwrap_or(serde_json::json!([])),
             "clockOffsetMs": context.get("clockOffsetMs").and_then(Value::as_i64).unwrap_or(0),
-        }))
+            "pluginFrames": table,
+        }));
+        media
+            .finish_plugin_frames(update, delivered.is_ok(), now_ms)
+            .map_err(|_| RendererPortError::InvalidActivation)?;
+        delivered
     }
 
     fn clear(&self, reason: &player_types::bounded::ShortToken) -> Result<(), RendererPortError> {
@@ -542,6 +573,7 @@ mod tests {
 
     fn frame(document: &[u8]) -> VerifiedFrameRef {
         VerifiedFrameRef {
+            kind: player_types::frames::FrameKind::Widget,
             package_id: SafeText::new("acme.athletics").expect("test fixture"),
             package_digest: player_types::Sha256Digest::of(b"package"),
             sha256: player_types::Sha256Digest::of(document),
