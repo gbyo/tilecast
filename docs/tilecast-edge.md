@@ -335,6 +335,21 @@ The host adapter (`web/tilecast-bridge.js`) implements the runtime's versioned h
 
 ### 10.3 Media access
 
+The WPE native message handlers belong to a named JavaScript world.
+Only the exact top-level Runtime document receives its relay script.
+The typed page adapter uses bounded DOM events on that document to reach
+the relay. Opaque package frames cannot reach the parent document or the
+named world's native handlers. Reports have a 64 KiB limit. At most eight
+requests await a reply, with a sixty-second limit.
+
+Widget and plugin frame grants have separate execution kinds.
+Plugin frame responses deny image, media, font, and network loads.
+A plugin state update carries an independent frame authorization table.
+New grants are staged before delivery. Success commits them; failure retains
+the previous set. Removed grants drain without changing presentation grants.
+The iframe port ends on navigation, and native policy refuses non-grant
+frame URLs before a request is sent.
+
 The renderer reads media only through `tcmedia://`, and only for objects that the current activation or plugin state lists, with the declared size. It never receives a directory to browse and never receives a path from the page. The target is a daemon-owned media capability channel: `tilecastd` grants short-lived per-activation capabilities and serves the bytes itself, so the renderer needs no filesystem access to the CAS at all.
 
 ### 10.4 Evidence and compatibility

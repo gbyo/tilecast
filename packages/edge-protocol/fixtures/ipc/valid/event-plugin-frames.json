@@ -1,0 +1,22 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 12,
+    "event": "plugin.state",
+    "data": {
+      "plugins": [],
+      "content": [],
+      "clockOffsetMs": 0,
+      "pluginFrames": [
+        {
+          "kind": "external_plugin",
+          "uri": "tcwidget://cap/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "packageId": "acme.presence",
+          "packageDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "frameDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sizeBytes": 2048
+        }
+      ]
+    }
+  }
+}

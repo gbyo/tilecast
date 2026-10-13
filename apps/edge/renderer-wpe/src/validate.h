@@ -22,6 +22,7 @@ gboolean tc_is_media_capability_uri (const char *value);
 
 /* Exact opaque tcwidget URI form accepted from a daemon activation. */
 gboolean tc_is_widget_capability_uri (const char *value);
+gboolean tc_frame_refs_valid (JsonNode *node, gboolean plugin_only);
 
 /* Exact opaque tcweb://cap/<64 lowercase hex> URI of a remote web stream. */
 gboolean tc_is_web_capability_uri (const char *value);

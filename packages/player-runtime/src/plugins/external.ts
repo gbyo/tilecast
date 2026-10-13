@@ -71,6 +71,7 @@ export function parseExternalEntry(
     typeof pkg.packageId !== "string" ||
     pkg.packageId.length > 128 ||
     !PACKAGE.test(pkg.packageId) ||
+    typeof pkg.packageDigest !== "string" ||
     !/^sha256:[a-f0-9]{64}$/.test(pkg.packageDigest) ||
     typeof entry.id !== "string" ||
     entry.id.length > 128 ||
@@ -78,6 +79,7 @@ export function parseExternalEntry(
     !entry.id.startsWith(`${pkg.packageId}.`) ||
     !/^[a-z][a-z0-9_]{0,79}$/.test(entry.id.slice(pkg.packageId.length + 1)) ||
     !pkg.frame ||
+    typeof pkg.frame.sha256 !== "string" ||
     !HEX.test(pkg.frame.sha256) ||
     !Number.isInteger(pkg.frame.fileSize) ||
     pkg.frame.fileSize < 1 ||
@@ -95,6 +97,7 @@ export function parseExternalEntry(
     !boundedPluginJSON(entry.state, 16 * 1024)
   )
     return null;
+  if (typeof entry.validUntil !== "string") return null;
   const deadline = Date.parse(entry.validUntil);
   if (!Number.isFinite(deadline) || deadline <= now || deadline > now + 300_000)
     return null;
@@ -107,6 +110,9 @@ export function pluginFrameURI(
 ): string | null {
   const matching = frames.filter(
     (frame) =>
+      frame !== null &&
+      typeof frame === "object" &&
+      typeof frame.packageDigest === "string" &&
       frame.packageId === entry.package.packageId &&
       frame.packageDigest.replace(/^sha256:/, "") ===
         entry.package.packageDigest.slice(7) &&
@@ -145,6 +151,7 @@ export interface ExternalSurfaceOptions {
   monotonicNow(): number;
   changed(): void;
   diagnostic(message: string): void;
+  after(delayMs: number, callback: () => void): { cancel(): void };
   createChannel?(): MessageChannel;
 }
 
@@ -160,6 +167,7 @@ export class ExternalSurface {
   private stopped = false;
   private loads = 0;
   private claim: ValidClaim | null = null;
+  private claimLease: { cancel(): void } | null = null;
   private context: ExternalSurfaceContext;
   private fingerprint = "";
   private grantFingerprint = "";
@@ -226,8 +234,14 @@ export class ExternalSurface {
     ]);
     if (fingerprint === this.fingerprint) return;
     this.fingerprint = fingerprint;
-    // Every new input invalidates a delayed claim from the preceding input.
-    this.claim = null;
+    // A bounded handoff permits a short exit animation without blinking on
+    // every update. More inputs never extend an unanswered claim's lease.
+    if (this.claim && !this.claimLease)
+      this.claimLease = this.options.after(500, () => {
+        this.claimLease = null;
+        this.claim = null;
+        this.options.changed();
+      });
     if (this.port) {
       this.revision++;
       this.send("state", { state: entry.state, context });
@@ -289,6 +303,8 @@ export class ExternalSurface {
     if (this.port) this.send("dispose", {});
     this.stopped = true;
     this.claim = null;
+    this.claimLease?.cancel();
+    this.claimLease = null;
     this.container.style.visibility = "hidden";
     this.view.removeEventListener("message", this.hello);
     this.frame.removeEventListener("load", this.loaded);
@@ -377,6 +393,8 @@ export class ExternalSurface {
       this.entry.runtime.surfaces,
       message.value === null ? [] : [message.value],
     );
+    this.claimLease?.cancel();
+    this.claimLease = null;
     this.claim = check.claims[0] ?? null;
     for (const problem of check.problems) this.options.diagnostic(problem);
     this.options.changed();

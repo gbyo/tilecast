@@ -380,7 +380,11 @@ impl PresentationEngine {
             || current.manifest() != Some(previous)
             || current.document != resolved.document
             || current.content != resolved.content
-            || current.frames != resolved.frames
+            || current
+                .frames
+                .iter()
+                .filter(|frame| frame.kind.is_widget())
+                .ne(resolved.frames.iter().filter(|frame| frame.kind.is_widget()))
             || timing(&current.timing) != timing(&extras.timing)
             || projection(&current.extras.projection) != projection(&extras.projection)
         {
@@ -395,6 +399,7 @@ impl PresentationEngine {
                 .map_err(|_| "plugin_refresh_invalid")?;
         }
         let mut next = current.clone();
+        next.frames = resolved.frames.clone();
         next.identity = Some(identity);
         next.extras = extras;
         let prepared =
@@ -403,7 +408,11 @@ impl PresentationEngine {
             return Err("plugin_refresh_renderer_unready");
         };
         link.port()
-            .update_plugins(prepared.reference(), prepared.runtime_context().ok_or("plugin_refresh_invalid")?)
+            .update_plugin_frames(
+                prepared.reference(),
+                prepared.runtime_context().ok_or("plugin_refresh_invalid")?,
+                &prepared.frames().iter().filter(|frame| !frame.kind.is_widget()).cloned().collect::<Vec<_>>(),
+            )
             .map_err(|_| "plugin_refresh_delivery_failed")?;
         self.current = Some(next);
         Ok(true)
