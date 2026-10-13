@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 )
@@ -155,6 +156,24 @@ func (s *server) saveLayoutDraft(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	existing, err := s.layouts.DraftDependencies(r.Context(), id)
+	if err != nil {
+		s.writeLayoutError(w, r, err)
+		return
+	}
+	present := map[uuid.UUID]bool{}
+	for _, dependency := range existing {
+		present[dependency.ID] = true
+	}
+	added := []uuid.UUID{}
+	for _, dependency := range layouts.Dependencies(body.Document) {
+		if (dependency.Type == "asset" || dependency.Type == "widget") && !present[dependency.ID] {
+			added = append(added, dependency.ID)
+		}
+	}
+	if !s.authorizeAssetReferences(w, r, added) {
 		return
 	}
 	user := principal.User

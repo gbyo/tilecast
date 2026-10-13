@@ -186,6 +186,9 @@ func (s *server) addPlaylistItem(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
+	if body.AssetID != uuid.Nil && !s.authorizeAssetReferences(w, r, []uuid.UUID{body.AssetID}) {
+		return
+	}
 	user := principal.User
 	result, err := s.playlists.AddItem(r.Context(), id, user.ID, body)
 	if err != nil {

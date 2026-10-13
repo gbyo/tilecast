@@ -130,6 +130,29 @@ func (s *server) authorizeAsset(w http.ResponseWriter, r *http.Request, id uuid.
 	return refs[0], true
 }
 
+// authorizeAssetReferences checks that an account with restricted content
+// access can see every library item it is adding to a playlist or Layout.
+// Without it, a restricted author could place an item from another folder by
+// guessing its id and then read its name back from the playlist. Only new
+// references are checked, so editing a Layout that already shows content
+// from other folders stays possible. It returns false when it has already
+// written the response.
+func (s *server) authorizeAssetReferences(w http.ResponseWriter, r *http.Request, ids []uuid.UUID) bool {
+	if len(ids) == 0 {
+		return true
+	}
+	access, err := s.contentAccess(r)
+	if err != nil {
+		s.internalError(w, r, err)
+		return false
+	}
+	if access.LibraryAll {
+		return true
+	}
+	_, ok := s.authorizeAssets(w, r, ids, assetRead, false)
+	return ok
+}
+
 // authorizeUploadDestination is the live upload destination check installed
 // on the media service. It reads the creator's current account, role, and
 // content policy inside the registering transaction, and locks the policy

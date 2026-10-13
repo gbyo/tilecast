@@ -293,7 +293,7 @@ func (s *server) routes() chi.Router {
 				dashboard.With(s.requireCapability(auth.CapScreenManage), s.operationsRateLimit, s.requireCSRF, s.requireScope("write")).Post("/screens/bulk/operations/{id}/undo", s.undoBulkOperation)
 			}
 			if s.contentHealthService != nil {
-				dashboard.With(s.requireAnyCapability(auth.CapPlaylistRead, auth.CapLayoutRead, auth.CapMediaRead), s.requireScope("read")).Get("/content-health", s.contentHealth)
+				dashboard.With(s.requireAnyCapability(auth.CapPlaylistRead, auth.CapMediaRead, auth.CapDataSourceRead, auth.CapScreenRead), s.requireScope("read")).Get("/content-health", s.contentHealth)
 			}
 			if s.notifications != nil {
 				// Any signed-in account can see whether email works and can
