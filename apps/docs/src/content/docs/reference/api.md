@@ -26,6 +26,14 @@ Errors use an `error` object with a machine-readable `code` and a human-readable
 
 The HTTP status carries the success or failure result. Do not infer success from the presence of a response body alone.
 
+## Retry requests safely
+
+Do not retry every failure immediately. A `429` response means a Tilecast rate limiter refused the request and includes a `Retry-After` header in seconds. Wait at least that long before trying again. Operations that affect screens are also rate-limited; the default server limit is 60 such requests per user and address per minute.
+
+Retry reads after transient network errors or `502`/`503` responses when appropriate. For writes, use the endpoint's documented concurrency or idempotency mechanism before retrying after an unknown result. Player commands carry idempotency keys, and resumable media uploads continue from the server-reported offset. Do not assume every create or update route is idempotent.
+
+A `409` usually means current server state conflicts with the request, such as a stale revision or upload offset. Re-read that state and reconcile before retrying. A `422` is a validation or compatibility failure; waiting and sending the same request again does not fix it.
+
 ## Use the right authentication
 
 Tilecast has separate credentials for each kind of client. One credential cannot be used in another client's place.
