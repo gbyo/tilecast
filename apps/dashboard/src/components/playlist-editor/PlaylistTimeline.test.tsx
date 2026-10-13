@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
+  createEvent,
   fireEvent,
   render,
   screen,
@@ -192,20 +193,60 @@ describe("PlaylistTimeline row actions", () => {
     expect(handlers.onMoveToEdge).not.toHaveBeenCalled();
   });
 
-  it("reorders by dragging the handle onto another row", () => {
+  it("shows and commits an explicit before/after drop position", () => {
     const handlers = renderTimeline();
     const data = new Map<string, string>();
     const dataTransfer = {
       setData: (type: string, value: string) => data.set(type, value),
       getData: (type: string) => data.get(type) ?? "",
       effectAllowed: "",
+      dropEffect: "",
     };
+    const alpha = row("Alpha");
+    vi.spyOn(alpha, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 100,
+      top: 100,
+      left: 0,
+      right: 400,
+      bottom: 140,
+      width: 400,
+      height: 40,
+      toJSON: () => ({}),
+    });
+
     fireEvent.dragStart(screen.getByRole("button", { name: "Reorder Gamma" }), {
       dataTransfer,
     });
     expect(handlers.onDragStart).toHaveBeenCalledWith("c");
-    fireEvent.drop(row("Alpha"), { dataTransfer });
-    expect(handlers.onDrop).toHaveBeenCalledWith(expect.anything(), "a");
+    expect(data.get("application/x-tilecast-playlist-item")).toBe("c");
+
+    const fireDragAt = (type: "dragOver" | "drop", clientY: number) => {
+      const event = createEvent[type](alpha, { dataTransfer });
+      Object.defineProperty(event, "clientY", { value: clientY });
+      fireEvent(alpha, event);
+    };
+
+    fireDragAt("dragOver", 105);
+    expect(alpha.className).toContain("before:top-0");
+    fireDragAt("drop", 105);
+    expect(handlers.onDrop).toHaveBeenCalledWith(
+      expect.anything(),
+      "a",
+      "before",
+    );
+
+    fireEvent.dragStart(screen.getByRole("button", { name: "Reorder Gamma" }), {
+      dataTransfer,
+    });
+    fireDragAt("dragOver", 135);
+    expect(alpha.className).toContain("after:bottom-0");
+    fireDragAt("drop", 135);
+    expect(handlers.onDrop).toHaveBeenLastCalledWith(
+      expect.anything(),
+      "a",
+      "after",
+    );
   });
 });
 

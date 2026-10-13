@@ -88,9 +88,11 @@ import {
   movePlaylistItemToEdge,
   playlistAuthoringDefaults,
   playlistImageDuration,
+  playlistItemsWithOrder,
   playlistTransition,
   reorderPlaylistItems,
   transitionLabel,
+  type PlaylistDropEdge,
   useOpenPlaylistPreview,
 } from "./playlistEditorModel";
 
@@ -133,6 +135,8 @@ export function PlaylistEditorPage() {
   const [removingItemId, setRemovingItemId] = useState<string>();
   // The last inspector width a user chose, restored when the pane reopens.
   const inspectorSize = useRef(32);
+  const reorderPending = useRef(0);
+  const reorderNeedsRefetch = useRef(false);
   const [chrome, setChrome] = useState<HTMLDivElement | null>(null);
   const editorHeight = useViewportFillHeight(desktop ? chrome : null);
 
@@ -279,12 +283,36 @@ export function PlaylistEditorPage() {
   });
 
   const reorder = useMutation({
+    mutationKey: ["playlist-reorder", id],
+    scope: { id: `playlist-reorder-${id}` },
     mutationFn: (itemIds: string[]) => api.reorderPlaylist(id, itemIds, csrf),
-    onSuccess: (playlist) => {
-      update(playlist);
+    onSuccess: (playlist, itemIds) => {
+      const current = client.getQueryData<Playlist>(
+        playlistQueries.detail(id).queryKey,
+      );
+      // A newer optimistic reorder may already be visible while this serialized
+      // request is finishing. Never let an older response snap that order back.
+      if (!current) {
+        update(playlist);
+      } else if (playlistOrderMatches(current.items ?? [], itemIds)) {
+        update({
+          ...playlist,
+          items: playlistItemsWithOrder(current.items ?? [], itemIds),
+        });
+      }
       setEditorError("");
     },
-    onError: (error) => setEditorError(apiErrorMessage(error)),
+    onError: (error) => {
+      reorderNeedsRefetch.current = true;
+      setEditorError(apiErrorMessage(error));
+    },
+    onSettled: () => {
+      reorderPending.current = Math.max(0, reorderPending.current - 1);
+      if (reorderPending.current === 0 && reorderNeedsRefetch.current) {
+        reorderNeedsRefetch.current = false;
+        void client.invalidateQueries({ queryKey: playlistKeys.detail(id) });
+      }
+    },
   });
 
   const bulkUpdate = useMutation({
@@ -413,21 +441,43 @@ export function PlaylistEditorPage() {
     }
   };
 
+  const currentPlaylist = () =>
+    client.getQueryData<Playlist>(playlistQueries.detail(id).queryKey) ??
+    query.data;
+
   const commitOrder = (itemIds: string[]) => {
-    if (
-      itemIds.join(",") ===
-      (query.data?.items ?? []).map((item) => item.id).join(",")
-    ) {
-      return;
-    }
+    const current = currentPlaylist();
+    const currentItems = current?.items ?? [];
+    if (!current || playlistOrderMatches(currentItems, itemIds)) return;
+
+    const optimisticItems = playlistItemsWithOrder(currentItems, itemIds);
+    // playlistItemsWithOrder returns the original array for an invalid
+    // permutation. Do not send an order the server would reject.
+    if (optimisticItems === currentItems) return;
+
+    update({ ...current, items: optimisticItems });
+    setEditorError("");
+    reorderPending.current += 1;
     reorder.mutate(itemIds);
   };
 
-  const handleDrop = (event: DragEvent, targetId: string) => {
+  const handleDrop = (
+    event: DragEvent,
+    targetId: string,
+    edge: PlaylistDropEdge,
+  ) => {
     event.preventDefault();
-    if (!query.data || !draggedItemId || !canManage) return;
+    if (!canManage) return;
+
+    const draggedId =
+      draggedItemId ||
+      event.dataTransfer.getData("application/x-tilecast-playlist-item") ||
+      event.dataTransfer.getData("text/plain");
+    const current = currentPlaylist();
+    if (!current || !draggedId) return;
+
     commitOrder(
-      reorderPlaylistItems(query.data.items, draggedItemId, targetId),
+      reorderPlaylistItems(current.items ?? [], draggedId, targetId, edge),
     );
     setDraggedItemId(undefined);
   };
@@ -542,11 +592,15 @@ export function PlaylistEditorPage() {
       onSelect={selectItem}
       onMove={(itemId, offset) => {
         if (!editableTimeline) return;
-        commitOrder(movePlaylistItem(items, itemId, offset));
+        commitOrder(
+          movePlaylistItem(currentPlaylist()?.items ?? [], itemId, offset),
+        );
       }}
       onMoveToEdge={(itemId, edge) => {
         if (!editableTimeline) return;
-        commitOrder(movePlaylistItemToEdge(items, itemId, edge));
+        commitOrder(
+          movePlaylistItemToEdge(currentPlaylist()?.items ?? [], itemId, edge),
+        );
       }}
       onRemove={(itemId) => {
         if (editableTimeline) setRemovingItemId(itemId);
@@ -972,6 +1026,13 @@ export function PlaylistEditorPage() {
 // below the page chrome, so the region never pushes the document into a
 // second, outer scroll. It re-measures when the chrome above it changes
 // height (a warning appears, the header wraps) or the window resizes.
+function playlistOrderMatches(items: Playlist["items"], itemIds: string[]) {
+  return (
+    items.length === itemIds.length &&
+    items.every((item, index) => item.id === itemIds[index])
+  );
+}
+
 function useViewportFillHeight(chrome: HTMLElement | null) {
   const [height, setHeight] = useState<number>();
   useLayoutEffect(() => {

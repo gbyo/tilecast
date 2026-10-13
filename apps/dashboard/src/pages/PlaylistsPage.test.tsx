@@ -187,7 +187,7 @@ describe("playlist editor", () => {
       item({ id: "second" }),
       item({ id: "third" }),
     ];
-    expect(reorderPlaylistItems(items, "first", "third")).toEqual([
+    expect(reorderPlaylistItems(items, "first", "third", "after")).toEqual([
       "second",
       "third",
       "first",
