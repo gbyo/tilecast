@@ -308,3 +308,25 @@ export function youtubeEmbedUrl(content: RemoteWebYouTubeContentV1): string {
   }
   return `https://www.youtube-nocookie.com/embed/${content.videoId}?${params.toString()}`;
 }
+
+/** Bounded YouTube IFrame API completion signal; callers verify source and origin. */
+export function isYouTubeEndedMessage(value: unknown): boolean {
+  if (typeof value === "string") {
+    if (value.length > 65_536) return false;
+    try {
+      value = JSON.parse(value);
+    } catch {
+      return false;
+    }
+  }
+  if (!value || typeof value !== "object") return false;
+  const message = value as Record<string, unknown>;
+  if (message["event"] === "onStateChange") return message["data"] === 0;
+  const info = message["info"];
+  return (
+    message["event"] === "infoDelivery" &&
+    !!info &&
+    typeof info === "object" &&
+    (info as Record<string, unknown>)["playerState"] === 0
+  );
+}

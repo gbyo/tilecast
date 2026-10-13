@@ -1,5 +1,19 @@
 import { contentQueries } from "../../data/content";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import {
+  browserClock,
+  createZoneActor,
+  type ZoneTimingEntry,
+} from "@tilecast/player-runtime/zone-playback";
+import { PlaylistWidgetPreview } from "../../content/PlaylistWidgetPreview";
+import { useAuth } from "../../auth/AuthProvider";
+import { specFromYouTube } from "@tilecast/player-runtime/projection";
 import type { CSSProperties } from "react";
 import { Image as ImageIcon, ListVideo } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -14,7 +28,7 @@ import {
   nextAvailabilityTransition,
   defaultImageDurationMsForPlayback,
   fallbackDurationMsFor,
-  isPlaylistZoneMediaItem,
+  isPlaylistZoneItem,
   resolvePlaybackItemSettings,
   resolvePlaylistAdvance,
   resolveZoneFallback,
@@ -108,7 +122,10 @@ export function playlistPreviewDuration(
   return settings.durationMs ?? undefined;
 }
 
-export { isPlaylistZoneMediaItem } from "@tilecast/presentation-model";
+export {
+  isPlaylistZoneMediaItem,
+  isPlaylistZoneItem,
+} from "@tilecast/presentation-model";
 
 export function nextPlaylistPreviewIndex(
   index: number,
@@ -127,7 +144,7 @@ export function availablePlaylistZoneItems(
     const asset = assetsById.get(item.assetId);
     return (
       item.assetStatus === "ready" &&
-      isPlaylistZoneMediaItem(item) &&
+      isPlaylistZoneItem(item) &&
       Boolean(asset) &&
       isAvailableAt(item, at) &&
       isAvailableAt(asset, at)
@@ -210,36 +227,72 @@ export function PlaylistZonePreview({
       ),
     [assetsById, availabilityAtMs, playlist],
   );
-  const [index, setIndex] = useState(0);
-  const [failedItemId, setFailedItemId] = useState<string | null>(null);
-  const [lastGoodItemId, setLastGoodItemId] = useState<string | null>(null);
-  const current = items[index % Math.max(1, items.length)];
-  const advance = useCallback(
+  const timing = useMemo(
+    (): ZoneTimingEntry[] =>
+      items.map((item) => ({
+        id: item.id,
+        kind:
+          item.assetType === "video"
+            ? "video"
+            : item.assetType === "widget"
+              ? assetsById.get(item.assetId)?.widget?.provider === "youtube"
+                ? "remote-web"
+                : "widget"
+              : "image",
+        durationMs: playlistPreviewDuration(item, playback) ?? null,
+        videoStartOffsetMs: item.videoStartOffsetMs,
+        videoEndOffsetMs: item.videoEndOffsetMs,
+        ...(assetsById.get(item.assetId)?.widget?.provider === "youtube"
+          ? {
+              remoteWeb:
+                specFromYouTube(
+                  assetsById.get(item.assetId)!.widget!.configuration,
+                  null,
+                ) ?? undefined,
+            }
+          : {}),
+      })),
+    [items, playback, assetsById],
+  );
+  const actor = useMemo(
     () =>
-      setIndex((value) => {
-        return nextPlaylistPreviewIndex(
-          value,
-          items.length,
-          placement.playback?.loop !== false,
-        );
+      createZoneActor({
+        items: timing,
+        loop: placement.playback?.loop,
+        clock: browserClock(),
+        onReady() {},
       }),
-    [items.length, placement.playback?.loop],
+    [timing, placement.playback?.loop],
+  );
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      const subscription = actor.subscribe(notify);
+      return () => subscription.unsubscribe();
+    },
+    [actor],
+  );
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    () => actor.getSnapshot(),
+    () => actor.getSnapshot(),
   );
   useEffect(() => {
-    setIndex(0);
-    setFailedItemId(null);
-    setLastGoodItemId(null);
-  }, [playlist.id, playlist.revision]);
+    actor.start();
+    return () => {
+      actor.send({ type: "PAUSE", epoch: actor.getSnapshot().context.epoch });
+      actor.stop();
+    };
+  }, [actor]);
+  const index = Math.max(0, snapshot.context.shown - 1);
+  const epoch = snapshot.context.epoch;
+  const [lastGoodItemId, setLastGoodItemId] = useState<string | null>(null);
+  const current = items[index % Math.max(1, items.length)];
   useEffect(() => {
-    if (!current || !settingsQuery.isFetched) return;
-    const duration = playlistPreviewDuration(current, playback);
-    if (duration === undefined) return;
-    const timer = window.setTimeout(advance, Math.max(0, duration));
-    return () => window.clearTimeout(timer);
-  }, [advance, current, playback, settingsQuery.isFetched]);
+    setLastGoodItemId(null);
+  }, [actor, playlist.id, playlist.revision]);
 
   const fallback = placement.playback?.fallback ?? "background";
-  const failed = current !== undefined && failedItemId === current.id;
+  const failed = snapshot.context.failed;
   const previous = lastGoodItemId
     ? items.find((item) => item.id === lastGoodItemId)
     : undefined;
@@ -250,15 +303,24 @@ export function PlaylistZonePreview({
   );
   const shownItem = fallbackDecision === "previous" ? previous : current;
   const asset = shownItem ? assetsById.get(shownItem.assetId) : undefined;
-  const failCurrent = () => {
-    if (current) setFailedItemId(current.id);
-    advance();
-  };
-  const markCurrentReady = () => {
-    if (!current || shownItem?.id !== current.id) return;
+  const failCurrent = useCallback(
+    () => actor.send({ type: "MEDIA_FAILED", epoch }),
+    [actor, epoch],
+  );
+  const endCurrent = useCallback(
+    () => actor.send({ type: "MEDIA_ENDED", epoch }),
+    [actor, epoch],
+  );
+  const markCurrentReady = useCallback(() => {
+    if (
+      !current ||
+      shownItem?.id !== current.id ||
+      actor.getSnapshot().context.epoch !== epoch
+    )
+      return;
     setLastGoodItemId(current.id);
-    setFailedItemId(null);
-  };
+    actor.send({ type: "MEDIA_READY", epoch });
+  }, [actor, current, shownItem?.id, epoch]);
 
   if (!current)
     return (
@@ -268,8 +330,7 @@ export function PlaylistZonePreview({
         <span>
           {playlist.items.some((item) => item.assetStatus === "ready") &&
           !playlist.items.some(
-            (item) =>
-              item.assetStatus === "ready" && isPlaylistZoneMediaItem(item),
+            (item) => item.assetStatus === "ready" && isPlaylistZoneItem(item),
           )
             ? t("preview.zoneUnsupported")
             : t("preview.zoneEmpty")}
@@ -302,12 +363,25 @@ export function PlaylistZonePreview({
       video.currentTime = (shownItem!.videoStartOffsetMs ?? 0) / 1000;
       void video.play().catch(failCurrent);
     } else {
-      advance();
+      actor.send({ type: "MEDIA_ENDED", epoch });
     }
   };
   const fit = placement.playback?.fit ?? itemPlayback.fitMode;
   const radius = placement.playback?.cornerRadius;
   const className = `layout-playlist-preview${!failed && (itemPlayback.transition === "fade" || itemPlayback.transition === "crossfade") ? " layout-playlist-preview--fade" : ""}`;
+  if (asset.type === "widget")
+    return (
+      <ZoneWidgetPreview
+        key={`${actor.sessionId}-${shownItem!.id}-${epoch}`}
+        item={shownItem!}
+        placement={placement}
+        previewDate={previewDate}
+        className={className}
+        onReady={markCurrentReady}
+        onError={failCurrent}
+        onEnded={endCurrent}
+      />
+    );
   if (asset.type !== "image" && asset.type !== "video")
     return (
       <div className="layout-placement-placeholder">
@@ -318,7 +392,7 @@ export function PlaylistZonePreview({
   if (asset.type === "video")
     return (
       <video
-        key={`${playlist.id}-${shownItem!.id}`}
+        key={`${actor.sessionId}-${shownItem!.id}-${epoch}`}
         className={className}
         src={api.assetPreviewUrl(asset.id)}
         style={assetPreviewStyle(fit, radius)}
@@ -348,13 +422,48 @@ export function PlaylistZonePreview({
     );
   return (
     <img
-      key={`${playlist.id}-${shownItem!.id}`}
+      key={`${actor.sessionId}-${shownItem!.id}-${epoch}`}
       className={className}
       src={api.assetPreviewUrl(asset.id)}
       style={assetPreviewStyle(fit, radius)}
       alt=""
       onLoad={markCurrentReady}
       onError={shownItem!.id === current.id ? failCurrent : undefined}
+    />
+  );
+}
+
+function ZoneWidgetPreview({
+  item,
+  placement,
+  previewDate,
+  className,
+  onReady,
+  onError,
+  onEnded,
+}: {
+  item: PlaylistItem;
+  placement: LayoutPlacement;
+  previewDate?: string;
+  className: string;
+  onReady: () => void;
+  onError: () => void;
+  onEnded: () => void;
+}) {
+  const auth = useAuth();
+  const regional = useOrganizationRegionalProfile();
+  return (
+    <PlaylistWidgetPreview
+      item={item}
+      active
+      csrfToken={auth.status?.csrfToken ?? ""}
+      regional={regional}
+      className={className}
+      frame={{ width: placement.width, height: placement.height }}
+      previewDate={previewDate}
+      onReady={onReady}
+      onError={onError}
+      onEnded={onEnded}
     />
   );
 }

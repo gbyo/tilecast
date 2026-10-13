@@ -18,9 +18,13 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { PlaylistItem } from "../api/types";
 import type { OrganizationRegionalProfile } from "../settings/regionalProfile";
-import { V2ZonePreview } from "../components/layout-editor/V2ZonePreview";
+import {
+  V2ZonePreview,
+  layoutPreviewDateToMs,
+} from "../components/layout-editor/V2ZonePreview";
 import { DeclarativePresentationPreview } from "./SourceEditors";
 import { studioPreviewComponent } from "./studioWidgets";
+import { specFromYouTube } from "@tilecast/player-runtime/projection";
 
 /**
  * Intrinsic fullscreen proxy for playlist Widget items. The popup stage
@@ -37,6 +41,9 @@ export function PlaylistWidgetPreview({
   className,
   onReady,
   onError,
+  frame = PLAYLIST_WIDGET_FRAME,
+  previewDate,
+  onEnded,
 }: {
   item: PlaylistItem;
   active: boolean;
@@ -45,6 +52,9 @@ export function PlaylistWidgetPreview({
   className: string;
   onReady: () => void;
   onError: () => void;
+  frame?: { width: number; height: number };
+  previewDate?: string;
+  onEnded?: () => void;
 }) {
   const { t } = useTranslation("playlists");
   const widgetQuery = useQuery({
@@ -91,9 +101,13 @@ export function PlaylistWidgetPreview({
     typeof savedWidget.configuration.imageAssetId === "string"
       ? savedWidget.configuration.imageAssetId
       : "";
+  const youtube =
+    savedWidget?.provider === "youtube"
+      ? specFromYouTube(savedWidget.configuration, null)
+      : undefined;
   const sourceQuery = useQuery({
-    queryKey: ["widget-data-source-preview", dataSourceId],
-    queryFn: () => api.previewSavedDataSource(dataSourceId),
+    queryKey: ["widget-data-source-preview", dataSourceId, previewDate],
+    queryFn: () => api.previewSavedDataSource(dataSourceId, previewDate),
     enabled: Boolean(dataSourceId) && v2 === null,
     retry: false,
   });
@@ -137,8 +151,9 @@ export function PlaylistWidgetPreview({
         <V2ZonePreview
           provider={savedWidget.provider}
           asset={widgetQuery.data}
-          width={PLAYLIST_WIDGET_FRAME.width}
-          height={PLAYLIST_WIDGET_FRAME.height}
+          width={frame.width}
+          height={frame.height}
+          previewDate={previewDate}
           fit="fill"
           onState={(state) => {
             // Ready and intentional-empty both display; only an explicit
@@ -160,10 +175,23 @@ export function PlaylistWidgetPreview({
           presentation={presentationQuery.data}
           source={sourceQuery.data}
           regional={regional}
+          now={
+            previewDate
+              ? new Date(
+                  layoutPreviewDateToMs(previewDate, regional.timezone) ??
+                    Date.now(),
+                )
+              : undefined
+          }
           assetImageUrl={
             imageAssetId ? api.assetPreviewUrl(imageAssetId) : undefined
           }
           onWebReady={onReady}
+          onWebError={onError}
+          youtube={
+            youtube?.content.kind === "youtube" ? youtube.content : undefined
+          }
+          onWebEnded={youtube?.presentation.playUntilEnd ? onEnded : undefined}
         />
       ) : (
         <span>{t("preview.preparingWidget")}</span>

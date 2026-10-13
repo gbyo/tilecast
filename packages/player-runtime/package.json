@@ -5,6 +5,10 @@
   "license": "AGPL-3.0-only",
   "description": "The shared Tilecast Player Runtime: the trusted display DOM that the Electron and WPE hosts load from tilecast://runtime/.",
   "exports": {
+    "./zone-playback": {
+      "types": "./dist/node/engine/zone-playback.d.ts",
+      "default": "./dist/node/engine/zone-playback.js"
+    },
     "./host-contract": {
       "types": "./dist/node/host/contract.d.ts",
       "default": "./dist/node/host/contract.js"
@@ -46,6 +50,7 @@
     "build:conformance": "vite build --config vite.conformance.config.ts"
   },
   "dependencies": {
+    "xstate": "^5.33.2",
     "@tilecast/presentation-model": "*",
     "@tilecast/plugin-sdk": "*",
     "qrcode-generator": "^2.0.4",
@@ -60,7 +65,6 @@
     "pngjs": "^7.0.0",
     "typescript": "~6.0.3",
     "vite": "^8.3.2",
-    "vitest": "^5.0.2",
-    "xstate": "^5.33.2"
+    "vitest": "^5.0.2"
   }
 }
