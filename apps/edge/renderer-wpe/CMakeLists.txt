@@ -68,6 +68,7 @@ install(TARGETS gsttcmedia LIBRARY DESTINATION lib/gstreamer-1.0)
 
 enable_testing()
 add_executable(test-validate tests/test_validate.c)
+target_compile_definitions(test-validate PRIVATE TC_IPC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/../../../packages/edge-protocol/fixtures/ipc")
 target_link_libraries(test-validate PRIVATE tilecast-validate)
 add_test(NAME validate COMMAND test-validate)
 

@@ -202,7 +202,10 @@ export class RuntimeSurfaceHost {
     this.entries = Array.isArray(entries)
       ? entries.filter(
           (entry): entry is RuntimePluginV1 =>
-            entry.type !== "external_plugin" && "config" in entry,
+            typeof entry === "object" &&
+            entry !== null &&
+            entry.type !== "external_plugin" &&
+            "config" in entry,
         )
       : [];
     this.clockOffsetMs = Number.isFinite(clockOffsetMs) ? clockOffsetMs : 0;
@@ -444,6 +447,7 @@ export class RuntimeSurfaceHost {
       string,
       { entry: ExternalRuntimePluginV1; uri: string }
     >();
+    const seen = new Set<string>();
     if (
       this.options.externalPluginFrames &&
       Array.isArray(entries) &&
@@ -451,6 +455,7 @@ export class RuntimeSurfaceHost {
       frames.length <= 32
     ) {
       for (const value of entries.slice(0, 64)) {
+        if (!value || typeof value !== "object") continue;
         if (value.type !== "external_plugin") continue;
         const entry = parseExternalEntry(
           value,
@@ -460,6 +465,12 @@ export class RuntimeSurfaceHost {
           this.report("external", "invalid or expired external plugin entry");
           continue;
         }
+        if (seen.has(entry.id)) {
+          wanted.delete(entry.id);
+          this.report(entry.id, "duplicate external plugin identity");
+          continue;
+        }
+        seen.add(entry.id);
         const uri = pluginFrameURI(entry, frames);
         if (
           !uri ||
@@ -505,6 +516,7 @@ export class RuntimeSurfaceHost {
           monotonicNow: () => this.options.clock.monotonicNow(),
           changed: () => this.request(id),
           diagnostic: (message) => this.report(id, message),
+          after: (delay, callback) => this.timers.after(delay, callback),
           createChannel: this.options.createPluginChannel,
         });
         this.external.set(id, surface);
