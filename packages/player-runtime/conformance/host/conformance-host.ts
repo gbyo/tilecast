@@ -468,11 +468,16 @@ if (runner) {
         await assertPairing(step.assertPairing);
       } else if ("checkpoint" in step) {
         await probe().settled();
+        const state = probe().describe() as Record<string, unknown>;
+        // Constructor names change with minification between host builds.
+        // The DOM snapshot below identifies the actual mounted content.
+        const stage = state.stage as Record<string, Record<string, unknown>>;
+        for (const layer of Object.values(stage ?? {})) delete layer.kind;
         const checkpoint: CheckpointResult = {
           name: step.checkpoint,
           visual: step.visual === true,
           state: {
-            ...(probe().describe() as object),
+            ...state,
             // Everything mounted anywhere, to prove released surfaces are gone.
             document: {
               videos: document.querySelectorAll("video").length,
