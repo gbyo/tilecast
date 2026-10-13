@@ -25,6 +25,8 @@ import { Steps } from "@astrojs/starlight/components";
 
 A screen can belong to one Display Group at a time. Screens that another group already owns appear under **Already in another Display Group**. You can't select them, but each row names the group and links to it. To move a screen, remove it from its current group before adding it to another.
 
+Group membership takes effect when you save it. An online Player receives a new manifest and adopts the new group's active schedule or fallback after the new presentation is prepared. An offline Player learns the membership change when it reconnects. Moving a screen during an active schedule does not wait for that schedule to end.
+
 If some screens can't be added, Tilecast adds the others, names the ones that failed, and keeps them selected so you can try again.
 
 Each group page has an **Overview**, **Screens**, **Playback**, **Display**, and **Player policy** tab. The group's header has **Show now** and **AirPlay**. The more-actions menu has **Edit details** and **Delete Display Group**.
@@ -44,6 +46,8 @@ On the **Playback** tab, under **Fallback content**, search for a Playlist or a 
 Mirror synchronization uses a shared timeline, not frame-accurate genlock between televisions. Each Player joins the same item and playback position. Video drift below about 80 ms is ignored, moderate drift is corrected with a small playback-rate adjustment, and larger drift is corrected with a seek. A slow decoder can therefore look less smooth even while the group remains on the same shared timeline.
 
 A Player that reconnects in the middle of an item rejoins at the group's current position instead of starting that item from the beginning. If one member cannot prepare the active presentation, that member can be incomplete or unavailable while the other members continue.
+
+A member that cannot decode a 60 FPS video in real time does not make the rest of the group drop to 30 or 24 FPS. The shared timeline keeps advancing. That slower member can fall behind, receive rate corrections or seeks, and look choppy while faster members remain smooth. Use media every member can decode reliably when visible alignment matters.
 
 Temporary presentation still follows normal precedence. A Takeover or Quick Present that targets the group changes the shared selection. A direct temporary presentation to one screen is not a way to intentionally desynchronize a Mirror group; use a separate screen or remove it from the group when it needs independent playback.
 
