@@ -691,6 +691,15 @@ impl AndroidHost {
             self.runtime.block_on(async { self.renderer.lock().await.renderer_unsupported() });
             return APPLIED;
         }
+        // A fault the host itself saw: it carries a code, and the
+        // generation only says which renderer it came from.
+        if kind == "fault" {
+            let Some(code) = report.get("code").and_then(serde_json::Value::as_str) else {
+                return MALFORMED;
+            };
+            let applied = self.runtime.block_on(async { self.renderer.lock().await.renderer_fault(code) });
+            return if applied { APPLIED } else { MALFORMED };
+        }
         let Some(generation) = report.get("generation").and_then(serde_json::Value::as_i64) else {
             return MALFORMED;
         };
@@ -700,10 +709,7 @@ impl AndroidHost {
             let mut engine = self.renderer.lock().await;
             let now = engine.clock().now();
             let applied = match kind {
-                "connected" => {
-                    engine.renderer_connected(generation, now);
-                    true
-                }
+                "connected" => engine.renderer_connected(generation, now),
                 "disconnected" => {
                     engine.renderer_disconnected(generation);
                     true

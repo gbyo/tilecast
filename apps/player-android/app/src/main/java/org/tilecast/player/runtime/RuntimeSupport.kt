@@ -1,6 +1,7 @@
 package org.tilecast.player.runtime
 
 import androidx.webkit.WebViewFeature
+import org.tilecast.player.core.RendererProfile
 
 /**
  * Shared-runtime support assessment (Android PR3 step 9).
@@ -40,7 +41,11 @@ object RuntimeSupportAssessment {
      */
     fun schemasFor(support: RuntimeSupport): List<Int> =
         if (!support.trustedRuntimeSupported) emptyList()
-        else if (support.componentRuntimeSupported) listOf(1, 2) else listOf(1)
+        else if (support.componentRuntimeSupported) {
+            RendererProfile.BASELINE_PRESENTATION_SCHEMAS + RendererProfile.COMPONENT_PRESENTATION_SCHEMAS
+        } else {
+            RendererProfile.BASELINE_PRESENTATION_SCHEMAS
+        }
 
     fun nativeCapabilitiesFor(
         support: RuntimeSupport,

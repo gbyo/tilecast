@@ -1429,6 +1429,60 @@ mod tests {
         assert!(resolved.projection.is_some());
     }
 
+    const OTHER_PLAYLIST: &str = "8a3c5d17-2f40-4c7e-9f38-0b1d6a2e9c44";
+    const OTHER_ITEM: &str = "d1c2b3a4-0f9e-4d8c-8b7a-6e5f4d3c2b1a";
+
+    fn presentation_key(value: Value, now_ms: i64) -> PresentationKey {
+        let candidate = parse(value).expect("fixture parses");
+        let resolved = presentation_with(&candidate, now_ms, &AndroidPlayerConfig::default()).expect("resolves");
+        PresentationKey {
+            document: resolved.document.clone(),
+            content: resolved.content.clone(),
+            timing: resolved.timing.as_ref().map(timing_key),
+            identity: Some(SelectionKey::from(&identity(&candidate, &resolved))),
+        }
+    }
+
+    /// Changing what a screen plays by default must change the key Core
+    /// compares with the activation on screen; an equal key is "nothing to
+    /// do", which would leave the old content up.
+    #[test]
+    fn changing_default_content_changes_the_presentation_key() {
+        let a = manifest();
+        let key_a = presentation_key(a.clone(), 1_000);
+        // The same manifest version re-resolved is the same presentation.
+        assert!(key_a == presentation_key(a.clone(), 1_000));
+
+        // Playlist to a different playlist.
+        let mut other_playlist = a.clone();
+        other_playlist["manifestVersion"] = serde_json::json!(9);
+        other_playlist["playlist"]["id"] = serde_json::json!(OTHER_PLAYLIST);
+        other_playlist["playlist"]["items"][0]["id"] = serde_json::json!(OTHER_ITEM);
+        assert!(key_a != presentation_key(other_playlist.clone(), 1_000));
+
+        // Playlist to a directly assigned Layout.
+        let mut layout = a.clone();
+        layout["manifestVersion"] = serde_json::json!(10);
+        layout["playlist"] = Value::Null;
+        layout["layouts"] = serde_json::json!([{"id": LAYOUT, "document": {"schemaVersion": 2,
+            "canvas": {"width": 1920, "height": 1080}, "placements": []}}]);
+        layout["layout"] = layout["layouts"][0].clone();
+        layout["directFallbackLayout"] = layout["layouts"][0].clone();
+        let key_layout = presentation_key(layout.clone(), 1_000);
+        assert!(key_a != key_layout);
+
+        // Layout to a playlist, and Layout to a different Layout.
+        let mut back = a.clone();
+        back["manifestVersion"] = serde_json::json!(11);
+        assert!(key_layout != presentation_key(back, 1_000));
+        let mut other_layout = layout;
+        other_layout["manifestVersion"] = serde_json::json!(12);
+        other_layout["layouts"][0]["id"] = serde_json::json!(OTHER_PLAYLIST);
+        other_layout["layout"] = other_layout["layouts"][0].clone();
+        other_layout["directFallbackLayout"] = other_layout["layouts"][0].clone();
+        assert!(key_layout != presentation_key(other_layout, 1_000));
+    }
+
     #[test]
     fn span_panels_crop_images_and_reach_the_projector() {
         let mut value = manifest();

@@ -899,6 +899,11 @@ pub struct RendererSnapshot {
     pub safe_mode: bool,
     pub incompatible_reason: Option<String>,
     pub last_error: Option<String>,
+    /// A fault the host itself reported for the renderer (it could not
+    /// load the runtime document, or could not register with Core): a
+    /// stable code, the heartbeat's `lastRendererFailure`. Cleared when a
+    /// renderer reports ready.
+    pub host_fault: Option<String>,
     pub current_item_id: Option<String>,
     /// The last meaningful renderer progress: the heartbeat's
     /// `lastHealthyPlaybackAt` while a playing presentation is healthy.
@@ -951,6 +956,7 @@ pub struct PresentationEngine {
     /// will ever connect, so capability advertisement is empty rather
     /// than the fresh-process fallback.
     unsupported_runtime: bool,
+    host_fault: Option<String>,
 }
 
 impl std::fmt::Debug for PresentationEngine {
@@ -1020,6 +1026,7 @@ impl PresentationEngine {
             item_boundary,
             last_activation_at: None,
             unsupported_runtime: false,
+            host_fault: None,
         };
         engine.refresh_snapshot();
         engine
@@ -1286,6 +1293,7 @@ impl PresentationEngine {
             safe_mode: self.native.is_safe_mode(),
             incompatible_reason: self.incompatible_reason.clone(),
             last_error: self.native.tracker().last_error().map(|code| code.as_str().to_owned()),
+            host_fault: self.host_fault.clone(),
             current_item_id: self.native.tracker().current_item().map(|(id, _)| id),
             last_progress_at: self.native.tracker().last_progress(),
             last_activation_at: self.last_activation_at,
@@ -1296,11 +1304,42 @@ impl PresentationEngine {
 impl PresentationEngine {
     /// A WebView instance connected. Its generation becomes the live
     /// connection; the previous one, if any, is dead.
-    pub fn renderer_connected(&mut self, generation: i64, now: Timestamp) {
+    ///
+    /// Generations are process-wide and only grow, and the host retries a
+    /// `connected` whose answer it never saw. So a repeat of the live
+    /// generation changes nothing (it must not wipe the ready profile), and
+    /// a generation older than the live one is refused: a late report from a
+    /// replaced renderer cannot displace the newer link.
+    pub fn renderer_connected(&mut self, generation: i64, now: Timestamp) -> bool {
+        if let Some(link) = self.link.as_ref() {
+            if link.generation == generation {
+                return true;
+            }
+            if link.generation > generation {
+                return false;
+            }
+        }
         let connection = connection_for(generation);
         self.link = Some(RendererLink { connection, generation, ready: None });
         self.native.connected(connection, now);
         self.refresh_snapshot();
+        true
+    }
+
+    /// The host could not run the renderer it created. Keeps a stable,
+    /// bounded code for health; never free text or page data.
+    pub fn renderer_fault(&mut self, code: &str) -> bool {
+        let code: String = code
+            .chars()
+            .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | ':' | '.' | '-'))
+            .take(64)
+            .collect();
+        if code.is_empty() {
+            return false;
+        }
+        self.host_fault = Some(code);
+        self.refresh_snapshot();
+        true
     }
 
     /// A WebView instance disconnected. Reports from its generation
@@ -1327,6 +1366,7 @@ impl PresentationEngine {
         if let Some(link) = self.link.as_mut().filter(|link| link.connection == connection) {
             link.ready = Some(profile.clone());
         }
+        self.host_fault = None;
         self.native.ready(connection, profile);
         self.push_current().await;
         self.refresh_snapshot();
@@ -2239,6 +2279,218 @@ mod tests {
         assert_eq!(envelope["op"], "activate");
         assert_eq!(envelope["activationId"], outcome.activation_id);
         assert_eq!(envelope["generation"], 1);
+    }
+
+    const ASSET_B: &str = "55555555-5555-5555-5555-555555555555";
+    const VARIANT_B: &str = "66666666-6666-6666-6666-666666666666";
+
+    /// A playing request for different content: what a default-content
+    /// change from A to B resolves to (another asset, another manifest).
+    fn playing_request_b(digest: &Sha256Digest, size: u64) -> String {
+        let src = ["tcmedia:", ASSET_B, "/", VARIANT_B].concat();
+        serde_json::json!({
+            "envelope": {
+                "presentation": {
+                    "state": "playing",
+                    "items": [{"id": "item-b", "kind": "image", "src": src}],
+                },
+            },
+            "content": [{
+                "assetId": ASSET_B,
+                "variantId": VARIANT_B,
+                "digest": digest.to_hex(),
+                "sizeBytes": size,
+                "mimeType": "image/png",
+            }],
+            "source": "server_manifest",
+            "identity": {
+                "manifest": Sha256Digest::of(b"manifest-b").to_hex(),
+                "manifestVersion": 8,
+                "selectionSource": "direct",
+                "playlistId": "77777777-7777-7777-7777-777777777777",
+            },
+            "clockOffsetMs": 1500,
+        })
+        .to_string()
+    }
+
+    fn activation_of(request: &str) -> serde_json::Value {
+        serde_json::from_str(request).expect("request parses")
+    }
+
+    #[tokio::test]
+    async fn changing_default_content_replaces_what_the_running_renderer_shows() {
+        let mut test = scratch().await;
+        let (a, b) = (b"default-content-a", b"default-content-b");
+        let digest_a = seed(&test.engine.port.cas, a).await;
+        let digest_b = seed(&test.engine.port.cas, b).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+
+        // A is on screen and has proven itself.
+        let first = test
+            .engine
+            .activate(&playing_request(&digest_a, a.len() as u64, "image"), now(BASE_MS))
+            .await
+            .expect("activate A");
+        assert!(test.engine.accepted(1, &first.activation_id, first.generation));
+        let (_, meaningful) = test.engine.progress(
+            1,
+            &first.activation_id,
+            first.generation,
+            "image-shown",
+            Some("item-1"),
+            None,
+            now(BASE_MS + 1_000),
+        );
+        assert!(meaningful);
+        assert_eq!(test.snapshot.lock().expect("lock").state, "healthy");
+
+        // The operator changes the default content: the selection driver
+        // resolves B and activates it on the same, still-connected renderer.
+        let second = test
+            .engine
+            .activate(&playing_request_b(&digest_b, b.len() as u64), now(BASE_MS + 5_000))
+            .await
+            .expect("activate B");
+        assert!(second.queued, "B must be pushed to the live renderer");
+        assert_ne!(second.activation_id, first.activation_id);
+        assert_eq!(second.generation, first.generation + 1);
+
+        let requests = test.platform.requests();
+        assert_eq!(requests.len(), 2, "no restart, reload, or reconnect: one more activate");
+        let pushed = activation_of(&requests[1]);
+        assert_eq!(pushed["op"], "activate");
+        assert_eq!(pushed["activationId"], second.activation_id);
+        assert_eq!(pushed["presentation"]["items"][0]["src"], format!("tcmedia:{ASSET_B}/{VARIANT_B}"));
+        assert_eq!(pushed["content"][0]["digest"], digest_b.to_hex());
+
+        // B becomes the accepted, current activation; A's late reports no
+        // longer count.
+        assert!(test.engine.accepted(1, &second.activation_id, second.generation));
+        let current = test.engine.current_activation().expect("current");
+        assert_eq!(current.presentation["items"][0]["id"], "item-b");
+        let snapshot = test.snapshot.lock().expect("lock").clone();
+        assert!(snapshot.accepted && snapshot.connected && snapshot.ready);
+        assert_eq!(snapshot.generation, Some(second.generation));
+        let (stale_current, _) = test.engine.progress(
+            1,
+            &first.activation_id,
+            first.generation,
+            "image-shown",
+            Some("item-1"),
+            None,
+            now(BASE_MS + 6_000),
+        );
+        assert!(!stale_current);
+        let (current_report, meaningful) = test.engine.progress(
+            1,
+            &second.activation_id,
+            second.generation,
+            "image-shown",
+            Some("item-b"),
+            None,
+            now(BASE_MS + 7_000),
+        );
+        assert!(current_report && meaningful, "B produces playback evidence");
+        assert!(test.snapshot.lock().expect("lock").evidence);
+    }
+
+    #[tokio::test]
+    async fn default_content_changed_while_the_renderer_is_gone_is_what_returns() {
+        let mut test = scratch().await;
+        let (a, b) = (b"unavailable-a", b"unavailable-b");
+        let digest_a = seed(&test.engine.port.cas, a).await;
+        let digest_b = seed(&test.engine.port.cas, b).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        test.engine
+            .activate(&playing_request(&digest_a, a.len() as u64, "image"), now(BASE_MS))
+            .await
+            .expect("activate A");
+        assert_eq!(test.platform.requests().len(), 1);
+
+        // The renderer disappears (WebView death, Activity churn); the
+        // operator then changes the default content.
+        test.engine.renderer_disconnected(1);
+        let second = test
+            .engine
+            .activate(&playing_request_b(&digest_b, b.len() as u64), now(BASE_MS + 5_000))
+            .await
+            .expect("activate B");
+        assert!(!second.queued, "nothing to push to yet");
+        assert_eq!(test.platform.requests().len(), 1);
+        assert_eq!(test.snapshot.lock().expect("lock").state, "disconnected");
+
+        // The replacement connects and reports ready: Core replays the
+        // latest committed presentation, B, never the stale A.
+        assert!(test.engine.renderer_connected(2, now(BASE_MS + 6_000)));
+        assert!(test.engine.renderer_ready(2, &ready_report(FULL_FEATURES)).await);
+        let requests = test.platform.requests();
+        assert_eq!(requests.len(), 2);
+        let replayed = activation_of(&requests[1]);
+        assert_eq!(replayed["activationId"], second.activation_id);
+        assert_eq!(replayed["presentation"]["items"][0]["id"], "item-b");
+        assert!(test.engine.accepted(2, &second.activation_id, second.generation));
+        assert!(test.snapshot.lock().expect("lock").accepted);
+    }
+
+    #[tokio::test]
+    async fn a_replaced_renderer_cannot_be_disconnected_by_its_predecessor() {
+        let mut test = scratch().await;
+        let bytes = b"replacement-image";
+        let digest = seed(&test.engine.port.cas, bytes).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let outcome = test
+            .engine
+            .activate(&playing_request(&digest, bytes.len() as u64, "image"), now(BASE_MS))
+            .await
+            .expect("activate");
+
+        // Generation 2 connects and becomes ready before generation 1's
+        // owner finishes closing.
+        assert!(test.engine.renderer_connected(2, now(BASE_MS + 1_000)));
+        assert!(test.engine.renderer_ready(2, &ready_report(FULL_FEATURES)).await);
+        assert_eq!(test.platform.requests().len(), 2, "the current activation replays on the new renderer");
+
+        // The late disconnect and a delayed duplicate connect from the old
+        // renderer change nothing about the live one.
+        test.engine.renderer_disconnected(1);
+        assert!(!test.engine.renderer_connected(1, now(BASE_MS + 2_000)));
+        let snapshot = test.snapshot.lock().expect("lock").clone();
+        assert!(snapshot.connected && snapshot.ready, "the replacement stays connected and ready");
+        assert_eq!(snapshot.state, "waiting_for_progress");
+        assert!(test.engine.accepted(2, &outcome.activation_id, outcome.generation));
+        assert!(test.snapshot.lock().expect("lock").accepted);
+    }
+
+    #[tokio::test]
+    async fn a_repeated_connect_is_idempotent_and_keeps_the_ready_profile() {
+        let mut test = scratch().await;
+        assert!(test.engine.renderer_connected(3, now(BASE_MS)));
+        assert!(test.engine.renderer_ready(3, &ready_report(FULL_FEATURES)).await);
+        // The host retried a connect whose answer it never saw.
+        assert!(test.engine.renderer_connected(3, now(BASE_MS + 10)));
+        let snapshot = test.snapshot.lock().expect("lock").clone();
+        assert!(snapshot.connected && snapshot.ready);
+        assert_eq!(snapshot.state, "waiting_for_progress");
+    }
+
+    #[tokio::test]
+    async fn host_faults_are_bounded_codes_and_clear_when_a_renderer_reports_ready() {
+        let mut test = scratch().await;
+        assert!(test.engine.renderer_fault("runtime_load_failed:net_-2"));
+        assert_eq!(test.snapshot.lock().expect("lock").host_fault.as_deref(), Some("runtime_load_failed:net_-2"));
+        // Free text and page data cannot ride a fault: only code characters, bounded.
+        assert!(test.engine.renderer_fault(&format!("a b/c?d={}", "x".repeat(200))));
+        let fault = test.snapshot.lock().expect("lock").host_fault.clone().expect("fault");
+        assert!(fault.len() <= 64);
+        assert!(fault.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | ':' | '.' | '-')));
+        assert!(!test.engine.renderer_fault("   "));
+        assert!(test.engine.renderer_connected(1, now(BASE_MS)));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        assert!(test.snapshot.lock().expect("lock").host_fault.is_none());
     }
 
     #[tokio::test]
