@@ -33,36 +33,33 @@ use serde_json::Value;
 pub mod profile {
     //! The renderer's packaged support: what this release can provide
     //! before any renderer process advertises.
+    use super::SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES;
     use super::WEB_RUNTIME_VERSION;
     pub use super::WIDGET_COMPONENTS;
-    use super::{COMPONENT_PRESENTATION_SCHEMA, SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES};
     use player_core::{PackagedRendererProfile, RendererSupport};
     use player_types::bounded::ShortToken;
     use std::collections::BTreeMap;
 
     /// Renderer features (`renderer.ready` vocabulary) the trusted runtime
-    /// implements under the Android WebView host.
-    pub const FEATURES: &[&str] = &[
-        "status-surfaces-v1",
-        "image",
-        "video",
-        "render-tree-v1",
-        "layout-v1",
-        "synchronized-playback-v1",
-        "span-viewport-v1",
-        "plugin.countdown_bar",
-        "plugin.alert_ticker",
-        // No plugin.brand_bug: the Android Player has no brand-bug surface.
-        "remote-web-v1",
-        "website",
-        "youtube",
-    ];
+    /// implements under the Android WebView host. One definition,
+    /// `apps/player-android/renderer-profile.json`, generates this list and
+    /// the Kotlin ready report, so what preparation assumes is exactly what
+    /// the live renderer later advertises. No plugin.brand_bug: the Android
+    /// Player has no brand-bug surface.
+    pub const FEATURES: &[&str] = crate::renderer_profile::RENDERER_FEATURES;
 
-    /// Presentation schemas the Android host applies: 1 (declarative and
-    /// web) and 2 (first-class Widget components). Schema 3 (declared
-    /// empty policy) needs host-side empty-skip handling the Android
-    /// Player has not implemented yet.
-    pub const PRESENTATION_SCHEMAS: &[u32] = &[1, COMPONENT_PRESENTATION_SCHEMA];
+    /// Presentation schemas the Android host applies once the component
+    /// runtime proves itself: the baseline (declarative and web) plus the
+    /// first-class Widget component schema. Schema 3 (declared empty policy)
+    /// needs host-side empty-skip handling the Android Player has not
+    /// implemented yet.
+    pub fn presentation_schemas() -> Vec<u32> {
+        crate::renderer_profile::BASELINE_PRESENTATION_SCHEMAS
+            .iter()
+            .chain(crate::renderer_profile::COMPONENT_PRESENTATION_SCHEMAS)
+            .copied()
+            .collect()
+    }
 
     /// Declarative capabilities the heartbeat reports: the shared
     /// runtime list plus the `web.remote` capability the remote host
@@ -71,7 +68,7 @@ pub mod profile {
         SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES
             .iter()
             .copied()
-            .chain(std::iter::once(("web.remote", WEB_RUNTIME_VERSION)))
+            .chain(std::iter::once((crate::renderer_profile::WEB_REMOTE_CAPABILITY, WEB_RUNTIME_VERSION)))
             .collect()
     }
 
@@ -83,13 +80,16 @@ pub mod profile {
         PackagedRendererProfile(
             RendererSupport::new(
                 FEATURES.iter().map(|name| token(name)).collect(),
-                PRESENTATION_SCHEMAS.iter().copied().collect(),
+                presentation_schemas().into_iter().collect(),
                 SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES
                     .iter()
                     .map(|(name, version)| (token(name), *version))
                     .collect::<BTreeMap<_, _>>()
                     .into_iter()
-                    .chain(std::iter::once((token("web.remote"), WEB_RUNTIME_VERSION)))
+                    .chain(std::iter::once((
+                        token(crate::renderer_profile::WEB_REMOTE_CAPABILITY),
+                        WEB_RUNTIME_VERSION,
+                    )))
                     .collect(),
                 WIDGET_COMPONENTS
                     .iter()
@@ -98,8 +98,8 @@ pub mod profile {
                     // downloaded Widget, not a discovered component: this
                     // release confines served frames, so it offers it.
                     .chain(std::iter::once((
-                        token(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY),
-                        player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+                        token(crate::renderer_profile::EXTERNAL_WIDGET_RUNTIME_CAPABILITY),
+                        crate::renderer_profile::EXTERNAL_WIDGET_RUNTIME_VERSION,
                     )))
                     .collect(),
             )
@@ -113,7 +113,7 @@ pub use crate::widget_capabilities::{COMPONENT_PRESENTATION_SCHEMA, WIDGET_COMPO
 
 /// The `web.remote` declarative capability: remote web in the Android
 /// remote host, shown through the renderer's remote web surface.
-pub const WEB_RUNTIME_VERSION: u32 = 2;
+pub const WEB_RUNTIME_VERSION: u32 = crate::renderer_profile::WEB_REMOTE_VERSION;
 
 /// What the renderer cannot safely provide, and why.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -598,7 +598,7 @@ mod tests {
         ConnectedRendererProfile(
             RendererSupport::new(
                 profile::FEATURES.iter().map(|name| token(name)).collect(),
-                profile::PRESENTATION_SCHEMAS.iter().copied().collect(),
+                profile::presentation_schemas().into_iter().collect(),
                 profile::native_capabilities().into_iter().map(|(name, version)| (token(name), version)).collect(),
                 profile::WIDGET_COMPONENTS.iter().map(|(name, version)| (token(name), *version)).collect(),
             )
@@ -745,7 +745,7 @@ mod tests {
     #[test]
     fn packaged_profile_matches_android_truth() {
         let packaged = profile::packaged();
-        assert_eq!(profile::PRESENTATION_SCHEMAS, &[1, 2]);
+        assert_eq!(profile::presentation_schemas(), vec![1, 2]);
         assert!(!profile::FEATURES.contains(&"plugin.brand_bug"));
         for feature in ["image", "video", "website", "youtube", "remote-web-v1", "synchronized-playback-v1"] {
             let token = ShortToken::new(feature).expect("feature");
@@ -753,6 +753,71 @@ mod tests {
         }
         let missing = ShortToken::new("plugin.brand_bug").expect("token");
         assert!(packaged.check(&RendererRequirement::Feature(missing)).is_err());
+    }
+
+    /// The packaged profile preparation checks must equal what a fully
+    /// supported live renderer advertises. The live report is rebuilt here
+    /// from the contract file itself (`renderer-profile.json`) plus the
+    /// generated capability tables, independently of how `packaged()` is
+    /// assembled; the Kotlin renderer's `RendererReadyReportTest` rebuilds the
+    /// same report from the same file for the report it really sends.
+    #[test]
+    fn packaged_profile_equals_the_live_report_contract() {
+        let contract: Value = serde_json::from_str(include_str!("../../renderer-profile.json")).expect("contract");
+        let numbers = |value: &Value| -> Vec<u64> {
+            value.as_array().expect("array").iter().map(|item| item.as_u64().expect("number")).collect()
+        };
+        let mut schemas = numbers(&contract["presentationSchemas"]["baseline"]);
+        schemas.extend(numbers(&contract["presentationSchemas"]["componentRuntime"]));
+        let mut declarative = serde_json::Map::new();
+        for (name, version) in SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES {
+            declarative.insert((*name).to_owned(), serde_json::json!(version));
+        }
+        declarative.insert(
+            contract["webRemote"]["name"].as_str().expect("name").to_owned(),
+            contract["webRemote"]["version"].clone(),
+        );
+        let mut components = serde_json::Map::new();
+        for (name, version) in WIDGET_COMPONENTS {
+            components.insert((*name).to_owned(), serde_json::json!(version));
+        }
+        components.insert(
+            contract["externalWidgetRuntime"]["name"].as_str().expect("name").to_owned(),
+            contract["externalWidgetRuntime"]["version"].clone(),
+        );
+        let live = serde_json::json!({
+            "features": contract["features"],
+            "support": {
+                "presentationSchemas": schemas,
+                "declarativeCapabilities": declarative,
+                "widgetComponents": components,
+            },
+        });
+        let advertised = crate::renderer::connected_profile(&live).expect("a well-formed live report");
+        assert_eq!(
+            profile::packaged().0,
+            advertised.0,
+            "preparation must never assume more than the renderer advertises"
+        );
+        // The host constants the contract feeds are the ones the platform pins.
+        assert_eq!(WEB_RUNTIME_VERSION as u64, contract["webRemote"]["version"].as_u64().expect("version"));
+        assert_eq!(
+            player_types::frames::EXTERNAL_RUNTIME_CAPABILITY,
+            contract["externalWidgetRuntime"]["name"].as_str().expect("name")
+        );
+        assert_eq!(
+            u64::from(player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION),
+            contract["externalWidgetRuntime"]["version"].as_u64().expect("version")
+        );
+        assert!(
+            numbers(&contract["presentationSchemas"]["componentRuntime"])
+                .contains(&u64::from(COMPONENT_PRESENTATION_SCHEMA)),
+            "the Widget component schema is the component runtime schema"
+        );
+        // Plugins the manifest preparation accepts are renderer features.
+        for plugin in ["countdown_bar", "alert_ticker"] {
+            assert!(profile::FEATURES.contains(&format!("plugin.{plugin}").as_str()), "plugin.{plugin}");
+        }
     }
 
     #[test]

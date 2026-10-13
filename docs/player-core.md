@@ -450,6 +450,15 @@ Android keeps Kotlin. Android hosts Core through the platform crate
 `tilecast-player-android-native` below `apps/player-android/native`.
 The crate owns one process-level host, a narrow JNI bridge, Android storage
 locations, and Android platform TLS trust. Kotlin keeps lifecycle, setup UI, WebView hosting, Keystore, and OS effects.
+The Android host keeps these renderer-report rules. A renderer generation
+identifies one WebView and is unique in the process. The host sends `connected`
+only after Core answers reports, and it retries a refused `connected` within
+bounds. Core ignores a repeated `connected` for the live generation, refuses a
+`connected` with a lower generation than the live one, and removes the live
+link only for a `disconnected` with the live generation. Core replays the
+current committed presentation when it accepts `ready`. A `fault` report with a
+bounded code reaches the heartbeat as `lastRendererFailure`. See
+[Android development](android-development.md#renderer-ownership-and-the-core-handshake).
 Shared crates never depend on the Android crate. The dependency gate checks
 this direction. Production uses the native Player Core host for pairing,
 Server reconciliation, manifests, offline activation, commands, and recovery;

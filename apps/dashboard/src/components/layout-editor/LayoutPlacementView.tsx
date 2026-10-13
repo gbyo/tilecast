@@ -8,7 +8,13 @@ import {
   assetPreviewStyle,
 } from "./WidgetLivePreview";
 import type { LayoutCaptureCoordinator } from "./layoutCaptureReadiness";
-import { Group, Image as ImageIcon, ListVideo } from "lucide-react";
+import type { PlaylistZoneIssue } from "./playlistZoneIssues";
+import {
+  Group,
+  Image as ImageIcon,
+  ListVideo,
+  TriangleAlert,
+} from "lucide-react";
 import type {
   CSSProperties,
   MouseEvent as ReactMouseEvent,
@@ -28,6 +34,7 @@ export function LayoutPlacementView({
   canvas,
   content,
   playlist,
+  zoneIssue,
   assetsById,
   previewValues,
   playbackPreview = false,
@@ -42,6 +49,12 @@ export function LayoutPlacementView({
   canvas: LayoutDocument["canvas"];
   content?: Asset;
   playlist?: Playlist;
+  /**
+   * The zone's Playlist holds items a zone cannot play. The zone then shows
+   * that, not a preview of the playable subset: the Player will not publish
+   * or play this zone, and the preview must say what actually happens.
+   */
+  zoneIssue?: PlaylistZoneIssue;
   assetsById?: Map<string, Asset>;
   previewValues?: Record<string, Record<string, string>>;
   playbackPreview?: boolean;
@@ -87,7 +100,17 @@ export function LayoutPlacementView({
       onContextMenuCapture={onContextMenu}
     >
       {item.type === "playlistZone" ? (
-        playbackPreview && playlist?.items?.length ? (
+        zoneIssue ? (
+          <div
+            className="layout-playlist-zone layout-playlist-zone--invalid"
+            role="img"
+            aria-label={t("zoneIssue.title")}
+          >
+            <TriangleAlert size={22} aria-hidden="true" />
+            <strong>{zoneIssue.playlistName}</strong>
+            <span>{t("zoneIssue.tile")}</span>
+          </div>
+        ) : playbackPreview && playlist?.items?.length ? (
           <PlaylistZonePreview
             placement={item}
             playlist={playlist}

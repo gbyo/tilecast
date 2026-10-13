@@ -425,5 +425,30 @@
     "zoneEmpty": "No hay elementos listos",
     "zoneUnsupported": "En una zona de lista de reproducción de un diseño solo se pueden reproducir imágenes y vídeos.",
     "unknownProvider": "Widget"
+  },
+  "zoneIssue": {
+    "title": "Esta zona del diseño solo puede reproducir imágenes y vídeos.",
+    "intro": "«{{playlist}}» contiene elementos no admitidos:",
+    "item": "{{name}} — {{kind}}",
+    "more_one": "y {{count}} elemento más",
+    "more_many": "y {{count}} elementos más",
+    "more_other": "y {{count}} elementos más",
+    "fix": "Quita esos elementos o úsalos como ubicaciones independientes del diseño.",
+    "kind": {
+      "widget": "Widget",
+      "website": "Sitio web",
+      "youtube": "YouTube",
+      "layout": "Diseño",
+      "other": "Elemento no admitido"
+    },
+    "bannerTitle_one": "{{count}} zona de lista no puede reproducir su lista",
+    "bannerTitle_many": "{{count}} zonas de lista no pueden reproducir sus listas",
+    "bannerTitle_other": "{{count}} zonas de lista no pueden reproducir sus listas",
+    "bannerDescription": "Publicar y asignar este diseño fallará hasta que se corrijan las listas o las zonas. Selecciona una zona marcada para ver los elementos.",
+    "tile": "Elementos no admitidos",
+    "addRefusedTitle": "No se añadió la zona",
+    "addRefusedDescription": "«{{playlist}}» tiene elementos que una zona de diseño no puede reproducir: {{items}}. Quítalos o colócalos directamente en el diseño.",
+    "checkFailedTitle": "No se añadió la zona",
+    "checkFailedDescription": "No se pudo comprobar «{{playlist}}» en busca de elementos que una zona no puede reproducir. Inténtalo de nuevo."
   }
 }

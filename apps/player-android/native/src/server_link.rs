@@ -422,6 +422,11 @@ impl AndroidServerLinkHost {
                 heartbeat["lastPlaybackError"] = serde_json::json!(error);
             }
             heartbeat["safeMode"] = serde_json::json!(snapshot.safe_mode);
+            // A renderer the host could not load or register: the same
+            // field Edge uses, so Studio's "Last renderer failure" names it.
+            if let Some(fault) = snapshot.host_fault.as_deref() {
+                heartbeat["lastRendererFailure"] = serde_json::json!(fault);
+            }
         }
         if let Ok(status) = self.state.run(|connection| player_state::repo::config::status(connection)).await
             && let Some(code) = status.last_error_code
@@ -632,6 +637,7 @@ mod tests {
             "deviceClockOffsetSeconds",
             "currentItemId",
             "lastPlaybackError",
+            "lastRendererFailure",
         ] {
             assert!(heartbeat.get(key).is_none(), "{key}: {}", heartbeat);
         }
@@ -663,6 +669,16 @@ mod tests {
         let heartbeat = host.build_heartbeat().await;
         assert_eq!(heartbeat["playbackState"], "safe_mode");
         assert_eq!(heartbeat["safeMode"], true);
+    }
+
+    #[tokio::test]
+    async fn a_host_reported_renderer_fault_reaches_player_health() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (host, _signals, _, renderer, _, _) = scratch(dir.path(), FACTS).await;
+        renderer.lock().expect("lock").host_fault = Some("registration_core_unavailable".to_owned());
+        let heartbeat = host.build_heartbeat().await;
+        // The same field Edge uses, so Studio's "Last renderer failure" names it.
+        assert_eq!(heartbeat["lastRendererFailure"], "registration_core_unavailable");
     }
 
     #[tokio::test]

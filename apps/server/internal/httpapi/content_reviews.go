@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
+	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 )
 
 func (s *server) listContentSubmissions(w http.ResponseWriter, r *http.Request) {
@@ -301,7 +302,10 @@ func (s *server) rollbackPublication(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) writeEditorialError(w http.ResponseWriter, r *http.Request, err error) {
+	var zone *layouts.PlaylistZoneUnsupportedError
 	switch {
+	case errors.As(err, &zone):
+		writeError(w, http.StatusUnprocessableEntity, "layout_playlist_zone_unsupported", zone.Error())
 	case errors.Is(err, approvals.ErrNotFound):
 		writeError(w, http.StatusNotFound, "submission_not_found", "The requested editorial resource was not found.")
 	case errors.Is(err, approvals.ErrReviewRequired):

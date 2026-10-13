@@ -292,7 +292,12 @@ func layoutETag(revision int64) string {
 	return `"layout-draft-` + strconv.FormatInt(revision, 10) + `"`
 }
 func (s *server) writeLayoutError(w http.ResponseWriter, r *http.Request, err error) {
+	var zone *layouts.PlaylistZoneUnsupportedError
 	switch {
+	case errors.As(err, &zone):
+		// The message names the Playlist and the offending items. It used to
+		// miss the substring match below and surface as a bare server error.
+		writeError(w, http.StatusUnprocessableEntity, "layout_playlist_zone_unsupported", zone.Error())
 	case errors.Is(err, layouts.ErrNotFound):
 		writeError(w, http.StatusNotFound, "layout_not_found", "The requested Layout was not found.")
 	case errors.Is(err, layouts.ErrConflict):

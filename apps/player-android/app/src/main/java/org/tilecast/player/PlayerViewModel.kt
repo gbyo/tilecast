@@ -69,10 +69,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val activeHours: StateFlow<Boolean> = mutableActiveHours.asStateFlow()
     private val mutableTakeoverActive = MutableStateFlow(false)
     val takeoverActive: StateFlow<Boolean> = mutableTakeoverActive.asStateFlow()
-    private val mutableRuntimeSupported = MutableStateFlow(true)
-    /** False when the installed WebView cannot host the runtime bridge at all. */
-    val runtimeSupported: StateFlow<Boolean> = mutableRuntimeSupported.asStateFlow()
-
     private val mutableCommissioning = MutableStateFlow(CommissioningStatus())
     val commissioning: StateFlow<CommissioningStatus> = mutableCommissioning.asStateFlow()
 
@@ -226,19 +222,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // Renderer and clock callbacks from the Activity.
-
-    /** A proven capability may unlock staged content, as the legacy probe pass reconciled. */
-    fun onCapabilitiesChanged() {
-        viewModelScope.launch {
-            runCatching { host.syncManifest() }
-            runCatching { host.refreshStatus() }
-        }
-    }
-
-    /** The installed WebView cannot host the runtime bridge: show the native fallback screen. */
-    fun onRendererUnsupported() {
-        mutableRuntimeSupported.value = false
-    }
 
     /** A clock or timezone jump re-resolves the committed selection. */
     fun onClockChanged() {

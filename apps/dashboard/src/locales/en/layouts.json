@@ -417,5 +417,28 @@
     "zoneEmpty": "No ready items",
     "zoneUnsupported": "Only images and videos can play in a Layout playlist zone.",
     "unknownProvider": "Widget"
+  },
+  "zoneIssue": {
+    "title": "This Layout zone can only play images and videos.",
+    "intro": "\"{{playlist}}\" contains unsupported items:",
+    "item": "{{name}} — {{kind}}",
+    "more_one": "and {{count}} more item",
+    "more_other": "and {{count}} more items",
+    "fix": "Remove those items or use them as separate Layout placements.",
+    "kind": {
+      "widget": "Widget",
+      "website": "Website",
+      "youtube": "YouTube",
+      "layout": "Layout",
+      "other": "Unsupported item"
+    },
+    "bannerTitle_one": "{{count}} playlist zone can't play its Playlist",
+    "bannerTitle_other": "{{count}} playlist zones can't play their Playlists",
+    "bannerDescription": "Publishing and assigning this Layout will fail until the Playlists or the zones are fixed. Select a marked zone to see the items.",
+    "tile": "Unsupported items",
+    "addRefusedTitle": "Zone not added",
+    "addRefusedDescription": "\"{{playlist}}\" has items a Layout zone can't play: {{items}}. Remove them or place them in the Layout directly.",
+    "checkFailedTitle": "Zone not added",
+    "checkFailedDescription": "Couldn't check \"{{playlist}}\" for items a zone can't play. Try again."
   }
 }

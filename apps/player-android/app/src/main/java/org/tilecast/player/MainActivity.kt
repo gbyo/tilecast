@@ -49,6 +49,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
@@ -66,17 +67,20 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.webkit.WebViewCompat
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.tilecast.player.content.UpdateUiState
 import org.tilecast.player.core.DiscoveredServer
-import org.tilecast.player.core.PlayerCoreHost
 import org.tilecast.player.core.PlayerState
+import org.tilecast.player.core.ProcessRenderer
+import org.tilecast.player.core.RendererLifecycle
+import org.tilecast.player.core.RendererPhase
+import org.tilecast.player.core.RendererPresentation
 import org.tilecast.player.core.WebViewCoreRenderer
 import org.tilecast.player.preview.PlayerWindowCapture
 import org.tilecast.player.preview.WindowCapture
@@ -100,8 +104,21 @@ import java.time.Duration
 class MainActivity : ComponentActivity() {
     private val model: PlayerViewModel by viewModels()
     private lateinit var reliability: ReliabilityController
-    private var renderer: WebViewCoreRenderer? = null
-    private var rendererView by mutableStateOf<WebView?>(null)
+    private lateinit var renderer: WebViewCoreRenderer
+    private val captureSource by lazy { PlayerWindowCapture(this) }
+    private val presentation = object : RendererPresentation {
+        override fun captureBlockReason(): String? = previewCaptureBlockReason()
+
+        override suspend fun capture(maxWidth: Int, maxHeight: Int, maxBytes: Int): WebViewCoreRenderer.CapturedImage? =
+            when (val captured = captureSource.capture(maxWidth, maxHeight)) {
+                is WindowCapture.Success -> withContext(Dispatchers.Default) {
+                    encodeCaptureFrame(captured.bitmap, maxBytes)?.let {
+                        WebViewCoreRenderer.CapturedImage(it.bytes, it.width, it.height)
+                    }
+                }
+                is WindowCapture.Failure -> null
+            }
+    }
     private var adminPrompt by mutableStateOf(false)
     @Volatile private var adminVisible = false
     private val escapeKeys = ArrayDeque<Int>()
@@ -113,37 +130,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         reliability = ReliabilityController(this)
-        val host = PlayerCoreHost.get(this)
-        val captureSource = PlayerWindowCapture(this)
-        val engine = WebViewCoreRenderer(
-            this,
-            BuildConfig.VERSION_NAME,
-            WebViewCompat.getCurrentWebViewPackage(this)?.versionName ?: "unknown",
-            report = { json -> host.rendererReport(json) },
-            captureFrame = { maxWidth, maxHeight, maxBytes ->
-                when (val captured = captureSource.capture(maxWidth, maxHeight)) {
-                    is WindowCapture.Success -> withContext(Dispatchers.Default) {
-                        encodeCaptureFrame(captured.bitmap, maxBytes)?.let {
-                            WebViewCoreRenderer.CapturedImage(it.bytes, it.width, it.height)
-                        }
-                    }
-                    is WindowCapture.Failure -> null
-                }
-            },
-            captureBlockReason = ::previewCaptureBlockReason,
-            onCapabilitiesChanged = { lifecycleScope.launch { model.onCapabilitiesChanged() } },
-        )
-        engine.onViewRecreated = { view -> rendererView = view }
-        engine.onRuntimeUnsupported = { lifecycleScope.launch { model.onRendererUnsupported() } }
-        host.attachRendererAdapter(engine)
-        renderer = engine
-        lifecycleScope.launch { if (engine.start()) rendererView = engine.view }
         getSharedPreferences("tilecast-reliability", MODE_PRIVATE).edit().putBoolean("update-active", model.update.value?.state in setOf("waiting_for_permission", "waiting_for_user", "installing")).putBoolean("update-relaunch-requested", false).putInt("update-relaunch-attempts", 0).apply()
+        // The view model starts Core's drivers, so it exists before the
+        // renderer. The renderer's handshake still tolerates either order.
+        // Activities only attach to the process-owned renderer: they never
+        // create, number, or close it.
+        renderer = ProcessRenderer.get(this)
+        ProcessRenderer.attachPresentation(presentation)
+        lifecycleScope.launch { renderer.start() }
         enableEdgeToEdge()
         WindowCompat.getInsetsController(window, window.decorView).hide(WindowInsetsCompat.Type.systemBars())
         setContent {
             TilecastSignalTheme {
-                TilecastPlayer(model, rendererView, adminPrompt, { showAdminPrompt(false) }, reliability)
+                TilecastPlayer(model, renderer, adminPrompt, { showAdminPrompt(false) }, reliability)
             }
         }
     }
@@ -168,8 +167,10 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        renderer?.let { engine -> lifecycleScope.launch { runCatching { engine.close() } } }
-        renderer = null
+        // The renderer outlives this Activity. Detach only what this window
+        // owns: the capture hooks, and the view while it is still parented here.
+        ProcessRenderer.detachPresentation(presentation)
+        ProcessRenderer.releaseView(renderer.view, ownedBy = window.decorView)
         super.onDestroy()
     }
 
@@ -200,14 +201,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable fun TilecastPlayer(model: PlayerViewModel, rendererView: WebView? = null, adminPrompt: Boolean = false, dismissAdmin: () -> Unit = {}, reliability: ReliabilityController? = null) {
+@Composable fun TilecastPlayer(model: PlayerViewModel, renderer: WebViewCoreRenderer? = null, adminPrompt: Boolean = false, dismissAdmin: () -> Unit = {}, reliability: ReliabilityController? = null) {
     val state by model.state.collectAsStateWithLifecycle()
     val config by model.playerConfig.collectAsStateWithLifecycle()
     val update by model.update.collectAsStateWithLifecycle()
     val activeHours by model.activeHours.collectAsStateWithLifecycle()
     val safeMode by model.safeMode.collectAsStateWithLifecycle()
     val commissioning by model.commissioning.collectAsStateWithLifecycle()
-    val runtimeSupported by model.runtimeSupported.collectAsStateWithLifecycle()
+    val rendererLifecycle by (renderer?.lifecycle ?: remember { MutableStateFlow(RendererLifecycle(RendererPhase.STOPPED)) })
+        .collectAsStateWithLifecycle()
+    val rendererView by (renderer?.viewFlow ?: remember { MutableStateFlow<WebView?>(null) }).collectAsStateWithLifecycle()
     val activity = LocalActivity.current as? MainActivity
     LaunchedEffect(config, activeHours) { config?.let { activity?.applyReliability(it, activeHours) } }
     if (adminPrompt && reliability != null) { AdministratorMaintenance(reliability, dismissAdmin); return }
@@ -215,15 +218,21 @@ class MainActivity : ComponentActivity() {
     if (update?.state in setOf("waiting_for_permission", "waiting_for_user", "installing")) { UpdateApproval(update!!, model::openUpdatePermission, { activity?.installPlayerUpdate() ?: model.installUpdate() }); return }
     if (safeMode) { Box(Modifier.fillMaxSize().background(SignalBackground), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally) { TilecastBrand(); Spacer(Modifier.height(28.dp)); Text("Player recovery mode", color = SignalText, style = MaterialTheme.typography.headlineLarge); Text("Tilecast remains paired and connected. Use Studio or the local maintenance menu to retry.", color = SignalText) } }; return }
     if (state is PlayerState.PairedIdle) {
-        if (!runtimeSupported) {
+        if (rendererLifecycle.phase == RendererPhase.UNSUPPORTED) {
             CenterMessage("Player runtime unavailable", "The installed WebView cannot host the Tilecast runtime. Update WebView from the Play Store or the device vendor, then restart Tilecast.", "Restart Tilecast", { activity?.restartPlayer() })
             return
         }
-        val view = rendererView
-        if (view != null) {
-            key(view) { AndroidView(factory = { view }, modifier = Modifier.fillMaxSize()) }
-        } else {
-            Box(Modifier.fillMaxSize().background(SignalBackground)) { LoadingState("Starting player…") }
+        // The WebView stays attached so its page can load, but a native
+        // status surface covers it until the trusted runtime has registered
+        // with Core and reported ready. A live WebView object alone is never
+        // a reason to show the page, and a renderer that cannot get ready
+        // shows recovery instead of an unexplained black screen.
+        Box(Modifier.fillMaxSize().background(SignalBackground)) {
+            rendererView?.let { view -> key(view) { AndroidView(factory = { ProcessRenderer.releaseView(view); view }, modifier = Modifier.fillMaxSize()) } }
+            if (!rendererLifecycle.runtimeOwnsScreen) {
+                val scope = rememberCoroutineScope()
+                RendererStatusSurface(rendererLifecycle, restart = { scope.launch { renderer?.restart() } })
+            }
         }
         return
     }
@@ -257,6 +266,21 @@ class MainActivity : ComponentActivity() {
 @Composable private fun UpdateApproval(state: UpdateUiState, permission: () -> Unit, install: () -> Unit) { Box(Modifier.fillMaxSize().background(SignalBackground).padding(72.dp), contentAlignment = Alignment.Center) { Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) { TilecastBrand(); Text("Tilecast Player update", color = SignalText, fontSize = 44.sp, fontWeight = FontWeight.SemiBold); Text("${state.currentVersion} → ${state.newVersion}", color = SignalBlue, fontSize = 28.sp); Text(state.message, color = SignalMuted, fontSize = 21.sp); when { state.permissionRequired -> SignalButton(onClick = permission) { Text("Open install permission settings") }; state.installReady -> SignalButton(onClick = install) { Text("Install update") }; else -> CircularProgressIndicator() }; Text("Tilecast requests unattended self-update when Android supports it. Older system installers may still require local confirmation.", color = SignalWarning, fontSize = 16.sp) } } }
 
 @Composable private fun TilecastBrand() { Image(painterResource(R.drawable.tilecast_wordmark), "Tilecast", Modifier.fillMaxWidth().height(44.dp), contentScale = ContentScale.Fit) }
+
+/** How long the starting surface may show before it names the problem and offers recovery. */
+private const val RENDERER_STALL_MS = 15_000L
+
+@Composable private fun RendererStatusSurface(lifecycle: RendererLifecycle, restart: () -> Unit) {
+    var stalled by remember(lifecycle.phase, lifecycle.generation) { mutableStateOf(false) }
+    LaunchedEffect(lifecycle.phase, lifecycle.generation) { delay(RENDERER_STALL_MS); stalled = true }
+    Box(Modifier.fillMaxSize().background(SignalBackground).padding(horizontal = SignalDimensions.ScreenHorizontal, vertical = SignalDimensions.ScreenVertical)) {
+        if (lifecycle.phase == RendererPhase.FAILED || stalled) {
+            CenterMessage("Display unavailable", "The Tilecast display engine is not responding${lifecycle.reason?.let { " ($it)" } ?: ""}. Content resumes as soon as it recovers; you can also restart it now.", "Restart display", restart)
+        } else {
+            LoadingState("Starting display…")
+        }
+    }
+}
 
 @Composable private fun LoadingState(message: String) { Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) { CircularProgressIndicator(color = SignalBlue); Spacer(Modifier.width(20.dp)); Text(message, color = SignalText, fontSize = 25.sp) } }
 

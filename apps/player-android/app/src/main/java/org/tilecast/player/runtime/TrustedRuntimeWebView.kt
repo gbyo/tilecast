@@ -26,6 +26,14 @@ sealed interface TrustedRuntimeEndpoint {
     data class Unsupported(val reason: String) : TrustedRuntimeEndpoint
 }
 
+/** Names of the runtime document lifecycle events the WebView owner reports. */
+object RuntimeDocumentEvent {
+    const val DOCUMENT_STARTED = "runtime_document_started"
+    const val DOCUMENT_FINISHED = "runtime_document_finished"
+    const val DOCUMENT_FAILED = "runtime_document_failed"
+    const val ASSET_FAILED = "runtime_asset_failed"
+}
+
 class TrustedRuntimeWebView(
     context: Context,
     private val crashPolicy: RuntimeCrashPolicy = RuntimeCrashPolicy(),
@@ -40,6 +48,11 @@ class TrustedRuntimeWebView(
      * completes, so a late result must re-advertise capabilities.
      */
     private val onComponentProbeDone: (Boolean) -> Unit = {},
+    /**
+     * Document lifecycle for diagnostics: (renderer generation, event, code).
+     * Codes are WebView error numbers, never URLs or page data.
+     */
+    private val onDocumentEvent: (generation: Long, event: String, code: String?) -> Unit = { _, _, _ -> },
 ) {
     private val appContext = context.applicationContext
     private val assetLoader = WebViewAssetLoader.Builder()
@@ -121,8 +134,57 @@ class TrustedRuntimeWebView(
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
                 shouldBlockTopLevelNavigation(view, url)
 
+            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                if (url == TrustedRuntimeOrigin.entryUrl) {
+                    onDocumentEvent(generation, RuntimeDocumentEvent.DOCUMENT_STARTED, null)
+                }
+            }
+
+            override fun onReceivedError(
+                view: WebView,
+                request: WebResourceRequest,
+                error: android.webkit.WebResourceError,
+            ) {
+                super.onReceivedError(view, request, error)
+                reportLoadFailure(request, "net_${error.errorCode}")
+            }
+
+            override fun onReceivedHttpError(
+                view: WebView,
+                request: WebResourceRequest,
+                errorResponse: WebResourceResponse,
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                reportLoadFailure(request, "http_${errorResponse.statusCode}")
+            }
+
+            /**
+             * A main-frame failure means the trusted runtime document did not
+             * load: the screen would stay blank, so it is a renderer failure.
+             * A failed packaged asset is logged with its packaged path only;
+             * media and Widget frame URLs never enter diagnostics.
+             */
+            private fun reportLoadFailure(request: WebResourceRequest, code: String) {
+                if (request.isForMainFrame) {
+                    onDocumentEvent(generation, RuntimeDocumentEvent.DOCUMENT_FAILED, code)
+                    return
+                }
+                val url = request.url
+                if (TrustedRuntimeOrigin.origin == "${url.scheme}://${url.host}") {
+                    onDocumentEvent(
+                        generation,
+                        RuntimeDocumentEvent.ASSET_FAILED,
+                        "$code:${url.path.orEmpty().take(96)}",
+                    )
+                }
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
+                if (url == TrustedRuntimeOrigin.entryUrl) {
+                    onDocumentEvent(generation, RuntimeDocumentEvent.DOCUMENT_FINISHED, null)
+                }
                 // Prove the installed WebView runs the Widget runtime
                 // contract before its capabilities are ever advertised.
                 if (!probeDispatched && url == TrustedRuntimeOrigin.entryUrl) {

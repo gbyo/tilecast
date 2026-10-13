@@ -2,6 +2,7 @@ package org.tilecast.player.core
 
 import android.content.Context
 import android.util.Base64
+import android.util.Log
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebResourceResponse
@@ -15,6 +16,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
@@ -27,12 +31,12 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
-import org.tilecast.player.network.PlayerPresentationSupport
 import org.tilecast.player.runtime.FrameAuthorization
 import org.tilecast.player.runtime.HostChannel
 import org.tilecast.player.runtime.MediaAuthorization
 import org.tilecast.player.runtime.RuntimeBridgeProtocol
 import org.tilecast.player.runtime.RuntimeComponentProbe
+import org.tilecast.player.runtime.RuntimeDocumentEvent
 import org.tilecast.player.runtime.RuntimeCrashPolicy
 import org.tilecast.player.runtime.RuntimeHostSession
 import org.tilecast.player.runtime.RuntimePresentationBuilder
@@ -72,6 +76,13 @@ class WebViewCoreRenderer(
      * reconciled on the probe result.
      */
     private val onCapabilitiesChanged: () -> Unit = {},
+    /**
+     * Suspends until Core can answer renderer reports. Production waits for
+     * the process-level host to open; the handshake sends `connected` only
+     * after this returns, and retries a refusal. The default never waits.
+     */
+    awaitCoreReady: suspend () -> Unit = {},
+    private val log: RendererLog = AndroidRendererLog,
 ) : CoreRendererAdapter {
     data class CapturedImage(val bytes: ByteArray, val width: Int, val height: Int)
 
@@ -89,7 +100,22 @@ class WebViewCoreRenderer(
     }
     private val scope = CoroutineScope(SupervisorJob() + worker.asCoroutineDispatcher())
     private val lock = Any()
-    private val crashPolicy = RuntimeCrashPolicy()
+    private val crashPolicy = RuntimeCrashPolicy(RendererGenerations::allocate)
+    private val handshake = RendererHandshake(
+        scope = scope,
+        report = report,
+        awaitCoreReady = awaitCoreReady,
+        readyReport = ::readyReport,
+        log = log,
+    )
+
+    /** The handshake's view of the runtime: the UI keeps a status surface until [RendererPhase.READY]. */
+    val lifecycle: StateFlow<RendererLifecycle> = handshake.lifecycle
+
+    private val mutableView = MutableStateFlow<WebView?>(null)
+
+    /** The live WebView as a flow, so every host that shows it follows recreation. */
+    val viewFlow: StateFlow<WebView?> = mutableView.asStateFlow()
 
     private var owner: TrustedRuntimeWebView? = null
     private var webView: WebView? = null
@@ -101,6 +127,8 @@ class WebViewCoreRenderer(
 
     @Volatile
     private var grants: Grants? = null
+
+    private var evidenceLogged: Pair<String, Long>? = null
 
     /** The live WebView for the UI host to attach, if the renderer started. */
     val view: WebView?
@@ -145,11 +173,14 @@ class WebViewCoreRenderer(
                     onComponentProbeDone = { passed ->
                         if (passed) scope.launch { rereportReady() }
                     },
+                    onDocumentEvent = ::onDocumentEvent,
                 )
+                log.event("webview_creating", mapOf("generation" to crashPolicy.currentGeneration()))
                 when (val endpoint = candidate.create()) {
                     is TrustedRuntimeEndpoint.Ready -> {
                         owner = candidate
                         webView = endpoint.webView
+                        mutableView.value = endpoint.webView
                         liveGeneration = endpoint.generation
                         session = newSession(endpoint.generation)
                         started = true
@@ -160,15 +191,28 @@ class WebViewCoreRenderer(
                     }
                 }
             }
-            reportConnected(liveGeneration)
+            if (!unsupported) {
+                log.event("webview_created", mapOf("generation" to liveGeneration))
+                handshake.begin(liveGeneration)
+            }
         }
         if (unsupported) notifyRuntimeUnsupported()
         return synchronized(lock) { started }
     }
 
+    /**
+     * Replaces the WebView with a fresh one under a new generation: the
+     * operator's recovery for a runtime that never got ready, and the same
+     * path Core's restart request and a renderer-process death take.
+     */
+    suspend fun restart() {
+        log.event("restart_requested", mapOf("generation" to liveGeneration))
+        if (synchronized(lock) { started }) recreate() else start()
+    }
+
     /** Reports the unsupported runtime to Core and notifies the host. */
     private fun notifyRuntimeUnsupported() {
-        scope.launch { runCatching { report("""{"type":"unsupported"}""") } }
+        handshake.unsupported()
         runCatching { onRuntimeUnsupported?.invoke() }
     }
 
@@ -176,7 +220,7 @@ class WebViewCoreRenderer(
     suspend fun close() {
         val dead = liveGeneration
         liveGeneration = 0L
-        if (dead != 0L) runCatching { report(disconnectedReport(dead)) }
+        if (dead != 0L) runCatching { handshake.end(dead) }
         withContext(Dispatchers.Main.immediate) {
             synchronized(lock) {
                 webView?.let { view ->
@@ -185,6 +229,7 @@ class WebViewCoreRenderer(
                 }
                 owner = null
                 webView = null
+                mutableView.value = null
                 session = null
                 grants = null
                 started = false
@@ -314,6 +359,10 @@ class WebViewCoreRenderer(
             live.currentStateGeneration()
         }
         owner?.nudge(view, stateGeneration)
+        log.event(
+            "activation_queued",
+            mapOf("generation" to liveGeneration, "activation" to activationId, "activationGeneration" to generation),
+        )
         return CoreRendererRequestCode.QUEUED
     }
 
@@ -444,7 +493,7 @@ class WebViewCoreRenderer(
         val dead = liveGeneration
         if (dead == 0L) return
         liveGeneration = 0L
-        runCatching { report(disconnectedReport(dead)) }
+        runCatching { handshake.end(dead) }
         withContext(Dispatchers.Main.immediate) {
             var swapped: WebView? = null
             val fresh = synchronized(lock) {
@@ -457,19 +506,24 @@ class WebViewCoreRenderer(
                 val endpoint = created as? TrustedRuntimeEndpoint.Ready ?: run {
                     started = false
                     webView = null
+                    mutableView.value = null
                     session = null
                     grants = null
                     notifyRuntimeUnsupported()
                     return@withContext
                 }
                 webView = endpoint.webView
+                mutableView.value = endpoint.webView
                 liveGeneration = endpoint.generation
                 session = newSession(endpoint.generation)
                 swapped = endpoint.webView
                 endpoint.generation
             }
             swapped?.let { onViewRecreated?.invoke(it) }
-            if (fresh != 0L) reportConnected(fresh)
+            if (fresh != 0L) {
+                log.event("renderer_replaced", mapOf("previous" to dead, "generation" to fresh))
+                handshake.begin(fresh)
+            }
         }
     }
 
@@ -531,9 +585,13 @@ class WebViewCoreRenderer(
     private suspend fun forwardToCore(payload: String, generation: Long) {
         if (generation != liveGeneration) return
         when (val parsed = RuntimeBridgeProtocol.parseRuntimeReport(payload)) {
-            is RuntimeBridgeProtocol.RuntimeReport.Ready -> report(readyReport(generation))
+            is RuntimeBridgeProtocol.RuntimeReport.Ready -> handshake.runtimeReady(generation)
             is RuntimeBridgeProtocol.RuntimeReport.PresentationResult -> {
                 val ref = activationRefOf(payload) ?: return
+                log.event(
+                    if (parsed.outcome == "accepted") "activation_accepted" else "activation_rejected",
+                    mapOf("generation" to generation, "activation" to ref.first, "activationGeneration" to ref.second),
+                )
                 if (parsed.outcome == "accepted") {
                     report(
                         buildJsonObject {
@@ -557,6 +615,13 @@ class WebViewCoreRenderer(
             }
             is RuntimeBridgeProtocol.RuntimeReport.Evidence -> {
                 val ref = activationRefOf(payload) ?: return
+                if (evidenceLogged != ref) {
+                    evidenceLogged = ref
+                    log.event(
+                        "first_playback_evidence",
+                        mapOf("generation" to generation, "activation" to ref.first, "kind" to parsed.kind),
+                    )
+                }
                 report(
                     buildJsonObject {
                         put("type", "progress")
@@ -608,108 +673,47 @@ class WebViewCoreRenderer(
         return direct to 0L
     }
 
-    private fun readyReport(generation: Long): String {
-        val support = RuntimeSupportAssessment.assess(
-            componentProbePassed = RuntimeComponentProbe.passed,
+    private fun readyReport(generation: Long): String =
+        RendererReadyReport.build(
+            generation,
+            RuntimeSupportAssessment.assess(componentProbePassed = RuntimeComponentProbe.passed),
         )
-        val schemas = RuntimeSupportAssessment.schemasFor(support)
-        return buildJsonObject {
-            put("type", "ready")
-            put("generation", generation)
-            put(
-                "report",
-                buildJsonObject {
-                    put("features", JsonArray(FEATURES.map { JsonPrimitive(it) }))
-                    put(
-                        "support",
-                        buildJsonObject {
-                            put(
-                                "presentationSchemas",
-                                JsonArray(schemas.map { JsonPrimitive(it) }),
-                            )
-                            put(
-                                "declarativeCapabilities",
-                                buildJsonObject {
-                                    // An untrusted runtime advertises
-                                    // nothing: the server must not
-                                    // negotiate content this build cannot
-                                    // render.
-                                    if (support.trustedRuntimeSupported) {
-                                        for ((name, version) in PlayerPresentationSupport.native) {
-                                            put(name, version)
-                                        }
-                                    }
-                                },
-                            )
-                            put(
-                                "widgetComponents",
-                                buildJsonObject {
-                                    if (support.componentRuntimeSupported) {
-                                        for ((name, version) in WidgetComponentCapabilities.WIDGET_COMPONENT_CAPABILITIES) {
-                                            put(name, version)
-                                        }
-                                        // The frame execution ABI is one capability for every
-                                        // downloaded Widget, not a discovered component: this
-                                        // release confines served frames, so it offers it.
-                                        put("widget.external-runtime", 2)
-                                    }
-                                },
-                            )
-                        },
-                    )
-                },
-            )
-        }.toString()
-    }
 
-    private suspend fun reportConnected(generation: Long) {
-        if (generation == 0L) return
-        runCatching {
-            report(
-                buildJsonObject {
-                    put("type", "connected")
-                    put("generation", generation)
-                }.toString(),
-            )
-        }
-    }
-
-    private suspend fun rereportReady() {
+    private fun rereportReady() {
         val generation = liveGeneration
         if (generation == 0L) return
-        runCatching { report(readyReport(generation)) }
+        handshake.supportChanged(generation)
         runCatching { onCapabilitiesChanged() }
     }
 
+    private fun onDocumentEvent(generation: Long, event: String, code: String?) {
+        log.event(event, mapOf("generation" to generation, "code" to code))
+        if (event == RuntimeDocumentEvent.DOCUMENT_FAILED) {
+            handshake.fail(generation, "runtime_load_failed:${code ?: "unknown"}".take(64))
+        }
+    }
+
     private suspend fun onRendererGone(dead: Long) {
+        log.event("render_process_gone", mapOf("generation" to dead, "current" to liveGeneration))
         if (dead == 0L || dead != liveGeneration) return
         recreate()
     }
 
-    private fun disconnectedReport(generation: Long): String =
-        buildJsonObject {
-            put("type", "disconnected")
-            put("generation", generation)
-        }.toString()
-
     companion object {
         const val MAX_ENVELOPE_CHARS = 8 * 1024 * 1024
-
-        /** The page features Core dispatch may rely on. Mirrors the legacy stage. */
-        val FEATURES = listOf(
-            "status-surfaces-v1",
-            "image",
-            "video",
-            "render-tree-v1",
-            "layout-v1",
-            "synchronized-playback-v1",
-            "span-viewport-v1",
-            "remote-web-v1",
-            "website",
-            "youtube",
-        )
     }
 }
 
 private fun JsonObject.stringOrNull(key: String): String? =
     this[key]?.jsonPrimitive?.contentOrNull
+
+/** Writes renderer lifecycle events to logcat under one filterable tag. */
+object AndroidRendererLog : RendererLog {
+    const val TAG = "TilecastRenderer"
+
+    override fun event(name: String, fields: Map<String, Any?>) {
+        val line = RendererLog.render(name, fields)
+        val failure = name.endsWith("_failed") || name == "render_process_gone" || name == "connected_retry_scheduled"
+        runCatching { if (failure) Log.w(TAG, line) else Log.i(TAG, line) }
+    }
+}

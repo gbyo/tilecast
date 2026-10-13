@@ -163,6 +163,41 @@ func TestPlaylistAssignmentManifestLifecycle(t *testing.T) {
 	if manifest.SchemaVersion != 11 || manifest.DirectFallbackPlaylist == nil || len(manifest.DirectFallbackPlaylist.Items) != 2 || len(manifest.Assets) != 2 {
 		t.Fatalf("manifest=%#v", manifest)
 	}
+	// Changing a screen's default content from A to B must reach the Player:
+	// the assignment commits, the manifest version increases, the screen's
+	// manifest names B, and the notifier wakes the connected Player exactly for
+	// that new version. The Player side of this chain is tested in
+	// apps/player-android/native (changing_default_content_*).
+	versionBefore, notificationsBefore := manifest.ManifestVersion, len(notifier.versions)
+	replacement, err := service.Create(ctx, owner.User.ID, "Replacement content", "", "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replacement, err = service.AddItem(ctx, replacement.ID, owner.User.ID, ItemInput{AssetID: imageID}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, ctx, service, replacement.ID, owner.User.ID)
+	if _, err = service.Assign(ctx, screenID, replacement.ID, owner.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	replaced, replacedETag, err := service.BuildManifest(ctx, screenID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replaced.ManifestVersion <= versionBefore || replacedETag == etag {
+		t.Fatalf("default content change did not change the manifest: before=%d after=%d", versionBefore, replaced.ManifestVersion)
+	}
+	if replaced.DirectFallbackPlaylist == nil || replaced.DirectFallbackPlaylist.ID != replacement.ID {
+		t.Fatalf("manifest still names the old default content: %#v", replaced.DirectFallbackPlaylist)
+	}
+	if len(notifier.versions) <= notificationsBefore || notifier.versions[len(notifier.versions)-1] != replaced.ManifestVersion {
+		t.Fatalf("the Player was not told about version %d: notifications=%v", replaced.ManifestVersion, notifier.versions)
+	}
+	// Put the original default content back for the rest of this test.
+	if _, err = service.Assign(ctx, screenID, playlist.ID, owner.User.ID); err != nil {
+		t.Fatal(err)
+	}
+
 	tagID := uuid.New()
 	availableFrom := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
 	expiresAt := time.Now().UTC().Add(time.Hour).Truncate(time.Second)

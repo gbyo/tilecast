@@ -187,12 +187,14 @@ func TestLayoutDraftPublishAndRestoreLifecycle(t *testing.T) {
 		assetID    *uuid.UUID
 		layoutID   *uuid.UUID
 		shouldPass bool
+		// listed is how the rejection names the offending item.
+		listed string
 	}{
 		{name: "image", assetID: &assetID, shouldPass: true},
 		{name: "video", assetID: &videoA, shouldPass: true},
-		{name: "Widget", assetID: &widgetID},
-		{name: "Website", assetID: &websiteID},
-		{name: "nested Layout", layoutID: &nestedLayout.ID},
+		{name: "Widget", assetID: &widgetID, listed: "clock (Widget)"},
+		{name: "Website", assetID: &websiteID, listed: "website (Website)"},
+		{name: "nested Layout", layoutID: &nestedLayout.ID, listed: "Nested (Layout)"},
 	} {
 		playlistID := uuid.New()
 		if _, err = pool.Exec(ctx, `INSERT INTO playlists(id,organization_id,name,created_by)VALUES($1,$2,$3,$4)`, playlistID, organizationID, fixture.name, owner.User.ID); err != nil {
@@ -215,8 +217,35 @@ func TestLayoutDraftPublishAndRestoreLifecycle(t *testing.T) {
 		if fixture.shouldPass && err != nil {
 			t.Fatalf("%s zone should publish: %v", fixture.name, err)
 		}
+		if fixture.shouldPass {
+			// A Playlist that was valid when the Layout published can change
+			// later; assignment readiness runs this same check and must catch it.
+			if err = ValidatePlaylistZoneMediaOnly(ctx, pool, &playlistID); err != nil {
+				t.Fatalf("%s zone playlist is still valid: %v", fixture.name, err)
+			}
+			if _, err = pool.Exec(ctx, `INSERT INTO playlist_items(id,playlist_id,asset_id,position)VALUES($1,$2,$3,1)`, uuid.New(), playlistID, websiteID); err != nil {
+				t.Fatal(err)
+			}
+			err = ValidatePlaylistZoneMediaOnly(ctx, pool, &playlistID)
+			if err == nil || !strings.Contains(err.Error(), "website (Website)") || !strings.Contains(err.Error(), `Playlist "`+fixture.name+`"`) {
+				t.Fatalf("a Website added to the %s zone playlist after publication should be reported by name, got %v", fixture.name, err)
+			}
+			err = nil
+		}
 		if !fixture.shouldPass && (err == nil || !strings.Contains(err.Error(), "only image and video items")) {
 			t.Fatalf("%s zone should be rejected, got %v", fixture.name, err)
+		}
+		if !fixture.shouldPass {
+			// The rejection names the Playlist and the offending item so the operator can act on it.
+			var unsupported *PlaylistZoneUnsupportedError
+			if !errors.As(err, &unsupported) {
+				t.Fatalf("%s zone rejection should be a PlaylistZoneUnsupportedError, got %T", fixture.name, err)
+			}
+			for _, want := range []string{`Playlist "` + fixture.name + `"`, fixture.listed, "place them in the Layout directly"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("%s zone rejection %q should mention %q", fixture.name, err.Error(), want)
+				}
+			}
 		}
 	}
 }

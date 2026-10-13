@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -529,6 +530,16 @@ class PlayerCoreHost private constructor(
     val state: StateFlow<CoreHostState> = _state.asStateFlow()
     private val _pairingState = MutableStateFlow<CorePairingState>(CorePairingState.Unknown)
     val pairingState: StateFlow<CorePairingState> = _pairingState.asStateFlow()
+
+    /**
+     * Suspends until the native host is open and can answer renderer reports.
+     * Event driven: it returns when [state] becomes [CoreHostState.Ready], with
+     * no polling and no delay. A host that failed to open never returns, and
+     * callers must be cancellable.
+     */
+    suspend fun awaitReady() {
+        state.first { it is CoreHostState.Ready }
+    }
 
     /** Starts the host. Safe to call twice; the second call is a no-op. */
     suspend fun start() {

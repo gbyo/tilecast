@@ -34,6 +34,57 @@ export function isPlaylistZoneMediaItem(item: {
   );
 }
 
+/** What kind of item a Layout playlist zone cannot play. */
+export type PlaylistZoneItemKind =
+  "widget" | "website" | "youtube" | "layout" | "other";
+
+export interface PlaylistZoneItemLike {
+  id: string;
+  /** The operator-facing name of the item's asset or Layout. */
+  assetName: string;
+  assetType: string;
+  widgetProvider?: string | null;
+  layoutId?: string | null;
+}
+
+export interface PlaylistZoneUnsupportedItem {
+  id: string;
+  name: string;
+  kind: PlaylistZoneItemKind;
+}
+
+/**
+ * Names why a Playlist item cannot play in a Layout playlist zone, or null
+ * when it can. This is the one place the media-only rule is described to an
+ * operator: it classifies exactly the items {@link isPlaylistZoneMediaItem}
+ * rejects, and the server's publication and assignment checks reject the same
+ * set, so Studio can only warn about what would fail.
+ */
+export function classifyPlaylistZoneItem(
+  item: Pick<PlaylistZoneItemLike, "assetType" | "widgetProvider" | "layoutId">,
+): PlaylistZoneItemKind | null {
+  if (isPlaylistZoneMediaItem(item)) return null;
+  if (item.layoutId || item.assetType === "layout") return "layout";
+  if (item.assetType === "widget") {
+    if (item.widgetProvider === "website") return "website";
+    if (item.widgetProvider === "youtube") return "youtube";
+    return "widget";
+  }
+  return "other";
+}
+
+/** The items of a Playlist that a Layout playlist zone cannot play, in playlist order. */
+export function playlistZoneUnsupportedItems(
+  items: readonly PlaylistZoneItemLike[],
+): PlaylistZoneUnsupportedItem[] {
+  const unsupported: PlaylistZoneUnsupportedItem[] = [];
+  for (const item of items) {
+    const kind = classifyPlaylistZoneItem(item);
+    if (kind) unsupported.push({ id: item.id, name: item.assetName, kind });
+  }
+  return unsupported;
+}
+
 /** Eligibility for an exact media reference in a Layout playlist zone. */
 export function resolveMediaEligibility(
   item: MediaItem,

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"image/jpeg"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -636,6 +637,8 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 // ValidatePlaylistZoneMediaOnly rejects Playlist items that the bounded Player
 // zone contract cannot project. Keep this check available to assignment
 // readiness as well as Layout publication because a Playlist can change later.
+// The error names the Playlist and the offending items so an operator can fix
+// the content instead of guessing; the media-only rule itself is unchanged.
 func ValidatePlaylistZoneMediaOnly(ctx context.Context, q interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }, playlistID *uuid.UUID) error {
@@ -650,10 +653,77 @@ func ValidatePlaylistZoneMediaOnly(ctx context.Context, q interface {
 	)`, *playlistID).Scan(&unsupported); err != nil {
 		return err
 	}
-	if unsupported {
-		return errors.New("Layout playlist zones support only image and video items")
+	if !unsupported {
+		return nil
 	}
-	return nil
+	return &PlaylistZoneUnsupportedError{Detail: describePlaylistZoneItems(ctx, q, *playlistID)}
+}
+
+// PlaylistZoneUnsupportedError is returned when a Layout playlist zone points
+// at a Playlist with items other than images and videos.
+type PlaylistZoneUnsupportedError struct {
+	// Detail names the Playlist and its offending items. It can be empty when
+	// the lookup that builds it fails; the rule violation stands regardless.
+	Detail string
+}
+
+func (e *PlaylistZoneUnsupportedError) Error() string {
+	message := "Layout playlist zones support only image and video items"
+	if e.Detail == "" {
+		return message
+	}
+	return message + ". " + e.Detail
+}
+
+// maxZoneItemsNamed bounds how many offending items an error lists.
+const maxZoneItemsNamed = 5
+
+func describePlaylistZoneItems(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, playlistID uuid.UUID) string {
+	var name string
+	var total int
+	var items []byte
+	err := q.QueryRow(ctx, `SELECT p.name,
+		(SELECT count(*) FROM playlist_items i LEFT JOIN assets a ON a.id=i.asset_id
+			WHERE i.playlist_id=p.id AND (i.layout_id IS NOT NULL OR a.type NOT IN ('image','video'))),
+		COALESCE((SELECT jsonb_agg(jsonb_build_object('name',x.name,'kind',x.kind) ORDER BY x.position) FROM (
+			SELECT i.position, COALESCE(a.name,l.name,'') AS name,
+				CASE WHEN i.layout_id IS NOT NULL THEN 'Layout'
+					WHEN w.provider='website' THEN 'Website'
+					WHEN w.provider='youtube' THEN 'YouTube'
+					WHEN a.type='widget' THEN 'Widget'
+					ELSE 'Item' END AS kind
+			FROM playlist_items i
+			LEFT JOIN assets a ON a.id=i.asset_id
+			LEFT JOIN layouts l ON l.id=i.layout_id
+			LEFT JOIN widgets w ON w.asset_id=a.id
+			WHERE i.playlist_id=p.id AND (i.layout_id IS NOT NULL OR a.type NOT IN ('image','video'))
+			ORDER BY i.position LIMIT `+strconv.Itoa(maxZoneItemsNamed)+`) x),'[]'::jsonb)
+		FROM playlists p WHERE p.id=$1`, playlistID).Scan(&name, &total, &items)
+	if err != nil {
+		return ""
+	}
+	var named []struct {
+		Name string `json:"name"`
+		Kind string `json:"kind"`
+	}
+	if json.Unmarshal(items, &named) != nil || len(named) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(named))
+	for _, item := range named {
+		if item.Name == "" {
+			parts = append(parts, item.Kind)
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s (%s)", item.Name, item.Kind))
+	}
+	listed := strings.Join(parts, ", ")
+	if total > len(named) {
+		listed += fmt.Sprintf(", and %d more", total-len(named))
+	}
+	return fmt.Sprintf("Playlist %q contains items a zone cannot play: %s. Remove them from the Playlist, or place them in the Layout directly.", name, listed)
 }
 
 // validateStructuredBindingsTx checks that each custom text binding references an existing
