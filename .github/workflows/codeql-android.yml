@@ -93,7 +93,7 @@ jobs:
           sdkmanager --install "ndk;29.0.14206865"
       - name: Initialize CodeQL
         if: steps.changes.outputs.changed == 'true'
-        uses: github/codeql-action/init@v4.38.2
+        uses: github/codeql-action/init@v4.38.3
         with:
           languages: java-kotlin
           build-mode: manual
@@ -104,7 +104,7 @@ jobs:
         run: ./gradlew --no-build-cache clean assembleDebug
       - name: Analyze
         if: steps.changes.outputs.changed == 'true'
-        uses: github/codeql-action/analyze@v4.38.2
+        uses: github/codeql-action/analyze@v4.38.3
         with:
           category: "/language:java-kotlin"
       - name: Create unaffected result
@@ -122,7 +122,7 @@ jobs:
           EOF
       - name: Upload unaffected result
         if: steps.changes.outputs.changed == 'false'
-        uses: github/codeql-action/upload-sarif@v4.38.2
+        uses: github/codeql-action/upload-sarif@v4.38.3
         with:
           sarif_file: unaffected.sarif
           category: "/language:java-kotlin"
