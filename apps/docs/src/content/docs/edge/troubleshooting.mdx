@@ -31,6 +31,31 @@ journalctl -u tilecast-renderer.service
   - `self_test_failed: renderer_start_failed` or `renderer_exited` means the test renderer didn't start or stopped. The text after it has the exit status or signal and the last line it printed. A message that mentions `bwrap` points to missing `bubblewrap` or blocked user namespaces.
   - `self_test_failed: fixture_import_failed` means the built-in test content couldn't be stored, for example because the disk is full.
 
+## Before you reinstall or replace storage
+
+If Edge is still reachable, collect status and logs before you restart or reinstall anything. Use Studio's **Player health**, **Activity**, and **Live preview** first, then `tilecastctl status` and the two service journals above. If playback is stuck but the daemon is healthy, try **Retry current item** or **Reload playback** from the screen's commands before restarting the Player.
+
+Edge does not provide a supported export/import command for moving its local identity and content cache to another drive. The credential, state database, and verified content store are one local state set under `/var/lib/tilecast-edge/`; copying only part of that directory can leave an unusable or unsafe clone. The media cache is disposable and can be downloaded again.
+
+For a failing SSD or USB device, install Edge on the replacement storage and use [Pair or replace a screen](../../screens/pair-and-replace/) > **Replace hardware for an existing screen**. The logical screen keeps its Display Group membership, assignments, schedules, policies, and history while the new Player receives a new device credential and downloads what it needs. Do not boot both an old cloned installation and its replacement with the same copied state.
+
+If the same physical Player installation is still intact and only its credential needs repair, use **Repair existing credential** instead of hardware replacement.
+
+## Share diagnostics safely
+
+For a public issue, prefer bounded command output instead of copying Player state:
+
+```sh title="Recent Edge logs"
+ /opt/tilecast-edge/current/bin/tilecastctl status
+ /opt/tilecast-edge/current/bin/tilecastctl capabilities
+ journalctl -u tilecast-edge.service --since "30 minutes ago" --no-pager
+ journalctl -u tilecast-renderer.service --since "30 minutes ago" --no-pager
+```
+
+Review the output for private hostnames, IP addresses, screen names, or content names before posting it. Do not upload `state.db`, the `identity/` directory, device credentials, pairing secrets, or the contents of `/var/lib/tilecast-edge/`. Preview backend logs do not contain pixel data or credentials.
+
+A capture-backend problem and a renderer crash look different. If `tilecastctl status` says the renderer is healthy and the renderer journal has `preview:` messages such as `falling back to WebKit snapshot`, playback is alive and capture is degraded. If the renderer is disconnected, restarting, or the renderer service journal shows process exits, investigate the renderer failure first.
+
 ## Updates
 
 ```sh title="On the Edge computer"
