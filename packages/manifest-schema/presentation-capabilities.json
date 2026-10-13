@@ -107,6 +107,11 @@
       "baseline": true
     },
     {
+      "name": "layout.playlist_widgets",
+      "version": 1,
+      "baseline": false
+    },
+    {
       "name": "layout.spacer",
       "version": 1,
       "baseline": true

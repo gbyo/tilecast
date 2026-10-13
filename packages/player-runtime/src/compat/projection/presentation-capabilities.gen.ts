@@ -24,6 +24,7 @@ export const SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES = Object.freez
   "layout.column": 1,
   "layout.divider": 1,
   "layout.grid": 1,
+  "layout.playlist_widgets": 1,
   "layout.row": 1,
   "layout.spacer": 1,
   "layout.stack": 1,

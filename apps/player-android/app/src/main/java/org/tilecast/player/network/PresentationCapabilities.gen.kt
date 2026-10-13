@@ -25,6 +25,7 @@ object PresentationCapabilities {
         "layout.column" to 1,
         "layout.divider" to 1,
         "layout.grid" to 1,
+        "layout.playlist_widgets" to 1,
         "layout.row" to 1,
         "layout.spacer" to 1,
         "layout.stack" to 1,

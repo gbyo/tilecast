@@ -28,6 +28,59 @@ function item(
 }
 
 describe("layout playlist-zone playback", () => {
+  it("times Widgets only after readiness, preserves remaining time, and rejects duplicate and stale completions", () => {
+    const clock = new ManualClock({ wallMs: 0 });
+    const widget: RuntimeLayoutZonePlaylistItem = {
+      id: "widget",
+      kind: "widget",
+      durationMs: 100,
+      widget: {
+        background: "#000",
+        root: { t: "text", value: "Welcome", style: {} },
+      },
+    };
+    const actor = createActor(zoneMachine, {
+      input: { items: [widget, item("next")], clock, onReady() {} },
+    });
+    actor.start();
+    const epoch = actor.getSnapshot().context.epoch;
+    clock.advance(100_000);
+    expect(actor.getSnapshot().context.shown).toBe(1);
+    actor.send({ type: "MEDIA_READY", epoch });
+    clock.advance(40);
+    actor.send({ type: "MEDIA_READY", epoch });
+    actor.send({ type: "PAUSE", epoch });
+    clock.advance(1000);
+    actor.send({ type: "RESUME", epoch });
+    clock.advance(59);
+    expect(actor.getSnapshot().context.shown).toBe(1);
+    clock.advance(1);
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    actor.send({ type: "MEDIA_ENDED", epoch });
+    actor.send({ type: "MEDIA_FAILED", epoch });
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    actor.stop();
+    expect(clock.pendingTimers).toBe(0);
+  });
+
+  it("holds bounded timed Widgets to continuing evidence", () => {
+    expect(
+      zoneOwesContinuingEvidence({
+        playlistItems: [
+          { kind: "image", durationMs: 1000 },
+          { kind: "widget", durationMs: 30_000 },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      zoneOwesContinuingEvidence({
+        playlistItems: [
+          { kind: "widget", durationMs: 600_000 },
+          { kind: "image", durationMs: 1000 },
+        ],
+      }),
+    ).toBe(false);
+  });
   it.each(fixtures.advance)("$name", (fixture) => {
     const clock = new ManualClock({ wallMs: 0 });
     const actor = createActor(zoneMachine, {

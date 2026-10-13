@@ -30,6 +30,8 @@ import type { MediaSurface, SurfaceEnvironment, SurfaceSink } from "./surface";
 import type { WidgetExecution } from "@tilecast/widget-sdk/executor";
 import { ImageSurface } from "./image-surface";
 import { HtmlVideoSurface } from "./video-surface";
+import { ComponentWidgetSurface } from "./component-widget-surface";
+import { WidgetSurface } from "./widget-surface";
 
 export class LayoutSurface implements MediaSurface {
   readonly element: HTMLDivElement;
@@ -308,11 +310,19 @@ export class LayoutSurface implements MediaSurface {
     container.style.position = "relative";
     container.style.visibility = "visible";
     const owned = new Set<MediaSurface>();
+    const youtube = new Set<MediaSurface>();
+    const hasYouTube = items.some(
+      (entry) =>
+        entry.kind === "remote-web" &&
+        entry.remoteWeb.content.kind === "youtube",
+    );
+    const youtubeAllowed = !hasYouTube || this.youtubeZones++ === 0;
     let visible: MediaSurface | null = null;
     let current: { activate(): void; pause(): void } | null = null;
     let mounted = -1;
     let transition: Animation[] = [];
     let transitionToken = 0;
+    const frames = new Set<number>();
     const cancelTransition = () => {
       transitionToken += 1;
       for (const animation of transition) animation.cancel();
@@ -322,12 +332,15 @@ export class LayoutSurface implements MediaSurface {
       surface.dispose();
       surface.element.remove();
       owned.delete(surface);
+      youtube.delete(surface);
     };
     const actor = createActor(zoneMachine, {
       input: { items, loop, clock: this.env.clock, onReady },
     });
     this.zoneTeardowns.push(() => {
       cancelTransition();
+      for (const frame of frames) cancelAnimationFrame(frame);
+      frames.clear();
       for (const surface of owned) release(surface);
       visible = null;
       current = null;
@@ -352,7 +365,10 @@ export class LayoutSurface implements MediaSurface {
       const { entry } = selected;
       cancelTransition();
       for (const surface of owned) {
-        if (surface !== visible) release(surface);
+        if (surface !== visible || youtube.has(surface)) {
+          if (surface === visible) visible = null;
+          release(surface);
+        }
       }
       let failedOnce = false;
       let prepared = false;
@@ -385,6 +401,12 @@ export class LayoutSurface implements MediaSurface {
       const zoneSink: SurfaceSink = {
         ...this.env.sink,
         failed,
+        websiteFailed: (reason) => failed(`website failed: ${reason}`),
+        websiteRecovered: () => {
+          if (isCurrent()) this.env.sink.websiteRecovered();
+        },
+        fallbackShown: () => undefined,
+        widgetEmpty: () => undefined,
         ended: (source) => {
           if (!isCurrent() || !this.active || !accepted || completed) return;
           completed = true;
@@ -400,21 +422,64 @@ export class LayoutSurface implements MediaSurface {
             this.env.sink.evidence(kind, zoneId);
         },
       };
+      const media =
+        entry.kind === "image" || entry.kind === "video" ? entry : null;
       const item: RuntimeItem = {
         id: entry.id,
-        kind: entry.kind,
-        src: entry.src,
+        kind:
+          entry.kind === "remote-web"
+            ? entry.remoteWeb.content.kind === "youtube"
+              ? "youtube"
+              : "website"
+            : entry.kind,
+        src: media?.src ?? "",
         durationMs: entry.durationMs,
-        fitMode: entry.fit,
-        audioEnabled: !entry.muted,
-        volume: entry.volume,
-        videoStartOffsetMs: entry.videoStartOffsetMs ?? null,
-        videoEndOffsetMs: entry.videoEndOffsetMs ?? null,
+        fitMode: media?.fit ?? "fill",
+        audioEnabled: media
+          ? !media.muted
+          : entry.kind === "remote-web"
+            ? (entry.audioEnabled ?? false)
+            : false,
+        volume:
+          media?.volume ??
+          (entry.kind === "remote-web" ? (entry.volume ?? 0) : 0),
+        videoStartOffsetMs: media?.videoStartOffsetMs ?? null,
+        videoEndOffsetMs: media?.videoEndOffsetMs ?? null,
+        ...(entry.kind === "widget" ? { widget: entry.widget } : {}),
+        ...(entry.kind === "remote-web" ? { remoteWeb: entry.remoteWeb } : {}),
       };
-      const incoming =
-        entry.kind === "video"
-          ? new HtmlVideoSurface(item, { ...this.env, sink: zoneSink }, epoch)
-          : new ImageSurface(item);
+      let incoming: MediaSurface;
+      try {
+        const environment = { ...this.env, sink: zoneSink };
+        switch (entry.kind) {
+          case "image":
+            incoming = new ImageSurface(item);
+            break;
+          case "video":
+            incoming = new HtmlVideoSurface(item, environment, epoch);
+            break;
+          case "widget":
+            incoming =
+              "component" in entry.widget
+                ? new ComponentWidgetSurface(item, environment)
+                : new WidgetSurface(item, environment);
+            break;
+          case "remote-web": {
+            // Reserve YouTube ownership for the whole zone, including while
+            // the zone is preparing or transitioning to another occurrence.
+            if (entry.remoteWeb.content.kind === "youtube" && !youtubeAllowed)
+              throw new Error("youtube_concurrent_player");
+            const surface = this.env.remoteWeb?.(item, zoneSink);
+            if (!surface)
+              throw new Error("remote web is not available on this display");
+            incoming = surface;
+            break;
+          }
+        }
+      } catch (error) {
+        queueMicrotask(() => failed(String(error)));
+        return;
+      }
       const element = incoming.element;
       element.style.position = "absolute";
       element.style.inset = "0";
@@ -423,6 +488,11 @@ export class LayoutSurface implements MediaSurface {
       element.style.borderRadius = `${entry.radius ?? 0}px`;
       element.style.visibility = "hidden";
       owned.add(incoming);
+      if (
+        entry.kind === "remote-web" &&
+        entry.remoteWeb.content.kind === "youtube"
+      )
+        youtube.add(incoming);
       container.appendChild(element);
 
       const show = () => {
@@ -471,9 +541,25 @@ export class LayoutSurface implements MediaSurface {
             if (incoming instanceof HtmlVideoSurface)
               incoming.element.loop = selected.loop;
             if (accepted) return;
-            accepted = true;
-            show();
-            actor.send({ type: "MEDIA_READY", epoch });
+            const ready = () => {
+              if (
+                !isCurrent() ||
+                !this.active ||
+                token !== activation ||
+                accepted
+              )
+                return;
+              accepted = true;
+              show();
+              actor.send({ type: "MEDIA_READY", epoch });
+            };
+            if (entry.kind === "widget") {
+              const frame = requestAnimationFrame(() => {
+                frames.delete(frame);
+                ready();
+              });
+              frames.add(frame);
+            } else ready();
           },
           (error: unknown) =>
             failed(String((error as Error)?.message ?? error)),
