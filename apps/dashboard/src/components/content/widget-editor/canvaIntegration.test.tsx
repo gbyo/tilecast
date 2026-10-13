@@ -40,7 +40,9 @@ it("pastes, previews and saves Canva through the shared editor without claiming 
   const compile = vi
     .mocked(api.compileWidgetPreview)
     .mockResolvedValue(
-      compiled("https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed="),
+      compiled(
+        "https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed=",
+      ),
     );
   const create = vi
     .spyOn(api, "createWidget")
@@ -98,7 +100,9 @@ it("clears stale Canva frames while editing and reports errors without retaining
   const compile = vi
     .mocked(api.compileWidgetPreview)
     .mockResolvedValue(
-      compiled("https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed="),
+      compiled(
+        "https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed=",
+      ),
     );
   renderEditorRoute("/widgets/widget-1");
   await screen.findByTitle("Web Widget preview");
@@ -121,7 +125,9 @@ it("clears stale Canva frames while editing and reports errors without retaining
     "true",
   );
   compile.mockResolvedValue(
-    compiled("https://www.canva.com/design/DAGijklmnop/watch?autoplay=1&embed="),
+    compiled(
+      "https://www.canva.com/design/DAGijklmnop/watch?autoplay=1&embed=",
+    ),
   );
   fireEvent.change(input, {
     target: { value: "https://www.canva.com/design/DAGijklmnop/view" },
@@ -142,7 +148,9 @@ it("distinguishes an enforced local CSP block from an unverified external load",
   useViewport("tablet");
   mockEditorApi({ asset: savedWidget("canva", config) });
   vi.mocked(api.compileWidgetPreview).mockResolvedValue(
-    compiled("https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed="),
+    compiled(
+      "https://www.canva.com/design/DAGabcdefgh/watch?autoplay=1&embed=",
+    ),
   );
   renderEditorRoute("/widgets/widget-1");
   await screen.findByTitle("Web Widget preview");
