@@ -211,6 +211,15 @@ A Layout arranges Media, Widgets, static text, shapes, playlist zones, and group
 
 A Layout playlist zone supports only image and video items. Studio previews only those items. Layout publication and assignment validation reject a zone Playlist that contains a Widget, Website, or nested Layout, including content added after the Layout was published.
 
+Studio reports an unsupported zone Playlist before publication. The Layout editor reads each visible zone's Playlist and applies `playlistZoneUnsupportedItems` from `@tilecast/presentation-model`, the same rule as `isPlaylistZoneMediaItem` and the server's `ValidatePlaylistZoneMediaOnly`. When a Playlist has an unsupported item, Studio does these things:
+
+- It refuses to add the Playlist as a new zone, and names the offending items.
+- It marks the zone on the canvas instead of previewing the playable subset.
+- It shows the item names and kinds (Widget, Website, YouTube, Layout) in the zone inspector and in a banner above the canvas.
+- It disables Publish and Submit until the Playlist or the zone changes.
+
+Studio rechecks when the window regains focus, so a Playlist that changed after the zone referenced it shows the same report. The server remains the authority. Publication and assignment readiness return `layout_playlist_zone_unsupported` and `presentation_not_ready` with a message that names the Playlist and the items. Do not copy the media rule into another component. Extend the shared helper.
+
 A playlist zone uses the Player's image timing and playback defaults. An image uses its item duration or the configured default image duration. A video starts at its configured start offset and advances at its end offset, or when the media ends if there is no end offset. Videos do not use the image duration timer. A single-item looping zone restarts the video at its start offset. A non-looping zone pauses its final video at its end offset. Studio uses the same rules in the Layout preview.
 
 Playlist-zone playback settings are part of the Player payload. The zone loop setting decides whether playback returns to the first playable item or stops on the last one. Each item keeps the zone's corner radius and its Playlist transition. When media fails, the fallback setting shows the Layout background, keeps the last successfully loaded item, or hides the zone. A failed item advances when another item is available. At a non-looping final item, the Player retries after two seconds.

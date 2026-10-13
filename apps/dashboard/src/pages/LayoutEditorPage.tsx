@@ -114,6 +114,11 @@ import { PlacementInspector } from "../components/layout-editor/PlacementInspect
 import { toast } from "../components/ui/toast";
 import { LayoutPlacementView as PlacementView } from "../components/layout-editor/LayoutPlacementView";
 import {
+  playlistZoneIssue,
+  playlistZoneQueryKey,
+  usePlaylistZoneIssues,
+} from "../components/layout-editor/playlistZoneIssues";
+import {
   LayoutCaptureCoordinator,
   LAYOUT_CAPTURE_SETTLE_TIMEOUT_MS,
   layoutPreviewNeedsCapture,
@@ -727,6 +732,9 @@ export function LayoutEditorPage() {
     [contentQuery.data?.items, definitionsQuery.data],
   );
   const [document, setDocument] = useState<LayoutDocument>();
+  // Playlist zones whose Playlist holds items a zone cannot play. Checked
+  // against the Playlist as it is now, so a later Playlist edit shows up too.
+  const zoneIssues = usePlaylistZoneIssues(document);
   const [selection, setSelection] = useState(new Set<string>());
   const [past, setPast] = useState<LayoutDocument[]>([]);
   const [future, setFuture] = useState<LayoutDocument[]>([]);
@@ -1575,17 +1583,36 @@ export function LayoutEditorPage() {
         : t("editor.addedMany", { count: assets.length }),
     );
   };
-  const addPlaylistZone = (
+  const addPlaylistZone = async (
     playlist: Playlist,
     position?: { x: number; y: number },
   ) => {
     if (!document) return;
-    rememberPlaylists([playlist]);
-    const item = createPlaylistZonePlacement(
-      playlist,
-      document.canvas,
-      position,
-    );
+    // The library list carries no item detail; the zone rule needs it.
+    const detail = await queryClient
+      .fetchQuery({
+        queryKey: playlistZoneQueryKey(playlist.id),
+        queryFn: () => api.playlist(playlist.id),
+        staleTime: 10_000,
+      })
+      .catch(() => playlist);
+    const issue = playlistZoneIssue({ id: "", name: playlist.name }, detail);
+    if (issue) {
+      toast.add({
+        title: t("zoneIssue.addRefusedTitle"),
+        description: t("zoneIssue.addRefusedDescription", {
+          playlist: playlist.name,
+          items: issue.items
+            .slice(0, 5)
+            .map((item) => `${item.name} (${t(`zoneIssue.kind.${item.kind}`)})`)
+            .join(", "),
+        }),
+        type: "error",
+      });
+      return;
+    }
+    rememberPlaylists([detail]);
+    const item = createPlaylistZonePlacement(detail, document.canvas, position);
     stack(item);
     setSelection(new Set([item.id]));
     announceAdded(playlist.name);
@@ -2354,7 +2381,7 @@ export function LayoutEditorPage() {
     position?: { x: number; y: number },
   ) => {
     if (item.kind === "asset") addContent(item.asset, position);
-    else addPlaylistZone(item.playlist, position);
+    else void addPlaylistZone(item.playlist, position);
   };
 
   const dropLibraryItem = (event: ReactDragEvent<HTMLDivElement>) => {
@@ -2463,6 +2490,7 @@ export function LayoutEditorPage() {
       playlist={
         primary.playlistId ? playlistByID.get(primary.playlistId) : undefined
       }
+      zoneIssue={zoneIssues.byPlacement.get(primary.id)}
       dataSources={dataSources}
       update={(change) => mutateSelected(change)}
       duplicate={duplicateSelection}
@@ -3681,6 +3709,7 @@ export function LayoutEditorPage() {
                         ? playlistByID.get(item.playlistId)
                         : undefined
                     }
+                    zoneIssue={zoneIssues.byPlacement.get(item.id)}
                     assetsById={contentByID}
                     canvas={document.canvas}
                     captureCoordinator={captureCoordinator}
@@ -3830,7 +3859,9 @@ export function LayoutEditorPage() {
                           <MenubarSeparator />
                           <MenubarItem
                             disabled={
-                              saveState !== "saved" || publish.isPending
+                              saveState !== "saved" ||
+                              publish.isPending ||
+                              zoneIssues.issues.length > 0
                             }
                             onClick={() => publish.mutate()}
                           >
@@ -4138,7 +4169,11 @@ export function LayoutEditorPage() {
                     </DropdownMenuItem>
                     {canSubmit && (
                       <DropdownMenuItem
-                        disabled={saveState !== "saved" || publish.isPending}
+                        disabled={
+                          saveState !== "saved" ||
+                          publish.isPending ||
+                          zoneIssues.issues.length > 0
+                        }
                         onClick={() => publish.mutate()}
                       >
                         {publish.isPending && <Spinner aria-hidden="true" />}
@@ -4220,7 +4255,11 @@ export function LayoutEditorPage() {
                 <Button
                   type="button"
                   size="sm"
-                  disabled={saveState !== "saved" || publish.isPending}
+                  disabled={
+                    saveState !== "saved" ||
+                    publish.isPending ||
+                    zoneIssues.issues.length > 0
+                  }
                   aria-busy={publish.isPending || undefined}
                   onClick={() => publish.mutate()}
                 >
@@ -4258,6 +4297,43 @@ export function LayoutEditorPage() {
               {t("editor.conflictReload")}
             </Button>
           </AlertAction>
+        </Alert>
+      )}
+      {zoneIssues.issues.length > 0 && (
+        <Alert
+          variant="destructive"
+          className="shrink-0 rounded-none border-x-0 border-t-0"
+        >
+          <TriangleAlert aria-hidden="true" />
+          <AlertTitle>
+            {t("zoneIssue.bannerTitle", { count: zoneIssues.issues.length })}
+          </AlertTitle>
+          <AlertDescription>
+            {t("zoneIssue.bannerDescription")}
+            <ul className="mt-1 list-disc ps-5">
+              {zoneIssues.issues.map((issue) => (
+                <li key={issue.placementId}>
+                  <button
+                    type="button"
+                    className="underline underline-offset-2"
+                    onClick={() => setSelection(new Set([issue.placementId]))}
+                  >
+                    {issue.placementName}
+                  </button>
+                  {" — "}
+                  {issue.items
+                    .slice(0, 3)
+                    .map(
+                      (item) =>
+                        `${item.name} (${t(`zoneIssue.kind.${item.kind}`)})`,
+                    )
+                    .join(", ")}
+                  {issue.items.length > 3 &&
+                    ` ${t("zoneIssue.more", { count: issue.items.length - 3 })}`}
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
         </Alert>
       )}
       <div className={cn("min-h-0 flex-1", !desktop && "min-h-[70vh]")}>
@@ -4302,7 +4378,8 @@ export function LayoutEditorPage() {
           description={t("editor.pickerPlaylistDescription")}
           confirmLabel={t("editor.pickerConfirm")}
           onConfirm={(choice) => {
-            if (choice.kind === "playlist") addPlaylistZone(choice.playlist);
+            if (choice.kind === "playlist")
+              void addPlaylistZone(choice.playlist);
             setPickerOpen(false);
           }}
           onClose={() => setPickerOpen(false)}

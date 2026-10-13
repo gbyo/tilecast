@@ -26,6 +26,8 @@ import type {
 } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { PlaylistZoneIssueAlert } from "./PlaylistZoneIssueAlert";
+import type { PlaylistZoneIssue } from "./playlistZoneIssues";
 import { Button, buttonVariants } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import {
@@ -317,10 +319,13 @@ export function PlacementInspector({
   group,
   ungroup,
   canGroup,
+  zoneIssue,
 }: {
   item: LayoutPlacement;
   content?: Asset;
   playlist?: Playlist;
+  /** Items in this playlist zone's Playlist that the zone cannot play. */
+  zoneIssue?: PlaylistZoneIssue;
   dataSources: DataSource[];
   update: (change: (item: LayoutPlacement) => void) => void;
   duplicate: () => void;
@@ -552,6 +557,7 @@ export function PlacementInspector({
       )}
       {item.type === "playlistZone" && (
         <InspectorSection title={t("inspector.zoneTitle")}>
+          {zoneIssue && <PlaylistZoneIssueAlert issue={zoneIssue} />}
           <Alert>
             <AlertTitle>{playlist?.name ?? item.name}</AlertTitle>
             <AlertDescription>
