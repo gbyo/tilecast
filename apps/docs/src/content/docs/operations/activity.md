@@ -32,6 +32,8 @@ Proof of Play lists a session only when the content was on screen long enough to
 
 Expected windows are not reconstructed from today's schedules. Compliance has no historical expectation for periods before Tilecast began recording those windows.
 
+Diagnostic telemetry follows the same evidence rule. A measurement a Player does not report is **unknown**, not zero. For example, a Player that cannot measure frame luminance is not treated as a black screen, and a platform without one telemetry gauge does not silently contribute a zero to fleet results. Use the Player's reported fields and incidents together rather than comparing missing gauges as if every platform measured the same thing.
+
 ## Follow an incident
 
 Content Health lists stale Data Sources, including sources that no Widget uses.
@@ -42,7 +44,9 @@ deleted sources do not create new stale-source incidents.
 
 An incident represents a continuing condition, not every repeated error. Tilecast updates the same incident while the condition continues. When the condition ends on its own, it is marked recovered and remains in the report as history; it does not stay in the active list. A person can resolve an active incident, which is recorded separately from automatic recovery.
 
-A playback incident recovers on its own when the content that failed plays through to a normal end again. A different item playing fine on the same screen doesn't close it.
+A playback incident recovers on its own when the content that failed plays through to a normal end again. A different item playing fine on the same screen doesn't close it. If the same condition returns after an incident recovered, Tilecast opens a new incident instead of merging two separate outages into one.
+
+Tilecast states a probable cause only when the evidence establishes one. A renderer failure can name its reported reason. A heartbeat gap proves only that reporting stopped, so an incident can correctly show an unknown cause instead of guessing whether power, Wi-Fi, or the device failed.
 
 Owners and Administrators can acknowledge, assign, add a note, resolve, ignore, and reopen incidents. Other roles can read incidents. Use [Understand a screen's status](../screen-status/) to separate connectivity from playback health.
 
