@@ -141,6 +141,7 @@ export class LayoutSurface implements MediaSurface {
     canvasHeight: number,
   ): HTMLElement {
     const el = document.createElement("div");
+    el.dataset.tilecastZone = zone.id;
     el.style.position = "absolute";
     el.style.left = `${(zone.x / canvasWidth) * 100}%`;
     el.style.top = `${(zone.y / canvasHeight) * 100}%`;
@@ -325,6 +326,8 @@ export class LayoutSurface implements MediaSurface {
     const frames = new Set<number>();
     const cancelTransition = () => {
       transitionToken += 1;
+      for (const frame of frames) cancelAnimationFrame(frame);
+      frames.clear();
       for (const animation of transition) animation.cancel();
       transition = [];
     };
@@ -360,7 +363,7 @@ export class LayoutSurface implements MediaSurface {
       const { epoch } = snapshot.context;
       if (epoch === mounted || this.disposed) return;
       mounted = epoch;
-      const selected = zoneEntry(snapshot.context);
+      const selected = zoneEntry({ ...snapshot.context, items });
       if (!selected) return;
       const { entry } = selected;
       cancelTransition();
@@ -481,6 +484,7 @@ export class LayoutSurface implements MediaSurface {
         return;
       }
       const element = incoming.element;
+      element.dataset.tilecastZoneItem = entry.id;
       element.style.position = "absolute";
       element.style.inset = "0";
       element.style.width = "100%";

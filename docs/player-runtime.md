@@ -159,7 +159,8 @@ Data Documents, media grants, regional values, and sandbox execution grants
 keep the fullscreen contract. The zone actor owns progression. Component
 ready or expected-empty state permits activation. Compatibility Widgets
 report readiness after their first visible frame. Empty state never advances
-the containing Layout. Disposal cancels the zone actor and releases all
+the containing Layout. A complete cycle of failed items waits two seconds
+before retry. Disposal cancels the zone actor and releases all
 owned surfaces. YouTube surfaces are released before the next zone occurrence;
 they do not overlap in transitions or remain as a previous-item fallback.
 

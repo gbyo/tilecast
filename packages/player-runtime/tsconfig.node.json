@@ -15,6 +15,7 @@
     "isolatedModules": false
   },
   "include": [
+    "src/engine/zone-playback.ts",
     "src/host/contract.ts",
     "src/compat/projection/index.ts",
     "src/compat/projection/presentation-capabilities.gen.ts",

@@ -47,18 +47,45 @@ For the exact contract, see [Widgets, Data Sources, and Layouts](https://github.
 
 The Media picker can also upload an image or video; it is added to the Media library. A Playlist zone plays independently inside the Layout. **Loop** returns to the first playable item or stops on the last one. **Corner radius** and each Playlist item's fade or crossfade transition apply in the zone. If media fails, **Fallback** shows the Layout background, keeps the last successfully loaded item, or hides the zone. The Player skips to another playable item when one is available and retries a failed final item after two seconds. Studio checks both the Playlist item and its Media asset against the selected preview date, so content appears only when it is available to the Player. If the date is blank or invalid, Studio uses the current time. A zone needs a Playlist with playable content.
 
-A Playlist zone supports image and video items only. Studio previews those items and shows a message when a Playlist has no supported content. If the zone Playlist contains a Widget, Website, or nested Layout, Studio tells you right away:
+A Playlist zone can rotate images, videos, built-in Widgets, component Widgets,
+and supported package or web Widgets. For example, a zone can show an image,
+then a Clock, then a video, then a data-driven Widget. Each item fills that zone;
+the other zones continue independently. Studio uses its shared Widget preview
+at the zone's dimensions and the Player Runtime's zone actor for timing.
+
+Nested Layouts cannot play inside a Playlist zone. If a zone Playlist contains
+a nested Layout or another unsupported entry, Studio tells you right away:
 
 - When you add a Playlist as a zone, Studio doesn't add it and names the items that can't play.
 - On the canvas, the zone shows **Unsupported items** instead of a preview.
-- The zone's inspector and a banner above the canvas list each item and its type, for example "Weather — Widget" or "School Website — Website". Select a name in the banner to jump to the zone.
+- The zone's inspector and a banner above the canvas list each unsupported item and its type. Select a name in the banner to jump to the zone.
 - **Publish** and **Submit** stay off until you fix it.
 
-Remove those items from the Playlist, or place them in the Layout as their own placements. Studio checks again when you return to the window, so it also catches a Playlist that someone changed after you added the zone. Assignment validation rejects unsupported items too, with the same item names.
+Remove unsupported entries from the zone Playlist. Show nested Layouts as
+fullscreen content or as entries in the screen's main Playlist. Studio checks
+again when you return to the window, so it also catches a Playlist that someone
+changed after you added the zone. Assignment validation rejects unsupported
+entries with their item names. The Server also rejects a Player that lacks a
+required Widget or zone capability.
 
-Images use their item duration or the Player's default image duration. Videos start at their start offset and play to their end offset, or to the end of the media when no end offset is set. A looping zone repeats a single video from its start offset; a non-looping zone pauses its final video at its end offset. The preview uses organization playback defaults for items that use Player defaults. See the [playback settings](../administration/player-policies/) for policy controls.
+Images use their item duration or the Player's default image duration. Widgets
+use their item duration or the 30-second Widget default. Timing starts when the
+item is ready to show, and pauses with the Layout. Videos start at their start
+offset and play to their end offset, or to the end of the media when no end
+offset is set. A looping zone repeats a single video from its start offset;
+a non-looping zone pauses its final video at its end offset. YouTube keeps its
+configured completion policy and cannot overlap another YouTube zone. Studio's
+web preview still depends on the website allowing browser embedding. The
+preview uses organization playback defaults for items that use Player defaults.
+See the [playback settings](../administration/player-policies/) for policy controls.
 
-The Player keeps the outgoing zone item visible while the next image loads or video becomes playable. The image duration starts when the image appears. A slow or failed zone does not delay the rest of the Layout. Media load or play failures appear as zone failures in Activity and use the configured fallback. The [Runtime readiness contract](https://github.com/gbyo/tilecast/blob/main/docs/player-runtime.md) defines the reported evidence. Canvas evidence alone does not confirm that every child is working.
+The Player keeps the outgoing zone item visible while the next item prepares.
+A slow or failed zone does not delay the rest of the Layout. Load, play, and
+Widget lifecycle failures appear as zone failures in Activity and use the
+configured fallback. If every item fails, the zone waits two seconds before
+retrying. The [Runtime readiness contract](https://github.com/gbyo/tilecast/blob/main/docs/player-runtime.md)
+defines the reported evidence. Canvas evidence alone does not confirm that every
+child is working.
 
 If a Widget reports an error after it first renders, the Player reports a failure for that zone and keeps the Layout active so its other content can continue.
 

@@ -3,6 +3,7 @@ import fixtures from "../fixtures/media-eligibility.json";
 import {
   classifyPlaylistZoneItem,
   isPlaylistZoneMediaItem,
+  isPlaylistZoneItem,
   playlistZoneUnsupportedItems,
   resolveMediaEligibility,
   type PlaylistZoneItemLike,
@@ -40,24 +41,24 @@ describe("playlist zone unsupported items", () => {
       classifyPlaylistZoneItem(
         item("3", "c", "widget", { widgetProvider: "clock" }),
       ),
-    ).toBe("widget");
+    ).toBeNull();
     expect(
       classifyPlaylistZoneItem(
         item("4", "d", "widget", { widgetProvider: "website" }),
       ),
-    ).toBe("website");
+    ).toBeNull();
     expect(
       classifyPlaylistZoneItem(
         item("5", "e", "widget", { widgetProvider: "youtube" }),
       ),
-    ).toBe("youtube");
+    ).toBeNull();
     expect(
       classifyPlaylistZoneItem(item("6", "f", "layout", { layoutId: "l1" })),
     ).toBe("layout");
     expect(classifyPlaylistZoneItem(item("7", "g", "audio"))).toBe("other");
   });
 
-  it("agrees with the media predicate the preview and server use", () => {
+  it("agrees with the supported-item predicate the preview and server use", () => {
     for (const candidate of [
       item("1", "a", "image"),
       item("2", "b", "video"),
@@ -68,7 +69,7 @@ describe("playlist zone unsupported items", () => {
       item("7", "g", "document"),
     ]) {
       expect(classifyPlaylistZoneItem(candidate) === null).toBe(
-        isPlaylistZoneMediaItem(candidate),
+        isPlaylistZoneItem(candidate),
       );
     }
   });
@@ -82,11 +83,7 @@ describe("playlist zone unsupported items", () => {
         item("4", "School Website", "widget", { widgetProvider: "website" }),
         item("5", "Nested", "layout", { layoutId: "l" }),
       ]),
-    ).toEqual([
-      { id: "2", name: "Weather", kind: "widget" },
-      { id: "4", name: "School Website", kind: "website" },
-      { id: "5", name: "Nested", kind: "layout" },
-    ]);
+    ).toEqual([{ id: "5", name: "Nested", kind: "layout" }]);
     expect(playlistZoneUnsupportedItems([item("1", "Logo", "image")])).toEqual(
       [],
     );

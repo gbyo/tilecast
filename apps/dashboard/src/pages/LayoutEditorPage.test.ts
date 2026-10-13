@@ -19,7 +19,7 @@ import {
 } from "./LayoutEditorPage";
 import {
   availablePlaylistZoneItems,
-  isPlaylistZoneMediaItem,
+  isPlaylistZoneItem,
   nextPlaylistPreviewIndex,
   playlistPreviewDuration,
 } from "../components/layout-editor/WidgetLivePreview";
@@ -101,11 +101,11 @@ describe("Layout playlist-zone media support", () => {
   ) => ({ assetType, widgetProvider }) as PlaylistItem;
 
   it("matches the Player zone contract", () => {
-    expect(isPlaylistZoneMediaItem(item("image"))).toBe(true);
-    expect(isPlaylistZoneMediaItem(item("video"))).toBe(true);
-    expect(isPlaylistZoneMediaItem(item("widget", "clock"))).toBe(false);
-    expect(isPlaylistZoneMediaItem(item("widget", "website"))).toBe(false);
-    expect(isPlaylistZoneMediaItem(item("layout"))).toBe(false);
+    expect(isPlaylistZoneItem(item("image"))).toBe(true);
+    expect(isPlaylistZoneItem(item("video"))).toBe(true);
+    expect(isPlaylistZoneItem(item("widget", "clock"))).toBe(true);
+    expect(isPlaylistZoneItem(item("widget", "website"))).toBe(true);
+    expect(isPlaylistZoneItem(item("layout"))).toBe(false);
   });
 });
 

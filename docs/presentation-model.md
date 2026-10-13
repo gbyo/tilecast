@@ -13,6 +13,8 @@ consumer. It has no production dependencies.
 - `resolvePlaybackItemSettings()` resolves duration, fit, transition, audio,
   and volume from an item and effective Player settings.
 - `isPlaylistZoneMediaItem()` accepts image and video items without a nested Layout.
+- `isPlaylistZoneItem()` accepts image, video, and Widget categories without
+  a nested Layout. The Server checks each Widget's negotiated capabilities.
 - `resolveMediaEligibility()` checks the item window, item kind, exact asset
   reference, asset window, and media type in that order.
 - `resolvePlaylistAdvance()` advances or holds a zero-based zone occurrence.
@@ -55,8 +57,8 @@ assets. Studio owns the preview clock and bounded availability timers.
 `fixtures/media-eligibility.json` covers supported media, unsupported item
 kinds, missing assets, reference mismatches, and item and asset windows.
 Studio tests exercise its zone filter. Runtime tests exercise Layout projection.
-An unsupported Widget remains valid as a direct Widget placement. The zone
-policy does not change the direct Widget renderer.
+The media predicate applies only to exact image and video references.
+Widget occurrences use the same Widget projection as direct placements.
 
 The popup Playlist preview resolves its item settings with the same fixtures.
 It uses installation settings for generic preview. A specific Screen can have
@@ -67,9 +69,11 @@ preview instant does not follow the live clock. Unmount clears the timer.
 
 `fixtures/zone-policy.json` covers empty zones, single-item and multi-item
 loops, final-item holds, video trim offsets, and each fallback. Runtime tests
-exercise the zone actor and actual surface. Studio tests exercise its index
-adapter and actual preview fallback. Timer scheduling, epoch checks, retries,
-media release, and retention of previous media stay with each consumer.
+exercise the zone actor and actual surface. Studio uses the same Runtime
+zone actor through `@tilecast/player-runtime/zone-playback`. Its adapter
+supplies timing metadata and reports readiness from the shared Widget
+preview or media elements. The actor owns timing, epochs, and retry policy.
+Each surface retains and releases its own resources.
 
 The source compiler has no DOM library. A purity test rejects host imports,
 browser globals, ambient clock reads, randomness, and runtime dependencies.

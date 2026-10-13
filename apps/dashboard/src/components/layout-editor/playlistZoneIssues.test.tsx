@@ -90,12 +90,12 @@ describe("playlist zone media support", () => {
     [
       "Widget",
       item("w", "Weather", "widget", { widgetProvider: "weather" }),
-      "widget",
+      null,
     ],
     [
       "Website",
       item("s", "School Website", "widget", { widgetProvider: "website" }),
-      "website",
+      null,
     ],
     [
       "nested Layout",
@@ -121,8 +121,8 @@ describe("playlist zone media support", () => {
       zone(),
       playlist([
         item("i", "Logo", "image"),
-        item("w", "Weather", "widget", { widgetProvider: "weather" }),
-        item("s", "School Website", "widget", { widgetProvider: "website" }),
+        item("w", "Weather", "layout", { widgetProvider: "weather" }),
+        item("s", "School Website", "layout", { widgetProvider: "website" }),
       ]),
     );
     expect(issue?.items.map((entry) => entry.name)).toEqual([
@@ -153,30 +153,30 @@ describe("zone issue presentation", () => {
     const issue = playlistZoneIssue(
       zone(),
       playlist([
-        item("w", "Weather", "widget", { widgetProvider: "weather" }),
-        item("s", "School Website", "widget", { widgetProvider: "website" }),
+        item("w", "Weather", "layout", { widgetProvider: "weather" }),
+        item("s", "School Website", "layout", { widgetProvider: "website" }),
       ]),
     )!;
     render(<PlaylistZoneIssueAlert issue={issue} />);
     expect(screen.getByRole("alert")).toBeVisible();
     expect(
-      screen.getByText("This Layout zone can only play images and videos."),
+      screen.getByText("This Layout zone contains unsupported playlist items."),
     ).toBeVisible();
     expect(
       screen.getByText(/"Morning Announcements" contains unsupported items:/),
     ).toBeVisible();
-    expect(screen.getByText("Weather — Widget")).toBeVisible();
-    expect(screen.getByText("School Website — Website")).toBeVisible();
+    expect(screen.getByText("Weather — Layout")).toBeVisible();
+    expect(screen.getByText("School Website — Layout")).toBeVisible();
     expect(
       screen.getByText(
-        "Remove those items or use them as separate Layout placements.",
+        "Remove unsupported entries. Play nested Layouts as root content.",
       ),
     ).toBeVisible();
   });
 
   it("counts the items it does not list", () => {
     const many = Array.from({ length: 8 }, (_, index) =>
-      item(`w${index}`, `Widget ${index}`, "widget", {
+      item(`w${index}`, `Layout ${index}`, "layout", {
         widgetProvider: "clock",
       }),
     );
@@ -185,15 +185,15 @@ describe("zone issue presentation", () => {
         issue={playlistZoneIssue(zone(), playlist(many))!}
       />,
     );
-    expect(screen.getByText("Widget 4 — Widget")).toBeVisible();
-    expect(screen.queryByText("Widget 5 — Widget")).toBeNull();
+    expect(screen.getByText("Layout 4 — Layout")).toBeVisible();
+    expect(screen.queryByText("Layout 5 — Layout")).toBeNull();
     expect(screen.getByText("and 3 more items")).toBeVisible();
   });
 
   it("shows an invalid zone as invalid instead of previewing the playable subset", () => {
     const entries = [
       item("i", "Logo", "image"),
-      item("w", "Weather", "widget"),
+      item("w", "Weather", "layout"),
     ];
     const list = playlist(entries);
     const issue = playlistZoneIssue(zone(), list)!;
@@ -247,18 +247,18 @@ describe("usePlaylistZoneIssues", () => {
     await waitFor(() => expect(playlistApi).toHaveBeenCalledWith("playlist-1"));
     await waitFor(() => expect(result.current.issues).toEqual([]));
 
-    // Someone adds a Widget to the Playlist in another tab; the Layout is untouched.
+    // Someone adds a nested Layout to the Playlist in another tab; the Layout is untouched.
     playlistApi.mockResolvedValue(
       playlist([
         item("i", "Logo", "image"),
-        item("w", "Weather", "widget", { widgetProvider: "weather" }),
+        item("w", "Weather", "layout", { widgetProvider: "weather" }),
       ]),
     );
     await client.invalidateQueries({ queryKey: ["layout-zone-playlist"] });
     await waitFor(() => expect(result.current.issues).toHaveLength(1));
     expect(result.current.byPlacement.get("zone-1")?.items[0]).toMatchObject({
       name: "Weather",
-      kind: "widget",
+      kind: "layout",
     });
 
     // Removing the offending item clears it.
@@ -273,7 +273,7 @@ describe("usePlaylistZoneIssues", () => {
     } as LayoutDocument;
     playlistApi.mockResolvedValue(
       playlist([
-        item("s", "School Website", "widget", { widgetProvider: "website" }),
+        item("s", "School Website", "layout", { widgetProvider: "website" }),
       ]),
     );
     const { result } = renderHook(() => usePlaylistZoneIssues(document), {

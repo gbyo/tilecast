@@ -28,7 +28,16 @@ export type FixtureStep =
   | { noise: number | null }
   | { advance: number }
   | { stepWall: number }
-  | { waitForEvidence: { kind: string; itemId?: string; timeoutMs?: number } }
+  | {
+      waitForEvidence: {
+        kind: string;
+        itemId?: string;
+        zoneId?: string;
+        count?: number;
+        timeoutMs?: number;
+      };
+    }
+  | { assertZoneItems: { zoneId: string; itemId: string }[] }
   | { checkpoint: string; visual?: boolean }
   /**
    * The Widgets V2 release gate (docs/widgets-v2.md §9): every first-class
@@ -358,14 +367,17 @@ if (runner) {
   const waitForEvidence = async (step: {
     kind: string;
     itemId?: string;
+    zoneId?: string;
+    count?: number;
     timeoutMs?: number;
   }) => {
     const matches = () =>
-      allEvidence.some(
+      allEvidence.filter(
         (report) =>
           report.kind === step.kind &&
-          (step.itemId === undefined || report.itemId === step.itemId),
-      );
+          (step.itemId === undefined || report.itemId === step.itemId) &&
+          (step.zoneId === undefined || report.zoneId === step.zoneId),
+      ).length >= (step.count ?? 1);
     // Real media decoding runs on the engine's own clock; this waits on the
     // explicit evidence, bounded, never on a fixed sleep.
     const deadline = performance.now() + (step.timeoutMs ?? 20_000);
@@ -430,6 +442,27 @@ if (runner) {
       } else if ("assertWidgets" in step) {
         await probe().settled();
         await assertWidgets(step.assertWidgets);
+      } else if ("assertZoneItems" in step) {
+        for (const expected of step.assertZoneItems) {
+          const zone = Array.from(
+            document.querySelectorAll<HTMLElement>(
+              ".layer.visible [data-tilecast-zone]",
+            ),
+          ).find((element) => element.dataset.tilecastZone === expected.zoneId);
+          const visible = Array.from(
+            zone?.querySelectorAll<HTMLElement>("[data-tilecast-zone-item]") ??
+              [],
+          ).filter(
+            (element) => getComputedStyle(element).visibility !== "hidden",
+          );
+          if (
+            visible.length !== 1 ||
+            visible[0]?.dataset.tilecastZoneItem !== expected.itemId
+          )
+            throw new Error(
+              `zone ${expected.zoneId} does not show ${expected.itemId}`,
+            );
+        }
       } else if ("assertPairing" in step) {
         await probe().settled();
         await assertPairing(step.assertPairing);

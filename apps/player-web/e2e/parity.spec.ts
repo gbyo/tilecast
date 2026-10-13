@@ -247,6 +247,108 @@ test("component Widgets render with the accepted configuration", async ({
   await expect(page.getByText(/\d{1,2}:\d{2}/).first()).toBeVisible();
 });
 
+test("a mixed Layout zone rotates media and Widgets, refreshes edited content, and preserves its neighbor", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const slot = await screen(page);
+  const red = await image("mixed-red", "FF0000");
+  const green = await image("mixed-neighbor", "00FF00");
+  const video = await studio.uploadAsset(
+    colorVideo("mixed-blue", "0000FF", 3),
+    "video/mp4",
+  );
+  const textConfig = (heading: string, backgroundColor: string) => ({
+    heading,
+    body: "Zone content",
+    style: "standard",
+    align: "center",
+    backgroundColor: `#${backgroundColor}`,
+    foregroundColor: "#FFFFFF",
+  });
+  const first = await studio.widget(
+    "text",
+    "First zone Widget",
+    textConfig("First Widget", "6B1E2E"),
+  );
+  const second = await studio.widget(
+    "text",
+    "Second zone Widget",
+    textConfig("Second Widget", "1E3A5F"),
+  );
+  const playlistId = await studio.playlist("Mixed Layout rotation", [
+    { assetId: red, durationMs: 2500 },
+    { assetId: first, durationMs: 2500 },
+    { assetId: video, durationMs: 3000 },
+    { assetId: second, durationMs: 2500 },
+  ]);
+  const zoneId = randomUUID();
+  const layoutId = await studio.layout(
+    "Mixed Layout",
+    { width: 1280, height: 720, backgroundColor: "#000000" },
+    [
+      {
+        id: zoneId,
+        type: "playlistZone",
+        name: "Mixed",
+        playlistId,
+        x: 0,
+        y: 0,
+        width: 640,
+        height: 720,
+        layer: 0,
+        opacity: 1,
+        visible: true,
+        locked: false,
+        playback: {
+          loop: true,
+          muted: true,
+          fit: "cover",
+          fallback: "background",
+        },
+      },
+      {
+        id: randomUUID(),
+        type: "asset",
+        name: "Neighbor",
+        assetId: green,
+        x: 640,
+        y: 0,
+        width: 640,
+        height: 720,
+        layer: 0,
+        opacity: 1,
+        visible: true,
+        locked: false,
+      },
+    ],
+  );
+  await studio.assign(slot.screenId, { layoutId });
+  const neighbor = () => expectPixel(page, [960, 360], GREEN);
+  await expectPixel(page, [320, 360], RED);
+  await neighbor();
+  await expect(page.getByText("First Widget", { exact: true })).toBeVisible();
+  await neighbor();
+  const current = page.locator(`[data-tilecast-zone="${zoneId}"]`);
+  await expect(current.locator("video")).toHaveCount(1);
+  await expectPixel(page, [320, 360], BLUE, { tolerance: 40 });
+  await neighbor();
+  await expect(page.getByText("Second Widget", { exact: true })).toBeVisible();
+  await expect(current.locator("video")).toHaveCount(0);
+  await neighbor();
+  await studio.call("patch", `/api/v1/widgets/${second}`, {
+    provider: "text",
+    name: "Second zone Widget",
+    description: "",
+    configuration: textConfig("Updated Widget", "1E3A5F"),
+  });
+  await expect(page.getByText("Updated Widget", { exact: true })).toBeVisible({
+    timeout: 45000,
+  });
+  await expect(page.getByText("Second Widget", { exact: true })).toHaveCount(0);
+  await neighbor();
+});
+
 test("expiring content ends in the branded unavailable surface at its boundary", async ({
   page,
 }) => {

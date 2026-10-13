@@ -28,6 +28,20 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: [
+      // Studio consumes the shared Runtime source without a Node host build.
+      ...Object.entries({
+        "zone-playback": "engine/zone-playback.ts",
+        projection: "compat/projection/index.ts",
+        "host-contract": "host/contract.ts",
+      }).map(([entry, source]) => ({
+        find: `@tilecast/player-runtime/${entry}`,
+        replacement: fileURLToPath(
+          new URL(
+            `../../packages/player-runtime/src/${source}`,
+            import.meta.url,
+          ),
+        ),
+      })),
       // The Studio surface bundled plugins build on (plugins/*/studio): the
       // kit, Studio's design-system components, and test helpers.
       {

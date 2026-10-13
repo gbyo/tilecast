@@ -120,6 +120,51 @@ function project(widget = component, extra: Partial<ProjectionContextV1> = {}) {
 }
 
 describe("Layout mixed playlist projection", () => {
+  it("translates a rotating package Widget through its sandbox frame and media grants", () => {
+    const frameDigest = "c".repeat(64);
+    const external = {
+      ...component,
+      presentation: {
+        ...component.presentation,
+        component: {
+          ...component.presentation.component,
+          type: "acme.athletics.scoreboard",
+          package: {
+            packageId: "acme.athletics",
+            digest: `sha256:${"a".repeat(64)}`,
+            frame: {
+              sha256: frameDigest,
+              fileSize: 4242,
+              downloadPath:
+                "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame",
+            },
+          },
+        },
+      },
+    };
+    const grants: Partial<ProjectionContextV1> = {
+      widgetFrames: [
+        {
+          packageId: "acme.athletics",
+          packageDigest: `sha256:${"a".repeat(64)}`,
+          frameDigest,
+          uri: "authorized-frame",
+        },
+      ],
+      widgetMedia: [
+        { assetId: "image", variantId: "original", uri: "sandbox-image" },
+      ],
+    };
+    expect(
+      project(external, grants).zones[0]?.playlistItems?.[1],
+    ).toMatchObject({
+      widget: {
+        execution: { kind: "sandboxed", frameUrl: "authorized-frame" },
+        media: { "image/original": "sandbox-image" },
+      },
+    });
+    expect(() => project(external)).toThrow("frame is not authorized");
+  });
   it("uses the placement component payload and authorized resources without collapsing Widgets into trees", () => {
     const layout = project();
     const entries = layout.zones[0]!.playlistItems!;
