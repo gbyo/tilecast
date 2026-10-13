@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=19;
+pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=20;
 const MAX_ASSETS: usize = 1024;
 const MAX_PLAYLISTS: usize = 128;
 const MAX_ITEMS: usize = 4096;
@@ -92,6 +92,7 @@ pub struct ManifestBundle {
 /// distinct CAS resource from the raw bundle, never the same bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ManifestFrame {
+    pub kind: player_types::frames::FrameKind,
     pub package_id: String,
     pub package_digest: Sha256Digest,
     pub digest: Sha256Digest,
@@ -327,12 +328,115 @@ fn extract_frame(widget: &Value) -> Result<Option<ManifestFrame>, NativeManifest
         return Err(NativeManifestError::Frame);
     }
     Ok(Some(ManifestFrame {
+        kind: player_types::frames::FrameKind::Widget,
         package_id: package_id.to_owned(),
         package_digest,
         digest,
         size_bytes,
         download_path: download_path.to_owned(),
     }))
+}
+
+fn extract_plugin_frame(plugin: &Value) -> Result<ManifestFrame, NativeManifestError> {
+    use player_types::frames::FrameKind;
+    let invalid = || NativeManifestError::Frame;
+    let object = plugin.as_object().ok_or_else(invalid)?;
+    if object.get("version").and_then(Value::as_u64) != Some(1)
+        || !object
+            .get("definitionVersion")
+            .and_then(Value::as_u64)
+            .is_some_and(|version| (1..=1_000_000).contains(&version))
+    {
+        return Err(invalid());
+    }
+    let package = plugin.get("package").and_then(Value::as_object).ok_or_else(invalid)?;
+    let id = plugin.get("id").and_then(Value::as_str).ok_or_else(invalid)?;
+    let package_id = package.get("packageId").and_then(Value::as_str).ok_or_else(invalid)?;
+    let local_id = id.strip_prefix(package_id).and_then(|suffix| suffix.strip_prefix('.')).ok_or_else(invalid)?;
+    if !valid_package_id(package_id)
+        || id.len() > 128
+        || local_id.is_empty()
+        || local_id.len() > 80
+        || !local_id.as_bytes()[0].is_ascii_lowercase()
+        || !local_id.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        || package.get("contributionId").and_then(Value::as_str) != Some(id)
+    {
+        return Err(invalid());
+    }
+    let package_digest = package
+        .get("packageDigest")
+        .and_then(Value::as_str)
+        .and_then(|digest| digest.strip_prefix("sha256:"))
+        .ok_or_else(invalid)?;
+    let package_digest = Sha256Digest::parse(package_digest).map_err(|_| invalid())?;
+    let frame = package.get("frame").and_then(Value::as_object).ok_or_else(invalid)?;
+    let digest = frame.get("sha256").and_then(Value::as_str).ok_or_else(invalid)?;
+    let digest = Sha256Digest::parse(digest).map_err(|_| invalid())?;
+    let size_bytes = frame.get("fileSize").and_then(Value::as_u64).ok_or_else(invalid)?;
+    let download_path = frame.get("downloadPath").and_then(Value::as_str).ok_or_else(invalid)?;
+    if size_bytes == 0
+        || size_bytes > MAX_FRAME_BYTES
+        || download_path != format!("/api/v1/player/packages/{package_id}/plugins/{local_id}/frame")
+        || OriginBlobSource::validate_path(download_path).is_err()
+    {
+        return Err(invalid());
+    }
+    let runtime = plugin.get("runtime").and_then(Value::as_object).ok_or_else(invalid)?;
+    if !matches!(runtime.get("tier").and_then(Value::as_str), Some("emergency" | "live" | "scheduled" | "ambient")) {
+        return Err(invalid());
+    }
+    let surfaces = runtime.get("surfaces").and_then(Value::as_array).ok_or_else(invalid)?;
+    let mut unique = BTreeSet::new();
+    if surfaces.is_empty()
+        || surfaces.len() > 7
+        || !surfaces.iter().all(|slot| {
+            matches!(
+                slot.as_str(),
+                Some(
+                    "strip.top"
+                        | "strip.bottom"
+                        | "corner.top-left"
+                        | "corner.top-right"
+                        | "corner.bottom-left"
+                        | "corner.bottom-right"
+                        | "overlay"
+                )
+            ) && unique.insert(slot.as_str())
+        })
+    {
+        return Err(invalid());
+    }
+    let state = plugin.get("state").filter(|state| state.is_object()).ok_or_else(invalid)?;
+    let mut nodes = 0;
+    if serde_json::to_vec(state).map_err(|_| invalid())?.len() > 16 * 1024
+        || !bounded_plugin_state(state, 0, &mut nodes)
+        || plugin
+            .get("validUntil")
+            .and_then(Value::as_str)
+            .is_none_or(|deadline| deadline.len() > 64 || player_types::Timestamp::parse(deadline).is_err())
+    {
+        return Err(invalid());
+    }
+    Ok(ManifestFrame {
+        kind: FrameKind::ExternalPlugin,
+        package_id: package_id.to_owned(),
+        package_digest,
+        digest,
+        size_bytes,
+        download_path: download_path.to_owned(),
+    })
+}
+
+fn bounded_plugin_state(value: &Value, depth: usize, nodes: &mut usize) -> bool {
+    *nodes += 1;
+    if depth > 16 || *nodes > 2048 {
+        return false;
+    }
+    match value {
+        Value::Array(values) => values.iter().all(|value| bounded_plugin_state(value, depth + 1, nodes)),
+        Value::Object(values) => values.values().all(|value| bounded_plugin_state(value, depth + 1, nodes)),
+        _ => true,
+    }
 }
 
 fn check_layout(
@@ -535,9 +639,8 @@ impl NativeManifest {
             // A widget claims at most one artifact: a frame block takes
             // the frame path, anything else takes the bundle path.
             if let Some(frame) = extract_frame(widget)? {
-                // One CAS object per frame digest; the package digest is
-                // activation evidence, not a second fetch.
-                if seen_frame.insert(frame.digest) {
+                // Keep every authorization identity even when the CAS bytes match.
+                if seen_frame.insert((frame.kind, frame.package_id.clone(), frame.package_digest, frame.digest)) {
                     required_frames.push(frame);
                 }
                 continue;
@@ -549,6 +652,28 @@ impl NativeManifest {
                 continue;
             }
             required_bundles.push(bundle);
+        }
+        let mut plugin_ids = BTreeSet::new();
+        for plugin in &wire.plugins {
+            if plugin.get("type").and_then(Value::as_str) != Some("external_plugin") {
+                continue;
+            }
+            if wire.schema_version < 20 {
+                return Err(NativeManifestError::Schema);
+            }
+            let frame = extract_plugin_frame(plugin)?;
+            if !plugin_ids.insert(plugin.get("id").and_then(Value::as_str))
+                || plugin_ids.len() > 32
+                || required_frames.iter().any(|existing| {
+                    existing.digest == frame.digest
+                        && (existing.size_bytes != frame.size_bytes || existing.kind != frame.kind)
+                })
+            {
+                return Err(NativeManifestError::Frame);
+            }
+            if seen_frame.insert((frame.kind, frame.package_id.clone(), frame.package_digest, frame.digest)) {
+                required_frames.push(frame);
+            }
         }
         // A variant streams only when every one of its uses allows it: any
         // policy-less reference (layout, branding, fallback, plugin) or any
@@ -676,6 +801,88 @@ mod tests {
                             "frame":{"sha256":frame.to_hex(),"fileSize":14,
                                 "downloadPath":"/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame"}}}}}],
         })
+    }
+
+    fn plugin_entry(package: &str, local: &str) -> Value {
+        json!({
+            "id": format!("{package}.{local}"), "type":"external_plugin", "version":1,"definitionVersion":1,
+            "package":{"packageId":package,"packageDigest":format!("sha256:{}", Sha256Digest::of(b"package")),
+                "contributionId":format!("{package}.{local}"),
+                "frame":{"sha256":Sha256Digest::of(b"plugin frame").to_hex(),"fileSize":12,
+                    "downloadPath":format!("/api/v1/player/packages/{package}/plugins/{local}/frame")}},
+            "runtime":{"tier":"live","surfaces":["corner.bottom-left"]},"state":{"count":12},
+            "validUntil":"2026-10-13T12:01:15Z"
+        })
+    }
+
+    #[test]
+    fn plugin_frames_require_schema_20_and_keep_every_package_authorization_identity() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let mut document = frame_document(screen, 20);
+        document["plugins"] = json!([plugin_entry("acme.presence", "badge"), plugin_entry("other.presence", "badge")]);
+        let prepared = NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)).unwrap();
+        assert_eq!(prepared.document, document);
+        assert_eq!(prepared.required_frames.len(), 3);
+        assert_eq!(prepared.required_frames[0].kind, player_types::frames::FrameKind::Widget);
+        assert_eq!(prepared.required_frames[1].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert_eq!(prepared.required_frames[1].digest, prepared.required_frames[2].digest);
+        assert_ne!(prepared.required_frames[1].package_id, prepared.required_frames[2].package_id);
+        document["schemaVersion"] = json!(19);
+        assert!(matches!(
+            NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)),
+            Err(NativeManifestError::Schema)
+        ));
+    }
+
+    #[test]
+    fn plugin_execution_claims_are_strict_and_state_is_bounded() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let document = frame_document(screen, 20);
+        for (pointer, value) in [
+            ("/version", json!(2)),
+            ("/definitionVersion", json!(0)),
+            ("/package/contributionId", json!("other.presence.badge")),
+            ("/package/packageDigest", json!("sha256:invalid")),
+            ("/package/frame/sha256", json!("invalid")),
+            ("/package/frame/fileSize", json!(0)),
+            ("/package/frame/fileSize", json!(MAX_FRAME_BYTES + 1)),
+            ("/package/frame/downloadPath", json!("/api/v1/player/packages/other.presence/plugins/badge/frame")),
+            ("/runtime/tier", json!("root")),
+            ("/runtime/surfaces", json!(["overlay", "overlay"])),
+            ("/state", json!([12])),
+            ("/state", json!({"text":"x".repeat(16 * 1024)})),
+            ("/validUntil", json!("tomorrow")),
+        ] {
+            let mut entry = plugin_entry("acme.presence", "badge");
+            *entry.pointer_mut(pointer).unwrap() = value;
+            let mut invalid = document.clone();
+            invalid["plugins"] = json!([entry]);
+            assert!(
+                matches!(
+                    NativeManifest::parse(invalid.clone(), screen, crate::manifest_digest(&invalid)),
+                    Err(NativeManifestError::Frame)
+                ),
+                "accepted {pointer}"
+            );
+        }
+        let mut deep = json!(null);
+        for _ in 0..20 {
+            deep = json!({"nested":deep});
+        }
+        let mut entry = plugin_entry("acme.presence", "badge");
+        entry["state"] = deep;
+        let mut invalid = document.clone();
+        invalid["plugins"] = json!([entry]);
+        assert!(matches!(
+            NativeManifest::parse(invalid.clone(), screen, crate::manifest_digest(&invalid)),
+            Err(NativeManifestError::Frame)
+        ));
+        let entry = plugin_entry("acme.presence", "badge");
+        invalid["plugins"] = json!([entry.clone(), entry]);
+        assert!(matches!(
+            NativeManifest::parse(invalid.clone(), screen, crate::manifest_digest(&invalid)),
+            Err(NativeManifestError::Frame)
+        ));
     }
 
     #[test]

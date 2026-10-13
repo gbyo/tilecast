@@ -144,6 +144,9 @@ It transfers one MessageChannel port with a separate random nonce.
 Further messages use that port, nonce, and increasing input revision.
 One bridge message may have at most 32 KiB.
 The parent must bound message rate and structure.
+The shared Runtime permits a burst of twenty-four messages and refills twelve
+messages per second. JSON has at most sixteen nested levels and 2048 values.
+The Runtime closes a frame that exceeds a message bound.
 It must retire the port on navigation, removal, replacement, or disposal.
 
 The definition supplies `update(state, context, bridge)`.
@@ -152,6 +155,9 @@ It may supply `grant(value, context, bridge)` and `dispose()`.
 `bridge.claim(claim)` requests one declared slot; null releases it.
 The host owns tier, arbitration, geometry, z-order, visibility, expiry, motion,
 and wake state.
+Expiry has its own corrected-clock timer; it does not wait for a periodic tick.
+The Runtime retains one frame per instance across public-state changes.
+It changes its host-owned container geometry without moving the frame node.
 The frame cannot claim a different tier or an undeclared surface.
 Native preparation must verify and pin each frame before accepting a pending
 manifest.

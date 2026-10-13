@@ -29,6 +29,12 @@ An update, rollback, or removal stops the previous activation's code. Package st
 
 ## Publish an external Player surface
 
+API 4 guests receive their call input at a non-null memory address. Use the
+addresses supplied to the exports and reserve the framing windows described in
+[the engineering contract](https://github.com/gbyo/tilecast/blob/main/docs/packages.md#external-runtime).
+The Rust guest SDK provides typed state and target helpers, bounded fetch and KV
+imports, and helpers for reading and writing the Studio call frame.
+
 An external Plugin API v2 contribution uses a fixed `runtime/index.js` bundle. Tilecast assembles and verifies a sandboxed frame around that bundle. It executes only on Players that report the generic `plugin.external-runtime@1` capability. Older Players keep their existing manifest and receive no executable surface.
 
 Request `plugin-runtime.state@1` to save operator configuration and publish expiring state for your own contribution. Request `targets.resolve@2` for screen, group, location, or explicit-all selection and a scoped target picker. Keep private integration bookkeeping in package storage; publish only the fields the Player needs. The state service checks the configuration revision so an old poll cannot overwrite newly saved settings.
