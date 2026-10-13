@@ -65,9 +65,13 @@ func CanvaPlaybackURL(raw string, slideshow bool) (*url.URL, error) {
 		return nil, errors.New("Canva design URL is missing a presentation mode")
 	}
 	mode := "view"
+	query := u.Query()
+	query.Del("autoplay")
 	if slideshow {
 		mode = "watch"
+		query.Set("autoplay", "1")
 	}
 	u.Path = path[:separator+1] + mode
+	u.RawQuery = query.Encode()
 	return u, nil
 }
