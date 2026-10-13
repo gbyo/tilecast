@@ -49,7 +49,7 @@ A Player that reconnects in the middle of an item rejoins at the group's current
 
 A member that cannot decode a 60 FPS video in real time does not make the rest of the group drop to 30 or 24 FPS. The shared timeline keeps advancing. That slower member can fall behind, receive rate corrections or seeks, and look choppy while faster members remain smooth. Use media every member can decode reliably when visible alignment matters.
 
-Temporary presentation still follows normal precedence. A Takeover or Quick Present that targets the group changes the shared selection. A direct temporary presentation to one screen is not a way to intentionally desynchronize a Mirror group; use a separate screen or remove it from the group when it needs independent playback.
+Temporary presentation still follows normal precedence. A Takeover or Quick Present that targets the group changes the shared selection. A **Quick Present** targeted to one member affects only that screen, so it temporarily leaves the group's visible timeline. When the Quick Present ends, the screen returns to the group and resolves the group's current item and position. Tilecast refuses overlapping Quick Presents that would affect the same screen, including starting a screen override while a group override is already active there.
 
 ## Make a video wall
 
