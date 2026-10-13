@@ -56,6 +56,10 @@ assigned stay quiet even when the Player has a stored renderer failure.
 The last failure remains visible as diagnostic history. Active recovery
 or a current renderer problem still takes priority.
 
+Connection and playback health are separate. A Player can be **Online** and still need attention because it is in safe mode, has a renderer or playback error, is under storage pressure, is out of synchronization, or is not producing the playback evidence expected for its content. Conversely, an intentionally sleeping or unassigned screen is not treated as unhealthy only because nothing is moving.
+
+Static content does not have to change pixels continuously. A still image, Widget, or Website proves its first render and may then remain unchanged. Video must keep reporting progress. A Layout must render every zone it declared, and only zones that are supposed to rotate owe continuing evidence.
+
 See the [Player protocol](https://github.com/gbyo/tilecast/blob/main/docs/player-protocol.md)
 for the exact reporting contract.
 
