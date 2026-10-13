@@ -7,16 +7,7 @@ import (
 	"strings"
 )
 
-var canvaDesignPath = regexp.MustCompile(`^/design/[A-Za-z0-9_-]{8,200}(?:/[A-Za-z0-9_-]{8,200})?/(?:view|watch)/?package contentdefs
-
-import (
-	"errors"
-	"net/url"
-	"regexp"
-	"strings"
-)
-
-)
+var canvaDesignPath = regexp.MustCompile(`^/design/[A-Za-z0-9_-]{8,200}(?:/[A-Za-z0-9_-]{8,200})?/(?:view|watch)/?$`)
 var canvaShortPath = regexp.MustCompile(`^/[A-Za-z0-9_-]{1,200}/?$`)
 
 // CanvaURL accepts only design view/watch embed links or a short link awaiting resolution.
