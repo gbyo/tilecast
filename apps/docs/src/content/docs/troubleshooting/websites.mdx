@@ -17,6 +17,10 @@ Check that redirects stay on hosts you intended to allow.
 
 Tilecast does not ignore certificate errors or copy browser login cookies, OAuth sessions, or Tilecast credentials into Website content.
 
+A site's `X-Frame-Options` or CSP `frame-ancestors` rule can block the Studio preview because Studio previews the page in a frame. Native Android, Edge, Windows, and Linux Players load Website content in their own isolated web view instead, so a blocked Studio frame does not prove the TV will fail. Test the target Player and use the Website diagnostics. A site can still reject embedded browser engines, require unsupported permissions, or fail for another Player-specific reason.
+
+Do not rely on a corporate SSO session from your administrator browser. Tilecast does not import that cookie or OAuth session into the Player. A Website that you sign into locally on a Player can keep some website data only according to its **Cookies** and **Storage** settings and the platform's web engine. **Cookies disabled** and disabled DOM storage are cleared with the surface. Other cookie policies can persist data, but Tilecast does not treat that persistence as a supported unattended-authentication contract. **Clear Website data** and a complete Player reset remove it.
+
 ## Check the Player network
 
 The Player itself must be able to reach the website. Test DNS, routing, filtering, and TLS from the display network.
