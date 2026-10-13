@@ -55,7 +55,7 @@ Choose **Tag-driven playlist** when the Playlist should follow media labels inst
 
 </Steps>
 
-The generated timeline contains Ready media that currently matches the selected tags. Its items aren't manually ordered. Add or change Tags on assets to change which media matches; edit the source rule to change the matching behavior.
+The generated timeline contains Ready media that currently matches the selected tags. Its items aren't manually ordered. Tilecast orders matching assets by name, without case affecting the sort; an internal stable ID breaks a tie between identical names. Rename assets when you need to control their order. Add or change Tags on assets to change which media matches; edit the source rule to change the matching behavior.
 
 ## Restore a Playlist revision
 
@@ -66,6 +66,8 @@ Tilecast keeps the most recent 30 ordinary revisions. Revisions referenced by a 
 ## Playback details
 
 - An item that isn't Ready is skipped until its media is available.
+- Availability windows are evaluated with the Player's server-corrected clock, including from a cached manifest while the Player is offline. A future item appears when its window opens, and an expired item leaves the playable set without requiring a server round trip.
+- If every item is unavailable or fails, the Player does not spin through the Playlist or stay on a blank frame. It reports that the assigned content is unavailable and waits before trying again. Stream-only media can become unavailable during an outage; use Download or Automatic when the item must survive loss of connectivity.
 - Item settings can use Player defaults or override fit, transition, audio, volume, delivery, duration, and availability for that item.
 - **Crossfade** blends the visuals. Audio still changes at the normal item boundary.
 - Adding the same Playlist to a schedule or Campaign is a separate step. See [Schedules](../schedules/) and [Campaigns](../campaigns/).
