@@ -289,6 +289,15 @@ in Player health.
 
 ## Capability definitions
 
+External plugin frames use independent grants inside the current presentation
+generation. The host verifies their files before a plugin update. A refused
+update retains the previous grants. A successful update replaces only plugin
+grants and keeps media and Widget grants. Plugin responses deny all passive
+loads. The native message listener accepts only the main Runtime frame, and
+the host bootstrap runs only in the entry document. Child navigation cannot
+enter the trusted Runtime tree. See [external Player plugins](external-player-plugins.md)
+for the shared contract and qualification gates.
+
 `apps/player-android/renderer-profile.json` is the one definition of what the
 Android renderer host provides: renderer features, presentation schemas, and
 the `web.remote` and `widget.external-runtime` capabilities. The player

@@ -96,6 +96,7 @@ object HostChannel {
         val engine = sanitized(engineVersion).ifBlank { "unknown" }
         return """
         (function(){
+        if(window!==window.top||window.location.href!=="${TrustedRuntimeOrigin.entryUrl}")return;
         if(window.__tilecastHostInstalled)return;
         window.__tilecastHostInstalled=true;
         window.__tilecastHostReady=true;

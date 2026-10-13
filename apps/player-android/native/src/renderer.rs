@@ -606,9 +606,8 @@ struct Grant {
 /// path; authorization is membership in this per-activation token set.
 #[derive(Debug, Clone)]
 struct FrameGrant {
+    kind: player_types::frames::FrameKind,
     uri: String,
-    package_id: SafeText<128>,
-    package_digest: Sha256Digest,
     path: std::path::PathBuf,
     size_bytes: u64,
 }
@@ -631,6 +630,7 @@ type GenerationGrants = Option<(u64, HashMap<Sha256Digest, Grant>, HashMap<Sha25
 
 /// The media and frame grant tables handed to one generation's projection.
 type LiveGrants = (HashMap<Sha256Digest, Grant>, HashMap<Sha256Digest, FrameGrant>);
+type PendingPluginFrames = Option<(u64, HashMap<Sha256Digest, FrameGrant>)>;
 
 /// Android's [`RendererPort`]: generation-bound media grants over the one
 /// semantic JNI upcall. The port never sends credentials, paths the page
@@ -641,11 +641,12 @@ pub struct AndroidRendererPort {
     platform: Arc<dyn RendererPlatform>,
     cas: ContentStore,
     grants: Arc<Mutex<GenerationGrants>>,
+    pending_plugin_frames: Arc<Mutex<PendingPluginFrames>>,
 }
 
 impl AndroidRendererPort {
     pub fn new(platform: Arc<dyn RendererPlatform>, cas: ContentStore) -> Self {
-        Self { platform, cas, grants: Arc::new(Mutex::new(None)) }
+        Self { platform, cas, grants: Arc::new(Mutex::new(None)), pending_plugin_frames: Arc::new(Mutex::new(None)) }
     }
 
     /// Authorizes verified CAS objects for a generation. Every digest
@@ -688,6 +689,13 @@ impl AndroidRendererPort {
             if grants.contains_key(&frame.digest) {
                 return Err(RendererPortError::InvalidActivation);
             }
+            if let Some(previous) = frame_grants.get(&frame.digest) {
+                let previous: &FrameGrant = previous;
+                if previous.kind != frame.kind || previous.size_bytes != frame.size_bytes {
+                    return Err(RendererPortError::InvalidActivation);
+                }
+                continue;
+            }
             let path = self
                 .cas
                 .verified_path(&frame.digest)
@@ -703,15 +711,57 @@ impl AndroidRendererPort {
             frame_grants.insert(
                 frame.digest,
                 FrameGrant {
+                    kind: frame.kind,
                     uri: format!("tcwidget://cap/{token}"),
-                    package_id: frame.package_id.clone(),
-                    package_digest: frame.package_digest,
                     path,
                     size_bytes: frame.size_bytes,
                 },
             );
         }
         *self.grants.lock().unwrap_or_else(|error| error.into_inner()) = Some((generation, grants, frame_grants));
+        Ok(())
+    }
+
+    async fn prepare_plugin_grants(
+        &self,
+        generation: u64,
+        frames: &[VerifiedFrameRef],
+    ) -> Result<(), RendererPortError> {
+        let (media, live) = self.grants_for(generation)?;
+        let mut next = HashMap::new();
+        for frame in frames {
+            if frame.kind != player_types::frames::FrameKind::ExternalPlugin || media.contains_key(&frame.sha256) {
+                return Err(RendererPortError::InvalidActivation);
+            }
+            if let Some(grant) = live.get(&frame.sha256) {
+                if grant.kind != frame.kind || grant.size_bytes != frame.size_bytes {
+                    return Err(RendererPortError::InvalidActivation);
+                }
+                next.insert(frame.sha256, grant.clone());
+                continue;
+            }
+            if next.contains_key(&frame.sha256) {
+                continue;
+            }
+            let path = self
+                .cas
+                .verified_path(&frame.sha256)
+                .await
+                .ok()
+                .flatten()
+                .ok_or(RendererPortError::ResourceUnavailable)?;
+            let token = mint_frame_token().ok_or(RendererPortError::InvalidActivation)?;
+            next.insert(
+                frame.sha256,
+                FrameGrant {
+                    kind: frame.kind,
+                    uri: format!("tcwidget://cap/{token}"),
+                    path,
+                    size_bytes: frame.size_bytes,
+                },
+            );
+        }
+        *self.pending_plugin_frames.lock().unwrap_or_else(|error| error.into_inner()) = Some((generation, next));
         Ok(())
     }
 
@@ -784,9 +834,10 @@ impl RendererPort for AndroidRendererPort {
             .map(|frame| {
                 let grant = frame_grants.get(&frame.sha256).ok_or(RendererPortError::InvalidActivation)?;
                 Ok(serde_json::json!({
+                    "kind": frame.kind,
                     "uri": grant.uri,
-                    "packageId": grant.package_id.as_str(),
-                    "packageDigest": grant.package_digest.to_hex(),
+                    "packageId": frame.package_id.as_str(),
+                    "packageDigest": frame.package_digest.to_hex(),
                     "frameDigest": frame.sha256.to_hex(),
                     "sizeBytes": grant.size_bytes,
                     "path": grant.path.to_string_lossy(),
@@ -799,7 +850,7 @@ impl RendererPort for AndroidRendererPort {
             "generation": reference.generation,
             "presentation": presentation,
             "content": content,
-            "frames": frames,
+            "frames": frames.iter().filter(|frame| frame["kind"] == "widget").cloned().collect::<Vec<_>>(),
         });
         if let Some(context) = context.as_ref().and_then(|context| context.as_object()) {
             if let Some(timing) = context.get("timing") {
@@ -821,6 +872,7 @@ impl RendererPort for AndroidRendererPort {
                         serde_json::Value::Array(
                             frames
                                 .iter()
+                                .filter(|frame| frame["kind"] == "widget")
                                 .map(|frame| {
                                     serde_json::json!({
                                         "packageId": frame["packageId"],
@@ -846,7 +898,50 @@ impl RendererPort for AndroidRendererPort {
                 }
             }
         }
+        envelope["pluginFrames"] = serde_json::Value::Array(
+            frames.iter().filter(|frame| frame["kind"] == "external_plugin").cloned().collect(),
+        );
         self.platform.request(&envelope.to_string())
+    }
+
+    fn update_plugin_frames(
+        &self,
+        reference: RendererActivationRef,
+        context: &RuntimePayload,
+        frames: &[VerifiedFrameRef],
+    ) -> Result<(), RendererPortError> {
+        let staged = self
+            .pending_plugin_frames
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take()
+            .filter(|(generation, _)| *generation == reference.generation)
+            .ok_or(RendererPortError::InvalidActivation)?
+            .1;
+        let mut live = self.grants.lock().unwrap_or_else(|error| error.into_inner());
+        let (generation, media, old_frames) = live.as_mut().ok_or(RendererPortError::InvalidActivation)?;
+        if *generation != reference.generation {
+            return Err(RendererPortError::InvalidActivation);
+        }
+        let context = wire_document(context, &|object| media.get(&object).map(|grant| grant.uri.clone()))?;
+        let table: Vec<serde_json::Value> = frames
+            .iter()
+            .map(|frame| {
+                let grant = staged.get(&frame.sha256).ok_or(RendererPortError::InvalidActivation)?;
+                if frame.kind != grant.kind || frame.size_bytes != grant.size_bytes {
+                    return Err(RendererPortError::InvalidActivation);
+                }
+                Ok(serde_json::json!({"kind": frame.kind, "uri": grant.uri, "packageId": frame.package_id.as_str(),
+                "packageDigest": frame.package_digest.to_hex(), "frameDigest": frame.sha256.to_hex(),
+                "sizeBytes": grant.size_bytes, "path": grant.path.to_string_lossy()}))
+            })
+            .collect::<Result<_, RendererPortError>>()?;
+        self.platform.request(&serde_json::json!({"op": "plugins", "activationId": reference.activation_id.to_string(),
+            "generation": reference.generation, "plugins": context.get("plugins").cloned().unwrap_or(serde_json::json!([])),
+            "pluginFrames": table, "clockOffsetMs": context.get("clockOffsetMs").and_then(serde_json::Value::as_i64).unwrap_or(0)}).to_string())?;
+        old_frames.retain(|_, grant| grant.kind == player_types::frames::FrameKind::Widget);
+        old_frames.extend(staged);
+        Ok(())
     }
 
     fn update_plugins(
@@ -1235,7 +1330,7 @@ impl PresentationEngine {
         })
     }
 
-    pub(crate) fn refresh_plugins(
+    pub(crate) async fn refresh_plugins(
         &mut self,
         previous: Sha256Digest,
         request: ActivateRequest,
@@ -1261,7 +1356,12 @@ impl PresentationEngine {
         if current.request.source != ActivationSource::ServerManifest
             || current.request.identity.as_ref().map(|identity| identity.manifest) != Some(previous)
             || current.request.content != request.content
-            || current.request.frames != request.frames
+            || current
+                .request
+                .frames
+                .iter()
+                .filter(|frame| frame.kind == player_types::frames::FrameKind::Widget)
+                .ne(request.frames.iter().filter(|frame| frame.kind == player_types::frames::FrameKind::Widget))
             || comparable(&current.request.envelope) != comparable(&request.envelope)
         {
             return Ok(false);
@@ -1283,17 +1383,41 @@ impl PresentationEngine {
         let mut bindings = Vec::new();
         scan_bindings(&mut context, "", &media, &mut uris, &mut bindings).map_err(|_| "plugin_refresh_invalid")?;
         let context = RuntimePayload::new(context, bindings).map_err(|_| "plugin_refresh_invalid")?;
+        let next_frames: Vec<VerifiedFrameRef> = request
+            .frames
+            .iter()
+            .map(|frame| VerifiedFrameRef {
+                kind: frame.kind,
+                package_id: frame.package_id.clone(),
+                package_digest: frame.package_digest,
+                sha256: frame.digest,
+                size_bytes: frame.size_bytes,
+            })
+            .collect();
+        let plugin_frames: Vec<VerifiedFrameRef> = next_frames
+            .iter()
+            .filter(|frame| frame.kind == player_types::frames::FrameKind::ExternalPlugin)
+            .cloned()
+            .collect();
         let activation = RendererActivation::new(
             current.reference,
             current.activation.document().clone(),
             current.activation.metadata().clone(),
             current.activation.content().to_vec(),
-            current.activation.frames().to_vec(),
+            next_frames,
             Some(context),
         )
         .map_err(|_| "plugin_refresh_invalid")?;
         self.port
-            .update_plugins(current.reference, activation.runtime_context().ok_or("plugin_refresh_invalid")?)
+            .prepare_plugin_grants(current.reference.generation, &plugin_frames)
+            .await
+            .map_err(|_| "plugin_refresh_invalid")?;
+        self.port
+            .update_plugin_frames(
+                current.reference,
+                activation.runtime_context().ok_or("plugin_refresh_invalid")?,
+                &plugin_frames,
+            )
             .map_err(|_| "plugin_refresh_delivery_failed")?;
         self.current = Some(Prepared { request, reference: current.reference, activation, uris });
         self.refresh_snapshot();
@@ -2113,10 +2237,10 @@ mod tests {
         request.identity.as_mut().expect("server identity").manifest_version = 8;
         request.envelope["plugins"] = serde_json::json!([{"type":"countdown_bar", "version":1}]);
         test.platform.answer(-4);
-        assert!(test.engine.refresh_plugins(previous, request.clone()).is_err());
+        assert!(test.engine.refresh_plugins(previous, request.clone()).await.is_err());
         assert_eq!(test.engine.current_activation().expect("current activation").manifest, Some(previous));
         test.platform.answer(0);
-        assert!(test.engine.refresh_plugins(previous, request.clone()).expect("refresh plugins"));
+        assert!(test.engine.refresh_plugins(previous, request.clone()).await.expect("refresh plugins"));
         let requests: Vec<serde_json::Value> = test
             .platform
             .requests()
@@ -2134,7 +2258,7 @@ mod tests {
         let grants = test.engine.port.grants_for(outcome.generation).expect("retained grants");
         assert_eq!(grants.0[&digest].uri, original_grants.0[&digest].uri);
         request.envelope["projection"] = serde_json::json!({"futureLayoutOption": true});
-        assert!(!test.engine.refresh_plugins(next, request).expect("compare changed projection"));
+        assert!(!test.engine.refresh_plugins(next, request).await.expect("compare changed projection"));
     }
 
     #[tokio::test]
@@ -2173,6 +2297,71 @@ mod tests {
             }
             other => panic!("expected Presented::Playing, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn plugin_frame_grants_commit_after_delivery_and_leave_media_and_widgets_unchanged() {
+        let test = scratch().await;
+        let media = seed(&test.engine.port.cas, b"pixels").await;
+        let widget = seed(&test.engine.port.cas, b"widget frame").await;
+        let plugin = seed(&test.engine.port.cas, b"plugin frame").await;
+        let replacement = seed(&test.engine.port.cas, b"replacement frame").await;
+        let make_frame = |digest, size, kind| ActivationFrame {
+            kind,
+            package_id: SafeText::new("example.frames").expect("package"),
+            package_digest: Sha256Digest::of(b"package"),
+            digest,
+            size_bytes: size,
+        };
+        let widget_frame = make_frame(widget, 12, player_types::frames::FrameKind::Widget);
+        let plugin_frame = make_frame(plugin, 12, player_types::frames::FrameKind::ExternalPlugin);
+        let replacement_frame = make_frame(replacement, 17, player_types::frames::FrameKind::ExternalPlugin);
+        let request = parse_activate_request(&playing_request(&media, 6, "image")).expect("request");
+        let uris = HashMap::from([(media, "tcmedia:unchanged".to_owned())]);
+        test.engine
+            .port
+            .prepare_grants(42, &request.content, std::slice::from_ref(&widget_frame), &uris)
+            .await
+            .expect("prepare");
+        let reference =
+            RendererActivationRef { activation_id: ActivationId::from_uuid(uuid::Uuid::new_v4()), generation: 42 };
+        let context = RuntimePayload::new(serde_json::json!({"plugins": []}), vec![]).expect("context");
+        let verified = |frame: &ActivationFrame| VerifiedFrameRef {
+            kind: frame.kind,
+            package_id: frame.package_id.clone(),
+            package_digest: frame.package_digest,
+            sha256: frame.digest,
+            size_bytes: frame.size_bytes,
+        };
+        let initial = test.engine.port.grants_for(42).expect("grants");
+        let add = vec![verified(&plugin_frame)];
+        test.engine.port.prepare_plugin_grants(42, &add).await.expect("stage");
+        test.engine.port.update_plugin_frames(reference, &context, &add).expect("deliver");
+        let installed = test.engine.port.grants_for(42).expect("grants");
+        assert_eq!(installed.0[&media].uri, initial.0[&media].uri);
+        assert_eq!(installed.1[&widget].uri, initial.1[&widget].uri);
+        test.engine.port.prepare_plugin_grants(42, &add).await.expect("repeat");
+        test.engine.port.update_plugin_frames(reference, &context, &add).expect("repeat");
+        assert_eq!(test.engine.port.grants_for(42).expect("grants").1[&plugin].uri, installed.1[&plugin].uri);
+        let replace = vec![verified(&replacement_frame)];
+        test.engine.port.prepare_plugin_grants(42, &replace).await.expect("stage replacement");
+        test.platform.answer(-4);
+        assert!(test.engine.port.update_plugin_frames(reference, &context, &replace).is_err());
+        assert!(test.engine.port.grants_for(42).expect("retained").1.contains_key(&plugin));
+        assert!(!test.engine.port.grants_for(42).expect("retained").1.contains_key(&replacement));
+        test.platform.answer(0);
+        test.engine.port.prepare_plugin_grants(42, &[]).await.expect("stage removal");
+        test.engine.port.update_plugin_frames(reference, &context, &[]).expect("remove");
+        let removed = test.engine.port.grants_for(42).expect("grants");
+        assert_eq!(removed.1.len(), 1);
+        assert_eq!(removed.1[&widget].uri, initial.1[&widget].uri);
+        assert_eq!(removed.0[&media].uri, initial.0[&media].uri);
+        assert!(
+            test.platform
+                .requests()
+                .iter()
+                .all(|wire| serde_json::from_str::<serde_json::Value>(wire).expect("wire")["op"] == "plugins")
+        );
     }
 
     #[tokio::test]

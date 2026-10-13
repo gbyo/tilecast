@@ -305,29 +305,10 @@ class WebViewCoreRenderer(
         // Frame grants ride beside the media grants; an absent list is an
         // activation without external Widgets. A frame entry whose file is
         // missing fails the activation rather than executing unconfined.
-        val frameGrants = mutableSetOf<FrameAuthorization.AuthorizedFrame>()
-        val frameFiles = mutableMapOf<String, String>()
-        val frames = runCatching {
-            root["frames"] as? JsonArray
-        }.getOrNull()
-        if (frames != null) {
-            for (entry in frames) {
-                val grant = runCatching { entry.jsonObject }.getOrNull()
-                    ?: return CoreRendererRequestCode.INVALID_ACTIVATION
-                val uri = grant.stringOrNull("uri")
-                val path = grant.stringOrNull("path")
-                // The token is the authority: it comes from the grant's
-                // own URI through the single parser, never from the
-                // digest the runtime joins on.
-                val token = FrameAuthorization.tokenOf(uri)
-                if (token.isNullOrEmpty() || path.isNullOrEmpty()) {
-                    return CoreRendererRequestCode.INVALID_ACTIVATION
-                }
-                if (!File(path).isFile) return CoreRendererRequestCode.RESOURCE_UNAVAILABLE
-                frameGrants += FrameAuthorization.AuthorizedFrame(token)
-                frameFiles[token] = path
-            }
-        }
+        val widgetFrames = parseFrames(root, "frames", FrameAuthorization.Kind.WIDGET)
+            ?: return CoreRendererRequestCode.INVALID_ACTIVATION
+        val pluginFrames = parseFrames(root, "pluginFrames", FrameAuthorization.Kind.EXTERNAL_PLUGIN)
+            ?: return CoreRendererRequestCode.INVALID_ACTIVATION
         val message = buildJsonObject {
             put("type", "presentation")
             put("presentation", presentation)
@@ -347,6 +328,7 @@ class WebViewCoreRenderer(
             val pluginsJson = buildJsonObject {
                 put("type", "plugins")
                 put("plugins", plugins)
+                put("pluginFrames", pluginFrames.bindings)
                 put("clockOffsetMs", offset)
             }
             RuntimeBridgeProtocol.parseHostMessage(pluginsJson.toString()).getOrNull()
@@ -354,7 +336,8 @@ class WebViewCoreRenderer(
         }
         val stateGeneration = synchronized(lock) {
             val live = session ?: return CoreRendererRequestCode.NOT_READY
-            grants = Grants(authorized, localFiles, mimeByVariant, frameGrants, frameFiles)
+            grants = Grants(authorized, localFiles, mimeByVariant,
+                widgetFrames.authorized + pluginFrames.authorized, widgetFrames.files + pluginFrames.files)
             live.offer(parsed)
             pluginsMessage?.let { live.offer(it) }
             live.currentStateGeneration()
@@ -371,9 +354,12 @@ class WebViewCoreRenderer(
         val plugins = root["plugins"] as? JsonArray ?: return CoreRendererRequestCode.INVALID_ACTIVATION
         val activationId = root.stringOrNull("activationId") ?: return CoreRendererRequestCode.INVALID_ACTIVATION
         val generation = root["generation"]?.jsonPrimitive?.longOrNull ?: return CoreRendererRequestCode.INVALID_ACTIVATION
+        val pluginFrames = parseFrames(root, "pluginFrames", FrameAuthorization.Kind.EXTERNAL_PLUGIN)
+            ?: return CoreRendererRequestCode.INVALID_ACTIVATION
         val message = buildJsonObject {
             put("type", "plugins")
             put("plugins", plugins)
+            put("pluginFrames", pluginFrames.bindings)
             put("clockOffsetMs", root["clockOffsetMs"]?.jsonPrimitive?.longOrNull ?: 0L)
         }
         val parsed = RuntimeBridgeProtocol.parseHostMessage(message.toString()).getOrNull()
@@ -382,6 +368,10 @@ class WebViewCoreRenderer(
             val current = session ?: return CoreRendererRequestCode.NOT_READY
             val view = webView ?: return CoreRendererRequestCode.NOT_READY
             if (!current.matchesActivation(activationId, generation)) return CoreRendererRequestCode.INVALID_ACTIVATION
+            val previous = grants ?: return CoreRendererRequestCode.NOT_READY
+            val retained = previous.frames.filter { it.kind == FrameAuthorization.Kind.WIDGET }.toSet()
+            val retainedFiles = previous.frameFiles.filterKeys { token -> retained.any { it.frameToken == token } }
+            grants = previous.copy(frames = retained + pluginFrames.authorized, frameFiles = retainedFiles + pluginFrames.files)
             current.offer(parsed)
             view to current.currentStateGeneration()
         }
@@ -389,26 +379,36 @@ class WebViewCoreRenderer(
         return CoreRendererRequestCode.QUEUED
     }
 
-    private fun handlePlugins(root: JsonObject): Int {
-        val plugins = root["plugins"] as? JsonArray ?: return CoreRendererRequestCode.INVALID_ACTIVATION
-        val activationId = root.stringOrNull("activationId") ?: return CoreRendererRequestCode.INVALID_ACTIVATION
-        val generation = root["generation"]?.jsonPrimitive?.longOrNull ?: return CoreRendererRequestCode.INVALID_ACTIVATION
-        val message = buildJsonObject {
-            put("type", "plugins")
-            put("plugins", plugins)
-            put("clockOffsetMs", root["clockOffsetMs"]?.jsonPrimitive?.longOrNull ?: 0L)
+    private data class ParsedFrames(
+        val authorized: Set<FrameAuthorization.AuthorizedFrame>,
+        val files: Map<String, String>,
+        val bindings: JsonArray,
+    )
+
+    private fun parseFrames(root: JsonObject, key: String, kind: FrameAuthorization.Kind): ParsedFrames? {
+        val entries = root[key]?.let { it as? JsonArray ?: return null } ?: JsonArray(emptyList())
+        if (entries.size > if (kind == FrameAuthorization.Kind.EXTERNAL_PLUGIN) 32 else 1024) return null
+        val authorized = mutableSetOf<FrameAuthorization.AuthorizedFrame>()
+        val files = mutableMapOf<String, String>()
+        val bindings = mutableListOf<JsonObject>()
+        for (entry in entries) {
+            val grant = entry as? JsonObject ?: return null
+            val wireKind = grant.stringOrNull("kind") ?: "widget"
+            if (wireKind != if (kind == FrameAuthorization.Kind.EXTERNAL_PLUGIN) "external_plugin" else "widget") return null
+            val token = FrameAuthorization.tokenOf(grant.stringOrNull("uri")) ?: return null
+            val path = grant.stringOrNull("path") ?: return null
+            val size = grant["sizeBytes"]?.jsonPrimitive?.longOrNull ?: return null
+            if (size !in 1..1114112 || !File(path).isFile || File(path).length() != size) return null
+            if (files[token]?.let { it != path } == true) return null
+            authorized += FrameAuthorization.AuthorizedFrame(token, kind, size)
+            files[token] = path
+            bindings += buildJsonObject {
+                for (field in listOf("packageId", "packageDigest", "frameDigest", "uri")) {
+                    put(field, grant[field] ?: return null)
+                }
+            }
         }
-        val parsed = RuntimeBridgeProtocol.parseHostMessage(message.toString()).getOrNull()
-            ?: return CoreRendererRequestCode.INVALID_ACTIVATION
-        val (view, stateGeneration) = synchronized(lock) {
-            val current = session ?: return CoreRendererRequestCode.NOT_READY
-            val view = webView ?: return CoreRendererRequestCode.NOT_READY
-            if (!current.matchesActivation(activationId, generation)) return CoreRendererRequestCode.INVALID_ACTIVATION
-            current.offer(parsed)
-            view to current.currentStateGeneration()
-        }
-        owner?.nudge(view, stateGeneration)
-        return CoreRendererRequestCode.QUEUED
+        return ParsedFrames(authorized, files, JsonArray(bindings))
     }
 
     private fun handleClear(): Int {

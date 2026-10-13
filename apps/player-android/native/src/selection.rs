@@ -1210,7 +1210,7 @@ impl OfflineActivationHost for SelectionHost {
             identity: Some(identity(candidate, resolved)),
             clock_offset_ms: time.offset_ms,
         };
-        self.engine.lock().await.refresh_plugins(previous, request)
+        self.engine.lock().await.refresh_plugins(previous, request).await
     }
 
     fn promoted(&self) {

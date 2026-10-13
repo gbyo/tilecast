@@ -1,5 +1,12 @@
 # External Player plugins
 
+Android uses an independent plugin frame grant set for each presentation
+generation. The adapter stages verified files before delivery and commits
+grants after the narrow update succeeds. Media and Widget grants stay active.
+The response policy follows the frame kind. The native message listener
+accepts only the main Runtime document. Native capability reporting remains
+a separate qualification gate.
+
 External Plugin API 2 is separate from bundled Plugin API 1.
 An external package contributes a local `tilecast.plugin.json` descriptor.
 The Server gives the contribution a qualified identity.
