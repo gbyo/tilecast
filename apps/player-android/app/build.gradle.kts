@@ -186,7 +186,7 @@ tasks.register<Exec>("verifySharedRuntime") {
     )
 }
 
-tasks.named("preBuild") { dependsOn("verifySharedRuntime", "buildNativeCore") }
+tasks.named("preBuild") { dependsOn("verifySharedRuntime", "buildNativeCore", "syncGeistFont") }
 
 // The Kotlin verifier component must match the native
 // rustls-platform-verifier-android crate exactly; a SemVer mismatch crashes
@@ -251,6 +251,37 @@ android {
     sourceSets {
         getByName("main") {
             jniLibs.directories.add(nativeJniLibs.get().asFile.absolutePath)
+        }
+    }
+}
+
+// Geist for Tilecast-owned native UI. Native apps share one vendored copy of
+// the official Geist variable font (SIL Open Font License), so the Android
+// build copies it from the iOS app's resources instead of keeping a second
+// binary. It becomes an Android font resource at build time; the OFL text
+// ships as an APK asset. Nothing is fetched at runtime, so offline signage
+// keeps its typeface. The shared runtime bundles Geist separately as WOFF2
+// from @fontsource-variable/geist for the WebView.
+val geistFont = layout.projectDirectory.file("../../ios/Tilecast/Resources/Fonts/Geist-Variable.ttf")
+val geistLicense = layout.projectDirectory.file("../../ios/Tilecast/Resources/Licenses/Geist-OFL.txt")
+val geistGenerated = layout.buildDirectory.dir("generated/geist")
+
+tasks.register<Sync>("syncGeistFont") {
+    group = "tilecast"
+    description = "Copies the vendored Geist variable font into generated Android resources."
+    from(geistFont) {
+        into("res/font")
+        rename { "geist_variable.ttf" }
+    }
+    from(geistLicense) { into("assets/licenses") }
+    into(geistGenerated)
+}
+
+android {
+    sourceSets {
+        getByName("main") {
+            res.directories.add(geistGenerated.get().dir("res").asFile.absolutePath)
+            assets.directories.add(geistGenerated.get().dir("assets").asFile.absolutePath)
         }
     }
 }
