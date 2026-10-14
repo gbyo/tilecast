@@ -28,6 +28,15 @@ func TestExternalPluginManifestRequiresGenericCapability(t *testing.T) {
 	if projector.calls != 0 {
 		t.Fatal("unreported Player received external plugin execution")
 	}
+	// Windows and Android report the Widget frame ABI but not the plugin one.
+	// The two capabilities are never aliases of each other.
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{"widget.external-runtime": 2})
+	if _, _, err := f.service.BuildManifest(f.ctx, f.screen); err != nil {
+		t.Fatal(err)
+	}
+	if projector.calls != 0 {
+		t.Fatal("a Player reporting only the Widget frame ABI received external plugin execution")
+	}
 	f.reportCapabilities(t, "{1,2,3}", map[string]int{"plugin.external-runtime": 1})
 	manifest, _, err := f.service.BuildManifest(f.ctx, f.screen)
 	if err != nil {

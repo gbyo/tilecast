@@ -126,6 +126,17 @@ def self_test_fixture(out):
                              os.path.join(media, "clip.mp4")], check=True)
 
 
+def require_plugin_bridge(tree):
+    """The heartbeat reports plugin.external-runtime@1, so the packaged WPE
+    bridge must enable the Runtime path that serves it. A tree whose bridge
+    lacks the flag would make the Server send surfaces the Runtime ignores."""
+    path = os.path.join(tree, "share/tilecast/renderer-web/tilecast-bridge.js")
+    with open(path, encoding="utf-8") as handle:
+        bridge = handle.read()
+    if not re.search(r"^\s*externalPluginFrames: true,$", bridge, re.MULTILINE):
+        sys.exit("stage-release: the packaged WPE bridge does not enable external plugin frames")
+
+
 def main():
     parser = argparse.ArgumentParser()
     for name in ("--out", "--version", "--bin-dir", "--renderer", "--web-renderer", "--session-bridge",
@@ -150,6 +161,7 @@ def main():
             source = os.path.join(root, name)
             relative = os.path.relpath(source, args.runtime_dir)
             copy(source, out, f"share/tilecast/renderer-web/{relative}", 0o644)
+    require_plugin_bridge(out)
     if args.wpe_lib_dir:
         copy_wpe(args.wpe_lib_dir, out)
         # The renderer binaries are already staged: their NEEDED libraries

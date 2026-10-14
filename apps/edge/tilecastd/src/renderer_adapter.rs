@@ -183,6 +183,12 @@ pub(crate) fn packaged_profile() -> player_core::PackagedRendererProfile {
                 .iter()
                 .map(|(name, version)| (token(*name), *version))
                 .chain(std::iter::once((token("web.remote"), profile::WEB_RUNTIME_VERSION)))
+                // The packaged Runtime announces external Plugin surfaces
+                // because the packaged WPE bridge enables them.
+                .chain(std::iter::once((
+                    token(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_CAPABILITY),
+                    edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_VERSION,
+                )))
                 .collect(),
             crate::widget_capabilities::WIDGET_COMPONENTS
                 .iter()
@@ -959,6 +965,49 @@ mod tests {
         assert_eq!(decoded.aliases, activation.extras.plugin_aliases);
         activation.content.clear();
         assert_eq!(prepare(&activation, 123), Err(RendererPortError::InvalidActivation));
+    }
+
+    #[test]
+    fn packaged_profile_offers_the_plugin_surface_abi_independently_of_widget_frames() {
+        use player_core::RendererRequirement;
+        let plugin = || {
+            edge_protocol::bounded::ShortToken::new(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_CAPABILITY).unwrap()
+        };
+        let required = |version| RendererRequirement::Declarative { name: plugin(), version };
+        assert_eq!(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_VERSION, 1);
+        packaged_profile()
+            .check(&required(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_VERSION))
+            .expect("plugin.external-runtime @1");
+        assert!(
+            packaged_profile().check(&required(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_VERSION + 1)).is_err()
+        );
+        // The Widget frame ABI is a different capability: the plugin name is
+        // never offered as a Widget component, or the Widget name as a plugin.
+        assert!(
+            packaged_profile().check(&RendererRequirement::WidgetComponent { name: plugin(), version: 1 }).is_err()
+        );
+        assert!(
+            packaged_profile()
+                .check(&RendererRequirement::Declarative {
+                    name: edge_protocol::bounded::ShortToken::new(edge_protocol::frames::EXTERNAL_RUNTIME_CAPABILITY)
+                        .unwrap(),
+                    version: edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+                })
+                .is_err()
+        );
+    }
+
+    /// The Runtime announces plugin support only when the host bridge says it
+    /// executes plugin frames, and the heartbeat reports the same ABI only
+    /// because that bridge does. The WPE bridge is JavaScript shipped beside
+    /// the Runtime, so its source is pinned here: removing the flag must fail
+    /// a test, not silently stop plugin projection.
+    #[test]
+    fn the_shipped_wpe_bridge_enables_the_plugin_surface_abi_this_edge_reports() {
+        let bridge = include_str!("../../renderer-wpe/web/tilecast-bridge.js");
+        assert_eq!(bridge.matches("externalPluginFrames: true").count(), 1);
+        assert_eq!(bridge.matches("externalFrames: true").count(), 1);
+        assert!(!bridge.contains("externalPluginFrames: false"));
     }
 
     #[test]
