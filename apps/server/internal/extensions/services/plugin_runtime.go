@@ -18,6 +18,8 @@ func pluginStateError(err error) *CallError {
 		return nil
 	case errors.Is(err, devices.ErrOutOfScope):
 		return forbidden("the selected targets are outside your assigned scope")
+	case errors.Is(err, externalplugins.ErrForbidden):
+		return forbidden("configuring external plugins requires an Owner or Administrator")
 	case errors.Is(err, externalplugins.ErrNotFound):
 		return notFound("this package does not own an executable plugin contribution with that identity")
 	case errors.Is(err, externalplugins.ErrInvalid), errors.Is(err, targeting.ErrInvalid):
