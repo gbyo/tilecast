@@ -103,7 +103,7 @@ def pixels(jpeg, color):
     raw = subprocess.run([
         "ffmpeg", "-loglevel", "error", "-f", "image2pipe", "-i", "pipe:0",
         "-vf", "scale=128:72", "-f", "rawvideo", "-pix_fmt", "rgb24", "pipe:1",
-    ], input=jpeg, capture_output=True, check=True).stdout
+    ], input=jpeg, capture_output=True, check=True, timeout=30).stdout
     assert len(raw) == 128 * 72 * 3
     if color == "green":
         return sum(g > 180 and r < 80 and b < 80 for r, g, b in zip(raw[0::3], raw[1::3], raw[2::3]))
@@ -142,7 +142,7 @@ def qualify(args):
             "ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "color=c=blue:size=320x180:rate=2",
             "-t", "300", "-c:v", "libx264", "-profile:v", "baseline", "-pix_fmt", "yuv420p",
             "-movflags", "+faststart", video_path,
-        ], check=True)
+        ], check=True, timeout=300)
         with open(video_path, "rb") as handle:
             video = handle.read()
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), SurfaceHandler)
