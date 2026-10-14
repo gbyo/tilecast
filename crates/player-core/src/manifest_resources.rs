@@ -6,6 +6,13 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=20;
+
+/// Route an already validated manifest member to the independently gated
+/// frame channel. External packages never become bundled feature IDs.
+pub fn is_external_runtime_plugin(plugin: &Value) -> bool {
+    plugin.get("type").and_then(Value::as_str) == Some("external_plugin")
+        && plugin.get("version").and_then(Value::as_u64) == Some(1)
+}
 const MAX_ASSETS: usize = 1024;
 const MAX_PLAYLISTS: usize = 128;
 const MAX_ITEMS: usize = 4096;

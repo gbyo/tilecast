@@ -855,6 +855,10 @@ fn plugins(
     let mut aliases = Vec::new();
     let mut content = Vec::new();
     for plugin in candidate.document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+        if player_core::is_external_runtime_plugin(plugin) {
+            plugins.push(plugin.clone());
+            continue;
+        }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("");
         if !crate::manifest_host::profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
             return Err(ManifestError::Incompatible(Incompatibility::Plugin(kind.chars().take(32).collect())));
@@ -1302,6 +1306,25 @@ mod tests {
         assert_eq!(resolved.content.len(), 1);
         assert!(resolved.projection.is_none());
         assert_eq!(resolved.selection.source, Source::Direct);
+    }
+
+    #[test]
+    fn external_surface_uses_verified_frames_instead_of_a_bundled_feature_id() {
+        let entry: Value = serde_json::from_str(include_str!(
+            "../../../../packages/player-contracts/fixtures/external-plugin-entry.json"
+        ))
+        .expect("fixture");
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(20);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value).expect("external member");
+        let (forwarded, aliases, content) = plugins(&candidate, 1_000).expect("external channel");
+        assert_eq!(forwarded, vec![entry]);
+        assert_eq!(candidate.required_frames.len(), 1);
+        assert_eq!(candidate.required_frames[0].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert!(aliases.is_empty() && content.is_empty());
+        let connected = player_core::ConnectedRendererProfile(crate::manifest_host::profile::packaged().0);
+        assert!(crate::manifest_host::incompatibilities(&candidate.document, &candidate.assets, &connected).is_empty());
     }
 
     #[test]
