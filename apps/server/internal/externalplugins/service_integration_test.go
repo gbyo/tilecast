@@ -301,3 +301,13 @@ func TestInvalidPersistedStateSkipsOnlyItsEntry(t *testing.T) {
 		t.Fatalf("unreadable state must skip its entry, not fail the manifest: %+v %v", entries, err)
 	}
 }
+
+func TestConfigureRefusesAnActorWhoseRoleIsNotOwnerOrAdministrator(t *testing.T) {
+	f := newFixture(t)
+	call := f.call
+	call.ActorRole = "editor"
+	_, err := f.service.Configure(f.ctx, call, externalplugins.ConfigureInput{ContributionID: "acme.surface.corner", Enabled: true, Configuration: json.RawMessage(`{}`), Targets: targeting.Definition{Mode: "all"}})
+	if !errors.Is(err, externalplugins.ErrForbidden) || errors.Is(err, externalplugins.ErrInvalid) {
+		t.Fatalf("a role refusal must be forbidden, not invalid input: %v", err)
+	}
+}

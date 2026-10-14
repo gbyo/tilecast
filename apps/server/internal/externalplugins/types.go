@@ -16,6 +16,7 @@ const MaxValidity = 5 * time.Minute
 const MaxEnabledInstances = 32
 
 var ErrInvalid = errors.New("invalid external plugin state")
+var ErrForbidden = errors.New("external plugin configuration is not permitted")
 var ErrNotFound = errors.New("external plugin contribution not found")
 var ErrConflict = errors.New("external plugin configuration changed")
 
