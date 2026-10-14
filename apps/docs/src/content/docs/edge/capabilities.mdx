@@ -35,6 +35,10 @@ The Edge column shows what the Edge software does today. Every Edge feature stil
 
 When a newer presentation needs something Edge can't show, Edge keeps playing the last presentation it could show and tells Studio why. See [content compatibility](../compatibility/).
 
-`tilecastctl capabilities` on the Edge computer lists each hardware feature with its current state and a reason, such as a missing adapter or a display that doesn't respond. The [engineering capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md) has the full list of states, reasons, and tests.
+`tilecastctl capabilities` on the Edge computer lists each hardware feature with its current state and a reason, such as a missing adapter or a display that doesn't respond. Use it to confirm the renderer/display capability, Display Control providers, network providers, and other host features that Edge can probe.
+
+A capability report is not a decoder benchmark. Tilecast does not currently report a trustworthy per-video flag that proves a displayed frame used VA-API or another hardware decoder instead of software decoding. If playback smoothness or CPU load matters, qualify the exact device with the target media and watch Player health while it runs. Do not infer hardware decoding only from a GPU model name.
+
+The [engineering capability matrix](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-capabilities.md) has the full list of states, reasons, and tests.
 
 The normal Tilecast guides apply to shared tasks such as [Activity](../../operations/activity/), [Live preview](../../operations/live-preview/), [Player commands](../../operations/player-commands/), [Display Control](../../screens/display-control/), [Schedules](../../schedules/), and [Display Groups](../../screens/display-groups/).

@@ -15,7 +15,11 @@ For large videos and items marked for streaming, Edge downloads and verifies the
 
 - **Rotated Span panels.** Edge rotates Span content the same way as the stable Linux Player, but rotation isn't verified on a physical wall yet.
 
-Codecs, hardware video decoding, and multi-panel frame alignment also still need testing on real hardware. See the [capability matrix](../capabilities/) for the full comparison.
+Codecs, hardware video decoding, and multi-panel frame alignment also still need testing on real hardware. Tilecast does not claim that a whole Intel, AMD, or ARM GPU generation can play a particular profile just because another device in that family can. The WPE/GStreamer path also depends on the kernel driver, userspace video driver, firmware, display backend, and the exact media profile.
+
+For production qualification, test the exact computer image and the exact video profile you plan to deploy. A successful 1080p30 file does not qualify 1080p60, HEVC, 10-bit video, or a different driver stack. Use H.264, `yuv420p`, AAC-LC in MP4 as the conservative prepared format, and check [media preparation](../../media/#know-what-happens-to-the-uploaded-file) for how Tilecast normalizes uploads.
+
+See the [capability matrix](../capabilities/) for the full comparison.
 
 ## Check a screen before you move it
 
