@@ -241,9 +241,9 @@ Personal access tokens ride the same grant model with their own `tcp_` prefix, s
 
 ### Management authentication
 
-Management routes share one boundary, `requireUser`, which accepts either an enrolled dashboard session cookie or `Authorization: Bearer` with an OAuth access token (`tca_`) or personal access token (`tcp_`). Both produce the same principal: the live user row, so disabling an account or changing its role or screen scope takes effect on the next request, with the grant contributing only its identity and scope ceiling. The credential source is explicit: a request carrying an `Authorization` header is authenticated as that Bearer [REDACTED] not at all, and never falls back to an ambient browser cookie. Device credentials (`tc_device_`), integration tokens (`tci_`), and refresh secrets are never accepted here, exactly as sessions are never accepted as player credentials.
+Management routes share one boundary, `requireUser`, and each route then names the capability it needs with `requireCapability`. The principal carries the effective capabilities of the live role, so a bearer credential and a session reach the same decision. See [Access control](access-control.md). `requireUser` accepts either an enrolled dashboard session cookie or `Authorization: Bearer` with an OAuth access token (`tca_`) or personal access token (`tcp_`). Both produce the same principal: the live user row, so disabling an account or changing its role or screen scope takes effect on the next request, with the grant contributing only its identity and scope ceiling. The credential source is explicit: a request carrying an `Authorization` header is authenticated as that Bearer [REDACTED] not at all, and never falls back to an ambient browser cookie. Device credentials (`tc_device_`), integration tokens (`tci_`), and refresh secrets are never accepted here, exactly as sessions are never accepted as player credentials.
 
-Grant scopes are hierarchical — `admin` implies `write` implies `read` — and every management route names the scope it needs: reads take `read`, mutations take `write`, and user, token, grant, backup, and security administration take `admin` on top of the role check. A user who owes the organization a second factor is gated with `mfa_enrollment_required` on either credential.
+Grant scopes are hierarchical — `admin` implies `write` implies `read` — and every management route names the scope it needs: reads take `read`, mutations take `write`, and user, token, grant, backup, and security administration take `admin` on top of the capability check. A user who owes the organization a second factor is gated with `mfa_enrollment_required` on either credential.
 
 CSRF depends on the credential type. Cookie-backed browser requests require `X-CSRF-Token` on unsafe methods, exactly as before. Bearer requests never send it and are never asked for it. Browser security ceremonies stay session-only: MFA enrollment and removal, passkeys, recovery codes, logout, and OAuth approval/denial refuse bearer credentials outright.
 
@@ -297,13 +297,13 @@ Three gates protect the contract. `npm run plugins:check` enforces per-operation
 
 ## Media uploads and library
 
-All routes below require a dashboard session. Owner, Administrator, and Editor may mutate media; Viewer is read-only. Every mutation requires `X-CSRF-Token`.
+All routes below require a dashboard session. Each route needs a `media.*` capability, and content access decides which assets the account reaches. The built-in Owner, Administrator, Editor, and Contributor roles may upload and edit media; Viewer is read-only. See [Access control](access-control.md). Every mutation requires `X-CSRF-Token`.
 
-- `POST /api/v1/uploads` creates a 24-hour resumable session.
+- `POST /api/v1/uploads` creates a 24-hour resumable session. The body may name a destination `folderId`. An account with the whole library may omit it, and the asset is then created at the library root. An account with restricted content access must name one of its folders: a missing `folderId` answers `422 upload_folder_required`, and a folder outside the account's access answers `404`. The Server authorizes the folder when the session is created and again, inside the transaction that creates the asset, when the upload completes. The client does not repeat the folder at completion.
 - `HEAD /api/v1/uploads/{id}` returns `Upload-Offset`, `Upload-Length`, `Upload-Status`, and `Upload-Expires`.
 - `PATCH /api/v1/uploads/{id}` accepts `application/offset+octet-stream` and requires the exact `Upload-Offset`. A mismatch returns `409 upload_offset_mismatch` without moving the accepted offset.
 - `POST /api/v1/uploads/{id}/complete` validates size, synchronizes the file, hashes it, detects its actual type, atomically promotes it, creates the asset and original variant, and queues inspection. Repeating completion after success returns the same asset.
-- `DELETE /api/v1/uploads/{id}` cancels an unfinished upload and removes temporary bytes.
+- `DELETE /api/v1/uploads/{id}` cancels an unfinished upload and removes temporary bytes. The account that started the upload may cancel it after its access is revoked.
 - `GET /api/v1/assets` is paginated and supports `search`, `type`, `status`, `folderId`, `collectionId`, `tagId`, `sort`, `page`, and `pageSize` (maximum 100). Active content is returned by default; `archived=true` returns manually archived content plus content whose `expiresAt` has elapsed. This time-based transition is computed against the database clock, so it needs no cleanup job or browser session.
 - `POST /api/v1/assets/archive` moves 1–100 unused assets out of the active library without deleting their files or folder, collection, and tag organization. The transaction is rejected if any selected asset is missing or still used by a playlist, Layout, Widget, or shared setting.
 - `POST /api/v1/assets/restore` returns 1–100 archived or expired assets to the active library while preserving organization. Restoring expired content clears its elapsed `expiresAt`; restoring manually archived content preserves a future expiration.
@@ -491,6 +491,16 @@ Publication verifies that every referenced Playlist/Layout is still the root rev
 ## Screen scopes
 
 `GET /users/{id}/screen-scopes` and `PUT /users/{id}/screen-scopes` manage which locations and sync groups an account may operate screens in. No grants means the whole fleet; an Owner cannot be scoped, and nobody can change their own scope. Screen routes enforce it: an out-of-scope screen answers `404 screen_not_found` rather than `403`, so a scoped operator cannot enumerate the rest of the fleet, and an operation naming a mix answers `403 out_of_scope`. `GET /screens` is filtered by the same predicate that authorizes each operation. An update deployment is not a screen, so the update-deployment routes are scoped by the set of screens the deployment reaches: the reads narrow to the caller's screens and every count is a count of those, cancelling answers `403 out_of_scope` unless the caller reaches the whole deployment, a retry follows the single-screen rule, and a deployment reaching nothing in scope answers `404`. Activity reporting is deliberately not scoped. See [Screen scopes](screen-scopes.md).
+
+### Roles and content access
+
+- `GET /api/v1/roles` lists the built-in and custom roles. Each role includes its `capabilities`, its active `userCount`, whether the caller may `edit` it, and whether the caller may `assign` it.
+- `GET /api/v1/roles/capabilities` returns the closed capability vocabulary with the group, requirements, and delegation flags of each entry.
+- `POST /api/v1/roles`, `PATCH /api/v1/roles/{key}`, and `DELETE /api/v1/roles/{key}` manage custom roles. They need `roles.manage`. A custom role key starts with `custom.`. The Server answers `403 role_delegation` when the caller would grant a capability it does not hold or a capability that administers access, `403 role_protected` for a built-in role, `409 role_in_use` when an account holds the role, and `409 role_name_taken` for a duplicate name.
+- `GET /api/v1/users/{id}/content-access` and `PUT /api/v1/users/{id}/content-access` read and replace an account's content access (`libraryMode`, `tagMode`, `folderIds`, `tagIds`). They need `users.manage`. The Owner cannot be restricted, and nobody can change their own content access. A grant outside the caller's own reach answers `403 content_access_delegation`.
+- `GET /api/v1/me/access` returns the signed-in account's role, effective capabilities, content modes, and writable folder IDs.
+- The `role` field of the user routes is a role key. The five built-in keys remain valid.
+- A restricted account that attempts an action that needs the whole library receives `403 content_scope_restricted`. A tag it may not apply answers `403 tag_not_assignable`.
 
 ## Integration tokens
 
