@@ -1215,7 +1215,7 @@ mod tests {
     #[test]
     fn external_surface_uses_verified_frames_instead_of_a_bundled_feature_id() {
         let entry: Value = serde_json::from_str(include_str!(
-            "../../../../packages/player-contracts/fixtures/external-plugin-entry.json"
+            "../../../../packages/manifest-schema/external-plugin-entry-fixture.json"
         ))
         .unwrap();
         let mut value = manifest();

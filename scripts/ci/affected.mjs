@@ -155,6 +155,12 @@ const rules = [
     /^packages\/player-contracts\/fixtures\/widget-frames\.json$/,
     ["protocol", "player_core"],
   ],
+  // The generic entry fixture belongs to the manifest contract and is
+  // projected by all three native hosts through Player Core frame claims.
+  [
+    /^packages\/manifest-schema\/external-plugin-entry-fixture\.json$/,
+    ["protocol", "player_core"],
+  ],
   // External Widget conformance fixtures are executed by the shared Widget
   // SDK and projected by the Runtime, then exercised by native hosts.
   // Keep each changed fixture on the relevant cross-player validation lanes.

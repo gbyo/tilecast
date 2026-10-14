@@ -913,10 +913,9 @@ mod tests {
 
     #[test]
     fn external_surface_uses_verified_frames_instead_of_a_bundled_feature_id() {
-        let entry: Value = serde_json::from_str(include_str!(
-            "../../../packages/player-contracts/fixtures/external-plugin-entry.json"
-        ))
-        .expect("fixture");
+        let entry: Value =
+            serde_json::from_str(include_str!("../../../packages/manifest-schema/external-plugin-entry-fixture.json"))
+                .expect("fixture");
         let screen = player_types::ScreenId::from_uuid(uuid::Uuid::from_u128(3));
         let value = serde_json::json!({"schemaVersion":20,"manifestVersion":1,"screenId":screen.to_string(),"mode":"presentation",
             "assets":[],"playlists":[],"widgets":[],"plugins":[entry.clone()]});
