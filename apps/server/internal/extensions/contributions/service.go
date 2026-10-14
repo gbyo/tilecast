@@ -63,6 +63,10 @@ type Service struct {
 	// Widget contribution. Like the catalog it swaps atomically, so
 	// manifest compilation never blocks on a rebuild.
 	payloads atomic.Pointer[payloadSnapshot]
+	// refreshing and lastRefresh bound the background catalog refresh a
+	// request can start for an epoch this replica has never seen.
+	refreshing  atomic.Bool
+	lastRefresh atomic.Int64
 }
 
 // payloadKey identifies one Widget contribution's player bundle.
@@ -75,6 +79,10 @@ type payloadSnapshot struct {
 	bundles map[payloadKey]contentdefs.WidgetPayload
 	plugins map[payloadKey]PluginPayload
 	epochs  map[string]uuid.UUID
+	// skipped records the execution epoch of a package whose retained bytes
+	// were read and rejected, so a negative outcome is as cacheable as a
+	// loaded one.
+	skipped map[string]uuid.UUID
 }
 
 type loadedPackage struct {
@@ -235,16 +243,21 @@ func (s *Service) rebuild(ctx context.Context, contentDir func(ctx context.Conte
 	bundles := map[payloadKey]contentdefs.WidgetPayload{}
 	pluginPayloads := map[payloadKey]PluginPayload{}
 	epochs := map[string]uuid.UUID{}
+	rejected := map[string]uuid.UUID{}
 	var skipped []error
 	for _, item := range installed {
 		loaded, err := s.loadPackage(ctx, item, contentDir)
 		if err != nil {
 			skipped = append(skipped, err)
+			if loaded.epoch != uuid.Nil {
+				rejected[item.PackageID] = loaded.epoch
+			}
 			continue
 		}
 		next, err := composed.WithExternal(loaded.widgets, loaded.sources)
 		if err != nil {
 			skipped = append(skipped, SkippedPackage{PackageID: item.PackageID, Err: err})
+			rejected[item.PackageID] = loaded.epoch
 			continue
 		}
 		composed = next
@@ -260,7 +273,7 @@ func (s *Service) rebuild(ctx context.Context, contentDir func(ctx context.Conte
 		return err
 	}
 	s.provider.Replace(composed)
-	s.payloads.Store(&payloadSnapshot{bundles: bundles, plugins: pluginPayloads, epochs: epochs})
+	s.payloads.Store(&payloadSnapshot{bundles: bundles, plugins: pluginPayloads, epochs: epochs, skipped: rejected})
 	for _, skip := range skipped {
 		s.logger.Warn("package contributions skipped", "error", skip)
 	}
@@ -278,13 +291,15 @@ func (s *Service) loadPackage(ctx context.Context, item installer.InstalledPacka
 	if err != nil {
 		return loadedPackage{}, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}
+	// Past this point the retained bytes were read, so a rejection is final
+	// for this epoch and carries it back to be cached.
 	packageWidgets, packageSources, packageBundles, err := s.decode(dir, manifest, current.Digest)
 	if err != nil {
-		return loadedPackage{}, SkippedPackage{PackageID: item.PackageID, Err: err}
+		return loadedPackage{epoch: current.ExecutionEpoch}, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}
 	pluginPayloads, err := decodePluginPayloads(dir, manifest, current.Digest, s.pluginFileReader(ctx, current.RegistryReference, current.Digest))
 	if err != nil {
-		return loadedPackage{}, SkippedPackage{PackageID: item.PackageID, Err: err}
+		return loadedPackage{epoch: current.ExecutionEpoch}, SkippedPackage{PackageID: item.PackageID, Err: err}
 	}
 	for key, payload := range pluginPayloads {
 		payload.ExecutionEpoch = current.ExecutionEpoch
