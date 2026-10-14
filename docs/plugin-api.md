@@ -337,11 +337,15 @@ endpoints: the Emergency Alerts Check Now poll declares it.
 
 | Access          | Check before the handler                                                 |
 | --------------- | ------------------------------------------------------------------------ |
-| `AccessViewer`  | Enrolled dashboard session. `GET` and `HEAD` only.                       |
-| `AccessManager` | Owner or Administrator, and the session CSRF token.                      |
+| `AccessViewer`  | Enrolled dashboard session with `plugins.use`. `GET` and `HEAD` only.    |
+| `AccessManager` | The `plugins.manage` capability, and the session CSRF token.             |
 | `AccessSession` | Enrolled session. The CSRF token on unsafe methods. The handler decides. |
 
-The handler gets the user from `plugin.PrincipalFrom`. It returns an error for
+The handler gets the user from `plugin.PrincipalFrom`. The principal holds the
+role key and the effective core capabilities. Use `Principal.Can("<capability>")`
+to decide permission. Do not compare `Principal.Role` to a role name, because an
+installation may define custom roles with keys that start with `custom.`. Only
+the key `owner` has a meaning of its own. See [access-control.md](access-control.md). It returns an error for
 the host to write: `plugin.ErrNotFound` gives `404 plugin_instance_not_found`,
 `plugin.ErrInvalid` gives `400 invalid_plugin_configuration`,
 `plugin.ErrNotInstalled` gives `409 plugin_not_installed`, and a

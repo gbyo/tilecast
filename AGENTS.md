@@ -170,6 +170,19 @@ Dashboard accounts may carry a second factor. Preserve these properties:
 - Passkeys store only a public key, and each successful assertion writes the updated credential record back so sign-count clone detection keeps working.
 - WebAuthn is unavailable on plain-HTTP and IP-address installations. Report the reason; do not present a control that cannot work. See `docs/multi-factor-authentication.md`.
 
+### Authorization
+
+Authorization is capabilities plus scopes. Read [`docs/access-control.md`](docs/access-control.md) before changing it.
+
+- The Server owns a closed capability vocabulary in `internal/auth/capabilities.go`. Roles are named sets of capabilities. The five built-in roles are protected and live in code. Installations may add custom roles with keys that start with `custom.`.
+- Gate a management route with `requireCapability(...)`. Do not compare a role name to decide permission. Only identity checks with a meaning of their own use the role key: the protected Owner invariants, multi-factor policy, and compatibility behavior.
+- Session and OAuth/PAT callers reach one decision. The principal carries the live user and the capabilities of the live role. Credential scopes `read`, `write`, and `admin` stay an additional ceiling.
+- A non-Owner may grant only capabilities it holds and never `users.manage` or `roles.manage`. Nobody changes their own role, content access, or screen scope. Preserve the last-active-Owner invariant.
+- Content access is explicit per account. A missing policy grants nothing. Do not copy the "no rows means everything" convention of screen scopes. One predicate (`media.AssetInScopeSQL`) serves lists and authorization. An inaccessible resource answers `404`, and a bulk request with one inaccessible resource changes nothing.
+- Content access is a management boundary. Do not scope Player playback or manifest generation.
+- Studio asks `useCapabilities().can(...)` and reads route capabilities from the route handle. Hiding a control is not a security boundary.
+- `src/test/builtin-capabilities.json` mirrors the built-in role sets. A Go test fails when it drifts.
+
 ### Pairing protocol invariants
 
 The protocol is documented in `docs/player-protocol.md`. Preserve these invariants:
@@ -332,6 +345,7 @@ Update documentation with the implementation, not afterward as an approximation.
 - `docs/architecture.md`
 - `docs/api.md`, `docs/openapi/core.yaml`, and each plugin's `api/openapi.yaml` (the composed `docs/openapi.yaml` is generated)
 - `docs/plugin-api.md`
+- `docs/access-control.md`
 - `docs/player-protocol.md`
 - `docs/device-credential-security.md`
 - `docs/android-development.md`

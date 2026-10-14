@@ -38,9 +38,14 @@ func (s *server) requireUser(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 			return
 		}
+		principal, err := s.resolvePrincipal(r.Context(), auth.PrincipalFromSession(session))
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
 		ctx := context.WithValue(r.Context(), sessionContextKey, session)
 		ctx = audit.WithSurface(ctx, audit.SurfaceStudio)
-		next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(ctx, auth.PrincipalFromSession(session))))
+		next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(ctx, principal)))
 	})
 }
 
@@ -71,7 +76,11 @@ func (s *server) requireBearer(w http.ResponseWriter, r *http.Request, header st
 		s.internalError(w, r, err)
 		return
 	}
-	principal := auth.PrincipalFromGrant(user, grant.GrantID, grant.ClientID, grant.DisplayName, grant.Scopes, grant.BearerAuthMethod())
+	principal, err := s.resolvePrincipal(r.Context(), auth.PrincipalFromGrant(user, grant.GrantID, grant.ClientID, grant.DisplayName, grant.Scopes, grant.BearerAuthMethod()))
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
 	principal.EnrollmentPending = pending
 	ctx := audit.WithSurface(r.Context(), auditSurfaceForRequest(grant.Kind, grant.ClientID, r.UserAgent()))
 	clientAttr := grant.ClientID

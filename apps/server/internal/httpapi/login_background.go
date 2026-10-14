@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 )
 
 const defaultLoginBackgroundURL = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&fm=jpg&q=82&w=2400"
@@ -16,8 +17,8 @@ func (s *server) loginBackgroundRoutes(next http.Handler) http.Handler {
 	router.Get("/api/v1/auth/background", s.loginBackgroundImage)
 	router.Head("/api/v1/auth/background", s.loginBackgroundImage)
 	router.With(s.requireSession).Get("/api/v1/settings/login-background", s.getLoginBackground)
-	router.With(s.requireSession, s.requireRoles("owner", "administrator"), s.requireCSRF).Put("/api/v1/settings/login-background", s.putLoginBackground)
-	router.With(s.requireSession, s.requireRoles("owner", "administrator"), s.requireCSRF).Delete("/api/v1/settings/login-background", s.deleteLoginBackground)
+	router.With(s.requireSession, s.requireCapability(auth.CapSettingsManage), s.requireCSRF).Put("/api/v1/settings/login-background", s.putLoginBackground)
+	router.With(s.requireSession, s.requireCapability(auth.CapSettingsManage), s.requireCSRF).Delete("/api/v1/settings/login-background", s.deleteLoginBackground)
 	router.NotFound(next.ServeHTTP)
 	router.MethodNotAllowed(next.ServeHTTP)
 	return router

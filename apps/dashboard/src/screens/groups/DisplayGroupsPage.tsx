@@ -15,7 +15,7 @@ import { useDisplayGroupsList } from "./useDisplayGroupsList";
 export function DisplayGroupsPage() {
   const { t } = useTranslation("screens");
   const navigate = useNavigate();
-  const manageable = canManageGroups(useAuth().status?.user?.role);
+  const manageable = canManageGroups(useAuth().status);
   const list = useDisplayGroupsList();
   const { groups } = list;
   const [createOpen, setCreateOpen] = useState(false);

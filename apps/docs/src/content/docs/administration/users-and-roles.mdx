@@ -1,6 +1,6 @@
 ---
 title: Manage users and roles
-description: Create local Studio accounts, choose their role, and limit which screens they can operate.
+description: Create local Studio accounts, choose their role, and limit which media and screens each person can reach.
 ---
 
 import Screenshot from "../../../components/Screenshot.astro";
@@ -8,6 +8,8 @@ import screenshot from "../../../assets/screenshots/users.png";
 import darkScreenshot from "../../../assets/screenshots/users-dark.png";
 
 Each person who uses Tilecast Studio should have an individual account. An **Owner** or **Administrator** can manage accounts from **Settings** > **Users**.
+
+An account has three separate settings. **Role** is what the person can do. **Content access** is which media they can reach. **Screen access** is which screens they can reach. Role comes first, and the other two narrow where it applies.
 
 import { Steps } from "@astrojs/starlight/components";
 
@@ -31,6 +33,8 @@ The person signs in with that username and password. Tilecast's Studio accounts 
 
 ## Choose a role
 
+Tilecast has five built-in roles. They are fixed, so an upgrade never changes what a role can do.
+
 | Role              | What the role can do                                                                                                                                                                  |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Owner**         | Manage the entire installation, including backups and integration tokens.                                                                                                             |
@@ -39,14 +43,34 @@ The person signs in with that username and password. Tilecast's Studio accounts 
 | **Contributor**   | Create and edit content, but can't publish a Layout, delete anything, or put content on a screen.                                                                                     |
 | **Viewer**        | Read-only access.                                                                                                                                                                     |
 
+Contributors can't read the audit log. Before custom roles existed, Studio hid the audit log from Contributors but the server still returned it. The server now refuses the request too.
+
+### Create a custom role
+
+When a built-in role gives too much or too little, go to **Settings** > **Roles** and select **Create role**. Name the role, then turn on the actions it allows, grouped by area: Media, Widgets, Playlists, Screens, and so on. Turning on an action also turns on what it needs. Uploading, for example, turns on viewing media.
+
+You can only give a role what your own role allows. Only an Owner can give a role the ability to manage people or roles. A change to a role applies to everyone who has it on their next request, with no need to sign out.
+
+Select **Duplicate** on a built-in role to start a custom role from it. You can't delete a role while anyone has it.
+
+## Limit media access
+
+In the user's editor, open the **Content access** tab. Choose **Entire library**, or choose **Only selected folders** and tick the folders. A folder includes everything inside it. Media that isn't in any folder stays hidden from an account limited to folders.
+
+Under **Tags they can apply**, choose **Any tag** or **Only selected tags**. Tags label media, for example to feed a Tag-driven Playlist. They never make media visible: an allowed tag on media in someone else's folder doesn't show that media.
+
+A new account starts with the same media reach as the person who creates it. If you have the whole library, choose **Only selected folders** before you add the user to limit them. An account with no content access saved can't see any media. For a worked example, see [Give a teacher access to one folder](../roles-and-content-access/).
+
 ## Limit screen access
 
-In the user's editor, use **Screen scope** to select **Locations** and/or **Display Groups**. With no scope selected, the account can operate every screen. A selected scope limits which screens the account can see and operate, but the account still sees the whole content library. Owner access always covers the entire fleet.
+In the user's editor, open the **Screen access** tab and select **Locations** and/or **Display Groups**. With no scope selected, the account can operate every screen. A selected scope limits which screens the account can see and operate, but screen access doesn't change which media the account can reach. Owner access always covers the entire fleet.
 
 ## Suspend or remove an account
 
 Clear **Account active** to suspend the account. You can turn it back on later. **Delete permanently** removes the login, preferences, and security credentials and cannot be undone.
 
 If someone loses access to their authenticator, passkeys, and recovery codes, an Owner or Administrator can select **Reset** in an account they can manage under **Two-step verification**. Only an Owner can reset an Owner or Administrator account. Resetting signs the person out everywhere and clears all enrolled factors; they must enroll again.
+
+You can't change your own role, content access, or screen access. The last active Owner can't be removed or demoted.
 
 For organization sign-in requirements, see [Protect Studio accounts](../sign-in-security/).

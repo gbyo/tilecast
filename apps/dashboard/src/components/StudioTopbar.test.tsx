@@ -18,6 +18,8 @@ import { StudioRoutesProvider } from "../navigation/studioRoutes";
 import { SidebarProvider } from "./ui/sidebar";
 import { buildCommandResults, fuzzyScore, StudioTopbar } from "./StudioTopbar";
 import { i18n } from "../i18n";
+import { capabilitiesFrom } from "../auth/capabilities";
+import { authStatusFor, mockAuthAs } from "../test/capabilities";
 
 afterEach(() => {
   cleanup();
@@ -26,6 +28,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  mockAuthAs("owner");
   // cmdk measures and scrolls its result list in browsers. jsdom does not
   // implement these layout APIs, so provide inert equivalents for interaction tests.
   class ResizeObserverMock {
@@ -457,7 +460,7 @@ describe("command search", () => {
       studioRoutes,
       [],
       "bulk",
-      { canCreate: true, canPair: true, role: "owner" },
+      capabilitiesFrom(authStatusFor("owner")),
       [],
       t,
     );
@@ -465,7 +468,7 @@ describe("command search", () => {
       studioRoutes,
       [],
       "bulk",
-      { canCreate: true, canPair: true, role: "administrator" },
+      capabilitiesFrom(authStatusFor("administrator")),
       [],
       t,
     );
@@ -473,7 +476,7 @@ describe("command search", () => {
       studioRoutes,
       [],
       "bulk",
-      { canCreate: true, canPair: false, role: "viewer" },
+      capabilitiesFrom(authStatusFor("viewer")),
       [],
       t,
     );

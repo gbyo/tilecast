@@ -17,6 +17,17 @@
     "database_unavailable": "La base de datos no está lista.",
     "csrf_failed": "No se pudo verificar la solicitud.",
     "conflict": "Otra persona modificó el registro. Vuelve a cargar la página e inténtalo de nuevo.",
-    "file_read_failed": "No se pudo leer el archivo seleccionado."
+    "file_read_failed": "No se pudo leer el archivo seleccionado.",
+    "content_scope_restricted": "Esta acción requiere acceso a toda la biblioteca.",
+    "upload_folder_required": "Elige una carpeta de destino. Tu cuenta solo puede añadir contenido a las carpetas a las que tiene acceso.",
+    "tag_not_assignable": "Tu cuenta no puede aplicar una o más de estas etiquetas.",
+    "role_delegation": "Solo puedes dar a un rol capacidades que tú mismo tienes. Solo un propietario puede permitir gestionar personas o roles.",
+    "role_protected": "Los roles integrados no se pueden cambiar ni eliminar.",
+    "role_in_use": "Todavía hay personas con este rol. Pásalas primero a otro rol.",
+    "role_name_taken": "Ya existe un rol con ese nombre.",
+    "content_access_delegation": "Solo puedes conceder carpetas y etiquetas a las que tu propia cuenta tiene acceso.",
+    "cannot_change_own_role": "No puedes cambiar tu propio rol.",
+    "cannot_scope_self": "No puedes cambiar tu propio acceso a contenido ni a pantallas.",
+    "last_owner_required": "Tilecast necesita al menos un propietario activo."
   }
 }

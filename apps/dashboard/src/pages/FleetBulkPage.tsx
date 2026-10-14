@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { Skeleton } from "../components/ui/skeleton";
+import { hasCapability } from "../auth/capabilities";
 
 function BulkSelect({
   id,
@@ -115,9 +116,7 @@ const bulkCommands = [
 export function FleetBulkPage() {
   const { t } = useTranslation(["screens", "common"]);
   const auth = useAuth();
-  const canManage = ["owner", "administrator"].includes(
-    auth.status?.user?.role ?? "",
-  );
+  const canManage = hasCapability(auth.status, "screen.manage");
 
   if (!canManage) {
     return (
