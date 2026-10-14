@@ -30,6 +30,9 @@ change. Other new findings describe behavior changes and must be fixed.
 GET /api/v1/system/status added the new `beta` enum value to the `data/channel` response property for the response status `200`: only a Beta release build reports it; Studio ships in the same image.
 GET /api/v1/player/manifest added the new `16.00` enum value to the `data/schemaVersion` response property for the response status `200`: correct the released component version; only Players with presentation schema 2 and the required Widget capability receive it.
 GET /api/v1/player/manifest added the new `17.00` enum value to the `data/schemaVersion` response property for the response status `200`: schema 3 is explicitly negotiated; older Players keep schema 2 or the compatibility presentation.
+GET /api/v1/player/manifest added the new `18.00` enum value to the `data/schemaVersion` response property for the response status `200`: external Widget components; only Players reporting widget.external-runtime can select them, so older Players keep their earlier version.
+GET /api/v1/player/manifest added the new `19.00` enum value to the `data/schemaVersion` response property for the response status `200`: executable external Widget frames; only Players reporting widget.external-runtime@2 receive it.
+GET /api/v1/player/manifest added the new `20.00` enum value to the `data/schemaVersion` response property for the response status `200`: external plugin entries; only Players reporting plugin.external-runtime receive it, and every other Player keeps its earlier version.
 
 POST /api/v1/layouts added required request body: createLayout always decoded a details body.
 PATCH /api/v1/layouts/{id} added required request body: updateLayout always decoded a details body.

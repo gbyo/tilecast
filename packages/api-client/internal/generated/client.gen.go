@@ -13442,6 +13442,13 @@ type GetPlayerManifestParams struct {
 	IfNoneMatch *string `json:"If-None-Match,omitempty"`
 }
 
+// DownloadPackagePluginFrameParams defines parameters for DownloadPackagePluginFrame.
+type DownloadPackagePluginFrameParams struct {
+	Range       *string `json:"Range,omitempty"`
+	IfRange     *string `json:"If-Range,omitempty"`
+	IfNoneMatch *string `json:"If-None-Match,omitempty"`
+}
+
 // DownloadPackageWidgetBundleParams defines parameters for DownloadPackageWidgetBundle.
 type DownloadPackageWidgetBundleParams struct {
 	Range       *string `json:"Range,omitempty"`
@@ -17326,7 +17333,7 @@ type ClientInterface interface {
 	// DownloadPackagePluginFrame performs a GET /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `DownloadPackagePluginFrame` operationId) request.
 	//
 	// Download the deterministically assembled frame of an installed external Plugin API v2 contribution. Requires a device credential. Players verify exact size and SHA-256 before execution. The response confines scripts to an opaque sandbox and denies network and subresource loads.
-	DownloadPackagePluginFrame(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DownloadPackagePluginFrame(ctx context.Context, packageId PackageID, pluginId string, params *DownloadPackagePluginFrameParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InspectPackagePluginFrame performs a HEAD /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `InspectPackagePluginFrame` operationId) request.
 	//
@@ -23744,8 +23751,8 @@ func (c *Client) GetPlayerManifest(ctx context.Context, params *GetPlayerManifes
 // DownloadPackagePluginFrame performs a GET /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `DownloadPackagePluginFrame` operationId) request.
 //
 // Download the deterministically assembled frame of an installed external Plugin API v2 contribution. Requires a device credential. Players verify exact size and SHA-256 before execution. The response confines scripts to an opaque sandbox and denies network and subresource loads.
-func (c *Client) DownloadPackagePluginFrame(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDownloadPackagePluginFrameRequest(c.Server, packageId, pluginId)
+func (c *Client) DownloadPackagePluginFrame(ctx context.Context, packageId PackageID, pluginId string, params *DownloadPackagePluginFrameParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadPackagePluginFrameRequest(c.Server, packageId, pluginId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -39347,7 +39354,7 @@ func NewGetPlayerManifestRequest(server string, params *GetPlayerManifestParams)
 }
 
 // NewDownloadPackagePluginFrameRequest constructs an http.Request for the DownloadPackagePluginFrame method
-func NewDownloadPackagePluginFrameRequest(server string, packageId PackageID, pluginId string) (*http.Request, error) {
+func NewDownloadPackagePluginFrameRequest(server string, packageId PackageID, pluginId string, params *DownloadPackagePluginFrameParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -39382,6 +39389,43 @@ func NewDownloadPackagePluginFrameRequest(server string, packageId PackageID, pl
 	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		if params.Range != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "Range", *params.Range, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("Range", headerParam0)
+		}
+
+		if params.IfRange != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "If-Range", *params.IfRange, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-Range", headerParam1)
+		}
+
+		if params.IfNoneMatch != nil {
+			var headerParam2 string
+
+			headerParam2, err = runtime.StyleParamWithOptions("simple", false, "If-None-Match", *params.IfNoneMatch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("If-None-Match", headerParam2)
+		}
+
 	}
 
 	return req, nil
@@ -50287,7 +50331,7 @@ type ClientWithResponsesInterface interface {
 	// Download the deterministically assembled frame of an installed external Plugin API v2 contribution. Requires a device credential. Players verify exact size and SHA-256 before execution. The response confines scripts to an opaque sandbox and denies network and subresource loads.
 	//
 	// Returns a wrapper object for the known response body format(s).
-	DownloadPackagePluginFrameWithResponse(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*DownloadPackagePluginFrameResponse, error)
+	DownloadPackagePluginFrameWithResponse(ctx context.Context, packageId PackageID, pluginId string, params *DownloadPackagePluginFrameParams, reqEditors ...RequestEditorFn) (*DownloadPackagePluginFrameResponse, error)
 
 	// InspectPackagePluginFrameWithResponse performs a HEAD /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame (the `InspectPackagePluginFrame` operationId) request.
 	//
@@ -74464,8 +74508,8 @@ func (c *ClientWithResponses) GetPlayerManifestWithResponse(ctx context.Context,
 // Download the deterministically assembled frame of an installed external Plugin API v2 contribution. Requires a device credential. Players verify exact size and SHA-256 before execution. The response confines scripts to an opaque sandbox and denies network and subresource loads.
 //
 // Returns a wrapper object for the known response body format(s).
-func (c *ClientWithResponses) DownloadPackagePluginFrameWithResponse(ctx context.Context, packageId PackageID, pluginId string, reqEditors ...RequestEditorFn) (*DownloadPackagePluginFrameResponse, error) {
-	rsp, err := c.DownloadPackagePluginFrame(ctx, packageId, pluginId, reqEditors...)
+func (c *ClientWithResponses) DownloadPackagePluginFrameWithResponse(ctx context.Context, packageId PackageID, pluginId string, params *DownloadPackagePluginFrameParams, reqEditors ...RequestEditorFn) (*DownloadPackagePluginFrameResponse, error) {
+	rsp, err := c.DownloadPackagePluginFrame(ctx, packageId, pluginId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
