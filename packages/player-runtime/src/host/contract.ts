@@ -57,6 +57,8 @@ export interface RuntimeCapabilitiesV1 {
    * the frame execution ABI.
    */
   readonly externalFrames?: boolean;
+  /** Verified plugin frames, isolated bridges and refused child navigation. */
+  readonly externalPluginFrames?: boolean;
   /**
    * Where a served frame's sandbox comes from. `attribute` sets the
    * iframe sandbox attribute; `response` navigates bare and takes the
@@ -544,12 +546,49 @@ export interface RuntimePluginV1 {
   config: unknown;
 }
 
+export type PluginSurfaceSlot =
+  | "strip.top"
+  | "strip.bottom"
+  | "corner.top-left"
+  | "corner.top-right"
+  | "corner.bottom-left"
+  | "corner.bottom-right"
+  | "overlay";
+export type PluginSurfaceTier = "emergency" | "live" | "scheduled" | "ambient";
+
+/** Public state and immutable execution claims; no private configuration. */
+export interface ExternalRuntimePluginV1 {
+  id: string;
+  type: "external_plugin";
+  version: 1;
+  definitionVersion: number;
+  package: {
+    packageId: string;
+    packageDigest: string;
+    contributionId: string;
+    frame: { sha256: string; fileSize: number; downloadPath: string };
+  };
+  runtime: { surfaces: PluginSurfaceSlot[]; tier: PluginSurfaceTier };
+  state: Record<string, unknown>;
+  validUntil: string;
+}
+
+/** Only the native host can supply these verified plugin-frame grants. */
+export interface PluginFrameBindingV1 {
+  packageId: string;
+  packageDigest: string;
+  frameDigest: string;
+  uri: string;
+}
+
 export interface PluginsMessage {
   type: "plugins";
-  plugins: RuntimePluginV1[];
+  plugins: (RuntimePluginV1 | ExternalRuntimePluginV1)[];
   clockOffsetMs: number;
   /** Explicit grants for plugin media, replaced with each plugin snapshot. */
   media?: ProjectionContextV1["media"];
+  /** Independent of presentation Widget and media grants. */
+  pluginFrames?: PluginFrameBindingV1[];
 }
 
 export interface IdentifyMessage {

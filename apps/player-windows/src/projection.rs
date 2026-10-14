@@ -904,6 +904,7 @@ mod tests {
         use player_core::ManifestFrame;
         let mut native = website_native();
         let claim = ManifestFrame {
+            kind: player_types::frames::FrameKind::Widget,
             package_id: "acme.athletics".to_owned(),
             package_digest: player_types::Sha256Digest::from_bytes([9; 32]),
             digest: player_types::Sha256Digest::from_bytes([11; 32]),
