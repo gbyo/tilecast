@@ -3503,7 +3503,10 @@ paths:
                   data: { $ref: "#/components/schemas/UserContentAccess" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
-        "403": { description: "Insufficient role, own account, or grant outside the caller's access" }
+        "403":
+          {
+            description: "Insufficient role, own account, or grant outside the caller's access",
+          }
         "404": { description: User not found }
         "422": { description: Policy invalid or account not restrictable }
   /api/v1/roles:
@@ -3553,7 +3556,10 @@ paths:
                   data: { $ref: "#/components/schemas/Role" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
-        "403": { description: Insufficient role or capability outside the caller's authority }
+        "403":
+          {
+            description: Insufficient role or capability outside the caller's authority,
+          }
         "409": { description: Role name already in use }
         "422": { description: "Name, description, or capability set invalid" }
   /api/v1/roles/capabilities:
@@ -3578,7 +3584,8 @@ paths:
                     properties:
                       items:
                         type: array
-                        items: { $ref: "#/components/schemas/CapabilityDefinition" }
+                        items:
+                          { $ref: "#/components/schemas/CapabilityDefinition" }
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
   /api/v1/roles/{key}:
@@ -3636,7 +3643,10 @@ paths:
                   data: { $ref: "#/components/schemas/Role" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
-        "403": { description: Insufficient role or capability outside the caller's authority }
+        "403":
+          {
+            description: Insufficient role or capability outside the caller's authority,
+          }
         "404": { description: Role not found }
         "409": { description: Built-in role or name already in use }
         "422": { description: "Name, description, or capability set invalid" }
@@ -3654,7 +3664,10 @@ paths:
       responses:
         "204": { description: Role deleted }
         "401": { description: Dashboard authentication required }
-        "403": { description: Insufficient role or capability outside the caller's authority }
+        "403":
+          {
+            description: Insufficient role or capability outside the caller's authority,
+          }
         "404": { description: Role not found }
         "409": { description: Built-in role or role still assigned }
   /api/v1/me/access:
@@ -5509,9 +5522,15 @@ paths:
                 properties:
                   data: { $ref: "#/components/schemas/UploadSession" }
         "403": { description: The role cannot upload media }
-        "404": { description: Destination folder not found or outside the caller's access }
+        "404":
+          {
+            description: Destination folder not found or outside the caller's access,
+          }
         "413": { description: Upload exceeds the configured maximum }
-        "422": { description: A folder is required for an account with restricted content access }
+        "422":
+          {
+            description: A folder is required for an account with restricted content access,
+          }
         "507": { description: Reserved free storage would be violated }
   /api/v1/uploads/{id}:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
@@ -17764,7 +17783,15 @@ components:
         contributor, and viewer. Custom role keys start with "custom.".
         Decide authorization from the capabilities the server reports, not
         from the role key.
-      examples: [owner, administrator, editor, contributor, viewer, custom.classroom-media]
+      examples:
+        [
+          owner,
+          administrator,
+          editor,
+          contributor,
+          viewer,
+          custom.classroom-media,
+        ]
     Capability:
       type: string
       pattern: "^[a-z][a-z0-9_.]{1,63}$"
@@ -17890,7 +17917,8 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        path: { type: string, description: "Folder ancestry joined with ' / '." }
+        path:
+          { type: string, description: "Folder ancestry joined with ' / '." }
     UserContentAccess:
       type: object
       additionalProperties: false
