@@ -126,12 +126,17 @@ func (s *Service) Configure(ctx context.Context, call Invocation, input Configur
 	if err := targeting.Validate(ctx, tx, input.Targets); err != nil {
 		return View{}, err
 	}
-	if err := s.authorize(ctx, tx, call, input.Targets); err != nil {
-		return View{}, err
-	}
 	previous, err := readView(ctx, tx, call.PackageID, input.ContributionID, true)
 	if err != nil {
 		return View{}, err
+	}
+	if err := s.authorize(ctx, tx, call, input.Targets); err != nil {
+		return View{}, err
+	}
+	if previous.Targets != nil {
+		if err := s.authorize(ctx, tx, call, *previous.Targets); err != nil {
+			return View{}, err
+		}
 	}
 	if previous.ConfigurationRevision != input.ExpectedConfigurationRevision {
 		return View{}, ErrConflict
