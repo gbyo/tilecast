@@ -264,3 +264,40 @@ func TestScopedTargetPickerAndConfiguration(t *testing.T) {
 		t.Fatalf("global configuration changed: %+v %v", retained, err)
 	}
 }
+
+func TestConfigureAuthorizesThePreviousTargets(t *testing.T) {
+	f := newFixture(t)
+	f.configure(t, targeting.Definition{Mode: "all"}, 0)
+	admin := uuid.New()
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO users(id,name,username,password_hash,role)VALUES($1,'Scoped Admin','scoped','unused','administrator')`, admin); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(f.ctx, `INSERT INTO user_screen_scopes(user_id,scope_type,scope_id,created_by)VALUES($1,'location',$2,$3)`, admin, f.locA, f.owner); err != nil {
+		t.Fatal(err)
+	}
+	call := f.call
+	call.Actor = &admin
+	call.ActorRole = "administrator"
+	input := externalplugins.ConfigureInput{ContributionID: "acme.surface.corner", ExpectedConfigurationRevision: 1, Enabled: true, Configuration: json.RawMessage(`{"stolen":true}`), Targets: targeting.Definition{Mode: "selected", LocationIDs: []uuid.UUID{f.locA}}}
+	if _, err := f.service.Configure(f.ctx, call, input); !errors.Is(err, devices.ErrOutOfScope) {
+		t.Fatalf("scoped administrator rewrote an instance that targets screens outside the scope: %v", err)
+	}
+	view, err := f.service.Get(f.ctx, f.call, "acme.surface.corner")
+	if err != nil || view.ConfigurationRevision != 1 || view.Targets == nil || view.Targets.Mode != "all" {
+		t.Fatalf("refused configuration changed the instance: %+v %v", view, err)
+	}
+}
+
+func TestInvalidPersistedStateSkipsOnlyItsEntry(t *testing.T) {
+	f := newFixture(t)
+	f.configure(t, targeting.Definition{Mode: "selected", ScreenIDs: []uuid.UUID{f.screens[0]}}, 0)
+	f.publish(t, 1)
+	deep := strings.Repeat(`{"x":`, 18) + `0` + strings.Repeat(`}`, 18)
+	if _, err := f.pool.Exec(f.ctx, `UPDATE external_plugin_runtime_state SET state=$1::jsonb WHERE package_id=$2`, deep, f.call.PackageID); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := f.service.ManifestForScreen(f.ctx, f.screens[0])
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("unreadable state must skip its entry, not fail the manifest: %+v %v", entries, err)
+	}
+}

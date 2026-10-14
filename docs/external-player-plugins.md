@@ -89,7 +89,8 @@ The revision must match current configuration.
 The contribution must be enabled.
 The state must be an object with at most 16 KiB of canonical JSON.
 It may have at most sixteen nested levels and 2048 values.
-Numbers must be finite.
+Numbers must be finite and must not use exponent notation.
+A stored state that is no longer valid removes only its own entry from the manifest.
 The deadline must be after the Server clock and at most five minutes ahead.
 Only current target screens with the reported external surface capability
 receive a manifest invalidation.
