@@ -21016,7 +21016,9 @@ export interface operations {
         headers: {
           [name: string]: unknown;
         };
-        content?: never;
+        content: {
+          "text/html": string;
+        };
       };
       /** @description ETag matched */
       304: {

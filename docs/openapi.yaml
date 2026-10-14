@@ -5383,7 +5383,11 @@ paths:
           content:
             text/html:
               schema: { type: string, format: binary }
-        "206": { description: Requested byte range }
+        "206":
+          description: Requested byte range
+          content:
+            text/html:
+              schema: { type: string, format: binary }
         "304": { description: ETag matched }
         "401": { description: Device credential invalid or revoked }
         "403": { description: Screen disabled }
