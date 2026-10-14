@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/contributions"
@@ -48,6 +49,7 @@ type packageStep struct {
 }
 
 func TestExternalPackageFixture(t *testing.T) {
+	ownerCapabilities, _ := auth.BuiltinCapabilities("owner")
 	root, scenarioPath := os.Getenv("TILECAST_EXTERNAL_PACKAGE_FIXTURE"), os.Getenv("TILECAST_EXTERNAL_PACKAGE_SCENARIO")
 	if root == "" || scenarioPath == "" {
 		t.Skip("external OCI fixture and scenario paths are not set")
@@ -319,7 +321,7 @@ func TestExternalPackageFixture(t *testing.T) {
 				}
 			}
 			if step.UI != nil {
-				answer, err := runtime.InvokeUI(ctx, original.Manifest.PackageID, services.Actor{UserID: owner, Role: "owner"}, replace(step.UI))
+				answer, err := runtime.InvokeUI(ctx, original.Manifest.PackageID, services.Actor{UserID: owner, Role: "owner", Capabilities: ownerCapabilities}, replace(step.UI))
 				if err != nil {
 					t.Fatal(err)
 				}

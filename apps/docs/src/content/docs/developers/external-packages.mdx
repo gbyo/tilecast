@@ -39,13 +39,13 @@ addresses supplied to the exports and reserve the framing windows described in
 The Rust guest SDK provides typed state and target helpers, bounded fetch and KV
 imports, and helpers for reading and writing the Studio call frame.
 
-An external Plugin API v2 contribution uses a fixed `runtime/index.js` bundle. Tilecast assembles and verifies a sandboxed frame around that bundle. It executes only on Players that report the generic `plugin.external-runtime@1` capability. Older Players keep their existing manifest and receive no executable surface.
+An external Plugin API v2 contribution uses a fixed `runtime/index.js` bundle. Tilecast assembles and verifies a sandboxed frame around that bundle. It executes only on Players that report the generic `plugin.external-runtime@1` capability. Tilecast Edge reports it. Tilecast Player for Windows and Android have the code but do not report it yet, so they receive no executable surface until their own qualification passes. Other Players keep their existing manifest.
 
 Request `plugin-runtime.state@1` to save operator configuration and publish expiring state for your own contribution. Request `targets.resolve@2` for screen, group, location, or explicit-all selection and a scoped target picker. Keep private integration bookkeeping in package storage; publish only the fields the Player needs. The state service checks the configuration revision so an old poll cannot overwrite newly saved settings.
 
 The Player frame receives a corrected clock, motion and presentation hints, and its surface grants. It gets no Player credentials, network, parent DOM, or native bridge. Follow the [external Player plugin contract](https://github.com/gbyo/tilecast/blob/main/docs/external-player-plugins.md) for the descriptor, state operations, frame handshake, and compatibility requirements.
 
-The WPE contributor test `apps/edge/renderer-wpe/ci/run-e2e.sh external-plugin` exercises a verified surface alongside native video playback. It checks preview pixels, sandbox isolation, state refresh, corrupt frame rejection, and removal without another presentation activation. A separate engine test checks document navigation with a negative control. The surface test enables the private channel in a temporary Runtime copy; it does not enable production capability reporting or establish Windows, Android, or operating system sandbox qualification.
+The WPE contributor test `apps/edge/renderer-wpe/ci/run-e2e.sh external-plugin` runs the shipped Runtime in a real WPE engine and exercises a verified surface alongside native video playback, once on an ordinary playlist and once on a synchronized group. It checks preview pixels, sandbox isolation, state refresh, corrupt frame rejection, and removal without another presentation activation or a video restart. A separate engine test checks document navigation with a negative control. These tests do not qualify the WebKit process sandbox, physical display hardware, or the Windows and Android Players; Edge gets a manual canary on a real screen after each coordinated release.
 
 ## Request Player operations
 

@@ -78,6 +78,10 @@ presentation generation. Successful delivery commits that set; failed delivery
 retains the previous set. Unchanged grants are reused. Removed plugin grants
 drain without changing presentation media or Widget grants.
 This delivery path does not establish physical sandbox qualification.
+Windows does not report `plugin.external-runtime@1` and does not set
+`externalPluginFrames` in its Runtime host. Real WebView2 qualification must
+pass first. See the support matrix in
+[external Player plugins](external-player-plugins.md).
 The generic plugin execution capability must stay absent until qualification.
 
 The WebView2 conformance engine runs the shared Runtime fixture

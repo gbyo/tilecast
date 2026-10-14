@@ -188,6 +188,14 @@ const rules = [
     /^(apps\/player-linux\/|scripts\/(build-linux-player-release\.sh|verify-linux-player-release\.mjs)$)/,
     ["linux"],
   ],
+  // The Runtime's plugin-capability test pins the shared ABI constant and the
+  // WPE bridge flag. It also scans the Windows and Android host sources; those
+  // trees are not mapped here because each would select every Runtime
+  // dependent. Whoever enables the ABI in a host edits that test anyway.
+  [
+    /^(crates\/player-types\/src\/frames\.rs|apps\/edge\/renderer-wpe\/web\/tilecast-bridge\.js)$/,
+    ["runtime"],
+  ],
   [/^packages\/player-runtime\//, ["runtime"]],
   [/^packages\/presentation-model\//, ["dashboard", "runtime"]],
   [/^(widgets|packages\/widget-sdk|packages\/widget-kit)\//, ["widgets"]],
