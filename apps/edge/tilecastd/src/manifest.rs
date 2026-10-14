@@ -1193,12 +1193,12 @@ mod tests {
 
     #[test]
     fn accepts_every_schema_the_server_compiler_emits_and_nothing_else() {
-        for schema in [11, 12, 13, 14, 15, 16, 17, 18, 19] {
+        for schema in [11, 12, 13, 14, 15, 16, 17, 18, 19, 20] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert!(parse(value).is_ok(), "schema {schema}");
         }
-        for schema in [10, 20] {
+        for schema in [10, 21] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert_eq!(parse(value).unwrap_err(), ManifestError::Schema, "schema {schema}");
@@ -1483,7 +1483,7 @@ mod tests {
             let reasons = incompatibilities(&candidate.document, &candidate.assets);
             assert_eq!(reasons.first().map(Incompatibility::code), Some("presentation_incompatible_widget_capability"));
         }
-        value["schemaVersion"] = serde_json::json!(20);
+        value["schemaVersion"] = serde_json::json!(21);
         assert!(parse(value).is_err(), "a manifest schema from a later release is refused");
     }
 

@@ -142,6 +142,10 @@
         "label": "Enlace del diseño de Canva",
         "description": "Pega un enlace de vista pública, un enlace de inserción inteligente, la URL src del iframe o un enlace corto de canva.link. Publica primero una inserción pública en Canva."
       },
+      "slideshow": {
+        "label": "Presentación automática",
+        "description": "Abre el diseño en el modo de presentación de Canva. Canva aún puede requerir que se inicie la reproducción."
+      },
       "refreshIntervalSeconds": { "label": "Intervalo de recarga" }
     }
   },

@@ -93,6 +93,18 @@ If a Widget reports an error after it first renders, the Player reports a failur
 
 Select a text layer and set **Content mode** to **Dynamic field**. Choose a Data Source and field, then set a format and optional fallback text. The Layout can bind text directly to one field; use a Widget when you need to display a repeating list of records. See [Data Sources](../data-sources/) and [Widgets](../widgets/).
 
+A missing value formats as empty text, then uses the layer's fallback when one is configured. Number, integer, percent, currency, date, date-time, and time formats use the organization's regional settings. Date-only values stay on their calendar date instead of shifting through the Player's local timezone. An invalid numeric value becomes empty. A value that isn't a supported ISO/RFC 3339 instant for a date or time format is left as its source text instead of being guessed.
+
+## Plan for canvas size and TV edges
+
+The canvas is a design coordinate system, not a requirement that the display have the same pixel resolution. A 4K Layout can play on a 1080p screen: Tilecast scales the canvas to the available display area without changing its aspect ratio, and positions, text, shapes, and zones scale with it. Very thin lines and very small type can still become less distinct after downscaling, so preview the Layout at the target screen shape and avoid relying on one-pixel details.
+
+Tilecast does not add a broadcast-style title-safe or overscan margin automatically. Set the TV to a 1:1 mode such as **Just Scan**, **Screen Fit**, or the manufacturer's equivalent when possible. If the display cannot disable overscan, keep essential text away from the canvas edge and test that exact model.
+
+Layout text uses the built-in families **Inter**, **Roboto**, **Source Sans 3**, and **Noto Sans**. Layouts do not currently load an uploaded font or an arbitrary Google Font. A text layer can choose independently among the built-in families.
+
+Layer order controls overlap: a higher layer is painted in front of a lower layer, and each placement keeps its own opacity. Use **Layers** and **Bring to front** to make the intended order explicit. A Span screen receives only the part of a placement that intersects its panel. Size ordinary Layout placements to the visible region you want instead of depending on content outside their box.
+
 ## Limits to plan for
 
 Tilecast allows only one visible video-capable placement or Playlist zone in a Layout, and only one placement or zone that emits audio. A Playlist zone runs independently, so don't add another video or audio source that would exceed those limits.
