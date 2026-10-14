@@ -726,6 +726,7 @@ mod policy_tests {
         use edge_protocol::bounded::SafeText;
         use edge_protocol::ipc::RENDERER_FEATURE_WIDGET_FRAMES;
         let entry = RendererFrameRef {
+            kind: Default::default(),
             uri: SafeText::new(format!("tcwidget://cap/{}", "d".repeat(64))).unwrap(),
             package_id: SafeText::new("acme.athletics").unwrap(),
             package_digest: edge_protocol::Sha256Digest::parse(&"e".repeat(64)).unwrap(),

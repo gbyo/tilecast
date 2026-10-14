@@ -158,6 +158,9 @@ and wake state.
 Expiry has its own corrected-clock timer; it does not wait for a periodic tick.
 The Runtime retains one frame per instance across public-state changes.
 It changes its host-owned container geometry without moving the frame node.
+A previously accepted claim has a maximum 500 ms handoff on an input change.
+A current-revision reply renews or releases it. More inputs cannot extend an
+unanswered claim. This permits a short exit animation without a stale holder.
 The frame cannot claim a different tier or an undeclared surface.
 Native preparation must verify and pin each frame before accepting a pending
 manifest.

@@ -30,4 +30,5 @@ for entry in manifest["files"]:
 print(f"assemble-runtime: {len(manifest['files'])} runtime files verified")
 PY
 cp "$here/web/tilecast-bridge.js" "$dest/tilecast-bridge.js"
+cp "$here/web/tilecast-native-relay.js" "$dest/tilecast-native-relay.js"
 echo "assemble-runtime: runtime assembled in $dest"
