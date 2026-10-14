@@ -29,6 +29,8 @@ An update, rollback, or removal stops the previous activation's code. Package st
 
 ## Publish an external Player surface
 
+You can qualify a draft package's OCI layout through Tilecast's real Wasm host and database services. Keep the scenario in your package repository and use the external fixture test described in the [package service contract](https://github.com/gbyo/tilecast/blob/main/docs/package-services.md#external-artifact-qualification). The test exercises runtime state, targeting, realtime scheduling, and lifecycle changes using local test records. It uses a temporary compatibility variant to run an unreleased draft; passing this test does not establish release compatibility or native Player qualification.
+
 Install review shows each executable contribution's allowed Player surfaces and priority tier, read from its verified artifact. The custom installer checks that execution permissions match the manifest reviewed from GitHub. Configuration updates require access to both the previous and new targets, so a scoped administrator cannot remove a surface from screens outside their scope.
 
 API 4 guests receive their call input at a non-null memory address. Use the
