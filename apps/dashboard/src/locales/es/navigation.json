@@ -112,5 +112,11 @@
     "title": "No se pudo mostrar esta página.",
     "fallback": "Ocurrió un error inesperado al mostrar esta página.",
     "retry": "Intentar de nuevo"
+  },
+  "access": {
+    "deniedTitle": "Esta área no forma parte de tu rol",
+    "deniedDescription": "Tu rol no incluye esta página. Pide acceso a un administrador si lo necesitas.",
+    "goTo": "Ir a {{destination}}",
+    "goToAccount": "Ir a Mi cuenta"
   }
 }

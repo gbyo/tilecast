@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
@@ -459,7 +460,8 @@ func TestInvokeServiceCallEnvelopes(t *testing.T) {
 func TestInvokeServiceCallCarriesStudioActor(t *testing.T) {
 	host := testHost(t, NewMemoryKV())
 	caller := &fakeServiceCaller{data: map[string]any{"ok": true}}
-	actor := &services.Actor{UserID: uuid.New(), Role: "owner"}
+	ownerCapabilities, _ := auth.BuiltinCapabilities("owner")
+	actor := &services.Actor{UserID: uuid.New(), Role: "owner", Capabilities: ownerCapabilities}
 	result, err := host.Invoke(context.Background(), Call{
 		PackageID: "acme.athletics",
 		Digest:    "sha256:call-actor",

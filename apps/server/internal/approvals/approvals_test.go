@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/settings"
 )
 
@@ -110,28 +111,28 @@ func TestNotApprovedErrorNamesTheContentType(t *testing.T) {
 }
 
 func TestReviewPolicyModes(t *testing.T) {
-	if reviewRequiredFor(PolicyOff, "contributor") {
+	if reviewRequiredFor(PolicyOff, builtin("contributor"), TypePlaylist) {
 		t.Error("off policy unexpectedly requires review")
 	}
-	if !reviewRequiredFor(PolicyContributors, "contributor") {
+	if !reviewRequiredFor(PolicyContributors, builtin("contributor"), TypePlaylist) {
 		t.Error("Contributor work should require review")
 	}
-	if reviewRequiredFor(PolicyContributors, "editor") {
+	if reviewRequiredFor(PolicyContributors, builtin("editor"), TypePlaylist) {
 		t.Error("manager publication should remain direct under contributor policy")
 	}
-	if !reviewRequiredFor(PolicyEveryone, "owner") {
+	if !reviewRequiredFor(PolicyEveryone, builtin("owner"), TypePlaylist) {
 		t.Error("everyone policy should require review for owners")
 	}
 }
 
 func TestCampaignPublicationPermissionDoesNotGrantEditorScheduleAuthority(t *testing.T) {
-	if !canAuthor(TypeCampaign, "editor") {
+	if !canAuthor(TypeCampaign, builtin("editor")) {
 		t.Error("editor should be able to author campaigns")
 	}
-	if canPublishContent(TypeCampaign, "editor") {
+	if canPublishContent(TypeCampaign, builtin("editor")) {
 		t.Error("editor must not publish campaign schedule changes")
 	}
-	if !canPublishContent(TypeCampaign, "administrator") {
+	if !canPublishContent(TypeCampaign, builtin("administrator")) {
 		t.Error("administrator should publish campaign schedule changes")
 	}
 }
@@ -151,5 +152,28 @@ func TestSemanticPlaylistDiffNamesMeaningfulChanges(t *testing.T) {
 		if !kinds[kind] {
 			t.Fatalf("changes=%#v missing %s", changes, kind)
 		}
+	}
+}
+
+// builtin is a built-in role's authority, as the request layer resolves it.
+func builtin(role string) Authority {
+	capabilities, _ := auth.BuiltinCapabilities(role)
+	return capabilities
+}
+
+// TestReviewFollowsCapabilitiesNotRoleNames pins that a custom role is
+// reviewed by what it can do: under the Contributors policy, an author who
+// cannot publish playlists waits for review, and one who can does not.
+func TestReviewFollowsCapabilitiesNotRoleNames(t *testing.T) {
+	author := auth.NewCapabilitySet(auth.CapPlaylistRead, auth.CapPlaylistEdit)
+	publisher := auth.NewCapabilitySet(auth.CapPlaylistRead, auth.CapPlaylistEdit, auth.CapPlaylistPublish)
+	if !reviewRequiredFor(PolicyContributors, author, TypePlaylist) {
+		t.Error("an author without publish rights should be reviewed")
+	}
+	if reviewRequiredFor(PolicyContributors, publisher, TypePlaylist) {
+		t.Error("an author with publish rights should publish directly")
+	}
+	if !reviewRequiredFor(PolicyContributors, publisher, TypeLayout) {
+		t.Error("publish rights for playlists must not cover Layouts")
 	}
 }

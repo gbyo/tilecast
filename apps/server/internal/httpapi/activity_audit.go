@@ -44,8 +44,8 @@ func (s *server) listAuditActivity(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	if principal.User.Role == "viewer" {
-		writeError(w, http.StatusForbidden, "activity_audit_restricted", "Audit Log access requires Editor, Administrator, or Owner access.")
+	if !principal.Can(auth.CapActivityAudit) {
+		writeError(w, http.StatusForbidden, "activity_audit_restricted", "Your role does not include the Audit Log.")
 		return
 	}
 	window, err := parseActivityWindow(r)
@@ -61,7 +61,9 @@ func (s *server) listAuditActivity(w http.ResponseWriter, r *http.Request) {
 
 	clauses := []string{"a.created_at >= $1", "a.created_at < $2"}
 	args := []any{window.From, window.To}
-	if principal.User.Role == "editor" {
+	// The full audit log, including people, access, and system changes,
+	// needs activity.manage. activity.audit alone shows content history.
+	if !principal.Can(auth.CapActivityManage) {
 		clauses = append(clauses, "a.resource_type IN ('asset','media','source','widget','playlist','layout','campaign','schedule')")
 	}
 	if err := appendActivityUUIDFilter(&clauses, &args, "a.user_id = $%d", queryValue(r, "actor")); err != nil {
@@ -112,11 +114,12 @@ func (s *server) listAuditActivity(w http.ResponseWriter, r *http.Request) {
 		if item.Summary == "" {
 			item.Summary = auditPlainLanguage(item.Action, item.ResourceType, item.ResourceName)
 		}
-		if !activityCanSeeSensitive(principal.User.Role) {
+		visibility := activityVisibility{sensitive: principal.Can(auth.CapActivityManage)}
+		if !activityCanSeeSensitive(visibility) {
 			item.IPAddress = ""
 			item.RequestID = ""
 		}
-		item.Metadata = activityMetadata(raw, sensitive, principal.User.Role)
+		item.Metadata = activityMetadata(raw, sensitive, visibility)
 		items = append(items, item)
 	}
 	if rows.Err() != nil {
@@ -133,12 +136,12 @@ func (s *server) listAuditActivity(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) exportAuditActivity(w http.ResponseWriter, r *http.Request) {
-	role, ok := activityRole(r)
+	visibility, ok := activityVisibilityOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	if !activityCanExport(role) {
+	if !activityCanExport(visibility) {
 		writeError(w, http.StatusForbidden, "activity_export_restricted", "Activity exports require Owner or Administrator access.")
 		return
 	}
@@ -192,7 +195,7 @@ func (s *server) exportAuditActivity(w http.ResponseWriter, r *http.Request) {
 		if summary == "" {
 			summary = auditPlainLanguage(action, resourceType, resourceName)
 		}
-		clean, _ := json.Marshal(activityMetadata(metadata, false, "owner"))
+		clean, _ := json.Marshal(activityMetadata(metadata, false, activityVisibility{sensitive: true}))
 		_ = writer.Write([]string{created.UTC().Format(time.RFC3339), actor, username, action, resourceType, resourceID, resourceName, result, ip, requestID, summary, string(clean)})
 	}
 	writer.Flush()

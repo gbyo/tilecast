@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import type { Capability } from "../auth/capabilities";
 import {
   Accessibility,
   Archive,
@@ -22,6 +23,7 @@ import {
   ShieldCheck,
   Siren,
   SlidersHorizontal,
+  UserCog,
   Users,
   Wifi,
   Wrench,
@@ -30,6 +32,7 @@ export type SettingsSectionId =
   | "general"
   | "branding"
   | "users"
+  | "roles"
   | "locations"
   | "playback"
   | "media"
@@ -64,20 +67,35 @@ export type SettingsNavigationItem = {
   label: string;
   labelKey: `nav.items.${SettingsSectionId}`;
   path: string;
+  /**
+   * The section is offered to an account holding at least one of these. It
+   * also guards the route, so a typed address cannot reach a section the
+   * account cannot see.
+   */
+  capabilities: readonly Capability[];
 };
 export type SettingsNavigationGroup = {
   label: string;
   labelKey: `nav.groups.${SettingsNavigationGroupId}`;
   items: SettingsNavigationItem[];
 };
+// Installation settings are open to read for anyone who works with the
+// fleet or manages settings, which is every built-in role. A role without
+// either, such as a Media-only role, does not see installation Settings.
+const installationReaders: readonly Capability[] = [
+  "settings.manage",
+  "screen.read",
+];
+
 // Labels stay function arguments (never rendered text in this file) so the
 // display keys below are the only translation source.
 function item(
   id: SettingsSectionId,
   label: string,
   path: string,
+  capabilities: readonly Capability[] = installationReaders,
 ): SettingsNavigationItem {
-  return { id, label, labelKey: `nav.items.${id}`, path };
+  return { id, label, labelKey: `nav.items.${id}`, path, capabilities };
 }
 function group(
   id: SettingsNavigationGroupId,
@@ -90,7 +108,8 @@ export const settingsNavigation: SettingsNavigationGroup[] = [
   group("organization", "Organization", [
     item("general", "General", "general"),
     item("branding", "Branding", "branding"),
-    item("users", "Users", "users"),
+    item("users", "Users", "users", ["users.manage"]),
+    item("roles", "Roles", "roles", ["users.manage", "roles.manage"]),
     item("security", "Sign-in security", "security"),
     item("locations", "Locations", "locations"),
   ]),
@@ -110,6 +129,7 @@ export const settingsNavigation: SettingsNavigationGroup[] = [
       "presentation-networks",
       "Presentation Networks",
       "player/presentation-networks",
+      ["screen.manage"],
     ),
   ]),
   group("operations", "Operations", [
@@ -123,10 +143,16 @@ export const settingsNavigation: SettingsNavigationGroup[] = [
     item("import-export", "Import and export", "import-export"),
   ]),
   group("tools", "System tools", [
-    item("dependency-graph", "Dependency Explorer", "dependency-graph"),
+    item("dependency-graph", "Dependency Explorer", "dependency-graph", [
+      "plugins.use",
+    ]),
   ]),
 ];
 export const settingsItems = settingsNavigation.flatMap((group) => group.items);
+/** Settings is offered to an account that can see at least one section. */
+export const settingsCapabilities: readonly Capability[] = [
+  ...new Set(settingsItems.flatMap((entry) => entry.capabilities)),
+];
 export function sectionFromPath(pathname: string): SettingsSectionId {
   const suffix = pathname.replace(/^\/settings\/?/, "").replace(/\/$/, "");
   return settingsItems.find((item) => item.path === suffix)?.id ?? "general";
@@ -158,6 +184,11 @@ export const sectionDetails: Record<
     icon: Users,
     titleKey: "nav.sections.users.title",
     descriptionKey: "nav.sections.users.description",
+  },
+  roles: {
+    icon: UserCog,
+    titleKey: "nav.sections.roles.title",
+    descriptionKey: "nav.sections.roles.description",
   },
   security: {
     icon: ShieldCheck,
@@ -272,3 +303,18 @@ export const sectionDetails: Record<
     descriptionKey: "nav.sections.preferences.description",
   },
 };
+
+/**
+ * The Settings sections an account can see, in navigation order. Groups with
+ * no visible section are dropped.
+ */
+export function visibleSettingsNavigation(
+  canAny: (...capabilities: readonly Capability[]) => boolean,
+): SettingsNavigationGroup[] {
+  return settingsNavigation
+    .map((entry) => ({
+      ...entry,
+      items: entry.items.filter((section) => canAny(...section.capabilities)),
+    }))
+    .filter((entry) => entry.items.length > 0);
+}

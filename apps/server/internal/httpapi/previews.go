@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/previews"
 )
@@ -20,9 +21,9 @@ func (s *server) previewRoutes(next http.Handler) http.Handler {
 	router := chi.NewRouter()
 	router.With(s.requireDevice).Get("/api/v1/player/preview-session", s.playerPreviewSession)
 	router.With(s.requireDevice).Post("/api/v1/player/preview", s.uploadPlayerPreview)
-	router.With(s.requireSession, s.requireCSRF).Post("/api/v1/screens/{id}/preview-session", s.renewScreenPreview)
-	router.With(s.requireSession).Get("/api/v1/screens/{id}/preview", s.getScreenPreview)
-	router.With(s.requireSession).Get("/api/v1/screens/{id}/preview/image", s.getScreenPreviewImage)
+	router.With(s.requireSession, s.requireCapability(auth.CapScreenRead), s.requireCSRF).Post("/api/v1/screens/{id}/preview-session", s.renewScreenPreview)
+	router.With(s.requireSession, s.requireCapability(auth.CapScreenRead)).Get("/api/v1/screens/{id}/preview", s.getScreenPreview)
+	router.With(s.requireSession, s.requireCapability(auth.CapScreenRead)).Get("/api/v1/screens/{id}/preview/image", s.getScreenPreviewImage)
 	router.NotFound(next.ServeHTTP)
 	router.MethodNotAllowed(next.ServeHTTP)
 	return router

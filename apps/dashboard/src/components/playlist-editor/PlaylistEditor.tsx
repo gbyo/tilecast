@@ -95,6 +95,7 @@ import {
   type PlaylistDropEdge,
   useOpenPlaylistPreview,
 } from "./playlistEditorModel";
+import { hasCapability } from "../../auth/capabilities";
 
 export function PlaylistEditorPage() {
   const { t } = useTranslation(["playlists", "common"]);
@@ -102,11 +103,11 @@ export function PlaylistEditorPage() {
   const { id = "" } = useParams();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
-  const canManage = canManagePlaylists(auth.status?.user?.role);
-  const canPublish = ["owner", "administrator", "editor"].includes(
-    auth.status?.user?.role ?? "",
-  );
-  const canSubmit = canPublish || auth.status?.user?.role === "contributor";
+  const canManage = canManagePlaylists(auth.status);
+  // Publishing directly needs playlist.publish; an author without it submits
+  // the draft for review instead.
+  const canPublish = hasCapability(auth.status, "playlist.publish");
+  const canSubmit = canPublish || canManage;
   const navigate = useNavigate();
   const client = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();

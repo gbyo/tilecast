@@ -26,6 +26,8 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import type { PluginsT } from "./pluginCatalog";
+import { hasCapability } from "../auth/capabilities";
+import type { AuthStatus } from "../api/types";
 
 const targetScopeOptions = [
   { value: "all", labelKey: "shared.scope.all" },
@@ -97,8 +99,9 @@ export function RegisterCheckbox<TForm extends FieldValues>({
 
 export type TargetScope = "all" | "screens" | "sync_groups" | "locations";
 
-export function canManage(role?: string) {
-  return role === "owner" || role === "administrator";
+/** The account may install, update, configure, and remove plugins. */
+export function canManage(status?: AuthStatus) {
+  return hasCapability(status, "plugins.manage");
 }
 
 /**

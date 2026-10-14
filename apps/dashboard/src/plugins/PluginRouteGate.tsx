@@ -48,7 +48,7 @@ export function PluginRouteGate({
   // The server enforces installation on every mutation, so an unreadable
   // catalog falls back to the page rather than hiding it.
   if (!plugin || plugin.installed) return <>{children}</>;
-  const canInstall = canManage(auth.status?.user?.role) && plugin.installable;
+  const canInstall = canManage(auth.status) && plugin.installable;
   return (
     <main className="grid gap-4">
       <Empty className="border border-dashed">

@@ -1,5 +1,7 @@
 import {
+  canAssignScreens,
   canManageScreens,
+  canPairScreens,
   screenKeys,
   screenQueries,
   SCREEN_STATUS_REFRESH_MS,
@@ -506,7 +508,8 @@ export function ScreensWorkspacePage() {
   const auth = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const manageable = canManageScreens(auth.status?.user);
+  const pairable = canPairScreens(auth.status);
+  const assignable = canAssignScreens(auth.status);
   const screens = useQuery({
     ...screenQueries.list(),
     refetchInterval: SCREEN_STATUS_REFRESH_MS,
@@ -521,9 +524,9 @@ export function ScreensWorkspacePage() {
     "",
   );
   const [takeoverOpen, setTakeoverOpen] = useState(false);
-  const takeoverCount = useActiveTakeoverCount(manageable && !archive);
+  const takeoverCount = useActiveTakeoverCount(assignable && !archive);
   const takeoverActions: StudioActionGroup[] =
-    manageable && !archive
+    assignable && !archive
       ? [
           {
             actions: [
@@ -553,7 +556,7 @@ export function ScreensWorkspacePage() {
         showStatus={!archive}
         actions={
           <>
-            {manageable && (
+            {pairable && (
               <Link
                 className={buttonVariants({ variant: "default", size: "sm" })}
                 to="/screens/pair"
@@ -564,7 +567,7 @@ export function ScreensWorkspacePage() {
                 <Plus aria-hidden="true" /> {t("page.pairScreen")}
               </Link>
             )}
-            {manageable && !archive && <AddBrowserPlayer />}
+            {pairable && !archive && <AddBrowserPlayer />}
             <ActionMenuButton
               label={t("page.moreActions")}
               actions={takeoverActions}
@@ -573,7 +576,7 @@ export function ScreensWorkspacePage() {
           </>
         }
       />
-      {manageable && !archive && (
+      {assignable && !archive && (
         <TakeoverDialogs
           screens={screens.data?.items ?? []}
           open={takeoverOpen}
@@ -601,7 +604,9 @@ export function ScreensWorkspacePage() {
 
 export function ScreensPage() {
   const auth = useAuth();
-  const manageable = canManageScreens(auth.status?.user);
+  const manageable = canManageScreens(auth.status);
+  const pairable = canPairScreens(auth.status);
+  const assignable = canAssignScreens(auth.status);
   const screens = useQuery({
     ...screenQueries.list(),
     refetchInterval: SCREEN_STATUS_REFRESH_MS,
@@ -609,7 +614,7 @@ export function ScreensPage() {
   const pending = useQuery({
     ...screenQueries.pendingPairings(),
     refetchInterval: SCREEN_STATUS_REFRESH_MS,
-    enabled: manageable,
+    enabled: pairable,
   });
   const locations = useQuery({
     queryKey: ["locations"],
@@ -617,7 +622,7 @@ export function ScreensPage() {
   });
   return (
     <div className="w-full min-w-0 space-y-5">
-      <ActiveTakeoverBanners canManage={manageable} />
+      <ActiveTakeoverBanners canManage={assignable} />
       {screens.isError && (
         <Alert variant="destructive">
           <AlertDescription>{apiErrorMessage(screens.error)}</AlertDescription>
@@ -625,7 +630,7 @@ export function ScreensPage() {
       )}
       <PendingPairings
         requests={pending.data?.items ?? []}
-        canManage={manageable}
+        canManage={pairable}
       />
       <ScreenListContent
         screens={screens.data?.items ?? []}
@@ -2786,12 +2791,12 @@ export function ScreenDetailPage() {
           .join(" · ")}
         actions={
           <>
-            {canManageScreens(auth.status?.user) && (
+            {canAssignScreens(auth.status) && (
               <Button size="sm" onClick={() => setQuickPresentOpen(true)}>
                 <Play aria-hidden="true" /> {t("detail.present")}
               </Button>
             )}
-            {canManageScreens(auth.status?.user) && (
+            {canManageScreens(auth.status) && (
               <Button
                 variant="outline"
                 size="sm"
@@ -2810,7 +2815,7 @@ export function ScreenDetailPage() {
               actions={[
                 {
                   actions: [
-                    ...(canManageScreens(auth.status?.user)
+                    ...(canManageScreens(auth.status)
                       ? [
                           {
                             id: "edit-details",
@@ -2820,7 +2825,7 @@ export function ScreenDetailPage() {
                           },
                         ]
                       : []),
-                    ...(canManageScreens(auth.status?.user) &&
+                    ...(canAssignScreens(auth.status) &&
                     screen.platform.toLowerCase() === "linux"
                       ? [
                           {
@@ -2840,7 +2845,7 @@ export function ScreenDetailPage() {
                   ],
                 },
                 {
-                  actions: canManageScreens(auth.status?.user)
+                  actions: canPairScreens(auth.status)
                     ? [
                         {
                           id: "archive",
@@ -3142,13 +3147,12 @@ export function ScreenDetailPage() {
                   reliability={reliability.data}
                 />
               )}
-              {screen.platform === "browser" &&
-                canManageScreens(auth.status?.user) && (
-                  <BrowserRecoveryPanel
-                    screenId={id}
-                    csrfToken={auth.status?.csrfToken ?? ""}
-                  />
-                )}
+              {screen.platform === "browser" && canPairScreens(auth.status) && (
+                <BrowserRecoveryPanel
+                  screenId={id}
+                  csrfToken={auth.status?.csrfToken ?? ""}
+                />
+              )}
               <ScreenPlaybackCard
                 screenId={id}
                 screenName={screen.name}
@@ -3160,7 +3164,7 @@ export function ScreenDetailPage() {
                 plan={plan.data}
                 planLoading={plan.isPending}
                 planError={plan.error}
-                canManage={canManageScreens(auth.status?.user)}
+                canManage={canAssignScreens(auth.status)}
                 csrfToken={auth.status?.csrfToken ?? ""}
                 onExplain={() => setDetailPanel("explanation", true)}
                 onOpenDiagnostics={() => openDiagnostics("playback")}
@@ -3525,7 +3529,7 @@ export function ScreenDetailPage() {
                 {screen.platform.toLowerCase() === "linux" && (
                   <ScreenPresentationNetworkPanel
                     screen={screen}
-                    canManage={canManageScreens(auth.status?.user)}
+                    canManage={canManageScreens(auth.status)}
                     csrfToken={auth.status?.csrfToken ?? ""}
                   />
                 )}
@@ -3665,7 +3669,7 @@ export function ScreenDetailPage() {
                     </AlertDescription>
                   </Alert>
                 )}
-                {canManageScreens(auth.status?.user) && (
+                {canManageScreens(auth.status) && (
                   <>
                     <section
                       className="overflow-hidden rounded-xl border border-border"
@@ -4048,7 +4052,7 @@ export function ScreenDetailPage() {
 
             {manageSection === "maintenance" &&
               isBrowserPlayer &&
-              canManageScreens(auth.status?.user) && (
+              canManageScreens(auth.status) && (
                 <div className="space-y-4">
                   <BrowserCommandPanel
                     pending={command.isPending}
@@ -4091,7 +4095,7 @@ export function ScreenDetailPage() {
               )}
             {manageSection === "maintenance" &&
               !isBrowserPlayer &&
-              canManageScreens(auth.status?.user) && (
+              canManageScreens(auth.status) && (
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold">
                     {t("detail.sectionMaintenance")}
@@ -4215,7 +4219,7 @@ export function ScreenDetailPage() {
                 </section>
               )}
             {manageSection === "maintenance" &&
-              !canManageScreens(auth.status?.user) && (
+              !canManageScreens(auth.status) && (
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold">
                     {t("detail.recentOps")}
@@ -4431,7 +4435,7 @@ export function ScreenDetailPage() {
                   </CardContent>
                 </Card>
 
-                {canManageScreens(auth.status?.user) && (
+                {canManageScreens(auth.status) && (
                   <section
                     className="space-y-4 border-t border-border pt-4"
                     aria-labelledby="player-access-title"
@@ -4504,7 +4508,7 @@ export function ScreenDetailPage() {
               <CardHeader>
                 <CardTitle>{t("detail.editTitle")}</CardTitle>
                 <CardDescription>{t("detail.editBody")}</CardDescription>
-                {canManageScreens(auth.status?.user) && (
+                {canManageScreens(auth.status) && (
                   <CardAction>
                     <Button
                       variant="outline"

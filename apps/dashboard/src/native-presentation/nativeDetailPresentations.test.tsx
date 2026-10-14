@@ -25,6 +25,7 @@ import { ActivityIncidentPresentation } from "@/pages/ActivityIncidentPresentati
 import { IncidentsTab } from "@/pages/ActivityIncidentsTab";
 import { UpdateDeploymentPresentation } from "@/settings/UpdateDeploymentPresentation";
 import { NativePresentationHost } from "./NativePresentationHost";
+import { builtinCapabilities } from "../test/capabilities";
 
 vi.mock("@/auth/AuthProvider", () => ({
   useAuth: () => ({
@@ -33,6 +34,7 @@ vi.mock("@/auth/AuthProvider", () => ({
       authenticated: true,
       csrfToken: "csrf",
       user: { id: "user-1", name: "Owner", role: "owner" },
+      capabilities: builtinCapabilities("owner"),
     },
   }),
 }));

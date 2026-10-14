@@ -144,6 +144,27 @@ import WebKit
         #expect(requests == [MediaIntakeRequest(requestID: "mi-1", kinds: [.image], allowsMultiple: false)])
     }
 
+    @Test func carriesTheDestinationFolderStudioChose() throws {
+        let folder = "6f1d0a52-3b7c-4e9a-8d21-5c4b3a29e108"
+        guard case .accept(.mediaIntake(let request), _) = NativeBridgeProtocol.decode(envelope("system/media-intake", ["requestId": "mi-1", "folderId": folder] as [String: Any])) else {
+            Issue.record("intake refused")
+            return
+        }
+        #expect(request.folderID == UUID(uuidString: folder))
+        guard case .accept(.mediaIntake(let root), _) = NativeBridgeProtocol.decode(envelope("system/media-intake", ["requestId": "mi-2"] as [String: Any])) else {
+            Issue.record("intake refused")
+            return
+        }
+        #expect(root.folderID == nil, "no folder is the library root")
+    }
+
+    @Test func refusesAFolderThatIsNotAnIdentifier() {
+        for folder: Any in ["../../etc", "Room 313", "", 42, ["x"]] {
+            let decoded = NativeBridgeProtocol.decode(envelope("system/media-intake", ["requestId": "mi-1", "folderId": folder] as [String: Any]))
+            if case .accept = decoded { Issue.record("accepted folderId \(folder)") }
+        }
+    }
+
     @Test func saysUnavailableWhenTheAppRefusesTheRequest() {
         negotiate(main, capabilities: ["nativeMediaIntake": true])
         main.isMediaIntakeAvailable = { true }
@@ -160,8 +181,8 @@ import WebKit
                 Issue.record("intake refused")
                 return
             }
-            // Only the four fields of the request exist to carry anything.
-            #expect(Mirror(reflecting: request).children.map { $0.label } == ["requestID", "kinds", "allowsMultiple"])
+            // Only these fields of the request exist to carry anything.
+            #expect(Mirror(reflecting: request).children.map { $0.label } == ["requestID", "kinds", "allowsMultiple", "folderID"])
         }
     }
 

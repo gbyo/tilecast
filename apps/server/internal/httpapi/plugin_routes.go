@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
@@ -39,17 +40,20 @@ func (s *server) mountPluginRoutes(api chi.Router) {
 				middlewares = append(middlewares, s.operationsRateLimit)
 			}
 			unsafe := route.Method != http.MethodGet && route.Method != http.MethodHead
+			// Core RBAC decides whether the account may reach plugin areas at
+			// all. A plugin then applies its own resource rules (Forms grants,
+			// for example) inside the handler.
 			switch route.Access {
 			case plugin.AccessManager:
-				middlewares = append(middlewares, s.requireRoles("owner", "administrator"), s.requireCSRF, s.requireScope("admin"))
+				middlewares = append(middlewares, s.requireCapability(auth.CapPluginsManage), s.requireCSRF, s.requireScope("admin"))
 			case plugin.AccessSession:
 				if unsafe {
-					middlewares = append(middlewares, s.requireCSRF, s.requireScope("write"))
+					middlewares = append(middlewares, s.requireCapability(auth.CapPluginsUse), s.requireCSRF, s.requireScope("write"))
 				} else {
-					middlewares = append(middlewares, s.requireScope("read"))
+					middlewares = append(middlewares, s.requireCapability(auth.CapPluginsUse), s.requireScope("read"))
 				}
 			default:
-				middlewares = append(middlewares, s.requireScope("read"))
+				middlewares = append(middlewares, s.requireCapability(auth.CapPluginsUse), s.requireScope("read"))
 			}
 			group.With(middlewares...).Method(route.Method, route.Pattern, s.pluginHandler(route))
 		}
@@ -184,7 +188,7 @@ func (s *server) pluginHandler(route plugins.Route) http.Handler {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 			return
 		}
-		ctx := plugin.WithPrincipal(r.Context(), plugin.Principal{UserID: principal.User.ID, Role: principal.User.Role})
+		ctx := plugin.WithPrincipal(r.Context(), plugin.Principal{UserID: principal.User.ID, Role: principal.User.Role, Capabilities: principal.Capabilities.Strings()})
 		if err := route.Handler(w, r.WithContext(ctx)); err != nil {
 			s.writePluginError(w, r, err)
 		}
