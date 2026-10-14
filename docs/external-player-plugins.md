@@ -195,10 +195,78 @@ Do not infer this version from a development build or a platform version file.
 Native hosts must not report the capability before they implement the complete
 verification, grant, navigation, and sandbox contract.
 
-The WPE headless surface test enables the private frame channel in a test-only
-Runtime copy. It checks captured surface pixels, private ABI inputs, denied
-DOM and native bridge access, state refresh, and surface removal.
-It rejects corrupt replacements and checks blocked network attempts.
-It checks video evidence and the unchanged presentation generation.
-The document navigation test checks that no replacement document is served.
-These tests do not qualify the operating system process sandbox or other hosts.
+`plugin.external-runtime@1` is the external Plugin surface ABI.
+`widget.external-runtime@2` is the external Widget frame ABI.
+They are separate capabilities. A Player that reports one does not support the
+other. The Server checks `plugin.external-runtime` only.
+
+### Support matrix
+
+| Player     | Frame routing and grants | Reports `plugin.external-runtime@1` | State                                                               |
+| ---------- | ------------------------ | ----------------------------------- | ------------------------------------------------------------------- |
+| Edge (WPE) | Implemented              | Yes                                 | Enabled. Software and WPE qualification passed. See below.          |
+| Windows    | Implemented              | No                                  | Gated until real WebView2 qualification passes.                     |
+| Android    | Implemented              | No                                  | Gated until real WebView qualification on a physical device passes. |
+| Browser    | Not implemented          | No                                  | No external Plugin surface.                                         |
+
+A gated host fails closed. It does not set `externalPluginFrames` in its Runtime
+host capabilities. Its heartbeat does not include `plugin.external-runtime`.
+The Server therefore sends it no external entry and no state-driven revision.
+A test in `packages/player-runtime` refuses any appearance of the plugin ABI in
+the Windows and Android host sources. Remove a host from that test only
+together with its qualification evidence and this table.
+
+### Edge enablement
+
+The packaged WPE bridge (`apps/edge/renderer-wpe/web/tilecast-bridge.js`) sets
+`externalPluginFrames: true`. The shared Runtime then announces
+`plugin.external-runtime@1` in its support report. The Edge heartbeat reports
+the same capability from `EXTERNAL_PLUGIN_RUNTIME_CAPABILITY` and
+`EXTERNAL_PLUGIN_RUNTIME_VERSION`. These three places change together.
+Unit tests pin each one, and the WPE test below runs the packaged Runtime
+without any test-time change.
+
+The WPE surface test (`apps/edge/renderer-wpe/ci/run-e2e.sh external-plugin`)
+uses the assembled production Runtime. It fails if the bridge does not enable
+the ABI or if the heartbeat does not report it. It runs twice: with an ordinary
+playlist and with a synchronized group playlist. Each run checks these results:
+
+- The Server frame is fetched with the device credential, verified, and
+  pinned.
+- Real WPE draws the surface. The parent DOM and the native bridge are not
+  reachable from the frame.
+- No request reaches the network canary.
+- A state change reaches the same frame. It does not fetch the frame again.
+- A corrupt replacement is refused and the last verified surface stays.
+- Removal clears only the plugin surface.
+- Through every step, the presentation generation and the number of
+  activations do not change, the video item does not restart, and the video
+  keeps progressing on its own timeline. The synchronized run starts the video
+  inside the second half of its timeline, so a reset would show.
+- A surface that tries to navigate or reload itself fails closed. The Runtime,
+  the presentation, and the video stay in place.
+
+The `playback.rs` scenario
+`external_plugin_surface_changes_leave_synchronized_video_playback_untouched`
+checks the daemon side of the same change sequence with the real
+synchronization machinery. It checks that the activation, generation, current
+item, timeline anchor, and presentation grants do not change. It also checks
+that the plugin frame grant differs from every presentation grant.
+
+`test-frame-navigation` checks, in a real engine, that a frame cannot load the
+trusted Runtime or another grant, and that a reload is refused. It has a
+negative control.
+
+### What this does not qualify
+
+The WPE lane builds with `TILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON` because its
+container cannot create user namespaces. It does not prove the WebKit process
+sandbox. The release workflow runs the production sandbox check
+(`apps/edge/release/run-sandbox-check.sh`) on the finished Edge tree. That
+check runs the self-test with the sandbox on. The production-configuration
+checks in `run-e2e.sh external-plugin-production` run the surface scenario with
+a renderer built without the opt-out.
+
+Physical display hardware and DRM output are a separate qualification. It is a
+manual canary on one Edge screen after the coordinated release exists. Windows
+and Android need their own qualification before they report the capability.

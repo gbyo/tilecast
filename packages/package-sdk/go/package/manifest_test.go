@@ -153,6 +153,10 @@ func TestSatisfiesTilecastRange(t *testing.T) {
 		{">=1.2.0", "one.two.three", false},
 		// A Beta release satisfies the ranges its core satisfies.
 		{">=0.20.0 <1.0.0", "0.26.0-beta.1", true},
+		// The 0.27.0 Beta line satisfies a Stable 0.27.0 minimum; the 0.26 line does not.
+		{">=0.27.0 <0.28.0", "0.27.0-beta.4", true},
+		{">=0.27.0 <0.28.0", "0.27.0", true},
+		{">=0.27.0 <0.28.0", "0.26.0-beta.9", false},
 		{">=0.27.0", "0.26.0-beta.12", false},
 		{">=0.26.0", "0.26.0-beta.0", false},
 		{">=0.20.0", "0.26.0-rc.1", false},

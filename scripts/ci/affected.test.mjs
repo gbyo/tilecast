@@ -267,6 +267,13 @@ test("external plugin contract fixtures reach every native host", () => {
       assert.equal(external[area], true, `${path}: ${area}`);
   }
 });
+test("the shared ABI constant and WPE bridge select the Runtime lane", () => {
+  for (const path of [
+    "crates/player-types/src/frames.rs",
+    "apps/edge/renderer-wpe/web/tilecast-bridge.js",
+  ])
+    assert.equal(affected([path]).runtime, true, path);
+});
 test("external Widget fixture changes reach every host and shared SDK", () => {
   for (const path of [
     "packages/player-contracts/fixtures/widget-package/bundle.js",

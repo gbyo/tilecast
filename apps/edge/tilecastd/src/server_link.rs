@@ -256,6 +256,12 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
             edge_protocol::frames::EXTERNAL_RUNTIME_CAPABILITY,
             edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
         )))
+        // The external Plugin surface ABI is independent of the Widget frame
+        // ABI above; neither implies the other.
+        .chain(std::iter::once(&(
+            edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_CAPABILITY,
+            edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_VERSION,
+        )))
         .chain(std::iter::once(&("media-streaming", 1)))
         .map(|(name, version)| ((*name).to_owned(), serde_json::json!(version)))
         .collect();

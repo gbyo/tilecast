@@ -257,6 +257,12 @@
       // keeps its default iframe-sandbox attribute on top of the served
       // response policy.
       externalFrames: true,
+      // External Plugin surfaces are a separate ABI (plugin.external-runtime@1)
+      // from external Widget frames. They execute through the same verified,
+      // navigation-filtered frame channel with a stricter response policy
+      // and independent grants. tilecastd reports the matching heartbeat
+      // capability; the two must change together.
+      externalPluginFrames: true,
       // Edge shows the pulse logo outside active hours; other hosts omit this
       // and keep the Cast logo.
       outsideHoursLogo: "pulse",

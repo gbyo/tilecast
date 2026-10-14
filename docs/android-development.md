@@ -295,8 +295,11 @@ update retains the previous grants. A successful update replaces only plugin
 grants and keeps media and Widget grants. Plugin responses deny all passive
 loads. The native message listener accepts only the main Runtime frame, and
 the host bootstrap runs only in the entry document. Child navigation cannot
-enter the trusted Runtime tree. See [external Player plugins](external-player-plugins.md)
-for the shared contract and qualification gates.
+enter the trusted Runtime tree. Android does not report
+`plugin.external-runtime@1` and does not set `externalPluginFrames` in its
+Runtime host. Qualification on a physical device must pass first. See
+[external Player plugins](external-player-plugins.md) for the shared contract,
+the support matrix, and the qualification gates.
 
 `apps/player-android/renderer-profile.json` is the one definition of what the
 Android renderer host provides: renderer features, presentation schemas, and
