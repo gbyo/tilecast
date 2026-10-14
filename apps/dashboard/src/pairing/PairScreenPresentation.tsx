@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router";
 import { useAuth } from "../auth/AuthProvider";
-import { canManageScreens } from "../data/screens";
+import { canPairScreens } from "../data/screens";
 import {
   useNativePresentation,
   usePresentationChrome,
@@ -34,7 +34,7 @@ export function PairScreenPresentation() {
     <div className="mx-auto w-full max-w-2xl p-4">
       <PairScreenFlow
         requestId={requestId}
-        canManage={canManageScreens(auth.status?.user)}
+        canManage={canPairScreens(auth.status)}
         onClose={() => presentation?.close()}
         onOpenScreen={(screenId) =>
           presentation?.navigate(`/screens/${screenId}`)

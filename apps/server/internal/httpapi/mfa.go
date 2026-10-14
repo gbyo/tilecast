@@ -73,10 +73,16 @@ func (s *server) writeMFAError(w http.ResponseWriter, r *http.Request, err error
 
 // sessionResponse is the shared success shape for every path that produces a
 // session, so the dashboard has one branch to handle.
-func (s *server) sessionResponse(w http.ResponseWriter, status int, session auth.Session) {
+func (s *server) sessionResponse(w http.ResponseWriter, r *http.Request, status int, session auth.Session) {
+	capabilities, err := s.auth.ResolveCapabilities(r.Context(), session.User.Role)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
 	s.setSessionCookie(w, session)
 	writeJSON(w, status, map[string]any{"data": map[string]any{
 		"user":                  session.User,
+		"capabilities":          capabilities.Strings(),
 		"csrfToken":             session.CSRFToken,
 		"authMethod":            session.AuthMethod,
 		"mfaEnrollmentRequired": session.EnrollmentPending,
@@ -100,7 +106,7 @@ func (s *server) verifyMFA(w http.ResponseWriter, r *http.Request) {
 		s.writeMFAError(w, r, err)
 		return
 	}
-	s.sessionResponse(w, http.StatusOK, session)
+	s.sessionResponse(w, r, http.StatusOK, session)
 }
 
 type challengeTokenRequest struct {
@@ -147,7 +153,7 @@ func (s *server) finishPasskeyLogin(w http.ResponseWriter, r *http.Request) {
 		s.writeMFAError(w, r, err)
 		return
 	}
-	s.sessionResponse(w, http.StatusOK, session)
+	s.sessionResponse(w, r, http.StatusOK, session)
 }
 
 const maxCredentialBytes = 64 << 10
@@ -367,7 +373,10 @@ func (s *server) resetUserFactors(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "user_not_found", "That user does not exist.")
 		return
 	}
-	if !canManageRole(actor.Role, target) {
+	if allowed, err := s.canManageAccount(r.Context(), principal, target); err != nil {
+		s.internalError(w, r, err)
+		return
+	} else if !allowed {
 		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may reset sign-in security for an Owner or Administrator.")
 		return
 	}

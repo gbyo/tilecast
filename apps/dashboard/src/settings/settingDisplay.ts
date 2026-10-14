@@ -426,6 +426,7 @@ export const subsectionOrder: Record<
     },
   ],
   users: [],
+  roles: [],
   security: [
     {
       titleKey: "groups.security.mfa.title",

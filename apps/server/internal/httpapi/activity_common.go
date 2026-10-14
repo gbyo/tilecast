@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 
 	"github.com/google/uuid"
 )
@@ -41,21 +42,26 @@ func activityPrincipal(r *http.Request) (auth.Principal, bool) {
 	return principalOf(r)
 }
 
-// activityRole returns the caller's role for activity visibility decisions.
-func activityRole(r *http.Request) (string, bool) {
+// activityVisibility is how much of the activity record a caller may see.
+// Sensitive details (addresses, request IDs, raw error metadata) and exports
+// need activity.manage; everyone who can read activity sees the rest.
+type activityVisibility struct{ sensitive bool }
+
+// activityVisibilityOf returns the caller's activity visibility.
+func activityVisibilityOf(r *http.Request) (activityVisibility, bool) {
 	principal, ok := activityPrincipal(r)
 	if !ok {
-		return "", false
+		return activityVisibility{}, false
 	}
-	return principal.User.Role, true
+	return activityVisibility{sensitive: principal.Can(auth.CapActivityManage)}, true
 }
 
-func activityCanSeeSensitive(role string) bool {
-	return role == "owner" || role == "administrator"
+func activityCanSeeSensitive(visibility activityVisibility) bool {
+	return visibility.sensitive
 }
 
-func activityCanExport(role string) bool {
-	return role == "owner" || role == "administrator"
+func activityCanExport(visibility activityVisibility) bool {
+	return visibility.sensitive
 }
 
 func parseActivityWindow(r *http.Request) (activityWindow, error) {
@@ -153,15 +159,15 @@ func appendActivityUUIDFilter(clauses *[]string, args *[]any, expression, value 
 	return nil
 }
 
-func activityMetadata(raw []byte, sensitive bool, role string) map[string]any {
-	if sensitive && !activityCanSeeSensitive(role) {
+func activityMetadata(raw []byte, sensitive bool, visibility activityVisibility) map[string]any {
+	if sensitive && !activityCanSeeSensitive(visibility) {
 		return map[string]any{"redacted": true}
 	}
 	value := map[string]any{}
 	if len(raw) > 0 {
 		_ = json.Unmarshal(raw, &value)
 	}
-	return sanitizeActivityMap(value, activityCanSeeSensitive(role))
+	return sanitizeActivityMap(value, activityCanSeeSensitive(visibility))
 }
 
 func sanitizeActivityMap(value map[string]any, privileged bool) map[string]any {

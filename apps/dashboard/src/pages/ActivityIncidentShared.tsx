@@ -11,6 +11,7 @@ import { formatWhen, humanize, ResultBadge } from "./ActivityShared";
 import { screenActivityLink } from "./activityLinks";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import { useCapabilities } from "../auth/capabilities";
 
 export type IncidentStatus =
   "open" | "acknowledged" | "recovered" | "resolved" | "ignored";
@@ -162,8 +163,7 @@ export function useIncidentAction() {
 }
 
 export function useCanActOnIncidents(): boolean {
-  const auth = useAuth();
-  return ["owner", "administrator"].includes(auth.status?.user?.role ?? "");
+  return useCapabilities().can("activity.manage");
 }
 
 export function IncidentStatusBadge({ incident }: { incident: Incident }) {

@@ -3205,8 +3205,8 @@ paths:
     get:
       operationId: listUsers
       description: >-
-        List dashboard user accounts. Requires an Owner or Administrator
-        with the admin scope.
+        List dashboard user accounts. Requires the users.manage capability
+        and the admin scope.
       responses:
         "200":
           description: User accounts with MFA enrollment state
@@ -3222,9 +3222,10 @@ paths:
     post:
       operationId: createUser
       description: >-
-        Create a dashboard user account. Requires an Owner or Administrator
-        with the admin scope. Only an Owner may create Owner or
-        Administrator accounts. Cookie-authenticated unsafe requests require
+        Create a dashboard user account. Requires the users.manage capability
+        and the admin scope. Only an Owner may assign the Owner or
+        Administrator role, or a role that grants a capability the caller
+        does not hold. Cookie-authenticated unsafe requests require
         X-CSRF-Token.
       parameters:
         - in: header
@@ -3242,10 +3243,14 @@ paths:
                 name: { type: string }
                 username: { type: string }
                 password: { type: string }
-                role:
-                  type: string
-                  enum: [owner, administrator, editor, contributor, viewer]
+                role: { $ref: "#/components/schemas/UserRole" }
                 active: { type: boolean }
+                contentAccess:
+                  $ref: "#/components/schemas/ContentAccessInput"
+                  description: >-
+                    Media library access for the new account. When omitted,
+                    the account receives the creator's own library and tag
+                    modes with no grants.
       responses:
         "201":
           description: User account created
@@ -3289,9 +3294,7 @@ paths:
                 name: { type: string }
                 username: { type: string }
                 password: { type: string }
-                role:
-                  type: string
-                  enum: [owner, administrator, editor, contributor, viewer]
+                role: { $ref: "#/components/schemas/UserRole" }
                 active: { type: boolean }
       responses:
         "200":
@@ -3441,6 +3444,250 @@ paths:
         "403": { description: Insufficient role }
         "404": { description: User not found }
         "422": { description: Scope invalid or account not scopable }
+  /api/v1/users/{id}/content-access:
+    get:
+      operationId: getUserContentAccess
+      description: >-
+        Read which part of the Media library an account reaches and which
+        tags it may apply. Requires the users.manage capability and the
+        admin scope.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Content access policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UserContentAccess" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: User not found }
+    put:
+      operationId: putUserContentAccess
+      description: >-
+        Replace an account's content access. Requires the users.manage
+        capability and the admin scope. Cookie-authenticated unsafe requests
+        require X-CSRF-Token. An Owner cannot be restricted, nobody can change
+        their own access, and nobody can grant folders or tags outside their
+        own access.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContentAccessInput" }
+      responses:
+        "200":
+          description: Content access replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UserContentAccess" }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403":
+          {
+            description: "Insufficient role, own account, or grant outside the caller's access",
+          }
+        "404": { description: User not found }
+        "422": { description: Policy invalid or account not restrictable }
+  /api/v1/roles:
+    get:
+      operationId: listRoles
+      description: >-
+        List the built-in and custom roles with their capabilities and member
+        counts. Requires users.manage or roles.manage and the admin scope.
+      responses:
+        "200":
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/RoleList" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+    post:
+      operationId: createRole
+      description: >-
+        Create a custom role. Requires the roles.manage capability and the
+        admin scope. A caller other than the Owner may include only
+        capabilities they hold, and never users.manage or roles.manage.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleRequest" }
+      responses:
+        "201":
+          description: Role created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Role" }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403":
+          {
+            description: Insufficient role or capability outside the caller's authority,
+          }
+        "409": { description: Role name already in use }
+        "422": { description: "Name, description, or capability set invalid" }
+  /api/v1/roles/capabilities:
+    get:
+      operationId: listCapabilities
+      description: >-
+        The closed capability vocabulary, with whether the caller may grant
+        each capability in a custom role. Requires users.manage or
+        roles.manage and the admin scope.
+      responses:
+        "200":
+          description: Capability vocabulary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          { $ref: "#/components/schemas/CapabilityDefinition" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/roles/{key}:
+    parameters:
+      - in: path
+        name: key
+        required: true
+        schema: { $ref: "#/components/schemas/UserRole" }
+    get:
+      operationId: getRole
+      description: >-
+        Read one role. Requires users.manage or roles.manage and the admin
+        scope.
+      responses:
+        "200":
+          description: Role
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Role" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Role not found }
+    patch:
+      operationId: updateRole
+      description: >-
+        Replace a custom role's name, description, and capabilities. Built-in
+        roles cannot be changed. The change applies to every account on the
+        role at its next request. Requires the roles.manage capability, the
+        admin scope, and authority to grant both the old and the new
+        capabilities. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleRequest" }
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Role" }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403":
+          {
+            description: Insufficient role or capability outside the caller's authority,
+          }
+        "404": { description: Role not found }
+        "409": { description: Built-in role or name already in use }
+        "422": { description: "Name, description, or capability set invalid" }
+    delete:
+      operationId: deleteRole
+      description: >-
+        Delete a custom role that no account holds. Requires the roles.manage
+        capability and the admin scope. Cookie-authenticated unsafe requests
+        require X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Role deleted }
+        "401": { description: Dashboard authentication required }
+        "403":
+          {
+            description: Insufficient role or capability outside the caller's authority,
+          }
+        "404": { description: Role not found }
+        "409": { description: Built-in role or role still assigned }
+  /api/v1/me/access:
+    get:
+      operationId: getMyAccess
+      description: >-
+        The signed-in account's role, effective capabilities, and Media
+        content access. Available to every enrolled account with the read
+        scope.
+      responses:
+        "200":
+          description: Effective access
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/MyAccess" }
+        "401": { description: Dashboard authentication required }
   /api/v1/auth/logout:
     post:
       operationId: logout
@@ -5274,7 +5521,16 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/UploadSession" }
+        "403": { description: The role cannot upload media }
+        "404":
+          {
+            description: Destination folder not found or outside the caller's access,
+          }
         "413": { description: Upload exceeds the configured maximum }
+        "422":
+          {
+            description: A folder is required for an account with restricted content access,
+          }
         "507": { description: Reserved free storage would be violated }
   /api/v1/uploads/{id}:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
@@ -13861,8 +14117,7 @@ components:
       properties:
         challengeToken: { type: string }
     AccountRole:
-      type: string
-      enum: [owner, administrator, editor, contributor, viewer]
+      $ref: "#/components/schemas/UserRole"
     AuthUser:
       type: object
       additionalProperties: false
@@ -13884,6 +14139,10 @@ components:
       required: [user, csrfToken, authMethod, mfaEnrollmentRequired]
       properties:
         user: { $ref: "#/components/schemas/AuthUser" }
+        capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+          description: Effective capabilities of the signed-in user's role.
         csrfToken: { type: string }
         authMethod: { $ref: "#/components/schemas/AuthMethod" }
         mfaEnrollmentRequired: { type: boolean }
@@ -16804,6 +17063,15 @@ components:
         filename: { type: string, minLength: 1, maxLength: 255 }
         mimeType: { type: string }
         sizeBytes: { type: integer, format: int64, minimum: 1 }
+        folderId:
+          type: [string, "null"]
+          format: uuid
+          description: >-
+            Folder the asset is created in. Omitted or null is the library
+            root, which only an account with access to the whole library may
+            use; an account with restricted content access must name one of
+            its folders. The server authorizes the folder now and again when
+            the upload completes.
     UploadSession:
       type: object
       required:
@@ -16829,6 +17097,10 @@ components:
         assetId: { type: string, format: uuid }
         uploadEndpoint: { type: string }
         maximumSizeBytes: { type: integer, format: int64 }
+        folderId:
+          type: string
+          format: uuid
+          description: Destination folder; absent for the library root.
     AssetVariant:
       type: object
       required:
@@ -16949,6 +17221,10 @@ components:
         name: { type: string }
         color: { type: string }
         assetCount: { type: integer, minimum: 0 }
+        assignable:
+          type: boolean
+          description: >-
+            On the tag list, whether the caller may apply or remove this tag.
     ContentFolder:
       type: object
       additionalProperties: false
@@ -17656,7 +17932,203 @@ components:
         lastLoginAt: { type: string, format: date-time }
     UserRole:
       type: string
-      enum: [owner, administrator, editor, contributor, viewer]
+      pattern: "^[a-z][a-z0-9.-]{1,63}$"
+      description: >-
+        Role key. The built-in roles are owner, administrator, editor,
+        contributor, and viewer. Custom role keys start with "custom.".
+        Decide authorization from the capabilities the server reports, not
+        from the role key.
+      examples:
+        [
+          owner,
+          administrator,
+          editor,
+          contributor,
+          viewer,
+          custom.classroom-media,
+        ]
+    Capability:
+      type: string
+      pattern: "^[a-z][a-z0-9_.]{1,63}$"
+      description: >-
+        One capability from the server's closed vocabulary, such as
+        media.upload or playlist.publish. GET /api/v1/roles/capabilities
+        lists them.
+    CapabilityDefinition:
+      type: object
+      additionalProperties: false
+      required: [key, group, requires, ownerReserved, delegable, grantable]
+      properties:
+        key: { $ref: "#/components/schemas/Capability" }
+        group:
+          type: string
+          enum:
+            [
+              media,
+              widgets,
+              dataSources,
+              playlists,
+              layouts,
+              campaigns,
+              review,
+              screens,
+              schedules,
+              activity,
+              plugins,
+              administration,
+            ]
+        requires:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+        ownerReserved:
+          type: boolean
+          description: Held only by the built-in Owner role.
+        delegable:
+          type: boolean
+          description: >-
+            False for capabilities that administer access; only the Owner
+            may put them in a custom role.
+        grantable:
+          type: boolean
+          description: Whether the caller may include it in a custom role.
+    Role:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          key,
+          name,
+          description,
+          builtin,
+          capabilities,
+          userCount,
+          createdAt,
+          updatedAt,
+          editable,
+          assignable,
+        ]
+      properties:
+        key: { $ref: "#/components/schemas/UserRole" }
+        name: { type: string }
+        description: { type: string }
+        builtin: { type: boolean }
+        capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+        userCount:
+          type: integer
+          minimum: 0
+          description: Active accounts on the role.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        editable:
+          type: boolean
+          description: Whether the caller may change or delete the role.
+        assignable:
+          type: boolean
+          description: Whether the caller may place accounts on the role.
+    RoleList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Role" }
+    RoleRequest:
+      type: object
+      additionalProperties: false
+      required: [name, capabilities]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 60 }
+        description: { type: string, maxLength: 280 }
+        capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+    ContentAccessMode:
+      type: string
+      enum: [all, restricted]
+    ContentAccessInput:
+      type: object
+      additionalProperties: false
+      required: [libraryMode, tagMode]
+      properties:
+        libraryMode: { $ref: "#/components/schemas/ContentAccessMode" }
+        tagMode: { $ref: "#/components/schemas/ContentAccessMode" }
+        folderIds:
+          type: array
+          maxItems: 200
+          items: { type: string, format: uuid }
+          description: Granted folders; each covers its descendants.
+        tagIds:
+          type: array
+          maxItems: 200
+          items: { type: string, format: uuid }
+          description: Tags the account may apply and remove.
+    ContentGrant:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        path:
+          { type: string, description: "Folder ancestry joined with ' / '." }
+    UserContentAccess:
+      type: object
+      additionalProperties: false
+      required: [policy, ownerUnrestricted]
+      properties:
+        policy:
+          type: object
+          additionalProperties: false
+          required: [libraryMode, tagMode, folders, tags, configured]
+          properties:
+            libraryMode: { $ref: "#/components/schemas/ContentAccessMode" }
+            tagMode: { $ref: "#/components/schemas/ContentAccessMode" }
+            folders:
+              type: array
+              items: { $ref: "#/components/schemas/ContentGrant" }
+            tags:
+              type: array
+              items: { $ref: "#/components/schemas/ContentGrant" }
+            configured:
+              type: boolean
+              description: >-
+                False when the account has no stored policy, which means it
+                reaches no content until one is saved.
+        ownerUnrestricted:
+          type: boolean
+          description: The account is an Owner and always reaches everything.
+    MyAccess:
+      type: object
+      additionalProperties: false
+      required: [role, capabilities, content]
+      properties:
+        role:
+          type: object
+          additionalProperties: false
+          required: [key, name, builtin]
+          properties:
+            key: { $ref: "#/components/schemas/UserRole" }
+            name: { type: string }
+            builtin: { type: boolean }
+        capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+        content:
+          type: object
+          additionalProperties: false
+          required: [libraryMode, tagMode]
+          properties:
+            libraryMode: { $ref: "#/components/schemas/ContentAccessMode" }
+            tagMode: { $ref: "#/components/schemas/ContentAccessMode" }
+            writableFolderIds:
+              type: array
+              items: { type: string, format: uuid }
+              description: >-
+                Folders the account may upload into. Absent when the account
+                reaches the whole library, which may also use the root.
     ManagedUser:
       type: object
       additionalProperties: false
@@ -17709,6 +18181,13 @@ components:
         passkeysUnavailableReason: { type: string }
         demoMode: { type: boolean }
         user: { $ref: "#/components/schemas/User" }
+        capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+          description: >-
+            Effective capabilities of the authenticated user's live role.
+            Studio uses them to decide which workspaces and actions to offer;
+            every API route still makes its own decision.
         csrfToken: { type: string }
         authMethod:
           type: string

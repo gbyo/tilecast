@@ -9,12 +9,17 @@ import { FleetBulkPage } from "./FleetBulkPage";
 import { api, ApiError } from "../api/client";
 import { toast } from "../components/ui/toast";
 import type { BulkPreview } from "../api/types";
+import { builtinCapabilities } from "../test/capabilities";
 
 const authMocks = vi.hoisted(() => ({ role: "owner" }));
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
-    status: { csrfToken: "csrf", user: { role: authMocks.role } },
+    status: {
+      csrfToken: "csrf",
+      user: { role: authMocks.role },
+      capabilities: builtinCapabilities(authMocks.role),
+    },
   }),
 }));
 

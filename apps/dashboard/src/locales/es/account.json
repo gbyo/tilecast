@@ -30,7 +30,7 @@
     }
   },
   "users": {
-    "accessDenied": "Se requiere acceso de propietario o administrador para gestionar los usuarios de Studio.",
+    "accessDenied": "Tu rol no incluye la gestión de personas.",
     "addForm": {
       "title": "Agregar un usuario",
       "passwordHint": "Las contraseñas deben tener al menos 12 caracteres.",
@@ -78,7 +78,14 @@
       "deleteTitle": "¿Eliminar permanentemente a {{name}}?",
       "deleteBody": "Se eliminarán su inicio de sesión, sus preferencias y sus credenciales de seguridad. Esta acción no se puede deshacer.",
       "deleteAction": "Eliminar permanentemente",
-      "deleting": "Eliminando…"
+      "deleting": "Eliminando…",
+      "tabsLabel": "Ajustes de la cuenta",
+      "tabs": {
+        "account": "Cuenta",
+        "role": "Rol",
+        "content": "Acceso al contenido",
+        "screens": "Acceso a pantallas"
+      }
     },
     "toasts": {
       "created": "Usuario creado.",
@@ -89,6 +96,18 @@
     },
     "errors": {
       "requestFailed": "Tilecast no pudo actualizar esta cuenta."
+    },
+    "roleSelect": {
+      "builtin": "Roles integrados",
+      "custom": "Roles personalizados"
+    },
+    "access": {
+      "roleTitle": "Rol",
+      "roleDescription": "Qué puede hacer esta persona en Studio.",
+      "contentTitle": "Acceso al contenido",
+      "contentDescription": "A qué archivos multimedia llega esta persona y qué etiquetas puede aplicar.",
+      "screensDescription": "A qué pantallas llega esta persona.",
+      "selfNote": "No puedes cambiar tu propio acceso. Pídeselo a otro administrador."
     }
   },
   "security": {
@@ -227,5 +246,291 @@
     "revoked": "Revocado",
     "revoke": "Revocar",
     "revokeError": "Tilecast no pudo revocar el token."
+  },
+  "roleAdmin": {
+    "groups": {
+      "media": "Multimedia",
+      "widgets": "Widgets",
+      "dataSources": "Fuentes de datos",
+      "playlists": "Listas de reproducción",
+      "layouts": "Diseños",
+      "campaigns": "Campañas",
+      "review": "Revisión de contenido",
+      "screens": "Pantallas",
+      "schedules": "Programaciones",
+      "activity": "Actividad",
+      "plugins": "Complementos",
+      "administration": "Administración"
+    },
+    "capabilities": {
+      "media_read": {
+        "label": "Ver multimedia",
+        "description": "Ver los archivos multimedia de la biblioteca y sus detalles."
+      },
+      "media_upload": {
+        "label": "Subir multimedia",
+        "description": "Añadir imágenes y vídeos."
+      },
+      "media_edit": {
+        "label": "Editar detalles de multimedia",
+        "description": "Cambiar el nombre y la descripción, fijar la disponibilidad y reintentar el procesamiento."
+      },
+      "media_organize": {
+        "label": "Mover y agrupar multimedia",
+        "description": "Mover multimedia entre carpetas y añadirlos a colecciones o quitarlos."
+      },
+      "media_tags_assign": {
+        "label": "Aplicar etiquetas",
+        "description": "Añadir y quitar etiquetas en los archivos multimedia. El acceso al contenido puede limitar cuáles."
+      },
+      "media_archive": {
+        "label": "Archivar y restaurar multimedia",
+        "description": "Retirar multimedia de la reproducción y volver a ponerlos."
+      },
+      "media_delete": {
+        "label": "Eliminar multimedia",
+        "description": "Eliminar multimedia de forma permanente, y eliminar las carpetas, etiquetas o colecciones que gestiona el rol."
+      },
+      "media_folders_manage": {
+        "label": "Gestionar carpetas",
+        "description": "Crear, renombrar y mover carpetas. Requiere toda la biblioteca."
+      },
+      "media_tags_manage": {
+        "label": "Gestionar etiquetas",
+        "description": "Crear y renombrar etiquetas. Requiere todas las etiquetas."
+      },
+      "media_collections_manage": {
+        "label": "Gestionar colecciones",
+        "description": "Crear y renombrar colecciones. Requiere toda la biblioteca."
+      },
+      "widget_read": {
+        "label": "Ver widgets",
+        "description": "Ver widgets y sitios web."
+      },
+      "widget_edit": {
+        "label": "Crear y editar widgets",
+        "description": "Crear y cambiar widgets y sitios web."
+      },
+      "widget_delete": {
+        "label": "Archivar y eliminar widgets",
+        "description": "Retirar widgets de la reproducción o eliminarlos."
+      },
+      "datasource_read": {
+        "label": "Ver fuentes de datos",
+        "description": "Ver las fuentes de datos y sus datos."
+      },
+      "datasource_edit": {
+        "label": "Crear y editar fuentes de datos",
+        "description": "Conectar feeds, calendarios, hojas de cálculo y datos manuales."
+      },
+      "datasource_manage": {
+        "label": "Gestionar fuentes de datos",
+        "description": "Eliminar fuentes de datos y crear formularios que recogen respuestas."
+      },
+      "playlist_read": {
+        "label": "Ver listas de reproducción",
+        "description": "Ver las listas de reproducción y su historial."
+      },
+      "playlist_edit": {
+        "label": "Editar listas de reproducción",
+        "description": "Crear listas y cambiar borradores. Sin publicar, los cambios pasan a revisión."
+      },
+      "playlist_publish": {
+        "label": "Publicar listas de reproducción",
+        "description": "Poner en marcha los cambios y restaurar versiones anteriores."
+      },
+      "playlist_delete": {
+        "label": "Eliminar listas de reproducción",
+        "description": "Eliminar listas de reproducción."
+      },
+      "layout_read": {
+        "label": "Ver diseños",
+        "description": "Ver los diseños y su historial."
+      },
+      "layout_edit": {
+        "label": "Editar diseños",
+        "description": "Crear diseños y cambiar borradores. Sin publicar, los cambios pasan a revisión."
+      },
+      "layout_publish": {
+        "label": "Publicar diseños",
+        "description": "Poner en marcha los cambios de diseños y restaurar versiones anteriores."
+      },
+      "layout_delete": {
+        "label": "Eliminar diseños",
+        "description": "Eliminar diseños."
+      },
+      "campaign_read": {
+        "label": "Ver campañas",
+        "description": "Ver las campañas y sus versiones."
+      },
+      "campaign_edit": {
+        "label": "Editar campañas",
+        "description": "Crear campañas, cambiar borradores y archivarlas."
+      },
+      "campaign_publish": {
+        "label": "Publicar campañas",
+        "description": "Llevar campañas a las pantallas."
+      },
+      "content_review": {
+        "label": "Revisar envíos",
+        "description": "Aprobar, pedir cambios, programar y revertir el contenido enviado."
+      },
+      "screen_read": {
+        "label": "Ver pantallas",
+        "description": "Ver pantallas, grupos de pantallas, estado, vista en directo y reproducción."
+      },
+      "screen_manage": {
+        "label": "Gestionar pantallas",
+        "description": "Cambiar la configuración de pantallas, grupos, ubicaciones, comandos y actualizaciones del reproductor."
+      },
+      "screen_pair": {
+        "label": "Vincular y revocar pantallas",
+        "description": "Aprobar reproductores nuevos y revocar sus credenciales."
+      },
+      "screen_assign": {
+        "label": "Asignar contenido a pantallas",
+        "description": "Elegir qué se reproduce, iniciar tomas de control y presentar con AirPlay."
+      },
+      "schedule_read": {
+        "label": "Ver programaciones",
+        "description": "Ver las programaciones y lo que reproducirán."
+      },
+      "schedule_edit": {
+        "label": "Editar programaciones",
+        "description": "Crear, cambiar, activar o desactivar y eliminar programaciones."
+      },
+      "activity_read": {
+        "label": "Ver la actividad",
+        "description": "Ver el estado de la flota, la prueba de reproducción, los incidentes y la cronología de las pantallas."
+      },
+      "activity_audit": {
+        "label": "Ver el historial de contenido",
+        "description": "Ver el registro de auditoría de los cambios de contenido."
+      },
+      "activity_manage": {
+        "label": "Gestionar la actividad",
+        "description": "Ver el registro de auditoría completo, exportar informes y actualizar incidentes y retención."
+      },
+      "plugins_use": {
+        "label": "Usar complementos",
+        "description": "Abrir las páginas de complementos y explorar la tienda de complementos."
+      },
+      "plugins_manage": {
+        "label": "Gestionar complementos",
+        "description": "Instalar, actualizar, configurar y quitar complementos."
+      },
+      "users_manage": {
+        "label": "Gestionar personas",
+        "description": "Añadir cuentas y fijar su rol, su acceso al contenido y su acceso a pantallas."
+      },
+      "roles_manage": {
+        "label": "Gestionar roles",
+        "description": "Crear y cambiar roles personalizados."
+      },
+      "settings_manage": {
+        "label": "Cambiar los ajustes de la instalación",
+        "description": "Editar los ajustes de la organización, la marca y las notificaciones."
+      },
+      "system_manage": {
+        "label": "Mantenimiento del sistema",
+        "description": "Ver el estado del sistema y ejecutar el mantenimiento."
+      },
+      "system_backups": {
+        "label": "Copias de seguridad y restauración",
+        "description": "Crear, descargar y restaurar copias de seguridad."
+      },
+      "integrations_manage": {
+        "label": "Tokens de integración",
+        "description": "Crear y revocar tokens de integración."
+      },
+      "player_releases": {
+        "label": "Versiones del reproductor",
+        "description": "Comprobar, almacenar en caché y quitar versiones del reproductor."
+      }
+    },
+    "summary": {
+      "none": "Este rol todavía no concede nada."
+    },
+    "page": {
+      "intro": "Un rol es lo que alguien puede hacer. Los roles integrados son fijos; añade los tuyos para dar a cada persona justo el acceso que necesita.",
+      "createAction": "Crear rol",
+      "loading": "Cargando roles…",
+      "builtin": "Integrado",
+      "custom": "Personalizado",
+      "people_one": "{{count}} persona",
+      "people_many": "{{count}} personas",
+      "people_other": "{{count}} personas",
+      "capabilityCount_one": "{{count}} permiso",
+      "capabilityCount_many": "{{count}} permisos",
+      "capabilityCount_other": "{{count}} permisos",
+      "viewAction": "Ver",
+      "duplicateAction": "Duplicar",
+      "duplicateLabel": "Duplicar {{name}} como un rol nuevo",
+      "deleteTitle": "¿Eliminar el rol {{name}}?",
+      "deleteBody": "Nadie tiene este rol. Eliminarlo no se puede deshacer.",
+      "deleteInUse_one": "{{count}} persona todavía tiene este rol. Cámbiala primero a otro rol.",
+      "deleteInUse_many": "{{count}} personas todavía tienen este rol. Cámbialas primero a otro rol.",
+      "deleteInUse_other": "{{count}} personas todavía tienen este rol. Cámbialas primero a otro rol."
+    },
+    "toasts": {
+      "created": "Rol creado.",
+      "updated": "Rol actualizado.",
+      "deleted": "Rol eliminado."
+    },
+    "editor": {
+      "createTitle": "Crear un rol",
+      "editTitle": "Editar {{name}}",
+      "description": "Elige qué pueden hacer las personas con este rol. El acceso al contenido y a las pantallas, que se fija para cada persona en la página Usuarios, limita dónde pueden hacerlo.",
+      "builtinDescription": "Los roles integrados no se pueden cambiar. Duplica uno para empezar un rol personalizado a partir de él.",
+      "nameLabel": "Nombre",
+      "namePlaceholder": "Por ejemplo, Multimedia del aula",
+      "descriptionLabel": "Descripción",
+      "descriptionPlaceholder": "Para quién es este rol",
+      "capabilitiesTitle": "Qué puede hacer este rol",
+      "capabilitiesHint": "Al activar una acción también se activa lo que necesita, como ver antes de subir.",
+      "capabilitiesViewHint": "Todo lo que permite este rol, por área.",
+      "groupCount": "{{count}} de {{total}}",
+      "ownerReserved": "Reservado al rol de propietario.",
+      "ownerOnly": "Solo un propietario puede conceder esto.",
+      "notYours": "Tu propio rol no incluye esto.",
+      "createAction": "Crear rol",
+      "copyName": "Copia de {{name}}"
+    }
+  },
+  "contentAccess": {
+    "ownerNote": "Los propietarios siempre llegan a toda la biblioteca y pueden aplicar cualquier etiqueta.",
+    "loadError": "No se pudo cargar el acceso al contenido.",
+    "loading": "Cargando el acceso al contenido",
+    "roleHasNoMedia": "El rol de esta persona no incluye Multimedia ni Widgets, así que el acceso al contenido no tiene efecto hasta que su rol lo incluya.",
+    "notConfigured": "Esta cuenta todavía no tiene acceso al contenido, así que no ve ningún archivo multimedia. Elige un acceso y guárdalo.",
+    "saved": "Acceso al contenido guardado.",
+    "saveAction": "Guardar acceso al contenido",
+    "library": {
+      "legend": "Biblioteca multimedia",
+      "description": "Una carpeta incluye todo lo que contiene.",
+      "all": "Toda la biblioteca",
+      "allHint": "Todas las carpetas, más los archivos que no están en ninguna.",
+      "restricted": "Solo las carpetas seleccionadas",
+      "restrictedHint_one": "{{count}} carpeta seleccionada. Lo que esté fuera, incluidos los archivos sin carpeta, queda oculto.",
+      "restrictedHint_many": "{{count}} carpetas seleccionadas. Lo que esté fuera, incluidos los archivos sin carpeta, queda oculto.",
+      "restrictedHint_other": "{{count}} carpetas seleccionadas. Lo que esté fuera, incluidos los archivos sin carpeta, queda oculto.",
+      "searchLabel": "Buscar carpetas",
+      "searchPlaceholder": "Buscar carpetas",
+      "noFolders": "Todavía no hay carpetas. Crea carpetas primero en Multimedia.",
+      "noMatch": "Ninguna carpeta coincide.",
+      "included": "Incluida",
+      "subtreeNote": "Lo que suba esta persona irá a una de estas carpetas.",
+      "emptyNote": "Sin carpetas seleccionadas, esta persona no puede ver ni subir archivos multimedia."
+    },
+    "tags": {
+      "legend": "Etiquetas que puede aplicar",
+      "description": "Las etiquetas clasifican el contenido, por ejemplo para alimentar una lista por etiquetas. Nunca hacen visible el contenido.",
+      "all": "Cualquier etiqueta",
+      "restricted": "Solo las etiquetas seleccionadas",
+      "restrictedHint_one": "{{count}} etiqueta seleccionada.",
+      "restrictedHint_many": "{{count}} etiquetas seleccionadas.",
+      "restrictedHint_other": "{{count}} etiquetas seleccionadas.",
+      "noTags": "Todavía no hay etiquetas."
+    }
   }
 }

@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, type RouteObject } from "react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { studioRoutes } from "@/App";
 import { SidebarNavigation } from "@/components/studio/SidebarNavigation.fixture";
 import { buildNavigationCatalog } from "@/native-host/useNativeNavigation";
@@ -17,6 +17,11 @@ import {
   type StudioNavigationMetadata,
 } from "./studioNavigation";
 import { StudioRoutesProvider } from "./studioRoutes";
+import { mockAuthAs } from "../test/capabilities";
+
+beforeEach(() => {
+  mockAuthAs("owner");
+});
 
 afterEach(() => {
   cleanup();

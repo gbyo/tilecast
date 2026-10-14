@@ -219,6 +219,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { useFormatLocale } from "../i18n";
 import { captureLayoutPreview } from "../content/widgetPreviewCapture";
+import { hasCapability } from "../auth/capabilities";
 
 // Room the canvas keeps clear of the floating chrome: the dock on the left
 // (12px inset + 46px wide) and the zoom bar at the bottom (12px inset + 32px
@@ -640,10 +641,10 @@ export function LayoutEditorPage() {
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
-  const canPublish = ["owner", "administrator", "editor"].includes(
-    auth.status?.user?.role ?? "",
-  );
-  const canSubmit = canPublish || auth.status?.user?.role === "contributor";
+  // Publishing directly needs layout.publish; an author without it submits
+  // the draft for review instead.
+  const canPublish = hasCapability(auth.status, "layout.publish");
+  const canSubmit = canPublish || hasCapability(auth.status, "layout.edit");
   const queryClient = useQueryClient();
   const layoutQuery = useQuery(layoutQueries.detail(id));
   const contentQuery = useQuery({
