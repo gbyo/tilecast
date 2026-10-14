@@ -41,6 +41,12 @@ On the **Playback** tab, under **Fallback content**, search for a Playlist or a 
 
 **Mirror** is the default mode. It preserves synchronized group playback: members use the same fallback and schedule and keep the same playback position.
 
+Mirror synchronization uses a shared timeline, not frame-accurate genlock between televisions. Each Player joins the same item and playback position. Video drift below about 80 ms is ignored, moderate drift is corrected with a small playback-rate adjustment, and larger drift is corrected with a seek. A slow decoder can therefore look less smooth even while the group remains on the same shared timeline.
+
+A Player that reconnects in the middle of an item rejoins at the group's current position instead of starting that item from the beginning. If one member cannot prepare the active presentation, that member can be incomplete or unavailable while the other members continue.
+
+Temporary presentation still follows normal precedence. A Takeover or Quick Present that targets the group changes the shared selection. A direct temporary presentation to one screen is not a way to intentionally desynchronize a Mirror group; use a separate screen or remove it from the group when it needs independent playback.
+
 ## Make a video wall
 
 On the **Display** tab, choose **Span** under **Display mode** when the screens form one logical canvas. Choosing Span only starts a draft. Nothing changes until you save the wall. See [Build a Span video wall](../span-video-walls/) for panel setup, Player requirements, and video preparation.
