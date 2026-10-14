@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/managedpresentations"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
@@ -122,6 +123,7 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	h := &Harness{Ctx: ctx, Pool: pool, OrgID: uuid.New(), OwnerID: uuid.New(), t: t, id: p.Manifest().ID}
 	h.exec(`INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Plugin Harness',$1)`, h.OrgID)
 	h.exec(`INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Owner','harness-owner','unused','owner',TRUE)`, h.OwnerID)
+	h.exec(`INSERT INTO user_content_access(user_id,library_mode,tag_mode) VALUES($1,'all','all')`, h.OwnerID)
 	playlistService := playlists.NewService(pool, nil)
 	storage, err := media.NewLocalStorage(t.TempDir())
 	if err != nil {
@@ -307,10 +309,18 @@ func (h *Harness) ServeAs(userID uuid.UUID, role, method, path, body string) Res
 	mux := http.NewServeMux()
 	for _, route := range routes {
 		mux.HandleFunc(route.Method+" "+route.Pattern, func(w http.ResponseWriter, r *http.Request) {
-			principal := plugin.Principal{UserID: userID, Role: role}
-			if route.Access == plugin.AccessManager && !principal.CanManage() {
+			// The harness resolves a built-in role the way the host does, so a
+			// plugin test sees the same capabilities a real request carries.
+			capabilities, _ := auth.BuiltinCapabilities(role)
+			principal := plugin.Principal{UserID: userID, Role: role, Capabilities: capabilities.Strings()}
+			if route.Access == plugin.AccessManager && !principal.Can(string(auth.CapPluginsManage)) {
 				plugins.WriteError(w, r, &plugin.APIError{Status: http.StatusForbidden, Code: "insufficient_role",
-					Message: "Owner or Administrator access is required."}, nil)
+					Message: "Your role does not allow this action."}, nil)
+				return
+			}
+			if route.Access != plugin.AccessManager && !principal.Can(string(auth.CapPluginsUse)) {
+				plugins.WriteError(w, r, &plugin.APIError{Status: http.StatusForbidden, Code: "insufficient_role",
+					Message: "Your role does not allow this action."}, nil)
 				return
 			}
 			if err := route.Handler(w, r.WithContext(plugin.WithPrincipal(r.Context(), principal))); err != nil {

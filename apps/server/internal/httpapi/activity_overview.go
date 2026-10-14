@@ -126,7 +126,7 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) screenActivity(w http.ResponseWriter, r *http.Request) {
-	role, ok := activityRole(r)
+	visibility, ok := activityVisibilityOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
@@ -150,7 +150,7 @@ func (s *server) screenActivity(w http.ResponseWriter, r *http.Request) {
 	}
 	data := screenActivityData{ScreenID: screenID, RecentProof: []proofOfPlayRecord{}, RecentEvents: []screenEventRecord{}}
 	row := s.db.QueryRow(r.Context(), proofSelectSQL+` WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND p.screen_id=$1 AND p.ended_at IS NULL ORDER BY p.started_at DESC LIMIT 1`, screenID)
-	item, err := scanProof(row.Scan, role)
+	item, err := scanProof(row.Scan, visibility)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		s.internalError(w, r, err)
 		return
@@ -165,7 +165,7 @@ func (s *server) screenActivity(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		item, err := scanProof(rows.Scan, role)
+		item, err := scanProof(rows.Scan, visibility)
 		if err != nil {
 			s.internalError(w, r, err)
 			return
@@ -176,7 +176,7 @@ func (s *server) screenActivity(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if activityCanSeeSensitive(role) {
+	if activityCanSeeSensitive(visibility) {
 		eventRows, err := s.db.Query(r.Context(), `
 			SELECT e.id,e.occurred_at,e.received_at,e.screen_id,s.name,NULL::uuid,'',e.sequence,e.event_type,e.category,e.severity,e.result,e.manifest_version,
 			       COALESCE(e.presentation_type,''),COALESCE(e.presentation_id,''),COALESCE(e.content_type,''),COALESCE(e.content_id,''),
@@ -197,7 +197,7 @@ func (s *server) screenActivity(w http.ResponseWriter, r *http.Request) {
 			}
 			item.RelatedType, item.RelatedID = activityRelatedResource(presentationType, presentationID, contentType, contentID)
 			item.Description = screenEventDescription(item.EventType, item.ScreenName, item.RelatedType)
-			item.Details = activityMetadata(raw, item.Severity == "error", role)
+			item.Details = activityMetadata(raw, item.Severity == "error", visibility)
 			data.RecentEvents = append(data.RecentEvents, item)
 		}
 		if err := eventRows.Err(); err != nil {

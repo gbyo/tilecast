@@ -97,7 +97,12 @@ export function useNativeMediaIntake(
 
   const request = useCallback(
     async (
-      options: { accept?: MediaIntakeKind[]; multiple?: boolean } = {},
+      options: {
+        accept?: MediaIntakeKind[];
+        multiple?: boolean;
+        /** The Media folder the host uploads into. */
+        folderId?: string;
+      } = {},
     ) => {
       if (!available) return false;
       const requestId = newMediaIntakeId();

@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "../components/ui/drawer";
-import { canManageScreens } from "../data/screens";
+import { canPairScreens } from "../data/screens";
 import { useIsMobile } from "../hooks/use-mobile";
 import { PairScreenFlow } from "./PairScreenFlow";
 
@@ -34,7 +34,7 @@ export function PairScreenDialog() {
     <PairScreenFlow
       initialCode={code}
       requestId={requestId}
-      canManage={canManageScreens(auth.status?.user)}
+      canManage={canPairScreens(auth.status)}
       onClose={close}
       onOpenScreen={(screenId) => void navigate(`/screens/${screenId}`)}
     />

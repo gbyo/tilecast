@@ -34,6 +34,11 @@ button is not an authorization boundary.
 | Contributor   | Yes           | Yes    | No     | No                      | No               |
 | Viewer        | Read-only     | No     | No     | No                      | No               |
 
+The table shows the built-in roles. Review and publishing follow capabilities:
+`content.review` reviews, `playlist.publish` and `layout.publish` publish, and
+`campaign.publish` publishes a Campaign. A custom role has these actions when its
+capability list includes them. See [access-control.md](access-control.md).
+
 Campaigns use the stricter deployment boundary because publishing one changes
 multiple schedules and destinations. Screen scopes still apply to the
 existing screen-operation routes.

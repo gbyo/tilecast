@@ -149,16 +149,23 @@ import type {
   Asset,
   AssetStatus,
   BulkOrganizeInput,
-  User,
   ContentFolder,
   ContentCollection,
   ContentTag,
+  AuthStatus,
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { AssetPreview } from "../components/content/AssetPreview";
 import { droppedFiles } from "../components/content/dragDrop";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { useDesktopLayout } from "../hooks/use-desktop-layout";
+import { hasCapability } from "../auth/capabilities";
+import {
+  useMediaPermissions,
+  uploadDestination,
+  uploadFolders,
+} from "../content/mediaPermissions";
+import type { MediaPermissions } from "../content/mediaPermissions";
 
 type QueueItem = {
   localId: string;
@@ -179,8 +186,9 @@ type SavedUpload = Pick<
 const resumeKey = "tilecast.resumable-uploads.v1";
 const chunkSize = 5 * 1024 * 1024;
 
-export function canManageContent(user?: User) {
-  return Boolean(user && user.role !== "viewer");
+/** The account may change media details in the library. */
+export function canManageContent(status?: AuthStatus) {
+  return hasCapability(status, "media.edit");
 }
 
 export function statusLabel(
@@ -299,7 +307,11 @@ export function ContentPage() {
   const { t: tErrors } = useTranslation("errors");
   const auth = useAuth();
   const navigate = useNavigate();
-  const canManage = canManageContent(auth.status?.user);
+  const canManage = canManageContent(auth.status);
+  const media = useMediaPermissions();
+  // Selecting items is for the bulk actions this role has.
+  const canSelect =
+    media.organize || media.tag || media.archive || media.remove;
   const csrf = auth.status?.csrfToken ?? "";
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -307,6 +319,7 @@ export function ContentPage() {
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState("updated");
   const [folderFilter, setFolderFilter] = useState("");
+  const [chosenUploadFolder, setChosenUploadFolder] = useState<string>();
   const [collectionFilter, setCollectionFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
   const [libraryView, setLibraryView] = useState<"active" | "archive">(
@@ -438,6 +451,15 @@ export function ContentPage() {
   });
   const tags = useQuery({
     ...contentQueries.tags(),
+  });
+  // Where an upload lands: the folder being viewed when it is writable,
+  // otherwise the root for the whole library, or the account's chosen (or
+  // only) folder when its access is restricted.
+  const destinationFolders = uploadFolders(media, folders.data ?? []);
+  const destination = uploadDestination(media, {
+    viewing: folderFilter || undefined,
+    chosen: chosenUploadFolder,
+    folders: folders.data ?? [],
   });
   const facets: MediaFacetValues = {
     status,
@@ -575,11 +597,14 @@ export function ContentPage() {
         const state = await api.inspectUpload(sessionId);
         offset = state.offset;
       } else {
+        if (destination === null)
+          throw new Error(t("media.upload.chooseFolderFirst"));
         const created = await api.createUpload(
           {
             filename: file.name,
             mimeType: item.mimeType,
             sizeBytes: file.size,
+            ...(destination ? { folderId: destination } : {}),
           },
           csrf,
         );
@@ -639,7 +664,7 @@ export function ContentPage() {
   };
   const dropFiles = (event: DragEvent) => {
     event.preventDefault();
-    if (canManage)
+    if (media.upload && destination !== null)
       for (const file of droppedFiles(event.dataTransfer))
         void uploadFile(file);
   };
@@ -699,9 +724,13 @@ export function ContentPage() {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {canManage &&
+            {(canSelect ||
+              media.createFolders ||
+              media.createCollections ||
+              media.createTags) &&
               (libraryView === "active" || checkedAssetIds.size > 0) && (
                 <ContentOrganizer
+                  permissions={media}
                   csrf={csrf}
                   folders={folders.data ?? []}
                   collections={collections.data ?? []}
@@ -764,8 +793,35 @@ export function ContentPage() {
                   onDelete={() => void confirmBulkDelete()}
                 />
               )}
-            {canManage && libraryView === "active" && (
-              <Button type="button" onClick={() => fileInput.current?.click()}>
+            {media.upload &&
+              libraryView === "active" &&
+              !media.libraryAll &&
+              destinationFolders.length > 1 && (
+                <FilterSelect
+                  label={t("media.upload.destinationLabel")}
+                  value={destination ?? ""}
+                  onChange={(value) =>
+                    setChosenUploadFolder(value || undefined)
+                  }
+                  options={[
+                    ...(destination === null
+                      ? [{ value: "", label: t("media.upload.chooseFolder") }]
+                      : []),
+                    ...destinationFolders.map((folder) => ({
+                      value: folder.id,
+                      label: t("media.upload.destinationOption", {
+                        name: folder.name,
+                      }),
+                    })),
+                  ]}
+                />
+              )}
+            {media.upload && libraryView === "active" && (
+              <Button
+                type="button"
+                disabled={destination === null}
+                onClick={() => fileInput.current?.click()}
+              >
                 <Upload size={16} aria-hidden="true" />{" "}
                 {t("media.library.uploadAssets")}
               </Button>
@@ -909,7 +965,9 @@ export function ContentPage() {
         </div>
       ) : assets.isError && !assets.data ? null : libraryItems.length === 0 ? (
         <ContentEmpty
-          canManage={canManage && libraryView === "active"}
+          canManage={
+            media.upload && destination !== null && libraryView === "active"
+          }
           onChoose={() => fileInput.current?.click()}
           onDrop={dropFiles}
           archived={libraryView === "archive"}
@@ -929,7 +987,8 @@ export function ContentPage() {
                 ? (setSelected(asset), setDetailsOpen(true))
                 : void openAssetDetails(asset)
             }
-            canManage={canManage}
+            canManage={canSelect}
+            canEdit={canManage}
             archived={libraryView === "archive"}
             onDuplicate={(asset) =>
               void api.duplicateWidget(asset.id, csrf).then(
@@ -951,26 +1010,38 @@ export function ContentPage() {
                 },
               )
             }
-            onArchive={(asset) => void confirmArchiveAsset(asset)}
-            onRestore={(asset) => {
-              void api
-                .restoreAssets([asset.id], csrf)
-                .then(() => {
-                  toast.add({
-                    title: t("media.restore.success", { count: 1 }),
-                    type: "success",
-                  });
-                  refreshOrganization();
-                })
-                .catch((error: unknown) => {
-                  toast.add({
-                    title: t("media.errors.restoreFailed", { count: 1 }),
-                    description: apiErrorMessage(error),
-                    type: "error",
-                  });
-                });
-            }}
-            onDelete={(asset) => void confirmDeleteAsset(asset)}
+            onArchive={
+              media.archive
+                ? (asset) => void confirmArchiveAsset(asset)
+                : undefined
+            }
+            onRestore={
+              media.archive
+                ? (asset) => {
+                    void api
+                      .restoreAssets([asset.id], csrf)
+                      .then(() => {
+                        toast.add({
+                          title: t("media.restore.success", { count: 1 }),
+                          type: "success",
+                        });
+                        refreshOrganization();
+                      })
+                      .catch((error: unknown) => {
+                        toast.add({
+                          title: t("media.errors.restoreFailed", { count: 1 }),
+                          description: apiErrorMessage(error),
+                          type: "error",
+                        });
+                      });
+                  }
+                : undefined
+            }
+            onDelete={
+              media.remove
+                ? (asset) => void confirmDeleteAsset(asset)
+                : undefined
+            }
             selectedIds={checkedAssetIds}
             onToggle={(id) =>
               setCheckedAssetIds((current) => {
@@ -1079,6 +1150,7 @@ export function AssetCollection({
   view,
   onSelect,
   canManage = false,
+  canEdit = canManage,
   onDuplicate,
   onArchive,
   onRestore,
@@ -1092,6 +1164,8 @@ export function AssetCollection({
   view: "grid" | "list";
   onSelect: (asset: Asset) => void;
   canManage?: boolean;
+  /** Whether opening an item edits it; defaults to canManage. */
+  canEdit?: boolean;
   onDuplicate?: (asset: Asset) => void;
   onArchive?: (asset: Asset) => void;
   onRestore?: (asset: Asset) => void;
@@ -1110,7 +1184,7 @@ export function AssetCollection({
       : [
           {
             id: "open",
-            label: canManage
+            label: canEdit
               ? t("common:actions.edit")
               : t("media.card.openMenu"),
             icon: "edit",
@@ -1901,6 +1975,7 @@ function ManageOrganizationDialog({
 }
 
 export function ContentOrganizer({
+  permissions,
   csrf,
   folders,
   collections,
@@ -1915,6 +1990,8 @@ export function ContentOrganizer({
   onRestore,
   onDelete,
 }: {
+  /** What the signed-in account may do; each control follows it. */
+  permissions: MediaPermissions;
   csrf: string;
   folders: ContentFolder[];
   collections: ContentCollection[];
@@ -1992,61 +2069,71 @@ export function ContentOrganizer({
   // and the fixed selection toolbar do not take part in layout.
   return (
     <>
-      {!archiveMode && assetIds.length === 0 && (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<Button type="button" variant="outline" />}
-          >
-            <FolderPlus size={16} aria-hidden="true" />
-            {t("media.organize.organize")}
-            <ChevronDown size={14} aria-hidden="true" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="w-auto min-w-48"
-            aria-label={t("media.organize.sectionLabel")}
-          >
-            <DropdownMenuItem
-              onClick={() => {
-                setCreating("folder");
-                setCreateOpen(true);
-              }}
+      {!archiveMode &&
+        assetIds.length === 0 &&
+        (permissions.createFolders ||
+          permissions.createCollections ||
+          permissions.createTags) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button type="button" variant="outline" />}
             >
-              <FolderPlus size={15} aria-hidden="true" />{" "}
-              {t("media.organizer.folderTitle")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setCreating("collection");
-                setCreateOpen(true);
-              }}
+              <FolderPlus size={16} aria-hidden="true" />
+              {t("media.organize.organize")}
+              <ChevronDown size={14} aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              className="w-auto min-w-48"
+              aria-label={t("media.organize.sectionLabel")}
             >
-              <Library size={15} aria-hidden="true" />{" "}
-              {t("media.organizer.collectionTitle")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => {
-                setCreating("tag");
-                setCreateOpen(true);
-              }}
-            >
-              <Tags size={15} aria-hidden="true" />{" "}
-              {t("media.organizer.tagTitle")}
-            </DropdownMenuItem>
-            {(folders.length > 0 ||
-              collections.length > 0 ||
-              tags.length > 0) && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setManaging(true)}>
-                  <Pencil size={15} aria-hidden="true" />{" "}
-                  {t("media.organize.manage")}
+              {permissions.createFolders && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCreating("folder");
+                    setCreateOpen(true);
+                  }}
+                >
+                  <FolderPlus size={15} aria-hidden="true" />{" "}
+                  {t("media.organizer.folderTitle")}
                 </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
+              )}
+              {permissions.createCollections && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCreating("collection");
+                    setCreateOpen(true);
+                  }}
+                >
+                  <Library size={15} aria-hidden="true" />{" "}
+                  {t("media.organizer.collectionTitle")}
+                </DropdownMenuItem>
+              )}
+              {permissions.createTags && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setCreating("tag");
+                    setCreateOpen(true);
+                  }}
+                >
+                  <Tags size={15} aria-hidden="true" />{" "}
+                  {t("media.organizer.tagTitle")}
+                </DropdownMenuItem>
+              )}
+              {(folders.length > 0 ||
+                collections.length > 0 ||
+                tags.length > 0) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setManaging(true)}>
+                    <Pencil size={15} aria-hidden="true" />{" "}
+                    {t("media.organize.manage")}
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       {assetIds.length > 0 && (
         <div
           className="fixed bottom-4 left-1/2 z-30 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border border-border bg-card shadow-lg"
@@ -2073,7 +2160,7 @@ export function ContentOrganizer({
               </Button>
             </span>
             <span className="flex flex-none items-center gap-1">
-              {!archiveMode && (
+              {!archiveMode && (permissions.organize || permissions.tag) && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -2084,23 +2171,25 @@ export function ContentOrganizer({
                   {t("media.organize.organize")}
                 </Button>
               )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                onClick={() => void run(archiveMode ? onRestore : onArchive)}
-              >
-                {archiveMode ? (
-                  <ArchiveRestore size={15} aria-hidden="true" />
-                ) : (
-                  <Archive size={15} aria-hidden="true" />
-                )}
-                {archiveMode
-                  ? t("media.organize.restore")
-                  : t("media.card.archive")}
-              </Button>
-              {archiveMode && (
+              {permissions.archive && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => void run(archiveMode ? onRestore : onArchive)}
+                >
+                  {archiveMode ? (
+                    <ArchiveRestore size={15} aria-hidden="true" />
+                  ) : (
+                    <Archive size={15} aria-hidden="true" />
+                  )}
+                  {archiveMode
+                    ? t("media.organize.restore")
+                    : t("media.card.archive")}
+                </Button>
+              )}
+              {archiveMode && permissions.remove && (
                 <Button
                   type="button"
                   variant="destructive"
@@ -2155,87 +2244,102 @@ export function ContentOrganizer({
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4">
-            <Field>
-              <FieldLabel htmlFor="bulk-folder">
-                {t("media.organize.moveToFolder")}
-              </FieldLabel>
-              <FilterSelect
-                id="bulk-folder"
-                label={t("media.organize.moveToFolder")}
-                value={folderId}
-                onChange={setFolderId}
-                options={[
-                  { value: "", label: t("media.organize.leaveFolder") },
-                  {
-                    value: "unfiled",
-                    label: t("media.organize.moveToUnfiled"),
-                  },
-                  ...folders.map((folder) => ({
-                    value: folder.id,
-                    label: folder.name,
-                  })),
-                ]}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="bulk-tag">
-                {t("media.organize.tagChange")}
-              </FieldLabel>
-              <FilterSelect
-                id="bulk-tag"
-                label={t("media.organize.tagChange")}
-                value={tagId}
-                onChange={setTagId}
-                options={[
-                  { value: "", label: t("media.organize.leaveTags") },
-                  ...tags.flatMap((tag) => [
+            {permissions.organize && (
+              <Field>
+                <FieldLabel htmlFor="bulk-folder">
+                  {t("media.organize.moveToFolder")}
+                </FieldLabel>
+                <FilterSelect
+                  id="bulk-folder"
+                  label={t("media.organize.moveToFolder")}
+                  value={folderId}
+                  onChange={setFolderId}
+                  options={[
+                    { value: "", label: t("media.organize.leaveFolder") },
+                    // Unfiled media is outside every restricted account's
+                    // reach, so only the whole library may move media there.
+                    ...(permissions.libraryAll
+                      ? [
+                          {
+                            value: "unfiled",
+                            label: t("media.organize.moveToUnfiled"),
+                          },
+                        ]
+                      : []),
+                    ...uploadFolders(permissions, folders).map((folder) => ({
+                      value: folder.id,
+                      label: folder.name,
+                    })),
+                  ]}
+                />
+              </Field>
+            )}
+            {permissions.tag && (
+              <Field>
+                <FieldLabel htmlFor="bulk-tag">
+                  {t("media.organize.tagChange")}
+                </FieldLabel>
+                <FilterSelect
+                  id="bulk-tag"
+                  label={t("media.organize.tagChange")}
+                  value={tagId}
+                  onChange={setTagId}
+                  options={[
+                    { value: "", label: t("media.organize.leaveTags") },
+                    // Only the tags this account may apply are offered.
+                    ...tags
+                      .filter((tag) => tag.assignable !== false)
+                      .flatMap((tag) => [
+                        {
+                          value: `add:${tag.id}`,
+                          label: t("media.organize.addTag", {
+                            name: tag.name,
+                          }),
+                        },
+                        {
+                          value: `remove:${tag.id}`,
+                          label: t("media.organize.removeTag", {
+                            name: tag.name,
+                          }),
+                        },
+                      ]),
+                  ]}
+                />
+              </Field>
+            )}
+            {permissions.collect && (
+              <Field>
+                <FieldLabel htmlFor="bulk-collection">
+                  {t("media.organize.collectionChange")}
+                </FieldLabel>
+                <FilterSelect
+                  id="bulk-collection"
+                  label={t("media.organize.collectionChange")}
+                  value={collectionId}
+                  onChange={setCollectionId}
+                  options={[
                     {
-                      value: `add:${tag.id}`,
-                      label: t("media.organize.addTag", {
-                        name: tag.name,
-                      }),
+                      value: "",
+                      label: t("media.organize.leaveCollections"),
                     },
-                    {
-                      value: `remove:${tag.id}`,
-                      label: t("media.organize.removeTag", {
-                        name: tag.name,
-                      }),
-                    },
-                  ]),
-                ]}
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="bulk-collection">
-                {t("media.organize.collectionChange")}
-              </FieldLabel>
-              <FilterSelect
-                id="bulk-collection"
-                label={t("media.organize.collectionChange")}
-                value={collectionId}
-                onChange={setCollectionId}
-                options={[
-                  {
-                    value: "",
-                    label: t("media.organize.leaveCollections"),
-                  },
-                  ...collections.flatMap((collection) => [
-                    {
-                      value: `add:${collection.id}`,
-                      label: t("media.organize.addToCollection", {
-                        name: collection.name,
-                      }),
-                    },
-                    {
-                      value: `remove:${collection.id}`,
-                      label: t("media.organize.removeFromCollection", {
-                        name: collection.name,
-                      }),
-                    },
-                  ]),
-                ]}
-              />
-            </Field>
+                    ...collections.flatMap((collection) => [
+                      {
+                        value: `add:${collection.id}`,
+                        label: t("media.organize.addToCollection", {
+                          name: collection.name,
+                        }),
+                      },
+                      {
+                        value: `remove:${collection.id}`,
+                        label: t("media.organize.removeFromCollection", {
+                          name: collection.name,
+                        }),
+                      },
+                    ]),
+                  ]}
+                />
+              </Field>
+            )}
           </div>
           <DialogFooter>
             <Button
