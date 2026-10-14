@@ -18,33 +18,6 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
-// Defines values for AccountRole.
-const (
-	AccountRoleAdministrator AccountRole = "administrator"
-	AccountRoleContributor   AccountRole = "contributor"
-	AccountRoleEditor        AccountRole = "editor"
-	AccountRoleOwner         AccountRole = "owner"
-	AccountRoleViewer        AccountRole = "viewer"
-)
-
-// Valid indicates whether the value is a known member of the AccountRole enum.
-func (e AccountRole) Valid() bool {
-	switch e {
-	case AccountRoleAdministrator:
-		return true
-	case AccountRoleContributor:
-		return true
-	case AccountRoleEditor:
-		return true
-	case AccountRoleOwner:
-		return true
-	case AccountRoleViewer:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ActivityCategory.
 const (
 	ActivityCategoryCommands     ActivityCategory = "commands"
@@ -669,6 +642,54 @@ func (e CampaignReleaseStatus) Valid() bool {
 	}
 }
 
+// Defines values for CapabilityDefinitionGroup.
+const (
+	Activity       CapabilityDefinitionGroup = "activity"
+	Administration CapabilityDefinitionGroup = "administration"
+	Campaigns      CapabilityDefinitionGroup = "campaigns"
+	DataSources    CapabilityDefinitionGroup = "dataSources"
+	Layouts        CapabilityDefinitionGroup = "layouts"
+	Media          CapabilityDefinitionGroup = "media"
+	Playlists      CapabilityDefinitionGroup = "playlists"
+	Plugins        CapabilityDefinitionGroup = "plugins"
+	Review         CapabilityDefinitionGroup = "review"
+	Schedules      CapabilityDefinitionGroup = "schedules"
+	Screens        CapabilityDefinitionGroup = "screens"
+	Widgets        CapabilityDefinitionGroup = "widgets"
+)
+
+// Valid indicates whether the value is a known member of the CapabilityDefinitionGroup enum.
+func (e CapabilityDefinitionGroup) Valid() bool {
+	switch e {
+	case Activity:
+		return true
+	case Administration:
+		return true
+	case Campaigns:
+		return true
+	case DataSources:
+		return true
+	case Layouts:
+		return true
+	case Media:
+		return true
+	case Playlists:
+		return true
+	case Plugins:
+		return true
+	case Review:
+		return true
+	case Schedules:
+		return true
+	case Screens:
+		return true
+	case Widgets:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CatalogPluginCategory.
 const (
 	CatalogPluginCategoryAutomation CatalogPluginCategory = "Automation"
@@ -810,6 +831,24 @@ func (e ComplianceReportDimension) Valid() bool {
 	case ComplianceReportDimensionSchedule:
 		return true
 	case ComplianceReportDimensionScreen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ContentAccessMode.
+const (
+	ContentAccessModeAll        ContentAccessMode = "all"
+	ContentAccessModeRestricted ContentAccessMode = "restricted"
+)
+
+// Valid indicates whether the value is a known member of the ContentAccessMode enum.
+func (e ContentAccessMode) Valid() bool {
+	switch e {
+	case ContentAccessModeAll:
+		return true
+	case ContentAccessModeRestricted:
 		return true
 	default:
 		return false
@@ -5160,33 +5199,6 @@ func (e UptimeState) Valid() bool {
 	}
 }
 
-// Defines values for UserRole.
-const (
-	UserRoleAdministrator UserRole = "administrator"
-	UserRoleContributor   UserRole = "contributor"
-	UserRoleEditor        UserRole = "editor"
-	UserRoleOwner         UserRole = "owner"
-	UserRoleViewer        UserRole = "viewer"
-)
-
-// Valid indicates whether the value is a known member of the UserRole enum.
-func (e UserRole) Valid() bool {
-	switch e {
-	case UserRoleAdministrator:
-		return true
-	case UserRoleContributor:
-		return true
-	case UserRoleEditor:
-		return true
-	case UserRoleOwner:
-		return true
-	case UserRoleViewer:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for VariantKind.
 const (
 	VariantKindOriginal  VariantKind = "original"
@@ -6093,60 +6105,6 @@ func (e RunSystemMaintenanceParamsAction) Valid() bool {
 	}
 }
 
-// Defines values for CreateUserJSONBodyRole.
-const (
-	CreateUserJSONBodyRoleAdministrator CreateUserJSONBodyRole = "administrator"
-	CreateUserJSONBodyRoleContributor   CreateUserJSONBodyRole = "contributor"
-	CreateUserJSONBodyRoleEditor        CreateUserJSONBodyRole = "editor"
-	CreateUserJSONBodyRoleOwner         CreateUserJSONBodyRole = "owner"
-	CreateUserJSONBodyRoleViewer        CreateUserJSONBodyRole = "viewer"
-)
-
-// Valid indicates whether the value is a known member of the CreateUserJSONBodyRole enum.
-func (e CreateUserJSONBodyRole) Valid() bool {
-	switch e {
-	case CreateUserJSONBodyRoleAdministrator:
-		return true
-	case CreateUserJSONBodyRoleContributor:
-		return true
-	case CreateUserJSONBodyRoleEditor:
-		return true
-	case CreateUserJSONBodyRoleOwner:
-		return true
-	case CreateUserJSONBodyRoleViewer:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for UpdateUserJSONBodyRole.
-const (
-	UpdateUserJSONBodyRoleAdministrator UpdateUserJSONBodyRole = "administrator"
-	UpdateUserJSONBodyRoleContributor   UpdateUserJSONBodyRole = "contributor"
-	UpdateUserJSONBodyRoleEditor        UpdateUserJSONBodyRole = "editor"
-	UpdateUserJSONBodyRoleOwner         UpdateUserJSONBodyRole = "owner"
-	UpdateUserJSONBodyRoleViewer        UpdateUserJSONBodyRole = "viewer"
-)
-
-// Valid indicates whether the value is a known member of the UpdateUserJSONBodyRole enum.
-func (e UpdateUserJSONBodyRole) Valid() bool {
-	switch e {
-	case UpdateUserJSONBodyRoleAdministrator:
-		return true
-	case UpdateUserJSONBodyRoleContributor:
-		return true
-	case UpdateUserJSONBodyRoleEditor:
-		return true
-	case UpdateUserJSONBodyRoleOwner:
-		return true
-	case UpdateUserJSONBodyRoleViewer:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for Health200JSONResponseBodyDataService.
 const (
 	Health200JSONResponseBodyDataServiceTilecastServer Health200JSONResponseBodyDataService = "tilecast-server"
@@ -6192,8 +6150,10 @@ func (e Ready200JSONResponseBodyDataStatus) Valid() bool {
 	}
 }
 
-// AccountRole defines model for AccountRole.
-type AccountRole string
+// AccountRole Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
+//
+// Examples: owner, administrator, editor, contributor, viewer, custom.classroom-media
+type AccountRole = UserRole
 
 // ActivityCategory defines model for ActivityCategory.
 type ActivityCategory string
@@ -6427,15 +6387,18 @@ type AuthMethod string
 // AuthStatus defines model for AuthStatus.
 type AuthStatus struct {
 	// AuthMethod The factor that completed the session sign-in, or pat or oauth when the caller authenticated with a bearer grant.
-	AuthMethod                *AuthStatusAuthMethod `json:"authMethod,omitempty"`
-	Authenticated             bool                  `json:"authenticated"`
-	CsrfToken                 *string               `json:"csrfToken,omitempty"`
-	DemoMode                  *bool                 `json:"demoMode,omitempty"`
-	MfaEnrollmentRequired     *bool                 `json:"mfaEnrollmentRequired,omitempty"`
-	PasskeysAvailable         bool                  `json:"passkeysAvailable"`
-	PasskeysUnavailableReason *string               `json:"passkeysUnavailableReason,omitempty"`
-	SetupRequired             bool                  `json:"setupRequired"`
-	User                      *User                 `json:"user,omitempty"`
+	AuthMethod    *AuthStatusAuthMethod `json:"authMethod,omitempty"`
+	Authenticated bool                  `json:"authenticated"`
+
+	// Capabilities Effective capabilities of the authenticated user's live role. Studio uses them to decide which workspaces and actions to offer; every API route still makes its own decision.
+	Capabilities              *[]Capability `json:"capabilities,omitempty"`
+	CsrfToken                 *string       `json:"csrfToken,omitempty"`
+	DemoMode                  *bool         `json:"demoMode,omitempty"`
+	MfaEnrollmentRequired     *bool         `json:"mfaEnrollmentRequired,omitempty"`
+	PasskeysAvailable         bool          `json:"passkeysAvailable"`
+	PasskeysUnavailableReason *string       `json:"passkeysUnavailableReason,omitempty"`
+	SetupRequired             bool          `json:"setupRequired"`
+	User                      *User         `json:"user,omitempty"`
 }
 
 // AuthStatusAuthMethod The factor that completed the session sign-in, or pat or oauth when the caller authenticated with a bearer grant.
@@ -6448,8 +6411,12 @@ type AuthUser struct {
 	Id          openapi_types.UUID `json:"id"`
 	LastLoginAt *time.Time         `json:"lastLoginAt,omitempty"`
 	Name        string             `json:"name"`
-	Role        AccountRole        `json:"role"`
-	Username    string             `json:"username"`
+
+	// Role Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
+	//
+	// Examples: owner, administrator, editor, contributor, viewer, custom.classroom-media
+	Role     AccountRole `json:"role"`
+	Username string      `json:"username"`
 }
 
 // AuthenticatorCodeRequest defines model for AuthenticatorCodeRequest.
@@ -6912,6 +6879,29 @@ type CampaignSnapshot struct {
 	Timezone      string                `json:"timezone"`
 }
 
+// Capability One capability from the server's closed vocabulary, such as media.upload or playlist.publish. GET /api/v1/roles/capabilities lists them.
+type Capability = string
+
+// CapabilityDefinition defines model for CapabilityDefinition.
+type CapabilityDefinition struct {
+	// Delegable False for capabilities that administer access; only the Owner may put them in a custom role.
+	Delegable bool `json:"delegable"`
+
+	// Grantable Whether the caller may include it in a custom role.
+	Grantable bool                      `json:"grantable"`
+	Group     CapabilityDefinitionGroup `json:"group"`
+
+	// Key One capability from the server's closed vocabulary, such as media.upload or playlist.publish. GET /api/v1/roles/capabilities lists them.
+	Key Capability `json:"key"`
+
+	// OwnerReserved Held only by the built-in Owner role.
+	OwnerReserved bool         `json:"ownerReserved"`
+	Requires      []Capability `json:"requires"`
+}
+
+// CapabilityDefinitionGroup defines model for CapabilityDefinition.Group.
+type CapabilityDefinitionGroup string
+
 // CatalogPlugin defines model for CatalogPlugin.
 type CatalogPlugin struct {
 	Active        bool                  `json:"active"`
@@ -7096,6 +7086,20 @@ type ComplianceReport struct {
 
 // ComplianceReportDimension defines model for ComplianceReport.Dimension.
 type ComplianceReportDimension string
+
+// ContentAccessInput defines model for ContentAccessInput.
+type ContentAccessInput struct {
+	// FolderIds Granted folders; each covers its descendants.
+	FolderIds   *[]openapi_types.UUID `json:"folderIds,omitempty"`
+	LibraryMode ContentAccessMode     `json:"libraryMode"`
+
+	// TagIds Tags the account may apply and remove.
+	TagIds  *[]openapi_types.UUID `json:"tagIds,omitempty"`
+	TagMode ContentAccessMode     `json:"tagMode"`
+}
+
+// ContentAccessMode defines model for ContentAccessMode.
+type ContentAccessMode string
 
 // ContentCollection defines model for ContentCollection.
 type ContentCollection struct {
@@ -7366,6 +7370,15 @@ type ContentFolderInput struct {
 	ParentId    *openapi_types.UUID `json:"parentId,omitempty"`
 }
 
+// ContentGrant defines model for ContentGrant.
+type ContentGrant struct {
+	Id   openapi_types.UUID `json:"id"`
+	Name string             `json:"name"`
+
+	// Path Folder ancestry joined with ' / '.
+	Path *string `json:"path,omitempty"`
+}
+
 // ContentHealthEmptyPlaylist defines model for ContentHealthEmptyPlaylist.
 type ContentHealthEmptyPlaylist struct {
 	Id          openapi_types.UUID `json:"id"`
@@ -7515,7 +7528,10 @@ type ContentSubmissionPublication struct {
 
 // ContentTag defines model for ContentTag.
 type ContentTag struct {
-	AssetCount *int               `json:"assetCount,omitempty"`
+	AssetCount *int `json:"assetCount,omitempty"`
+
+	// Assignable On the tag list, whether the caller may apply or remove this tag.
+	Assignable *bool              `json:"assignable,omitempty"`
 	Color      string             `json:"color"`
 	Id         openapi_types.UUID `json:"id"`
 	Name       string             `json:"name"`
@@ -7621,9 +7637,12 @@ type CountdownBarInput struct {
 
 // CreateUploadRequest defines model for CreateUploadRequest.
 type CreateUploadRequest struct {
-	Filename  string `json:"filename"`
-	MimeType  string `json:"mimeType"`
-	SizeBytes int64  `json:"sizeBytes"`
+	Filename string `json:"filename"`
+
+	// FolderId Folder the asset is created in. Omitted or null is the library root, which only an account with access to the whole library may use; an account with restricted content access must name one of its folders. The server authorizes the folder now and again when the upload completes.
+	FolderId  *openapi_types.UUID `json:"folderId,omitempty"`
+	MimeType  string              `json:"mimeType"`
+	SizeBytes int64               `json:"sizeBytes"`
 }
 
 // DataSource Stored Data Source as the mutations return it: no refresh status, diagnostics, or usage. The provider is an open string because definition and plugin providers extend the built-in registry.
@@ -8678,8 +8697,12 @@ type ManagedUser struct {
 	MfaEnrolled bool               `json:"mfaEnrolled"`
 	MfaRequired bool               `json:"mfaRequired"`
 	Name        string             `json:"name"`
-	Role        UserRole           `json:"role"`
-	Username    string             `json:"username"`
+
+	// Role Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
+	//
+	// Examples: owner, administrator, editor, contributor, viewer, custom.classroom-media
+	Role     UserRole `json:"role"`
+	Username string   `json:"username"`
 }
 
 // ManagedUserList defines model for ManagedUserList.
@@ -8739,6 +8762,27 @@ type MultiFactorVerifyRequest struct {
 
 	// Code An authenticator code or a recovery code. The server decides which by shape; six digits are never matched against recovery codes.
 	Code string `json:"code"`
+}
+
+// MyAccess defines model for MyAccess.
+type MyAccess struct {
+	Capabilities []Capability `json:"capabilities"`
+	Content      struct {
+		LibraryMode ContentAccessMode `json:"libraryMode"`
+		TagMode     ContentAccessMode `json:"tagMode"`
+
+		// WritableFolderIds Folders the account may upload into. Absent when the account reaches the whole library, which may also use the root.
+		WritableFolderIds *[]openapi_types.UUID `json:"writableFolderIds,omitempty"`
+	} `json:"content"`
+	Role struct {
+		Builtin bool `json:"builtin"`
+
+		// Key Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
+		//
+		// Examples: owner, administrator, editor, contributor, viewer, custom.classroom-media
+		Key  UserRole `json:"key"`
+		Name string   `json:"name"`
+	} `json:"role"`
 }
 
 // NotificationCategory defines model for NotificationCategory.
@@ -10582,6 +10626,41 @@ type ReviewDecisionRequest struct {
 	Note *string `json:"note,omitempty"`
 }
 
+// Role defines model for Role.
+type Role struct {
+	// Assignable Whether the caller may place accounts on the role.
+	Assignable   bool         `json:"assignable"`
+	Builtin      bool         `json:"builtin"`
+	Capabilities []Capability `json:"capabilities"`
+	CreatedAt    time.Time    `json:"createdAt"`
+	Description  string       `json:"description"`
+
+	// Editable Whether the caller may change or delete the role.
+	Editable bool `json:"editable"`
+
+	// Key Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
+	//
+	// Examples: owner, administrator, editor, contributor, viewer, custom.classroom-media
+	Key       UserRole  `json:"key"`
+	Name      string    `json:"name"`
+	UpdatedAt time.Time `json:"updatedAt"`
+
+	// UserCount Active accounts on the role.
+	UserCount int `json:"userCount"`
+}
+
+// RoleList defines model for RoleList.
+type RoleList struct {
+	Items []Role `json:"items"`
+}
+
+// RoleRequest defines model for RoleRequest.
+type RoleRequest struct {
+	Capabilities []Capability `json:"capabilities"`
+	Description  *string      `json:"description,omitempty"`
+	Name         string       `json:"name"`
+}
+
 // Schedule defines model for Schedule.
 type Schedule struct {
 	CreatedAt   time.Time `json:"createdAt"`
@@ -11174,10 +11253,13 @@ type SemanticChange struct {
 
 // SessionCreated defines model for SessionCreated.
 type SessionCreated struct {
-	AuthMethod            AuthMethod `json:"authMethod"`
-	CsrfToken             string     `json:"csrfToken"`
-	MfaEnrollmentRequired bool       `json:"mfaEnrollmentRequired"`
-	User                  AuthUser   `json:"user"`
+	AuthMethod AuthMethod `json:"authMethod"`
+
+	// Capabilities Effective capabilities of the signed-in user's role.
+	Capabilities          *[]Capability `json:"capabilities,omitempty"`
+	CsrfToken             string        `json:"csrfToken"`
+	MfaEnrollmentRequired bool          `json:"mfaEnrollmentRequired"`
+	User                  AuthUser      `json:"user"`
 }
 
 // SettingDefinition defines model for SettingDefinition.
@@ -11899,9 +11981,12 @@ type UpdateStateReport struct {
 
 // UploadSession defines model for UploadSession.
 type UploadSession struct {
-	AssetId          *openapi_types.UUID `json:"assetId,omitempty"`
-	ExpiresAt        time.Time           `json:"expiresAt"`
-	Filename         string              `json:"filename"`
+	AssetId   *openapi_types.UUID `json:"assetId,omitempty"`
+	ExpiresAt time.Time           `json:"expiresAt"`
+	Filename  string              `json:"filename"`
+
+	// FolderId Destination folder; absent for the library root.
+	FolderId         *openapi_types.UUID `json:"folderId,omitempty"`
 	Id               openapi_types.UUID  `json:"id"`
 	MaximumSizeBytes int64               `json:"maximumSizeBytes"`
 	MimeType         string              `json:"mimeType"`
@@ -11969,12 +12054,32 @@ type User struct {
 	Id          openapi_types.UUID `json:"id"`
 	LastLoginAt *time.Time         `json:"lastLoginAt,omitempty"`
 	Name        string             `json:"name"`
-	Role        UserRole           `json:"role"`
-	Username    string             `json:"username"`
+
+	// Role Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
+	//
+	// Examples: owner, administrator, editor, contributor, viewer, custom.classroom-media
+	Role     UserRole `json:"role"`
+	Username string   `json:"username"`
 }
 
-// UserRole defines model for UserRole.
-type UserRole string
+// UserContentAccess defines model for UserContentAccess.
+type UserContentAccess struct {
+	// OwnerUnrestricted The account is an Owner and always reaches everything.
+	OwnerUnrestricted bool `json:"ownerUnrestricted"`
+	Policy            struct {
+		// Configured False when the account has no stored policy, which means it reaches no content until one is saved.
+		Configured  bool              `json:"configured"`
+		Folders     []ContentGrant    `json:"folders"`
+		LibraryMode ContentAccessMode `json:"libraryMode"`
+		TagMode     ContentAccessMode `json:"tagMode"`
+		Tags        []ContentGrant    `json:"tags"`
+	} `json:"policy"`
+}
+
+// UserRole Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
+//
+// Examples: owner, administrator, editor, contributor, viewer, custom.classroom-media
+type UserRole = string
 
 // VariantKind defines model for VariantKind.
 type VariantKind string
@@ -13459,6 +13564,21 @@ type StopPresentationOverrideParams struct {
 	XCSRFToken *CSRFToken `json:"X-CSRF-Token,omitempty"`
 }
 
+// CreateRoleParams defines parameters for CreateRole.
+type CreateRoleParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// DeleteRoleParams defines parameters for DeleteRole.
+type DeleteRoleParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// UpdateRoleParams defines parameters for UpdateRole.
+type UpdateRoleParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // ListSchedulesParams defines parameters for ListSchedules.
 type ListSchedulesParams struct {
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
@@ -13852,20 +13972,24 @@ type CompleteUploadParams struct {
 
 // CreateUserJSONBody defines parameters for CreateUser.
 type CreateUserJSONBody struct {
-	Active   *bool                  `json:"active,omitempty"`
-	Name     string                 `json:"name"`
-	Password string                 `json:"password"`
-	Role     CreateUserJSONBodyRole `json:"role"`
-	Username string                 `json:"username"`
+	Active *bool `json:"active,omitempty"`
+
+	// ContentAccess Media library access for the new account. When omitted, the account receives the creator's own library and tag modes with no grants.
+	ContentAccess *ContentAccessInput `json:"contentAccess,omitempty"`
+	Name          string              `json:"name"`
+	Password      string              `json:"password"`
+
+	// Role Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
+	//
+	// Examples: owner, administrator, editor, contributor, viewer, custom.classroom-media
+	Role     UserRole `json:"role"`
+	Username string   `json:"username"`
 }
 
 // CreateUserParams defines parameters for CreateUser.
 type CreateUserParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
-
-// CreateUserJSONBodyRole defines parameters for CreateUser.
-type CreateUserJSONBodyRole string
 
 // DeleteUserParams defines parameters for DeleteUser.
 type DeleteUserParams struct {
@@ -13874,11 +13998,15 @@ type DeleteUserParams struct {
 
 // UpdateUserJSONBody defines parameters for UpdateUser.
 type UpdateUserJSONBody struct {
-	Active   *bool                   `json:"active,omitempty"`
-	Name     *string                 `json:"name,omitempty"`
-	Password *string                 `json:"password,omitempty"`
-	Role     *UpdateUserJSONBodyRole `json:"role,omitempty"`
-	Username *string                 `json:"username,omitempty"`
+	Active   *bool   `json:"active,omitempty"`
+	Name     *string `json:"name,omitempty"`
+	Password *string `json:"password,omitempty"`
+
+	// Role Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
+	//
+	// Examples: owner, administrator, editor, contributor, viewer, custom.classroom-media
+	Role     *UserRole `json:"role,omitempty"`
+	Username *string   `json:"username,omitempty"`
 }
 
 // UpdateUserParams defines parameters for UpdateUser.
@@ -13886,8 +14014,10 @@ type UpdateUserParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
-// UpdateUserJSONBodyRole defines parameters for UpdateUser.
-type UpdateUserJSONBodyRole string
+// PutUserContentAccessParams defines parameters for PutUserContentAccess.
+type PutUserContentAccessParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 
 // PermanentlyDeleteUserParams defines parameters for PermanentlyDeleteUser.
 type PermanentlyDeleteUserParams struct {
@@ -14229,6 +14359,12 @@ type CreatePresentationOverrideJSONRequestBody = PresentationOverrideInput
 // StopPresentationOverrideJSONRequestBody defines body for StopPresentationOverride for application/json ContentType.
 type StopPresentationOverrideJSONRequestBody StopPresentationOverrideJSONBody
 
+// CreateRoleJSONRequestBody defines body for CreateRole for application/json ContentType.
+type CreateRoleJSONRequestBody = RoleRequest
+
+// UpdateRoleJSONRequestBody defines body for UpdateRole for application/json ContentType.
+type UpdateRoleJSONRequestBody = RoleRequest
+
 // CreateScheduleJSONRequestBody defines body for CreateSchedule for application/json ContentType.
 type CreateScheduleJSONRequestBody = ScheduleInput
 
@@ -14345,6 +14481,9 @@ type CreateUserJSONRequestBody CreateUserJSONBody
 
 // UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
 type UpdateUserJSONRequestBody UpdateUserJSONBody
+
+// PutUserContentAccessJSONRequestBody defines body for PutUserContentAccess for application/json ContentType.
+type PutUserContentAccessJSONRequestBody = ContentAccessInput
 
 // PutUserScreenScopesJSONRequestBody defines body for PutUserScreenScopes for application/json ContentType.
 type PutUserScreenScopesJSONRequestBody PutUserScreenScopesJSONBody
@@ -16407,6 +16546,11 @@ type ClientInterface interface {
 	// Update location. Requires an authenticated dashboard user.
 	UpdateLocation(ctx context.Context, id openapi_types.UUID, body UpdateLocationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetMyAccess performs a GET /api/v1/me/access (the `GetMyAccess` operationId) request.
+	//
+	// The signed-in account's role, effective capabilities, and Media content access. Available to every enrolled account with the read scope.
+	GetMyAccess(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetPreferences performs a GET /api/v1/me/preferences (the `GetPreferences` operationId) request.
 	//
 	// Requires an authenticated user with the read scope. Reads the calling user's own preferences.
@@ -17484,6 +17628,50 @@ type ClientInterface interface {
 	// Provider catalog. Requires an authenticated dashboard user.
 	ProviderCatalog(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListRoles performs a GET /api/v1/roles (the `ListRoles` operationId) request.
+	//
+	// List the built-in and custom roles with their capabilities and member counts. Requires users.manage or roles.manage and the admin scope.
+	ListRoles(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateRoleWithBody performs a POST /api/v1/roles (the `CreateRole` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Create a custom role. Requires the roles.manage capability and the admin scope. A caller other than the Owner may include only capabilities they hold, and never users.manage or roles.manage. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	CreateRoleWithBody(ctx context.Context, params *CreateRoleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateRole performs a POST /api/v1/roles (the `CreateRole` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Create a custom role. Requires the roles.manage capability and the admin scope. A caller other than the Owner may include only capabilities they hold, and never users.manage or roles.manage. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	CreateRole(ctx context.Context, params *CreateRoleParams, body CreateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListCapabilities performs a GET /api/v1/roles/capabilities (the `ListCapabilities` operationId) request.
+	//
+	// The closed capability vocabulary, with whether the caller may grant each capability in a custom role. Requires users.manage or roles.manage and the admin scope.
+	ListCapabilities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteRole performs a DELETE /api/v1/roles/{key} (the `DeleteRole` operationId) request.
+	//
+	// Delete a custom role that no account holds. Requires the roles.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	DeleteRole(ctx context.Context, key UserRole, params *DeleteRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRole performs a GET /api/v1/roles/{key} (the `GetRole` operationId) request.
+	//
+	// Read one role. Requires users.manage or roles.manage and the admin scope.
+	GetRole(ctx context.Context, key UserRole, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateRoleWithBody performs a PATCH /api/v1/roles/{key} (the `UpdateRole` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace a custom role's name, description, and capabilities. Built-in roles cannot be changed. The change applies to every account on the role at its next request. Requires the roles.manage capability, the admin scope, and authority to grant both the old and the new capabilities. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	UpdateRoleWithBody(ctx context.Context, key UserRole, params *UpdateRoleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateRole performs a PATCH /api/v1/roles/{key} (the `UpdateRole` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Replace a custom role's name, description, and capabilities. Built-in roles cannot be changed. The change applies to every account on the role at its next request. Requires the roles.manage capability, the admin scope, and authority to grant both the old and the new capabilities. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	UpdateRole(ctx context.Context, key UserRole, params *UpdateRoleParams, body UpdateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListSchedules performs a GET /api/v1/schedules (the `ListSchedules` operationId) request.
 	//
 	// Requires an authenticated user with the read scope. Schedule list with optional search, facet filters, sort, and pagination. Every parameter is optional; a value outside its closed set is rejected with 400. The reported total describes the filtered result, not the whole library. Every sort is deterministic, ending in the schedule id.
@@ -18378,19 +18566,19 @@ type ClientInterface interface {
 
 	// ListUsers performs a GET /api/v1/users (the `ListUsers` operationId) request.
 	//
-	// List dashboard user accounts. Requires an Owner or Administrator with the admin scope.
+	// List dashboard user accounts. Requires the users.manage capability and the admin scope.
 	ListUsers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateUserWithBody performs a POST /api/v1/users (the `CreateUser` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Create a dashboard user account. Requires an Owner or Administrator with the admin scope. Only an Owner may create Owner or Administrator accounts. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Create a dashboard user account. Requires the users.manage capability and the admin scope. Only an Owner may assign the Owner or Administrator role, or a role that grants a capability the caller does not hold. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	CreateUserWithBody(ctx context.Context, params *CreateUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateUser performs a POST /api/v1/users (the `CreateUser` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Create a dashboard user account. Requires an Owner or Administrator with the admin scope. Only an Owner may create Owner or Administrator accounts. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Create a dashboard user account. Requires the users.manage capability and the admin scope. Only an Owner may assign the Owner or Administrator role, or a role that grants a capability the caller does not hold. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	CreateUser(ctx context.Context, params *CreateUserParams, body CreateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteUser performs a DELETE /api/v1/users/{id} (the `DeleteUser` operationId) request.
@@ -18409,6 +18597,23 @@ type ClientInterface interface {
 	//
 	// Update a dashboard user account. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	UpdateUser(ctx context.Context, id openapi_types.UUID, params *UpdateUserParams, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetUserContentAccess performs a GET /api/v1/users/{id}/content-access (the `GetUserContentAccess` operationId) request.
+	//
+	// Read which part of the Media library an account reaches and which tags it may apply. Requires the users.manage capability and the admin scope.
+	GetUserContentAccess(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutUserContentAccessWithBody performs a PUT /api/v1/users/{id}/content-access (the `PutUserContentAccess` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace an account's content access. Requires the users.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be restricted, nobody can change their own access, and nobody can grant folders or tags outside their own access.
+	PutUserContentAccessWithBody(ctx context.Context, id openapi_types.UUID, params *PutUserContentAccessParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PutUserContentAccess performs a PUT /api/v1/users/{id}/content-access (the `PutUserContentAccess` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Replace an account's content access. Requires the users.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be restricted, nobody can change their own access, and nobody can grant folders or tags outside their own access.
+	PutUserContentAccess(ctx context.Context, id openapi_types.UUID, params *PutUserContentAccessParams, body PutUserContentAccessJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PermanentlyDeleteUser performs a DELETE /api/v1/users/{id}/permanent (the `PermanentlyDeleteUser` operationId) request.
 	//
@@ -21799,6 +22004,21 @@ func (c *Client) UpdateLocation(ctx context.Context, id openapi_types.UUID, body
 	return c.Client.Do(req)
 }
 
+// GetMyAccess performs a GET /api/v1/me/access (the `GetMyAccess` operationId) request.
+//
+// The signed-in account's role, effective capabilities, and Media content access. Available to every enrolled account with the read scope.
+func (c *Client) GetMyAccess(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetMyAccessRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // GetPreferences performs a GET /api/v1/me/preferences (the `GetPreferences` operationId) request.
 //
 // Requires an authenticated user with the read scope. Reads the calling user's own preferences.
@@ -24656,6 +24876,130 @@ func (c *Client) ProviderCatalog(ctx context.Context, reqEditors ...RequestEdito
 	return c.Client.Do(req)
 }
 
+// ListRoles performs a GET /api/v1/roles (the `ListRoles` operationId) request.
+//
+// List the built-in and custom roles with their capabilities and member counts. Requires users.manage or roles.manage and the admin scope.
+func (c *Client) ListRoles(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRolesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateRoleWithBody performs a POST /api/v1/roles (the `CreateRole` operationId) request,
+// with any type of body and a specified content type.
+//
+// Create a custom role. Requires the roles.manage capability and the admin scope. A caller other than the Owner may include only capabilities they hold, and never users.manage or roles.manage. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) CreateRoleWithBody(ctx context.Context, params *CreateRoleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRoleRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// CreateRole performs a POST /api/v1/roles (the `CreateRole` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Create a custom role. Requires the roles.manage capability and the admin scope. A caller other than the Owner may include only capabilities they hold, and never users.manage or roles.manage. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) CreateRole(ctx context.Context, params *CreateRoleParams, body CreateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRoleRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// ListCapabilities performs a GET /api/v1/roles/capabilities (the `ListCapabilities` operationId) request.
+//
+// The closed capability vocabulary, with whether the caller may grant each capability in a custom role. Requires users.manage or roles.manage and the admin scope.
+func (c *Client) ListCapabilities(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCapabilitiesRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// DeleteRole performs a DELETE /api/v1/roles/{key} (the `DeleteRole` operationId) request.
+//
+// Delete a custom role that no account holds. Requires the roles.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) DeleteRole(ctx context.Context, key UserRole, params *DeleteRoleParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteRoleRequest(c.Server, key, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetRole performs a GET /api/v1/roles/{key} (the `GetRole` operationId) request.
+//
+// Read one role. Requires users.manage or roles.manage and the admin scope.
+func (c *Client) GetRole(ctx context.Context, key UserRole, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRoleRequest(c.Server, key)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateRoleWithBody performs a PATCH /api/v1/roles/{key} (the `UpdateRole` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace a custom role's name, description, and capabilities. Built-in roles cannot be changed. The change applies to every account on the role at its next request. Requires the roles.manage capability, the admin scope, and authority to grant both the old and the new capabilities. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) UpdateRoleWithBody(ctx context.Context, key UserRole, params *UpdateRoleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateRoleRequestWithBody(c.Server, key, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// UpdateRole performs a PATCH /api/v1/roles/{key} (the `UpdateRole` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Replace a custom role's name, description, and capabilities. Built-in roles cannot be changed. The change applies to every account on the role at its next request. Requires the roles.manage capability, the admin scope, and authority to grant both the old and the new capabilities. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *Client) UpdateRole(ctx context.Context, key UserRole, params *UpdateRoleParams, body UpdateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateRoleRequest(c.Server, key, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ListSchedules performs a GET /api/v1/schedules (the `ListSchedules` operationId) request.
 //
 // Requires an authenticated user with the read scope. Schedule list with optional search, facet filters, sort, and pagination. Every parameter is optional; a value outside its closed set is rejected with 400. The reported total describes the filtered result, not the whole library. Every sort is deterministic, ending in the schedule id.
@@ -27000,7 +27344,7 @@ func (c *Client) CompleteUpload(ctx context.Context, id ResourceID, params *Comp
 
 // ListUsers performs a GET /api/v1/users (the `ListUsers` operationId) request.
 //
-// List dashboard user accounts. Requires an Owner or Administrator with the admin scope.
+// List dashboard user accounts. Requires the users.manage capability and the admin scope.
 func (c *Client) ListUsers(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListUsersRequest(c.Server)
 	if err != nil {
@@ -27016,7 +27360,7 @@ func (c *Client) ListUsers(ctx context.Context, reqEditors ...RequestEditorFn) (
 // CreateUserWithBody performs a POST /api/v1/users (the `CreateUser` operationId) request,
 // with any type of body and a specified content type.
 //
-// Create a dashboard user account. Requires an Owner or Administrator with the admin scope. Only an Owner may create Owner or Administrator accounts. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Create a dashboard user account. Requires the users.manage capability and the admin scope. Only an Owner may assign the Owner or Administrator role, or a role that grants a capability the caller does not hold. Cookie-authenticated unsafe requests require X-CSRF-Token.
 func (c *Client) CreateUserWithBody(ctx context.Context, params *CreateUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateUserRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
@@ -27032,7 +27376,7 @@ func (c *Client) CreateUserWithBody(ctx context.Context, params *CreateUserParam
 // CreateUser performs a POST /api/v1/users (the `CreateUser` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Create a dashboard user account. Requires an Owner or Administrator with the admin scope. Only an Owner may create Owner or Administrator accounts. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Create a dashboard user account. Requires the users.manage capability and the admin scope. Only an Owner may assign the Owner or Administrator role, or a role that grants a capability the caller does not hold. Cookie-authenticated unsafe requests require X-CSRF-Token.
 func (c *Client) CreateUser(ctx context.Context, params *CreateUserParams, body CreateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateUserRequest(c.Server, params, body)
 	if err != nil {
@@ -27082,6 +27426,53 @@ func (c *Client) UpdateUserWithBody(ctx context.Context, id openapi_types.UUID, 
 // Update a dashboard user account. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 func (c *Client) UpdateUser(ctx context.Context, id openapi_types.UUID, params *UpdateUserParams, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateUserRequest(c.Server, id, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetUserContentAccess performs a GET /api/v1/users/{id}/content-access (the `GetUserContentAccess` operationId) request.
+//
+// Read which part of the Media library an account reaches and which tags it may apply. Requires the users.manage capability and the admin scope.
+func (c *Client) GetUserContentAccess(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetUserContentAccessRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutUserContentAccessWithBody performs a PUT /api/v1/users/{id}/content-access (the `PutUserContentAccess` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace an account's content access. Requires the users.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be restricted, nobody can change their own access, and nobody can grant folders or tags outside their own access.
+func (c *Client) PutUserContentAccessWithBody(ctx context.Context, id openapi_types.UUID, params *PutUserContentAccessParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutUserContentAccessRequestWithBody(c.Server, id, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// PutUserContentAccess performs a PUT /api/v1/users/{id}/content-access (the `PutUserContentAccess` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Replace an account's content access. Requires the users.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be restricted, nobody can change their own access, and nobody can grant folders or tags outside their own access.
+func (c *Client) PutUserContentAccess(ctx context.Context, id openapi_types.UUID, params *PutUserContentAccessParams, body PutUserContentAccessJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPutUserContentAccessRequest(c.Server, id, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -35805,6 +36196,33 @@ func NewUpdateLocationRequestWithBody(server string, id openapi_types.UUID, cont
 	return req, nil
 }
 
+// NewGetMyAccessRequest constructs an http.Request for the GetMyAccess method
+func NewGetMyAccessRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/me/access")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetPreferencesRequest constructs an http.Request for the GetPreferences method
 func NewGetPreferencesRequest(server string) (*http.Request, error) {
 	var err error
@@ -41554,6 +41972,254 @@ func NewProviderCatalogRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListRolesRequest constructs an http.Request for the ListRoles method
+func NewListRolesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/roles")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateRoleRequest calls the generic CreateRole builder with application/json body
+func NewCreateRoleRequest(server string, params *CreateRoleParams, body CreateRoleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateRoleRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewCreateRoleRequestWithBody constructs an http.Request for the CreateRole method, with any body, and a specified content type
+func NewCreateRoleRequestWithBody(server string, params *CreateRoleParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/roles")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewListCapabilitiesRequest constructs an http.Request for the ListCapabilities method
+func NewListCapabilitiesRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/roles/capabilities")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteRoleRequest constructs an http.Request for the DeleteRole method
+func NewDeleteRoleRequest(server string, key UserRole, params *DeleteRoleParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "key", key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/roles/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewGetRoleRequest constructs an http.Request for the GetRole method
+func NewGetRoleRequest(server string, key UserRole) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "key", key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/roles/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateRoleRequest calls the generic UpdateRole builder with application/json body
+func NewUpdateRoleRequest(server string, key UserRole, params *UpdateRoleParams, body UpdateRoleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateRoleRequestWithBody(server, key, params, "application/json", bodyReader)
+}
+
+// NewUpdateRoleRequestWithBody constructs an http.Request for the UpdateRole method, with any body, and a specified content type
+func NewUpdateRoleRequestWithBody(server string, key UserRole, params *UpdateRoleParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "key", key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/roles/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPatch, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewListSchedulesRequest constructs an http.Request for the ListSchedules method
 func NewListSchedulesRequest(server string, params *ListSchedulesParams) (*http.Request, error) {
 	var err error
@@ -46440,6 +47106,100 @@ func NewUpdateUserRequestWithBody(server string, id openapi_types.UUID, params *
 	return req, nil
 }
 
+// NewGetUserContentAccessRequest constructs an http.Request for the GetUserContentAccess method
+func NewGetUserContentAccessRequest(server string, id openapi_types.UUID) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/%s/content-access", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPutUserContentAccessRequest calls the generic PutUserContentAccess builder with application/json body
+func NewPutUserContentAccessRequest(server string, id openapi_types.UUID, params *PutUserContentAccessParams, body PutUserContentAccessJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPutUserContentAccessRequestWithBody(server, id, params, "application/json", bodyReader)
+}
+
+// NewPutUserContentAccessRequestWithBody constructs an http.Request for the PutUserContentAccess method, with any body, and a specified content type
+func NewPutUserContentAccessRequestWithBody(server string, id openapi_types.UUID, params *PutUserContentAccessParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/users/%s/content-access", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-CSRF-Token", params.XCSRFToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-CSRF-Token", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewPermanentlyDeleteUserRequest constructs an http.Request for the PermanentlyDeleteUser method
 func NewPermanentlyDeleteUserRequest(server string, id openapi_types.UUID, params *PermanentlyDeleteUserParams) (*http.Request, error) {
 	var err error
@@ -48495,6 +49255,13 @@ type ClientWithResponsesInterface interface {
 	// Update location. Requires an authenticated dashboard user.
 	UpdateLocationWithResponse(ctx context.Context, id openapi_types.UUID, body UpdateLocationJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLocationResponse, error)
 
+	// GetMyAccessWithResponse performs a GET /api/v1/me/access (the `GetMyAccess` operationId) request.
+	//
+	// The signed-in account's role, effective capabilities, and Media content access. Available to every enrolled account with the read scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetMyAccessWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMyAccessResponse, error)
+
 	// GetPreferencesWithResponse performs a GET /api/v1/me/preferences (the `GetPreferences` operationId) request.
 	//
 	// Requires an authenticated user with the read scope. Reads the calling user's own preferences.
@@ -49810,6 +50577,62 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	ProviderCatalogWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ProviderCatalogResponse, error)
 
+	// ListRolesWithResponse performs a GET /api/v1/roles (the `ListRoles` operationId) request.
+	//
+	// List the built-in and custom roles with their capabilities and member counts. Requires users.manage or roles.manage and the admin scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListRolesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListRolesResponse, error)
+
+	// CreateRoleWithBodyWithResponse performs a POST /api/v1/roles (the `CreateRole` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Create a custom role. Requires the roles.manage capability and the admin scope. A caller other than the Owner may include only capabilities they hold, and never users.manage or roles.manage. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	CreateRoleWithBodyWithResponse(ctx context.Context, params *CreateRoleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRoleResponse, error)
+
+	// CreateRoleWithResponse performs a POST /api/v1/roles (the `CreateRole` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Create a custom role. Requires the roles.manage capability and the admin scope. A caller other than the Owner may include only capabilities they hold, and never users.manage or roles.manage. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	CreateRoleWithResponse(ctx context.Context, params *CreateRoleParams, body CreateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRoleResponse, error)
+
+	// ListCapabilitiesWithResponse performs a GET /api/v1/roles/capabilities (the `ListCapabilities` operationId) request.
+	//
+	// The closed capability vocabulary, with whether the caller may grant each capability in a custom role. Requires users.manage or roles.manage and the admin scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	ListCapabilitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCapabilitiesResponse, error)
+
+	// DeleteRoleWithResponse performs a DELETE /api/v1/roles/{key} (the `DeleteRole` operationId) request.
+	//
+	// Delete a custom role that no account holds. Requires the roles.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	DeleteRoleWithResponse(ctx context.Context, key UserRole, params *DeleteRoleParams, reqEditors ...RequestEditorFn) (*DeleteRoleResponse, error)
+
+	// GetRoleWithResponse performs a GET /api/v1/roles/{key} (the `GetRole` operationId) request.
+	//
+	// Read one role. Requires users.manage or roles.manage and the admin scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetRoleWithResponse(ctx context.Context, key UserRole, reqEditors ...RequestEditorFn) (*GetRoleResponse, error)
+
+	// UpdateRoleWithBodyWithResponse performs a PATCH /api/v1/roles/{key} (the `UpdateRole` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace a custom role's name, description, and capabilities. Built-in roles cannot be changed. The change applies to every account on the role at its next request. Requires the roles.manage capability, the admin scope, and authority to grant both the old and the new capabilities. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	UpdateRoleWithBodyWithResponse(ctx context.Context, key UserRole, params *UpdateRoleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRoleResponse, error)
+
+	// UpdateRoleWithResponse performs a PATCH /api/v1/roles/{key} (the `UpdateRole` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Replace a custom role's name, description, and capabilities. Built-in roles cannot be changed. The change applies to every account on the role at its next request. Requires the roles.manage capability, the admin scope, and authority to grant both the old and the new capabilities. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	UpdateRoleWithResponse(ctx context.Context, key UserRole, params *UpdateRoleParams, body UpdateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRoleResponse, error)
+
 	// ListSchedulesWithResponse performs a GET /api/v1/schedules (the `ListSchedules` operationId) request.
 	//
 	// Requires an authenticated user with the read scope. Schedule list with optional search, facet filters, sort, and pagination. Every parameter is optional; a value outside its closed set is rejected with 400. The reported total describes the filtered result, not the whole library. Every sort is deterministic, ending in the schedule id.
@@ -50898,7 +51721,7 @@ type ClientWithResponsesInterface interface {
 
 	// ListUsersWithResponse performs a GET /api/v1/users (the `ListUsers` operationId) request.
 	//
-	// List dashboard user accounts. Requires an Owner or Administrator with the admin scope.
+	// List dashboard user accounts. Requires the users.manage capability and the admin scope.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	ListUsersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListUsersResponse, error)
@@ -50906,7 +51729,7 @@ type ClientWithResponsesInterface interface {
 	// CreateUserWithBodyWithResponse performs a POST /api/v1/users (the `CreateUser` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Create a dashboard user account. Requires an Owner or Administrator with the admin scope. Only an Owner may create Owner or Administrator accounts. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Create a dashboard user account. Requires the users.manage capability and the admin scope. Only an Owner may assign the Owner or Administrator role, or a role that grants a capability the caller does not hold. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateUserWithBodyWithResponse(ctx context.Context, params *CreateUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserResponse, error)
@@ -50914,7 +51737,7 @@ type ClientWithResponsesInterface interface {
 	// CreateUserWithResponse performs a POST /api/v1/users (the `CreateUser` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Create a dashboard user account. Requires an Owner or Administrator with the admin scope. Only an Owner may create Owner or Administrator accounts. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Create a dashboard user account. Requires the users.manage capability and the admin scope. Only an Owner may assign the Owner or Administrator role, or a role that grants a capability the caller does not hold. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	CreateUserWithResponse(ctx context.Context, params *CreateUserParams, body CreateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserResponse, error)
 
 	// DeleteUserWithResponse performs a DELETE /api/v1/users/{id} (the `DeleteUser` operationId) request.
@@ -50937,6 +51760,27 @@ type ClientWithResponsesInterface interface {
 	//
 	// Update a dashboard user account. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	UpdateUserWithResponse(ctx context.Context, id openapi_types.UUID, params *UpdateUserParams, body UpdateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateUserResponse, error)
+
+	// GetUserContentAccessWithResponse performs a GET /api/v1/users/{id}/content-access (the `GetUserContentAccess` operationId) request.
+	//
+	// Read which part of the Media library an account reaches and which tags it may apply. Requires the users.manage capability and the admin scope.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetUserContentAccessWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserContentAccessResponse, error)
+
+	// PutUserContentAccessWithBodyWithResponse performs a PUT /api/v1/users/{id}/content-access (the `PutUserContentAccess` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Replace an account's content access. Requires the users.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be restricted, nobody can change their own access, and nobody can grant folders or tags outside their own access.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	PutUserContentAccessWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserContentAccessParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutUserContentAccessResponse, error)
+
+	// PutUserContentAccessWithResponse performs a PUT /api/v1/users/{id}/content-access (the `PutUserContentAccess` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Replace an account's content access. Requires the users.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be restricted, nobody can change their own access, and nobody can grant folders or tags outside their own access.
+	PutUserContentAccessWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserContentAccessParams, body PutUserContentAccessJSONRequestBody, reqEditors ...RequestEditorFn) (*PutUserContentAccessResponse, error)
 
 	// PermanentlyDeleteUserWithResponse performs a DELETE /api/v1/users/{id}/permanent (the `PermanentlyDeleteUser` operationId) request.
 	//
@@ -57777,6 +58621,51 @@ func (r UpdateLocationResponse) ContentType() string {
 	return ""
 }
 
+type GetMyAccessResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data MyAccess `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetMyAccessResponse) GetJSON200() *struct {
+	Data MyAccess `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetMyAccessResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetMyAccessResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetMyAccessResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetMyAccessResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetPreferencesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -63338,6 +64227,269 @@ func (r ProviderCatalogResponse) ContentType() string {
 	return ""
 }
 
+type ListRolesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data RoleList `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListRolesResponse) GetJSON200() *struct {
+	Data RoleList `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListRolesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRolesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRolesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListRolesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type CreateRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON201 the response for an HTTP 201 `application/json` response
+	JSON201 *struct {
+		Data Role `json:"data"`
+	}
+}
+
+// GetJSON201 returns the response for an HTTP 201 `application/json` response
+func (r CreateRoleResponse) GetJSON201() *struct {
+	Data Role `json:"data"`
+} {
+	return r.JSON201
+}
+
+// GetBody returns the raw response body bytes
+func (r CreateRoleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r CreateRoleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type ListCapabilitiesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data struct {
+			Items []CapabilityDefinition `json:"items"`
+		} `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r ListCapabilitiesResponse) GetJSON200() *struct {
+	Data struct {
+		Items []CapabilityDefinition `json:"items"`
+	} `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r ListCapabilitiesResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r ListCapabilitiesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListCapabilitiesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r ListCapabilitiesResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type DeleteRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// GetBody returns the raw response body bytes
+func (r DeleteRoleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r DeleteRoleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Role `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetRoleResponse) GetJSON200() *struct {
+	Data Role `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetRoleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetRoleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type UpdateRoleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data Role `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r UpdateRoleResponse) GetJSON200() *struct {
+	Data Role `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r UpdateRoleResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateRoleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateRoleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r UpdateRoleResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ListSchedulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -68195,6 +69347,96 @@ func (r UpdateUserResponse) ContentType() string {
 	return ""
 }
 
+type GetUserContentAccessResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data UserContentAccess `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetUserContentAccessResponse) GetJSON200() *struct {
+	Data UserContentAccess `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetUserContentAccessResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetUserContentAccessResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetUserContentAccessResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetUserContentAccessResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type PutUserContentAccessResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data UserContentAccess `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r PutUserContentAccessResponse) GetJSON200() *struct {
+	Data UserContentAccess `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r PutUserContentAccessResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r PutUserContentAccessResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PutUserContentAccessResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PutUserContentAccessResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type PermanentlyDeleteUserResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -71538,6 +72780,19 @@ func (c *ClientWithResponses) UpdateLocationWithResponse(ctx context.Context, id
 	return ParseUpdateLocationResponse(rsp)
 }
 
+// GetMyAccessWithResponse performs a GET /api/v1/me/access (the `GetMyAccess` operationId) request.
+//
+// The signed-in account's role, effective capabilities, and Media content access. Available to every enrolled account with the read scope.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetMyAccessWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMyAccessResponse, error) {
+	rsp, err := c.GetMyAccess(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetMyAccessResponse(rsp)
+}
+
 // GetPreferencesWithResponse performs a GET /api/v1/me/preferences (the `GetPreferences` operationId) request.
 //
 // Requires an authenticated user with the read scope. Reads the calling user's own preferences.
@@ -73921,6 +75176,110 @@ func (c *ClientWithResponses) ProviderCatalogWithResponse(ctx context.Context, r
 	return ParseProviderCatalogResponse(rsp)
 }
 
+// ListRolesWithResponse performs a GET /api/v1/roles (the `ListRoles` operationId) request.
+//
+// List the built-in and custom roles with their capabilities and member counts. Requires users.manage or roles.manage and the admin scope.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListRolesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListRolesResponse, error) {
+	rsp, err := c.ListRoles(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRolesResponse(rsp)
+}
+
+// CreateRoleWithBodyWithResponse performs a POST /api/v1/roles (the `CreateRole` operationId) request,
+// with any type of body and a specified content type.
+//
+// Create a custom role. Requires the roles.manage capability and the admin scope. A caller other than the Owner may include only capabilities they hold, and never users.manage or roles.manage. Cookie-authenticated unsafe requests require X-CSRF-Token.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) CreateRoleWithBodyWithResponse(ctx context.Context, params *CreateRoleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRoleResponse, error) {
+	rsp, err := c.CreateRoleWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRoleResponse(rsp)
+}
+
+// CreateRoleWithResponse performs a POST /api/v1/roles (the `CreateRole` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Create a custom role. Requires the roles.manage capability and the admin scope. A caller other than the Owner may include only capabilities they hold, and never users.manage or roles.manage. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *ClientWithResponses) CreateRoleWithResponse(ctx context.Context, params *CreateRoleParams, body CreateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRoleResponse, error) {
+	rsp, err := c.CreateRole(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRoleResponse(rsp)
+}
+
+// ListCapabilitiesWithResponse performs a GET /api/v1/roles/capabilities (the `ListCapabilities` operationId) request.
+//
+// The closed capability vocabulary, with whether the caller may grant each capability in a custom role. Requires users.manage or roles.manage and the admin scope.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) ListCapabilitiesWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListCapabilitiesResponse, error) {
+	rsp, err := c.ListCapabilities(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListCapabilitiesResponse(rsp)
+}
+
+// DeleteRoleWithResponse performs a DELETE /api/v1/roles/{key} (the `DeleteRole` operationId) request.
+//
+// Delete a custom role that no account holds. Requires the roles.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) DeleteRoleWithResponse(ctx context.Context, key UserRole, params *DeleteRoleParams, reqEditors ...RequestEditorFn) (*DeleteRoleResponse, error) {
+	rsp, err := c.DeleteRole(ctx, key, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteRoleResponse(rsp)
+}
+
+// GetRoleWithResponse performs a GET /api/v1/roles/{key} (the `GetRole` operationId) request.
+//
+// Read one role. Requires users.manage or roles.manage and the admin scope.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetRoleWithResponse(ctx context.Context, key UserRole, reqEditors ...RequestEditorFn) (*GetRoleResponse, error) {
+	rsp, err := c.GetRole(ctx, key, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRoleResponse(rsp)
+}
+
+// UpdateRoleWithBodyWithResponse performs a PATCH /api/v1/roles/{key} (the `UpdateRole` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace a custom role's name, description, and capabilities. Built-in roles cannot be changed. The change applies to every account on the role at its next request. Requires the roles.manage capability, the admin scope, and authority to grant both the old and the new capabilities. Cookie-authenticated unsafe requests require X-CSRF-Token.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) UpdateRoleWithBodyWithResponse(ctx context.Context, key UserRole, params *UpdateRoleParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRoleResponse, error) {
+	rsp, err := c.UpdateRoleWithBody(ctx, key, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateRoleResponse(rsp)
+}
+
+// UpdateRoleWithResponse performs a PATCH /api/v1/roles/{key} (the `UpdateRole` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Replace a custom role's name, description, and capabilities. Built-in roles cannot be changed. The change applies to every account on the role at its next request. Requires the roles.manage capability, the admin scope, and authority to grant both the old and the new capabilities. Cookie-authenticated unsafe requests require X-CSRF-Token.
+func (c *ClientWithResponses) UpdateRoleWithResponse(ctx context.Context, key UserRole, params *UpdateRoleParams, body UpdateRoleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRoleResponse, error) {
+	rsp, err := c.UpdateRole(ctx, key, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateRoleResponse(rsp)
+}
+
 // ListSchedulesWithResponse performs a GET /api/v1/schedules (the `ListSchedules` operationId) request.
 //
 // Requires an authenticated user with the read scope. Schedule list with optional search, facet filters, sort, and pagination. Every parameter is optional; a value outside its closed set is rejected with 400. The reported total describes the filtered result, not the whole library. Every sort is deterministic, ending in the schedule id.
@@ -75879,7 +77238,7 @@ func (c *ClientWithResponses) CompleteUploadWithResponse(ctx context.Context, id
 
 // ListUsersWithResponse performs a GET /api/v1/users (the `ListUsers` operationId) request.
 //
-// List dashboard user accounts. Requires an Owner or Administrator with the admin scope.
+// List dashboard user accounts. Requires the users.manage capability and the admin scope.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) ListUsersWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListUsersResponse, error) {
@@ -75893,7 +77252,7 @@ func (c *ClientWithResponses) ListUsersWithResponse(ctx context.Context, reqEdit
 // CreateUserWithBodyWithResponse performs a POST /api/v1/users (the `CreateUser` operationId) request,
 // with any type of body and a specified content type.
 //
-// Create a dashboard user account. Requires an Owner or Administrator with the admin scope. Only an Owner may create Owner or Administrator accounts. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Create a dashboard user account. Requires the users.manage capability and the admin scope. Only an Owner may assign the Owner or Administrator role, or a role that grants a capability the caller does not hold. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateUserWithBodyWithResponse(ctx context.Context, params *CreateUserParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateUserResponse, error) {
@@ -75907,7 +77266,7 @@ func (c *ClientWithResponses) CreateUserWithBodyWithResponse(ctx context.Context
 // CreateUserWithResponse performs a POST /api/v1/users (the `CreateUser` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Create a dashboard user account. Requires an Owner or Administrator with the admin scope. Only an Owner may create Owner or Administrator accounts. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Create a dashboard user account. Requires the users.manage capability and the admin scope. Only an Owner may assign the Owner or Administrator role, or a role that grants a capability the caller does not hold. Cookie-authenticated unsafe requests require X-CSRF-Token.
 func (c *ClientWithResponses) CreateUserWithResponse(ctx context.Context, params *CreateUserParams, body CreateUserJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateUserResponse, error) {
 	rsp, err := c.CreateUser(ctx, params, body, reqEditors...)
 	if err != nil {
@@ -75953,6 +77312,45 @@ func (c *ClientWithResponses) UpdateUserWithResponse(ctx context.Context, id ope
 		return nil, err
 	}
 	return ParseUpdateUserResponse(rsp)
+}
+
+// GetUserContentAccessWithResponse performs a GET /api/v1/users/{id}/content-access (the `GetUserContentAccess` operationId) request.
+//
+// Read which part of the Media library an account reaches and which tags it may apply. Requires the users.manage capability and the admin scope.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetUserContentAccessWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserContentAccessResponse, error) {
+	rsp, err := c.GetUserContentAccess(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetUserContentAccessResponse(rsp)
+}
+
+// PutUserContentAccessWithBodyWithResponse performs a PUT /api/v1/users/{id}/content-access (the `PutUserContentAccess` operationId) request,
+// with any type of body and a specified content type.
+//
+// Replace an account's content access. Requires the users.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be restricted, nobody can change their own access, and nobody can grant folders or tags outside their own access.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) PutUserContentAccessWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserContentAccessParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutUserContentAccessResponse, error) {
+	rsp, err := c.PutUserContentAccessWithBody(ctx, id, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutUserContentAccessResponse(rsp)
+}
+
+// PutUserContentAccessWithResponse performs a PUT /api/v1/users/{id}/content-access (the `PutUserContentAccess` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Replace an account's content access. Requires the users.manage capability and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be restricted, nobody can change their own access, and nobody can grant folders or tags outside their own access.
+func (c *ClientWithResponses) PutUserContentAccessWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserContentAccessParams, body PutUserContentAccessJSONRequestBody, reqEditors ...RequestEditorFn) (*PutUserContentAccessResponse, error) {
+	rsp, err := c.PutUserContentAccess(ctx, id, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePutUserContentAccessResponse(rsp)
 }
 
 // PermanentlyDeleteUserWithResponse performs a DELETE /api/v1/users/{id}/permanent (the `PermanentlyDeleteUser` operationId) request.
@@ -80456,6 +81854,37 @@ func ParseUpdateLocationResponse(rsp *http.Response) (*UpdateLocationResponse, e
 	return response, nil
 }
 
+// ParseGetMyAccessResponse parses an HTTP response from a GetMyAccessWithResponse call
+func ParseGetMyAccessResponse(rsp *http.Response) (*GetMyAccessResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetMyAccessResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data MyAccess `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseGetPreferencesResponse parses an HTTP response from a GetPreferencesWithResponse call
 func ParseGetPreferencesResponse(rsp *http.Response) (*GetPreferencesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -84420,6 +85849,218 @@ func ParseProviderCatalogResponse(rsp *http.Response) (*ProviderCatalogResponse,
 	return response, nil
 }
 
+// ParseListRolesResponse parses an HTTP response from a ListRolesWithResponse call
+func ParseListRolesResponse(rsp *http.Response) (*ListRolesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRolesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data RoleList `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateRoleResponse parses an HTTP response from a CreateRoleWithResponse call
+func ParseCreateRoleResponse(rsp *http.Response) (*CreateRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest struct {
+			Data Role `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseListCapabilitiesResponse parses an HTTP response from a ListCapabilitiesWithResponse call
+func ParseListCapabilitiesResponse(rsp *http.Response) (*ListCapabilitiesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListCapabilitiesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data struct {
+				Items []CapabilityDefinition `json:"items"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteRoleResponse parses an HTTP response from a DeleteRoleWithResponse call
+func ParseDeleteRoleResponse(rsp *http.Response) (*DeleteRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseGetRoleResponse parses an HTTP response from a GetRoleWithResponse call
+func ParseGetRoleResponse(rsp *http.Response) (*GetRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Role `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateRoleResponse parses an HTTP response from a UpdateRoleWithResponse call
+func ParseUpdateRoleResponse(rsp *http.Response) (*UpdateRoleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateRoleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data Role `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseListSchedulesResponse parses an HTTP response from a ListSchedulesWithResponse call
 func ParseListSchedulesResponse(rsp *http.Response) (*ListSchedulesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -87633,7 +89274,16 @@ func ParseCreateUploadSessionResponse(rsp *http.Response) (*CreateUploadSessionR
 		}
 		response.JSON201 = &dest
 
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
 	case rsp.StatusCode == 413:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
 		break // No content-type
 
 	case rsp.StatusCode == 507:
@@ -87889,6 +89539,86 @@ func ParseUpdateUserResponse(rsp *http.Response) (*UpdateUserResponse, error) {
 		break // No content-type
 
 	case rsp.StatusCode == 409:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseGetUserContentAccessResponse parses an HTTP response from a GetUserContentAccessWithResponse call
+func ParseGetUserContentAccessResponse(rsp *http.Response) (*GetUserContentAccessResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetUserContentAccessResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data UserContentAccess `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParsePutUserContentAccessResponse parses an HTTP response from a PutUserContentAccessWithResponse call
+func ParsePutUserContentAccessResponse(rsp *http.Response) (*PutUserContentAccessResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PutUserContentAccessResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data UserContentAccess `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
 		break // No content-type
 
 	case rsp.StatusCode == 422:
