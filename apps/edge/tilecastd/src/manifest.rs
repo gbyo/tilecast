@@ -444,6 +444,9 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
     // display task applies it when a provider exists and reports the typed
     // reason when none does, as the reference Linux player does.
     for plugin in document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+        if player_core::is_external_runtime_plugin(plugin) {
+            continue;
+        }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("unknown");
         if is_retired_plugin(kind) {
             continue;
@@ -1048,6 +1051,10 @@ impl Candidate {
         let mut aliases = Vec::new();
         let mut content = Vec::new();
         for plugin in self.document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+            if player_core::is_external_runtime_plugin(plugin) {
+                plugins.push(plugin.clone());
+                continue;
+            }
             let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("");
             if is_retired_plugin(kind) {
                 tracing::warn!(component = "manifest", event = "retired_plugin_ignored", kind);
@@ -1203,6 +1210,23 @@ mod tests {
             value["schemaVersion"] = serde_json::json!(schema);
             assert_eq!(parse(value).unwrap_err(), ManifestError::Schema, "schema {schema}");
         }
+    }
+
+    #[test]
+    fn external_surface_uses_verified_frames_instead_of_a_bundled_feature_id() {
+        let entry: Value = serde_json::from_str(include_str!(
+            "../../../../packages/manifest-schema/external-plugin-entry-fixture.json"
+        ))
+        .unwrap();
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(20);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value).expect("verified external member");
+        let resolved = candidate.presentation(1_000).expect("projection");
+        assert_eq!(resolved.plugins, vec![entry]);
+        assert_eq!(candidate.required_frames.len(), 1);
+        assert_eq!(candidate.required_frames[0].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert!(resolved.plugin_aliases.is_empty());
     }
 
     #[test]

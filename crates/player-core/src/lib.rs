@@ -58,7 +58,7 @@ pub use manifest_content::{
 };
 pub use manifest_resources::{
     AssetPolicy, ManifestAsset, ManifestBundle, ManifestFrame, NATIVE_MANIFEST_SCHEMAS, NativeManifest,
-    NativeManifestError, StreamClaim, StreamReason,
+    NativeManifestError, StreamClaim, StreamReason, is_external_runtime_plugin,
 };
 pub use manifest_worker::{
     ManifestFailureKind, ManifestPreparationCoordinator, ManifestPreparationStatus, ManifestWorkerFailure,

@@ -149,6 +149,12 @@ declared `runtime.surfaces` and `runtime.tier`, bounded `state`, and
 The frame claim has `sha256`, `fileSize`, and authenticated `downloadPath`.
 It carries no configuration, targets, private storage, or operator facts.
 
+Native projection preserves a validated external entry as Runtime data.
+It does not resolve the entry through the bundled `plugin.<type>` registry.
+Player Core identifies the external entry for all native hosts.
+Frame verification and the independent renderer channel remain mandatory.
+This routing rule does not grant or report the generic capability.
+
 The frame bridge protocol is `tilecast.plugin.surface/1`.
 The attach token is a random 128-bit URL fragment.
 The parent accepts one hello from the exact opaque frame window.

@@ -1,0 +1,19 @@
+{
+  "id": "acme.surfaces.corner",
+  "type": "external_plugin",
+  "version": 1,
+  "definitionVersion": 1,
+  "package": {
+    "packageId": "acme.surfaces",
+    "packageDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "contributionId": "acme.surfaces.corner",
+    "frame": {
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "fileSize": 1024,
+      "downloadPath": "/api/v1/player/packages/acme.surfaces/plugins/corner/frame"
+    }
+  },
+  "runtime": { "surfaces": ["corner.bottom-left"], "tier": "ambient" },
+  "state": { "text": "Fixture" },
+  "validUntil": "2030-01-01T00:00:00Z"
+}

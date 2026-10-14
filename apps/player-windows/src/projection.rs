@@ -310,6 +310,9 @@ pub fn incompatibilities(document: &Value, assets: &[ManifestAsset]) -> Vec<Inco
     // display task applies it when a provider exists and reports the typed
     // reason when none does, as the reference player does.
     for plugin in document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+        if player_core::is_external_runtime_plugin(plugin) {
+            continue;
+        }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("unknown");
         if !crate::renderer_adapter::profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
             push(Incompatibility::Plugin(kind.chars().take(32).collect()));
@@ -586,6 +589,10 @@ impl<'a> Projector<'a> {
         let mut aliases = Vec::new();
         let mut content = Vec::new();
         for plugin in self.document().get("plugins").and_then(Value::as_array).into_iter().flatten() {
+            if player_core::is_external_runtime_plugin(plugin) {
+                plugins.push(plugin.clone());
+                continue;
+            }
             let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("");
             if !crate::renderer_adapter::profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
                 return Err(ProjectionError::Incompatible(Incompatibility::Plugin(kind.chars().take(32).collect())));
@@ -902,6 +909,24 @@ mod tests {
             required_bundles: Vec::new(),
             required_frames: Vec::new(),
         }
+    }
+
+    #[test]
+    fn external_surface_uses_verified_frames_instead_of_a_bundled_feature_id() {
+        let entry: Value =
+            serde_json::from_str(include_str!("../../../packages/manifest-schema/external-plugin-entry-fixture.json"))
+                .expect("fixture");
+        let screen = player_types::ScreenId::from_uuid(uuid::Uuid::from_u128(3));
+        let value = serde_json::json!({"schemaVersion":20,"manifestVersion":1,"screenId":screen.to_string(),"mode":"presentation",
+            "assets":[],"playlists":[],"widgets":[],"plugins":[entry.clone()]});
+        let native = NativeManifest::parse(value, screen, player_types::Sha256Digest::from_bytes([7; 32]))
+            .expect("verified external member");
+        let (forwarded, aliases, content) = Projector::new(&native).plugins().expect("external channel");
+        assert_eq!(forwarded, vec![entry]);
+        assert_eq!(native.required_frames.len(), 1);
+        assert_eq!(native.required_frames[0].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert!(aliases.is_empty() && content.is_empty());
+        assert!(incompatibilities(&native.document, &native.assets).is_empty());
     }
 
     #[test]

@@ -387,6 +387,9 @@ pub fn incompatibilities(
     // display task applies it when a provider exists and reports the typed
     // reason when none does, as the reference player does.
     for plugin in document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+        if player_core::is_external_runtime_plugin(plugin) {
+            continue;
+        }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("unknown");
         if !profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
             push(Incompatibility::Plugin(kind.chars().take(32).collect()));
