@@ -2,10 +2,12 @@
 
 An extension package is a distribution container, not a fourth extension
 API. It carries distribution, version, provenance, and contribution
-metadata for Widgets, declarative Data Sources, and (once the external
-runtime exists) plugin behavior. The contribution contracts themselves
-(`tilecast.widget.json`, `tilecast.datasource.json`,
-`tilecast.plugin.json`) do not change. See
+metadata for Widgets, declarative Data Sources, and external Player
+plugins. External Player plugins use the separate API 2 descriptor.
+See [External Player plugins](external-player-plugins.md).
+Each contribution manifest has its own versioned contract:
+`tilecast.widget.json`, `tilecast.datasource.json`, or
+`tilecast.plugin.json`. See
 [Content extension model](content-extension-model.md) for the architecture.
 
 ## Manifest

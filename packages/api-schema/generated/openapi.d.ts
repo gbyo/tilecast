@@ -3316,6 +3316,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/player/packages/{packageId}/plugins/{pluginId}/frame": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+        pluginId: string;
+      };
+      cookie?: never;
+    };
+    /** @description Download the deterministically assembled frame of an installed external Plugin API v2 contribution. Requires a device credential. Players verify exact size and SHA-256 before execution. The response confines scripts to an opaque sandbox and denies network and subresource loads. */
+    get: operations["downloadPackagePluginFrame"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    /** @description Inspect an installed external plugin frame with a device credential. */
+    head: operations["inspectPackagePluginFrame"];
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/player/packages/{packageId}/widgets/{widgetId}/frame": {
     parameters: {
       query?: never;
@@ -10496,12 +10518,58 @@ export interface components {
       unsupportedCount: number;
       results: components["schemas"]["DisplayControlGroupResult"][];
     };
+    ManifestBuiltinPlugin: {
+      /** Format: uuid */
+      id: string;
+      type: string;
+      version: number;
+      config: {
+        [key: string]: unknown;
+      };
+    };
+    ManifestExternalPlugin: {
+      id: string;
+      /** @constant */
+      type: "external_plugin";
+      /** @constant */
+      version: 1;
+      definitionVersion: number;
+      package: {
+        packageId: string;
+        packageDigest: string;
+        contributionId: string;
+        frame: {
+          sha256: string;
+          fileSize: number;
+          downloadPath: string;
+        };
+      };
+      runtime: {
+        surfaces: (
+          | "strip.top"
+          | "strip.bottom"
+          | "corner.top-left"
+          | "corner.top-right"
+          | "corner.bottom-left"
+          | "corner.bottom-right"
+          | "overlay"
+        )[];
+        /** @enum {string} */
+        tier: "emergency" | "live" | "scheduled" | "ambient";
+      };
+      /** @description Canonical JSON is bounded to 16 KiB, 16 nested levels, and 2048 values. */
+      state: {
+        [key: string]: unknown;
+      };
+      /** Format: date-time */
+      validUntil: string;
+    };
     PlayerManifest: {
       /**
        * @description The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
        * @enum {integer}
        */
-      schemaVersion: 11 | 12 | 13 | 14 | 15 | 16 | 17;
+      schemaVersion: 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
       /** Format: int64 */
       manifestVersion: number;
       /** Format: uuid */
@@ -10541,6 +10609,10 @@ export interface components {
       dataSources?: {
         [key: string]: unknown;
       }[];
+      plugins?: (
+        | components["schemas"]["ManifestBuiltinPlugin"]
+        | components["schemas"]["ManifestExternalPlugin"]
+      )[];
       presentationOverride?:
         null | components["schemas"]["PresentationOverride"];
     };
@@ -21565,6 +21637,121 @@ export interface operations {
         content?: never;
       };
       /** @description Package or bundle unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  downloadPackagePluginFrame: {
+    parameters: {
+      query?: never;
+      header?: {
+        Range?: string;
+        "If-Range"?: string;
+        "If-None-Match"?: string;
+      };
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+        pluginId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Complete external plugin frame */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Requested byte range */
+      206: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description ETag matched */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Device credential invalid or revoked */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen disabled */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Package or frame unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Range not satisfiable */
+      416: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  inspectPackagePluginFrame: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Store package identifier such as countdown_bar. */
+        packageId: components["parameters"]["PackageID"];
+        pluginId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description External plugin frame metadata */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Device credential invalid or revoked */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen disabled */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Package or frame unavailable */
       404: {
         headers: {
           [name: string]: unknown;
