@@ -245,7 +245,8 @@
       "destinationLabel": "Upload to",
       "chooseFolder": "Choose a folder",
       "destinationOption": "Upload to {{name}}",
-      "chooseFolderFirst": "Choose a folder to upload into first."
+      "chooseFolderFirst": "Choose a folder to upload into first.",
+      "noWritableFolder": "No folder is available to upload into. Ask an administrator to give you access to one."
     },
     "website": {
       "advancedSettings": "Advanced website settings",

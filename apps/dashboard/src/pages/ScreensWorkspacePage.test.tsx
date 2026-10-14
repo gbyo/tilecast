@@ -8,10 +8,15 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { api } from "../api/client";
 import { PairScreenDialog } from "../pairing/PairScreenDialog";
 import { ScreensPage, ScreensWorkspacePage } from "./ScreensPage";
+import { builtinCapabilities } from "../test/capabilities";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
-    status: { csrfToken: "csrf", user: { role: "owner" } },
+    status: {
+      csrfToken: "csrf",
+      user: { role: "owner" },
+      capabilities: builtinCapabilities("owner"),
+    },
   }),
 }));
 

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { authStatusFor } from "../test/capabilities";
 import type { PlaylistItem } from "../api/types";
 import { i18n } from "../i18n";
 import {
@@ -42,10 +43,10 @@ const item = (values: Partial<PlaylistItem>): PlaylistItem => ({
 });
 describe("playlist editor", () => {
   it("keeps viewers read-only", () => {
-    expect(canManagePlaylists("owner")).toBe(true);
-    expect(canManagePlaylists("administrator")).toBe(true);
-    expect(canManagePlaylists("editor")).toBe(true);
-    expect(canManagePlaylists("viewer")).toBe(false);
+    expect(canManagePlaylists(authStatusFor("owner"))).toBe(true);
+    expect(canManagePlaylists(authStatusFor("administrator"))).toBe(true);
+    expect(canManagePlaylists(authStatusFor("editor"))).toBe(true);
+    expect(canManagePlaylists(authStatusFor("viewer"))).toBe(false);
   });
   it("calculates known image and clipped-video duration", () => {
     expect(

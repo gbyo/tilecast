@@ -14,16 +14,16 @@ import type {
 
 export async function listRoles(): Promise<Role[]> {
   const result = await apiGet("/api/v1/roles", {});
-  return result.items as Role[];
+  return result.items;
 }
 
 export async function listCapabilities(): Promise<CapabilityDefinition[]> {
   const result = await apiGet("/api/v1/roles/capabilities", {});
-  return result.items as CapabilityDefinition[];
+  return result.items;
 }
 
 export function createRole(input: RoleInput, csrfToken: string): Promise<Role> {
-  return apiPost("/api/v1/roles", { body: input, csrfToken }) as Promise<Role>;
+  return apiPost("/api/v1/roles", { body: input, csrfToken });
 }
 
 export function updateRole(
@@ -35,7 +35,7 @@ export function updateRole(
     params: { path: { key } },
     body: input,
     csrfToken,
-  }) as Promise<Role>;
+  });
 }
 
 export function deleteRole(key: string, csrfToken: string): Promise<void> {
@@ -48,7 +48,7 @@ export function deleteRole(key: string, csrfToken: string): Promise<void> {
 export function getUserContentAccess(id: string): Promise<UserContentAccess> {
   return apiGet("/api/v1/users/{id}/content-access", {
     params: { path: { id } },
-  }) as Promise<UserContentAccess>;
+  });
 }
 
 export function putUserContentAccess(
@@ -60,9 +60,9 @@ export function putUserContentAccess(
     params: { path: { id } },
     body: input,
     csrfToken,
-  }) as Promise<UserContentAccess>;
+  });
 }
 
 export function getMyAccess(): Promise<MyAccess> {
-  return apiGet("/api/v1/me/access", {}) as Promise<MyAccess>;
+  return apiGet("/api/v1/me/access", {});
 }

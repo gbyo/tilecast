@@ -10,9 +10,32 @@ import { catalogPlugin } from "../plugins/catalogFixtures";
 export { i18n } from "../i18n";
 import type { ReactNode } from "react";
 import { RouterProvider, createMemoryRouter } from "react-router";
-import { StudioSessionProvider } from "./session";
+import { StudioSessionProvider, type StudioSession } from "./session";
 import { builtinCapabilities } from "../test/capabilities";
 export { StudioSessionProvider };
+
+/**
+ * A signed-in plugin session for `role`. It carries the built-in role's
+ * capabilities unless a custom list is given, like the server's auth status.
+ */
+export function testStudioSession(
+  role = "viewer",
+  capabilities?: readonly string[],
+): StudioSession {
+  const grants = capabilities ?? builtinCapabilities(role);
+  return {
+    csrfToken: "tok",
+    role,
+    canManage: grants.includes("plugins.manage"),
+    capabilities: grants,
+    can: (capability) => grants.includes(capability),
+    authenticated: true,
+    setupRequired: false,
+    isLoading: false,
+    isSubmitting: false,
+    logout: () => Promise.resolve(),
+  };
+}
 
 export function renderPluginRoute(
   element: ReactNode,

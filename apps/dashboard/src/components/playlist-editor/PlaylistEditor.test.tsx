@@ -16,6 +16,7 @@ import type { Playlist } from "../../api/types";
 import * as authModule from "../../auth/AuthProvider";
 import { toast } from "../ui/toast";
 import { PlaylistEditorPage } from "./PlaylistEditor";
+import { builtinCapabilities } from "../../test/capabilities";
 
 const defaultMatchMedia = window.matchMedia.bind(window);
 
@@ -90,6 +91,7 @@ function mockServer(overrides: Partial<Playlist> = {}) {
       authenticated: true,
       setupRequired: false,
       user: { id: "u1", name: "Owner", username: "owner", role: "owner" },
+      capabilities: builtinCapabilities("owner"),
       csrfToken: "token",
     },
     isLoading: false,

@@ -20,7 +20,14 @@ import {
 } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
+import { contentQueries } from "../../data/content";
+import {
+  uploadDestination,
+  uploadFolders,
+  useMediaPermissions,
+} from "../../content/mediaPermissions";
 import type { Asset, AssetStatus } from "../../api/types";
 import { apiErrorMessage, useFormatLocale } from "../../i18n";
 import { useNativeHaptic } from "../../native-host/useNativeSystem";
@@ -37,6 +44,8 @@ import {
   AttachmentTitle,
 } from "../ui/attachment";
 import { Button } from "../ui/button";
+import { Field, FieldLabel } from "../ui/field";
+import { NativeSelect, NativeSelectOption } from "../ui/native-select";
 import { Progress } from "../ui/progress";
 import { Spinner } from "../ui/spinner";
 
@@ -129,6 +138,24 @@ export function MediaUploadPanel({
   const { t } = useTranslation(["content", "common"]);
   const [uploads, setUploads] = useState<MediaUpload[]>([]);
   const [dragging, setDragging] = useState(false);
+  const media = useMediaPermissions();
+  const [chosenFolder, setChosenFolder] = useState<string>();
+  // An account with the whole library uploads to the root as before. A
+  // restricted account must name one of its folders, so the file never
+  // exists outside them; the server checks the folder again on completion.
+  const folders = useQuery({
+    ...contentQueries.folders(),
+    enabled: !media.libraryAll,
+  });
+  const destinationFolders = uploadFolders(media, folders.data ?? []);
+  const destination = uploadDestination(media, {
+    chosen: chosenFolder,
+    folders: folders.data ?? [],
+  });
+  const destinationRef = useRef(destination);
+  useEffect(() => {
+    destinationRef.current = destination;
+  }, [destination]);
   const [nativeResult, setNativeResult] = useState<
     MediaIntakeCompletedPayload["outcome"] | null
   >(null);
@@ -215,8 +242,17 @@ export function MediaUploadPanel({
           : [...current, next];
       });
       try {
+        if (destinationRef.current === null)
+          throw new Error(t("media.upload.chooseFolderFirst"));
         const session = await api.createUpload(
-          { filename: file.name, mimeType, sizeBytes: file.size },
+          {
+            filename: file.name,
+            mimeType,
+            sizeBytes: file.size,
+            ...(destinationRef.current
+              ? { folderId: destinationRef.current }
+              : {}),
+          },
           csrf,
         );
         if (!mounted.current) return;
@@ -259,6 +295,7 @@ export function MediaUploadPanel({
   const drop = (event: DragEvent) => {
     event.preventDefault();
     setDragging(false);
+    if (destination === null) return;
     for (const file of droppedFiles(event.dataTransfer)) void upload(file);
   };
   const dismiss = (id: string) =>
@@ -266,6 +303,39 @@ export function MediaUploadPanel({
 
   return (
     <div className={cn("grid content-start gap-4", className)}>
+      {!media.libraryAll && destinationFolders.length > 1 && (
+        <Field className="max-w-sm">
+          <FieldLabel htmlFor="media-upload-folder">
+            {t("media.upload.destinationLabel")}
+          </FieldLabel>
+          <NativeSelect
+            id="media-upload-folder"
+            className="w-full"
+            value={destination ?? ""}
+            onChange={(event) =>
+              setChosenFolder(event.target.value || undefined)
+            }
+          >
+            {destination === null && (
+              <NativeSelectOption value="">
+                {t("media.upload.chooseFolder")}
+              </NativeSelectOption>
+            )}
+            {destinationFolders.map((folder) => (
+              <NativeSelectOption key={folder.id} value={folder.id}>
+                {folder.name}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </Field>
+      )}
+      {!media.libraryAll &&
+        folders.isSuccess &&
+        destinationFolders.length === 0 && (
+          <p role="status" className="text-sm text-muted-foreground">
+            {t("media.upload.noWritableFolder")}
+          </p>
+        )}
       <div
         data-dragging={dragging || undefined}
         className={cn(
@@ -291,6 +361,7 @@ export function MediaUploadPanel({
         <Button
           type="button"
           variant="outline"
+          disabled={destination === null}
           onClick={() => {
             if (!nativeIntake.available) {
               input.current?.click();
@@ -298,7 +369,11 @@ export function MediaUploadPanel({
             }
             setNativeResult(null);
             void nativeIntake
-              .request({ accept: ["image", "video"], multiple: true })
+              .request({
+                accept: ["image", "video"],
+                multiple: true,
+                ...(destination ? { folderId: destination } : {}),
+              })
               .then((started) => {
                 // The host could not begin. Its next status reports the
                 // browser path, so the next click opens the file input.

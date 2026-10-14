@@ -13,10 +13,15 @@ import {
 } from "../native-presentation/presentationContext";
 import { NativeHostProvider } from "../native-host/NativeHostProvider";
 import { PairScreenPresentation } from "./PairScreenPresentation";
+import { builtinCapabilities } from "../test/capabilities";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
-    status: { csrfToken: "csrf", user: { role: "owner" } },
+    status: {
+      csrfToken: "csrf",
+      user: { role: "owner" },
+      capabilities: builtinCapabilities("owner"),
+    },
   }),
 }));
 

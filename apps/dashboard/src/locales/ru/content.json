@@ -265,7 +265,8 @@
       "destinationLabel": "Загрузить в",
       "chooseFolder": "Выберите папку",
       "destinationOption": "Загрузить в {{name}}",
-      "chooseFolderFirst": "Сначала выберите папку для загрузки."
+      "chooseFolderFirst": "Сначала выберите папку для загрузки.",
+      "noWritableFolder": "Нет доступной папки для загрузки. Попросите администратора предоставить вам доступ к одной из них."
     },
     "website": {
       "advancedSettings": "Дополнительные настройки сайта",

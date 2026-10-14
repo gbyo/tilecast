@@ -149,7 +149,6 @@ import type {
   Asset,
   AssetStatus,
   BulkOrganizeInput,
-  User,
   ContentFolder,
   ContentCollection,
   ContentTag,
@@ -799,7 +798,6 @@ export function ContentPage() {
               !media.libraryAll &&
               destinationFolders.length > 1 && (
                 <FilterSelect
-                  id="media-upload-destination"
                   label={t("media.upload.destinationLabel")}
                   value={destination ?? ""}
                   onChange={(value) =>

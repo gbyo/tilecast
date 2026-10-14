@@ -24,6 +24,7 @@ final class FakeUploadServer: @unchecked Sendable {
         var filename: String
         var mimeType: String
         var size: Int64
+        var folderID: String?
         var received = Data()
         var id: String { Self.uuid("0d3a1c55-7f6e-4a52-9d5a-6e2b8f9c1a", index) }
         var assetID: String { Self.uuid("5a9c2e77-1b34-4c0d-8e21-3f4a5b6c7d", index) }
@@ -53,6 +54,8 @@ final class FakeUploadServer: @unchecked Sendable {
     var filename: String { lock.withLock { sessions.last?.filename ?? "" } }
     var mimeType: String { lock.withLock { sessions.last?.mimeType ?? "" } }
     var declaredSize: Int64 { lock.withLock { sessions.last?.size ?? 0 } }
+    /// The destination folder the most recent session named, if any.
+    var folderID: String? { lock.withLock { sessions.last?.folderID } }
     func failPatches(_ faults: Fault...) { lock.withLock { patchFaults = faults } }
     func failCreate(_ status: Int) { lock.withLock { createStatus = status } }
     func answerComplete(_ statuses: Int...) { lock.withLock { completeStatuses = statuses } }
@@ -78,7 +81,8 @@ final class FakeUploadServer: @unchecked Sendable {
                     index: sessions.count + 1,
                     filename: json["filename"] as? String ?? "",
                     mimeType: json["mimeType"] as? String ?? "",
-                    size: (json["sizeBytes"] as? NSNumber)?.int64Value ?? 0
+                    size: (json["sizeBytes"] as? NSNumber)?.int64Value ?? 0,
+                    folderID: json["folderId"] as? String
                 )
                 sessions.append(session)
                 return .init(status: 201, body: sessionJSON(session))
@@ -279,11 +283,28 @@ extension StubbedHTTPTests {
             #expect(StubProtocol.requests.allSatisfy { $0.url.host == "signage.example.org" }, "nothing was sent to the redirect target")
         }
 
-        @Test(arguments: [(413, MediaUploadError.tooLarge), (507, .insufficientStorage), (401, .unauthenticated), (403, .unauthenticated), (400, .rejected(status: 400))])
+        @Test(arguments: [(413, MediaUploadError.tooLarge), (507, .insufficientStorage), (401, .unauthenticated), (403, .notPermitted), (404, .folderUnavailable), (422, .folderUnavailable), (400, .rejected(status: 400))])
         func mapsAnUploadRefusal(_ status: Int, _ expected: MediaUploadError) async throws {
             upload.failCreate(status)
             let (uploader, _) = try await uploader()
             await #expect(throws: expected) { try await uploader.upload(try media.file(bytes: bytes)) }
+        }
+
+        @Test func createsTheAssetInTheDestinationFolderTheCallerNamed() async throws {
+            let (uploader, _) = try await uploader()
+            let folder = try #require(UUID(uuidString: "6F1D0A52-3B7C-4E9A-8D21-5C4B3A29E108"))
+
+            _ = try await uploader.upload(try media.file(bytes: bytes), folderID: folder)
+
+            // The server authorizes the folder; the client only carries the choice, in the form the API takes.
+            #expect(upload.folderID == "6f1d0a52-3b7c-4e9a-8d21-5c4b3a29e108")
+            #expect(upload.uploaded == bytes)
+        }
+
+        @Test func leavesTheFolderOutForTheLibraryRoot() async throws {
+            let (uploader, _) = try await uploader()
+            _ = try await uploader.upload(try media.file(bytes: bytes))
+            #expect(upload.folderID == nil, "a whole-library account may still upload to the root")
         }
 
         @Test func mapsAnUnsupportedMediaType() async throws {

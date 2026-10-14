@@ -16,6 +16,7 @@ import { api } from "../../api/client";
 import type { Screen, ScreenGroup } from "../../api/types";
 import { DisplayGroupDetailPage } from "./DisplayGroupDetailPage";
 import { normalizeGroupDetailTab } from "./displayGroupModel";
+import { builtinCapabilities } from "../../test/capabilities";
 
 const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock("../../auth/AuthProvider", () => ({
     status: {
       csrfToken: "csrf-token",
       user: { role: "owner" },
+      capabilities: builtinCapabilities("owner"),
     },
   }),
 }));

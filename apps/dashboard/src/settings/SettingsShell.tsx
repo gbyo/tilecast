@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PanelLeft } from "lucide-react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -213,10 +213,13 @@ function SettingsSectionsNav({
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const settingsNavigation = useVisibleSettings();
-  const groupKeyOf = (id: SettingsSectionId) =>
-    settingsNavigation.find((group) =>
-      group.items.some((item) => item.id === id),
-    )?.labelKey;
+  const groupKeyOf = useCallback(
+    (id: SettingsSectionId) =>
+      settingsNavigation.find((group) =>
+        group.items.some((item) => item.id === id),
+      )?.labelKey,
+    [settingsNavigation],
+  );
   const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
     const activeGroup = groupKeyOf(active);
     return new Set(activeGroup ? [activeGroup] : []);
@@ -230,7 +233,7 @@ function SettingsSectionsNav({
       next.add(activeGroup);
       return next;
     });
-  }, [active]);
+  }, [active, groupKeyOf]);
   const setGroupOpen = (key: string, open: boolean) => {
     setOpenGroups((prev) => {
       const next = new Set(prev);

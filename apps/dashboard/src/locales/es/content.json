@@ -255,7 +255,8 @@
       "destinationLabel": "Subir a",
       "chooseFolder": "Elige una carpeta",
       "destinationOption": "Subir a {{name}}",
-      "chooseFolderFirst": "Elige primero una carpeta de destino."
+      "chooseFolderFirst": "Elige primero una carpeta de destino.",
+      "noWritableFolder": "No hay ninguna carpeta disponible para subir archivos. Pide a un administrador que te dé acceso a una."
     },
     "website": {
       "advancedSettings": "Ajustes avanzados del sitio web",
