@@ -456,7 +456,7 @@ func TestInstallCrossCheckRange(t *testing.T) {
 }
 
 func TestInstallCrossCheckRejectsUnreviewedExecutionPermissions(t *testing.T) {
-	for _, feature := range []string{"runtime", "capabilities", "contributions"} {
+	for _, feature := range []string{"apiVersion", "runtime", "capabilities", "contributions"} {
 		t.Run(feature, func(t *testing.T) {
 			f := newPipelineFixture(t)
 			var manifest map[string]any
@@ -464,6 +464,8 @@ func TestInstallCrossCheckRejectsUnreviewedExecutionPermissions(t *testing.T) {
 				t.Fatal(err)
 			}
 			switch feature {
+			case "apiVersion":
+				manifest["apiVersion"] = 2
 			case "runtime":
 				manifest["apiVersion"] = 4
 				manifest["runtime"] = map[string]any{"module": "./runtime/guest.wasm"}
