@@ -75,11 +75,11 @@ func invokePresentationNetwork(t *testing.T, handler http.Handler, request *http
 }
 
 func presentationNetworkAdminHandler(s *server, handler http.HandlerFunc) http.Handler {
-	return s.requireRoles("owner", "administrator")(s.requireCSRF(handler))
+	return s.requireCapability(auth.CapScreenManage)(s.requireCSRF(handler))
 }
 
 func presentationNetworkReadHandler(s *server, handler http.HandlerFunc) http.Handler {
-	return s.requireRoles("owner", "administrator")(handler)
+	return s.requireCapability(auth.CapScreenManage)(handler)
 }
 
 func testDeviceCredential(t *testing.T, env activityTestEnvironment, screenID uuid.UUID) string {

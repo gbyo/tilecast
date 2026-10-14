@@ -18,6 +18,7 @@ import {
 import { ClipboardList, Ellipsis, LogOut, UserRound } from "lucide-react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useMyRoleName } from "../../settings/access/roleNames";
 import type { User } from "@/api/types";
 
 type UserMenuProps = {
@@ -67,6 +68,7 @@ export function NavUser(props: UserMenuProps) {
   const { user } = props;
   const { isMobile } = useSidebar();
   const { t } = useTranslation(["navigation", "common"]);
+  const roleName = useMyRoleName(user.role);
 
   return (
     <SidebarMenu>
@@ -89,7 +91,7 @@ export function NavUser(props: UserMenuProps) {
             <span className="grid min-w-0 flex-1 text-start text-sm leading-tight">
               <span className="truncate font-medium">{user.name}</span>
               <span className="truncate text-xs text-muted-foreground">
-                {user.role}
+                {roleName}
               </span>
             </span>
             <Ellipsis className="ml-auto size-4" aria-hidden="true" />

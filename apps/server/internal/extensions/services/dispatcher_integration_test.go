@@ -122,7 +122,7 @@ func (f *serviceFixture) studio(userID uuid.UUID, role, packageID, capability, o
 		panic(err)
 	}
 	data, denial, failure := f.dispatcher.Call(context.Background(), Call{
-		PackageID: packageID, Context: ContextStudio, Actor: &Actor{UserID: userID, Role: role},
+		PackageID: packageID, Context: ContextStudio, Actor: &Actor{UserID: userID, Role: role, Capabilities: builtinActor(role).Capabilities},
 		Grants:    []packagemanifest.ServiceGrant{{ID: capability, Version: 1}},
 		Operation: operation, Input: raw,
 	})

@@ -763,7 +763,13 @@
   },
   {
     "version": 129,
-    "file": "00129_external_plugin_surfaces.sql",
+    "file": "00129_rbac_roles_and_content_access.sql",
+    "owner": "core",
+    "sha256": "d5cdee81a5842d5cda54dd5175f47d779580992431b3b8811dd9e6d5beb70f28"
+  },
+  {
+    "version": 130,
+    "file": "00130_external_plugin_surfaces.sql",
     "owner": "core",
     "sha256": "3857823215133de890d9f11ef4b573a545c43363593e380322178769b856d534"
   }

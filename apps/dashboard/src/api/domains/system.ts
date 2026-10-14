@@ -23,6 +23,7 @@ import type {
   BulkOperation,
   BulkOperationRequest,
   BulkPreview,
+  ContentAccessInput,
   ContentHealthReport,
   IntegrationScope,
   IntegrationToken,
@@ -353,6 +354,7 @@ export function createUser(
     password: string;
     role: User["role"];
     active?: boolean;
+    contentAccess?: ContentAccessInput;
   },
   csrfToken: string,
 ) {

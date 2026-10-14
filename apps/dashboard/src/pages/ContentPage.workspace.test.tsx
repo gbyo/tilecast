@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type { Asset } from "../api/types";
 import { ContentPage } from "./ContentPage";
+import { builtinCapabilities, builtinMyAccess } from "../test/capabilities";
 
 const auth = vi.hoisted(() => ({ role: "owner" }));
 
@@ -22,6 +23,7 @@ vi.mock("../auth/AuthProvider", () => ({
     status: {
       csrfToken: "csrf",
       user: { id: "u1", role: auth.role },
+      capabilities: builtinCapabilities(auth.role),
     },
   }),
 }));
@@ -63,6 +65,9 @@ function asset(id: string, name: string): Asset {
 }
 
 function mockLibrary({ active = 3, archived = 2 } = {}) {
+  vi.spyOn(api, "myAccess").mockImplementation(() =>
+    Promise.resolve(builtinMyAccess(auth.role)),
+  );
   const make = (prefix: string, count: number) =>
     Array.from({ length: count }, (_, i) =>
       asset(`${prefix}-${i + 1}`, `${prefix}-${i + 1}`),

@@ -488,10 +488,21 @@ public enum NativeBridgeProtocol {
         default: return nil
         }
         guard let multiple = optionalBool(payload["multiple"]) else { return nil }
+        // A destination folder is a UUID or absent. Anything else is a
+        // malformed request, never a path or a name.
+        var folderID: UUID?
+        switch payload["folderId"] {
+        case nil, .null?: break
+        case .string(let text)?:
+            guard let parsed = UUID(uuidString: text) else { return nil }
+            folderID = parsed
+        default: return nil
+        }
         return MediaIntakeRequest(
             requestID: id,
             kinds: kinds.isEmpty ? MediaIntakeKind.allCases : kinds,
-            allowsMultiple: multiple ?? true
+            allowsMultiple: multiple ?? true,
+            folderID: folderID
         )
     }
 

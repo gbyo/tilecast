@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { RouteAccessGate } from "../navigation/RouteAccessGate";
 import { useTranslation } from "react-i18next";
 import { accountQueries } from "@/data/account";
 import type { User } from "@/api/types";
@@ -232,7 +233,9 @@ function StudioChrome({
             }
           >
             <RouteErrorBoundary key={location.pathname}>
-              <Outlet />
+              <RouteAccessGate>
+                <Outlet />
+              </RouteAccessGate>
             </RouteErrorBoundary>
           </div>
           {/* Saved Widgets capture their thumbnails here, outside any one

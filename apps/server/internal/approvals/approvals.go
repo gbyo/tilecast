@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/editorial"
 	"github.com/tilecast/tilecast/apps/server/internal/settings"
 )
@@ -451,8 +452,8 @@ type PublicationComparison struct {
 // publication. It never moves a pointer backward: the provider creates a new
 // native revision and publication_history records method=rollback. Review
 // policy is evaluated again, so rollback cannot become an approval bypass.
-func (s *Service) Rollback(ctx context.Context, userID uuid.UUID, role, contentType string, contentID, publicationID uuid.UUID) (PublicationResult, error) {
-	if !canPublishContent(contentType, role) {
+func (s *Service) Rollback(ctx context.Context, userID uuid.UUID, authority Authority, contentType string, contentID, publicationID uuid.UUID) (PublicationResult, error) {
+	if !canPublishContent(contentType, authority) {
 		return PublicationResult{}, fmt.Errorf("%w: this role cannot roll back %s content", ErrValidation, contentType)
 	}
 	provider, err := s.provider(contentType)
@@ -508,7 +509,7 @@ func (s *Service) Rollback(ctx context.Context, userID uuid.UUID, role, contentT
 	if sourceDigest != nil && *sourceDigest != "" {
 		digest = *sourceDigest
 	}
-	requiresReview := reviewRequiredFor(s.Policy(ctx), role)
+	requiresReview := reviewRequiredFor(s.Policy(ctx), authority, contentType)
 	status := "approved"
 	if requiresReview {
 		status = "in_review"
@@ -633,47 +634,76 @@ func rollbackSnapshotTx(ctx context.Context, tx pgx.Tx, contentType string, nati
 	return json.Marshal(map[string]any{"name": name, "description": description, "sourceType": sourceType, "tagMatch": tagMatch, "tagImageDurationMs": tagDuration, "items": decodedItems, "tagIds": decodedTags})
 }
 
-func reviewRequiredFor(policy ReviewPolicy, role string) bool {
+// Authority is the caller's management authority: the capabilities of the
+// live role. auth.Principal satisfies it. Review rules ask what the caller
+// may do, never which role name they hold.
+type Authority interface {
+	Can(capability auth.Capability) bool
+}
+
+// editCapability, publishCapability name the per-type authoring and
+// publication capabilities for each reviewable content type.
+func editCapability(contentType string) auth.Capability {
+	switch contentType {
+	case TypeCampaign:
+		return auth.CapCampaignEdit
+	case TypeLayout:
+		return auth.CapLayoutEdit
+	default:
+		return auth.CapPlaylistEdit
+	}
+}
+
+func publishCapability(contentType string) auth.Capability {
+	switch contentType {
+	case TypeCampaign:
+		return auth.CapCampaignPublish
+	case TypeLayout:
+		return auth.CapLayoutPublish
+	default:
+		return auth.CapPlaylistPublish
+	}
+}
+
+// reviewRequiredFor decides whether a submission must wait for a reviewer.
+// "contributors" policy reviews anyone who cannot publish that content type
+// themselves, which among the built-in roles is exactly the Contributor.
+func reviewRequiredFor(policy ReviewPolicy, authority Authority, contentType string) bool {
 	if policy == PolicyEveryone {
 		return true
 	}
-	return policy == PolicyContributors && role == "contributor"
+	return policy == PolicyContributors && !authority.Can(publishCapability(contentType))
 }
 
-func canPublish(role string) bool {
-	return role == "owner" || role == "administrator" || role == "editor"
+// canPublishAny reports whether the caller may publish some content type.
+func canPublishAny(authority Authority) bool {
+	return authority.Can(auth.CapPlaylistPublish) || authority.Can(auth.CapLayoutPublish) || authority.Can(auth.CapCampaignPublish)
 }
 
-func canReview(role string) bool { return canPublish(role) }
+func canReview(authority Authority) bool { return authority.Can(auth.CapContentReview) }
 
-func canAuthor(contentType, role string) bool {
-	if contentType == TypeCampaign {
-		return canPublish(role)
-	}
-	return role == "owner" || role == "administrator" || role == "editor" || role == "contributor"
+func canAuthor(contentType string, authority Authority) bool {
+	return authority.Can(editCapability(contentType))
 }
 
-func canPublishContent(contentType, role string) bool {
-	if contentType == TypeCampaign {
-		return role == "owner" || role == "administrator"
-	}
-	return canPublish(role)
+func canPublishContent(contentType string, authority Authority) bool {
+	return authority.Can(publishCapability(contentType))
 }
 
-func (s *Service) Submit(ctx context.Context, userID uuid.UUID, role, contentType string, contentID uuid.UUID, requestedAt *time.Time) (Submission, error) {
-	return s.submit(ctx, userID, role, contentType, contentID, requestedAt, 0)
+func (s *Service) Submit(ctx context.Context, userID uuid.UUID, authority Authority, contentType string, contentID uuid.UUID, requestedAt *time.Time) (Submission, error) {
+	return s.submit(ctx, userID, authority, contentType, contentID, requestedAt, 0)
 }
 
 // SubmitExpected is the optimistic-concurrency form used by editor publish
 // buttons. The reviewer workflow can also submit without an expected value
 // when the caller is deliberately asking the server to snapshot the current
 // draft.
-func (s *Service) SubmitExpected(ctx context.Context, userID uuid.UUID, role, contentType string, contentID uuid.UUID, requestedAt *time.Time, expectedRevision int64) (Submission, error) {
-	return s.submit(ctx, userID, role, contentType, contentID, requestedAt, expectedRevision)
+func (s *Service) SubmitExpected(ctx context.Context, userID uuid.UUID, authority Authority, contentType string, contentID uuid.UUID, requestedAt *time.Time, expectedRevision int64) (Submission, error) {
+	return s.submit(ctx, userID, authority, contentType, contentID, requestedAt, expectedRevision)
 }
 
-func (s *Service) submit(ctx context.Context, userID uuid.UUID, role, contentType string, contentID uuid.UUID, requestedAt *time.Time, expectedRevision int64) (Submission, error) {
-	if !canAuthor(contentType, role) {
+func (s *Service) submit(ctx context.Context, userID uuid.UUID, authority Authority, contentType string, contentID uuid.UUID, requestedAt *time.Time, expectedRevision int64) (Submission, error) {
+	if !canAuthor(contentType, authority) {
 		return Submission{}, fmt.Errorf("%w: this role cannot author %s content", ErrValidation, contentType)
 	}
 	provider, err := s.provider(contentType)
@@ -681,7 +711,7 @@ func (s *Service) submit(ctx context.Context, userID uuid.UUID, role, contentTyp
 		return Submission{}, err
 	}
 	policy := s.Policy(ctx)
-	requiresReview := reviewRequiredFor(policy, role)
+	requiresReview := reviewRequiredFor(policy, authority, contentType)
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return Submission{}, err
@@ -732,11 +762,11 @@ func (s *Service) submit(ctx context.Context, userID uuid.UUID, role, contentTyp
 	return s.GetSubmission(ctx, id)
 }
 
-func (s *Service) SubmitAndPublish(ctx context.Context, userID uuid.UUID, role, contentType string, contentID uuid.UUID, expectedRevision int64) (PublicationResult, error) {
-	if !canPublishContent(contentType, role) {
+func (s *Service) SubmitAndPublish(ctx context.Context, userID uuid.UUID, authority Authority, contentType string, contentID uuid.UUID, expectedRevision int64) (PublicationResult, error) {
+	if !canPublishContent(contentType, authority) {
 		return PublicationResult{}, fmt.Errorf("%w: this role cannot publish content", ErrValidation)
 	}
-	if reviewRequiredFor(s.Policy(ctx), role) {
+	if reviewRequiredFor(s.Policy(ctx), authority, contentType) {
 		return PublicationResult{}, ErrReviewRequired
 	}
 	provider, err := s.provider(contentType)
@@ -1093,8 +1123,8 @@ func (s *Service) enrichSubmissionList(ctx context.Context, items []Submission) 
 	return nil
 }
 
-func (s *Service) Approve(ctx context.Context, reviewerID uuid.UUID, role string, submissionID uuid.UUID, note string) (PublicationResult, error) {
-	if !canReview(role) {
+func (s *Service) Approve(ctx context.Context, reviewerID uuid.UUID, authority Authority, submissionID uuid.UUID, note string) (PublicationResult, error) {
+	if !canReview(authority) {
 		return PublicationResult{}, fmt.Errorf("%w: this role cannot review content", ErrValidation)
 	}
 	tx, err := s.db.Begin(ctx)
@@ -1119,7 +1149,7 @@ func (s *Service) Approve(ctx context.Context, reviewerID uuid.UUID, role string
 	note = strings.TrimSpace(note)
 	var scheduledAt *time.Time
 	status := "approved"
-	if s.AutoPublishOnApproval(ctx) && canPublishContent(sub.ContentType, role) {
+	if s.AutoPublishOnApproval(ctx) && canPublishContent(sub.ContentType, authority) {
 		if sub.RequestedPublicationAt != nil && sub.RequestedPublicationAt.After(time.Now().UTC()) {
 			scheduledAt = sub.RequestedPublicationAt
 			status = "scheduled"
@@ -1132,7 +1162,7 @@ func (s *Service) Approve(ctx context.Context, reviewerID uuid.UUID, role string
 		return PublicationResult{}, err
 	}
 	result := PublicationResult{}
-	if status == "approved" && s.AutoPublishOnApproval(ctx) && canPublishContent(sub.ContentType, role) {
+	if status == "approved" && s.AutoPublishOnApproval(ctx) && canPublishContent(sub.ContentType, authority) {
 		result, err = s.publishLockedTx(ctx, tx, provider, submissionID, reviewerID, "automatic_after_approval")
 		if err != nil {
 			return PublicationResult{}, err
@@ -1149,8 +1179,8 @@ func (s *Service) Approve(ctx context.Context, reviewerID uuid.UUID, role string
 	return PublicationResult{Submission: updated}, updateErr
 }
 
-func (s *Service) RequestChanges(ctx context.Context, reviewerID uuid.UUID, role string, submissionID uuid.UUID, note string) (Submission, error) {
-	if !canReview(role) {
+func (s *Service) RequestChanges(ctx context.Context, reviewerID uuid.UUID, authority Authority, submissionID uuid.UUID, note string) (Submission, error) {
+	if !canReview(authority) {
 		return Submission{}, fmt.Errorf("%w: this role cannot review content", ErrValidation)
 	}
 	note = strings.TrimSpace(note)
@@ -1181,8 +1211,8 @@ func (s *Service) RequestChanges(ctx context.Context, reviewerID uuid.UUID, role
 	return s.GetSubmission(ctx, submissionID)
 }
 
-func (s *Service) Schedule(ctx context.Context, userID uuid.UUID, role string, submissionID uuid.UUID, when time.Time) (Submission, error) {
-	if !canPublish(role) {
+func (s *Service) Schedule(ctx context.Context, userID uuid.UUID, authority Authority, submissionID uuid.UUID, when time.Time) (Submission, error) {
+	if !canPublishAny(authority) {
 		return Submission{}, fmt.Errorf("%w: this role cannot schedule publication", ErrValidation)
 	}
 	when = when.UTC()
@@ -1198,7 +1228,7 @@ func (s *Service) Schedule(ctx context.Context, userID uuid.UUID, role string, s
 	if err = scanSubmissionTx(ctx, tx, submissionID, &sub); err != nil {
 		return Submission{}, err
 	}
-	if !canPublishContent(sub.ContentType, role) {
+	if !canPublishContent(sub.ContentType, authority) {
 		return Submission{}, fmt.Errorf("%w: this role cannot schedule %s content", ErrValidation, sub.ContentType)
 	}
 	if sub.Status != "approved" {
@@ -1216,8 +1246,8 @@ func (s *Service) Schedule(ctx context.Context, userID uuid.UUID, role string, s
 	return s.GetSubmission(ctx, submissionID)
 }
 
-func (s *Service) CancelSchedule(ctx context.Context, userID uuid.UUID, role string, submissionID uuid.UUID) (Submission, error) {
-	if !canPublish(role) {
+func (s *Service) CancelSchedule(ctx context.Context, userID uuid.UUID, authority Authority, submissionID uuid.UUID) (Submission, error) {
+	if !canPublishAny(authority) {
 		return Submission{}, fmt.Errorf("%w: this role cannot cancel publication", ErrValidation)
 	}
 	tx, err := s.db.Begin(ctx)
@@ -1229,7 +1259,7 @@ func (s *Service) CancelSchedule(ctx context.Context, userID uuid.UUID, role str
 	if err = scanSubmissionTx(ctx, tx, submissionID, &sub); err != nil {
 		return Submission{}, err
 	}
-	if !canPublishContent(sub.ContentType, role) {
+	if !canPublishContent(sub.ContentType, authority) {
 		return Submission{}, fmt.Errorf("%w: this role cannot cancel %s publication", ErrValidation, sub.ContentType)
 	}
 	if sub.Status != "scheduled" {
@@ -1247,14 +1277,14 @@ func (s *Service) CancelSchedule(ctx context.Context, userID uuid.UUID, role str
 	return s.GetSubmission(ctx, submissionID)
 }
 
-func (s *Service) PublishSubmission(ctx context.Context, userID uuid.UUID, role string, submissionID uuid.UUID) (PublicationResult, error) {
-	if !canPublish(role) {
+func (s *Service) PublishSubmission(ctx context.Context, userID uuid.UUID, authority Authority, submissionID uuid.UUID) (PublicationResult, error) {
+	if !canPublishAny(authority) {
 		return PublicationResult{}, fmt.Errorf("%w: this role cannot publish content", ErrValidation)
 	}
-	return s.publishSubmission(ctx, userID, role, submissionID, "manual", true)
+	return s.publishSubmission(ctx, userID, authority, submissionID, "manual", true)
 }
 
-func (s *Service) publishSubmission(ctx context.Context, userID uuid.UUID, role string, submissionID uuid.UUID, method string, enforceRole bool) (PublicationResult, error) {
+func (s *Service) publishSubmission(ctx context.Context, userID uuid.UUID, authority Authority, submissionID uuid.UUID, method string, enforceRole bool) (PublicationResult, error) {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return PublicationResult{}, err
@@ -1267,7 +1297,7 @@ func (s *Service) publishSubmission(ctx context.Context, userID uuid.UUID, role 
 	if sub.Status != "approved" && sub.Status != "scheduled" {
 		return PublicationResult{}, fmt.Errorf("%w: submission is not approved", ErrReviewRequired)
 	}
-	if enforceRole && sub.ReviewRequired && !canPublishContent(sub.ContentType, role) {
+	if enforceRole && sub.ReviewRequired && !canPublishContent(sub.ContentType, authority) {
 		return PublicationResult{}, fmt.Errorf("%w: this role cannot publish content", ErrValidation)
 	}
 	provider, err := s.provider(sub.ContentType)
@@ -1606,8 +1636,8 @@ func jsonEqual(left, right any) bool {
 // working area. It is intentionally separate from Rollback: no runtime row or
 // manifest changes are made, and the caller must still submit/publish the new
 // draft through normal policy checks.
-func (s *Service) RestorePublicationToDraft(ctx context.Context, userID uuid.UUID, role, contentType string, contentID, publicationID uuid.UUID) (editorial.Snapshot, error) {
-	if !canAuthor(contentType, role) {
+func (s *Service) RestorePublicationToDraft(ctx context.Context, userID uuid.UUID, authority Authority, contentType string, contentID, publicationID uuid.UUID) (editorial.Snapshot, error) {
+	if !canAuthor(contentType, authority) {
 		return editorial.Snapshot{}, fmt.Errorf("%w: this role cannot restore %s content", ErrValidation, contentType)
 	}
 	provider, err := s.provider(contentType)

@@ -151,6 +151,9 @@ func (b *builder) user(id uuid.UUID, name, username, role string) error {
 	if _, err = b.svc.DB.Exec(b.ctx, `INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,$2,$3,$4,$5,TRUE)`, id, name, username, hash, role); err != nil {
 		return fmt.Errorf("create user %q: %w", username, err)
 	}
+	if _, err = b.svc.DB.Exec(b.ctx, `INSERT INTO user_content_access(user_id,library_mode,tag_mode) VALUES($1,'all','all')`, id); err != nil {
+		return fmt.Errorf("create content access for %q: %w", username, err)
+	}
 	_, err = b.svc.DB.Exec(b.ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'user.created','user',$3,jsonb_build_object('role',$4::text))`, uuid.New(), b.owner, id.String(), role)
 	return err
 }
@@ -288,7 +291,7 @@ func (b *builder) slides(assets ...slideAsset) error {
 		if err != nil {
 			return err
 		}
-		upload, err := b.svc.Media.CreateUpload(b.ctx, b.owner, asset.Slide.Filename, "image/png", int64(len(content)))
+		upload, err := b.svc.Media.CreateUpload(b.ctx, b.owner, media.FullAccess(b.owner), nil, asset.Slide.Filename, "image/png", int64(len(content)))
 		if err != nil {
 			return fmt.Errorf("create upload %q: %w", asset.Slide.Filename, err)
 		}
@@ -342,7 +345,7 @@ func (b *builder) awaitReady(id uuid.UUID) error {
 }
 
 func (b *builder) tagAssets(tag uuid.UUID, assets ...uuid.UUID) error {
-	return b.svc.Media.BulkOrganize(b.ctx, b.owner, media.BulkOrganizeInput{AssetIDs: assets, AddTagIDs: []uuid.UUID{tag}})
+	return b.svc.Media.BulkOrganize(b.ctx, b.owner, media.BulkOrganizeInput{AssetIDs: assets, AddTagIDs: []uuid.UUID{tag}, Access: media.FullAccess(b.owner)})
 }
 
 func (b *builder) widget(id uuid.UUID, input media.WidgetInput) error {
@@ -392,7 +395,7 @@ func (b *builder) playlist(id uuid.UUID, name, description string, publish bool,
 	if err != nil {
 		return err
 	}
-	if _, err = b.svc.Approvals.SubmitAndPublish(b.ctx, b.owner, "owner", approvals.TypePlaylist, id, draft.DraftRevision); err != nil {
+	if _, err = b.svc.Approvals.SubmitAndPublish(b.ctx, b.owner, ownerAuthority(), approvals.TypePlaylist, id, draft.DraftRevision); err != nil {
 		return fmt.Errorf("publish playlist %q: %w", name, err)
 	}
 	return nil
@@ -415,7 +418,7 @@ func (b *builder) layout(id uuid.UUID, name, description, orientation string, wi
 	if !publish {
 		return nil
 	}
-	if _, err = b.svc.Approvals.SubmitAndPublish(b.ctx, b.owner, "owner", approvals.TypeLayout, id, saved.DraftRevision); err != nil {
+	if _, err = b.svc.Approvals.SubmitAndPublish(b.ctx, b.owner, ownerAuthority(), approvals.TypeLayout, id, saved.DraftRevision); err != nil {
 		return fmt.Errorf("publish layout %q: %w", name, err)
 	}
 	return nil
@@ -541,3 +544,9 @@ func mustJSON(value any) json.RawMessage {
 }
 
 var errNotDemoDatabase = errors.New("the database holds an installation that Demo Mode did not create; Demo Mode refuses to replace it. Point TILECAST_DATABASE_URL at an empty, disposable database")
+
+// ownerAuthority is the seeded Owner's authority for the review workflow.
+func ownerAuthority() auth.CapabilitySet {
+	capabilities, _ := auth.BuiltinCapabilities(auth.RoleOwner)
+	return capabilities
+}

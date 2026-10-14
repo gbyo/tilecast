@@ -10,10 +10,11 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import type { Asset } from "../../api/types";
 import { ContentPicker } from "./ContentPicker";
+import { mockWholeLibrary } from "../../test/capabilities";
 
 const asset = (id: string, name: string, type: Asset["type"]): Asset => ({
   id,
@@ -64,6 +65,10 @@ function picker(mode: "single" | "multiple", onConfirm = vi.fn()) {
     </QueryClientProvider>,
   );
 }
+
+beforeEach(() => {
+  mockWholeLibrary();
+});
 
 afterEach(() => {
   cleanup();

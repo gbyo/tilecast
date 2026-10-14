@@ -21,6 +21,7 @@ import type {
   WidgetDefinition,
 } from "@/api/types";
 import { AuthProvider } from "@/auth/AuthProvider";
+import { builtinCapabilities } from "@/test/capabilities";
 import { WidgetEditorPage } from "@/pages/WidgetEditorPage";
 import { WidgetSnapshotQueue } from "./WidgetSnapshotQueue";
 
@@ -161,6 +162,7 @@ export function mockEditorApi({
       active: true,
       createdAt: "2026-01-01T00:00:00Z",
     },
+    capabilities: builtinCapabilities(role),
   });
   vi.spyOn(api, "settings").mockResolvedValue({
     values: {
