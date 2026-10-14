@@ -47,7 +47,11 @@ When **Slideshow** is enabled, Tilecast selects Canva's watch presentation surfa
 
 Use HTTPS for public websites. HTTP is accepted only when both the server environment variable `TILECAST_WEBSITE_ALLOW_PRIVATE_HTTP=true` and **Settings** > **Websites** > **Private HTTP enabled** allow it, and the URL uses a private-network host.
 
-The allowed-host list limits top-level navigation. It does not block every third-party resource a page may request. Website Apps do not support imported login cookies, OAuth tokens, or Tilecast credentials. A site that requires an unsupported sign-in flow may not work.
+The allowed-host list limits top-level navigation. Redirects are checked as navigation too: a page can continue only to its own host or another host you allowed. On Edge, each redirect hop and the final main document are checked again before the page can commit. A blocked redirect fails the Website item instead of displaying the unapproved destination.
+
+The allowed-host list is not a firewall for every subresource. A permitted page can still request images, scripts, APIs, or frames from other network hosts according to the Player engine and the page's own browser policy. Website Apps do not support imported login cookies, OAuth tokens, or Tilecast credentials. A site that requires an unsupported sign-in flow may not work.
+
+Private HTTP permission applies to the Website address itself; it does not turn a public HTTPS Website into a general bridge to private-network pages. Keep the allowed-host list narrow and test redirects on the target Player.
 
 ## Plan for interruptions
 
