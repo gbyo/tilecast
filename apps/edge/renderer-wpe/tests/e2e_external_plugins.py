@@ -8,8 +8,9 @@ on an ordinary playlist and on a synchronized group playlist, so a plugin
 change is proven not to disturb either playback path.
 
 This qualifies the surface ABI in a real WPE engine with software rendering.
-It does not qualify the WebKit process sandbox (the CI lane disables it) or
-physical display hardware; see docs/external-plugins.md.
+It does not qualify the WebKit process sandbox (the default CI lane disables
+it; `run-e2e.sh external-plugin-production` runs this file with it on) or
+physical display hardware; see docs/external-player-plugins.md.
 """
 import argparse
 import copy
@@ -189,20 +190,22 @@ def previews_after(state, after):
 def assert_video_playing(state, mark, label, background, timeout=150):
     """The video keeps its place and moves: two captures taken at least ten
     seconds apart after the change show the same video half and a different
-    timestamp. The daemon can upload one capture twice, so equal-time
-    captures do not count."""
+    timestamp. The daemon can upload one capture twice, so the check looks at
+    every pair of captures and waits for a later one before it fails; a frozen
+    video never produces a moving pair."""
     deadline = time.monotonic() + timeout
+    frames = []
     while time.monotonic() < deadline:
         frames = previews_after(state, mark)
-        if frames and frames[-1][0] - frames[0][0] >= 10:
-            break
+        for index, (first_at, first) in enumerate(frames):
+            for last_at, last in frames[index + 1:]:
+                if last_at - first_at < 10 or not video_moved(first, last):
+                    continue
+                assert pixels(first, background) > 100 and pixels(last, background) > 100, \
+                    f"{label}: the video left its {background} half of the timeline"
+                return
         time.sleep(2)
-    else:
-        raise AssertionError(f"{label}: no two captures ten seconds apart after the change")
-    first, last = frames[0][1], frames[-1][1]
-    assert pixels(first, background) > 100 and pixels(last, background) > 100, \
-        f"{label}: the video left its {background} half of the timeline"
-    assert video_moved(first, last), f"{label}: the video stopped progressing"
+    raise AssertionError(f"{label}: no moving video captures among {len(frames)} after the change")
 
 
 def activations(stack):
