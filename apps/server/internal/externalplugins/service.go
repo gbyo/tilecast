@@ -344,7 +344,7 @@ func (s *Service) authorize(ctx context.Context, tx pgx.Tx, call Invocation, tar
 		return nil
 	}
 	if call.ActorRole != "owner" && call.ActorRole != "administrator" {
-		return fmt.Errorf("%w: configuration requires an Owner or Administrator", ErrInvalid)
+		return fmt.Errorf("%w: configuration requires an Owner or Administrator", ErrForbidden)
 	}
 	if s.authorizer == nil {
 		return fmt.Errorf("external plugin authorization is unavailable")
