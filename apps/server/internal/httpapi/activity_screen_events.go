@@ -8,7 +8,7 @@ import (
 )
 
 func (s *server) listScreenEvents(w http.ResponseWriter, r *http.Request) {
-	role, ok := activityRole(r)
+	visibility, ok := activityVisibilityOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
@@ -79,10 +79,10 @@ func (s *server) listScreenEvents(w http.ResponseWriter, r *http.Request) {
 		}
 		item.RelatedType, item.RelatedID = activityRelatedResource(presentationType, presentationID, contentType, contentID)
 		item.Description = screenEventDescription(item.EventType, item.ScreenName, item.RelatedType)
-		if !activityCanSeeSensitive(role) {
+		if !activityCanSeeSensitive(visibility) {
 			item.FailureMessage = ""
 		}
-		item.Details = activityMetadata(raw, item.Severity == "error" || item.Severity == "critical", role)
+		item.Details = activityMetadata(raw, item.Severity == "error" || item.Severity == "critical", visibility)
 		items = append(items, item)
 	}
 	result := screenEventPage{Items: items}

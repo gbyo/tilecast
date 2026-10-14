@@ -13,6 +13,11 @@ public enum MediaUploadError: Error, Equatable, Sendable {
     case tooLarge
     /// The server has no room to keep the file.
     case insufficientStorage
+    /// The account's role cannot upload media.
+    case notPermitted
+    /// The destination folder is missing, is outside the account's content
+    /// access, or is required because the account has restricted access.
+    case folderUnavailable
     /// The server answered with a status this upload cannot recover from.
     case rejected(status: Int)
     /// The server could not be reached, after the retries the policy allows.
@@ -79,10 +84,14 @@ public struct MediaUploader: Sendable {
     }
 
     /// Uploads `file`, reporting the bytes the server holds as they grow.
-    public func upload(_ file: MediaIntakeFile, progress: @Sendable (Int64) -> Void = { _ in }) async throws(MediaUploadError) -> UploadedMedia {
+    ///
+    /// `folderID` is the Media folder the asset is created in. Nil is the
+    /// library root, which the server accepts only for an account with access
+    /// to the whole library; a restricted account must name one of its folders.
+    public func upload(_ file: MediaIntakeFile, folderID: UUID? = nil, progress: @Sendable (Int64) -> Void = { _ in }) async throws(MediaUploadError) -> UploadedMedia {
         guard file.size > 0, let handle = try? FileHandle(forReadingFrom: file.url) else { throw .unreadable }
         defer { try? handle.close() }
-        let session = try await createSession(for: file)
+        let session = try await createSession(for: file, folderID: folderID)
         do {
             try await send(file, session: session, handle: handle, progress: progress)
             var resyncs = 0
@@ -133,12 +142,13 @@ public struct MediaUploader: Sendable {
         case incomplete
     }
 
-    private func createSession(for file: MediaIntakeFile) async throws(MediaUploadError) -> Session {
+    private func createSession(for file: MediaIntakeFile, folderID: UUID?) async throws(MediaUploadError) -> Session {
         try await retrying {
             let output = try await client.createUploadSession(.init(body: .json(.init(
                 filename: file.displayName,
                 mimeType: file.mimeType,
-                sizeBytes: file.size
+                sizeBytes: file.size,
+                folderId: folderID?.uuidString.lowercased()
             ))))
             switch output {
             case .created(let created):
@@ -146,6 +156,8 @@ public struct MediaUploader: Sendable {
                     throw MediaUploadError.rejected(status: 201)
                 }
                 return Session(id: id.uuidString.lowercased(), offset: max(0, min(body.data.offset, file.size)))
+            case .forbidden: throw MediaUploadError.notPermitted
+            case .notFound, .unprocessableContent: throw MediaUploadError.folderUnavailable
             case .contentTooLarge: throw MediaUploadError.tooLarge
             case .code507: throw MediaUploadError.insufficientStorage
             case .undocumented(let status, _): throw MediaUploadError(status: status)

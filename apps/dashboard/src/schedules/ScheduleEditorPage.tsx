@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useLocation, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { ApiError } from "../api/errors";
-import type { Schedule, ScheduleTarget } from "../api/types";
+import type { Schedule, ScheduleTarget, AuthStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -35,9 +35,10 @@ import {
   useScheduleEditorSession,
   type ScheduleCarriedDraft,
 } from "./useScheduleEditorSession";
+import { hasCapability } from "../auth/capabilities";
 
-const canManageSchedules = (role?: string) =>
-  role === "owner" || role === "administrator";
+const canManageSchedules = (status?: AuthStatus) =>
+  hasCapability(status, "schedule.edit");
 
 export function ScheduleEditorPage() {
   const { id } = useParams();
@@ -48,7 +49,7 @@ function useEditorAuth() {
   const auth = useAuth();
   return {
     csrf: auth.status?.csrfToken ?? "",
-    canManage: canManageSchedules(auth.status?.user?.role),
+    canManage: canManageSchedules(auth.status),
   };
 }
 

@@ -35,6 +35,16 @@ Sessions are revocable database records rather than self-contained tokens. This 
 
 An account may carry a second factor: an authenticator app, one or more WebAuthn passkeys, or single-use recovery codes. A correct password on an enrolled account produces a short-lived single-use challenge rather than a session, and the cookie is issued only once the factor is verified. A passkey is both first and second factor, so a discoverable ceremony signs the user in with no username at all. Because WebAuthn requires a secure context and a registrable domain, passkeys are unavailable on the plain-HTTP LAN installations Tilecast also has to support; the server resolves this at startup and reports the reason rather than offering a control that cannot work. The organization-wide enrollment requirement is a session flag rather than a login refusal, so tightening policy can never lock an installation out of itself. See [multi-factor-authentication.md](multi-factor-authentication.md).
 
+## Authorization model
+
+Authorization has two parts. A role grants capabilities, and a scope narrows where an account may use them. A capability names one kind of work, such as `media.upload` or `playlist.publish`. The Server defines the closed capability vocabulary in `internal/auth`. A role is a named set of capabilities. The five built-in roles are protected and live in code. An installation may add custom roles.
+
+Every management route declares the capability it needs, and `requireCapability` checks it against the principal. The principal holds the live user and the capabilities of the live role. A change to a role or to an account therefore applies to the next request, including requests with an open session or a personal access token. The credential scopes `read`, `write`, and `admin` remain an additional ceiling for bearer credentials.
+
+Two scopes narrow capabilities. Screen scopes narrow screen operations to locations and sync groups. Content access narrows the Media library to granted folders and the tags an account may apply. Both scopes use one predicate for lists and for authorization. An inaccessible resource answers `404`, and a bulk request with one inaccessible resource changes nothing. Player playback and manifest generation are not scoped, because scopes are a management boundary.
+
+Code must not compare role names to decide permission. Only identity checks with a meaning of their own use the role key: the protected Owner invariants, multi-factor policy, and compatibility behavior. See [access-control.md](access-control.md).
+
 ## Database evolution
 
 Goose migrations are embedded in the binary and run before the Server accepts traffic. Goose records applied versions. Migrations must be forward-safe. Player manifest schemas have separate versioned compatibility rules. See [player-protocol.md](player-protocol.md).

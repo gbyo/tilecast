@@ -44,6 +44,11 @@ type Service struct {
 	definitions contentdefs.Catalogs
 	pluginGate  PluginSourceGate
 	hooks       FinalizationHooks
+	// uploadAuthorizer re-decides, inside the transaction that registers an
+	// uploaded asset, whether the upload's creator may still place content in
+	// its destination folder. It is nil only in tests that construct the
+	// service directly, where any existing folder (or the root) is accepted.
+	uploadAuthorizer UploadAuthorizer
 	// contributed are plugin-owned Data Source providers. They overlay the
 	// static registry for traits, configuration shape, field discovery,
 	// and authoring-surface metadata; core never names them.
@@ -105,6 +110,16 @@ func (s *Service) externallyManaged(id string) (plugin.DataSourceProvider, bool)
 	return provider, true
 }
 
+// UploadAuthorizer decides whether user may still upload into folder (nil is
+// the library root). It runs inside tx, so it can lock the account's content
+// policy against a concurrent change. Returning ErrOutOfScope refuses the
+// upload.
+type UploadAuthorizer func(ctx context.Context, tx pgx.Tx, user uuid.UUID, folder *uuid.UUID) error
+
+// SetUploadAuthorizer installs the live destination check used when an upload
+// is finalized, including by the background finalization reconciler.
+func (s *Service) SetUploadAuthorizer(authorizer UploadAuthorizer) { s.uploadAuthorizer = authorizer }
+
 // FinalizationHooks is intentionally empty in production. Tests use the
 // boundaries to inject failures at the exact hand-off points where a process
 // crash or an ambiguous storage/database result must remain recoverable.
@@ -134,7 +149,11 @@ func (s *Service) MaximumSourceBytes() int64                          { return s
 func (s *Service) SetContentDefinitions(catalog contentdefs.Catalogs) { s.definitions = catalog }
 func (s *Service) ContentDefinitions() contentdefs.Catalogs           { return s.definitions }
 
-func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, mimeType string, size int64) (Upload, error) {
+// CreateUpload opens a resumable upload session that will land in folder
+// (nil is the library root). The destination is authorized against access
+// now and again when the upload is finalized, so a grant revoked during a
+// long upload still stops it.
+func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, access Access, folder *uuid.UUID, filename, mimeType string, size int64) (Upload, error) {
 	filename = strings.TrimSpace(filename)
 	mimeType = strings.TrimSpace(mimeType)
 	if filename == "" || len(filename) > 255 {
@@ -174,13 +193,16 @@ func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, 
 	if uint64(size) > free || free-uint64(size) < s.cfg.ReservedFreeBytes {
 		return Upload{}, ErrInsufficientSpace
 	}
+	if err := folderWritable(ctx, tx, access, folder); err != nil {
+		return Upload{}, err
+	}
 	var organizationID uuid.UUID
 	if err := tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton=TRUE`).Scan(&organizationID); err != nil {
 		return Upload{}, err
 	}
-	upload := Upload{ID: uuid.New(), OriginalFilename: filename, DeclaredMIMEType: mimeType, ExpectedSize: size, Status: UploadPending, ExpiresAt: time.Now().UTC().Add(UploadLifetime), MaximumSize: s.cfg.MaxUploadBytes}
+	upload := Upload{ID: uuid.New(), OriginalFilename: filename, DeclaredMIMEType: mimeType, ExpectedSize: size, Status: UploadPending, ExpiresAt: time.Now().UTC().Add(UploadLifetime), MaximumSize: s.cfg.MaxUploadBytes, FolderID: folder}
 	key := UploadKey(upload.ID)
-	_, err = tx.Exec(ctx, `INSERT INTO upload_sessions (id,organization_id,created_by,original_filename,declared_mime_type,expected_size,temporary_storage_key,status,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, upload.ID, organizationID, userID, filename, mimeType, size, key, upload.Status, upload.ExpiresAt)
+	_, err = tx.Exec(ctx, `INSERT INTO upload_sessions (id,organization_id,created_by,original_filename,declared_mime_type,expected_size,temporary_storage_key,status,expires_at,destination_folder_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, upload.ID, organizationID, userID, filename, mimeType, size, key, upload.Status, upload.ExpiresAt, folder)
 	if err != nil {
 		return Upload{}, fmt.Errorf("create upload session: %w", err)
 	}
@@ -202,7 +224,7 @@ func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, 
 func (s *Service) GetUpload(ctx context.Context, id, userID uuid.UUID) (Upload, error) {
 	var u Upload
 	u.ID = id
-	err := s.db.QueryRow(ctx, `SELECT original_filename,declared_mime_type,expected_size,current_offset,status,expires_at,resulting_asset_id FROM upload_sessions WHERE id=$1 AND created_by=$2`, id, userID).Scan(&u.OriginalFilename, &u.DeclaredMIMEType, &u.ExpectedSize, &u.CurrentOffset, &u.Status, &u.ExpiresAt, &u.ResultingAssetID)
+	err := s.db.QueryRow(ctx, `SELECT original_filename,declared_mime_type,expected_size,current_offset,status,expires_at,resulting_asset_id,destination_folder_id FROM upload_sessions WHERE id=$1 AND created_by=$2`, id, userID).Scan(&u.OriginalFilename, &u.DeclaredMIMEType, &u.ExpectedSize, &u.CurrentOffset, &u.Status, &u.ExpiresAt, &u.ResultingAssetID, &u.FolderID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Upload{}, ErrNotFound
 	}
@@ -337,6 +359,15 @@ func (s *Service) FinalizeUpload(ctx context.Context, id, userID uuid.UUID) (Ass
 	}
 	if status != UploadFinalizing && offset != expected {
 		return Asset{}, ErrUploadIncomplete
+	}
+	// Refuse before any state changes when the destination is no longer
+	// allowed, so the session stays pending and its creator can cancel it. A
+	// session already finalizing is decided by the registration check below,
+	// which fails it cleanly instead of leaving it for the reconciler.
+	if status != UploadFinalizing {
+		if err := s.authorizeUploadDestination(ctx, tx, id, userID); err != nil {
+			return Asset{}, err
+		}
 	}
 	assetID, variantID := ids.New(ctx), uuid.New()
 	if preparedAssetID != nil {
@@ -474,7 +505,21 @@ func (s *Service) FinalizeUpload(ctx context.Context, id, userID uuid.UUID) (Ass
 		return Asset{}, err
 	}
 	defer finalizationTx.Rollback(ctx) //nolint:errcheck
-	_, err = finalizationTx.Exec(ctx, `INSERT INTO assets (id,organization_id,name,type,original_filename,declared_mime_type,detected_mime_type,sha256,original_size,processing_status,created_by,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'queued',$10,$11,$11) ON CONFLICT(id) DO NOTHING`, assetID, organizationID, name, detectedType, filename, declared, detectedMIME, sum, expected, userID, now)
+	// The destination is decided again in the transaction that creates the
+	// asset. The folder comes from the session row, never from the request,
+	// and a grant revoked since the upload began refuses it here.
+	var destination *uuid.UUID
+	if err := finalizationTx.QueryRow(ctx, `SELECT destination_folder_id FROM upload_sessions WHERE id=$1 FOR UPDATE`, id).Scan(&destination); err != nil {
+		return Asset{}, err
+	}
+	if err := s.authorizeUploadDestination(ctx, finalizationTx, id, userID); err != nil {
+		_ = finalizationTx.Rollback(ctx)
+		if errors.Is(err, ErrOutOfScope) {
+			return Asset{}, s.failUploadOn(ctx, conn, id, "upload_destination_forbidden", err)
+		}
+		return Asset{}, err
+	}
+	_, err = finalizationTx.Exec(ctx, `INSERT INTO assets (id,organization_id,name,type,original_filename,declared_mime_type,detected_mime_type,sha256,original_size,processing_status,created_by,created_at,updated_at,folder_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'queued',$10,$11,$11,$12) ON CONFLICT(id) DO NOTHING`, assetID, organizationID, name, detectedType, filename, declared, detectedMIME, sum, expected, userID, now, destination)
 	if err != nil {
 		return Asset{}, err
 	}
@@ -503,6 +548,20 @@ func (s *Service) FinalizeUpload(ctx context.Context, id, userID uuid.UUID) (Ass
 		return Asset{}, err
 	}
 	return s.GetAsset(ctx, assetID)
+}
+
+// authorizeUploadDestination applies the installed UploadAuthorizer to the
+// session's stored destination. Without one, the destination only has to
+// exist (or be the root).
+func (s *Service) authorizeUploadDestination(ctx context.Context, tx pgx.Tx, id, user uuid.UUID) error {
+	var destination *uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT destination_folder_id FROM upload_sessions WHERE id=$1`, id).Scan(&destination); err != nil {
+		return err
+	}
+	if s.uploadAuthorizer != nil {
+		return s.uploadAuthorizer(ctx, tx, user, destination)
+	}
+	return folderWritable(ctx, tx, FullAccess(user), destination)
 }
 
 func (s *Service) failUpload(ctx context.Context, id uuid.UUID, code string, cause error) error {
@@ -854,6 +913,11 @@ func (s *Service) ListAssets(ctx context.Context, o ListOptions) (ListResult, er
 	}
 	if o.TagID != nil {
 		add("EXISTS(SELECT 1 FROM content_asset_tags at WHERE at.asset_id=a.id AND at.tag_id=$%d)", *o.TagID)
+	}
+	if o.View != nil {
+		// The visibility predicate is ANDed with every filter, so a folder,
+		// collection, tag, archive, or search filter can only narrow it.
+		where = append(where, o.View.assetClause("a", &args))
 	}
 	clause := strings.Join(where, " AND ")
 	var total int

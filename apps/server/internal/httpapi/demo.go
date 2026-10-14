@@ -21,7 +21,7 @@ func (s *server) demoRoutes(dashboard chi.Router) {
 		return
 	}
 	dashboard.With(s.requireScope("read")).Get("/demo", s.demoState)
-	dashboard.With(s.requireRoles("owner"), s.requireCSRF, s.requireScope("admin")).Post("/demo/reset", s.resetDemo)
+	dashboard.With(s.requireCapability(auth.CapSystemBackups), s.requireCSRF, s.requireScope("admin")).Post("/demo/reset", s.resetDemo)
 }
 
 // demoSession signs a visitor in as the seeded Owner when the request has no

@@ -8,12 +8,18 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import { i18n } from "../../i18n";
 import type { Asset } from "../../api/types";
 import { MediaUploadDialog } from "./MediaUploadDialog";
 import { attachmentState, MediaUploadPanel } from "./MediaUploadPanel";
+import { mockAuthAs, mockWholeLibrary } from "../../test/capabilities";
+
+beforeEach(() => {
+  mockWholeLibrary();
+});
 
 afterEach(() => {
   cleanup();
@@ -41,6 +47,24 @@ const asset = (status: Asset["processingStatus"]): Asset => ({
   collectionIds: [],
 });
 
+function renderPanel(ui: React.ReactElement) {
+  return render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      {ui}
+    </QueryClientProvider>,
+  );
+}
+
+// The upload destination is known once the account's access has loaded.
+const ready = () =>
+  waitFor(() =>
+    expect(screen.getByRole("button", { name: "Choose files" })).toBeEnabled(),
+  );
+
 const clip = () => new File(["12345678"], "Clip.mp4", { type: "video/mp4" });
 const row = () =>
   screen.getByText("Clip.mp4").closest('[data-slot="attachment"]');
@@ -56,7 +80,8 @@ describe("MediaUploadPanel", () => {
       offset: 0,
     } as Awaited<ReturnType<typeof api.createUpload>>);
     vi.spyOn(api, "uploadChunk").mockReturnValue(new Promise(() => undefined));
-    render(<MediaUploadPanel csrf="csrf" />);
+    renderPanel(<MediaUploadPanel csrf="csrf" />);
+    await ready();
     choose(new File([new Uint8Array(1536)], "Clip.mp4", { type: "video/mp4" }));
     await waitFor(() => expect(row()).toHaveTextContent("1.5 KiB"));
     try {
@@ -81,7 +106,8 @@ describe("MediaUploadPanel", () => {
       offset: 4,
     } as Awaited<ReturnType<typeof api.createUpload>>);
     vi.spyOn(api, "uploadChunk").mockReturnValue(new Promise(() => undefined));
-    render(<MediaUploadPanel csrf="csrf" />);
+    renderPanel(<MediaUploadPanel csrf="csrf" />);
+    await ready();
     choose(clip());
 
     await waitFor(() =>
@@ -108,7 +134,10 @@ describe("MediaUploadPanel", () => {
       }),
     );
     const onAsset = vi.fn();
-    const rendered = render(<MediaUploadPanel csrf="csrf" onAsset={onAsset} />);
+    const rendered = renderPanel(
+      <MediaUploadPanel csrf="csrf" onAsset={onAsset} />,
+    );
+    await ready();
     choose(clip());
 
     await waitFor(() => expect(api.completeUpload).toHaveBeenCalled());
@@ -131,7 +160,8 @@ describe("MediaUploadPanel", () => {
       } as Awaited<ReturnType<typeof api.createUpload>>);
     vi.spyOn(api, "completeUpload").mockResolvedValue(asset("ready"));
     const onAsset = vi.fn();
-    render(<MediaUploadPanel csrf="csrf" onAsset={onAsset} />);
+    renderPanel(<MediaUploadPanel csrf="csrf" onAsset={onAsset} />);
+    await ready();
     choose(clip());
 
     await waitFor(() => expect(row()).toHaveAttribute("data-state", "error"));
@@ -158,7 +188,7 @@ describe("MediaUploadDialog", () => {
     vi.spyOn(api, "completeUpload").mockResolvedValue(asset("ready"));
     const onClose = vi.fn();
     const onAsset = vi.fn();
-    render(
+    renderPanel(
       <MediaUploadDialog
         open
         csrf="csrf"
@@ -169,11 +199,98 @@ describe("MediaUploadDialog", () => {
     expect(
       screen.getByRole("dialog", { name: "Upload media" }),
     ).toBeInTheDocument();
+    await ready();
     choose(clip());
     await waitFor(() => expect(row()).toHaveAttribute("data-state", "done"));
     // The row can read done a tick before the asset callback runs.
     await waitFor(() => expect(onAsset).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("MediaUploadPanel destination", () => {
+  const room313 = {
+    id: "folder-313",
+    name: "Room 313",
+    description: "",
+    assetCount: 0,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+  };
+  const room314 = { ...room313, id: "folder-314", name: "Room 314" };
+
+  function teacher(writableFolderIds: string[]) {
+    mockAuthAs("classroom_media", [
+      "media.read",
+      "media.upload",
+      "media.tags.assign",
+    ]);
+    vi.spyOn(api, "myAccess").mockResolvedValue({
+      role: { key: "classroom_media", name: "Classroom Media", builtin: false },
+      capabilities: ["media.read", "media.upload", "media.tags.assign"],
+      content: {
+        libraryMode: "restricted",
+        tagMode: "restricted",
+        writableFolderIds,
+      },
+    });
+    vi.spyOn(api, "contentFolders").mockResolvedValue([room313, room314]);
+  }
+
+  const upload = () =>
+    vi.spyOn(api, "createUpload").mockResolvedValue({
+      id: "s1",
+      offset: 0,
+    } as Awaited<ReturnType<typeof api.createUpload>>);
+
+  it("leaves the folder out for an account with the whole library", async () => {
+    const create = upload();
+    vi.spyOn(api, "uploadChunk").mockReturnValue(new Promise(() => undefined));
+    renderPanel(<MediaUploadPanel csrf="csrf" />);
+    await ready();
+    choose(clip());
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    expect(create.mock.calls[0]![0]).not.toHaveProperty("folderId");
+    expect(screen.queryByLabelText("Upload to")).toBeNull();
+  });
+
+  it("uploads a restricted account's files into its only folder", async () => {
+    teacher(["folder-313"]);
+    const create = upload();
+    vi.spyOn(api, "uploadChunk").mockReturnValue(new Promise(() => undefined));
+    renderPanel(<MediaUploadPanel csrf="csrf" />);
+    await ready();
+    choose(clip());
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    expect(create.mock.calls[0]![0]).toMatchObject({ folderId: "folder-313" });
+    // One choice needs no chooser.
+    expect(screen.queryByLabelText("Upload to")).toBeNull();
+  });
+
+  it("asks a restricted account with several folders to choose, and sends the choice", async () => {
+    teacher(["folder-313", "folder-314"]);
+    const create = upload();
+    vi.spyOn(api, "uploadChunk").mockReturnValue(new Promise(() => undefined));
+    renderPanel(<MediaUploadPanel csrf="csrf" />);
+
+    const chooser = await screen.findByLabelText("Upload to");
+    expect(screen.getByRole("button", { name: "Choose files" })).toBeDisabled();
+    fireEvent.change(chooser, { target: { value: "folder-314" } });
+    await ready();
+    choose(clip());
+    await waitFor(() => expect(create).toHaveBeenCalled());
+    expect(create.mock.calls[0]![0]).toMatchObject({ folderId: "folder-314" });
+  });
+
+  it("explains an account that has no folder to upload into", async () => {
+    teacher([]);
+    const create = upload();
+    renderPanel(<MediaUploadPanel csrf="csrf" />);
+    expect(
+      await screen.findByText(/No folder is available to upload into/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose files" })).toBeDisabled();
+    expect(create).not.toHaveBeenCalled();
   });
 });

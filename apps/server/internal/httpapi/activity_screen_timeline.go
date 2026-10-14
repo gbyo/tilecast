@@ -102,16 +102,16 @@ func (s *server) screenTimeline(w http.ResponseWriter, r *http.Request) {
 	response.Range.From, response.Range.To = window.From, window.To
 	response.Status = s.screenCurrentStatus(r, screenID)
 
-	role, ok := activityRole(r)
+	visibility, ok := activityVisibilityOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	for _, source := range []func(*http.Request, uuid.UUID, activityWindow, string) []screenTimelineEntry{
+	for _, source := range []func(*http.Request, uuid.UUID, activityWindow, activityVisibility) []screenTimelineEntry{
 		s.timelineFromEvents, s.timelineFromStateIntervals,
 		s.timelineFromPlayback, s.timelineFromIncidents, s.timelineFromAudit,
 	} {
-		response.Entries = append(response.Entries, source(r, screenID, window, role)...)
+		response.Entries = append(response.Entries, source(r, screenID, window, visibility)...)
 	}
 	if domain != "" {
 		filtered := response.Entries[:0]
@@ -180,7 +180,7 @@ func (s *server) screenCurrentStatus(r *http.Request, screenID uuid.UUID) screen
 	return status
 }
 
-func (s *server) timelineFromEvents(r *http.Request, screenID uuid.UUID, window activityWindow, role string) []screenTimelineEntry {
+func (s *server) timelineFromEvents(r *http.Request, screenID uuid.UUID, window activityWindow, visibility activityVisibility) []screenTimelineEntry {
 	entries := []screenTimelineEntry{}
 	// Raw events carry sensitive failure text, so unprivileged readers see the
 	// shape of the history without the diagnostics.
@@ -203,7 +203,7 @@ func (s *server) timelineFromEvents(r *http.Request, screenID uuid.UUID, window 
 		}
 		entry.Kind = eventType
 		entry.Title = humanizeEventType(eventType)
-		if activityCanSeeSensitive(role) {
+		if activityCanSeeSensitive(visibility) {
 			entry.Description = failure
 		}
 		entry.LinkType, entry.LinkID = contentType, contentID
@@ -212,7 +212,7 @@ func (s *server) timelineFromEvents(r *http.Request, screenID uuid.UUID, window 
 	return entries
 }
 
-func (s *server) timelineFromStateIntervals(r *http.Request, screenID uuid.UUID, window activityWindow, _ string) []screenTimelineEntry {
+func (s *server) timelineFromStateIntervals(r *http.Request, screenID uuid.UUID, window activityWindow, _ activityVisibility) []screenTimelineEntry {
 	entries := []screenTimelineEntry{}
 	rows, err := s.db.Query(r.Context(), `
 		SELECT i.id::text,i.started_at,i.ended_at,i.state,COALESCE(i.reason_code,'')
@@ -244,7 +244,7 @@ func (s *server) timelineFromStateIntervals(r *http.Request, screenID uuid.UUID,
 	return entries
 }
 
-func (s *server) timelineFromPlayback(r *http.Request, screenID uuid.UUID, window activityWindow, _ string) []screenTimelineEntry {
+func (s *server) timelineFromPlayback(r *http.Request, screenID uuid.UUID, window activityWindow, _ activityVisibility) []screenTimelineEntry {
 	entries := []screenTimelineEntry{}
 	rows, err := s.db.Query(r.Context(), `
 		SELECT p.id::text,p.started_at,p.ended_at,p.session_type,p.result,COALESCE(p.terminal_reason,''),
@@ -284,7 +284,7 @@ func (s *server) timelineFromPlayback(r *http.Request, screenID uuid.UUID, windo
 	return entries
 }
 
-func (s *server) timelineFromIncidents(r *http.Request, screenID uuid.UUID, window activityWindow, _ string) []screenTimelineEntry {
+func (s *server) timelineFromIncidents(r *http.Request, screenID uuid.UUID, window activityWindow, _ activityVisibility) []screenTimelineEntry {
 	entries := []screenTimelineEntry{}
 	rows, err := s.db.Query(r.Context(), `
 		SELECT i.id::text,i.title,i.severity,i.status,i.opened_at,i.recovered_at,i.resolved_at
@@ -328,7 +328,7 @@ func (s *server) timelineFromIncidents(r *http.Request, screenID uuid.UUID, wind
 	return entries
 }
 
-func (s *server) timelineFromAudit(r *http.Request, screenID uuid.UUID, window activityWindow, _ string) []screenTimelineEntry {
+func (s *server) timelineFromAudit(r *http.Request, screenID uuid.UUID, window activityWindow, _ activityVisibility) []screenTimelineEntry {
 	entries := []screenTimelineEntry{}
 	rows, err := s.db.Query(r.Context(), `
 		SELECT a.id::text,a.created_at,a.action,a.result,COALESCE(a.summary,''),COALESCE(u.name,'System')

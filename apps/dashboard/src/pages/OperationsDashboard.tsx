@@ -57,6 +57,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
+import { hasCapability } from "../auth/capabilities";
 
 function status(query: { isLoading: boolean; isError: boolean }): QueryStatus {
   return query.isLoading ? "loading" : query.isError ? "error" : "ready";
@@ -170,9 +171,7 @@ export function OperationsDashboard() {
     playback: recapPlayback,
   });
 
-  const canPair =
-    auth.status?.user?.role === "owner" ||
-    auth.status?.user?.role === "administrator";
+  const canPair = hasCapability(auth.status, "screen.pair");
   const emptyInstallation =
     !screens.isLoading && !screens.isError && allScreens.length === 0;
 
