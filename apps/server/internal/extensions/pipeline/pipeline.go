@@ -575,7 +575,8 @@ func (s *Service) materialize(ctx context.Context, resolution Resolution) (packa
 		verified.Manifest.PackageVersion != resolution.Manifest.PackageVersion ||
 		verified.Manifest.Distribution.OCI != resolution.Manifest.Distribution.OCI ||
 		verified.Manifest.Tilecast.Version != resolution.Manifest.Tilecast.Version ||
-		(!resolution.listingIdentityOnly && (!reflect.DeepEqual(verified.Manifest.Runtime, resolution.Manifest.Runtime) ||
+		(!resolution.listingIdentityOnly && (verified.Manifest.APIVersion != resolution.Manifest.APIVersion ||
+			!reflect.DeepEqual(verified.Manifest.Runtime, resolution.Manifest.Runtime) ||
 			!reflect.DeepEqual(verified.Manifest.Capabilities, resolution.Manifest.Capabilities) ||
 			!reflect.DeepEqual(verified.Manifest.Contributions, resolution.Manifest.Contributions))) {
 		return packagemanifest.Manifest{}, nil, ErrCrossCheck
