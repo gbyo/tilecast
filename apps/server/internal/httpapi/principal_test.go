@@ -14,7 +14,11 @@ import (
 // Tests that inject only a session exercise nothing the server can produce.
 func requestWithTestPrincipal(r *http.Request, session auth.Session) *http.Request {
 	ctx := context.WithValue(r.Context(), sessionContextKey, session)
-	return r.WithContext(auth.WithPrincipal(ctx, auth.PrincipalFromSession(session)))
+	principal := auth.PrincipalFromSession(session)
+	// Unit tests build principals from built-in roles; resolve them the way
+	// requireUser does so capability checks see real authority.
+	principal.Capabilities, _ = auth.BuiltinCapabilities(session.User.Role)
+	return r.WithContext(auth.WithPrincipal(ctx, principal))
 }
 
 // TestPrincipalContextRoundTrip pins the context plumbing the middleware relies on.

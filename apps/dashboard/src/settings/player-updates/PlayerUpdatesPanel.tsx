@@ -10,6 +10,7 @@ import type {
   Screen,
   ScreenGroup,
   UpdateDeployment,
+  AuthStatus,
 } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { apiErrorMessage } from "../../i18n";
@@ -54,6 +55,7 @@ import { ReleaseUploadDialog } from "./ReleaseUploadDialog";
 import { LoadingRows, UpdateDeploymentDetail } from "./UpdateDeploymentDetail";
 import { families, familyLabel } from "./model";
 import { screenUpdateMeaning } from "../playerUpdateStates";
+import { hasCapability } from "../../auth/capabilities";
 
 export function PlayerUpdatesPanel(props: {
   owner: boolean;
@@ -566,8 +568,9 @@ function PlayerUpdateOverlays({
   );
 }
 
-export function canDeployPlayerUpdates(role: string | undefined) {
-  return role === "owner" || role === "administrator";
+/** The account may roll Player updates out to screens. */
+export function canDeployPlayerUpdates(status?: AuthStatus) {
+  return hasCapability(status, "screen.manage");
 }
 export function playerUpdateStateLabel(state: string) {
   const meaning = screenUpdateMeaning(state);

@@ -79,7 +79,7 @@ func TestMediaUploadProcessingAndDeletionLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := NewService(pool, storage, Config{MaxUploadBytes: 1 << 20, ReservedFreeBytes: 1, FFmpegPath: fake, Workers: 1, Profile: CompatibilityProfile{MaxWidth: 1920, MaxHeight: 1080, MaxFrameRate: 60}, Website: WebsitePolicy{DefaultTimeoutSeconds: 20, MaxTimeoutSeconds: 120, MinRefreshSeconds: 30, MaxAllowedHosts: 25, MaxWebsites: 500}, SourceFetch: SourceFetchPolicy{AllowPrivateNetworks: true, Timeout: 5 * time.Second, MaximumBytes: 1 << 20, MaximumRedirects: 3, MinimumRefresh: 5 * time.Minute, MaximumRefresh: 24 * time.Hour}})
-	upload, err := service.CreateUpload(ctx, owner.User.ID, "misleading-video.mp4", "video/mp4", int64(content.Len()))
+	upload, err := service.CreateUpload(ctx, owner.User.ID, FullAccess(owner.User.ID), nil, "misleading-video.mp4", "video/mp4", int64(content.Len()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,7 +247,7 @@ func TestMediaUploadProcessingAndDeletionLifecycle(t *testing.T) {
 	if _, err := service.Delivery(ctx, asset.ID, compatible.ID); !errors.Is(err, ErrVariantUnavailable) {
 		t.Fatalf("missing file: %v", err)
 	}
-	expired, err := service.CreateUpload(ctx, owner.User.ID, "expired.png", "image/png", 10)
+	expired, err := service.CreateUpload(ctx, owner.User.ID, FullAccess(owner.User.ID), nil, "expired.png", "image/png", 10)
 	if err != nil {
 		t.Fatal(err)
 	}

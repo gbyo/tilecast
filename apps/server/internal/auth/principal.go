@@ -46,6 +46,12 @@ type Principal struct {
 	// second factor. It mirrors the session flag so a policy change can
 	// never lock an installation out of itself.
 	EnrollmentPending bool
+
+	// Capabilities is the effective authority of the user's live role,
+	// resolved on every request by the authentication boundary. Sessions and
+	// grants resolve it the same way; a grant's scopes are a separate,
+	// additional ceiling checked by requireScope.
+	Capabilities CapabilitySet
 }
 
 // PrincipalFromSession derives the management principal from a dashboard
@@ -97,19 +103,26 @@ func (p Principal) GrantsScope(scope string) bool {
 	return false
 }
 
-// HasRole reports whether the principal carries one of the given roles.
-func (p Principal) HasRole(roles ...string) bool {
-	for _, role := range roles {
-		if p.User.Role == role {
-			return true
-		}
-	}
-	return false
+// Can reports whether the principal's role grants capability.
+func (p Principal) Can(capability Capability) bool {
+	return p.Capabilities.Has(capability)
 }
 
-// CanManage reports whether the principal is an Owner or Administrator.
-func (p Principal) CanManage() bool {
-	return p.HasRole("owner", "administrator")
+// CanAny reports whether the principal holds at least one of capabilities.
+func (p Principal) CanAny(capabilities ...Capability) bool {
+	return p.Capabilities.HasAny(capabilities...)
+}
+
+// IsOwner reports whether the principal holds the built-in Owner role. Use it
+// only where the Owner identity itself matters (the last-Owner invariant, an
+// unscopable account), never as a stand-in for a capability.
+func (p Principal) IsOwner() bool {
+	return p.User.Role == RoleOwner
+}
+
+// Delegator returns the authority this principal can hand to others.
+func (p Principal) Delegator() Delegator {
+	return Delegator{UserID: p.User.ID, Role: p.User.Role, Capabilities: p.Capabilities}
 }
 
 type principalKey struct{}

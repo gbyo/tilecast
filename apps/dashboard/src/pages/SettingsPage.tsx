@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { Trans, useTranslation } from "react-i18next";
 import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
@@ -18,9 +18,12 @@ import { BrandingAssets } from "../settings/BrandingAssets";
 import { normalizeSettingValues } from "../settings/settingValues";
 import {
   sectionFromPath,
-  settingsNavigation,
+  settingsItems,
+  visibleSettingsNavigation,
   type SettingsSectionId,
 } from "../settings/settingsNavigation";
+import { useCapabilities, type Capabilities } from "../auth/capabilities";
+import { RolesPage } from "./RolesPage";
 import { useNavigationWarning } from "../settings/useNavigationWarning";
 import { useConfirm } from "../components/ConfirmDialog";
 import {
@@ -43,15 +46,22 @@ export {
   playerUpdateStateLabel,
 } from "../settings/SettingsOperations";
 
+/**
+ * /settings opens the first section the account can see: General for most
+ * roles, Users for an account that only manages people.
+ */
+export function SettingsIndexRedirect() {
+  const { canAny } = useCapabilities();
+  const first = visibleSettingsNavigation(canAny)[0]?.items[0];
+  return <Navigate to={`/settings/${first?.path ?? "general"}`} replace />;
+}
+
 export function SettingsPage() {
   const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
   const location = useLocation();
   const active = sectionFromPath(location.pathname);
-  const manageable = ["owner", "administrator"].includes(
-    auth.status?.user?.role ?? "",
-  );
-  const owner = auth.status?.user?.role === "owner";
+  const capabilities = useCapabilities();
   const client = useQueryClient();
   const settings = useQuery(settingsQueries.organization());
   const [baseline, setBaseline] = useState<Record<string, unknown>>();
@@ -177,9 +187,7 @@ export function SettingsPage() {
         onNavigate={(next) => {
           setSaved(undefined);
           if (next === active || !currentDirty) return true;
-          const path = settingsNavigation
-            .flatMap((group) => group.items)
-            .find((item) => item.id === next)?.path;
+          const path = settingsItems.find((item) => item.id === next)?.path;
           void confirm({
             title: t("page.leaveSectionTitle"),
             action: t("page.leaveSectionAction"),
@@ -191,8 +199,7 @@ export function SettingsPage() {
       >
         <Destination
           active={active}
-          manageable={manageable}
-          owner={owner}
+          capabilities={capabilities}
           definitions={currentDefinitions}
           values={currentValues}
           onChange={(key, value) => {
@@ -217,35 +224,40 @@ export function SettingsPage() {
 
 function Destination({
   active,
-  manageable,
-  owner,
+  capabilities,
   definitions,
   values,
   onChange,
   onRetentionDirtyChange,
 }: {
   active: SettingsSectionId;
-  manageable: boolean;
-  owner: boolean;
+  capabilities: Capabilities;
   definitions: SettingDefinition[];
   values: Record<string, unknown>;
   onChange: (key: string, value: unknown) => void;
   onRetentionDirtyChange: (dirty: boolean) => void;
 }) {
   const { t } = useTranslation(["settings", "common"]);
+  const { can } = capabilities;
+  // Organization settings are one document; settings.manage edits it. The
+  // panels below each follow the capability for what they change.
+  const manageable = can("settings.manage");
   if (active === "users") return <UsersPage />;
+  if (active === "roles") return <RolesPage />;
   if (active === "dependency-graph") return <DependencyExplorerPage />;
-  if (active === "locations") return <LocationsPanel canManage={manageable} />;
-  if (active === "system") return <SystemPanel canManage={manageable} />;
+  if (active === "locations")
+    return <LocationsPanel canManage={can("screen.manage")} />;
+  if (active === "system")
+    return <SystemPanel canManage={can("system.manage")} />;
   if (active === "backups")
     return (
       <>
-        <BackupPanel owner={owner} />
+        <BackupPanel owner={can("system.backups")} />
         <SettingsSection
           section={active}
           definitions={definitions}
           values={values}
-          editable={owner}
+          editable={can("system.backups") && manageable}
           onChange={onChange}
         />
       </>
@@ -261,7 +273,7 @@ function Destination({
           onChange={onChange}
         />
         <ActivityRetentionPanel
-          editable={manageable}
+          editable={can("activity.manage")}
           onDirtyChange={onRetentionDirtyChange}
         />
       </>
@@ -304,12 +316,18 @@ function Destination({
       </>
     );
   if (active === "integrations")
-    return <IntegrationTokensPanel owner={owner} />;
-  if (active === "import-export") return <ImportExportPanel owner={owner} />;
+    return <IntegrationTokensPanel owner={can("integrations.manage")} />;
+  if (active === "import-export")
+    return <ImportExportPanel owner={can("system.backups")} />;
   if (active === "player-updates")
-    return <PlayerUpdatesPanel owner={owner} manageable={manageable} />;
+    return (
+      <PlayerUpdatesPanel
+        owner={can("player.releases")}
+        manageable={can("screen.manage")}
+      />
+    );
   if (active === "presentation-networks")
-    return <PresentationNetworksPanel canManage={manageable} />;
+    return <PresentationNetworksPanel canManage={can("screen.manage")} />;
   let before: React.ReactNode;
   // Automatic NWS alert handling is the Emergency Alerts plugin, not a default.
   // What is left here is the policy for a Takeover a person starts by hand.

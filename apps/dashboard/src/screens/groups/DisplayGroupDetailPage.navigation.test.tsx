@@ -14,10 +14,15 @@ import type {
   SpanStatus,
 } from "../../api/types";
 import { DisplayGroupDetailPage } from "./DisplayGroupDetailPage";
+import { builtinCapabilities } from "../../test/capabilities";
 
 vi.mock("../../auth/AuthProvider", () => ({
   useAuth: () => ({
-    status: { csrfToken: "csrf-token", user: { role: "owner" } },
+    status: {
+      csrfToken: "csrf-token",
+      user: { role: "owner" },
+      capabilities: builtinCapabilities("owner"),
+    },
   }),
 }));
 

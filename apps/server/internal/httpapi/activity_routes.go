@@ -3,13 +3,18 @@ package httpapi
 import (
 	"net/http"
 	"strings"
+
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 )
 
 type activityDispatchRoute struct {
 	method       string
 	contractPath string
 	device       bool
-	handler      http.Handler
+	// capability is what a management route needs; device routes leave it
+	// empty and authenticate the Player credential instead.
+	capability auth.Capability
+	handler    http.Handler
 }
 
 // activityDispatchPathMatches matches the OpenAPI-style path templates used by
@@ -45,24 +50,24 @@ func (s *server) activityDispatchRoutes() []activityDispatchRoute {
 		{method: http.MethodPost, contractPath: "/api/v1/player/liveness", device: true, handler: http.HandlerFunc(s.playerLivenessWithActivity)},
 		{method: http.MethodPost, contractPath: "/api/v1/player/telemetry", device: true, handler: http.HandlerFunc(s.ingestTelemetry)},
 		{method: http.MethodPost, contractPath: "/api/v1/player/activity-events", device: true, handler: http.HandlerFunc(s.ingestPlayerActivityWithCleanup)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/overview", handler: http.HandlerFunc(s.activityOverview)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/uptime", handler: http.HandlerFunc(s.activityUptime)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/proof-of-play", handler: http.HandlerFunc(s.listProofOfPlay)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/proof-of-play/summary", handler: http.HandlerFunc(s.proofOfPlaySummary)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/proof-of-play/export.csv", handler: s.requireRoles("owner", "administrator")(http.HandlerFunc(s.exportProofOfPlay))},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/screen-events", handler: s.requireRoles("owner", "administrator")(http.HandlerFunc(s.listScreenEvents))},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/audit", handler: http.HandlerFunc(s.listAuditActivity)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/audit/export.csv", handler: s.requireRoles("owner", "administrator")(http.HandlerFunc(s.exportAuditActivity))},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}/timeline", handler: http.HandlerFunc(s.screenTimeline)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}/telemetry", handler: s.requireRoles("owner", "administrator")(http.HandlerFunc(s.screenTelemetry))},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}", handler: http.HandlerFunc(s.screenActivity)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/compliance", handler: http.HandlerFunc(s.playbackCompliance)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/incidents", handler: http.HandlerFunc(s.listIncidents)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/incidents/analytics", handler: http.HandlerFunc(s.incidentAnalytics)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/incidents/{id}", handler: http.HandlerFunc(s.getIncident)},
-		{method: http.MethodPatch, contractPath: "/api/v1/activity/incidents/{id}", handler: s.requireRoles("owner", "administrator")(s.requireCSRF(http.HandlerFunc(s.updateIncident)))},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/retention", handler: s.requireRoles("owner", "administrator")(http.HandlerFunc(s.getActivityRetention))},
-		{method: http.MethodPatch, contractPath: "/api/v1/activity/retention", handler: s.requireRoles("owner", "administrator")(s.requireCSRF(http.HandlerFunc(s.updateActivityRetention)))},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/overview", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.activityOverview)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/uptime", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.activityUptime)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/proof-of-play", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.listProofOfPlay)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/proof-of-play/summary", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.proofOfPlaySummary)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/proof-of-play/export.csv", capability: auth.CapActivityManage, handler: http.HandlerFunc(s.exportProofOfPlay)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/screen-events", capability: auth.CapActivityManage, handler: http.HandlerFunc(s.listScreenEvents)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/audit", capability: auth.CapActivityAudit, handler: http.HandlerFunc(s.listAuditActivity)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/audit/export.csv", capability: auth.CapActivityManage, handler: http.HandlerFunc(s.exportAuditActivity)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}/timeline", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.screenTimeline)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}/telemetry", capability: auth.CapActivityManage, handler: http.HandlerFunc(s.screenTelemetry)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.screenActivity)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/compliance", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.playbackCompliance)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/incidents", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.listIncidents)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/incidents/analytics", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.incidentAnalytics)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/incidents/{id}", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.getIncident)},
+		{method: http.MethodPatch, contractPath: "/api/v1/activity/incidents/{id}", capability: auth.CapActivityManage, handler: s.requireCSRF(http.HandlerFunc(s.updateIncident))},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/retention", capability: auth.CapActivityManage, handler: http.HandlerFunc(s.getActivityRetention)},
+		{method: http.MethodPatch, contractPath: "/api/v1/activity/retention", capability: auth.CapActivityManage, handler: s.requireCSRF(http.HandlerFunc(s.updateActivityRetention))},
 	}
 }
 
@@ -89,7 +94,7 @@ func (s *server) activityRoutes(next http.Handler) http.Handler {
 				if r.Method != http.MethodGet && r.Method != http.MethodHead {
 					scope = "write"
 				}
-				handler = s.requireUser(s.requireScope(scope)(handler))
+				handler = s.requireUser(s.requireCapability(route.capability)(s.requireScope(scope)(handler)))
 			}
 			handler.ServeHTTP(w, r)
 			return

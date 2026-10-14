@@ -12,7 +12,11 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createMemoryRouter } from "react-router";
 import { FormDataSourcePage } from "./FormDataSourcePage";
-import { StudioSessionProvider, i18n } from "@tilecast/studio/testing";
+import {
+  StudioSessionProvider,
+  i18n,
+  testStudioSession,
+} from "@tilecast/studio/testing";
 import { ApprovalsPage } from "./ApprovalsPage";
 import { formsApi } from "./api";
 import { ApiError } from "@tilecast/studio";
@@ -44,18 +48,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function testSession(role = "viewer") {
-  return {
-    csrfToken: "tok",
-    role,
-    canManage: role === "owner" || role === "administrator",
-    authenticated: true,
-    setupRequired: false,
-    isLoading: false,
-    isSubmitting: false,
-    logout: () => Promise.resolve(),
-  };
-}
+const testSession = testStudioSession;
 
 const workflow: FormWorkflow = {
   states: [

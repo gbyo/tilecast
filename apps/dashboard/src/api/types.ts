@@ -6,11 +6,19 @@ export type BrowserLaunch =
   components["schemas"]["BrowserLaunchResponse"]["data"];
 export type BrowserScreenInput = components["schemas"]["BrowserScreenRequest"];
 
+/** A built-in role key. Custom role keys start with "custom.". */
+export type BuiltinRole =
+  "owner" | "administrator" | "editor" | "contributor" | "viewer";
+
 export type User = {
   id: string;
   name: string;
   username: string;
-  role: "owner" | "administrator" | "editor" | "contributor" | "viewer";
+  /**
+   * The account's role key: a built-in role or a custom one. Decide what an
+   * account may do from AuthStatus.capabilities, never from this value.
+   */
+  role: string;
   active: boolean;
   createdAt: string;
   lastLoginAt?: string;
@@ -26,6 +34,8 @@ export type AuthStatus = {
   setupRequired: boolean;
   authenticated: boolean;
   user?: User;
+  /** Effective capabilities of the account's live role. */
+  capabilities?: string[];
   csrfToken?: string;
   /** A session sign-in factor, or the bearer kind when the caller used a grant. */
   authMethod?: AuthMethod | "pat" | "oauth";
@@ -60,6 +70,7 @@ export type MFAChallenge = {
 
 export type SessionResult = {
   user: User;
+  capabilities?: string[];
   csrfToken: string;
   authMethod?: AuthMethod;
   mfaEnrollmentRequired?: boolean;
@@ -1989,6 +2000,8 @@ export type ContentTag = {
   name: string;
   color: string;
   assetCount?: number;
+  /** On the tag list: whether the signed-in account may apply the tag. */
+  assignable?: boolean;
 };
 export type BulkOrganizeInput = {
   assetIds: string[];
@@ -3151,6 +3164,90 @@ export type ScreenScope = {
 export type ScreenScopes = {
   scopes: ScreenScope[];
   wholeFleet: boolean;
+};
+
+export type CapabilityGroup =
+  | "media"
+  | "widgets"
+  | "dataSources"
+  | "playlists"
+  | "layouts"
+  | "campaigns"
+  | "review"
+  | "screens"
+  | "schedules"
+  | "activity"
+  | "plugins"
+  | "administration";
+
+/** One entry of the server's closed capability vocabulary. */
+export type CapabilityDefinition = {
+  key: string;
+  group: CapabilityGroup;
+  requires: string[];
+  /** Held only by the built-in Owner role. */
+  ownerReserved: boolean;
+  /** False for capabilities that administer access itself. */
+  delegable: boolean;
+  /** Whether the signed-in account may put it in a custom role. */
+  grantable: boolean;
+};
+
+export type Role = {
+  key: string;
+  name: string;
+  description: string;
+  builtin: boolean;
+  capabilities: string[];
+  /** Active accounts on the role. */
+  userCount: number;
+  createdAt: string;
+  updatedAt: string;
+  /** The signed-in account may change or delete the role. */
+  editable: boolean;
+  /** The signed-in account may place accounts on the role. */
+  assignable: boolean;
+};
+
+export type RoleInput = {
+  name: string;
+  description: string;
+  capabilities: string[];
+};
+
+export type ContentAccessMode = "all" | "restricted";
+
+export type ContentAccessInput = {
+  libraryMode: ContentAccessMode;
+  tagMode: ContentAccessMode;
+  folderIds?: string[];
+  tagIds?: string[];
+};
+
+export type ContentGrant = { id: string; name: string; path?: string };
+
+export type UserContentAccess = {
+  policy: {
+    libraryMode: ContentAccessMode;
+    tagMode: ContentAccessMode;
+    folders: ContentGrant[];
+    tags: ContentGrant[];
+    /** False when the account has no policy yet and reaches no content. */
+    configured: boolean;
+  };
+  ownerUnrestricted: boolean;
+};
+
+/** The signed-in account's own role, capabilities, and content access. */
+export type MyAccess = {
+  role: { key: string; name: string; builtin: boolean };
+  capabilities: string[];
+  content: {
+    libraryMode: ContentAccessMode;
+    tagMode: ContentAccessMode;
+    /** Folders the account may upload into; absent for the whole library. */
+    writableFolderIds?: string[];
+  };
 };
 
 export type ScreenSnapshot = {

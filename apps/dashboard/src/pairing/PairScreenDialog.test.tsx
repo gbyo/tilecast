@@ -5,10 +5,15 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PairScreenDialog } from "./PairScreenDialog";
+import { builtinCapabilities } from "../test/capabilities";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
-    status: { csrfToken: "csrf", user: { role: "owner" } },
+    status: {
+      csrfToken: "csrf",
+      user: { role: "owner" },
+      capabilities: builtinCapabilities("owner"),
+    },
   }),
 }));
 

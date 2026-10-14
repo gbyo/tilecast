@@ -27,6 +27,7 @@ import { StudioRoutesProvider } from "@/navigation/studioRoutes";
 import { DashboardShell } from "@/pages/Dashboard";
 import { useNavigationWarning } from "@/settings/useNavigationWarning";
 import { NativeHostProvider } from "./NativeHostProvider";
+import { builtinCapabilities } from "../test/capabilities";
 
 const auth = vi.hoisted(() => ({
   logout: vi.fn(() => Promise.resolve()),
@@ -50,6 +51,7 @@ vi.mock("@/auth/AuthProvider", () => ({
         active: true,
         createdAt: "",
       },
+      capabilities: builtinCapabilities("owner"),
     },
   }),
 }));
