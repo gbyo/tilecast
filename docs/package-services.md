@@ -6,6 +6,26 @@ contract: the inventory, the operation shapes, the transport, the
 contexts, and the guest SDK. The manifest side lives in [Extension
 packages](packages.md).
 
+## External artifact qualification
+
+The Wasm integration suite can read a third-party OCI layout and a scenario
+from that package's repository. Set `TILECAST_EXTERNAL_PACKAGE_FIXTURE` to the
+layout directory and `TILECAST_EXTERNAL_PACKAGE_SCENARIO` to its JSON scenario.
+Run `go test -race ./internal/extensions/wasm -run TestExternalPackageFixture`
+from `apps/server` with `TEST_DATABASE_URL` set. The configured database role
+must create temporary databases. The test uses the real verifier, catalog,
+guest VM, dispatcher, storage, state service, and realtime scheduler. Network
+responses come from the scenario. Package-specific parsing stays in the guest.
+
+The original draft compatibility range must refuse installation. A temporary
+test artifact uses a local compatible range to exercise execution. This test
+variant is never a published artifact or a compatibility claim. Scenario
+steps can exercise UI calls, job outcomes, targeting, update, rollback,
+removal, and reinstall. `@screen0`, `@screen1`, `@screen2`, `@group`, and
+`@location` bind to test records. `@time:<milliseconds>` binds a source time
+relative to the current host time. JSON assertions compare requested fields;
+target assertions check all three screens.
+
 ## Inventory
 
 The service registry (`internal/extensions/services`) owns the supported
