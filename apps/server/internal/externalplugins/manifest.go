@@ -79,7 +79,7 @@ func (s *Service) ManifestForScreen(ctx context.Context, screen uuid.UUID) ([]En
 		}
 		state, err := normalizeState(item.state)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		entries = append(entries, Entry{ID: item.id, Type: "external_plugin", Version: 1, DefinitionVersion: item.definitionVersion,
 			Package: Package{PackageID: item.pkg, PackageDigest: item.digest, ContributionID: item.id, Frame: Frame{SHA256: payload.FrameSHA256Hex, FileSize: payload.FrameSize, DownloadPath: "/api/v1/player/packages/" + item.pkg + "/plugins/" + nested + "/frame"}},

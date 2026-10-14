@@ -6,12 +6,12 @@ import (
 )
 
 func TestStateStructuralAndEncodingBounds(t *testing.T) {
-	for _, raw := range []string{`null`, `[]`, `true`, `{"x":1} {}`, `{"x":1e9999}`, `{"x":"` + strings.Repeat("a", MaxStateBytes) + `"}`, strings.Repeat(`{"x":`, 18) + `0` + strings.Repeat(`}`, 18)} {
+	for _, raw := range []string{`null`, `[]`, `true`, `{"x":1} {}`, `{"x":1e9999}`, `{"x":1e300}`, `{"x":1E2}`, `{"x":1.5e-3}`, `{"x":"` + strings.Repeat("a", MaxStateBytes) + `"}`, strings.Repeat(`{"x":`, 18) + `0` + strings.Repeat(`}`, 18)} {
 		if _, err := normalizeState([]byte(raw)); err == nil {
 			t.Fatalf("invalid state accepted: %.40s", raw)
 		}
 	}
-	if _, err := normalizeState([]byte(`{"count":0,"greeting":null}`)); err != nil {
+	if _, err := normalizeState([]byte(`{"count":0,"ratio":1.5,"greeting":null}`)); err != nil {
 		t.Fatal(err)
 	}
 	// PostgreSQL's JSONB output includes spaces; canonical wire size is the
