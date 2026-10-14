@@ -239,6 +239,7 @@ pub(crate) fn prepare(activation: &Activation, clock_offset_ms: i64) -> Result<R
         .frames
         .iter()
         .map(|reference| player_core::VerifiedFrameRef {
+            kind: reference.kind,
             package_id: reference.package_id.clone(),
             package_digest: reference.package_digest,
             sha256: reference.sha256,
@@ -432,6 +433,7 @@ impl RendererPort for EdgeRendererPort {
                     .frames()
                     .iter()
                     .map(|frame| edge_protocol::ipc::presentation::FrameRef {
+                        kind: frame.kind,
                         package_id: frame.package_id.clone(),
                         package_digest: frame.package_digest,
                         sha256: frame.sha256,
@@ -902,6 +904,7 @@ mod tests {
         let package = Sha256Digest::parse(&"e".repeat(64)).unwrap();
         let document = Sha256Digest::parse(&"f".repeat(64)).unwrap();
         let claim = player_core::VerifiedFrameRef {
+            kind: player_types::frames::FrameKind::Widget,
             package_id: SafeText::new("acme.athletics").unwrap(),
             package_digest: package,
             sha256: document,

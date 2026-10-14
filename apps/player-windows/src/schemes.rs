@@ -172,10 +172,14 @@ pub fn parse_request_url(url: &str) -> Option<SchemeRequest> {
 /// The response headers for one served frame document: the shared MIME
 /// type and sandbox policy, no sniffing, no ranges, no store.
 pub fn frame_response_headers(size_bytes: u64) -> String {
+    frame_response_headers_for(size_bytes, player_types::frames::FrameKind::Widget)
+}
+
+pub fn frame_response_headers_for(size_bytes: u64, kind: player_types::frames::FrameKind) -> String {
     format!(
-        "Content-Type: {}\r\nContent-Length: {size_bytes}\r\n{}\r\nX-Content-Type-Options: nosniff\r\nAccept-Ranges: none\r\nCache-Control: no-store\r\n",
+        "Content-Type: {}\r\nContent-Length: {size_bytes}\r\nContent-Security-Policy: {}\r\nX-Content-Type-Options: nosniff\r\nAccept-Ranges: none\r\nCache-Control: no-store\r\n",
         player_types::frames::FRAME_MIME_TYPE,
-        player_types::frames::FRAME_CSP_HEADER,
+        kind.response_policy(),
     )
 }
 
