@@ -22,11 +22,13 @@ def repo_root():
     return os.path.normpath(os.path.join(here, "..", "..", "..", ".."))
 
 
-def load_template():
-    path = os.path.join(repo_root(), "apps", "server", "internal", "extensions", "sandbox", "frame.gen.go")
+def load_template(external_plugin=False):
+    filename = "plugin_frame.gen.go" if external_plugin else "frame.gen.go"
+    constant = "PluginTemplate" if external_plugin else "Template"
+    path = os.path.join(repo_root(), "apps", "server", "internal", "extensions", "sandbox", filename)
     with open(path, encoding="utf-8") as handle:
         source = handle.read()
-    match = re.search(r'const Template = "(.*)"\n', source, re.DOTALL)
+    match = re.search(r'const ' + constant + r' = "(.*)"\n', source, re.DOTALL)
     if not match:
         raise AssertionError("frame template literal not found")
     literal = match.group(1)
@@ -37,16 +39,17 @@ def load_template():
     return literal.replace("\\n", "\n").replace('\\"', '"')
 
 
-def assemble(bundle):
-    template = load_template()
-    if template.count(PLACEHOLDER) != 1:
+def assemble(bundle, external_plugin=False):
+    template = load_template(external_plugin)
+    placeholder = "__TILECAST_EXTERNAL_PLUGIN_BUNDLE__" if external_plugin else PLACEHOLDER
+    if template.count(placeholder) != 1:
         raise AssertionError("frame template must hold exactly one bundle slot")
-    return template.replace(PLACEHOLDER, CLOSER.sub(r"<\\/script", bundle), 1)
+    return template.replace(placeholder, CLOSER.sub(r"<\\/script", bundle), 1)
 
 
 def main():
     bundle = sys.stdin.read()
-    sys.stdout.write(assemble(bundle))
+    sys.stdout.write(assemble(bundle, "--external-plugin" in sys.argv[1:]))
 
 
 if __name__ == "__main__":

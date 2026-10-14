@@ -266,6 +266,11 @@ const rules = [
       "cli",
     ],
   ],
+  // Surface ABI fixtures run on the Runtime and each native host.
+  [
+    /^packages\/package-sdk\/test-fixtures\/player-surface-probe\.js$/,
+    ["protocol", "player_core"],
+  ],
   [/^packages\/package-sdk\//, ["plugins", "server", "docs"]],
   // The reference Wasm guest SDK and its Hello Services sample ride the
   // package lanes: plugins validates the sample manifest, and the server
