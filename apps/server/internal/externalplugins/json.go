@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"strconv"
+	"strings"
 )
 
 // normalizeState bounds both source and canonical encoding. A depth/node
@@ -45,6 +46,11 @@ func normalizeState(raw json.RawMessage) (json.RawMessage, error) {
 				}
 			}
 		case json.Number:
+			// PostgreSQL jsonb stores exponents as expanded digits, so a short
+			// literal such as 1e300 would reread far beyond the size limit.
+			if strings.ContainsAny(string(value), "eE") {
+				return fmt.Errorf("%w: numbers must not use exponent notation", ErrInvalid)
+			}
 			n, err := strconv.ParseFloat(string(value), 64)
 			if err != nil || math.IsInf(n, 0) || math.IsNaN(n) {
 				return fmt.Errorf("%w: number is not finite", ErrInvalid)
