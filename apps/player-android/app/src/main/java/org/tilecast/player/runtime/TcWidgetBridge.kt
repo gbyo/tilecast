@@ -24,12 +24,18 @@ object TcWidgetBridge {
             "img-src data: tcmedia:; media-src data: tcmedia:; font-src data: tcmedia:; " +
             "connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
 
+    const val PLUGIN_SANDBOX_POLICY =
+        "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; " +
+            "img-src 'none'; media-src 'none'; font-src 'none'; connect-src 'none'; " +
+            "worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+
     data class ResolvedFrame(
         val statusCode: Int,
         val reason: String,
         val contentLength: Long,
         val contentRange: String?,
         val file: File?,
+        val policy: String = SANDBOX_POLICY,
     )
 
     fun resolve(
@@ -41,17 +47,19 @@ object TcWidgetBridge {
         val frame = FrameAuthorization.authorize(rawUri, authorized) ?: return null
         val file = localFiles[frame.frameToken]?.let(::File)?.takeIf { it.isFile } ?: return null
         val length = file.length()
+        if (frame.sizeBytes != null && frame.sizeBytes != length) return null
+        val policy = if (frame.kind == FrameAuthorization.Kind.EXTERNAL_PLUGIN) PLUGIN_SANDBOX_POLICY else SANDBOX_POLICY
         if (!rangeHeader.isNullOrBlank()) {
             return ResolvedFrame(416, "Range Not Satisfiable", 0, "bytes */$length", null)
         }
-        return ResolvedFrame(200, "OK", length, null, file)
+        return ResolvedFrame(200, "OK", length, null, file, policy)
     }
 
     fun responseHeaders(resolved: ResolvedFrame): Map<String, String> {
         val headers = mutableMapOf(
             "Content-Length" to resolved.contentLength.toString(),
             "Content-Type" to "text/html",
-            "Content-Security-Policy" to SANDBOX_POLICY,
+            "Content-Security-Policy" to resolved.policy,
             "X-Content-Type-Options" to "nosniff",
             "Accept-Ranges" to "none",
             "Cache-Control" to "no-store",
