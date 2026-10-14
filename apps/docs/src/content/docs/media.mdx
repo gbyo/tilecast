@@ -30,6 +30,18 @@ If the browser loses its connection during an upload, select the original file a
 
 The default maximum upload size is 10 GiB per file. An administrator can change it with `TILECAST_MAX_UPLOAD_BYTES` on the server.
 
+## Know what happens to the uploaded file
+
+Tilecast inspects every Ready asset and chooses a Player-compatible variant. For video, the conservative playback format is MP4 with H.264 video in `yuv420p` and AAC-LC audio. A video that already matches the configured playback profile can keep its original bytes; otherwise Tilecast remuxes or transcodes it. The default video ceiling is 1920 × 1080 at 60 frames per second. Server administrators can change that ceiling with `TILECAST_VIDEO_MAX_WIDTH`, `TILECAST_VIDEO_MAX_HEIGHT`, and `TILECAST_VIDEO_MAX_FRAME_RATE`.
+
+A MOV, WebM, or MKV file can therefore be accepted even when its original codec is not a safe Player format, as long as the server's FFmpeg installation can read it and prepare the compatible variant. Do not use the upload container list as a promise that every codec inside those containers plays directly. When you need a predictable source file before upload, export H.264, `yuv420p`, AAC-LC in MP4.
+
+GIF images stay GIFs for playback. Tilecast doesn't rewrite their animation timing. If exact motion timing matters across different Player engines, export the animation as a video instead.
+
+Tilecast also doesn't rotate a JPEG from its EXIF orientation tag into new image pixels. Export portrait or rotated artwork in its final pixel orientation before upload when the direction must be exact on every display.
+
+Uploading the same completed file again creates another Media asset. Tilecast stores a checksum for verification, but it doesn't merge separate uploads by checksum. Resuming the same interrupted upload session is different: it continues that upload instead of creating a second asset.
+
 <Screenshot
   src={screenshot}
   darkSrc={darkScreenshot}
@@ -65,7 +77,9 @@ In an asset's details, set **Available from** to delay when it can be used. Set 
 
 ## Archive or delete an asset
 
-Use **Archive** to remove an asset from the active library while keeping it available to restore. You can restore archived or expired assets from **Archive**. Tilecast blocks archiving an asset that's used by a Playlist, Layout, or shared configuration; remove those references first.
+Use **Archive** to remove an asset from the active library while keeping it available to restore. You can restore archived or expired assets from **Archive**. Restoring an item whose expiry time has already passed clears that past expiry, so a published Playlist or Layout that still references the asset can use it again after Players receive the updated manifest. You don't need to republish the presentation only to make that same asset eligible again.
+
+Tilecast blocks archiving an asset that's used by a Playlist, Layout, or shared configuration; remove those references first.
 
 In **Archive**, select **Delete permanently** to remove an asset and its stored media. This can't be undone, and Tilecast won't delete an asset that is still in use. If Studio reports a reference, remove it before trying again.
 

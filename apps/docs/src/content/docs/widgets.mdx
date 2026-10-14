@@ -94,6 +94,12 @@ secondary fields to keep the title readable. Event Scroller requires a Player
 version that supports its component. See the [Event Scroller contract](https://github.com/gbyo/tilecast/blob/main/docs/widgets-v2.md#event-scroller)
 for the exact time and movement rules.
 
+**Scroll speed** is an authored speed level, not a promise that every TV will move the same number of physical pixels on every refresh. The animation is time-based, but display refresh rate, browser engine, other playback work, and device performance can change how smooth it looks. Reduced-motion playback stops the scrolling instead of slowing it down.
+
+There is no one pixel breakpoint shared by every Widget. Each Widget adapts to its own bounds and may hide secondary fields or change arrangement at different sizes. Use **Wide strip**, **Tall sidebar**, **Small zone**, or **Custom size** in the live preview at the dimensions you plan to use instead of designing around a universal breakpoint.
+
+Tilecast's built-in Widgets use the bundled Tilecast typeface and the styles exposed by that Widget. They do not load an arbitrary uploaded font or Google Font. Layout text has its own small built-in font list; see [Build a Layout](../layouts/#plan-for-canvas-size-and-tv-edges).
+
 ### Save your Widget
 
 An Owner, Administrator, or Editor can create and edit Widgets.
@@ -183,6 +189,16 @@ Studio saves the Widget first. Then it captures the Widget's thumbnail, no matte
 Some Widgets are built for a shape. The Ticker and Alert Banner are wide, shallow strips. When you add such a Widget to a [Layout](../layouts/), its placement starts with that shape instead of a 16:9 box, and you can resize it as usual. Existing Layouts don't change.
 
 When a content manager opens **Widgets**, Studio checks the full library for missing or outdated thumbnails in the background. Search and provider filters do not limit this check, and Studio captures one Widget at a time.
+
+## Countdown recurrence
+
+A repeating Countdown keeps the selected local wall time in its configured IANA timezone. Weekly recurrence therefore stays at the same local time across daylight-saving changes. Monthly and yearly recurrence clamps a date that does not exist in the target month to that month's last valid day. For example, a yearly countdown set for February 29 uses February 28 in a non-leap year, and a monthly countdown set for the 31st uses the last day of a shorter month.
+
+## Chart values and axes
+
+Chart treats missing or non-numeric values as gaps instead of zero. Bars leave the missing bar empty; lines and areas break at the gap. The value axis comes from the finite values unless you set explicit minimum and maximum bounds. An invalid pair where the minimum is at or above the maximum is ignored, and an all-equal range expands so the chart can still draw it.
+
+Axis ticks use up to five rounded steps. Small ranges keep enough decimal places to avoid duplicate labels, while values of 10,000 or more use compact notation such as `10K` when the Widget locale supports it. Data labels and ticks follow the Widget's regional locale.
 
 ## Choose a Clock style
 
