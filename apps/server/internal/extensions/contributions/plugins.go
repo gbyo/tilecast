@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
@@ -16,31 +17,50 @@ import (
 	externalplugin "github.com/tilecast/tilecast/packages/package-sdk/go/plugin"
 )
 
-// CurrentPluginPayload refreshes a stale catalog after a lifecycle change on
-// another Server replica. Verified retained bytes are preferred to a pull.
-func (s *Service) CurrentPluginPayload(ctx context.Context, packageID, nestedID string, epoch uuid.UUID) (PluginPayload, bool, error) {
+// pluginRefreshInterval spaces the background refreshes that unknown
+// epochs may start, so a stream of stale requests costs one rebuild.
+const pluginRefreshInterval = 30 * time.Second
+
+// CurrentPluginPayload answers from the catalog snapshot and never rebuilds
+// it: callers hold the package execution lock, which a pull must not wait
+// under. An epoch the snapshot loaded or rejected is a final answer. An
+// unknown epoch means another Server replica changed the package lifecycle,
+// so the answer is negative now and a throttled background refresh makes the
+// next request succeed.
+func (s *Service) CurrentPluginPayload(_ context.Context, packageID, nestedID string, epoch uuid.UUID) (PluginPayload, bool, error) {
 	if payload, ok := s.PluginPayload(packageID, nestedID); ok && payload.ExecutionEpoch == epoch {
 		return payload, true, nil
 	}
-	if snapshot := s.payloads.Load(); snapshot != nil && snapshot.epochs[packageID] == epoch {
+	if epoch == uuid.Nil {
 		return PluginPayload{}, false, nil
 	}
-	err := s.RebuildLocal(ctx)
-	if !SkipsOnly(err) {
-		return PluginPayload{}, false, err
-	}
-	if payload, ok := s.PluginPayload(packageID, nestedID); ok && payload.ExecutionEpoch == epoch {
-		return payload, true, nil
-	}
-	if snapshot := s.payloads.Load(); snapshot != nil && snapshot.epochs[packageID] == epoch {
+	if snapshot := s.payloads.Load(); snapshot != nil && (snapshot.epochs[packageID] == epoch || snapshot.skipped[packageID] == epoch) {
 		return PluginPayload{}, false, nil
 	}
-	err = s.Rebuild(ctx)
-	if !SkipsOnly(err) {
-		return PluginPayload{}, false, err
+	s.refreshInBackground()
+	return PluginPayload{}, false, nil
+}
+
+// refreshInBackground recomposes the catalog outside any request. It may
+// pull package bytes, so it runs detached with its own deadline.
+func (s *Service) refreshInBackground() {
+	if !s.refreshing.CompareAndSwap(false, true) {
+		return
 	}
-	payload, ok := s.PluginPayload(packageID, nestedID)
-	return payload, ok && payload.ExecutionEpoch == epoch, nil
+	now := time.Now().UnixNano()
+	if now-s.lastRefresh.Load() < int64(pluginRefreshInterval) {
+		s.refreshing.Store(false)
+		return
+	}
+	s.lastRefresh.Store(now)
+	go func() {
+		defer s.refreshing.Store(false)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		if err := s.Rebuild(ctx); !SkipsOnly(err) {
+			s.logger.Warn("external plugin catalog refresh failed", "error", err)
+		}
+	}()
 }
 
 // PluginPayload is verified catalog metadata, separate from bundled types.
