@@ -250,19 +250,22 @@ test("the package guest SDK and samples ride the package lanes", () => {
     ["docs"],
   );
 });
-test("external plugin entry fixture changes reach every native host", () => {
-  const external = affected([
+test("external plugin contract fixtures reach every native host", () => {
+  for (const path of [
     "packages/manifest-schema/external-plugin-entry-fixture.json",
-  ]);
-  for (const area of [
-    "android",
-    "windows",
-    "runtime",
-    "edge_rust",
-    "edge_wpe",
-    "player_core",
-  ])
-    assert.equal(external[area], true, area);
+    "packages/package-sdk/test-fixtures/player-surface-probe.js",
+  ]) {
+    const external = affected([path]);
+    for (const area of [
+      "android",
+      "windows",
+      "runtime",
+      "edge_rust",
+      "edge_wpe",
+      "player_core",
+    ])
+      assert.equal(external[area], true, `${path}: ${area}`);
+  }
 });
 test("external Widget fixture changes reach every host and shared SDK", () => {
   for (const path of [

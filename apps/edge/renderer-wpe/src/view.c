@@ -18,6 +18,7 @@
 #include "host.h"
 #include "validate.h"
 #include "remote-web.h"
+#include "frame-navigation.h"
 
 #include <glib/gstdio.h>
 #include <string.h>
@@ -430,6 +431,11 @@ tc_view_create (TcHost *host, GError **error)
   webkit_settings_set_javascript_can_open_windows_automatically (settings, FALSE);
 
   WebKitUserContentManager *manager = webkit_user_content_manager_new ();
+  if (!tc_frame_navigation_install (manager, error)) {
+    g_object_unref (settings);
+    g_object_unref (manager);
+    return FALSE;
+  }
   static const char *const allow[] = { "tilecast://runtime/index.html", NULL };
   static const char *const world = "tilecast-native";
   g_autoptr (WebKitUserScript) native_script = webkit_user_script_new_for_world (

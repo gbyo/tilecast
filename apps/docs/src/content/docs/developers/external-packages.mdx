@@ -45,6 +45,8 @@ Request `plugin-runtime.state@1` to save operator configuration and publish expi
 
 The Player frame receives a corrected clock, motion and presentation hints, and its surface grants. It gets no Player credentials, network, parent DOM, or native bridge. Follow the [external Player plugin contract](https://github.com/gbyo/tilecast/blob/main/docs/external-player-plugins.md) for the descriptor, state operations, frame handshake, and compatibility requirements.
 
+The WPE contributor test `apps/edge/renderer-wpe/ci/run-e2e.sh external-plugin` exercises a verified surface alongside native video playback. It checks preview pixels, sandbox isolation, state refresh, corrupt frame rejection, and removal without another presentation activation. A separate engine test checks document navigation with a negative control. The surface test enables the private channel in a temporary Runtime copy; it does not enable production capability reporting or establish Windows, Android, or operating system sandbox qualification.
+
 ## Request Player operations
 
 The `players.display-control@1` service exposes one method per Player Capability operation, for example `display.power`. A call carries the target `screenId` and the operation `input`. The server verifies the target screen reports the matching capability before queueing anything through the ordinary Player command path. Guests never name a command type.

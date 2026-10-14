@@ -17,6 +17,11 @@ cargo build --locked -p tilecastd -p tilecastctl
 cmake -S renderer-wpe -B /target/renderer -G Ninja -DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON >/dev/null
 cmake --build /target/renderer
 ctest --test-dir /target/renderer --output-on-failure
+WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 /target/renderer/test-frame-navigation
+if WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 /target/renderer/test-frame-navigation --without-filter; then
+  echo "frame navigation negative control unexpectedly passed" >&2
+  exit 1
+fi
 cmake -S web-renderer-wpe -B /target/web-renderer -G Ninja -DTILECAST_ALLOW_UNSANDBOXED_WEBKIT=ON >/dev/null
 cmake --build /target/web-renderer
 ctest --test-dir /target/web-renderer --output-on-failure
@@ -27,6 +32,7 @@ cmake --build /target/bridge
 ctest --test-dir /target/bridge --output-on-failure
 runtime=/target/runtime
 renderer-wpe/assemble-runtime.sh "$runtime"
+if [[ "$scenario" != external-plugin ]]; then
 python3 renderer-wpe/tests/e2e_headless.py \
   --bin-dir "$CARGO_TARGET_DIR/debug" \
   --renderer /target/renderer/tilecast-renderer-wpe \
@@ -34,3 +40,12 @@ python3 renderer-wpe/tests/e2e_headless.py \
   --gst-plugin-dir /target/renderer/gstreamer-1.0 \
   --web-helper /target/web-renderer/tilecast-web-renderer-wpe \
   --scenario "$scenario"
+fi
+if [[ "$scenario" == all || "$scenario" == external-plugin ]]; then
+  WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 \
+    python3 renderer-wpe/tests/e2e_external_plugins.py \
+      --bin-dir "$CARGO_TARGET_DIR/debug" \
+      --renderer /target/renderer/tilecast-renderer-wpe \
+      --runtime-dir "$runtime" \
+      --gst-plugin-dir /target/renderer/gstreamer-1.0
+fi

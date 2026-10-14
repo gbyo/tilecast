@@ -350,6 +350,15 @@ the previous set. Removed grants drain without changing presentation grants.
 The iframe port ends on navigation, and native policy refuses non-grant
 frame URLs before a request is sent.
 
+WPE compiles a fixed document filter before it loads the Runtime.
+The filter denies Runtime documents in child frames.
+It denies a new document load from a current package frame, including a reload
+or a different live grant. Initial loads can share the same verified frame.
+Filter compilation failure prevents view startup.
+The headless navigation test checks scheme reads before and after hostile
+navigations. Its negative control removes only the test view's filter.
+The production renderer has no filter bypass.
+
 The renderer reads media only through `tcmedia://`, and only for objects that the current activation or plugin state lists, with the declared size. It never receives a directory to browse and never receives a path from the page. The target is a daemon-owned media capability channel: `tilecastd` grants short-lived per-activation capabilities and serves the bytes itself, so the renderer needs no filesystem access to the CAS at all.
 
 ### 10.4 Evidence and compatibility

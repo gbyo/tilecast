@@ -55,6 +55,7 @@ add_executable(tilecast-renderer-wpe
   src/protocol.c
   src/schemes.c
   src/remote-web.c
+  src/frame-navigation.c
   src/view.c)
 target_link_libraries(tilecast-renderer-wpe PRIVATE tilecast-preview-pixels tilecast-media-client tilecast-rw-protocol tilecast-rw-channel PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO PkgConfig::GST PkgConfig::DRM m)
 
@@ -97,3 +98,8 @@ install(TARGETS tilecast-renderer-wpe RUNTIME DESTINATION bin)
 # shared conformance fixtures under WPE WebKit headless.
 add_executable(tilecast-runtime-conformance tests/conformance.c)
 target_link_libraries(tilecast-runtime-conformance PRIVATE tilecast-validate PkgConfig::WPE PkgConfig::JSONGLIB PkgConfig::GIO)
+
+# Real-engine navigation qualification; never installed in a release.
+add_executable(test-frame-navigation tests/test_frame_navigation.c src/frame-navigation.c)
+target_include_directories(test-frame-navigation PRIVATE src)
+target_link_libraries(test-frame-navigation PRIVATE PkgConfig::WPE PkgConfig::GIO)

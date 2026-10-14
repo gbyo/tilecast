@@ -194,3 +194,11 @@ release that contains all required host support.
 Do not infer this version from a development build or a platform version file.
 Native hosts must not report the capability before they implement the complete
 verification, grant, navigation, and sandbox contract.
+
+The WPE headless surface test enables the private frame channel in a test-only
+Runtime copy. It checks captured surface pixels, private ABI inputs, denied
+DOM and native bridge access, state refresh, and surface removal.
+It rejects corrupt replacements and checks blocked network attempts.
+It checks video evidence and the unchanged presentation generation.
+The document navigation test checks that no replacement document is served.
+These tests do not qualify the operating system process sandbox or other hosts.
