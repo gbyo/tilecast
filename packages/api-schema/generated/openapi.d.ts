@@ -21662,7 +21662,11 @@ export interface operations {
   downloadPackagePluginFrame: {
     parameters: {
       query?: never;
-      header?: never;
+      header?: {
+        Range?: string;
+        "If-Range"?: string;
+        "If-None-Match"?: string;
+      };
       path: {
         /** @description Store package identifier such as countdown_bar. */
         packageId: components["parameters"]["PackageID"];
