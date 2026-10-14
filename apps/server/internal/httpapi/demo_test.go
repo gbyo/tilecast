@@ -34,7 +34,7 @@ func TestDemoRoutesDoNotExistOutsideDemoMode(t *testing.T) {
 func TestDemoResetRequiresOwnerAndCSRF(t *testing.T) {
 	s := &server{logger: slog.New(slog.DiscardHandler)}
 	reached := false
-	handler := s.requireRoles("owner")(s.requireCSRF(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := s.requireCapability(auth.CapSystemBackups)(s.requireCSRF(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		reached = true
 		w.WriteHeader(http.StatusOK)
 	})))

@@ -22,7 +22,7 @@ import {
 export function DisplayGroupDetailPage() {
   const { id = "" } = useParams();
   const auth = useAuth();
-  const manageable = canManageGroups(auth.status?.user?.role);
+  const manageable = canManageGroups(auth.status);
   const [addOpen, setAddOpen] = useState(false);
 
   const group = useQuery({

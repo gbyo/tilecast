@@ -48,6 +48,7 @@ import {
 import { Skeleton } from "../components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
+import { hasCapability } from "../auth/capabilities";
 
 export type { PlaylistPreviewItem } from "../api/types";
 
@@ -204,7 +205,7 @@ export function PlaylistLibraryPage() {
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
-  const canManage = auth.status?.user?.role !== "viewer";
+  const canManage = hasCapability(auth.status, "playlist.edit");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");

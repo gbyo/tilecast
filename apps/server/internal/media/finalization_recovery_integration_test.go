@@ -92,7 +92,7 @@ func TestUploadFinalizationRecoveryAcrossFailureBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	createAndFill := func(name string) Upload {
-		upload, createErr := service.CreateUpload(ctx, owner.User.ID, name, "image/png", int64(content.Len()))
+		upload, createErr := service.CreateUpload(ctx, owner.User.ID, FullAccess(owner.User.ID), nil, name, "image/png", int64(content.Len()))
 		if createErr != nil {
 			t.Fatal(createErr)
 		}

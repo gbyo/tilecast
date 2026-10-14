@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
@@ -493,7 +494,7 @@ func (d *Dispatcher) usersGet(ctx context.Context, call Call) (any, *Denial, *Ca
 	// Mirror the dashboard's user management boundary: only Owners and
 	// Administrators browse the directory from Studio. Background
 	// attribution runs under the install-time grant instead.
-	if failure := studioRole(call, "owner", "administrator"); failure != nil {
+	if failure := studioCapability(call, auth.CapUsersManage); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -533,7 +534,7 @@ func directoryUsers(users []plugin.DirectoryUser) []map[string]any {
 }
 
 func (d *Dispatcher) usersSearch(ctx context.Context, call Call) (any, *Denial, *CallError) {
-	if failure := studioRole(call, "owner", "administrator"); failure != nil {
+	if failure := studioCapability(call, auth.CapUsersManage); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -551,7 +552,7 @@ func (d *Dispatcher) usersSearch(ctx context.Context, call Call) (any, *Denial, 
 }
 
 func (d *Dispatcher) usersListByRole(ctx context.Context, call Call) (any, *Denial, *CallError) {
-	if failure := studioRole(call, "owner", "administrator"); failure != nil {
+	if failure := studioCapability(call, auth.CapUsersManage); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -560,9 +561,7 @@ func (d *Dispatcher) usersListByRole(ctx context.Context, call Call) (any, *Deni
 	if failure := decode(call.Input, &input); failure != nil {
 		return nil, nil, failure
 	}
-	switch input.Role {
-	case "owner", "administrator", "editor", "contributor", "viewer":
-	default:
+	if !auth.IsBuiltinRole(input.Role) && !auth.IsCustomRoleKey(input.Role) {
 		return nil, nil, invalidInput("role must be a Tilecast role")
 	}
 	users, err := d.deps.Shared.Users.ListByRole(ctx, input.Role)

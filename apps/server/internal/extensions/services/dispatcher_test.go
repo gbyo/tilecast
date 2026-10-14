@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
 
@@ -64,7 +65,7 @@ func TestCallDeniesBadContextAndActor(t *testing.T) {
 		t.Fatalf("missing actor denial = %+v", denial)
 	}
 	// Background calls never carry an actor.
-	actor := &Actor{UserID: uuid.New(), Role: "owner"}
+	actor := builtinActor("owner")
 	if _, denial, _ := dispatcher.Call(context.Background(), Call{Context: ContextBackground, Actor: actor, Grants: grants, Operation: "screens.read@1/list"}); denial == nil || denial.Kind != DenialInvalidActor {
 		t.Fatalf("background actor denial = %+v", denial)
 	}
@@ -81,9 +82,14 @@ func TestCallRejectsOversizeInput(t *testing.T) {
 	}
 }
 
-func TestStudioRolePolicy(t *testing.T) {
+func builtinActor(role string) *Actor {
+	capabilities, _ := auth.BuiltinCapabilities(role)
+	return &Actor{UserID: uuid.New(), Role: role, Capabilities: capabilities}
+}
+
+func TestStudioCapabilityPolicy(t *testing.T) {
 	dispatcher := testDispatcher()
-	viewer := &Actor{UserID: uuid.New(), Role: "viewer"}
+	viewer := builtinActor("viewer")
 	// Viewers may not browse the user directory from Studio.
 	if _, _, failure := dispatcher.Call(context.Background(), Call{
 		Context: ContextStudio, Actor: viewer,
@@ -101,12 +107,20 @@ func TestStudioRolePolicy(t *testing.T) {
 		t.Fatalf("viewer takeover cancel = %+v, want forbidden", failure)
 	}
 	// Contributors sit inside the content-author set for managed data.
-	contributor := &Actor{UserID: uuid.New(), Role: "contributor"}
-	if failure := studioRole(Call{Context: ContextStudio, Actor: contributor}, "owner", "administrator", "editor", "contributor"); failure != nil {
-		t.Fatalf("contributor managed role = %+v, want allowed", failure)
+	contributor := builtinActor("contributor")
+	if failure := studioCapability(Call{Context: ContextStudio, Actor: contributor}, auth.CapPlaylistEdit); failure != nil {
+		t.Fatalf("contributor managed capability = %+v, want allowed", failure)
 	}
-	if failure := studioRole(Call{Context: ContextStudio, Actor: viewer}, "owner", "administrator", "editor", "contributor"); failure == nil || failure.Code != ErrCodeForbidden {
-		t.Fatalf("viewer managed role = %+v, want forbidden", failure)
+	if failure := studioCapability(Call{Context: ContextStudio, Actor: viewer}, auth.CapPlaylistEdit); failure == nil || failure.Code != ErrCodeForbidden {
+		t.Fatalf("viewer managed capability = %+v, want forbidden", failure)
+	}
+	// A custom role is judged by its capabilities, never its name.
+	custom := &Actor{UserID: uuid.New(), Role: "custom.screen-operators", Capabilities: auth.NewCapabilitySet(auth.CapScreenRead, auth.CapScreenAssign)}
+	if failure := studioCapability(Call{Context: ContextStudio, Actor: custom}, auth.CapScreenAssign); failure != nil {
+		t.Fatalf("custom takeover capability = %+v, want allowed", failure)
+	}
+	if failure := studioCapability(Call{Context: ContextStudio, Actor: custom}, auth.CapUsersManage); failure == nil || failure.Code != ErrCodeForbidden {
+		t.Fatalf("custom directory capability = %+v, want forbidden", failure)
 	}
 }
 

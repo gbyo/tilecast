@@ -10,7 +10,9 @@ import type {
   AssetStatus,
   PlaylistItem,
   PlaylistItemInput,
+  AuthStatus,
 } from "../../api/types";
+import { hasCapability } from "../../auth/capabilities";
 
 export type PlaylistsT = TFunction<"playlists", undefined>;
 
@@ -19,8 +21,9 @@ export type PlaylistTransition = PlaylistItem["transition"] | "mixed";
 export type ImageDurationSummary =
   { kind: "value"; seconds: number } | { kind: "mixed" } | { kind: "player" };
 
-export function canManagePlaylists(role?: string) {
-  return role !== "viewer";
+/** The account may create playlists and change their drafts. */
+export function canManagePlaylists(status?: AuthStatus) {
+  return hasCapability(status, "playlist.edit");
 }
 
 export function openPlaylistPreview(id: string) {

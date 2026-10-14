@@ -21,6 +21,7 @@ import {
   layoutPublicationState,
   LayoutsPage,
 } from "./LayoutsPage";
+import { builtinCapabilities } from "../test/capabilities";
 
 const t = i18n.getFixedT("en", "layouts");
 
@@ -29,6 +30,7 @@ vi.mock("../auth/AuthProvider", () => ({
     status: {
       csrfToken: "csrf-token",
       user: { role: "owner" },
+      capabilities: builtinCapabilities("owner"),
     },
   }),
 }));

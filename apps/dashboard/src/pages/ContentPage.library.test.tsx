@@ -15,12 +15,14 @@ import { api } from "../api/client";
 import type { Asset } from "../api/types";
 import { toast } from "../components/ui/toast";
 import { ContentPage } from "./ContentPage";
+import { builtinCapabilities } from "../test/capabilities";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
     status: {
       csrfToken: "csrf",
       user: { id: "u1", role: "owner" },
+      capabilities: builtinCapabilities("owner"),
     },
   }),
 }));

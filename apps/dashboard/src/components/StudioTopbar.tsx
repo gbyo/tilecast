@@ -24,6 +24,12 @@ import {
   useNavigate,
   type RouteObject,
 } from "react-router";
+import {
+  requirementMet,
+  useCapabilities,
+  type Capabilities,
+  type CapabilityRequirement,
+} from "../auth/capabilities";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { api } from "../api/client";
@@ -74,10 +80,13 @@ type CommandResult = {
   score: number;
 };
 
-type CommandPermissions = {
-  canCreate: boolean;
-  canPair: boolean;
-  role?: User["role"];
+/** What the palette may offer: the signed-in account's capabilities. */
+type CommandPermissions = Pick<Capabilities, "can" | "canAny">;
+
+/** Every capability, for callers (and tests) that do not narrow results. */
+const unrestricted: CommandPermissions = {
+  can: () => true,
+  canAny: () => true,
 };
 
 type Breadcrumb = { label: string; to: string };
@@ -188,17 +197,20 @@ function routeGroup(to: string): CommandGroupName {
 function collectRouteResults(
   routes: readonly RouteObject[],
   t: NavigationT,
-  role?: User["role"],
+  permissions: CommandPermissions,
 ) {
   const results: (Omit<CommandResult, "score"> & { keywords?: string[] })[] =
     [];
   const seen = new Set<string>();
-  const visit = (route: RouteObject) => {
+  // A route is found only when the account can open it: the same stacked
+  // requirement the sidebar and the route guard read.
+  const visit = (route: RouteObject, inherited: CapabilityRequirement) => {
     const handle = studioRouteHandle(route);
+    const requirement: CapabilityRequirement = handle.capabilities
+      ? [...inherited, handle.capabilities]
+      : inherited;
     const item = handle.search;
-    const canDiscoverRoute =
-      !handle.searchAllowedRoles ||
-      (role !== undefined && handle.searchAllowedRoles.includes(role));
+    const canDiscoverRoute = requirementMet(requirement, permissions);
     if (item && canDiscoverRoute && !seen.has(item.to)) {
       seen.add(item.to);
       results.push({
@@ -213,9 +225,9 @@ function collectRouteResults(
         keywords: item.keywords,
       });
     }
-    route.children?.forEach(visit);
+    route.children?.forEach((child) => visit(child, requirement));
   };
-  routes.forEach(visit);
+  routes.forEach((route) => visit(route, []));
   return results;
 }
 
@@ -235,7 +247,7 @@ const actionKeywords = {
 function collectActionResults(t: NavigationT, permissions: CommandPermissions) {
   const results: (Omit<CommandResult, "score"> & { keywords?: string[] })[] =
     [];
-  if (permissions.canPair) {
+  if (permissions.can("screen.pair")) {
     results.push({
       id: "action:pair-screen",
       label: t("palette.actions.pairScreen.label"),
@@ -246,45 +258,49 @@ function collectActionResults(t: NavigationT, permissions: CommandPermissions) {
       keywords: [...actionKeywords.pairScreen],
     });
   }
-  if (permissions.canCreate) {
-    results.push(
-      {
-        id: "action:upload-media",
-        label: t("palette.actions.uploadMedia.label"),
-        description: t("palette.actions.uploadMedia.description"),
-        action: "upload-media",
-        category: "quickActions",
-        Icon: Upload,
-        keywords: [...actionKeywords.uploadMedia],
-      },
-      {
-        id: "action:create-playlist",
-        label: t("palette.actions.createPlaylist.label"),
-        description: t("palette.actions.createPlaylist.description"),
-        to: "/playlists?create=1",
-        category: "quickActions",
-        Icon: ListVideo,
-        keywords: [...actionKeywords.createPlaylist],
-      },
-      {
-        id: "action:create-layout",
-        label: t("palette.actions.createLayout.label"),
-        description: t("palette.actions.createLayout.description"),
-        to: "/layouts?create=1",
-        category: "quickActions",
-        Icon: Layers3,
-        keywords: [...actionKeywords.createLayout],
-      },
-      {
-        id: "action:create-schedule",
-        label: t("palette.actions.createSchedule.label"),
-        description: t("palette.actions.createSchedule.description"),
-        to: "/schedules/new",
-        category: "quickActions",
-        Icon: CalendarClock,
-        keywords: [...actionKeywords.createSchedule],
-      },
-    );
+  if (permissions.can("media.upload")) {
+    results.push({
+      id: "action:upload-media",
+      label: t("palette.actions.uploadMedia.label"),
+      description: t("palette.actions.uploadMedia.description"),
+      action: "upload-media",
+      category: "quickActions",
+      Icon: Upload,
+      keywords: [...actionKeywords.uploadMedia],
+    });
+  }
+  if (permissions.can("playlist.edit")) {
+    results.push({
+      id: "action:create-playlist",
+      label: t("palette.actions.createPlaylist.label"),
+      description: t("palette.actions.createPlaylist.description"),
+      to: "/playlists?create=1",
+      category: "quickActions",
+      Icon: ListVideo,
+      keywords: [...actionKeywords.createPlaylist],
+    });
+  }
+  if (permissions.can("layout.edit")) {
+    results.push({
+      id: "action:create-layout",
+      label: t("palette.actions.createLayout.label"),
+      description: t("palette.actions.createLayout.description"),
+      to: "/layouts?create=1",
+      category: "quickActions",
+      Icon: Layers3,
+      keywords: [...actionKeywords.createLayout],
+    });
+  }
+  if (permissions.can("schedule.edit")) {
+    results.push({
+      id: "action:create-schedule",
+      label: t("palette.actions.createSchedule.label"),
+      description: t("palette.actions.createSchedule.description"),
+      to: "/schedules/new",
+      category: "quickActions",
+      Icon: CalendarClock,
+      keywords: [...actionKeywords.createSchedule],
+    });
   }
   return results;
 }
@@ -317,7 +333,7 @@ export function buildCommandResults(
   routes: readonly RouteObject[],
   screens: Screen[],
   query: string,
-  permissions: CommandPermissions = { canCreate: true, canPair: true },
+  permissions: CommandPermissions = unrestricted,
   plugins: PluginSummary[] = [],
   t: NavigationT,
 ) {
@@ -325,9 +341,13 @@ export function buildCommandResults(
     { id: "actions", results: () => collectActionResults(t, permissions) },
     {
       id: "routes",
-      results: () => collectRouteResults(routes, t, permissions.role),
+      results: () => collectRouteResults(routes, t, permissions),
     },
-    { id: "plugins", results: () => collectPluginResults(t, plugins) },
+    {
+      id: "plugins",
+      results: () =>
+        permissions.can("plugins.use") ? collectPluginResults(t, plugins) : [],
+    },
     {
       id: "screens",
       results: () =>
@@ -505,33 +525,28 @@ function CommandPalette({
   onUpload,
   routes,
   screens,
-  canCreate,
-  canPair,
-  role,
 }: {
   open: boolean;
   onClose: () => void;
   onUpload: () => void;
   routes: readonly RouteObject[];
   screens: Screen[];
-  canCreate: boolean;
-  canPair: boolean;
-  role?: User["role"];
 }) {
   const navigate = useNavigate();
   const { t } = useTranslation(["navigation", "common"]);
   const [query, setQuery] = useState("");
+  const capabilities = useCapabilities();
   // Read only while searching; the catalog is shared with the Plugins page.
   const plugins = useQuery({
     queryKey: pluginsQueryKey,
     queryFn: api.plugins,
-    enabled: open,
+    enabled: open && capabilities.can("plugins.use"),
   });
   const results = buildCommandResults(
     routes,
     screens,
     query,
-    { canCreate, canPair, role },
+    capabilities,
     plugins.data?.items ?? [],
     t,
   );
@@ -661,14 +676,15 @@ export function StudioTopbar({
     breadcrumbs,
     Boolean(nativeNavigation),
   );
+  const capabilities = useCapabilities();
+  // Screen search reads the fleet, which a role without screen access cannot.
   const screens = useQuery({
     queryKey: ["screens"],
     queryFn: api.screens,
     refetchInterval: 10_000,
+    enabled: capabilities.can("screen.read"),
   });
   const notifications = useNotifications(user);
-  const canPair = user?.role === "owner" || user?.role === "administrator";
-  const canCreate = user?.role !== "viewer";
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -715,9 +731,6 @@ export function StudioTopbar({
         onUpload={() => setUploadOpen(true)}
         routes={routes}
         screens={screens.data?.items ?? []}
-        canCreate={canCreate}
-        canPair={canPair}
-        role={user?.role}
       />
       <MediaUploadDialog
         open={uploadOpen}
