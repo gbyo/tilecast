@@ -5,9 +5,23 @@ import (
 	"testing"
 
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
+	externalplugin "github.com/tilecast/tilecast/packages/package-sdk/go/plugin"
 )
+
+func TestRenderReviewIncludesVerifiedSurfacePermissions(t *testing.T) {
+	resolution := pipeline.Resolution{Manifest: packagemanifest.Manifest{Contributions: []packagemanifest.Contribution{{Type: "plugin", Path: "./plugin"}}}}
+	nested := []packages.NestedContribution{{Kind: "plugin", Path: "./plugin", ID: "acme.surface.corner", PluginRuntime: &externalplugin.Runtime{Surfaces: []string{"corner.bottom-left"}, Tier: "ambient"}}}
+	review, err := renderReview(resolution, installer.InstalledPackage{}, false, nested)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(review.Contributions) != 1 || review.Contributions[0].PlayerRuntime == nil || review.Contributions[0].PlayerRuntime.Tier != "ambient" {
+		t.Fatalf("review lacks verified permissions: %+v", review)
+	}
+}
 
 func TestRenderReviewIncludesRuntimeCapabilities(t *testing.T) {
 	storage := true

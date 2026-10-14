@@ -179,6 +179,14 @@ joins the content catalog.
 
 ## Player bundle delivery
 
+Reviews of plugin contributions read their descriptors from the verified
+artifact. Studio shows the allowed Player surfaces and priority tier. The
+extracted descriptor must match its authenticated layer bytes. Custom package
+activation also checks the reviewed runtime, capability requests, and
+contribution list against the published manifest. A changed permission fails
+the cross-check. Marketplace listings provide identity only; their verified
+artifact supplies execution permissions before review.
+
 A Widget contribution may ship an execution bundle at the fixed path
 `runtime/index.js` inside the package. The pipeline records the bundle SHA-256
 and size in the contribution snapshot at install time; a Widget presentation
