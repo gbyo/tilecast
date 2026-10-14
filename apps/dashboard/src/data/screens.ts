@@ -2,13 +2,22 @@ import { queryOptions } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { archivedScreens } from "../api/archivedScreens";
 import { getScreenPlaybackPlan } from "../api/domains/playbackPlan";
-import type { User } from "../api/types";
+import type { AuthStatus } from "../api/types";
+import { hasCapability } from "../auth/capabilities";
 
 export const SCREEN_STATUS_REFRESH_MS = 10_000;
 
-/** Owners and administrators manage screens and pairing credentials. */
-export const canManageScreens = (user?: User) =>
-  user?.role === "owner" || user?.role === "administrator";
+/** The account may change screen settings, commands, and maintenance. */
+export const canManageScreens = (status?: AuthStatus) =>
+  hasCapability(status, "screen.manage");
+
+/** The account may approve new players and revoke their credentials. */
+export const canPairScreens = (status?: AuthStatus) =>
+  hasCapability(status, "screen.pair");
+
+/** The account may choose what plays: assignments, takeovers, AirPlay. */
+export const canAssignScreens = (status?: AuthStatus) =>
+  hasCapability(status, "screen.assign");
 
 // Preserve the released keys while consumers migrate to this owner. The
 // root also remains the prefix for fleet-wide mutation invalidation.

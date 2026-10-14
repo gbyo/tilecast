@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import type { ScheduleListParams } from "../api/types";
+import type { ScheduleListParams, AuthStatus } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useNow } from "../components/overview/format";
 import { ScheduleResults } from "../components/schedules/ScheduleResults";
@@ -19,16 +19,17 @@ import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
 import { defaultScheduleListParams, scheduleQueries } from "../data/schedules";
 import { useCompactLayout } from "../hooks/use-compact-layout";
+import { hasCapability } from "../auth/capabilities";
 
-const canManage = (role?: string) =>
-  role === "owner" || role === "administrator";
+const canManage = (status?: AuthStatus) =>
+  hasCapability(status, "schedule.edit");
 
 export function SchedulesPage() {
   const auth = useAuth();
   const { t } = useTranslation("schedules");
   const compact = useCompactLayout();
   const now = useNow();
-  const manager = canManage(auth.status?.user?.role);
+  const manager = canManage(auth.status);
   const { requestDelete, deleting, dialog } = useScheduleDeletion();
   // Search, every facet, and the sort are all server inputs and all restart
   // paging, so they travel together as the query's params.

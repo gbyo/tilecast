@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/execution"
 	"github.com/tilecast/tilecast/apps/server/internal/externalplugins"
@@ -38,7 +39,7 @@ func (d *Dispatcher) externalPluginState(ctx context.Context, call Call) (any, *
 		invocation.ActorRole = call.Actor.Role
 	}
 	if call.Operation != "plugin-runtime.state@1/get" {
-		if failure := studioRole(call, "owner", "administrator"); failure != nil {
+		if failure := studioCapability(call, auth.CapPluginsManage); failure != nil {
 			return nil, nil, failure
 		}
 	}

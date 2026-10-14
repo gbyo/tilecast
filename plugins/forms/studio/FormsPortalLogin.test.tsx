@@ -3,7 +3,10 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider, Outlet } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StudioSessionProvider } from "@tilecast/studio/testing";
+import {
+  StudioSessionProvider,
+  testStudioSession,
+} from "@tilecast/studio/testing";
 import { FormsPortalShell } from "./FormsPortalPage";
 
 afterEach(() => {
@@ -14,14 +17,9 @@ afterEach(() => {
 describe("Forms portal sign-in", () => {
   it("returns a signed-out visitor to the exact page they asked for", () => {
     const session = {
+      ...testStudioSession("viewer"),
       csrfToken: "",
-      role: "viewer",
-      canManage: false,
       authenticated: false,
-      setupRequired: false,
-      isLoading: false,
-      isSubmitting: false,
-      logout: () => Promise.resolve(),
     };
     const router = createMemoryRouter(
       [

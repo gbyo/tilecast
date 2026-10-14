@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/execution"
 	"github.com/tilecast/tilecast/apps/server/internal/externalplugins"
 
@@ -54,6 +55,9 @@ const (
 type Actor struct {
 	UserID uuid.UUID
 	Role   string
+	// Capabilities is the actor's live role authority, resolved by the host
+	// for the request that started the call.
+	Capabilities auth.CapabilitySet
 }
 
 // Call is one authorized-or-not service invocation from a guest.
@@ -333,19 +337,17 @@ func decode(input []byte, out any) *CallError {
 	return nil
 }
 
-// studioRole enforces the dashboard role policy for studio-context
-// mutations. Background calls are authorized by the install-time grant
-// itself, so they never reach here.
-func studioRole(call Call, roles ...string) *CallError {
+// studioCapability enforces the dashboard capability policy for
+// studio-context mutations. Background calls are authorized by the
+// install-time grant itself, so they never reach here.
+func studioCapability(call Call, capability auth.Capability) *CallError {
 	if call.Context != ContextStudio || call.Actor == nil {
 		return nil
 	}
-	for _, role := range roles {
-		if call.Actor.Role == role {
-			return nil
-		}
+	if call.Actor.Capabilities.Has(capability) {
+		return nil
 	}
-	return forbidden("this operation requires a different Studio role")
+	return forbidden("this operation requires a capability the Studio role does not grant")
 }
 
 var errOutOfScope = errors.New("outside the account's screen scope")

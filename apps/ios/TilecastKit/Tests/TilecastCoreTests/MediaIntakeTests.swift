@@ -138,6 +138,20 @@ extension StubbedHTTPTests {
             #expect(await waitUntil { coordinator.items.allSatisfy { $0.state == .completed } })
         }
 
+        @Test func putsEveryFileInTheFolderStudioChose() async throws {
+            let folder = try #require(UUID(uuidString: "6f1d0a52-3b7c-4e9a-8d21-5c4b3a29e108"))
+            #expect(coordinator.begin(MediaIntakeRequest(requestID: "mi-1", folderID: folder)))
+            coordinator.startTransfer([FixtureSource(name: "one.jpg"), FixtureSource(name: "two.mov")])
+            #expect(await waitUntil { coordinator.phase == .finished })
+
+            let created = StubProtocol.requests.filter { $0.method == "POST" && $0.url.path == "/api/v1/uploads" }
+            #expect(created.count == 2)
+            for request in created {
+                let body = try #require(request.body.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] })
+                #expect(body["folderId"] as? String == "6f1d0a52-3b7c-4e9a-8d21-5c4b3a29e108", "no file is created outside the folder")
+            }
+        }
+
         @Test func aFailedItemDoesNotStopTheOthers() async throws {
             #expect(coordinator.begin(request()))
             coordinator.startTransfer([FixtureSource(name: "bad.jpg", fails: true), FixtureSource(name: "good.jpg")])

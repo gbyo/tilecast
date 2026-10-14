@@ -1489,6 +1489,18 @@
         }
       }
     },
+    "Your role can’t upload media.": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "Tu rol no puede subir contenido multimedia." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Ваша роль не позволяет загружать медиафайлы." } }
+      }
+    },
+    "You don’t have access to upload into this folder.": {
+      "localizations": {
+        "es": { "stringUnit": { "state": "translated", "value": "No tienes acceso para subir archivos a esta carpeta." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "У вас нет доступа к загрузке в эту папку." } }
+      }
+    },
     "Couldn’t Sign In": {
       "localizations": {
         "es": { "stringUnit": { "state": "translated", "value": "No se pudo iniciar sesión" } },
