@@ -16,7 +16,7 @@ const (
 	MaxPlayerStateDepth   = 16
 	MaxPlayerStateValues  = 2048
 	MaxPlayerStateMedia   = 16
-	MaxPlayerStateEntries = 32
+	MaxPlayerStateEntries = 64
 	// MaxPlayerStateLifetime bounds ValidUntil so a cached manifest cannot
 	// keep stale state for long; plugins that need longer state omit it.
 	MaxPlayerStateLifetime = 366 * 24 * time.Hour

@@ -24,8 +24,11 @@ func CheckDeclarations(p Plugin) error {
 	_, projectsManifest := p.(ManifestProjector)
 	_, projectsState := p.(PlayerStateProjector)
 	if m.APIVersion >= 2 {
-		if projectsManifest {
-			return fail("implements the Plugin API 1 ManifestProjector; a Plugin API 2 plugin projects Player state with PlayerStateProjector")
+		if projectsManifest && (m.Player == nil || len(m.Player.V1ManifestTypes) == 0) {
+			return fail("implements the Plugin API 1 ManifestProjector without declaring player.v1ManifestTypes; a Plugin API 2 plugin projects Player state with PlayerStateProjector")
+		}
+		if m.Player != nil && len(m.Player.V1ManifestTypes) > 0 && !projectsManifest {
+			return fail("declares player.v1ManifestTypes but does not implement ManifestProjector for Players without Plugin API 2")
 		}
 		if projectsState && m.Player == nil {
 			return fail("projects Player state without declaring a player contribution")

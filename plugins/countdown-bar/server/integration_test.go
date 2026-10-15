@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"testing"
@@ -95,6 +96,23 @@ func TestLifecycleTargetingAndManifest(t *testing.T) {
 	}
 	if others := h.Manifest(other); len(others) != 1 || others[0].Config.(server.ManifestConfig).Name != "All screens" {
 		t.Fatalf("untargeted manifest = %#v", others)
+	}
+
+	// A Player that hosts Plugin API 2 receives the same instances as
+	// plugin_state, with the v1 configuration as the state.
+	states := h.PlayerState(targeted)
+	if len(states) != len(entries) {
+		t.Fatalf("v2 state = %#v, v1 entries = %d", states, len(entries))
+	}
+	for index, state := range states {
+		if state.Type != "plugin_state" || state.Plugin != "countdown_bar" || state.StateType != server.ManifestType ||
+			state.StateVersion != 1 || state.ID != entries[index].ID {
+			t.Fatalf("state %d = %#v", index, state)
+		}
+		config, _ := json.Marshal(entries[index].Config)
+		if string(state.State) != string(config) {
+			t.Fatalf("state %d is not the v1 configuration:\n%s\n%s", index, state.State, config)
+		}
 	}
 
 	// A disabled instance leaves the manifest; every change revises it.

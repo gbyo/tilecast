@@ -9,8 +9,10 @@
 // RemovalGuard.
 //
 // Plugin API v2 keeps every Server contribution interface. A v2 plugin that
-// has Player behavior implements PlayerStateProjector instead of the v1
-// ManifestProjector; a v2 plugin without Player behavior implements neither.
+// has Player behavior implements PlayerStateProjector. It also implements the
+// v1 ManifestProjector only when it declares player.v1ManifestTypes, for
+// Players that do not host Plugin API v2. A v2 plugin without Player
+// behavior implements neither.
 //
 // Plugins depend on this package and on stable third-party libraries (pgx,
 // uuid). They never import Tilecast Server internals; the Go toolchain
@@ -73,7 +75,9 @@ type RouteProvider interface {
 
 // ManifestProjector contributes Player manifest entries for one screen. The
 // host calls it only while the plugin is installed. Every entry type must be
-// listed in the manifest's runtime.manifestTypes.
+// listed in the manifest's runtime.manifestTypes, or, for a Plugin API 2
+// plugin, in player.v1ManifestTypes; the host then calls it only for Players
+// that do not report the Plugin API 2 host.
 type ManifestProjector interface {
 	ProjectManifest(ctx context.Context, screenID uuid.UUID) ([]ManifestEntry, error)
 }

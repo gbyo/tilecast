@@ -61,7 +61,7 @@ The graph uses the same stored dependency records and assignment tables as playb
 
 ## Countdown Bar
 
-Countdown Bar was the first built-in plugin. An installation can create multiple instances, each with its own name, message, schedule, lead time, optional completion text and confetti, display mode, height, horizontal padding, text size, background countdown, urgency stages, enabled state, priority, and targets.
+Countdown Bar was the first built-in plugin. It is a [Plugin API v2](plugin-api-v2.md) plugin: a Player that reports `plugin.host@2` receives each instance as `plugin_state`, and every other Player receives the same instance as a `countdown_bar@1` entry. One Shared Runtime implementation draws both. It has two visual contributions on the `scheduled` tier: the bar in `strip.bottom` and the confetti in `overlay`. An installation can create multiple instances, each with its own name, message, schedule, lead time, optional completion text and confetti, display mode, height, horizontal padding, text size, background countdown, urgency stages, enabled state, priority, and targets.
 
 Weekly instances use an IANA timezone, a wall-clock target time, and one or more days where Sunday is `0` and Saturday is `6`. One-time instances use an absolute RFC 3339 target. A bar is active from its configured lead time until the target. When completion text is configured, it replaces the countdown message and value for one minute after the target; otherwise the bar hides at zero. Optional confetti falls from the top for several seconds when the selected countdown reaches zero, independently of whether completion text keeps the bar visible. Reduced-motion settings suppress the effect where the platform exposes that preference. If active instances overlap, the Player shows the highest priority instance, then the earliest target, then the stable instance ID.
 
@@ -110,7 +110,7 @@ Its configuration endpoints predate the plugin catalog and are unchanged, under 
 
 ## Player behavior
 
-The manifest's optional `plugins` array can contain `countdown_bar@1` and `alert_ticker@1`. Players cache the timing rules and evaluate them locally while offline. A Player safely ignores an unimplemented or retired entry in an older cached manifest.
+The manifest's optional `plugins` array can contain `countdown_bar@1` and `alert_ticker@1`, and, for a Player that hosts Plugin API v2, Countdown Bar `plugin_state` entries instead of `countdown_bar@1`. Players cache the timing rules and evaluate them locally while offline. A Player safely ignores an unimplemented or retired entry in an older cached manifest.
 
 Emergency Alerts takes the strip ahead of Countdown Bar. An alert ticker expires at its `expiresAt` even when the Player is offline. Plugin presentation uses a separate renderer channel and does not restart the underlying playlist item or proof-of-play session. Overlay mode places a bar over content; push mode insets the content stage while leaving its media mounted.
 

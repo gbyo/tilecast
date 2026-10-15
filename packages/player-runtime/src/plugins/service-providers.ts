@@ -3,6 +3,7 @@
  * one plugin at a time; disposing the binding releases timers, listeners,
  * claims, and containers. Nothing here knows a plugin by identity.
  */
+import type { SurfaceSlot } from "@tilecast/plugin-sdk/runtime";
 import type {
   PlayerClockService,
   PlayerMediaRef,
@@ -161,6 +162,7 @@ export interface SurfaceArbiter {
     spec: SurfaceContributionSpec,
     render: (grant: PlayerSurfaceGrant) => void,
     report: (message: string) => void,
+    describe?: (slot: SurfaceSlot) => string,
   ): SurfaceContributionBinding | null;
 }
 
@@ -180,7 +182,7 @@ export function surfaceService(options: {
       const open = new Map<string, SurfaceContributionBinding>();
       return {
         api: {
-          open(contributionId, render) {
+          open(contributionId, render, describe) {
             const declared = context.declaration.surfaces.find(
               (surface) => surface.id === contributionId,
             );
@@ -199,6 +201,7 @@ export function surfaceService(options: {
               (grant) => context.guard(() => render(grant)),
               (message) =>
                 context.report(`surface ${contributionId}: ${message}`),
+              describe,
             );
             if (!binding) return null;
             open.set(contributionId, binding);
