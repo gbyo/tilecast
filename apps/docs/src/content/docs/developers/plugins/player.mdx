@@ -7,7 +7,7 @@ A plugin's Player behavior has two halves: the server projects **Player state** 
 
 The shared Player Runtime runs the same `runtime/index.ts` on Tilecast Edge, Windows, Android, and the Browser Player. Each Player reports what it supports, so your plugin never checks which platform it's on. See the [Player Runtime contract](https://github.com/gbyo/tilecast/blob/main/docs/player-runtime.md) for the host boundary.
 
-This page covers Plugin API v2. The plugins that ship with Tilecast today use [Plugin API v1](#plugin-api-v1-surfaces), described at the end.
+This page covers Plugin API v2. Countdown Bar is the shipped example. Emergency Alerts still uses [Plugin API v1](#plugin-api-v1-surfaces), described at the end.
 
 ## Project Player state
 
@@ -24,7 +24,7 @@ func (p *Plugin) ProjectPlayerState(ctx context.Context, screen uuid.UUID) ([]pl
 
 When the data changes, use `Host.Manifests` to revise the affected screens, the same way as any other plugin. A state change reaches the Player without restarting the playlist, video, or Layout on screen.
 
-Players that don't host Plugin API v2 never receive the state, so you don't need to guard against older Players.
+Players that don't host Plugin API v2 never receive the state. If you're moving an existing v1 plugin, list its old entry types in `player.v1ManifestTypes` and keep its `ManifestProjector`: those Players then get the v1 entries, and the host hands them to your v2 code as state, so one implementation serves every Player. Countdown Bar works this way.
 
 ## Write the Player code
 
@@ -94,6 +94,6 @@ Put runtime styles in `runtime/*.css`. Every selector starts with the plugin sco
 
 ## Plugin API v1 surfaces
 
-Countdown Bar and Emergency Alerts use Plugin API v1. A v1 plugin implements `plugin.ManifestProjector` with types listed in `runtime.manifestTypes`, declares `runtime.surfaces` and one `runtime.tier`, and default-exports `defineRuntimePlugin(...)` with `mount`, `update`, `render`, and `dispose`. The host calls `update` about once a second and on every change. Use `@tilecast/plugin-sdk/runtime/testing` for a manual clock in tests.
+Emergency Alerts uses Plugin API v1. A v1 plugin implements `plugin.ManifestProjector` with types listed in `runtime.manifestTypes`, declares `runtime.surfaces` and one `runtime.tier`, and default-exports `defineRuntimePlugin(...)` with `mount`, `update`, `render`, and `dispose`. The host calls `update` about once a second and on every change. Use `@tilecast/plugin-sdk/runtime/testing` for a manual clock in tests.
 
 v1 keeps working unchanged. New plugins should use v2.

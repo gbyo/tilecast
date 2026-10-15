@@ -58,6 +58,9 @@ import {
 /** How often the host evaluates when nothing else asks it to. */
 export const SURFACE_TICK_MS = 1_000;
 
+/** How long a closed v2 contribution's containers stay for their exit. */
+export const SURFACE_EXIT_MS = 1_000;
+
 /** Containers are created in this order, which is also paint order. */
 const SLOT_ORDER: readonly SurfaceSlot[] = [
   "strip.top",
@@ -133,6 +136,7 @@ interface Attached {
   claims: ValidClaim[];
   render(grant: SurfaceGrant): void;
   report(message: string): void;
+  describe?: (slot: SurfaceSlot) => string;
 }
 
 export interface SurfaceHostDescription {
@@ -295,7 +299,8 @@ export class RuntimeSurfaceHost {
       let text = "";
       try {
         text = attached
-          ? describeText(attached.containers.get(slot) ?? null)
+          ? (attached.describe?.(slot) ??
+            describeText(attached.containers.get(slot) ?? null))
           : (hosted?.instance?.describe?.(slot) ??
             describeText(hosted?.containers.get(slot) ?? null));
       } catch (error) {
@@ -343,6 +348,7 @@ export class RuntimeSurfaceHost {
     spec: SurfaceContributionSpec,
     render: (grant: SurfaceGrant) => void,
     report: (message: string) => void,
+    describe?: (slot: SurfaceSlot) => string,
   ): SurfaceContributionBinding | null {
     const id = `${spec.owner}/${spec.contribution}`;
     if (this.stopped || this.attached.has(id)) return null;
@@ -355,6 +361,7 @@ export class RuntimeSurfaceHost {
       claims: [],
       render,
       report,
+      ...(describe ? { describe } : {}),
     };
     for (const slot of SLOT_ORDER) {
       if (!attached.slots.includes(slot)) continue;
@@ -390,8 +397,14 @@ export class RuntimeSurfaceHost {
       },
       close: () => {
         if (!live()) return;
-        this.detach(attached);
+        this.attached.delete(id);
+        attached.claims = [];
+        for (const container of attached.containers.values()) {
+          container.classList.remove("tc-surface--granted");
+        }
         this.request(null);
+        // The containers stay long enough for an exit transition.
+        this.timers.after(SURFACE_EXIT_MS, () => this.detach(attached));
       },
     };
   }

@@ -104,6 +104,10 @@ type PlayerEntry struct {
 	State   []PlayerStateDeclaration `json:"state"`
 	Runtime *PlayerRuntimeEntry      `json:"runtime,omitempty"`
 	Native  []NativeContribution     `json:"native,omitempty"`
+	// V1ManifestTypes are Plugin API v1 entry types the plugin still projects
+	// with ManifestProjector for Players that do not host Plugin API v2. Its
+	// Shared Runtime contribution consumes them too.
+	V1ManifestTypes []string `json:"v1ManifestTypes,omitempty"`
 }
 
 type PlayerStateDeclaration struct {
@@ -174,8 +178,8 @@ func (m Manifest) StudioRoute() string {
 }
 
 // ManifestTypes lists the Player manifest entry types the plugin owns: the
-// v1 runtime.manifestTypes, or the distinct v2 player.state types. Both
-// versions share one namespace.
+// v1 runtime.manifestTypes, or the distinct v2 player.state types and
+// player.v1ManifestTypes. Both versions share one namespace.
 func (m Manifest) ManifestTypes() []string {
 	if m.Runtime != nil {
 		return append([]string(nil), m.Runtime.ManifestTypes...)
@@ -185,11 +189,17 @@ func (m Manifest) ManifestTypes() []string {
 	}
 	var types []string
 	seen := map[string]bool{}
-	for _, state := range m.Player.State {
-		if !seen[state.Type] {
-			seen[state.Type] = true
-			types = append(types, state.Type)
+	add := func(kind string) {
+		if !seen[kind] {
+			seen[kind] = true
+			types = append(types, kind)
 		}
+	}
+	for _, state := range m.Player.State {
+		add(state.Type)
+	}
+	for _, kind := range m.Player.V1ManifestTypes {
+		add(kind)
 	}
 	return types
 }

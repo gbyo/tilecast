@@ -390,6 +390,13 @@ const playerContribution = z
       .describe(
         "First-party native contributions compiled into Player builds. Platforms register them through typed Player Core interfaces.",
       ),
+    v1ManifestTypes: z
+      .array(z.string().regex(pluginIdPattern))
+      .max(8)
+      .default([])
+      .describe(
+        "Plugin API 1 manifest entry types the plugin still projects for Players that do not host Plugin API 2. Its Shared Runtime contribution also consumes them, so one implementation serves every Player.",
+      ),
   })
   .describe(
     "Player contribution. Omit it for a plugin that has no Player behavior.",
@@ -518,6 +525,16 @@ export function playerContributionProblems(
         problems.push(`runtime: surface ${surface.id} repeats a slot`);
     }
   }
+  const v1Types = player.v1ManifestTypes ?? [];
+  if (new Set(v1Types).size !== v1Types.length)
+    problems.push("v1ManifestTypes repeats a type");
+  for (const type of v1Types)
+    if ((reservedPlayerEntryTypes as readonly string[]).includes(type))
+      problems.push(`v1 manifest type ${type} is reserved`);
+  if (v1Types.length > 0 && !player.runtime)
+    problems.push(
+      "v1ManifestTypes needs a runtime contribution to consume the v1 entries",
+    );
   const nativeIds = new Set<string>();
   for (const contribution of native) {
     if (nativeIds.has(contribution.id))
@@ -530,13 +547,17 @@ export function playerContributionProblems(
 
 /**
  * Player manifest entry types the plugin owns: v1 `runtime.manifestTypes`,
- * or v2 `player.state` types. One namespace across every plugin.
+ * or v2 `player.state` types and `player.v1ManifestTypes`. One namespace
+ * across every plugin.
  */
 export function playerEntryTypes(manifest: PluginManifest): string[] {
   if (manifest.apiVersion === 1)
     return [...(manifest.runtime?.manifestTypes ?? [])];
   return [
-    ...new Set((manifest.player?.state ?? []).map((state) => state.type)),
+    ...new Set([
+      ...(manifest.player?.state ?? []).map((state) => state.type),
+      ...(manifest.player?.v1ManifestTypes ?? []),
+    ]),
   ];
 }
 
