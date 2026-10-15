@@ -87,7 +87,9 @@ In Plugin API v2, Player behavior is its own optional contribution. Leave out `p
 - `state` lists the Player state types the plugin's server projects and its Player behavior reads.
 - `runtime` is portable Player behavior in the Shared Runtime. `services` lists what it needs; a Player without a required service doesn't run it, and a missing optional service is just unavailable.
 - `surfaces` gives each visual contribution its own slots and tier. Only declare it when you request `player.surface@1`.
-- `native` lists first-party native contributions, each a Rust crate in `native/<id>/`.
+- `native` lists first-party native contributions, each a Rust crate in `native/<id>/`. The crate exports `contribution()`, and `plugins:generate` links it into the Player builds that include native plugins.
+- `events` lists the ephemeral events between your native part and your Shared Runtime part: a `name`, a `version`, and the `source` that raises it (`native` or `runtime`). Declare it with `player.events@1` and both parts.
+- `providers` (inside `runtime`) lists the presentation providers you offer with `player.presentation.provide@1`.
 
 Plugin API v1 plugins declare a `runtime` member with `manifestTypes`, `surfaces`, and one `tier` instead.
 

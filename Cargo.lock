@@ -1559,6 +1559,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "plugin-native-registry"
+version = "0.1.0"
+dependencies = [
+ "player-core",
+]
+
+[[package]]
 name = "portable-atomic"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2274,6 +2281,7 @@ dependencies = [
  "player-core",
  "player-state",
  "player-types",
+ "plugin-native-registry",
  "ring",
  "rusqlite",
  "rustix",
@@ -2309,6 +2317,7 @@ dependencies = [
  "player-core",
  "player-state",
  "player-types",
+ "plugin-native-registry",
  "ring",
  "serde",
  "serde_json",
@@ -2365,6 +2374,7 @@ dependencies = [
  "jiff",
  "player-core",
  "player-types",
+ "plugin-native-registry",
  "ring",
  "rusqlite",
  "rustix",

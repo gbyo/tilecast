@@ -33,6 +33,8 @@ GET /api/v1/player/manifest added the new `17.00` enum value to the `data/schema
 GET /api/v1/player/manifest added the new `18.00` enum value to the `data/schemaVersion` response property for the response status `200`: external Widget components; only Players reporting widget.external-runtime can select them, so older Players keep their earlier version.
 GET /api/v1/player/manifest added the new `19.00` enum value to the `data/schemaVersion` response property for the response status `200`: executable external Widget frames; only Players reporting widget.external-runtime@2 receive it.
 GET /api/v1/player/manifest added the new `20.00` enum value to the `data/schemaVersion` response property for the response status `200`: external plugin entries; only Players reporting plugin.external-runtime receive it, and every other Player keeps its earlier version.
+GET /api/v1/player/manifest added the new `21.00` enum value to the `data/schemaVersion` response property for the response status `200`: plugin state entries; only Players reporting plugin.host at version 2 receive it, and every other Player keeps its earlier version.
+GET /api/v1/player/manifest added `#/components/schemas/ManifestPluginState` to the `data/plugins/items/` response property `oneOf` list for the response status `200`: the plugin_state entry travels only in schema 21, which only Players reporting plugin.host at version 2 receive; every other Player keeps its earlier plugin entries.
 
 POST /api/v1/layouts added required request body: createLayout always decoded a details body.
 PATCH /api/v1/layouts/{id} added required request body: updateLayout always decoded a details body.

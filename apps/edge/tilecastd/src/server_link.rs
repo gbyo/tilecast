@@ -220,7 +220,7 @@ fn iso(ms: i64) -> Option<String> {
 /// committed and pending manifest versions, and what the renderer is actually
 /// showing and why.
 pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
-    let (renderer, current, current_item, remote_web_available, recovery) = {
+    let (renderer, current, current_item, remote_web_available, recovery, native_services) = {
         let presentation = context.presentation.lock().await;
         let (remote_web, connected, restarting) = presentation.remote_web();
         (
@@ -229,6 +229,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
             presentation.current_item(),
             connected && !restarting && remote_web.is_some_and(|status| status.available),
             presentation.recovery_report(),
+            presentation.native_plugin_capabilities(),
         )
     };
     let healthy = renderer.state.as_str() == "healthy"
@@ -270,6 +271,8 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
             player_core::shared_runtime_plugin_capabilities()
                 .map(|(name, version)| (name.to_owned(), serde_json::json!(version))),
         )
+        // Native services this build provides, reported as they are.
+        .chain(native_services.into_iter().map(|(name, version)| (name, serde_json::json!(version))))
         .collect();
     let mut heartbeat = serde_json::json!({
         "screenWidth": 0,

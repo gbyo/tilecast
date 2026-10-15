@@ -268,6 +268,9 @@
       // Runtime reports its Player Plugin Host and services. tilecastd
       // reports the same capabilities; the two must change together.
       pluginState: true,
+      // Plugin media is addressed by identity at tcmedia://variant/ and
+      // authorized by the aliases in the current plugin state.
+      variantMedia: true,
       // Edge shows the pulse logo outside active hours; other hosts omit this
       // and keep the Cast logo.
       outsideHoursLogo: "pulse",

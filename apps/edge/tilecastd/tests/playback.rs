@@ -1523,6 +1523,10 @@ async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     assert_eq!(heartbeat["nativePresentationCapabilities"]["plugin.external-runtime"], 1);
     assert_eq!(heartbeat["nativePresentationCapabilities"]["plugin.host"], 2);
     assert_eq!(heartbeat["nativePresentationCapabilities"]["player.surface"], 1);
+    assert_eq!(heartbeat["nativePresentationCapabilities"]["player.presentation.provide"], 1);
+    // Events need a transport and no native service exists, so neither is reported.
+    assert!(heartbeat["nativePresentationCapabilities"].get("player.events").is_none());
+    assert!(heartbeat["nativePresentationCapabilities"].get("player.reference.signal").is_none());
     assert_eq!(
         heartbeat["nativePresentationCapabilities"]["widget.external-runtime"],
         edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION

@@ -161,6 +161,21 @@ const rules = [
     /^packages\/manifest-schema\/external-plugin-entry-fixture\.json$/,
     ["protocol", "player_core"],
   ],
+  // The plugin state entry fixture is replayed by the server, the shared
+  // Runtime and plugin SDK, and every native host's frame-claim tests.
+  [
+    /^packages\/manifest-schema\/plugin-state-entry-fixture\.json$/,
+    ["protocol", "player_core", "server", "plugins", "runtime"],
+  ],
+  // The plugin event fixture and the Player service vocabulary are replayed
+  // by Player Core, the shared Runtime, and the plugin SDK.
+  [
+    /^packages\/player-contracts\/fixtures\/plugin-events\.json$/,
+    ["player_core", "plugins", "runtime"],
+  ],
+  // The generated native contribution registry is linked by every native
+  // Player host and regenerated from plugin manifests.
+  [/^packages\/plugin-native-registry\//, ["plugins", "player_core"]],
   // External Widget conformance fixtures are executed by the shared Widget
   // SDK and projected by the Runtime, then exercised by native hosts.
   // Keep each changed fixture on the relevant cross-player validation lanes.

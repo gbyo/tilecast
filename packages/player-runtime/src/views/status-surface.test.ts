@@ -55,3 +55,31 @@ describe("status-surface manual setup", () => {
     view.remove();
   });
 });
+
+describe("status-surface under a presentation provider", () => {
+  it("draws nothing while a provider owns the screen, and returns when it does not", async () => {
+    const view = document.createElement(
+      "tc-status-surface",
+    ) as unknown as StatusSurface;
+    view.presentation = { state: "external-presentation", provider: "a/b" };
+    document.body.append(view);
+    await view.updateComplete;
+    expect(view.visible).toBe(true);
+    expect(view.querySelector("#message")?.classList.contains("visible")).toBe(
+      true,
+    );
+
+    view.suppressed = true;
+    await view.updateComplete;
+    expect(view.visible).toBe(false);
+    expect(view.querySelector("#message")?.classList.contains("visible")).toBe(
+      false,
+    );
+
+    // A real problem is never hidden by a provider.
+    view.problem = "bridge unavailable";
+    await view.updateComplete;
+    expect(view.visible).toBe(true);
+    view.remove();
+  });
+});

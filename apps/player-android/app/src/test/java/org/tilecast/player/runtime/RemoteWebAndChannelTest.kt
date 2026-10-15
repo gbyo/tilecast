@@ -167,6 +167,18 @@ class HostChannelTest {
         assertTrue(script.contains("resolve({ok:true,target:message.result})"))
         assertFalse(script.contains("id:\"\""))
     }
+
+    @Test fun installScriptForwardsPluginStateAndAuthorizesVariantMedia() {
+        val script = HostChannel.installScript("0.25.0+", "WebView/1")
+        // The host replays the plugins message on subscribe, so a reloaded
+        // runtime resumes plugin state beside its presentation.
+        assertTrue(script.contains("pluginState:true"))
+        assertTrue(script.contains("variantMedia:true"))
+        assertTrue(script.contains("if(message.type===\"plugins\")lastPlugins=message;"))
+        assertTrue(script.contains("if(lastPlugins)listener(lastPlugins);"))
+        // No event transport exists, so the runtime must not offer player.events.
+        assertFalse(script.contains("pluginEvents"))
+    }
 }
 
 class RuntimeEvidenceRouterTest {

@@ -8,9 +8,11 @@
 import type { RuntimeClock } from "../clock/scheduler";
 import type { PluginsMessage } from "../host/contract";
 import type { DiscoveredRuntimePlugin } from "./discovery";
+import { PlayerEvents, type PlayerEventsOptions } from "./events";
 import { RuntimeSurfaceHost } from "./host";
 import type { DiscoveredPlayerPlugin } from "./player-discovery";
 import { PlayerPluginHost } from "./player-host";
+import { PresentationProviders } from "./presentation-providers";
 import {
   clockService,
   mediaService,
@@ -31,6 +33,8 @@ export interface PlayerPluginsOptions {
   diagnostic(pluginId: string, message: string): void;
   /** The host forwards Plugin API v2 `plugin_state` entries. */
   pluginState: boolean;
+  /** Present only when the host carries plugin events in both directions. */
+  pluginEvents?: PlayerEventsOptions["send"] | undefined;
   externalPluginFrames?: boolean;
   document?: Document;
 }
@@ -40,9 +44,21 @@ export class PlayerPlugins {
   readonly services: PlayerServiceRegistry;
   readonly host: PlayerPluginHost;
   readonly presentation = new PresentationObserver();
+  readonly providers: PresentationProviders;
+  readonly events: PlayerEvents | null;
   private clockOffsetMs = 0;
 
   constructor(options: PlayerPluginsOptions) {
+    this.providers = new PresentationProviders({
+      diagnostic: options.diagnostic,
+      ...(options.document ? { document: options.document } : {}),
+    });
+    this.events = options.pluginEvents
+      ? new PlayerEvents({
+          send: options.pluginEvents,
+          diagnostic: options.diagnostic,
+        })
+      : null;
     this.surfaces = new RuntimeSurfaceHost({
       clock: options.clock,
       plugins: options.runtimePlugins,
@@ -61,11 +77,13 @@ export class PlayerPlugins {
       }),
       mediaService({ resolve: options.mediaUrl }),
       this.presentation.provider(),
+      this.providers.provider(),
       surfaceService({
         surfaces: this.surfaces,
         reducedMotion: options.reducedMotion,
         animationScale: options.animationScale,
       }),
+      ...(this.events ? [this.events.provider()] : []),
     ]);
     this.host = new PlayerPluginHost({
       clock: options.clock,
@@ -100,6 +118,7 @@ export class PlayerPlugins {
   }
 
   stop(): void {
+    this.providers.clear();
     this.host.stop();
     this.surfaces.stop();
   }

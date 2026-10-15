@@ -267,6 +267,42 @@ test("external plugin contract fixtures reach every native host", () => {
       assert.equal(external[area], true, `${path}: ${area}`);
   }
 });
+test("the plugin state entry fixture reaches its server, SDK, and native consumers", () => {
+  const path = "packages/manifest-schema/plugin-state-entry-fixture.json";
+  const result = affected([path]);
+  for (const area of [
+    "server",
+    "plugins",
+    "android",
+    "windows",
+    "runtime",
+    "edge_rust",
+    "player_core",
+  ])
+    assert.equal(result[area], true, `${path}: ${area}`);
+});
+test("the native registry and the event fixture reach their consumers", () => {
+  for (const path of [
+    "packages/plugin-native-registry/Cargo.toml",
+    "packages/plugin-native-registry/src/lib.rs",
+  ]) {
+    const result = affected([path]);
+    for (const area of [
+      "plugins",
+      "player_core",
+      "android",
+      "windows",
+      "edge_rust",
+    ])
+      assert.equal(result[area], true, `${path}: ${area}`);
+    assert.equal(result.dashboard, false, path);
+  }
+  const events = affected([
+    "packages/player-contracts/fixtures/plugin-events.json",
+  ]);
+  for (const area of ["player_core", "plugins", "runtime", "windows"])
+    assert.equal(events[area], true, area);
+});
 test("the shared ABI constant and WPE bridge select the Runtime lane", () => {
   for (const path of [
     "crates/player-types/src/frames.rs",

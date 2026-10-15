@@ -18,6 +18,7 @@ import { checkAutomationFiles } from "./automation.ts";
 import { checkBoundaries } from "./boundaries.ts";
 import { checkCssScope } from "./css-scope.ts";
 import { generate, stale } from "./generate.ts";
+import { CONTRIBUTION_ENTRY } from "./native-registry.ts";
 import { COMPOSED_OPENAPI, CORE_OPENAPI } from "./openapi.ts";
 import {
   checkDerivedConformance,
@@ -438,6 +439,10 @@ function checkPlayerContribution(plugin: DiscoveredPlugin, add: Add) {
       );
       continue;
     }
+    if (!CONTRIBUTION_ENTRY.test(readCrateSource(plugin.path, id)))
+      add(
+        `native contribution ${id} must export pub fn contribution() -> Box<dyn NativePluginContribution> from src/lib.rs, which is what the generated registry calls`,
+      );
     const member = `plugins/${plugin.dir}/native/${id}`;
     if (workspace !== null && !workspace.includes(member))
       add(`native contribution ${id}: add ${member} to the Cargo workspace`);
@@ -456,6 +461,11 @@ function checkPlayerContribution(plugin: DiscoveredPlugin, add: Add) {
         add(`native/${name} exists but player.native does not declare it`);
     }
   }
+}
+
+function readCrateSource(pluginPath: string, id: string): string {
+  const lib = join(pluginPath, "native", id, "src", "lib.rs");
+  return existsSync(lib) ? readFileSync(lib, "utf8") : "";
 }
 
 /**

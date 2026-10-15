@@ -1,0 +1,52 @@
+{
+  "apiVersion": 2,
+  "id": "input_events",
+  "definitionVersion": 1,
+  "name": "Input Events",
+  "description": "A native input contribution that raises events for portable Shared Runtime behavior.",
+  "category": "Hardware",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "player": {
+    "state": [
+      {
+        "type": "input_events",
+        "version": 1
+      }
+    ],
+    "runtime": {
+      "entrypoint": "./runtime/index.ts",
+      "services": {
+        "required": ["player.events@1"]
+      }
+    },
+    "native": [
+      {
+        "id": "input",
+        "services": {
+          "required": [],
+          "optional": ["player.reference.signal@1"]
+        }
+      }
+    ],
+    "events": [
+      {
+        "name": "Button-Pressed",
+        "version": 1,
+        "source": "native"
+      },
+      {
+        "name": "ring_chime",
+        "version": 1,
+        "source": "runtime"
+      }
+    ]
+  }
+}

@@ -170,9 +170,15 @@ them up in its renderer feature list. Manifest validation accepts
 `plugin_state` only from schema 21, applies the Server's bounds, and makes
 each declared media variant a forced verified download. Hosts grant that
 media with `plugin_state_media`, as they grant other plugin media. Core also
-owns `NativePluginHost`: registration of first-party native contributions,
-service negotiation, state routing by declared plugin and state type, and
-error isolation. See [Plugin API v2](plugin-api-v2.md#native-contributions).
+owns `NativePluginHost` in `native_host.rs`: registration of first-party
+native contributions, negotiation of typed native services
+(`native_services.rs`), state routing by declared plugin and state type,
+bounded plugin events (`plugin_events.rs`), and error isolation. A host keeps a
+`NativePluginFeed` beside its renderer port. The feed reads the presentation
+document and the runtime context that the host already sends, so a platform adds
+three calls and no plugin logic. The generated crate
+`packages/plugin-native-registry` lists the contributions that a build
+compiles in. See [Plugin API v2](plugin-api-v2.md#native-contributions).
 
 Core retains an in-memory proof for delivered plugin state until promotion.
 The proof names the committed base and the exact digest on screen. A newer

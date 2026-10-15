@@ -875,13 +875,122 @@ operations:
         join(crate, "Cargo.toml"),
         '[package]\nname = "cast-receiver-native"\n\n[dependencies]\nplayer-core.workspace = true\nedge-state.workspace = true\n',
       );
+      mkdirSync(join(crate, "src"));
+      writeFileSync(join(crate, "src/lib.rs"), "pub fn contribution() {}\n");
       mkdirSync(join(root, "plugins/cast-receiver/native/stray"));
       const found = await problems(root);
+      expect(found.join("\n")).toMatch(
+        /native contribution receiver must export pub fn contribution\(\) -> Box<dyn NativePluginContribution>/,
+      );
       expect(found.join("\n")).toMatch(/depends on edge-state/);
       expect(found).toContain(
         "native/stray exists but player.native does not declare it",
       );
       expect(found.join("\n")).not.toMatch(/depends on player-core/);
+    });
+
+    describe("native contribution registry", () => {
+      const entry =
+        "pub fn contribution() -> Box<dyn NativePluginContribution> {\n    todo!()\n}\n";
+
+      function addNative(plugin: string, dir: string, ids: string[]) {
+        editManifest(root, dir, (manifest) => {
+          (manifest.player as Record<string, unknown>).native = ids.map(
+            (id) => ({ id, services: {} }),
+          );
+        });
+        for (const id of ids) {
+          const crate = join(root, "plugins", dir, "native", id);
+          mkdirSync(join(crate, "src"), { recursive: true });
+          writeFileSync(
+            join(crate, "Cargo.toml"),
+            `[package]\nname = "${plugin}-${id}"\n\n[dependencies]\nplayer-core.workspace = true\n`,
+          );
+          writeFileSync(join(crate, "src/lib.rs"), entry);
+        }
+      }
+
+      function twoPlugins() {
+        for (const id of ["zeta_input", "alpha_input"]) {
+          scaffold(root, {
+            id,
+            category: "Hardware",
+            maintainer: "@gbyo",
+            api: false,
+            player: { required: [] },
+          });
+        }
+        addNative("zeta-input", "zeta-input", ["sensor"]);
+        addNative("alpha-input", "alpha-input", ["pad", "button"]);
+      }
+
+      it("is empty when no plugin has a native contribution", async () => {
+        await generateInto(root);
+        const lib = readFileSync(
+          join(root, "packages/plugin-native-registry/src/lib.rs"),
+          "utf8",
+        );
+        expect(lib).toContain("    Vec::new()");
+        expect(lib).not.toContain("::contribution()");
+      });
+
+      it("links every declared crate in plugin and contribution order", async () => {
+        twoPlugins();
+        await generateInto(root);
+        const cargo = readFileSync(
+          join(root, "packages/plugin-native-registry/Cargo.toml"),
+          "utf8",
+        );
+        const lib = readFileSync(
+          join(root, "packages/plugin-native-registry/src/lib.rs"),
+          "utf8",
+        );
+        expect(cargo).toContain(
+          'alpha-input-button = { path = "../../plugins/alpha-input/native/button" }',
+        );
+        expect(cargo).toContain(
+          'zeta-input-sensor = { path = "../../plugins/zeta-input/native/sensor" }',
+        );
+        const order = [
+          "alpha_input_button::contribution()",
+          "alpha_input_pad::contribution()",
+          "zeta_input_sensor::contribution()",
+        ].map((call) => lib.indexOf(call));
+        expect(order.every((index) => index > 0)).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+        // The generated list is data: it names crates, never a rule about them.
+        expect(lib).not.toMatch(/match |if |cfg\(/);
+        expect(await problems(root)).toEqual([]);
+      });
+
+      it("is reproducible and reports drift", async () => {
+        twoPlugins();
+        await generateInto(root);
+        const first = (await generate(discover(root))).files;
+        await generateInto(root);
+        const second = (await generate(discover(root))).files;
+        expect([...second]).toEqual([...first]);
+
+        const lib = join(root, "packages/plugin-native-registry/src/lib.rs");
+        writeFileSync(lib, readFileSync(lib, "utf8") + "// edited\n");
+        const stale = (await check(discover(root))).filter((problem) =>
+          problem.file?.includes("plugin-native-registry"),
+        );
+        expect(stale.map((problem) => problem.message)).toContain(
+          "generated file is stale; run npm run plugins:generate",
+        );
+      });
+
+      it("drops a contribution when its manifest entry is removed", async () => {
+        twoPlugins();
+        editManifest(root, "alpha-input", (manifest) => {
+          (manifest.player as Record<string, unknown>).native = [];
+        });
+        const { files } = await generate(discover(root));
+        const lib = files.get("packages/plugin-native-registry/src/lib.rs")!;
+        expect(lib).not.toContain("alpha_input");
+        expect(lib).toContain("zeta_input_sensor::contribution()");
+      });
     });
 
     it("shares one Player entry type namespace across v1 and v2 plugins", async () => {

@@ -120,16 +120,28 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     animationScale,
     reducedMotion,
     pluginState: capabilities.pluginState === true,
+    pluginEvents:
+      capabilities.pluginEvents === true && host.pluginEvents
+        ? (message) => host.pluginEvents!.emit(message)
+        : undefined,
     externalPluginFrames: capabilities.externalPluginFrames === true,
     mediaUrl: (assetId, variantId) =>
       host.media
         ? host.media.resolve(assetId, variantId)
-        : pluginMedia.resolve(assetId, variantId),
+        : capabilities.variantMedia === true
+          ? `tcmedia://variant/${assetId}/${variantId}`
+          : pluginMedia.resolve(assetId, variantId),
     stage: () => document.getElementById("content-stage"),
     diagnostic: (pluginId, message) =>
       console.warn(`tilecast runtime: plugin ${pluginId}: ${message}`),
   });
-  const { surfaces, host: playerPlugins, services: playerServices } = plugins;
+  const {
+    surfaces,
+    host: playerPlugins,
+    services: playerServices,
+    providers,
+    events: pluginEvents,
+  } = plugins;
   controller.subscribe((state) =>
     plugins.presentation.publish(observePresentation(state)),
   );
@@ -147,6 +159,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     animationScale,
     remoteWeb,
     widgets,
+    providers,
     setup: {
       available: capabilities.setup && !!host.setup,
       submit: (url) =>
@@ -162,6 +175,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     controller,
     surfaces,
     playerPlugins,
+    providers,
     view,
     manual,
     widgets,
@@ -180,6 +194,9 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
         pluginMedia.replace(message.media);
         widgets.setClockOffset(message.clockOffsetMs);
         plugins.receive(message);
+        break;
+      case "plugin-event":
+        pluginEvents?.receive(message);
         break;
       case "identify":
         view.identify(String(message.name), Number(message.durationSeconds));

@@ -24,6 +24,9 @@ type PlayerService struct {
 	Version     int              `json:"version"`
 	Execution   ServiceExecution `json:"execution"`
 	Description string           `json:"description"`
+	// HostCapability names the Runtime host capability a runtime service
+	// needs. The Runtime offers such a service only on a host that sets it.
+	HostCapability string `json:"hostCapability,omitempty"`
 }
 
 // PlayerPluginHostCapability is the capability a Player reports when it hosts
@@ -38,10 +41,17 @@ const (
 var PlayerServices = []PlayerService{
 	{Name: "player.clock", Version: 1, Execution: ServiceRuntime,
 		Description: "Corrected server time, local and monotonic time, and plugin-owned timers."},
+	{Name: "player.events", Version: 1, Execution: ServiceRuntime,
+		Description:    "Ephemeral typed events between a plugin's native and Shared Runtime parts: declared names, bounded payloads, never state.",
+		HostCapability: "pluginEvents"},
 	{Name: "player.media", Version: 1, Execution: ServiceRuntime,
 		Description: "Addresses for verified media variants that the plugin's current state entries declare."},
 	{Name: "player.presentation.observe", Version: 1, Execution: ServiceRuntime,
 		Description: "Read-only observation of what owns the screen and which item is shown."},
+	{Name: "player.presentation.provide", Version: 1, Execution: ServiceRuntime,
+		Description: "Registers a declared presentation provider. The host activates it for an external presentation that names it, and owns its visibility, lifecycle, and fallback."},
+	{Name: "player.reference.signal", Version: 1, Execution: ServiceNative,
+		Description: "Reference service that qualifies the native service model: one typed read of a counter the platform owns. No product Player provides it."},
 	{Name: "player.surface", Version: 1, Execution: ServiceRuntime,
 		Description: "Host-owned strip, corner, and overlay containers with claim arbitration and content-stage geometry."},
 }

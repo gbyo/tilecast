@@ -257,6 +257,7 @@ impl AndroidServerLinkHost {
 
         let snapshot = renderer_snapshot(&self.renderer);
         let locked = self.engine.lock().await;
+        let native_services = locked.native_plugin_capabilities();
         let current = locked.current_activation();
         // Capability advertisement follows the live renderer's ready
         // report; before any renderer proves itself the fresh-process
@@ -272,6 +273,10 @@ impl AndroidServerLinkHost {
         // The heartbeat carries one table; Widget components overlay the
         // declarative names, as the legacy merge did.
         for (name, version) in advertised.widget_components() {
+            native.insert(name, serde_json::json!(version));
+        }
+        // Native plugin services this build provides, reported as they are.
+        for (name, version) in native_services {
             native.insert(name, serde_json::json!(version));
         }
         let schemas = advertised.presentation_schemas();

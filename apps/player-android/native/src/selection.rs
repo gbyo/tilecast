@@ -1354,6 +1354,32 @@ mod tests {
         assert!(crate::manifest_host::incompatibilities(&candidate.document, &candidate.assets, &connected).is_empty());
     }
 
+    /// Plugin API v2 media: a state entry's declared variant joins the
+    /// activation's content and aliases, so the WebView may load it by
+    /// identity. A variant the manifest does not list fails the manifest.
+    #[test]
+    fn plugin_state_media_is_granted_through_the_activation() {
+        let mut entry: Value =
+            serde_json::from_str(include_str!("../../../../packages/manifest-schema/plugin-state-entry-fixture.json"))
+                .expect("fixture");
+        entry["media"] = serde_json::json!([{"assetId": ASSET, "variantId": VARIANT}]);
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(21);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value.clone()).expect("v2 state member");
+        let (forwarded, aliases, content) = plugins(&candidate, 1_000).expect("state channel");
+        assert_eq!(forwarded, vec![entry.clone()]);
+        assert_eq!(aliases.len(), 1);
+        assert_eq!(aliases[0]["assetId"], ASSET);
+        assert_eq!(aliases[0]["variantId"], VARIANT);
+        assert_eq!(content.len(), 1);
+
+        let missing = "99999999-9999-4999-8999-999999999999";
+        entry["media"] = serde_json::json!([{"assetId": ASSET, "variantId": missing}]);
+        value["plugins"] = serde_json::json!([entry]);
+        assert!(parse(value).is_err(), "a variant the manifest does not list never reaches a grant");
+    }
+
     #[test]
     fn availability_is_half_open_and_rechecks_at_its_boundary() {
         let mut value = manifest();

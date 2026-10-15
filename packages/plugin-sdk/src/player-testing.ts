@@ -29,7 +29,7 @@ export interface TestPlayerOptions {
   reducedMotion?: boolean;
   /** Visual contributions the manifest declares. */
   surfaces?: readonly TestSurface[];
-  /** Services this test Player offers. Default: every service requested. */
+  /** Services to offer from this driver's fakes. Default: all implemented fakes. */
   services?: readonly PlayerServiceId[];
 }
 
@@ -74,7 +74,6 @@ export function createTestPlayer(
     ...definition.services.required,
     ...definition.services.optional,
   ];
-  const offered = new Set(options.services ?? requested);
   const surfaces = new Map<string, OpenSurface>();
   const listeners = new Set<(value: PresentationObservation) => void>();
   let observation: PresentationObservation = { mode: "waiting", item: null };
@@ -89,7 +88,7 @@ export function createTestPlayer(
     timers.add(handle);
     return handle;
   };
-  const implementations: Record<PlayerServiceId, () => unknown> = {
+  const implementations: Partial<Record<PlayerServiceId, () => unknown>> = {
     "player.clock@1": () => ({
       now: () => runtime.context.clock.now(),
       localNow: () => runtime.context.clock.localNow(),
@@ -152,11 +151,15 @@ export function createTestPlayer(
     }),
   };
 
+  const offered = new Set(
+    (options.services ?? requested).filter((id) => implementations[id]),
+  );
+
   const activate = () => {
     if (!definition.services.required.every((id) => offered.has(id))) return;
     const services: Record<string, unknown> = {};
     for (const id of requested) {
-      services[id] = offered.has(id) ? implementations[id]() : null;
+      services[id] = offered.has(id) ? implementations[id]!() : null;
     }
     instance =
       definition.activate({

@@ -221,7 +221,8 @@ A **bundled** plugin is a directory below `plugins/`. Read [`docs/plugin-api.md`
 - A new Player capability for plugins is a narrow, versioned service in `packages/plugin-sdk/player-services.json` with its mirrors, not a field for one plugin. Never add a generic native invoke bridge or branch shared behavior on a platform name.
 - Plugins import only the plugin SDK, `@tilecast/studio`, and their own files. `npm run plugins:check` enforces this.
 - `tilecast.store.json` is presentation only. It must never carry identity, capabilities, requirements, or trust, which stay in the manifest. Store artwork is static WebP checked into the plugin's `store/` directory; do not add an artwork generator.
-- Never edit generated files: `plugins/registry_gen.go`, `.github/CODEOWNERS`, `docs/openapi.yaml`, `packages/plugin-sdk/schema/tilecast-plugin.schema.json`, and `apps/server/internal/database/migrations.lock.json`. Run `npm run plugins:generate`.
+- Never edit generated files: `plugins/registry_gen.go`, `packages/plugin-native-registry/Cargo.toml` and `src/lib.rs`, `.github/CODEOWNERS`, `docs/openapi.yaml`, `packages/plugin-sdk/schema/tilecast-plugin.schema.json`, and `apps/server/internal/database/migrations.lock.json`. Run `npm run plugins:generate`, then `cargo update -w` after the native registry changes.
+- Plugin API v2 keeps six concepts apart: plugin state, plugin events, surfaces, presentation providers, native contributions, and Shared Runtime contributions. A native contribution is a first-party crate in `plugins/<name>/native/<id>/` that exports `contribution()`; it uses typed service traits, and Player builds link it through the generated registry crate. A host sets `pluginState` only when it carries the whole contract, and no host sets `pluginEvents` until it carries events both ways. No shared behavior names a plugin ID or a platform.
 
 ### Database migrations
 

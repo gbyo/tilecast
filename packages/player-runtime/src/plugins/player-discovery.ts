@@ -31,6 +31,14 @@ export interface PlayerPluginDeclaration {
   required: readonly PlayerServiceId[];
   optional: readonly PlayerServiceId[];
   surfaces: readonly SurfaceContribution[];
+  /** Declared `player.events`, normalized. */
+  events: readonly {
+    name: string;
+    version: number;
+    source: "native" | "runtime";
+  }[];
+  /** Declared presentation provider ids. */
+  providers: readonly string[];
 }
 
 export interface DiscoveredPlayerPlugin {
@@ -75,6 +83,12 @@ export function playerDeclaration(
       slots: [...surface.slots],
       tier: surface.tier,
     })),
+    events: (manifest.player.events ?? []).map((event) => ({
+      name: event.name,
+      version: event.version,
+      source: event.source,
+    })),
+    providers: (runtime.providers ?? []).map((provider) => provider.id),
   };
 }
 
