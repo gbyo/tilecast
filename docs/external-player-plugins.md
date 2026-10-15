@@ -270,3 +270,16 @@ a renderer built without the opt-out.
 Physical display hardware and DRM output are a separate qualification. It is a
 manual canary on one Edge screen after the coordinated release exists. Windows
 and Android need their own qualification before they report the capability.
+
+## Relation to Plugin API v2
+
+Bundled [Plugin API v2](plugin-api-v2.md) does not change this ABI. The
+external descriptor, the frame, the bridge, and `plugin.external-runtime@1`
+stay as they are. `plugin.host@2` and `plugin.external-runtime@1` are
+independent capabilities.
+
+A future external API can map its reviewed grants onto the v2 service
+vocabulary. Installation review would show the `name@version` services that a
+contribution requests. The frame bridge would expose only the granted
+services, each with its own bounded message contract. Native services are
+never granted to external packages.

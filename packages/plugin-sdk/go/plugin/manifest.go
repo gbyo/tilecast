@@ -9,13 +9,14 @@ import (
 	"strings"
 )
 
-// APIVersion is the Tilecast Plugin API this SDK implements. A manifest whose
-// apiVersion this release does not support is rejected at build time by
-// pluginctl and at startup by the host.
-const APIVersion = 1
+// APIVersion is the newest Tilecast Plugin API this SDK implements. A
+// manifest whose apiVersion this release does not support is rejected at
+// build time by pluginctl and at startup by the host.
+const APIVersion = 2
 
 // SupportedAPIVersions lists the Plugin API versions this release can load.
-var SupportedAPIVersions = []int{1}
+// Version 1 is frozen and remains fully supported beside version 2.
+var SupportedAPIVersions = []int{1, 2}
 
 // Manifest is a parsed tilecast.plugin.json. It mirrors the Zod schema in
 // packages/plugin-sdk/src/manifest.ts; the shared fixtures in
@@ -39,8 +40,11 @@ type Manifest struct {
 	Migrations        string        `json:"migrations,omitempty"`
 	API               *APIEntry     `json:"api,omitempty"`
 	Studio            *StudioEntry  `json:"studio,omitempty"`
-	Runtime           *RuntimeEntry `json:"runtime,omitempty"`
-	Docs              *DocsEntry    `json:"docs,omitempty"`
+	// Runtime is the Plugin API v1 surface-only Player declaration.
+	Runtime *RuntimeEntry `json:"runtime,omitempty"`
+	// Player is the Plugin API v2 Player contribution.
+	Player *PlayerEntry `json:"player,omitempty"`
+	Docs   *DocsEntry   `json:"docs,omitempty"`
 }
 
 type InstanceNoun struct {
@@ -58,7 +62,8 @@ type Requirement struct {
 
 // Capabilities are machine-readable declarations. The host checks each
 // contribution a plugin implements against them, so a plugin cannot, for
-// example, run a background worker it never declared.
+// example, run a background worker it never declared. PlayerManifest is a
+// Plugin API v1 member; a v2 plugin declares Player state in Player.
 type Capabilities struct {
 	PlayerManifest    bool     `json:"playerManifest,omitempty"`
 	BackgroundWorkers bool     `json:"backgroundWorkers,omitempty"`
@@ -91,6 +96,48 @@ type RuntimeEntry struct {
 	// Tier is the arbitration tier of every surface the plugin claims:
 	// emergency, live, scheduled, or ambient.
 	Tier string `json:"tier"`
+}
+
+// PlayerEntry is a Plugin API v2 Player contribution: the Player state the
+// plugin consumes and the Shared Runtime and native parts that consume it.
+type PlayerEntry struct {
+	State   []PlayerStateDeclaration `json:"state"`
+	Runtime *PlayerRuntimeEntry      `json:"runtime,omitempty"`
+	Native  []NativeContribution     `json:"native,omitempty"`
+}
+
+type PlayerStateDeclaration struct {
+	Type    string `json:"type"`
+	Version int    `json:"version"`
+}
+
+// ServiceRequests are name@version references to Player services. A Player
+// that lacks a required service does not activate the contribution; a
+// missing optional service is null to the contribution.
+type ServiceRequests struct {
+	Required []string `json:"required,omitempty"`
+	Optional []string `json:"optional,omitempty"`
+}
+
+type PlayerRuntimeEntry struct {
+	Entrypoint string                `json:"entrypoint"`
+	Services   ServiceRequests       `json:"services"`
+	Surfaces   []SurfaceContribution `json:"surfaces,omitempty"`
+}
+
+// SurfaceContribution is one visual contribution for player.surface@1. Its
+// tier is declared here and never chosen by a claim.
+type SurfaceContribution struct {
+	ID    string   `json:"id"`
+	Slots []string `json:"slots"`
+	Tier  string   `json:"tier"`
+}
+
+// NativeContribution names first-party native Player behavior that Player
+// builds compile in and register through typed Player Core interfaces.
+type NativeContribution struct {
+	ID       string          `json:"id"`
+	Services ServiceRequests `json:"services"`
 }
 
 type DocsEntry struct {
@@ -126,12 +173,49 @@ func (m Manifest) StudioRoute() string {
 	return m.Studio.Route
 }
 
-// ManifestTypes lists the Player manifest entry types the plugin projects.
+// ManifestTypes lists the Player manifest entry types the plugin owns: the
+// v1 runtime.manifestTypes, or the distinct v2 player.state types. Both
+// versions share one namespace.
 func (m Manifest) ManifestTypes() []string {
-	if m.Runtime == nil {
+	if m.Runtime != nil {
+		return append([]string(nil), m.Runtime.ManifestTypes...)
+	}
+	if m.Player == nil {
 		return nil
 	}
-	return append([]string(nil), m.Runtime.ManifestTypes...)
+	var types []string
+	seen := map[string]bool{}
+	for _, state := range m.Player.State {
+		if !seen[state.Type] {
+			seen[state.Type] = true
+			types = append(types, state.Type)
+		}
+	}
+	return types
+}
+
+// PlayerStateVersions lists the versions of one v2 state type the plugin
+// declares, or nil.
+func (m Manifest) PlayerStateVersions(stateType string) []int {
+	if m.Player == nil {
+		return nil
+	}
+	var versions []int
+	for _, state := range m.Player.State {
+		if state.Type == stateType {
+			versions = append(versions, state.Version)
+		}
+	}
+	return versions
+}
+
+// PlayerFacing reports whether the Server sends Player manifest data for the
+// plugin: v1 capabilities.playerManifest, or a v2 player contribution.
+func (m Manifest) PlayerFacing() bool {
+	if m.APIVersion >= 2 {
+		return m.Player != nil
+	}
+	return m.Capabilities.PlayerManifest
 }
 
 // Conventional entry points. Each build finds plugin code by these fixed
@@ -145,13 +229,14 @@ const (
 )
 
 var (
-	IDPattern         = regexp.MustCompile(`^[a-z][a-z0-9_]{0,79}$`)
-	iconPattern       = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
-	routePattern      = regexp.MustCompile(`^/[a-z0-9][a-z0-9/-]{0,119}$`)
-	slugPattern       = regexp.MustCompile(`^[a-z0-9][a-z0-9/-]{0,119}$`)
-	pathPattern       = regexp.MustCompile(`^\.(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$`)
-	maintainerPattern = regexp.MustCompile(`^@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:/[A-Za-z0-9][A-Za-z0-9._-]{0,99})?$`)
-	hostnamePattern   = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
+	IDPattern           = regexp.MustCompile(`^[a-z][a-z0-9_]{0,79}$`)
+	ContributionPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
+	iconPattern         = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
+	routePattern        = regexp.MustCompile(`^/[a-z0-9][a-z0-9/-]{0,119}$`)
+	slugPattern         = regexp.MustCompile(`^[a-z0-9][a-z0-9/-]{0,119}$`)
+	pathPattern         = regexp.MustCompile(`^\.(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$`)
+	maintainerPattern   = regexp.MustCompile(`^@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:/[A-Za-z0-9][A-Za-z0-9._-]{0,99})?$`)
+	hostnamePattern     = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$`)
 
 	categories       = set("Display", "Automation", "Workflow", "Hardware")
 	requirementKinds = set("platform", "hardware", "region", "network", "provider", "player")
@@ -159,6 +244,10 @@ var (
 		"corner.bottom-left", "corner.bottom-right", "overlay")
 	surfaceTiers  = set("emergency", "live", "scheduled", "ambient")
 	sidebarGroups = set("plugins", "review-and-collect")
+
+	// ReservedPlayerEntryTypes are Player manifest entry types the host owns.
+	// No plugin may use them as a manifest or state type.
+	ReservedPlayerEntryTypes = set("plugin_state", "external_plugin")
 )
 
 // ParseManifest decodes and validates a tilecast.plugin.json. Unknown fields
@@ -241,6 +330,19 @@ func (m Manifest) Validate() error {
 		if err := bounded("uses entry", use, 80); err != nil {
 			return fail("%v", err)
 		}
+	}
+	if m.APIVersion == 2 {
+		if m.Capabilities.PlayerManifest {
+			return fail("capabilities.playerManifest is a Plugin API 1 member; declare player.state instead")
+		}
+		if m.Runtime != nil {
+			return fail("runtime is a Plugin API 1 member; declare a player contribution instead")
+		}
+		if err := m.Player.validate(); err != nil {
+			return fail("%v", err)
+		}
+	} else if m.Player != nil {
+		return fail("player is a Plugin API 2 member")
 	}
 	for _, host := range m.Capabilities.Network {
 		if len(host) > 253 || !hostnamePattern.MatchString(host) {

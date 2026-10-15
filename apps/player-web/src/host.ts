@@ -53,6 +53,9 @@ export function runtimeHost(callbacks: {
       // response carries the sandbox directive instead. See
       // docs/widget-sandbox-spike.md.
       externalFrameSandbox: "response",
+      // The resolver forwards every manifest plugin entry, including Plugin
+      // API v2 plugin_state, and grants the media those entries declare.
+      pluginState: true,
     },
     ...(callbacks.remoteWeb ? { remoteWeb: callbacks.remoteWeb } : {}),
     subscribe(listener) {

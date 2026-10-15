@@ -264,6 +264,12 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         )))
         .chain(std::iter::once(&("media-streaming", 1)))
         .map(|(name, version)| ((*name).to_owned(), serde_json::json!(version)))
+        // Plugin API v2: the same host and services the packaged Runtime
+        // reports through the WPE bridge's pluginState flag.
+        .chain(
+            player_core::shared_runtime_plugin_capabilities()
+                .map(|(name, version)| (name.to_owned(), serde_json::json!(version))),
+        )
         .collect();
     let mut heartbeat = serde_json::json!({
         "screenWidth": 0,

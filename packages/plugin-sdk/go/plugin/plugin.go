@@ -1,4 +1,4 @@
-// Package plugin is the Go half of the Tilecast Plugin API v1.
+// Package plugin is the Go half of the Tilecast Plugin API (v1 and v2).
 //
 // A bundled first-party plugin is a Go package under plugins/<name>/ that
 // returns a Plugin from its New constructor. The only required method is
@@ -7,6 +7,10 @@
 // type assertion. A plugin that has no Player surface does not implement
 // ManifestProjector; one with no removal rules does not implement
 // RemovalGuard.
+//
+// Plugin API v2 keeps every Server contribution interface. A v2 plugin that
+// has Player behavior implements PlayerStateProjector instead of the v1
+// ManifestProjector; a v2 plugin without Player behavior implements neither.
 //
 // Plugins depend on this package and on stable third-party libraries (pgx,
 // uuid). They never import Tilecast Server internals; the Go toolchain
@@ -72,6 +76,15 @@ type RouteProvider interface {
 // listed in the manifest's runtime.manifestTypes.
 type ManifestProjector interface {
 	ProjectManifest(ctx context.Context, screenID uuid.UUID) ([]ManifestEntry, error)
+}
+
+// PlayerStateProjector contributes Plugin API v2 Player state for one
+// screen. The host calls it only while the plugin is installed and only for
+// a Player that reports the Plugin API v2 host. Every state type and version
+// must be declared in the manifest's player.state. The host wraps each value
+// in a plugin_state entry; Players route it to the plugin's contributions.
+type PlayerStateProjector interface {
+	ProjectPlayerState(ctx context.Context, screenID uuid.UUID) ([]PlayerState, error)
 }
 
 // WorkerProvider contributes long-running background workers. The host starts

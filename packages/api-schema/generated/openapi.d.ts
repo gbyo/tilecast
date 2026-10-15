@@ -10541,6 +10541,33 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** @description Plugin API v2 Player state for one bundled plugin. The Player Plugin Host routes it by plugin and stateType. It carries no configuration a Player does not need and is never resolved through a renderer feature list. */
+    ManifestPluginState: {
+      /** Format: uuid */
+      id: string;
+      /** @constant */
+      type: "plugin_state";
+      /** @constant */
+      version: 1;
+      plugin: string;
+      definitionVersion: number;
+      stateType: string;
+      stateVersion: number;
+      /** @description At most 16 KiB of JSON, sixteen nested levels, and 2048 values. */
+      state: {
+        [key: string]: unknown;
+      };
+      media:
+        | null
+        | {
+            /** Format: uuid */
+            assetId: string;
+            /** Format: uuid */
+            variantId: string;
+          }[];
+      /** Format: date-time */
+      validUntil?: string;
+    };
     ManifestExternalPlugin: {
       id: string;
       /** @constant */
@@ -10580,10 +10607,10 @@ export interface components {
     };
     PlayerManifest: {
       /**
-       * @description The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
+       * @description The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players. Version 21 adds Plugin API v2 plugin_state entries and is sent only to a Player that reports plugin.host at version 2.
        * @enum {integer}
        */
-      schemaVersion: 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
+      schemaVersion: 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21;
       /** Format: int64 */
       manifestVersion: number;
       /** Format: uuid */
@@ -10625,6 +10652,7 @@ export interface components {
       }[];
       plugins?: (
         | components["schemas"]["ManifestBuiltinPlugin"]
+        | components["schemas"]["ManifestPluginState"]
         | components["schemas"]["ManifestExternalPlugin"]
       )[];
       presentationOverride?:

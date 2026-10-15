@@ -855,7 +855,18 @@ fn plugins(
     let mut aliases = Vec::new();
     let mut content = Vec::new();
     for plugin in candidate.document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
-        if player_core::is_external_runtime_plugin(plugin) {
+        if player_core::is_runtime_plugin_data(plugin) {
+            for (asset_id, variant_id) in player_core::plugin_state_media(plugin) {
+                let asset = find_asset(&candidate.assets, &asset_id.to_string(), &variant_id.to_string())
+                    .ok_or(ManifestError::Reference)?;
+                let alias = media_alias(asset);
+                if !aliases.contains(&alias) {
+                    aliases.push(alias);
+                }
+                if !content.iter().any(|existing: &ActivationContent| existing.digest == asset.digest) {
+                    content.push(content_ref(asset)?);
+                }
+            }
             plugins.push(plugin.clone());
             continue;
         }
@@ -1322,6 +1333,22 @@ mod tests {
         assert_eq!(forwarded, vec![entry]);
         assert_eq!(candidate.required_frames.len(), 1);
         assert_eq!(candidate.required_frames[0].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert!(aliases.is_empty() && content.is_empty());
+        let connected = player_core::ConnectedRendererProfile(crate::manifest_host::profile::packaged().0);
+        assert!(crate::manifest_host::incompatibilities(&candidate.document, &candidate.assets, &connected).is_empty());
+    }
+
+    #[test]
+    fn plugin_state_is_runtime_data_routed_by_player_core() {
+        let entry: Value =
+            serde_json::from_str(include_str!("../../../../packages/manifest-schema/plugin-state-entry-fixture.json"))
+                .expect("fixture");
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(21);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value).expect("v2 state member");
+        let (forwarded, aliases, content) = plugins(&candidate, 1_000).expect("state channel");
+        assert_eq!(forwarded, vec![entry]);
         assert!(aliases.is_empty() && content.is_empty());
         let connected = player_core::ConnectedRendererProfile(crate::manifest_host::profile::packaged().0);
         assert!(crate::manifest_host::incompatibilities(&candidate.document, &candidate.assets, &connected).is_empty());

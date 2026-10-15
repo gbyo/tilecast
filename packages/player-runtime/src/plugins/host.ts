@@ -1,5 +1,12 @@
 /**
- * The runtime surface host: the generic half of every Player plugin surface.
+ * The runtime surface host: the generic half of every Player plugin surface,
+ * and the implementation behind the `player.surface@1` service.
+ *
+ * It is not the Player plugin host. Plugin API v1 plugins are surface-only,
+ * so their whole lifecycle (the polled `update` and `render`) is hosted here
+ * as the v1 compatibility path. Plugin API v2 surface contributions join the
+ * same arbitration through `attachContribution`: they push claims instead of
+ * being polled, and the Player Plugin Host owns their lifecycle.
  *
  * It owns everything around a plugin's drawing: one long-lived container per
  * declared surface, one coalescing evaluation scheduler, claim validation,
@@ -39,6 +46,7 @@ import type { DiscoveredRuntimePlugin } from "./discovery";
 import type {
   ExternalRuntimePluginV1,
   PluginFrameBindingV1,
+  PluginsMessage,
   RuntimePluginV1,
 } from "../host/contract";
 import {
@@ -97,12 +105,51 @@ interface Hosted {
   claims: ValidClaim[];
 }
 
+/** One v2 visual contribution: the tier is declared per contribution. */
+export interface SurfaceContributionSpec {
+  /** The plugin that owns the contribution. */
+  owner: string;
+  /** The contribution identifier from the manifest. */
+  contribution: string;
+  tier: SurfaceTier;
+  slots: readonly SurfaceSlot[];
+}
+
+export interface SurfaceContributionBinding {
+  container(slot: SurfaceSlot): HTMLElement;
+  /** Replace the contribution's claims; malformed ones are refused. */
+  claim(claims: unknown): void;
+  release(): void;
+  /** Remove the containers and leave arbitration. */
+  close(): void;
+}
+
+interface Attached {
+  /** Arbitration identity: `<plugin>/<contribution>`. */
+  id: string;
+  tier: SurfaceTier;
+  slots: readonly SurfaceSlot[];
+  containers: Map<SurfaceSlot, HTMLElement>;
+  claims: ValidClaim[];
+  render(grant: SurfaceGrant): void;
+  report(message: string): void;
+}
+
 export interface SurfaceHostDescription {
   /** The plugin holding each slot and the text it shows there. */
   surfaces: Partial<Record<SurfaceSlot, { plugin: string; text: string }>>;
   /** Content-stage insets from pushing strips, in CSS pixels. */
   insets: { top: number; bottom: number };
   diagnostics: string[];
+}
+
+function surfaceClass(slot: SurfaceSlot): string {
+  const kind = isStripSlot(slot)
+    ? "strip"
+    : slot === "overlay"
+      ? "overlay"
+      : "corner";
+  return `tc-surface tc-surface--${kind} tc-surface--${slot.replace(".", "-")}`;
 }
 
 const describeText = (node: Element | null) =>
@@ -117,6 +164,7 @@ export class RuntimeSurfaceHost {
 
   private readonly hosted: Hosted[] = [];
   private readonly external = new Map<string, ExternalSurface>();
+  private readonly attached = new Map<string, Attached>();
   private readonly timers: TimerGroup;
   private entries: readonly RuntimeManifestEntry[] = [];
   private clockOffsetMs = 0;
@@ -171,12 +219,7 @@ export class RuntimeSurfaceHost {
       for (const hosted of paintOrder) {
         if (!hosted.surfaces.includes(slot)) continue;
         const container = doc.createElement("div");
-        const kind = isStripSlot(slot)
-          ? "strip"
-          : slot === "overlay"
-            ? "overlay"
-            : "corner";
-        container.className = `tc-surface tc-surface--${kind} tc-surface--${slot.replace(".", "-")}`;
+        container.className = surfaceClass(slot);
         container.dataset["plugin"] = hosted.id;
         container.dataset["slot"] = slot;
         this.element.appendChild(container);
@@ -194,7 +237,7 @@ export class RuntimeSurfaceHost {
 
   /** The Player manifest's plugin entries changed. Evaluates now. */
   setEntries(
-    entries: readonly (RuntimePluginV1 | ExternalRuntimePluginV1)[],
+    entries: readonly PluginsMessage["plugins"][number][],
     clockOffsetMs: number,
     frames: readonly PluginFrameBindingV1[] = [],
   ): void {
@@ -248,11 +291,13 @@ export class RuntimeSurfaceHost {
       const winner = this.winners.get(slot);
       if (!winner) continue;
       const hosted = this.hosted.find((item) => item.id === winner.pluginId);
+      const attached = this.attached.get(winner.pluginId);
       let text = "";
       try {
-        text =
-          hosted?.instance?.describe?.(slot) ??
-          describeText(hosted?.containers.get(slot) ?? null);
+        text = attached
+          ? describeText(attached.containers.get(slot) ?? null)
+          : (hosted?.instance?.describe?.(slot) ??
+            describeText(hosted?.containers.get(slot) ?? null));
       } catch (error) {
         this.report(winner.pluginId, `describe failed: ${errorText(error)}`);
       }
@@ -275,6 +320,7 @@ export class RuntimeSurfaceHost {
     this.timers.cancelAll();
     for (const surface of this.external.values()) surface.dispose();
     this.external.clear();
+    for (const attached of this.attached.values()) this.detach(attached);
     for (const hosted of this.hosted) {
       hosted.timers.cancelAll();
       try {
@@ -284,6 +330,139 @@ export class RuntimeSurfaceHost {
       }
       hosted.instance = null;
     }
+  }
+
+  /**
+   * `player.surface@1`: a v2 contribution joins arbitration. The host creates
+   * one container per declared slot now and keeps it until `close`, so a
+   * contribution's DOM persists across claims exactly like a v1 plugin's.
+   * `report` receives refused claims and render failures; the caller decides
+   * whether a failure ends the plugin.
+   */
+  attachContribution(
+    spec: SurfaceContributionSpec,
+    render: (grant: SurfaceGrant) => void,
+    report: (message: string) => void,
+  ): SurfaceContributionBinding | null {
+    const id = `${spec.owner}/${spec.contribution}`;
+    if (this.stopped || this.attached.has(id)) return null;
+    const doc = this.options.document ?? document;
+    const attached: Attached = {
+      id,
+      tier: spec.tier,
+      slots: [...spec.slots],
+      containers: new Map(),
+      claims: [],
+      render,
+      report,
+    };
+    for (const slot of SLOT_ORDER) {
+      if (!attached.slots.includes(slot)) continue;
+      const container = doc.createElement("div");
+      container.className = surfaceClass(slot);
+      container.dataset["plugin"] = spec.owner;
+      container.dataset["contribution"] = spec.contribution;
+      container.dataset["slot"] = slot;
+      container.dataset["tier"] = spec.tier;
+      this.insertInPaintOrder(container, slot, spec.tier, id);
+      attached.containers.set(slot, container);
+    }
+    this.attached.set(id, attached);
+    const live = () => this.attached.get(id) === attached;
+    return {
+      container: (slot) => {
+        const container = attached.containers.get(slot);
+        if (!container)
+          throw new Error(`surface ${id} does not declare ${slot}`);
+        return container;
+      },
+      claim: (claims) => {
+        if (!live()) return;
+        const check = validateClaims(attached.slots, claims);
+        for (const problem of check.problems) report(problem);
+        attached.claims = check.claims;
+        this.request(id);
+      },
+      release: () => {
+        if (!live() || attached.claims.length === 0) return;
+        attached.claims = [];
+        this.request(id);
+      },
+      close: () => {
+        if (!live()) return;
+        this.detach(attached);
+        this.request(null);
+      },
+    };
+  }
+
+  private detach(attached: Attached): void {
+    this.attached.delete(attached.id);
+    for (const container of attached.containers.values()) container.remove();
+    attached.containers.clear();
+    attached.claims = [];
+  }
+
+  /**
+   * Insert without moving any existing container: moving a node restarts its
+   * animations and reloads frames inside it. Order is slot, then weaker tier
+   * first (a stronger tier paints above), then identity, as for v1.
+   */
+  private insertInPaintOrder(
+    container: HTMLElement,
+    slot: SurfaceSlot,
+    tier: SurfaceTier,
+    id: string,
+  ): void {
+    const key = (s: string, t: string, i: string) =>
+      [
+        SLOT_ORDER.indexOf(s as SurfaceSlot),
+        -TIER_ORDER.indexOf(t as SurfaceTier),
+        i,
+      ] as const;
+    const mine = key(slot, tier, id);
+    const after = (other: readonly [number, number, string]) =>
+      other[0] > mine[0] ||
+      (other[0] === mine[0] &&
+        (other[1] > mine[1] || (other[1] === mine[1] && other[2] > mine[2])));
+    for (const child of Array.from(this.element.children)) {
+      if (!(child instanceof HTMLElement)) continue;
+      const childSlot = child.dataset["slot"];
+      if (!childSlot) continue;
+      const owner = this.hosted.find(
+        (hosted) => hosted.containers.get(childSlot as SurfaceSlot) === child,
+      );
+      const childTier = owner?.tier ?? child.dataset["tier"] ?? "ambient";
+      const childId =
+        owner?.id ??
+        `${child.dataset["plugin"] ?? ""}/${child.dataset["contribution"] ?? ""}`;
+      if (after(key(childSlot, childTier, childId))) {
+        this.element.insertBefore(container, child);
+        return;
+      }
+    }
+    this.element.appendChild(container);
+  }
+
+  /** Mark granted containers and size strips; returns the shown slots. */
+  private markGranted(
+    id: string,
+    containers: ReadonlyMap<SurfaceSlot, HTMLElement>,
+    claims: readonly ValidClaim[],
+  ): Set<SurfaceSlot> {
+    const shown = new Set<SurfaceSlot>();
+    for (const [slot, container] of containers) {
+      const granted = this.winners.get(slot)?.pluginId === id;
+      if (granted) shown.add(slot);
+      container.classList.toggle("tc-surface--granted", granted);
+      // A strip keeps the height its owner last claimed, so a bar that
+      // loses the strip slides away at its own size.
+      const own = claims.find((claim) => claim.slot === slot);
+      if (own && isStripSlot(slot)) {
+        container.style.setProperty("--tc-strip-height", `${own.heightPx}px`);
+      }
+    }
+    return shown;
   }
 
   // ------------------------------------------------------------ evaluation
@@ -359,6 +538,11 @@ export class RuntimeSurfaceHost {
           claim,
         });
     }
+    for (const attached of this.attached.values()) {
+      for (const claim of attached.claims) {
+        contenders.push({ pluginId: attached.id, tier: attached.tier, claim });
+      }
+    }
     for (const hosted of this.hosted) {
       hosted.claims = [];
       if (!hosted.instance) continue;
@@ -396,19 +580,29 @@ export class RuntimeSurfaceHost {
       });
     }
 
-    for (const hosted of this.hosted) {
-      const shown = new Set<SurfaceSlot>();
-      for (const [slot, container] of hosted.containers) {
-        const granted = this.winners.get(slot)?.pluginId === hosted.id;
-        if (granted) shown.add(slot);
-        container.classList.toggle("tc-surface--granted", granted);
-        // A strip keeps the height its plugin last claimed, so a bar that
-        // loses the strip slides away at its own size.
-        const own = hosted.claims.find((claim) => claim.slot === slot);
-        if (own && isStripSlot(slot)) {
-          container.style.setProperty("--tc-strip-height", `${own.heightPx}px`);
-        }
+    for (const attached of [...this.attached.values()]) {
+      const shown = this.markGranted(
+        attached.id,
+        attached.containers,
+        attached.claims,
+      );
+      try {
+        attached.render({
+          shown,
+          topLiftPx: this.layout.topLiftPx,
+          bottomLiftPx: this.layout.bottomLiftPx,
+        });
+      } catch (error) {
+        attached.report(`render failed: ${errorText(error)}`);
       }
+    }
+
+    for (const hosted of this.hosted) {
+      const shown = this.markGranted(
+        hosted.id,
+        hosted.containers,
+        hosted.claims,
+      );
       if (!hosted.instance) continue;
       const grant: SurfaceGrant = {
         shown,
@@ -440,7 +634,7 @@ export class RuntimeSurfaceHost {
   // ------------------------------------------------------------ plugins
 
   private reconcileExternal(
-    entries: readonly (RuntimePluginV1 | ExternalRuntimePluginV1)[],
+    entries: readonly PluginsMessage["plugins"][number][],
     frames: readonly PluginFrameBindingV1[],
   ): void {
     const wanted = new Map<

@@ -402,6 +402,7 @@ describe("pluginctl", () => {
       category: "Display",
       maintainer: "@gbyo",
       api: false,
+      pluginApi: 1,
     });
     editManifest(root, "transit-alerts", (manifest) => {
       manifest.capabilities = { playerManifest: true };
@@ -754,5 +755,158 @@ operations:
     expect(found.map((problem) => problem.message).join("\n")).toContain(
       "migration version 3 is also used by",
     );
+  });
+
+  describe("Plugin API v2", () => {
+    const manifestOf = (dir: string) =>
+      JSON.parse(
+        readFileSync(
+          join(root, "plugins", dir, "tilecast.plugin.json"),
+          "utf8",
+        ),
+      ) as Record<string, unknown>;
+
+    it("scaffolds a Server-only plugin with no Studio or Player files", async () => {
+      const created = scaffold(root, {
+        id: "mqtt_bridge",
+        category: "Automation",
+        maintainer: "@gbyo",
+        api: true,
+        studio: false,
+      });
+      expect(created.some((path) => path.includes("/studio/"))).toBe(false);
+      expect(created.some((path) => path.includes("/runtime/"))).toBe(false);
+      const manifest = manifestOf("mqtt-bridge");
+      expect(manifest.apiVersion).toBe(2);
+      expect(manifest).not.toHaveProperty("player");
+      expect(manifest).not.toHaveProperty("studio");
+      await generateInto(root);
+      expect(await problems(root)).toEqual([]);
+    });
+
+    it("scaffolds a Player plugin that requests only the services it names", async () => {
+      const created = scaffold(root, {
+        id: "service_notices",
+        category: "Display",
+        maintainer: "@gbyo",
+        api: false,
+        player: {
+          required: ["player.clock@1", "player.surface@1"],
+          optional: ["player.presentation.observe@1"],
+          surfaces: [
+            {
+              id: "ticker",
+              slots: ["strip.top", "strip.bottom"],
+              tier: "scheduled",
+            },
+          ],
+        },
+      });
+      expect(created).toContain("plugins/service-notices/runtime/index.ts");
+      const runtime = readFileSync(
+        join(root, "plugins/service-notices/runtime/index.ts"),
+        "utf8",
+      );
+      expect(runtime).toContain("definePlayerPlugin");
+      expect(runtime).toContain(
+        'required: ["player.clock@1", "player.surface@1"]',
+      );
+      expect(runtime).toContain('.open(\n      "ticker"');
+      const goSource = readFileSync(
+        join(root, "plugins/service-notices/plugin.go"),
+        "utf8",
+      );
+      expect(goSource).toContain("ProjectPlayerState");
+      expect(manifestOf("service-notices").player).toMatchObject({
+        state: [{ type: "service_notices", version: 1 }],
+        runtime: {
+          services: {
+            required: ["player.clock@1", "player.surface@1"],
+            optional: ["player.presentation.observe@1"],
+          },
+          surfaces: [{ id: "ticker", tier: "scheduled" }],
+        },
+      });
+      await generateInto(root);
+      expect(await problems(root)).toEqual([]);
+
+      rmSync(join(root, "plugins/service-notices/runtime/index.ts"));
+      expect(await problems(root)).toContain(
+        "player.runtime.entrypoint ./runtime/index.ts does not exist",
+      );
+    });
+
+    it("refuses a scaffold whose surfaces lack the surface service", () => {
+      expect(() =>
+        scaffold(root, {
+          id: "bad_notices",
+          category: "Display",
+          maintainer: "@gbyo",
+          api: false,
+          player: {
+            required: ["player.clock@1"],
+            surfaces: [{ id: "bar", slots: ["strip.top"], tier: "ambient" }],
+          },
+        }),
+      ).toThrow(/without requesting player.surface/);
+    });
+
+    it("matches native contributions to crates in both directions", async () => {
+      scaffold(root, {
+        id: "cast_receiver",
+        category: "Hardware",
+        maintainer: "@gbyo",
+        api: false,
+        player: { required: [] },
+      });
+      editManifest(root, "cast-receiver", (manifest) => {
+        (manifest.player as Record<string, unknown>).native = [
+          { id: "receiver", services: {} },
+        ];
+      });
+      await generateInto(root);
+      expect((await problems(root)).join("\n")).toMatch(
+        /native contribution receiver needs a crate at native\/receiver\/Cargo.toml/,
+      );
+
+      const crate = join(root, "plugins/cast-receiver/native/receiver");
+      mkdirSync(crate, { recursive: true });
+      writeFileSync(
+        join(crate, "Cargo.toml"),
+        '[package]\nname = "cast-receiver-native"\n\n[dependencies]\nplayer-core.workspace = true\nedge-state.workspace = true\n',
+      );
+      mkdirSync(join(root, "plugins/cast-receiver/native/stray"));
+      const found = await problems(root);
+      expect(found.join("\n")).toMatch(/depends on edge-state/);
+      expect(found).toContain(
+        "native/stray exists but player.native does not declare it",
+      );
+      expect(found.join("\n")).not.toMatch(/depends on player-core/);
+    });
+
+    it("shares one Player entry type namespace across v1 and v2 plugins", async () => {
+      scaffold(root, {
+        id: "transit_alerts",
+        category: "Display",
+        maintainer: "@gbyo",
+        api: false,
+        pluginApi: 1,
+      });
+      editManifest(root, "transit-alerts", (manifest) => {
+        manifest.capabilities = { playerManifest: true };
+        manifest.runtime = { manifestTypes: ["shared_type"], tier: "live" };
+      });
+      scaffold(root, {
+        id: "shared_type",
+        category: "Display",
+        maintainer: "@gbyo",
+        api: false,
+        player: { required: ["player.clock@1"] },
+      });
+      await generateInto(root);
+      expect((await problems(root)).join("\n")).toMatch(
+        /Player entry type shared_type is also owned by (transit_alerts|shared_type)/,
+      );
+    });
   });
 });

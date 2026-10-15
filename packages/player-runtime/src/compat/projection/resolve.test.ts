@@ -218,6 +218,33 @@ describe("exact resource closure", () => {
     expect(required(plan)).toEqual([id(5), id(8), LOGO].sort());
   });
 
+  it("requires the media a Plugin API v2 plugin_state entry declares", () => {
+    const plan = planPresentation(
+      base({
+        manifest: manifest({
+          plugins: [
+            {
+              id: "beacon-1",
+              type: "plugin_state",
+              version: 1,
+              plugin: "sample_beacon",
+              definitionVersion: 1,
+              stateType: "sample_beacon",
+              stateVersion: 1,
+              state: { imageAssetId: id(1), imageVariantId: id(101) },
+              media: [{ assetId: id(8), variantId: id(108) }],
+            },
+          ],
+        }),
+      }),
+    );
+    // Only the declared media list counts; state is opaque to the host.
+    expect(required(plan)).toContain(id(8));
+    expect(plan.kind === "playing" && plan.input.manifest.plugins).toHaveLength(
+      1,
+    );
+  });
+
   it("requires nothing for media an availability window hides, and reports when it opens", () => {
     const hidden = asset(1, "image/png", {
       availableFrom: "2026-10-01T13:00:00Z",

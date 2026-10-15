@@ -263,6 +263,11 @@
       // and independent grants. tilecastd reports the matching heartbeat
       // capability; the two must change together.
       externalPluginFrames: true,
+      // Plugin API v2: tilecastd forwards plugin_state entries in the
+      // plugins snapshot, with grants for their declared media, so the
+      // Runtime reports its Player Plugin Host and services. tilecastd
+      // reports the same capabilities; the two must change together.
+      pluginState: true,
       // Edge shows the pulse logo outside active hours; other hosts omit this
       // and keep the Cast logo.
       outsideHoursLogo: "pulse",

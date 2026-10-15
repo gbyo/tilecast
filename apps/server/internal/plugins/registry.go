@@ -113,7 +113,7 @@ func definitionFromManifest(m plugin.Manifest) Definition {
 		InstanceNounSingular: m.InstanceNoun.Singular, InstanceNounPlural: m.InstanceNoun.Plural,
 		Requirements: requirements, Capabilities: append([]string{}, m.Uses...),
 		Documentation: documentation, Installable: m.IsInstallable(),
-		PlayerFacing: m.Capabilities.PlayerManifest,
+		PlayerFacing: m.PlayerFacing(),
 	}
 }
 

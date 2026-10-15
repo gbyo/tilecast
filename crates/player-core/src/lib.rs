@@ -17,6 +17,7 @@ mod offline_driver;
 mod origin;
 mod pairing;
 mod playback_health;
+mod plugin_host;
 mod plugin_refresh;
 mod preview;
 mod renderer_commands;
@@ -87,6 +88,12 @@ pub use pairing::{
     PairingStatus,
 };
 pub use playback_health::{HealthTolerances, PlaybackHealth, Stall, StallReason};
+pub use plugin_host::{
+    NativeContributionDescriptor, NativePluginContribution, NativePluginError, NativePluginHost, NativePluginState,
+    NativePluginStatus, NativeRegistrationError, NativeServiceSet, PLAYER_PLUGIN_HOST_CAPABILITY,
+    PLAYER_PLUGIN_HOST_VERSION, PLUGIN_STATE_TYPE, SHARED_RUNTIME_PLAYER_SERVICES, ServiceRef, is_plugin_state_entry,
+    is_runtime_plugin_data, plugin_state_media, shared_runtime_plugin_capabilities,
+};
 pub use plugin_refresh::{is_plugin_only_revision, manifest_without_plugin_revision};
 pub use preview::{
     PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,

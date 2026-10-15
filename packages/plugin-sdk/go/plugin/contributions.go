@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -63,6 +64,29 @@ type ManifestEntry struct {
 	Type    string    `json:"type"`
 	Version int       `json:"version"`
 	Config  any       `json:"config"`
+}
+
+// PlayerState is one Plugin API v2 state value for a Player. State is
+// marshalled as a JSON object; it must be small, bounded, and free of
+// configuration a Player does not need, because it is cached offline.
+type PlayerState struct {
+	// ID is the stable identity of the plugin's instance.
+	ID uuid.UUID
+	// Type and Version name a declared player.state entry.
+	Type    string
+	Version int
+	State   any
+	// Media lists verified media variants the state uses. Players download
+	// and verify them, and player.media@1 addresses only these.
+	Media []MediaRef
+	// ValidUntil, when set, is enforced by the Player on its corrected clock.
+	ValidUntil *time.Time
+}
+
+// MediaRef names one media variant.
+type MediaRef struct {
+	AssetID   uuid.UUID `json:"assetId"`
+	VariantID uuid.UUID `json:"variantId"`
 }
 
 // DemoSeeder contributes sample data to Demo Mode, the disposable, pre-seeded

@@ -1,270 +1,89 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/gbyo/tilecast/packages/plugin-sdk/schema/tilecast-plugin.schema.json",
-  "type": "object",
-  "properties": {
-    "$schema": { "type": "string" },
-    "apiVersion": {
-      "type": "number",
-      "const": 1,
-      "description": "Version of the Tilecast Plugin API the plugin is written for."
-    },
-    "id": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9_]{0,79}$",
-      "description": "Stable identifier. It is stored in plugin_installations and must never change."
-    },
-    "definitionVersion": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 9007199254740991,
-      "description": "Version of this plugin's persisted and Player-facing definition. Recorded in the install and remove audit events."
-    },
-    "name": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 80,
-      "pattern": "\\S"
-    },
-    "description": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 280,
-      "pattern": "\\S"
-    },
-    "category": {
-      "type": "string",
-      "enum": ["Display", "Automation", "Workflow", "Hardware"]
-    },
-    "icon": {
-      "type": "string",
-      "pattern": "^[a-z][a-z0-9-]{0,39}$",
-      "description": "Bounded icon identifier. Studio falls back to a generic icon."
-    },
-    "maintainers": {
-      "minItems": 1,
-      "type": "array",
-      "items": {
-        "type": "string",
-        "pattern": "^@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:\\/[A-Za-z0-9][A-Za-z0-9._-]{0,99})?$"
-      },
-      "description": "Subject-matter stewards. Eligible handles are requested for review through the generated CODEOWNERS file."
-    },
-    "installable": { "default": true, "type": "boolean" },
-    "instanceNoun": {
+  "oneOf": [
+    {
       "type": "object",
       "properties": {
-        "singular": {
+        "$schema": { "type": "string" },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,79}$",
+          "description": "Stable identifier. It is stored in plugin_installations and must never change."
+        },
+        "definitionVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Version of this plugin's persisted and Player-facing definition. Recorded in the install and remove audit events."
+        },
+        "name": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 40,
+          "maxLength": 80,
           "pattern": "\\S"
         },
-        "plural": {
+        "description": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 40,
+          "maxLength": 280,
           "pattern": "\\S"
-        }
-      },
-      "required": ["singular", "plural"],
-      "additionalProperties": false
-    },
-    "requirements": {
-      "default": [],
-      "description": "Advice shown before installation. Requirements are never evaluated.",
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "platform",
-              "hardware",
-              "region",
-              "network",
-              "provider",
-              "player"
-            ]
-          },
-          "label": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 80,
-            "pattern": "\\S"
-          },
-          "description": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 280,
-            "pattern": "\\S"
-          }
         },
-        "required": ["kind", "label"],
-        "additionalProperties": false
-      }
-    },
-    "uses": {
-      "default": [],
-      "description": "What the plugin uses, as shown in the catalog (the catalog API field `capabilities`).",
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 80,
-        "pattern": "\\S"
-      }
-    },
-    "capabilities": {
-      "default": {
-        "playerManifest": false,
-        "backgroundWorkers": false,
-        "network": []
-      },
-      "type": "object",
-      "properties": {
-        "playerManifest": {
-          "default": false,
-          "description": "Contributes entries to the authenticated Player manifest.",
-          "type": "boolean"
-        },
-        "backgroundWorkers": { "default": false, "type": "boolean" },
-        "network": {
-          "default": [],
-          "description": "Hosts Tilecast Server contacts for this plugin.",
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    "server": {
-      "type": "object",
-      "properties": {
-        "entrypoint": {
+        "category": {
           "type": "string",
-          "const": "./plugin.go",
-          "description": "Go file that declares the plugin package and its New constructor. Always ./plugin.go."
-        }
-      },
-      "required": ["entrypoint"],
-      "additionalProperties": false
-    },
-    "migrations": {
-      "description": "Directory of Goose SQL files. Versions share the one global Tilecast sequence.",
-      "type": "string",
-      "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
-    },
-    "api": {
-      "type": "object",
-      "properties": {
-        "basePaths": {
+          "enum": ["Display", "Automation", "Workflow", "Hardware"]
+        },
+        "icon": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,39}$",
+          "description": "Bounded icon identifier. Studio falls back to a generic icon."
+        },
+        "maintainers": {
           "minItems": 1,
           "type": "array",
           "items": {
             "type": "string",
-            "pattern": "^\\/[a-z0-9][a-z0-9/-]{0,119}$"
+            "pattern": "^@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:\\/[A-Za-z0-9][A-Za-z0-9._-]{0,99})?$"
           },
-          "description": "Route prefixes below /api/v1 that the plugin may register."
+          "description": "Subject-matter stewards. Eligible handles are requested for review through the generated CODEOWNERS file."
         },
-        "openapi": {
-          "type": "string",
-          "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
-        }
-      },
-      "required": ["basePaths"],
-      "additionalProperties": false
-    },
-    "studio": {
-      "type": "object",
-      "properties": {
-        "route": {
-          "type": "string",
-          "pattern": "^\\/[a-z0-9][a-z0-9/-]{0,119}$",
-          "description": "The Studio route that manages the plugin."
+        "installable": { "default": true, "type": "boolean" },
+        "instanceNoun": {
+          "type": "object",
+          "properties": {
+            "singular": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "pattern": "\\S"
+            },
+            "plural": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "pattern": "\\S"
+            }
+          },
+          "required": ["singular", "plural"],
+          "additionalProperties": false
         },
-        "entrypoint": {
-          "type": "string",
-          "const": "./studio/index.tsx",
-          "description": "Studio module that default-exports defineStudioPlugin. Always ./studio/index.tsx."
-        },
-        "additionalRoutes": {
-          "description": "Absolute Studio routes outside /plugins/<id> the plugin owns, such as a portal or inbox. Each must mount through the definition's standaloneRoutes.",
-          "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^\\/[a-z0-9][a-z0-9/-]{0,119}$"
-          }
-        }
-      },
-      "required": ["route", "entrypoint"],
-      "additionalProperties": false
-    },
-    "runtime": {
-      "type": "object",
-      "properties": {
-        "entrypoint": {
-          "description": "Shared Player runtime module that renders the manifest types. Always ./runtime/index.ts; omitted when only native Players render them.",
-          "type": "string",
-          "const": "./runtime/index.ts"
-        },
-        "manifestTypes": {
-          "minItems": 1,
-          "type": "array",
-          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,79}$" },
-          "description": "Player manifest plugin entry types this runtime renders."
-        },
-        "surfaces": {
+        "requirements": {
           "default": [],
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": [
-              "strip.top",
-              "strip.bottom",
-              "corner.top-left",
-              "corner.top-right",
-              "corner.bottom-left",
-              "corner.bottom-right",
-              "overlay"
-            ]
-          }
-        },
-        "tier": {
-          "type": "string",
-          "enum": ["emergency", "live", "scheduled", "ambient"],
-          "description": "Arbitration tier of the plugin's surfaces: emergency, live, scheduled, or ambient. Declared once; a claim cannot choose its own tier."
-        }
-      },
-      "required": ["manifestTypes", "tier"],
-      "additionalProperties": false
-    },
-    "docs": {
-      "type": "object",
-      "properties": {
-        "reference": {
-          "description": "Engineering reference, published as the catalog documentation link.",
-          "type": "string",
-          "maxLength": 200
-        },
-        "pages": {
-          "default": [],
+          "description": "Advice shown before installation. Requirements are never evaluated.",
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "source": {
+              "kind": {
                 "type": "string",
-                "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
-              },
-              "slug": {
-                "type": "string",
-                "pattern": "^[a-z0-9][a-z0-9/-]{0,119}$",
-                "description": "Public docs site slug, for example operations/plugins/countdown-bar."
+                "enum": [
+                  "platform",
+                  "hardware",
+                  "region",
+                  "network",
+                  "provider",
+                  "player"
+                ]
               },
               "label": {
                 "type": "string",
@@ -272,44 +91,655 @@
                 "maxLength": 80,
                 "pattern": "\\S"
               },
-              "sidebar": {
-                "type": "object",
-                "properties": {
-                  "group": {
-                    "default": "plugins",
-                    "description": "Docs site sidebar group the page is listed in.",
-                    "type": "string",
-                    "enum": ["plugins", "review-and-collect"]
-                  },
-                  "badge": {
-                    "type": "string",
-                    "minLength": 1,
-                    "maxLength": 12,
-                    "pattern": "\\S"
-                  }
-                },
-                "additionalProperties": false
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 280,
+                "pattern": "\\S"
               }
             },
-            "required": ["source", "slug"],
+            "required": ["kind", "label"],
             "additionalProperties": false
           }
+        },
+        "uses": {
+          "default": [],
+          "description": "What the plugin uses, as shown in the catalog (the catalog API field `capabilities`).",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "\\S"
+          }
+        },
+        "server": {
+          "type": "object",
+          "properties": {
+            "entrypoint": {
+              "type": "string",
+              "const": "./plugin.go",
+              "description": "Go file that declares the plugin package and its New constructor. Always ./plugin.go."
+            }
+          },
+          "required": ["entrypoint"],
+          "additionalProperties": false
+        },
+        "migrations": {
+          "description": "Directory of Goose SQL files. Versions share the one global Tilecast sequence.",
+          "type": "string",
+          "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
+        },
+        "api": {
+          "type": "object",
+          "properties": {
+            "basePaths": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^\\/[a-z0-9][a-z0-9/-]{0,119}$"
+              },
+              "description": "Route prefixes below /api/v1 that the plugin may register."
+            },
+            "openapi": {
+              "type": "string",
+              "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
+            }
+          },
+          "required": ["basePaths"],
+          "additionalProperties": false
+        },
+        "studio": {
+          "type": "object",
+          "properties": {
+            "route": {
+              "type": "string",
+              "pattern": "^\\/[a-z0-9][a-z0-9/-]{0,119}$",
+              "description": "The Studio route that manages the plugin."
+            },
+            "entrypoint": {
+              "type": "string",
+              "const": "./studio/index.tsx",
+              "description": "Studio module that default-exports defineStudioPlugin. Always ./studio/index.tsx."
+            },
+            "additionalRoutes": {
+              "description": "Absolute Studio routes outside /plugins/<id> the plugin owns, such as a portal or inbox. Each must mount through the definition's standaloneRoutes.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^\\/[a-z0-9][a-z0-9/-]{0,119}$"
+              }
+            }
+          },
+          "required": ["route", "entrypoint"],
+          "additionalProperties": false
+        },
+        "docs": {
+          "type": "object",
+          "properties": {
+            "reference": {
+              "description": "Engineering reference, published as the catalog documentation link.",
+              "type": "string",
+              "maxLength": 200
+            },
+            "pages": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9/-]{0,119}$",
+                    "description": "Public docs site slug, for example operations/plugins/countdown-bar."
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "\\S"
+                  },
+                  "sidebar": {
+                    "type": "object",
+                    "properties": {
+                      "group": {
+                        "default": "plugins",
+                        "description": "Docs site sidebar group the page is listed in.",
+                        "type": "string",
+                        "enum": ["plugins", "review-and-collect"]
+                      },
+                      "badge": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 12,
+                        "pattern": "\\S"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["source", "slug"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "apiVersion": {
+          "type": "number",
+          "const": 1,
+          "description": "Version of the Tilecast Plugin API the plugin is written for."
+        },
+        "capabilities": {
+          "default": {
+            "playerManifest": false,
+            "backgroundWorkers": false,
+            "network": []
+          },
+          "type": "object",
+          "properties": {
+            "playerManifest": {
+              "default": false,
+              "description": "Contributes entries to the authenticated Player manifest.",
+              "type": "boolean"
+            },
+            "backgroundWorkers": { "default": false, "type": "boolean" },
+            "network": {
+              "default": [],
+              "description": "Hosts Tilecast Server contacts for this plugin.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "runtime": {
+          "type": "object",
+          "properties": {
+            "entrypoint": {
+              "description": "Shared Player runtime module that renders the manifest types. Always ./runtime/index.ts; omitted when only native Players render them.",
+              "type": "string",
+              "const": "./runtime/index.ts"
+            },
+            "manifestTypes": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,79}$"
+              },
+              "description": "Player manifest plugin entry types this runtime renders."
+            },
+            "surfaces": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "strip.top",
+                  "strip.bottom",
+                  "corner.top-left",
+                  "corner.top-right",
+                  "corner.bottom-left",
+                  "corner.bottom-right",
+                  "overlay"
+                ]
+              }
+            },
+            "tier": {
+              "type": "string",
+              "enum": ["emergency", "live", "scheduled", "ambient"],
+              "description": "Arbitration tier of the plugin's surfaces: emergency, live, scheduled, or ambient. Declared once; a claim cannot choose its own tier."
+            }
+          },
+          "required": ["manifestTypes", "tier"],
+          "additionalProperties": false
         }
       },
-      "additionalProperties": false
+      "required": [
+        "id",
+        "definitionVersion",
+        "name",
+        "description",
+        "category",
+        "icon",
+        "maintainers",
+        "instanceNoun",
+        "apiVersion"
+      ],
+      "additionalProperties": false,
+      "description": "Tilecast plugin manifest (tilecast.plugin.json), Plugin API v1."
+    },
+    {
+      "type": "object",
+      "properties": {
+        "$schema": { "type": "string" },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,79}$",
+          "description": "Stable identifier. It is stored in plugin_installations and must never change."
+        },
+        "definitionVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991,
+          "description": "Version of this plugin's persisted and Player-facing definition. Recorded in the install and remove audit events."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "\\S"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280,
+          "pattern": "\\S"
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Display", "Automation", "Workflow", "Hardware"]
+        },
+        "icon": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,39}$",
+          "description": "Bounded icon identifier. Studio falls back to a generic icon."
+        },
+        "maintainers": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^@[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})(?:\\/[A-Za-z0-9][A-Za-z0-9._-]{0,99})?$"
+          },
+          "description": "Subject-matter stewards. Eligible handles are requested for review through the generated CODEOWNERS file."
+        },
+        "installable": { "default": true, "type": "boolean" },
+        "instanceNoun": {
+          "type": "object",
+          "properties": {
+            "singular": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "pattern": "\\S"
+            },
+            "plural": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40,
+              "pattern": "\\S"
+            }
+          },
+          "required": ["singular", "plural"],
+          "additionalProperties": false
+        },
+        "requirements": {
+          "default": [],
+          "description": "Advice shown before installation. Requirements are never evaluated.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "platform",
+                  "hardware",
+                  "region",
+                  "network",
+                  "provider",
+                  "player"
+                ]
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "pattern": "\\S"
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 280,
+                "pattern": "\\S"
+              }
+            },
+            "required": ["kind", "label"],
+            "additionalProperties": false
+          }
+        },
+        "uses": {
+          "default": [],
+          "description": "What the plugin uses, as shown in the catalog (the catalog API field `capabilities`).",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "\\S"
+          }
+        },
+        "server": {
+          "type": "object",
+          "properties": {
+            "entrypoint": {
+              "type": "string",
+              "const": "./plugin.go",
+              "description": "Go file that declares the plugin package and its New constructor. Always ./plugin.go."
+            }
+          },
+          "required": ["entrypoint"],
+          "additionalProperties": false
+        },
+        "migrations": {
+          "description": "Directory of Goose SQL files. Versions share the one global Tilecast sequence.",
+          "type": "string",
+          "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
+        },
+        "api": {
+          "type": "object",
+          "properties": {
+            "basePaths": {
+              "minItems": 1,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^\\/[a-z0-9][a-z0-9/-]{0,119}$"
+              },
+              "description": "Route prefixes below /api/v1 that the plugin may register."
+            },
+            "openapi": {
+              "type": "string",
+              "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
+            }
+          },
+          "required": ["basePaths"],
+          "additionalProperties": false
+        },
+        "studio": {
+          "type": "object",
+          "properties": {
+            "route": {
+              "type": "string",
+              "pattern": "^\\/[a-z0-9][a-z0-9/-]{0,119}$",
+              "description": "The Studio route that manages the plugin."
+            },
+            "entrypoint": {
+              "type": "string",
+              "const": "./studio/index.tsx",
+              "description": "Studio module that default-exports defineStudioPlugin. Always ./studio/index.tsx."
+            },
+            "additionalRoutes": {
+              "description": "Absolute Studio routes outside /plugins/<id> the plugin owns, such as a portal or inbox. Each must mount through the definition's standaloneRoutes.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^\\/[a-z0-9][a-z0-9/-]{0,119}$"
+              }
+            }
+          },
+          "required": ["route", "entrypoint"],
+          "additionalProperties": false
+        },
+        "docs": {
+          "type": "object",
+          "properties": {
+            "reference": {
+              "description": "Engineering reference, published as the catalog documentation link.",
+              "type": "string",
+              "maxLength": 200
+            },
+            "pages": {
+              "default": [],
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "pattern": "^\\.(?:\\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9/-]{0,119}$",
+                    "description": "Public docs site slug, for example operations/plugins/countdown-bar."
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80,
+                    "pattern": "\\S"
+                  },
+                  "sidebar": {
+                    "type": "object",
+                    "properties": {
+                      "group": {
+                        "default": "plugins",
+                        "description": "Docs site sidebar group the page is listed in.",
+                        "type": "string",
+                        "enum": ["plugins", "review-and-collect"]
+                      },
+                      "badge": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 12,
+                        "pattern": "\\S"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["source", "slug"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "apiVersion": {
+          "type": "number",
+          "const": 2,
+          "description": "Version of the Tilecast Plugin API the plugin is written for."
+        },
+        "capabilities": {
+          "default": { "backgroundWorkers": false, "network": [] },
+          "description": "Server declarations. Player state is declared by the player contribution, not by a flag.",
+          "type": "object",
+          "properties": {
+            "backgroundWorkers": { "default": false, "type": "boolean" },
+            "network": {
+              "default": [],
+              "description": "Hosts Tilecast Server contacts for this plugin.",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "player": {
+          "type": "object",
+          "properties": {
+            "state": {
+              "minItems": 1,
+              "maxItems": 16,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,79}$",
+                    "description": "Player state type, unique across every plugin."
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                  }
+                },
+                "required": ["type", "version"],
+                "additionalProperties": false
+              },
+              "description": "Player state the Server projects and the Player consumes. A Player contribution activates while state for it exists."
+            },
+            "runtime": {
+              "description": "Portable Player behavior in the Shared Runtime.",
+              "type": "object",
+              "properties": {
+                "entrypoint": {
+                  "type": "string",
+                  "const": "./runtime/index.ts",
+                  "description": "Shared Player Runtime module that default-exports definePlayerPlugin. Always ./runtime/index.ts."
+                },
+                "services": {
+                  "default": { "required": [], "optional": [] },
+                  "type": "object",
+                  "properties": {
+                    "required": {
+                      "default": [],
+                      "description": "Services the contribution cannot run without. A Player that lacks one does not activate the contribution.",
+                      "maxItems": 16,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^([a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+)@([1-9][0-9]{0,5})$"
+                      }
+                    },
+                    "optional": {
+                      "default": [],
+                      "description": "Enhancements. The contribution runs without them and receives null.",
+                      "maxItems": 16,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^([a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+)@([1-9][0-9]{0,5})$"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "surfaces": {
+                  "default": [],
+                  "description": "Visual contributions for player.surface@1. Empty for a plugin that draws nothing.",
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]{0,39}$",
+                        "description": "Contribution identifier, unique within the plugin."
+                      },
+                      "slots": {
+                        "minItems": 1,
+                        "maxItems": 7,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "strip.top",
+                            "strip.bottom",
+                            "corner.top-left",
+                            "corner.top-right",
+                            "corner.bottom-left",
+                            "corner.bottom-right",
+                            "overlay"
+                          ]
+                        },
+                        "description": "Slots this contribution may claim."
+                      },
+                      "tier": {
+                        "type": "string",
+                        "enum": ["emergency", "live", "scheduled", "ambient"],
+                        "description": "Arbitration tier of this contribution's claims. Reviewed here; a claim cannot choose it."
+                      }
+                    },
+                    "required": ["id", "slots", "tier"],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "required": ["entrypoint"],
+              "additionalProperties": false
+            },
+            "native": {
+              "default": [],
+              "description": "First-party native contributions compiled into Player builds. Platforms register them through typed Player Core interfaces.",
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,39}$"
+                  },
+                  "services": {
+                    "default": { "required": [], "optional": [] },
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "default": [],
+                        "description": "Services the contribution cannot run without. A Player that lacks one does not activate the contribution.",
+                        "maxItems": 16,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^([a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+)@([1-9][0-9]{0,5})$"
+                        }
+                      },
+                      "optional": {
+                        "default": [],
+                        "description": "Enhancements. The contribution runs without them and receives null.",
+                        "maxItems": 16,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^([a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+)@([1-9][0-9]{0,5})$"
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["id"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["state"],
+          "additionalProperties": false,
+          "description": "Player contribution. Omit it for a plugin that has no Player behavior."
+        }
+      },
+      "required": [
+        "id",
+        "definitionVersion",
+        "name",
+        "description",
+        "category",
+        "icon",
+        "maintainers",
+        "instanceNoun",
+        "apiVersion"
+      ],
+      "additionalProperties": false,
+      "description": "Tilecast plugin manifest (tilecast.plugin.json), Plugin API v2: independent Server, Studio, and Player contributions."
     }
-  },
-  "required": [
-    "apiVersion",
-    "id",
-    "definitionVersion",
-    "name",
-    "description",
-    "category",
-    "icon",
-    "maintainers",
-    "instanceNoun"
   ],
-  "additionalProperties": false,
-  "description": "Tilecast plugin manifest (tilecast.plugin.json), Plugin API v1."
+  "description": "Tilecast plugin manifest (tilecast.plugin.json)."
 }

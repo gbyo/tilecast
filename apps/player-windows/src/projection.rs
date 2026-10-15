@@ -310,7 +310,7 @@ pub fn incompatibilities(document: &Value, assets: &[ManifestAsset]) -> Vec<Inco
     // display task applies it when a provider exists and reports the typed
     // reason when none does, as the reference player does.
     for plugin in document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
-        if player_core::is_external_runtime_plugin(plugin) {
+        if player_core::is_runtime_plugin_data(plugin) {
             continue;
         }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("unknown");
@@ -589,7 +589,23 @@ impl<'a> Projector<'a> {
         let mut aliases = Vec::new();
         let mut content = Vec::new();
         for plugin in self.document().get("plugins").and_then(Value::as_array).into_iter().flatten() {
-            if player_core::is_external_runtime_plugin(plugin) {
+            if player_core::is_runtime_plugin_data(plugin) {
+                for (asset_id, variant_id) in player_core::plugin_state_media(plugin) {
+                    let asset =
+                        self.asset(&asset_id.to_string(), &variant_id.to_string()).ok_or(ProjectionError::Reference)?;
+                    if !aliases.iter().any(|alias: &MediaAlias| {
+                        alias.asset_id == asset.asset_id && alias.variant_id == asset.variant_id
+                    }) {
+                        aliases.push(MediaAlias {
+                            asset_id: asset.asset_id,
+                            variant_id: asset.variant_id,
+                            uri: content_uri(&asset.digest),
+                        });
+                    }
+                    if !content.iter().any(|existing: &VerifiedContentRef| existing.sha256 == asset.digest) {
+                        content.push(Self::content_ref(asset)?);
+                    }
+                }
                 plugins.push(plugin.clone());
                 continue;
             }
@@ -925,6 +941,22 @@ mod tests {
         assert_eq!(forwarded, vec![entry]);
         assert_eq!(native.required_frames.len(), 1);
         assert_eq!(native.required_frames[0].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert!(aliases.is_empty() && content.is_empty());
+        assert!(incompatibilities(&native.document, &native.assets).is_empty());
+    }
+
+    #[test]
+    fn plugin_state_is_runtime_data_routed_by_player_core() {
+        let entry: Value =
+            serde_json::from_str(include_str!("../../../packages/manifest-schema/plugin-state-entry-fixture.json"))
+                .expect("fixture");
+        let screen = player_types::ScreenId::from_uuid(uuid::Uuid::from_u128(3));
+        let value = serde_json::json!({"schemaVersion":21,"manifestVersion":1,"screenId":screen.to_string(),"mode":"presentation",
+            "assets":[],"playlists":[],"widgets":[],"plugins":[entry.clone()]});
+        let native = NativeManifest::parse(value, screen, player_types::Sha256Digest::from_bytes([7; 32]))
+            .expect("v2 state member");
+        let (forwarded, aliases, content) = Projector::new(&native).plugins().expect("state channel");
+        assert_eq!(forwarded, vec![entry]);
         assert!(aliases.is_empty() && content.is_empty());
         assert!(incompatibilities(&native.document, &native.assets).is_empty());
     }

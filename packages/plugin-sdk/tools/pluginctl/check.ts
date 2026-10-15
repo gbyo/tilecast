@@ -8,7 +8,12 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import YAML from "yaml";
-import { conventionalEntrypoints } from "../../src/manifest.ts";
+import {
+  conventionalEntrypoints,
+  playerEntryTypes,
+  reservedPlayerEntryTypes,
+  runtimeEntrypoint,
+} from "../../src/manifest.ts";
 import { checkAutomationFiles } from "./automation.ts";
 import { checkBoundaries } from "./boundaries.ts";
 import { checkCssScope } from "./css-scope.ts";
@@ -80,7 +85,16 @@ export async function check(repo: Repo): Promise<Problem[]> {
       studioRoutes.push({ route: manifest.studio.route, id });
     }
 
-    if (manifest.runtime) {
+    for (const type of playerEntryTypes(manifest)) {
+      if ((reservedPlayerEntryTypes as readonly string[]).includes(type))
+        add(`Player entry type ${type} is reserved for the host`);
+      if (manifestTypes.has(type))
+        add(
+          `Player entry type ${type} is also owned by ${manifestTypes.get(type)}`,
+        );
+      manifestTypes.set(type, id);
+    }
+    if (manifest.apiVersion === 1 && manifest.runtime) {
       if (manifest.runtime.entrypoint) {
         requireFile(
           plugin,
@@ -100,14 +114,8 @@ export async function check(repo: Repo): Promise<Problem[]> {
           "a plugin that declares runtime.surfaces must render them in ./runtime/index.ts",
         );
       }
-      for (const type of manifest.runtime.manifestTypes) {
-        if (manifestTypes.has(type))
-          add(
-            `manifest type ${type} is also rendered by ${manifestTypes.get(type)}`,
-          );
-        manifestTypes.set(type, id);
-      }
     }
+    if (manifest.apiVersion === 2) checkPlayerContribution(plugin, add);
 
     if (manifest.api) {
       if (!manifest.server) add("api routes need a server entry point");
@@ -402,6 +410,94 @@ function requireFile(
     add(`${field} ${path} does not exist`);
 }
 
+/**
+ * A Plugin API v2 Player contribution. The Shared Runtime part must exist at
+ * its conventional path. Each native contribution is a Rust crate in
+ * native/<id>/ that implements player_core::NativePluginContribution; the
+ * two directions must agree, like the conventional entry points.
+ */
+function checkPlayerContribution(plugin: DiscoveredPlugin, add: Add) {
+  const { manifest } = plugin;
+  if (manifest.apiVersion !== 2) return;
+  const player = manifest.player;
+  if (player?.runtime) {
+    requireFile(
+      plugin,
+      player.runtime.entrypoint,
+      "player.runtime.entrypoint",
+      add,
+    );
+  }
+  const declared = new Set((player?.native ?? []).map((native) => native.id));
+  const workspace = readWorkspaceMembers(plugin.path);
+  for (const id of declared) {
+    const cargo = join(plugin.path, "native", id, "Cargo.toml");
+    if (!existsSync(cargo)) {
+      add(
+        `native contribution ${id} needs a crate at native/${id}/Cargo.toml implementing player_core::NativePluginContribution`,
+      );
+      continue;
+    }
+    const member = `plugins/${plugin.dir}/native/${id}`;
+    if (workspace !== null && !workspace.includes(member))
+      add(`native contribution ${id}: add ${member} to the Cargo workspace`);
+    for (const dependency of cargoDependencies(readFileSync(cargo, "utf8"))) {
+      if (!NATIVE_DEPENDENCIES.includes(dependency))
+        add(
+          `native contribution ${id} depends on ${dependency}; native contributions use player-core and player-types, never Edge or platform crates`,
+        );
+    }
+  }
+  const nativeDir = join(plugin.path, "native");
+  if (existsSync(nativeDir)) {
+    for (const name of readdirSync(nativeDir)) {
+      if (!statSync(join(nativeDir, name)).isDirectory()) continue;
+      if (!declared.has(name))
+        add(`native/${name} exists but player.native does not declare it`);
+    }
+  }
+}
+
+/**
+ * Crates a native contribution may depend on: the shared Player contracts and
+ * plain data libraries. Platform behavior reaches it through typed Core
+ * interfaces, so it never names Edge, Windows, or Android crates.
+ */
+const NATIVE_DEPENDENCIES = [
+  "player-core",
+  "player-types",
+  "serde",
+  "serde_json",
+  "thiserror",
+  "tracing",
+  "uuid",
+  "jiff",
+];
+
+/** Dependency names in [dependencies] and [dev-dependencies]. */
+export function cargoDependencies(text: string): string[] {
+  const names: string[] = [];
+  let inDependencies = false;
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (line.startsWith("[")) {
+      inDependencies = /^\[(dev-)?dependencies\]$/.test(line);
+      continue;
+    }
+    const match = /^([A-Za-z0-9_-]+)(?:\.workspace)?\s*=/.exec(line);
+    if (inDependencies && match?.[1]) names.push(match[1]);
+  }
+  return names;
+}
+
+/** Root Cargo workspace members, or null when there is no workspace file. */
+function readWorkspaceMembers(pluginPath: string): string[] | null {
+  const path = join(pluginPath, "..", "..", "Cargo.toml");
+  if (!existsSync(path)) return null;
+  const members = /members\s*=\s*\[([^\]]*)\]/.exec(readFileSync(path, "utf8"));
+  return [...(members?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+}
+
 function checkServer(plugin: DiscoveredPlugin, add: Add) {
   const server = plugin.manifest.server;
   if (!server) {
@@ -441,7 +537,7 @@ function checkConventionalEntrypoints(plugin: DiscoveredPlugin, add: Add) {
   const { manifest } = plugin;
   const declared: [string, string | undefined][] = [
     [conventionalEntrypoints.studio, manifest.studio?.entrypoint],
-    [conventionalEntrypoints.runtime, manifest.runtime?.entrypoint],
+    [conventionalEntrypoints.runtime, runtimeEntrypoint(manifest)],
   ];
   for (const [path, entrypoint] of declared) {
     if (entrypoint === undefined && existsSync(join(plugin.path, path))) {

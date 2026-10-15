@@ -51,6 +51,7 @@ type SourceProjector interface {
 
 type PluginProjector interface {
 	ManifestForScreen(context.Context, uuid.UUID) ([]plugins.ManifestPlugin, error)
+	PlayerStateForScreen(context.Context, uuid.UUID, map[string]int) ([]plugins.PlayerStateEntry, error)
 }
 
 type ExternalPluginProjector interface {
@@ -2406,6 +2407,15 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 				copy := entry
 				manifest.Plugins = append(manifest.Plugins, ManifestPluginEntry{External: &copy})
 			}
+		}
+	}
+	if s.plugins != nil && reportsPlayerPluginHost(playerCapabilities) {
+		// Like external plugins above, a capable Player receives the stable
+		// superset even with no entries, so the first state change is a
+		// plugin-only revision rather than a schema change.
+		manifest.SchemaVersion = ManifestSchemaPlayerPlugins
+		if err := s.projectPlayerState(ctx, &manifest, screenID, playerCapabilities.Native, now); err != nil {
+			return Manifest{}, "", err
 		}
 	}
 	encoded, encodeErr := json.Marshal(manifest)

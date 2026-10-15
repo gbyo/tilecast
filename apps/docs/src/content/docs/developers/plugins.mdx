@@ -7,7 +7,11 @@ import { FileTree } from "@astrojs/starlight/components";
 
 A Tilecast plugin is one directory below `plugins/`. Tilecast discovers its server code, Studio pages, Player runtime, migrations, API description, and public docs from that directory.
 
-Plugins ship with Tilecast. Plugin API v1 does not download or run third-party code.
+Plugins ship with Tilecast. Bundled plugins never download or run third-party code.
+
+A plugin extends Tilecast. It isn't the same thing as a Widget, which is content you place in a playlist or Layout. A plugin can add server behavior, Studio pages, Player behavior, or any mix of the three, and drawing on screen is just one thing Player behavior can do.
+
+Two plugin API versions are supported side by side. New plugins use **Plugin API v2**, where the server, Studio, and Player parts are independent and Player behavior asks for the services it needs. The plugins that ship with Tilecast today still use **Plugin API v1**, which keeps working unchanged.
 
 ## Pick the part you need
 
@@ -15,13 +19,13 @@ Plugins ship with Tilecast. Plugin API v1 does not download or run third-party c
 - [Write the manifest](./manifest/) explains the fields in `tilecast.plugin.json`.
 - [Add server behavior](./server/) covers Host services, routes, workers, status, removal blockers, and Demo Mode.
 - [Add Studio pages](./studio/) covers management routes, standalone routes, translations, and secondary navigation.
-- [Draw on the Player](./player/) covers manifest projection, surfaces, tiers, CSS, and runtime tests.
+- [Add Player behavior](./player/) covers Player state, services, surfaces, tiers, CSS, and runtime tests.
 - [Publish a Data Source or private asset](./data-sources/) covers `DataSourceProvider`, `Host.DataSources`, and `Host.PluginAssets`.
 - [Bundle Widgets and Data Sources](./static-content/) ships ordinary Widget and declarative Data Source modules inside the plugin directory.
 - [Add migrations and tests](./testing/) covers the global migration sequence, conformance, PostgreSQL tests, and generated files.
 - [Offer CLI commands and MCP tools](#automation-mapping) covers `automation.yaml`.
 
-For the exact API contract, use the [Plugin API v1 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md).
+For the exact API contracts, use the [Plugin API v2 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v2.md) and the [Plugin API v1 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md).
 
 ## What belongs in a plugin
 
@@ -40,7 +44,8 @@ For the exact API contract, use the [Plugin API v1 engineering reference](https:
     - widgets/ Optional bundled Widgets.
     - data-sources/ Optional declarative Data Sources.
     - studio/ Optional Studio pages and translations.
-    - runtime/ Optional Player runtime and styles.
+    - runtime/ Optional Shared Runtime Player behavior and styles.
+    - native/ Optional first-party native Player contributions (Plugin API v2).
     - docs/ Optional public docs pages.
 
 </FileTree>

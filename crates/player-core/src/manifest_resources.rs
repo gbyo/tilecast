@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=20;
+pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=21;
 
 /// Route an already validated manifest member to the independently gated
 /// frame channel. External packages never become bundled feature IDs.
@@ -434,7 +434,7 @@ fn extract_plugin_frame(plugin: &Value) -> Result<ManifestFrame, NativeManifestE
     })
 }
 
-fn bounded_plugin_state(value: &Value, depth: usize, nodes: &mut usize) -> bool {
+pub(crate) fn bounded_plugin_state(value: &Value, depth: usize, nodes: &mut usize) -> bool {
     *nodes += 1;
     if depth > 16 || *nodes > 2048 {
         return false;
@@ -614,11 +614,33 @@ impl NativeManifest {
         for layout in &wire.layouts {
             check_layout(layout, &by_variant, &mut forced_downloads)?;
         }
+        let mut state_entries = 0;
         for plugin in &wire.plugins {
             if plugin.get("type").and_then(Value::as_str) == Some("brand_bug")
                 && let Some(config) = plugin.get("config")
             {
                 exact_asset(config, "imageAssetId", "imageVariantId", &by_variant, &mut forced_downloads)?;
+            }
+            if plugin.get("type").and_then(Value::as_str) == Some(crate::plugin_host::PLUGIN_STATE_TYPE) {
+                // Plugin API v2 state exists only from v21, and only in the
+                // shape and bounds the Server produces.
+                if wire.schema_version < 21 {
+                    return Err(NativeManifestError::Schema);
+                }
+                state_entries += 1;
+                if state_entries > crate::plugin_host::MAX_STATE_ENTRIES {
+                    return Err(NativeManifestError::Bound);
+                }
+                let media =
+                    crate::plugin_host::validate_plugin_state(plugin).map_err(|_| NativeManifestError::Structure)?;
+                for key in media {
+                    // Declared plugin media is a verified download like any
+                    // other reference outside a playlist.
+                    forced_downloads.insert(key);
+                    if !by_variant.contains_key(&key) {
+                        return Err(NativeManifestError::Reference);
+                    }
+                }
             }
         }
         crate::resolve(&document, 0).map_err(|_| NativeManifestError::Schedule)?;
@@ -820,6 +842,48 @@ mod tests {
             "runtime":{"tier":"live","surfaces":["corner.bottom-left"]},"state":{"count":12},
             "validUntil":"2026-10-13T12:01:15Z"
         })
+    }
+
+    /// Plugin API v2 state is Runtime data: v21 only, bounded, and its media
+    /// is a forced verified download that must be in the asset catalog.
+    #[test]
+    fn plugin_state_requires_schema_21_and_declared_media_in_the_catalog() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let asset = uuid::Uuid::from_u128(2);
+        let variant = uuid::Uuid::from_u128(3);
+        let digest = Sha256Digest::of(b"verified bytes");
+        let state = json!({"id":"beacon-1","type":"plugin_state","version":1,"plugin":"sample_beacon",
+            "definitionVersion":1,"stateType":"sample_beacon","stateVersion":1,"state":{"label":"Lobby"},
+            "media":[{"assetId":asset,"variantId":variant}]});
+        let mut document = json!({
+            "schemaVersion":21, "manifestVersion":1, "screenId":screen, "mode":"presentation",
+            "assets":[{"assetId":asset,"variantId":variant,"sha256":digest,"fileSize":14,
+                "mimeType":"image/png","downloadPath":format!("/api/v1/player/assets/{asset}/variants/{variant}")}],
+            "playlists":[],"schedules":[],"widgets":[],"dataSources":[],"plugins":[state.clone()],
+        });
+        let prepared = NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)).unwrap();
+        assert_eq!(prepared.required_downloads.len(), 1);
+        assert_eq!(prepared.required_downloads[0].policy, AssetPolicy::Download);
+
+        document["schemaVersion"] = json!(20);
+        assert!(matches!(
+            NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)),
+            Err(NativeManifestError::Schema)
+        ));
+        document["schemaVersion"] = json!(21);
+        document["assets"] = json!([]);
+        assert!(matches!(
+            NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)),
+            Err(NativeManifestError::Reference)
+        ));
+        let mut unknown = state;
+        unknown["version"] = json!(2);
+        unknown["media"] = json!([]);
+        document["plugins"] = json!([unknown]);
+        assert!(matches!(
+            NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)),
+            Err(NativeManifestError::Structure)
+        ));
     }
 
     #[test]

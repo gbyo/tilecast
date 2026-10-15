@@ -60,6 +60,12 @@ export interface RuntimeCapabilitiesV1 {
   /** Verified plugin frames, isolated bridges and refused child navigation. */
   readonly externalPluginFrames?: boolean;
   /**
+   * The host forwards Plugin API v2 `plugin_state` entries in `plugins`
+   * messages, with grants for the media they declare. Absent means
+   * unavailable: the runtime then never reports the v2 plugin host.
+   */
+  readonly pluginState?: boolean;
+  /**
    * Where a served frame's sandbox comes from. `attribute` sets the
    * iframe sandbox attribute; `response` navigates bare and takes the
    * sandbox from the response `sandbox` directive, for hosts whose
@@ -573,6 +579,23 @@ export interface ExternalRuntimePluginV1 {
   validUntil: string;
 }
 
+/**
+ * Plugin API v2 Player state for one bundled plugin. The Player Plugin Host
+ * routes it by `plugin` and `stateType`; it never selects a renderer by type.
+ */
+export interface PluginStateEntryV1 {
+  id: string;
+  type: "plugin_state";
+  version: 1;
+  plugin: string;
+  definitionVersion: number;
+  stateType: string;
+  stateVersion: number;
+  state: Record<string, unknown>;
+  media: { assetId: string; variantId: string }[] | null;
+  validUntil?: string;
+}
+
 /** Only the native host can supply these verified plugin-frame grants. */
 export interface PluginFrameBindingV1 {
   packageId: string;
@@ -583,7 +606,7 @@ export interface PluginFrameBindingV1 {
 
 export interface PluginsMessage {
   type: "plugins";
-  plugins: (RuntimePluginV1 | ExternalRuntimePluginV1)[];
+  plugins: (RuntimePluginV1 | ExternalRuntimePluginV1 | PluginStateEntryV1)[];
   clockOffsetMs: number;
   /** Explicit grants for plugin media, replaced with each plugin snapshot. */
   media?: ProjectionContextV1["media"];

@@ -549,6 +549,19 @@ function reachableAssets(
 }
 
 /** Walks plugin configuration for `<name>AssetId` / `<name>VariantId` pairs. */
+/**
+ * Media a plugin entry needs: a v1 entry's configured asset fields, or the
+ * `media` list a Plugin API v2 `plugin_state` entry declares.
+ */
+function pluginEntryMedia(
+  plugin: unknown,
+): { assetId: string; variantId: string }[] {
+  const entry = plugin as { type?: unknown; config?: unknown; media?: unknown };
+  return pluginMediaPairs(
+    entry.type === "plugin_state" ? entry.media : entry.config,
+  );
+}
+
 function pluginMediaPairs(
   value: unknown,
   depth = 0,
@@ -685,9 +698,7 @@ export function planPresentation(input: ResolveInput): PresentationPlan {
     ]),
   );
   for (const plugin of manifest.plugins ?? []) {
-    for (const pair of pluginMediaPairs(
-      (plugin as { config?: unknown }).config,
-    )) {
+    for (const pair of pluginEntryMedia(plugin)) {
       const index = catalog.get(assetKey(pair.assetId, pair.variantId));
       if (index !== undefined && isAvailableAt(manifest.assets[index], at))
         needed.add(index);
@@ -770,9 +781,7 @@ export function planPresentation(input: ResolveInput): PresentationPlan {
         : undefined;
     if (logoIndex !== undefined) reachable.add(logoIndex);
     for (const plugin of manifest.plugins ?? []) {
-      for (const pair of pluginMediaPairs(
-        (plugin as { config?: unknown }).config,
-      )) {
+      for (const pair of pluginEntryMedia(plugin)) {
         const index = catalogIndex(pair.assetId, pair.variantId);
         if (index !== undefined) reachable.add(index);
       }
