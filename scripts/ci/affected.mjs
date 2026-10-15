@@ -161,6 +161,12 @@ const rules = [
     /^packages\/manifest-schema\/external-plugin-entry-fixture\.json$/,
     ["protocol", "player_core"],
   ],
+  // The plugin state entry fixture is replayed by the server, the shared
+  // Runtime and plugin SDK, and every native host's frame-claim tests.
+  [
+    /^packages\/manifest-schema\/plugin-state-entry-fixture\.json$/,
+    ["protocol", "player_core", "server", "plugins", "runtime"],
+  ],
   // External Widget conformance fixtures are executed by the shared Widget
   // SDK and projected by the Runtime, then exercised by native hosts.
   // Keep each changed fixture on the relevant cross-player validation lanes.
