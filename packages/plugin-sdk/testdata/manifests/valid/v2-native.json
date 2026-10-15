@@ -1,0 +1,40 @@
+{
+  "apiVersion": 2,
+  "id": "cast_receiver",
+  "definitionVersion": 1,
+  "name": "Cast Receiver",
+  "description": "A native contribution beside a portable one.",
+  "category": "Hardware",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "player": {
+    "state": [
+      {
+        "type": "cast_receiver",
+        "version": 1
+      }
+    ],
+    "runtime": {
+      "entrypoint": "./runtime/index.ts",
+      "services": {
+        "optional": ["player.presentation.observe@1"]
+      }
+    },
+    "native": [
+      {
+        "id": "receiver",
+        "services": {
+          "required": [],
+          "optional": []
+        }
+      }
+    ]
+  }
+}

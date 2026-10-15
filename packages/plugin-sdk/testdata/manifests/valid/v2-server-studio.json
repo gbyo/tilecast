@@ -1,0 +1,39 @@
+{
+  "apiVersion": 2,
+  "id": "intake_forms",
+  "definitionVersion": 1,
+  "name": "Intake Forms",
+  "description": "Server and Studio only: no Player behavior.",
+  "category": "Workflow",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "capabilities": {
+    "backgroundWorkers": true,
+    "network": ["forms.example.org"]
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "migrations": "./migrations",
+  "api": {
+    "basePaths": ["/plugins/intake-forms"],
+    "openapi": "./api/openapi.yaml"
+  },
+  "studio": {
+    "route": "/plugins/intake-forms",
+    "entrypoint": "./studio/index.tsx",
+    "additionalRoutes": ["/intake"]
+  },
+  "docs": {
+    "pages": [
+      {
+        "source": "./docs/index.mdx",
+        "slug": "operations/plugins/intake-forms"
+      }
+    ]
+  }
+}

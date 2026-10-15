@@ -41,6 +41,30 @@ class RendererReadyReportTest {
         Json.parseToJsonElement(file.readText()).jsonObject
     }
 
+    /**
+     * The Plugin API v2 host and the Shared Runtime services, read from the
+     * canonical vocabulary rather than from the generated constants: a
+     * service with a `hostCapability` needs host help, which Android does
+     * not provide yet.
+     */
+    private val pluginServices: JsonObject by lazy {
+        val file = listOf(
+            "../../../packages/plugin-sdk/player-services.json",
+            "packages/plugin-sdk/player-services.json",
+        ).map(::File).first { it.isFile }
+        Json.parseToJsonElement(file.readText()).jsonObject
+    }
+
+    private fun expectedPluginCapabilities(): Map<String, Int> {
+        val host = pluginServices["host"]!!.jsonObject
+        val services = pluginServices["services"]!!.jsonArray.map { it.jsonObject }
+            .filter {
+                it["execution"]!!.jsonPrimitive.content == "runtime" && it["hostCapability"] == null
+            }
+            .associate { it["name"]!!.jsonPrimitive.content to it["version"]!!.jsonPrimitive.int }
+        return services + (host["capability"]!!.jsonPrimitive.content to host["version"]!!.jsonPrimitive.int)
+    }
+
     private fun report(support: RuntimeSupport): JsonObject =
         Json.parseToJsonElement(RendererReadyReport.build(7, support)).jsonObject["report"]!!.jsonObject
 
@@ -61,7 +85,8 @@ class RendererReadyReportTest {
 
         val webRemote = contract["webRemote"]!!.jsonObject
         val declarative = PresentationCapabilities.SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES +
-            (webRemote["name"]!!.jsonPrimitive.content to webRemote["version"]!!.jsonPrimitive.int)
+            (webRemote["name"]!!.jsonPrimitive.content to webRemote["version"]!!.jsonPrimitive.int) +
+            expectedPluginCapabilities()
         assertEquals(declarative, table(support["declarativeCapabilities"]!!.jsonObject))
 
         val external = contract["externalWidgetRuntime"]!!.jsonObject
@@ -108,6 +133,21 @@ class RendererReadyReportTest {
         assertTrue(
             WidgetComponentCapabilities.COMPONENT_PRESENTATION_SCHEMA_VERSION in RendererProfile.COMPONENT_PRESENTATION_SCHEMAS,
         )
+    }
+
+    @Test fun pluginApiTwoIsAdvertisedOnlyWhereTheTrustedRuntimeRuns() {
+        for (support in listOf(full, compatOnly)) {
+            val declarative = table(report(support)["support"]!!.jsonObject["declarativeCapabilities"]!!.jsonObject)
+            for ((name, version) in expectedPluginCapabilities()) assertEquals(name, version, declarative[name])
+            // Events need a transport this host does not have.
+            assertFalse("player.events" in declarative)
+            // Nothing in the report names a native service this build lacks.
+            assertTrue(declarative.keys.none { it.startsWith("player.reference.") })
+        }
+        val untrusted = table(report(untrusted)["support"]!!.jsonObject["declarativeCapabilities"]!!.jsonObject)
+        assertFalse("plugin.host" in untrusted)
+        assertEquals(expectedPluginCapabilities(), RendererProfile.SHARED_RUNTIME_PLAYER_SERVICES +
+            (RendererProfile.PLUGIN_HOST_CAPABILITY to RendererProfile.PLUGIN_HOST_VERSION))
     }
 
     @Test fun theGeneratedProfileIsTheContractFile() {

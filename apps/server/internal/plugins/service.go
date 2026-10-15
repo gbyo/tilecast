@@ -154,6 +154,10 @@ type Catalog struct {
 // so plugins in plugins/ and the remaining built-ins here share one shape.
 type ManifestPlugin = plugin.ManifestEntry
 
+// PlayerStateEntry is one Plugin API v2 plugin_state member of the Player
+// manifest's plugins array.
+type PlayerStateEntry = plugin.PlayerStateEntry
+
 // pluginStatus is the plugin-specific part of a catalog entry.
 type pluginStatus struct {
 	configured bool
@@ -372,6 +376,43 @@ func (s *Service) ManifestForScreen(ctx context.Context, screenID uuid.UUID) ([]
 			return nil, err
 		}
 		out = append(out, items...)
+	}
+	return out, nil
+}
+
+// PlayerStateForScreen projects Plugin API v2 Player state for one screen,
+// in plugin order. The caller has already established that the Player hosts
+// Plugin API v2 contributions; reported is the Player's capability report.
+// A plugin whose Player contribution is Shared Runtime only and needs a
+// service the Player does not report is left out: the Player could not
+// activate it, so its state would only cause useless revisions. A plugin
+// with native contributions is always included, because native support is
+// decided by the Player build. Configuration left behind for an uninstalled
+// plugin never reaches a Player.
+func (s *Service) PlayerStateForScreen(ctx context.Context, screenID uuid.UUID, reported map[string]int) ([]PlayerStateEntry, error) {
+	installed, _, err := s.installations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := []PlayerStateEntry{}
+	for _, hosted := range s.hosted {
+		projector, ok := hosted.plugin.(plugin.PlayerStateProjector)
+		if !ok || !installed[hosted.manifest.ID] || hosted.manifest.Player == nil {
+			continue
+		}
+		player := hosted.manifest.Player
+		if len(player.Native) == 0 && !plugin.ServicesAvailable(reported, player.RequiredServices()) {
+			continue
+		}
+		states, err := projector.ProjectPlayerState(ctx, screenID)
+		if err != nil {
+			return nil, err
+		}
+		entries, err := plugin.EncodePlayerState(hosted.manifest, states, s.clock.Now())
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, entries...)
 	}
 	return out, nil
 }

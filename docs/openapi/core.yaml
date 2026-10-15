@@ -16126,6 +16126,48 @@ components:
         type: { type: string }
         version: { type: integer, minimum: 1 }
         config: { type: object, additionalProperties: true }
+    ManifestPluginState:
+      type: object
+      additionalProperties: false
+      description: Plugin API v2 Player state for one bundled plugin. The Player Plugin Host routes it by plugin and stateType. It carries no configuration a Player does not need and is never resolved through a renderer feature list.
+      required:
+        [
+          id,
+          type,
+          version,
+          plugin,
+          definitionVersion,
+          stateType,
+          stateVersion,
+          state,
+          media,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, const: plugin_state }
+        version: { type: integer, const: 1 }
+        plugin: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
+        definitionVersion: { type: integer, minimum: 1, maximum: 1000000 }
+        stateType: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
+        stateVersion: { type: integer, minimum: 1, maximum: 1000 }
+        state:
+          type: object
+          additionalProperties: true
+          description: At most 16 KiB of JSON, sixteen nested levels, and 2048 values.
+        media:
+          oneOf:
+            - { type: "null" }
+            - type: array
+              maxItems: 16
+              description: Verified media variants the state uses. Each variant is also in assets.
+              items:
+                type: object
+                additionalProperties: false
+                required: [assetId, variantId]
+                properties:
+                  assetId: { type: string, format: uuid }
+                  variantId: { type: string, format: uuid }
+        validUntil: { type: string, format: date-time }
     ManifestExternalPlugin:
       type: object
       additionalProperties: false
@@ -16209,8 +16251,8 @@ components:
       properties:
         schemaVersion:
           type: integer
-          enum: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-          description: The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
+          enum: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+          description: The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players. Version 21 adds Plugin API v2 plugin_state entries and is sent only to a Player that reports plugin.host at version 2.
         manifestVersion: { type: integer, format: int64, minimum: 1 }
         screenId: { type: string, format: uuid }
         generatedAt: { type: string, format: date-time }
@@ -16267,6 +16309,7 @@ components:
           items:
             oneOf:
               - { $ref: "#/components/schemas/ManifestBuiltinPlugin" }
+              - { $ref: "#/components/schemas/ManifestPluginState" }
               - { $ref: "#/components/schemas/ManifestExternalPlugin" }
         presentationOverride:
           {

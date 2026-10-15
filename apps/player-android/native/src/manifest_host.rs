@@ -90,6 +90,11 @@ pub mod profile {
                         token(crate::renderer_profile::WEB_REMOTE_CAPABILITY),
                         WEB_RUNTIME_VERSION,
                     )))
+                    // The install script sets pluginState, so the shared
+                    // Runtime hosts Plugin API v2 on a trusted WebView.
+                    .chain(
+                        player_core::shared_runtime_plugin_capabilities().map(|(name, version)| (token(name), version)),
+                    )
                     .collect(),
                 WIDGET_COMPONENTS
                     .iter()
@@ -387,7 +392,7 @@ pub fn incompatibilities(
     // display task applies it when a provider exists and reports the typed
     // reason when none does, as the reference player does.
     for plugin in document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
-        if player_core::is_external_runtime_plugin(plugin) {
+        if player_core::is_runtime_plugin_data(plugin) {
             continue;
         }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("unknown");
@@ -780,6 +785,20 @@ mod tests {
             contract["webRemote"]["name"].as_str().expect("name").to_owned(),
             contract["webRemote"]["version"].clone(),
         );
+        // Plugin API v2, rebuilt from the canonical vocabulary file rather
+        // than from the constant the packaged profile uses.
+        let vocabulary: Value =
+            serde_json::from_str(include_str!("../../../../packages/plugin-sdk/player-services.json"))
+                .expect("vocabulary");
+        declarative.insert(
+            vocabulary["host"]["capability"].as_str().expect("host").to_owned(),
+            vocabulary["host"]["version"].clone(),
+        );
+        for service in vocabulary["services"].as_array().expect("services") {
+            if service["execution"] == "runtime" && service.get("hostCapability").is_none() {
+                declarative.insert(service["name"].as_str().expect("name").to_owned(), service["version"].clone());
+            }
+        }
         let mut components = serde_json::Map::new();
         for (name, version) in WIDGET_COMPONENTS {
             components.insert((*name).to_owned(), serde_json::json!(version));

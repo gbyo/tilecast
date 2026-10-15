@@ -178,6 +178,10 @@ pub struct PresentationEngine {
     clock_offset_ms: i64,
     remote: crate::remote_web::SurfaceTracker,
     startup_clear: player_core::StartupWebsiteClear,
+    /// First-party native plugin contributions this build compiles in. It
+    /// reads what the renderer receives, so a native part and its Shared
+    /// Runtime part see one plugin state.
+    native_plugins: player_core::NativePluginFeed,
 }
 
 impl PresentationEngine {
@@ -199,7 +203,25 @@ impl PresentationEngine {
             clock_offset_ms: 0,
             remote: crate::remote_web::SurfaceTracker::new(),
             startup_clear: player_core::StartupWebsiteClear::default(),
+            // Windows provides no native plugin services yet, so a
+            // contribution that requires one stays unsupported.
+            native_plugins: player_core::NativePluginFeed::registered(
+                player_core::NativeServices::new(),
+                plugin_native_registry::contributions(),
+            ),
         }
+    }
+
+    /// Native plugin service capabilities this build provides, for the heartbeat.
+    pub fn native_plugin_capabilities(&self) -> Vec<(String, u32)> {
+        self.native_plugins.capabilities()
+    }
+
+    fn corrected_now_ms(&self) -> i64 {
+        let local = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |elapsed| i64::try_from(elapsed.as_millis()).unwrap_or(i64::MAX));
+        local.saturating_add(self.clock_offset_ms)
     }
 
     pub fn media(&self) -> Arc<Mutex<MediaRegistry>> {
@@ -350,6 +372,9 @@ impl PresentationEngine {
                 .ne(resolved.frames.iter().filter(|frame| frame.kind.is_widget()))
             || current.timing != resolved.timing
             || projection(&current.extras.projection) != projection(&resolved.projection)
+            // Plugin media aliases are registered for one generation when it
+            // activates. A changed alias set needs a new generation.
+            || current.extras.plugin_aliases != resolved.plugin_aliases
         {
             return Ok(false);
         }
@@ -377,6 +402,10 @@ impl PresentationEngine {
                 &prepared.frames().iter().filter(|frame| !frame.kind.is_widget()).cloned().collect::<Vec<_>>(),
             )
             .map_err(|_| "plugin_refresh_delivery_failed")?;
+        let now_ms = self.corrected_now_ms();
+        if let Some(context) = prepared.runtime_context() {
+            self.native_plugins.plugins_updated(context.value(), now_ms);
+        }
         self.current = Some(next);
         Ok(true)
     }
@@ -682,6 +711,7 @@ impl PresentationEngine {
     pub fn clear(&mut self, reason: &str) {
         self.current = None;
         self.native.clear();
+        self.native_plugins.cleared();
         if let Some(link) = &self.renderer {
             let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal"));
             let _ = link.port().clear(&reason);
@@ -707,6 +737,12 @@ impl PresentationEngine {
         let incompatible = match self.native.dispatch(session, &semantic, link.port()) {
             Ok(RendererDispatch::Queued) => {
                 self.incompatible_reason = None;
+                let now_ms = self.corrected_now_ms();
+                self.native_plugins.activated(
+                    &current.document,
+                    semantic.runtime_context().map(player_core::RuntimePayload::value),
+                    now_ms,
+                );
                 return;
             }
             Ok(RendererDispatch::Incompatible(missing)) => missing,
@@ -897,6 +933,13 @@ fn prepare(
         "timing": timing,
         "projection": projection,
         "plugins": activation.extras.plugins,
+        // Plugin API v2 media: the variants the plugin state declares, as
+        // content URIs the port swaps for grants and registers by identity.
+        "pluginAliases": activation.extras.plugin_aliases.iter().map(|alias| serde_json::json!({
+            "assetId": alias.asset_id.to_string(),
+            "variantId": alias.variant_id.to_string(),
+            "uri": alias.uri,
+        })).collect::<Vec<_>>(),
         "clockOffsetMs": clock_offset_ms,
     });
     RendererActivation::new(
@@ -1122,6 +1165,11 @@ fn host_capabilities() -> Value {
         "setup": true,
         "discovery": true,
         "externalFrames": true,
+        // Plugin API v2: plugin_state rides the plugins message, its media
+        // is registered per generation, and tcmedia://variant/ loads are
+        // authorized against it.
+        "pluginState": true,
+        "variantMedia": true,
     })
 }
 
@@ -1504,6 +1552,9 @@ mod tests {
     fn host_grants_verified_frames_to_the_runtime() {
         let capabilities = host_capabilities();
         assert_eq!(capabilities["externalFrames"], serde_json::json!(true));
+        assert_eq!(capabilities["pluginState"], serde_json::json!(true));
+        assert_eq!(capabilities["variantMedia"], serde_json::json!(true));
+        assert!(capabilities.get("pluginEvents").is_none(), "no event transport is wired on this host");
         // Attribute sandboxing is the contract default; the host only
         // names it when the serving layer needs bare navigations.
         assert!(capabilities.get("externalFrameSandbox").is_none());
@@ -1636,6 +1687,101 @@ mod tests {
                 .expect("compare changed projection"),
             "equal IDs cannot hide changed projection inputs"
         );
+    }
+
+    /// Plugin API v2 on Windows: state reaches the Runtime on its own
+    /// channel, its declared media is registered by identity for the
+    /// generation, and a state-only change is delivered without restarting
+    /// the presentation.
+    #[test]
+    fn plugin_api_2_state_media_and_plugin_only_refresh() {
+        let (mut engine, mut commands, session) = test_engine();
+        let digest = Sha256Digest::of(b"pixels");
+        let manifest = Sha256Digest::of(b"manifest-1");
+        let identity = PlaybackIdentity {
+            manifest,
+            manifest_version: 1,
+            selection_source: "direct",
+            playlist_id: Some(uuid::Uuid::from_u128(17)),
+            layout_id: None,
+            schedule_id: None,
+            takeover_id: None,
+            next_transition_ms: None,
+        };
+        let asset = uuid::Uuid::from_u128(0xa1);
+        let variant = uuid::Uuid::from_u128(0xb1);
+        let entry = |label: &str| {
+            let mut entry: Value =
+                serde_json::from_str(include_str!("../../../packages/manifest-schema/plugin-state-entry-fixture.json"))
+                    .expect("fixture");
+            entry["state"] = serde_json::json!({ "label": label });
+            entry["media"] = serde_json::json!([{"assetId": asset, "variantId": variant}]);
+            entry
+        };
+        let alias = MediaAlias { asset_id: asset, variant_id: variant, uri: crate::projection::content_uri(&digest) };
+        let mut resolved = ResolvedPresentation {
+            document: image_document(&digest),
+            content: image_content(digest),
+            frames: vec![],
+            timing: None,
+            projection: None,
+            plugins: vec![entry("Lobby")],
+            plugin_aliases: vec![alias],
+            next_transition_ms: None,
+            selection: player_core::Selection {
+                playlist_id: identity.playlist_id,
+                layout_id: None,
+                schedule_id: None,
+                takeover_id: None,
+                source: player_core::Source::Direct,
+                next_transition_ms: None,
+                playback_anchor_ms: None,
+            },
+        };
+        let reference =
+            engine.activate_server_presentation(identity.clone(), resolved.clone(), 1_000).expect("activation");
+        engine.renderer_ready(session, ready());
+        let _presentation = next_post(&mut commands);
+        let plugins = next_post(&mut commands);
+        assert_eq!(plugins["type"], "plugins");
+        assert_eq!(plugins["plugins"][0]["type"], "plugin_state");
+        assert_eq!(plugins["plugins"][0]["state"]["label"], "Lobby");
+        // The declared variant resolves for this generation, by identity, to
+        // the grant the Runtime may load; an undeclared one does not.
+        let media = engine.media();
+        {
+            let registry = media.lock().expect("media registry");
+            assert!(registry.resolve_variant(session, asset, variant, 1_000).is_some());
+            assert!(registry.resolve_variant(session, asset, uuid::Uuid::from_u128(0xdead), 1_000).is_none());
+        }
+        engine.accepted(session, &reference);
+        assert!(engine.progress(
+            session,
+            &bridge::EvidenceReport {
+                activation: Some(reference.clone()),
+                item_id: Some("item-1".into()),
+                kind: "image-shown".into(),
+                zone_id: None,
+            },
+            2_000
+        ));
+
+        // A state-only change is a plugin-only refresh: one plugins message,
+        // the same activation, evidence kept.
+        let next_identity =
+            PlaybackIdentity { manifest: Sha256Digest::of(b"manifest-2"), manifest_version: 2, ..identity };
+        resolved.plugins = vec![entry("Gym")];
+        assert!(engine.refresh_plugins(manifest, next_identity.clone(), &resolved).expect("refresh"));
+        let refreshed = next_post(&mut commands);
+        assert_eq!(refreshed["type"], "plugins");
+        assert_eq!(refreshed["plugins"][0]["state"]["label"], "Gym");
+        assert!(commands.try_recv().is_err(), "the presentation was not touched");
+        assert_eq!(engine.current().expect("current").reference(), reference);
+        assert!(engine.current_is_accepted() && engine.current_has_activation_evidence());
+
+        // A different alias set cannot reuse the generation's registration.
+        resolved.plugin_aliases = vec![];
+        assert!(!engine.refresh_plugins(next_identity.manifest, next_identity, &resolved).expect("compare aliases"));
     }
 
     #[test]

@@ -12,6 +12,8 @@ import type { TilecastRuntimeHostV1 } from "./host/contract";
 import type { ManualClock } from "./clock/scheduler";
 import type { PlaybackController } from "./engine/controller";
 import type { RuntimeSurfaceHost } from "./plugins/host";
+import type { PlayerPluginHost } from "./plugins/player-host";
+import type { PresentationProviders } from "./plugins/presentation-providers";
 import type { PlayerRoot } from "./views/player-root";
 import type { RuntimeWidgetHost } from "./widgets/host";
 
@@ -20,6 +22,8 @@ export interface ProbeOptions {
   host: TilecastRuntimeHostV1;
   controller: PlaybackController;
   surfaces: RuntimeSurfaceHost;
+  playerPlugins: PlayerPluginHost;
+  providers: PresentationProviders;
   view: PlayerRoot;
   manual: ManualClock | null;
   widgets: RuntimeWidgetHost;
@@ -79,7 +83,8 @@ function describeLayer(layer: HTMLElement | null): Record<string, unknown> {
 }
 
 export function installProbe(options: ProbeOptions): void {
-  const { controller, surfaces, view, manual } = options;
+  const { controller, surfaces, playerPlugins, providers, view, manual } =
+    options;
   const probe = {
     version: options.version,
     contractVersion: options.host.contractVersion,
@@ -119,6 +124,12 @@ export function installProbe(options: ProbeOptions): void {
         // Which runtime plugin holds each surface slot, what it shows there,
         // and the content-stage insets the host applied.
         plugins: surfaces.describe(),
+        // Plugin API v2 lifecycle: which plugins are active, unsupported,
+        // or failed on this Player, and which services they lack.
+        playerPlugins: playerPlugins.describe(),
+        // Presentation providers registered by v2 plugins and the one that
+        // currently holds the screen, if any.
+        providers: providers.describe(),
         identify: document
           .getElementById("identify")
           ?.classList.contains("visible")

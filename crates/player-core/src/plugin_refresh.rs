@@ -63,4 +63,23 @@ mod tests {
         pending["plugins"] = Value::Null;
         assert!(!is_plugin_only_revision(&active, &pending));
     }
+
+    // Plugin API v2 state travels in the same plugins array, so a state-only
+    // change is a plugin-only revision: no presentation is activated again.
+    #[test]
+    fn plugin_api_2_state_changes_are_plugin_only_revisions() {
+        let state = |label: &str| {
+            json!({"id": "beacon-1", "type": "plugin_state", "version": 1, "plugin": "sample_beacon",
+                "definitionVersion": 1, "stateType": "sample_beacon", "stateVersion": 1,
+                "state": {"label": label}, "media": []})
+        };
+        let active = json!({"schemaVersion": 21, "plugins": [state("Lobby")], "manifestVersion": 1,
+            "playlist": {"id": "playlist", "items": []}, "syncGroup": {"playbackEpoch": "fixed"}});
+        let mut pending = active.clone();
+        pending["plugins"] = json!([state("Gym")]);
+        pending["manifestVersion"] = json!(2);
+        assert!(is_plugin_only_revision(&active, &pending));
+        pending["plugins"] = json!([]);
+        assert!(is_plugin_only_revision(&active, &pending));
+    }
 }

@@ -2247,6 +2247,36 @@ func (e ManifestExternalPluginVersion) Valid() bool {
 	}
 }
 
+// Defines values for ManifestPluginStateType.
+const (
+	PluginState ManifestPluginStateType = "plugin_state"
+)
+
+// Valid indicates whether the value is a known member of the ManifestPluginStateType enum.
+func (e ManifestPluginStateType) Valid() bool {
+	switch e {
+	case PluginState:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ManifestPluginStateVersion.
+const (
+	ManifestPluginStateVersionN1 ManifestPluginStateVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the ManifestPluginStateVersion enum.
+func (e ManifestPluginStateVersion) Valid() bool {
+	switch e {
+	case ManifestPluginStateVersionN1:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ManifestScheduleType.
 const (
 	ManifestScheduleTypeOneTime ManifestScheduleType = "one_time"
@@ -3210,6 +3240,7 @@ const (
 	PlayerManifestSchemaVersionN18 PlayerManifestSchemaVersion = 18
 	PlayerManifestSchemaVersionN19 PlayerManifestSchemaVersion = 19
 	PlayerManifestSchemaVersionN20 PlayerManifestSchemaVersion = 20
+	PlayerManifestSchemaVersionN21 PlayerManifestSchemaVersion = 21
 )
 
 // Valid indicates whether the value is a known member of the PlayerManifestSchemaVersion enum.
@@ -3234,6 +3265,8 @@ func (e PlayerManifestSchemaVersion) Valid() bool {
 	case PlayerManifestSchemaVersionN19:
 		return true
 	case PlayerManifestSchemaVersionN20:
+		return true
+	case PlayerManifestSchemaVersionN21:
 		return true
 	default:
 		return false
@@ -8922,6 +8955,31 @@ type ManifestExternalPluginType string
 // ManifestExternalPluginVersion defines model for ManifestExternalPlugin.Version.
 type ManifestExternalPluginVersion int
 
+// ManifestPluginState Plugin API v2 Player state for one bundled plugin. The Player Plugin Host routes it by plugin and stateType. It carries no configuration a Player does not need and is never resolved through a renderer feature list.
+type ManifestPluginState struct {
+	DefinitionVersion int                `json:"definitionVersion"`
+	Id                openapi_types.UUID `json:"id"`
+	Media             *struct {
+		AssetId   openapi_types.UUID `json:"assetId"`
+		VariantId openapi_types.UUID `json:"variantId"`
+	} `json:"media"`
+	Plugin string `json:"plugin"`
+
+	// State At most 16 KiB of JSON, sixteen nested levels, and 2048 values.
+	State        map[string]interface{}     `json:"state"`
+	StateType    string                     `json:"stateType"`
+	StateVersion int                        `json:"stateVersion"`
+	Type         ManifestPluginStateType    `json:"type"`
+	ValidUntil   *time.Time                 `json:"validUntil,omitempty"`
+	Version      ManifestPluginStateVersion `json:"version"`
+}
+
+// ManifestPluginStateType defines model for ManifestPluginState.Type.
+type ManifestPluginStateType string
+
+// ManifestPluginStateVersion defines model for ManifestPluginState.Version.
+type ManifestPluginStateVersion int
+
 // ManifestResponse defines model for ManifestResponse.
 type ManifestResponse struct {
 	Data PlayerManifest `json:"data"`
@@ -9786,7 +9844,7 @@ type PlayerManifest struct {
 	PresentationOverride *PresentationOverride          `json:"presentationOverride,omitempty"`
 	Schedules            *[]ManifestSchedule            `json:"schedules,omitempty"`
 
-	// SchemaVersion The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
+	// SchemaVersion The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players. Version 21 adds Plugin API v2 plugin_state entries and is sent only to a Player that reports plugin.host at version 2.
 	SchemaVersion PlayerManifestSchemaVersion `json:"schemaVersion"`
 	ScreenId      openapi_types.UUID          `json:"screenId"`
 	Viewport      *struct {
@@ -9808,7 +9866,7 @@ type PlayerManifest_Plugins_Item struct {
 	union json.RawMessage
 }
 
-// PlayerManifestSchemaVersion The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
+// PlayerManifestSchemaVersion The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players. Version 21 adds Plugin API v2 plugin_state entries and is sent only to a Player that reports plugin.host at version 2.
 type PlayerManifestSchemaVersion int
 
 // PlayerPlatform The Player operating-system platform. The set grows with new players; clients must tolerate values they do not recognize.
@@ -15001,6 +15059,32 @@ func (t *PlayerManifest_Plugins_Item) FromManifestBuiltinPlugin(v ManifestBuilti
 
 // MergeManifestBuiltinPlugin performs a merge with any union data inside the PlayerManifest_Plugins_Item, using the provided ManifestBuiltinPlugin
 func (t *PlayerManifest_Plugins_Item) MergeManifestBuiltinPlugin(v ManifestBuiltinPlugin) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsManifestPluginState returns the union data inside the PlayerManifest_Plugins_Item as a ManifestPluginState
+func (t PlayerManifest_Plugins_Item) AsManifestPluginState() (ManifestPluginState, error) {
+	var body ManifestPluginState
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromManifestPluginState overwrites any union data inside the PlayerManifest_Plugins_Item as the provided ManifestPluginState
+func (t *PlayerManifest_Plugins_Item) FromManifestPluginState(v ManifestPluginState) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeManifestPluginState performs a merge with any union data inside the PlayerManifest_Plugins_Item, using the provided ManifestPluginState
+func (t *PlayerManifest_Plugins_Item) MergeManifestPluginState(v ManifestPluginState) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

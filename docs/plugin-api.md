@@ -9,6 +9,14 @@ Status: accepted. The foundation is implemented and the built-in plugins
 have moved to the new structure; see [Migration status](#migration-status).
 This document describes the frozen Plugin API v1 contract.
 
+[Plugin API v2](plugin-api-v2.md) is supported beside v1. It describes a
+plugin by independent Server, Studio, and Player contributions, and Player
+behavior by versioned services. A surface is one of those services. The
+bundled plugins stay on v1. The Server contract, Studio host, migrations,
+OpenAPI, documentation, and conformance sections below apply to both
+versions. The `runtime` member, `capabilities.playerManifest`, and the
+[Player runtime](#player-runtime) section apply to v1 only.
+
 ## Context
 
 Before Plugin API v1, the then-current built-in plugins had one shared installation

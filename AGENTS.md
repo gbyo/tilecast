@@ -215,12 +215,14 @@ Return computed status and `lastContactAt`. Do not duplicate the thresholds in R
 
 ### Plugins and extension packages
 
-A **bundled** plugin is a directory below `plugins/`. Read [`docs/plugin-api.md`](docs/plugin-api.md) before you change a bundled plugin or its host. Marketplace packages are separately distributed and have distinct installation and trust boundaries; see [`docs/packages.md`](docs/packages.md) and [`docs/marketplace.md`](docs/marketplace.md). For Widgets V2 and data sources, use [`docs/widgets-v2.md`](docs/widgets-v2.md) and [`docs/data-source-modules.md`](docs/data-source-modules.md).
+A **bundled** plugin is a directory below `plugins/`. Read [`docs/plugin-api.md`](docs/plugin-api.md) before you change a bundled plugin or its host. Two generations are supported: Plugin API v1 (frozen; every bundled plugin today) and Plugin API v2 ([`docs/plugin-api-v2.md`](docs/plugin-api-v2.md)), where Server, Studio, and Player contributions are independent and Player behavior requests versioned services. A Widget is presentation content; a plugin extends Tilecast; a surface is one Player service a plugin may use. New plugins use v2. Do not move an existing plugin to v2 as a side effect of another change. Marketplace packages are separately distributed and have distinct installation and trust boundaries; see [`docs/packages.md`](docs/packages.md) and [`docs/marketplace.md`](docs/marketplace.md). For Widgets V2 and data sources, use [`docs/widgets-v2.md`](docs/widgets-v2.md) and [`docs/data-source-modules.md`](docs/data-source-modules.md).
 
 - Keep everything unique to a plugin in its directory. Do not add a plugin identifier to core code; extend the SDK contribution interfaces instead.
+- A new Player capability for plugins is a narrow, versioned service in `packages/plugin-sdk/player-services.json` with its mirrors, not a field for one plugin. Never add a generic native invoke bridge or branch shared behavior on a platform name.
 - Plugins import only the plugin SDK, `@tilecast/studio`, and their own files. `npm run plugins:check` enforces this.
 - `tilecast.store.json` is presentation only. It must never carry identity, capabilities, requirements, or trust, which stay in the manifest. Store artwork is static WebP checked into the plugin's `store/` directory; do not add an artwork generator.
-- Never edit generated files: `plugins/registry_gen.go`, `.github/CODEOWNERS`, `docs/openapi.yaml`, `packages/plugin-sdk/schema/tilecast-plugin.schema.json`, and `apps/server/internal/database/migrations.lock.json`. Run `npm run plugins:generate`.
+- Never edit generated files: `plugins/registry_gen.go`, `packages/plugin-native-registry/Cargo.toml` and `src/lib.rs`, `.github/CODEOWNERS`, `docs/openapi.yaml`, `packages/plugin-sdk/schema/tilecast-plugin.schema.json`, and `apps/server/internal/database/migrations.lock.json`. Run `npm run plugins:generate`, then `cargo update -w` after the native registry changes.
+- Plugin API v2 keeps six concepts apart: plugin state, plugin events, surfaces, presentation providers, native contributions, and Shared Runtime contributions. A native contribution is a first-party crate in `plugins/<name>/native/<id>/` that exports `contribution()`; it uses typed service traits, and Player builds link it through the generated registry crate. A host sets `pluginState` only when it carries the whole contract, and no host sets `pluginEvents` until it carries events both ways. No shared behavior names a plugin ID or a platform.
 
 ### Database migrations
 
@@ -344,7 +346,7 @@ Update documentation with the implementation, not afterward as an approximation.
 - `README.md`
 - `docs/architecture.md`
 - `docs/api.md`, `docs/openapi/core.yaml`, and each plugin's `api/openapi.yaml` (the composed `docs/openapi.yaml` is generated)
-- `docs/plugin-api.md`
+- `docs/plugin-api.md` and `docs/plugin-api-v2.md`
 - `docs/access-control.md`
 - `docs/player-protocol.md`
 - `docs/device-credential-security.md`

@@ -11,12 +11,16 @@ mod manifest_resources;
 mod manifest_worker;
 mod manifests;
 mod native_configuration;
+mod native_host;
+mod native_services;
 mod network_assignment;
 mod offline_activation;
 mod offline_driver;
 mod origin;
 mod pairing;
 mod playback_health;
+mod plugin_events;
+mod plugin_host;
 mod plugin_refresh;
 mod preview;
 mod renderer_commands;
@@ -69,6 +73,14 @@ pub use native_configuration::{
     ActiveHours, ActiveHoursResult, Cache, ConfigError as ConfigurationError, NativeConfiguration, Reliability, Sync,
     evaluate_active_hours,
 };
+pub use native_host::{
+    NativeContext, NativeContributionDescriptor, NativeEventDeclaration, NativeEvents, NativePluginContribution,
+    NativePluginError, NativePluginFeed, NativePluginHost, NativePluginState, NativePluginStatus,
+    NativeRegistrationError, ServiceRef,
+};
+pub use native_services::{
+    NativeServiceKind, NativeServiceSet, NativeServices, ReferenceSignal, ReferenceSignalService,
+};
 pub use network_assignment::{
     Assignment as NetworkAssignment, ProvisioningDecision as NetworkProvisioningDecision,
     obsolete_profiles as obsolete_network_profiles, parse_assignment as parse_network_assignment,
@@ -87,6 +99,14 @@ pub use pairing::{
     PairingStatus,
 };
 pub use playback_health::{HealthTolerances, PlaybackHealth, Stall, StallReason};
+pub use plugin_events::{
+    EventSource, MAX_EVENT_PAYLOAD_BYTES, MAX_EVENT_PAYLOAD_DEPTH, MAX_EVENT_PAYLOAD_VALUES,
+    MAX_PENDING_EVENTS_PER_PLUGIN, PLUGIN_EVENT_MESSAGE_TYPE, PluginEvent, PluginEventError, validate_event_payload,
+};
+pub use plugin_host::{
+    PLAYER_PLUGIN_HOST_CAPABILITY, PLAYER_PLUGIN_HOST_VERSION, PLUGIN_STATE_TYPE, SHARED_RUNTIME_PLAYER_SERVICES,
+    is_plugin_state_entry, is_runtime_plugin_data, plugin_state_media, shared_runtime_plugin_capabilities,
+};
 pub use plugin_refresh::{is_plugin_only_revision, manifest_without_plugin_revision};
 pub use preview::{
     PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,

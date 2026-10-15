@@ -199,6 +199,10 @@ pub struct PresentationEngine {
     /// renderer port mirrors capability aliases onto loopback URLs for
     /// opaque frames only while this port is known.
     loopback_port: Option<u16>,
+    /// First-party native plugin contributions this build compiles in. It
+    /// reads what the renderer receives, so a native part and its Shared
+    /// Runtime part see one plugin state.
+    native_plugins: player_core::NativePluginFeed,
     /// The stall last written to the log, so a stall is reported when it
     /// starts and when it ends rather than on every supervision tick.
     reported_stall: Option<(player_core::StallReason, Option<String>, Option<String>)>,
@@ -247,8 +251,23 @@ impl PresentationEngine {
             activity: None,
             clock_offset_ms: 0,
             loopback_port: None,
+            // Edge provides no native plugin services yet, so a contribution
+            // that requires one stays unsupported.
+            native_plugins: player_core::NativePluginFeed::registered(
+                player_core::NativeServices::new(),
+                plugin_native_registry::contributions(),
+            ),
             reported_stall: None,
         }
+    }
+
+    /// Native plugin service capabilities this build provides, for the heartbeat.
+    pub fn native_plugin_capabilities(&self) -> Vec<(String, u32)> {
+        self.native_plugins.capabilities()
+    }
+
+    fn corrected_now_ms(&self) -> i64 {
+        self.clock.now().unix_millis().saturating_add(self.clock_offset_ms)
     }
 
     pub fn set_clock_offset(&mut self, offset_ms: i64) {
@@ -414,6 +433,10 @@ impl PresentationEngine {
                 &prepared.frames().iter().filter(|frame| !frame.kind.is_widget()).cloned().collect::<Vec<_>>(),
             )
             .map_err(|_| "plugin_refresh_delivery_failed")?;
+        let now_ms = self.corrected_now_ms();
+        if let Some(context) = prepared.runtime_context() {
+            self.native_plugins.plugins_updated(context.value(), now_ms);
+        }
         self.current = Some(next);
         Ok(true)
     }
@@ -686,6 +709,7 @@ impl PresentationEngine {
     pub fn clear(&mut self, reason: &str) {
         self.current = None;
         self.native.clear();
+        self.native_plugins.cleared();
         if let Some(link) = &self.renderer {
             let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal"));
             let _ = link.port().clear(&reason);
@@ -709,6 +733,12 @@ impl PresentationEngine {
         let incompatible = match self.native.dispatch(*session.id().as_uuid(), &semantic, link.port()) {
             Ok(player_core::RendererDispatch::Queued) => {
                 self.incompatible_reason = None;
+                let now_ms = self.corrected_now_ms();
+                self.native_plugins.activated(
+                    semantic.document().value(),
+                    semantic.runtime_context().map(player_core::RuntimePayload::value),
+                    now_ms,
+                );
                 return;
             }
             Ok(player_core::RendererDispatch::Incompatible(missing)) => missing,

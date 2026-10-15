@@ -189,6 +189,9 @@ pub(crate) fn packaged_profile() -> player_core::PackagedRendererProfile {
                     token(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_CAPABILITY),
                     edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_VERSION,
                 )))
+                // The packaged bridge forwards Plugin API v2 state, so the
+                // Runtime hosts v2 contributions with its own services.
+                .chain(player_core::shared_runtime_plugin_capabilities().map(|(name, version)| (token(name), version)))
                 .collect(),
             crate::widget_capabilities::WIDGET_COMPONENTS
                 .iter()
@@ -1008,6 +1011,28 @@ mod tests {
         assert_eq!(bridge.matches("externalPluginFrames: true").count(), 1);
         assert_eq!(bridge.matches("externalFrames: true").count(), 1);
         assert!(!bridge.contains("externalPluginFrames: false"));
+    }
+
+    /// Plugin API v2: the bridge forwards plugin_state, so the packaged
+    /// profile offers the Player Plugin Host and the Shared Runtime services.
+    /// None of them is a plugin name, and none implies the external ABI.
+    #[test]
+    fn packaged_profile_offers_the_plugin_api_2_host_and_its_runtime_services() {
+        use player_core::RendererRequirement;
+        let bridge = include_str!("../../renderer-wpe/web/tilecast-bridge.js");
+        assert_eq!(bridge.matches("pluginState: true").count(), 1);
+        // The WPE scheme handler serves tcmedia://variant/ only through the
+        // aliases in the current plugin state, so the Runtime may use it.
+        assert_eq!(bridge.matches("variantMedia: true").count(), 1);
+        assert!(!bridge.contains("pluginEvents"), "no event transport is wired on this host");
+        let declarative = |name: &str, version| RendererRequirement::Declarative {
+            name: edge_protocol::bounded::ShortToken::new(name).unwrap(),
+            version,
+        };
+        for (name, version) in player_core::shared_runtime_plugin_capabilities() {
+            packaged_profile().check(&declarative(name, version)).expect(name);
+        }
+        assert!(packaged_profile().check(&declarative(player_core::PLAYER_PLUGIN_HOST_CAPABILITY, 3)).is_err());
     }
 
     #[test]

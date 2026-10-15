@@ -5,13 +5,13 @@ description: Declare a plugin's identity, capabilities, entry points, routes, ru
 
 The manifest is `plugins/<name>/tilecast.plugin.json`. Tilecast validates it at build time and when the server hosts the plugin.
 
-Use the generated JSON Schema in your editor. The exact field rules live in the [Plugin API v1 engineering reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#manifest).
+Use the generated JSON Schema in your editor. The exact field rules live in the [Plugin API v2](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v2.md#manifest) and [Plugin API v1](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md#manifest) engineering references.
 
 ## Identity
 
 These fields describe the plugin in the catalog:
 
-- `apiVersion` is `1`.
+- `apiVersion` is `2` for a new plugin. Existing plugins use `1`.
 - `id` is the stable snake_case identifier.
 - `definitionVersion` versions the plugin's persisted and Player-facing definition.
 - `name`, `description`, `category`, and `icon` describe it in Studio.
@@ -36,7 +36,7 @@ Only declare capabilities the implementation uses.
 }
 ```
 
-`playerManifest` is required when the server projects Player manifest entries. `backgroundWorkers` is required for a `WorkerProvider`. `network` lists server-side hosts the plugin contacts.
+`backgroundWorkers` is required for a `WorkerProvider`. `network` lists server-side hosts the plugin contacts. In Plugin API v1 only, `playerManifest` is required when the server projects Player manifest entries; a v2 plugin declares a `player` contribution instead.
 
 `plugin.CheckDeclarations` compares the manifest with the Go interfaces the plugin implements.
 
@@ -60,7 +60,38 @@ The build uses fixed paths:
 }
 ```
 
-Leave out `runtime` when the plugin does not draw on the Player.
+Leave out `studio` when the plugin has no Studio pages.
+
+## Player contribution
+
+In Plugin API v2, Player behavior is its own optional contribution. Leave out `player` entirely when the plugin does nothing on screens.
+
+```json
+{
+  "player": {
+    "state": [{ "type": "transit_alert", "version": 1 }],
+    "runtime": {
+      "entrypoint": "./runtime/index.ts",
+      "services": {
+        "required": ["player.clock@1", "player.surface@1"],
+        "optional": ["player.presentation.observe@1"]
+      },
+      "surfaces": [
+        { "id": "ticker", "slots": ["strip.bottom"], "tier": "scheduled" }
+      ]
+    }
+  }
+}
+```
+
+- `state` lists the Player state types the plugin's server projects and its Player behavior reads.
+- `runtime` is portable Player behavior in the Shared Runtime. `services` lists what it needs; a Player without a required service doesn't run it, and a missing optional service is just unavailable.
+- `surfaces` gives each visual contribution its own slots and tier. Only declare it when you request `player.surface@1`.
+- `native` lists first-party native contributions, each a Rust crate in `native/<id>/`. The crate exports `contribution()`, and `plugins:generate` links it into the Player builds that include native plugins.
+- `events` lists the ephemeral events between your native part and your Shared Runtime part: a `name`, a `version`, and the `source` that raises it (`native` or `runtime`). Declare it with `player.events@1` and both parts.
+- `providers` (inside `runtime`) lists the presentation providers you offer with `player.presentation.provide@1`.
+
+Plugin API v1 plugins declare a `runtime` member with `manifestTypes`, `surfaces`, and one `tier` instead.
 
 ## API routes
 

@@ -1,11 +1,11 @@
 ---
 title: Create a plugin
-description: Scaffold a bundled Tilecast plugin and get it through the Plugin API v1 checks.
+description: Scaffold a bundled Tilecast plugin and get it through the plugin checks.
 ---
 
 import { Steps } from "@astrojs/starlight/components";
 
-When you finish this page, you'll have a plugin directory with a manifest, Go entry point, Studio page, public docs page, and conformance test.
+When you finish this page, you'll have a plugin directory with a manifest, Go entry point, public docs page, and conformance test, plus Studio pages and Player behavior if you ask for them.
 
 ## Before you start
 
@@ -23,7 +23,14 @@ Use a checkout that already passes the repository checks. Install the dependenci
    npm run plugins:new -- transit_alerts --name "Transit Alerts" --category Automation --api
    ```
 
-   Omit `--api` if the plugin will not register HTTP routes.
+   The scaffold uses Plugin API v2. Pick only the parts the plugin needs:
+
+   - `--api` adds HTTP routes and an API description.
+   - `--no-studio` leaves out Studio pages, for a server-only integration.
+   - `--player` adds Player behavior. Name its services with `--services player.clock@1,...` and enhancements with `--optional player.presentation.observe@1`.
+   - `--surface ticker:strip.top,strip.bottom:scheduled` adds a visual contribution and the `player.surface@1` service.
+
+   Without `--player`, the plugin gets no Player files at all.
 
 3. Open `plugins/transit-alerts/tilecast.plugin.json` and replace the generated description, icon, maintainers, requirements, and `uses` entries.
 

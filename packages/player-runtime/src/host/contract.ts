@@ -60,6 +60,26 @@ export interface RuntimeCapabilitiesV1 {
   /** Verified plugin frames, isolated bridges and refused child navigation. */
   readonly externalPluginFrames?: boolean;
   /**
+   * The host forwards Plugin API v2 `plugin_state` entries in `plugins`
+   * messages, with grants for the media they declare. Absent means
+   * unavailable: the runtime then never reports the v2 plugin host.
+   */
+  readonly pluginState?: boolean;
+  /**
+   * The host serves plugin media at `tcmedia://variant/<asset>/<variant>`
+   * and authorizes each load against the current plugin state, so the
+   * runtime may address a declared variant by identity. A host that sends
+   * explicit `media` bindings or supplies `media.resolve` leaves this unset.
+   */
+  readonly variantMedia?: boolean;
+  /**
+   * The host carries Plugin API v2 events between a plugin's native and
+   * Shared Runtime parts: it sends `plugin-event` messages and provides
+   * `pluginEvents.emit`. Absent means unavailable: the runtime then never
+   * reports `player.events`.
+   */
+  readonly pluginEvents?: boolean;
+  /**
    * Where a served frame's sandbox comes from. `attribute` sets the
    * iframe sandbox attribute; `response` navigates bare and takes the
    * sandbox from the response `sandbox` directive, for hosts whose
@@ -573,6 +593,23 @@ export interface ExternalRuntimePluginV1 {
   validUntil: string;
 }
 
+/**
+ * Plugin API v2 Player state for one bundled plugin. The Player Plugin Host
+ * routes it by `plugin` and `stateType`; it never selects a renderer by type.
+ */
+export interface PluginStateEntryV1 {
+  id: string;
+  type: "plugin_state";
+  version: 1;
+  plugin: string;
+  definitionVersion: number;
+  stateType: string;
+  stateVersion: number;
+  state: Record<string, unknown>;
+  media: { assetId: string; variantId: string }[] | null;
+  validUntil?: string;
+}
+
 /** Only the native host can supply these verified plugin-frame grants. */
 export interface PluginFrameBindingV1 {
   packageId: string;
@@ -583,7 +620,7 @@ export interface PluginFrameBindingV1 {
 
 export interface PluginsMessage {
   type: "plugins";
-  plugins: (RuntimePluginV1 | ExternalRuntimePluginV1)[];
+  plugins: (RuntimePluginV1 | ExternalRuntimePluginV1 | PluginStateEntryV1)[];
   clockOffsetMs: number;
   /** Explicit grants for plugin media, replaced with each plugin snapshot. */
   media?: ProjectionContextV1["media"];
@@ -618,7 +655,22 @@ export interface RemoteWebMessage {
   event: RemoteWebEventV1;
 }
 
+/**
+ * One ephemeral Plugin API v2 event between a plugin's native and Shared
+ * Runtime parts. The same shape travels both ways. It is bounded and typed;
+ * it never carries state. `packages/player-contracts/fixtures/plugin-events.json`
+ * pins the shape and bounds for Player Core and the Runtime.
+ */
+export interface PluginEventMessageV1 {
+  type: "plugin-event";
+  plugin: string;
+  event: string;
+  version: number;
+  payload: Record<string, unknown>;
+}
+
 export type HostMessageV1 =
+  | PluginEventMessageV1
   | RemoteWebMessage
   | PresentationMessage
   | PluginsMessage
@@ -726,6 +778,15 @@ export interface TilecastRuntimeHostV1 {
     resolve(assetId: string, variantId: string): string;
   };
 
+  /**
+   * Present when `capabilities.pluginEvents`. Hands one Shared Runtime
+   * event to the plugin's native part. Returns false when the host refuses
+   * it, for example when too many events are undelivered.
+   */
+  readonly pluginEvents?: {
+    emit(message: PluginEventMessageV1): boolean;
+  };
+
   /** Present when `capabilities.setup`. */
   readonly setup?: {
     submitServerUrl(url: string): Promise<SetupResultV1>;
@@ -824,6 +885,12 @@ export function hostContractProblem(value: unknown): string | null {
       if (typeof group[method] !== "function") {
         return `capability remoteWeb "host-view" is advertised without remoteWeb.${method}()`;
       }
+    }
+  }
+  if (capabilities["pluginEvents"]) {
+    const events = host["pluginEvents"] as Record<string, unknown> | undefined;
+    if (!events || typeof events["emit"] !== "function") {
+      return "capability pluginEvents is advertised without pluginEvents.emit()";
     }
   }
   if (host["media"] !== undefined) {

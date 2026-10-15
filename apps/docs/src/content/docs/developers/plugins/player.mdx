@@ -1,42 +1,141 @@
 ---
-title: Draw on the Player
-description: Project plugin state into manifests and render it through the shared Player runtime.
+title: Add Player behavior
+description: Send plugin state to screens and react to it in the shared Player runtime, with or without drawing anything.
 ---
 
-A Player-facing plugin has two parts: the server projects manifest entries, and `runtime/index.ts` decides what to draw from those entries.
+A plugin's Player behavior has two halves: the server projects **Player state** for each screen, and the plugin's Player code reacts to that state. Drawing on screen is optional. A plugin that plays background audio, watches what's on screen, or drives hardware is just as much a Player plugin as one that shows a ticker.
 
-The shared Player Runtime also runs on Android. The Android application keeps its Kotlin shell and hosts the verified runtime bundle in a trusted WebView. A visual plugin can use one `runtime/index.ts` implementation across Electron, Tilecast Edge, and Android, while each Player still reports its supported capabilities. See the [Player Runtime contract](https://github.com/gbyo/tilecast/blob/main/docs/player-runtime.md) for the host boundary.
+The shared Player Runtime runs the same `runtime/index.ts` on Tilecast Edge, Windows, Android, and the Browser Player. Each Player reports what it supports, so your plugin never checks which platform it's on. See the [Player Runtime contract](https://github.com/gbyo/tilecast/blob/main/docs/player-runtime.md) for the host boundary.
 
-## Project manifest entries
+This page covers Plugin API v2. The plugins that ship with Tilecast today use [Plugin API v1](#plugin-api-v1-surfaces), described at the end.
 
-Implement `plugin.ManifestProjector` on the server.
+## Project Player state
 
-Each entry has a stable ID, a type declared in `runtime.manifestTypes`, a definition version, and plugin-owned configuration.
+Implement `plugin.PlayerStateProjector` on the server. Each value has a stable ID, a state type and version from the manifest's `player.state`, a small JSON object, any media variants it uses, and an optional expiry.
 
-When configuration changes, use `Host.Manifests` to invalidate the affected screens through the normal manifest revision path.
+```go
+func (p *Plugin) ProjectPlayerState(ctx context.Context, screen uuid.UUID) ([]plugin.PlayerState, error) {
+    return []plugin.PlayerState{{
+        ID: notice.ID, Type: "transit_alert", Version: 1,
+        State: map[string]any{"text": notice.Text},
+    }}, nil
+}
+```
 
-## Declare surfaces and a tier
+When the data changes, use `Host.Manifests` to revise the affected screens, the same way as any other plugin. A state change reaches the Player without restarting the playlist, video, or Layout on screen.
 
-Available surface slots are `strip.top`, `strip.bottom`, the four corners, and `overlay`.
+Players that don't host Plugin API v2 never receive the state, so you don't need to guard against older Players.
 
-The tiers are `emergency`, `live`, `scheduled`, and `ambient`. A stronger tier wins a shared slot before priority is considered.
+## Write the Player code
 
-Emergency Alerts therefore wins the bottom strip over Countdown Bar.
+`runtime/index.ts` default-exports `definePlayerPlugin(...)` and lists the same services as the manifest.
 
-## Implement the runtime
+```ts
+import { definePlayerPlugin } from "@tilecast/plugin-sdk/player";
 
-`runtime/index.ts` default-exports `defineRuntimePlugin(...)`.
+export default definePlayerPlugin({
+  id: "transit_alerts",
+  services: {
+    required: ["player.clock@1", "player.surface@1"],
+    optional: ["player.presentation.observe@1"],
+  },
+  activate(context) {
+    const clock = context.services["player.clock@1"];
+    const observe = context.services["player.presentation.observe@1"]; // may be null
+    return {
+      stateChanged(entries) {
+        /* react to this plugin's current state */
+      },
+      dispose() {
+        /* release anything you created */
+      },
+    };
+  },
+});
+```
 
-The runtime lifecycle has four main jobs:
+The host activates the plugin when its first state arrives and disposes it when the state goes away. Every hook is optional, so implement only the ones you use: `stateChanged`, `awakeChanged`, `servicesChanged`, `describe`, and `dispose`.
 
-- `mount` creates persistent elements inside the slot containers.
-- `update` reads manifest entries and returns the slots the plugin wants.
-- `render` updates content from the slots the host granted.
-- `dispose` cleans up plugin-owned state.
+There's no evaluation loop. If something should happen later, schedule it with the clock service's `after` or `every`. Timers stop automatically when the plugin is disposed.
 
-The host owns arbitration, strip geometry, push and overlay insets, sleep and wake, reduced motion, and the corrected clock.
+If your code throws, the host disposes your plugin and keeps everything else running.
 
-Use `context.clock` instead of unmanaged timers. Call `context.invalidate()` when state needs another evaluation.
+## Pick services
+
+| Service                         | Use it for                                                                   |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| `player.clock@1`                | Corrected server time and timers.                                            |
+| `player.events@1`               | Events between your native part and your Shared Runtime part.                |
+| `player.media@1`                | Addresses for media your state declares. Anything else returns `null`.       |
+| `player.presentation.observe@1` | What's on screen: the current item, its kind, and whether it may play sound. |
+| `player.presentation.provide@1` | A provider that supplies presentation behavior when the host asks for it.    |
+| `player.surface@1`              | Strips, corners, and overlays, with push or overlay geometry.                |
+
+Ask only for what you use. A missing **required** service means the Player won't run your plugin; a missing **optional** service is `null`, and `servicesChanged` tells you if it appears later.
+
+## Draw with surfaces
+
+Declare each visual contribution in `player.runtime.surfaces` with its slots and tier, then open it:
+
+```ts
+const ticker = context.services["player.surface@1"].open("ticker", (grant) => {
+  element.hidden = !grant.shown.has("strip.bottom");
+});
+ticker?.claim([
+  { slot: "strip.bottom", priority: 10, heightPx: 64, displayMode: "push" },
+]);
+```
+
+The host gives you a container for each slot and keeps it mounted, so media isn't decoded again and animations don't restart. The tier comes from the manifest, so a claim can't outrank a stronger tier: Emergency Alerts still wins the bottom strip over everything at a weaker tier. For fullscreen content, use a Takeover rather than an overlay.
+
+## Send events between your two parts
+
+State is for things the server decides. An **event** is for something that happens on the screen's own hardware and doesn't belong in state: a button press, a request to skip, a chime. Events connect the native part and the Shared Runtime part of one plugin.
+
+Declare each event in `player.events`, then use the service:
+
+```ts
+const events = context.services["player.events@1"];
+const stop = events.on("button_pressed", 1, (payload) => {
+  /* react to the press */
+});
+events.emit("ring_chime", 1, { times: 2 });
+```
+
+Events are small and short-lived:
+
+- The payload is a plain JSON object of at most 2 KiB.
+- Delivery is at most once. There's no retry and no replay, so keep anything that must survive in state.
+- An event reaches only your own plugin, and only the events you declared.
+- When your plugin is disposed, it can no longer send or receive events.
+
+An event can't call a function in the other part, and it can't carry configuration.
+
+No Player carries events between its host and the Runtime yet, so `player.events@1` isn't available on any Player today. Request it as optional if your plugin can run without it. The [Plugin API v2 reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v2.md#plugin-events) says where delivery stops.
+
+## Supply presentation behavior
+
+A plugin that brings its own way of showing content, such as a live video source or a screen-mirroring receiver, declares a **provider** and offers it with `player.presentation.provide@1`:
+
+```ts
+context.services["player.presentation.provide@1"].provide("receiver", {
+  start(session) {
+    session.container.append(video);
+    session.presenting(); // first frame is on screen
+    return { stop: () => video.remove() };
+  },
+});
+```
+
+The Player decides when your provider runs. It starts only when an external presentation names `<your plugin id>/receiver`. The Player gives you a container, shows it while you hold the screen, and stops you when the presentation changes. If your provider throws or calls `session.fail(reason)`, the Player shows its own screen and reports the error.
+
+Your provider doesn't control playback, and it can't take over the Player.
+
+## Native contributions
+
+Hardware features such as a GPIO input or a sensor need native code. A native contribution is a Rust crate in `plugins/<name>/native/<id>/` that Tilecast compiles into the Player. Tilecast never loads native code at run time, and third-party native code isn't supported.
+
+The crate asks for **native services**, typed Rust interfaces the platform provides. A Player that lacks a required native service leaves the contribution off. No Player provides a native service yet, so this page doesn't list any. See the [Plugin API v2 reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v2.md#native-contributions) before you add one.
 
 ## Keep styles inside the plugin
 
@@ -44,8 +143,8 @@ Put runtime styles in `runtime/*.css`. Every selector starts with the plugin sco
 
 `plugins:check` rejects styles that could reach another plugin or the Player itself.
 
-## Test time-dependent behavior
+## Plugin API v1 surfaces
 
-Use `@tilecast/plugin-sdk/runtime/testing` for a manual clock and deterministic runtime context.
+Countdown Bar and Emergency Alerts use Plugin API v1. A v1 plugin implements `plugin.ManifestProjector` with types listed in `runtime.manifestTypes`, declares `runtime.surfaces` and one `runtime.tier`, and default-exports `defineRuntimePlugin(...)` with `mount`, `update`, `render`, and `dispose`. The host calls `update` about once a second and on every change. Use `@tilecast/plugin-sdk/runtime/testing` for a manual clock in tests.
 
-Countdown Bar is the best current example of a scheduled surface with timers, offline evaluation, push geometry, and reduced-motion behavior.
+v1 keeps working unchanged. New plugins should use v2.
