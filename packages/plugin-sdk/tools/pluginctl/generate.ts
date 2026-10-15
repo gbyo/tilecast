@@ -1,7 +1,7 @@
 /**
  * Generated artifacts. Only what a toolchain cannot discover by itself is
- * generated: Go has no compile-time glob import, GitHub reads one CODEOWNERS
- * file, and OpenAPI consumers read one document. Studio and the Player
+ * generated: Go and Rust have no compile-time glob import, GitHub reads one
+ * CODEOWNERS file, and OpenAPI consumers read one document. Studio and the Player
  * runtime discover plugins with Vite's import.meta.glob instead.
  */
 import { existsSync, readFileSync } from "node:fs";
@@ -16,6 +16,13 @@ import {
   migrationLock,
   MIGRATION_LOCK,
 } from "./migrations.ts";
+import {
+  nativeCrates,
+  nativeRegistryCargo,
+  nativeRegistryLib,
+  NATIVE_REGISTRY_CARGO,
+  NATIVE_REGISTRY_LIB,
+} from "./native-registry.ts";
 import { composeOpenAPI, COMPOSED_OPENAPI, CORE_OPENAPI } from "./openapi.ts";
 import type { Problem, Repo } from "./repo.ts";
 
@@ -73,6 +80,9 @@ export async function generate(
   const problems: Problem[] = [];
   const files = new Map<string, string>();
   files.set(GO_REGISTRY, goRegistry(repo));
+  const crates = nativeCrates(repo);
+  files.set(NATIVE_REGISTRY_CARGO, nativeRegistryCargo(crates));
+  files.set(NATIVE_REGISTRY_LIB, nativeRegistryLib(crates));
 
   const eligible = eligibleReviewers(repo);
   problems.push(...eligible.problems);

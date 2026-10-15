@@ -65,8 +65,10 @@ If your code throws, the host disposes your plugin and keeps everything else run
 | Service                         | Use it for                                                                   |
 | ------------------------------- | ---------------------------------------------------------------------------- |
 | `player.clock@1`                | Corrected server time and timers.                                            |
+| `player.events@1`               | Events between your native part and your Shared Runtime part.                |
 | `player.media@1`                | Addresses for media your state declares. Anything else returns `null`.       |
 | `player.presentation.observe@1` | What's on screen: the current item, its kind, and whether it may play sound. |
+| `player.presentation.provide@1` | A provider that supplies presentation behavior when the host asks for it.    |
 | `player.surface@1`              | Strips, corners, and overlays, with push or overlay geometry.                |
 
 Ask only for what you use. A missing **required** service means the Player won't run your plugin; a missing **optional** service is `null`, and `servicesChanged` tells you if it appears later.
@@ -85,6 +87,55 @@ ticker?.claim([
 ```
 
 The host gives you a container for each slot and keeps it mounted, so media isn't decoded again and animations don't restart. The tier comes from the manifest, so a claim can't outrank a stronger tier: Emergency Alerts still wins the bottom strip over everything at a weaker tier. For fullscreen content, use a Takeover rather than an overlay.
+
+## Send events between your two parts
+
+State is for things the server decides. An **event** is for something that happens on the screen's own hardware and doesn't belong in state: a button press, a request to skip, a chime. Events connect the native part and the Shared Runtime part of one plugin.
+
+Declare each event in `player.events`, then use the service:
+
+```ts
+const events = context.services["player.events@1"];
+const stop = events.on("button_pressed", 1, (payload) => {
+  /* react to the press */
+});
+events.emit("ring_chime", 1, { times: 2 });
+```
+
+Events are small and short-lived:
+
+- The payload is a plain JSON object of at most 2 KiB.
+- Delivery is at most once. There's no retry and no replay, so keep anything that must survive in state.
+- An event reaches only your own plugin, and only the events you declared.
+- When your plugin is disposed, it can no longer send or receive events.
+
+An event can't call a function in the other part, and it can't carry configuration.
+
+No Player carries events between its host and the Runtime yet, so `player.events@1` isn't available on any Player today. Request it as optional if your plugin can run without it. The [Plugin API v2 reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v2.md#plugin-events) says where delivery stops.
+
+## Supply presentation behavior
+
+A plugin that brings its own way of showing content, such as a live video source or a screen-mirroring receiver, declares a **provider** and offers it with `player.presentation.provide@1`:
+
+```ts
+context.services["player.presentation.provide@1"].provide("receiver", {
+  start(session) {
+    session.container.append(video);
+    session.presenting(); // first frame is on screen
+    return { stop: () => video.remove() };
+  },
+});
+```
+
+The Player decides when your provider runs. It starts only when an external presentation names `<your plugin id>/receiver`. The Player gives you a container, shows it while you hold the screen, and stops you when the presentation changes. If your provider throws or calls `session.fail(reason)`, the Player shows its own screen and reports the error.
+
+Your provider doesn't control playback, and it can't take over the Player.
+
+## Native contributions
+
+Hardware features such as a GPIO input or a sensor need native code. A native contribution is a Rust crate in `plugins/<name>/native/<id>/` that Tilecast compiles into the Player. Tilecast never loads native code at run time, and third-party native code isn't supported.
+
+The crate asks for **native services**, typed Rust interfaces the platform provides. A Player that lacks a required native service leaves the contribution off. No Player provides a native service yet, so this page doesn't list any. See the [Plugin API v2 reference](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api-v2.md#native-contributions) before you add one.
 
 ## Keep styles inside the plugin
 

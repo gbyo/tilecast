@@ -66,6 +66,20 @@ export interface RuntimeCapabilitiesV1 {
    */
   readonly pluginState?: boolean;
   /**
+   * The host serves plugin media at `tcmedia://variant/<asset>/<variant>`
+   * and authorizes each load against the current plugin state, so the
+   * runtime may address a declared variant by identity. A host that sends
+   * explicit `media` bindings or supplies `media.resolve` leaves this unset.
+   */
+  readonly variantMedia?: boolean;
+  /**
+   * The host carries Plugin API v2 events between a plugin's native and
+   * Shared Runtime parts: it sends `plugin-event` messages and provides
+   * `pluginEvents.emit`. Absent means unavailable: the runtime then never
+   * reports `player.events`.
+   */
+  readonly pluginEvents?: boolean;
+  /**
    * Where a served frame's sandbox comes from. `attribute` sets the
    * iframe sandbox attribute; `response` navigates bare and takes the
    * sandbox from the response `sandbox` directive, for hosts whose
@@ -641,7 +655,22 @@ export interface RemoteWebMessage {
   event: RemoteWebEventV1;
 }
 
+/**
+ * One ephemeral Plugin API v2 event between a plugin's native and Shared
+ * Runtime parts. The same shape travels both ways. It is bounded and typed;
+ * it never carries state. `packages/player-contracts/fixtures/plugin-events.json`
+ * pins the shape and bounds for Player Core and the Runtime.
+ */
+export interface PluginEventMessageV1 {
+  type: "plugin-event";
+  plugin: string;
+  event: string;
+  version: number;
+  payload: Record<string, unknown>;
+}
+
 export type HostMessageV1 =
+  | PluginEventMessageV1
   | RemoteWebMessage
   | PresentationMessage
   | PluginsMessage
@@ -749,6 +778,15 @@ export interface TilecastRuntimeHostV1 {
     resolve(assetId: string, variantId: string): string;
   };
 
+  /**
+   * Present when `capabilities.pluginEvents`. Hands one Shared Runtime
+   * event to the plugin's native part. Returns false when the host refuses
+   * it, for example when too many events are undelivered.
+   */
+  readonly pluginEvents?: {
+    emit(message: PluginEventMessageV1): boolean;
+  };
+
   /** Present when `capabilities.setup`. */
   readonly setup?: {
     submitServerUrl(url: string): Promise<SetupResultV1>;
@@ -847,6 +885,12 @@ export function hostContractProblem(value: unknown): string | null {
       if (typeof group[method] !== "function") {
         return `capability remoteWeb "host-view" is advertised without remoteWeb.${method}()`;
       }
+    }
+  }
+  if (capabilities["pluginEvents"]) {
+    const events = host["pluginEvents"] as Record<string, unknown> | undefined;
+    if (!events || typeof events["emit"] !== "function") {
+      return "capability pluginEvents is advertised without pluginEvents.emit()";
     }
   }
   if (host["media"] !== undefined) {

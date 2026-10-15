@@ -13,6 +13,7 @@ player-cas.workspace = true
 player-client.workspace = true
 player-state.workspace = true
 player-types.workspace = true
+plugin-native-registry = { path = "../../packages/plugin-native-registry" }
 anyhow.workspace = true
 async-trait.workspace = true
 base64.workspace = true

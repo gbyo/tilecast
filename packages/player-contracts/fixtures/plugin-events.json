@@ -1,0 +1,123 @@
+{
+  "description": "The Plugin API v2 event message that crosses between a Player host and the Shared Runtime, and its bounds. Player Core and the Shared Runtime replay it. Generated size cases are not checked in; each side builds them from the limits.",
+  "messageType": "plugin-event",
+  "limits": {
+    "maxPayloadBytes": 2048,
+    "maxPayloadDepth": 4,
+    "maxPayloadValues": 64
+  },
+  "valid": [
+    {
+      "name": "empty payload",
+      "message": {
+        "type": "plugin-event",
+        "plugin": "input_events",
+        "event": "button_pressed",
+        "version": 1,
+        "payload": {}
+      }
+    },
+    {
+      "name": "nested payload",
+      "message": {
+        "type": "plugin-event",
+        "plugin": "input_events",
+        "event": "level_changed",
+        "version": 2,
+        "payload": { "level": 3, "tags": ["a", "b"], "meta": { "unit": "db" } }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "wrong message type",
+      "message": {
+        "type": "plugin-state",
+        "plugin": "input_events",
+        "event": "x",
+        "version": 1,
+        "payload": {}
+      }
+    },
+    {
+      "name": "unknown member",
+      "message": {
+        "type": "plugin-event",
+        "plugin": "input_events",
+        "event": "x",
+        "version": 1,
+        "payload": {},
+        "target": "other"
+      }
+    },
+    {
+      "name": "missing payload",
+      "message": {
+        "type": "plugin-event",
+        "plugin": "input_events",
+        "event": "x",
+        "version": 1
+      }
+    },
+    {
+      "name": "array payload",
+      "message": {
+        "type": "plugin-event",
+        "plugin": "input_events",
+        "event": "x",
+        "version": 1,
+        "payload": []
+      }
+    },
+    {
+      "name": "uppercase event name",
+      "message": {
+        "type": "plugin-event",
+        "plugin": "input_events",
+        "event": "Button",
+        "version": 1,
+        "payload": {}
+      }
+    },
+    {
+      "name": "method-style event name",
+      "message": {
+        "type": "plugin-event",
+        "plugin": "input_events",
+        "event": "call.method",
+        "version": 1,
+        "payload": {}
+      }
+    },
+    {
+      "name": "zero version",
+      "message": {
+        "type": "plugin-event",
+        "plugin": "input_events",
+        "event": "x",
+        "version": 0,
+        "payload": {}
+      }
+    },
+    {
+      "name": "fractional version",
+      "message": {
+        "type": "plugin-event",
+        "plugin": "input_events",
+        "event": "x",
+        "version": 1.5,
+        "payload": {}
+      }
+    },
+    {
+      "name": "bad plugin identity",
+      "message": {
+        "type": "plugin-event",
+        "plugin": "Input-Events",
+        "event": "x",
+        "version": 1,
+        "payload": {}
+      }
+    }
+  ]
+}

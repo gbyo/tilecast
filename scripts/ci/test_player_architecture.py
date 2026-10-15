@@ -136,6 +136,54 @@ class ArchitectureTests(unittest.TestCase):
         )
         self.assertEqual(architecture.violations(self.root), [])
 
+    def android_host(self, dependencies):
+        self.crate("tilecast-player-android-native", dependencies, directory="apps/player-android/native")
+
+    def registry(self, dependencies=""):
+        self.crate("plugin-native-registry", dependencies, directory="packages/plugin-native-registry")
+
+    def test_hosts_may_depend_on_the_generated_native_registry_only_at_its_path(self):
+        self.crate("player-core")
+        self.registry('[dependencies]\nplayer-core = {path = "../../crates/player-core"}')
+        self.android_host(
+            '[dependencies]\nplayer-core = {path = "../../../crates/player-core"}\n'
+            'plugin-native-registry = {path = "../../../packages/plugin-native-registry"}'
+        )
+        self.assertEqual(architecture.android_native_violations(self.root), [])
+        self.assertEqual(architecture.violations(self.root), [])
+        # A same-named crate anywhere else is not the registry.
+        self.crate("plugin-native-registry", directory="apps/edge/plugin-native-registry")
+        self.android_host(
+            '[dependencies]\nplugin-native-registry = {path = "../../edge/plugin-native-registry"}'
+        )
+        self.assertIn(
+            "points outside the shared Player crates", "\n".join(architecture.android_native_violations(self.root))
+        )
+
+    def test_the_registry_links_core_and_contribution_crates_only(self):
+        self.crate("player-core")
+        self.crate("cast-input", directory="plugins/cast-input/native/input")
+        self.registry(
+            '[dependencies]\nplayer-core = {path = "../../crates/player-core"}\n'
+            'cast-input = {path = "../../plugins/cast-input/native/input"}'
+        )
+        self.assertEqual(architecture.native_registry_violations(self.root), [])
+
+        self.crate("edge-ipc", directory="apps/edge/crates/edge-ipc")
+        self.registry('[dependencies]\nedge-ipc = {path = "../../apps/edge/crates/edge-ipc"}')
+        self.assertIn("must be player-core or a plugins", "\n".join(architecture.native_registry_violations(self.root)))
+
+        self.registry('[dependencies]\ntokio = "1"\nedge-protocol = "1"')
+        self.assertIn(
+            "forbidden native host dependency edge-protocol", "\n".join(architecture.native_registry_violations(self.root))
+        )
+
+        self.crate("player-state")
+        self.registry('[dependencies]\nplayer-state = {path = "../../crates/player-state"}')
+        self.assertIn(
+            "player-state must be player-core or a plugins", "\n".join(architecture.native_registry_violations(self.root))
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

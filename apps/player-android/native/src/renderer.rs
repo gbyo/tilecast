@@ -1073,6 +1073,10 @@ pub struct PresentationEngine {
     /// than the fresh-process fallback.
     unsupported_runtime: bool,
     host_fault: Option<String>,
+    /// First-party native plugin contributions this build compiles in. It
+    /// reads what the renderer receives, so a native part and its Shared
+    /// Runtime part see one plugin state.
+    native_plugins: player_core::NativePluginFeed,
 }
 
 impl std::fmt::Debug for PresentationEngine {
@@ -1143,9 +1147,24 @@ impl PresentationEngine {
             last_activation_at: None,
             unsupported_runtime: false,
             host_fault: None,
+            // Android provides no native plugin services yet, so a
+            // contribution that requires one stays unsupported.
+            native_plugins: player_core::NativePluginFeed::registered(
+                player_core::NativeServices::new(),
+                plugin_native_registry::contributions(),
+            ),
         };
         engine.refresh_snapshot();
         engine
+    }
+
+    /// Native plugin service capabilities this build provides, for the heartbeat.
+    pub fn native_plugin_capabilities(&self) -> Vec<(String, u32)> {
+        self.native_plugins.capabilities()
+    }
+
+    fn corrected_now_ms(&self) -> i64 {
+        self.clock.now().unix_millis().saturating_add(self.clock_offset_ms)
     }
 
     /// The installed runtime cannot host the player: no renderer will
@@ -1339,7 +1358,9 @@ impl PresentationEngine {
         let comparable = |value: &serde_json::Value| {
             let mut value = value.clone();
             if let Some(object) = value.as_object_mut() {
-                for field in ["plugins", "pluginAliases", "clockOffsetMs"] {
+                // `pluginAliases` stays in the comparison: a changed alias set
+                // needs a new generation, because media grants follow content.
+                for field in ["plugins", "clockOffsetMs"] {
                     object.remove(field);
                 }
             }
@@ -1419,6 +1440,10 @@ impl PresentationEngine {
                 &plugin_frames,
             )
             .map_err(|_| "plugin_refresh_delivery_failed")?;
+        let now_ms = self.corrected_now_ms();
+        if let Some(context) = activation.runtime_context() {
+            self.native_plugins.plugins_updated(context.value(), now_ms);
+        }
         self.current = Some(Prepared { request, reference: current.reference, activation, uris });
         self.refresh_snapshot();
         Ok(true)
@@ -1449,6 +1474,12 @@ impl PresentationEngine {
         let incompatible = match self.native.dispatch(connection, &current.activation, &self.port) {
             Ok(player_core::RendererDispatch::Queued) => {
                 self.incompatible_reason = None;
+                let now_ms = self.corrected_now_ms();
+                self.native_plugins.activated(
+                    current.activation.document().value(),
+                    current.activation.runtime_context().map(player_core::RuntimePayload::value),
+                    now_ms,
+                );
                 return;
             }
             Ok(player_core::RendererDispatch::Incompatible(missing)) => missing,
@@ -1723,6 +1754,7 @@ impl PresentationEngine {
         self.current = None;
         self.incompatible_reason = None;
         self.native.clear();
+        self.native_plugins.cleared();
         let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal"));
         let _ = self.port.clear(&reason);
         self.refresh_snapshot();
@@ -2502,6 +2534,73 @@ mod tests {
         assert_eq!(envelope["plugins"][0]["type"], "countdown_bar");
         assert_eq!(envelope["pluginAliases"], serde_json::json!([]));
         assert_eq!(envelope["clockOffsetMs"], 1500);
+    }
+
+    /// Plugin API v2 on Android: state rides the plugins member of the
+    /// activation. A state-only refresh reaches the WebView as its own
+    /// `plugins` request on the same generation, with evidence and grants
+    /// kept. A changed alias set needs a new generation, because media grants
+    /// follow content.
+    #[tokio::test]
+    async fn plugin_api_2_state_refreshes_without_a_new_generation() {
+        let mut test = scratch().await;
+        let bytes = b"pixels";
+        let digest = seed(&test.engine.port.cas, bytes).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let entry = |label: &str| {
+            let mut entry: serde_json::Value = serde_json::from_str(include_str!(
+                "../../../../packages/manifest-schema/plugin-state-entry-fixture.json"
+            ))
+            .expect("fixture");
+            entry["state"] = serde_json::json!({ "label": label });
+            entry
+        };
+        let mut raw: serde_json::Value =
+            serde_json::from_str(&playing_request(&digest, bytes.len() as u64, "image")).expect("parses");
+        raw["envelope"]["plugins"] = serde_json::json!([entry("Lobby")]);
+        raw["envelope"]["pluginAliases"] = serde_json::json!([]);
+        let raw = raw.to_string();
+        let outcome = test.engine.activate(&raw, now(BASE_MS)).await.expect("initial activation");
+        let activate: serde_json::Value = serde_json::from_str(&test.platform.requests()[0]).expect("native request");
+        assert_eq!(activate["plugins"][0]["type"], "plugin_state");
+        assert_eq!(activate["plugins"][0]["state"]["label"], "Lobby");
+        assert!(test.engine.accepted(1, &outcome.activation_id, outcome.generation));
+        test.engine.progress(
+            1,
+            &outcome.activation_id,
+            outcome.generation,
+            "image-shown",
+            Some("item-1"),
+            None,
+            now(BASE_MS + 1_000),
+        );
+
+        let mut request = parse_activate_request(&raw).expect("activation request");
+        let previous = request.identity.as_ref().expect("server identity").manifest;
+        let next = Sha256Digest::of(b"manifest-2");
+        request.identity.as_mut().expect("server identity").manifest = next;
+        request.identity.as_mut().expect("server identity").manifest_version = 8;
+        request.envelope["plugins"] = serde_json::json!([entry("Gym")]);
+        test.platform.answer(0);
+        assert!(test.engine.refresh_plugins(previous, request.clone()).await.expect("refresh plugins"));
+        let requests: Vec<serde_json::Value> = test
+            .platform
+            .requests()
+            .iter()
+            .map(|request| serde_json::from_str(request).expect("native request"))
+            .collect();
+        assert_eq!(requests.iter().filter(|request| request["op"] == "activate").count(), 1);
+        let message = requests.last().expect("plugins request");
+        assert_eq!(message["op"], "plugins");
+        assert_eq!(message["generation"], outcome.generation);
+        assert_eq!(message["plugins"][0]["state"]["label"], "Gym");
+        assert!(test.engine.current_is_accepted() && test.engine.current_has_activation_evidence());
+
+        // A different alias set cannot reuse this generation.
+        request.envelope["pluginAliases"] =
+            serde_json::json!([{"assetId": ASSET, "variantId": VARIANT, "uri": "tcmedia:x"}]);
+        assert!(!test.engine.refresh_plugins(next, request).await.expect("compare aliases"));
     }
 
     #[tokio::test]

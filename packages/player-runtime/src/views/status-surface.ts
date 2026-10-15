@@ -28,6 +28,7 @@ export class StatusSurface extends LitElement {
     servers: { attribute: false },
     setup: { attribute: false },
     setupError: { state: true },
+    suppressed: { attribute: false },
   };
 
   declare presentation: RuntimePresentation | null;
@@ -36,6 +37,11 @@ export class StatusSurface extends LitElement {
   declare servers: DiscoveredServerV1[];
   declare setup: SetupBridge | null;
   declare setupError: string;
+  /**
+   * A presentation provider owns the screen, so this surface draws nothing.
+   * The view sets it; the provider never touches this element.
+   */
+  declare suppressed: boolean;
 
   constructor() {
     super();
@@ -44,6 +50,7 @@ export class StatusSurface extends LitElement {
     this.servers = [];
     this.setup = null;
     this.setupError = "";
+    this.suppressed = false;
   }
 
   // Light DOM: the display is one document and ordinary CSS applies.
@@ -53,6 +60,7 @@ export class StatusSurface extends LitElement {
 
   /** Whether this surface currently covers the playback layers. */
   get visible(): boolean {
+    if (this.suppressed && !this.problem) return false;
     if (this.problem) return true;
     const state = this.presentation?.state;
     return state !== undefined && state !== "playing";

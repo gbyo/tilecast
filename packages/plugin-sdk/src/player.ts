@@ -132,11 +132,109 @@ export interface PlayerSurfaceService {
   readonly animationScale: number;
 }
 
+/**
+ * The payload of one event: a small JSON object. The host refuses a payload
+ * above {@link PLAYER_EVENT_LIMITS}; it never truncates one.
+ */
+export type PlayerEventPayload = Readonly<Record<string, unknown>>;
+
+/**
+ * Event bounds. Player Core and the Shared Runtime enforce the same values;
+ * `packages/player-contracts/fixtures/plugin-events.json` pins them.
+ */
+export const PLAYER_EVENT_LIMITS = {
+  maxPayloadBytes: 2048,
+  maxPayloadDepth: 4,
+  maxPayloadValues: 64,
+} as const;
+
+/**
+ * `player.events@1`: ephemeral, typed events between this plugin's native
+ * and Shared Runtime parts. Every event is declared in the manifest's
+ * `player.events` with a name, a version, and the part that raises it.
+ * Delivery is at most once and ends with the plugin. Events never carry
+ * configuration or state: that is `plugin_state`.
+ */
+export interface PlayerEventsService {
+  /**
+   * Raise an event the manifest declares with `source: "runtime"`. Returns
+   * false when the host refuses it: undeclared, outside its bounds, or too
+   * many undelivered events.
+   */
+  emit(name: string, version: number, payload: PlayerEventPayload): boolean;
+  /**
+   * Receive an event the manifest declares with `source: "native"`.
+   * Returns an unsubscribe function, or null for an undeclared event.
+   */
+  on(
+    name: string,
+    version: number,
+    listener: (payload: PlayerEventPayload) => void,
+  ): (() => void) | null;
+}
+
+/**
+ * One external presentation the host gave to a provider. The host owns the
+ * container, its geometry, its visibility, and its removal.
+ */
+export interface PresentationProviderSession {
+  /** Host-owned element inside the content stage. */
+  readonly container: HTMLElement;
+  /** The external presentation's session identifier, when it has one. */
+  readonly sessionId: string | null;
+  /** Bounded parameters the external presentation carries for the provider. */
+  readonly parameters: Readonly<Record<string, string | number | boolean>>;
+  /**
+   * The provider shows its first meaningful frame. The host reports the
+   * presentation's evidence only after this call.
+   */
+  presenting(): void;
+  /**
+   * The provider cannot continue this session. The host stops it, shows its
+   * own fallback, and reports the error.
+   */
+  fail(reason: string): void;
+}
+
+export interface PresentationProviderInstance {
+  /** The host ends the session. Release everything the session created. */
+  stop?(): void;
+  /** Short text a diagnostics or conformance probe reports. */
+  describe?(): string;
+}
+
+/** One declared presentation provider. */
+export interface PresentationProvider {
+  /** The host activates the provider for one external presentation. */
+  start(
+    session: PresentationProviderSession,
+  ): PresentationProviderInstance | void;
+}
+
+/**
+ * `player.presentation.provide@1`. A plugin offers presentation behavior
+ * for an external presentation that names it. The host decides when the
+ * provider runs, where, and for how long, and falls back when it fails.
+ */
+export interface PresentationProvideService {
+  /**
+   * Offer a provider that the manifest declares in
+   * `player.runtime.providers`. Returns a function that withdraws it, or
+   * null for an undeclared or already offered provider.
+   */
+  provide(
+    providerId: string,
+    provider: PresentationProvider,
+  ): (() => void) | null;
+}
+
 /** Every service this SDK version knows, by `name@version` reference. */
 export interface PlayerServiceMap {
   "player.clock@1": PlayerClockService;
+  "player.events@1": PlayerEventsService;
   "player.media@1": PlayerMediaService;
   "player.presentation.observe@1": PresentationObserveService;
+  "player.presentation.provide@1": PresentationProvideService;
   "player.surface@1": PlayerSurfaceService;
 }
 

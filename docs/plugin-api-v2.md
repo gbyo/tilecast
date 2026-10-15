@@ -17,6 +17,23 @@ The decision record is
 A surface is one Player service that a plugin can use. A surface does not
 define a plugin. A plugin that draws nothing is a complete plugin.
 
+## Six concepts
+
+Plugin API v2 keeps six ideas apart. Each one has one owner and one
+mechanism. A new plugin picks the ones that it needs.
+
+| Concept                     | What it is                                                                                      | Mechanism                                    | Durable |
+| --------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------- | ------- |
+| Plugin state                | Durable state that the Server projects and a Player reconciles.                                 | `plugin_state` entries in the manifest       | Yes     |
+| Plugin event                | One ephemeral, typed fact between the native part and the Shared Runtime part of one plugin.    | `player.events@1` and `player.events`        | No      |
+| Surface                     | An optional visual Player service: strips, corners, and overlays.                               | `player.surface@1`                           | No      |
+| Presentation provider       | A controlled extension point for a plugin that can supply presentation behavior.                | `player.presentation.provide@1`              | No      |
+| Native contribution         | First-party compiled platform behavior, linked into a Player build.                             | `player.native`, typed native services       | No      |
+| Shared Runtime contribution | Portable Player behavior that runs in the Shared Runtime on every Player that hosts the plugin. | `player.runtime`, versioned Runtime services | No      |
+
+State is the only concept that the Server sends. The others run inside one
+Player. An event never replaces state, and state never carries an event.
+
 ## Two supported generations
 
 | Generation    | Used by                    | Player behavior                                                                        |
@@ -111,11 +128,21 @@ The identity and catalog members are left out of this example.
 | `player.runtime.services`   | `name@version` references. A name is requested once. Each must be a `runtime` service.  |
 | `player.runtime.surfaces`   | Visual contributions: `id`, 1 to 7 unique `slots`, and one `tier`.                      |
 | `player.native`             | Up to 8 contributions: `id` and `services`. Each service must be a `native` service.    |
+| `player.events`             | Up to 16 events: `name`, `version`, and `source` (`native` or `runtime`).               |
+| `player.runtime.providers`  | Up to 4 presentation providers: `id`. Unique inside the plugin.                         |
 
 More rules:
 
 - A Player contribution needs `player.runtime`, `player.native`, or both.
 - Surfaces need `player.surface@1`. `player.surface@1` needs surfaces.
+- `player.events` needs both `player.runtime` and `player.native`, and it needs
+  `player.events@1` in the runtime services. `player.events@1` needs at least
+  one event.
+- An event name uses lowercase letters, digits, and underscores. A name that
+  looks like a method call, such as `call.method`, is not valid. The pair
+  `name@version` is unique.
+- `player.runtime.providers` needs `player.presentation.provide@1`, and
+  `player.presentation.provide@1` needs at least one provider.
 - `plugin_state` and `external_plugin` are reserved entry types.
 - v1 manifest types and v2 state types share one namespace across every
   plugin. `pluginctl check` refuses a duplicate.
@@ -200,8 +227,10 @@ Player Plugin Host
 ├── lifecycle and state routing
 ├── service registry
 │   ├── player.clock@1                 corrected time, plugin timers
+│   ├── player.events@1                bounded native and Runtime events
 │   ├── player.media@1                 declared, host-granted media
 │   ├── player.presentation.observe@1  read-only screen observation
+│   ├── player.presentation.provide@1  declared presentation providers
 │   └── player.surface@1               the surface host (shared with v1)
 └── future services
 ```
@@ -254,12 +283,15 @@ A service is one narrow contract that the Player offers to a contribution.
 TypeScript SDK, the Go SDK, and Player Core mirror it. Each mirror has a test
 that reads the file.
 
-| Service                         | Execution | Contract                                                                               |
-| ------------------------------- | --------- | -------------------------------------------------------------------------------------- |
-| `player.clock@1`                | runtime   | `now`, `localNow`, `monotonicNow`, `after`, `every`. Timers end with the plugin.       |
-| `player.media@1`                | runtime   | `url(ref)`. Only variants that the plugin's current entries declare. Otherwise `null`. |
-| `player.presentation.observe@1` | runtime   | `current()` and `subscribe()`: mode, item ID, kind, occurrence, and `audible`.         |
-| `player.surface@1`              | runtime   | `open(contributionId, render)`: persistent containers, claims, grants.                 |
+| Service                         | Execution | Contract                                                                                |
+| ------------------------------- | --------- | --------------------------------------------------------------------------------------- |
+| `player.clock@1`                | runtime   | `now`, `localNow`, `monotonicNow`, `after`, `every`. Timers end with the plugin.        |
+| `player.events@1`               | runtime   | `emit(name, version, payload)` and `on(name, version, listener)`. Declared events only. |
+| `player.media@1`                | runtime   | `url(ref)`. Only variants that the plugin's current entries declare. Otherwise `null`.  |
+| `player.presentation.observe@1` | runtime   | `current()` and `subscribe()`: mode, item ID, kind, occurrence, and `audible`.          |
+| `player.presentation.provide@1` | runtime   | `provide(providerId, provider)`: a declared provider that the host starts and stops.    |
+| `player.surface@1`              | runtime   | `open(contributionId, render)`: persistent containers, claims, grants.                  |
+| `player.reference.signal@1`     | native    | `read()`. A reference service for tests. No product Player provides it.                 |
 
 ### Versions
 
@@ -299,12 +331,17 @@ arbitration identity is `<plugin>/<contribution>`.
 
 1. Add the entry to `packages/plugin-sdk/player-services.json`.
 2. Update the mirrors: `src/services.ts`, `go/plugin/services.go`, and, for a
-   runtime service, `SHARED_RUNTIME_PLAYER_SERVICES` in Player Core.
+   runtime service, `SHARED_RUNTIME_PLAYER_SERVICES` in Player Core. A runtime
+   service that needs help from its host names the host capability in
+   `hostCapability`. The Runtime offers such a service only on a host that sets
+   the capability, and Player Core leaves it out of
+   `SHARED_RUNTIME_PLAYER_SERVICES`.
 3. Add the typed interface to `PlayerServiceMap` in `src/player.ts`.
 4. For a runtime service, add a provider in
    `packages/player-runtime/src/plugins/service-providers.ts` and register it
-   in `main.ts`. For a native service, add a typed trait at its consumer and
-   register the platform provider with `NativePluginHost`.
+   in `main.ts`. For a native service, add a `NativeServiceKind` marker and a
+   typed trait in Player Core, and give the platform implementation to
+   `NativeServices::provide`. See [Native services](#native-services).
 5. Add tests for binding, release at disposal, and failure isolation.
 
 The host, the other services, and existing plugins do not change. A plugin
@@ -329,33 +366,238 @@ before a Player reports this service.
 
 ## Native contributions
 
-Player Core owns the native boundary in `crates/player-core/src/plugin_host.rs`:
+Player Core owns the native boundary in `crates/player-core/src/native_host.rs`:
 
 - `NativePluginContribution`: a trait with `descriptor`, and optional
-  `activate`, `state_changed`, `awake_changed`, and `dispose`. Hooks return
-  `Result`. Release builds abort on panic, so an error is the isolation path.
+  `activate`, `state_changed`, `awake_changed`, `event`, and `dispose`. Hooks
+  return `Result`. Release builds abort on panic, so an error is the isolation
+  path.
 - `NativeContributionDescriptor`: plugin ID, contribution ID, accepted state
-  pairs, and required and optional services.
+  pairs, required and optional services, and declared events.
 - `NativePluginHost`: registration, service negotiation, state routing by
-  declared plugin and state type, sleep and wake, and failure handling.
+  declared plugin and state type, event delivery, sleep and wake, and failure
+  handling.
+- `NativePluginFeed`: the handle that a Player host keeps beside its renderer
+  port. It reads the presentation document and the runtime context that the
+  host already sends to the renderer, and it routes them to the host.
 
-There is no generic invocation channel. A native service is a typed trait
-that its consumer owns. Core never names a plugin. Platform code never
-branches on a plugin ID or on a platform name.
+A native contribution is first-party and compiled into the Player. Tilecast
+never loads a native library at run time. Third-party native code is out of
+scope. There is no generic invocation channel. Core never names a plugin.
+Platform code never branches on a plugin ID or on a platform name.
+
+### Contribution crates
 
 A first-party native contribution is a Rust crate in
-`plugins/<name>/native/<id>/`. `pluginctl check` requires:
+`plugins/<name>/native/<id>/`. The crate must export:
+
+```rust
+pub fn contribution() -> Box<dyn NativePluginContribution>
+```
+
+`pluginctl check` requires:
 
 - a crate for each `player.native` entry, and no undeclared crate;
+- the `contribution()` entry point in `src/lib.rs`;
 - membership in the root Cargo workspace;
 - dependencies on `player-core`, `player-types`, and plain data crates only.
 
-Tilecast never loads a native library at run time. Third-party native code is
-out of scope.
+### Registration
 
-Not implemented yet: the generated registration list that links native
-crates into each Player build, and the first native service. The first native
-plugin adds them. The boundary, routing, and fixtures exist and are tested.
+Rust has no compile-time glob. `pluginctl generate` derives the one crate that
+links every contribution:
+
+```text
+plugin manifests (player.native)
+        ↓  pluginctl generate
+packages/plugin-native-registry   contributions() -> Vec<Box<dyn ...>>
+        ↓  a Player build depends on it
+NativePluginFeed::registered(services, contributions())
+        ↓
+NativePluginHost
+```
+
+- `packages/plugin-native-registry/Cargo.toml` and `src/lib.rs` are generated.
+  Never edit them. `pluginctl check` reports drift like any generated file.
+- The order is plugin ID, then contribution ID. The output is the same for the
+  same manifests.
+- The registry names crates. It never states a rule about a plugin, a platform,
+  or a service.
+- A Player build includes native contributions by depending on the registry
+  crate. Edge, Windows, and Android do. The Browser Player does not.
+- After the list changes, run `cargo update -w` so that `Cargo.lock` agrees.
+- `scripts/ci/check-player-architecture.py` allows a host to depend on the
+  registry crate at its one path. The registry may depend only on
+  `player-core` and on contribution crates.
+
+A registered contribution is only a candidate. The host decides support when
+state arrives:
+
+- A contribution with no state for it stays `Inactive`.
+- A contribution that requires a native service the Player does not provide
+  stays `Unsupported`. It never activates.
+- A contribution that returns an error from a hook is disposed and stays
+  `Failed`. Other contributions continue.
+
+A native contribution that has no `player.runtime` part is still sent its
+state, because the Player build decides native support.
+
+### Native services
+
+A native service is a typed trait. A marker type names the service, its
+version, and the trait that a contribution receives:
+
+```rust
+pub trait NativeServiceKind: 'static {
+    const NAME: &'static str;
+    const VERSION: u32;
+    type Api: ?Sized + Send + Sync + 'static;
+}
+```
+
+- A platform builds `NativeServices` with the services it implements:
+  `NativeServices::new().provide::<ReferenceSignalService>(api)`.
+- `NativeServices::capabilities()` is what the Player adds to its heartbeat.
+  A Player reports only the services that it provides.
+- A contribution receives only the services that its descriptor names and the
+  Player provides. `context.services().get::<Marker>()` returns the typed trait
+  or `None`.
+- A provided version N satisfies every request for a version from 1 to N.
+
+`player.reference.signal@1` is the reference service. It reads one counter that
+the platform owns. It proves the whole path: a contribution requests a typed
+service, the platform provides it, `NativePluginHost` negotiates it, and the
+contribution receives it. No product Player provides it. A contribution that
+requires it is `Unsupported` on every shipped Player.
+
+A future service such as `player.display-control@1`,
+`player.presentation-provider@1`, or `player.sensor.audio-level@1` is a new
+marker and a new trait. The host, the feed, the registry, the manifest, and the
+meaning of Plugin API v2 do not change. The tests in `native_host.rs` and
+`native_services.rs` show this with a second service that the host has never
+seen.
+
+Each Player host constructs one feed in its presentation engine and calls it
+from three places: after a presentation reaches the renderer, after a
+plugin-only update reaches the renderer, and when the renderer is cleared.
+Windows, Android, and Edge provide no native services yet. Their feeds hold the
+generated registry, which is empty until the first native plugin exists.
+
+## Plugin events
+
+`plugin_state` is durable and reconcilable. It must not become a remote
+procedure call. A plugin event is the narrow companion for ephemeral behavior
+that does not belong in state. Examples of the class: a button press, a skip
+request, a chime, and a native input change. No bundled plugin uses events yet.
+
+An event connects the two Player parts of one plugin. A native contribution
+raises it and the Shared Runtime part receives it, or the reverse. Both parts
+run in one Player.
+
+| Property     | Rule                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------ |
+| Scope        | One plugin. The host stamps the plugin ID. A part cannot name another plugin.                    |
+| Declaration  | `player.events` lists each `name@version` and the side that raises it.                           |
+| Type         | A name and a version. No method name, no target, and no reply.                                   |
+| Payload      | A plain JSON object: at most 2 KiB, 4 levels, and 64 values.                                     |
+| Delivery     | At most once. No retry and no replay.                                                            |
+| Queue        | Native to Runtime: 8 undelivered events for each plugin, 64 in total. Excess events are refused. |
+| Lifecycle    | A disposed or failed contribution can neither emit nor receive. Its queued events are dropped.   |
+| Failure      | A handler that fails disposes only its own plugin or contribution.                               |
+| Not included | Configuration, state, durable settings, and a second copy of either.                             |
+
+The wire message is the same in both directions:
+
+```json
+{
+  "type": "plugin-event",
+  "plugin": "input_events",
+  "event": "button_pressed",
+  "version": 1,
+  "payload": { "pin": 4 }
+}
+```
+
+`packages/player-contracts/fixtures/plugin-events.json` pins the message shape,
+the bounds, and the invalid cases. Player Core
+(`crates/player-core/src/plugin_events.rs`) and the Shared Runtime
+(`packages/player-runtime/src/plugins/events.ts`) replay it.
+
+On the native side, `NativeEvents::emit` queues an event and the platform takes
+it with `NativePluginHost::take_events`. `NativePluginHost::deliver_event`
+gives a Runtime event to the active contributions that declare it. On the
+Runtime side, `player.events@1` offers `emit` and `on`. A plugin that keeps the
+service handle after disposal gets nothing from it.
+
+### Where delivery stops
+
+Only the local Player contract exists. Two parts are not built:
+
+- **Transport between a Player host and its Runtime.** The Runtime offers
+  `player.events@1` only on a host that sets the `pluginEvents` capability,
+  sends `plugin-event` messages, and provides `pluginEvents.emit`. No host sets
+  it yet. A plugin that requires `player.events@1` is therefore `unsupported`
+  on every Player, and one that requests it as optional receives `null`. A host
+  that adds the transport adds the capability in the same change.
+- **Server to Player actions.** Remote delivery is not part of this contract. A
+  future channel would produce the same `plugin-event` message and give it to
+  the same host entry points. It would also need authorization, because the
+  Server is then the sender. Do not add a second state channel for it.
+
+## Presentation providers
+
+Plugin API v2 works well for plugins that observe or decorate normal playback.
+A plugin that supplies a different presentation mechanism needs a controlled
+extension point. Examples of the class: an AirPlay receiver, a live video
+source, a hardware decoder, and an interactive presentation. No bundled plugin
+supplies one yet.
+
+`player.presentation.provide@1` is that point. A plugin declares a provider in
+`player.runtime.providers` and offers it with `provide(providerId, provider)`.
+The provider is named `<plugin id>/<provider id>`.
+
+The host decides when a provider runs. The provider never starts itself:
+
+- A provider runs only for an `external-presentation` whose `provider` member
+  names it. `external-presentation` is the existing state in the Runtime
+  presentation vocabulary. A presentation that names no registered provider
+  stays with the host.
+- The host creates the container inside the content stage. The provider
+  receives `container`, `sessionId`, bounded scalar `parameters`, `presenting()`,
+  and `fail(reason)`. It receives no playback control and no host global.
+- The host owns visibility. The container shows only while the provider owns the
+  screen. The host surface draws nothing during that time and returns when the
+  provider stops.
+- The host owns lifecycle. One session runs at a time. The host stops it when the
+  presentation changes, when the plugin is disposed, or when the document ends.
+  The same session shown again is kept.
+- The host owns evidence. It reports `surface-shown` only after `presenting()`
+  and a paint.
+- The host owns recovery. A provider that throws, calls `fail`, or is withdrawn
+  stops. The host shows its own surface and reports a playback error for the
+  activation. A throw also disposes the plugin.
+- The host owns targeting and resource authorization. The presentation and its
+  media grants come from the host, as for any other presentation.
+
+The seam adds no `if plugin`, `if platform`, or `kind == ...` branch to core
+code. The Runtime tests replay a fixture provider through it, and a source scan
+fails if a Runtime seam names a plugin or a platform.
+
+## Media for native hosts
+
+`player.media@1` returns the Player address of a variant that the plugin's
+current state declares. Where the address comes from depends on the host:
+
+- A host that sends explicit `media` bindings (the Browser Player) leaves
+  `variantMedia` unset, and the Runtime uses those bindings.
+- A host that serves `tcmedia://variant/<asset>/<variant>` sets `variantMedia`
+  (Edge, Windows, Android), and the Runtime builds that address. The host
+  authorizes each load against the current plugin state or activation grants. An
+  undeclared variant is refused by the Runtime and again by the host.
+
+A plugin-only update that adds media cannot reuse the active media grants. The
+host then activates the presentation again, because grants follow content.
+Windows and Android also activate again when only the alias set changes.
 
 ## Ownership
 
@@ -367,23 +609,52 @@ plugin adds them. The boundary, routing, and fixtures exist and are tested.
 | Shared Runtime | Player Plugin Host, runtime services, surface arbitration                             |
 | Platforms      | Forwarding entries and media grants, reporting truthful support, native providers     |
 
-## Capability reporting
+## Capability reporting and qualification
 
-| Player     | Routes `plugin_state` | Reports `plugin.host@2` | Notes                                                                                                                   |
-| ---------- | --------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Edge (WPE) | Yes (Player Core)     | Yes                     | The WPE bridge sets `pluginState: true`. The heartbeat and packaged profile add `shared_runtime_plugin_capabilities()`. |
-| Browser    | Yes (resolver)        | Yes                     | The host sets `pluginState: true`. The heartbeat repeats the live Runtime report.                                       |
-| Windows    | Yes (Player Core)     | No                      | Gated until WebView2 qualification.                                                                                     |
-| Android    | Yes (Player Core)     | No                      | Gated until WebView qualification on a device.                                                                          |
+| Player     | Routes `plugin_state` | Reports `plugin.host@2` | `variantMedia` | Native feed | `pluginEvents` transport |
+| ---------- | --------------------- | ----------------------- | -------------- | ----------- | ------------------------ |
+| Edge (WPE) | Yes (Player Core)     | Yes                     | Yes            | Yes         | No                       |
+| Browser    | Yes (resolver)        | Yes                     | No             | No          | No                       |
+| Windows    | Yes (Player Core)     | Yes                     | Yes            | Yes         | No                       |
+| Android    | Yes (Player Core)     | Yes                     | Yes            | Yes         | No                       |
 
 The Runtime reports `plugin.host` and its live service registry only when the
-host sets `pluginState`. A gated host receives no schema 21 and no
-`plugin_state`. A test in `packages/player-runtime/src/host/plugin-state-support.test.ts`
-refuses the reporting tokens in the Windows and Android sources. Remove a host
-from that test only together with its qualification evidence and this table.
+host sets `pluginState`. Edge and Windows add the same report to their packaged
+profile and heartbeat. Android adds it to the ready report from the generated
+contract, and only while the WebView runs the trusted Runtime. A host that
+reports nothing receives no schema 21 and no `plugin_state`.
 
-`plugin.host@2` is independent of `plugin.external-runtime@1`. Neither
-implies the other.
+`plugin.host@2` is independent of `plugin.external-runtime@1`. Neither implies
+the other. `player.events` is never in the default report. No Player reports a
+native service today, and `player.reference.signal` is never reported.
+
+### What qualifies a host
+
+A host reports `plugin.host@2` only when it carries the whole contract. The
+automated evidence for each host is:
+
+| Contract point                          | Edge                              | Browser                 | Windows                            | Android                                       |
+| --------------------------------------- | --------------------------------- | ----------------------- | ---------------------------------- | --------------------------------------------- |
+| `plugin_state` reaches the Runtime      | `manifest.rs`, WPE bridge         | `host.ts`, resolver     | `projection.rs`, `presentation.rs` | `selection.rs`, `renderer.rs`                 |
+| Declared media is granted               | `manifest.rs`, WPE aliases        | resolver media bindings | `renderer_adapter.rs` aliases      | `selection.rs` content grants                 |
+| Live service support is reported        | packaged profile, heartbeat       | live Runtime report     | packaged profile, heartbeat        | `RendererReadyReportTest`, `manifest_host.rs` |
+| Required and optional services          | `player-host.test.ts` (Runtime)   | same                    | same                               | same                                          |
+| Plugin-only update keeps the activation | `presentation.rs`, Core           | resolver, Runtime       | `plugin_api_2_state_media_and_...` | `plugin_api_2_state_refreshes_without_...`    |
+| Replay after a Runtime reload           | bridge `lastPlugins`              | `host.ts`               | `runtime_host.js` `lastPlugins`    | `HostChannel` `lastPlugins`                   |
+| Plugin and playback failure isolation   | `player-host.test.ts`, Core       | same                    | same                               | same                                          |
+| Sleep and wake                          | Core feed, Runtime `awakeChanged` | Runtime `awakeChanged`  | Core feed, Runtime `awakeChanged`  | Core feed, Runtime `awakeChanged`             |
+| V1 plugins are unaffected               | v1 Runtime suites                 | same                    | same                               | same                                          |
+
+`packages/player-runtime/src/host/plugin-state-support.test.ts` reads each host
+source for the contract points above. A host cannot set `pluginState` without
+the replay path, and no host source may set `pluginEvents`. The shared
+conformance fixture `plugin-state` runs the same sequence on Electron, WPE,
+WebView2, and Android: v2 state beside a v1 plugin, a plugin-only update, and a
+clear. It must restart nothing.
+
+Sleep and wake follow the presentation. A sleep presentation carries no plugin
+state, so the Runtime and the native feed both dispose their plugins. The next
+presentation sends the state again.
 
 ## External packages
 
@@ -413,18 +684,24 @@ A future external API can use the same service vocabulary:
 
 ## Conformance
 
-| Case                                                | Test                                                                              |
-| --------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Server and Studio only, no Player                   | `valid/v2-server-studio.json`, `declarations_v2_test.go`, `pluginctl.test.ts`     |
-| Player plugin without a surface                     | `player-host.test.ts`: plugin that draws nothing                                  |
-| Surface service, push geometry, arbitration with v1 | `player-host.test.ts`: v2 contribution against Countdown Bar and Emergency Alerts |
-| Required service missing                            | `player-host.test.ts`; Server `player_state_integration_test.go`                  |
-| Optional service missing                            | `player-host.test.ts`                                                             |
-| v1 plugins unchanged                                | the existing `host.test.ts`, `integration.test.ts`, `external.test.ts`            |
-| Plugin-only state does not restart playback         | `plugin_refresh.rs`, `player_state_integration_test.go`, `player-host.test.ts`    |
-| One failing plugin cannot break another or playback | `player-host.test.ts`; `plugin_host.rs`                                           |
-| Native registration is generic                      | `plugin_host.rs` fixture contributions                                            |
-| Routing on every native Player                      | Edge `manifest.rs`, Windows `projection.rs`, Android `selection.rs`               |
+| Case                                                | Test                                                                                |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Server and Studio only, no Player                   | `valid/v2-server-studio.json`, `declarations_v2_test.go`, `pluginctl.test.ts`       |
+| Player plugin without a surface                     | `player-host.test.ts`: plugin that draws nothing                                    |
+| Surface service, push geometry, arbitration with v1 | `player-host.test.ts`: v2 contribution against Countdown Bar and Emergency Alerts   |
+| Required service missing                            | `player-host.test.ts`; Server `player_state_integration_test.go`                    |
+| Optional service missing                            | `player-host.test.ts`                                                               |
+| v1 plugins unchanged                                | the existing `host.test.ts`, `integration.test.ts`, `external.test.ts`              |
+| Plugin-only state does not restart playback         | `plugin_refresh.rs`, `player_state_integration_test.go`, `player-host.test.ts`      |
+| One failing plugin cannot break another or playback | `player-host.test.ts`; `plugin_host.rs`                                             |
+| Native registration is generic                      | `native_host.rs` fixture contributions; `pluginctl.test.ts` registry generation     |
+| Native registry is reproducible and drift-checked   | `pluginctl.test.ts`; `plugins:check`                                                |
+| A typed native service negotiates                   | `native_host.rs` and `native_services.rs`: reference service, required, optional    |
+| A native contribution uses bounded events           | `native_host.rs`; `plugin-events.json`; `plugin-seams.test.ts`                      |
+| A fixture presentation provider registers           | `plugin-seams.test.ts`                                                              |
+| No plugin ID or platform name in shared behavior    | `native_host.rs` and `plugin-seams.test.ts` source scans                            |
+| Routing on every native Player                      | Edge `manifest.rs`, Windows `projection.rs`, Android `selection.rs`                 |
+| Hosts carry the whole contract                      | `plugin-state-support.test.ts`; host unit tests; conformance fixture `plugin-state` |
 
 ## Verification limits
 
@@ -432,4 +709,13 @@ A future external API can use the same service vocabulary:
   Player, SDK, and Server unit tests run on every change.
 - The Server PostgreSQL integration tests for v2 need `TEST_DATABASE_URL`.
 - The Edge heartbeat assertion in `tests/playback.rs` runs on Linux only.
-- No physical Player qualification has been done for v2.
+- The WebView2 and Android runtime conformance engines run in CI on Windows and
+  on an emulator. A developer Mac cannot run them.
+- No physical Player qualification has been done for v2. Windows hardware,
+  Fire TV, Google TV, and Android TV WebView builds belong to the release and
+  canary process.
+- No native contribution exists yet, so no Player build links one. The native
+  host, the registry generator, and the typed service model are proven with
+  fixture contributions. The first native plugin adds its crate and its service.
+- No event transport between a Player host and its Runtime exists. See
+  [Where delivery stops](#where-delivery-stops).

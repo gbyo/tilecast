@@ -671,6 +671,24 @@
                     "required": ["id", "slots", "tier"],
                     "additionalProperties": false
                   }
+                },
+                "providers": {
+                  "default": [],
+                  "description": "Presentation providers for player.presentation.provide@1. Empty for a plugin that provides none.",
+                  "maxItems": 4,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]{0,39}$",
+                        "description": "Presentation provider identifier, unique within the plugin. An external presentation names it as `<plugin id>/<provider id>`."
+                      }
+                    },
+                    "required": ["id"],
+                    "additionalProperties": false
+                  }
                 }
               },
               "required": ["entrypoint"],
@@ -717,6 +735,34 @@
                   }
                 },
                 "required": ["id"],
+                "additionalProperties": false
+              }
+            },
+            "events": {
+              "default": [],
+              "description": "Ephemeral, typed events between the plugin's native and Shared Runtime parts. State stays in player.state; events never carry configuration.",
+              "maxItems": 16,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,63}$",
+                    "description": "Event name, unique within the plugin."
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": ["native", "runtime"],
+                    "description": "Which part raises the event. The other part receives it: a native source reaches the Shared Runtime part, and a runtime source reaches the native part."
+                  }
+                },
+                "required": ["name", "version", "source"],
                 "additionalProperties": false
               }
             }

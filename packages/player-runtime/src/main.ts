@@ -22,7 +22,9 @@ import { PlaybackController } from "./engine/controller";
 import { PlaybackDiagnostics } from "./engine/diagnostics";
 import { playerDiscovery, runtimeDiscovery } from "./plugins/discovery";
 import { RuntimeSurfaceHost } from "./plugins/host";
+import { PlayerEvents } from "./plugins/events";
 import { PlayerPluginHost } from "./plugins/player-host";
+import { PresentationProviders } from "./plugins/presentation-providers";
 import {
   clockService,
   mediaService,
@@ -134,29 +136,45 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
 
   // Plugin API v2. The services are the Shared Runtime's own; a host that
   // does not forward plugin_state entries gets the same host with no state,
-  // and the Runtime does not report it.
+  // and the Runtime does not report it. `player.events` needs a host that
+  // carries events, so it is offered only there.
   const pluginClockOffset = { value: 0 };
   const presentationObserver = new PresentationObserver();
   controller.subscribe((state) =>
     presentationObserver.publish(observePresentation(state)),
   );
+  const pluginDiagnostic = (pluginId: string, message: string) =>
+    console.warn(`tilecast runtime: plugin ${pluginId}: ${message}`);
+  const providers = new PresentationProviders({
+    diagnostic: pluginDiagnostic,
+  });
+  const pluginEvents =
+    capabilities.pluginEvents === true && host.pluginEvents
+      ? new PlayerEvents({
+          send: (message) => host.pluginEvents!.emit(message),
+          diagnostic: pluginDiagnostic,
+        })
+      : null;
   const playerServices = new PlayerServiceRegistry([
     clockService({ clock, clockOffsetMs: () => pluginClockOffset.value }),
     mediaService({
       resolve: (assetId, variantId) =>
         host.media
           ? host.media.resolve(assetId, variantId)
-          : pluginMedia.resolve(assetId, variantId),
+          : capabilities.variantMedia === true
+            ? `tcmedia://variant/${assetId}/${variantId}`
+            : pluginMedia.resolve(assetId, variantId),
     }),
     presentationObserver.provider(),
+    providers.provider(),
     surfaceService({ surfaces, reducedMotion, animationScale }),
+    ...(pluginEvents ? [pluginEvents.provider()] : []),
   ]);
   const playerPlugins = new PlayerPluginHost({
     clock,
     plugins: playerDiscovery.plugins,
     services: playerServices,
-    diagnostic: (pluginId, message) =>
-      console.warn(`tilecast runtime: plugin ${pluginId}: ${message}`),
+    diagnostic: pluginDiagnostic,
   });
 
   const remoteWeb =
@@ -172,6 +190,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     animationScale,
     remoteWeb,
     widgets,
+    providers,
     setup: {
       available: capabilities.setup && !!host.setup,
       submit: (url) =>
@@ -187,6 +206,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     controller,
     surfaces,
     playerPlugins,
+    providers,
     view,
     manual,
     widgets,
@@ -216,6 +236,9 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
         if (capabilities.pluginState === true) {
           playerPlugins.setState(message.plugins, message.clockOffsetMs);
         }
+        break;
+      case "plugin-event":
+        pluginEvents?.receive(message);
         break;
       case "identify":
         view.identify(String(message.name), Number(message.durationSeconds));

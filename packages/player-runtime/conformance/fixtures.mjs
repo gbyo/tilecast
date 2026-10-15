@@ -390,6 +390,23 @@ const countdown = {
   },
 };
 
+/**
+ * A Plugin API v2 state entry for a plugin no Player build includes. Every
+ * host that forwards plugin_state must carry it to the Runtime and the
+ * Runtime must leave it, playback, and the v1 plugins alone.
+ */
+const stateEntry = (label) => ({
+  id: "state-1",
+  type: "plugin_state",
+  version: 1,
+  plugin: "unbundled_plugin",
+  definitionVersion: 1,
+  stateType: "unbundled_plugin",
+  stateVersion: 1,
+  state: { label },
+  media: [],
+});
+
 const ticker = {
   id: "alert-1",
   type: "alert_ticker",
@@ -1296,6 +1313,40 @@ export const fixtures = [
       { plugins: { plugins: [] } },
       { advance: 1_000 },
       { checkpoint: "cleared", visual: true },
+    ],
+  },
+  {
+    name: "plugin-state",
+    // Plugin API v2 state travels beside v1 plugins on its own channel. No
+    // bundled plugin owns this entry, so the Runtime keeps it and does
+    // nothing visible; what the fixture proves is that state arriving,
+    // changing and clearing never restarts playback or disturbs a v1 plugin,
+    // on every host that forwards plugin_state.
+    legacy: false,
+    description:
+      "Plugin API v2 state next to a v1 plugin: a plugin-only update restarts nothing.",
+    capabilities: { pluginState: true },
+    steps: [
+      {
+        present: {
+          presentation: playing([
+            item("under", { src: "media:square", durationMs: null }),
+          ]),
+          activation: activation(1),
+        },
+      },
+      { plugins: { plugins: [countdown, stateEntry("Lobby")] } },
+      { advance: 0 },
+      { checkpoint: "state-beside-v1-plugin", visual: true },
+      { plugins: { plugins: [countdown, stateEntry("Gym")] } },
+      { advance: 0 },
+      { checkpoint: "plugin-only-update" },
+      { plugins: { plugins: [countdown] } },
+      { advance: 0 },
+      { checkpoint: "state-cleared" },
+      { plugins: { plugins: [] } },
+      { advance: 1_000 },
+      { checkpoint: "all-cleared" },
     ],
   },
   {

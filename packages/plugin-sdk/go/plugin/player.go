@@ -76,6 +76,12 @@ func (p *PlayerEntry) validate() error {
 			}
 		}
 	}
+	if err := p.validateProviders(); err != nil {
+		return err
+	}
+	if err := p.validateEvents(); err != nil {
+		return err
+	}
 	if len(p.Native) > 8 {
 		return fmt.Errorf("at most 8 native contributions")
 	}
@@ -128,4 +134,86 @@ func (p *PlayerEntry) RequiredServices() []string {
 		return nil
 	}
 	return append([]string(nil), p.Runtime.Services.Required...)
+}
+
+const (
+	eventsService  = "player.events"
+	provideService = "player.presentation.provide"
+)
+
+func (p *PlayerEntry) runtimeRequests(name string) bool {
+	if p.Runtime == nil {
+		return false
+	}
+	for _, value := range append(append([]string(nil), p.Runtime.Services.Required...), p.Runtime.Services.Optional...) {
+		if reference, ok := ParseServiceReference(value); ok && reference.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *PlayerEntry) validateProviders() error {
+	var providers []ProviderContribution
+	if p.Runtime != nil {
+		providers = p.Runtime.Providers
+	}
+	if len(providers) > 4 {
+		return fmt.Errorf("runtime: at most 4 providers")
+	}
+	requested := p.runtimeRequests(provideService)
+	if len(providers) > 0 && !requested {
+		return fmt.Errorf("runtime: providers are declared without requesting player.presentation.provide")
+	}
+	if requested && len(providers) == 0 {
+		return fmt.Errorf("runtime: player.presentation.provide is requested without declaring providers")
+	}
+	seen := map[string]bool{}
+	for _, provider := range providers {
+		if !ContributionPattern.MatchString(provider.ID) {
+			return fmt.Errorf("runtime: invalid provider id %q", provider.ID)
+		}
+		if seen[provider.ID] {
+			return fmt.Errorf("runtime: provider %s is declared twice", provider.ID)
+		}
+		seen[provider.ID] = true
+	}
+	return nil
+}
+
+func (p *PlayerEntry) validateEvents() error {
+	if len(p.Events) > 16 {
+		return fmt.Errorf("player.events needs at most 16 declarations")
+	}
+	requested := p.runtimeRequests(eventsService)
+	if len(p.Events) == 0 {
+		if requested {
+			return fmt.Errorf("runtime: player.events is requested without declaring events")
+		}
+		return nil
+	}
+	if p.Runtime == nil || len(p.Native) == 0 {
+		return fmt.Errorf("events connect a native contribution to a Shared Runtime contribution; declare both")
+	}
+	if !requested {
+		return fmt.Errorf("runtime: events are declared without requesting player.events")
+	}
+	seen := map[string]bool{}
+	for _, event := range p.Events {
+		if !EventNamePattern.MatchString(event.Name) {
+			return fmt.Errorf("invalid event name %q", event.Name)
+		}
+		if event.Version < 1 || event.Version > 1000 {
+			return fmt.Errorf("event %s has an invalid version", event.Name)
+		}
+		if event.Source != "native" && event.Source != "runtime" {
+			return fmt.Errorf("event %s has an unknown source %q", event.Name, event.Source)
+		}
+		key := fmt.Sprintf("%s@%d", event.Name, event.Version)
+		if seen[key] {
+			return fmt.Errorf("event %s is declared twice", key)
+		}
+		seen[key] = true
+	}
+	return nil
 }

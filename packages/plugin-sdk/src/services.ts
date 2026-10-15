@@ -19,6 +19,12 @@ export interface PlayerServiceDefinition {
   readonly version: number;
   readonly execution: PlayerServiceExecution;
   readonly description: string;
+  /**
+   * A runtime service that needs its host's help names the host capability
+   * (`RuntimeCapabilitiesV1`) that must be true. The Runtime offers the
+   * service only on such a host, so no Player reports it by default.
+   */
+  readonly hostCapability?: string;
 }
 
 /** The capability a Player reports when it hosts Plugin API 2 contributions. */
@@ -34,6 +40,14 @@ export const PLAYER_SERVICES = [
       "Corrected server time, local and monotonic time, and plugin-owned timers.",
   },
   {
+    name: "player.events",
+    version: 1,
+    execution: "runtime",
+    description:
+      "Ephemeral typed events between a plugin's native and Shared Runtime parts: declared names, bounded payloads, never state.",
+    hostCapability: "pluginEvents",
+  },
+  {
     name: "player.media",
     version: 1,
     execution: "runtime",
@@ -46,6 +60,20 @@ export const PLAYER_SERVICES = [
     execution: "runtime",
     description:
       "Read-only observation of what owns the screen and which item is shown.",
+  },
+  {
+    name: "player.presentation.provide",
+    version: 1,
+    execution: "runtime",
+    description:
+      "Registers a declared presentation provider. The host activates it for an external presentation that names it, and owns its visibility, lifecycle, and fallback.",
+  },
+  {
+    name: "player.reference.signal",
+    version: 1,
+    execution: "native",
+    description:
+      "Reference service that qualifies the native service model: one typed read of a counter the platform owns. No product Player provides it.",
   },
   {
     name: "player.surface",
@@ -73,6 +101,22 @@ export function parseServiceReference(value: string): ServiceReference | null {
 
 export function formatServiceReference(reference: ServiceReference): string {
   return `${reference.name}@${reference.version}`;
+}
+
+/**
+ * Runtime services the Shared Runtime always offers on a host that forwards
+ * plugin state, as `[name, version]`. A service with a `hostCapability` is
+ * added only by a host that sets that capability.
+ */
+export function sharedRuntimeServices(
+  hostCapabilities: Readonly<Record<string, unknown>> = {},
+): [string, number][] {
+  return PLAYER_SERVICES.filter(
+    (service: PlayerServiceDefinition) =>
+      service.execution === "runtime" &&
+      (service.hostCapability === undefined ||
+        hostCapabilities[service.hostCapability] === true),
+  ).map((service) => [service.name, service.version]);
 }
 
 export function playerService(

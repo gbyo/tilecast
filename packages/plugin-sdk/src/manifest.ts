@@ -34,6 +34,15 @@ export const pluginIdPattern = /^[a-z][a-z0-9_]{0,79}$/;
 /** A contribution identifier inside one plugin, for example `ticker`. */
 export const contributionIdPattern = /^[a-z][a-z0-9-]{0,39}$/;
 
+/** A Player plugin event name inside one plugin, for example `button_pressed`. */
+export const eventNamePattern = /^[a-z][a-z0-9_]{0,63}$/;
+
+const EVENTS_SERVICE = "player.events";
+const PROVIDE_SERVICE = "player.presentation.provide";
+
+/** Which side of a plugin raises an event. The other side receives it. */
+export const eventSources = ["native", "runtime"] as const;
+
 /**
  * Player manifest entry types that the host itself owns. No plugin may use
  * them as a v1 manifest type or a v2 state type.
@@ -375,6 +384,22 @@ const playerContribution = z
           .describe(
             "Visual contributions for player.surface@1. Empty for a plugin that draws nothing.",
           ),
+        providers: z
+          .array(
+            z.strictObject({
+              id: z
+                .string()
+                .regex(contributionIdPattern)
+                .describe(
+                  "Presentation provider identifier, unique within the plugin. An external presentation names it as `<plugin id>/<provider id>`.",
+                ),
+            }),
+          )
+          .max(4)
+          .default([])
+          .describe(
+            "Presentation providers for player.presentation.provide@1. Empty for a plugin that provides none.",
+          ),
       })
       .optional()
       .describe("Portable Player behavior in the Shared Runtime."),
@@ -389,6 +414,26 @@ const playerContribution = z
       .default([])
       .describe(
         "First-party native contributions compiled into Player builds. Platforms register them through typed Player Core interfaces.",
+      ),
+    events: z
+      .array(
+        z.strictObject({
+          name: z
+            .string()
+            .regex(eventNamePattern)
+            .describe("Event name, unique within the plugin."),
+          version: z.int().min(1).max(1000),
+          source: z
+            .enum(eventSources)
+            .describe(
+              "Which part raises the event. The other part receives it: a native source reaches the Shared Runtime part, and a runtime source reaches the native part.",
+            ),
+        }),
+      )
+      .max(16)
+      .default([])
+      .describe(
+        "Ephemeral, typed events between the plugin's native and Shared Runtime parts. State stays in player.state; events never carry configuration.",
       ),
   })
   .describe(
@@ -518,6 +563,48 @@ export function playerContributionProblems(
         problems.push(`runtime: surface ${surface.id} repeats a slot`);
     }
   }
+  const providerIds = new Set<string>();
+  const providers = player.runtime?.providers ?? [];
+  const requestsProvide = (player.runtime?.services?.required ?? [])
+    .concat(player.runtime?.services?.optional ?? [])
+    .some((value) => parseServiceReference(value)?.name === PROVIDE_SERVICE);
+  if (providers.length > 0 && !requestsProvide)
+    problems.push(
+      "runtime: providers are declared without requesting player.presentation.provide",
+    );
+  if (requestsProvide && providers.length === 0)
+    problems.push(
+      "runtime: player.presentation.provide is requested without declaring providers",
+    );
+  for (const provider of providers) {
+    if (providerIds.has(provider.id))
+      problems.push(`runtime: provider ${provider.id} is declared twice`);
+    providerIds.add(provider.id);
+  }
+  const events = player.events ?? [];
+  const requestsEvents = (player.runtime?.services?.required ?? [])
+    .concat(player.runtime?.services?.optional ?? [])
+    .some((value) => parseServiceReference(value)?.name === EVENTS_SERVICE);
+  const eventKeys = new Set<string>();
+  for (const event of events) {
+    const key = `${event.name}@${event.version}`;
+    if (eventKeys.has(key)) problems.push(`event ${key} is declared twice`);
+    eventKeys.add(key);
+  }
+  if (events.length > 0) {
+    if (!player.runtime || native.length === 0)
+      problems.push(
+        "events connect a native contribution to a Shared Runtime contribution; declare both",
+      );
+    else if (!requestsEvents)
+      problems.push(
+        "runtime: events are declared without requesting player.events",
+      );
+  }
+  if (requestsEvents && events.length === 0)
+    problems.push(
+      "runtime: player.events is requested without declaring events",
+    );
   const nativeIds = new Set<string>();
   for (const contribution of native) {
     if (nativeIds.has(contribution.id))

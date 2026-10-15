@@ -104,6 +104,15 @@ type PlayerEntry struct {
 	State   []PlayerStateDeclaration `json:"state"`
 	Runtime *PlayerRuntimeEntry      `json:"runtime,omitempty"`
 	Native  []NativeContribution     `json:"native,omitempty"`
+	Events  []PlayerEventDeclaration `json:"events,omitempty"`
+}
+
+// PlayerEventDeclaration is one ephemeral, typed event between a plugin's
+// native and Shared Runtime parts. Source names the side that raises it.
+type PlayerEventDeclaration struct {
+	Name    string `json:"name"`
+	Version int    `json:"version"`
+	Source  string `json:"source"`
 }
 
 type PlayerStateDeclaration struct {
@@ -120,9 +129,16 @@ type ServiceRequests struct {
 }
 
 type PlayerRuntimeEntry struct {
-	Entrypoint string                `json:"entrypoint"`
-	Services   ServiceRequests       `json:"services"`
-	Surfaces   []SurfaceContribution `json:"surfaces,omitempty"`
+	Entrypoint string                 `json:"entrypoint"`
+	Services   ServiceRequests        `json:"services"`
+	Surfaces   []SurfaceContribution  `json:"surfaces,omitempty"`
+	Providers  []ProviderContribution `json:"providers,omitempty"`
+}
+
+// ProviderContribution is one presentation provider for
+// player.presentation.provide@1.
+type ProviderContribution struct {
+	ID string `json:"id"`
 }
 
 // SurfaceContribution is one visual contribution for player.surface@1. Its
@@ -231,6 +247,7 @@ const (
 var (
 	IDPattern           = regexp.MustCompile(`^[a-z][a-z0-9_]{0,79}$`)
 	ContributionPattern = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
+	EventNamePattern    = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 	iconPattern         = regexp.MustCompile(`^[a-z][a-z0-9-]{0,39}$`)
 	routePattern        = regexp.MustCompile(`^/[a-z0-9][a-z0-9/-]{0,119}$`)
 	slugPattern         = regexp.MustCompile(`^[a-z0-9][a-z0-9/-]{0,119}$`)

@@ -1021,6 +1021,10 @@ mod tests {
         use player_core::RendererRequirement;
         let bridge = include_str!("../../renderer-wpe/web/tilecast-bridge.js");
         assert_eq!(bridge.matches("pluginState: true").count(), 1);
+        // The WPE scheme handler serves tcmedia://variant/ only through the
+        // aliases in the current plugin state, so the Runtime may use it.
+        assert_eq!(bridge.matches("variantMedia: true").count(), 1);
+        assert!(!bridge.contains("pluginEvents"), "no event transport is wired on this host");
         let declarative = |name: &str, version| RendererRequirement::Declarative {
             name: edge_protocol::bounded::ShortToken::new(name).unwrap(),
             version,

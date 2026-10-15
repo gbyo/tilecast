@@ -52,7 +52,13 @@ Behavior depends on `capabilities`, never on `info.host`:
 | `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  | `false`            |
 | `outsideHoursLogo`     | absent (`cast`)    | `pulse`                      | absent (`cast`)    |
 
-`pluginState` is optional. A host sets it when it forwards Plugin API v2 `plugin_state` entries in `plugins` messages, with grants for their declared media. Only then does the support report include `plugin.host@2` and the live Player service versions. The Edge WPE bridge and the Browser Player host set it. Windows and Android do not set it until their qualification passes.
+`pluginState` is optional. A host sets it when it forwards Plugin API v2 `plugin_state` entries in `plugins` messages, with grants for their declared media, and replays them to a reloaded document. Only then does the support report include `plugin.host@2` and the live Player service versions. The Edge WPE bridge, the Browser Player host, the Windows host script table, and the Android install script set it.
+
+`variantMedia` is optional. A host sets it when it serves `tcmedia://variant/<asset>/<variant>` and authorizes each load against the current plugin state or activation grants. The Runtime then builds that address for `player.media@1`. A host that sends explicit `media` bindings, such as the Browser Player, leaves it unset. Edge, Windows, and Android set it.
+
+`pluginEvents` is optional. A host sets it only when it sends `plugin-event` messages to the Runtime and provides `host.pluginEvents.emit`. Only then does the Runtime offer `player.events@1`. No host sets it yet. See [Plugin API v2](plugin-api-v2.md#plugin-events).
+
+A presentation provider is a Runtime service, so it needs no host capability. The host still owns the container, visibility, evidence, and recovery of its session. See [Plugin API v2](plugin-api-v2.md#presentation-providers).
 
 `outsideHoursLogo` is optional. It selects the animated logo for the "Bouncing logo" display outside active hours: `cast` or `pulse`. If a host does not set it, or sets a value that the runtime does not know, the runtime shows `cast`. The runtime ships both logo files.
 

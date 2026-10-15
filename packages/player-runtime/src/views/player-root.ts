@@ -20,6 +20,7 @@ import type {
   RuntimeViewState,
 } from "../engine/controller";
 import type { RuntimeSurfaceHost } from "../plugins/host";
+import type { PresentationProviders } from "../plugins/presentation-providers";
 import type { RuntimeWidgetHost } from "../widgets/host";
 import { Stage } from "../surfaces/stage";
 import type { SetupBridge, StatusSurface } from "./status-surface";
@@ -37,6 +38,8 @@ export interface PlayerRootBindings {
   /** Present when the host advertises `remoteWeb: "host-view"`. */
   remoteWeb: RemoteWebPort | null;
   widgets: RuntimeWidgetHost;
+  /** Plugin API v2 presentation providers, when the plugin host runs. */
+  providers?: PresentationProviders;
 }
 
 type Sleep = Extract<RuntimePresentation, { state: "sleep" }>;
@@ -51,6 +54,7 @@ export class PlayerRoot extends LitElement {
     problem: { state: true },
     servers: { state: true },
     identifyName: { state: true },
+    providerOwned: { state: true },
   };
 
   declare status: RuntimePresentation | null;
@@ -58,6 +62,8 @@ export class PlayerRoot extends LitElement {
   declare problem: string | null;
   declare servers: DiscoveredServerV1[];
   declare identifyName: string | null;
+  /** A presentation provider holds the screen instead of the status surface. */
+  declare providerOwned: boolean;
 
   private bindings: PlayerRootBindings | null = null;
   private stage: Stage | null = null;
@@ -71,6 +77,7 @@ export class PlayerRoot extends LitElement {
     this.problem = null;
     this.servers = [];
     this.identifyName = null;
+    this.providerOwned = false;
   }
 
   protected override createRenderRoot(): HTMLElement {
@@ -141,11 +148,16 @@ export class PlayerRoot extends LitElement {
       <div id="content-stage">
         <div id="layer-a" class="layer"></div>
         <div id="layer-b" class="layer"></div>
+        <div
+          id="provider-stage"
+          class=${classMap({ visible: this.providerOwned })}
+        ></div>
         <tc-status-surface
           .presentation=${this.status}
           .problem=${this.problem}
           .servers=${this.servers}
           .setup=${b?.setup ?? null}
+          .suppressed=${this.providerOwned}
         ></tc-status-surface>
       </div>
       ${b?.surfaces.element ?? nothing}
@@ -175,12 +187,34 @@ export class PlayerRoot extends LitElement {
         this.status = view.presentation;
         this.sleep = view.mode === "sleep" ? view.presentation : null;
         const key = view.key;
-        void this.updateComplete.then(() =>
-          afterPaint(() => controller.statusPainted(key)),
-        );
+        const painted = () =>
+          void this.updateComplete.then(() =>
+            afterPaint(() => controller.statusPainted(key)),
+          );
+        const providers = this.bindings!.providers;
+        const stage = this.querySelector<HTMLElement>("#provider-stage");
+        // The host decides who owns the screen. A provider that holds it
+        // reports its own first frame; otherwise the status surface paints.
+        const owned =
+          providers && stage
+            ? providers.present(view.presentation, stage, {
+                owned: (value) => {
+                  this.providerOwned = value;
+                },
+                presenting: painted,
+                failed: (reason) => {
+                  controller.reportProviderFailure(reason);
+                  painted();
+                },
+              })
+            : false;
+        this.providerOwned = owned;
+        if (!owned) painted();
         return;
       }
       case "playing":
+        this.bindings!.providers?.clear();
+        this.providerOwned = false;
         if (this.status?.state !== "playing") {
           this.status = { state: "playing", items: [], generation: 0 };
         }
