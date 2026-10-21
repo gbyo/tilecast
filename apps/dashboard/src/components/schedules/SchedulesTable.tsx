@@ -1,7 +1,7 @@
 import { CircleHelp, EllipsisVertical } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { ActionMenuButton } from "../studio/ActionMenu";
+import { ActionContextMenu, ActionMenuButton } from "../studio/ActionMenu";
 import type { StudioActionGroup } from "../studio/ActionMenu";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
@@ -102,8 +102,14 @@ export function SchedulesTable({
           {rows.map((row) => {
             const { schedule } = row;
             const label = t("page.actions.actionsFor", { name: schedule.name });
+            const actions = actionsFor(row);
             return (
-              <TableRow key={schedule.id}>
+              <ActionContextMenu
+                key={schedule.id}
+                label={label}
+                actions={actions}
+                render={<TableRow />}
+              >
                 <TableCell className="max-w-44 min-w-28 whitespace-normal">
                   <Link
                     to={schedulePath(schedule)}
@@ -153,13 +159,13 @@ export function SchedulesTable({
                 <TableCell className="text-end">
                   <ActionMenuButton
                     label={label}
-                    actions={actionsFor(row)}
+                    actions={actions}
                     variant="ghost"
                     size="icon-sm"
                     triggerIcon={<EllipsisVertical aria-hidden="true" />}
                   />
                 </TableCell>
-              </TableRow>
+              </ActionContextMenu>
             );
           })}
         </TableBody>

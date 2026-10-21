@@ -90,7 +90,7 @@ export function PlaylistEditorHeader({
   return (
     <header className="flex flex-col items-start gap-x-4 gap-y-3 sm:flex-row sm:justify-between">
       <div className="grid w-full min-w-0 gap-1.5 sm:flex-1">
-        <h1 className="line-clamp-2 text-2xl font-semibold tracking-tight break-words sm:truncate">
+        <h1 className="text-2xl font-semibold tracking-tight break-words [overflow-wrap:anywhere]">
           {playlist.name}
         </h1>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">

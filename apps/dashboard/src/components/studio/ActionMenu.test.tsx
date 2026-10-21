@@ -188,4 +188,98 @@ describe("ActionContextMenu", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByTestId("card")).toBeVisible();
   });
+
+  it("keeps the row's normal click and suppresses activation on Control-click", async () => {
+    const activate = vi.fn();
+    const action = vi.fn();
+    render(
+      <ActionContextMenu
+        label="Actions for Lobby"
+        actions={groups({ onOpen: action })}
+      >
+        <button onClick={activate}>Lobby</button>
+      </ActionContextMenu>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Lobby" }));
+    expect(activate).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Lobby" }), {
+      ctrlKey: true,
+    });
+    // macOS dispatches contextmenu for Control-click; Base UI owns opening it.
+    fireEvent.contextMenu(screen.getByRole("button", { name: "Lobby" }), {
+      ctrlKey: true,
+      button: 0,
+    });
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Open" }),
+    );
+    expect(activate).toHaveBeenCalledTimes(1);
+    expect(action).toHaveBeenCalledExactlyOnceWith();
+  });
+
+  it("uses the same action and destructive semantics through both menus", async () => {
+    const onDelete = vi.fn();
+    const actions = groups({ onDelete });
+    render(
+      <ActionContextMenu label="Lobby context actions" actions={actions}>
+        <ActionMenuButton label="Lobby actions" actions={actions} />
+      </ActionContextMenu>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Lobby actions" }));
+    const menuDelete = await screen.findByRole("menuitem", { name: "Delete" });
+    expect(menuDelete).toHaveAttribute("data-variant", "destructive");
+    await userEvent.click(menuDelete);
+    fireEvent.contextMenu(
+      screen.getByRole("button", { name: "Lobby actions" }),
+    );
+    const contextDelete = await screen.findByRole("menuitem", {
+      name: "Delete",
+    });
+    expect(contextDelete).toHaveAttribute("data-variant", "destructive");
+    await userEvent.click(contextDelete);
+    expect(onDelete).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves a semantic row when it has no actions", () => {
+    render(
+      <table>
+        <tbody>
+          <ActionContextMenu label="Empty actions" actions={[]} render={<tr />}>
+            <td>Lobby</td>
+          </ActionContextMenu>
+        </tbody>
+      </table>,
+    );
+    expect(screen.getByRole("cell", { name: "Lobby" }).parentElement).toBe(
+      screen.getByRole("row"),
+    );
+  });
+
+  it("preserves the row and focus when batch mode disables its actions", () => {
+    const row = (actions: StudioActionGroup[]) => (
+      <table>
+        <tbody>
+          <ActionContextMenu
+            label="Row actions"
+            actions={actions}
+            render={<tr />}
+          >
+            <td>
+              <input type="checkbox" aria-label="Select Lobby" />
+            </td>
+          </ActionContextMenu>
+        </tbody>
+      </table>
+    );
+    const { rerender } = render(row(groups({})));
+    const checkbox = screen.getByRole("checkbox", { name: "Select Lobby" });
+    checkbox.focus();
+    rerender(row([]));
+    expect(screen.getByRole("checkbox", { name: "Select Lobby" })).toBe(
+      checkbox,
+    );
+    expect(checkbox).toHaveFocus();
+    fireEvent.contextMenu(checkbox);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
 });

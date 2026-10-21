@@ -13,7 +13,7 @@ import {
 afterEach(cleanup);
 
 describe("StudioCollapsible", () => {
-  it("keeps Vega disclosure semantics while adding shared motion", async () => {
+  it("keeps Base UI disclosure semantics while adding shared motion", async () => {
     const user = userEvent.setup();
     render(
       <Collapsible>

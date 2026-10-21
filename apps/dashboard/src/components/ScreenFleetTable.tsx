@@ -16,7 +16,7 @@ import { screenPlayerLabel } from "../playerPlatform";
 type ScreensT = TFunction<"screens", undefined>;
 import { Badge } from "./ui/badge";
 import { Checkbox } from "./ui/checkbox";
-import { ActionMenuButton } from "./studio/ActionMenu";
+import { ActionContextMenu, ActionMenuButton } from "./studio/ActionMenu";
 import { screenRowActionGroups } from "./screenActions";
 import {
   Table,
@@ -60,6 +60,23 @@ export function ScreenFleetTable({
   const { t } = useTranslation("screens");
   const formatLocale = useFormatLocale();
   const navigate = useNavigate();
+  const rowActions = useMemo(
+    () =>
+      new Map(
+        screens.map((screen) => [
+          screen.id,
+          screenRowActionGroups({
+            screen,
+            t,
+            navigate,
+            csrfToken,
+            canManage,
+            onArchive: onArchive ? () => onArchive(screen) : undefined,
+          }),
+        ]),
+      ),
+    [screens, t, navigate, csrfToken, canManage, onArchive],
+  );
   const rowSelection = useMemo<Record<string, true>>(
     () =>
       [...selectedIds].reduce<Record<string, true>>((selection, id) => {
@@ -115,12 +132,18 @@ export function ScreenFleetTable({
                 <span className="grid min-w-0 flex-1 gap-0.5">
                   <Link
                     to={`/screens/${screen.id}`}
+                    title={screen.name}
                     className="block max-w-full truncate font-medium text-foreground hover:underline"
                     onClick={(event) => event.stopPropagation()}
                   >
                     {screen.name}
                   </Link>
-                  <span className="max-w-full truncate text-xs text-muted-foreground">
+                  <span
+                    className="max-w-full truncate text-xs text-muted-foreground"
+                    title={[details, showLocation ? screen.location : ""]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  >
                     {details}
                     {showLocation && screen.location && (
                       <span className="xl:hidden">
@@ -157,7 +180,10 @@ export function ScreenFleetTable({
           header: t("table.colPlaying"),
           cell: ({ row }) => (
             <div className="min-w-0">
-              <div className="truncate font-medium">
+              <div
+                className="truncate font-medium"
+                title={row.original.nowPlayingName}
+              >
                 {row.original.nowPlayingName || t("shared.nothingAssigned")}
               </div>
               <div className="truncate text-xs text-muted-foreground">
@@ -176,7 +202,10 @@ export function ScreenFleetTable({
                 id: "location",
                 header: t("table.colLocation"),
                 cell: ({ row }) => (
-                  <div className="min-w-0 truncate text-muted-foreground">
+                  <div
+                    className="min-w-0 truncate text-muted-foreground"
+                    title={row.original.location}
+                  >
                     {row.original.location || t("shared.notSet")}
                   </div>
                 ),
@@ -209,7 +238,10 @@ export function ScreenFleetTable({
                     </span>
                   )}
                 </div>
-                <div className="truncate text-xs text-muted-foreground">
+                <div
+                  className="truncate text-xs text-muted-foreground"
+                  title={deviceDetails}
+                >
                   {deviceDetails}
                   {row.original.updateState && (
                     <span className="2xl:hidden">
@@ -227,7 +259,7 @@ export function ScreenFleetTable({
           header: t("table.colVersion"),
           cell: ({ row }) => (
             <div className="max-w-40">
-              <div className="truncate">
+              <div className="truncate" title={row.original.playerVersion}>
                 {row.original.playerVersion || t("shared.notReported")}
               </div>
               {row.original.updateState && (
@@ -262,31 +294,23 @@ export function ScreenFleetTable({
               columnHelper.display({
                 id: "actions",
                 header: "",
-                cell: ({ row }) => (
-                  <ActionMenuButton
-                    label={t("table.rowActions", {
-                      name: row.original.name,
-                    })}
-                    actions={screenRowActionGroups({
-                      screen: row.original,
-                      t,
-                      navigate,
-                      csrfToken,
-                      canManage,
-                      onArchive: onArchive
-                        ? () => onArchive(row.original)
-                        : undefined,
-                    })}
-                    variant="ghost"
-                    size="icon-sm"
-                    triggerIcon={<Ellipsis aria-hidden="true" />}
-                  />
-                ),
+                cell: ({ row }) =>
+                  selectedIds.size > 0 ? null : (
+                    <ActionMenuButton
+                      label={t("table.rowActions", {
+                        name: row.original.name,
+                      })}
+                      actions={rowActions.get(row.original.id) ?? []}
+                      variant="ghost"
+                      size="icon-sm"
+                      triggerIcon={<Ellipsis aria-hidden="true" />}
+                    />
+                  ),
               }),
             ]
           : []),
       ]),
-    [canManage, csrfToken, formatLocale, navigate, onArchive, showLocation, t],
+    [canManage, formatLocale, rowActions, showLocation, t, selectedIds.size],
   );
   const table = useTable({
     features,
@@ -328,10 +352,20 @@ export function ScreenFleetTable({
         </TableHeader>
         <TableBody>
           {table.getRowModel().rows.map((row) => (
-            <TableRow
+            <ActionContextMenu
               key={row.id}
-              data-state={row.getIsSelected() ? "selected" : undefined}
-              className="h-[4.25rem]"
+              label={t("table.rowActions", { name: row.original.name })}
+              actions={
+                selectedIds.size === 0 && canManage
+                  ? (rowActions.get(row.id) ?? [])
+                  : []
+              }
+              render={
+                <TableRow
+                  data-state={row.getIsSelected() ? "selected" : undefined}
+                  className="h-[4.25rem]"
+                />
+              }
             >
               {row.getAllCells().map((cell) => (
                 <TableCell
@@ -341,7 +375,7 @@ export function ScreenFleetTable({
                   <table.FlexRender cell={cell} />
                 </TableCell>
               ))}
-            </TableRow>
+            </ActionContextMenu>
           ))}
         </TableBody>
       </Table>

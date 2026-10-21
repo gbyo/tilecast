@@ -1179,6 +1179,7 @@ export function AssetCollection({
   // Every action is also reachable from a visible control, so the menus stay a
   // shortcut rather than the only route to duplication or deletion.
   const actionsFor = (asset: Asset): StudioActionGroup[] => {
+    if (selectedIds.size > 0) return [];
     const primary: StudioAction[] = archived
       ? []
       : [
@@ -1244,7 +1245,7 @@ export function AssetCollection({
     canManage && onToggle ? (id: string) => onToggle(id) : undefined;
   if (view === "list") {
     return (
-      <ItemGroup>
+      <ItemGroup data-density-surface="collection">
         {items.map((asset) => (
           <ActionContextMenu
             key={asset.id}
@@ -2142,7 +2143,7 @@ export function ContentOrganizer({
             count: assetIds.length,
           })}
         >
-          <div className="flex items-center gap-x-3 gap-y-2 overflow-x-auto px-3 py-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
             <strong className="flex-none text-sm font-medium">
               {t("picker.tray.selectedCount", { count: assetIds.length })}
             </strong>

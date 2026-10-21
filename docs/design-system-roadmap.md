@@ -2,14 +2,14 @@
 
 This roadmap is a historical planning snapshot for repeated Tilecast Studio UI
 patterns. Several statuses, examples, and proposed component contracts predate
-the move to shadcn Base UI Base Vega and are no longer a current implementation
+the earlier shadcn migrations and are no longer a current implementation
 inventory. Use the [current Studio and Player design system](design-system.md)
 and the code under `apps/dashboard/src/components/ui` for current guidance.
 
 The roadmap records the intent and rationale of the earlier component work. Do
 not treat its historical **Implemented** status or behavior descriptions as a
 current registry contract without checking the current code and official Base
-Vega documentation.
+Nova documentation.
 
 ## Status model
 

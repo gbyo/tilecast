@@ -15,7 +15,7 @@ Tilecast has two related but separate interfaces:
 
 | Surface         | Purpose                                        | Implementation source                                                                                              |
 | --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Tilecast Studio | Browser-based management interface             | shadcn Base UI Base Vega primitives in `apps/dashboard/src/components/ui`, with Geist and Tailwind theme variables |
+| Tilecast Studio | Browser-based management interface             | shadcn Base UI Base Nova primitives in `apps/dashboard/src/components/ui`, with Geist and Tailwind theme variables |
 | Tilecast Player | Fullscreen Android TV application              | Native Compose theme and components under `org.tilecast.player.ui.theme`                                           |
 | Signage content | Organization-authored material shown by Player | Content, layout, and organization-branding settings. it does not redefine Studio                                   |
 
@@ -23,15 +23,16 @@ Studio and Player share accessibility expectations. They do not share a
 rendering library. CSS is authoritative for Studio. Compose is authoritative
 for Player.
 
-Studio's canonical component baseline is shadcn Base UI **Base Vega**, with a
-neutral theme, Geist, Lucide, CSS variables, and a small radius. Generated
-components are kept aligned with the official Vega registry. Compatibility
+Studio's canonical component baseline is shadcn Base UI **Base Nova**, with a
+neutral theme, Geist, Lucide, CSS variables, the default Nova radius, and a
+subtle menu accent. Generated
+components are kept aligned with the official Nova registry. Compatibility
 tokens remain for domain-specific and not-yet-migrated surfaces; do not use them
 to restyle canonical shadcn components or the Studio shell.
 
 Organization branding is content identity, not application chrome. An
 organization accent or logo may appear in a preview, avatar, or small identity
-detail. It never replaces the Base Vega neutral tokens used by Studio navigation,
+detail. It never replaces the Base Nova neutral tokens used by Studio navigation,
 actions, selected states, links, or focus rings.
 
 ## Status of guidance
@@ -46,7 +47,8 @@ Use these labels when discussing the design system:
 | **Planned**       | Proposed in the [Signal pattern roadmap](design-system-roadmap.md). It is not available until its status becomes Implemented. |
 
 The roadmap is planning material. This document remains authoritative for
-implemented and normative behavior.
+implemented and normative behavior. See the [Nova migration audit](studio-nova-migration.md)
+for registry provenance, local integrations, and the validation inventory.
 
 ## Principles
 
@@ -96,7 +98,7 @@ value from this document.
 
 ### Color
 
-Base Vega's neutral preset defines standard Studio chrome. The Signal semantic
+Base Nova's neutral preset defines standard Studio chrome. The Signal semantic
 tokens below remain for legacy and domain-specific surfaces; they do not define
 the generated components' colors. Broadcast Amber is a Tilecast identity color
 used in the logo and restrained brand details, not a warning color. Success,
@@ -124,11 +126,11 @@ value.
 Control colors are theme-scoped. Legacy Signal surfaces consume the aliases in
 `components.css`. They must not assume the dark palette is the default.
 
-shadcn components never read these roles; they read the Base Vega tokens
+shadcn components never read these roles; they read the Base Nova tokens
 (`--background`, `--accent`, `--border`, `--input`, `--ring`, and the rest)
 defined in `apps/dashboard/src/styles.css`. The legacy roles therefore carry
 the `--tc-` prefix. An unprefixed legacy token with a shadcn name would win
-over the Vega value, because the legacy theme selectors are more specific, and
+over the Nova value, because the legacy theme selectors are more specific, and
 would recolor every generated component.
 
 | Token                    | Light value                | Dark value                 | Use                                     |
@@ -149,9 +151,8 @@ would recolor every generated component.
 | `--divider`              | `#E5EAF2`                  | `#2C3947`                  | Hairlines and utility-header dividers   |
 | `--tc-accent-focus-ring` | 25% alpha of `--tc-accent` | 25% alpha of `--tc-accent` | Three-pixel keyboard-focus outer ring   |
 
-The Studio sidebar deliberately uses the same dark navigation tokens in light
-and dark appearances. This is an explicit contrast treatment, not inheritance
-from the dark control palette, and may be revisited independently.
+The Studio sidebar uses the neutral shadcn sidebar tokens in the selected
+appearance. Preserve the current route model and offcanvas mobile Sheet.
 
 #### Status roles
 
@@ -252,8 +253,8 @@ compact type sizes to TV.
 | `--control-radius`    | 8 px  | Buttons, inputs, and selects |
 | `--chip-radius`       | 5 px  | Nested chips and keycaps     |
 
-New Studio controls use the radius scale generated by shadcn Base Vega from the
-small-radius preset (`--radius: 0.45rem`). Do not add larger one-off radii or
+New Studio controls use the radius scale generated by shadcn Base Nova from the
+default-radius preset (`--radius: 0.625rem`). Do not add larger one-off radii or
 pills to shell and navigation components. The `--tc-*` radius values above are
 retained for domain-specific and unmigrated surfaces while they move to the
 shared primitives. Normal panels use borders. Shadows are reserved for
@@ -296,10 +297,20 @@ Studio supports light, dark, and system appearance through semantic tokens.
 Components are not duplicated by theme. System appearance follows
 `prefers-color-scheme`. Explicit light or dark settings take precedence.
 
-Studio also supports comfortable and compact density. Compact density reduces
-selected layout spacing, not type legibility, control semantics, focus
-visibility, or minimum practical targets. Density is a per-user preference and
-must not alter stored domain data.
+Studio supports two saved density preferences. `ThemeProvider` normalizes the
+root `data-density` value. `styles/studio-density.css` owns the layout rules.
+
+- **Comfortable** uses the official Nova geometry. Standard buttons and fields
+  are 32 px high. Small buttons are 28 px high. Extra-small buttons are 24 px high.
+- **Compact** reduces table body cell padding and normal page vertical padding.
+  Collection `ItemGroup` compositions opt in with `data-density-surface="collection"`.
+  Media, Widgets, schedules, group members, playlist items, and editor layers use
+  this marker. Compact does not change type, icons, focus rings, control sizes,
+  dialog spacing, validation text, or the global Tailwind spacing scale.
+
+The preference changes presentation only. It must not alter stored domain data.
+The plugin host shares these rules. Plugin collections use the supported Table
+primitives or the collection marker on their shared ItemGroup.
 
 Whenever tokens or shared components change, verify inputs, notices, statuses,
 tables, dialogs, disabled states, and focus rings in light and dark themes.
@@ -588,8 +599,8 @@ preserves the label's width, exposes busy state, and disables repeat activation.
 Disabled controls use a not-allowed cursor, but a disabled state must not be the
 only explanation of why an action is unavailable.
 
-Primary buttons use the Vega `primary` fill and `primary-foreground` text.
-Outline buttons use the Vega border on the background surface, and ghost
+Primary buttons use the Nova `primary` fill and `primary-foreground` text.
+Outline buttons use the Nova border on the background surface, and ghost
 buttons change only to the `accent` fill on hover. Links that act as buttons
 use `buttonVariants` rather than hand-copied classes. Underlines belong to inline
 text links, never button labels. Use at most one primary action per decision
@@ -599,6 +610,30 @@ A destructive action remains visually restrained until the final confirmation.
 The confirmation names the object and consequence. “Cancel” is not destructive
 and does not receive danger styling.
 
+### Overflow and context actions
+
+Use `ActionMenuButton` for visible object actions. Use `ActionContextMenu` as an
+accelerator on the corresponding resource row or card. Both consume the same
+`StudioActionGroup[]` model. Plugin code imports them from `@tilecast/studio`.
+Context menus must not be the only action path.
+
+Keep menus short and relevant to the target. Put common actions first. Separate
+related groups. Limit nesting to one submenu level. Put destructive actions last
+with the destructive variant. Use consistent labels and useful icons in a group.
+Base UI owns opening, positioning, focus, keyboard navigation, and dismissal.
+The shared trigger prevents macOS Control-click from activating a nested control.
+
+Keep overflow buttons visible on touch and keyboard surfaces. A desktop hover
+treatment must also respond to keyboard focus and coarse pointers without layout
+shift. During an existing batch selection, show the selected count, applicable
+batch actions, and an exit path. Suppress conflicting individual row commands.
+Do not introduce selection where the workflow does not require it.
+
+Editor menus track Base UI `onOpenChange` state. Do not infer open state from
+styling classes. Menu keys must not also move, delete, or save canvas objects.
+Preserve pointer and keyboard reorder paths. A non-drag pointer action must reach
+the same order as dragging. Failed persistence must restore order and usable focus.
+
 ### Forms and selection
 
 Labels sit above controls. Supporting text follows the label. Validation follows
@@ -606,11 +641,11 @@ the control. Required state must be available to assistive technology, not only
 shown as an asterisk. Errors identify the problem and, when known, how to fix
 it.
 
-Controls are the generated Base Vega components. Their height, radius, surface,
+Controls are the generated Base Nova components. Their height, radius, surface,
 border, placeholder, disabled treatment, focus ring, and dark-mode fill come
 from the component itself. Global element selectors such as `input`, `select`,
 or `textarea` must not style them: unlayered CSS outranks Tailwind utilities
-and silently replaces the Vega treatment. Use the control that matches the
+and silently replaces the Nova treatment. Use the control that matches the
 data:
 
 - checkbox for an independent choice.
@@ -763,7 +798,12 @@ addition:
 - associate labels, descriptions, validation, and switch state semantically.
 - pair status color with text and an icon or dot.
 - honor reduced-motion preferences.
-- keep Studio touch targets near 44 px and Player controls at least 52 dp high.
+- keep standalone pointer targets at least 24 × 24 CSS px, subject to the
+  documented WCAG 2.2 exceptions. Do not use an exception to hide a critical action.
+- retain at least 36 × 36 CSS px for shared buttons, selectors, and tabs when
+  `any-pointer: coarse` matches. Keep menu items at least 36 px high in that mode.
+  The icon keeps its normal size. Verify both density modes.
+- keep Player controls at least 52 dp high.
 - supply accessible names for icon-only controls.
 - announce urgent errors assertively and routine updates politely.
 - avoid organization colors where they could weaken Studio or emergency

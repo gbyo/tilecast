@@ -1,0 +1,66 @@
+/* Comfortable is the registry's unmodified Nova geometry. Compact belongs
+   to collection layout, never the global spacing, type, or control scale. */
+html[data-density="compact"] [data-slot="studio-page"] {
+  padding-block: 1rem;
+}
+
+html[data-density="compact"] [data-slot="table-body"] > tr {
+  height: auto;
+}
+
+html[data-density="compact"]
+  [data-slot="table-body"]
+  > tr
+  > [data-slot="table-cell"] {
+  padding-block: 0.375rem;
+}
+
+html[data-density="compact"]
+  [data-density-surface="collection"]
+  :is([data-slot="item"], [data-slot="context-menu-trigger"][data-size]) {
+  padding-block: 0.375rem;
+}
+
+/* Coarse pointers retain a larger target in both density modes. The glyph,
+   focus ring, validation text, and normal readable font scale stay intact. */
+@media (any-pointer: coarse) {
+  [data-slot="calendar"] {
+    --cell-size: 2.25rem;
+  }
+
+  [data-slot="input-group"],
+  [data-slot="menubar"] {
+    min-height: 2.25rem;
+  }
+
+  [data-slot="input-group-addon"] {
+    padding-block: 0;
+  }
+
+  /* Render composition gives a button the outer trigger's slot. */
+  button[data-slot],
+  [data-slot="button"],
+  [data-slot="toggle"],
+  [data-slot="select-trigger"],
+  [data-slot="combobox-trigger"],
+  [data-slot="input-group-button"],
+  [data-slot="tabs-trigger"],
+  [data-slot="sidebar-menu-button"] {
+    min-height: 2.25rem;
+    min-width: 2.25rem;
+  }
+
+  [data-slot="sidebar-menu-action"],
+  [data-slot="sidebar-group-action"] {
+    min-height: 1.5rem;
+    min-width: 1.5rem;
+    opacity: 1;
+  }
+
+  [data-slot="dropdown-menu-item"],
+  [data-slot="context-menu-item"],
+  [data-slot="select-item"],
+  [data-slot="combobox-item"] {
+    min-height: 2.25rem;
+  }
+}

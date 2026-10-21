@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { studioDensity } from "./density";
 
 type Appearance = "light" | "dark" | "system";
 
@@ -32,7 +33,7 @@ export function ThemeProvider({
     apply();
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     media.addEventListener("change", apply);
-    root.dataset.density = density;
+    root.dataset.density = studioDensity(density);
     root.dataset.reducedMotion = String(reducedMotion);
 
     return () => media.removeEventListener("change", apply);

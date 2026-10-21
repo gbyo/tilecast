@@ -59,7 +59,7 @@ export function weekdayShortLabel(value: number, t: PluginsT) {
   return t(key);
 }
 
-/** Base Vega checkbox connected to a typed React Hook Form field. */
+/** Base Nova checkbox connected to a typed React Hook Form field. */
 export function RegisterCheckbox<TForm extends FieldValues>({
   control,
   name,

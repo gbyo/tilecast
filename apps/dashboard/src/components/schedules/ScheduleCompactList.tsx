@@ -1,7 +1,7 @@
 import { EllipsisVertical } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import { ActionMenuButton } from "../studio/ActionMenu";
+import { ActionContextMenu, ActionMenuButton } from "../studio/ActionMenu";
 import type { StudioActionGroup } from "../studio/ActionMenu";
 import {
   Item,
@@ -32,16 +32,28 @@ export function ScheduleCompactList({
 }) {
   const { t } = useTranslation("schedules");
   return (
-    <ItemGroup render={<ul />} className="gap-1">
+    <ItemGroup
+      render={<ul />}
+      className="gap-1"
+      data-density-surface="collection"
+    >
       {rows.map((row) => {
         const { schedule } = row;
+        const actions = actionsFor(row);
+        const label = t("page.actions.actionsFor", { name: schedule.name });
         return (
-          <Item key={schedule.id} size="sm" variant="outline" render={<li />}>
+          <ActionContextMenu
+            key={schedule.id}
+            label={label}
+            actions={actions}
+            render={<Item size="sm" variant="outline" render={<li />} />}
+          >
             <ItemContent className="min-w-0">
               <ItemTitle className="max-w-full">
                 <Link
                   to={schedulePath(schedule)}
                   className="truncate rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  title={schedule.name}
                 >
                   {schedule.name}
                 </Link>
@@ -63,14 +75,14 @@ export function ScheduleCompactList({
             </ItemContent>
             <ItemActions className="self-start">
               <ActionMenuButton
-                label={t("page.actions.actionsFor", { name: schedule.name })}
-                actions={actionsFor(row)}
+                label={label}
+                actions={actions}
                 variant="ghost"
                 size="icon-sm"
                 triggerIcon={<EllipsisVertical aria-hidden="true" />}
               />
             </ItemActions>
-          </Item>
+          </ActionContextMenu>
         );
       })}
     </ItemGroup>

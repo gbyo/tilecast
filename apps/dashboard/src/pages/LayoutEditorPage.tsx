@@ -1851,6 +1851,11 @@ export function LayoutEditorPage() {
   // Right-click target for the canvas menu. Capture-phase handlers set this
   // before the Base UI trigger opens, so the content always matches the pointer.
   const [menuTarget, setMenuTarget] = useState<LayoutMenuTarget | null>(null);
+  const openContextMenus = useRef(new Set<string>());
+  const trackContextMenu = (id: string, open: boolean) => {
+    if (open) openContextMenus.current.add(id);
+    else openContextMenus.current.delete(id);
+  };
   const openPlacementMenu = (
     _event: ReactMouseEvent<HTMLElement>,
     item: LayoutPlacement,
@@ -2098,6 +2103,7 @@ export function LayoutEditorPage() {
     item: LayoutPlacement,
     resize = false,
   ) => {
+    if (event.ctrlKey) return;
     if (beginPan(event)) return;
     event.stopPropagation();
     if (activeTool) {
@@ -2220,6 +2226,8 @@ export function LayoutEditorPage() {
   };
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
+      // Base UI owns the keyboard for the lifetime of an open context menu.
+      if (openContextMenus.current.size > 0) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void save();
@@ -2233,9 +2241,6 @@ export function LayoutEditorPage() {
         (isInteractiveShortcutTarget(event.target) && !controlCommand)
       )
         return;
-      // While a context menu is up its own keys own the keyboard, so arrowing through
-      // the items does not also nudge or delete the selection behind it.
-      if (window.document.querySelector(".context-menu-layer")) return;
       if (event.key === "Escape" && activeToolRef.current) {
         setActiveTool(null);
         return;
@@ -2528,11 +2533,18 @@ export function LayoutEditorPage() {
         title={t("editor.sectionLayers")}
         meta={String(document.placements.length)}
       />
-      <ItemGroup className="gap-0.5 p-2" aria-label={t("editor.sectionLayers")}>
+      <ItemGroup
+        data-density-surface="collection"
+        className="gap-0.5 p-2"
+        aria-label={t("editor.sectionLayers")}
+      >
         {[...document.placements]
           .sort((a, b) => b.layer - a.layer)
           .map((item) => (
-            <ContextMenu key={item.id}>
+            <ContextMenu
+              key={item.id}
+              onOpenChange={(open) => trackContextMenu(item.id, open)}
+            >
               <ContextMenuTrigger
                 render={
                   <Item
@@ -3612,7 +3624,7 @@ export function LayoutEditorPage() {
           </ButtonGroup>
         </div>
       )}
-      <ContextMenu>
+      <ContextMenu onOpenChange={(open) => trackContextMenu("canvas", open)}>
         <ContextMenuTrigger
           render={
             <div
@@ -3624,12 +3636,14 @@ export function LayoutEditorPage() {
                 panMode === "dragging" && "cursor-grabbing",
               )}
               onPointerDown={(event) => {
+                if (event.ctrlKey) return;
                 if (beginPan(event, true)) return;
                 if (activeTool) {
                   beginToolDraw(event);
                   return;
                 }
-                if (event.button === 0) setSelection(new Set());
+                if (event.button === 0 && !event.ctrlKey)
+                  setSelection(new Set());
               }}
               onContextMenuCapture={() => setMenuTarget({ kind: "canvas" })}
             />
