@@ -168,7 +168,7 @@ The loopback run changes no application code, API responses, or test assertions.
 | `npm run format:check`                                                | Pass                              |
 | `npm run lint`                                                        | Pass, no warnings                 |
 | `npm run build`                                                       | Pass, TypeScript and Vite         |
-| `npm test`                                                            | 301 files, 3,378 tests pass       |
+| `npm test`                                                            | 301 files, 3,381 tests pass       |
 | `i18n:scan --check --base origin/main`, changed runtime paths         | No new untranslated strings       |
 | `architecture:scan --check --base origin/main`, changed runtime paths | No new findings                   |
 | `make plugins-check`                                                  | Three plugins, 175 SDK tests pass |

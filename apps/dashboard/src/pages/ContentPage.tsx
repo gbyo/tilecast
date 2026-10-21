@@ -1276,6 +1276,7 @@ export function AssetCollection({
           canManage={canManage}
           folderNames={folderNames}
           selected={selectedIds.has(asset.id)}
+          selectionActive={selectedIds.size > 0}
           showMenu={archived || !(asset.type === "widget" && canManage)}
           onSelect={() => onSelect(asset)}
           onToggle={toggleFor ? () => toggleFor(asset.id) : undefined}
@@ -1368,6 +1369,7 @@ function MediaAssetCard({
   canManage,
   folderNames,
   selected,
+  selectionActive,
   showMenu,
   onSelect,
   onToggle,
@@ -1380,6 +1382,7 @@ function MediaAssetCard({
   canManage: boolean;
   folderNames?: Map<string, string>;
   selected: boolean;
+  selectionActive: boolean;
   showMenu: boolean;
   onSelect: () => void;
   onToggle?: () => void;
@@ -1460,7 +1463,7 @@ function MediaAssetCard({
               count: asset.layoutUsage?.length ?? 0,
             })}
           </span>
-          {canManage && (
+          {canManage && !selectionActive && (
             <>
               <Button
                 type="button"

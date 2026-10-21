@@ -245,6 +245,9 @@ compact type sizes to TV.
 | `--tc-space-12` | 48 px | Large structural separation    |
 | `--tc-space-16` | 64 px | Rare outer or TV spacing       |
 
+These control tokens apply to legacy domain surfaces only. Do not use their
+sizes for shared Nova controls. Use the geometry in Appearance and density.
+
 | Control token         | Value | Use                          |
 | --------------------- | ----- | ---------------------------- |
 | `--control-height`    | 36 px | Standard buttons and fields  |
@@ -594,7 +597,7 @@ alternatives. Quiet actions reduce visual weight. Danger actions communicate a
 destructive consequence. Icon buttons are reserved for familiar actions where
 space is constrained and always require an accessible label.
 
-Default buttons are 36 px high and compact (`sm`) buttons are 32 px high. Loading
+Default buttons are 32 px high and small (`sm`) buttons are 28 px high. Loading
 preserves the label's width, exposes busy state, and disables repeat activation.
 Disabled controls use a not-allowed cursor, but a disabled state must not be the
 only explanation of why an action is unavailable.
@@ -668,7 +671,7 @@ List and filter toolbars follow the same rules everywhere:
   its longest option, because the popup takes the trigger's width. Use
   `max-sm:flex-1` so filters share a row evenly on phones. Never widen the
   generated Select globally for one toolbar.
-- Controls in one toolbar share the default 36 px height. Do not mix `sm`
+- Controls in one toolbar share the default 32 px height. Do not mix `sm`
   controls into a default-height row.
 - Grid and list view switches are outline toggle groups with `spacing={0}`.
 - The toolbar itself wraps with flex utilities and needs no page CSS.

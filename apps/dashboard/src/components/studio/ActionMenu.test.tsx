@@ -218,13 +218,21 @@ describe("ActionContextMenu", () => {
     expect(action).toHaveBeenCalledExactlyOnceWith();
   });
 
-  it.each(["Win32", "Linux x86_64"])(
-    "preserves normal Control-click activation on %s",
-    (platform) => {
+  it.each([
+    ["Win32", true],
+    ["Win32", false],
+    ["Linux x86_64", true],
+    ["Linux x86_64", false],
+  ] as const)(
+    "preserves normal Control-click activation on %s with menu enabled: %s",
+    (platform, enabled) => {
       vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
       const activate = vi.fn();
       render(
-        <ActionContextMenu label="Lobby actions" actions={groups({})}>
+        <ActionContextMenu
+          label="Lobby actions"
+          actions={enabled ? groups({}) : []}
+        >
           <button onClick={activate}>Lobby</button>
         </ActionContextMenu>,
       );
