@@ -190,6 +190,7 @@ describe("ActionContextMenu", () => {
   });
 
   it("keeps the row's normal click and suppresses activation on Control-click", async () => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
     const activate = vi.fn();
     const action = vi.fn();
     render(
@@ -216,6 +217,28 @@ describe("ActionContextMenu", () => {
     expect(activate).toHaveBeenCalledTimes(1);
     expect(action).toHaveBeenCalledExactlyOnceWith();
   });
+
+  it.each(["Win32", "Linux x86_64"])(
+    "preserves normal Control-click activation on %s",
+    (platform) => {
+      vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
+      const activate = vi.fn();
+      render(
+        <ActionContextMenu label="Lobby actions" actions={groups({})}>
+          <button onClick={activate}>Lobby</button>
+        </ActionContextMenu>,
+      );
+      const defaultAllowed = fireEvent.click(
+        screen.getByRole("button", { name: "Lobby" }),
+        {
+          ctrlKey: true,
+        },
+      );
+      expect(defaultAllowed).toBe(true);
+      expect(activate).toHaveBeenCalledExactlyOnceWith(expect.anything());
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    },
+  );
 
   it("uses the same action and destructive semantics through both menus", async () => {
     const onDelete = vi.fn();

@@ -1,4 +1,5 @@
 import { contentQueries } from "../data/content";
+import { isAppleControlClick } from "../lib/pointer";
 import { cn } from "cn";
 import { layoutKeys, layoutQueries } from "../data/layouts";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
@@ -2103,7 +2104,7 @@ export function LayoutEditorPage() {
     item: LayoutPlacement,
     resize = false,
   ) => {
-    if (event.ctrlKey) return;
+    if (isAppleControlClick(event)) return;
     if (beginPan(event)) return;
     event.stopPropagation();
     if (activeTool) {
@@ -3636,14 +3637,13 @@ export function LayoutEditorPage() {
                 panMode === "dragging" && "cursor-grabbing",
               )}
               onPointerDown={(event) => {
-                if (event.ctrlKey) return;
+                if (isAppleControlClick(event)) return;
                 if (beginPan(event, true)) return;
                 if (activeTool) {
                   beginToolDraw(event);
                   return;
                 }
-                if (event.button === 0 && !event.ctrlKey)
-                  setSelection(new Set());
+                if (event.button === 0) setSelection(new Set());
               }}
               onContextMenuCapture={() => setMenuTarget({ kind: "canvas" })}
             />

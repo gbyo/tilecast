@@ -622,6 +622,7 @@ related groups. Limit nesting to one submenu level. Put destructive actions last
 with the destructive variant. Use consistent labels and useful icons in a group.
 Base UI owns opening, positioning, focus, keyboard navigation, and dismissal.
 The shared trigger prevents macOS Control-click from activating a nested control.
+Windows and Linux Control-click keep their normal activation behavior.
 
 Keep overflow buttons visible on touch and keyboard surfaces. A desktop hover
 treatment must also respond to keyboard focus and coarse pointers without layout

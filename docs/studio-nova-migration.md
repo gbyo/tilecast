@@ -69,6 +69,8 @@ Existing logical-direction utilities remain where they support the shared RTL co
 They do not retain old heights, padding, shadows, or corner geometry.
 The context-menu trigger also guards Control-click activation of nested controls.
 Base UI continues to own the contextmenu event and menu lifecycle.
+The activation guard applies to Apple Control-click.
+Windows and Linux Control-click keep their normal activation behavior.
 
 ### Category 2: registry components with required integration
 
@@ -104,18 +106,18 @@ No Plugin API generation changes.
 
 ## Interaction audit
 
-| Surface                               | Result                                                                                                                                                                      |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fleet table and cards                 | Shared row action model drives visible overflow and context menus. Existing batch selection suppresses individual commands.                                                 |
-| Display Groups and members            | Context menus reuse the existing action factory in table and narrow list presentations. Visible action buttons remain.                                                      |
-| Schedules                             | Table and narrow list use one action model for both menus. Names expose full values.                                                                                        |
-| Media, Layouts, Widgets, Data Sources | Existing shared overflow/context models remain. Collection density applies to list presentations.                                                                           |
-| Playlist Editor                       | Existing shared item-action model, pointer drag, menu reorder, and keyboard reorder remain. Rollback restores order and usable focus. Heading wraps instead of truncating.  |
-| Layout Editor                         | Base UI open callbacks guard shortcuts. Control-click does not start a move or clear canvas selection. Numeric inspector and arrange commands remain non-drag alternatives. |
-| Plugin Store and detail               | Navigation cards retain their primary links. No context menu is added to a card with only navigation. Shared dialog geometry reaches plugin-hosted UI.                      |
-| Settings and pickers                  | Existing focused dialogs, complex-task sheets, full-screen narrow pickers, destructive confirmations, and passive feedback remain.                                          |
-| Sidebar                               | Existing routes, active state, offcanvas behavior, mobile Sheet, utility sections, and keyboard shortcut remain.                                                            |
-| Content batch toolbar                 | Actions wrap at narrow widths instead of requiring horizontal scrolling.                                                                                                    |
+| Surface                               | Result                                                                                                                                                                            |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fleet table and cards                 | Shared row action model drives visible overflow and context menus. Existing batch selection suppresses individual commands.                                                       |
+| Display Groups and members            | Context menus reuse the existing action factory in table and narrow list presentations. Visible action buttons remain.                                                            |
+| Schedules                             | Table and narrow list use one action model for both menus. Names expose full values.                                                                                              |
+| Media, Layouts, Widgets, Data Sources | Existing shared overflow/context models remain. Collection density applies to list presentations.                                                                                 |
+| Playlist Editor                       | Existing shared item-action model, pointer drag, menu reorder, and keyboard reorder remain. Rollback restores order and usable focus. Heading wraps instead of truncating.        |
+| Layout Editor                         | Base UI open callbacks guard shortcuts. Apple Control-click does not start a move or clear canvas selection. Numeric inspector and arrange commands remain non-drag alternatives. |
+| Plugin Store and detail               | Navigation cards retain their primary links. No context menu is added to a card with only navigation. Shared dialog geometry reaches plugin-hosted UI.                            |
+| Settings and pickers                  | Existing focused dialogs, complex-task sheets, full-screen narrow pickers, destructive confirmations, and passive feedback remain.                                                |
+| Sidebar                               | Existing routes, active state, offcanvas behavior, mobile Sheet, utility sections, and keyboard shortcut remain.                                                                  |
+| Content batch toolbar                 | Actions wrap at narrow widths instead of requiring horizontal scrolling.                                                                                                          |
 
 Comfortable previously used Vega geometry.
 Compact previously wrote a root attribute with no layout consumer.
@@ -166,7 +168,7 @@ The loopback run changes no application code, API responses, or test assertions.
 | `npm run format:check`                                                | Pass                              |
 | `npm run lint`                                                        | Pass, no warnings                 |
 | `npm run build`                                                       | Pass, TypeScript and Vite         |
-| `npm test`                                                            | 301 files, 3,376 tests pass       |
+| `npm test`                                                            | 301 files, 3,378 tests pass       |
 | `i18n:scan --check --base origin/main`, changed runtime paths         | No new untranslated strings       |
 | `architecture:scan --check --base origin/main`, changed runtime paths | No new findings                   |
 | `make plugins-check`                                                  | Three plugins, 175 SDK tests pass |

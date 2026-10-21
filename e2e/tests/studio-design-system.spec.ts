@@ -79,6 +79,9 @@ test("saved density tightens collections without shrinking controls or changing 
 test("fleet context actions match overflow, preserve row navigation, and respect batch selection", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "platform", { get: () => "MacIntel" });
+  });
   await page.goto("/screens");
   const link = page.getByRole("link", { name: "Cafeteria East", exact: true });
   const row = page.getByRole("row").filter({ has: link });

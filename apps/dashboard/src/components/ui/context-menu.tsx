@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu";
 import { cn } from "cn";
+import { isAppleControlClick } from "@/lib/pointer";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
 
 function ContextMenu({ ...props }: ContextMenuPrimitive.Root.Props) {
@@ -26,7 +27,7 @@ function ContextMenuTrigger({
       onClickCapture={(event) => {
         // The OS delivers the contextmenu event to Base UI. A Control-click
         // must not also follow a nested link or activate the row first.
-        if (event.ctrlKey || event.button !== 0) {
+        if (isAppleControlClick(event) || event.button !== 0) {
           event.preventDefault();
           event.stopPropagation();
           return;
