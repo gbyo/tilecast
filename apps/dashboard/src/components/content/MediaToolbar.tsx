@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DashboardSearch } from "../DashboardListToolbar";
+import { CollectionToolbar } from "../collection/CollectionToolbar";
 import { useTypedFilter } from "../FilterBar";
 import { Button } from "../ui/button";
 import {
@@ -73,30 +74,29 @@ export function MediaToolbar({
   const facetsActive = activeMediaFacetCount(facets) > 0;
 
   return (
-    <div className="space-y-2">
-      <div
-        className="flex flex-wrap items-center gap-2"
-        role="group"
-        aria-label={t("media.toolbar.groupLabel")}
-      >
+    <CollectionToolbar
+      label={t("media.toolbar.groupLabel")}
+      search={
         <div className="contents" onBlur={typedSearch.onBlur}>
           <DashboardSearch
             value={typedSearch.value}
             onValueChange={typedSearch.onChange}
             label={t("media.toolbar.search")}
             placeholder={t("media.toolbar.search")}
-            className={
-              compact ? "max-w-none basis-full" : "max-w-none min-w-40 basis-40"
-            }
+            className="max-w-none"
           />
         </div>
+      }
+      filters={
         <MediaFilters
           values={facets}
           onChange={onFacetChange}
           onReset={onClearFacets}
           sources={sources}
         />
-        {compact ? (
+      }
+      organize={
+        compact ? (
           <MediaViewOptionsMenu
             type={type}
             onTypeChange={onTypeChange}
@@ -109,19 +109,25 @@ export function MediaToolbar({
           <>
             <MediaTypeToggle type={type} onTypeChange={onTypeChange} />
             <MediaSortMenu sort={sort} onSortChange={onSortChange} />
-            <MediaViewToggle view={view} onViewChange={onViewChange} />
           </>
-        )}
-      </div>
-      {facetsActive && (
-        <MediaFacetChips
-          values={facets}
-          onChange={onFacetChange}
-          onClear={onClearFacets}
-          sources={sources}
-        />
-      )}
-    </div>
+        )
+      }
+      view={
+        compact ? undefined : (
+          <MediaViewToggle view={view} onViewChange={onViewChange} />
+        )
+      }
+      below={
+        facetsActive ? (
+          <MediaFacetChips
+            values={facets}
+            onChange={onFacetChange}
+            onClear={onClearFacets}
+            sources={sources}
+          />
+        ) : undefined
+      }
+    />
   );
 }
 
