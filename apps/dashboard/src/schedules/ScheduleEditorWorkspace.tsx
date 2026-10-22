@@ -10,6 +10,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import {
   Alert,
   AlertAction,
@@ -153,6 +154,30 @@ export function ScheduleEditorWorkspace({
         showReview={!room}
         onReview={() => setReviewOpen(true)}
       />
+      {session.schedule?.campaignId && (
+        <Alert className="shrink-0 rounded-none border-x-0 border-t-0">
+          <AlertTitle>{t("editor.campaignManaged.title")}</AlertTitle>
+          <AlertDescription>
+            {t("editor.campaignManaged.body", {
+              campaign:
+                session.schedule.campaignName ??
+                t("page.campaignFallback"),
+              release: session.schedule.campaignReleaseNumber ?? "?",
+            })}
+          </AlertDescription>
+          <AlertAction>
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link to={`/campaigns/${session.schedule.campaignId}`} />
+              }
+            >
+              {t("editor.campaignManaged.open")}
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
       {session.saveState === "error" && session.saveError && (
         <Alert
           variant="destructive"
