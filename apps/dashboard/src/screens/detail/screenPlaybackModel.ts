@@ -32,6 +32,8 @@ export type ExpectedNow = {
   source: PlaybackSource;
   contentType: PlaybackPlanSelection["contentType"];
   contentId: string;
+  /** Selection identity from the playback-plan authority, when available. */
+  selectionId?: string;
   /** Present when a schedule selects the content; the schedule id. */
   scheduleId?: string;
   scheduleName?: string;
@@ -56,6 +58,7 @@ export function expectedNow(plan?: PlaybackPlan): ExpectedNow | null {
     source: selected.source,
     contentType: selected.contentType,
     contentId: selected.contentId,
+    selectionId: selected.selectionId ?? undefined,
     scheduleId:
       selected.source === "schedule" ? selected.selectionId : undefined,
     scheduleName: selected.scheduleName,
@@ -67,6 +70,61 @@ export function expectedNow(plan?: PlaybackPlan): ExpectedNow | null {
           }
         : undefined,
   };
+}
+
+export type ReportedSelectionComparison =
+  | "matching"
+  | "mismatch"
+  | "unknown";
+
+/**
+ * Compare the Server's expected selection with the Player's latest heartbeat
+ * only when the heartbeat contains enough identity to do so. A missing fact is
+ * unknown, never a mismatch.
+ */
+export function compareReportedSelection(
+  plan?: PlaybackPlan,
+  assignment?: PlaylistAssignment,
+): ReportedSelectionComparison {
+  const expected = expectedNow(plan);
+  if (!expected || !assignment?.selectionSource) return "unknown";
+
+  const expectedSource =
+    expected.source === "assignment" ? "direct_fallback" : expected.source;
+  const reportedSource = assignment.selectionSource;
+  const sourceMatches =
+    expected.source === "assignment"
+      ? reportedSource === "direct" || reportedSource === "direct_fallback"
+      : reportedSource === expectedSource;
+  if (!sourceMatches) return "mismatch";
+
+  if (
+    expected.source === "schedule" &&
+    expected.scheduleId &&
+    assignment.currentScheduleId
+  ) {
+    return assignment.currentScheduleId === expected.scheduleId
+      ? "matching"
+      : "mismatch";
+  }
+  if (
+    expected.source === "takeover" &&
+    expected.selectionId &&
+    assignment.activeTakeoverId
+  ) {
+    return assignment.activeTakeoverId === expected.selectionId
+      ? "matching"
+      : "mismatch";
+  }
+  if (
+    expected.contentType === "playlist" &&
+    assignment.currentPlaylistId
+  ) {
+    return assignment.currentPlaylistId === expected.contentId
+      ? "matching"
+      : "mismatch";
+  }
+  return "matching";
 }
 
 export type DefaultContent =
