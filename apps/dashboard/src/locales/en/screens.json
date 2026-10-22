@@ -386,6 +386,7 @@
   },
   "groups": {
     "title": "Display Groups",
+    "description": "Coordinate fallback content, synchronization, and display behavior across screens.",
     "create": "Create Display Group",
     "created": "Display Group created.",
     "loading": "Loading Display Groups",
