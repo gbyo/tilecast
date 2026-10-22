@@ -600,6 +600,8 @@ func (s *server) writeScheduleError(w http.ResponseWriter, r *http.Request, e er
 		writeError(w, 404, "schedule_not_found", "The requested scheduling resource was not found.")
 	case errors.Is(e, scheduling.ErrDisplayControlUnsupported):
 		writeError(w, http.StatusUnprocessableEntity, "display_control_unsupported", "Display-control schedules can only target Linux Players; Android screens must use a content schedule.")
+	case errors.Is(e, scheduling.ErrCampaignManaged):
+		writeError(w, http.StatusConflict, "campaign_managed_schedule", "This schedule belongs to a Campaign release. Edit and publish the Campaign to change it.")
 	case errors.Is(e, scheduling.ErrConflict):
 		writeError(w, 409, "schedule_conflict", e.Error())
 	case errors.Is(e, scheduling.ErrLimit):
