@@ -107,6 +107,7 @@
       "bulkArchiveFailed": "No se pudieron archivar los elementos seleccionados."
     },
     "library": {
+      "description": "Sube, organiza y reutiliza archivos multimedia en tus presentaciones.",
       "descriptionArchived": "El contenido archivado y vencido permanece aquí hasta que lo restaures o lo elimines de forma permanente.",
       "loadError": "No se pudo cargar la biblioteca multimedia",
       "loading": "Cargando multimedia…",
@@ -448,6 +449,7 @@
     "duplicateFailed": "No se pudo duplicar el widget.",
     "list": {
       "title": "Widgets",
+      "subtitle": "Crea y administra contenido dinámico reutilizable para listas de reproducción y diseños.",
       "create": "Crear widget",
       "createShort": "Crear",
       "count_one": "{{count}} widget",
