@@ -1,6 +1,7 @@
 import {
   Bell,
   CircleAlert,
+  Ellipsis,
   FlaskConical,
   Search,
   TriangleAlert,
@@ -60,6 +61,68 @@ const notificationGroups: {
 function shortcutLabel() {
   if (typeof navigator === "undefined") return "⌘ K";
   return /Mac|iPhone|iPad|iPod/i.test(navigator.platform) ? "⌘ K" : "Ctrl K";
+}
+
+function NotificationFeedBody({
+  notifications,
+}: {
+  notifications: NotificationFeed;
+}) {
+  const { t } = useTranslation("navigation");
+  return (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold">{t("header.notifications")}</h2>
+        <span className="text-xs text-muted-foreground">
+          {notifications.count
+            ? t("header.activeCount", { count: notifications.count })
+            : t("header.noneActive")}
+        </span>
+      </div>
+      {notifications.count === 0 ? (
+        <p className="py-3 text-sm text-muted-foreground">
+          {t("header.caughtUp")}
+        </p>
+      ) : (
+        <div className="max-h-[min(65vh,28rem)] space-y-3 overflow-y-auto">
+          {notificationGroups.map((group) => {
+            const items = notifications.items.filter(
+              (item) => item.priority === group.priority,
+            );
+            if (!items.length) return null;
+            const Icon =
+              group.priority === "critical" ? CircleAlert : TriangleAlert;
+            const label = t(group.labelKey);
+            return (
+              <section key={group.priority} aria-label={label}>
+                <h3 className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Icon className="size-3.5" aria-hidden="true" />
+                  {label}
+                  <span>({items.length})</span>
+                </h3>
+                <ItemGroup className="gap-1">
+                  {items.map((item) => (
+                    <Item
+                      key={item.id}
+                      size="xs"
+                      variant="muted"
+                      render={<Link to={item.to} />}
+                      className="gap-2 rounded-md px-2 py-2"
+                    >
+                      <ItemContent>
+                        <ItemTitle>{item.title}</ItemTitle>
+                        <ItemDescription>{item.detail}</ItemDescription>
+                      </ItemContent>
+                    </Item>
+                  ))}
+                </ItemGroup>
+              </section>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
 }
 
 /**
@@ -149,7 +212,7 @@ export function SiteHeader({
         <Breadcrumb
           className={cn(
             "min-w-0",
-            editor ? "max-sm:flex-1 sm:min-w-24" : "flex-1",
+            editor ? "flex-1 sm:min-w-24" : "flex-1",
           )}
         >
           <BreadcrumbList className="flex-nowrap overflow-hidden">
@@ -223,11 +286,50 @@ export function SiteHeader({
       {editor && <div ref={slots?.setLeft} className="contents" />}
       {editor && <div className="min-w-0 flex-1" />}
 
+      {editor && (
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative sm:hidden"
+                aria-label={`${t("header.search")} · ${t("header.notifications")}`}
+              />
+            }
+          >
+            <Ellipsis aria-hidden="true" />
+            {notifications.count > 0 && (
+              <span
+                className="absolute top-1 end-1 size-1.5 rounded-full bg-destructive"
+                aria-hidden="true"
+              />
+            )}
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="w-[min(24rem,calc(100vw-1rem))] gap-3 p-3"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start"
+              onClick={onSearch}
+            >
+              <Search aria-hidden="true" />
+              {t("header.search")}
+            </Button>
+            <Separator />
+            <NotificationFeedBody notifications={notifications} />
+          </PopoverContent>
+        </Popover>
+      )}
       <Button
         type="button"
         variant={editor ? "ghost" : "outline"}
         className={cn(
           "size-8 text-muted-foreground",
+          editor && "max-sm:hidden",
           !editor && "sm:w-56 sm:justify-start sm:gap-2 sm:px-2.5",
         )}
         aria-haspopup="dialog"
@@ -258,7 +360,7 @@ export function SiteHeader({
             <Button
               variant="ghost"
               size="icon"
-              className="relative"
+              className={cn("relative", editor && "max-sm:hidden")}
               aria-label={
                 notifications.count
                   ? t("header.notificationsWithCount", {
@@ -289,58 +391,7 @@ export function SiteHeader({
           align="end"
           className="w-[min(24rem,calc(100vw-2rem))] gap-3 p-3"
         >
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold">
-              {t("header.notifications")}
-            </h2>
-            <span className="text-xs text-muted-foreground">
-              {notifications.count
-                ? t("header.activeCount", { count: notifications.count })
-                : t("header.noneActive")}
-            </span>
-          </div>
-          {notifications.count === 0 ? (
-            <p className="py-3 text-sm text-muted-foreground">
-              {t("header.caughtUp")}
-            </p>
-          ) : (
-            <div className="max-h-[min(65vh,28rem)] space-y-3 overflow-y-auto">
-              {notificationGroups.map((group) => {
-                const items = notifications.items.filter(
-                  (item) => item.priority === group.priority,
-                );
-                if (!items.length) return null;
-                const Icon =
-                  group.priority === "critical" ? CircleAlert : TriangleAlert;
-                const label = t(group.labelKey);
-                return (
-                  <section key={group.priority} aria-label={label}>
-                    <h3 className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                      <Icon className="size-3.5" aria-hidden="true" />
-                      {label}
-                      <span>({items.length})</span>
-                    </h3>
-                    <ItemGroup className="gap-1">
-                      {items.map((item) => (
-                        <Item
-                          key={item.id}
-                          size="xs"
-                          variant="muted"
-                          render={<Link to={item.to} />}
-                          className="gap-2 rounded-md px-2 py-2"
-                        >
-                          <ItemContent>
-                            <ItemTitle>{item.title}</ItemTitle>
-                            <ItemDescription>{item.detail}</ItemDescription>
-                          </ItemContent>
-                        </Item>
-                      ))}
-                    </ItemGroup>
-                  </section>
-                );
-              })}
-            </div>
-          )}
+          <NotificationFeedBody notifications={notifications} />
         </PopoverContent>
       </Popover>
       {editor && <div ref={slots?.setRight} className="contents" />}
