@@ -6,6 +6,7 @@
   },
   "page": {
     "title": "Schedules",
+    "description": "Target content or display actions to screens and groups at specific times.",
     "create": "Create schedule",
     "createShort": "Create",
     "count_one": "{{count}} schedule",
