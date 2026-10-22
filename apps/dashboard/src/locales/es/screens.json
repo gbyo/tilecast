@@ -668,7 +668,7 @@
     "allLocations": "Todas las ubicaciones",
     "platformFilter": "Plataforma",
     "allPlatforms": "Todas las plataformas",
-    "playingFilter": "Reproduciendo ahora",
+    "playingFilter": "Contenido predeterminado",
     "playingOptions": {
       "presentation": "Presentación",
       "playlist": "Lista de reproducción"
@@ -752,7 +752,7 @@
     "filters": "Filtros",
     "filtersActive": "Filtros, {{count}} activos",
     "filtersTitle": "Filtrar pantallas",
-    "filtersDescription": "Reduce la flota por estado, ubicación o contenido en reproducción.",
+    "filtersDescription": "Reduce la flota por estado, ubicación o contenido predeterminado configurado.",
     "filtersReset": "Restablecer",
     "filtersDone": "Listo",
     "filterAny": "Cualquiera",
@@ -787,12 +787,12 @@
     "showNow": "Mostrar ahora",
     "openGroup": "Abrir grupo de pantallas",
     "addToGroup": "Añadir al grupo de pantallas",
-    "nowPlaying": "Reproduciendo ahora"
+    "nowPlaying": "Contenido predeterminado"
   },
   "table": {
     "colScreen": "Pantalla",
     "colStatus": "Estado",
-    "colPlaying": "Reproduciendo ahora",
+    "colPlaying": "Contenido predeterminado",
     "colLocation": "Ubicación",
     "colPlatform": "Reproductor / dispositivo",
     "colVersion": "Versión del reproductor",
