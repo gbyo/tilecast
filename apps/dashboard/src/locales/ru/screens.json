@@ -678,7 +678,7 @@
     "allLocations": "Все места",
     "platformFilter": "Платформа",
     "allPlatforms": "Все платформы",
-    "playingFilter": "Сейчас воспроизводится",
+    "playingFilter": "Контент по умолчанию",
     "playingOptions": {
       "presentation": "Презентация",
       "playlist": "Плейлист"
@@ -765,7 +765,7 @@
     "filters": "Фильтры",
     "filtersActive": "Фильтры, активно: {{count}}",
     "filtersTitle": "Фильтр экранов",
-    "filtersDescription": "Сузьте парк по состоянию, месту или воспроизводимому контенту.",
+    "filtersDescription": "Сузьте парк по состоянию, месту или настроенному контенту по умолчанию.",
     "filtersReset": "Сбросить",
     "filtersDone": "Готово",
     "filterAny": "Любой",
@@ -800,12 +800,12 @@
     "showNow": "Показать сейчас",
     "openGroup": "Открыть группу экранов",
     "addToGroup": "Добавить в группу экранов",
-    "nowPlaying": "Сейчас воспроизводится"
+    "nowPlaying": "Контент по умолчанию"
   },
   "table": {
     "colScreen": "Экран",
     "colStatus": "Состояние",
-    "colPlaying": "Сейчас воспроизводится",
+    "colPlaying": "Контент по умолчанию",
     "colLocation": "Место",
     "colPlatform": "Плеер / устройство",
     "colVersion": "Версия плеера",
