@@ -76,6 +76,25 @@ func (p *PlayerEntry) validate() error {
 			}
 		}
 	}
+	if len(p.V1ManifestTypes) > 8 {
+		return fmt.Errorf("at most 8 v1 manifest types")
+	}
+	v1 := map[string]bool{}
+	for _, kind := range p.V1ManifestTypes {
+		if !IDPattern.MatchString(kind) {
+			return fmt.Errorf("invalid v1 manifest type %q", kind)
+		}
+		if ReservedPlayerEntryTypes[kind] {
+			return fmt.Errorf("v1 manifest type %s is reserved", kind)
+		}
+		if v1[kind] {
+			return fmt.Errorf("v1ManifestTypes repeats a type")
+		}
+		v1[kind] = true
+	}
+	if len(p.V1ManifestTypes) > 0 && p.Runtime == nil {
+		return fmt.Errorf("v1ManifestTypes needs a runtime contribution to consume the v1 entries")
+	}
 	if err := p.validateProviders(); err != nil {
 		return err
 	}

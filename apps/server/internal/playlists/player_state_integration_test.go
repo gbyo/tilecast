@@ -11,12 +11,21 @@ import (
 )
 
 type stateProjector struct {
-	states   []plugins.PlayerStateEntry
-	calls    int
-	reported map[string]int
+	states    []plugins.PlayerStateEntry
+	calls     int
+	reported  map[string]int
+	v1        []plugins.ManifestPlugin
+	v1Calls   int
+	hostCalls int
 }
 
 func (p *stateProjector) ManifestForScreen(context.Context, uuid.UUID) ([]plugins.ManifestPlugin, error) {
+	p.v1Calls++
+	return p.v1, nil
+}
+
+func (p *stateProjector) ManifestForPluginHost(context.Context, uuid.UUID) ([]plugins.ManifestPlugin, error) {
+	p.hostCalls++
 	return nil, nil
 }
 
@@ -42,6 +51,9 @@ func TestPlayerStateRequiresGenericPluginHostCapability(t *testing.T) {
 	if projector.calls != 0 || unreported.SchemaVersion >= ManifestSchemaPlayerPlugins {
 		t.Fatalf("an unreported Player was offered v2 state: calls=%d schema=%d", projector.calls, unreported.SchemaVersion)
 	}
+	if projector.v1Calls != 1 || projector.hostCalls != 0 {
+		t.Fatalf("an unreported Player must receive the v1 projection with compatibility entries: v1=%d host=%d", projector.v1Calls, projector.hostCalls)
+	}
 	// The external surface ABI is a different contract and never implies v2.
 	f.reportCapabilities(t, "{1,2,3}", map[string]int{"plugin.external-runtime": 1})
 	if _, _, err := f.service.BuildManifest(f.ctx, f.screen); err != nil || projector.calls != 0 {
@@ -52,6 +64,9 @@ func TestPlayerStateRequiresGenericPluginHostCapability(t *testing.T) {
 	empty, _, err := f.service.BuildManifest(f.ctx, f.screen)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if projector.hostCalls != 1 {
+		t.Fatalf("a v2 host must receive the v1 projection without compatibility entries: host=%d", projector.hostCalls)
 	}
 	if empty.SchemaVersion != ManifestSchemaPlayerPlugins || len(empty.Plugins) != 0 || projector.calls != 1 ||
 		projector.reported["player.clock"] != 1 {

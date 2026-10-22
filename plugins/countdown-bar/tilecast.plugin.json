@@ -1,6 +1,6 @@
 {
   "$schema": "../../packages/plugin-sdk/schema/tilecast-plugin.schema.json",
-  "apiVersion": 1,
+  "apiVersion": 2,
   "id": "countdown_bar",
   "definitionVersion": 1,
   "name": "Countdown Bar",
@@ -20,9 +20,6 @@
     }
   ],
   "uses": ["Player manifest plugin state", "Scheduled overlay bar"],
-  "capabilities": {
-    "playerManifest": true
-  },
   "server": {
     "entrypoint": "./plugin.go"
   },
@@ -35,11 +32,33 @@
     "route": "/plugins/countdown-bar",
     "entrypoint": "./studio/index.tsx"
   },
-  "runtime": {
-    "entrypoint": "./runtime/index.ts",
-    "manifestTypes": ["countdown_bar"],
-    "surfaces": ["strip.bottom", "overlay"],
-    "tier": "scheduled"
+  "player": {
+    "state": [
+      {
+        "type": "countdown_bar",
+        "version": 1
+      }
+    ],
+    "v1ManifestTypes": ["countdown_bar"],
+    "runtime": {
+      "entrypoint": "./runtime/index.ts",
+      "services": {
+        "required": ["player.clock@1", "player.surface@1"],
+        "optional": []
+      },
+      "surfaces": [
+        {
+          "id": "bar",
+          "slots": ["strip.bottom"],
+          "tier": "scheduled"
+        },
+        {
+          "id": "confetti",
+          "slots": ["overlay"],
+          "tier": "scheduled"
+        }
+      ]
+    }
   },
   "docs": {
     "reference": "docs/plugins.md#countdown-bar",

@@ -200,6 +200,24 @@ func (h *Harness) Manifest(screenID uuid.UUID) []plugin.ManifestEntry {
 	return entries
 }
 
+// PlayerState projects the plugin's Plugin API v2 Player state for one
+// screen through the host, as a Player that hosts Plugin API v2 and every
+// Shared Runtime service receives it.
+func (h *Harness) PlayerState(screenID uuid.UUID) []plugin.PlayerStateEntry {
+	h.t.Helper()
+	reported := map[string]int{plugin.PlayerPluginHostCapability: plugin.PlayerPluginHostVersion}
+	for _, service := range plugin.PlayerServices {
+		if service.Execution == plugin.ServiceRuntime {
+			reported[service.Name] = service.Version
+		}
+	}
+	entries, err := h.service.PlayerStateForScreen(h.Ctx, screenID, reported)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return entries
+}
+
 // ScreenOption adjusts a screen before it is created.
 type ScreenOption func(*screen)
 

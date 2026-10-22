@@ -6,8 +6,13 @@ import {
 } from "@tilecast/plugin-sdk/runtime";
 import type { PluginManifestInput } from "@tilecast/plugin-sdk/manifest";
 import { ManualClock } from "../clock/scheduler";
-import { discoverRuntimePlugins, runtimeDiscovery } from "./discovery";
-import { RuntimeSurfaceHost, SURFACE_TICK_MS } from "./host";
+import {
+  discoverRuntimePlugins,
+  playerDiscovery,
+  runtimeDiscovery,
+} from "./discovery";
+import type { RuntimeSurfaceHost } from "./host";
+import { PlayerPlugins } from "./player-plugins";
 
 const WALL = Date.parse("2026-09-01T15:00:00Z");
 
@@ -42,22 +47,46 @@ const ticker: RuntimeManifestEntry = {
   },
 };
 
-function player(options: { animationScale?: number } = {}) {
+/** The plugin composition a Player runs, with every bundled plugin. */
+function player(
+  options: { animationScale?: number; pluginState?: boolean } = {},
+) {
   const clock = new ManualClock({ wallMs: WALL });
   const stage = document.createElement("div");
   const diagnostics: string[] = [];
-  const host = new RuntimeSurfaceHost({
+  const plugins = new PlayerPlugins({
     clock,
-    plugins: runtimeDiscovery.plugins,
+    runtimePlugins: runtimeDiscovery.plugins,
+    playerPlugins: playerDiscovery.plugins,
     animationScale: options.animationScale ?? 1,
     reducedMotion: () => (options.animationScale ?? 1) === 0,
+    pluginState: options.pluginState ?? false,
     mediaUrl: (asset, variant) => `tcmedia://variant/${asset}/${variant}`,
     stage: () => stage,
     diagnostic: (id, message) => diagnostics.push(`${id}: ${message}`),
   });
-  document.body.replaceChildren(host.element);
-  return { clock, host, stage, diagnostics };
+  document.body.replaceChildren(plugins.surfaces.element);
+  const host = plugins.surfaces;
+  /** One plugins message, then the queued evaluation, as on a Player. */
+  const send = (entries: unknown[]) => {
+    plugins.receive({ plugins: entries as never, clockOffsetMs: 0 });
+    clock.flush();
+  };
+  return { clock, host, plugins, send, stage, diagnostics };
 }
+
+/** The same Countdown Bar instance as Plugin API 2 Player state. */
+const countdownState = {
+  id: countdown.id,
+  type: "plugin_state",
+  version: 1,
+  plugin: "countdown_bar",
+  definitionVersion: 1,
+  stateType: "countdown_bar",
+  stateVersion: 1,
+  state: countdown.config,
+  media: [],
+};
 
 const holder = (host: RuntimeSurfaceHost, slot: "strip.bottom") =>
   host.describe().surfaces[slot]?.plugin ?? null;
@@ -70,9 +99,21 @@ describe("runtime plugin discovery", () => {
         plugin.definition.id,
         plugin.definition.tier,
       ]),
+    ).toEqual([["emergency_alerts", "emergency"]]);
+    // Countdown Bar is a Plugin API 2 plugin that still accepts its v1 entry.
+    expect(playerDiscovery.problems).toEqual([]);
+    expect(
+      playerDiscovery.plugins.map(({ declaration }) => ({
+        id: declaration.id,
+        v1: [...declaration.v1Types],
+        surfaces: declaration.surfaces.map((surface) => surface.tier),
+      })),
     ).toEqual([
-      ["countdown_bar", "scheduled"],
-      ["emergency_alerts", "emergency"],
+      {
+        id: "countdown_bar",
+        v1: ["countdown_bar"],
+        surfaces: ["scheduled", "scheduled"],
+      },
     ]);
   });
 
@@ -199,9 +240,9 @@ describe("runtime plugin discovery", () => {
 
 describe("runtime plugins together", () => {
   it("gives an emergency ticker the strip and pushes content", () => {
-    const { host, stage, clock } = player();
-    host.setEntries([countdown], 0);
-    expect(holder(host, "strip.bottom")).toBe("countdown_bar");
+    const { host, stage, clock, send } = player();
+    send([countdown]);
+    expect(holder(host, "strip.bottom")).toBe("countdown_bar/bar");
     expect(host.describe().surfaces["strip.bottom"]?.text).toBe(
       "Lunch starts in 10m 0s",
     );
@@ -209,7 +250,7 @@ describe("runtime plugins together", () => {
       "72px",
     );
 
-    host.setEntries([countdown, ticker], 0);
+    send([countdown, ticker]);
     // A countdown priority of 1000 still loses to the emergency tier.
     expect(holder(host, "strip.bottom")).toBe("emergency_alerts");
     expect(host.describe().surfaces["strip.bottom"]?.text).toBe(
@@ -222,7 +263,7 @@ describe("runtime plugins together", () => {
 
     // The cached manifest still holds the ticker; its expiry ends it locally.
     clock.advance(2 * 60_000);
-    expect(holder(host, "strip.bottom")).toBe("countdown_bar");
+    expect(holder(host, "strip.bottom")).toBe("countdown_bar/bar");
     expect(stage.style.getPropertyValue("--tc-stage-bottom")).toBe("0px");
     const alerts = document.querySelector(".tc-emergency-alerts")!;
     expect(alerts.classList.contains("tc-emergency-alerts--visible")).toBe(
@@ -230,9 +271,43 @@ describe("runtime plugins together", () => {
     );
   });
 
+  it("draws Countdown Bar the same from plugin_state and from its v1 entry", () => {
+    const fromV1 = player();
+    fromV1.send([countdown]);
+    const v1 = fromV1.host.describe();
+    const fromState = player({ pluginState: true });
+    fromState.send([countdownState]);
+    expect(fromState.host.describe()).toEqual(v1);
+    expect(v1.surfaces["strip.bottom"]?.plugin).toBe("countdown_bar/bar");
+
+    // A host that does not forward plugin_state never shows it.
+    const unforwarded = player({ pluginState: false });
+    unforwarded.send([countdownState]);
+    expect(
+      unforwarded.host.describe().surfaces["strip.bottom"],
+    ).toBeUndefined();
+  });
+
+  it("keeps the bar and its elements across state-only changes", () => {
+    const { host, send } = player({ pluginState: true });
+    send([countdownState]);
+    const bar = document.querySelector(".tc-countdown-bar");
+    send([
+      {
+        ...countdownState,
+        state: {
+          ...(countdown.config as Record<string, unknown>),
+          priority: 9,
+        },
+      },
+    ]);
+    expect(holder(host, "strip.bottom")).toBe("countdown_bar/bar");
+    expect(document.querySelector(".tc-countdown-bar")).toBe(bar);
+  });
+
   it("freezes the ticker at a deterministic frame when motion is frozen", () => {
-    const { host } = player({ animationScale: 0 });
-    host.setEntries([ticker], 0);
+    const { send } = player({ animationScale: 0 });
+    send([ticker]);
     const track = document.querySelector<HTMLElement>(
       ".tc-emergency-alerts__track",
     )!;
@@ -243,22 +318,19 @@ describe("runtime plugins together", () => {
   it("ignores entries of removed plugins in a cached manifest", () => {
     // Brand Bug and Noise Meter were removed; a Player may still hold a
     // manifest that carries their entries until the next sync.
-    const { host, stage, diagnostics } = player();
-    host.setEntries(
-      [
-        {
-          id: "bug-1",
-          type: "brand_bug",
-          version: 1,
-          config: { corner: "top_left" },
-        },
-        { id: "noise-1", type: "noise_meter", version: 1, config: {} },
-        countdown,
-      ],
-      0,
-    );
+    const { host, stage, diagnostics, send } = player();
+    send([
+      {
+        id: "bug-1",
+        type: "brand_bug",
+        version: 1,
+        config: { corner: "top_left" },
+      },
+      { id: "noise-1", type: "noise_meter", version: 1, config: {} },
+      countdown,
+    ]);
     expect(Object.keys(host.describe().surfaces)).toEqual(["strip.bottom"]);
-    expect(holder(host, "strip.bottom")).toBe("countdown_bar");
+    expect(holder(host, "strip.bottom")).toBe("countdown_bar/bar");
     expect(stage.style.getPropertyValue("--tc-stage-bottom")).toBe("0px");
     expect(diagnostics).toEqual([]);
   });

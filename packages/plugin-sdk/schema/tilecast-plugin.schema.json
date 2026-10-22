@@ -738,6 +738,13 @@
                 "additionalProperties": false
               }
             },
+            "v1ManifestTypes": {
+              "default": [],
+              "description": "Plugin API 1 manifest entry types the plugin still projects for Players that do not host Plugin API 2. Its Shared Runtime contribution also consumes them, so one implementation serves every Player.",
+              "maxItems": 8,
+              "type": "array",
+              "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,79}$" }
+            },
             "events": {
               "default": [],
               "description": "Ephemeral, typed events between the plugin's native and Shared Runtime parts. State stays in player.state; events never carry configuration.",
