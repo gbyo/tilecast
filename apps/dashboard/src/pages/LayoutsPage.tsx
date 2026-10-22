@@ -792,6 +792,7 @@ export function LayoutsPage() {
               <ActionContextMenu
                 key={layout.id}
                 label={menuLabel}
+                title={layout.name}
                 actions={actionsFor(layout)}
                 render={
                   <article

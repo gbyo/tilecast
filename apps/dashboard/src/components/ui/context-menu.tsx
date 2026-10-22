@@ -17,8 +17,11 @@ function ContextMenuPortal({ ...props }: ContextMenuPrimitive.Portal.Props) {
 function ContextMenuTrigger({
   className,
   onClickCapture,
+  suppressModifiedClick = true,
   ...props
-}: ContextMenuPrimitive.Trigger.Props) {
+}: ContextMenuPrimitive.Trigger.Props & {
+  suppressModifiedClick?: boolean;
+}) {
   return (
     <ContextMenuPrimitive.Trigger
       data-slot="context-menu-trigger"
@@ -27,7 +30,10 @@ function ContextMenuTrigger({
       onClickCapture={(event) => {
         // The OS delivers the contextmenu event to Base UI. A Control-click
         // must not also follow a nested link or activate the row first.
-        if (isAppleControlClick(event) || event.button !== 0) {
+        if (
+          suppressModifiedClick &&
+          (isAppleControlClick(event) || event.button !== 0)
+        ) {
           event.preventDefault();
           event.stopPropagation();
           return;

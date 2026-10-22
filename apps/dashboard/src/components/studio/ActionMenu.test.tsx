@@ -163,7 +163,11 @@ describe("ActionContextMenu", () => {
   function renderCard(actions: StudioActionGroup[]) {
     return render(
       <StrictMode>
-        <ActionContextMenu label="Actions for Lobby" actions={actions}>
+        <ActionContextMenu
+          label="Actions for Lobby"
+          title="Lobby Screen"
+          actions={actions}
+        >
           <div data-testid="card">Lobby</div>
         </ActionContextMenu>
       </StrictMode>,
@@ -175,6 +179,10 @@ describe("ActionContextMenu", () => {
     renderCard(groups({ onOpen }));
     fireEvent.contextMenu(screen.getByTestId("card"));
     expect(await screen.findByRole("menuitem", { name: "Open" })).toBeVisible();
+    expect(screen.getByText("Lobby Screen")).toHaveAttribute(
+      "data-slot",
+      "context-menu-label",
+    );
     expect(screen.getByRole("menuitem", { name: "Delete" })).toBeVisible();
     await userEvent.click(screen.getByRole("menuitem", { name: "Open" }));
     expect(onOpen).toHaveBeenCalledExactlyOnceWith();
@@ -247,6 +255,25 @@ describe("ActionContextMenu", () => {
       expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     },
   );
+
+  it("preserves macOS Control-click on nested links when the menu is disabled", () => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+    const activate = vi.fn();
+    render(
+      <ActionContextMenu label="Lobby actions" actions={[]}>
+        <a href="#lobby" onClick={activate}>
+          Lobby
+        </a>
+      </ActionContextMenu>,
+    );
+    const defaultAllowed = fireEvent.click(
+      screen.getByRole("link", { name: "Lobby" }),
+      { ctrlKey: true },
+    );
+    expect(defaultAllowed).toBe(true);
+    expect(activate).toHaveBeenCalledExactlyOnceWith(expect.anything());
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
 
   it("uses the same action and destructive semantics through both menus", async () => {
     const onDelete = vi.fn();
