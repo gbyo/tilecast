@@ -1658,6 +1658,12 @@ export type Schedule = {
   dailyEnd?: string;
   daysOfWeek: number[];
   displayAction?: DisplayControlAction;
+  /** Generated Campaign releases materialize as ordinary runtime schedules. */
+  campaignId?: string;
+  campaignName?: string;
+  campaignReleaseId?: string;
+  campaignReleaseNumber?: number;
+  campaignBlockId?: string;
   targets: ScheduleTarget[];
   createdAt: string;
   updatedAt: string;
@@ -1669,6 +1675,11 @@ export type ScheduleInput = Omit<
   | "layoutName"
   | "presentationType"
   | "specificity"
+  | "campaignId"
+  | "campaignName"
+  | "campaignReleaseId"
+  | "campaignReleaseNumber"
+  | "campaignBlockId"
   | "createdAt"
   | "updatedAt"
 >;
