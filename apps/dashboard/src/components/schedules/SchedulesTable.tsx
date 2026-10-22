@@ -15,6 +15,7 @@ import {
 } from "../ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import {
+  ScheduleCampaignBadge,
   ScheduleStatusBadge,
   SchedulePresentationLabel,
   ScheduleTargets,
@@ -118,16 +119,19 @@ export function SchedulesTable({
                   >
                     {schedule.name}
                   </Link>
-                  {schedule.description && (
-                    // A span, not a <p>: the global `p { text-wrap: pretty }`
-                    // rule re-enables wrapping and defeats `truncate`.
-                    <span
-                      className="block truncate text-xs text-muted-foreground"
-                      title={schedule.description}
-                    >
-                      {schedule.description}
-                    </span>
-                  )}
+                  <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-1.5">
+                    {schedule.campaignId && (
+                      <ScheduleCampaignBadge schedule={schedule} />
+                    )}
+                    {schedule.description && (
+                      <span
+                        className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+                        title={schedule.description}
+                      >
+                        {schedule.description}
+                      </span>
+                    )}
+                  </span>
                 </TableCell>
                 <TableCell>
                   <ScheduleStatusBadge enabled={schedule.enabled} />
