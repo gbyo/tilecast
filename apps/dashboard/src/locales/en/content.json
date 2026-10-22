@@ -101,6 +101,7 @@
       "bulkArchiveFailed": "Could not archive the selected items."
     },
     "library": {
+      "description": "Upload, organize, and reuse media across presentations.",
       "descriptionArchived": "Archived and expired content stays here until you restore or permanently delete it.",
       "loadError": "The media library could not be loaded",
       "loading": "Loading media…",
@@ -435,6 +436,7 @@
     "duplicateFailed": "Could not duplicate the Widget.",
     "list": {
       "title": "Widgets",
+      "subtitle": "Create and manage reusable dynamic content for playlists and Layouts.",
       "create": "Create Widget",
       "createShort": "Create",
       "count_one": "{{count}} Widget",
