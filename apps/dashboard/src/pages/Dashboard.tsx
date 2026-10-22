@@ -22,6 +22,7 @@ import {
 import { useNativeNavigation } from "@/native-host/useNativeNavigation";
 import {
   isEditorWorkspaceRoute,
+  isFocusedWorkspaceRoute,
   isImmersiveEditorRoute,
   useStudioRoutes,
 } from "@/navigation/studioRoutes";
@@ -205,19 +206,21 @@ function StudioChrome({
   const routes = useStudioRoutes();
   const immersiveEditor = isImmersiveEditorRoute(routes, location.pathname);
   const editorWorkspace = isEditorWorkspaceRoute(routes, location.pathname);
+  const focusedWorkspace = isFocusedWorkspaceRoute(routes, location.pathname);
   const constrainedEditor = useConstrainedEditorWorkspace();
-  const [editorSidebarOpen, setEditorSidebarOpen] = useState(false);
+  const [temporarySidebarOpen, setTemporarySidebarOpen] = useState(false);
+  const temporaryNavigation =
+    focusedWorkspace || (editorWorkspace && constrainedEditor);
   useEffect(() => {
-    if (editorWorkspace && constrainedEditor) setEditorSidebarOpen(false);
-  }, [editorWorkspace, constrainedEditor, location.pathname]);
-  const temporaryEditorNavigation = editorWorkspace && constrainedEditor;
+    if (temporaryNavigation) setTemporarySidebarOpen(false);
+  }, [temporaryNavigation, location.pathname]);
   const signOut = () => void auth.logout();
 
   return (
     <SidebarProvider
-      open={temporaryEditorNavigation ? editorSidebarOpen : sidebarOpen}
+      open={temporaryNavigation ? temporarySidebarOpen : sidebarOpen}
       onOpenChange={
-        temporaryEditorNavigation ? setEditorSidebarOpen : onSidebarOpenChange
+        temporaryNavigation ? setTemporarySidebarOpen : onSidebarOpenChange
       }
     >
       {hosted ? null : (
@@ -240,7 +243,7 @@ function StudioChrome({
             signOutDisabled={auth.isSubmitting}
           />
           <div
-            data-slot={editorRoute ? "studio-editor" : "studio-page"}
+            data-slot={editorWorkspace ? "studio-editor" : "studio-page"}
             className={
               immersiveEditor
                 ? "min-h-0 flex-1 overflow-auto"
