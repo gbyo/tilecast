@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useCompactLayout } from "../../../hooks/use-compact-layout";
 import { DashboardSearch } from "../../DashboardListToolbar";
+import { CollectionToolbar } from "../../collection/CollectionToolbar";
 import { useTypedFilter } from "../../FilterBar";
 import { Button } from "../../ui/button";
 import {
@@ -80,38 +81,41 @@ export function WidgetsToolbar({
   const typedSearch = useTypedFilter(search, onSearchChange);
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-2"
-      role="group"
-      aria-label={t("widgets.list.toolbar.groupLabel")}
-    >
-      <div className="contents" onBlur={typedSearch.onBlur}>
-        <DashboardSearch
-          value={typedSearch.value}
-          onValueChange={typedSearch.onChange}
-          label={t("widgets.list.search")}
-          placeholder={t("widgets.list.search")}
-          className={
-            compact ? "max-w-none basis-full" : "max-w-none min-w-40 basis-40"
-          }
+    <CollectionToolbar
+      label={t("widgets.list.toolbar.groupLabel")}
+      search={
+        <div className="contents" onBlur={typedSearch.onBlur}>
+          <DashboardSearch
+            value={typedSearch.value}
+            onValueChange={typedSearch.onChange}
+            label={t("widgets.list.search")}
+            placeholder={t("widgets.list.search")}
+            className="max-w-none"
+          />
+        </div>
+      }
+      filters={
+        <WidgetTypeCombobox
+          provider={provider}
+          onProviderChange={onProviderChange}
+          groups={typeGroups}
+          className={compact ? "min-w-0 flex-1 basis-40" : "w-52"}
         />
-      </div>
-      <WidgetTypeCombobox
-        provider={provider}
-        onProviderChange={onProviderChange}
-        groups={typeGroups}
-        className={compact ? "min-w-0 flex-1 basis-40" : "w-52"}
-      />
-      {compact ? (
-        <WidgetViewOptionsMenu
-          sort={sort}
-          onSortChange={onSortChange}
-          view={view}
-          onViewChange={onViewChange}
-        />
-      ) : (
-        <>
+      }
+      organize={
+        compact ? (
+          <WidgetViewOptionsMenu
+            sort={sort}
+            onSortChange={onSortChange}
+            view={view}
+            onViewChange={onViewChange}
+          />
+        ) : (
           <WidgetSortMenu sort={sort} onSortChange={onSortChange} />
+        )
+      }
+      view={
+        compact ? undefined : (
           <SingleToggleGroup
             label={t("widgets.list.view")}
             variant="outline"
@@ -131,9 +135,9 @@ export function WidgetsToolbar({
               },
             ]}
           />
-        </>
-      )}
-    </div>
+        )
+      }
+    />
   );
 }
 
