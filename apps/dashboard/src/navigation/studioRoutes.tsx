@@ -51,6 +51,12 @@ export type StudioRouteHandle = {
    */
   editorWorkspace?: boolean;
   /**
+   * A route with substantial local navigation that should not permanently
+   * compete with the global sidebar. The global navigation remains available
+   * from the standard trigger as temporary navigation.
+   */
+  focusedWorkspace?: boolean;
+  /**
    * The route needs at least one of these capabilities. Requirements stack
    * down the tree: a child route also needs everything its ancestors need.
    * The sidebar, native navigation catalog, command search, and the route
@@ -118,6 +124,17 @@ export function isEditorWorkspaceRoute(
   if (!deepest) return false;
   const handle = studioRouteHandle(deepest.route);
   return handle.editorWorkspace === true || handle.immersiveEditor === true;
+}
+
+/** Whether any matched route requests focused local navigation. */
+export function isFocusedWorkspaceRoute(
+  routes: readonly RouteObject[],
+  pathname: string,
+): boolean {
+  const matches = matchRoutes([...routes], pathname) ?? [];
+  return matches.some(
+    (match) => studioRouteHandle(match.route).focusedWorkspace === true,
+  );
 }
 
 /**
