@@ -372,6 +372,7 @@ export const studioRoutes: RouteObject[] = [
             element: <DataSourceEditorPage />,
             handle: {
               breadcrumb: "Create data source",
+              editorWorkspace: true,
               capabilities: ["datasource.edit"],
             },
           },
@@ -380,13 +381,18 @@ export const studioRoutes: RouteObject[] = [
             element: <DataSourceEditorPage />,
             handle: {
               breadcrumb: "Create data source",
+              editorWorkspace: true,
               capabilities: ["datasource.edit"],
             },
           },
           {
             path: ":id",
             element: <DataSourceEditorPage />,
-            handle: { breadcrumb: "Data source", resource: "data-source" },
+            handle: {
+              breadcrumb: "Data source",
+              resource: "data-source",
+              editorWorkspace: true,
+            },
           },
         ],
       },
@@ -440,7 +446,11 @@ export const studioRoutes: RouteObject[] = [
           {
             path: ":id",
             element: <PlaylistEditorPage />,
-            handle: { breadcrumb: "Playlist", resource: "playlist" },
+            handle: {
+              breadcrumb: "Playlist",
+              resource: "playlist",
+              editorWorkspace: true,
+            },
           },
         ],
       },
@@ -500,7 +510,11 @@ export const studioRoutes: RouteObject[] = [
           {
             path: ":id",
             element: <CampaignsPage />,
-            handle: { breadcrumb: "Campaign", resource: "campaign" },
+            handle: {
+              breadcrumb: "Campaign",
+              resource: "campaign",
+              editorWorkspace: true,
+            },
           },
         ],
       },
