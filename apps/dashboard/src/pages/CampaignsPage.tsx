@@ -19,7 +19,6 @@ import {
   Send,
 } from "lucide-react";
 import { api } from "../api/client";
-import { hasNextPage } from "../api/pagination";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import type {
   Campaign,
@@ -29,6 +28,11 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { PageHeader } from "../components/PageHeader";
+import {
+  CollectionPage,
+  CollectionSurface,
+} from "../components/collection/CollectionPage";
+import { campaignKeys, campaignQueries } from "../data/campaigns";
 import { DateInput, DateTimeInput } from "../components/date-picker";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
@@ -155,12 +159,7 @@ function CampaignLibrary() {
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const canCreate = hasCapability(auth.status, "campaign.edit");
-  const query = useInfiniteQuery({
-    queryKey: ["campaigns"],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => api.campaignPage("", pageParam),
-    getNextPageParam: (page) => (hasNextPage(page) ? page.page + 1 : undefined),
-  });
+  const query = useInfiniteQuery(campaignQueries.pages());
   const create = useMutation({
     mutationFn: () =>
       api.createCampaign({ name: name.trim(), timezone: "UTC" }, csrf),
@@ -332,10 +331,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   const canEdit = hasCapability(auth.status, "campaign.edit");
   const canPublish = hasCapability(auth.status, "campaign.publish");
   const queryClient = useQueryClient();
-  const campaignQuery = useQuery({
-    queryKey: ["campaign", campaignId],
-    queryFn: () => api.campaign(campaignId),
-  });
+  const campaignQuery = useQuery(campaignQueries.detail(campaignId));
   const playlists = useQuery({
     queryKey: ["playlists", "campaign-picker"],
     queryFn: () => api.playlists(),
@@ -353,18 +349,15 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     queryFn: () => api.screenGroups(),
   });
   const preflight = useQuery({
-    queryKey: ["campaign-preflight", campaignId],
-    queryFn: () => api.campaignPreflight(campaignId),
+    ...campaignQueries.preflight(campaignId),
     enabled: Boolean(campaignQuery.data),
   });
   const releases = useQuery({
-    queryKey: ["campaign-releases", campaignId],
-    queryFn: () => api.campaignReleases(campaignId),
+    ...campaignQueries.releases(campaignId),
     enabled: Boolean(campaignQuery.data),
   });
   const history = useQuery({
-    queryKey: ["publication-history", "campaign", campaignId],
-    queryFn: () => api.publicationHistory("campaign", campaignId),
+    ...campaignQueries.publicationHistory(campaignId),
     enabled: Boolean(campaignQuery.data),
   });
   const [draft, setDraft] = useState<CampaignSnapshot>();
@@ -395,18 +388,18 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
       toast.add({ title: "Campaign draft saved.", type: "success" });
       setDraft(snapshotForEdit(campaign));
       void queryClient.invalidateQueries({
-        queryKey: ["campaign", campaignId],
+        queryKey: campaignKeys.detail(campaignId),
       });
       void queryClient.invalidateQueries({
-        queryKey: ["campaign-preflight", campaignId],
+        queryKey: campaignKeys.preflight(campaignId),
       });
-      void queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      void queryClient.invalidateQueries({ queryKey: campaignKeys.all });
     },
   });
   const preflightRun = useMutation({
     mutationFn: () => api.campaignPreflight(campaignId),
     onSuccess: (result) =>
-      queryClient.setQueryData(["campaign-preflight", campaignId], result),
+      queryClient.setQueryData(campaignKeys.preflight(campaignId), result),
   });
   const publish = useMutation({
     mutationFn: () =>
@@ -418,13 +411,13 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     onSuccess: () => {
       toast.add({ title: "Campaign published.", type: "success" });
       void queryClient.invalidateQueries({
-        queryKey: ["campaign", campaignId],
+        queryKey: campaignKeys.detail(campaignId),
       });
       void queryClient.invalidateQueries({
-        queryKey: ["campaign-preflight", campaignId],
+        queryKey: campaignKeys.preflight(campaignId),
       });
       void queryClient.invalidateQueries({
-        queryKey: ["campaign-releases", campaignId],
+        queryKey: campaignKeys.releases(campaignId),
       });
       void queryClient.invalidateQueries({ queryKey: ["content-submissions"] });
     },
@@ -439,10 +432,10 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
       });
       setDraft(snapshotForEdit(campaign));
       void queryClient.invalidateQueries({
-        queryKey: ["campaign", campaignId],
+        queryKey: campaignKeys.detail(campaignId),
       });
       void queryClient.invalidateQueries({
-        queryKey: ["campaign-preflight", campaignId],
+        queryKey: campaignKeys.preflight(campaignId),
       });
     },
   });
@@ -458,15 +451,12 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
       toast.add({ title: "Publication restored to draft.", type: "success" });
       setDraft(undefined);
       await queryClient.invalidateQueries({
-        queryKey: ["campaign", campaignId],
+        queryKey: campaignKeys.detail(campaignId),
       });
-      const restored = queryClient.getQueryData<Campaign>([
-        "campaign",
-        campaignId,
-      ]);
+      const restored = queryClient.getQueryData<Campaign>(campaignKeys.detail(campaignId));
       if (restored) setDraft(snapshotForEdit(restored));
       void queryClient.invalidateQueries({
-        queryKey: ["campaign-preflight", campaignId],
+        queryKey: campaignKeys.preflight(campaignId),
       });
     },
   });
@@ -476,13 +466,13 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     onSuccess: () => {
       toast.add({ title: "Publication rolled back.", type: "success" });
       void queryClient.invalidateQueries({
-        queryKey: ["campaign", campaignId],
+        queryKey: campaignKeys.detail(campaignId),
       });
       void queryClient.invalidateQueries({
-        queryKey: ["campaign-releases", campaignId],
+        queryKey: campaignKeys.releases(campaignId),
       });
       void queryClient.invalidateQueries({
-        queryKey: ["publication-history", "campaign", campaignId],
+        queryKey: campaignKeys.publicationHistory(campaignId),
       });
       void queryClient.invalidateQueries({ queryKey: ["content-submissions"] });
     },
@@ -491,7 +481,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
     mutationFn: () => api.archiveCampaign(campaignId, csrf),
     onSuccess: () => {
       toast.add({ title: "Campaign archived.", type: "success" });
-      void queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      void queryClient.invalidateQueries({ queryKey: campaignKeys.all });
       void navigate("/campaigns");
     },
   });
