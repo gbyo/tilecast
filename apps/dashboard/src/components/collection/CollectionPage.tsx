@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { cn } from "cn";
 import { PageHeader } from "../PageHeader";
 
@@ -7,6 +7,14 @@ import { PageHeader } from "../PageHeader";
  * hierarchy: title and description, optional metadata, then discovery controls
  * and results. Route breadcrumbs remain location context, not the only heading.
  */
+type CollectionPageProps = Omit<ComponentPropsWithoutRef<"section">, "title"> & {
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  meta?: ReactNode;
+  children: ReactNode;
+};
+
 export function CollectionPage({
   title,
   description,
@@ -14,16 +22,11 @@ export function CollectionPage({
   meta,
   children,
   className,
-}: {
-  title: ReactNode;
-  description?: ReactNode;
-  actions?: ReactNode;
-  meta?: ReactNode;
-  children: ReactNode;
-  className?: string;
-}) {
+  ...sectionProps
+}: CollectionPageProps) {
   return (
     <section
+      {...sectionProps}
       data-slot="studio-page"
       className={cn("w-full min-w-0 space-y-5", className)}
     >
