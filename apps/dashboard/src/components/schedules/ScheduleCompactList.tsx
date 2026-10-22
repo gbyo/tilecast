@@ -13,6 +13,7 @@ import {
 } from "../ui/item";
 import { Skeleton } from "../ui/skeleton";
 import {
+  ScheduleCampaignBadge,
   SchedulePresentationLabel,
   ScheduleStatusBadge,
   ScheduleTargets,
@@ -58,8 +59,9 @@ export function ScheduleCompactList({
                   {schedule.name}
                 </Link>
               </ItemTitle>
-              <div className="flex min-w-0 items-center gap-2 text-sm">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
                 <ScheduleStatusBadge enabled={schedule.enabled} />
+                <ScheduleCampaignBadge schedule={schedule} />
                 <SchedulePresentationLabel presentation={row.presentation} />
               </div>
               <ItemDescription className="line-clamp-2 text-xs tabular-nums">
