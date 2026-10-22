@@ -23,6 +23,9 @@
     "filteredEmptyDescription": "Prueba otra búsqueda o cambia los filtros.",
     "clearSearchAndFilters": "Borrar búsqueda y filtros",
     "deleteFailed": "No se pudo eliminar la programación.",
+    "campaignManaged": "Campaña · {{name}} · r{{release}}",
+    "campaignFallback": "Campaña",
+    "openCampaign": "Abrir campaña {{name}}",
     "noTargets": "Sin destinos",
     "targetsMore": "{{names}} +{{count}}",
     "priorityHelp": "Gana la prioridad más alta cuando se superponen programaciones aplicables.",
@@ -48,6 +51,7 @@
       "edit": "Editar programación",
       "open": "Abrir programación",
       "delete": "Eliminar programación",
+      "openCampaign": "Abrir campaña",
       "actionsFor": "Acciones de {{name}}"
     }
   },
@@ -92,6 +96,11 @@
     "formLabel": "Ajustes de la programación",
     "newName": "Nueva programación",
     "loading": "Cargando programación",
+    "campaignManaged": {
+      "title": "Gestionada por una versión de campaña",
+      "body": "Esta programación fue generada por la versión r{{release}} de {{campaign}}. Edita y publica la campaña para cambiar horarios, destinos, contenido o estado.",
+      "open": "Abrir campaña"
+    },
     "discard": {
       "title": "¿Descartar los cambios sin guardar?",
       "body": "Los cambios en «{{name}}» no se han guardado.",
