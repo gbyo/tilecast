@@ -19,7 +19,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "../components/ui/empty";
-import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
 import { Spinner } from "../components/ui/spinner";
 import { toast } from "../components/ui/toast";
@@ -42,6 +41,10 @@ import { WidgetsToolbar } from "../components/content/widgets/WidgetsToolbar";
 import { WidgetSnapshotBackfill } from "../content/WidgetSnapshotBackfill";
 import { useCompactLayout } from "../hooks/use-compact-layout";
 import { hasCapability } from "../auth/capabilities";
+import {
+  CollectionPage,
+  CollectionSurface,
+} from "../components/collection/CollectionPage";
 
 export function WidgetsPage() {
   const { t } = useTranslation(["content", "common"]);
@@ -98,33 +101,29 @@ export function WidgetsPage() {
   const createLabel = t("widgets.list.create");
 
   return (
-    <section className="w-full min-w-0 space-y-5">
-      <h1 className="sr-only">{t("widgets.list.title")}</h1>
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          {typeof total === "number" ? (
-            <p className="text-sm text-muted-foreground tabular-nums">
-              {t("widgets.list.count", { count: total })}
-            </p>
-          ) : widgets.isLoading ? (
-            <Skeleton className="h-5 w-24" />
-          ) : null}
-          {canManage && (
-            <Link
-              className={buttonVariants({
-                variant: "default",
-                className: "ml-auto",
-              })}
-              to="/widgets/new"
-              aria-label={compact ? createLabel : undefined}
-            >
-              <Plus aria-hidden="true" />
-              {compact ? t("widgets.list.createShort") : createLabel}
-            </Link>
-          )}
-        </div>
-        <Separator />
-      </div>
+    <CollectionPage
+      title={t("widgets.list.title")}
+      description={t("widgets.list.subtitle")}
+      meta={
+        typeof total === "number" ? (
+          t("widgets.list.count", { count: total })
+        ) : widgets.isLoading ? (
+          <Skeleton className="h-5 w-24" />
+        ) : undefined
+      }
+      actions={
+        canManage ? (
+          <Link
+            className={buttonVariants({ variant: "default" })}
+            to="/widgets/new"
+            aria-label={compact ? createLabel : undefined}
+          >
+            <Plus aria-hidden="true" />
+            {compact ? t("widgets.list.createShort") : createLabel}
+          </Link>
+        ) : undefined
+      }
+    >
       <WidgetsToolbar
         search={search}
         onSearchChange={setSearch}
@@ -159,7 +158,7 @@ export function WidgetsPage() {
       {widgets.isLoading ? (
         <WidgetLibrarySkeleton view={view} />
       ) : items.length > 0 ? (
-        <>
+        <CollectionSurface>
           <WidgetLibrary
             items={items}
             definitions={definitionsById}
@@ -169,7 +168,7 @@ export function WidgetsPage() {
             onDuplicate={(asset: Asset) => duplicate.mutate(asset.id)}
           />
           {widgets.hasNextPage && (
-            <div className="flex justify-center">
+            <div className="mt-5 flex justify-center">
               <Button
                 type="button"
                 variant="outline"
@@ -181,7 +180,7 @@ export function WidgetsPage() {
               </Button>
             </div>
           )}
-        </>
+        </CollectionSurface>
       ) : widgets.isError ? null : filtered ? (
         // A search or type that matches nothing is not an empty library, so it
         // offers a way back instead of the create prompt. Sort and view are
@@ -233,6 +232,6 @@ export function WidgetsPage() {
       {/* Discovery runs independently of visible search and provider filters, including while the
           filtered library is empty or still loading. Only content managers can upload captures. */}
       <WidgetSnapshotBackfill enabled={canManage} />
-    </section>
+    </CollectionPage>
   );
 }
