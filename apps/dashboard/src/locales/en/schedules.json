@@ -46,7 +46,12 @@
       "edit": "Edit schedule",
       "open": "Open schedule",
       "delete": "Delete schedule",
-      "actionsFor": "Actions for {{name}}"
+      "actionsFor": "Actions for {{name}}",
+      "enable": "Enable schedule",
+      "disable": "Disable schedule",
+      "enabled": "Schedule enabled.",
+      "disabled": "Schedule disabled.",
+      "toggleFailed": "Could not change schedule status."
     }
   },
   "toolbar": {

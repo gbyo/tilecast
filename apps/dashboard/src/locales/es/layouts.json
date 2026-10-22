@@ -292,7 +292,8 @@
     "snapOff": "Ajuste: desactivado",
     "safeAreaOn": "Área segura: activada",
     "safeAreaOff": "Área segura: desactivada",
-    "zoomPresets": "Niveles de zoom"
+    "zoomPresets": "Niveles de zoom",
+    "menuDistribute": "Distribuir"
   },
   "spanWall": {
     "canvasWidth": "Ancho del lienzo",

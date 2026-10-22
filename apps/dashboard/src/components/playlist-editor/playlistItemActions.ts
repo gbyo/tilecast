@@ -14,8 +14,8 @@ export type PlaylistItemAction = {
 };
 
 // playlistItemActions is the single command model for a timeline row. The
-// visible overflow DropdownMenu and the supplemental ContextMenu both render
-// this list, so the two surfaces cannot offer different commands.
+// visible overflow and supplemental context menu present these commands in a
+// Move submenu. Context menus omit unavailable moves and shortcut hints.
 export function playlistItemActions({
   index,
   itemCount,

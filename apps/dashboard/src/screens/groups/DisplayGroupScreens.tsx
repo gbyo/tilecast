@@ -103,7 +103,7 @@ export function DisplayGroupScreens({
                 id: "remove",
                 label: t("groups.detail.removeFromGroup"),
                 disabled: remove.isPending,
-                role: "destructive" as const,
+                icon: "remove",
                 onSelect: () => remove.mutate(member.id),
               },
             ],

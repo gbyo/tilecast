@@ -1,9 +1,4 @@
-import {
-  Fragment,
-  type ComponentType,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { Fragment, type ReactElement, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { Button } from "../ui/button";
 import {
@@ -11,6 +6,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import {
@@ -20,13 +19,15 @@ import {
   ContextMenuItem,
   ContextMenuLabel,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "../ui/context-menu";
 import { ActionIcon } from "./actionIcons";
 
 /**
- * One action of a Studio action menu. Define it once: the same list
- * powers the dropdown and the context menu.
+ * Define semantic commands once; each surface presents the applicable set.
  */
 export type StudioAction = {
   /** Stable within one menu. Never derived from the label. */
@@ -36,52 +37,99 @@ export type StudioAction = {
   /** Semantic icon token. Unknown tokens show no icon. */
   icon?: string;
   disabled?: boolean;
+  /** Omit a redundant command from one surface. Permissions belong upstream. */
+  surface?: "dropdown" | "context";
+  /** Hint for an existing keyboard binding; shown only in the dropdown. */
+  shortcut?: string;
   role?: "default" | "destructive";
   onSelect: () => void;
 };
 
-export type StudioActionGroup = {
-  actions: StudioAction[];
+/** Children are commands, so the type permits exactly one submenu level. */
+export type StudioSubmenu = Pick<
+  StudioAction,
+  "id" | "label" | "icon" | "disabled" | "surface"
+> & {
+  items: StudioAction[];
 };
 
-type ItemProps = {
-  variant: "default" | "destructive";
-  disabled?: boolean;
-  onClick: () => void;
-  children: ReactNode;
-};
+export type StudioMenuEntry = StudioAction | StudioSubmenu;
+export type StudioActionGroup = { actions: StudioMenuEntry[] };
+type MenuSurface = "dropdown" | "context";
 
-/** The shared web renderer. Empty groups disappear. */
+/** Filter before rendering separators or deciding whether a trigger is active. */
+export function actionsForSurface(
+  groups: StudioActionGroup[],
+  surface: MenuSurface,
+): StudioActionGroup[] {
+  const applies = (entry: StudioMenuEntry) =>
+    (!entry.surface || entry.surface === surface) &&
+    (surface !== "context" || !entry.disabled);
+  return groups
+    .map(({ actions }) => ({
+      actions: actions.filter(applies).flatMap((entry) => {
+        if (!("items" in entry)) return [entry];
+        const items = entry.items.filter(applies);
+        return items.length ? [{ ...entry, items }] : [];
+      }),
+    }))
+    .filter(({ actions }) => actions.length > 0);
+}
+
+/** Base UI owns activation, submenu navigation, dismissal and focus return. */
 function ActionGroups({
   groups,
-  Item,
-  Separator,
+  surface,
 }: {
   groups: StudioActionGroup[];
-  Item: ComponentType<ItemProps>;
-  Separator: ComponentType;
+  surface: MenuSurface;
 }) {
-  const visible = groups.filter((group) => group.actions.length > 0);
+  const Item = surface === "context" ? ContextMenuItem : DropdownMenuItem;
+  const Separator =
+    surface === "context" ? ContextMenuSeparator : DropdownMenuSeparator;
+  const Sub = surface === "context" ? ContextMenuSub : DropdownMenuSub;
+  const SubTrigger =
+    surface === "context" ? ContextMenuSubTrigger : DropdownMenuSubTrigger;
+  const SubContent =
+    surface === "context" ? ContextMenuSubContent : DropdownMenuSubContent;
+  const label = (entry: StudioMenuEntry) => (
+    <>
+      {entry.icon && <ActionIcon token={entry.icon} />}
+      {entry.label}
+    </>
+  );
+  const command = (action: StudioAction) => (
+    <Item
+      key={action.id}
+      variant={action.role === "destructive" ? "destructive" : "default"}
+      disabled={action.disabled}
+      onClick={() => action.onSelect()}
+    >
+      {label(action)}
+      {surface === "dropdown" && action.shortcut && (
+        <DropdownMenuShortcut>{action.shortcut}</DropdownMenuShortcut>
+      )}
+    </Item>
+  );
   return (
     <>
-      {visible.map((group, index) => (
+      {groups.map((group, index) => (
         <Fragment key={index}>
           {index > 0 && <Separator />}
-          {group.actions.map((action) => (
-            <Item
-              key={action.id}
-              variant={
-                action.role === "destructive" ? "destructive" : "default"
-              }
-              disabled={action.disabled}
-              onClick={() => action.onSelect()}
-            >
-              {action.icon === undefined ? null : (
-                <ActionIcon token={action.icon} />
-              )}
-              {action.label}
-            </Item>
-          ))}
+          {group.actions.map((entry) =>
+            "items" in entry ? (
+              <Sub key={entry.id}>
+                <SubTrigger disabled={entry.disabled}>
+                  {label(entry)}
+                </SubTrigger>
+                <SubContent aria-label={entry.label}>
+                  {entry.items.map(command)}
+                </SubContent>
+              </Sub>
+            ) : (
+              command(entry)
+            ),
+          )}
         </Fragment>
       ))}
     </>
@@ -112,9 +160,9 @@ export function ActionMenuButton({
   /** The trigger glyph. A horizontal ellipsis by default. */
   triggerIcon?: ReactNode;
 }) {
-  const count = actions.reduce((sum, group) => sum + group.actions.length, 0);
+  const visible = actionsForSurface(actions, "dropdown");
 
-  if (count === 0) return null;
+  if (visible.length === 0) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -126,11 +174,7 @@ export function ActionMenuButton({
         {triggerIcon ?? <MoreHorizontal aria-hidden="true" />}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} aria-label={label}>
-        <ActionGroups
-          groups={actions}
-          Item={DropdownMenuItem}
-          Separator={DropdownMenuSeparator}
-        />
+        <ActionGroups groups={visible} surface="dropdown" />
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -159,7 +203,8 @@ export function ActionContextMenu({
   /** Replaces the trigger element, as the underlying primitive allows. */
   render?: ReactElement;
 }) {
-  const count = actions.reduce((sum, group) => sum + group.actions.length, 0);
+  const visible = actionsForSurface(actions, "context");
+  const count = visible.length;
   return (
     <ContextMenu disabled={count === 0}>
       <ContextMenuTrigger
@@ -181,11 +226,7 @@ export function ActionContextMenu({
               <ContextMenuSeparator />
             </>
           ) : null}
-          <ActionGroups
-            groups={actions}
-            Item={ContextMenuItem}
-            Separator={ContextMenuSeparator}
-          />
+          <ActionGroups groups={visible} surface="context" />
         </ContextMenuGroup>
       </ContextMenuContent>
     </ContextMenu>

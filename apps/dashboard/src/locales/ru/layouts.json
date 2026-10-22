@@ -299,7 +299,8 @@
     "snapOff": "Привязка: выкл.",
     "safeAreaOn": "Безопасная зона: вкл.",
     "safeAreaOff": "Безопасная зона: выкл.",
-    "zoomPresets": "Масштаб"
+    "zoomPresets": "Масштаб",
+    "menuDistribute": "Распределить"
   },
   "spanWall": {
     "canvasWidth": "Ширина холста",

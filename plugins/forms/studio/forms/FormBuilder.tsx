@@ -1,20 +1,6 @@
-import {
-  Fragment,
-  useMemo,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  ArrowDown,
-  ArrowDownToLine,
-  ArrowUp,
-  ArrowUpToLine,
-  MoreHorizontal,
-  Trash2,
-} from "lucide-react";
 import type {
   FormDataSource,
   FormField,
@@ -24,6 +10,10 @@ import type {
 import { formsApi } from "../api";
 import {
   ApiError,
+  ActionContextMenu,
+  ActionMenuButton,
+  type StudioAction,
+  type StudioActionGroup,
   apiErrorMessage,
   useDesktopLayout,
   useNavigationWarning,
@@ -32,22 +22,6 @@ import {
 import en from "../locales/en.json";
 import { Alert, AlertDescription, AlertTitle } from "@tilecast/studio/ui/alert";
 import { Button } from "@tilecast/studio/ui/button";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuTrigger,
-} from "@tilecast/studio/ui/context-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger,
-} from "@tilecast/studio/ui/dropdown-menu";
 import { Field, FieldLabel } from "@tilecast/studio/ui/field";
 import { toast } from "@tilecast/studio/ui/toast";
 import { Input } from "@tilecast/studio/ui/input";
@@ -218,7 +192,7 @@ export function FormBuilder({
   type FieldAction = {
     key: string;
     label: string;
-    icon: ReactNode;
+    icon: string;
     shortcut?: string;
     disabled: boolean;
     danger?: boolean;
@@ -231,7 +205,7 @@ export function FormBuilder({
       {
         key: "up",
         label: t("builder.actions.moveUp"),
-        icon: <ArrowUp size={14} aria-hidden="true" />,
+        icon: "move-up",
         shortcut: "Alt+↑",
         disabled: index === 0,
         run: () => move(index, -1),
@@ -239,7 +213,7 @@ export function FormBuilder({
       {
         key: "down",
         label: t("builder.actions.moveDown"),
-        icon: <ArrowDown size={14} aria-hidden="true" />,
+        icon: "move-down",
         shortcut: "Alt+↓",
         disabled: index === last,
         run: () => move(index, 1),
@@ -247,7 +221,7 @@ export function FormBuilder({
       {
         key: "top",
         label: t("builder.actions.moveTop"),
-        icon: <ArrowUpToLine size={14} aria-hidden="true" />,
+        icon: "move-top",
         shortcut: "Alt+Home",
         disabled: index === 0,
         run: () => moveToEdge(index, "top"),
@@ -255,7 +229,7 @@ export function FormBuilder({
       {
         key: "bottom",
         label: t("builder.actions.moveBottom"),
-        icon: <ArrowDownToLine size={14} aria-hidden="true" />,
+        icon: "move-bottom",
         shortcut: "Alt+End",
         disabled: index === last,
         run: () => moveToEdge(index, "bottom"),
@@ -263,7 +237,7 @@ export function FormBuilder({
       {
         key: "delete",
         label: t("builder.actions.deleteField"),
-        icon: <Trash2 size={14} aria-hidden="true" />,
+        icon: "delete",
         disabled: lockFor(field).deleteLocked,
         danger: true,
         run: () => removeField(index),
@@ -293,7 +267,29 @@ export function FormBuilder({
     const name = field.label || field.key;
     const rowLabel = t("builder.row.editField", { name });
     const menuLabel = t("builder.row.actionsFor", { name });
-    const actions = readOnly ? [] : fieldActions(index, field);
+    const commands = readOnly ? [] : fieldActions(index, field);
+    const command = (action: FieldAction): StudioAction => ({
+      id: action.key,
+      label: action.label,
+      icon: action.icon,
+      disabled: action.disabled,
+      shortcut: action.shortcut,
+      role: action.danger ? "destructive" : "default",
+      onSelect: action.run,
+    });
+    const actions: StudioActionGroup[] = [
+      {
+        actions: [
+          {
+            id: "move",
+            label: t("builder.actions.move"),
+            icon: "move",
+            items: commands.filter((action) => !action.danger).map(command),
+          },
+        ],
+      },
+      { actions: commands.filter((action) => action.danger).map(command) },
+    ];
     const selectButton = (
       <Button
         type="button"
@@ -311,40 +307,12 @@ export function FormBuilder({
     );
     const rowActions = !readOnly ? (
       <ItemActions>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                aria-label={menuLabel}
-              >
-                <MoreHorizontal size={15} aria-hidden="true" />
-              </Button>
-            }
-          />
-          <DropdownMenuContent align="end" aria-label={menuLabel}>
-            {actions.map((action) => (
-              <Fragment key={action.key}>
-                {action.danger && <DropdownMenuSeparator />}
-                <DropdownMenuItem
-                  variant={action.danger ? "destructive" : "default"}
-                  disabled={action.disabled}
-                  onClick={action.run}
-                >
-                  {action.icon}
-                  {action.label}
-                  {action.shortcut && (
-                    <DropdownMenuShortcut>
-                      {action.shortcut}
-                    </DropdownMenuShortcut>
-                  )}
-                </DropdownMenuItem>
-              </Fragment>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ActionMenuButton
+          label={menuLabel}
+          actions={actions}
+          variant="ghost"
+          size="icon-sm"
+        />
       </ItemActions>
     ) : null;
     if (readOnly)
@@ -358,38 +326,21 @@ export function FormBuilder({
         </Item>
       );
     return (
-      <ContextMenu key={rowKeys[index]}>
-        <ContextMenuTrigger
-          render={
-            <Item
-              variant={index === selected ? "muted" : "outline"}
-              size="sm"
-              onKeyDown={(event) => onRowKeyDown(event, index)}
-            />
-          }
-        >
-          {selectButton}
-          {rowActions}
-        </ContextMenuTrigger>
-        <ContextMenuContent aria-label={menuLabel}>
-          {actions.map((action) => (
-            <Fragment key={action.key}>
-              {action.danger && <ContextMenuSeparator />}
-              <ContextMenuItem
-                variant={action.danger ? "destructive" : "default"}
-                disabled={action.disabled}
-                onClick={action.run}
-              >
-                {action.icon}
-                {action.label}
-                {action.shortcut && (
-                  <ContextMenuShortcut>{action.shortcut}</ContextMenuShortcut>
-                )}
-              </ContextMenuItem>
-            </Fragment>
-          ))}
-        </ContextMenuContent>
-      </ContextMenu>
+      <ActionContextMenu
+        key={rowKeys[index]}
+        label={menuLabel}
+        actions={actions}
+        render={
+          <Item
+            variant={index === selected ? "muted" : "outline"}
+            size="sm"
+            onKeyDown={(event) => onRowKeyDown(event, index)}
+          />
+        }
+      >
+        {selectButton}
+        {rowActions}
+      </ActionContextMenu>
     );
   };
 

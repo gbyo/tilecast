@@ -35,6 +35,8 @@ export function WidgetLibrary({
   canManage,
   duplicating,
   onDuplicate,
+  onDelete,
+  deleting = false,
 }: {
   items: readonly Asset[];
   definitions: ReadonlyMap<string, WidgetDefinition>;
@@ -42,6 +44,8 @@ export function WidgetLibrary({
   canManage: boolean;
   duplicating: boolean;
   onDuplicate: (asset: Asset) => void;
+  onDelete?: (asset: Asset) => void;
+  deleting?: boolean;
 }) {
   const { t } = useTranslation(["content", "common"]);
   const locale = useFormatLocale();
@@ -76,6 +80,20 @@ export function WidgetLibrary({
             ]
           : []),
       ],
+    },
+    {
+      actions: onDelete
+        ? [
+            {
+              id: "delete",
+              label: t("widgets.editor.actions.delete"),
+              icon: "delete",
+              role: "destructive",
+              disabled: deleting,
+              onSelect: () => onDelete(asset),
+            },
+          ]
+        : [],
     },
   ];
 

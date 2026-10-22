@@ -285,7 +285,8 @@
     "snapOff": "Snap: Off",
     "safeAreaOn": "Safe area: On",
     "safeAreaOff": "Safe area: Off",
-    "zoomPresets": "Zoom presets"
+    "zoomPresets": "Zoom presets",
+    "menuDistribute": "Distribute"
   },
   "spanWall": {
     "canvasWidth": "Canvas width",

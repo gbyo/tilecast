@@ -42,6 +42,9 @@ import { WidgetsToolbar } from "../components/content/widgets/WidgetsToolbar";
 import { WidgetSnapshotBackfill } from "../content/WidgetSnapshotBackfill";
 import { useCompactLayout } from "../hooks/use-compact-layout";
 import { hasCapability } from "../auth/capabilities";
+import { DeleteWidgetDialog } from "../components/content/widget-editor/header/DeleteWidgetDialog";
+import { widgetUsageCount } from "../components/content/widget-editor/widgetUsage";
+import { useMyAccess } from "../content/mediaPermissions";
 
 export function WidgetsPage() {
   const { t } = useTranslation(["content", "common"]);
@@ -52,6 +55,10 @@ export function WidgetsPage() {
   const compact = useCompactLayout();
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = hasCapability(auth.status, "widget.edit");
+  const canDelete = hasCapability(auth.status, "widget.delete");
+  const access = useMyAccess();
+  const canDuplicate = canManage && access.data?.content.libraryMode === "all";
+  const [deleteTarget, setDeleteTarget] = useState<Asset | null>(null);
   const [search, setSearch] = useState("");
   const [provider, setProvider] = useState("");
   const [sort, setSort] = useState<WidgetSort>(defaultWidgetSort);
@@ -95,10 +102,36 @@ export function WidgetsPage() {
     },
   });
   const filtered = search !== "" || provider !== "";
+  const remove = useMutation({
+    mutationFn: (id: string) => api.deleteAsset(id, csrf),
+    onSuccess: () => {
+      toast.add({ title: t("widgets.editor.delete.done"), type: "success" });
+      setDeleteTarget(null);
+      void queryClient.invalidateQueries({ queryKey: contentKeys.assets });
+    },
+    onError: (error) =>
+      toast.add({
+        title: t("widgets.editor.delete.failed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      }),
+  });
   const createLabel = t("widgets.list.create");
 
   return (
     <section className="w-full min-w-0 space-y-5">
+      {deleteTarget && (
+        <DeleteWidgetDialog
+          asset={deleteTarget}
+          usage={widgetUsageCount(deleteTarget)}
+          pending={remove.isPending}
+          open
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+          onConfirm={() => remove.mutate(deleteTarget.id)}
+        />
+      )}
       <h1 className="sr-only">{t("widgets.list.title")}</h1>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
@@ -165,8 +198,10 @@ export function WidgetsPage() {
             definitions={definitionsById}
             view={view}
             canManage={canManage}
-            duplicating={duplicate.isPending}
+            duplicating={duplicate.isPending || !canDuplicate}
             onDuplicate={(asset: Asset) => duplicate.mutate(asset.id)}
+            onDelete={canDelete ? setDeleteTarget : undefined}
+            deleting={remove.isPending}
           />
           {widgets.hasNextPage && (
             <div className="flex justify-center">
