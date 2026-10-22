@@ -5,6 +5,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
+import type { Schedule } from "../../api/types";
 import { Badge } from "../ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import type {
@@ -22,6 +24,35 @@ export function ScheduleStatusBadge({ enabled }: { enabled: boolean }) {
   return (
     <Badge variant={enabled ? "secondary" : "outline"}>
       {enabled ? t("page.enabled") : t("page.disabled")}
+    </Badge>
+  );
+}
+
+export function ScheduleCampaignBadge({
+  schedule,
+}: {
+  schedule: Pick<
+    Schedule,
+    "campaignId" | "campaignName" | "campaignReleaseNumber"
+  >;
+}) {
+  const { t } = useTranslation("schedules");
+  if (!schedule.campaignId) return null;
+  const label = t("page.campaignManaged", {
+    name: schedule.campaignName ?? t("page.campaignFallback"),
+    release: schedule.campaignReleaseNumber ?? "?",
+  });
+  return (
+    <Badge
+      variant="outline"
+      render={
+        <Link
+          to={`/campaigns/${schedule.campaignId}`}
+          aria-label={t("page.openCampaign", { name: schedule.campaignName })}
+        />
+      }
+    >
+      {label}
     </Badge>
   );
 }
