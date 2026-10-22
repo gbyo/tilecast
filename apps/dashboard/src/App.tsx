@@ -721,6 +721,7 @@ export const studioRoutes: RouteObject[] = [
         path: "settings",
         handle: {
           capabilities: settingsCapabilities,
+          focusedWorkspace: true,
           navigation: destination({
             id: "settings",
             group: "secondary",
