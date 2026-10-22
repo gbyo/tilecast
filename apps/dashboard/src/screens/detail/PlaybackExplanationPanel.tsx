@@ -160,27 +160,47 @@ export function PlaybackExplanationPanel({
             {current ? (
               <>
                 <section
-                  aria-labelledby={`${id}-precedence`}
+                  aria-labelledby={`${id}-selection-summary`}
                   className="min-w-0"
                 >
-                  <h3 id={`${id}-precedence`} className="text-sm font-semibold">
-                    {t("playback.precedenceTitle")}
+                  <h3
+                    id={`${id}-selection-summary`}
+                    className="text-sm font-semibold"
+                  >
+                    {t("playback.selectionSummaryTitle")}
                   </h3>
-                  <ItemGroup className="mt-2 gap-2">
-                    {orderedCandidates(current.candidates).map(
-                      (candidate, index) => (
-                        <CandidateRow
-                          key={`${candidate.source}:${candidate.id ?? index}`}
-                          candidate={candidate}
-                          defaultName={
-                            candidate.source === "assignment"
-                              ? defaultName
-                              : undefined
-                          }
-                        />
-                      ),
-                    )}
-                  </ItemGroup>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t("playback.selectionSummary", {
+                      name: selected?.name ?? t("playback.missingContent"),
+                      source: selected?.source
+                        ? t(`playback.sources.${selected.source}`)
+                        : t("shared.unknown"),
+                    })}
+                  </p>
+                  <Accordion className="mt-2">
+                    <AccordionItem value="precedence">
+                      <AccordionTrigger>
+                        {t("playback.technicalPrecedence")}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <ItemGroup className="gap-2">
+                          {orderedCandidates(current.candidates).map(
+                            (candidate, index) => (
+                              <CandidateRow
+                                key={`${candidate.source}:${candidate.id ?? index}`}
+                                candidate={candidate}
+                                defaultName={
+                                  candidate.source === "assignment"
+                                    ? defaultName
+                                    : undefined
+                                }
+                              />
+                            ),
+                          )}
+                        </ItemGroup>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 </section>
                 {chainPresentation && (
                   <section
