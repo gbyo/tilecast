@@ -82,6 +82,11 @@ import { PlaybackExplanationPanel } from "../screens/detail/PlaybackExplanationP
 import { ScreenPlaybackDiagnostics } from "../screens/detail/ScreenPlaybackDiagnostics";
 import { PlayerHealthSummary } from "../screens/detail/PlayerHealthSummary";
 import { DashboardSearch } from "../components/DashboardListToolbar";
+import { CollectionToolbar } from "../components/collection/CollectionToolbar";
+import {
+  CollectionPage,
+  CollectionSurface,
+} from "../components/collection/CollectionPage";
 import { useCompactLayout } from "../hooks/use-compact-layout";
 import {
   fleetFilterKeys,
@@ -1716,86 +1721,90 @@ export function ScreenListContent({
     );
   return (
     <section className="min-w-0 space-y-3" aria-label={t("list.sectionLabel")}>
-      <div className="space-y-2">
-        <div
-          className="flex flex-wrap items-center gap-2"
-          role="group"
-          aria-label={t("list.filterGroup")}
-        >
+      <CollectionToolbar
+        label={t("list.filterGroup")}
+        search={
           <DashboardSearch
             value={search}
             onValueChange={setSearch}
             label={t("list.searchLabel")}
             placeholder={t("list.searchPlaceholder")}
             clearLabel={t("list.clearSearch")}
-            className={
-              compact ? "max-w-none basis-full" : "max-w-none basis-40"
-            }
+            className="max-w-none"
           />
+        }
+        filters={
           <FleetFilters
             values={filterValues}
             onChange={(key, value) => filterSetters[key](value)}
             onReset={resetFacets}
             sources={filterSources}
           />
-          <div className="ml-auto flex items-center gap-2">
-            {effectiveView !== "map" &&
-              (compact ? (
-                <FleetViewOptionsMenu
-                  groupBy={groupBy}
-                  onGroupByChange={setGroupBy}
-                  sort={sort}
-                  onSortChange={setSort}
-                />
-              ) : (
-                <FleetGroupSort
-                  groupBy={groupBy}
-                  onGroupByChange={setGroupBy}
-                  sort={sort}
-                  onSortChange={setSort}
-                />
+        }
+        organize={
+          effectiveView !== "map"
+            ? compact
+              ? (
+                  <FleetViewOptionsMenu
+                    groupBy={groupBy}
+                    onGroupByChange={setGroupBy}
+                    sort={sort}
+                    onSortChange={setSort}
+                  />
+                )
+              : (
+                  <FleetGroupSort
+                    groupBy={groupBy}
+                    onGroupByChange={setGroupBy}
+                    sort={sort}
+                    onSortChange={setSort}
+                  />
+                )
+            : undefined
+        }
+        view={
+          <FleetViewToggle view={effectiveView} onViewChange={setView} />
+        }
+        below={
+          anyFilterActive ? (
+            <div
+              className="flex flex-wrap items-center gap-1.5"
+              role="group"
+              aria-label={t("list.activeFilters")}
+            >
+              <span className="mr-1 text-xs text-muted-foreground" role="status">
+                {t("list.resultCount", {
+                  filtered: filtered.length,
+                  total: screens.length,
+                })}
+              </span>
+              {activeFacets.map((filter) => (
+                <Badge key={filter.key} variant="secondary" className="gap-1.5">
+                  <span>
+                    {filter.facet}: {filter.value}
+                  </span>
+                  <Button
+                    type="button"
+                    aria-label={t("list.removeFilter", {
+                      facet: filter.facet,
+                      value: filter.value,
+                    })}
+                    onClick={filter.remove}
+                    variant="ghost"
+                    size="icon-xs"
+                    className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <X className="size-3" aria-hidden="true" />
+                  </Button>
+                </Badge>
               ))}
-            <FleetViewToggle view={effectiveView} onViewChange={setView} />
-          </div>
-        </div>
-        {anyFilterActive && (
-          <div
-            className="flex flex-wrap items-center gap-1.5"
-            role="group"
-            aria-label={t("list.activeFilters")}
-          >
-            <span className="mr-1 text-xs text-muted-foreground" role="status">
-              {t("list.resultCount", {
-                filtered: filtered.length,
-                total: screens.length,
-              })}
-            </span>
-            {activeFacets.map((filter) => (
-              <Badge key={filter.key} variant="secondary" className="gap-1.5">
-                <span>
-                  {filter.facet}: {filter.value}
-                </span>
-                <Button
-                  type="button"
-                  aria-label={t("list.removeFilter", {
-                    facet: filter.facet,
-                    value: filter.value,
-                  })}
-                  onClick={filter.remove}
-                  variant="ghost"
-                  size="icon-xs"
-                  className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <X className="size-3" aria-hidden="true" />
-                </Button>
-              </Badge>
-            ))}
-            <Button variant="ghost" size="xs" onClick={clearFilters}>
-              {t("list.clearAll")}
-            </Button>
-          </div>
-        )}
-      </div>
+              <Button variant="ghost" size="xs" onClick={clearFilters}>
+                {t("list.clearAll")}
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
       {effectiveView === "grid" && (
         <p className="text-xs text-muted-foreground">{t("list.gridHint")}</p>
       )}
