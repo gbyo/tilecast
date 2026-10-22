@@ -386,6 +386,7 @@
   },
   "groups": {
     "title": "Grupos de pantallas",
+    "description": "Coordina el contenido alternativo, la sincronización y el comportamiento de varias pantallas.",
     "create": "Crear grupo de pantallas",
     "created": "Grupo de pantallas creado.",
     "loading": "Cargando grupos de pantallas",
