@@ -550,10 +550,11 @@ export function ScreensWorkspacePage() {
       : [];
 
   return (
-    <div className="w-full min-w-0 space-y-4">
-      {/* The Studio top bar names the page, as on Overview. The h1 stays for
-          document structure and assistive technology. */}
-      <h1 className="sr-only">{t("page.title")}</h1>
+    <CollectionPage
+      title={t("page.title")}
+      description={t("page.description")}
+      className="space-y-4"
+    >
       <FleetSummary
         screens={screens.data?.items ?? []}
         loading={screens.isLoading}
@@ -589,7 +590,8 @@ export function ScreensWorkspacePage() {
           onOpenChange={setTakeoverOpen}
         />
       )}
-      <Tabs
+      <CollectionSurface>
+        <Tabs
         value={activeTab}
         onValueChange={(value) =>
           void navigate(value === "archive" ? "/screens/archive" : "/screens")
@@ -600,11 +602,12 @@ export function ScreensWorkspacePage() {
           <TabsTrigger value="fleet">{t("page.fleetTab")}</TabsTrigger>
           <TabsTrigger value="archive">{t("page.archiveTab")}</TabsTrigger>
         </TabsList>
-        <TabsContent value={activeTab} className="min-w-0 outline-none">
-          <Outlet />
-        </TabsContent>
-      </Tabs>
-    </div>
+          <TabsContent value={activeTab} className="min-w-0 outline-none">
+            <Outlet />
+          </TabsContent>
+        </Tabs>
+      </CollectionSurface>
+    </CollectionPage>
   );
 }
 
