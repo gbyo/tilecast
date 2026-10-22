@@ -637,17 +637,17 @@
         "other": "Active incident"
       }
     },
-    "onAir": {
-      "title": "On air now",
-      "description": "What online screens are set to show.",
+    "defaultContent": {
+      "title": "Default content",
+      "description": "Fallback content configured for online screens. Schedules, Show Now, and Takeover can override it.",
       "loading": "Loading screens",
       "noneOnline": "No screens are online.",
-      "noneAssigned": "Online screens have nothing assigned.",
+      "noneAssigned": "Online screens have no default content.",
       "screenCount_one": "{{count}} screen",
       "screenCount_other": "{{count}} screens",
       "moreGroups_one": "{{count}} more",
       "moreGroups_other": "{{count}} more",
-      "footer": "{{assigned}} assigned · {{unassigned}} unassigned"
+      "footer": "{{assigned}} with default · {{unassigned}} without default"
     },
     "schedulesLoading": "Loading schedules",
     "upcomingStartsAt": "Starts {{time}}",
