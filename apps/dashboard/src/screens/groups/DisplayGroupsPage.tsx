@@ -10,6 +10,10 @@ import { DisplayGroupsToolbar } from "./DisplayGroupsToolbar";
 import { canManageGroups, groupPath } from "./displayGroupModel";
 import { useDeleteDisplayGroup } from "./useDeleteDisplayGroup";
 import { useDisplayGroupsList } from "./useDisplayGroupsList";
+import {
+  CollectionPage,
+  CollectionSurface,
+} from "../../components/collection/CollectionPage";
 
 /** The Display Groups index: search, compare, and open groups. */
 export function DisplayGroupsPage() {
@@ -71,10 +75,11 @@ export function DisplayGroupsPage() {
   ];
 
   return (
-    <section className="w-full min-w-0 space-y-4">
-      {/* The Studio top bar names the page. The h1 stays for document
-          structure and assistive technology. */}
-      <h1 className="sr-only">{t("groups.title")}</h1>
+    <CollectionPage
+      title={t("groups.title")}
+      description={t("groups.description")}
+      className="space-y-4"
+    >
       <DisplayGroupsToolbar
         summary={summary}
         search={list.typedSearch.value}
@@ -82,7 +87,8 @@ export function DisplayGroupsPage() {
         onSearchBlur={list.typedSearch.onBlur}
         onCreate={manageable ? () => setCreateOpen(true) : undefined}
       />
-      <DisplayGroupsResults
+      <CollectionSurface>
+        <DisplayGroupsResults
         state={{
           groups: list.rows,
           loading: groups.isLoading,
@@ -98,8 +104,9 @@ export function DisplayGroupsPage() {
         onRetry={() => void groups.refetch()}
         onLoadMore={() => void groups.fetchNextPage()}
         onClearSearch={() => list.setSearch("")}
-        onCreate={() => setCreateOpen(true)}
-      />
+          onCreate={() => setCreateOpen(true)}
+        />
+      </CollectionSurface>
 
       {createOpen && (
         <DisplayGroupDialog
@@ -119,6 +126,6 @@ export function DisplayGroupsPage() {
         />
       )}
       {deletion.dialog}
-    </section>
+    </CollectionPage>
   );
 }
