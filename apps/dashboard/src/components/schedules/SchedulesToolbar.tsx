@@ -1,6 +1,7 @@
 import { ArrowUpDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { DashboardSearch } from "../DashboardListToolbar";
+import { CollectionToolbar } from "../collection/CollectionToolbar";
 import { useTypedFilter } from "../FilterBar";
 import { Button } from "../ui/button";
 import {
@@ -52,42 +53,43 @@ export function SchedulesToolbar({
   const typedSearch = useTypedFilter(search, onSearchChange);
 
   return (
-    <div className="space-y-2">
-      <div
-        className="flex flex-wrap items-center gap-2"
-        role="group"
-        aria-label={t("toolbar.groupLabel")}
-      >
+    <CollectionToolbar
+      label={t("toolbar.groupLabel")}
+      search={
         <div className="contents" onBlur={typedSearch.onBlur}>
           <DashboardSearch
             value={typedSearch.value}
             onValueChange={typedSearch.onChange}
             label={t("toolbar.search")}
             placeholder={t("toolbar.search")}
-            className={
-              compact ? "max-w-none basis-full" : "max-w-none min-w-40 basis-40"
-            }
+            className="max-w-none"
           />
         </div>
+      }
+      filters={
         <ScheduleFilters
           values={facets}
           onChange={onFacetChange}
           onReset={onClearFacets}
         />
+      }
+      organize={
         <ScheduleSortMenu
           sort={sort}
           onSortChange={onSortChange}
           compact={compact}
         />
-      </div>
-      {activeScheduleFacetCount(facets) > 0 && (
-        <ScheduleFacetChips
-          values={facets}
-          onChange={onFacetChange}
-          onClear={onClearFacets}
-        />
-      )}
-    </div>
+      }
+      below={
+        activeScheduleFacetCount(facets) > 0 ? (
+          <ScheduleFacetChips
+            values={facets}
+            onChange={onFacetChange}
+            onClear={onClearFacets}
+          />
+        ) : undefined
+      }
+    />
   );
 }
 
