@@ -136,7 +136,8 @@ export function ActionMenuButton({
 
 /**
  * A right-click and long-press menu for a whole row or card. Renders its
- * children unchanged without actions.
+ * trigger disabled without actions. Keep the element mounted so entering
+ * batch selection does not discard checkbox focus or preview observers.
  */
 export function ActionContextMenu({
   label,
@@ -154,10 +155,14 @@ export function ActionContextMenu({
   render?: ReactElement;
 }) {
   const count = actions.reduce((sum, group) => sum + group.actions.length, 0);
-  if (count === 0) return <>{children}</>;
   return (
-    <ContextMenu>
-      <ContextMenuTrigger className={className} render={render}>
+    <ContextMenu disabled={count === 0}>
+      <ContextMenuTrigger
+        className={
+          className ?? (count === 0 && !render ? "contents" : undefined)
+        }
+        render={render}
+      >
         {children}
       </ContextMenuTrigger>
       <ContextMenuContent aria-label={label}>

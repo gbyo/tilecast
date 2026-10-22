@@ -126,6 +126,7 @@ import { PreviewFreshnessRail } from "../components/PreviewFreshnessRail";
 import { useScreenPreviewSession } from "../components/useScreenPreviewSession";
 import { screenRowActionGroups } from "../components/screenActions";
 import {
+  ActionContextMenu,
   ActionMenuButton,
   type StudioActionGroup,
 } from "../components/studio/ActionMenu";
@@ -1970,6 +1971,7 @@ export function ScreenListContent({
                           screen={screen}
                           csrfToken={csrfToken}
                           selected={selected.has(screen.id)}
+                          selectionActive={selected.size > 0}
                           canManage={canManage}
                           showLocation={groupBy !== "location"}
                           onSelect={(checked) => {
@@ -2220,6 +2222,7 @@ export function ScreenGridCard({
   screen,
   csrfToken,
   selected,
+  selectionActive = false,
   canManage,
   showLocation,
   onSelect,
@@ -2228,6 +2231,7 @@ export function ScreenGridCard({
   screen: Screen;
   csrfToken: string;
   selected: boolean;
+  selectionActive?: boolean;
   canManage: boolean;
   showLocation: boolean;
   onSelect: (checked: boolean) => void;
@@ -2295,10 +2299,26 @@ export function ScreenGridCard({
       : previewRailState(previewState, preview.data?.capturedAt, now);
   const captureFailed = preview.data?.status === "capture_error";
   const portrait = screen.screenHeight > screen.screenWidth;
+  const actions = selectionActive
+    ? []
+    : screenRowActionGroups({
+        screen,
+        t,
+        navigate,
+        csrfToken,
+        canManage,
+        onArchive,
+      });
   return (
-    <article
-      ref={ref}
-      className={`group min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
+    <ActionContextMenu
+      label={t("grid.rowActions", { name: screen.name })}
+      actions={actions}
+      render={
+        <article
+          ref={ref}
+          className={`group min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 ${needsAttention(screen) ? "border-amber-500/60 bg-amber-500/5" : "border-border"}`}
+        />
+      }
     >
       <div className="relative flow-root">
         <Link
@@ -2372,6 +2392,7 @@ export function ScreenGridCard({
           <span className="grid min-w-0 gap-0.5">
             <Link
               to={detailHref}
+              title={screen.name}
               className="truncate text-sm font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
             >
               {screen.name}
@@ -2385,14 +2406,7 @@ export function ScreenGridCard({
           <div className="shrink-0">
             <ActionMenuButton
               label={t("grid.rowActions", { name: screen.name })}
-              actions={screenRowActionGroups({
-                screen,
-                t,
-                navigate,
-                csrfToken,
-                canManage,
-                onArchive,
-              })}
+              actions={actions}
               variant="ghost"
               size="icon-sm"
             />
@@ -2417,7 +2431,7 @@ export function ScreenGridCard({
           </Badge>
         )}
       </div>
-    </article>
+    </ActionContextMenu>
   );
 }
 

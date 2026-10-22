@@ -378,6 +378,7 @@ export function DataSourcesPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               disabled={remove.isPending}
               onClick={() => {
                 if (pendingDelete) {
@@ -409,11 +410,18 @@ function DataSourceMobileCard({
   const menuLabel = t("dataSources.list.rowActions", { name: source.name });
   const updatedLabel = formatDateTime(source.updatedAt, locale);
   return (
-    <article className="grid gap-3 rounded-xl border border-border p-3">
+    <ActionContextMenu
+      label={menuLabel}
+      actions={actions}
+      render={
+        <article className="grid gap-3 rounded-xl border border-border p-3" />
+      }
+    >
       <div className="flex min-w-0 items-start gap-3">
         <div className="min-w-0 flex-1">
           <Link
             to={`/data-sources/${source.id}`}
+            title={source.name}
             className="block truncate font-medium underline-offset-4 hover:underline"
           >
             {source.name}
@@ -443,7 +451,7 @@ function DataSourceMobileCard({
       <p className="text-xs text-muted-foreground">
         {t("dataSources.list.columns.updated")}: {updatedLabel}
       </p>
-    </article>
+    </ActionContextMenu>
   );
 }
 

@@ -7,7 +7,10 @@ import { api } from "../../api/client";
 import type { Screen, ScreenGroup } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { DashboardSearch } from "../../components/DashboardListToolbar";
-import { ActionMenuButton } from "../../components/studio/ActionMenu";
+import {
+  ActionContextMenu,
+  ActionMenuButton,
+} from "../../components/studio/ActionMenu";
 import type { StudioActionGroup } from "../../components/studio/ActionMenu";
 import { Button } from "../../components/ui/button";
 import {
@@ -160,9 +163,16 @@ export function DisplayGroupScreens({
               {t("groups.detail.noMemberMatch")}
             </p>
           ) : compact ? (
-            <ItemGroup render={<ul />}>
+            <ItemGroup render={<ul />} data-density-surface="collection">
               {members.map((member, index) => (
-                <li key={member.id}>
+                <ActionContextMenu
+                  key={member.id}
+                  label={t("groups.detail.memberActions", {
+                    name: member.name,
+                  })}
+                  actions={actionsFor(member)}
+                  render={<li />}
+                >
                   {index > 0 && <ItemSeparator className="my-0" />}
                   <Item size="sm" className="px-0">
                     <ItemContent>
@@ -185,7 +195,7 @@ export function DisplayGroupScreens({
                       />
                     </ItemActions>
                   </Item>
-                </li>
+                </ActionContextMenu>
               ))}
             </ItemGroup>
           ) : (
@@ -204,7 +214,14 @@ export function DisplayGroupScreens({
               </TableHeader>
               <TableBody>
                 {members.map((member) => (
-                  <TableRow key={member.id}>
+                  <ActionContextMenu
+                    key={member.id}
+                    label={t("groups.detail.memberActions", {
+                      name: member.name,
+                    })}
+                    actions={actionsFor(member)}
+                    render={<TableRow />}
+                  >
                     <TableCell className="font-medium">
                       <Link
                         to={`/screens/${member.id}`}
@@ -229,7 +246,7 @@ export function DisplayGroupScreens({
                         size="icon-sm"
                       />
                     </TableCell>
-                  </TableRow>
+                  </ActionContextMenu>
                 ))}
               </TableBody>
             </Table>

@@ -78,7 +78,7 @@ export function ResponsiveDialog({
         className="max-h-[min(90dvh,48rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-2xl"
         initialFocus={bodyRef}
       >
-        <DialogHeader className="px-6 pt-6 pr-14 pb-4">
+        <DialogHeader className="px-4 pt-4 pr-12 pb-3">
           <DialogTitle className="text-base">{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
@@ -87,11 +87,13 @@ export function ResponsiveDialog({
           tabIndex={0}
           role="region"
           aria-label={title}
-          className="overflow-y-auto border-y px-6 py-5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset"
+          className="overflow-y-auto px-4 py-4 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:ring-inset"
         >
           {children}
         </div>
-        <DialogFooter className="px-6 py-4">{footer}</DialogFooter>
+        <DialogFooter className="m-0 rounded-none px-4 py-3">
+          {footer}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

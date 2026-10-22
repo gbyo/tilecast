@@ -59,3 +59,9 @@ The same item appears in the iOS app's native navigation, after the same visibil
 `@tilecast/studio` is the supported plugin boundary. It exposes plugin chrome, API requests, session information, translations, confirmation and toast helpers, action menus, targeting controls, date inputs, pagination, and regional formatting.
 
 If a reusable primitive is missing, expose it through that boundary instead of importing a private dashboard module.
+
+Studio uses the official shadcn Base Nova components with Base UI, Neutral, Geist, and Lucide. Import primitives through `@tilecast/studio/ui/<component>` so your plugin follows the host's appearance, density, and touch rules.
+
+Define object actions once as `StudioActionGroup[]`. Pass that model to both `ActionMenuButton` and `ActionContextMenu` from `@tilecast/studio`. Keep the visible menu button; a context menu is an extra shortcut.
+
+Shared tables follow Compact spacing automatically. For a resource list built with `ItemGroup`, add `data-density-surface="collection"` to the group. Keep form and dialog spacing unchanged. See the [Studio design system](https://github.com/gbyo/tilecast/blob/main/docs/design-system.md) for the exact contract.

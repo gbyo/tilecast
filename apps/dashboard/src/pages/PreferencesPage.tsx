@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { studioDensity } from "../components/studio/density";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Laptop, Moon, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -341,10 +342,7 @@ function applyPreferences(values: Record<string, unknown>) {
     (appearance === "system" &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
   root.classList.toggle("dark", dark);
-  root.dataset.density =
-    typeof values["preference.density"] === "string"
-      ? String(values["preference.density"])
-      : "comfortable";
+  root.dataset.density = studioDensity(values["preference.density"]);
   root.dataset.reducedMotion = String(
     Boolean(values["preference.reduced_motion"]),
   );

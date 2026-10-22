@@ -78,7 +78,7 @@ export function UpdateSurface({
           </DialogHeader>
           {body}
           {footer && (
-            <DialogFooter className="shrink-0 border-t bg-background px-6 py-4">
+            <DialogFooter className="m-0 shrink-0 rounded-none border-t px-4 py-3">
               {footer}
             </DialogFooter>
           )}

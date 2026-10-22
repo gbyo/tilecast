@@ -171,7 +171,11 @@ export function PlaylistTimeline({
           {emptyAction && <EmptyContent>{emptyAction}</EmptyContent>}
         </Empty>
       ) : (
-        <ItemGroup aria-label={t("timeline.listLabel")} className="gap-1">
+        <ItemGroup
+          aria-label={t("timeline.listLabel")}
+          className="gap-1"
+          data-density-surface="collection"
+        >
           {items.map((item, index) => (
             <PlaylistTimelineItem
               key={item.id}

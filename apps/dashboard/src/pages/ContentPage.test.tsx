@@ -406,6 +406,51 @@ describe("content library", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  it("suppresses Widget footer commands during batch selection and preserves checkbox focus", () => {
+    const widget: Asset = { ...asset, type: "widget" };
+    const collection = (selectedIds: Set<string>) => (
+      <AssetCollection
+        items={[widget]}
+        view="grid"
+        onSelect={vi.fn()}
+        canManage
+        onToggle={vi.fn()}
+        onDuplicate={vi.fn()}
+        onArchive={vi.fn()}
+        selectedIds={selectedIds}
+      />
+    );
+    const { rerender } = render(collection(new Set()));
+    expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Duplicate Welcome" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Archive Welcome" }),
+    ).toBeVisible();
+    const checkbox = screen.getByRole("checkbox", { name: "Select Welcome" });
+    checkbox.focus();
+    rerender(collection(new Set([asset.id])));
+    expect(checkbox).toHaveFocus();
+    expect(
+      screen.queryByRole("button", { name: "Edit" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Duplicate Welcome" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Archive Welcome" }),
+    ).not.toBeInTheDocument();
+    // Primary resource navigation and the selection control remain available.
+    expect(screen.getByRole("button", { name: "Edit Welcome" })).toBeVisible();
+    fireEvent.contextMenu(document.querySelector(".asset-card")!);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    rerender(collection(new Set()));
+    expect(
+      screen.getByRole("button", { name: "Archive Welcome" }),
+    ).toBeVisible();
+  });
+
   it("offers catalog-driven Widget entries", async () => {
     const choose = vi.fn();
     vi.spyOn(api, "contentDefinitions").mockResolvedValue({

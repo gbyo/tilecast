@@ -29,7 +29,7 @@ Read the platform's own README and any closer `AGENTS.md` before making changes.
 
 These stay at their original locations because other engineering documents and past PRs link to them. They are intentionally **not** current task instructions.
 
-- [Studio Rhea redesign](studio-rhea-redesign-plan.md): [Base Vega design system](design-system.md) and current components.
+- [Studio Rhea redesign](studio-rhea-redesign-plan.md): [Base Nova design system](design-system.md) and current components.
 - [Studio authoring flow plan](studio-flow-plan.md): Current Studio routes, [design system](design-system.md) and [widget authoring](widget-authoring.md).
 - [Widgets V2 first-wave migration](widgets-v2-authoring-and-first-wave.md): [Widget authoring](widget-authoring.md), [Widgets V2](widgets-v2.md).
 - [Studio design-system roadmap](design-system-roadmap.md): [Design system](design-system.md).

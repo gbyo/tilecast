@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import type { Screen, ScreenGroup } from "../../api/types";
-import { ActionMenuButton } from "../../components/studio/ActionMenu";
+import {
+  ActionContextMenu,
+  ActionMenuButton,
+} from "../../components/studio/ActionMenu";
 import type { StudioActionGroup } from "../../components/studio/ActionMenu";
 import {
   Item,
@@ -60,7 +63,9 @@ function FallbackCell({ group }: { group: ScreenGroup }) {
     );
   return (
     <span className="grid min-w-0">
-      <span className="truncate">{fallback.name}</span>
+      <span className="truncate" title={fallback.name}>
+        {fallback.name}
+      </span>
       <span className="text-xs text-muted-foreground">
         {t(`groups.fallbackType.${fallback.kind}`)}
       </span>
@@ -85,15 +90,24 @@ export function GroupTable({ groups, screens, actionsFor }: RowProps) {
       </TableHeader>
       <TableBody>
         {groups.map((group) => (
-          <TableRow key={group.id}>
+          <ActionContextMenu
+            key={group.id}
+            label={t("groups.actions.label", { name: group.name })}
+            actions={actionsFor(group)}
+            render={<TableRow />}
+          >
             <TableCell className="max-w-80">
               <Link
                 to={groupPath(group.id)}
+                title={group.name}
                 className="grid min-w-0 gap-0.5 rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
                 <span className="truncate font-medium">{group.name}</span>
                 {group.description && (
-                  <span className="truncate text-xs text-muted-foreground">
+                  <span
+                    className="truncate text-xs text-muted-foreground"
+                    title={group.description}
+                  >
                     {group.description}
                   </span>
                 )}
@@ -116,7 +130,7 @@ export function GroupTable({ groups, screens, actionsFor }: RowProps) {
                 size="icon-sm"
               />
             </TableCell>
-          </TableRow>
+          </ActionContextMenu>
         ))}
       </TableBody>
     </Table>
@@ -126,16 +140,25 @@ export function GroupTable({ groups, screens, actionsFor }: RowProps) {
 export function GroupItems({ groups, screens, actionsFor }: RowProps) {
   const { t } = useTranslation("screens");
   return (
-    <ItemGroup render={<ul />}>
+    <ItemGroup render={<ul />} data-density-surface="collection">
       {groups.map((group, index) => {
         const fallback = groupFallback(group);
         return (
-          <li key={group.id}>
+          <ActionContextMenu
+            key={group.id}
+            label={t("groups.actions.label", { name: group.name })}
+            actions={actionsFor(group)}
+            render={<li />}
+          >
             {index > 0 && <ItemSeparator className="my-0" />}
             <Item size="sm" className="px-0">
               <ItemContent>
                 <ItemTitle>
-                  <Link to={groupPath(group.id)} className="truncate">
+                  <Link
+                    to={groupPath(group.id)}
+                    className="truncate"
+                    title={group.name}
+                  >
                     {group.name}
                   </Link>
                 </ItemTitle>
@@ -166,7 +189,7 @@ export function GroupItems({ groups, screens, actionsFor }: RowProps) {
                 />
               </ItemActions>
             </Item>
-          </li>
+          </ActionContextMenu>
         );
       })}
     </ItemGroup>

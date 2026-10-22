@@ -213,7 +213,7 @@ function StudioChrome({
           signOutDisabled={auth.isSubmitting}
         />
       )}
-      <SidebarInset className="min-h-svh overflow-hidden">
+      <SidebarInset className="min-h-svh min-w-0 overflow-hidden">
         <EditorHeaderProvider>
           {auth.status?.demoMode && !editorRoute ? <DemoModeBanner /> : null}
           <StudioTopbar
@@ -226,6 +226,7 @@ function StudioChrome({
             signOutDisabled={auth.isSubmitting}
           />
           <div
+            data-slot={editorRoute ? "studio-editor" : "studio-page"}
             className={
               editorRoute
                 ? "min-h-0 flex-1 overflow-auto"

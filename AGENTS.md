@@ -239,7 +239,7 @@ Media rows must reference generated asset IDs. Uploaded filenames are metadata o
 ## Studio conventions
 
 - React and strict TypeScript, React Router, TanStack Query for Server state, React Hook Form and Zod for forms; use Zustand only for complex local editor state.
-- Prefer the existing shadcn Base UI **Base Vega** components in `apps/dashboard/src/components/ui`, Geist, Lucide, and semantic tokens in `packages/design-tokens`. Read [`docs/design-system.md`](docs/design-system.md) before making UI changes.
+- Prefer the existing shadcn Base UI **Base Nova** components in `apps/dashboard/src/components/ui`, Geist, Lucide, and semantic tokens in `packages/design-tokens`. Read [`docs/design-system.md`](docs/design-system.md) before making UI changes.
 - Preserve domain query ownership and typed API boundaries in `apps/dashboard/src/api/` and `apps/dashboard/src/data/`. Keep local draft state distinct from Server state; plugin-owned UI and operations stay inside their extension interfaces.
 - Build for mobile and desktop together. Reuse established loading, empty, error, confirmation, and feedback patterns. Controls must be usable by keyboard/touch, never hover-only; respect focus order, contrast, and reduced motion.
 - Keep Studio restrained and operational: useful density, clear hierarchy, neutral application chrome, restrained motion, no fabricated analytics or claims that unfinished features exist. Pair status color with text; do not use organization branding as Studio chrome.
