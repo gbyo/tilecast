@@ -52,21 +52,21 @@ export function DefaultContentSection({
   isLoading: boolean;
 }) {
   const { t } = useTranslation("activity");
-  const assignedDefaults = assignedDefaultsScreens(screens);
-  const withoutDefault = withoutDefaultScreenCount(screens);
+  const assignedDefaults = defaultContentScreens(screens);
+  const withoutDefault = noDefaultContentScreenCount(screens);
   const online = assignedDefaults.length + withoutDefault;
   const groups = groupByContent(assignedDefaults);
   const shown = groups.slice(0, MAX_ROWS);
   const hidden = groups.length - shown.length;
   return (
-    <RailSection id="default-content-heading" title={t("operations.assignedDefaults.title")}>
+    <RailSection id="default-content-heading" title={t("operations.defaultContent.title")}>
       <LoadReveal
         loading={isLoading}
         className="grid gap-2"
         skeleton={
           <div
             role="status"
-            aria-label={t("operations.assignedDefaults.loading")}
+            aria-label={t("operations.defaultContent.loading")}
             className="grid gap-2"
           >
             <div className={railRowsSkeleton}>
@@ -81,8 +81,8 @@ export function DefaultContentSection({
         {shown.length === 0 ? (
           <p className="py-1 text-sm text-muted-foreground">
             {online === 0
-              ? t("operations.assignedDefaults.noneOnline")
-              : t("operations.assignedDefaults.noneAssigned")}
+              ? t("operations.defaultContent.noneOnline")
+              : t("operations.defaultContent.noneAssigned")}
           </p>
         ) : (
           <ItemGroup className={listBleed}>
@@ -101,7 +101,7 @@ export function DefaultContentSection({
                 </ItemContent>
                 <ItemActions>
                   <span className="text-xs text-muted-foreground tabular-nums">
-                    {t("operations.assignedDefaults.screenCount", {
+                    {t("operations.defaultContent.screenCount", {
                       count: group.screens.length,
                     })}
                   </span>
@@ -117,12 +117,12 @@ export function DefaultContentSection({
         {assignedDefaults.length > 0 && (
           <p className="text-xs text-muted-foreground">
             {[
-              t("operations.assignedDefaults.footer", {
+              t("operations.defaultContent.footer", {
                 assigned: assignedDefaults.length,
                 unassigned: withoutDefault,
               }),
               hidden > 0
-                ? t("operations.assignedDefaults.moreGroups", { count: hidden })
+                ? t("operations.defaultContent.moreGroups", { count: hidden })
                 : undefined,
             ]
               .filter(Boolean)
