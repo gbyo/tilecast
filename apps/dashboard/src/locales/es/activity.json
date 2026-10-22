@@ -673,19 +673,19 @@
         "other": "Incidente activo"
       }
     },
-    "onAir": {
+    "defaultContent": {
       "title": "Al aire ahora",
       "description": "Lo que deben mostrar las pantallas en línea.",
       "loading": "Cargando pantallas",
       "noneOnline": "Ninguna pantalla está en línea.",
-      "noneAssigned": "Las pantallas en línea no tienen nada asignado.",
+      "noneAssigned": "Las pantallas en línea no tienen contenido predeterminado.",
       "screenCount_one": "{{count}} pantalla",
       "screenCount_many": "{{count}} pantallas",
       "screenCount_other": "{{count}} pantallas",
       "moreGroups_one": "{{count}} más",
       "moreGroups_many": "{{count}} más",
       "moreGroups_other": "{{count}} más",
-      "footer": "{{assigned}} asignadas · {{unassigned}} sin asignar"
+      "footer": "{{assigned}} con contenido predeterminado · {{unassigned}} sin él"
     },
     "schedulesLoading": "Cargando programaciones",
     "upcomingStartsAt": "Comienza {{time}}",
