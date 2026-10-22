@@ -46,6 +46,10 @@ import { api } from "../api/client";
 import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { rfc3339ToLocalDateTime } from "../lib/dateTime";
 import { MediaToolbar } from "../components/content/MediaToolbar";
+import {
+  CollectionPage,
+  CollectionSurface,
+} from "../components/collection/CollectionPage";
 import { SingleToggleGroup } from "../components/content/SingleToggleGroup";
 import type {
   MediaFacetKey,
@@ -689,12 +693,16 @@ export function ContentPage() {
   };
 
   return (
-    <section
-      className="w-full min-w-0 space-y-5"
+    <CollectionPage
+      title={t("media.library.title")}
+      description={
+        libraryView === "archive"
+          ? t("media.library.descriptionArchived")
+          : t("media.library.description")
+      }
       onDragOver={(event) => event.preventDefault()}
       onDrop={libraryView === "active" ? dropFiles : undefined}
     >
-      <h1 className="sr-only">{t("media.library.title")}</h1>
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -828,11 +836,6 @@ export function ContentPage() {
             )}
           </div>
         </div>
-        {libraryView === "archive" && !archiveIsEmpty && (
-          <p className="max-w-prose text-sm text-muted-foreground">
-            {t("media.library.descriptionArchived")}
-          </p>
-        )}
         <Separator />
       </div>
       <input
@@ -956,7 +959,8 @@ export function ContentPage() {
           </AlertDescription>
         </Alert>
       )}
-      {assets.isLoading ? (
+      <CollectionSurface>
+        {assets.isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-4 w-48" />
           <p className="text-sm text-muted-foreground">
@@ -1066,6 +1070,8 @@ export function ContentPage() {
           )}
         </div>
       )}
+      </CollectionSurface>
+
       {selected && (
         <AssetDetails
           // A new asset remounts the pane, so its form state starts from
@@ -1092,7 +1098,7 @@ export function ContentPage() {
           }}
         />
       )}
-    </section>
+    </CollectionPage>
   );
 }
 
@@ -1297,13 +1303,16 @@ function assetStatusBadge(
   asset: Asset,
   archived: boolean,
   t: TFunction<["content", "common"]>,
-): {
-  label: string;
-  variant: "secondary" | "destructive" | "outline";
-} {
+):
+  | {
+      label: string;
+      variant: "secondary" | "destructive" | "outline";
+    }
+  | null {
   if (archived && isExpiredAsset(asset))
     return { label: t("media.badge.expired"), variant: "outline" };
   if (archived) return { label: t("media.badge.archived"), variant: "outline" };
+  if (asset.processingStatus === "ready") return null;
   if (asset.processingStatus === "failed")
     return { label: t("media.status.failed"), variant: "destructive" };
   return {
@@ -1449,9 +1458,11 @@ function MediaAssetCard({
           </span>
           <AssetOrganizationChips asset={asset} folderNames={folderNames} />
         </span>
-        <Badge variant={status.variant} className="w-fit">
-          {status.label}
-        </Badge>
+        {status && (
+          <Badge variant={status.variant} className="w-fit">
+            {status.label}
+          </Badge>
+        )}
       </Button>
       {asset.type === "widget" && !archived && (
         <footer className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-2">
@@ -1558,7 +1569,7 @@ function MediaAssetListRow({
           {formatBytes(asset.originalSize, locale)}
         </ItemDescription>
       </ItemContent>
-      <Badge variant={status.variant}>{status.label}</Badge>
+      {status && <Badge variant={status.variant}>{status.label}</Badge>}
       {actions.some((group) => group.actions.length > 0) && (
         <ItemActions>
           <ActionMenuButton
