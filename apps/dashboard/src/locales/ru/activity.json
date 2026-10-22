@@ -709,12 +709,12 @@
         "other": "Активный инцидент"
       }
     },
-    "onAir": {
+    "defaultContent": {
       "title": "В эфире сейчас",
       "description": "Что должны показывать экраны в сети.",
       "loading": "Загрузка экранов",
       "noneOnline": "Нет экранов в сети.",
-      "noneAssigned": "Экранам в сети ничего не назначено.",
+      "noneAssigned": "Для экранов в сети не настроен контент по умолчанию.",
       "screenCount_one": "{{count}} экран",
       "screenCount_few": "{{count}} экрана",
       "screenCount_many": "{{count}} экранов",
@@ -723,7 +723,7 @@
       "moreGroups_few": "ещё {{count}}",
       "moreGroups_many": "ещё {{count}}",
       "moreGroups_other": "ещё {{count}}",
-      "footer": "Назначено: {{assigned}} · без назначения: {{unassigned}}"
+      "footer": "С контентом по умолчанию: {{assigned}} · без него: {{unassigned}}"
     },
     "schedulesLoading": "Загрузка расписаний",
     "upcomingStartsAt": "Начало {{time}}",
