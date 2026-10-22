@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveAttention,
-  idleScreenCount,
-  onAirScreens,
+  noDefaultContentScreenCount,
+  defaultContentScreens,
   summarizeFleet,
 } from "./attention";
 import { incident, screen } from "./fixtures";
@@ -116,7 +116,7 @@ describe("fleet summaries", () => {
       screen({ id: "c", status: "offline", nowPlayingName: "Menu" }),
       screen({ id: "d", name: "Empty" }),
     ];
-    expect(onAirScreens(screens).map((item) => item.name)).toEqual(["A", "B"]);
-    expect(idleScreenCount(screens)).toBe(1);
+    expect(defaultContentScreens(screens).map((item) => item.name)).toEqual(["A", "B"]);
+    expect(noDefaultContentScreenCount(screens)).toBe(1);
   });
 });
