@@ -355,6 +355,7 @@ export function ScreenFleetTable({
             <ActionContextMenu
               key={row.id}
               label={t("table.rowActions", { name: row.original.name })}
+              title={row.original.name}
               actions={
                 selectedIds.size === 0 && canManage
                   ? (rowActions.get(row.id) ?? [])

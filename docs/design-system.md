@@ -618,7 +618,10 @@ and does not receive danger styling.
 Use `ActionMenuButton` for visible object actions. Use `ActionContextMenu` as an
 accelerator on the corresponding resource row or card. Both consume the same
 `StudioActionGroup[]` model. Plugin code imports them from `@tilecast/studio`.
-Context menus must not be the only action path.
+Resource context menus use the shared 14rem composition: show the resource name
+in a truncated `ContextMenuLabel`, then a separator and the grouped actions.
+Pass the resource name through `title`; keep `label` as the localized
+accessible action label. Context menus must not be the only action path.
 
 Keep menus short and relevant to the target. Put common actions first. Separate
 related groups. Limit nesting to one submenu level. Put destructive actions last

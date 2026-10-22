@@ -170,6 +170,7 @@ export function DisplayGroupScreens({
                   label={t("groups.detail.memberActions", {
                     name: member.name,
                   })}
+                  title={member.name}
                   actions={actionsFor(member)}
                   render={<li />}
                 >
@@ -219,6 +220,7 @@ export function DisplayGroupScreens({
                     label={t("groups.detail.memberActions", {
                       name: member.name,
                     })}
+                    title={member.name}
                     actions={actionsFor(member)}
                     render={<TableRow />}
                   >

@@ -45,6 +45,7 @@ export function ScheduleCompactList({
           <ActionContextMenu
             key={schedule.id}
             label={label}
+            title={schedule.name}
             actions={actions}
             render={<Item size="sm" variant="outline" render={<li />} />}
           >

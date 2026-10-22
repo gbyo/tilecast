@@ -93,6 +93,7 @@ export function GroupTable({ groups, screens, actionsFor }: RowProps) {
           <ActionContextMenu
             key={group.id}
             label={t("groups.actions.label", { name: group.name })}
+            title={group.name}
             actions={actionsFor(group)}
             render={<TableRow />}
           >
@@ -147,6 +148,7 @@ export function GroupItems({ groups, screens, actionsFor }: RowProps) {
           <ActionContextMenu
             key={group.id}
             label={t("groups.actions.label", { name: group.name })}
+            title={group.name}
             actions={actionsFor(group)}
             render={<li />}
           >

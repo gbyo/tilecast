@@ -107,6 +107,7 @@ export function SchedulesTable({
               <ActionContextMenu
                 key={schedule.id}
                 label={label}
+                title={schedule.name}
                 actions={actions}
                 render={<TableRow />}
               >
