@@ -15,11 +15,14 @@ import {
 import { SchedulesToolbar } from "../components/schedules/SchedulesToolbar";
 import { useScheduleDeletion } from "../components/schedules/useScheduleDeletion";
 import { buttonVariants } from "../components/ui/button";
-import { Separator } from "../components/ui/separator";
 import { Skeleton } from "../components/ui/skeleton";
 import { defaultScheduleListParams, scheduleQueries } from "../data/schedules";
 import { useCompactLayout } from "../hooks/use-compact-layout";
 import { hasCapability } from "../auth/capabilities";
+import {
+  CollectionPage,
+  CollectionSurface,
+} from "../components/collection/CollectionPage";
 
 const canManage = (status?: AuthStatus) =>
   hasCapability(status, "schedule.edit");
@@ -43,34 +46,30 @@ export function SchedulesPage() {
   const createLabel = t("page.create");
 
   return (
-    <section className="w-full min-w-0 space-y-5">
-      <h1 className="sr-only">{t("page.title")}</h1>
+    <CollectionPage
+      title={t("page.title")}
+      description={t("page.description")}
+      meta={
+        typeof total === "number" ? (
+          t("page.count", { count: total })
+        ) : schedules.isLoading ? (
+          <Skeleton className="h-5 w-24" />
+        ) : undefined
+      }
+      actions={
+        manager ? (
+          <Link
+            className={buttonVariants({ variant: "default" })}
+            to="/schedules/new"
+            aria-label={compact ? createLabel : undefined}
+          >
+            <Plus aria-hidden="true" />
+            {compact ? t("page.createShort") : createLabel}
+          </Link>
+        ) : undefined
+      }
+    >
       {dialog}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          {typeof total === "number" ? (
-            <p className="text-sm text-muted-foreground tabular-nums">
-              {t("page.count", { count: total })}
-            </p>
-          ) : schedules.isLoading ? (
-            <Skeleton className="h-5 w-24" />
-          ) : null}
-          {manager && (
-            <Link
-              className={buttonVariants({
-                variant: "default",
-                className: "ml-auto",
-              })}
-              to="/schedules/new"
-              aria-label={compact ? createLabel : undefined}
-            >
-              <Plus aria-hidden="true" />
-              {compact ? t("page.createShort") : createLabel}
-            </Link>
-          )}
-        </div>
-        <Separator />
-      </div>
       <SchedulesToolbar
         search={params.search}
         onSearchChange={(search) =>
@@ -91,7 +90,8 @@ export function SchedulesPage() {
         sort={params.sort}
         onSortChange={(sort) => setParams((current) => ({ ...current, sort }))}
       />
-      <ScheduleResults
+      <CollectionSurface>
+        <ScheduleResults
         query={schedules}
         now={now}
         narrowed={isScheduleListNarrowed(params)}
@@ -100,14 +100,15 @@ export function SchedulesPage() {
         onDelete={requestDelete}
         // Sort is a presentation preference, not a narrowing condition, so
         // the "nothing matches" reset keeps it.
-        onClearSearchAndFilters={() =>
-          setParams((current) => ({
-            ...defaultScheduleListParams,
-            sort: current.sort,
-          }))
-        }
-      />
-    </section>
+          onClearSearchAndFilters={() =>
+            setParams((current) => ({
+              ...defaultScheduleListParams,
+              sort: current.sort,
+            }))
+          }
+        />
+      </CollectionSurface>
+    </CollectionPage>
   );
 }
 
