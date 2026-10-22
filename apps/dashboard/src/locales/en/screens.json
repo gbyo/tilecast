@@ -628,6 +628,7 @@
   },
   "page": {
     "title": "Screens",
+    "description": "Monitor player health, default content, and live operational state across the fleet.",
     "loadingInventory": "Loading screen inventory…",
     "pairScreen": "Pair screen",
     "viewsAriaLabel": "Screen views",
