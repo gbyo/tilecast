@@ -30,7 +30,7 @@ import {
   NeedsAttention,
   NeedsAttentionSkeleton,
 } from "../components/overview/NeedsAttention";
-import { OnAirSection } from "../components/overview/OnAirSection";
+import { DefaultContentSection } from "../components/overview/DefaultContentSection";
 import {
   OverviewRecap,
   OverviewRecapSkeleton,
@@ -273,7 +273,7 @@ export function OperationsDashboard() {
               >
                 {!screens.isError && (
                   <>
-                    <OnAirSection
+                    <DefaultContentSection
                       screens={allScreens}
                       isLoading={screens.isLoading}
                     />
