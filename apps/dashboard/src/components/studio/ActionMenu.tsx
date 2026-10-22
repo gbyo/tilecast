@@ -158,6 +158,7 @@ export function ActionContextMenu({
   return (
     <ContextMenu disabled={count === 0}>
       <ContextMenuTrigger
+        suppressModifiedClick={count > 0}
         className={
           className ?? (count === 0 && !render ? "contents" : undefined)
         }

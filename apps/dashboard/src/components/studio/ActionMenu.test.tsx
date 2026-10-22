@@ -248,6 +248,25 @@ describe("ActionContextMenu", () => {
     },
   );
 
+  it("preserves macOS Control-click on nested links when the menu is disabled", () => {
+    vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
+    const activate = vi.fn();
+    render(
+      <ActionContextMenu label="Lobby actions" actions={[]}>
+        <a href="#lobby" onClick={activate}>
+          Lobby
+        </a>
+      </ActionContextMenu>,
+    );
+    const defaultAllowed = fireEvent.click(
+      screen.getByRole("link", { name: "Lobby" }),
+      { ctrlKey: true },
+    );
+    expect(defaultAllowed).toBe(true);
+    expect(activate).toHaveBeenCalledExactlyOnceWith(expect.anything());
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
   it("uses the same action and destructive semantics through both menus", async () => {
     const onDelete = vi.fn();
     const actions = groups({ onDelete });
