@@ -328,6 +328,7 @@ export function ContentPage() {
   const [checkedAssetIds, setCheckedAssetIds] = useState<Set<string>>(
     new Set(),
   );
+  const [organizeAsset, setOrganizeAsset] = useState<Asset | null>(null);
   const { confirm, dialog: confirmDialog } = useConfirm();
   const deleteCheckedAssets = async () => {
     const ids = [...checkedAssetIds];
@@ -735,8 +736,13 @@ export function ContentPage() {
                   folders={folders.data ?? []}
                   collections={collections.data ?? []}
                   tags={tags.data ?? []}
-                  assetIds={[...checkedAssetIds]}
+                  assetIds={
+                    organizeAsset ? [organizeAsset.id] : [...checkedAssetIds]
+                  }
+                  organizeRequested={Boolean(organizeAsset)}
+                  onOrganizeClosed={() => setOrganizeAsset(null)}
                   onApplied={() => {
+                    setOrganizeAsset(null);
                     setCheckedAssetIds(new Set());
                     refreshOrganization();
                   }}
@@ -988,7 +994,31 @@ export function ContentPage() {
                 : void openAssetDetails(asset)
             }
             canManage={canSelect}
-            canEdit={canManage}
+            canEdit={media.edit}
+            onOrganize={
+              media.organize || media.tag ? setOrganizeAsset : undefined
+            }
+            onRetry={
+              media.edit
+                ? (asset) => {
+                    void api.retryAsset(asset.id, csrf).then(
+                      () => {
+                        toast.add({
+                          title: t("media.details.retryStarted"),
+                          type: "success",
+                        });
+                        refreshOrganization();
+                      },
+                      (error: unknown) =>
+                        toast.add({
+                          title: t("media.details.retryFailed"),
+                          description: apiErrorMessage(error),
+                          type: "error",
+                        }),
+                    );
+                  }
+                : undefined
+            }
             archived={libraryView === "archive"}
             onDuplicate={(asset) =>
               void api.duplicateWidget(asset.id, csrf).then(
@@ -1152,6 +1182,8 @@ export function AssetCollection({
   canManage = false,
   canEdit = canManage,
   onDuplicate,
+  onOrganize,
+  onRetry,
   onArchive,
   onRestore,
   onDelete,
@@ -1167,6 +1199,8 @@ export function AssetCollection({
   /** Whether opening an item edits it; defaults to canManage. */
   canEdit?: boolean;
   onDuplicate?: (asset: Asset) => void;
+  onOrganize?: (asset: Asset) => void;
+  onRetry?: (asset: Asset) => void;
   onArchive?: (asset: Asset) => void;
   onRestore?: (asset: Asset) => void;
   onDelete?: (asset: Asset) => void;
@@ -1186,19 +1220,25 @@ export function AssetCollection({
           {
             id: "open",
             label: canEdit
-              ? t("common:actions.edit")
+              ? t("media.action.editDetails")
               : t("media.card.openMenu"),
             icon: "edit",
             onSelect: () => onSelect(asset),
           },
         ];
-    if (canManage && onToggle)
+    if (!archived && asset.processingStatus === "failed" && onRetry)
       primary.push({
-        id: "select",
-        label: selectedIds.has(asset.id)
-          ? t("picker.tray.clearSelection")
-          : t("media.card.selectItem"),
-        onSelect: () => onToggle(asset.id),
+        id: "retry-processing",
+        label: t("media.details.retryProcessing"),
+        icon: "refresh",
+        onSelect: () => onRetry(asset),
+      });
+    if (!archived && onOrganize)
+      primary.push({
+        id: "organize",
+        label: t("media.action.organize"),
+        icon: "organize",
+        onSelect: () => onOrganize(asset),
       });
     // Only Widgets have a duplicate endpoint; uploaded media has no server-side copy.
     if (canManage && onDuplicate && asset.type === "widget")
@@ -1208,7 +1248,7 @@ export function AssetCollection({
         icon: "duplicate",
         onSelect: () => onDuplicate(asset),
       });
-    if (canManage && archived && onRestore)
+    if (archived && onRestore)
       primary.push({
         id: "restore",
         label: t("media.card.restoreToLibrary"),
@@ -1216,7 +1256,7 @@ export function AssetCollection({
         onSelect: () => onRestore(asset),
       });
     const groups: StudioActionGroup[] = [{ actions: primary }];
-    if (canManage && !archived && onArchive)
+    if (!archived && onArchive)
       groups.push({
         actions: [
           {
@@ -1227,7 +1267,7 @@ export function AssetCollection({
           },
         ],
       });
-    if (canManage && archived && onDelete)
+    if (archived && onDelete)
       groups.push({
         actions: [
           {
@@ -1995,6 +2035,8 @@ export function ContentOrganizer({
   onArchive,
   onRestore,
   onDelete,
+  organizeRequested = false,
+  onOrganizeClosed,
 }: {
   /** What the signed-in account may do; each control follows it. */
   permissions: MediaPermissions;
@@ -2011,6 +2053,8 @@ export function ContentOrganizer({
   onArchive: () => void | Promise<void>;
   onRestore: () => void | Promise<void>;
   onDelete: () => void | Promise<void>;
+  organizeRequested?: boolean;
+  onOrganizeClosed?: () => void;
 }) {
   const [folderId, setFolderId] = useState("");
   const [tagId, setTagId] = useState("");
@@ -2233,9 +2277,12 @@ export function ContentOrganizer({
         onClose={() => setManaging(false)}
       />
       <Dialog
-        open={organizing}
+        open={organizing || organizeRequested}
         onOpenChange={(open) => {
-          if (!open) setOrganizing(false);
+          if (!open) {
+            setOrganizing(false);
+            onOrganizeClosed?.();
+          }
         }}
       >
         <DialogContent>
@@ -2351,7 +2398,10 @@ export function ContentOrganizer({
             <Button
               variant="outline"
               type="button"
-              onClick={() => setOrganizing(false)}
+              onClick={() => {
+                setOrganizing(false);
+                onOrganizeClosed?.();
+              }}
             >
               {t("common:actions.cancel")}
             </Button>

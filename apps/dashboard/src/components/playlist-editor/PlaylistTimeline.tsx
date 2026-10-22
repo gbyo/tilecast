@@ -1,19 +1,5 @@
+import { FileImage, Globe2, GripVertical, PanelsTopLeft } from "lucide-react";
 import {
-  ArrowDown,
-  ArrowDownToLine,
-  ArrowUp,
-  ArrowUpToLine,
-  FileImage,
-  Globe2,
-  GripVertical,
-  MoreHorizontal,
-  PanelRight,
-  PanelsTopLeft,
-  Trash2,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  Fragment,
   useState,
   type DragEvent,
   type KeyboardEvent,
@@ -24,21 +10,11 @@ import type { PlaylistItem } from "../../api/types";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuTrigger,
-} from "../ui/context-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+  ActionContextMenu,
+  ActionMenuButton,
+  type StudioAction,
+  type StudioActionGroup,
+} from "../studio/ActionMenu";
 import {
   Empty,
   EmptyContent,
@@ -72,15 +48,6 @@ import {
 } from "./playlistItemActions";
 
 export type TimelineEdge = "top" | "bottom";
-
-const actionIcons: Record<PlaylistItemActionId, LucideIcon> = {
-  inspect: PanelRight,
-  "move-up": ArrowUp,
-  "move-down": ArrowDown,
-  "move-top": ArrowUpToLine,
-  "move-bottom": ArrowDownToLine,
-  remove: Trash2,
-};
 
 export function PlaylistTimeline({
   items,
@@ -247,6 +214,35 @@ function PlaylistTimelineItem({
     !item.usePlayerDefaults &&
     itemHasTransitionOverride(item, playlistTransition);
   const unavailable = item.assetStatus !== "ready";
+  const command = (action: PlaylistItemAction): StudioAction => ({
+    id: action.id,
+    label: action.label,
+    icon: action.id,
+    shortcut: action.shortcut,
+    disabled: action.disabled,
+    role: action.destructive ? "destructive" : "default",
+    onSelect: () => onAction(action.id),
+  });
+  const menuActions: StudioActionGroup[] = [
+    {
+      actions: [
+        ...actions.filter((action) => action.group === "inspect").map(command),
+        {
+          id: "move",
+          label: t("timeline.actions.move"),
+          icon: "move",
+          items: actions
+            .filter((action) => action.group === "order")
+            .map(command),
+        },
+      ],
+    },
+    {
+      actions: actions
+        .filter((action) => action.group === "remove")
+        .map(command),
+    },
+  ];
 
   // Alt+Arrow reorders without leaving the row; Alt+Home/End jumps to an edge.
   // Plain arrows keep their native scroll behavior.
@@ -266,189 +262,113 @@ function PlaylistTimelineItem({
   };
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger
-        render={
-          <Item
-            role="listitem"
-            size="sm"
-            variant={selected ? "muted" : "default"}
-            data-selected={selected || undefined}
-            data-playlist-item={item.id}
-            className={`relative flex-nowrap py-2 hover:bg-muted/50 has-[[data-slot=playlist-item-inspect]:focus-visible]:border-ring has-[[data-slot=playlist-item-inspect]:focus-visible]:ring-[3px] has-[[data-slot=playlist-item-inspect]:focus-visible]:ring-ring/50 data-selected:border-border ${dragged ? "opacity-50" : ""} ${dropEdge === "before" ? "before:pointer-events-none before:absolute before:inset-x-2 before:top-0 before:z-20 before:h-0.5 before:rounded-full before:bg-primary" : ""} ${dropEdge === "after" ? "after:pointer-events-none after:absolute after:inset-x-2 after:bottom-0 after:z-20 after:h-0.5 after:rounded-full after:bg-primary" : ""}`}
-            onDragOver={(event) => {
-              if (!canManage || dragged) return;
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "move";
-              onDragOver(dropEdgeForEvent(event));
-            }}
-            onDrop={(event) => {
-              if (!canManage || dragged) return;
-              event.preventDefault();
-              event.stopPropagation();
-              onDrop(event, item.id, dropEdgeForEvent(event));
-            }}
-            onKeyDown={onRowKeyDown}
-          />
-        }
-      >
-        <div className="relative z-10 flex w-12 shrink-0 items-center gap-0.5 text-muted-foreground">
-          {canManage ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="cursor-grab active:cursor-grabbing"
-              draggable
-              aria-label={t("timeline.reorder", { name: item.assetName })}
-              title={t("timeline.dragHint")}
-              onDragStart={(event) => {
-                event.stopPropagation();
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData(
-                  "application/x-tilecast-playlist-item",
-                  item.id,
-                );
-                event.dataTransfer.setData("text/plain", item.id);
-                onDragStart(item.id);
-              }}
-              onDragEnd={onDragEnd}
-            >
-              <GripVertical aria-hidden="true" />
-            </Button>
-          ) : (
-            <span className="size-6" aria-hidden="true" />
-          )}
-          <span className="text-xs tabular-nums" aria-hidden="true">
-            {String(index + 1).padStart(2, "0")}
-          </span>
-        </div>
-
-        <TimelineMedia item={item} />
-
-        <ItemContent className="min-w-0 gap-0.5">
-          <ItemTitle className="w-full min-w-0">
-            {/* The inspect control stretches over the whole row, so any click on
-                the row selects it while the handle and menu stay above it. */}
-            <button
-              type="button"
-              data-slot="playlist-item-inspect"
-              className="truncate text-left outline-none after:absolute after:inset-0 after:rounded-md"
-              aria-label={t("timeline.inspectAction", { name: item.assetName })}
-              aria-pressed={selected}
-              onClick={() => onAction("inspect")}
-            >
-              {item.assetName}
-            </button>
-          </ItemTitle>
-          <ItemDescription className="truncate text-xs">
-            {playlistItemSummary(item, t)}
-          </ItemDescription>
-        </ItemContent>
-
-        <ItemActions className="relative z-10 gap-1.5">
-          {override && (
-            <Badge variant="outline">{t("timeline.overrideBadge")}</Badge>
-          )}
-          {unavailable && (
-            <Badge variant="destructive">
-              {assetStatusLabel(item.assetStatus, t)}
-            </Badge>
-          )}
-          <span className="min-w-12 text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-            {formatItemDuration(item, t)}
-          </span>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label={t("timeline.actionsFor", {
-                    name: item.assetName,
-                  })}
-                />
-              }
-            >
-              <MoreHorizontal aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="min-w-52"
-              aria-label={t("timeline.actionsFor", { name: item.assetName })}
-            >
-              <PlaylistItemMenuEntries
-                actions={actions}
-                onAction={onAction}
-                Item={DropdownMenuItem}
-                Separator={DropdownMenuSeparator}
-                Shortcut={DropdownMenuShortcut}
-              />
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </ItemActions>
-      </ContextMenuTrigger>
-      <ContextMenuContent
-        className="min-w-52"
-        aria-label={t("timeline.actionsFor", { name: item.assetName })}
-      >
-        <PlaylistItemMenuEntries
-          actions={actions}
-          onAction={onAction}
-          Item={ContextMenuItem}
-          Separator={ContextMenuSeparator}
-          Shortcut={ContextMenuShortcut}
+    <ActionContextMenu
+      label={t("timeline.actionsFor", { name: item.assetName })}
+      actions={menuActions}
+      render={
+        <Item
+          role="listitem"
+          size="sm"
+          variant={selected ? "muted" : "default"}
+          data-selected={selected || undefined}
+          data-playlist-item={item.id}
+          className={`relative flex-nowrap py-2 hover:bg-muted/50 has-[[data-slot=playlist-item-inspect]:focus-visible]:border-ring has-[[data-slot=playlist-item-inspect]:focus-visible]:ring-[3px] has-[[data-slot=playlist-item-inspect]:focus-visible]:ring-ring/50 data-selected:border-border ${dragged ? "opacity-50" : ""} ${dropEdge === "before" ? "before:pointer-events-none before:absolute before:inset-x-2 before:top-0 before:z-20 before:h-0.5 before:rounded-full before:bg-primary" : ""} ${dropEdge === "after" ? "after:pointer-events-none after:absolute after:inset-x-2 after:bottom-0 after:z-20 after:h-0.5 after:rounded-full after:bg-primary" : ""}`}
+          onDragOver={(event) => {
+            if (!canManage || dragged) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "move";
+            onDragOver(dropEdgeForEvent(event));
+          }}
+          onDrop={(event) => {
+            if (!canManage || dragged) return;
+            event.preventDefault();
+            event.stopPropagation();
+            onDrop(event, item.id, dropEdgeForEvent(event));
+          }}
+          onKeyDown={onRowKeyDown}
         />
-      </ContextMenuContent>
-    </ContextMenu>
+      }
+    >
+      <div className="relative z-10 flex w-12 shrink-0 items-center gap-0.5 text-muted-foreground">
+        {canManage ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="cursor-grab active:cursor-grabbing"
+            draggable
+            aria-label={t("timeline.reorder", { name: item.assetName })}
+            title={t("timeline.dragHint")}
+            onDragStart={(event) => {
+              event.stopPropagation();
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData(
+                "application/x-tilecast-playlist-item",
+                item.id,
+              );
+              event.dataTransfer.setData("text/plain", item.id);
+              onDragStart(item.id);
+            }}
+            onDragEnd={onDragEnd}
+          >
+            <GripVertical aria-hidden="true" />
+          </Button>
+        ) : (
+          <span className="size-6" aria-hidden="true" />
+        )}
+        <span className="text-xs tabular-nums" aria-hidden="true">
+          {String(index + 1).padStart(2, "0")}
+        </span>
+      </div>
+
+      <TimelineMedia item={item} />
+
+      <ItemContent className="min-w-0 gap-0.5">
+        <ItemTitle className="w-full min-w-0">
+          {/* The inspect control stretches over the whole row, so any click on
+                the row selects it while the handle and menu stay above it. */}
+          <button
+            type="button"
+            data-slot="playlist-item-inspect"
+            className="truncate text-left outline-none after:absolute after:inset-0 after:rounded-md"
+            aria-label={t("timeline.inspectAction", { name: item.assetName })}
+            aria-pressed={selected}
+            onClick={() => onAction("inspect")}
+          >
+            {item.assetName}
+          </button>
+        </ItemTitle>
+        <ItemDescription className="truncate text-xs">
+          {playlistItemSummary(item, t)}
+        </ItemDescription>
+      </ItemContent>
+
+      <ItemActions className="relative z-10 gap-1.5">
+        {override && (
+          <Badge variant="outline">{t("timeline.overrideBadge")}</Badge>
+        )}
+        {unavailable && (
+          <Badge variant="destructive">
+            {assetStatusLabel(item.assetStatus, t)}
+          </Badge>
+        )}
+        <span className="min-w-12 text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums">
+          {formatItemDuration(item, t)}
+        </span>
+        <ActionMenuButton
+          label={t("timeline.actionsFor", { name: item.assetName })}
+          actions={menuActions}
+          variant="ghost"
+          size="icon-sm"
+        />
+      </ItemActions>
+    </ActionContextMenu>
   );
 }
 
 function dropEdgeForEvent(event: DragEvent<HTMLElement>): PlaylistDropEdge {
   const bounds = event.currentTarget.getBoundingClientRect();
   return event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
-}
-
-type MenuItemComponent = (props: {
-  disabled?: boolean;
-  variant?: "default" | "destructive";
-  onClick?: () => void;
-  children?: ReactNode;
-}) => ReactNode;
-
-function PlaylistItemMenuEntries({
-  actions,
-  onAction,
-  Item: MenuItem,
-  Separator,
-  Shortcut,
-}: {
-  actions: PlaylistItemAction[];
-  onAction: (action: PlaylistItemActionId) => void;
-  Item: MenuItemComponent;
-  Separator: (props: Record<never, never>) => ReactNode;
-  Shortcut: (props: { children?: ReactNode }) => ReactNode;
-}) {
-  return actions.map((action, index) => {
-    const Icon = actionIcons[action.id];
-    return (
-      <Fragment key={action.id}>
-        {index > 0 && actions[index - 1]?.group !== action.group && (
-          <Separator />
-        )}
-        <MenuItem
-          disabled={action.disabled}
-          variant={action.destructive ? "destructive" : "default"}
-          onClick={() => onAction(action.id)}
-        >
-          <Icon aria-hidden="true" />
-          {action.label}
-          {action.shortcut && <Shortcut>{action.shortcut}</Shortcut>}
-        </MenuItem>
-      </Fragment>
-    );
-  });
 }
 
 function TimelineMedia({ item }: { item: PlaylistItem }) {

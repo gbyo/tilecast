@@ -173,7 +173,6 @@ import {
   Maximize2,
   Minus,
   MoreHorizontal,
-  MousePointerClick,
   Pencil,
   Plus,
   Redo2,
@@ -405,11 +404,17 @@ type LayoutMenuEntry = {
 };
 
 function LayoutEditorMenuEntries({ items }: { items: LayoutMenuEntry[] }) {
+  const visible = items.flatMap((entry) => {
+    if (entry.disabled) return [];
+    if (!entry.submenu) return [entry];
+    const submenu = entry.submenu.filter((child) => !child.disabled);
+    return submenu.length ? [{ ...entry, submenu }] : [];
+  });
   return (
     <>
-      {items.map((entry, index) => (
+      {visible.map((entry, index) => (
         <Fragment key={`${entry.label}-${index}`}>
-          {entry.separated && <ContextMenuSeparator />}
+          {index > 0 && entry.separated && <ContextMenuSeparator />}
           {entry.submenu ? (
             <ContextMenuSub>
               <ContextMenuSubTrigger disabled={entry.disabled}>
@@ -1887,12 +1892,6 @@ export function LayoutEditorPage() {
         onSelect: copySelection,
       },
       {
-        label: t("editor.menuPaste"),
-        icon: <ClipboardPaste size={14} />,
-        disabled: !clipboard.current.length,
-        onSelect: pasteClipboard,
-      },
-      {
         label: t("editor.menuDuplicate"),
         icon: <CopyPlus size={14} />,
         onSelect: duplicateSelection,
@@ -1961,19 +1960,6 @@ export function LayoutEditorPage() {
             onSelect: () => alignSelection("bottom"),
           },
           {
-            label: t("editor.menuDistributeH"),
-            icon: <AlignHorizontalDistributeCenter size={14} />,
-            separated: true,
-            disabled: alignable < 3,
-            onSelect: () => distributeSelection("horizontal"),
-          },
-          {
-            label: t("editor.menuDistributeV"),
-            icon: <AlignVerticalDistributeCenter size={14} />,
-            disabled: alignable < 3,
-            onSelect: () => distributeSelection("vertical"),
-          },
-          {
             label: t("editor.menuFillCanvas"),
             icon: <Maximize2 size={14} />,
             separated: true,
@@ -1982,9 +1968,26 @@ export function LayoutEditorPage() {
         ],
       },
       {
+        label: t("editor.menuDistribute"),
+        icon: <AlignHorizontalDistributeCenter size={14} />,
+        disabled: alignable < 3,
+        submenu: [
+          {
+            label: t("editor.menuDistributeH"),
+            onSelect: () => distributeSelection("horizontal"),
+          },
+          {
+            label: t("editor.menuDistributeV"),
+            onSelect: () => distributeSelection("vertical"),
+          },
+        ],
+      },
+      {
         label: t("editor.menuGroup"),
         icon: <Group size={14} />,
-        disabled: selection.size < 2,
+        disabled:
+          scope.length < 2 ||
+          scope.some((item) => item.primitive?.kind === "group"),
         onSelect: groupSelection,
       },
       {
@@ -2059,38 +2062,6 @@ export function LayoutEditorPage() {
       separated: true,
       disabled: !document?.placements.length,
       onSelect: selectAll,
-    },
-    {
-      label: t("editor.menuDeselect"),
-      icon: <MousePointerClick size={14} />,
-      disabled: !selection.size,
-      onSelect: () => setSelection(new Set()),
-    },
-    {
-      label: t("editor.menuUndo"),
-      icon: <Undo2 size={14} />,
-      separated: true,
-      disabled: !past.length,
-      onSelect: undo,
-    },
-    {
-      label: t("editor.menuRedo"),
-      icon: <Redo2 size={14} />,
-      disabled: !future.length,
-      onSelect: redo,
-    },
-    {
-      label: snap ? t("editor.menuSnapOff") : t("editor.menuSnapOn"),
-      icon: <Magnet size={14} />,
-      separated: true,
-      onSelect: () => setSnap((value) => !value),
-    },
-    {
-      label: safeArea
-        ? t("editor.menuSafeAreaHide")
-        : t("editor.menuSafeAreaShow"),
-      icon: <Scan size={14} />,
-      onSelect: () => setSafeArea((value) => !value),
     },
     {
       label: t("editor.sectionSettings"),

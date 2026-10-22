@@ -47,7 +47,12 @@
       "edit": "Editar programación",
       "open": "Abrir programación",
       "delete": "Eliminar programación",
-      "actionsFor": "Acciones de {{name}}"
+      "actionsFor": "Acciones de {{name}}",
+      "enable": "Habilitar programación",
+      "disable": "Deshabilitar programación",
+      "enabled": "Programación habilitada.",
+      "disabled": "Programación deshabilitada.",
+      "toggleFailed": "No se pudo cambiar el estado de la programación."
     }
   },
   "toolbar": {

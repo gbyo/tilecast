@@ -60,7 +60,13 @@
       "daysAgo_many": "Actualizado hace {{count}} de días",
       "daysAgo_other": "Actualizado hace {{count}} días",
       "onDate": "Actualizado el {{date}}"
-    }
+    },
+    "actions": {
+      "edit": "Editar lista",
+      "open": "Abrir lista",
+      "duplicate": "Duplicar"
+    },
+    "actionsFor": "Acciones para {{name}}"
   },
   "preview": {
     "preparingWidget": "Preparando widget…",
@@ -373,7 +379,8 @@
     "emptyPlaylistTitle": "Esta lista de reproducción está vacía",
     "actions": {
       "inspect": "Inspeccionar",
-      "remove": "Quitar de la lista de reproducción"
+      "remove": "Quitar de la lista de reproducción",
+      "move": "Mover"
     }
   },
   "history": {

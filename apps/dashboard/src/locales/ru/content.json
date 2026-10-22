@@ -1,7 +1,9 @@
 {
   "media": {
     "action": {
-      "deletePermanently": "Удалить навсегда"
+      "deletePermanently": "Удалить навсегда",
+      "editDetails": "Изменить сведения",
+      "organize": "Упорядочить…"
     },
     "archiveDialog": {
       "description": "Архивные элементы остаются доступными, пока вы их не восстановите или не удалите навсегда.",

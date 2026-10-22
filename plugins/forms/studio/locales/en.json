@@ -66,7 +66,8 @@
       "moveDown": "Move down",
       "moveTop": "Move to top",
       "moveBottom": "Move to bottom",
-      "deleteField": "Delete field"
+      "deleteField": "Delete field",
+      "move": "Move"
     },
     "row": {
       "editField": "Edit {{name}}",
@@ -362,12 +363,24 @@
   },
   "workflow": {
     "capabilities": {
-      "submit": { "label": "Submit" },
-      "review": { "label": "Review" },
-      "approve": { "label": "Approve" },
-      "manage": { "label": "Manage" },
-      "viewAll": { "label": "View all" },
-      "viewOwn": { "label": "View own" }
+      "submit": {
+        "label": "Submit"
+      },
+      "review": {
+        "label": "Review"
+      },
+      "approve": {
+        "label": "Approve"
+      },
+      "manage": {
+        "label": "Manage"
+      },
+      "viewAll": {
+        "label": "View all"
+      },
+      "viewOwn": {
+        "label": "View own"
+      }
     },
     "leaveTitle": "Leave without saving?",
     "leaveBody": "The workflow has unsaved changes.",

@@ -1,4 +1,8 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   ChevronRight,
   LayoutGrid,
@@ -10,7 +14,16 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { playlistQueries } from "../data/playlists";
+import { playlistKeys, playlistQueries } from "../data/playlists";
+import { api } from "../api/client";
+import { apiErrorMessage } from "../i18n";
+import { useConfirm } from "../components/ConfirmDialog";
+import { toast } from "../components/ui/toast";
+import {
+  ActionContextMenu,
+  ActionMenuButton,
+  type StudioActionGroup,
+} from "../components/studio/ActionMenu";
 import type { Playlist, PlaylistPreviewItem } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
@@ -207,6 +220,77 @@ export function PlaylistLibraryPage() {
   const csrf = auth.status?.csrfToken ?? "";
   const canManage = hasCapability(auth.status, "playlist.edit");
   const navigate = useNavigate();
+  const client = useQueryClient();
+  const { confirm, dialog } = useConfirm();
+  const duplicate = useMutation({
+    mutationFn: (id: string) => api.duplicatePlaylist(id, csrf),
+    onSuccess: (created) => {
+      toast.add({ title: t("editor.toasts.duplicated"), type: "success" });
+      void client.invalidateQueries({ queryKey: playlistKeys.all });
+      void navigate(`/playlists/${created.id}`);
+    },
+    onError: (error) =>
+      toast.add({ title: apiErrorMessage(error), type: "error" }),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.deletePlaylist(id, csrf),
+    onSuccess: () => {
+      toast.add({ title: t("editor.toasts.deleted"), type: "success" });
+      void client.invalidateQueries({ queryKey: playlistKeys.all });
+    },
+    onError: (error) =>
+      toast.add({ title: apiErrorMessage(error), type: "error" }),
+  });
+  const requestDelete = async (playlist: PlaylistLibraryItem) => {
+    if (
+      await confirm({
+        title: t("editor.deleteTitle", { name: playlist.name }),
+        body: t("editor.deleteDescription"),
+        action: t("editor.deleteConfirm"),
+        destructive: true,
+      })
+    )
+      remove.mutate(playlist.id);
+  };
+  const actionsFor = (playlist: PlaylistLibraryItem): StudioActionGroup[] => [
+    {
+      actions: [
+        {
+          id: "open",
+          label: canManage
+            ? t("library.actions.edit")
+            : t("library.actions.open"),
+          icon: canManage ? "edit" : "open",
+          onSelect: () => void navigate(`/playlists/${playlist.id}`),
+        },
+        ...(canManage
+          ? [
+              {
+                id: "duplicate",
+                label: t("library.actions.duplicate"),
+                icon: "duplicate",
+                disabled: duplicate.isPending,
+                onSelect: () => duplicate.mutate(playlist.id),
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      actions: canManage
+        ? [
+            {
+              id: "delete",
+              label: t("common:actions.delete"),
+              icon: "delete",
+              role: "destructive",
+              disabled: remove.isPending,
+              onSelect: () => void requestDelete(playlist),
+            },
+          ]
+        : [],
+    },
+  ];
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<PlaylistLibraryFilter>("all");
@@ -278,6 +362,7 @@ export function PlaylistLibraryPage() {
 
   return (
     <section className="grid gap-4">
+      {dialog}
       <PageHeader
         title={t("library.title")}
         description={t("library.subtitle")}
@@ -415,17 +500,13 @@ export function PlaylistLibraryPage() {
           </EmptyContent>
         </Empty>
       ) : view === "list" ? (
-        <ItemGroup className="gap-2">
+        <ItemGroup className="gap-2" data-density-surface="collection">
           {visiblePlaylists.map((playlist) => (
-            <Item
+            <ActionContextMenu
               key={playlist.id}
-              variant="outline"
-              render={
-                <Link
-                  to={`/playlists/${playlist.id}`}
-                  title={`Open ${playlist.name}`}
-                />
-              }
+              label={t("library.actionsFor", { name: playlist.name })}
+              actions={actionsFor(playlist)}
+              render={<Item variant="outline" />}
             >
               <ItemMedia
                 variant="image"
@@ -440,7 +521,13 @@ export function PlaylistLibraryPage() {
                   {playlist.sourceType === "tag" && (
                     <Tags size={15} aria-hidden="true" className="shrink-0" />
                   )}
-                  {playlist.name}
+                  <Link
+                    to={`/playlists/${playlist.id}`}
+                    title={t("library.openPlaylist", { name: playlist.name })}
+                    className="truncate hover:underline"
+                  >
+                    {playlist.name}
+                  </Link>
                 </ItemTitle>
                 <ItemDescription>
                   {playlist.description || t("library.noDescription")}
@@ -462,20 +549,24 @@ export function PlaylistLibraryPage() {
               </ItemContent>
               <ItemActions>
                 <Badge variant="outline">{playlistStatus(playlist, t)}</Badge>
-                <ChevronRight
-                  size={17}
-                  aria-hidden="true"
-                  className="text-muted-foreground"
+                <ActionMenuButton
+                  label={t("library.actionsFor", { name: playlist.name })}
+                  actions={actionsFor(playlist)}
+                  variant="ghost"
+                  size="icon-sm"
                 />
               </ItemActions>
-            </Item>
+            </ActionContextMenu>
           ))}
         </ItemGroup>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visiblePlaylists.map((playlist) => (
-            <article
+            <ActionContextMenu
               key={playlist.id}
+              label={t("library.actionsFor", { name: playlist.name })}
+              actions={actionsFor(playlist)}
+              render={<article />}
               className="min-w-0 overflow-hidden rounded-xl border border-border"
             >
               <Link
@@ -533,7 +624,15 @@ export function PlaylistLibraryPage() {
                   </small>
                 </div>
               </Link>
-            </article>
+              <div className="flex justify-end border-t px-3 py-1">
+                <ActionMenuButton
+                  label={t("library.actionsFor", { name: playlist.name })}
+                  actions={actionsFor(playlist)}
+                  variant="ghost"
+                  size="icon-sm"
+                />
+              </div>
+            </ActionContextMenu>
           ))}
         </div>
       )}

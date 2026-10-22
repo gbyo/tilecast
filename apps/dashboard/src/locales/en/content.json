@@ -1,7 +1,9 @@
 {
   "media": {
     "action": {
-      "deletePermanently": "Delete permanently"
+      "deletePermanently": "Delete permanently",
+      "editDetails": "Edit details",
+      "organize": "Organize…"
     },
     "archiveDialog": {
       "description": "Archived items stay available until you restore or permanently delete them.",
