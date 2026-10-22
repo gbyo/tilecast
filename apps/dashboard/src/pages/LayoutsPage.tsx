@@ -17,7 +17,6 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { api } from "../api/client";
-import { PageHeader } from "../components/PageHeader";
 import { layoutKeys, layoutQueries } from "../data/layouts";
 import type {
   LayoutDocument,
@@ -76,6 +75,10 @@ import { Textarea } from "../components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { toast } from "../components/ui/toast";
 import { hasCapability } from "../auth/capabilities";
+import {
+  CollectionPage,
+  CollectionSurface,
+} from "../components/collection/CollectionPage";
 
 export type LayoutsT = TFunction<"layouts", undefined>;
 
@@ -629,19 +632,19 @@ export function LayoutsPage() {
   };
 
   return (
-    <section className="grid gap-4">
-      <PageHeader
-        title={t("library.title")}
-        description={t("library.description")}
-        actions={
-          canManage ? (
-            <Button type="button" onClick={() => setCreating(true)}>
-              <Plus size={16} aria-hidden="true" />
-              {t("library.createLayout")}
-            </Button>
-          ) : undefined
-        }
-      />
+    <CollectionPage
+      title={t("library.title")}
+      description={t("library.description")}
+      className="grid gap-4"
+      actions={
+        canManage ? (
+          <Button type="button" onClick={() => setCreating(true)}>
+            <Plus size={16} aria-hidden="true" />
+            {t("library.createLayout")}
+          </Button>
+        ) : undefined
+      }
+    >
       <FilterBar
         definitions={filterDefinitions}
         values={{
@@ -732,7 +735,8 @@ export function LayoutsPage() {
         </Alert>
       )}
 
-      {layouts.isLoading ? (
+      <CollectionSurface>
+        {layouts.isLoading ? (
         <div className="grid gap-2">
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
@@ -883,6 +887,8 @@ export function LayoutsPage() {
           </Button>
         </div>
       )}
+
+      </CollectionSurface>
 
       <Dialog
         open={creating}
@@ -1146,7 +1152,7 @@ export function LayoutsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </section>
+    </CollectionPage>
   );
 }
 
