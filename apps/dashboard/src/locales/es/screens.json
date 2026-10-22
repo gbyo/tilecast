@@ -636,6 +636,7 @@
   },
   "page": {
     "title": "Pantallas",
+    "description": "Supervisa el estado de los reproductores, el contenido predeterminado y la operación de toda la flota.",
     "loadingInventory": "Cargando el inventario de pantallas…",
     "pairScreen": "Conectar pantalla",
     "viewsAriaLabel": "Vistas de pantallas",
