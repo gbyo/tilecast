@@ -193,18 +193,19 @@ function SessionHost({
   csrf: string;
   canManage: boolean;
 }) {
+  const campaignManaged = Boolean(schedule?.campaignId);
   const session = useScheduleEditorSession({
     schedule,
     initial,
     carried,
     csrf,
-    readOnly: !canManage,
+    readOnly: !canManage || campaignManaged,
   });
   return (
     <ScheduleEditorWorkspace
       session={session}
       csrf={csrf}
-      canManage={canManage}
+      canManage={canManage && !campaignManaged}
     />
   );
 }
