@@ -132,20 +132,19 @@ export function summarizeFleet(screens: Screen[]): FleetSummary {
 }
 
 /**
- * Online screens that have content assigned. `nowPlayingName` is the assigned
- * playlist or layout, the same value the Screens table shows under "Now
- * playing": it names what a screen is set to show, not proof that the player
- * is showing it. Player-confirmed playback is counted separately from the
- * server's fleet health.
+ * Online screens that have default content assigned. `nowPlayingName` is a
+ * legacy API field populated from the direct or Display Group fallback
+ * assignment. It is not current schedule resolution and it is not proof of
+ * playback. Player-confirmed playback is counted separately from Activity.
  */
-export function onAirScreens(screens: Screen[]): Screen[] {
+export function defaultContentScreens(screens: Screen[]): Screen[] {
   return screens
     .filter((screen) => screen.status === "online" && screen.nowPlayingName)
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Online screens with nothing assigned: reporting, but with nothing to show. */
-export function idleScreenCount(screens: Screen[]): number {
+/** Online screens without a default fallback assignment. */
+export function noDefaultContentScreenCount(screens: Screen[]): number {
   return screens.filter(
     (screen) => screen.status === "online" && !screen.nowPlayingName,
   ).length;
