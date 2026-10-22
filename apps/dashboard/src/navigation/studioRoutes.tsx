@@ -45,6 +45,12 @@ export type StudioRouteHandle = {
    */
   immersiveEditor?: boolean;
   /**
+   * A task-focused authoring route. Editor workspaces temporarily collapse
+   * global navigation when horizontal space is constrained, even when the
+   * page itself keeps ordinary padding (for example Playlist editing).
+   */
+  editorWorkspace?: boolean;
+  /**
    * The route needs at least one of these capabilities. Requirements stack
    * down the tree: a child route also needs everything its ancestors need.
    * The sidebar, native navigation catalog, command search, and the route
@@ -100,6 +106,18 @@ export function isImmersiveEditorRoute(
   return deepest
     ? studioRouteHandle(deepest.route).immersiveEditor === true
     : false;
+}
+
+/** Whether the deepest route is a task-focused authoring workspace. */
+export function isEditorWorkspaceRoute(
+  routes: readonly RouteObject[],
+  pathname: string,
+): boolean {
+  const matches = matchRoutes([...routes], pathname) ?? [];
+  const deepest = matches.at(-1);
+  if (!deepest) return false;
+  const handle = studioRouteHandle(deepest.route);
+  return handle.editorWorkspace === true || handle.immersiveEditor === true;
 }
 
 /**
