@@ -16,7 +16,6 @@ import { useAuth } from "../auth/AuthProvider";
 import { useFormatLocale } from "../i18n";
 import type { PlaylistsT } from "../components/playlist-editor/playlistEditorModel";
 import { FilterBar, type FilterDefinition } from "../components/FilterBar";
-import { PageHeader } from "../components/PageHeader";
 import { PlaylistPreview } from "../components/PresentationPreview";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
@@ -49,6 +48,10 @@ import { Skeleton } from "../components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { PlaylistCreateDialog } from "../components/playlist-editor/PlaylistCreateDialog";
 import { hasCapability } from "../auth/capabilities";
+import {
+  CollectionPage,
+  CollectionSurface,
+} from "../components/collection/CollectionPage";
 
 export type { PlaylistPreviewItem } from "../api/types";
 
@@ -193,11 +196,13 @@ export function formatPlaylistUpdatedAt(
   });
 }
 
-function playlistStatus(playlist: PlaylistLibraryItem, t: PlaylistsT): string {
+function playlistStatus(
+  playlist: PlaylistLibraryItem,
+  t: PlaylistsT,
+): string | null {
   if (playlist.itemCount === 0) return t("library.status.empty");
-  return playlist.sourceType === "tag"
-    ? t("library.status.tag")
-    : t("library.status.standard");
+  if (playlist.sourceType === "tag") return t("library.status.tag");
+  return null;
 }
 
 export function PlaylistLibraryPage() {
@@ -277,19 +282,19 @@ export function PlaylistLibraryPage() {
   };
 
   return (
-    <section className="grid gap-4">
-      <PageHeader
-        title={t("library.title")}
-        description={t("library.subtitle")}
-        actions={
-          canManage ? (
-            <Button type="button" onClick={() => setCreating(true)}>
-              <Plus size={16} aria-hidden="true" />
-              {t("library.create")}
-            </Button>
-          ) : undefined
-        }
-      />
+    <CollectionPage
+      title={t("library.title")}
+      description={t("library.subtitle")}
+      className="grid gap-4"
+      actions={
+        canManage ? (
+          <Button type="button" onClick={() => setCreating(true)}>
+            <Plus size={16} aria-hidden="true" />
+            {t("library.create")}
+          </Button>
+        ) : undefined
+      }
+    >
       <FilterBar
         definitions={filterDefinitions}
         values={{
@@ -367,7 +372,8 @@ export function PlaylistLibraryPage() {
         </div>
       )}
 
-      {query.isLoading ? (
+      <CollectionSurface>
+        {query.isLoading ? (
         <div className="grid gap-2">
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
@@ -461,7 +467,9 @@ export function PlaylistLibraryPage() {
                 </ItemDescription>
               </ItemContent>
               <ItemActions>
-                <Badge variant="outline">{playlistStatus(playlist, t)}</Badge>
+                {playlistStatus(playlist, t) && (
+                  <Badge variant="outline">{playlistStatus(playlist, t)}</Badge>
+                )}
                 <ChevronRight
                   size={17}
                   aria-hidden="true"
@@ -485,9 +493,11 @@ export function PlaylistLibraryPage() {
               >
                 <div className="relative">
                   <PlaylistPreview playlist={playlist} />
-                  <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
-                    {playlistStatus(playlist, t)}
-                  </span>
+                  {playlistStatus(playlist, t) && (
+                    <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">
+                      {playlistStatus(playlist, t)}
+                    </span>
+                  )}
                 </div>
                 <div className="grid gap-1">
                   <div className="flex items-center justify-between gap-2">
@@ -553,12 +563,14 @@ export function PlaylistLibraryPage() {
         </div>
       )}
 
+      </CollectionSurface>
+
       <PlaylistCreateDialog
         open={creating}
         csrf={csrf}
         onClose={closeCreate}
         onCreated={(id) => void navigate(`/playlists/${id}`)}
       />
-    </section>
+    </CollectionPage>
   );
 }
