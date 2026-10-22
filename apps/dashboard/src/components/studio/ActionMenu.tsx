@@ -16,7 +16,9 @@ import {
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
+  ContextMenuLabel,
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "../ui/context-menu";
@@ -141,6 +143,7 @@ export function ActionMenuButton({
  */
 export function ActionContextMenu({
   label,
+  title,
   actions,
   children,
   className,
@@ -148,6 +151,8 @@ export function ActionContextMenu({
 }: {
   /** Accessibility label, for example "Actions for Lobby Screen". */
   label: string;
+  /** Visible resource name shown at the top of the context menu. */
+  title?: string;
   actions: StudioActionGroup[];
   children: ReactNode;
   className?: string;
@@ -166,12 +171,22 @@ export function ActionContextMenu({
       >
         {children}
       </ContextMenuTrigger>
-      <ContextMenuContent aria-label={label}>
-        <ActionGroups
-          groups={actions}
-          Item={ContextMenuItem}
-          Separator={ContextMenuSeparator}
-        />
+      <ContextMenuContent className="w-56" aria-label={label}>
+        <ContextMenuGroup>
+          {title ? (
+            <>
+              <ContextMenuLabel className="max-w-52 truncate">
+                {title}
+              </ContextMenuLabel>
+              <ContextMenuSeparator />
+            </>
+          ) : null}
+          <ActionGroups
+            groups={actions}
+            Item={ContextMenuItem}
+            Separator={ContextMenuSeparator}
+          />
+        </ContextMenuGroup>
       </ContextMenuContent>
     </ContextMenu>
   );

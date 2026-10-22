@@ -412,6 +412,7 @@ function DataSourceMobileCard({
   return (
     <ActionContextMenu
       label={menuLabel}
+      title={source.name}
       actions={actions}
       render={
         <article className="grid gap-3 rounded-xl border border-border p-3" />
@@ -470,6 +471,7 @@ function DataSourceRow({
   return (
     <ActionContextMenu
       label={menuLabel}
+      title={source.name}
       actions={actions}
       render={<TableRow data-slot="data-source-row" />}
     >

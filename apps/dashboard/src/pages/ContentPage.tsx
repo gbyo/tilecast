@@ -1250,6 +1250,7 @@ export function AssetCollection({
           <ActionContextMenu
             key={asset.id}
             label={t("media.card.actionsFor", { name: asset.name })}
+            title={asset.name}
             actions={actionsFor(asset)}
             className="contents"
           >
@@ -1401,6 +1402,7 @@ function MediaAssetCard({
   return (
     <ActionContextMenu
       label={t("media.card.actionsFor", { name: asset.name })}
+      title={asset.name}
       actions={actions}
       render={
         <article

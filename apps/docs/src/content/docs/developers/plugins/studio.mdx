@@ -62,6 +62,6 @@ If a reusable primitive is missing, expose it through that boundary instead of i
 
 Studio uses the official shadcn Base Nova components with Base UI, Neutral, Geist, and Lucide. Import primitives through `@tilecast/studio/ui/<component>` so your plugin follows the host's appearance, density, and touch rules.
 
-Define object actions once as `StudioActionGroup[]`. Pass that model to both `ActionMenuButton` and `ActionContextMenu` from `@tilecast/studio`. Keep the visible menu button; a context menu is an extra shortcut.
+Define object actions once as `StudioActionGroup[]`. Pass that model to both `ActionMenuButton` and `ActionContextMenu` from `@tilecast/studio`. For a resource context menu, pass the resource name as `title` so the shared menu renders the standard labeled header; keep `label` as the localized accessible action label. Keep the visible menu button; a context menu is an extra shortcut.
 
 Shared tables follow Compact spacing automatically. For a resource list built with `ItemGroup`, add `data-density-surface="collection"` to the group. Keep form and dialog spacing unchanged. See the [Studio design system](https://github.com/gbyo/tilecast/blob/main/docs/design-system.md) for the exact contract.
