@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("schedule resource not found")
-	ErrConflict = errors.New("schedule conflict")
-	ErrLimit    = errors.New("schedule limit exceeded")
+	ErrNotFound        = errors.New("schedule resource not found")
+	ErrConflict        = errors.New("schedule conflict")
+	ErrLimit           = errors.New("schedule limit exceeded")
+	ErrCampaignManaged = errors.New("schedule is managed by a campaign release")
 	// ErrDisplayControlUnsupported is returned instead of silently assigning a
 	// display-only schedule to a platform that cannot execute it.
 	ErrDisplayControlUnsupported = errors.New("display-control schedule is unsupported on this platform")
@@ -88,14 +89,19 @@ type Target struct {
 }
 type Record struct {
 	Schedule
-	Name             string    `json:"name"`
-	Description      string    `json:"description"`
-	PlaylistName     string    `json:"playlistName"`
-	LayoutName       *string   `json:"layoutName,omitempty"`
-	PresentationType string    `json:"presentationType"`
-	Targets          []Target  `json:"targets"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	Name                  string     `json:"name"`
+	Description           string     `json:"description"`
+	PlaylistName          string     `json:"playlistName"`
+	LayoutName            *string    `json:"layoutName,omitempty"`
+	PresentationType      string     `json:"presentationType"`
+	CampaignID            *uuid.UUID `json:"campaignId,omitempty"`
+	CampaignName          *string    `json:"campaignName,omitempty"`
+	CampaignReleaseID     *uuid.UUID `json:"campaignReleaseId,omitempty"`
+	CampaignReleaseNumber *int64     `json:"campaignReleaseNumber,omitempty"`
+	CampaignBlockID       *uuid.UUID `json:"campaignBlockId,omitempty"`
+	Targets               []Target   `json:"targets"`
+	CreatedAt             time.Time  `json:"createdAt"`
+	UpdatedAt             time.Time  `json:"updatedAt"`
 }
 type List struct {
 	Items           []Record `json:"items"`
@@ -692,6 +698,9 @@ func (s *Service) Update(ctx context.Context, id, user uuid.UUID, in Input) (Rec
 	if previousErr != nil {
 		return Record{}, previousErr
 	}
+	if previous.CampaignID != nil {
+		return Record{}, ErrCampaignManaged
+	}
 	var err error
 	in, err = s.withDefaultTimezone(ctx, in)
 	if err != nil {
@@ -818,6 +827,11 @@ func (s *Service) Delete(ctx context.Context, id, user uuid.UUID) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if managed, err := campaignManagedSchedule(ctx, tx, id); err != nil {
+		return err
+	} else if managed {
+		return ErrCampaignManaged
+	}
 	ids, err := affectedForSchedule(ctx, tx, id)
 	if err != nil {
 		return err
@@ -846,6 +860,11 @@ func (s *Service) SetEnabled(ctx context.Context, id, user uuid.UUID, enabled bo
 		return Record{}, err
 	}
 	defer tx.Rollback(ctx)
+	if managed, err := campaignManagedSchedule(ctx, tx, id); err != nil {
+		return Record{}, err
+	} else if managed {
+		return Record{}, ErrCampaignManaged
+	}
 	ids, err := affectedForSchedule(ctx, tx, id)
 	if err != nil {
 		return Record{}, err
@@ -873,12 +892,12 @@ func (s *Service) SetEnabled(ctx context.Context, id, user uuid.UUID, enabled bo
 	return s.Get(ctx, id)
 }
 
-const recordSelect = `SELECT s.id,s.name,s.description,COALESCE(s.playlist_id,'00000000-0000-0000-0000-000000000000'::uuid),COALESCE(p.name,l.name,''),s.layout_id,l.name,` + presentationTypeExpr + `,s.display_action,s.type,s.timezone,s.priority,s.enabled,to_char(s.start_date,'YYYY-MM-DD'),to_char(s.end_date,'YYYY-MM-DD'),s.one_time_start,s.one_time_end,to_char(s.daily_start,'HH24:MI'),to_char(s.daily_end,'HH24:MI'),s.days_of_week,s.created_at,s.updated_at FROM schedules s LEFT JOIN playlists p ON p.id=s.playlist_id LEFT JOIN layouts l ON l.id=s.layout_id`
+const recordSelect = `SELECT s.id,s.name,s.description,COALESCE(s.playlist_id,'00000000-0000-0000-0000-000000000000'::uuid),COALESCE(p.name,l.name,''),s.layout_id,l.name,` + presentationTypeExpr + `,s.display_action,s.type,s.timezone,s.priority,s.enabled,to_char(s.start_date,'YYYY-MM-DD'),to_char(s.end_date,'YYYY-MM-DD'),s.one_time_start,s.one_time_end,to_char(s.daily_start,'HH24:MI'),to_char(s.daily_end,'HH24:MI'),s.days_of_week,s.campaign_id,c.name,s.campaign_release_id,cr.release_number,s.campaign_block_id,s.created_at,s.updated_at FROM schedules s LEFT JOIN playlists p ON p.id=s.playlist_id LEFT JOIN layouts l ON l.id=s.layout_id LEFT JOIN campaigns c ON c.id=s.campaign_id LEFT JOIN campaign_releases cr ON cr.id=s.campaign_release_id`
 
 func scanRecord(row pgx.Row) (Record, error) {
 	var r Record
 	var actionJSON []byte
-	err := row.Scan(&r.ID, &r.Name, &r.Description, &r.PlaylistID, &r.PlaylistName, &r.LayoutID, &r.LayoutName, &r.PresentationType, &actionJSON, &r.Type, &r.Timezone, &r.Priority, &r.Enabled, &r.StartDate, &r.EndDate, &r.OneTimeStart, &r.OneTimeEnd, &r.DailyStart, &r.DailyEnd, &r.DaysOfWeek, &r.CreatedAt, &r.UpdatedAt)
+	err := row.Scan(&r.ID, &r.Name, &r.Description, &r.PlaylistID, &r.PlaylistName, &r.LayoutID, &r.LayoutName, &r.PresentationType, &actionJSON, &r.Type, &r.Timezone, &r.Priority, &r.Enabled, &r.StartDate, &r.EndDate, &r.OneTimeStart, &r.OneTimeEnd, &r.DailyStart, &r.DailyEnd, &r.DaysOfWeek, &r.CampaignID, &r.CampaignName, &r.CampaignReleaseID, &r.CampaignReleaseNumber, &r.CampaignBlockID, &r.CreatedAt, &r.UpdatedAt)
 	if err == nil && len(actionJSON) > 0 {
 		var action displaycontrol.Action
 		if e := json.Unmarshal(actionJSON, &action); e != nil {
@@ -888,6 +907,15 @@ func scanRecord(row pgx.Row) (Record, error) {
 	}
 	r.Targets = []Target{}
 	return r, err
+}
+
+func campaignManagedSchedule(ctx context.Context, q rowQuerier, id uuid.UUID) (bool, error) {
+	var managed bool
+	err := q.QueryRow(ctx, `SELECT campaign_id IS NOT NULL FROM schedules WHERE id=$1 AND deleted_at IS NULL`, id).Scan(&managed)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	return managed, err
 }
 
 func displayActionJSON(action *displaycontrol.Action) any {
