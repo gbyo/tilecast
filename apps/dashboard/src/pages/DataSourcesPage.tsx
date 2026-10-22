@@ -22,7 +22,6 @@ import type { DataSource, DataSourceDefinition } from "../api/types";
 import { galleryHiddenProviders } from "../content/dataSourceProviderMeta";
 import { useAuth } from "../auth/AuthProvider";
 import { FilterBar, type FilterDefinition } from "../components/FilterBar";
-import { PageHeader } from "../components/PageHeader";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   AlertDialog,
@@ -68,6 +67,10 @@ import { providerLabel, sourceIcon } from "../content/dataSourceProviderMeta";
 import { SourceStatus } from "../content/DataSourcePicker";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { hasCapability } from "../auth/capabilities";
+import {
+  CollectionPage,
+  CollectionSurface,
+} from "../components/collection/CollectionPage";
 
 export function DataSourcesPage() {
   const { t } = useTranslation(["content", "common"]);
@@ -185,22 +188,21 @@ export function DataSourcesPage() {
   );
 
   return (
-    <section className="w-full min-w-0 space-y-5">
-      <PageHeader
-        title={t("dataSources.list.title")}
-        description={t("dataSources.list.subtitle")}
-        actions={
-          canManage ? (
-            <Link
-              className={buttonVariants({ variant: "default" })}
-              to="/data-sources/new"
-            >
-              <Plus size={16} aria-hidden="true" />{" "}
-              {t("dataSources.list.createButton")}
-            </Link>
-          ) : undefined
-        }
-      />
+    <CollectionPage
+      title={t("dataSources.list.title")}
+      description={t("dataSources.list.subtitle")}
+      actions={
+        canManage ? (
+          <Link
+            className={buttonVariants({ variant: "default" })}
+            to="/data-sources/new"
+          >
+            <Plus size={16} aria-hidden="true" />{" "}
+            {t("dataSources.list.createButton")}
+          </Link>
+        ) : undefined
+      }
+    >
       <FilterBar
         definitions={filterDefinitions}
         values={{ search, provider }}
@@ -257,7 +259,8 @@ export function DataSourcesPage() {
           </AlertDescription>
         </Alert>
       )}
-      {dataSources.isLoading ? (
+      <CollectionSurface>
+        {dataSources.isLoading ? (
         <div className="grid gap-2" aria-label={t("dataSources.list.loading")}>
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
@@ -342,6 +345,7 @@ export function DataSourcesPage() {
           </div>
         </>
       )}
+      </CollectionSurface>
       {dataSources.hasNextPage && (
         <div className="flex justify-center">
           <Button
@@ -392,7 +396,7 @@ export function DataSourcesPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </section>
+    </CollectionPage>
   );
 }
 
