@@ -21,9 +21,11 @@ import {
 } from "@/navigation/studioNavigation";
 import { useNativeNavigation } from "@/native-host/useNativeNavigation";
 import {
+  isEditorWorkspaceRoute,
   isImmersiveEditorRoute,
   useStudioRoutes,
 } from "@/navigation/studioRoutes";
+import { useConstrainedEditorWorkspace } from "@/hooks/use-editor-workspace-layout";
 import {
   LANGUAGE_PREFERENCE_KEY,
   applyLanguagePreference,
@@ -201,11 +203,23 @@ function StudioChrome({
   // Immersive editors (Layouts, Widgets) are full-bleed workspaces with one
   // merged header; their routes say so in their handle.
   const routes = useStudioRoutes();
-  const editorRoute = isImmersiveEditorRoute(routes, location.pathname);
+  const immersiveEditor = isImmersiveEditorRoute(routes, location.pathname);
+  const editorWorkspace = isEditorWorkspaceRoute(routes, location.pathname);
+  const constrainedEditor = useConstrainedEditorWorkspace();
+  const [editorSidebarOpen, setEditorSidebarOpen] = useState(false);
+  useEffect(() => {
+    if (editorWorkspace && constrainedEditor) setEditorSidebarOpen(false);
+  }, [editorWorkspace, constrainedEditor, location.pathname]);
+  const temporaryEditorNavigation = editorWorkspace && constrainedEditor;
   const signOut = () => void auth.logout();
 
   return (
-    <SidebarProvider open={sidebarOpen} onOpenChange={onSidebarOpenChange}>
+    <SidebarProvider
+      open={temporaryEditorNavigation ? editorSidebarOpen : sidebarOpen}
+      onOpenChange={
+        temporaryEditorNavigation ? setEditorSidebarOpen : onSidebarOpenChange
+      }
+    >
       {hosted ? null : (
         <AppSidebar
           user={user}
@@ -215,11 +229,11 @@ function StudioChrome({
       )}
       <SidebarInset className="min-h-svh min-w-0 overflow-hidden">
         <EditorHeaderProvider>
-          {auth.status?.demoMode && !editorRoute ? <DemoModeBanner /> : null}
+          {auth.status?.demoMode && !editorWorkspace ? <DemoModeBanner /> : null}
           <StudioTopbar
             user={user}
             csrfToken={auth.status?.csrfToken}
-            editor={editorRoute}
+            editor={editorWorkspace}
             demoMode={Boolean(auth.status?.demoMode)}
             nativeNavigation={hosted}
             onSignOut={signOut}
@@ -228,7 +242,7 @@ function StudioChrome({
           <div
             data-slot={editorRoute ? "studio-editor" : "studio-page"}
             className={
-              editorRoute
+              immersiveEditor
                 ? "min-h-0 flex-1 overflow-auto"
                 : "min-h-0 flex-1 overflow-auto px-4 py-5 md:px-7 md:py-6"
             }
