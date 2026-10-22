@@ -56,6 +56,7 @@ import { toast } from "../../components/ui/toast";
 import { screenKeys } from "../../data/screens";
 import { apiErrorMessage, useFormatLocale } from "../../i18n";
 import {
+  compareReportedSelection,
   defaultContent,
   expectedNow,
   playbackFaults,
@@ -123,28 +124,6 @@ function ExpectedNowSection({
     );
   }
 
-  const syncLabel = assignment?.synchronizationStatus
-    ? t(
-        `playbackPlan.synchronizationStatus.${assignment.synchronizationStatus}`,
-      )
-    : null;
-  const playbackPart =
-    assignment?.playbackState?.trim() ||
-    (screenStatus === "online"
-      ? t("shared.notReported")
-      : t(`status.${screenStatus}`, {
-          defaultValue: humanize(screenStatus),
-        }));
-  const playerLine =
-    lastContactAt && screenStatus !== "online" && !assignment?.playbackState
-      ? t("playback.playerOffline", {
-          status: playbackPart,
-          at: new Date(lastContactAt).toLocaleString(locale),
-        })
-      : syncLabel
-        ? t("playback.player", { state: playbackPart, sync: syncLabel })
-        : t("playback.playerBare", { state: playbackPart });
-
   const context = (() => {
     if (!expected) return t("playback.noExpectedContent");
     switch (expected.source) {
@@ -192,8 +171,106 @@ function ExpectedNowSection({
               )}
             </ItemTitle>
             <ItemDescription>{context}</ItemDescription>
+          </ItemContent>
+        </Item>
+      </ItemGroup>
+    </section>
+  );
+}
+
+function reportedSourceLabel(
+  source: string | undefined,
+  t: ReturnType<typeof useTranslation<["screens", "common"]>>["t"],
+) {
+  if (!source || source === "none") return t("shared.noneReported");
+  if (source === "direct" || source === "direct_fallback")
+    return t("playback.sources.assignment");
+  if (
+    source === "takeover" ||
+    source === "quick_present" ||
+    source === "schedule"
+  )
+    return t(`playback.sources.${source}`);
+  return source.replaceAll("_", " ");
+}
+
+function ReportedPlaybackSection({
+  screenId,
+  plan,
+  assignment,
+  screenStatus,
+  lastContactAt,
+}: {
+  screenId: string;
+  plan?: PlaybackPlan;
+  assignment?: PlaylistAssignment;
+  screenStatus: string;
+  lastContactAt?: string;
+}) {
+  const { t } = useTranslation(["screens", "common"]);
+  const locale = useFormatLocale();
+  const comparison = compareReportedSelection(plan, assignment);
+  const playbackState =
+    assignment?.playbackState?.trim() ||
+    (screenStatus === "online"
+      ? t("shared.notReported")
+      : t(`status.${screenStatus}`, {
+          defaultValue: humanize(screenStatus),
+        }));
+  const syncLabel = assignment?.synchronizationStatus
+    ? t(
+        `playbackPlan.synchronizationStatus.${assignment.synchronizationStatus}`,
+      )
+    : null;
+  const stale =
+    lastContactAt && screenStatus !== "online" && !assignment?.playbackState;
+  const stateLine = stale
+    ? t("playback.reportedOffline", {
+        state: playbackState,
+        at: new Date(lastContactAt).toLocaleString(locale),
+      })
+    : syncLabel
+      ? t("playback.reportedStateSync", {
+          state: playbackState,
+          sync: syncLabel,
+        })
+      : t("playback.reportedState", { state: playbackState });
+  const comparisonLabel =
+    comparison === "matching"
+      ? t("playback.reportedMatch")
+      : comparison === "mismatch"
+        ? t("playback.reportedMismatch")
+        : t("playback.reportedUnknown");
+
+  return (
+    <section aria-labelledby={`${screenId}-reported`} className="min-w-0">
+      <h3 id={`${screenId}-reported`} className="text-sm font-semibold">
+        {t("playback.reportedTitle")}
+      </h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {t("playback.reportedBody")}
+      </p>
+      <ItemGroup className="mt-1">
+        <Item size="sm" className="px-0">
+          <ItemContent>
+            <ItemTitle className="flex flex-wrap items-center gap-2 text-base">
+              {stateLine}
+              <Badge
+                variant={
+                  comparison === "mismatch"
+                    ? "destructive"
+                    : comparison === "matching"
+                      ? "secondary"
+                      : "outline"
+                }
+              >
+                {comparisonLabel}
+              </Badge>
+            </ItemTitle>
             <ItemDescription>
-              <span className="text-muted-foreground">{playerLine}</span>
+              {t("playback.reportedSource", {
+                source: reportedSourceLabel(assignment?.selectionSource, t),
+              })}
             </ItemDescription>
           </ItemContent>
         </Item>
@@ -576,6 +653,14 @@ export function ScreenPlaybackCard({
           screenStatus={screenStatus}
           lastContactAt={lastContactAt}
           onExplain={onExplain}
+        />
+        <Separator />
+        <ReportedPlaybackSection
+          screenId={screenId}
+          plan={plan}
+          assignment={assignment}
+          screenStatus={screenStatus}
+          lastContactAt={lastContactAt}
         />
         <Separator />
         <DefaultContentSection
