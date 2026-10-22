@@ -10,6 +10,7 @@ import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { SlidersHorizontal, X } from "lucide-react";
 import { DashboardSearch } from "./DashboardListToolbar";
+import { CollectionToolbar } from "./collection/CollectionToolbar";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import {
@@ -134,14 +135,18 @@ export function FilterBar({
       definition.kind !== "search" && Boolean(values[definition.key]),
   ).length;
 
-  return (
-    <div className={`grid gap-2 ${className}`.trim()}>
-      <div
-        className="flex flex-wrap items-center gap-2"
-        role="group"
-        aria-label={label ?? t("filters.title")}
-      >
-        {searches.map((definition) => (
+  const searchControls = searches.map((definition) => (
+    <FilterControl
+      key={definition.key}
+      definition={definition}
+      value={values[definition.key] ?? ""}
+      onChange={(value) => onChange(definition.key, value)}
+    />
+  ));
+  const filterControls = (
+    <>
+      <div className="hidden sm:contents">
+        {secondary.map((definition) => (
           <FilterControl
             key={definition.key}
             definition={definition}
@@ -149,72 +154,72 @@ export function FilterBar({
             onChange={(value) => onChange(definition.key, value)}
           />
         ))}
-        <div className="hidden sm:contents">
-          {secondary.map((definition) => (
-            <FilterControl
-              key={definition.key}
-              definition={definition}
-              value={values[definition.key] ?? ""}
-              onChange={(value) => onChange(definition.key, value)}
-            />
-          ))}
-        </div>
-        {secondary.length > 0 && (
-          <Sheet>
-            <SheetTrigger
-              render={
-                <Button type="button" variant="outline" className="sm:hidden" />
-              }
-            >
-              <SlidersHorizontal aria-hidden="true" />
-              {t("filters.title")}
-              {activeSecondaryCount > 0 && (
-                <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">
-                  {activeSecondaryCount}
-                </span>
-              )}
-            </SheetTrigger>
-            <SheetContent
-              side="right"
-              className="w-[min(22rem,90vw)] overflow-y-auto"
-            >
-              <SheetHeader>
-                <SheetTitle>{t("filters.title")}</SheetTitle>
-                <SheetDescription className="sr-only">
-                  {label ?? t("filters.title")}
-                </SheetDescription>
-              </SheetHeader>
-              <div className="grid gap-3 px-4 pb-4">
-                {secondary.map((definition) => (
-                  <div key={definition.key} className="grid gap-1.5">
-                    <span className="text-sm font-medium">
-                      {definition.label}
-                    </span>
-                    <FilterControl
-                      definition={definition}
-                      value={values[definition.key] ?? ""}
-                      onChange={(value) => onChange(definition.key, value)}
-                    />
-                  </div>
-                ))}
-                {activeSecondaryCount > 0 && (
-                  <Button type="button" variant="outline" onClick={onClear}>
-                    {t("actions.clearAll")}
-                  </Button>
-                )}
-              </div>
-            </SheetContent>
-          </Sheet>
-        )}
-        {children}
       </div>
-      <FilterChips
-        definitions={definitions}
-        values={values}
-        onChange={onChange}
-        onClear={onClear}
-      />
-    </div>
+      {secondary.length > 0 && (
+        <Sheet>
+          <SheetTrigger
+            render={
+              <Button type="button" variant="outline" className="sm:hidden" />
+            }
+          >
+            <SlidersHorizontal aria-hidden="true" />
+            {t("filters.title")}
+            {activeSecondaryCount > 0 && (
+              <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">
+                {activeSecondaryCount}
+              </span>
+            )}
+          </SheetTrigger>
+          <SheetContent
+            side="right"
+            className="w-[min(22rem,90vw)] overflow-y-auto"
+          >
+            <SheetHeader>
+              <SheetTitle>{t("filters.title")}</SheetTitle>
+              <SheetDescription className="sr-only">
+                {label ?? t("filters.title")}
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid gap-3 px-4 pb-4">
+              {secondary.map((definition) => (
+                <div key={definition.key} className="grid gap-1.5">
+                  <span className="text-sm font-medium">
+                    {definition.label}
+                  </span>
+                  <FilterControl
+                    definition={definition}
+                    value={values[definition.key] ?? ""}
+                    onChange={(value) => onChange(definition.key, value)}
+                  />
+                </div>
+              ))}
+              {activeSecondaryCount > 0 && (
+                <Button type="button" variant="outline" onClick={onClear}>
+                  {t("actions.clearAll")}
+                </Button>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
+    </>
+  );
+  return (
+    <CollectionToolbar
+      className={className}
+      label={label ?? t("filters.title")}
+      search={searchControls.length ? searchControls : undefined}
+      filters={filterControls}
+      organize={children}
+      below={
+        <FilterChips
+          definitions={definitions}
+          values={values}
+          onChange={onChange}
+          onClear={onClear}
+        />
+      }
+    />
   );
 }
 
