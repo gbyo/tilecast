@@ -44,32 +44,54 @@ export function ScheduleLibrary({
   );
   // Opening is always offered so the menu is never the only way in: read-only
   // roles get a single entry, managers get Edit and Delete.
-  const actionsFor = ({ schedule }: ScheduleRow): StudioActionGroup[] => [
-    {
-      actions: [
+  const actionsFor = ({ schedule }: ScheduleRow): StudioActionGroup[] => {
+    if (schedule.campaignId) {
+      return [
         {
-          id: "open",
-          label: canManage ? t("page.actions.edit") : t("page.actions.open"),
-          icon: canManage ? "edit" : "open",
-          onSelect: () => void navigate(schedulePath(schedule)),
-        },
-      ],
-    },
-    {
-      actions: canManage
-        ? [
+          actions: [
             {
-              id: "delete",
-              label: t("page.actions.delete"),
-              icon: "delete",
-              role: "destructive",
-              disabled: deleting,
-              onSelect: () => onDelete(schedule),
+              id: "open",
+              label: t("page.actions.open"),
+              icon: "open",
+              onSelect: () => void navigate(schedulePath(schedule)),
             },
-          ]
-        : [],
-    },
-  ];
+            {
+              id: "campaign",
+              label: t("page.actions.openCampaign"),
+              icon: "campaigns",
+              onSelect: () => void navigate(`/campaigns/${schedule.campaignId}`),
+            },
+          ],
+        },
+      ];
+    }
+    return [
+      {
+        actions: [
+          {
+            id: "open",
+            label: canManage ? t("page.actions.edit") : t("page.actions.open"),
+            icon: canManage ? "edit" : "open",
+            onSelect: () => void navigate(schedulePath(schedule)),
+          },
+        ],
+      },
+      {
+        actions: canManage
+          ? [
+              {
+                id: "delete",
+                label: t("page.actions.delete"),
+                icon: "delete",
+                role: "destructive",
+                disabled: deleting,
+                onSelect: () => onDelete(schedule),
+              },
+            ]
+          : [],
+      },
+    ];
+  };
   return compact ? (
     <ScheduleCompactList rows={rows} actionsFor={actionsFor} />
   ) : (
