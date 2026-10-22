@@ -6,6 +6,7 @@
   },
   "page": {
     "title": "Programaciones",
+    "description": "Envía contenido o acciones de pantalla a pantallas y grupos en horarios específicos.",
     "create": "Crear programación",
     "createShort": "Crear",
     "count_one": "{{count}} programación",
