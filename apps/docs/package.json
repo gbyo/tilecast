@@ -14,16 +14,16 @@
     "test": "node --test plugin-docs.test.mjs scripts/redirect-rules.test.mjs src/setup-advisor/model.test.ts"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
-    "typescript": "~6.0.3"
+    "@astrojs/check": "^0.9.12",
+    "typescript": "~7.0.2"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.42.4",
+    "@astrojs/starlight": "^0.42.6",
     "@fontsource-variable/geist": "^5.3.0",
     "@tilecast/design-tokens": "*",
-    "astro": "^7.3.5",
+    "astro": "^7.4.2",
     "starlight-llms-txt": "0.12.0",
-    "starlight-openapi": "0.26.2",
+    "starlight-openapi": "0.27.0",
     "starlight-page-context-action": "0.4.3"
   }
 }
