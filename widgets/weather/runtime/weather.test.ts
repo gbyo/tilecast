@@ -17,10 +17,18 @@ const base: WeatherConfig = {
   dataSourceId: SOURCE,
   showLocation: true,
   showCurrent: true,
+  showCondition: true,
+  showIcons: true,
+  showTemperatureDecimals: true,
+  showTemperatureUnit: true,
   forecastDays: 3,
+  showForecastDay: true,
+  showForecastCondition: false,
+  showForecastHighLow: true,
   showHumidity: true,
   showWind: true,
   showPrecipitation: true,
+  showDetailLabels: false,
   emptyText: "",
   background: null,
   foreground: null,
@@ -122,10 +130,18 @@ describe("Weather configuration", () => {
       config: {
         showLocation: true,
         showCurrent: true,
+        showCondition: true,
+        showIcons: true,
+        showTemperatureDecimals: true,
+        showTemperatureUnit: true,
         forecastDays: 5,
+        showForecastDay: true,
+        showForecastCondition: false,
+        showForecastHighLow: true,
         showHumidity: true,
         showWind: true,
         showPrecipitation: true,
+        showDetailLabels: false,
         background: null,
         foreground: null,
       },
@@ -140,6 +156,8 @@ describe("Weather configuration", () => {
     [{ dataSourceId: SOURCE, forecastDays: 8 }],
     [{ dataSourceId: SOURCE, forecastDays: 2.5 }],
     [{ dataSourceId: SOURCE, showCurrent: "yes" }],
+    [{ dataSourceId: SOURCE, showIcons: "yes" }],
+    [{ dataSourceId: SOURCE, showTemperatureDecimals: 0 }],
     [{ dataSourceId: SOURCE, showWind: 1 }],
   ])("rejects %j", (value) => {
     expect(parseWeatherConfig(value).ok).toBe(false);
@@ -250,6 +268,46 @@ describe("Weather element", () => {
     expect(text(".forecast .day-name")).toBe("Sunday");
     expect(text(".forecast .high-low")).toBe("24 °C 15 °C");
     expect(test.states).toEqual([{ state: "ready" }]);
+    test.dispose();
+  });
+
+  it("rounds temperatures and applies the optional presentation controls", async () => {
+    const decimalForecast = {
+      ...forecastDay,
+      values: {
+        ...forecastDay.values,
+        high: { kind: "number" as const, number: 24.4 },
+        low: { kind: "number" as const, number: 15.6 },
+      },
+    };
+    const { text, root, test } = await render(
+      {
+        showCondition: false,
+        showIcons: false,
+        showTemperatureDecimals: false,
+        showTemperatureUnit: false,
+        showForecastDay: false,
+        showForecastCondition: true,
+        showForecastHighLow: true,
+        showDetailLabels: true,
+      },
+      documentWith([current, decimalForecast]),
+    );
+
+    expect(text(".temp")).toBe("22");
+    expect(root.querySelector(".current .condition")).toBeNull();
+    expect(root.querySelectorAll(".icon")).toHaveLength(0);
+    expect(root.querySelector(".forecast .day-name")).toBeNull();
+    expect(text(".forecast .day-condition")).toBe("Clear Sky");
+    expect(text(".forecast .high-low")).toBe("24 16");
+    const details = [...root.querySelectorAll(".detail")].map((node) =>
+      node.textContent?.replace(/\s+/g, " ").trim(),
+    );
+    expect(details).toEqual([
+      "Humidity: 62%",
+      "Wind: 3.2 m/s",
+      "Rain: 0 mm",
+    ]);
     test.dispose();
   });
 
