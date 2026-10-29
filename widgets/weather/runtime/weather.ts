@@ -548,6 +548,38 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
       const label = boundText(data.fields[fieldKey]?.label ?? "", 80);
       return label === "" ? value : `${label}: ${value}`;
     };
+    const details = data.current
+      ? [
+          {
+            key: "humidity",
+            value: this.config.showHumidity
+              ? number(data.current, "humidity")
+              : "",
+          },
+          {
+            key: "windSpeed",
+            value: this.config.showWind
+              ? withUnit(data.current, "windSpeed", "windUnit")
+              : "",
+          },
+          {
+            key: "precipitation",
+            value: this.config.showPrecipitation
+              ? withUnit(
+                  data.current,
+                  "precipitation",
+                  "precipitationUnit",
+                )
+              : "",
+          },
+        ].filter((detail) => detail.value !== "")
+      : [];
+    const showForecast =
+      data.forecast.length > 0 &&
+      (this.config.showForecastDay ||
+        this.config.showIcons ||
+        this.config.showForecastCondition ||
+        this.config.showForecastHighLow);
     const currentBlock =
       data.current && this.config.showCurrent
         ? html`<div class="current">
@@ -576,56 +608,22 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
                     </div>`
                   : nothing
               }
-              <div class="details">
-                ${
-                  this.config.showHumidity &&
-                  number(data.current, "humidity") !== ""
-                    ? html`<div class="detail">
-                        ${detailText(
-                          "humidity",
-                          number(data.current, "humidity"),
-                        )}
-                      </div>`
-                    : nothing
-                }
-                ${
-                  this.config.showWind &&
-                  withUnit(data.current, "windSpeed", "windUnit") !== ""
-                    ? html`<div class="detail">
-                        ${detailText(
-                          "windSpeed",
-                          withUnit(data.current, "windSpeed", "windUnit"),
-                        )}
-                      </div>`
-                    : nothing
-                }
-                ${
-                  this.config.showPrecipitation &&
-                  withUnit(
-                    data.current,
-                    "precipitation",
-                    "precipitationUnit",
-                  ) !== ""
-                    ? html`<div class="detail">
-                        ${detailText(
-                          "precipitation",
-                          withUnit(
-                            data.current,
-                            "precipitation",
-                            "precipitationUnit",
-                          ),
-                        )}
-                      </div>`
-                    : nothing
-                }
-              </div>
+              ${details.length > 0
+                ? html`<div class="details">
+                    ${details.map(
+                      (detail) => html`<div class="detail">
+                        ${detailText(detail.key, detail.value)}
+                      </div>`,
+                    )}
+                  </div>`
+                : nothing}              </div>
             </div>
           </div>`
         : nothing;
     return html`<div class="weather">
       ${currentBlock}
       ${
-        data.forecast.length > 0
+        showForecast
           ? html`<div class="forecast">
               ${data.forecast.map((day) => {
                 const dayMs = Date.parse(recordDay(day, "date"));
