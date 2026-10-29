@@ -616,7 +616,7 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
                       </div>`,
                     )}
                   </div>`
-                : nothing}              </div>
+                : nothing}
             </div>
           </div>`
         : nothing;
