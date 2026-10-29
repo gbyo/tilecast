@@ -667,10 +667,10 @@ type WeatherWidgetConfig struct {
 	ShowForecastDay          bool      `json:"showForecastDay"`
 	ShowForecastCondition    bool      `json:"showForecastCondition"`
 	ShowForecastHighLow      bool      `json:"showForecastHighLow"`
-	ForegroundColor   string    `json:"foregroundColor"`
-	BackgroundColor   string    `json:"backgroundColor"`
-	TextScale         *int      `json:"textScale,omitempty"`
-	ContentPadding    *int      `json:"contentPadding,omitempty"`
+	ForegroundColor          string    `json:"foregroundColor"`
+	BackgroundColor          string    `json:"backgroundColor"`
+	TextScale                *int      `json:"textScale,omitempty"`
+	ContentPadding           *int      `json:"contentPadding,omitempty"`
 }
 
 type StructuredRecord struct {
