@@ -616,9 +616,10 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
                 details.length > 0
                   ? html`<div class="details">
                       ${details.map(
-                        (detail) => html`<div class="detail">
-                          ${detailText(detail.key, detail.value)}
-                        </div>`,
+                        (detail) =>
+                          html`<div class="detail">
+                            ${detailText(detail.key, detail.value)}
+                          </div>`,
                       )}
                     </div>`
                   : nothing
