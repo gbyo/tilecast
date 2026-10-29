@@ -652,25 +652,17 @@ type CardsWidgetConfig struct {
 }
 
 type WeatherWidgetConfig struct {
-	DataSourceID             uuid.UUID `json:"dataSourceId"`
-	ShowLocation             bool      `json:"showLocation"`
-	ShowCurrent              bool      `json:"showCurrent"`
-	ShowCondition            bool      `json:"showCondition"`
-	ShowIcons                bool      `json:"showIcons"`
-	ShowTemperatureDecimals  bool      `json:"showTemperatureDecimals"`
-	ShowTemperatureUnit      bool      `json:"showTemperatureUnit"`
-	ShowHumidity             bool      `json:"showHumidity"`
-	ShowWind                 bool      `json:"showWind"`
-	ShowPrecipitation        bool      `json:"showPrecipitation"`
-	ShowDetailLabels         bool      `json:"showDetailLabels"`
-	ForecastDays             int       `json:"forecastDays"`
-	ShowForecastDay          bool      `json:"showForecastDay"`
-	ShowForecastCondition    bool      `json:"showForecastCondition"`
-	ShowForecastHighLow      bool      `json:"showForecastHighLow"`
-	ForegroundColor          string    `json:"foregroundColor"`
-	BackgroundColor          string    `json:"backgroundColor"`
-	TextScale                *int      `json:"textScale,omitempty"`
-	ContentPadding           *int      `json:"contentPadding,omitempty"`
+	DataSourceID      uuid.UUID `json:"dataSourceId"`
+	ShowLocation      bool      `json:"showLocation"`
+	ShowCurrent       bool      `json:"showCurrent"`
+	ShowHumidity      bool      `json:"showHumidity"`
+	ShowWind          bool      `json:"showWind"`
+	ShowPrecipitation bool      `json:"showPrecipitation"`
+	ForecastDays      int       `json:"forecastDays"`
+	ForegroundColor   string    `json:"foregroundColor"`
+	BackgroundColor   string    `json:"backgroundColor"`
+	TextScale         *int      `json:"textScale,omitempty"`
+	ContentPadding    *int      `json:"contentPadding,omitempty"`
 }
 
 type StructuredRecord struct {
