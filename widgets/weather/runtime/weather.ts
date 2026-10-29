@@ -37,19 +37,29 @@ import {
 import {
   boundText,
   formatDate,
+  formatNumber,
   formatWidgetValue,
   TilecastWidgetElement,
   emptyState,
+  toFiniteNumber,
 } from "@tilecast/widget-kit";
 
 export interface WeatherConfig {
   readonly dataSourceId: string;
   readonly showLocation: boolean;
   readonly showCurrent: boolean;
+  readonly showCondition: boolean;
+  readonly showIcons: boolean;
+  readonly showTemperatureDecimals: boolean;
+  readonly showTemperatureUnit: boolean;
   readonly forecastDays: number;
+  readonly showForecastDay: boolean;
+  readonly showForecastCondition: boolean;
+  readonly showForecastHighLow: boolean;
   readonly showHumidity: boolean;
   readonly showWind: boolean;
   readonly showPrecipitation: boolean;
+  readonly showDetailLabels: boolean;
   readonly emptyText: string;
   readonly background: string | null;
   readonly foreground: string | null;
@@ -83,15 +93,40 @@ export function parseWeatherConfig(
   }
   const showLocation = optionalBoolean(raw["showLocation"], true);
   const showCurrent = optionalBoolean(raw["showCurrent"], true);
+  const showCondition = optionalBoolean(raw["showCondition"], true);
+  const showIcons = optionalBoolean(raw["showIcons"], true);
+  const showTemperatureDecimals = optionalBoolean(
+    raw["showTemperatureDecimals"],
+    true,
+  );
+  const showTemperatureUnit = optionalBoolean(raw["showTemperatureUnit"], true);
+  const showForecastDay = optionalBoolean(raw["showForecastDay"], true);
+  const showForecastCondition = optionalBoolean(
+    raw["showForecastCondition"],
+    false,
+  );
+  const showForecastHighLow = optionalBoolean(
+    raw["showForecastHighLow"],
+    true,
+  );
   const showHumidity = optionalBoolean(raw["showHumidity"], true);
   const showWind = optionalBoolean(raw["showWind"], true);
   const showPrecipitation = optionalBoolean(raw["showPrecipitation"], true);
+  const showDetailLabels = optionalBoolean(raw["showDetailLabels"], false);
   if (
     showLocation === null ||
     showCurrent === null ||
+    showCondition === null ||
+    showIcons === null ||
+    showTemperatureDecimals === null ||
+    showTemperatureUnit === null ||
+    showForecastDay === null ||
+    showForecastCondition === null ||
+    showForecastHighLow === null ||
     showHumidity === null ||
     showWind === null ||
-    showPrecipitation === null
+    showPrecipitation === null ||
+    showDetailLabels === null
   ) {
     return { ok: false, problem: "display toggles must be booleans" };
   }
@@ -113,10 +148,18 @@ export function parseWeatherConfig(
       dataSourceId: typeof source === "string" ? source : "",
       showLocation,
       showCurrent,
+      showCondition,
+      showIcons,
+      showTemperatureDecimals,
+      showTemperatureUnit,
       forecastDays,
+      showForecastDay,
+      showForecastCondition,
+      showForecastHighLow,
       showHumidity,
       showWind,
       showPrecipitation,
+      showDetailLabels,
       emptyText: boundText(raw["emptyText"] ?? "", 200),
       // Author colors are optional; an invalid one is ignored, not fatal.
       background: parseHexColor(raw["background"]),
@@ -382,6 +425,15 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
       .day .icon {
         width: clamp(28px, min(11cqh, 8cqw), 120px);
       }
+      .day-condition {
+        max-width: 100%;
+        font-size: clamp(10px, min(3.8cqh, 2.6cqw), 60px);
+        font-weight: 500;
+        color: var(--tc-color-fg-muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       .high-low {
         font-size: clamp(11px, min(4.6cqh, 3.2cqw), 76px);
         font-weight: 600;
@@ -472,21 +524,86 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
       const suffix = unit(values, unitKey);
       return suffix === "" ? amount : `${amount} ${suffix}`;
     };
+    const temperature = (
+      values: Readonly<Record<string, WidgetValue>>,
+      key: string,
+    ): string => {
+      if (this.config.showTemperatureDecimals) return number(values, key);
+      const numeric = toFiniteNumber(values[key]);
+      return numeric === null
+        ? number(values, key)
+        : formatNumber(numeric, { locale, maximumFractionDigits: 0 });
+    };
+    const temperatureWithUnit = (
+      values: Readonly<Record<string, WidgetValue>>,
+      key: string,
+    ): string => {
+      const amount = temperature(values, key);
+      if (amount === "" || !this.config.showTemperatureUnit) return amount;
+      const suffix = unit(values, "temperatureUnit");
+      return suffix === "" ? amount : `${amount} ${suffix}`;
+    };
+    const detailText = (fieldKey: string, value: string): string => {
+      if (!this.config.showDetailLabels || value === "") return value;
+      const label = boundText(data.fields[fieldKey]?.label ?? "", 80);
+      return label === "" ? value : `${label}: ${value}`;
+    };
+    const details = data.current
+      ? [
+          {
+            key: "humidity",
+            value: this.config.showHumidity
+              ? number(data.current, "humidity")
+              : "",
+          },
+          {
+            key: "windSpeed",
+            value: this.config.showWind
+              ? withUnit(data.current, "windSpeed", "windUnit")
+              : "",
+          },
+          {
+            key: "precipitation",
+            value: this.config.showPrecipitation
+              ? withUnit(
+                  data.current,
+                  "precipitation",
+                  "precipitationUnit",
+                )
+              : "",
+          },
+        ].filter((detail) => detail.value !== "")
+      : [];
+    const showForecast =
+      data.forecast.length > 0 &&
+      (this.config.showForecastDay ||
+        this.config.showIcons ||
+        this.config.showForecastCondition ||
+        this.config.showForecastHighLow);
     const currentBlock =
       data.current && this.config.showCurrent
         ? html`<div class="current">
-            <div class="icon">
-              ${conditionIcon(
-                conditionKind(recordText(data.current, "condition")),
-              )}
-            </div>
+            ${
+              this.config.showIcons
+                ? html`<div class="icon">
+                    ${conditionIcon(
+                      conditionKind(recordText(data.current, "condition")),
+                    )}
+                  </div>`
+                : nothing
+            }
             <div>
               <div class="temp">
-                ${withUnit(data.current, "temperature", "temperatureUnit")}
+                ${temperatureWithUnit(data.current, "temperature")}
               </div>
-              <div class="condition">
-                ${recordText(data.current, "condition")}
-              </div>
+              ${
+                this.config.showCondition &&
+                recordText(data.current, "condition") !== ""
+                  ? html`<div class="condition">
+                      ${recordText(data.current, "condition")}
+                    </div>`
+                  : nothing
+              }
               ${
                 this.config.showLocation &&
                 recordText(data.current, "location") !== ""
@@ -495,71 +612,69 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
                     </div>`
                   : nothing
               }
-              <div class="details">
-                ${
-                  this.config.showHumidity &&
-                  number(data.current, "humidity") !== ""
-                    ? html`<div class="detail">
-                        ${number(data.current, "humidity")}
-                      </div>`
-                    : nothing
-                }
-                ${
-                  this.config.showWind &&
-                  withUnit(data.current, "windSpeed", "windUnit") !== ""
-                    ? html`<div class="detail">
-                        ${withUnit(data.current, "windSpeed", "windUnit")}
-                      </div>`
-                    : nothing
-                }
-                ${
-                  this.config.showPrecipitation &&
-                  withUnit(
-                    data.current,
-                    "precipitation",
-                    "precipitationUnit",
-                  ) !== ""
-                    ? html`<div class="detail">
-                        ${withUnit(
-                          data.current,
-                          "precipitation",
-                          "precipitationUnit",
-                        )}
-                      </div>`
-                    : nothing
-                }
-              </div>
+              ${
+                details.length > 0
+                  ? html`<div class="details">
+                      ${details.map(
+                        (detail) =>
+                          html`<div class="detail">
+                            ${detailText(detail.key, detail.value)}
+                          </div>`,
+                      )}
+                    </div>`
+                  : nothing
+              }
             </div>
           </div>`
         : nothing;
     return html`<div class="weather">
       ${currentBlock}
       ${
-        data.forecast.length > 0
+        showForecast
           ? html`<div class="forecast">
               ${data.forecast.map((day) => {
                 const dayMs = Date.parse(recordDay(day, "date"));
                 return html`<div class="day">
-                  <div class="day-name">
-                    ${
-                      Number.isNaN(dayMs)
-                        ? ""
-                        : formatDate(dayMs, {
-                            locale,
-                            timeZone,
-                            style: "weekday",
-                          })
-                    }
-                  </div>
-                  <div class="icon">
-                    ${conditionIcon(conditionKind(recordText(day, "condition")))}
-                  </div>
-                  <div class="high-low">
-                    ${withUnit(day, "high", "temperatureUnit")}
-                    <span class="low">
-                      ${withUnit(day, "low", "temperatureUnit")}
-                    </span>
-                  </div>
+                  ${
+                    this.config.showForecastDay
+                      ? html`<div class="day-name">
+                          ${Number.isNaN(dayMs)
+                            ? ""
+                            : formatDate(dayMs, {
+                                locale,
+                                timeZone,
+                                style: "weekday",
+                              })}
+                        </div>`
+                      : nothing
+                  }
+                  ${
+                    this.config.showIcons
+                      ? html`<div class="icon">
+                          ${conditionIcon(
+                            conditionKind(recordText(day, "condition")),
+                          )}
+                        </div>`
+                      : nothing
+                  }
+                  ${
+                    this.config.showForecastCondition &&
+                    recordText(day, "condition") !== ""
+                      ? html`<div class="day-condition">
+                          ${recordText(day, "condition")}
+                        </div>`
+                      : nothing
+                  }
+                  ${
+                    this.config.showForecastHighLow
+                      ? html`<div class="high-low">
+                          ${temperatureWithUnit(day, "high")}
+                          <span class="low">
+                            ${temperatureWithUnit(day, "low")}
+                          </span>
+                        </div>`
+                      : nothing
+                  }
                 </div>`;
               })}
             </div>`

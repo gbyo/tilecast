@@ -25,14 +25,53 @@
         "label": "Show location",
         "control": "boolean",
         "default": true,
-        "ui": { "section": "content", "order": 1 }
+        "ui": {
+          "section": "content",
+          "order": 2,
+          "visibleWhen": { "key": "showCurrent", "equals": true }
+        }
       },
       {
         "key": "showCurrent",
         "label": "Show current conditions",
         "control": "boolean",
         "default": true,
-        "ui": { "section": "content", "order": 2 }
+        "ui": { "section": "content", "order": 1 }
+      },
+      {
+        "key": "showCondition",
+        "label": "Show condition text",
+        "description": "Show the current condition label, such as Partly Cloudy.",
+        "control": "boolean",
+        "default": true,
+        "ui": {
+          "section": "content",
+          "order": 3,
+          "visibleWhen": { "key": "showCurrent", "equals": true }
+        }
+      },
+      {
+        "key": "showIcons",
+        "label": "Show weather icons",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 4 }
+      },
+      {
+        "key": "showTemperatureDecimals",
+        "label": "Show decimal temperatures",
+        "description": "Turn this off to round temperatures to whole degrees.",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 5 }
+      },
+      {
+        "key": "showTemperatureUnit",
+        "label": "Show temperature unit",
+        "description": "Show the °C or °F unit beside current, high and low temperatures.",
+        "control": "boolean",
+        "default": true,
+        "ui": { "section": "content", "order": 6 }
       },
       {
         "key": "forecastDays",
@@ -41,28 +80,89 @@
         "minimum": 0,
         "maximum": 7,
         "default": 5,
-        "ui": { "section": "content", "order": 3 }
+        "ui": { "section": "content", "order": 11, "slider": true }
+      },
+      {
+        "key": "showForecastDay",
+        "label": "Show forecast day",
+        "description": "Show the weekday above each forecast.",
+        "control": "boolean",
+        "default": true,
+        "ui": {
+          "section": "content",
+          "order": 12,
+          "visibleWhen": { "key": "forecastDays", "notEquals": 0 }
+        }
+      },
+      {
+        "key": "showForecastCondition",
+        "label": "Show forecast condition text",
+        "description": "Show the condition label for each forecast day.",
+        "control": "boolean",
+        "default": false,
+        "ui": {
+          "section": "content",
+          "order": 13,
+          "visibleWhen": { "key": "forecastDays", "notEquals": 0 },
+          "advanced": true
+        }
+      },
+      {
+        "key": "showForecastHighLow",
+        "label": "Show forecast high and low",
+        "control": "boolean",
+        "default": true,
+        "ui": {
+          "section": "content",
+          "order": 14,
+          "visibleWhen": { "key": "forecastDays", "notEquals": 0 }
+        }
       },
       {
         "key": "showHumidity",
         "label": "Show humidity",
         "control": "boolean",
         "default": true,
-        "ui": { "section": "content", "order": 4 }
+        "ui": {
+          "section": "content",
+          "order": 7,
+          "visibleWhen": { "key": "showCurrent", "equals": true }
+        }
       },
       {
         "key": "showWind",
         "label": "Show wind",
         "control": "boolean",
         "default": true,
-        "ui": { "section": "content", "order": 5 }
+        "ui": {
+          "section": "content",
+          "order": 8,
+          "visibleWhen": { "key": "showCurrent", "equals": true }
+        }
       },
       {
         "key": "showPrecipitation",
         "label": "Show precipitation",
         "control": "boolean",
         "default": true,
-        "ui": { "section": "content", "order": 6 }
+        "ui": {
+          "section": "content",
+          "order": 9,
+          "visibleWhen": { "key": "showCurrent", "equals": true }
+        }
+      },
+      {
+        "key": "showDetailLabels",
+        "label": "Label weather details",
+        "description": "Prefix humidity, wind and precipitation values with their field labels.",
+        "control": "boolean",
+        "default": false,
+        "ui": {
+          "section": "content",
+          "order": 10,
+          "visibleWhen": { "key": "showCurrent", "equals": true },
+          "advanced": true
+        }
       },
       {
         "key": "emptyText",
@@ -71,7 +171,7 @@
         "control": "text",
         "maxLength": 200,
         "default": "",
-        "ui": { "section": "content", "order": 7 }
+        "ui": { "section": "content", "order": 15, "advanced": true }
       },
       {
         "key": "backgroundColor",
@@ -107,12 +207,20 @@
   },
   "defaultConfiguration": {
     "dataSourceId": "",
-    "showLocation": true,
     "showCurrent": true,
-    "forecastDays": 5,
+    "showLocation": true,
+    "showCondition": true,
+    "showIcons": true,
+    "showTemperatureDecimals": true,
+    "showTemperatureUnit": true,
     "showHumidity": true,
     "showWind": true,
     "showPrecipitation": true,
+    "showDetailLabels": false,
+    "forecastDays": 5,
+    "showForecastDay": true,
+    "showForecastCondition": false,
+    "showForecastHighLow": true,
     "emptyText": "",
     "backgroundColor": "",
     "foregroundColor": ""
@@ -129,17 +237,37 @@
   "deprecation": {},
   "component": {
     "type": "tilecast.weather",
-    "version": 1,
+    "version": 2,
     "tagName": "tc-widget-weather",
     "entrypoint": "./runtime/index.ts",
     "configTemplate": {
       "dataSourceId": { "$config": "dataSourceId", "default": "" },
       "showLocation": { "$config": "showLocation", "default": true },
       "showCurrent": { "$config": "showCurrent", "default": true },
+      "showCondition": { "$config": "showCondition", "default": true },
+      "showIcons": { "$config": "showIcons", "default": true },
+      "showTemperatureDecimals": {
+        "$config": "showTemperatureDecimals",
+        "default": true
+      },
+      "showTemperatureUnit": {
+        "$config": "showTemperatureUnit",
+        "default": true
+      },
       "forecastDays": { "$config": "forecastDays", "default": 5 },
+      "showForecastDay": { "$config": "showForecastDay", "default": true },
+      "showForecastCondition": {
+        "$config": "showForecastCondition",
+        "default": false
+      },
+      "showForecastHighLow": {
+        "$config": "showForecastHighLow",
+        "default": true
+      },
       "showHumidity": { "$config": "showHumidity", "default": true },
       "showWind": { "$config": "showWind", "default": true },
       "showPrecipitation": { "$config": "showPrecipitation", "default": true },
+      "showDetailLabels": { "$config": "showDetailLabels", "default": false },
       "emptyText": {
         "$config": "emptyText",
         "default": { "$config": "emptyState", "default": "" }
