@@ -32,7 +32,11 @@
         "default": true,
         "ui": {
           "section": "content",
-          "order": 1
+          "order": 2,
+          "visibleWhen": {
+            "key": "showCurrent",
+            "equals": true
+          }
         }
       },
       {
@@ -42,7 +46,7 @@
         "default": true,
         "ui": {
           "section": "content",
-          "order": 2
+          "order": 1
         }
       },
       {
@@ -101,7 +105,8 @@
         "default": 5,
         "ui": {
           "section": "content",
-          "order": 7
+          "order": 11,
+          "slider": true
         }
       },
       {
@@ -112,7 +117,7 @@
         "default": true,
         "ui": {
           "section": "content",
-          "order": 8,
+          "order": 12,
           "visibleWhen": {
             "key": "forecastDays",
             "notEquals": 0
@@ -122,12 +127,12 @@
       {
         "key": "showForecastCondition",
         "label": "Show forecast condition text",
-        "description": "Show the condition label beneath each forecast icon.",
+        "description": "Show the condition label for each forecast day.",
         "control": "boolean",
         "default": false,
         "ui": {
           "section": "content",
-          "order": 9,
+          "order": 13,
           "visibleWhen": {
             "key": "forecastDays",
             "notEquals": 0
@@ -142,7 +147,7 @@
         "default": true,
         "ui": {
           "section": "content",
-          "order": 10,
+          "order": 14,
           "visibleWhen": {
             "key": "forecastDays",
             "notEquals": 0
@@ -156,7 +161,11 @@
         "default": true,
         "ui": {
           "section": "content",
-          "order": 11
+          "order": 7,
+          "visibleWhen": {
+            "key": "showCurrent",
+            "equals": true
+          }
         }
       },
       {
@@ -166,7 +175,11 @@
         "default": true,
         "ui": {
           "section": "content",
-          "order": 12
+          "order": 8,
+          "visibleWhen": {
+            "key": "showCurrent",
+            "equals": true
+          }
         }
       },
       {
@@ -176,7 +189,11 @@
         "default": true,
         "ui": {
           "section": "content",
-          "order": 13
+          "order": 9,
+          "visibleWhen": {
+            "key": "showCurrent",
+            "equals": true
+          }
         }
       },
       {
@@ -187,8 +204,12 @@
         "default": false,
         "ui": {
           "section": "content",
-          "order": 14,
-          "advanced": true
+          "order": 10,
+          "advanced": true,
+          "visibleWhen": {
+            "key": "showCurrent",
+            "equals": true
+          }
         }
       },
       {
@@ -248,23 +269,23 @@
   },
   "defaultConfiguration": {
     "dataSourceId": "",
-    "showLocation": true,
     "showCurrent": true,
-    "forecastDays": 5,
-    "showHumidity": true,
-    "showWind": true,
-    "showPrecipitation": true,
-    "emptyText": "",
-    "backgroundColor": "",
-    "foregroundColor": "",
+    "showLocation": true,
     "showCondition": true,
     "showIcons": true,
     "showTemperatureDecimals": true,
     "showTemperatureUnit": true,
+    "showHumidity": true,
+    "showWind": true,
+    "showPrecipitation": true,
+    "showDetailLabels": false,
+    "forecastDays": 5,
     "showForecastDay": true,
     "showForecastCondition": false,
     "showForecastHighLow": true,
-    "showDetailLabels": false
+    "emptyText": "",
+    "backgroundColor": "",
+    "foregroundColor": ""
   },
   "presentationSchemaVersion": 1,
   "requiredCapabilities": {
@@ -286,44 +307,13 @@
         "$config": "dataSourceId",
         "default": ""
       },
-      "showLocation": {
-        "$config": "showLocation",
-        "default": true
-      },
       "showCurrent": {
         "$config": "showCurrent",
         "default": true
       },
-      "forecastDays": {
-        "$config": "forecastDays",
-        "default": 5
-      },
-      "showHumidity": {
-        "$config": "showHumidity",
+      "showLocation": {
+        "$config": "showLocation",
         "default": true
-      },
-      "showWind": {
-        "$config": "showWind",
-        "default": true
-      },
-      "showPrecipitation": {
-        "$config": "showPrecipitation",
-        "default": true
-      },
-      "emptyText": {
-        "$config": "emptyText",
-        "default": {
-          "$config": "emptyState",
-          "default": ""
-        }
-      },
-      "background": {
-        "$config": "backgroundColor",
-        "default": ""
-      },
-      "foreground": {
-        "$config": "foregroundColor",
-        "default": ""
       },
       "showCondition": {
         "$config": "showCondition",
@@ -341,6 +331,26 @@
         "$config": "showTemperatureUnit",
         "default": true
       },
+      "showHumidity": {
+        "$config": "showHumidity",
+        "default": true
+      },
+      "showWind": {
+        "$config": "showWind",
+        "default": true
+      },
+      "showPrecipitation": {
+        "$config": "showPrecipitation",
+        "default": true
+      },
+      "showDetailLabels": {
+        "$config": "showDetailLabels",
+        "default": false
+      },
+      "forecastDays": {
+        "$config": "forecastDays",
+        "default": 5
+      },
       "showForecastDay": {
         "$config": "showForecastDay",
         "default": true
@@ -353,9 +363,20 @@
         "$config": "showForecastHighLow",
         "default": true
       },
-      "showDetailLabels": {
-        "$config": "showDetailLabels",
-        "default": false
+      "emptyText": {
+        "$config": "emptyText",
+        "default": {
+          "$config": "emptyState",
+          "default": ""
+        }
+      },
+      "background": {
+        "$config": "backgroundColor",
+        "default": ""
+      },
+      "foreground": {
+        "$config": "foregroundColor",
+        "default": ""
       }
     },
     "dataSourceFields": [
