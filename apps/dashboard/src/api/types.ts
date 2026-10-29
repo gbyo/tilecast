@@ -2679,10 +2679,18 @@ export type WeatherWidgetConfig = {
   dataSourceId: string;
   showLocation: boolean;
   showCurrent: boolean;
+  showCondition: boolean;
+  showIcons: boolean;
+  showTemperatureDecimals: boolean;
+  showTemperatureUnit: boolean;
   showHumidity: boolean;
   showWind: boolean;
   showPrecipitation: boolean;
+  showDetailLabels: boolean;
   forecastDays: number;
+  showForecastDay: boolean;
+  showForecastCondition: boolean;
+  showForecastHighLow: boolean;
   foregroundColor: string;
   backgroundColor: string;
   textScale?: number;
