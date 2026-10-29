@@ -271,45 +271,48 @@ describe("Weather element", () => {
     test.dispose();
   });
 
-  it("rounds temperatures and applies the optional presentation controls", async () => {
-    const decimalForecast = {
-      ...forecastDay,
-      values: {
-        ...forecastDay.values,
-        high: { kind: "number" as const, number: 24.4 },
-        low: { kind: "number" as const, number: 15.6 },
-      },
-    };
-    const { text, root, test } = await render(
-      {
-        showCondition: false,
-        showIcons: false,
-        showTemperatureDecimals: false,
-        showTemperatureUnit: false,
-        showForecastDay: false,
-        showForecastCondition: true,
-        showForecastHighLow: true,
-        showDetailLabels: true,
-      },
-      documentWith([current, decimalForecast]),
-    );
+  it(
+    "rounds temperatures and applies the optional presentation controls",
+    async () => {
+      const decimalForecast = {
+        ...forecastDay,
+        values: {
+          ...forecastDay.values,
+          high: { kind: "number" as const, number: 24.4 },
+          low: { kind: "number" as const, number: 15.6 },
+        },
+      };
+      const { text, root, test } = await render(
+        {
+          showCondition: false,
+          showIcons: false,
+          showTemperatureDecimals: false,
+          showTemperatureUnit: false,
+          showForecastDay: false,
+          showForecastCondition: true,
+          showForecastHighLow: true,
+          showDetailLabels: true,
+        },
+        documentWith([current, decimalForecast]),
+      );
 
-    expect(text(".temp")).toBe("22");
-    expect(root.querySelector(".current .condition")).toBeNull();
-    expect(root.querySelectorAll(".icon")).toHaveLength(0);
-    expect(root.querySelector(".forecast .day-name")).toBeNull();
-    expect(text(".forecast .day-condition")).toBe("Clear Sky");
-    expect(text(".forecast .high-low")).toBe("24 16");
-    const details = [...root.querySelectorAll(".detail")].map((node) =>
-      node.textContent?.replace(/\s+/g, " ").trim(),
-    );
-    expect(details).toEqual([
-      "Humidity: 62%",
-      "Wind: 3.2 m/s",
-      "Rain: 0 mm",
-    ]);
-    test.dispose();
-  });
+      expect(text(".temp")).toBe("22");
+      expect(root.querySelector(".current .condition")).toBeNull();
+      expect(root.querySelectorAll(".icon")).toHaveLength(0);
+      expect(root.querySelector(".forecast .day-name")).toBeNull();
+      expect(text(".forecast .day-condition")).toBe("Clear Sky");
+      expect(text(".forecast .high-low")).toBe("24 16");
+      const details = [...root.querySelectorAll(".detail")].map((node) =>
+        node.textContent?.replace(/\s+/g, " ").trim(),
+      );
+      expect(details).toEqual([
+        "Humidity: 62%",
+        "Wind: 3.2 m/s",
+        "Rain: 0 mm",
+      ]);
+      test.dispose();
+    },
+  );
 
   it("hides toggled-off sections and honors a zero-day forecast", async () => {
     const { root, test } = await render(
