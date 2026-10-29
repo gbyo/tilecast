@@ -323,7 +323,9 @@ describe("Weather element", () => {
       documentWith([current, forecastDay]),
     );
     expect(root.querySelector(".place")).toBeNull();
+    expect(root.querySelector(".details")).toBeNull();
     expect(root.querySelectorAll(".detail")).toHaveLength(0);
+    expect(root.querySelector(".forecast")).toBeNull();
     expect(root.querySelectorAll(".forecast .day")).toHaveLength(0);
     expect(root.querySelector(".current")).not.toBeNull();
     test.dispose();
