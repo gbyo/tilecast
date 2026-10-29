@@ -583,23 +583,27 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
     const currentBlock =
       data.current && this.config.showCurrent
         ? html`<div class="current">
-            ${this.config.showIcons
-              ? html`<div class="icon">
-                  ${conditionIcon(
-                    conditionKind(recordText(data.current, "condition")),
-                  )}
-                </div>`
-              : nothing}
+            ${
+              this.config.showIcons
+                ? html`<div class="icon">
+                    ${conditionIcon(
+                      conditionKind(recordText(data.current, "condition")),
+                    )}
+                  </div>`
+                : nothing
+            }
             <div>
               <div class="temp">
                 ${temperatureWithUnit(data.current, "temperature")}
               </div>
-              ${this.config.showCondition &&
-              recordText(data.current, "condition") !== ""
-                ? html`<div class="condition">
-                    ${recordText(data.current, "condition")}
-                  </div>`
-                : nothing}
+              ${
+                this.config.showCondition &&
+                recordText(data.current, "condition") !== ""
+                  ? html`<div class="condition">
+                      ${recordText(data.current, "condition")}
+                    </div>`
+                  : nothing
+              }
               ${
                 this.config.showLocation &&
                 recordText(data.current, "location") !== ""
@@ -608,15 +612,17 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
                     </div>`
                   : nothing
               }
-              ${details.length > 0
-                ? html`<div class="details">
-                    ${details.map(
-                      (detail) => html`<div class="detail">
-                        ${detailText(detail.key, detail.value)}
-                      </div>`,
-                    )}
-                  </div>`
-                : nothing}
+              ${
+                details.length > 0
+                  ? html`<div class="details">
+                      ${details.map(
+                        (detail) => html`<div class="detail">
+                          ${detailText(detail.key, detail.value)}
+                        </div>`,
+                      )}
+                    </div>`
+                  : nothing
+              }
             </div>
           </div>`
         : nothing;
@@ -628,38 +634,46 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
               ${data.forecast.map((day) => {
                 const dayMs = Date.parse(recordDay(day, "date"));
                 return html`<div class="day">
-                  ${this.config.showForecastDay
-                    ? html`<div class="day-name">
-                        ${Number.isNaN(dayMs)
-                          ? ""
-                          : formatDate(dayMs, {
-                              locale,
-                              timeZone,
-                              style: "weekday",
-                            })}
-                      </div>`
-                    : nothing}
-                  ${this.config.showIcons
-                    ? html`<div class="icon">
-                        ${conditionIcon(
-                          conditionKind(recordText(day, "condition")),
-                        )}
-                      </div>`
-                    : nothing}
-                  ${this.config.showForecastCondition &&
-                  recordText(day, "condition") !== ""
-                    ? html`<div class="day-condition">
-                        ${recordText(day, "condition")}
-                      </div>`
-                    : nothing}
-                  ${this.config.showForecastHighLow
-                    ? html`<div class="high-low">
-                        ${temperatureWithUnit(day, "high")}
-                        <span class="low">
-                          ${temperatureWithUnit(day, "low")}
-                        </span>
-                      </div>`
-                    : nothing}
+                  ${
+                    this.config.showForecastDay
+                      ? html`<div class="day-name">
+                          ${Number.isNaN(dayMs)
+                            ? ""
+                            : formatDate(dayMs, {
+                                locale,
+                                timeZone,
+                                style: "weekday",
+                              })}
+                        </div>`
+                      : nothing
+                  }
+                  ${
+                    this.config.showIcons
+                      ? html`<div class="icon">
+                          ${conditionIcon(
+                            conditionKind(recordText(day, "condition")),
+                          )}
+                        </div>`
+                      : nothing
+                  }
+                  ${
+                    this.config.showForecastCondition &&
+                    recordText(day, "condition") !== ""
+                      ? html`<div class="day-condition">
+                          ${recordText(day, "condition")}
+                        </div>`
+                      : nothing
+                  }
+                  ${
+                    this.config.showForecastHighLow
+                      ? html`<div class="high-low">
+                          ${temperatureWithUnit(day, "high")}
+                          <span class="low">
+                            ${temperatureWithUnit(day, "low")}
+                          </span>
+                        </div>`
+                      : nothing
+                  }
                 </div>`;
               })}
             </div>`
