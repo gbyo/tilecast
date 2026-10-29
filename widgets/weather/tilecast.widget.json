@@ -250,7 +250,10 @@
         "$config": "showTemperatureDecimals",
         "default": true
       },
-      "showTemperatureUnit": { "$config": "showTemperatureUnit", "default": true },
+      "showTemperatureUnit": {
+        "$config": "showTemperatureUnit",
+        "default": true
+      },
       "forecastDays": { "$config": "forecastDays", "default": 5 },
       "showForecastDay": { "$config": "showForecastDay", "default": true },
       "showForecastCondition": {
