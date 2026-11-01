@@ -717,14 +717,18 @@ export class BrowserPlayer {
       this.active?.presentation.presentation.state === "playing";
     // The capability report goes out when providers exist or the set
     // changed: a steady empty set stays omitted, while a disconnect
-    // sends one explicit empty set that clears the stored report.
+    // sends one explicit empty set that clears the stored report. The
+    // set counts as reported only once the server accepts it, so a
+    // failed clear goes out again on the next heartbeat.
     const described = this.capabilityProviders.describe();
     const encoded = encodeCapabilitySet(described);
     const capabilities =
       encoded !== this.reportedCapabilities || this.capabilityProviders.size > 0
         ? described
         : undefined;
-    if (capabilities !== undefined) this.reportedCapabilities = encoded;
+    // An unanswered refresh disconnects a silent Companion, so its
+    // capabilities leave by the next heartbeat.
+    this.companion?.refresh();
     await this.api.request(
       "/api/v1/player/heartbeat",
       heartbeatPayload({
@@ -779,6 +783,7 @@ export class BrowserPlayer {
         ...(capabilities !== undefined ? { capabilities } : {}),
       }),
     );
+    if (capabilities !== undefined) this.reportedCapabilities = encoded;
   }
 
   /**
