@@ -41,6 +41,10 @@ class RuntimeHostSession(
     )
     private var stateGeneration = 0L
     private var lastActivationId: String? = null
+    private var lastActivationGeneration: Long? = null
+
+    fun matchesActivation(id: String, generation: Long): Boolean =
+        lastActivationId == id && lastActivationGeneration == generation
 
     fun capabilities(): Map<String, Any?> = RemoteWebCallHandler.capabilities()
 
@@ -62,6 +66,7 @@ class RuntimeHostSession(
     /** Offers a host message. Returns the new state generation and any remote
      * surfaces dropped by an activation change. */
     fun offer(message: HostMessage): OfferResult {
+        if (message is HostMessage.Presentation) lastActivationGeneration = message.generation
         if (message is HostMessage.Presentation && message.activationId != lastActivationId) {
             lastActivationId = message.activationId
             val removed = remoteWeb.reset(rendererGeneration)

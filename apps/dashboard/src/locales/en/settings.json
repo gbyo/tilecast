@@ -669,7 +669,8 @@
       "integrations": "Integration tokens",
       "import-export": "Import and export",
       "dependency-graph": "Dependency Explorer",
-      "preferences": "Preferences"
+      "preferences": "Preferences",
+      "roles": "Roles"
     },
     "sections": {
       "general": {
@@ -771,6 +772,10 @@
       "preferences": {
         "title": "Preferences",
         "description": "Appearance and workflow preferences for your Studio account."
+      },
+      "roles": {
+        "title": "Roles",
+        "description": "Decide what people can do. Use the built-in roles or create your own, then assign them on the Users page."
       }
     }
   },
@@ -1379,9 +1384,9 @@
       "waitingCanary": "Waiting for canary",
       "review": "Deployment review",
       "blockedTitle": "Selected screens cannot receive this release",
-      "offlineWarning": "{{count}} screens have no recent heartbeat. Their update commands wait for reconnecting and expire after seven days.",
+      "offlineWarning": "{{count}} screens have no recent heartbeat. Their update commands wait for reconnection and expire after seven days.",
       "offlineWarning_one": "{{count}} screen has no recent heartbeat. Its update command waits for reconnection and expires after seven days.",
-      "offlineWarning_other": "{{count}} screens have no recent heartbeat. Their update commands wait for reconnecting and expire after seven days.",
+      "offlineWarning_other": "{{count}} screens have no recent heartbeat. Their update commands wait for reconnection and expire after seven days.",
       "currentWarning": "{{count}} screens already have this version or newer. They receive no update command.",
       "currentWarning_one": "{{count}} screen already has this version or newer. It receives no update command.",
       "currentWarning_other": "{{count}} screens already have this version or newer. They receive no update command.",

@@ -215,7 +215,7 @@ test("screen-scope-editor", async ({ page }) => {
     .locator('[data-slot="item"]')
     .filter({ hasText: "Priya Natarajan" });
   await row.getByRole("button", { name: "Edit" }).click();
-  await page.getByRole("button", { name: "Screen scope" }).click();
+  await page.getByRole("tab", { name: "Screen access" }).click();
   await page.getByRole("radio", { name: "Limit access" }).click();
   await expect(
     page.getByRole("checkbox", { name: "High School" }),

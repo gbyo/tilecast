@@ -17,7 +17,11 @@ import {
   type RouteObject,
 } from "react-router";
 import { ApiError } from "@tilecast/studio";
-import { i18n, StudioSessionProvider } from "@tilecast/studio/testing";
+import {
+  i18n,
+  StudioSessionProvider,
+  testStudioSession,
+} from "@tilecast/studio/testing";
 import { formsApi } from "./api";
 
 import type { FormCapability, FormDataSource } from "./types";
@@ -45,18 +49,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function testSession(role = "viewer") {
-  return {
-    csrfToken: "tok",
-    role,
-    canManage: role === "owner" || role === "administrator",
-    authenticated: true,
-    setupRequired: false,
-    isLoading: false,
-    isSubmitting: false,
-    logout: () => Promise.resolve(),
-  };
-}
+const testSession = testStudioSession;
 
 function renderAt(
   path: string,

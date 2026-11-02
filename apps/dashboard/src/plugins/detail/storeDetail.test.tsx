@@ -38,6 +38,7 @@ import {
   marketplaceListing,
   updateCheck,
 } from "../catalogFixtures";
+import { builtinCapabilities } from "../../test/capabilities";
 
 const auth = vi.hoisted(() => ({ role: "owner" }));
 vi.mock("../../auth/AuthProvider", () => ({
@@ -46,6 +47,7 @@ vi.mock("../../auth/AuthProvider", () => ({
       authenticated: true,
       csrfToken: "csrf",
       user: { id: "user", name: "User", role: auth.role },
+      capabilities: builtinCapabilities(auth.role),
     },
   }),
 }));
@@ -2123,7 +2125,13 @@ describe("Screenshot lightbox", () => {
       name: `Enlarge screenshot: ${alt}`,
     });
     await user.click(opener);
-    return { opener, dialog: await screen.findByRole("dialog") };
+    const dialog = await screen.findByRole("dialog");
+    // Key presses go to the focused element, and the dialog moves focus into
+    // itself after it opens. Wait for that so a loaded runner cannot drop them.
+    await waitFor(() =>
+      expect(dialog).toContainElement(document.activeElement as HTMLElement),
+    );
+    return { opener, dialog };
   }
 
   it("shows the position and steps with Previous and Next, without closing", async () => {

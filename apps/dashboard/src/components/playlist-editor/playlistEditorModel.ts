@@ -10,7 +10,9 @@ import type {
   AssetStatus,
   PlaylistItem,
   PlaylistItemInput,
+  AuthStatus,
 } from "../../api/types";
+import { hasCapability } from "../../auth/capabilities";
 
 export type PlaylistsT = TFunction<"playlists", undefined>;
 
@@ -19,8 +21,9 @@ export type PlaylistTransition = PlaylistItem["transition"] | "mixed";
 export type ImageDurationSummary =
   { kind: "value"; seconds: number } | { kind: "mixed" } | { kind: "player" };
 
-export function canManagePlaylists(role?: string) {
-  return role !== "viewer";
+/** The account may create playlists and change their drafts. */
+export function canManagePlaylists(status?: AuthStatus) {
+  return hasCapability(status, "playlist.edit");
 }
 
 export function openPlaylistPreview(id: string) {
@@ -285,19 +288,47 @@ export function movePlaylistItemToEdge(
   return ids;
 }
 
+export type PlaylistDropEdge = "before" | "after";
+
 export function reorderPlaylistItems(
   items: PlaylistItem[],
   draggedId: string,
   targetId: string,
+  edge: PlaylistDropEdge,
 ) {
-  if (draggedId === targetId) return items.map((item) => item.id);
   const ids = items.map((item) => item.id);
+  if (draggedId === targetId) return ids;
+
   const from = ids.indexOf(draggedId);
-  const to = ids.indexOf(targetId);
-  if (from < 0 || to < 0) return ids;
+  if (from < 0 || !ids.includes(targetId)) return ids;
+
   const [moved] = ids.splice(from, 1);
-  if (moved) ids.splice(to, 0, moved);
+  if (!moved) return ids;
+
+  // Resolve the target after removing the dragged item. Using the target's
+  // original index makes downward drops behave differently from upward drops.
+  const target = ids.indexOf(targetId);
+  if (target < 0) return items.map((item) => item.id);
+  ids.splice(edge === "before" ? target : target + 1, 0, moved);
   return ids;
+}
+
+export function playlistItemsWithOrder(
+  items: PlaylistItem[],
+  itemIds: string[],
+) {
+  if (items.length !== itemIds.length) return items;
+
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const seen = new Set<string>();
+  const ordered: PlaylistItem[] = [];
+  for (const [position, id] of itemIds.entries()) {
+    const item = byId.get(id);
+    if (!item || seen.has(id)) return items;
+    seen.add(id);
+    ordered.push({ ...item, position });
+  }
+  return ordered;
 }
 
 export function itemHasTransitionOverride(

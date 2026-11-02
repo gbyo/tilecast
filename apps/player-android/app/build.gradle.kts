@@ -36,6 +36,9 @@ android {
         buildConfigField("long", "MEDIA_CACHE_BYTES", "${providers.gradleProperty("TILECAST_PLAYER_CACHE_BYTES").orElse("8589934592").get()}L")
         buildConfigField("long", "MINIMUM_FREE_BYTES", "${providers.gradleProperty("TILECAST_PLAYER_MINIMUM_FREE_BYTES").orElse("1073741824").get()}L")
         buildConfigField("long", "AUTOMATIC_VIDEO_THRESHOLD_BYTES", "${providers.gradleProperty("TILECAST_PLAYER_AUTOMATIC_VIDEO_THRESHOLD_BYTES").orElse("268435456").get()}L")
+        // Phone setup (docs/phone-setup.md). Empty turns it off; a debug
+        // build can point at a local relay with -PTILECAST_PLAYER_SETUP_RELAY_URL.
+        buildConfigField("String", "SETUP_RELAY_URL", "\"${providers.gradleProperty("TILECAST_PLAYER_SETUP_RELAY_URL").orElse("https://setup.tilecast.org").get()}\"")
         buildConfigField("int", "CONCURRENT_DOWNLOADS", providers.gradleProperty("TILECAST_PLAYER_CONCURRENT_DOWNLOADS").orElse("2").get())
     }
 
@@ -109,11 +112,15 @@ dependencies {
     implementation("org.rustls:rustls-platform-verifier")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("com.google.zxing:core:3.5.4")
+    // Lucide, the icon set Studio uses, as Android vector drawables
+    // (lucide_ic_*). Release resource shrinking keeps only the icons in use.
+    implementation("com.composables:icons-lucide-android:2.2.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:5.5.0")
     testImplementation("androidx.room:room-testing:2.8.5")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
@@ -186,7 +193,7 @@ tasks.register<Exec>("verifySharedRuntime") {
     )
 }
 
-tasks.named("preBuild") { dependsOn("verifySharedRuntime", "buildNativeCore") }
+tasks.named("preBuild") { dependsOn("verifySharedRuntime", "buildNativeCore", "syncGeistFont") }
 
 // The Kotlin verifier component must match the native
 // rustls-platform-verifier-android crate exactly; a SemVer mismatch crashes
@@ -251,6 +258,37 @@ android {
     sourceSets {
         getByName("main") {
             jniLibs.directories.add(nativeJniLibs.get().asFile.absolutePath)
+        }
+    }
+}
+
+// Geist for Tilecast-owned native UI. Native apps share one vendored copy of
+// the official Geist variable font (SIL Open Font License), so the Android
+// build copies it from the iOS app's resources instead of keeping a second
+// binary. It becomes an Android font resource at build time; the OFL text
+// ships as an APK asset. Nothing is fetched at runtime, so offline signage
+// keeps its typeface. The shared runtime bundles Geist separately as WOFF2
+// from @fontsource-variable/geist for the WebView.
+val geistFont = layout.projectDirectory.file("../../ios/Tilecast/Resources/Fonts/Geist-Variable.ttf")
+val geistLicense = layout.projectDirectory.file("../../ios/Tilecast/Resources/Licenses/Geist-OFL.txt")
+val geistGenerated = layout.buildDirectory.dir("generated/geist")
+
+tasks.register<Sync>("syncGeistFont") {
+    group = "tilecast"
+    description = "Copies the vendored Geist variable font into generated Android resources."
+    from(geistFont) {
+        into("res/font")
+        rename { "geist_variable.ttf" }
+    }
+    from(geistLicense) { into("assets/licenses") }
+    into(geistGenerated)
+}
+
+android {
+    sourceSets {
+        getByName("main") {
+            res.directories.add(geistGenerated.get().dir("res").asFile.absolutePath)
+            assets.directories.add(geistGenerated.get().dir("assets").asFile.absolutePath)
         }
     }
 }

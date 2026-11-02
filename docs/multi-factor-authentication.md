@@ -1,5 +1,10 @@
 # Multi-factor authentication and passkeys
 
+Studio clears cached account data after a successful sign-out.
+It cancels pending reads from that session.
+A successful sign-in also clears data from an expired session.
+A failed sign-out keeps the current session and its data.
+
 Tilecast Studio accounts can carry a second factor in addition to their Argon2id password. This applies to the dashboard only. Player enrollment and device credentials are a separate authentication boundary and are unaffected. See [device-credential-security.md](device-credential-security.md).
 
 Three factor types are supported:

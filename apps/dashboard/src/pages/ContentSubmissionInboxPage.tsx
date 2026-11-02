@@ -61,6 +61,7 @@ import {
 } from "../components/ui/table";
 import { Textarea } from "../components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
+import { hasCapability } from "../auth/capabilities";
 
 const filterDefs = [
   { value: "in_review", labelKey: "submissions.filters.needsReview" },
@@ -101,10 +102,13 @@ export function ContentSubmissionInboxPage() {
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
-  const role = auth.status?.user?.role ?? "viewer";
-  const canReview = ["owner", "administrator", "editor"].includes(role);
-  const canPublish = canReview;
-  const canPublishCampaign = ["owner", "administrator"].includes(role);
+  const canReview = hasCapability(auth.status, "content.review");
+  const canPublish =
+    canReview &&
+    (hasCapability(auth.status, "playlist.publish") ||
+      hasCapability(auth.status, "layout.publish"));
+  const canPublishCampaign =
+    canReview && hasCapability(auth.status, "campaign.publish");
   const client = useQueryClient();
   const [filter, setFilter] = useState<SubmissionFilter>("in_review");
   const [notes, setNotes] = useState<Record<string, string>>({});

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
@@ -215,5 +216,5 @@ func (s *server) confirmPowerAssist(w http.ResponseWriter, r *http.Request) {
 
 func detailedDiagnostics(r *http.Request) bool {
 	principal, ok := principalOf(r)
-	return ok && principal.CanManage()
+	return ok && principal.Can(auth.CapScreenManage)
 }

@@ -46,11 +46,28 @@ pub struct ResumeState {
     pending: Option<PlaybackCheckpoint>,
     applied: Option<AppliedRotation>,
     last_written: Option<(String, String, String)>,
+    projected_manifest: Option<(String, serde_json::Value)>,
 }
 
 impl ResumeState {
     pub fn loaded(binding: Option<ResumeBinding>, pending: Option<PlaybackCheckpoint>) -> Self {
-        Self { binding, pending, applied: None, last_written: None }
+        Self { binding, pending, applied: None, last_written: None, projected_manifest: None }
+    }
+
+    /// A plugin-only revision preserves the session's already applied
+    /// rotation. Real manifest changes still resume from the ordinary head.
+    pub fn observe_manifest(&mut self, document: &serde_json::Value, digest: &str, version: i64) {
+        if self.projected_manifest.as_ref().is_some_and(|(previous, _)| previous == digest) {
+            return;
+        }
+        if let Some((previous, active)) = self.projected_manifest.as_ref()
+            && player_core::is_plugin_only_revision(active, document)
+            && let Some(applied) = self.applied.as_mut().filter(|rotation| rotation.manifest_digest == *previous)
+        {
+            applied.manifest_digest = digest.to_owned();
+            applied.manifest_version = version;
+        }
+        self.projected_manifest = Some((digest.to_owned(), document.clone()));
     }
 
     /// Whether a checkpoint write would say anything new. Duplicate item
@@ -323,6 +340,30 @@ mod tests {
     fn order(resolved: &ResolvedPresentation) -> Vec<String> {
         let PresentationDocument::Playing { items, .. } = &resolved.document else { panic!("playing") };
         items.iter().map(|item| item.id.as_str().to_owned()).collect()
+    }
+
+    #[test]
+    fn plugin_revision_preserves_a_cold_start_rotation_in_both_directions() {
+        let mut resume = state("item-2");
+        let active = serde_json::json!({"plugins":[], "manifestVersion":3, "playlist":{"items":[1,2,3]}});
+        resume.observe_manifest(&active, "digest", 3);
+        let mut first = resolved(&["item-0", "item-1", "item-2"]);
+        maybe_rotate(&mut resume, &mut first, "digest", 3, true, 2_000);
+        let mut pending = active.clone();
+        pending["manifestVersion"] = serde_json::json!(4);
+        pending["plugins"] = serde_json::json!([{"type":"countdown_bar"}]);
+        for (document, digest, version) in [(&pending, "pending", 4), (&active, "digest", 3), (&pending, "pending", 4)]
+        {
+            resume.observe_manifest(document, digest, version);
+            let mut projected = resolved(&["item-0", "item-1", "item-2"]);
+            maybe_rotate(&mut resume, &mut projected, digest, version, true, 3_000);
+            assert_eq!(order(&projected), ["item-2", "item-0", "item-1"]);
+        }
+        pending["playlist"]["items"] = serde_json::json!([1, 2]);
+        resume.observe_manifest(&pending, "changed", 5);
+        let mut changed = resolved(&["item-0", "item-1"]);
+        maybe_rotate(&mut resume, &mut changed, "changed", 5, true, 3_000);
+        assert_eq!(order(&changed), ["item-0", "item-1"]);
     }
 
     #[test]

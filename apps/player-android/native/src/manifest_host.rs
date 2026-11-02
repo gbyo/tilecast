@@ -33,36 +33,33 @@ use serde_json::Value;
 pub mod profile {
     //! The renderer's packaged support: what this release can provide
     //! before any renderer process advertises.
+    use super::SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES;
     use super::WEB_RUNTIME_VERSION;
     pub use super::WIDGET_COMPONENTS;
-    use super::{COMPONENT_PRESENTATION_SCHEMA, SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES};
     use player_core::{PackagedRendererProfile, RendererSupport};
     use player_types::bounded::ShortToken;
     use std::collections::BTreeMap;
 
     /// Renderer features (`renderer.ready` vocabulary) the trusted runtime
-    /// implements under the Android WebView host.
-    pub const FEATURES: &[&str] = &[
-        "status-surfaces-v1",
-        "image",
-        "video",
-        "render-tree-v1",
-        "layout-v1",
-        "synchronized-playback-v1",
-        "span-viewport-v1",
-        "plugin.countdown_bar",
-        "plugin.alert_ticker",
-        // No plugin.brand_bug: the Android Player has no brand-bug surface.
-        "remote-web-v1",
-        "website",
-        "youtube",
-    ];
+    /// implements under the Android WebView host. One definition,
+    /// `apps/player-android/renderer-profile.json`, generates this list and
+    /// the Kotlin ready report, so what preparation assumes is exactly what
+    /// the live renderer later advertises. No plugin.brand_bug: the Android
+    /// Player has no brand-bug surface.
+    pub const FEATURES: &[&str] = crate::renderer_profile::RENDERER_FEATURES;
 
-    /// Presentation schemas the Android host applies: 1 (declarative and
-    /// web) and 2 (first-class Widget components). Schema 3 (declared
-    /// empty policy) needs host-side empty-skip handling the Android
-    /// Player has not implemented yet.
-    pub const PRESENTATION_SCHEMAS: &[u32] = &[1, COMPONENT_PRESENTATION_SCHEMA];
+    /// Presentation schemas the Android host applies once the component
+    /// runtime proves itself: the baseline (declarative and web) plus the
+    /// first-class Widget component schema. Schema 3 (declared empty policy)
+    /// needs host-side empty-skip handling the Android Player has not
+    /// implemented yet.
+    pub fn presentation_schemas() -> Vec<u32> {
+        crate::renderer_profile::BASELINE_PRESENTATION_SCHEMAS
+            .iter()
+            .chain(crate::renderer_profile::COMPONENT_PRESENTATION_SCHEMAS)
+            .copied()
+            .collect()
+    }
 
     /// Declarative capabilities the heartbeat reports: the shared
     /// runtime list plus the `web.remote` capability the remote host
@@ -71,7 +68,7 @@ pub mod profile {
         SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES
             .iter()
             .copied()
-            .chain(std::iter::once(("web.remote", WEB_RUNTIME_VERSION)))
+            .chain(std::iter::once((crate::renderer_profile::WEB_REMOTE_CAPABILITY, WEB_RUNTIME_VERSION)))
             .collect()
     }
 
@@ -83,13 +80,21 @@ pub mod profile {
         PackagedRendererProfile(
             RendererSupport::new(
                 FEATURES.iter().map(|name| token(name)).collect(),
-                PRESENTATION_SCHEMAS.iter().copied().collect(),
+                presentation_schemas().into_iter().collect(),
                 SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES
                     .iter()
                     .map(|(name, version)| (token(name), *version))
                     .collect::<BTreeMap<_, _>>()
                     .into_iter()
-                    .chain(std::iter::once((token("web.remote"), WEB_RUNTIME_VERSION)))
+                    .chain(std::iter::once((
+                        token(crate::renderer_profile::WEB_REMOTE_CAPABILITY),
+                        WEB_RUNTIME_VERSION,
+                    )))
+                    // The install script sets pluginState, so the shared
+                    // Runtime hosts Plugin API v2 on a trusted WebView.
+                    .chain(
+                        player_core::shared_runtime_plugin_capabilities().map(|(name, version)| (token(name), version)),
+                    )
                     .collect(),
                 WIDGET_COMPONENTS
                     .iter()
@@ -98,8 +103,8 @@ pub mod profile {
                     // downloaded Widget, not a discovered component: this
                     // release confines served frames, so it offers it.
                     .chain(std::iter::once((
-                        token(player_types::frames::EXTERNAL_RUNTIME_CAPABILITY),
-                        player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+                        token(crate::renderer_profile::EXTERNAL_WIDGET_RUNTIME_CAPABILITY),
+                        crate::renderer_profile::EXTERNAL_WIDGET_RUNTIME_VERSION,
                     )))
                     .collect(),
             )
@@ -113,7 +118,7 @@ pub use crate::widget_capabilities::{COMPONENT_PRESENTATION_SCHEMA, WIDGET_COMPO
 
 /// The `web.remote` declarative capability: remote web in the Android
 /// remote host, shown through the renderer's remote web surface.
-pub const WEB_RUNTIME_VERSION: u32 = 2;
+pub const WEB_RUNTIME_VERSION: u32 = crate::renderer_profile::WEB_REMOTE_VERSION;
 
 /// What the renderer cannot safely provide, and why.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -387,6 +392,9 @@ pub fn incompatibilities(
     // display task applies it when a provider exists and reports the typed
     // reason when none does, as the reference player does.
     for plugin in document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+        if player_core::is_runtime_plugin_data(plugin) {
+            continue;
+        }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("unknown");
         if !profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
             push(Incompatibility::Plugin(kind.chars().take(32).collect()));
@@ -469,6 +477,10 @@ pub struct AndroidManifestHost {
     engine: Arc<tokio::sync::Mutex<crate::renderer::PresentationEngine>>,
     clock: SharedClock,
     facts: SharedManifestFacts,
+    /// Wakes the offline activation loop. Preparation runs in a background
+    /// worker after the fetch, so a pending manifest only exists once that
+    /// worker finishes; without this wake the loop sleeps to its next tick.
+    manifest_wake: Arc<tokio::sync::Notify>,
 }
 
 impl AndroidManifestHost {
@@ -479,8 +491,9 @@ impl AndroidManifestHost {
         engine: Arc<tokio::sync::Mutex<crate::renderer::PresentationEngine>>,
         clock: SharedClock,
         facts: SharedManifestFacts,
+        manifest_wake: Arc<tokio::sync::Notify>,
     ) -> Self {
-        Self { core, cas, server, engine, clock, facts }
+        Self { core, cas, server, engine, clock, facts, manifest_wake }
     }
 
     /// The connected profile compatibility checks use: the live
@@ -516,6 +529,9 @@ impl AndroidManifestHost {
         if !matches!(prepared, ManifestPrepared::Superseded) {
             let facts = manifest_facts(&target.document, self.clock.now());
             *self.facts.lock().unwrap_or_else(|error| error.into_inner()) = facts;
+        }
+        if matches!(prepared, ManifestPrepared::Repaired | ManifestPrepared::Pending) {
+            self.manifest_wake.notify_one();
         }
         Ok(prepared)
     }
@@ -598,7 +614,7 @@ mod tests {
         ConnectedRendererProfile(
             RendererSupport::new(
                 profile::FEATURES.iter().map(|name| token(name)).collect(),
-                profile::PRESENTATION_SCHEMAS.iter().copied().collect(),
+                profile::presentation_schemas().into_iter().collect(),
                 profile::native_capabilities().into_iter().map(|(name, version)| (token(name), version)).collect(),
                 profile::WIDGET_COMPONENTS.iter().map(|(name, version)| (token(name), *version)).collect(),
             )
@@ -745,7 +761,7 @@ mod tests {
     #[test]
     fn packaged_profile_matches_android_truth() {
         let packaged = profile::packaged();
-        assert_eq!(profile::PRESENTATION_SCHEMAS, &[1, 2]);
+        assert_eq!(profile::presentation_schemas(), vec![1, 2]);
         assert!(!profile::FEATURES.contains(&"plugin.brand_bug"));
         for feature in ["image", "video", "website", "youtube", "remote-web-v1", "synchronized-playback-v1"] {
             let token = ShortToken::new(feature).expect("feature");
@@ -753,6 +769,85 @@ mod tests {
         }
         let missing = ShortToken::new("plugin.brand_bug").expect("token");
         assert!(packaged.check(&RendererRequirement::Feature(missing)).is_err());
+    }
+
+    /// The packaged profile preparation checks must equal what a fully
+    /// supported live renderer advertises. The live report is rebuilt here
+    /// from the contract file itself (`renderer-profile.json`) plus the
+    /// generated capability tables, independently of how `packaged()` is
+    /// assembled; the Kotlin renderer's `RendererReadyReportTest` rebuilds the
+    /// same report from the same file for the report it really sends.
+    #[test]
+    fn packaged_profile_equals_the_live_report_contract() {
+        let contract: Value = serde_json::from_str(include_str!("../../renderer-profile.json")).expect("contract");
+        let numbers = |value: &Value| -> Vec<u64> {
+            value.as_array().expect("array").iter().map(|item| item.as_u64().expect("number")).collect()
+        };
+        let mut schemas = numbers(&contract["presentationSchemas"]["baseline"]);
+        schemas.extend(numbers(&contract["presentationSchemas"]["componentRuntime"]));
+        let mut declarative = serde_json::Map::new();
+        for (name, version) in SHARED_RUNTIME_DECLARATIVE_PRESENTATION_CAPABILITIES {
+            declarative.insert((*name).to_owned(), serde_json::json!(version));
+        }
+        declarative.insert(
+            contract["webRemote"]["name"].as_str().expect("name").to_owned(),
+            contract["webRemote"]["version"].clone(),
+        );
+        // Plugin API v2, rebuilt from the canonical vocabulary file rather
+        // than from the constant the packaged profile uses.
+        let vocabulary: Value =
+            serde_json::from_str(include_str!("../../../../packages/plugin-sdk/player-services.json"))
+                .expect("vocabulary");
+        declarative.insert(
+            vocabulary["host"]["capability"].as_str().expect("host").to_owned(),
+            vocabulary["host"]["version"].clone(),
+        );
+        for service in vocabulary["services"].as_array().expect("services") {
+            if service["execution"] == "runtime" && service.get("hostCapability").is_none() {
+                declarative.insert(service["name"].as_str().expect("name").to_owned(), service["version"].clone());
+            }
+        }
+        let mut components = serde_json::Map::new();
+        for (name, version) in WIDGET_COMPONENTS {
+            components.insert((*name).to_owned(), serde_json::json!(version));
+        }
+        components.insert(
+            contract["externalWidgetRuntime"]["name"].as_str().expect("name").to_owned(),
+            contract["externalWidgetRuntime"]["version"].clone(),
+        );
+        let live = serde_json::json!({
+            "features": contract["features"],
+            "support": {
+                "presentationSchemas": schemas,
+                "declarativeCapabilities": declarative,
+                "widgetComponents": components,
+            },
+        });
+        let advertised = crate::renderer::connected_profile(&live).expect("a well-formed live report");
+        assert_eq!(
+            profile::packaged().0,
+            advertised.0,
+            "preparation must never assume more than the renderer advertises"
+        );
+        // The host constants the contract feeds are the ones the platform pins.
+        assert_eq!(WEB_RUNTIME_VERSION as u64, contract["webRemote"]["version"].as_u64().expect("version"));
+        assert_eq!(
+            player_types::frames::EXTERNAL_RUNTIME_CAPABILITY,
+            contract["externalWidgetRuntime"]["name"].as_str().expect("name")
+        );
+        assert_eq!(
+            u64::from(player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION),
+            contract["externalWidgetRuntime"]["version"].as_u64().expect("version")
+        );
+        assert!(
+            numbers(&contract["presentationSchemas"]["componentRuntime"])
+                .contains(&u64::from(COMPONENT_PRESENTATION_SCHEMA)),
+            "the Widget component schema is the component runtime schema"
+        );
+        // Plugins the manifest preparation accepts are renderer features.
+        for plugin in ["countdown_bar", "alert_ticker"] {
+            assert!(profile::FEATURES.contains(&format!("plugin.{plugin}").as_str()), "plugin.{plugin}");
+        }
     }
 
     #[test]
@@ -826,10 +921,18 @@ mod tests {
     }
 
     async fn scratch_parts(dir: &std::path::Path) -> (player_core::PlayerCore, ContentStore) {
+        let (core, store, _) = scratch_parts_with_dependencies(dir).await;
+        (core, store)
+    }
+
+    async fn scratch_parts_with_dependencies(
+        dir: &std::path::Path,
+    ) -> (player_core::PlayerCore, ContentStore, player_core::Dependencies) {
         std::fs::create_dir_all(dir).expect("scratch dir");
         let db = StateDb::open(dir.join("state.db"), OpenOptions::default()).expect("state");
         let clock = std::sync::Arc::new(crate::host::SystemClock);
-        let core = player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: clock.clone() });
+        let dependencies = player_core::Dependencies { state: db.clone(), clock: clock.clone() };
+        let core = player_core::PlayerCore::new(dependencies.clone());
         let store = ContentStore::open(
             dir.join("cas"),
             dir.join("partial"),
@@ -842,7 +945,7 @@ mod tests {
         )
         .await
         .expect("store open");
-        (core, store)
+        (core, store, dependencies)
     }
 
     /// A live engine, clock, and facts slot for host construction.
@@ -894,7 +997,7 @@ mod tests {
         let (base, task) = canned_server(manifest(), unreachable).await;
         let server = verified(&base).await;
         let (engine, clock, facts) = engine_parts(&store);
-        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts, Default::default());
         let binding = binding(base);
 
         // First sync discovers the pending target and prepares it.
@@ -922,6 +1025,36 @@ mod tests {
         task.abort();
     }
 
+    /// Preparation runs in a background worker after the fetch. The
+    /// activation loop can only select a manifest once that worker has staged
+    /// it, so the worker finishing must wake the loop. Without the wake a new
+    /// assignment waited for the loop's next idle tick (up to a minute).
+    #[tokio::test]
+    async fn worker_preparation_wakes_activation_when_the_manifest_is_staged() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (core, store, dependencies) = scratch_parts_with_dependencies(dir.path()).await;
+        let unreachable = json!({"error": {"code": "not_found", "message": "unused"}});
+        let (base, task) = canned_server(manifest(), unreachable).await;
+        let server = verified(&base).await;
+        let (engine, clock, facts) = engine_parts(&store);
+        let wake = std::sync::Arc::new(tokio::sync::Notify::new());
+        let host =
+            std::sync::Arc::new(AndroidManifestHost::new(core, store, server, engine, clock, facts, wake.clone()));
+        let target = host.reconcile(&binding(base)).await.expect("reconcile").expect("target");
+        // `reconcile` alone must not wake: nothing is staged yet.
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(50), wake.notified()).await.is_err());
+
+        let status = player_core::SharedManifestPreparationStatus::default();
+        let mut preparation = player_core::ManifestPreparationCoordinator::new(dependencies, status.clone());
+        preparation.ensure(Some(target), host, &tokio_util::sync::CancellationToken::new()).await;
+
+        tokio::time::timeout(std::time::Duration::from_secs(10), wake.notified())
+            .await
+            .expect("the worker wakes activation once the manifest is pending");
+        assert_eq!(status.lock().expect("status").state, "pending");
+        task.abort();
+    }
+
     #[tokio::test]
     async fn incompatible_manifest_never_reaches_the_store() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -932,7 +1065,7 @@ mod tests {
         let (base, task) = canned_server(document, unreachable).await;
         let server = verified(&base).await;
         let (engine, clock, facts) = engine_parts(&store);
-        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts, Default::default());
         let binding = binding(base);
 
         // Fetch validates structure; preparation enforces the renderer profile.
@@ -987,7 +1120,7 @@ mod tests {
         let server = verified(&base).await;
         let (engine, clock, facts) = engine_parts(&store);
         let seen = facts.clone();
-        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts, Default::default());
         let target = host.reconcile(&binding(base)).await.expect("reconcile").expect("target");
         host.prepare_target(&target).await.expect("prepare");
         let facts = seen.lock().expect("facts");
@@ -1008,7 +1141,7 @@ mod tests {
         let server = verified(&base).await;
         let (engine, clock, facts) = engine_parts(&store);
         let seen = facts.clone();
-        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts, Default::default());
         let target = host.reconcile(&binding(base)).await.expect("reconcile").expect("target");
         host.prepare_target(&target).await.expect_err("incompatible");
         let facts = seen.lock().expect("facts");

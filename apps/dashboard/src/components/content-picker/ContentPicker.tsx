@@ -517,7 +517,7 @@ export function ContentPicker({
             </Alert>
           </div>
         )}
-        <DialogFooter className="gap-3 border-t px-4 py-3 sm:items-center sm:justify-between sm:px-6">
+        <DialogFooter className="m-0 gap-3 rounded-none border-t px-4 py-3 sm:items-center sm:justify-between sm:px-6">
           <SelectedContentTray
             items={chosen}
             preparing={selectionPreparing}

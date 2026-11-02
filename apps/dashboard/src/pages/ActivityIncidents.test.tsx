@@ -17,17 +17,23 @@ import {
 } from "./ActivityIncidents";
 import type { Incident } from "./ActivityIncidentShared";
 import type { ResolvedTimeRange } from "../components/TimeRangePicker";
+import { builtinCapabilities } from "../test/capabilities";
 
 const authStatus = {
   authenticated: true,
   csrfToken: "token",
   user: { id: "user-1", name: "Owner", role: "owner" },
+  capabilities: builtinCapabilities("owner"),
 };
 let role = "owner";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
-    status: { ...authStatus, user: { ...authStatus.user, role } },
+    status: {
+      ...authStatus,
+      user: { ...authStatus.user, role },
+      capabilities: builtinCapabilities(role),
+    },
   }),
 }));
 

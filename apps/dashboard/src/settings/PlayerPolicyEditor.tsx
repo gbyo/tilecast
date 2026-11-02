@@ -38,6 +38,7 @@ import {
 } from "../components/studio/StudioCollapsible";
 import { Field, FieldLabel } from "../components/ui/field";
 import { Switch } from "../components/ui/switch";
+import { hasCapability } from "../auth/capabilities";
 
 type PolicyGroupTitleKey =
   | "policies.groups.playback.title"
@@ -118,9 +119,7 @@ export function PlayerPolicyEditor({
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
-  const manageable = ["owner", "administrator"].includes(
-    auth.status?.user?.role ?? "",
-  );
+  const manageable = hasCapability(auth.status, "screen.manage");
   const settings = useQuery(settingsQueries.organization());
   const policy = useQuery({
     queryKey: [target, id, "policy"],

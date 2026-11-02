@@ -1,0 +1,39 @@
+{
+  "apiVersion": 2,
+  "id": "cast_provider",
+  "definitionVersion": 1,
+  "name": "Cast Provider",
+  "description": "A plugin that provides the presentation for an external session.",
+  "category": "Hardware",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "player": {
+    "state": [
+      {
+        "type": "cast_provider",
+        "version": 1
+      }
+    ],
+    "runtime": {
+      "entrypoint": "./runtime/index.ts",
+      "services": {
+        "required": ["player.presentation.provide@1"]
+      },
+      "providers": [
+        {
+          "id": "fixture-cast"
+        },
+        {
+          "id": "fixture-cast"
+        }
+      ]
+    }
+  }
+}

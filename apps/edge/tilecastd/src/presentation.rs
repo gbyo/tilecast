@@ -199,6 +199,10 @@ pub struct PresentationEngine {
     /// renderer port mirrors capability aliases onto loopback URLs for
     /// opaque frames only while this port is known.
     loopback_port: Option<u16>,
+    /// First-party native plugin contributions this build compiles in. It
+    /// reads what the renderer receives, so a native part and its Shared
+    /// Runtime part see one plugin state.
+    native_plugins: player_core::NativePluginFeed,
     /// The stall last written to the log, so a stall is reported when it
     /// starts and when it ends rather than on every supervision tick.
     reported_stall: Option<(player_core::StallReason, Option<String>, Option<String>)>,
@@ -247,8 +251,23 @@ impl PresentationEngine {
             activity: None,
             clock_offset_ms: 0,
             loopback_port: None,
+            // Edge provides no native plugin services yet, so a contribution
+            // that requires one stays unsupported.
+            native_plugins: player_core::NativePluginFeed::registered(
+                player_core::NativeServices::new(),
+                plugin_native_registry::contributions(),
+            ),
             reported_stall: None,
         }
+    }
+
+    /// Native plugin service capabilities this build provides, for the heartbeat.
+    pub fn native_plugin_capabilities(&self) -> Vec<(String, u32)> {
+        self.native_plugins.capabilities()
+    }
+
+    fn corrected_now_ms(&self) -> i64 {
+        self.clock.now().unix_millis().saturating_add(self.clock_offset_ms)
     }
 
     pub fn set_clock_offset(&mut self, offset_ms: i64) {
@@ -353,6 +372,73 @@ impl PresentationEngine {
         self.current = Some(activation);
         self.push_current();
         Ok(reference)
+    }
+
+    pub fn refresh_plugins(
+        &mut self,
+        previous: edge_protocol::Sha256Digest,
+        identity: PlaybackIdentity,
+        resolved: &crate::manifest::ResolvedPresentation,
+        extras: ServerExtras,
+    ) -> Result<bool, &'static str> {
+        let Some(current) = self.current.as_ref() else { return Ok(false) };
+        let projection = |value: &Option<ProjectionContext>| {
+            value.clone().map(|mut value| {
+                value.clock_offset_ms = 0;
+                value.manifest = player_core::manifest_without_plugin_revision(&value.manifest);
+                value
+            })
+        };
+        let timing = |value: &Option<SyncTiming>| {
+            value.clone().map(|mut value| {
+                value.clock_offset_ms = 0;
+                value
+            })
+        };
+        if current.source != ActivationSource::ServerManifest
+            || current.manifest() != Some(previous)
+            || current.document != resolved.document
+            || current.content != resolved.content
+            || current
+                .frames
+                .iter()
+                .filter(|frame| frame.kind.is_widget())
+                .ne(resolved.frames.iter().filter(|frame| frame.kind.is_widget()))
+            || timing(&current.timing) != timing(&extras.timing)
+            || projection(&current.extras.projection) != projection(&extras.projection)
+        {
+            return Ok(false);
+        }
+        if !self.current_is_accepted() || !self.current_has_activation_evidence() || self.current_has_renderer_error() {
+            return Err("plugin_refresh_renderer_unready");
+        }
+        validate_media_aliases(&extras.plugin_aliases, &current.content).map_err(|_| "plugin_refresh_invalid")?;
+        for plugin in &extras.plugins {
+            edge_protocol::ipc::presentation::validate_value(plugin, &current.content)
+                .map_err(|_| "plugin_refresh_invalid")?;
+        }
+        let mut next = current.clone();
+        next.frames = resolved.frames.clone();
+        next.identity = Some(identity);
+        next.extras = extras;
+        let prepared =
+            crate::renderer_adapter::prepare(&next, self.clock_offset_ms).map_err(|_| "plugin_refresh_invalid")?;
+        let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else {
+            return Err("plugin_refresh_renderer_unready");
+        };
+        link.port()
+            .update_plugin_frames(
+                prepared.reference(),
+                prepared.runtime_context().ok_or("plugin_refresh_invalid")?,
+                &prepared.frames().iter().filter(|frame| !frame.kind.is_widget()).cloned().collect::<Vec<_>>(),
+            )
+            .map_err(|_| "plugin_refresh_delivery_failed")?;
+        let now_ms = self.corrected_now_ms();
+        if let Some(context) = prepared.runtime_context() {
+            self.native_plugins.plugins_updated(context.value(), now_ms);
+        }
+        self.current = Some(next);
+        Ok(true)
     }
 
     pub fn current(&self) -> Option<&Activation> {
@@ -623,6 +709,7 @@ impl PresentationEngine {
     pub fn clear(&mut self, reason: &str) {
         self.current = None;
         self.native.clear();
+        self.native_plugins.cleared();
         if let Some(link) = &self.renderer {
             let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal"));
             let _ = link.port().clear(&reason);
@@ -646,6 +733,12 @@ impl PresentationEngine {
         let incompatible = match self.native.dispatch(*session.id().as_uuid(), &semantic, link.port()) {
             Ok(player_core::RendererDispatch::Queued) => {
                 self.incompatible_reason = None;
+                let now_ms = self.corrected_now_ms();
+                self.native_plugins.activated(
+                    semantic.document().value(),
+                    semantic.runtime_context().map(player_core::RuntimePayload::value),
+                    now_ms,
+                );
                 return;
             }
             Ok(player_core::RendererDispatch::Incompatible(missing)) => missing,

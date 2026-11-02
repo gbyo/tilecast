@@ -229,7 +229,7 @@ func (s *server) listIncidents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) getIncident(w http.ResponseWriter, r *http.Request) {
-	role, ok := activityRole(r)
+	visibility, ok := activityVisibilityOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
@@ -270,7 +270,7 @@ func (s *server) getIncident(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	s.attachIncidentEvidence(r, &detail, role)
+	s.attachIncidentEvidence(r, &detail, visibility)
 	detail.RecoveryPath = incidentRecoveryPath(record)
 	writeJSON(w, http.StatusOK, map[string]any{"data": detail})
 }
@@ -445,7 +445,7 @@ func incidentWindow(record incidentRecord) (time.Time, time.Time) {
 // incident was live. Commands and updates are activity events with their own
 // categories, so they arrive through the same stream rather than needing
 // separate joins.
-func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail, role string) {
+func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail, visibility activityVisibility) {
 	detail.RelatedEvents = []screenEventRecord{}
 	detail.ProofSessions = []proofOfPlayRecord{}
 	detail.AuditChanges = []auditActivityRecord{}
@@ -455,7 +455,7 @@ func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail,
 	screenID := *detail.PrimaryScreenID
 	from, to := incidentWindow(detail.incidentRecord)
 
-	if activityCanSeeSensitive(role) {
+	if activityCanSeeSensitive(visibility) {
 		eventRows, err := s.db.Query(r.Context(), `
 			SELECT e.id,e.occurred_at,e.received_at,e.screen_id,s.name,NULL::uuid,'',e.sequence,e.event_type,e.category,e.severity,e.result,e.manifest_version,
 			       COALESCE(e.presentation_type,''),COALESCE(e.presentation_id,''),COALESCE(e.content_type,''),COALESCE(e.content_id,''),
@@ -472,7 +472,7 @@ func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail,
 				if eventRows.Scan(&item.ID, &item.Timestamp, &item.ReceivedAt, &item.ScreenID, &item.ScreenName, &item.GroupID, &item.GroupName, &item.Sequence, &item.EventType, &item.Category, &item.Severity, &item.Result, &item.ManifestVersion, &presentationType, &presentationID, &contentType, &contentID, &item.FailureCode, &item.FailureMessage, &raw) == nil {
 					item.RelatedType, item.RelatedID = activityRelatedResource(presentationType, presentationID, contentType, contentID)
 					item.Description = screenEventDescription(item.EventType, item.ScreenName, item.RelatedType)
-					item.Details = activityMetadata(raw, item.Severity == "error", role)
+					item.Details = activityMetadata(raw, item.Severity == "error", visibility)
 					detail.RelatedEvents = append(detail.RelatedEvents, item)
 				}
 			}
@@ -485,7 +485,7 @@ func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail,
 	if err == nil {
 		defer proofRows.Close()
 		for proofRows.Next() {
-			if item, err := scanProof(proofRows.Scan, role); err == nil {
+			if item, err := scanProof(proofRows.Scan, visibility); err == nil {
 				detail.ProofSessions = append(detail.ProofSessions, item)
 			}
 		}
@@ -509,8 +509,8 @@ func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail,
 			if auditRows.Scan(&item.ID, &item.Timestamp, &item.ActorID, &item.ActorName, &item.ActorUsername,
 				&item.Action, &item.ResourceType, &item.ResourceID, &item.ResourceName, &item.Result,
 				&item.IPAddress, &item.RequestID, &item.Summary, &raw, &sensitive) == nil {
-				item.Metadata = activityMetadata(raw, sensitive, role)
-				if !activityCanSeeSensitive(role) {
+				item.Metadata = activityMetadata(raw, sensitive, visibility)
+				if !activityCanSeeSensitive(visibility) {
 					item.IPAddress, item.RequestID = "", ""
 				}
 				detail.AuditChanges = append(detail.AuditChanges, item)

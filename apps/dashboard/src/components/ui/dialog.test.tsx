@@ -33,14 +33,14 @@ describe("DialogContent sizing", () => {
   it("keeps a compact default width with viewport margins", () => {
     const dialog = renderDialog();
 
-    expect(dialog).toHaveClass("w-[calc(100%-2rem)]", "max-w-md");
-    expect(dialog).not.toHaveClass("sm:max-w-md");
+    expect(dialog).toHaveClass("w-[calc(100%-2rem)]", "max-w-sm");
+    expect(dialog).not.toHaveClass("sm:max-w-sm");
   });
 
   it("lets callers replace the default maximum width", () => {
     const dialog = renderDialog("max-w-2xl");
 
     expect(dialog).toHaveClass("max-w-2xl", "w-[calc(100%-2rem)]");
-    expect(dialog).not.toHaveClass("max-w-md", "sm:max-w-md");
+    expect(dialog).not.toHaveClass("max-w-sm", "sm:max-w-sm");
   });
 });

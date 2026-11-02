@@ -65,6 +65,7 @@ it.each(fixtures.fallback)("$name", async (fixture) => {
   );
   const first = view.container.querySelector("img")!;
   if (fixture.hasPrevious) fireEvent.load(first);
+  else fireEvent.error(first);
   await act(() => vi.advanceTimersByTime(100));
   const current = view.container.querySelector("img")!;
   expect(current.getAttribute("src")).toContain("second");
@@ -204,17 +205,21 @@ it("advances from the displayed occurrence when the item count shrinks", async (
     </QueryClientProvider>
   );
   const view = render(preview(5));
-  for (let i = 0; i < 4; i++) await act(() => vi.advanceTimersByTime(100));
+  for (let i = 0; i < 4; i++) {
+    fireEvent.load(view.container.querySelector("img")!);
+    await act(() => vi.advanceTimersByTime(100));
+  }
   expect(view.container.querySelector("img")?.getAttribute("src")).toContain(
     "/4/",
   );
   view.rerender(preview(3));
   expect(view.container.querySelector("img")?.getAttribute("src")).toContain(
-    "/1/",
+    "/0/",
   );
+  fireEvent.load(view.container.querySelector("img")!);
   await act(() => vi.advanceTimersByTime(100));
   expect(view.container.querySelector("img")?.getAttribute("src")).toContain(
-    "/2/",
+    "/1/",
   );
   view.unmount();
   client.clear();

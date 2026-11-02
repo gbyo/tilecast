@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 
@@ -41,14 +43,15 @@ const (
 	ErrNoOperation = -7
 )
 
-// Call framing bounds. The host writes the call input at address 0 and
-// offers the output window beside it; guests stay within their declared
+// Legacy input starts at zero. API 4 reserves a non-null input window so
+// Rust guests can read it without constructing a null slice. Guests stay within their declared
 // memory, which always spans at least one 64 KiB page.
 const (
-	callInputAddr  = 0
-	callOutputAddr = 16 << 10
-	callInputCap   = 16 << 10
-	callOutputCap  = 16 << 10
+	callInputAddr   = 0
+	callInputAddrV4 = 32 << 10
+	callOutputAddr  = 16 << 10
+	callInputCap    = 16 << 10
+	callOutputCap   = 16 << 10
 	// MaxBridgeInputBytes caps one Studio UI bridge payload, decoded.
 	// It matches the call-input window the host frames for the guest.
 	MaxBridgeInputBytes = callInputCap
@@ -79,6 +82,9 @@ type ServiceCaller interface {
 
 // Call is one guest invocation.
 type Call struct {
+	PackageAPIVersion packagemanifest.APIVersionNum
+	ExecutionEpoch    uuid.UUID
+	StorageEpoch      uuid.UUID
 	// PackageID scopes storage, logs, and the compile cache entry.
 	PackageID string
 	// Digest keys the compiled module cache: the pinned artifact digest.
@@ -89,10 +95,12 @@ type Call struct {
 	Grants Grants
 	// Entry is run_job or handle_ui_request.
 	Entry string
-	// Input is framed at address 0: a job identity or a UI request.
+	// Input is a job identity or a UI request, framed for the package API.
 	Input []byte
 	// Timeout bounds the whole call, guest and host functions alike.
 	Timeout time.Duration
+	// FetchTimeout can tighten approved fetches for short realtime jobs.
+	FetchTimeout time.Duration
 	// Context is the invocation context for service calls: studio or
 	// background.
 	Context string
@@ -116,14 +124,18 @@ type Result struct {
 // context. One host module serves every package, so the grants ride the
 // call, never shared host state.
 type invocation struct {
-	packageID string
-	grants    Grants
-	context   string
-	actor     *services.Actor
-	caller    ServiceCaller
-	store     KVStore
-	fetch     func(ctx context.Context, rawURL string, allow []string) ([]byte, error)
-	logger    *slog.Logger
+	executionEpoch uuid.UUID
+	storageEpoch   uuid.UUID
+	digest         string
+	packageID      string
+	grants         Grants
+	context        string
+	actor          *services.Actor
+	caller         ServiceCaller
+	store          KVStore
+	fetch          func(ctx context.Context, rawURL string, allow []string) ([]byte, error)
+	fetchTimeout   time.Duration
+	logger         *slog.Logger
 }
 
 type invocationKey struct{}
@@ -229,14 +241,18 @@ func (h *Host) Invoke(ctx context.Context, call Call) (Result, error) {
 	ctx, cancel := context.WithTimeout(ctx, call.Timeout)
 	defer cancel()
 	ctx = context.WithValue(ctx, invocationKey{}, &invocation{
-		packageID: call.PackageID,
-		grants:    call.Grants,
-		context:   call.Context,
-		actor:     call.Actor,
-		caller:    call.Caller,
-		store:     h.store,
-		fetch:     h.fetch,
-		logger:    h.logger,
+		executionEpoch: call.ExecutionEpoch,
+		storageEpoch:   call.StorageEpoch,
+		digest:         call.Digest,
+		packageID:      call.PackageID,
+		grants:         call.Grants,
+		context:        call.Context,
+		actor:          call.Actor,
+		caller:         call.Caller,
+		store:          h.store,
+		fetch:          h.fetch,
+		fetchTimeout:   call.FetchTimeout,
+		logger:         h.logger,
 	})
 	instance, err := h.runtime.InstantiateModule(ctx, compiled, wazero.NewModuleConfig())
 	if err != nil {
@@ -244,10 +260,14 @@ func (h *Host) Invoke(ctx context.Context, call Call) (Result, error) {
 	}
 	defer instance.Close(ctx) //nolint:errcheck
 	memory := instance.Memory()
-	if memory == nil || memory.Size() < callOutputAddr+callOutputCap {
+	inputAddr := uint32(callInputAddr)
+	if call.PackageAPIVersion == 4 {
+		inputAddr = callInputAddrV4
+	}
+	if memory == nil || memory.Size() < callOutputAddr+callOutputCap || memory.Size() < inputAddr+callInputCap {
 		return Result{}, errors.New("wasm: guest memory too small for the call frame")
 	}
-	if !memory.Write(callInputAddr, call.Input) {
+	if !memory.Write(inputAddr, call.Input) {
 		return Result{}, errors.New("wasm: cannot frame the call input")
 	}
 	fn := instance.ExportedFunction(call.Entry)
@@ -256,9 +276,9 @@ func (h *Host) Invoke(ctx context.Context, call Call) (Result, error) {
 	}
 	var results []uint64
 	if call.Entry == "run_job" {
-		results, err = fn.Call(ctx, callInputAddr, uint64(len(call.Input)))
+		results, err = fn.Call(ctx, uint64(inputAddr), uint64(len(call.Input)))
 	} else {
-		results, err = fn.Call(ctx, callInputAddr, uint64(len(call.Input)), callOutputAddr, callOutputCap)
+		results, err = fn.Call(ctx, uint64(inputAddr), uint64(len(call.Input)), callOutputAddr, callOutputCap)
 	}
 	if err != nil {
 		return Result{}, fmt.Errorf("wasm: call %s: %w", call.Entry, err)
@@ -363,6 +383,11 @@ func (h *Host) httpFetch(ctx context.Context, mod api.Module, urlPtr, urlLen, ou
 	if !ok {
 		return ErrTooLarge
 	}
+	if call.fetchTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, call.fetchTimeout)
+		defer cancel()
+	}
 	body, err := call.fetch(ctx, rawURL, call.grants.NetworkHosts)
 	if errors.Is(err, errNotAllowlisted) {
 		return ErrNotAllowlisted
@@ -430,12 +455,14 @@ func (h *Host) serviceCall(ctx context.Context, mod api.Module, opPtr, opLen, in
 		return ErrTooLarge
 	}
 	data, denial, failure := call.caller.Call(ctx, services.Call{
-		PackageID: call.packageID,
-		Context:   call.context,
-		Actor:     call.actor,
-		Grants:    call.grants.Services,
-		Operation: operation,
-		Input:     input,
+		ExecutionEpoch: call.executionEpoch,
+		PackageDigest:  call.digest,
+		PackageID:      call.packageID,
+		Context:        call.context,
+		Actor:          call.actor,
+		Grants:         call.grants.Services,
+		Operation:      operation,
+		Input:          input,
 	})
 	if denial != nil {
 		if denial.Kind == services.DenialUnknownOperation {

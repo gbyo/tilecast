@@ -103,6 +103,8 @@ fn renderer_media_refs<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Ren
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RendererFrameRef {
+    #[serde(default, skip_serializing_if = "player_types::frames::FrameKind::is_widget")]
+    pub kind: player_types::frames::FrameKind,
     #[serde(deserialize_with = "frame_capability_uri")]
     pub uri: SafeText<128>,
     pub package_id: SafeText<128>,
@@ -255,6 +257,8 @@ pub struct PresentationClear {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PluginState {
+    #[serde(default, deserialize_with = "renderer_frame_refs", skip_serializing_if = "Vec::is_empty")]
+    pub plugin_frames: Vec<RendererFrameRef>,
     pub plugins: Vec<Value>,
     #[serde(deserialize_with = "renderer_media_refs")]
     pub content: Vec<RendererMediaRef>,

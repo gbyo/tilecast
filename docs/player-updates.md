@@ -4,7 +4,7 @@ Tilecast distributes Android APK and Linux AppImage Player builds, Tilecast
 Edge release archives, and Windows Player MSIX packages, through signed
 published releases at `gbyo/tilecast`. No Google Play, Amazon Developer,
 or paid Android developer account is required. Unknown-app installation remains
-a one-time local commissioning permission. On Android 12 and newer, eligible
+an optional, one-time local Android permission. On Android 12 and newer, eligible
 signed self-updates request Android's supported unattended-update mode. Older
 Android and Fire OS installers may still require local confirmation.
 

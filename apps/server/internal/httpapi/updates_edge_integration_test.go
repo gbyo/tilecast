@@ -304,6 +304,55 @@ func TestEdgeRollbackIsAFailureThatPausesACanary(t *testing.T) {
 	}
 }
 
+func TestUpdateDeploymentExpiresAfterSevenDays(t *testing.T) {
+	f := newEdgeFixture(t)
+	screen := f.screen(t, "Stale Edge", "linux", "edge", "x86_64", 1000)
+	deployment, _ := f.deploy(t, f.edgeRelease(t, "x86_64"), screen)
+
+	if _, err := f.pool.Exec(f.ctx, `UPDATE update_deployments SET started_at=now()-interval '8 days' WHERE id=$1`, deployment); err != nil {
+		t.Fatal(err)
+	}
+	f.server.reconcileUpdateDeployments(f.ctx)
+
+	var state, safeError, status string
+	var completed bool
+	if err := f.pool.QueryRow(f.ctx, `SELECT st.state,COALESCE(st.safe_error,''),d.status,d.completed_at IS NOT NULL FROM screen_update_states st JOIN update_deployments d ON d.id=st.deployment_id WHERE st.deployment_id=$1 AND st.screen_id=$2`, deployment, screen).Scan(&state, &safeError, &status, &completed); err != nil {
+		t.Fatal(err)
+	}
+	if state != "failed" || safeError != "Update deployment expired after seven days." || status != "completed" || !completed {
+		t.Fatalf("expired deployment = state %q error %q status %q completed %v", state, safeError, status, completed)
+	}
+
+	if code := f.report(t, deployment, screen, `{"state":"downloading","downloadedBytes":1}`); code != http.StatusConflict {
+		t.Fatalf("late report after expiry status=%d", code)
+	}
+	if got := f.state(t, deployment, screen); got != "failed" {
+		t.Fatalf("late report resurrected expired target: %s", got)
+	}
+}
+
+func TestMaintenanceWindowDoesNotExpireBeforeItsWindow(t *testing.T) {
+	f := newEdgeFixture(t)
+	screen := f.screen(t, "Scheduled Edge", "linux", "edge", "x86_64", 1000)
+	deployment, _ := f.deploy(t, f.edgeRelease(t, "x86_64"), screen)
+
+	if _, err := f.pool.Exec(f.ctx, `UPDATE update_deployments SET mode='maintenance_window',started_at=now()-interval '8 days',maintenance_window_start=now()+interval '1 day' WHERE id=$1`, deployment); err != nil {
+		t.Fatal(err)
+	}
+	f.server.reconcileUpdateDeployments(f.ctx)
+
+	if got := f.state(t, deployment, screen); got != "pending" {
+		t.Fatalf("future maintenance deployment expired early: %s", got)
+	}
+	var status string
+	if err := f.pool.QueryRow(f.ctx, `SELECT status FROM update_deployments WHERE id=$1`, deployment).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "active" {
+		t.Fatalf("future maintenance deployment status=%q", status)
+	}
+}
+
 func withURLParam(request *http.Request, name, value string) *http.Request {
 	route := chi.RouteContext(request.Context())
 	if route == nil {

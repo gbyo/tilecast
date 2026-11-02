@@ -177,6 +177,7 @@ export default defineConfig({
             { label: "Schedules", slug: "schedules" },
             { label: "Campaigns", slug: "campaigns" },
             { label: "Review & forms", slug: "studio/review-and-forms" },
+            { label: "iPhone & iPad app", slug: "studio/ios-app" },
           ],
         },
         {

@@ -154,9 +154,9 @@ func (s *server) publishPlaylist(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "editorial_unavailable", "Editorial publication is unavailable.")
 		return
 	}
-	result, publishErr := s.approvals.SubmitAndPublish(r.Context(), user.ID, user.Role, approvals.TypePlaylist, id, body.ExpectedDraftRevision)
+	result, publishErr := s.approvals.SubmitAndPublish(r.Context(), user.ID, principal, approvals.TypePlaylist, id, body.ExpectedDraftRevision)
 	if errors.Is(publishErr, approvals.ErrReviewRequired) {
-		submission, submitErr := s.approvals.SubmitExpected(r.Context(), user.ID, user.Role, approvals.TypePlaylist, id, nil, body.ExpectedDraftRevision)
+		submission, submitErr := s.approvals.SubmitExpected(r.Context(), user.ID, principal, approvals.TypePlaylist, id, nil, body.ExpectedDraftRevision)
 		if submitErr != nil {
 			s.writeEditorialError(w, r, submitErr)
 			return
@@ -184,6 +184,9 @@ func (s *server) addPlaylistItem(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	if body.AssetID != uuid.Nil && !s.authorizeAssetReferences(w, r, []uuid.UUID{body.AssetID}) {
 		return
 	}
 	user := principal.User

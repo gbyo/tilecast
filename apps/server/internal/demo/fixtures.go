@@ -121,7 +121,9 @@ func wipeDatabase(ctx context.Context, db *pgxpool.Pool) error {
 	if _, err = tx.Exec(ctx, `SET LOCAL lock_timeout='15s'`); err != nil {
 		return err
 	}
-	rows, err := tx.Query(ctx, `SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname=current_schema() AND tablename<>'goose_db_version' ORDER BY tablename`)
+	// The built-in roles are reference rows every account points at, so the
+	// roles table is kept and only its custom rows are removed below.
+	rows, err := tx.Query(ctx, `SELECT quote_ident(tablename) FROM pg_tables WHERE schemaname=current_schema() AND tablename NOT IN ('goose_db_version','roles') ORDER BY tablename`)
 	if err != nil {
 		return err
 	}
@@ -133,6 +135,9 @@ func wipeDatabase(ctx context.Context, db *pgxpool.Pool) error {
 		if _, err = tx.Exec(ctx, `TRUNCATE TABLE `+strings.Join(tables, ",")+` RESTART IDENTITY CASCADE`); err != nil {
 			return fmt.Errorf("empty demo database: %w", err)
 		}
+	}
+	if _, err = tx.Exec(ctx, `DELETE FROM roles WHERE NOT builtin`); err != nil {
+		return fmt.Errorf("remove demo custom roles: %w", err)
 	}
 	return tx.Commit(ctx)
 }

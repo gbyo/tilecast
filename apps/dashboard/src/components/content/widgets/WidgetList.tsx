@@ -61,6 +61,7 @@ export function WidgetTable({ rows, actionsFor }: ListProps) {
             <ActionContextMenu
               key={asset.id}
               label={label}
+              title={asset.name}
               actions={actions}
               render={<TableRow />}
             >
@@ -106,7 +107,11 @@ export function WidgetTable({ rows, actionsFor }: ListProps) {
 export function WidgetItems({ rows, actionsFor }: ListProps) {
   const { t } = useTranslation("content");
   return (
-    <ItemGroup render={<ul />} className="gap-1">
+    <ItemGroup
+      render={<ul />}
+      className="gap-1"
+      data-density-surface="collection"
+    >
       {rows.map((row) => {
         const { asset } = row;
         const actions = actionsFor(row);
@@ -115,6 +120,7 @@ export function WidgetItems({ rows, actionsFor }: ListProps) {
           <li key={asset.id}>
             <ActionContextMenu
               label={label}
+              title={asset.name}
               actions={actions}
               className="contents"
             >

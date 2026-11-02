@@ -47,6 +47,21 @@ class TcWidgetBridgeTest {
         assertNull(TcWidgetBridge.openStream(resolved))
     }
 
+    @Test fun pluginGrantsUseTheStricterPolicyAndCheckExactSize() {
+        val files = setup()
+        val plugin = setOf(AuthorizedFrame(token, FrameAuthorization.Kind.EXTERNAL_PLUGIN, frameBytes.size.toLong()))
+        val resolved = TcWidgetBridge.resolve("tcwidget://cap/$token", plugin, files, null)!!
+        assertEquals(TcWidgetBridge.PLUGIN_SANDBOX_POLICY, TcWidgetBridge.responseHeaders(resolved)["Content-Security-Policy"])
+        for (directive in listOf("img-src", "media-src", "font-src", "connect-src")) {
+            assertTrue(resolved.policy.contains("$directive 'none'"))
+        }
+        val wrongSize = setOf(AuthorizedFrame(token, FrameAuthorization.Kind.EXTERNAL_PLUGIN, frameBytes.size.toLong() + 1))
+        assertNull(TcWidgetBridge.resolve("tcwidget://cap/$token", wrongSize, files, null))
+        assertEquals(TcWidgetBridge.SANDBOX_POLICY,
+            TcWidgetBridge.resolve("tcwidget://cap/$token", authorized, files, null)!!.policy)
+        assertEquals(416, TcWidgetBridge.resolve("tcwidget://cap/$token", plugin, files, "bytes=0-1")!!.statusCode)
+    }
+
     @Test fun unknownTokensAndMissingFilesAnswerNull() {
         assertNull(TcWidgetBridge.resolve("tcwidget://cap/${"e".repeat(64)}", authorized, setup(), null))
         assertNull(TcWidgetBridge.resolve("tcwidget://cap/$token", authorized, emptyMap(), null))

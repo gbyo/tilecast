@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ActivityPage } from "./ActivityPage";
 import { api } from "../api/client";
+import { builtinCapabilities } from "../test/capabilities";
 
 const defaultMatchMedia = window.matchMedia.bind(window);
 
@@ -36,10 +37,16 @@ const authStatus = {
   authenticated: true,
   csrfToken: "token",
   user: { id: "user-1", name: "Owner", role: "owner" },
+  capabilities: builtinCapabilities("owner"),
 };
 
 vi.mock("../auth/AuthProvider", () => ({
-  useAuth: () => ({ status: authStatus }),
+  useAuth: () => ({
+    status: {
+      ...authStatus,
+      capabilities: builtinCapabilities(authStatus.user.role),
+    },
+  }),
 }));
 
 // The uptime panel has its own coverage; it is noise in these cases.

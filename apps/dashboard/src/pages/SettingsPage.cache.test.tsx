@@ -14,10 +14,15 @@ import { api } from "../api/client";
 import { settingsQueries } from "../data/settings";
 import { SidebarProvider } from "../components/ui/sidebar";
 import type { SettingDefinition } from "../api/types";
+import { builtinCapabilities } from "../test/capabilities";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
-    status: { csrfToken: "csrf", user: { id: "owner", role: "owner" } },
+    status: {
+      csrfToken: "csrf",
+      user: { id: "owner", role: "owner" },
+      capabilities: builtinCapabilities("owner"),
+    },
   }),
 }));
 

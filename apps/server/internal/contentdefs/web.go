@@ -22,7 +22,8 @@ func WebPresentationURL(definition WidgetDefinition, configuration map[string]an
 	}
 	raw, _ := configuration[spec.URLField].(string)
 	if spec.Transform == "canva_embed" {
-		parsed, err := CanvaURL(raw)
+		slideshow, _ := configuration["slideshow"].(bool)
+		parsed, err := CanvaPlaybackURL(raw, slideshow)
 		if err != nil {
 			return "", nil, err
 		}

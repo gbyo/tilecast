@@ -134,6 +134,7 @@ pub struct ActivationContent {
 /// identifies the frame-table entry the Runtime joins.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActivationFrame {
+    pub kind: player_types::frames::FrameKind,
     pub package_id: SafeText<128>,
     pub package_digest: Sha256Digest,
     pub digest: Sha256Digest,
@@ -320,6 +321,12 @@ fn parse_activate_request(raw: &str) -> Result<ActivateRequest, ActivateError> {
     if let Some(requested) = request.get("frames") {
         for entry in requested.as_array().ok_or(ActivateError::Malformed)? {
             frames.push(ActivationFrame {
+                kind: entry
+                    .get("kind")
+                    .map(|kind| serde_json::from_value(kind.clone()))
+                    .transpose()
+                    .map_err(|_| ActivateError::Malformed)?
+                    .unwrap_or_default(),
                 package_id: entry
                     .get("packageId")
                     .and_then(serde_json::Value::as_str)
@@ -599,9 +606,8 @@ struct Grant {
 /// path; authorization is membership in this per-activation token set.
 #[derive(Debug, Clone)]
 struct FrameGrant {
+    kind: player_types::frames::FrameKind,
     uri: String,
-    package_id: SafeText<128>,
-    package_digest: Sha256Digest,
     path: std::path::PathBuf,
     size_bytes: u64,
 }
@@ -624,6 +630,7 @@ type GenerationGrants = Option<(u64, HashMap<Sha256Digest, Grant>, HashMap<Sha25
 
 /// The media and frame grant tables handed to one generation's projection.
 type LiveGrants = (HashMap<Sha256Digest, Grant>, HashMap<Sha256Digest, FrameGrant>);
+type PendingPluginFrames = Option<(u64, HashMap<Sha256Digest, FrameGrant>)>;
 
 /// Android's [`RendererPort`]: generation-bound media grants over the one
 /// semantic JNI upcall. The port never sends credentials, paths the page
@@ -634,11 +641,12 @@ pub struct AndroidRendererPort {
     platform: Arc<dyn RendererPlatform>,
     cas: ContentStore,
     grants: Arc<Mutex<GenerationGrants>>,
+    pending_plugin_frames: Arc<Mutex<PendingPluginFrames>>,
 }
 
 impl AndroidRendererPort {
     pub fn new(platform: Arc<dyn RendererPlatform>, cas: ContentStore) -> Self {
-        Self { platform, cas, grants: Arc::new(Mutex::new(None)) }
+        Self { platform, cas, grants: Arc::new(Mutex::new(None)), pending_plugin_frames: Arc::new(Mutex::new(None)) }
     }
 
     /// Authorizes verified CAS objects for a generation. Every digest
@@ -681,6 +689,13 @@ impl AndroidRendererPort {
             if grants.contains_key(&frame.digest) {
                 return Err(RendererPortError::InvalidActivation);
             }
+            if let Some(previous) = frame_grants.get(&frame.digest) {
+                let previous: &FrameGrant = previous;
+                if previous.kind != frame.kind || previous.size_bytes != frame.size_bytes {
+                    return Err(RendererPortError::InvalidActivation);
+                }
+                continue;
+            }
             let path = self
                 .cas
                 .verified_path(&frame.digest)
@@ -696,15 +711,57 @@ impl AndroidRendererPort {
             frame_grants.insert(
                 frame.digest,
                 FrameGrant {
+                    kind: frame.kind,
                     uri: format!("tcwidget://cap/{token}"),
-                    package_id: frame.package_id.clone(),
-                    package_digest: frame.package_digest,
                     path,
                     size_bytes: frame.size_bytes,
                 },
             );
         }
         *self.grants.lock().unwrap_or_else(|error| error.into_inner()) = Some((generation, grants, frame_grants));
+        Ok(())
+    }
+
+    async fn prepare_plugin_grants(
+        &self,
+        generation: u64,
+        frames: &[VerifiedFrameRef],
+    ) -> Result<(), RendererPortError> {
+        let (media, live) = self.grants_for(generation)?;
+        let mut next = HashMap::new();
+        for frame in frames {
+            if frame.kind != player_types::frames::FrameKind::ExternalPlugin || media.contains_key(&frame.sha256) {
+                return Err(RendererPortError::InvalidActivation);
+            }
+            if let Some(grant) = live.get(&frame.sha256) {
+                if grant.kind != frame.kind || grant.size_bytes != frame.size_bytes {
+                    return Err(RendererPortError::InvalidActivation);
+                }
+                next.insert(frame.sha256, grant.clone());
+                continue;
+            }
+            if next.contains_key(&frame.sha256) {
+                continue;
+            }
+            let path = self
+                .cas
+                .verified_path(&frame.sha256)
+                .await
+                .ok()
+                .flatten()
+                .ok_or(RendererPortError::ResourceUnavailable)?;
+            let token = mint_frame_token().ok_or(RendererPortError::InvalidActivation)?;
+            next.insert(
+                frame.sha256,
+                FrameGrant {
+                    kind: frame.kind,
+                    uri: format!("tcwidget://cap/{token}"),
+                    path,
+                    size_bytes: frame.size_bytes,
+                },
+            );
+        }
+        *self.pending_plugin_frames.lock().unwrap_or_else(|error| error.into_inner()) = Some((generation, next));
         Ok(())
     }
 
@@ -777,9 +834,10 @@ impl RendererPort for AndroidRendererPort {
             .map(|frame| {
                 let grant = frame_grants.get(&frame.sha256).ok_or(RendererPortError::InvalidActivation)?;
                 Ok(serde_json::json!({
+                    "kind": frame.kind,
                     "uri": grant.uri,
-                    "packageId": grant.package_id.as_str(),
-                    "packageDigest": grant.package_digest.to_hex(),
+                    "packageId": frame.package_id.as_str(),
+                    "packageDigest": frame.package_digest.to_hex(),
                     "frameDigest": frame.sha256.to_hex(),
                     "sizeBytes": grant.size_bytes,
                     "path": grant.path.to_string_lossy(),
@@ -792,7 +850,7 @@ impl RendererPort for AndroidRendererPort {
             "generation": reference.generation,
             "presentation": presentation,
             "content": content,
-            "frames": frames,
+            "frames": frames.iter().filter(|frame| frame["kind"] == "widget").cloned().collect::<Vec<_>>(),
         });
         if let Some(context) = context.as_ref().and_then(|context| context.as_object()) {
             if let Some(timing) = context.get("timing") {
@@ -814,6 +872,7 @@ impl RendererPort for AndroidRendererPort {
                         serde_json::Value::Array(
                             frames
                                 .iter()
+                                .filter(|frame| frame["kind"] == "widget")
                                 .map(|frame| {
                                     serde_json::json!({
                                         "packageId": frame["packageId"],
@@ -839,7 +898,64 @@ impl RendererPort for AndroidRendererPort {
                 }
             }
         }
+        envelope["pluginFrames"] = serde_json::Value::Array(
+            frames.iter().filter(|frame| frame["kind"] == "external_plugin").cloned().collect(),
+        );
         self.platform.request(&envelope.to_string())
+    }
+
+    fn update_plugin_frames(
+        &self,
+        reference: RendererActivationRef,
+        context: &RuntimePayload,
+        frames: &[VerifiedFrameRef],
+    ) -> Result<(), RendererPortError> {
+        let staged = self
+            .pending_plugin_frames
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take()
+            .filter(|(generation, _)| *generation == reference.generation)
+            .ok_or(RendererPortError::InvalidActivation)?
+            .1;
+        let mut live = self.grants.lock().unwrap_or_else(|error| error.into_inner());
+        let (generation, media, old_frames) = live.as_mut().ok_or(RendererPortError::InvalidActivation)?;
+        if *generation != reference.generation {
+            return Err(RendererPortError::InvalidActivation);
+        }
+        let context = wire_document(context, &|object| media.get(&object).map(|grant| grant.uri.clone()))?;
+        let table: Vec<serde_json::Value> = frames
+            .iter()
+            .map(|frame| {
+                let grant = staged.get(&frame.sha256).ok_or(RendererPortError::InvalidActivation)?;
+                if frame.kind != grant.kind || frame.size_bytes != grant.size_bytes {
+                    return Err(RendererPortError::InvalidActivation);
+                }
+                Ok(serde_json::json!({"kind": frame.kind, "uri": grant.uri, "packageId": frame.package_id.as_str(),
+                "packageDigest": frame.package_digest.to_hex(), "frameDigest": frame.sha256.to_hex(),
+                "sizeBytes": grant.size_bytes, "path": grant.path.to_string_lossy()}))
+            })
+            .collect::<Result<_, RendererPortError>>()?;
+        self.platform.request(&serde_json::json!({"op": "plugins", "activationId": reference.activation_id.to_string(),
+            "generation": reference.generation, "plugins": context.get("plugins").cloned().unwrap_or(serde_json::json!([])),
+            "pluginFrames": table, "clockOffsetMs": context.get("clockOffsetMs").and_then(serde_json::Value::as_i64).unwrap_or(0)}).to_string())?;
+        old_frames.retain(|_, grant| grant.kind == player_types::frames::FrameKind::Widget);
+        old_frames.extend(staged);
+        Ok(())
+    }
+
+    fn update_plugins(
+        &self,
+        reference: RendererActivationRef,
+        context: &RuntimePayload,
+    ) -> Result<(), RendererPortError> {
+        let (grants, _) = self.grants_for(reference.generation)?;
+        let context = wire_document(context, &|object| grants.get(&object).map(|grant| grant.uri.clone()))?;
+        self.platform.request(&serde_json::json!({
+            "op": "plugins", "activationId": reference.activation_id.to_string(), "generation": reference.generation,
+            "plugins": context.get("plugins").cloned().unwrap_or(serde_json::json!([])),
+            "clockOffsetMs": context.get("clockOffsetMs").and_then(serde_json::Value::as_i64).unwrap_or(0),
+        }).to_string())
     }
 
     fn clear(&self, reason: &ShortToken) -> Result<(), RendererPortError> {
@@ -899,6 +1015,11 @@ pub struct RendererSnapshot {
     pub safe_mode: bool,
     pub incompatible_reason: Option<String>,
     pub last_error: Option<String>,
+    /// A fault the host itself reported for the renderer (it could not
+    /// load the runtime document, or could not register with Core): a
+    /// stable code, the heartbeat's `lastRendererFailure`. Cleared when a
+    /// renderer reports ready.
+    pub host_fault: Option<String>,
     pub current_item_id: Option<String>,
     /// The last meaningful renderer progress: the heartbeat's
     /// `lastHealthyPlaybackAt` while a playing presentation is healthy.
@@ -951,6 +1072,11 @@ pub struct PresentationEngine {
     /// will ever connect, so capability advertisement is empty rather
     /// than the fresh-process fallback.
     unsupported_runtime: bool,
+    host_fault: Option<String>,
+    /// First-party native plugin contributions this build compiles in. It
+    /// reads what the renderer receives, so a native part and its Shared
+    /// Runtime part see one plugin state.
+    native_plugins: player_core::NativePluginFeed,
 }
 
 impl std::fmt::Debug for PresentationEngine {
@@ -1020,9 +1146,25 @@ impl PresentationEngine {
             item_boundary,
             last_activation_at: None,
             unsupported_runtime: false,
+            host_fault: None,
+            // Android provides no native plugin services yet, so a
+            // contribution that requires one stays unsupported.
+            native_plugins: player_core::NativePluginFeed::registered(
+                player_core::NativeServices::new(),
+                plugin_native_registry::contributions(),
+            ),
         };
         engine.refresh_snapshot();
         engine
+    }
+
+    /// Native plugin service capabilities this build provides, for the heartbeat.
+    pub fn native_plugin_capabilities(&self) -> Vec<(String, u32)> {
+        self.native_plugins.capabilities()
+    }
+
+    fn corrected_now_ms(&self) -> i64 {
+        self.clock.now().unix_millis().saturating_add(self.clock_offset_ms)
     }
 
     /// The installed runtime cannot host the player: no renderer will
@@ -1163,6 +1305,7 @@ impl PresentationEngine {
             .frames
             .iter()
             .map(|entry| VerifiedFrameRef {
+                kind: entry.kind,
                 package_id: entry.package_id.clone(),
                 package_digest: entry.package_digest,
                 sha256: entry.digest,
@@ -1206,6 +1349,106 @@ impl PresentationEngine {
         })
     }
 
+    pub(crate) async fn refresh_plugins(
+        &mut self,
+        previous: Sha256Digest,
+        request: ActivateRequest,
+    ) -> Result<bool, &'static str> {
+        let Some(current) = self.current.as_ref() else { return Ok(false) };
+        let comparable = |value: &serde_json::Value| {
+            let mut value = value.clone();
+            if let Some(object) = value.as_object_mut() {
+                // `pluginAliases` stays in the comparison: a changed alias set
+                // needs a new generation, because media grants follow content.
+                for field in ["plugins", "clockOffsetMs"] {
+                    object.remove(field);
+                }
+            }
+            for field in ["timing", "projection"] {
+                if let Some(object) = value.get_mut(field).and_then(serde_json::Value::as_object_mut) {
+                    object.remove("clockOffsetMs");
+                }
+            }
+            if let Some(manifest) = value.pointer_mut("/projection/manifest") {
+                *manifest = player_core::manifest_without_plugin_revision(manifest);
+            }
+            value
+        };
+        if current.request.source != ActivationSource::ServerManifest
+            || current.request.identity.as_ref().map(|identity| identity.manifest) != Some(previous)
+            || current.request.content != request.content
+            || current
+                .request
+                .frames
+                .iter()
+                .filter(|frame| frame.kind == player_types::frames::FrameKind::Widget)
+                .ne(request.frames.iter().filter(|frame| frame.kind == player_types::frames::FrameKind::Widget))
+            || comparable(&current.request.envelope) != comparable(&request.envelope)
+        {
+            return Ok(false);
+        }
+        if !self.current_is_accepted()
+            || !self.current_has_activation_evidence()
+            || self.current_has_renderer_error()
+            || self.link.as_ref().is_none_or(|link| link.ready.is_none())
+        {
+            return Err("plugin_refresh_renderer_unready");
+        }
+        let media = request.content.iter().map(|entry| ((entry.asset_id, entry.variant_id), entry.digest)).collect();
+        let mut context = serde_json::json!({
+            "timing": request.envelope.get("timing"), "projection": request.envelope.get("projection"),
+            "plugins": request.envelope.get("plugins"), "pluginAliases": request.envelope.get("pluginAliases"),
+            "clockOffsetMs": request.clock_offset_ms,
+        });
+        let mut uris = current.uris.clone();
+        let mut bindings = Vec::new();
+        scan_bindings(&mut context, "", &media, &mut uris, &mut bindings).map_err(|_| "plugin_refresh_invalid")?;
+        let context = RuntimePayload::new(context, bindings).map_err(|_| "plugin_refresh_invalid")?;
+        let next_frames: Vec<VerifiedFrameRef> = request
+            .frames
+            .iter()
+            .map(|frame| VerifiedFrameRef {
+                kind: frame.kind,
+                package_id: frame.package_id.clone(),
+                package_digest: frame.package_digest,
+                sha256: frame.digest,
+                size_bytes: frame.size_bytes,
+            })
+            .collect();
+        let plugin_frames: Vec<VerifiedFrameRef> = next_frames
+            .iter()
+            .filter(|frame| frame.kind == player_types::frames::FrameKind::ExternalPlugin)
+            .cloned()
+            .collect();
+        let activation = RendererActivation::new(
+            current.reference,
+            current.activation.document().clone(),
+            current.activation.metadata().clone(),
+            current.activation.content().to_vec(),
+            next_frames,
+            Some(context),
+        )
+        .map_err(|_| "plugin_refresh_invalid")?;
+        self.port
+            .prepare_plugin_grants(current.reference.generation, &plugin_frames)
+            .await
+            .map_err(|_| "plugin_refresh_invalid")?;
+        self.port
+            .update_plugin_frames(
+                current.reference,
+                activation.runtime_context().ok_or("plugin_refresh_invalid")?,
+                &plugin_frames,
+            )
+            .map_err(|_| "plugin_refresh_delivery_failed")?;
+        let now_ms = self.corrected_now_ms();
+        if let Some(context) = activation.runtime_context() {
+            self.native_plugins.plugins_updated(context.value(), now_ms);
+        }
+        self.current = Some(Prepared { request, reference: current.reference, activation, uris });
+        self.refresh_snapshot();
+        Ok(true)
+    }
+
     /// Pushes the current activation to a ready renderer. Without one
     /// the activation waits; the ready report pushes it. Incompatible
     /// content shows the explicit unavailable surface with the reason
@@ -1231,6 +1474,12 @@ impl PresentationEngine {
         let incompatible = match self.native.dispatch(connection, &current.activation, &self.port) {
             Ok(player_core::RendererDispatch::Queued) => {
                 self.incompatible_reason = None;
+                let now_ms = self.corrected_now_ms();
+                self.native_plugins.activated(
+                    current.activation.document().value(),
+                    current.activation.runtime_context().map(player_core::RuntimePayload::value),
+                    now_ms,
+                );
                 return;
             }
             Ok(player_core::RendererDispatch::Incompatible(missing)) => missing,
@@ -1286,6 +1535,7 @@ impl PresentationEngine {
             safe_mode: self.native.is_safe_mode(),
             incompatible_reason: self.incompatible_reason.clone(),
             last_error: self.native.tracker().last_error().map(|code| code.as_str().to_owned()),
+            host_fault: self.host_fault.clone(),
             current_item_id: self.native.tracker().current_item().map(|(id, _)| id),
             last_progress_at: self.native.tracker().last_progress(),
             last_activation_at: self.last_activation_at,
@@ -1296,11 +1546,42 @@ impl PresentationEngine {
 impl PresentationEngine {
     /// A WebView instance connected. Its generation becomes the live
     /// connection; the previous one, if any, is dead.
-    pub fn renderer_connected(&mut self, generation: i64, now: Timestamp) {
+    ///
+    /// Generations are process-wide and only grow, and the host retries a
+    /// `connected` whose answer it never saw. So a repeat of the live
+    /// generation changes nothing (it must not wipe the ready profile), and
+    /// a generation older than the live one is refused: a late report from a
+    /// replaced renderer cannot displace the newer link.
+    pub fn renderer_connected(&mut self, generation: i64, now: Timestamp) -> bool {
+        if let Some(link) = self.link.as_ref() {
+            if link.generation == generation {
+                return true;
+            }
+            if link.generation > generation {
+                return false;
+            }
+        }
         let connection = connection_for(generation);
         self.link = Some(RendererLink { connection, generation, ready: None });
         self.native.connected(connection, now);
         self.refresh_snapshot();
+        true
+    }
+
+    /// The host could not run the renderer it created. Keeps a stable,
+    /// bounded code for health; never free text or page data.
+    pub fn renderer_fault(&mut self, code: &str) -> bool {
+        let code: String = code
+            .chars()
+            .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | ':' | '.' | '-'))
+            .take(64)
+            .collect();
+        if code.is_empty() {
+            return false;
+        }
+        self.host_fault = Some(code);
+        self.refresh_snapshot();
+        true
     }
 
     /// A WebView instance disconnected. Reports from its generation
@@ -1327,6 +1608,7 @@ impl PresentationEngine {
         if let Some(link) = self.link.as_mut().filter(|link| link.connection == connection) {
             link.ready = Some(profile.clone());
         }
+        self.host_fault = None;
         self.native.ready(connection, profile);
         self.push_current().await;
         self.refresh_snapshot();
@@ -1472,6 +1754,7 @@ impl PresentationEngine {
         self.current = None;
         self.incompatible_reason = None;
         self.native.clear();
+        self.native_plugins.cleared();
         let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal"));
         let _ = self.port.clear(&reason);
         self.refresh_snapshot();
@@ -1958,6 +2241,59 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn plugin_refresh_dispatches_narrow_operation_and_preserves_evidence_and_grants() {
+        let mut test = scratch().await;
+        let bytes = b"pixels";
+        let digest = seed(&test.engine.port.cas, bytes).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let raw = playing_request(&digest, bytes.len() as u64, "image");
+        let outcome = test.engine.activate(&raw, now(BASE_MS)).await.expect("initial activation");
+        assert!(test.engine.accepted(1, &outcome.activation_id, outcome.generation));
+        test.engine.progress(
+            1,
+            &outcome.activation_id,
+            outcome.generation,
+            "image-shown",
+            Some("item-1"),
+            None,
+            now(BASE_MS + 1_000),
+        );
+        assert!(test.engine.current_has_activation_evidence());
+        let original_grants = test.engine.port.grants_for(outcome.generation).expect("initial grants");
+        let original_activation_time = test.engine.last_activation_at;
+        let mut request = parse_activate_request(&raw).expect("activation request");
+        let previous = request.identity.as_ref().expect("server identity").manifest;
+        let next = Sha256Digest::of(b"manifest-2");
+        request.identity.as_mut().expect("server identity").manifest = next;
+        request.identity.as_mut().expect("server identity").manifest_version = 8;
+        request.envelope["plugins"] = serde_json::json!([{"type":"countdown_bar", "version":1}]);
+        test.platform.answer(-4);
+        assert!(test.engine.refresh_plugins(previous, request.clone()).await.is_err());
+        assert_eq!(test.engine.current_activation().expect("current activation").manifest, Some(previous));
+        test.platform.answer(0);
+        assert!(test.engine.refresh_plugins(previous, request.clone()).await.expect("refresh plugins"));
+        let requests: Vec<serde_json::Value> = test
+            .platform
+            .requests()
+            .iter()
+            .map(|request| serde_json::from_str(request).expect("native request"))
+            .collect();
+        assert_eq!(requests.iter().filter(|request| request["op"] == "activate").count(), 1);
+        let message = requests.last().expect("plugin request");
+        assert_eq!(message["op"], "plugins");
+        assert_eq!(message["activationId"], outcome.activation_id);
+        assert_eq!(message["generation"], outcome.generation);
+        assert_eq!(test.engine.current_activation().expect("current activation").manifest, Some(next));
+        assert_eq!(test.engine.last_activation_at, original_activation_time);
+        assert!(test.engine.current_is_accepted() && test.engine.current_has_activation_evidence());
+        let grants = test.engine.port.grants_for(outcome.generation).expect("retained grants");
+        assert_eq!(grants.0[&digest].uri, original_grants.0[&digest].uri);
+        request.envelope["projection"] = serde_json::json!({"futureLayoutOption": true});
+        assert!(!test.engine.refresh_plugins(next, request).await.expect("compare changed projection"));
+    }
+
+    #[tokio::test]
     async fn activate_dispatches_resolved_documents_with_verified_grants() {
         let mut test = scratch().await;
         let bytes = b"fake-image-bytes";
@@ -1993,6 +2329,71 @@ mod tests {
             }
             other => panic!("expected Presented::Playing, got {other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn plugin_frame_grants_commit_after_delivery_and_leave_media_and_widgets_unchanged() {
+        let test = scratch().await;
+        let media = seed(&test.engine.port.cas, b"pixels").await;
+        let widget = seed(&test.engine.port.cas, b"widget frame").await;
+        let plugin = seed(&test.engine.port.cas, b"plugin frame").await;
+        let replacement = seed(&test.engine.port.cas, b"replacement frame").await;
+        let make_frame = |digest, size, kind| ActivationFrame {
+            kind,
+            package_id: SafeText::new("example.frames").expect("package"),
+            package_digest: Sha256Digest::of(b"package"),
+            digest,
+            size_bytes: size,
+        };
+        let widget_frame = make_frame(widget, 12, player_types::frames::FrameKind::Widget);
+        let plugin_frame = make_frame(plugin, 12, player_types::frames::FrameKind::ExternalPlugin);
+        let replacement_frame = make_frame(replacement, 17, player_types::frames::FrameKind::ExternalPlugin);
+        let request = parse_activate_request(&playing_request(&media, 6, "image")).expect("request");
+        let uris = HashMap::from([(media, "tcmedia:unchanged".to_owned())]);
+        test.engine
+            .port
+            .prepare_grants(42, &request.content, std::slice::from_ref(&widget_frame), &uris)
+            .await
+            .expect("prepare");
+        let reference =
+            RendererActivationRef { activation_id: ActivationId::from_uuid(uuid::Uuid::new_v4()), generation: 42 };
+        let context = RuntimePayload::new(serde_json::json!({"plugins": []}), vec![]).expect("context");
+        let verified = |frame: &ActivationFrame| VerifiedFrameRef {
+            kind: frame.kind,
+            package_id: frame.package_id.clone(),
+            package_digest: frame.package_digest,
+            sha256: frame.digest,
+            size_bytes: frame.size_bytes,
+        };
+        let initial = test.engine.port.grants_for(42).expect("grants");
+        let add = vec![verified(&plugin_frame)];
+        test.engine.port.prepare_plugin_grants(42, &add).await.expect("stage");
+        test.engine.port.update_plugin_frames(reference, &context, &add).expect("deliver");
+        let installed = test.engine.port.grants_for(42).expect("grants");
+        assert_eq!(installed.0[&media].uri, initial.0[&media].uri);
+        assert_eq!(installed.1[&widget].uri, initial.1[&widget].uri);
+        test.engine.port.prepare_plugin_grants(42, &add).await.expect("repeat");
+        test.engine.port.update_plugin_frames(reference, &context, &add).expect("repeat");
+        assert_eq!(test.engine.port.grants_for(42).expect("grants").1[&plugin].uri, installed.1[&plugin].uri);
+        let replace = vec![verified(&replacement_frame)];
+        test.engine.port.prepare_plugin_grants(42, &replace).await.expect("stage replacement");
+        test.platform.answer(-4);
+        assert!(test.engine.port.update_plugin_frames(reference, &context, &replace).is_err());
+        assert!(test.engine.port.grants_for(42).expect("retained").1.contains_key(&plugin));
+        assert!(!test.engine.port.grants_for(42).expect("retained").1.contains_key(&replacement));
+        test.platform.answer(0);
+        test.engine.port.prepare_plugin_grants(42, &[]).await.expect("stage removal");
+        test.engine.port.update_plugin_frames(reference, &context, &[]).expect("remove");
+        let removed = test.engine.port.grants_for(42).expect("grants");
+        assert_eq!(removed.1.len(), 1);
+        assert_eq!(removed.1[&widget].uri, initial.1[&widget].uri);
+        assert_eq!(removed.0[&media].uri, initial.0[&media].uri);
+        assert!(
+            test.platform
+                .requests()
+                .iter()
+                .all(|wire| serde_json::from_str::<serde_json::Value>(wire).expect("wire")["op"] == "plugins")
+        );
     }
 
     #[tokio::test]
@@ -2135,6 +2536,73 @@ mod tests {
         assert_eq!(envelope["clockOffsetMs"], 1500);
     }
 
+    /// Plugin API v2 on Android: state rides the plugins member of the
+    /// activation. A state-only refresh reaches the WebView as its own
+    /// `plugins` request on the same generation, with evidence and grants
+    /// kept. A changed alias set needs a new generation, because media grants
+    /// follow content.
+    #[tokio::test]
+    async fn plugin_api_2_state_refreshes_without_a_new_generation() {
+        let mut test = scratch().await;
+        let bytes = b"pixels";
+        let digest = seed(&test.engine.port.cas, bytes).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let entry = |label: &str| {
+            let mut entry: serde_json::Value = serde_json::from_str(include_str!(
+                "../../../../packages/manifest-schema/plugin-state-entry-fixture.json"
+            ))
+            .expect("fixture");
+            entry["state"] = serde_json::json!({ "label": label });
+            entry
+        };
+        let mut raw: serde_json::Value =
+            serde_json::from_str(&playing_request(&digest, bytes.len() as u64, "image")).expect("parses");
+        raw["envelope"]["plugins"] = serde_json::json!([entry("Lobby")]);
+        raw["envelope"]["pluginAliases"] = serde_json::json!([]);
+        let raw = raw.to_string();
+        let outcome = test.engine.activate(&raw, now(BASE_MS)).await.expect("initial activation");
+        let activate: serde_json::Value = serde_json::from_str(&test.platform.requests()[0]).expect("native request");
+        assert_eq!(activate["plugins"][0]["type"], "plugin_state");
+        assert_eq!(activate["plugins"][0]["state"]["label"], "Lobby");
+        assert!(test.engine.accepted(1, &outcome.activation_id, outcome.generation));
+        test.engine.progress(
+            1,
+            &outcome.activation_id,
+            outcome.generation,
+            "image-shown",
+            Some("item-1"),
+            None,
+            now(BASE_MS + 1_000),
+        );
+
+        let mut request = parse_activate_request(&raw).expect("activation request");
+        let previous = request.identity.as_ref().expect("server identity").manifest;
+        let next = Sha256Digest::of(b"manifest-2");
+        request.identity.as_mut().expect("server identity").manifest = next;
+        request.identity.as_mut().expect("server identity").manifest_version = 8;
+        request.envelope["plugins"] = serde_json::json!([entry("Gym")]);
+        test.platform.answer(0);
+        assert!(test.engine.refresh_plugins(previous, request.clone()).await.expect("refresh plugins"));
+        let requests: Vec<serde_json::Value> = test
+            .platform
+            .requests()
+            .iter()
+            .map(|request| serde_json::from_str(request).expect("native request"))
+            .collect();
+        assert_eq!(requests.iter().filter(|request| request["op"] == "activate").count(), 1);
+        let message = requests.last().expect("plugins request");
+        assert_eq!(message["op"], "plugins");
+        assert_eq!(message["generation"], outcome.generation);
+        assert_eq!(message["plugins"][0]["state"]["label"], "Gym");
+        assert!(test.engine.current_is_accepted() && test.engine.current_has_activation_evidence());
+
+        // A different alias set cannot reuse this generation.
+        request.envelope["pluginAliases"] =
+            serde_json::json!([{"assetId": ASSET, "variantId": VARIANT, "uri": "tcmedia:x"}]);
+        assert!(!test.engine.refresh_plugins(next, request).await.expect("compare aliases"));
+    }
+
     #[tokio::test]
     async fn unknown_media_refuses_before_core_sees_anything() {
         let mut test = scratch().await;
@@ -2239,6 +2707,218 @@ mod tests {
         assert_eq!(envelope["op"], "activate");
         assert_eq!(envelope["activationId"], outcome.activation_id);
         assert_eq!(envelope["generation"], 1);
+    }
+
+    const ASSET_B: &str = "55555555-5555-5555-5555-555555555555";
+    const VARIANT_B: &str = "66666666-6666-6666-6666-666666666666";
+
+    /// A playing request for different content: what a default-content
+    /// change from A to B resolves to (another asset, another manifest).
+    fn playing_request_b(digest: &Sha256Digest, size: u64) -> String {
+        let src = ["tcmedia:", ASSET_B, "/", VARIANT_B].concat();
+        serde_json::json!({
+            "envelope": {
+                "presentation": {
+                    "state": "playing",
+                    "items": [{"id": "item-b", "kind": "image", "src": src}],
+                },
+            },
+            "content": [{
+                "assetId": ASSET_B,
+                "variantId": VARIANT_B,
+                "digest": digest.to_hex(),
+                "sizeBytes": size,
+                "mimeType": "image/png",
+            }],
+            "source": "server_manifest",
+            "identity": {
+                "manifest": Sha256Digest::of(b"manifest-b").to_hex(),
+                "manifestVersion": 8,
+                "selectionSource": "direct",
+                "playlistId": "77777777-7777-7777-7777-777777777777",
+            },
+            "clockOffsetMs": 1500,
+        })
+        .to_string()
+    }
+
+    fn activation_of(request: &str) -> serde_json::Value {
+        serde_json::from_str(request).expect("request parses")
+    }
+
+    #[tokio::test]
+    async fn changing_default_content_replaces_what_the_running_renderer_shows() {
+        let mut test = scratch().await;
+        let (a, b) = (b"default-content-a", b"default-content-b");
+        let digest_a = seed(&test.engine.port.cas, a).await;
+        let digest_b = seed(&test.engine.port.cas, b).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+
+        // A is on screen and has proven itself.
+        let first = test
+            .engine
+            .activate(&playing_request(&digest_a, a.len() as u64, "image"), now(BASE_MS))
+            .await
+            .expect("activate A");
+        assert!(test.engine.accepted(1, &first.activation_id, first.generation));
+        let (_, meaningful) = test.engine.progress(
+            1,
+            &first.activation_id,
+            first.generation,
+            "image-shown",
+            Some("item-1"),
+            None,
+            now(BASE_MS + 1_000),
+        );
+        assert!(meaningful);
+        assert_eq!(test.snapshot.lock().expect("lock").state, "healthy");
+
+        // The operator changes the default content: the selection driver
+        // resolves B and activates it on the same, still-connected renderer.
+        let second = test
+            .engine
+            .activate(&playing_request_b(&digest_b, b.len() as u64), now(BASE_MS + 5_000))
+            .await
+            .expect("activate B");
+        assert!(second.queued, "B must be pushed to the live renderer");
+        assert_ne!(second.activation_id, first.activation_id);
+        assert_eq!(second.generation, first.generation + 1);
+
+        let requests = test.platform.requests();
+        assert_eq!(requests.len(), 2, "no restart, reload, or reconnect: one more activate");
+        let pushed = activation_of(&requests[1]);
+        assert_eq!(pushed["op"], "activate");
+        assert_eq!(pushed["activationId"], second.activation_id);
+        assert_eq!(pushed["presentation"]["items"][0]["src"], format!("tcmedia:{ASSET_B}/{VARIANT_B}"));
+        assert_eq!(pushed["content"][0]["digest"], digest_b.to_hex());
+
+        // B becomes the accepted, current activation; A's late reports no
+        // longer count.
+        assert!(test.engine.accepted(1, &second.activation_id, second.generation));
+        let current = test.engine.current_activation().expect("current");
+        assert_eq!(current.presentation["items"][0]["id"], "item-b");
+        let snapshot = test.snapshot.lock().expect("lock").clone();
+        assert!(snapshot.accepted && snapshot.connected && snapshot.ready);
+        assert_eq!(snapshot.generation, Some(second.generation));
+        let (stale_current, _) = test.engine.progress(
+            1,
+            &first.activation_id,
+            first.generation,
+            "image-shown",
+            Some("item-1"),
+            None,
+            now(BASE_MS + 6_000),
+        );
+        assert!(!stale_current);
+        let (current_report, meaningful) = test.engine.progress(
+            1,
+            &second.activation_id,
+            second.generation,
+            "image-shown",
+            Some("item-b"),
+            None,
+            now(BASE_MS + 7_000),
+        );
+        assert!(current_report && meaningful, "B produces playback evidence");
+        assert!(test.snapshot.lock().expect("lock").evidence);
+    }
+
+    #[tokio::test]
+    async fn default_content_changed_while_the_renderer_is_gone_is_what_returns() {
+        let mut test = scratch().await;
+        let (a, b) = (b"unavailable-a", b"unavailable-b");
+        let digest_a = seed(&test.engine.port.cas, a).await;
+        let digest_b = seed(&test.engine.port.cas, b).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        test.engine
+            .activate(&playing_request(&digest_a, a.len() as u64, "image"), now(BASE_MS))
+            .await
+            .expect("activate A");
+        assert_eq!(test.platform.requests().len(), 1);
+
+        // The renderer disappears (WebView death, Activity churn); the
+        // operator then changes the default content.
+        test.engine.renderer_disconnected(1);
+        let second = test
+            .engine
+            .activate(&playing_request_b(&digest_b, b.len() as u64), now(BASE_MS + 5_000))
+            .await
+            .expect("activate B");
+        assert!(!second.queued, "nothing to push to yet");
+        assert_eq!(test.platform.requests().len(), 1);
+        assert_eq!(test.snapshot.lock().expect("lock").state, "disconnected");
+
+        // The replacement connects and reports ready: Core replays the
+        // latest committed presentation, B, never the stale A.
+        assert!(test.engine.renderer_connected(2, now(BASE_MS + 6_000)));
+        assert!(test.engine.renderer_ready(2, &ready_report(FULL_FEATURES)).await);
+        let requests = test.platform.requests();
+        assert_eq!(requests.len(), 2);
+        let replayed = activation_of(&requests[1]);
+        assert_eq!(replayed["activationId"], second.activation_id);
+        assert_eq!(replayed["presentation"]["items"][0]["id"], "item-b");
+        assert!(test.engine.accepted(2, &second.activation_id, second.generation));
+        assert!(test.snapshot.lock().expect("lock").accepted);
+    }
+
+    #[tokio::test]
+    async fn a_replaced_renderer_cannot_be_disconnected_by_its_predecessor() {
+        let mut test = scratch().await;
+        let bytes = b"replacement-image";
+        let digest = seed(&test.engine.port.cas, bytes).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let outcome = test
+            .engine
+            .activate(&playing_request(&digest, bytes.len() as u64, "image"), now(BASE_MS))
+            .await
+            .expect("activate");
+
+        // Generation 2 connects and becomes ready before generation 1's
+        // owner finishes closing.
+        assert!(test.engine.renderer_connected(2, now(BASE_MS + 1_000)));
+        assert!(test.engine.renderer_ready(2, &ready_report(FULL_FEATURES)).await);
+        assert_eq!(test.platform.requests().len(), 2, "the current activation replays on the new renderer");
+
+        // The late disconnect and a delayed duplicate connect from the old
+        // renderer change nothing about the live one.
+        test.engine.renderer_disconnected(1);
+        assert!(!test.engine.renderer_connected(1, now(BASE_MS + 2_000)));
+        let snapshot = test.snapshot.lock().expect("lock").clone();
+        assert!(snapshot.connected && snapshot.ready, "the replacement stays connected and ready");
+        assert_eq!(snapshot.state, "waiting_for_progress");
+        assert!(test.engine.accepted(2, &outcome.activation_id, outcome.generation));
+        assert!(test.snapshot.lock().expect("lock").accepted);
+    }
+
+    #[tokio::test]
+    async fn a_repeated_connect_is_idempotent_and_keeps_the_ready_profile() {
+        let mut test = scratch().await;
+        assert!(test.engine.renderer_connected(3, now(BASE_MS)));
+        assert!(test.engine.renderer_ready(3, &ready_report(FULL_FEATURES)).await);
+        // The host retried a connect whose answer it never saw.
+        assert!(test.engine.renderer_connected(3, now(BASE_MS + 10)));
+        let snapshot = test.snapshot.lock().expect("lock").clone();
+        assert!(snapshot.connected && snapshot.ready);
+        assert_eq!(snapshot.state, "waiting_for_progress");
+    }
+
+    #[tokio::test]
+    async fn host_faults_are_bounded_codes_and_clear_when_a_renderer_reports_ready() {
+        let mut test = scratch().await;
+        assert!(test.engine.renderer_fault("runtime_load_failed:net_-2"));
+        assert_eq!(test.snapshot.lock().expect("lock").host_fault.as_deref(), Some("runtime_load_failed:net_-2"));
+        // Free text and page data cannot ride a fault: only code characters, bounded.
+        assert!(test.engine.renderer_fault(&format!("a b/c?d={}", "x".repeat(200))));
+        let fault = test.snapshot.lock().expect("lock").host_fault.clone().expect("fault");
+        assert!(fault.len() <= 64);
+        assert!(fault.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | ':' | '.' | '-')));
+        assert!(!test.engine.renderer_fault("   "));
+        assert!(test.engine.renderer_connected(1, now(BASE_MS)));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        assert!(test.snapshot.lock().expect("lock").host_fault.is_none());
     }
 
     #[tokio::test]

@@ -84,6 +84,22 @@ type OperationDetail struct {
 
 var capabilities = []Capability{
 	{
+		ID: "targets.resolve", Version: 2, Name: "Resolve display targets", Description: "Select screens, groups, locations, or explicit all screens through a scoped target picker.", Category: CategoryRead, Contexts: []string{ContextStudio, ContextBackground},
+		Operations: []Operation{
+			{Name: "targets.resolve@2/resolve", CapabilityID: "targets.resolve", CapabilityVersion: 2, Title: "Resolve targets", Description: "Validate explicit all or a nonempty screen, group, and location selection.", Contexts: []string{ContextStudio, ContextBackground}},
+			{Name: "targets.resolve@2/options", CapabilityID: "targets.resolve", CapabilityVersion: 2, Title: "List target options", Description: "List bounded target names and identifiers within the operator's scope.", Contexts: []string{ContextStudio}},
+		},
+	},
+	{
+		ID: "plugin-runtime.state", Version: 1, Name: "External Player plugin state", Description: "Configure and publish bounded expiring state for this package's own external Player plugins.", Category: CategoryManage, Contexts: []string{ContextStudio, ContextBackground},
+		Operations: []Operation{
+			{Name: "plugin-runtime.state@1/get", CapabilityID: "plugin-runtime.state", CapabilityVersion: 1, Title: "Read plugin state", Description: "Read this package's own plugin configuration and last published state.", Contexts: []string{ContextStudio, ContextBackground}},
+			{Name: "plugin-runtime.state@1/configure", CapabilityID: "plugin-runtime.state", CapabilityVersion: 1, Title: "Configure plugin targets", Description: "Save operator-authored configuration and targets with a revision check.", Mutating: true, Contexts: []string{ContextStudio}},
+			{Name: "plugin-runtime.state@1/publish", CapabilityID: "plugin-runtime.state", CapabilityVersion: 1, Title: "Publish Player state", Description: "Publish bounded expiring state to the configured targets without replacing playback.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
+			{Name: "plugin-runtime.state@1/clear", CapabilityID: "plugin-runtime.state", CapabilityVersion: 1, Title: "Clear Player state", Description: "Remove this plugin's current Player state while keeping configuration.", Mutating: true, Contexts: []string{ContextStudio, ContextBackground}},
+		},
+	},
+	{
 		ID:          "organization.read",
 		Version:     1,
 		Name:        "Organization details",

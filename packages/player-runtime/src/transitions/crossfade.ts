@@ -30,6 +30,18 @@ function settle(incoming: HTMLElement, outgoing: HTMLElement | null): void {
 }
 
 /**
+ * The incoming layer always paints above the outgoing one. Layers are
+ * opaque (each has a black backdrop), so a dissolve needs the outgoing layer
+ * to stay at full opacity underneath while the incoming one fades in over it.
+ * Fading both at once exposes the black backdrops and dips the picture dark
+ * for the middle of every transition.
+ */
+function stack(incoming: HTMLElement, outgoing: HTMLElement | null): void {
+  incoming.style.zIndex = "1";
+  if (outgoing) outgoing.style.zIndex = "0";
+}
+
+/**
  * Swap `incoming` in over `outgoing`. `kind` is the item's transition:
  * "fade" and "crossfade" dissolve for 300 ms; anything else cuts.
  */
@@ -41,6 +53,7 @@ export function swapLayers(
 ): RunningTransition {
   const duration =
     kind === "none" ? 0 : Math.round(CROSSFADE_MS * timing.durationScale);
+  stack(incoming, outgoing);
   if (duration <= 0 || typeof incoming.animate !== "function") {
     settle(incoming, outgoing);
     return { finished: Promise.resolve("finished"), cancel() {} };
@@ -51,11 +64,11 @@ export function swapLayers(
     easing: "ease",
     fill: "both",
   };
-  // The resting state is expressed by the `visible` class; the animations
-  // only carry the layers between resting states and are removed afterwards.
+  // The resting state is expressed by the `visible` class; the animation only
+  // carries the incoming layer to it and is removed afterwards. The outgoing
+  // layer keeps its `visible` class, and so full opacity, until the end.
   const fadeIn = incoming.animate([{ opacity: 0 }, { opacity: 1 }], options);
-  const fadeOut = outgoing?.animate([{ opacity: 1 }, { opacity: 0 }], options);
-  settle(incoming, outgoing);
+  incoming.classList.add(VISIBLE);
 
   let outcome: TransitionOutcome | null = null;
   let resolve!: (value: TransitionOutcome) => void;
@@ -63,11 +76,11 @@ export function swapLayers(
   const end = (value: TransitionOutcome) => {
     if (outcome) return;
     outcome = value;
+    settle(incoming, outgoing);
     fadeIn.cancel();
-    fadeOut?.cancel();
     resolve(value);
   };
-  Promise.all([fadeIn.finished, fadeOut?.finished]).then(
+  fadeIn.finished.then(
     () => end("finished"),
     () => end("cancelled"),
   );

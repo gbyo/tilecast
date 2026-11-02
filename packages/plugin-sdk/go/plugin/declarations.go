@@ -21,12 +21,29 @@ func CheckDeclarations(p Plugin) error {
 	if err := m.Validate(); err != nil {
 		return err
 	}
-	if _, ok := p.(ManifestProjector); ok {
-		if !m.Capabilities.PlayerManifest {
-			return fail("projects Player manifest entries without declaring capabilities.playerManifest")
+	_, projectsManifest := p.(ManifestProjector)
+	_, projectsState := p.(PlayerStateProjector)
+	if m.APIVersion >= 2 {
+		if projectsManifest {
+			return fail("implements the Plugin API 1 ManifestProjector; a Plugin API 2 plugin projects Player state with PlayerStateProjector")
 		}
-		if len(m.ManifestTypes()) == 0 {
-			return fail("projects Player manifest entries without declaring runtime.manifestTypes")
+		if projectsState && m.Player == nil {
+			return fail("projects Player state without declaring a player contribution")
+		}
+		if m.Player != nil && !projectsState {
+			return fail("declares a player contribution but does not implement PlayerStateProjector, so no Player would ever activate it")
+		}
+	} else {
+		if projectsState {
+			return fail("implements PlayerStateProjector, which needs Plugin API 2")
+		}
+		if projectsManifest {
+			if !m.Capabilities.PlayerManifest {
+				return fail("projects Player manifest entries without declaring capabilities.playerManifest")
+			}
+			if len(m.ManifestTypes()) == 0 {
+				return fail("projects Player manifest entries without declaring runtime.manifestTypes")
+			}
 		}
 	}
 	if _, ok := p.(WorkerProvider); ok && !m.Capabilities.BackgroundWorkers {

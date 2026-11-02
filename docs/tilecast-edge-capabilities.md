@@ -55,13 +55,14 @@ Each row has one status:
 
 ## Surfaces and plugins
 
-| Feature                                          | Edge      | Proof or rationale                                                                                                         |
-| ------------------------------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Setup, pairing, idle, offline, disabled surfaces | Supported | Conformance `setup`, `pairing`, `status-surfaces`; real-server script (fresh pairing).                                     |
-| Safe mode                                        | Supported | `playback.rs` (`safe_mode_holds_its_surface_until_exit_safe_mode_and_sync_now_reconciles`); conformance `status-surfaces`. |
-| Branding on status surfaces                      | Supported | `playback.rs` (configuration tests); real-server script (`branding.disabled_title`).                                       |
-| Identify                                         | Supported | Conformance `identify`; `commands.rs`.                                                                                     |
-| Countdown bar and alert ticker plugins           | Supported | Conformance `plugins`.                                                                                                     |
+| Feature                                                | Edge           | Proof or rationale                                                                                                                                                                                                                                           |
+| ------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Setup, pairing, idle, offline, disabled surfaces       | Supported      | Conformance `setup`, `pairing`, `status-surfaces`; real-server script (fresh pairing).                                                                                                                                                                       |
+| Safe mode                                              | Supported      | `playback.rs` (`safe_mode_holds_its_surface_until_exit_safe_mode_and_sync_now_reconciles`); conformance `status-surfaces`.                                                                                                                                   |
+| Branding on status surfaces                            | Supported      | `playback.rs` (configuration tests); real-server script (`branding.disabled_title`).                                                                                                                                                                         |
+| Identify                                               | Supported      | Conformance `identify`; `commands.rs`.                                                                                                                                                                                                                       |
+| Countdown bar and alert ticker plugins                 | Supported      | Conformance `plugins`.                                                                                                                                                                                                                                       |
+| External Plugin surfaces (`plugin.external-runtime@1`) | Blocked on M11 | The packaged bridge enables it and the heartbeat reports it. `e2e_external_plugins.py` and `playback.rs` (`external_plugin_surface_changes_leave_synchronized_video_playback_untouched`) pass in software. Physical-screen qualification is a manual canary. |
 
 ## Host features
 

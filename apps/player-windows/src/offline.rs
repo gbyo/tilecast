@@ -44,6 +44,7 @@ fn identity(candidate: &player_core::NativeManifest, resolved: &ResolvedPresenta
 
 #[derive(Debug, PartialEq)]
 struct SelectionKey {
+    source: &'static str,
     playlist: Option<uuid::Uuid>,
     layout: Option<uuid::Uuid>,
     schedule: Option<uuid::Uuid>,
@@ -53,6 +54,7 @@ struct SelectionKey {
 impl From<&PlaybackIdentity> for SelectionKey {
     fn from(identity: &PlaybackIdentity) -> Self {
         Self {
+            source: identity.selection_source,
             playlist: identity.playlist_id,
             layout: identity.layout_id,
             schedule: identity.schedule_id,
@@ -132,6 +134,21 @@ impl player_core::OfflineActivationHost for Host {
             playing: activation.document.get("state").and_then(serde_json::Value::as_str) == Some("playing"),
         })
     }
+    fn preserve_plugin_generation(
+        &self,
+        candidate: &player_core::NativeManifest,
+        current: &Self::Key,
+        projection: &mut player_core::OfflineProjection<Self::Projection, Self::Key>,
+    ) {
+        if projection.projection.document.get("state").and_then(serde_json::Value::as_str) == Some("playing")
+            && projection.projection.document.get("generation").and_then(serde_json::Value::as_u64)
+                == Some(candidate.version.max(0) as u64)
+            && let Some(generation) = current.document.get("generation").and_then(serde_json::Value::as_u64)
+        {
+            projection.projection.document["generation"] = serde_json::json!(generation);
+            projection.key.document = projection.projection.document.clone();
+        }
+    }
     async fn health(&self) -> player_core::OfflineRendererHealth {
         let engine = lock(&self.0);
         player_core::OfflineRendererHealth {
@@ -183,6 +200,15 @@ impl player_core::OfflineActivationHost for Host {
                 tracing::warn!(component = "activation", event = "activation_rejected", error = %error);
                 "activation_rejected"
             })
+    }
+    async fn refresh_plugins(
+        &self,
+        previous: player_types::Sha256Digest,
+        candidate: &player_core::NativeManifest,
+        resolved: &Self::Projection,
+        _: player_core::ActivationTime,
+    ) -> Result<bool, &'static str> {
+        lock(&self.0).refresh_plugins(previous, identity(candidate, resolved), resolved)
     }
     fn promoted(&self) {
         self.0.manifest_wake.notify_one();

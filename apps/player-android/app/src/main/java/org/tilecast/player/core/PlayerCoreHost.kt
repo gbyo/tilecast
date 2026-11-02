@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -86,6 +87,8 @@ data class CoreHostStatus(
     val lastServerContactAt: String? = null,
     val renderer: CoreRendererStatus? = null,
     val serverUrl: String? = null,
+    /** The server that revoked this Player's credential, for a new pairing code. */
+    val retainedServerUrl: String? = null,
     val installationId: String? = null,
     val organizationName: String? = null,
     val screenId: String? = null,
@@ -114,6 +117,7 @@ data class CoreHostStatus(
                     linkActual = root.stringOrNull("linkActual"),
                     lastServerContactAt = root.stringOrNull("lastServerContactAt"),
                     serverUrl = root.stringOrNull("serverUrl"),
+                    retainedServerUrl = root.stringOrNull("retainedServerUrl"),
                     installationId = root.stringOrNull("installationId"),
                     organizationName = root.stringOrNull("organizationName"),
                     screenId = root.stringOrNull("screenId"),
@@ -142,7 +146,8 @@ sealed interface CorePairingState {
     data object Unknown : CorePairingState
     data object Paired : CorePairingState
     data object Enrolled : CorePairingState
-    data object Setup : CorePairingState
+    /** No server. [phone] is phone setup while Core runs it. */
+    data class Setup(val phone: CorePhoneSetup? = null) : CorePairingState
     data object AddressRejected : CorePairingState
     data object Reset : CorePairingState
     data class Waiting(
@@ -151,6 +156,8 @@ sealed interface CorePairingState {
         val organizationName: String?,
         val expiresAt: String?,
         val serverTime: String?,
+        /** The session's server; absent from older native libraries. */
+        val serverUrl: String? = null,
     ) : CorePairingState
     data class Renewing(val reason: String) : CorePairingState
 
@@ -162,12 +169,13 @@ sealed interface CorePairingState {
                 when (root.stringOrNull("state")) {
                     "paired" -> Paired
                     "enrolled" -> Enrolled
-                    "setup" -> Setup
+                    "setup" -> Setup(CorePhoneSetup.parse(root["phoneSetup"]))
                     "addressRejected" -> AddressRejected
                     "reset" -> Reset
                     "waiting" -> Waiting(
                         code = root.stringOrNull("code") ?: return Unknown,
                         approvalUrl = root.stringOrNull("approvalUrl") ?: return Unknown,
+                        serverUrl = root.stringOrNull("serverUrl"),
                         organizationName = root.stringOrNull("organizationName"),
                         expiresAt = root.stringOrNull("expiresAt"),
                         serverTime = root.stringOrNull("serverTime"),
@@ -177,6 +185,28 @@ sealed interface CorePairingState {
                 }
             } catch (_: Exception) {
                 Unknown
+            }
+        }
+    }
+}
+
+/** Phone setup on the setup screens (docs/phone-setup.md). */
+sealed interface CorePhoneSetup {
+    /** Show [url] as a QR code. [rejected]: the last address from a phone could not be used. */
+    data class Ready(val url: String, val rejected: Boolean) : CorePhoneSetup
+    data object Paused : CorePhoneSetup
+    data object Unavailable : CorePhoneSetup
+
+    companion object {
+        fun parse(element: kotlinx.serialization.json.JsonElement?): CorePhoneSetup? {
+            val root = element as? JsonObject ?: return null
+            return when (root.stringOrNull("state")) {
+                "ready" -> root.stringOrNull("url")?.takeIf { it.length <= 512 }?.let { url ->
+                    Ready(url, (root["rejected"] as? JsonPrimitive)?.booleanOrNull == true)
+                }
+                "paused" -> Paused
+                "unavailable" -> Unavailable
+                else -> null
             }
         }
     }
@@ -438,12 +468,14 @@ sealed interface CoreHostState {
  */
 interface CoreBridge {
     fun version(): String?
-    fun open(filesDir: String, userAgent: String, handler: CoreBridgeHandler): Long
+    /** [setupRelay] is the phone setup relay origin; empty turns phone setup off. */
+    fun open(filesDir: String, userAgent: String, setupRelay: String, handler: CoreBridgeHandler): Long
     fun statusJson(handle: Long): String?
     fun startCore(handle: Long): Int
     fun beginPairing(handle: Long, url: String): String?
     fun resetPairing(handle: Long): Int
     fun resetServer(handle: Long): Int
+    fun resumePhoneSetup(handle: Long): Int = 1
     fun syncConfig(handle: Long): String?
     fun syncManifest(handle: Long): String?
     fun importLegacy(handle: Long): String?
@@ -459,14 +491,15 @@ interface CoreBridge {
 
 internal class JniCoreBridge : CoreBridge {
     override fun version(): String? = PlayerCoreNative.nativeVersion()
-    override fun open(filesDir: String, userAgent: String, handler: CoreBridgeHandler): Long =
-        PlayerCoreNative.nativeOpen(filesDir, userAgent, handler)
+    override fun open(filesDir: String, userAgent: String, setupRelay: String, handler: CoreBridgeHandler): Long =
+        PlayerCoreNative.nativeOpen(filesDir, userAgent, setupRelay, handler)
     override fun statusJson(handle: Long): String? = PlayerCoreNative.nativeStatus(handle)
     override fun startCore(handle: Long): Int = PlayerCoreNative.nativeStartCore(handle)
     override fun beginPairing(handle: Long, url: String): String? =
         PlayerCoreNative.nativeBeginPairing(handle, url)
     override fun resetPairing(handle: Long): Int = PlayerCoreNative.nativeResetPairing(handle)
     override fun resetServer(handle: Long): Int = PlayerCoreNative.nativeResetServer(handle)
+    override fun resumePhoneSetup(handle: Long): Int = PlayerCoreNative.nativeResumePhoneSetup(handle)
     override fun syncConfig(handle: Long): String? = PlayerCoreNative.nativeSyncConfig(handle)
     override fun syncManifest(handle: Long): String? = PlayerCoreNative.nativeSyncManifest(handle)
     override fun importLegacy(handle: Long): String? = PlayerCoreNative.nativeImportLegacy(handle)
@@ -530,6 +563,16 @@ class PlayerCoreHost private constructor(
     private val _pairingState = MutableStateFlow<CorePairingState>(CorePairingState.Unknown)
     val pairingState: StateFlow<CorePairingState> = _pairingState.asStateFlow()
 
+    /**
+     * Suspends until the native host is open and can answer renderer reports.
+     * Event driven: it returns when [state] becomes [CoreHostState.Ready], with
+     * no polling and no delay. A host that failed to open never returns, and
+     * callers must be cancellable.
+     */
+    suspend fun awaitReady() {
+        state.first { it is CoreHostState.Ready }
+    }
+
     /** Starts the host. Safe to call twice; the second call is a no-op. */
     suspend fun start() {
         withContext(Dispatchers.IO) {
@@ -555,7 +598,7 @@ class PlayerCoreHost private constructor(
                     return@withContext
                 }
                 val opened = try {
-                    bridge.open(filesDir.absolutePath, userAgent, handler)
+                    bridge.open(filesDir.absolutePath, userAgent, BuildConfig.SETUP_RELAY_URL, handler)
                 } catch (_: LinkageError) {
                     0L
                 } catch (_: Exception) {
@@ -735,6 +778,15 @@ class PlayerCoreHost private constructor(
             mutex.withLock {
                 if (_state.value !is CoreHostState.Ready) return@withLock CorePlayerConfig(null)
                 CorePlayerConfig.parse(runCatching { bridge.configJson(handle) }.getOrNull())
+            }
+        }
+
+    /** Starts a paused phone setup session again. Best effort. */
+    suspend fun resumePhoneSetup(): Boolean =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                if (_state.value !is CoreHostState.Ready) return@withLock false
+                runCatching { bridge.resumePhoneSetup(handle) }.getOrDefault(1) == 0
             }
         }
 

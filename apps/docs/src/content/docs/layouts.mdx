@@ -39,19 +39,71 @@ Studio clears a Layout thumbnail when its referenced Media, Widget, Playlist, or
 
 The Layout library loads the first 100 matches. Search to narrow results across the library, or select **Load more** to browse later results. Presentation choosers use the same search and **Load more** controls.
 
+Players that rotate Widgets inside a Layout Playlist zone must report
+`layout.playlist_widgets@1` and support each Widget's rendering requirements.
+The Server checks this when you assign content and again when the Player
+requests a manifest. Older Players can continue to play media-only zones.
+For the exact contract, see [Widgets, Data Sources, and Layouts](https://github.com/gbyo/tilecast/blob/main/docs/widgets-and-layouts.md).
+
 The Media picker can also upload an image or video; it is added to the Media library. A Playlist zone plays independently inside the Layout. **Loop** returns to the first playable item or stops on the last one. **Corner radius** and each Playlist item's fade or crossfade transition apply in the zone. If media fails, **Fallback** shows the Layout background, keeps the last successfully loaded item, or hides the zone. The Player skips to another playable item when one is available and retries a failed final item after two seconds. Studio checks both the Playlist item and its Media asset against the selected preview date, so content appears only when it is available to the Player. If the date is blank or invalid, Studio uses the current time. A zone needs a Playlist with playable content.
 
-A Playlist zone supports image and video items only. Studio previews those items and shows a message when a Playlist has no supported content. Publishing is blocked if the zone Playlist contains a Widget, Website, or nested Layout. Assignment validation also rejects unsupported items added to the Playlist later.
+A Playlist zone can rotate images, videos, built-in Widgets, component Widgets,
+and supported package or web Widgets. For example, a zone can show an image,
+then a Clock, then a video, then a data-driven Widget. Each item fills that zone;
+the other zones continue independently. Studio uses its shared Widget preview
+at the zone's dimensions and the Player Runtime's zone actor for timing.
 
-Images use their item duration or the Player's default image duration. Videos start at their start offset and play to their end offset, or to the end of the media when no end offset is set. A looping zone repeats a single video from its start offset; a non-looping zone pauses its final video at its end offset. The preview uses organization playback defaults for items that use Player defaults. See the [playback settings](../administration/player-policies/) for policy controls.
+Nested Layouts cannot play inside a Playlist zone. If a zone Playlist contains
+a nested Layout or another unsupported entry, Studio tells you right away:
 
-The Player keeps the outgoing zone item visible while the next image loads or video becomes playable. The image duration starts when the image appears. A slow or failed zone does not delay the rest of the Layout. Media load or play failures appear as zone failures in Activity and use the configured fallback. The [Runtime readiness contract](https://github.com/gbyo/tilecast/blob/main/docs/player-runtime.md) defines the reported evidence. Canvas evidence alone does not confirm that every child is working.
+- When you add a Playlist as a zone, Studio doesn't add it and names the items that can't play.
+- On the canvas, the zone shows **Unsupported items** instead of a preview.
+- The zone's inspector and a banner above the canvas list each unsupported item and its type. Select a name in the banner to jump to the zone.
+- **Publish** and **Submit** stay off until you fix it.
+
+Remove unsupported entries from the zone Playlist. Show nested Layouts as
+fullscreen content or as entries in the screen's main Playlist. Studio checks
+again when you return to the window, so it also catches a Playlist that someone
+changed after you added the zone. Assignment validation rejects unsupported
+entries with their item names. The Server also rejects a Player that lacks a
+required Widget or zone capability.
+
+Images use their item duration or the Player's default image duration. Widgets
+use their item duration or the 30-second Widget default. Timing starts when the
+item is ready to show, and pauses with the Layout. Videos start at their start
+offset and play to their end offset, or to the end of the media when no end
+offset is set. A looping zone repeats a single video from its start offset;
+a non-looping zone pauses its final video at its end offset. YouTube keeps its
+configured completion policy and cannot overlap another YouTube zone. Studio's
+web preview still depends on the website allowing browser embedding. The
+preview uses organization playback defaults for items that use Player defaults.
+See the [playback settings](../administration/player-policies/) for policy controls.
+
+The Player keeps the outgoing zone item visible while the next item prepares.
+A slow or failed zone does not delay the rest of the Layout. Load, play, and
+Widget lifecycle failures appear as zone failures in Activity and use the
+configured fallback. If every item fails, the zone waits two seconds before
+retrying. The [Runtime readiness contract](https://github.com/gbyo/tilecast/blob/main/docs/player-runtime.md)
+defines the reported evidence. Canvas evidence alone does not confirm that every
+child is working.
 
 If a Widget reports an error after it first renders, the Player reports a failure for that zone and keeps the Layout active so its other content can continue.
 
 ## Show changing values in text
 
 Select a text layer and set **Content mode** to **Dynamic field**. Choose a Data Source and field, then set a format and optional fallback text. The Layout can bind text directly to one field; use a Widget when you need to display a repeating list of records. See [Data Sources](../data-sources/) and [Widgets](../widgets/).
+
+A missing value formats as empty text, then uses the layer's fallback when one is configured. Number, integer, percent, currency, date, date-time, and time formats use the organization's regional settings. Date-only values stay on their calendar date instead of shifting through the Player's local timezone. An invalid numeric value becomes empty. A value that isn't a supported ISO/RFC 3339 instant for a date or time format is left as its source text instead of being guessed.
+
+## Plan for canvas size and TV edges
+
+The canvas is a design coordinate system, not a requirement that the display have the same pixel resolution. A 4K Layout can play on a 1080p screen: Tilecast scales the canvas to the available display area without changing its aspect ratio, and positions, text, shapes, and zones scale with it. Very thin lines and very small type can still become less distinct after downscaling, so preview the Layout at the target screen shape and avoid relying on one-pixel details.
+
+Tilecast does not add a broadcast-style title-safe or overscan margin automatically. Set the TV to a 1:1 mode such as **Just Scan**, **Screen Fit**, or the manufacturer's equivalent when possible. If the display cannot disable overscan, keep essential text away from the canvas edge and test that exact model.
+
+Layout text uses the built-in families **Inter**, **Roboto**, **Source Sans 3**, and **Noto Sans**. Layouts do not currently load an uploaded font or an arbitrary Google Font. A text layer can choose independently among the built-in families.
+
+Layer order controls overlap: a higher layer is painted in front of a lower layer, and each placement keeps its own opacity. Use **Layers** and **Bring to front** to make the intended order explicit. A Span screen receives only the part of a placement that intersects its panel. Size ordinary Layout placements to the visible region you want instead of depending on content outside their box.
 
 ## Limits to plan for
 

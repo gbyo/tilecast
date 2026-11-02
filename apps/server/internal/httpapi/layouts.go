@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 )
@@ -157,6 +158,24 @@ func (s *server) saveLayoutDraft(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
+	existing, err := s.layouts.DraftDependencies(r.Context(), id)
+	if err != nil {
+		s.writeLayoutError(w, r, err)
+		return
+	}
+	present := map[uuid.UUID]bool{}
+	for _, dependency := range existing {
+		present[dependency.ID] = true
+	}
+	added := []uuid.UUID{}
+	for _, dependency := range layouts.Dependencies(body.Document) {
+		if (dependency.Type == "asset" || dependency.Type == "widget") && !present[dependency.ID] {
+			added = append(added, dependency.ID)
+		}
+	}
+	if !s.authorizeAssetReferences(w, r, added) {
+		return
+	}
 	user := principal.User
 	result, err := s.layouts.SaveDraft(r.Context(), id, user.ID, body.ExpectedDraftRevision, body.Document)
 	if err != nil {
@@ -185,9 +204,9 @@ func (s *server) publishLayout(w http.ResponseWriter, r *http.Request) {
 	}
 	user := principal.User
 	if s.approvals != nil {
-		published, publishErr := s.approvals.SubmitAndPublish(r.Context(), user.ID, user.Role, "layout", id, body.ExpectedDraftRevision)
+		published, publishErr := s.approvals.SubmitAndPublish(r.Context(), user.ID, principal, "layout", id, body.ExpectedDraftRevision)
 		if errors.Is(publishErr, approvals.ErrReviewRequired) {
-			submission, submitErr := s.approvals.SubmitExpected(r.Context(), user.ID, user.Role, "layout", id, nil, body.ExpectedDraftRevision)
+			submission, submitErr := s.approvals.SubmitExpected(r.Context(), user.ID, principal, "layout", id, nil, body.ExpectedDraftRevision)
 			if submitErr != nil {
 				s.writeEditorialError(w, r, submitErr)
 				return
@@ -292,7 +311,12 @@ func layoutETag(revision int64) string {
 	return `"layout-draft-` + strconv.FormatInt(revision, 10) + `"`
 }
 func (s *server) writeLayoutError(w http.ResponseWriter, r *http.Request, err error) {
+	var zone *layouts.PlaylistZoneUnsupportedError
 	switch {
+	case errors.As(err, &zone):
+		// The message names the Playlist and the offending items. It used to
+		// miss the substring match below and surface as a bare server error.
+		writeError(w, http.StatusUnprocessableEntity, "layout_playlist_zone_unsupported", zone.Error())
 	case errors.Is(err, layouts.ErrNotFound):
 		writeError(w, http.StatusNotFound, "layout_not_found", "The requested Layout was not found.")
 	case errors.Is(err, layouts.ErrConflict):

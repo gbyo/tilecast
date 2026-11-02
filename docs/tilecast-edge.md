@@ -213,7 +213,7 @@ The daemon records a running marker at start and clears it on clean shutdown. A 
 
 An ordinary playlist restarts at its last reliably presented item after a daemon restart, reboot, or power cut. The daemon writes one checkpoint row on accepted item evidence: the server binding, manifest version and digest, playlist, item, and presentation time. Only a new triple writes; duplicate evidence costs no transaction.
 
-At cold start the first ordinary playlist projection rotates to the checkpointed item when the binding, manifest, playlist, and 24-hour freshness all still match, and when `resumeAfterRestart` is not false (the server default is true). The rotation reorders the projected items in memory; it never rewrites the server manifest. The applied rotation sticks for the session, so repeated projections keep one stable activation key. Synchronized groups, takeovers, layouts, and changed manifests always start from the head. Anything invalid falls back to the ordinary order.
+At cold start the first ordinary playlist projection rotates to the checkpointed item when the binding, manifest, playlist, and 24-hour freshness all still match, and when `resumeAfterRestart` is not false (the server default is true). The rotation reorders the projected items in memory; it never rewrites the server manifest. The applied rotation sticks for the session, so repeated projections keep one stable activation key. A proven plugin-only revision retains that rotation. Synchronized groups, takeovers, layouts, and presentation changes start from the head. Anything invalid falls back to the ordinary order.
 
 ## 7. Local IPC
 
@@ -334,6 +334,30 @@ Electron and WPE host the shared Tilecast Player Runtime (`@tilecast/player-runt
 The host adapter (`web/tilecast-bridge.js`) implements the runtime's versioned host contract, `TilecastRuntimeHostV1`, and exposes only its typed members. Behavior follows the capabilities the adapter advertises, never the host's name. Runtime file names are validated against a fixed grammar: top-level files and `fonts/<name>`. Host-to-page delivery calls one fixed function with typed arguments; no script source is built from strings. The runtime document's CSP is `script-src 'self'` and `style-src 'self'`, with no inline allowance.
 
 ### 10.3 Media access
+
+The WPE native message handlers belong to a named JavaScript world.
+Only the exact top-level Runtime document receives its relay script.
+The typed page adapter uses bounded DOM events on that document to reach
+the relay. Opaque package frames cannot reach the parent document or the
+named world's native handlers. Reports have a 64 KiB limit. At most eight
+requests await a reply, with a sixty-second limit.
+
+Widget and plugin frame grants have separate execution kinds.
+Plugin frame responses deny image, media, font, and network loads.
+A plugin state update carries an independent frame authorization table.
+New grants are staged before delivery. Success commits them; failure retains
+the previous set. Removed grants drain without changing presentation grants.
+The iframe port ends on navigation, and native policy refuses non-grant
+frame URLs before a request is sent.
+
+WPE compiles a fixed document filter before it loads the Runtime.
+The filter denies Runtime documents in child frames.
+It denies a new document load from a current package frame, including a reload
+or a different live grant. Initial loads can share the same verified frame.
+Filter compilation failure prevents view startup.
+The headless navigation test checks scheme reads before and after hostile
+navigations. Its negative control removes only the test view's filter.
+The production renderer has no filter bypass.
 
 The renderer reads media only through `tcmedia://`, and only for objects that the current activation or plugin state lists, with the declared size. It never receives a directory to browse and never receives a path from the page. The target is a daemon-owned media capability channel: `tilecastd` grants short-lived per-activation capabilities and serves the bytes itself, so the renderer needs no filesystem access to the CAS at all.
 
