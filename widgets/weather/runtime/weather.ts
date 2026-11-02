@@ -626,7 +626,13 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
         showForecast
           ? html`<div class="forecast">
               ${data.forecast.map((day) => {
-                const dayMs = Date.parse(recordDay(day, "date"));
+                const dayText = recordDay(day, "date");
+                const dayMs = Date.parse(dayText);
+                // A bare calendar date parses as UTC midnight; name it in UTC
+                // so zones west of UTC do not show the previous day.
+                const dayZone = /^\d{4}-\d{2}-\d{2}$/u.test(dayText)
+                  ? "UTC"
+                  : timeZone;
                 return html`<div class="day">
                   ${
                     this.config.showForecastDay
@@ -636,7 +642,7 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
                               ? ""
                               : formatDate(dayMs, {
                                   locale,
-                                  timeZone,
+                                  timeZone: dayZone,
                                   style: "weekday",
                                 })
                           }
