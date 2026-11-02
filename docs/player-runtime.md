@@ -17,6 +17,23 @@ host process (tilecastd/WPE, Windows/WebView2, legacy Electron, or Android trust
   XState playback engine ── scheduler (monotonic clock) ── synchronized timeline
 ```
 
+## Document startup
+
+The trusted document contains a Tilecast logo on a black startup layer.
+The Runtime prepares the first presentation beneath this layer.
+The logo runs for at least one 1.5-second cycle before the reveal.
+The Runtime removes the layer after the first presentation paints.
+Reduced motion uses an opacity change without the card movement.
+Conformance runs remove the layer before the Runtime reports ready.
+
+An accepted presentation starts a ten-second preparation limit.
+The reveal has a separate four-second limit.
+These limits remove the layer if animation readiness or completion stalls.
+Without an accepted presentation, the logo stays visible.
+The sequence runs once per document and uses no persistent state.
+Host-layer Website surfaces stay hidden until the reveal uncovers playback.
+Media URI surfaces stay inside the Runtime document.
+
 ## 1. Ownership
 
 The runtime owns:

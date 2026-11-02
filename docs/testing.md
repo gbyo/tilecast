@@ -61,11 +61,11 @@ Changes to the Linux Player on `main` always run the packaged release contract. 
 
 ## Local iteration
 
-Playback-plan and content-health integration tests use the shared per-package test database
-helper.
+Playback-plan and content-health integration tests use the shared per-package
+test database helper.
 They do not truncate tables in the database named by `TEST_DATABASE_URL`.
-The production workspace contract test checks the Docker build stages for
-the workspace dependencies of Studio and Browser Player.
+The production workspace contract checks the Docker build stages for the
+workspace dependencies of Studio and Browser Player.
 
 Run `make dev` to start the local PostgreSQL service, the Go server with reload, and the Vite dashboard. Press Ctrl-C to stop them. See [development setup](development.md) for ports, database settings, and the FFmpeg requirement.
 

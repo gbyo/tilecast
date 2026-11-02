@@ -3,5 +3,22 @@
     "name": "Tilecast",
     "url": "https://tilecast.org"
   },
-  "longDescription": "Emergency Alerts monitors official National Weather Service alerts for the states and zones you choose. Create rules by event, severity, and urgency, then decide whether matching alerts should trigger a fullscreen takeover or a ticker across selected screens and groups.\n\nTilecast polls the National Weather Service in the background and automatically starts and clears responses as alerts change. Use the built-in alert presentation or an existing playlist for your response while retaining Tilecast's normal manual takeover controls."
+  "longDescription": "Emergency Alerts monitors official National Weather Service alerts for the states and zones you choose. Create rules by event, severity, and urgency, then decide whether matching alerts should trigger a fullscreen takeover or a ticker across selected screens and groups.\n\nTilecast polls the National Weather Service in the background and automatically starts and clears responses as alerts change. Use the built-in alert presentation or an existing playlist for your response while retaining Tilecast's normal manual takeover controls.",
+  "artwork": {
+    "icon": "./store/icon.webp",
+    "screenshots": [
+      {
+        "src": "./store/01-alert.webp",
+        "alt": "A school display showing the daily schedule with a red Emergency Alerts ticker along the bottom that reads \"Tornado Warning — Take shelter now — example alert, not a real warning\"."
+      },
+      {
+        "src": "./store/02-coverage.webp",
+        "alt": "The Emergency Alerts coverage settings with South Carolina selected, four counties including Greenwood monitored, a two-minute poll interval, and a Healthy status."
+      },
+      {
+        "src": "./store/03-rules.webp",
+        "alt": "An Emergency Alerts rule for Tornado Warning at Severe severity and Expected urgency that uses the ticker bar and targets two display groups, beside the ticker it produces on a display."
+      }
+    ]
+  }
 }

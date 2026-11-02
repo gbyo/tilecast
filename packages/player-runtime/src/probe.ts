@@ -16,6 +16,7 @@ import type { PlayerPluginHost } from "./plugins/player-host";
 import type { PresentationProviders } from "./plugins/presentation-providers";
 import type { PlayerRoot } from "./views/player-root";
 import type { RuntimeWidgetHost } from "./widgets/host";
+import type { StartupSequence } from "./startup/sequence";
 
 export interface ProbeOptions {
   version: string;
@@ -27,6 +28,7 @@ export interface ProbeOptions {
   view: PlayerRoot;
   manual: ManualClock | null;
   widgets: RuntimeWidgetHost;
+  startup?: StartupSequence;
 }
 
 const frames = () =>
@@ -92,6 +94,10 @@ export function installProbe(options: ProbeOptions): void {
     capabilities: { ...options.host.capabilities },
     /** `widget.<type>` → version for every bundled first-class Widget. */
     widgetCapabilities: options.widgets.capabilities(),
+    /** The startup sequence of this document (src/startup). */
+    startup() {
+      return options.startup?.describe() ?? null;
+    },
     describe() {
       const state = controller.state;
       const message = document.getElementById("message");
