@@ -41,6 +41,9 @@ export class RemoteWebPort {
   private readonly warm: WarmEntry[] = [];
   /** The host's remote web process ended since the last successful load. */
   private awaitingRecovery = false;
+  /** Surfaces the runtime currently wants visible. */
+  private readonly shown = new Set<string>();
+  private held = false;
 
   constructor(
     private readonly host: HostRemoteWeb,
@@ -111,14 +114,27 @@ export class RemoteWebPort {
     };
     this.states.set(surfaceId, state);
     this.listeners.set(surfaceId, listener);
+    // The render target is unknown until the host answers, so a surface
+    // created visible while held starts hidden and is shown below if it may.
+    const held = this.held && spec.visible;
+    if (spec.visible) this.shown.add(surfaceId);
     let result: RemoteWebCreateResultV1;
     try {
-      result = await this.host.create!({ ...spec, surfaceId });
+      result = await this.host.create!({
+        ...spec,
+        surfaceId,
+        ...(held ? { visible: false } : {}),
+      });
     } catch {
       result = { ok: false, code: "unavailable" };
     }
-    if (result.ok) state.target = result.target;
-    else this.forget(surfaceId);
+    if (result.ok) {
+      state.target = result.target;
+      const visible = this.shown.has(surfaceId) && !this.hides(state);
+      if (visible !== (spec.visible && !held)) {
+        this.host.setVisible!(surfaceId, visible);
+      }
+    } else this.forget(surfaceId);
     return { state, result };
   }
 
@@ -128,7 +144,32 @@ export class RemoteWebPort {
   }
 
   setVisible(surfaceId: string, visible: boolean): void {
-    if (this.states.has(surfaceId)) this.host.setVisible!(surfaceId, visible);
+    const state = this.states.get(surfaceId);
+    if (!state) return;
+    if (visible) this.shown.add(surfaceId);
+    else this.shown.delete(surfaceId);
+    this.host.setVisible!(surfaceId, visible && !this.hides(state));
+  }
+
+  /**
+   * While held, host-layer surfaces stay hidden even when shown: they draw
+   * above the runtime document, so nothing in it (the startup layer) could
+   * cover them. Releasing shows the ones that were shown meanwhile.
+   * `media-uri` surfaces draw inside the document and are never held.
+   */
+  holdHostLayers(held: boolean): void {
+    if (this.held === held) return;
+    this.held = held;
+    for (const surfaceId of this.shown) {
+      const state = this.states.get(surfaceId);
+      if (state?.target?.kind === "host-layer") {
+        this.host.setVisible!(surfaceId, !held);
+      }
+    }
+  }
+
+  private hides(state: HostSurfaceState): boolean {
+    return this.held && state.target?.kind !== "media-uri";
   }
 
   setMuted(surfaceId: string, muted: boolean): void {
@@ -151,6 +192,7 @@ export class RemoteWebPort {
     const state = this.states.get(surfaceId);
     if (!state) return;
     this.listeners.delete(surfaceId);
+    this.shown.delete(surfaceId);
     this.host.setMuted!(surfaceId, true);
     this.host.setVisible!(surfaceId, false);
     if (warm && warm.warmMs > 0 && state.loaded && !state.failed) {
@@ -190,6 +232,7 @@ export class RemoteWebPort {
 
   private forget(surfaceId: string): void {
     this.states.delete(surfaceId);
+    this.shown.delete(surfaceId);
     this.listeners.delete(surfaceId);
   }
 }

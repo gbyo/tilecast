@@ -117,3 +117,28 @@ func TestOvernightAndDST(t *testing.T) {
 		t.Fatalf("ambiguous time policy: %#v", r.Winner)
 	}
 }
+
+func TestNextTransitionCoversEveryWeekday(t *testing.T) {
+	at := time.Date(2026, 7, 12, 12, 0, 0, 0, time.UTC) // Sunday
+	for daysAhead := 1; daysAhead <= 7; daysAhead++ {
+		start := time.Date(2026, 7, 12+daysAhead, 9, 0, 0, 0, time.UTC)
+		s := Schedule{ID: uuid.New(), Type: Weekly, Timezone: "UTC", Enabled: true,
+			DailyStart: p("09:00"), DailyEnd: p("10:00"), DaysOfWeek: []int{int(start.Weekday())}}
+		got := Resolve(at, []Schedule{s})
+		if got.Winner != nil || got.NextTransition == nil || !got.NextTransition.Equal(start) {
+			t.Fatalf("%d days ahead: next=%v, want %v", daysAhead, got.NextTransition, start)
+		}
+	}
+}
+
+func TestNextTransitionDoesNotSkipSpringForwardDay(t *testing.T) {
+	s := Schedule{ID: uuid.New(), Type: Weekly, Timezone: "America/New_York", Enabled: true,
+		DailyStart: p("08:00"), DailyEnd: p("09:00"), DaysOfWeek: []int{0}}
+	// Saturday 02:30 becomes a nonexistent time when a calendar day is added.
+	at := time.Date(2026, 3, 7, 7, 30, 0, 0, time.UTC)
+	want := time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC)
+	got := Resolve(at, []Schedule{s})
+	if got.NextTransition == nil || !got.NextTransition.Equal(want) {
+		t.Fatalf("next=%v, want %v", got.NextTransition, want)
+	}
+}
