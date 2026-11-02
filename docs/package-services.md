@@ -86,8 +86,10 @@ at 32 KiB; answers cap at 64 KiB.
 An executed call answers an envelope: `{ok: true, data}` or `{ok:
 false, error}` with a typed domain failure: `invalid_input`,
 `not_found`, `forbidden`, `conflict`, `too_large`, or `unavailable`.
-An `unavailable` failure carries a generic message. The cause goes to
-the server log and never to the guest. A transport refusal never reaches the envelope: the import answers a
+Most `unavailable` failures carry a generic message. The cause goes to
+the server log and never to the guest. When `playerCommand` reaches a
+screen's pending-command limit, it instead returns a specific message
+without logging a cause. A transport refusal never reaches the envelope: the import answers a
 stable negative code for an unknown operation (-7), a missing grant
 (-5), an oversized call (-3), or a host failure (-2). A clipped buffer
 writes nothing.
