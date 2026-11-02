@@ -12,6 +12,8 @@ export interface BridgeScripting {
     scripts: chrome.scripting.RegisteredContentScript[],
   ): Promise<void>;
   unregisterContentScripts(options?: { ids?: string[] }): Promise<void>;
+  getRegisteredContentScripts(options?: { ids?: string[] }): Promise<chrome.scripting.RegisteredContentScript[]>;
+  updateContentScripts(scripts: chrome.scripting.RegisteredContentScript[]): Promise<void>;
 }
 
 /** The registration for these origins, or null when none is granted. */
@@ -35,11 +37,17 @@ export async function syncBridgeRegistration(
   scripting: BridgeScripting,
   origins: readonly string[],
 ): Promise<void> {
-  try {
-    await scripting.unregisterContentScripts({ ids: [BRIDGE_SCRIPT_ID] });
-  } catch {
-    // Absent registration: nothing to clear.
-  }
   const registration = bridgeRegistration(origins);
-  if (registration) await scripting.registerContentScripts([registration]);
+  if (registration === null) {
+    await scripting.unregisterContentScripts({ ids: [BRIDGE_SCRIPT_ID] });
+    return;
+  }
+  const existing = await scripting.getRegisteredContentScripts({
+    ids: [BRIDGE_SCRIPT_ID],
+  });
+  if (existing.length > 0) {
+    await scripting.updateContentScripts([registration]);
+  } else {
+    await scripting.registerContentScripts([registration]);
+  }
 }
