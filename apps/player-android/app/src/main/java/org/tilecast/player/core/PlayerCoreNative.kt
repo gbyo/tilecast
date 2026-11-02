@@ -19,12 +19,13 @@ internal object PlayerCoreNative {
     }
 
     external fun nativeVersion(): String?
-    external fun nativeOpen(filesDir: String, userAgent: String, handler: CoreBridgeHandler): Long
+    external fun nativeOpen(filesDir: String, userAgent: String, setupRelay: String, handler: CoreBridgeHandler): Long
     external fun nativeStatus(handle: Long): String?
     external fun nativeStartCore(handle: Long): Int
     external fun nativeBeginPairing(handle: Long, url: String): String?
     external fun nativeResetPairing(handle: Long): Int
     external fun nativeResetServer(handle: Long): Int
+    external fun nativeResumePhoneSetup(handle: Long): Int
     external fun nativeClose(handle: Long): Int
     external fun nativeInitTls(context: Context): Int
     /**

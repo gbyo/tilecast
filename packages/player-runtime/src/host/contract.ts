@@ -49,6 +49,11 @@ export interface RuntimeCapabilitiesV1 {
   readonly synchronizedPlayback: boolean;
   /** `setup.submitServerUrl` is available. */
   readonly setup: boolean;
+  /**
+   * The setup presentation can carry `phoneSetup`, and
+   * `setup.resumePhoneSetup` is available. Absent means unavailable.
+   */
+  readonly phoneSetup?: boolean;
   /** `discovery.list` and `discovered-server` messages are available. */
   readonly discovery: boolean;
   /**
@@ -453,8 +458,18 @@ export interface BrandedSurfaceFields {
   status?: string;
 }
 
+/**
+ * Phone setup on the setup surface (docs/phone-setup.md). `ready` carries the
+ * setup page address to show as a QR code; `rejected` is true after the last
+ * address from a phone could not be used.
+ */
+export type PhoneSetupStateV1 =
+  | { state: "ready"; url: string; rejected?: boolean }
+  | { state: "paused" }
+  | { state: "unavailable" };
+
 export type RuntimePresentation =
-  | { state: "setup" }
+  | { state: "setup"; phoneSetup?: PhoneSetupStateV1 }
   | {
       state: "pairing";
       code: string;
@@ -790,6 +805,8 @@ export interface TilecastRuntimeHostV1 {
   /** Present when `capabilities.setup`. */
   readonly setup?: {
     submitServerUrl(url: string): Promise<SetupResultV1>;
+    /** Present when `capabilities.phoneSetup`. Starts a paused session again. */
+    resumePhoneSetup?(): void;
   };
   /** Present when `capabilities.discovery`. */
   readonly discovery?: {
@@ -869,6 +886,7 @@ export function hostContractProblem(value: unknown): string | null {
   }
   const optional: [keyof RuntimeCapabilitiesV1, string, string][] = [
     ["setup", "setup", "submitServerUrl"],
+    ["phoneSetup", "setup", "resumePhoneSetup"],
     ["discovery", "discovery", "list"],
     ["remoteWeb", "remoteWeb", "reportRecovered"],
   ];

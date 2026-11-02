@@ -1075,6 +1075,7 @@ impl Harness {
     fn config(&self) -> EdgeConfig {
         let dir = self.dir.path();
         let mut config = EdgeConfig::default();
+        config.pairing.phone_setup = false;
         config.paths.state_dir = Some(dir.join("state"));
         config.paths.runtime_dir = Some(dir.join("run"));
         config.renderer.binary = dir.join("no-renderer");

@@ -36,7 +36,7 @@ class PlayerCoreHostTest {
         var reports = mutableListOf<String>()
         var recoveries = mutableListOf<String>()
         override fun version(): String? = versionPayload
-        override fun open(filesDir: String, userAgent: String, handler: CoreBridgeHandler): Long {
+        override fun open(filesDir: String, userAgent: String, setupRelay: String, handler: CoreBridgeHandler): Long {
             openError?.let { throw it }
             openedWith = filesDir
             openedAgent = userAgent
@@ -438,7 +438,19 @@ class PlayerCoreHostTest {
         assertEquals(CorePairingState.Unknown, CorePairingState.parse(null))
         assertEquals(CorePairingState.Unknown, CorePairingState.parse("nope"))
         assertEquals(CorePairingState.Paired, CorePairingState.parse("""{"state":"paired"}"""))
-        assertEquals(CorePairingState.Setup, CorePairingState.parse("""{"state":"setup"}"""))
+        assertEquals(CorePairingState.Setup(), CorePairingState.parse("""{"state":"setup"}"""))
+        assertEquals(
+            CorePairingState.Setup(CorePhoneSetup.Ready("https://setup.tilecast.org/#v=1", rejected = true)),
+            CorePairingState.parse("""{"state":"setup","phoneSetup":{"state":"ready","url":"https://setup.tilecast.org/#v=1","rejected":true}}"""),
+        )
+        assertEquals(
+            CorePairingState.Setup(CorePhoneSetup.Paused),
+            CorePairingState.parse("""{"state":"setup","phoneSetup":{"state":"paused"}}"""),
+        )
+        assertEquals(
+            CorePairingState.Setup(null),
+            CorePairingState.parse("""{"state":"setup","phoneSetup":{"state":"scanning"}}"""),
+        )
         assertEquals(
             CorePairingState.Waiting("C", "U", null, null, null),
             CorePairingState.parse("""{"state":"waiting","code":"C","approvalUrl":"U"}"""),
