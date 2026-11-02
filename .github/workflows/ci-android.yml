@@ -81,7 +81,7 @@ jobs:
           fi
       - name: Test, lint, and assemble
         working-directory: apps/player-android
-        run: ./gradlew testDebugUnitTest lintDebug assembleDebug
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest
       - name: Verify configuration cache reuse
         working-directory: apps/player-android
         run: ./gradlew testDebugUnitTest lintDebug assembleDebug --configuration-cache-problems=fail
