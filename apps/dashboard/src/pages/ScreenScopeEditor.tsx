@@ -3,23 +3,42 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { apiErrorMessage } from "../i18n";
-import type { ScreenScope } from "../api/types";
+import type { MyAccess } from "../api/types";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import { Button } from "../components/ui/button";
-import { Checkbox } from "../components/ui/checkbox";
-import { Input } from "../components/ui/input";
-import {
-  Field,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from "../components/ui/field";
-import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Skeleton } from "../components/ui/skeleton";
+import {
+  ScreenAccessFields,
+  type ScreenAccessDraft,
+} from "../settings/access/ScreenAccessFields";
 
-// Screen access is an explicit choice, never an absence of checkboxes: the
-// server treats no grants as full fleet access, so a failed load must never
-// render as, or save as, an empty grant list.
+type Place = { id: string; name: string };
+
+/**
+ * The places the signed-in account may grant. Restricted access can hand on
+ * only the locations and Display Groups granted to it directly; the server
+ * enforces the same rule.
+ */
+export function delegablePlaces(
+  access: MyAccess | undefined,
+  locations: readonly Place[],
+  groups: readonly Place[],
+) {
+  if (!access || access.screens.mode === "all") {
+    return { locations, groups, allowAll: true };
+  }
+  const ownLocations = new Set(access.screens.locationIds);
+  const ownGroups = new Set(access.screens.groupIds);
+  return {
+    locations: locations.filter((place) => ownLocations.has(place.id)),
+    groups: groups.filter((place) => ownGroups.has(place.id)),
+    allowAll: false,
+  };
+}
+
+// Screen access is an explicit choice read from the stored mode, never
+// inferred from how many grants exist. A failed load must never render as,
+// or save as, a policy.
 export function ScreenScopeEditor({
   userId,
   userRole,
@@ -32,98 +51,81 @@ export function ScreenScopeEditor({
   disabled?: boolean;
 }) {
   const { t } = useTranslation(["screens", "common"]);
+  const enabled = userRole !== "owner";
   const scopes = useQuery({
     queryKey: ["screen-scopes", userId],
     queryFn: () => api.userScreenScopes(userId),
-    enabled: userRole !== "owner",
+    enabled,
   });
   const locations = useQuery({
     queryKey: ["locations"],
     queryFn: api.locations,
-    enabled: userRole !== "owner",
+    enabled,
   });
   const groups = useQuery({
     queryKey: ["screen-groups"],
     queryFn: () => api.screenGroups(),
-    enabled: userRole !== "owner",
+    enabled,
+  });
+  const myAccess = useQuery({
+    queryKey: ["my-access"],
+    queryFn: api.myAccess,
+    enabled,
   });
 
-  const [mode, setMode] = useState<"full" | "limited">("full");
-  const [selected, setSelected] = useState<ScreenScope[]>([]);
+  const [draft, setDraft] = useState<ScreenAccessDraft>();
   const [saved, setSaved] = useState(false);
-  const [search, setSearch] = useState("");
-  const normalizedSearch = search.trim().toLowerCase();
-  const allLocations = locations.data?.items ?? [];
-  const allGroups = groups.data?.items ?? [];
-  const showSearch = allLocations.length + allGroups.length > 8;
-  const visibleLocations = normalizedSearch
-    ? allLocations.filter((location) =>
-        location.name.toLowerCase().includes(normalizedSearch),
-      )
-    : allLocations;
-  const visibleGroups = normalizedSearch
-    ? allGroups.filter((group) =>
-        group.name.toLowerCase().includes(normalizedSearch),
-      )
-    : allGroups;
   useEffect(() => {
-    // A response without the array must not take the dialog down with it: this
-    // editor is embedded in the account editor, which has its own work to do.
+    // A response without the array must not take the dialog down with it:
+    // this editor is embedded in the account editor.
     if (scopes.data) {
-      const next = scopes.data.scopes ?? [];
-      setSelected(next);
-      setMode(next.length > 0 ? "limited" : "full");
+      setDraft({
+        mode: scopes.data.mode === "all" ? "all" : "restricted",
+        scopes: scopes.data.scopes ?? [],
+      });
     }
   }, [scopes.data]);
 
   const save = useMutation({
-    mutationFn: () =>
-      api.putUserScreenScopes(userId, mode === "full" ? [] : selected, csrf),
+    mutationFn: (value: ScreenAccessDraft) =>
+      api.putUserScreenScopes(
+        userId,
+        { mode: value.mode, scopes: value.mode === "all" ? [] : value.scopes },
+        csrf,
+      ),
     onSuccess: () => {
       setSaved(true);
       void scopes.refetch();
     },
   });
 
-  if (userRole === "owner")
+  if (!enabled)
     return (
       <p className="text-sm text-muted-foreground">{t("scope.ownerNote")}</p>
     );
 
-  const loadError = scopes.error ?? locations.error ?? groups.error;
-  const loaded = scopes.isSuccess && locations.isSuccess && groups.isSuccess;
-  const limitedEmpty = mode === "limited" && selected.length === 0;
+  const loadError =
+    scopes.error ?? locations.error ?? groups.error ?? myAccess.error;
   const retryAll = () => {
     void scopes.refetch();
     void locations.refetch();
     void groups.refetch();
+    void myAccess.refetch();
   };
-
-  const toggle = (scope: ScreenScope, on: boolean) => {
-    setSaved(false);
-    setSelected((current) =>
-      on
-        ? [...current, scope]
-        : current.filter(
-            (item) => !(item.type === scope.type && item.id === scope.id),
-          ),
-    );
-  };
-  const has = (type: string, id: string) =>
-    selected.some((item) => item.type === type && item.id === id);
+  const offered = delegablePlaces(
+    myAccess.data,
+    locations.data?.items ?? [],
+    groups.data?.items ?? [],
+  );
+  const ready =
+    scopes.isSuccess &&
+    locations.isSuccess &&
+    groups.isSuccess &&
+    myAccess.isSuccess;
 
   return (
     <div className="grid gap-4">
-      {!loaded && !loadError ? (
-        <div
-          className="grid gap-2"
-          role="status"
-          aria-label={t("scope.loading")}
-        >
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      ) : loadError ? (
+      {loadError ? (
         <Alert variant="destructive">
           <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             <span>
@@ -134,7 +136,10 @@ export function ScreenScopeEditor({
               variant="outline"
               size="sm"
               disabled={
-                scopes.isFetching || locations.isFetching || groups.isFetching
+                scopes.isFetching ||
+                locations.isFetching ||
+                groups.isFetching ||
+                myAccess.isFetching
               }
               onClick={retryAll}
             >
@@ -142,157 +147,40 @@ export function ScreenScopeEditor({
             </Button>
           </AlertDescription>
         </Alert>
+      ) : !ready || !draft ? (
+        <div
+          className="grid gap-2"
+          role="status"
+          aria-label={t("scope.loading")}
+        >
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
       ) : (
         <>
-          <FieldSet>
-            <FieldLegend>{t("scope.modeLegend")}</FieldLegend>
-            <RadioGroup
-              value={mode}
-              onValueChange={(value) => {
-                setSaved(false);
-                setMode(value as "full" | "limited");
-              }}
-              className="grid gap-3"
-            >
-              <Field orientation="horizontal" className="items-start gap-3">
-                <RadioGroupItem
-                  value="full"
-                  id="screen-scope-mode-full"
-                  disabled={disabled}
-                />
-                <div className="grid gap-1">
-                  <FieldLabel htmlFor="screen-scope-mode-full">
-                    {t("scope.modeFull")}
-                  </FieldLabel>
-                  <p className="text-sm text-muted-foreground">
-                    {t("scope.modeFullHint")}
-                  </p>
-                </div>
-              </Field>
-              <Field orientation="horizontal" className="items-start gap-3">
-                <RadioGroupItem
-                  value="limited"
-                  id="screen-scope-mode-limited"
-                  disabled={disabled}
-                />
-                <div className="grid gap-1">
-                  <FieldLabel htmlFor="screen-scope-mode-limited">
-                    {t("scope.modeLimited")}
-                  </FieldLabel>
-                  <p className="text-sm text-muted-foreground">
-                    {t("scope.limited", { count: selected.length })}
-                  </p>
-                </div>
-              </Field>
-            </RadioGroup>
-          </FieldSet>
-
-          {mode === "limited" && (
-            <>
-              <p className="text-sm text-muted-foreground">
-                {t("scope.combineNote")}
-              </p>
-              {showSearch && (
-                <Field>
-                  <FieldLabel htmlFor="screen-scope-search">
-                    {t("scope.searchLabel")}
-                  </FieldLabel>
-                  <Input
-                    id="screen-scope-search"
-                    type="search"
-                    value={search}
-                    placeholder={t("scope.searchPlaceholder")}
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
-                </Field>
-              )}
-              <FieldSet className="grid gap-2">
-                <FieldLegend variant="label">
-                  {t("scope.locations")}
-                </FieldLegend>
-                {!visibleLocations.length ? (
-                  <p className="text-sm text-muted-foreground">
-                    {normalizedSearch
-                      ? t("scope.noMatch")
-                      : t("scope.noLocations")}
-                  </p>
-                ) : (
-                  visibleLocations.map((location) => {
-                    const id = `screen-scope-location-${location.id}`;
-                    return (
-                      <Field
-                        key={location.id}
-                        data-disabled={disabled}
-                        orientation="horizontal"
-                        className="items-center"
-                      >
-                        <Checkbox
-                          id={id}
-                          disabled={disabled}
-                          checked={has("location", location.id)}
-                          onCheckedChange={(checked) =>
-                            toggle(
-                              { type: "location", id: location.id },
-                              checked === true,
-                            )
-                          }
-                        />
-                        <FieldLabel htmlFor={id}>{location.name}</FieldLabel>
-                      </Field>
-                    );
-                  })
-                )}
-              </FieldSet>
-
-              <FieldSet className="grid gap-2">
-                <FieldLegend variant="label">{t("scope.groups")}</FieldLegend>
-                {!visibleGroups.length ? (
-                  <p className="text-sm text-muted-foreground">
-                    {normalizedSearch
-                      ? t("scope.noMatch")
-                      : t("scope.noGroups")}
-                  </p>
-                ) : (
-                  visibleGroups.map((group) => {
-                    const id = `screen-scope-group-${group.id}`;
-                    return (
-                      <Field
-                        key={group.id}
-                        data-disabled={disabled}
-                        orientation="horizontal"
-                        className="items-center"
-                      >
-                        <Checkbox
-                          id={id}
-                          disabled={disabled}
-                          checked={has("group", group.id)}
-                          onCheckedChange={(checked) =>
-                            toggle(
-                              { type: "group", id: group.id },
-                              checked === true,
-                            )
-                          }
-                        />
-                        <FieldLabel htmlFor={id}>{group.name}</FieldLabel>
-                      </Field>
-                    );
-                  })
-                )}
-              </FieldSet>
-              {limitedEmpty && (
-                <p className="text-sm text-muted-foreground" role="note">
-                  {t("scope.limitedEmpty")}
-                </p>
-              )}
-            </>
+          {scopes.data.configured === false && (
+            <p className="text-sm text-muted-foreground" role="note">
+              {t("scope.unconfigured")}
+            </p>
           )}
-
+          <ScreenAccessFields
+            value={draft}
+            onChange={(next) => {
+              setSaved(false);
+              setDraft(next);
+            }}
+            locations={offered.locations}
+            groups={offered.groups}
+            allowAll={offered.allowAll}
+            idPrefix="screen-scope"
+            disabled={disabled}
+          />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>{saved && <span>{t("scope.saved")}</span>}</div>
             <Button
               type="button"
-              disabled={disabled || save.isPending || limitedEmpty}
-              onClick={() => save.mutate()}
+              disabled={disabled || save.isPending}
+              onClick={() => save.mutate(draft)}
             >
               {save.isPending
                 ? t("common:actions.saving")

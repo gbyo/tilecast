@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
-	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 )
 
 func (f *edgeFixture) preview(t *testing.T, input updateSelection, role string) (updatePreview, int) {
@@ -274,9 +274,7 @@ func TestUpdatePreviewIsAdvisoryAndScopeBound(t *testing.T) {
 	if _, err := f.pool.Exec(f.ctx, `UPDATE screens SET location_id=$1 WHERE id=$2`, location, screen); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.server.devices.ReplaceScopes(f.ctx, f.user, f.user, []devices.Scope{{Type: "location", ID: location}}); err != nil {
-		t.Fatal(err)
-	}
+	setScreenPolicy(t, f.pool, f.user, f.user, authz.PolicyInput{Mode: authz.ModeRestricted, Grants: []authz.Grant{{Type: "location", ID: location}}})
 	if _, status := f.preview(t, updateSelection{ReleaseID: release, ScreenIDs: []uuid.UUID{other}}, "administrator"); status != 403 {
 		t.Fatalf("scope leaked: %d", status)
 	}

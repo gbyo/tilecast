@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
@@ -194,6 +195,7 @@ func TestUserScreenScopesRoundTrip(t *testing.T) {
 		request := withID(httptest.NewRequest(http.MethodPut, "/api/v1/users/"+id.String()+"/screen-scopes", bytes.NewBufferString(body)), id)
 		request.Header.Set("Content-Type", "application/json")
 		request = requestWithTestPrincipal(request, session)
+		request = request.WithContext(audit.WithSurface(request.Context(), audit.SurfaceStudio))
 		response := httptest.NewRecorder()
 		s.putUserScreenScopes(response, request)
 		return response
@@ -209,23 +211,39 @@ func TestUserScreenScopesRoundTrip(t *testing.T) {
 		return envelope.Data
 	}
 
+	// An account inserted without a policy is not the whole fleet: it
+	// reaches no screen, and says so.
 	if response := callGet(owner, targetID); response.Code != http.StatusOK {
 		t.Fatalf("initial GET status = %d, want %d; body=%s", response.Code, http.StatusOK, response.Body.String())
-	} else if data := decodeData(t, response); data["wholeFleet"] != true {
-		t.Fatalf("initial scopes = %v, want wholeFleet=true", data)
+	} else if data := decodeData(t, response); data["configured"] != false || data["mode"] != "restricted" || data["wholeFleet"] != false {
+		t.Fatalf("initial scopes = %v, want an unconfigured restricted policy", data)
 	}
 
-	putBody := `{"scopes":[{"type":"location","id":"` + locationID.String() + `"}]}`
+	// The mode is explicit: the old body reads an empty list as the fleet.
+	if response := callPut(owner, targetID, `{"scopes":[]}`); response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("mode-less PUT status = %d, want %d; body=%s", response.Code, http.StatusUnprocessableEntity, response.Body.String())
+	}
+
+	putBody := `{"mode":"restricted","scopes":[{"type":"location","id":"` + locationID.String() + `"}]}`
 	if response := callPut(owner, targetID, putBody); response.Code != http.StatusOK {
 		t.Fatalf("PUT status = %d, want %d; body=%s", response.Code, http.StatusOK, response.Body.String())
-	} else if data := decodeData(t, response); data["wholeFleet"] != false {
-		t.Fatalf("replaced scopes = %v, want wholeFleet=false", data)
+	} else if data := decodeData(t, response); data["mode"] != "restricted" || data["configured"] != true || data["wholeFleet"] != false {
+		t.Fatalf("replaced scopes = %v, want a configured restricted policy", data)
 	}
 
 	if response := callGet(owner, targetID); response.Code != http.StatusOK {
 		t.Fatalf("second GET status = %d, want %d; body=%s", response.Code, http.StatusOK, response.Body.String())
-	} else if data := decodeData(t, response); data["wholeFleet"] != false {
-		t.Fatalf("persisted scopes = %v, want wholeFleet=false", data)
+	} else if data := decodeData(t, response); data["mode"] != "restricted" || len(data["scopes"].([]any)) != 1 {
+		t.Fatalf("persisted scopes = %v, want one grant", data)
+	}
+
+	if response := callPut(owner, targetID, `{"mode":"all"}`); response.Code != http.StatusOK {
+		t.Fatalf("all PUT status = %d; body=%s", response.Code, response.Body.String())
+	} else if data := decodeData(t, response); data["mode"] != "all" || data["wholeFleet"] != true || len(data["scopes"].([]any)) != 0 {
+		t.Fatalf("all scopes = %v", data)
+	}
+	if response := callPut(owner, targetID, `{"mode":"all","scopes":[{"type":"location","id":"`+locationID.String()+`"}]}`); response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("all with grants status = %d, want 422", response.Code)
 	}
 
 	editor := auth.Session{User: auth.User{ID: targetID, Name: "Scoped Editor", Username: "scoped-editor", Role: "editor", Active: true}}
@@ -235,7 +253,7 @@ func TestUserScreenScopesRoundTrip(t *testing.T) {
 	if response := callPut(owner, ownerID, putBody); response.Code != http.StatusForbidden {
 		t.Fatalf("owner-scope PUT status = %d, want %d; body=%s", response.Code, http.StatusForbidden, response.Body.String())
 	}
-	bogus := `{"scopes":[{"type":"location","id":"` + uuid.NewString() + `"}]}`
+	bogus := `{"mode":"restricted","scopes":[{"type":"location","id":"` + uuid.NewString() + `"}]}`
 	if response := callPut(owner, targetID, bogus); response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("bogus-scope PUT status = %d, want %d; body=%s", response.Code, http.StatusUnprocessableEntity, response.Body.String())
 	}
