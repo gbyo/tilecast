@@ -291,22 +291,41 @@ export function sandboxFrameBootstrap(interpolatedToken = ""): string {
       }
       return null;
     }
+    function documentOf(id) {
+      return has(documents, id) ? documents[id] : null;
+    }
+    function mediaForAsset(assetId) {
+      var found = null;
+      for (var i = 0; i < grants.length; i++) {
+        if (grants[i].assetId !== assetId) continue;
+        if (found !== null) return null;
+        found = grants[i].uri;
+      }
+      return found;
+    }
     return {
-      dataDocument: function (id) { return has(documents, id) ? documents[id] : null; },
+      dataDocument: documentOf,
       dataset: function (id, datasetId) {
-        var document = has(documents, id) ? documents[id] : null;
-        if (!document || !document.datasets) return null;
-        return has(document.datasets, datasetId) ? document.datasets[datasetId] : null;
+        var document = documentOf(id);
+        var datasets = document && document.datasets;
+        if (!datasets) return null;
+        for (var i = 0; i < datasets.length; i++) {
+          if (datasets[i] && datasets[i].id === datasetId) return datasets[i];
+        }
+        return null;
       },
       media: mediaUri,
-      mediaVariant: function (assetId) {
-        var found = null;
-        for (var i = 0; i < grants.length; i++) {
-          if (grants[i].assetId !== assetId) continue;
-          if (found !== null) return null;
-          found = grants[i].uri;
+      mediaForAsset: mediaForAsset,
+      // Earlier bootstrap name, kept for package bundles that used it.
+      mediaVariant: mediaForAsset,
+      attribution: function (id) {
+        var document = documentOf(id);
+        var datasets = (document && document.datasets) || [];
+        for (var i = 0; i < datasets.length; i++) {
+          var text = datasets[i] && datasets[i].attribution;
+          if (text) return String(text).slice(0, 280);
         }
-        return found;
+        return null;
       }
     };
   }
