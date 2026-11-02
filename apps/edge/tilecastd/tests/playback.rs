@@ -1828,9 +1828,9 @@ async fn invalid_manifests_never_replace_the_committed_presentation() {
     let other = Asset::new("other", "image/png");
     harness.fake.add_asset(&other, AssetMode::Serve);
 
+    // Versions are labels; a restored server can validly report a lower one.
     let cases: Vec<(&str, Value)> = vec![
         ("another screen", manifest(ScreenId::from_uuid(uuid::Uuid::new_v4()), 4, &[&other])),
-        ("an older version", manifest(harness.screen, 2, &[&other])),
         ("an unknown schema", with(manifest(harness.screen, 4, &[&other]), |m| m["schemaVersion"] = json!(99))),
         (
             "a hash claim that is not SHA-256",
