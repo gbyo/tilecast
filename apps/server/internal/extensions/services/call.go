@@ -340,18 +340,3 @@ func decode(input []byte, out any) *CallError {
 	}
 	return nil
 }
-
-// studioCapability enforces the dashboard capability policy for
-// studio-context mutations. Background calls are authorized by the
-// install-time grant itself, so they never reach here.
-func studioCapability(call Call, capability auth.Capability) *CallError {
-	if call.Context != ContextStudio || call.Actor == nil {
-		return nil
-	}
-	if call.Actor.Capabilities.Has(capability) {
-		return nil
-	}
-	return forbidden("this operation requires a capability the Studio role does not grant")
-}
-
-var errOutOfScope = errors.New("outside the account's screen scope")

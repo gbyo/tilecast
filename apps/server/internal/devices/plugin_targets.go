@@ -6,8 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/targeting"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 )
 
 type TargetOption struct {
@@ -29,50 +28,12 @@ type TargetOptionPage struct {
 	CanSelectAll bool           `json:"canSelectAll"`
 }
 
-// AuthorizeTargetDefinitionInTx prevents scoped accounts from selecting a
-// directory target that would acquire out-of-scope members in the future.
-func (s *Service) AuthorizeTargetDefinitionInTx(ctx context.Context, tx pgx.Tx, user uuid.UUID, role string, definition targeting.Definition) error {
-	if role == "owner" {
-		return nil
-	}
-	var scoped bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM user_screen_scopes WHERE user_id=$1)`, user).Scan(&scoped); err != nil {
-		return err
-	}
-	if !scoped {
-		return nil
-	}
-	if definition.Mode == "all" {
-		return ErrOutOfScope
-	}
-	for _, item := range []struct {
-		kind string
-		ids  []uuid.UUID
-	}{{"group", definition.GroupIDs}, {"location", definition.LocationIDs}} {
-		if len(item.ids) == 0 {
-			continue
-		}
-		var count int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM user_screen_scopes WHERE user_id=$1 AND scope_type=$2 AND scope_id=ANY($3)`, user, item.kind, item.ids).Scan(&count); err != nil {
-			return err
-		}
-		if count != len(item.ids) {
-			return ErrOutOfScope
-		}
-	}
-	var outside int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM screens sc WHERE sc.id=ANY($2) AND NOT `+InScopeSQL("sc", "$1"), user, definition.ScreenIDs).Scan(&outside); err != nil {
-		return err
-	}
-	if outside > 0 {
-		return ErrOutOfScope
-	}
-	return nil
-}
-
 // PluginTargetOptions exposes only the bounded directory fields needed by a
 // target picker; it does not grant the screen/content directory services.
-func (s *Service) PluginTargetOptions(ctx context.Context, user *uuid.UUID, role string, input TargetOptionQuery) (TargetOptionPage, error) {
+// A nil access is a system caller and lists the whole directory. A
+// restricted account lists the screens it reaches and the groups and
+// locations granted to it directly, the ones authz.Directory accepts.
+func (s *Service) PluginTargetOptions(ctx context.Context, access *authz.ScreenAccess, input TargetOptionQuery) (TargetOptionPage, error) {
 	input.Search = strings.TrimSpace(input.Search)
 	if len(input.Search) > 100 || input.Page < 0 || input.PageSize < 0 {
 		return TargetOptionPage{}, fmt.Errorf("invalid target option query")
@@ -89,15 +50,10 @@ func (s *Service) PluginTargetOptions(ctx context.Context, user *uuid.UUID, role
 	if input.Page > 100000 {
 		return TargetOptionPage{}, fmt.Errorf("target option page exceeds limit")
 	}
-	var scoped bool
-	var actor uuid.UUID
-	if user != nil {
-		actor = *user
-		var err error
-		scoped, err = s.Scoped(ctx, actor, role)
-		if err != nil {
-			return TargetOptionPage{}, err
-		}
+	scoped := access != nil && !access.All
+	actor := uuid.Nil
+	if access != nil {
+		actor = access.UserID
 	}
 	var table, condition string
 	switch input.Kind {
@@ -105,19 +61,19 @@ func (s *Service) PluginTargetOptions(ctx context.Context, user *uuid.UUID, role
 		table = "screens sc"
 		condition = `sc.deleted_at IS NULL AND sc.archived_at IS NULL`
 		if scoped {
-			condition += ` AND ` + InScopeSQL("sc", "$2")
+			condition += ` AND ` + access.ScreenSQL("sc", "$2")
 		}
 	case "group":
 		table = "screen_groups sc"
 		condition = `sc.deleted_at IS NULL`
 		if scoped {
-			condition += ` AND EXISTS(SELECT 1 FROM user_screen_scopes us WHERE us.user_id=$2 AND us.scope_type='group' AND us.scope_id=sc.id)`
+			condition += ` AND ` + access.DirectGrantSQL("group", "sc.id", "$2")
 		}
 	case "location":
 		table = "locations sc"
 		condition = `true`
 		if scoped {
-			condition += ` AND EXISTS(SELECT 1 FROM user_screen_scopes us WHERE us.user_id=$2 AND us.scope_type='location' AND us.scope_id=sc.id)`
+			condition += ` AND ` + access.DirectGrantSQL("location", "sc.id", "$2")
 		}
 	default:
 		return TargetOptionPage{}, fmt.Errorf("target option kind must be screen, group, or location")

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
@@ -98,10 +99,9 @@ func TestUpdateDeploymentRoutesAreScoped(t *testing.T) {
 		db:      pool,
 		logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 		devices: deviceService,
+		authz:   authz.New(pool),
 	}
-	if err = deviceService.ReplaceScopes(ctx, userID, userID, []devices.Scope{{Type: "location", ID: westWing}}); err != nil {
-		t.Fatal(err)
-	}
+	setScreenPolicy(t, pool, userID, userID, authz.PolicyInput{Mode: authz.ModeRestricted, Grants: []authz.Grant{{Type: "location", ID: westWing}}})
 
 	// The list reports the deployment, but the counts are the caller's screens
 	// only. Two screens are deployed to; one is theirs.
@@ -134,7 +134,7 @@ func TestUpdateDeploymentRoutesAreScoped(t *testing.T) {
 	// Cancelling would stop the East Wing screen too, so it is refused rather
 	// than half-applied.
 	cancelled := httptest.NewRecorder()
-	s.cancelUpdateDeployment(cancelled, routeContext(
+	s.guard(http.MethodPost, "/api/v1/update-deployments/{id}/cancel", http.HandlerFunc(s.cancelUpdateDeployment)).ServeHTTP(cancelled, routeContext(
 		deploymentRequest(http.MethodPost, "/api/v1/update-deployments/"+deployment.String()+"/cancel", userID, "administrator"),
 		map[string]string{"id": deployment.String()}))
 	if cancelled.Code != http.StatusForbidden {
@@ -162,7 +162,7 @@ func TestUpdateDeploymentRoutesAreScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	elsewhere := httptest.NewRecorder()
-	s.getUpdateDeployment(elsewhere, routeContext(
+	s.guard(http.MethodGet, "/api/v1/update-deployments/{id}", http.HandlerFunc(s.getUpdateDeployment)).ServeHTTP(elsewhere, routeContext(
 		deploymentRequest(http.MethodGet, "/api/v1/update-deployments/"+deployment.String(), userID, "administrator"),
 		map[string]string{"id": deployment.String()}))
 	if elsewhere.Code != http.StatusNotFound {
@@ -170,9 +170,7 @@ func TestUpdateDeploymentRoutesAreScoped(t *testing.T) {
 	}
 
 	// An unscoped account still sees the whole fleet.
-	if err = deviceService.ReplaceScopes(ctx, userID, userID, nil); err != nil {
-		t.Fatal(err)
-	}
+	setScreenPolicy(t, pool, userID, userID, authz.PolicyInput{Mode: authz.ModeAll})
 	if all := s.deploymentDetail(t, userID, deployment); len(all) != 1 || all[0] != theirs {
 		t.Errorf("unscoped detail = %v, want the remaining screen %v", all, theirs)
 	}
@@ -217,7 +215,7 @@ func (s *server) deploymentDetail(t *testing.T, user, deployment uuid.UUID) []uu
 func (s *server) retryStatus(t *testing.T, user, deployment, screen uuid.UUID) int {
 	t.Helper()
 	recorder := httptest.NewRecorder()
-	s.retryUpdateScreen(recorder, routeContext(
+	s.guard(http.MethodPost, "/api/v1/update-deployments/{id}/screens/{screenId}/retry", http.HandlerFunc(s.retryUpdateScreen)).ServeHTTP(recorder, routeContext(
 		deploymentRequest(http.MethodPost, "/api/v1/update-deployments/"+deployment.String()+"/screens/"+screen.String()+"/retry", user, "administrator"),
 		map[string]string{"id": deployment.String(), "screenId": screen.String()}))
 	return recorder.Code

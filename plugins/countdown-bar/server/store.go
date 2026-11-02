@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -117,6 +118,16 @@ func (p *Plugin) write(ctx context.Context, id, userID uuid.UUID, input Input, c
 	if err = p.host.Targets.ValidateInTx(ctx, tx, plugin.Target{Scope: input.TargetScope, IDs: input.TargetIDs}); err != nil {
 		return err
 	}
+	// A Studio operator may change an instance only when it can target both
+	// the screens the instance reaches now and the ones it will reach.
+	if !create {
+		if err = p.authorizeStored(ctx, tx, id); err != nil {
+			return err
+		}
+	}
+	if err = p.authorize(ctx, tx, plugin.Target{Scope: input.TargetScope, IDs: input.TargetIDs}); err != nil {
+		return err
+	}
 	var targetTime any
 	if input.TargetTime != nil {
 		targetTime = *input.TargetTime
@@ -182,6 +193,9 @@ func (p *Plugin) Delete(ctx context.Context, id, userID uuid.UUID) error {
 		return err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	if err = p.authorizeStored(ctx, tx, id); err != nil {
+		return err
+	}
 	tag, err := tx.Exec(ctx, `DELETE FROM countdown_bar_instances WHERE id=$1`, id)
 	if err != nil {
 		return err
@@ -201,4 +215,42 @@ func (p *Plugin) Delete(ctx context.Context, id, userID uuid.UUID) error {
 	}
 	notify()
 	return nil
+}
+
+// authorize decides target for the Studio operator of ctx. Work without an
+// operator (demo seeding, background jobs) acts for the installation.
+func (p *Plugin) authorize(ctx context.Context, tx pgx.Tx, target plugin.Target) error {
+	principal, ok := plugin.PrincipalFrom(ctx)
+	if !ok {
+		return nil
+	}
+	if p.host.ScreenAccess == nil {
+		return fmt.Errorf("%w: screen access decisions are unavailable", plugin.ErrOutOfScope)
+	}
+	return p.host.ScreenAccess.AuthorizeTargetInTx(ctx, tx, principal, target)
+}
+
+// authorizeStored decides the target an instance has now. A missing
+// instance passes, so the write reports its own not-found.
+func (p *Plugin) authorizeStored(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+	if _, ok := plugin.PrincipalFrom(ctx); !ok {
+		return nil
+	}
+	var scope string
+	err := tx.QueryRow(ctx, `SELECT target_scope FROM countdown_bar_instances WHERE id=$1 FOR UPDATE`, id).Scan(&scope)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	rows, err := tx.Query(ctx, `SELECT target_id FROM countdown_bar_targets WHERE instance_id=$1`, id)
+	if err != nil {
+		return err
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return err
+	}
+	return p.authorize(ctx, tx, plugin.Target{Scope: scope, IDs: ids})
 }
