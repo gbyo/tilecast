@@ -7,7 +7,11 @@ import (
 )
 
 func (s *server) listLocations(w http.ResponseWriter, r *http.Request) {
-	items, err := s.devices.ListLocations(r.Context())
+	access, ok := s.callerAccess(w, r)
+	if !ok {
+		return
+	}
+	items, err := s.devices.ListLocations(r.Context(), access)
 	if err != nil {
 		s.internalError(w, r, err)
 		return

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
 )
 
@@ -72,8 +73,20 @@ func scanLocation(row scanner) (Location, error) {
 	return location, err
 }
 
-func (s *Service) ListLocations(ctx context.Context) ([]Location, error) {
-	rows, err := s.db.Query(ctx, locationSelect+` ORDER BY lower(l.name),l.id`)
+// ListLocations lists the locations visible to access. A restricted account
+// sees its granted locations and the locations of screens it reaches, and
+// each screen count counts only those screens: the organization's full
+// catalog is not its business.
+func (s *Service) ListLocations(ctx context.Context, access authz.ScreenAccess) ([]Location, error) {
+	query := locationSelect + ` ORDER BY lower(l.name),l.id`
+	args := []any{}
+	if !access.All {
+		query = `SELECT l.id,l.name,l.address_line_1,l.address_line_2,l.city,l.state,l.postal_code,l.country,l.latitude,l.longitude,
+	(SELECT count(*) FROM screens s WHERE s.location_id=l.id AND s.archived_at IS NULL AND ` + access.ScreenSQL("s", "$1") + `),l.created_at,l.updated_at FROM locations l
+	WHERE ` + access.LocationVisibleSQL("l", "$1") + ` ORDER BY lower(l.name),l.id`
+		args = append(args, access.UserID)
+	}
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list locations: %w", err)
 	}

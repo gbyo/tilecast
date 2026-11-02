@@ -108,18 +108,18 @@ func TestStudioCapabilityPolicy(t *testing.T) {
 	}
 	// Contributors sit inside the content-author set for managed data.
 	contributor := builtinActor("contributor")
-	if failure := studioCapability(Call{Context: ContextStudio, Actor: contributor}, auth.CapPlaylistEdit); failure != nil {
+	if failure := requireCapability(Call{Context: ContextStudio, Actor: contributor}, auth.CapPlaylistEdit); failure != nil {
 		t.Fatalf("contributor managed capability = %+v, want allowed", failure)
 	}
-	if failure := studioCapability(Call{Context: ContextStudio, Actor: viewer}, auth.CapPlaylistEdit); failure == nil || failure.Code != ErrCodeForbidden {
+	if failure := requireCapability(Call{Context: ContextStudio, Actor: viewer}, auth.CapPlaylistEdit); failure == nil || failure.Code != ErrCodeForbidden {
 		t.Fatalf("viewer managed capability = %+v, want forbidden", failure)
 	}
 	// A custom role is judged by its capabilities, never its name.
 	custom := &Actor{UserID: uuid.New(), Role: "custom.screen-operators", Capabilities: auth.NewCapabilitySet(auth.CapScreenRead, auth.CapScreenAssign)}
-	if failure := studioCapability(Call{Context: ContextStudio, Actor: custom}, auth.CapScreenAssign); failure != nil {
+	if failure := requireCapability(Call{Context: ContextStudio, Actor: custom}, auth.CapScreenAssign); failure != nil {
 		t.Fatalf("custom takeover capability = %+v, want allowed", failure)
 	}
-	if failure := studioCapability(Call{Context: ContextStudio, Actor: custom}, auth.CapUsersManage); failure == nil || failure.Code != ErrCodeForbidden {
+	if failure := requireCapability(Call{Context: ContextStudio, Actor: custom}, auth.CapUsersManage); failure == nil || failure.Code != ErrCodeForbidden {
 		t.Fatalf("custom directory capability = %+v, want forbidden", failure)
 	}
 }

@@ -492,6 +492,17 @@ func (s *Service) SaveRule(ctx context.Context, id uuid.UUID, input RuleInput, u
 	if err = s.host.Targets.ValidateScreenTargetsInTx(ctx, tx, targets); err != nil {
 		return Rule{}, validationError("one or more targets do not exist")
 	}
+	// A rule starts takeovers on its targets later, without anyone present,
+	// so a Studio operator may save it only when it can target both the
+	// screens the rule reaches now and the ones it will reach.
+	if !creating {
+		if err = s.authorizeStoredRule(ctx, tx, id); err != nil {
+			return Rule{}, err
+		}
+	}
+	if err = s.authorizeTargets(ctx, tx, targets); err != nil {
+		return Rule{}, err
+	}
 	if input.ResponseMode != "ticker" && input.PresentationMode == "builtin" {
 		configuration, payload := builtinAlertDocuments(nwsProperties{}, time.Time{}, time.Now().UTC())
 		managed, ensureErr := s.host.ManagedPresentations.EnsureInTx(ctx, tx,
@@ -580,6 +591,11 @@ func (s *Service) SaveRule(ctx context.Context, id uuid.UUID, input RuleInput, u
 }
 
 func (s *Service) DeleteRule(ctx context.Context, id, userID uuid.UUID) error {
+	// Deleting clears the rule's live alerts before its own transaction, so
+	// the operator is authorized first: a refused delete changes nothing.
+	if err := s.authorizeStoredRuleNow(ctx, id); err != nil {
+		return err
+	}
 	// Read the targets before the delete cascades them away: a ticker rule's bar
 	// only leaves the screens that are told to fetch a manifest without it.
 	screenIDs, err := s.ruleScreenIDs(ctx, id)
@@ -594,6 +610,9 @@ func (s *Service) DeleteRule(ctx context.Context, id, userID uuid.UUID) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	if err = s.authorizeStoredRule(ctx, tx, id); err != nil {
+		return err
+	}
 	tag, err := tx.Exec(ctx, `DELETE FROM alert_rules WHERE id=$1`, id)
 	if err != nil {
 		return err
@@ -837,4 +856,49 @@ func idOrNil(value *uuid.UUID) uuid.UUID {
 		return uuid.Nil
 	}
 	return *value
+}
+
+// authorizeTargets decides targets for the Studio operator of ctx. Work
+// without an operator (the poller, demo seeding) acts for the installation.
+func (s *Service) authorizeTargets(ctx context.Context, tx pgx.Tx, targets plugin.ScreenTargets) error {
+	principal, ok := plugin.PrincipalFrom(ctx)
+	if !ok {
+		return nil
+	}
+	if s.host.ScreenAccess == nil {
+		return fmt.Errorf("%w: screen access decisions are unavailable", plugin.ErrOutOfScope)
+	}
+	return s.host.ScreenAccess.AuthorizeScreenTargetsInTx(ctx, tx, principal, targets)
+}
+
+// authorizeStoredRule decides the targets a rule has now.
+func (s *Service) authorizeStoredRule(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
+	if _, ok := plugin.PrincipalFrom(ctx); !ok {
+		return nil
+	}
+	targets, err := ruleTargetsInTx(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	return s.authorizeTargets(ctx, tx, targets)
+}
+
+// authorizeStoredRuleNow is authorizeStoredRule in a transaction of its own.
+func (s *Service) authorizeStoredRuleNow(ctx context.Context, id uuid.UUID) error {
+	if _, ok := plugin.PrincipalFrom(ctx); !ok {
+		return nil
+	}
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM alert_rules WHERE id=$1)`, id).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return pgx.ErrNoRows
+	}
+	return s.authorizeStoredRule(ctx, tx, id)
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/targeting"
 	externalplugin "github.com/tilecast/tilecast/packages/package-sdk/go/plugin"
 )
@@ -36,7 +37,9 @@ type Invocation struct {
 	PackageID, Digest string
 	Epoch             uuid.UUID
 	Actor             *uuid.UUID
-	ActorRole         string
+	// Authority is the Studio operator's live authority. It is set exactly
+	// when Actor is; a background invocation carries neither.
+	Authority *authz.Actor
 }
 
 type View struct {

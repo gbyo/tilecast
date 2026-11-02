@@ -4,6 +4,7 @@ import { CircleCheck, QrCode } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { useMyAccess } from "../content/mediaPermissions";
 import { api } from "../api/client";
 import type { PairingRequest, Screen } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
@@ -89,6 +90,16 @@ function PairingReviewStage({
     queryKey: ["locations"],
     queryFn: api.locations,
   });
+  // A restricted pairer places a new screen only in a location granted to it
+  // directly, and cannot reject hardware Tilecast has not seen: neither has
+  // anything in its access to anchor the decision. The server enforces both.
+  const myAccess = useMyAccess();
+  const restricted = myAccess.data?.screens.mode === "restricted";
+  const grantedLocations = new Set(myAccess.data?.screens.locationIds ?? []);
+  const offeredLocations = (locations.data?.items ?? []).filter(
+    (location) => !restricted || grantedLocations.has(location.id),
+  );
+  const canReject = !restricted || request.previouslyPaired;
   const replacementOptions = useQuery({
     ...screenQueries.replacementOptions(),
     enabled: destination === "replace_hardware",
@@ -159,15 +170,17 @@ function PairingReviewStage({
   const busy = approve.isPending || reject.isPending;
   const actions = (
     <div className="flex flex-wrap items-center justify-end gap-2">
-      <Button
-        type="button"
-        variant="ghost"
-        className="text-destructive hover:text-destructive"
-        onClick={() => reject.mutate()}
-        disabled={busy}
-      >
-        {t("approval.reject")}
-      </Button>
+      {canReject && (
+        <Button
+          type="button"
+          variant="ghost"
+          className="text-destructive hover:text-destructive"
+          onClick={() => reject.mutate()}
+          disabled={busy}
+        >
+          {t("approval.reject")}
+        </Button>
+      )}
       {destination === "new_screen" ? (
         <Button type="submit" disabled={busy}>
           {approve.isPending
@@ -222,10 +235,12 @@ function PairingReviewStage({
           className="grid gap-4"
           onSubmit={(event) => void form.handleSubmit(submitNewScreen)(event)}
         >
-          <PairingDetailsForm
-            form={form}
-            locations={locations.data?.items ?? []}
-          />
+          <PairingDetailsForm form={form} locations={offeredLocations} />
+          {restricted && (
+            <p className="text-sm text-muted-foreground" role="note">
+              {t("approval.restrictedLocationNote")}
+            </p>
+          )}
           {actions}
         </form>
       ) : (

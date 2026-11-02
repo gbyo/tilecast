@@ -705,6 +705,7 @@ const wholeLibraryPermissions = mediaPermissionsFrom(
     role: { key: "owner", name: "Owner", builtin: true },
     capabilities: builtinCapabilities("owner"),
     content: { libraryMode: "all", tagMode: "all" },
+    screens: { mode: "all", locationIds: [], groupIds: [] },
   },
 );
 

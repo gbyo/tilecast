@@ -4,7 +4,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 )
 
 type activityDispatchRoute struct {
@@ -14,7 +16,27 @@ type activityDispatchRoute struct {
 	// capability is what a management route needs; device routes leave it
 	// empty and authenticate the Player credential instead.
 	capability auth.Capability
-	handler    http.Handler
+	// screen marks a route whose {id} names one screen. The dispatcher
+	// decides it with authz before the handler runs, like the guarded
+	// dashboard routes.
+	screen  bool
+	handler http.Handler
+}
+
+// activityPathParam returns the path segment that the pattern's param
+// matches, or "" when the pattern does not contain it.
+func activityPathParam(pattern, path, param string) string {
+	patternParts := strings.Split(pattern, "/")
+	pathParts := strings.Split(path, "/")
+	if len(patternParts) != len(pathParts) {
+		return ""
+	}
+	for i, part := range patternParts {
+		if part == "{"+param+"}" {
+			return pathParts[i]
+		}
+	}
+	return ""
 }
 
 // activityDispatchPathMatches matches the OpenAPI-style path templates used by
@@ -58,9 +80,9 @@ func (s *server) activityDispatchRoutes() []activityDispatchRoute {
 		{method: http.MethodGet, contractPath: "/api/v1/activity/screen-events", capability: auth.CapActivityManage, handler: http.HandlerFunc(s.listScreenEvents)},
 		{method: http.MethodGet, contractPath: "/api/v1/activity/audit", capability: auth.CapActivityAudit, handler: http.HandlerFunc(s.listAuditActivity)},
 		{method: http.MethodGet, contractPath: "/api/v1/activity/audit/export.csv", capability: auth.CapActivityManage, handler: http.HandlerFunc(s.exportAuditActivity)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}/timeline", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.screenTimeline)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}/telemetry", capability: auth.CapActivityManage, handler: http.HandlerFunc(s.screenTelemetry)},
-		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.screenActivity)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}/timeline", capability: auth.CapActivityRead, screen: true, handler: http.HandlerFunc(s.screenTimeline)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}/telemetry", capability: auth.CapActivityManage, screen: true, handler: http.HandlerFunc(s.screenTelemetry)},
+		{method: http.MethodGet, contractPath: "/api/v1/activity/screens/{id}", capability: auth.CapActivityRead, screen: true, handler: http.HandlerFunc(s.screenActivity)},
 		{method: http.MethodGet, contractPath: "/api/v1/activity/compliance", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.playbackCompliance)},
 		{method: http.MethodGet, contractPath: "/api/v1/activity/incidents", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.listIncidents)},
 		{method: http.MethodGet, contractPath: "/api/v1/activity/incidents/analytics", capability: auth.CapActivityRead, handler: http.HandlerFunc(s.incidentAnalytics)},
@@ -94,6 +116,9 @@ func (s *server) activityRoutes(next http.Handler) http.Handler {
 				if r.Method != http.MethodGet && r.Method != http.MethodHead {
 					scope = "write"
 				}
+				if route.screen {
+					handler = s.activityScreenGuard(route, handler)
+				}
 				handler = s.requireUser(s.requireCapability(route.capability)(s.requireScope(scope)(handler)))
 			}
 			handler.ServeHTTP(w, r)
@@ -104,5 +129,22 @@ func (s *server) activityRoutes(next http.Handler) http.Handler {
 			return
 		}
 		writeError(w, http.StatusNotFound, "activity_route_not_found", "Activity endpoint was not found.")
+	})
+}
+
+// activityScreenGuard decides a per-screen Activity route with authz.
+func (s *server) activityScreenGuard(route activityDispatchRoute, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id, err := uuid.Parse(activityPathParam(route.contractPath, r.URL.Path, "id"))
+		if err != nil {
+			writeError(w, http.StatusNotFound, "screen_not_found", "Screen was not found.")
+			return
+		}
+		if !s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+			return z.Screen(r.Context(), actor, route.capability, id)
+		}) {
+			return
+		}
+		next.ServeHTTP(w, r)
 	})
 }
