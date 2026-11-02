@@ -182,6 +182,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
   ]);
   const playerPlugins = new PlayerPluginHost({
     clock,
+    pluginState: capabilities.pluginState === true,
     plugins: playerDiscovery.plugins,
     services: playerServices,
     diagnostic: pluginDiagnostic,
