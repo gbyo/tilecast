@@ -16,7 +16,9 @@ import {
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
+  ContextMenuLabel,
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "../ui/context-menu";
@@ -136,10 +138,12 @@ export function ActionMenuButton({
 
 /**
  * A right-click and long-press menu for a whole row or card. Renders its
- * children unchanged without actions.
+ * trigger disabled without actions. Keep the element mounted so entering
+ * batch selection does not discard checkbox focus or preview observers.
  */
 export function ActionContextMenu({
   label,
+  title,
   actions,
   children,
   className,
@@ -147,6 +151,8 @@ export function ActionContextMenu({
 }: {
   /** Accessibility label, for example "Actions for Lobby Screen". */
   label: string;
+  /** Visible resource name shown at the top of the context menu. */
+  title?: string;
   actions: StudioActionGroup[];
   children: ReactNode;
   className?: string;
@@ -154,18 +160,33 @@ export function ActionContextMenu({
   render?: ReactElement;
 }) {
   const count = actions.reduce((sum, group) => sum + group.actions.length, 0);
-  if (count === 0) return <>{children}</>;
   return (
-    <ContextMenu>
-      <ContextMenuTrigger className={className} render={render}>
+    <ContextMenu disabled={count === 0}>
+      <ContextMenuTrigger
+        suppressModifiedClick={count > 0}
+        className={
+          className ?? (count === 0 && !render ? "contents" : undefined)
+        }
+        render={render}
+      >
         {children}
       </ContextMenuTrigger>
-      <ContextMenuContent aria-label={label}>
-        <ActionGroups
-          groups={actions}
-          Item={ContextMenuItem}
-          Separator={ContextMenuSeparator}
-        />
+      <ContextMenuContent className="w-56" aria-label={label}>
+        <ContextMenuGroup>
+          {title ? (
+            <>
+              <ContextMenuLabel className="max-w-52 truncate">
+                {title}
+              </ContextMenuLabel>
+              <ContextMenuSeparator />
+            </>
+          ) : null}
+          <ActionGroups
+            groups={actions}
+            Item={ContextMenuItem}
+            Separator={ContextMenuSeparator}
+          />
+        </ContextMenuGroup>
       </ContextMenuContent>
     </ContextMenu>
   );

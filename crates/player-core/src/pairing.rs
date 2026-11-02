@@ -16,6 +16,9 @@ use player_types::PlayerId;
 
 use crate::Dependencies;
 
+mod phone_setup;
+pub use phone_setup::{PhoneRelay, PhoneSetupView, SESSION_LIMIT as PHONE_SETUP_SESSION_LIMIT, SetupRelay};
+
 pub const PAIRING_RETRY: Duration = Duration::from_secs(5);
 const ENROLL_ATTEMPTS: u32 = 10;
 
@@ -52,10 +55,16 @@ pub trait PairingMetadataProvider: Send + Sync {
 pub enum PairingStatus {
     Paired,
     Enrolled,
-    Setup,
+    /// No server. `phone` is the phone setup state while it is enabled.
+    Setup {
+        phone: Option<PhoneSetupView>,
+    },
     AddressRejected,
     Reset,
     Waiting {
+        /// The server this session pairs with. A host that did not start
+        /// the session itself (phone setup, a resumed session) learns it here.
+        server_url: String,
         code: String,
         approval_url: String,
         organization_name: Option<String>,
@@ -72,10 +81,27 @@ pub trait PairingHost: PairingMetadataProvider {
     async fn show_pairing(&self, status: PairingStatus);
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct Control {
     suppressed: AtomicBool,
     renewal: Mutex<Option<String>>,
+    /// True while the screen shows the setup surface for a Player without a
+    /// server. Phone setup runs only then.
+    phone_active: tokio::sync::watch::Sender<bool>,
+    phone_view: Mutex<Option<PhoneSetupView>>,
+    phone_resume: tokio::sync::Notify,
+}
+
+impl Default for Control {
+    fn default() -> Self {
+        Self {
+            suppressed: AtomicBool::default(),
+            renewal: Mutex::default(),
+            phone_active: tokio::sync::watch::Sender::new(false),
+            phone_view: Mutex::default(),
+            phone_resume: tokio::sync::Notify::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -84,6 +110,7 @@ pub struct PairingCoordinator {
     credentials: Arc<dyn CredentialStore>,
     sessions: Arc<dyn PairingStore>,
     control: Arc<Control>,
+    phone: Option<Arc<dyn PhoneRelay>>,
 }
 
 impl PairingCoordinator {
@@ -92,11 +119,12 @@ impl PairingCoordinator {
         credentials: Arc<dyn CredentialStore>,
         sessions: Arc<dyn PairingStore>,
     ) -> Self {
-        Self { dependencies, credentials, sessions, control: Arc::new(Control::default()) }
+        Self { dependencies, credentials, sessions, control: Arc::new(Control::default()), phone: None }
     }
 
     pub async fn begin(&self, url: &str, user_agent: &str, host: &impl PairingHost) -> Result<(), PairingError> {
         self.may_pair().await?;
+        self.set_phone_active(false);
         self.control.suppressed.store(false, Ordering::Release);
         let client = ServerClient::new(url, user_agent)?;
         let session = self.create_session(&client, host).await?;
@@ -114,6 +142,7 @@ impl PairingCoordinator {
 
     async fn show_session(&self, host: &impl PairingHost, session: &PairingSession) {
         host.show_pairing(PairingStatus::Waiting {
+            server_url: session.server_url.clone(),
             code: session.code.clone(),
             approval_url: session.approval_url.clone(),
             organization_name: session.organization_name.clone(),
@@ -134,6 +163,7 @@ impl PairingCoordinator {
     /// Run one reconciliation pass; return the existing protocol's next delay.
     pub async fn reconcile(&self, user_agent: &str, host: &impl PairingHost) -> Duration {
         let mut delay = None;
+        let mut phone_active = false;
         match self.may_pair().await {
             Err(_) => host.show_pairing(PairingStatus::Paired).await,
             Ok(bound) => match self.sessions.load() {
@@ -170,11 +200,17 @@ impl PairingCoordinator {
                         }
                     }
                 }
+                // A session Core begins by itself is polled at once, as an
+                // explicit begin is: the next pass loads and steps it.
+                // Phone setup is for a Player without a server: no binding,
+                // or one the operator reset away from.
                 Ok(None) => match bound.filter(|record| record.credential_state != CredentialState::Stored) {
                     Some(record) if !self.control.suppressed.load(Ordering::Acquire) => {
                         if self.begin(&record.server_url, user_agent, host).await.is_err() {
-                            host.show_pairing(PairingStatus::Setup).await;
+                            host.show_pairing(PairingStatus::Setup { phone: None }).await;
                             delay = Some(PAIRING_RETRY * 6);
+                        } else {
+                            delay = Some(Duration::ZERO);
                         }
                     }
                     _ => {
@@ -182,9 +218,14 @@ impl PairingCoordinator {
                             if self.begin(&url, user_agent, host).await.is_err() {
                                 self.renew_later(&url);
                                 delay = Some(PAIRING_RETRY);
+                            } else {
+                                delay = Some(Duration::ZERO);
                             }
                         } else {
-                            host.show_pairing(PairingStatus::Setup).await;
+                            phone_active = self.phone.is_some();
+                            self.set_phone_active(phone_active);
+                            let phone = if phone_active { self.phone_view() } else { None };
+                            host.show_pairing(PairingStatus::Setup { phone }).await;
                         }
                     }
                 },
@@ -195,6 +236,7 @@ impl PairingCoordinator {
                 }
             },
         }
+        self.set_phone_active(phone_active);
         delay.unwrap_or(Duration::from_secs(3600))
     }
 
@@ -205,14 +247,22 @@ impl PairingCoordinator {
         wake: &tokio::sync::Notify,
         shutdown: &tokio_util::sync::CancellationToken,
     ) {
-        loop {
-            let wait = self.reconcile(user_agent, host).await;
-            tokio::select! {
-                () = shutdown.cancelled() => return,
-                () = wake.notified() => {}
-                () = tokio::time::sleep(wait) => {}
+        let pairing = async {
+            loop {
+                let wait = self.reconcile(user_agent, host).await;
+                tokio::select! {
+                    () = shutdown.cancelled() => return,
+                    () = wake.notified() => {}
+                    () = tokio::time::sleep(wait) => {}
+                }
             }
+        };
+        tokio::select! {
+            () = pairing => {}
+            () = self.run_phone_setup(user_agent, host, wake) => {}
+            () = shutdown.cancelled() => {}
         }
+        self.set_phone_active(false);
     }
 
     /// A binding alone is insufficient: there must also be a usable credential.
@@ -607,7 +657,7 @@ mod tests {
         assert!(sessions.load().unwrap().is_none());
         assert!(core.take_renewal().is_none());
         assert_eq!(core.reconcile("test", &host).await, Duration::from_secs(3600));
-        assert_eq!(*host.0.lock().unwrap(), vec![PairingStatus::Reset, PairingStatus::Setup]);
+        assert_eq!(*host.0.lock().unwrap(), vec![PairingStatus::Reset, PairingStatus::Setup { phone: None }]);
         assert!(matches!(
             core.begin("http://public.example.org", "test", &host).await,
             Err(PairingError::Server(ServerError::Url(_)))
@@ -615,10 +665,112 @@ mod tests {
         assert_eq!(core.reconcile("test", &host).await, Duration::from_secs(30));
         assert_eq!(
             *host.0.lock().unwrap(),
-            vec![PairingStatus::Reset, PairingStatus::Setup, PairingStatus::Setup],
+            vec![PairingStatus::Reset, PairingStatus::Setup { phone: None }, PairingStatus::Setup { phone: None }],
             "a failed repair leaves no stale surface behind"
         );
         assert!(stores.state.run(|connection| daemon::player_identity(connection)).await.unwrap().is_none());
+    }
+
+    /// Serves the public identity and one pairing session, as a server
+    /// would to a Player that lost its credential.
+    async fn pairing_server() -> (String, tokio::task::JoinHandle<()>) {
+        async fn handle(
+            request: hyper::Request<hyper::body::Incoming>,
+        ) -> Result<hyper::Response<http_body_util::Full<bytes::Bytes>>, std::convert::Infallible> {
+            let body = match (request.method().as_str(), request.uri().path()) {
+                ("GET", "/api/v1/system/identity") => serde_json::json!({"data": {
+                    "product": "tilecast", "installationId": installation().to_string(),
+                    "organizationName": "Org", "apiVersion": "v1", "pairingEnabled": true}}),
+                ("POST", "/api/v1/player/pairing-sessions") => serde_json::json!({"data": {
+                    "id": uuid::Uuid::from_u128(9), "code": "ABC123", "pollSecret": "p".repeat(43),
+                    "expiresAt": "2027-01-15T08:10:00Z", "serverTime": "2027-01-15T08:00:00Z",
+                    "pollingIntervalSeconds": 3, "approvalUrl": "/screens/pair/ABC123", "organizationName": "Org"}}),
+                _ => serde_json::json!({"error": {"code": "not_found", "message": "Not found."}}),
+            };
+            Ok(hyper::Response::builder()
+                .header("content-type", "application/json")
+                .body(http_body_util::Full::new(bytes::Bytes::from(body.to_string())))
+                .unwrap())
+        }
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            loop {
+                let Ok((stream, _)) = listener.accept().await else { return };
+                let _ = hyper::server::conn::http1::Builder::new()
+                    .serve_connection(hyper_util::rt::TokioIo::new(stream), hyper::service::service_fn(handle))
+                    .await;
+            }
+        });
+        (format!("http://{address}"), task)
+    }
+
+    /// A host that supplies device metadata, for pairing that reaches the server.
+    #[derive(Default)]
+    struct RepairHost(Mutex<Vec<PairingStatus>>);
+
+    #[async_trait]
+    impl PairingMetadataProvider for RepairHost {
+        fn new_player_id(&self) -> PlayerId {
+            PlayerId::from_uuid(uuid::Uuid::from_u128(41))
+        }
+        async fn metadata(&self, player: PlayerId) -> DeviceMetadata {
+            DeviceMetadata::new(
+                *player.as_uuid(),
+                "android-tv",
+                "Test",
+                "TV",
+                "14",
+                "1.0.0",
+                (1920, 1080),
+                "en-US",
+                "UTC",
+            )
+        }
+    }
+
+    #[async_trait]
+    impl PairingHost for RepairHost {
+        async fn show_pairing(&self, status: PairingStatus) {
+            self.0.lock().unwrap().push(status);
+        }
+    }
+
+    #[tokio::test]
+    async fn a_revoked_binding_repairs_and_polls_at_once() {
+        let (_dir, core, stores, _) = fixture();
+        let sessions = Arc::new(Sessions(Mutex::new(None)));
+        let core = PairingCoordinator::new(core.dependencies, stores.clone(), sessions.clone());
+        let (url, server) = pairing_server().await;
+        let now = core.dependencies.clock.now();
+        let bound_url = url.clone();
+        stores
+            .state
+            .run(move |connection| {
+                binding::put(
+                    connection,
+                    &ServerBinding {
+                        server_url: bound_url,
+                        installation_id: installation(),
+                        organization_name: None,
+                        screen_id: None,
+                        screen_name: None,
+                        credential_state: CredentialState::Rejected,
+                        identity_verified_at: None,
+                        bound_at: now,
+                    },
+                    now,
+                )
+            })
+            .await
+            .unwrap();
+        let host = RepairHost::default();
+        // Without an immediate next pass the new code would not be polled
+        // for an hour, and approval in Studio would never reach the Player.
+        assert_eq!(core.reconcile("test", &host).await, Duration::ZERO);
+        assert_eq!(sessions.load().unwrap().expect("session saved").code, "ABC123");
+        assert!(matches!(host.0.lock().unwrap().last(), Some(PairingStatus::Waiting { .. })));
+        server.abort();
     }
 
     #[tokio::test]

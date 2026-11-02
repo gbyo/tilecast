@@ -7,6 +7,9 @@ Open **Activity** in Studio to see what Tilecast can confirm about the fleet and
 
 ## Choose a report
 
+Tilecast records the first authenticated Player contact as one connection event,
+even when its HTTP and WebSocket reports arrive together.
+
 | Tab                | Use it to                                                                                                               |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
 | **Overview**       | See current fleet health, active incidents, and summaries for the selected period.                                      |

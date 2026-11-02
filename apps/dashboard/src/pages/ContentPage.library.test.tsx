@@ -125,6 +125,12 @@ describe("Media library paging", () => {
     expect(await screen.findByText("Poster-50")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Poster-1" }));
     expect(await screen.findByText("1 selected")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Actions for Poster-1" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "Select Poster-1" }),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Select loaded" }));
     expect(await screen.findByText("50 selected")).toBeInTheDocument();
   });

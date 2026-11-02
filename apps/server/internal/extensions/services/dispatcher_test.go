@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -181,5 +182,31 @@ func TestEveryRegistryOperationDispatches(t *testing.T) {
 				t.Fatalf("operation %s denial names %q", operation.Name, denial.Message)
 			}
 		}
+	}
+}
+
+func TestManagedEnsureRefusesNullWidgetConfiguration(t *testing.T) {
+	input, err := json.Marshal(map[string]any{
+		"name": "Lobby board", "dataSourceProvider": "static",
+		"dataSourceConfiguration": `{}`, "cachedPayload": `{}`,
+		"widgetProvider": "static", "widgetConfiguration": "null",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, denial, failure := testDispatcher().Call(context.Background(), Call{
+		PackageID: "acme.test", Context: ContextBackground,
+		Grants:    []packagemanifest.ServiceGrant{{ID: "managed-presentations.manage", Version: 1}},
+		Operation: "managed-presentations.manage@1/ensure", Input: input,
+	})
+	if denial != nil || failure == nil || failure.Code != ErrCodeInvalidInput {
+		t.Fatalf("denial = %+v failure = %+v, want invalid input", denial, failure)
+	}
+}
+
+func TestUnavailableKeepsCauseOutOfEnvelope(t *testing.T) {
+	failure := unavailable(errors.New(`ERROR: relation "screens" does not exist (SQLSTATE 42P01)`))
+	if failure.Code != ErrCodeUnavailable || strings.Contains(failure.Message, "SQLSTATE") {
+		t.Fatalf("failure = %+v, want a generic message", failure)
 	}
 }

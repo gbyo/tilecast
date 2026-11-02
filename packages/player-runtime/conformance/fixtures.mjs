@@ -472,8 +472,9 @@ export const fixtures = [
         present: {
           presentation: {
             state: "idle",
-            title: "Greenwood Schools",
-            message: "No content assigned.",
+            title: "No content assigned",
+            status: "no_content",
+            message: "This screen is ready for content.",
             backgroundColor: "#0E141B",
             textColor: "#F5F7FA",
             footerText: "Tilecast",

@@ -296,6 +296,33 @@ describe("PlaylistEditor panes", () => {
     await waitFor(() => expect(visibleOrder()).toEqual(["item-a", "item-b"]));
   });
 
+  it("restores order and usable focus when a reorder fails", async () => {
+    mockDesktop();
+    mockServer();
+    let reject: (error: Error) => void = () => {};
+    vi.spyOn(api, "reorderPlaylist").mockImplementation(
+      () =>
+        new Promise((_resolve, rejectRequest) => {
+          reject = rejectRequest;
+        }),
+    );
+    renderEditor();
+    const inspect = await screen.findByRole("button", {
+      name: "Inspect Alpha",
+    });
+    inspect.focus();
+    fireEvent.keyDown(inspect, { key: "ArrowDown", altKey: true });
+    const order = () =>
+      Array.from(document.querySelectorAll("[data-playlist-item]")).map((row) =>
+        row.getAttribute("data-playlist-item"),
+      );
+    await waitFor(() => expect(order()).toEqual(["item-b", "item-a"]));
+    expect(inspect).toHaveFocus();
+    reject(new Error("Offline"));
+    await waitFor(() => expect(order()).toEqual(["item-a", "item-b"]));
+    expect(inspect).toHaveFocus();
+  });
+
   it("puts playback defaults in a compact authoring bar and reports bulk changes with a toast", async () => {
     mockDesktop();
     mockServer();

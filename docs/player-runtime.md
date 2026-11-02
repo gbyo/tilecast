@@ -17,6 +17,23 @@ host process (tilecastd/WPE, Windows/WebView2, legacy Electron, or Android trust
   XState playback engine ── scheduler (monotonic clock) ── synchronized timeline
 ```
 
+## Document startup
+
+The trusted document contains a Tilecast logo on a black startup layer.
+The Runtime prepares the first presentation beneath this layer.
+The logo runs for at least one 1.5-second cycle before the reveal.
+The Runtime removes the layer after the first presentation paints.
+Reduced motion uses an opacity change without the card movement.
+Conformance runs remove the layer before the Runtime reports ready.
+
+An accepted presentation starts a ten-second preparation limit.
+The reveal has a separate four-second limit.
+These limits remove the layer if animation readiness or completion stalls.
+Without an accepted presentation, the logo stays visible.
+The sequence runs once per document and uses no persistent state.
+Host-layer Website surfaces stay hidden until the reveal uncovers playback.
+Media URI surfaces stay inside the Runtime document.
+
 ## 1. Ownership
 
 The runtime owns:
@@ -40,7 +57,7 @@ A host publishes one object, `globalThis.tilecastRuntimeHost`, that implements `
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Host → runtime | `subscribe(listener)` delivers `presentation`, `plugins`, `identify`, `command`, `discovered-server` and `remote-web` messages. |
 | Runtime → host | `ready`, `presentationResult`, `reportEvidence`, `reportPlaybackError`.                                                         |
-| Optional       | `setup.submitServerUrl`, `discovery.list`, `remoteWeb.reportRecovered`, `conformance`.                                          |
+| Optional       | `setup.submitServerUrl`, `setup.resumePhoneSetup`, `discovery.list`, `remoteWeb.reportRecovered`, `conformance`.                |
 
 Behavior depends on `capabilities`, never on `info.host`:
 
@@ -207,6 +224,7 @@ The tests prove the counts of actors, mounts and decoders, the evidence order, t
 ## 5. Views, surfaces and transitions
 
 - **Views** are Lit 3 components in light DOM (`src/views`): `<tc-player>`, `<tc-status-surface>` and `<tc-outside-hours>`. They render the engine's view state and decide nothing about playback. Style bindings use `cssProps` (CSSOM only), because Lit's `styleMap` writes a `style` attribute, which `style-src 'self'` refuses.
+  The `status` field of a branded presentation is a reason code for hosts and diagnostics. The status surface writes it to `data-status` and never shows it on the screen.
 - **Surfaces** implement `MediaSurface` (`prepare`, `activate`, `pause`, `seek`, `dispose`): `ImageSurface`, `HtmlVideoSurface`, `WidgetSurface`, `LayoutSurface`, the legacy Electron `WebviewWebsiteSurface`, and `HostRemoteWebSurface` for host-owned remote web. Edge supplies that host view through the isolated WPE helper. The engine depends on the interface only, so another native media pipeline, if hardware testing ever justifies one, needs no change to the engine.
 - **The stage** (`surfaces/stage.ts`) owns fullscreen media surfaces. Layout playlist zones own nested instances of the same media, Widget, and host-isolated remote web surfaces. The playback layers carry no Lit bindings, so no reactive update can replace an active `<video>`. An incoming occurrence is prepared on the hidden layer. The outgoing surface is paused and released when the transition finishes, so two full-screen decoders overlap for the transition and no longer.
 - **Transitions** use the Web Animations API (`transitions/crossfade.ts`). A transition has one clock and one `finished` signal. Only the incoming layer fades. It paints above the outgoing layer, which stays fully opaque until the transition ends. Each layer has a black backdrop, so fading both layers makes the picture go dark in the middle of the transition. A takeover, a newer swap, or the staging of the next occurrence cancels the transition, which puts both layers in their resting state at once.

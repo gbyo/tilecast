@@ -30,6 +30,7 @@ struct Running {
 
 fn config(dir: &std::path::Path) -> EdgeConfig {
     let mut config = EdgeConfig::default();
+    config.pairing.phone_setup = false;
     config.paths.state_dir = Some(dir.join("state"));
     config.paths.runtime_dir = Some(dir.join("run"));
     config.renderer.binary = dir.join("no-renderer");
@@ -123,7 +124,7 @@ async fn presentation_lifecycle_readiness_watchdog_and_clean_shutdown() {
     assert!(configure.media_channel.socket.as_str().ends_with("/run/media.sock"));
     client.send_event(ready_event(&["status-surfaces-v1"])).await.unwrap();
     let Event::PresentationActivate(activation) = expect_event(&client).await else { panic!("activation") };
-    assert_eq!(activation.presentation, PresentationDocument::Setup {}, "unbound node shows setup");
+    assert_eq!(activation.presentation, PresentationDocument::Setup { phone_setup: None }, "unbound node shows setup");
     let reference = ActivationRef { activation_id: activation.activation_id, generation: activation.generation };
     client.send_event(Event::PresentationAccepted(PresentationAccepted { activation: reference })).await.unwrap();
     client

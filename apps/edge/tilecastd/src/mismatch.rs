@@ -317,7 +317,7 @@ pub async fn unpair_device(context: &crate::daemon::DaemonContext) -> Result<Unp
     let now = context.now().unix_millis();
     let mut engine = context.presentation.lock().await;
     let _ = engine.activate(
-        PresentationDocument::Setup {},
+        PresentationDocument::Setup { phone_setup: None },
         Vec::new(),
         None,
         crate::presentation::ActivationSource::StatusSurface,

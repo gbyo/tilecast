@@ -1,0 +1,20 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 2,
+    "event": "presentation.activate",
+    "data": {
+      "activationId": "3f2b8c1d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "generation": 1,
+      "presentation": {
+        "state": "setup",
+        "phoneSetup": {
+          "state": "scanning",
+          "url": "https://setup.tilecast.org/"
+        }
+      },
+      "content": [],
+      "timing": null
+    }
+  }
+}

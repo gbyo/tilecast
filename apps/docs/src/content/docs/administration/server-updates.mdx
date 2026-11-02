@@ -63,6 +63,11 @@ This one-time transition is the last update that touches the Git checkout. Confi
 
 Do not use `docker compose down --volumes` during an update. That removes the named data volumes.
 
+Reload Studio after the update to load its current entry document. Tilecast
+keeps versioned assets cached and returns a missing-file response for assets
+from an older build. See the
+[deployment contract](https://github.com/gbyo/tilecast/blob/main/docs/deployment.md#data-and-upgrades).
+
 ## If the new version does not become ready
 
 Read the server log before making more changes:

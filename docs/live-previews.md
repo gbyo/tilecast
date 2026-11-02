@@ -25,7 +25,7 @@ The player captures immediately after it observes a new session and then approxi
   - **Diagnostics.** The renderer logs the capture backend when it changes, not for each frame. `preview: using presented WPE buffer 1920x1080 dmabuf XRGB8888 modifier 0x0` shows the primary path. `preview: WPE buffer import unavailable (<reason>); falling back to WebKit snapshot` shows the fallback and its reason. The reasons are `no_presented_buffer`, `unsupported_buffer_type`, `unsupported_format`, `import_unsupported`, `import_failed`, `import_returned_nothing`, `buffer_bad_dimensions`, `buffer_bad_size`, `buffer_bad_stride`, and `buffer_too_large`. A log never contains pixel data, a content URL, or a credential. Find the lines with `journalctl -u tilecast-renderer.service | grep 'preview:'`.
   - **Qualification.** The real-server end-to-end test checks the pixels of a Studio preview and of Watch Live frames for a Layout with a video zone below a transparent overlay, in headless WPE. It does not run the DRM or DMA-BUF path. A school canary on a physical DRM display is the remaining proof.
 - **Other platforms:** only claim preview capture where a host advertises the relevant capability. The browser-hosted Player does not provide unattended display capture; do not apply the Electron settings to Android, Windows, or Browser Player.
-- Pairing, administrator PIN, commissioning, maintenance, update approval, identify, and other protected player states report an unavailable status instead of uploading an image.
+- Pairing, administrator PIN, maintenance, update approval, identify, and other protected player states report an unavailable status instead of uploading an image.
 
 ## Image limits
 

@@ -1179,6 +1179,7 @@ export function AssetCollection({
   // Every action is also reachable from a visible control, so the menus stay a
   // shortcut rather than the only route to duplication or deletion.
   const actionsFor = (asset: Asset): StudioActionGroup[] => {
+    if (selectedIds.size > 0) return [];
     const primary: StudioAction[] = archived
       ? []
       : [
@@ -1244,11 +1245,12 @@ export function AssetCollection({
     canManage && onToggle ? (id: string) => onToggle(id) : undefined;
   if (view === "list") {
     return (
-      <ItemGroup>
+      <ItemGroup data-density-surface="collection">
         {items.map((asset) => (
           <ActionContextMenu
             key={asset.id}
             label={t("media.card.actionsFor", { name: asset.name })}
+            title={asset.name}
             actions={actionsFor(asset)}
             className="contents"
           >
@@ -1275,6 +1277,7 @@ export function AssetCollection({
           canManage={canManage}
           folderNames={folderNames}
           selected={selectedIds.has(asset.id)}
+          selectionActive={selectedIds.size > 0}
           showMenu={archived || !(asset.type === "widget" && canManage)}
           onSelect={() => onSelect(asset)}
           onToggle={toggleFor ? () => toggleFor(asset.id) : undefined}
@@ -1367,6 +1370,7 @@ function MediaAssetCard({
   canManage,
   folderNames,
   selected,
+  selectionActive,
   showMenu,
   onSelect,
   onToggle,
@@ -1379,6 +1383,7 @@ function MediaAssetCard({
   canManage: boolean;
   folderNames?: Map<string, string>;
   selected: boolean;
+  selectionActive: boolean;
   showMenu: boolean;
   onSelect: () => void;
   onToggle?: () => void;
@@ -1397,6 +1402,7 @@ function MediaAssetCard({
   return (
     <ActionContextMenu
       label={t("media.card.actionsFor", { name: asset.name })}
+      title={asset.name}
       actions={actions}
       render={
         <article
@@ -1459,7 +1465,7 @@ function MediaAssetCard({
               count: asset.layoutUsage?.length ?? 0,
             })}
           </span>
-          {canManage && (
+          {canManage && !selectionActive && (
             <>
               <Button
                 type="button"
@@ -2142,7 +2148,7 @@ export function ContentOrganizer({
             count: assetIds.length,
           })}
         >
-          <div className="flex items-center gap-x-3 gap-y-2 overflow-x-auto px-3 py-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
             <strong className="flex-none text-sm font-medium">
               {t("picker.tray.selectedCount", { count: assetIds.length })}
             </strong>
