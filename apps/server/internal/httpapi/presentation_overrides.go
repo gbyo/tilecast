@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/presentations"
 )
 
@@ -34,31 +36,22 @@ func (s *server) listPresentationOverrides(w http.ResponseWriter, r *http.Reques
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	scoped, err := s.devices.Scoped(r.Context(), principal.User.ID, principal.User.Role)
+	ids := make([]uuid.UUID, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+	}
+	reached, err := s.authorizer().Reachable(r.Context(), authz.ActorFor(principal), auth.CapScreenRead, authz.KindPresentationOverride, ids)
 	if err != nil {
-		s.internalError(w, r, err)
+		s.writeAuthzError(w, r, err, notFoundFor(objectPresentationOverride))
 		return
 	}
-	if scoped {
-		visible := make([]presentations.Override, 0, len(items))
-		for _, item := range items {
-			var screens, groups []uuid.UUID
-			if item.TargetType == "screen" {
-				screens = []uuid.UUID{item.TargetID}
-			} else if item.TargetType == "group" {
-				groups = []uuid.UUID{item.TargetID}
-			}
-			allowed, scopeErr := s.screenTargetsWithinScope(r.Context(), principal.User.ID, principal.User.Role, screens, groups)
-			if scopeErr != nil {
-				s.internalError(w, r, scopeErr)
-				return
-			}
-			if allowed {
-				visible = append(visible, item)
-			}
+	visible := make([]presentations.Override, 0, len(items))
+	for _, item := range items {
+		if reached[item.ID] {
+			visible = append(visible, item)
 		}
-		items = visible
 	}
+	items = visible
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{"items": items, "total": len(items)}})
 }
 
@@ -76,12 +69,14 @@ func (s *server) createPresentationOverride(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusUnprocessableEntity, "validation_failed", "Duration must be 5, 15, 30, 60 minutes, or until stopped.")
 		return
 	}
-	if body.TargetType == "screen" {
-		if !s.authorizeScreenList(w, r, []uuid.UUID{body.TargetID}, nil) {
-			return
+	if body.TargetType == "screen" || body.TargetType == "group" {
+		selection := authz.Selection{ScreenIDs: []uuid.UUID{body.TargetID}, Peers: true}
+		if body.TargetType == "group" {
+			selection = authz.Selection{GroupIDs: []uuid.UUID{body.TargetID}}
 		}
-	} else if body.TargetType == "group" {
-		if !s.authorizeScreenList(w, r, nil, []uuid.UUID{body.TargetID}) {
+		if !s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+			return z.Selection(r.Context(), actor, auth.CapScreenAssign, selection)
+		}) {
 			return
 		}
 	} else {

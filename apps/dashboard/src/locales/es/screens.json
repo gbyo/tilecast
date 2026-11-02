@@ -531,7 +531,9 @@
       "nameLabel": "Nombre",
       "descriptionLabel": "Descripción",
       "descriptionHint": "Opcional. Hasta 500 caracteres.",
-      "createAction": "Crear grupo"
+      "createAction": "Crear grupo",
+      "firstScreensLabel": "Primeras pantallas",
+      "firstScreensHint": "Su acceso a pantallas está restringido, así que un grupo nuevo empieza con al menos una de sus pantallas. Un grupo sin pantallas quedaría fuera de su acceso."
     },
     "overview": {
       "setupTitle": "Añade pantallas a este grupo de pantallas",
@@ -884,7 +886,8 @@
     "approving": "Aprobando…",
     "actionApprove": "Aprobar y conectar",
     "actionRepair": "Reparar y reemplazar credencial",
-    "actionReplace": "Reemplazar hardware"
+    "actionReplace": "Reemplazar hardware",
+    "restrictedLocationNote": "Su acceso a pantallas está restringido, así que una pantalla nueva se coloca en una de sus ubicaciones."
   },
   "takeover": {
     "title": "Toma de control",
@@ -1286,25 +1289,27 @@
   "scope": {
     "ownerNote": "El acceso de propiedad se aplica a toda la flota.",
     "modeLegend": "Acceso a pantallas",
-    "modeFull": "Acceso total a la flota",
-    "modeFullHint": "Esta cuenta puede operar todas las pantallas de la flota.",
-    "modeLimited": "Limitar acceso",
+    "modeFull": "Todas las pantallas",
+    "modeFullHint": "Esta cuenta puede llegar a todas las pantallas, incluidas las que se añadan después.",
+    "modeLimited": "Solo las ubicaciones y los grupos de pantallas seleccionados",
     "combineNote": "Las ubicaciones y los grupos de pantallas se combinan: una pantalla se incluye cuando su ubicación o uno de sus grupos está seleccionado.",
-    "limitedEmpty": "Selecciona al menos una ubicación o un grupo de pantallas, o elige el acceso total a la flota.",
-    "loadError": "No se pudo cargar el alcance de pantalla.",
+    "limitedEmpty": "No hay nada seleccionado, así que esta cuenta no llega a ninguna pantalla.",
+    "loadError": "No se pudo cargar el acceso a pantallas.",
     "limited_one": "Esta cuenta puede operar pantallas solo en {{count}} lugar seleccionado. Sigue viendo toda la biblioteca de contenido.",
     "limited_other": "Esta cuenta puede operar pantallas solo en {{count}} lugares seleccionados. Sigue viendo toda la biblioteca de contenido.",
     "limited_many": "Esta cuenta puede operar pantallas solo en {{count}} de lugares seleccionados. Sigue viendo toda la biblioteca de contenido.",
-    "loading": "Cargando alcance…",
+    "loading": "Cargando acceso a pantallas…",
     "locations": "Ubicaciones",
     "noLocations": "No existen ubicaciones.",
     "groups": "Grupos de pantallas",
     "noGroups": "No existen grupos de pantallas.",
-    "saved": "Alcance de pantalla guardado.",
-    "saveAction": "Guardar alcance de pantalla",
+    "saved": "Acceso a pantallas guardado.",
+    "saveAction": "Guardar acceso a pantallas",
     "searchLabel": "Buscar lugares",
     "searchPlaceholder": "Filtrar ubicaciones y grupos de pantallas",
-    "noMatch": "Ningún lugar coincide con esta búsqueda."
+    "noMatch": "Ningún lugar coincide con esta búsqueda.",
+    "unconfigured": "Esta cuenta no tiene acceso a pantallas guardado, así que no llega a ninguna pantalla. Elija su acceso y guárdelo.",
+    "delegationNote": "Su propio acceso a pantallas está restringido, así que solo puede conceder las ubicaciones y los grupos de pantallas que se le concedieron."
   },
   "archive": {
     "title": "Archivo de pantallas",

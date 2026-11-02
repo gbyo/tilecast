@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/execution"
 	"github.com/tilecast/tilecast/apps/server/internal/externalplugins"
@@ -16,10 +16,10 @@ func pluginStateError(err error) *CallError {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, devices.ErrOutOfScope):
-		return forbidden("the selected targets are outside your assigned scope")
+	case errors.Is(err, authz.ErrOutOfScope), errors.Is(err, authz.ErrForbidden), errors.Is(err, authz.ErrNotFound):
+		return authzFailure(err, "")
 	case errors.Is(err, externalplugins.ErrForbidden):
-		return forbidden("configuring external plugins requires an Owner or Administrator")
+		return forbidden("configuring external plugins requires the plugins.manage capability")
 	case errors.Is(err, externalplugins.ErrNotFound):
 		return notFound("this package does not own an executable plugin contribution with that identity")
 	case errors.Is(err, externalplugins.ErrInvalid), errors.Is(err, targeting.ErrInvalid):
@@ -36,12 +36,16 @@ func (d *Dispatcher) externalPluginState(ctx context.Context, call Call) (any, *
 		return nil, nil, unavailable(errors.New("external plugin state is unavailable"))
 	}
 	invocation := externalplugins.Invocation{PackageID: call.PackageID, Digest: call.PackageDigest, Epoch: call.ExecutionEpoch}
-	if call.Actor != nil {
-		invocation.Actor = &call.Actor.UserID
-		invocation.ActorRole = call.Actor.Role
+	actor, studio, failure := studioActor(call)
+	if failure != nil {
+		return nil, nil, failure
+	}
+	if studio {
+		invocation.Actor = &actor.UserID
+		invocation.Authority = &actor
 	}
 	if call.Operation != "plugin-runtime.state@1/get" {
-		if failure := studioCapability(call, auth.CapPluginsManage); failure != nil {
+		if failure := requireCapability(call, auth.CapPluginsManage); failure != nil {
 			return nil, nil, failure
 		}
 	}
@@ -97,8 +101,14 @@ func (d *Dispatcher) targetsResolveV2(ctx context.Context, call Call) (any, *Den
 	if err := targeting.Validate(ctx, tx, input); err != nil {
 		return nil, nil, pluginStateError(err)
 	}
-	if call.Actor != nil {
-		if err := d.deps.Devices.AuthorizeTargetDefinitionInTx(ctx, tx, call.Actor.UserID, call.Actor.Role, input); err != nil {
+	actor, studio, failure := studioActor(call)
+	if failure != nil {
+		return nil, nil, failure
+	}
+	if studio {
+		if err := authz.New(tx).Tx(tx).Directory(ctx, actor, auth.CapScreenRead, authz.Directory{
+			All: input.Mode == "all", ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs, LocationIDs: input.LocationIDs,
+		}); err != nil {
 			return nil, nil, pluginStateError(err)
 		}
 	}
@@ -117,13 +127,11 @@ func (d *Dispatcher) targetOptions(ctx context.Context, call Call) (any, *Denial
 	if (input.Kind != "screen" && input.Kind != "group" && input.Kind != "location") || len(input.Search) > 100 || input.Page < 0 || input.Page > 100000 || input.PageSize < 0 {
 		return nil, nil, invalidInput("target options require a valid kind and bounded pagination")
 	}
-	var user *uuid.UUID
-	var role string
-	if call.Actor != nil {
-		user = &call.Actor.UserID
-		role = call.Actor.Role
+	access, failure := d.screenAccess(ctx, call, auth.CapScreenRead)
+	if failure != nil {
+		return nil, nil, failure
 	}
-	data, err := d.deps.Devices.PluginTargetOptions(ctx, user, role, input)
+	data, err := d.deps.Devices.PluginTargetOptions(ctx, access, input)
 	if err != nil {
 		return nil, nil, unavailable(err)
 	}

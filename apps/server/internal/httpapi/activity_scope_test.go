@@ -42,7 +42,7 @@ func scopedActivityFixture(t *testing.T, env activityTestEnvironment) (inScope, 
 	if _, err := env.pool.Exec(ctx, `INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Scoped Editor','scoped-editor','unused-test-hash','editor',TRUE)`, scopedID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := env.pool.Exec(ctx, `INSERT INTO user_screen_scopes(user_id,scope_type,scope_id) VALUES($1,'location',$2)`, scopedID, locationID); err != nil {
+	if _, err := env.pool.Exec(ctx, `WITH policy AS (INSERT INTO user_screen_access(user_id,mode) VALUES($1,'restricted') ON CONFLICT (user_id) DO UPDATE SET mode='restricted') INSERT INTO user_screen_scopes(user_id,scope_type,scope_id) VALUES($1,'location',$2)`, scopedID, locationID); err != nil {
 		t.Fatal(err)
 	}
 	start := time.Now().UTC().Add(-10 * time.Minute).Truncate(time.Second)
@@ -104,7 +104,8 @@ func TestScreenActivityRequiresScope(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/screens/"+id.String(), nil)
 			request = requestWithTestPrincipal(request, session)
 			response := httptest.NewRecorder()
-			env.server.screenActivity(response, request)
+			route := activityDispatchRoute{contractPath: "/api/v1/activity/screens/{id}", capability: auth.CapActivityRead, screen: true}
+			env.server.activityScreenGuard(route, http.HandlerFunc(env.server.screenActivity)).ServeHTTP(response, request)
 			return response
 		}
 
@@ -131,7 +132,8 @@ func TestScreenTimelineRequiresScope(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, "/api/v1/activity/screens/"+id.String()+"/timeline?range=24h", nil)
 			request = requestWithTestPrincipal(request, session)
 			response := httptest.NewRecorder()
-			env.server.screenTimeline(response, request)
+			route := activityDispatchRoute{contractPath: "/api/v1/activity/screens/{id}/timeline", capability: auth.CapActivityRead, screen: true}
+			env.server.activityScreenGuard(route, http.HandlerFunc(env.server.screenTimeline)).ServeHTTP(response, request)
 			return response
 		}
 

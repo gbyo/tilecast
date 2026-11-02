@@ -107,7 +107,9 @@
       "contentTitle": "Content access",
       "contentDescription": "Which media this person can reach and which tags they can apply.",
       "screensDescription": "Which screens this person can reach.",
-      "selfNote": "You can't change your own access. Ask another administrator."
+      "selfNote": "You can't change your own access. Ask another administrator.",
+      "screensTitle": "Screen access",
+      "screensCreateDescription": "Which screens this person can reach. Choose all screens, or the locations and Display Groups they work in."
     }
   },
   "security": {
@@ -389,6 +391,14 @@
       "screen_assign": {
         "label": "Assign content to screens",
         "description": "Choose what plays, start takeovers, and present with AirPlay."
+      },
+      "screen_locations_manage": {
+        "label": "Manage locations",
+        "description": "Create, rename, and delete Locations. Needs access to every screen."
+      },
+      "screen_networks_manage": {
+        "label": "Manage Presentation Networks",
+        "description": "Create, change, and delete Presentation Network definitions. Needs access to every screen."
       },
       "schedule_read": {
         "label": "View schedules",

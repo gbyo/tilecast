@@ -1,11 +1,14 @@
 package devices
 
 import (
+	"context"
 	"encoding/json"
 	"net/netip"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 )
 
 const (
@@ -72,7 +75,16 @@ type PairingApproval struct {
 	ReplaceExistingCredential bool
 	ReplaceHardware           bool
 	ReplacementScreenID       *uuid.UUID
+	// Authorize decides, inside the approval transaction, whether the
+	// approver may make this change. It is required: an approval without
+	// one is refused rather than treated as unrestricted.
+	Authorize func(ctx context.Context, tx pgx.Tx, target authz.PairingTarget) error
 }
+
+// SystemApproval authorizes every pairing. Only callers that act for the
+// installation itself (demo seeding, tests) use it; a Studio request
+// passes the approver's authz decision instead.
+func SystemApproval(context.Context, pgx.Tx, authz.PairingTarget) error { return nil }
 
 type PlayerHistory struct {
 	ID               uuid.UUID  `json:"id"`
