@@ -28,7 +28,7 @@
     "fake-indexeddb": "^6.2.4",
     "sharp": "0.35.4",
     "typescript": "~6.0.3",
-    "vite": "^8.3.2",
+    "vite": "^8.3.3",
     "vitest": "^5.0.2"
   }
 }
