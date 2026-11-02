@@ -45,19 +45,7 @@ import org.tilecast.player.security.CredentialStore
 import org.tilecast.player.security.MigratingCredentialStore
 import java.time.Instant
 
-/**
- * The production Player UI state. Core owns pairing, content, presence,
- * and recovery; this ViewModel owns what Android must do itself: the
- * setup flow (discovery plus a credential-free identity check), the
- * Core state projection the screens render, platform configuration
- * effects, readiness reporting, updates, OS power effects, and the
- * platform observations Core merges into its heartbeat.
- *
- * Setup runs unattended. The Player searches until it finds a server,
- * pairs at once when it finds exactly one, retries failures with backoff,
- * and asks for a new code after revocation. An installer only acts when
- * several servers answer, none answer, or the server identity changed.
- */
+/** Narrow host seam used to exercise PlayerViewModel setup without JNI. */
 internal interface PlayerViewModelHost {
     val state: StateFlow<CoreHostState>
     val pairingState: StateFlow<CorePairingState>
@@ -98,6 +86,19 @@ internal fun interface LanDiscoverySource {
     fun discover(): kotlinx.coroutines.flow.Flow<DiscoveredServer>
 }
 
+/**
+ * The production Player UI state. Core owns pairing, content, presence,
+ * and recovery; this ViewModel owns what Android must do itself: the
+ * setup flow (discovery plus a credential-free identity check), the
+ * Core state projection the screens render, platform configuration
+ * effects, readiness reporting, updates, OS power effects, and the
+ * platform observations Core merges into its heartbeat.
+ *
+ * Setup runs unattended. The Player searches until it finds a server,
+ * pairs at once when it finds exactly one, retries failures with backoff,
+ * and asks for a new code after revocation. An installer only acts when
+ * several servers answer, none answer, or the server identity changed.
+ */
 class PlayerViewModel internal constructor(
     application: Application,
     private val host: PlayerViewModelHost,
