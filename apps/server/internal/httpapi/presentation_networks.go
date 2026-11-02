@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/presentnet"
 )
@@ -133,9 +135,27 @@ func (s *server) getPresentationNetwork(w http.ResponseWriter, r *http.Request) 
 		s.internalError(w, r, err)
 		return
 	}
+	// The definition carries no secret, but which screens use it does: a
+	// restricted operator sees only the assignments of reachable screens.
+	screens := make([]uuid.UUID, 0, len(assignments))
+	for _, assignment := range assignments {
+		screens = append(screens, assignment.ScreenID)
+	}
+	principal, _ := principalOf(r)
+	reached, err := s.authorizer().Reachable(r.Context(), authz.ActorFor(principal), auth.CapScreenManage, authz.KindScreen, screens)
+	if err != nil {
+		s.writeAuthzError(w, r, err, notFoundFor(objectScreen))
+		return
+	}
+	visible := make([]presentnet.Assignment, 0, len(assignments))
+	for _, assignment := range assignments {
+		if reached[assignment.ScreenID] {
+			visible = append(visible, assignment)
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
 		"network":     network,
-		"assignments": assignments,
+		"assignments": visible,
 	}})
 }
 
@@ -251,20 +271,10 @@ func (s *server) replacePresentationNetworkAssignments(w http.ResponseWriter, r 
 			fmt.Sprintf("Assign at most %d screens in one request.", airplayMaxAssignmentScreens))
 		return
 	}
-	// Both the screens gaining the assignment and the screens losing it are
-	// operated on, so both sets have to be inside the caller's scope.
-	previous, err := s.presentationNetworks.AssignmentsFor(r.Context(), id)
-	if err != nil {
-		s.writePresentationNetworkError(w, r, err)
-		return
-	}
-	targets := append([]uuid.UUID(nil), input.ScreenIDs...)
-	for _, assignment := range previous {
-		targets = append(targets, assignment.ScreenID)
-	}
-	if !s.authorizeScreenList(w, r, targets, nil) {
-		return
-	}
+	// Replacing a network's whole assignment set is a change to the
+	// organization-wide network object, so the route needs
+	// screen.networks.manage and access to every screen. A restricted
+	// operator assigns one reachable screen at a time instead.
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
@@ -601,7 +611,9 @@ func (s *server) testPresentationNetwork(w http.ResponseWriter, r *http.Request)
 			"Choose an assigned Linux screen to test from.")
 		return
 	}
-	if !s.authorizeScreenList(w, r, []uuid.UUID{input.ScreenID}, nil) {
+	if !s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Screen(r.Context(), actor, auth.CapScreenManage, input.ScreenID)
+	}) {
 		return
 	}
 	if !s.presentationNetworks.CredentialsAvailable() {

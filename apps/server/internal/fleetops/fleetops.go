@@ -18,6 +18,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 )
 
@@ -91,10 +93,10 @@ type Service struct {
 	logger *slog.Logger
 }
 
-// ScopeAuthorizer refuses screens outside an account's scope. It is the devices
-// service; the interface keeps the dependency one-way and testable.
+// ScopeAuthorizer refuses screens outside an account's screen access. It is
+// the shared authz decision; the interface keeps this package testable.
 type ScopeAuthorizer interface {
-	AuthorizeScreens(ctx context.Context, user uuid.UUID, role string, screens []uuid.UUID) error
+	Screens(ctx context.Context, actor authz.Actor, capability auth.Capability, screens []uuid.UUID) error
 }
 
 // NewService builds the fleet operations service.

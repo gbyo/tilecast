@@ -198,7 +198,7 @@ func TestExternalPackageFixture(t *testing.T) {
 		t.Fatal("fixture has no plugin")
 	}
 	deviceService := devices.NewService(pool, devices.NewPresenceHub(), "")
-	stateService := externalplugins.NewService(pool, catalog, deviceService, deviceService)
+	stateService := externalplugins.NewService(pool, catalog, deviceService)
 	dispatcher := services.NewDispatcher(services.Dependencies{DB: pool, Devices: deviceService, ExternalPlugins: stateService})
 	store := NewPostgresKV(pool)
 	runtime, err := NewService(ctx, inst, contentDir, store, nil, WithServiceCaller(dispatcher), WithVerifiedModuleReader(func(ctx context.Context, ref, digest, module string) ([]byte, error) {

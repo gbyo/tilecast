@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
@@ -232,7 +233,7 @@ func TestNewFeatureQueries(t *testing.T) {
 		if preview.GroupAddedCount != 1 {
 			t.Errorf("group added %d screens, want 1", preview.GroupAddedCount)
 		}
-		if _, err := service.Recent(ctx, owner.User.ID, "administrator", 5); err != nil {
+		if _, err := service.Recent(ctx, authz.Actor{UserID: owner.User.ID, Owner: true, Capabilities: auth.NewCapabilitySet(auth.CapScreenManage)}, 5); err != nil {
 			t.Fatalf("Recent: %v", err)
 		}
 		t.Logf("preview: %d screens, %d added by the group, %d change",
@@ -241,23 +242,19 @@ func TestNewFeatureQueries(t *testing.T) {
 		// The operation-id paths must be scoped too. Preview and apply are
 		// checked on the way in, but an operation id would otherwise be a way to
 		// read or rewrite screens the caller cannot reach.
-		service.SetScopeAuthorizer(deviceService)
+		service.SetScopeAuthorizer(authz.New(pool))
 		otherLocation := uuid.New()
 		if _, err := pool.Exec(ctx,
 			`INSERT INTO locations(id,organization_id,name) VALUES($1,$2,'Elsewhere')`,
 			otherLocation, org); err != nil {
 			t.Fatal(err)
 		}
-		if err := deviceService.ReplaceScopes(ctx, owner.User.ID, owner.User.ID,
-			[]devices.Scope{{Type: "location", ID: otherLocation}}); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := service.Undo(ctx, owner.User.ID, "administrator", uuid.New()); err == nil {
+		setScreenPolicy(t, pool, owner.User.ID, owner.User.ID, authz.PolicyInput{Mode: authz.ModeRestricted, Grants: []authz.Grant{{Type: "location", ID: otherLocation}}})
+		restrictedActor := authz.Actor{UserID: owner.User.ID, Capabilities: auth.NewCapabilitySet(auth.CapScreenManage)}
+		if _, err := service.Undo(ctx, restrictedActor, uuid.New()); err == nil {
 			t.Error("undo must not run for a caller outside the scope")
 		}
-		if err := deviceService.ReplaceScopes(ctx, owner.User.ID, owner.User.ID, nil); err != nil {
-			t.Fatal(err)
-		}
+		setScreenPolicy(t, pool, owner.User.ID, owner.User.ID, authz.PolicyInput{Mode: authz.ModeAll})
 	})
 
 	t.Run("review queue and gate", func(t *testing.T) {
@@ -355,8 +352,8 @@ func TestNewFeatureQueries(t *testing.T) {
 		// The list is scoped to the caller's screens, so it needs a signed-in
 		// user and the screen scope service.
 		request := httptest.NewRequest("GET", "/api/v1/takeovers", nil)
-		request = request.WithContext(auth.WithPrincipal(request.Context(), auth.PrincipalFromSession(owner)))
-		(&server{db: pool, devices: deviceService}).listTakeovers(recorder, request)
+		request = requestWithTestPrincipal(request, owner)
+		(&server{db: pool, devices: deviceService, authz: authz.New(pool)}).listTakeovers(recorder, request)
 		if recorder.Code != 200 {
 			t.Fatalf("list takeovers status=%d body=%s", recorder.Code, recorder.Body.String())
 		}
@@ -370,94 +367,70 @@ func TestNewFeatureQueries(t *testing.T) {
 	})
 
 	t.Run("screen scopes", func(t *testing.T) {
-		// Unscoped: the whole fleet, and every screen authorized.
-		all, err := deviceService.ListScreensForUser(ctx, owner.User.ID, "administrator")
-		if err != nil {
-			t.Fatalf("ListScreensForUser unscoped: %v", err)
+		z := authz.New(pool)
+		actor := authz.Actor{UserID: owner.User.ID, Capabilities: auth.NewCapabilitySet(auth.CapScreenRead, auth.CapScreenManage)}
+		list := func() []devices.Screen {
+			t.Helper()
+			access, err := z.Access(ctx, actor)
+			if err != nil {
+				t.Fatal(err)
+			}
+			screens, err := deviceService.ListScreensForAccess(ctx, access)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return screens
 		}
-		if len(all) != 2 {
-			t.Errorf("unscoped list has %d screens, want 2", len(all))
+		// All screens: the whole fleet, and every screen authorized.
+		setScreenPolicy(t, pool, owner.User.ID, owner.User.ID, authz.PolicyInput{Mode: authz.ModeAll})
+		if all := list(); len(all) != 2 {
+			t.Errorf("all-screens list has %d screens, want 2", len(all))
 		}
-		if err := deviceService.AuthorizeScreens(ctx, owner.User.ID, "administrator",
-			[]uuid.UUID{screenA, screenB}); err != nil {
-			t.Errorf("unscoped authorization = %v, want nil", err)
+		if err := z.Screens(ctx, actor, auth.CapScreenManage, []uuid.UUID{screenA, screenB}); err != nil {
+			t.Errorf("all-screens authorization = %v, want nil", err)
 		}
 
-		// Scope to the location: both screens are in it.
-		if err := deviceService.ReplaceScopes(ctx, owner.User.ID, owner.User.ID,
-			[]devices.Scope{{Type: "location", ID: locationID}}); err != nil {
-			t.Fatalf("ReplaceScopes: %v", err)
-		}
-		scoped, err := deviceService.ListScreensForUser(ctx, owner.User.ID, "administrator")
-		if err != nil {
-			t.Fatalf("ListScreensForUser scoped: %v", err)
-		}
-		if len(scoped) != 2 {
+		// Restricted to the location: both screens are in it.
+		setScreenPolicy(t, pool, owner.User.ID, owner.User.ID, authz.PolicyInput{Mode: authz.ModeRestricted, Grants: []authz.Grant{{Type: "location", ID: locationID}}})
+		if scoped := list(); len(scoped) != 2 {
 			t.Errorf("location-scoped list has %d screens, want 2", len(scoped))
 		}
-		// An Owner is never scoped even with grants present.
-		if scopedOwner, err := deviceService.Scoped(ctx, owner.User.ID, "owner"); err != nil || scopedOwner {
-			t.Errorf("Scoped(owner) = %v, %v; an Owner must never be scoped", scopedOwner, err)
+		// An Owner is never restricted even with grants present.
+		if access, err := z.Access(ctx, authz.Actor{UserID: owner.User.ID, Owner: true}); err != nil || !access.All {
+			t.Errorf("owner access = %+v, %v; an Owner must reach every screen", access, err)
 		}
 
-		// Scope to a location holding neither screen: both must be refused.
+		// Restricted to a location holding neither screen: both are refused.
 		otherLocation := uuid.New()
-		if _, err = pool.Exec(ctx,
+		if _, err := pool.Exec(ctx,
 			`INSERT INTO locations(id,organization_id,name) VALUES($1,$2,'Annex')`,
 			otherLocation, org); err != nil {
 			t.Fatal(err)
 		}
-		if err := deviceService.ReplaceScopes(ctx, owner.User.ID, owner.User.ID,
-			[]devices.Scope{{Type: "location", ID: otherLocation}}); err != nil {
-			t.Fatalf("ReplaceScopes: %v", err)
-		}
-		err = deviceService.AuthorizeScreens(ctx, owner.User.ID, "administrator",
-			[]uuid.UUID{screenA})
-		if err == nil {
+		setScreenPolicy(t, pool, owner.User.ID, owner.User.ID, authz.PolicyInput{Mode: authz.ModeRestricted, Grants: []authz.Grant{{Type: "location", ID: otherLocation}}})
+		if err := z.Screens(ctx, actor, auth.CapScreenManage, []uuid.UUID{screenA}); err == nil {
 			t.Error("a screen outside the scope must be refused")
 		}
-		scopeServer := &server{db: pool, devices: deviceService}
-		groupAllowed, err := scopeServer.screenTargetsWithinScope(ctx, owner.User.ID, "administrator", nil, []uuid.UUID{groupID})
-		if err != nil {
-			t.Fatalf("group scope authorization: %v", err)
-		}
-		if groupAllowed {
+		if err := z.Group(ctx, actor, auth.CapScreenRead, groupID); err == nil {
 			t.Error("a Display Group containing only out-of-scope screens must be refused")
 		}
-		narrowed, err := deviceService.ListScreensForUser(ctx, owner.User.ID, "administrator")
-		if err != nil {
-			t.Fatalf("ListScreensForUser narrowed: %v", err)
-		}
-		if len(narrowed) != 0 {
+		if narrowed := list(); len(narrowed) != 0 {
 			t.Errorf("narrowed list has %d screens, want 0", len(narrowed))
 		}
 
 		// A group grant must resolve through membership.
-		if err := deviceService.ReplaceScopes(ctx, owner.User.ID, owner.User.ID,
-			[]devices.Scope{{Type: "group", ID: groupID}}); err != nil {
-			t.Fatalf("ReplaceScopes(group): %v", err)
-		}
-		viaGroup, err := deviceService.ListScreensForUser(ctx, owner.User.ID, "administrator")
-		if err != nil {
-			t.Fatalf("ListScreensForUser via group: %v", err)
-		}
-		if len(viaGroup) != 2 {
+		setScreenPolicy(t, pool, owner.User.ID, owner.User.ID, authz.PolicyInput{Mode: authz.ModeRestricted, Grants: []authz.Grant{{Type: "group", ID: groupID}}})
+		if viaGroup := list(); len(viaGroup) != 2 {
 			t.Errorf("group-scoped list has %d screens, want 2", len(viaGroup))
 		}
-		groupAllowed, err = scopeServer.screenTargetsWithinScope(ctx, owner.User.ID, "administrator", nil, []uuid.UUID{groupID})
-		if err != nil {
-			t.Fatalf("group-granted authorization: %v", err)
+		if err := z.Group(ctx, actor, auth.CapScreenRead, groupID); err != nil {
+			t.Errorf("an explicitly group-scoped account must reach the group: %v", err)
 		}
-		if !groupAllowed {
-			t.Error("an explicitly group-scoped account must reach every member of that group")
+		if _, err := authz.PolicyFor(ctx, pool, owner.User.ID); err != nil {
+			t.Fatalf("PolicyFor: %v", err)
 		}
-		if _, err := deviceService.ScopesFor(ctx, owner.User.ID); err != nil {
-			t.Fatalf("ScopesFor: %v", err)
-		}
-		// Leave the account unscoped so later subtests are unaffected.
-		if err := deviceService.ReplaceScopes(ctx, owner.User.ID, owner.User.ID, nil); err != nil {
-			t.Fatalf("ReplaceScopes(clear): %v", err)
-		}
+		// Leave the account on all screens so later subtests are unaffected.
+		setScreenPolicy(t, pool, owner.User.ID, owner.User.ID, authz.PolicyInput{Mode: authz.ModeAll})
 	})
 
 	t.Run("integration token health and metrics", func(t *testing.T) {
