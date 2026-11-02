@@ -436,7 +436,13 @@ public final class StudioHost {
             }
             guard let self else { return }
             isDeliveringDeepLink = false
-            if accepted, pendingDeepLink?.id == pending.id { pendingDeepLink = nil }
+            if pendingDeepLink?.id == pending.id {
+                if accepted { pendingDeepLink = nil }
+            } else {
+                // A newer link arrived while this one was retrying; the guard
+                // above kept it from starting its own delivery.
+                deliverPendingDeepLink()
+            }
         }
     }
 
