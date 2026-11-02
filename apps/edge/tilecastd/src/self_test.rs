@@ -119,6 +119,8 @@ pub async fn run_with(
     config.display.cec_enabled = false;
     config.display.ddc_enabled = false;
     config.dev.idle_inhibit = Some(false);
+    // The self-test daemon has no server and must not reach the setup relay.
+    config.pairing.phone_setup = false;
     config.log = crate::config::LogConfig::default();
     let failed = |reason, detail: Option<String>, renderer, expected, proven, started: Instant| SelfTestReport {
         outcome: "failed",

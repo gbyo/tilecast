@@ -46,6 +46,7 @@ apps/ios/                    SwiftUI iOS/iPadOS Studio host and native bridge
 apps/player-android/         Android TV/Google TV/Fire TV Compose host + native Player Core adapter
 apps/player-web/             experimental Browser Player
 apps/player-windows/         Windows native Player host (Rust + WebView2)
+apps/setup-relay/            phone setup relay (Cloudflare Worker, own lockfile)
 apps/edge/                   Linux Edge host (Rust, WPE, systemd, hardware integration)
 apps/player-linux/           legacy Linux Electron Player and helper; maintain compatibility/migration
 crates/player-{types,state,cas,client,core}/  shared native Player crates

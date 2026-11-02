@@ -1,0 +1,8 @@
+{
+  "frame": {
+    "type": "request",
+    "id": "setup-2",
+    "method": "setup.resume_phone_setup",
+    "params": {}
+  }
+}

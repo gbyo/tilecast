@@ -95,8 +95,8 @@ pub use offline_driver::{
 };
 pub use origin::{InvalidDownloadPath, OriginBlobSource, StreamReadError};
 pub use pairing::{
-    PAIRING_RETRY, PairingCoordinator, PairingError, PairingHost, PairingMetadataProvider, PairingOutcome,
-    PairingStatus,
+    PAIRING_RETRY, PHONE_SETUP_SESSION_LIMIT, PairingCoordinator, PairingError, PairingHost, PairingMetadataProvider,
+    PairingOutcome, PairingStatus, PhoneRelay, PhoneSetupView, SetupRelay,
 };
 pub use playback_health::{HealthTolerances, PlaybackHealth, Stall, StallReason};
 pub use plugin_events::{

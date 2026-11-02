@@ -64,9 +64,10 @@ fun mapPlayerState(
         )
     }
     if (pairing is CorePairingState.Waiting) {
-        // Core resumes a session by itself after a restart, so the target
-        // may be unknown here; the binding still names the server.
-        val server = target?.serverUrl ?: status?.serverUrl ?: status?.retainedServerUrl ?: ""
+        // Core starts sessions by itself (after a restart, or from phone
+        // setup), so the target may be unknown here; the session names
+        // its server.
+        val server = target?.serverUrl ?: pairing.serverUrl ?: status?.serverUrl ?: status?.retainedServerUrl ?: ""
         return PlayerState.WaitingForApproval(
             server,
             pairing.organizationName ?: status?.organizationName ?: "",

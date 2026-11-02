@@ -473,8 +473,10 @@ test("player contract sources select every native consumer and their drift gate"
     "scripts/generate-player-contracts.mjs",
   ]) {
     const result = affected([path]);
-    if (path.endsWith("server-url-policy.json"))
+    if (path.endsWith("server-url-policy.json")) {
       assert.equal(result.ios, true, `${path}: ios`);
+      assert.equal(result.setup_relay, true, `${path}: setup_relay`);
+    }
     for (const area of [
       "ci",
       "server",
@@ -694,6 +696,20 @@ test("actual stacked base excludes base-only commits and retains rename/delete p
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
+});
+
+test("the phone setup relay has its own lane", () => {
+  assert.deepEqual(selected(["apps/setup-relay/src/rendezvous.ts"]), [
+    "setup_relay",
+  ]);
+  assert.deepEqual(selected(["apps/setup-relay/public/address.js"]), [
+    "setup_relay",
+  ]);
+  const vectors = affected([
+    "packages/player-contracts/fixtures/phone-setup-envelope.json",
+  ]);
+  assert.equal(vectors.player_core, true);
+  assert.equal(vectors.setup_relay, true);
 });
 
 test("Browser Player has its own lane and follows the Runtime and the server code it uses", () => {
