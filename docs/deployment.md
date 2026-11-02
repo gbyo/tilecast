@@ -76,6 +76,11 @@ To cut a release, dispatch the `Tilecast Release` workflow from `main` with the 
 
 ## Data and upgrades
 
+Studio entry documents require cache revalidation after an upgrade.
+Hashed assets keep their immutable cache policy.
+A missing asset returns HTTP 404 instead of the Studio entry document.
+Application routes still serve the Studio entry document.
+
 The `postgres_data` volume stores relational state. The `tilecast_data` volume stores originals, playback variants, thumbnails, posters, and temporary resumable uploads beneath `/data/media`. It must remain mounted across server/container recreation. The media tree is never served directly by the container.
 
 The production image includes FFmpeg and FFprobe and runs as the unprivileged `tilecast` user. Readiness checks database access, writable media storage, and both executables. Configure limits with `TILECAST_MAX_UPLOAD_BYTES`, `TILECAST_MEDIA_WORKERS`, `TILECAST_MEDIA_RESERVED_FREE_BYTES`, `TILECAST_VIDEO_MAX_WIDTH`, `TILECAST_VIDEO_MAX_HEIGHT`, `TILECAST_VIDEO_MAX_FRAME_RATE`, and `TILECAST_KEEP_ORIGINALS`.

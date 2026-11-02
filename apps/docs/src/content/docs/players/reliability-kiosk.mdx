@@ -35,6 +35,18 @@ Linux has its own fullscreen, kiosk, display-sleep, and startup behavior. The ex
 
 </Tabs>
 
+## Startup
+
+When the shared Player Runtime starts, a Tilecast logo appears on black while
+the first presentation prepares. It then reveals playback or the current status
+screen. The animation runs once per Runtime document, so ordinary content
+changes do not replay it. Reduced motion uses a short fade.
+
+The startup layer has time limits after a presentation arrives, so a stalled
+animation cannot keep that presentation hidden indefinitely. See the
+[Runtime startup contract](https://github.com/gbyo/tilecast/blob/main/docs/player-runtime.md#document-startup)
+for the exact timing.
+
 ## Recovery
 
 Recovery can retry the current content, rebuild rendering state, restart Player components, and enter safe mode when needed.

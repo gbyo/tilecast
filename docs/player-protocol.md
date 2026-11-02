@@ -2,6 +2,12 @@
 
 The bootstrap identity endpoint is public and returns only the product identifier, permanent installation ID, organization name, API version, and whether pairing is enabled. A configured player verifies the installation ID before sending any stored device credential. A native Player repeats this check during the session: see [Identity changes during a session](device-credential-security.md#identity-changes-during-a-session).
 
+## Presentation capability reports
+
+A heartbeat that omits all presentation capability fields keeps the last report.
+An explicit empty schema list or capability map clears that part of the report.
+A reduced WebSocket status must not clear the stored presentation capabilities.
+
 ## Pairing
 
 1. The player reads `GET /api/v1/system/identity`.
