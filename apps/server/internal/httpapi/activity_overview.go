@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
 func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
@@ -19,16 +18,17 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnprocessableEntity, "activity_range_invalid", err.Error())
 		return
 	}
-	scopeUser, scoped, ok := s.callerScope(w, r)
+	access, ok := s.callerAccess(w, r)
 	if !ok {
 		return
 	}
+	scopeUser, scoped := access.UserID, !access.All
 	var data activityOverviewData
 	data.Range.From, data.Range.To = window.From, window.To
 	// Marshal empty lists as [] rather than null; the dashboard indexes into
 	// these collections directly.
 	data.Timeline = []activityTimelineItem{}
-	fleet, err := s.fleetHealth(r.Context(), time.Now().UTC(), scopeUser, scoped)
+	fleet, err := s.fleetHealth(r.Context(), time.Now().UTC(), access)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -40,14 +40,14 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 	// show and the fleet-health section reports as impaired instead.
 	gapsFilter, gapsArgs := ``, []any{window.From, window.To}
 	if scoped {
-		gapsFilter = ` AND ` + devices.InScopeSQL("s", "$3")
+		gapsFilter = ` AND ` + access.ScreenSQL("s", "$3")
 		gapsArgs = append(gapsArgs, scopeUser)
 	}
 	if err := s.db.QueryRow(r.Context(), `SELECT count(DISTINCT i.screen_id) FROM screen_state_intervals i JOIN screens s ON s.id=i.screen_id WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND i.started_at<$2 AND COALESCE(i.ended_at,$2)>$1 AND (i.state IN('offline','unknown') OR (i.state='degraded' AND COALESCE(i.reason_code,'')='heartbeat_gap'))`+gapsFilter, gapsArgs...).Scan(&data.Cards.ScreensWithReportingGaps); err != nil {
 		s.internalError(w, r, err)
 		return
 	}
-	durations, err := s.playbackDurations(r.Context(), window.From, window.To, scopeUser, scoped)
+	durations, err := s.playbackDurations(r.Context(), window.From, window.To, access)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -55,7 +55,7 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 	data.Cards.ConfirmedScreenPlaybackMS, data.Cards.ContentExposureMS = durations.ConfirmedScreenMS, durations.ContentExposureMS
 	failuresFilter, failuresArgs := ``, []any{window.From, window.To, interruptedTerminalReasons()}
 	if scoped {
-		failuresFilter = ` AND ` + devices.InScopeSQL("s", "$4")
+		failuresFilter = ` AND ` + access.ScreenSQL("s", "$4")
 		failuresArgs = append(failuresArgs, scopeUser)
 	}
 	// An interruption is an unexpected ending, not merely a partial result. A
@@ -71,9 +71,9 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 	takeoverFilter, takeoverArgs := ``, []any{window.From, window.To}
 	updatesFilter, updatesArgs := ``, []any{window.From, window.To}
 	if scoped {
-		takeoverFilter = ` AND ` + devices.InScopeSQL("s", "$3")
+		takeoverFilter = ` AND ` + access.ScreenSQL("s", "$3")
 		takeoverArgs = append(takeoverArgs, scopeUser)
-		updatesFilter = ` AND ` + devices.InScopeSQL("s", "$3")
+		updatesFilter = ` AND ` + access.ScreenSQL("s", "$3")
 		updatesArgs = append(updatesArgs, scopeUser)
 	}
 	if err := s.db.QueryRow(r.Context(), `SELECT count(*) FROM player_activity_events e JOIN screens s ON s.id=e.screen_id WHERE s.enabled=TRUE AND s.deleted_at IS NULL AND s.archived_at IS NULL AND e.occurred_at>=$1 AND e.occurred_at<$2 AND e.event_type='takeover.active'`+takeoverFilter, takeoverArgs...).Scan(&data.Cards.TakeoverActivations); err != nil {
@@ -91,7 +91,7 @@ func (s *server) activityOverview(w http.ResponseWriter, r *http.Request) {
 
 	timelineFilter, timelineArgs := ``, []any{window.From, window.To}
 	if scoped {
-		timelineFilter = ` AND ` + devices.InScopeSQL("s", "$3")
+		timelineFilter = ` AND ` + access.ScreenSQL("s", "$3")
 		timelineArgs = append(timelineArgs, scopeUser)
 	}
 	timelineRows, err := s.db.Query(r.Context(), `
@@ -134,9 +134,6 @@ func (s *server) screenActivity(w http.ResponseWriter, r *http.Request) {
 	screenID, err := uuid.Parse(strings.TrimPrefix(r.URL.Path, "/api/v1/activity/screens/"))
 	if err != nil {
 		writeError(w, http.StatusNotFound, "screen_not_found", "Screen was not found.")
-		return
-	}
-	if !s.authorizeScreen(w, r, screenID) {
 		return
 	}
 	var operational bool

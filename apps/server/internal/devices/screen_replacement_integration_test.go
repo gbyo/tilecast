@@ -118,6 +118,7 @@ func TestScreenReplacementPreservesLogicalScreenAndRetiresHardware(t *testing.T)
 	approved, err := service.ApprovePairingWithOptions(ctx, newPairing.ID, owner.User.ID, PairingApproval{
 		ReplaceHardware:     true,
 		ReplacementScreenID: &screen.ID,
+		Authorize:           SystemApproval,
 	})
 	if err != nil || approved.ID != screen.ID {
 		t.Fatalf("replacement approval=%#v err=%v", approved, err)

@@ -2,7 +2,7 @@
 
 Installation review shows the verified surface set and priority tier for each
 executable contribution. Descriptor bytes must match the authenticated OCI
-layer. A scoped operator must control both previous and new target definitions
+layer. An operator with restricted screen access must control both previous and new target definitions
 to replace configuration or disable an instance.
 
 Android uses an independent plugin frame grant set for each presentation
@@ -76,8 +76,8 @@ The check and mutation hold the package lifecycle fence.
 `expectedConfigurationRevision`.
 An unconfigured contribution has revision zero.
 A changed configuration increments the host-owned revision.
-The operation requires an Owner or Administrator.
-The target check also enforces the account's screen scope.
+The operation requires the `plugins.manage` and `screen.assign` capabilities.
+The target check also enforces the account's screen access.
 The Server records an operator audit event without the configuration body.
 It clears the previous Player state.
 It invalidates the union of old and new targets.
@@ -122,7 +122,7 @@ Search has at most 100 bytes.
 The default page size is fifty; the maximum is one hundred.
 The response contains only target IDs, names, kind, pagination, and
 `canSelectAll`.
-A scoped account cannot select all.
+An account with restricted screen access cannot select all.
 Its group and location options require a direct matching scope grant.
 Its screen options use the canonical account scope predicate.
 This prevents a selected directory target from acquiring unauthorized future

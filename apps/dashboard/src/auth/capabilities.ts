@@ -43,6 +43,8 @@ export const capabilityKeys = [
   "screen.manage",
   "screen.pair",
   "screen.assign",
+  "screen.locations.manage",
+  "screen.networks.manage",
   "schedule.read",
   "schedule.edit",
   "activity.read",

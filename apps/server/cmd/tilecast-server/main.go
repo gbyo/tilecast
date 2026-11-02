@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/backup"
 	"github.com/tilecast/tilecast/apps/server/internal/campaigns"
 	"github.com/tilecast/tilecast/apps/server/internal/config"
@@ -204,7 +205,7 @@ func serve() {
 		contributions.WithVerifiedPluginFiles(pipelineService.PluginFile),
 		contributions.WithLocalContentDir(pipelineService.LocalContentDir))
 	pipelineService.SetContributions(contributionService)
-	externalPluginService := externalplugins.NewService(db, contributionService, deviceService, deviceService)
+	externalPluginService := externalplugins.NewService(db, contributionService, deviceService)
 	playlistService.SetExternalPluginProjector(externalPluginService)
 	// Startup composes from retained bytes only. A package whose bytes are
 	// missing is skipped with a warning instead of pulling from the
@@ -383,7 +384,7 @@ func serve() {
 	// nothing, and the apply that follows goes through the assignment path.
 	playlistService.SetApprovalGate(approvalService.GateTx)
 	fleetService.SetApprovalGate(approvalService.Gate)
-	fleetService.SetScopeAuthorizer(deviceService)
+	fleetService.SetScopeAuthorizer(authz.New(db))
 	notifyWorker := notify.NewWorker(notifyService, logger)
 	notifyWorker.AddSweeper(contentHealthService)
 	notifyWorker.SetGate(backupGuard.BackgroundJobsAllowed)

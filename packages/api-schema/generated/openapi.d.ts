@@ -1946,9 +1946,9 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet. */
+    /** @description Read an account's screen access: the explicit mode and, for restricted access, the granted locations and Display Groups. Requires users.manage and the admin scope. A restricted policy with no grants reaches no screen. configured is false when the account has no stored policy, which also reaches no screen. */
     get: operations["getUserScreenScopes"];
-    /** @description Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope. */
+    /** @description Replace an account's screen access. Requires users.manage and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. mode is required: all screens is an explicit choice, never an empty grant list. An Owner cannot be restricted, nobody can change their own screen access, and a caller with restricted screen access may grant only locations and Display Groups granted to it directly. */
     put: operations["putUserScreenScopes"];
     post?: never;
     delete?: never;
@@ -3589,7 +3589,7 @@ export interface paths {
     /** @description List screen groups. Requires an authenticated dashboard user. */
     get: operations["listScreenGroups"];
     put?: never;
-    /** @description Create screen group. Requires an authenticated dashboard user. */
+    /** @description Create a Display Group, optionally with its first members, in one transaction. Requires screen.manage. A caller with restricted screen access must name at least one screen, and every named screen and its current group peers must be within its access: an empty group has no anchor and would be unreachable to it (403 out_of_scope). */
     post: operations["createScreenGroup"];
     delete?: never;
     options?: never;
@@ -10026,6 +10026,19 @@ export interface components {
       presentationGatewayScreenId?: string | null;
       clearPresentationGateway?: boolean;
     };
+    ScreenGroupCreateInput: {
+      name: string;
+      description?: string;
+      /** @description First members. Required, and at least one, for a caller with restricted screen access. */
+      screenIds?: string[];
+      /**
+       * Format: uuid
+       * @description Ignored on creation. Set it with an update.
+       */
+      presentationGatewayScreenId?: string | null;
+      /** @description Ignored on creation. */
+      clearPresentationGateway?: boolean;
+    };
     ScreenGroupMemberInput: {
       /** Format: uuid */
       screenId: string;
@@ -11913,6 +11926,14 @@ export interface components {
         /** @description Folders the account may upload into. Absent when the account reaches the whole library, which may also use the root. */
         writableFolderIds?: string[];
       };
+      /** @description The signed-in account's screen access. An account without a stored policy reads as restricted with no grants. */
+      screens: {
+        mode: components["schemas"]["ScreenAccessMode"];
+        /** @description Locations granted directly. Empty for all screens. */
+        locationIds: string[];
+        /** @description Display Groups granted directly. Empty for all screens. */
+        groupIds: string[];
+      };
     };
     ManagedUser: {
       /** Format: uuid */
@@ -11939,8 +11960,25 @@ export interface components {
       id: string;
       name?: string;
     };
+    /**
+     * @description all reaches every screen. restricted reaches the union of the granted locations and Display Groups, and nothing without grants.
+     * @enum {string}
+     */
+    ScreenAccessMode: "all" | "restricted";
+    ScreenAccessInput: {
+      mode: components["schemas"]["ScreenAccessMode"];
+      /** @description Grants for restricted access. Must be empty for all. */
+      scopes?: components["schemas"]["ScreenScope"][];
+    };
     ScreenScopeList: {
+      mode: components["schemas"]["ScreenAccessMode"];
       scopes: components["schemas"]["ScreenScope"][];
+      /** @description False when the account has no stored policy, which reaches no screen until one is saved. */
+      configured: boolean;
+      /**
+       * @deprecated
+       * @description Read mode instead. True exactly when a stored policy is in mode all; never derived from the number of grants.
+       */
       wholeFleet: boolean;
     };
     AuthStatus: {
@@ -17422,6 +17460,8 @@ export interface operations {
           active?: boolean;
           /** @description Media library access for the new account. When omitted, the account receives the creator's own library and tag modes with no grants. */
           contentAccess?: components["schemas"]["ContentAccessInput"];
+          /** @description Screen access for the new account, written in the same transaction as the account. When omitted, the account is restricted with no grants and reaches no screen. An Owner always reaches every screen. A caller with restricted screen access may grant only locations and Display Groups granted to it directly (screen_scope_delegation). */
+          screenAccess?: components["schemas"]["ScreenAccessInput"];
         };
       };
     };
@@ -17451,7 +17491,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Insufficient role */
+      /** @description Insufficient role, or screen access the caller may not delegate */
       403: {
         headers: {
           [name: string]: unknown;
@@ -17465,7 +17505,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Name, username, password, or role invalid */
+      /** @description Name, username, password, role, or screen access invalid */
       422: {
         headers: {
           [name: string]: unknown;
@@ -17739,13 +17779,11 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": {
-          scopes: components["schemas"]["ScreenScope"][];
-        };
+        "application/json": components["schemas"]["ScreenAccessInput"];
       };
     };
     responses: {
-      /** @description Screen scope grants replaced */
+      /** @description Screen access replaced */
       200: {
         headers: {
           [name: string]: unknown;
@@ -17770,7 +17808,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Insufficient role */
+      /** @description Insufficient role, own account (cannot_scope_self), or screen access the caller may not delegate (screen_scope_delegation) */
       403: {
         headers: {
           [name: string]: unknown;
@@ -17784,7 +17822,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Scope invalid or account not scopable */
+      /** @description Mode missing (screen_access_mode_required), grants invalid (scope_invalid), or the account is an Owner (owner_not_scopable) */
       422: {
         headers: {
           [name: string]: unknown;
@@ -22651,7 +22689,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["ScreenGroupInput"];
+        "application/json": components["schemas"]["ScreenGroupCreateInput"];
       };
     };
     responses: {

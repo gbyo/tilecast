@@ -124,6 +124,9 @@ func (s *Service) Setup(ctx context.Context, input SetupInput) (Session, error) 
 	if _, err := tx.Exec(ctx, `INSERT INTO user_content_access(user_id,library_mode,tag_mode) VALUES($1,'all','all')`, user.ID); err != nil {
 		return Session{}, fmt.Errorf("create owner content access: %w", err)
 	}
+	if _, err := tx.Exec(ctx, `INSERT INTO user_screen_access(user_id,mode) VALUES($1,'all')`, user.ID); err != nil {
+		return Session{}, fmt.Errorf("create owner screen access: %w", err)
+	}
 	user.LastLoginAt = &user.CreatedAt
 
 	session, err := s.createSession(ctx, tx, user, "password", false)
