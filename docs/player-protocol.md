@@ -75,6 +75,12 @@ Authenticated `player.status` messages and HTTP heartbeats share the same contac
 
 ### Heartbeat identifier contract
 
+Presentation capability fields are optional in reduced status reports.
+An omitted capability array or map keeps its previous value.
+An explicit empty array or map clears that value.
+Omitting the full presentation capability block also keeps the stored
+Runtime version and bundle limit.
+
 Every identifier field in a heartbeat (`currentItemId`, `currentAssetId`, `currentPlaylistId`, `currentScheduleId`, `currentWebsiteAssetId`, `currentWidgetId`, `activeTakeoverId`, `assignedPlaylistId`, `lastCommandId`, `currentUpdateDeploymentId`) is a UUID. A player that has no valid UUID for one of them omits the field; it must never send a synthetic renderer key such as `layout-<uuid>`, and the server never accepts a non-UUID string in a UUID field. Renderer-local keys belong in bounded string telemetry (`POST /api/v1/player/telemetry` carries `currentItemId` as free text), not in the heartbeat contract. Tilecast Player for Linux validates each identifier before assigning it, logs the omission at debug level, and translates the synthetic key of a directly assigned Layout back to that Layout's UUID.
 
 Server-side handling is deliberately asymmetric. A malformed **optional playback identifier** — the eight fields listed first above — is dropped, named in the warning log, and returned in `data.ignoredFields`; the rest of the heartbeat is then processed normally. This exists because the same message carries the lifecycle facts that settle a self-update (`playerVersion`, `playerVersionCode`, `lastHealthyPlaybackAt`, `playbackState`, `safeMode`), and one unusable telemetry field must not strand a deployment on a healthy screen. A malformed **required, deployment, command, or credential-bearing** field still rejects the whole heartbeat: `currentUpdateDeploymentId` or `lastCommandId` with an unreadable value would misattribute an update or a command result. Dropped values are recorded as absent, never coerced or substituted.
@@ -170,6 +176,11 @@ Every host runs the same frame lifecycle. The manifest claim joins verified byte
 Manifest schema 20 carries executable external Plugin surfaces for Players reporting `plugin.external-runtime@1`. This capability is separate from `widget.external-runtime@2`. A Player that reports only the Widget capability receives no external Plugin entry. A capable Player receives schema 20 even when the plugin array is empty, so the first surface can use the plugin-only refresh. Each entry names its verified package, a frame claim, its surfaces, bounded state, and a deadline at most five minutes ahead. The Player fetches the frame from `GET /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame`, verifies it, and serves it under a stricter response policy than a Widget frame. Plugin frame grants are independent of presentation media grants and Widget grants. A plugin-only change does not activate a presentation. See [External Player plugins](external-player-plugins.md) for the contract and the support matrix.
 
 ## Scheduled playback and offline limits
+
+Server schedule previews check every day in the next seven days for a
+weekly transition.
+Calendar arithmetic uses local noon to avoid daylight-saving gaps.
+The schedule's start and end times keep their existing daylight-saving rules.
 
 Manifest schema v2 is activated atomically only after all Download-policy content for the direct fallback and included schedules is verified. Selection uses `[start, end)` intervals. The player evaluates with one server-corrected clock shared by schedules, availability windows, takeovers, Presentation Overrides, transitions, plugins, and cached playback. The measured offset is persisted/reconstructed before cached selection after restart. Weekly schedules continue offline indefinitely while their definitions and assets remain cached. A future one-time schedule that was not received before disconnection cannot activate. Stream-policy media still requires connectivity and is not guaranteed offline.
 
