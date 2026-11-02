@@ -471,7 +471,7 @@ impl AndroidHost {
                 client.verify_installation(binding.installation_id, credential).await.map_err(|error| {
                     if rejected(&error) { HostError::CredentialRejected } else { HostError::SyncFailed }
                 })?;
-            let host = AndroidManifestHost::new(core.clone(), cas, server, engine, clock, facts);
+            let host = AndroidManifestHost::new(core.clone(), cas, server, engine, clock, facts, manifest_wake.clone());
             let target = host.reconcile(&binding).await.map_err(|error| match &error {
                 player_core::ManifestSyncError::Server(server) if rejected(server) => {
                     HostError::CredentialRejected

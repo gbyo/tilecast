@@ -477,6 +477,10 @@ pub struct AndroidManifestHost {
     engine: Arc<tokio::sync::Mutex<crate::renderer::PresentationEngine>>,
     clock: SharedClock,
     facts: SharedManifestFacts,
+    /// Wakes the offline activation loop. Preparation runs in a background
+    /// worker after the fetch, so a pending manifest only exists once that
+    /// worker finishes; without this wake the loop sleeps to its next tick.
+    manifest_wake: Arc<tokio::sync::Notify>,
 }
 
 impl AndroidManifestHost {
@@ -487,8 +491,9 @@ impl AndroidManifestHost {
         engine: Arc<tokio::sync::Mutex<crate::renderer::PresentationEngine>>,
         clock: SharedClock,
         facts: SharedManifestFacts,
+        manifest_wake: Arc<tokio::sync::Notify>,
     ) -> Self {
-        Self { core, cas, server, engine, clock, facts }
+        Self { core, cas, server, engine, clock, facts, manifest_wake }
     }
 
     /// The connected profile compatibility checks use: the live
@@ -524,6 +529,9 @@ impl AndroidManifestHost {
         if !matches!(prepared, ManifestPrepared::Superseded) {
             let facts = manifest_facts(&target.document, self.clock.now());
             *self.facts.lock().unwrap_or_else(|error| error.into_inner()) = facts;
+        }
+        if matches!(prepared, ManifestPrepared::Repaired | ManifestPrepared::Pending) {
+            self.manifest_wake.notify_one();
         }
         Ok(prepared)
     }
@@ -913,10 +921,18 @@ mod tests {
     }
 
     async fn scratch_parts(dir: &std::path::Path) -> (player_core::PlayerCore, ContentStore) {
+        let (core, store, _) = scratch_parts_with_dependencies(dir).await;
+        (core, store)
+    }
+
+    async fn scratch_parts_with_dependencies(
+        dir: &std::path::Path,
+    ) -> (player_core::PlayerCore, ContentStore, player_core::Dependencies) {
         std::fs::create_dir_all(dir).expect("scratch dir");
         let db = StateDb::open(dir.join("state.db"), OpenOptions::default()).expect("state");
         let clock = std::sync::Arc::new(crate::host::SystemClock);
-        let core = player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: clock.clone() });
+        let dependencies = player_core::Dependencies { state: db.clone(), clock: clock.clone() };
+        let core = player_core::PlayerCore::new(dependencies.clone());
         let store = ContentStore::open(
             dir.join("cas"),
             dir.join("partial"),
@@ -929,7 +945,7 @@ mod tests {
         )
         .await
         .expect("store open");
-        (core, store)
+        (core, store, dependencies)
     }
 
     /// A live engine, clock, and facts slot for host construction.
@@ -981,7 +997,7 @@ mod tests {
         let (base, task) = canned_server(manifest(), unreachable).await;
         let server = verified(&base).await;
         let (engine, clock, facts) = engine_parts(&store);
-        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts, Default::default());
         let binding = binding(base);
 
         // First sync discovers the pending target and prepares it.
@@ -1009,6 +1025,36 @@ mod tests {
         task.abort();
     }
 
+    /// Preparation runs in a background worker after the fetch. The
+    /// activation loop can only select a manifest once that worker has staged
+    /// it, so the worker finishing must wake the loop. Without the wake a new
+    /// assignment waited for the loop's next idle tick (up to a minute).
+    #[tokio::test]
+    async fn worker_preparation_wakes_activation_when_the_manifest_is_staged() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (core, store, dependencies) = scratch_parts_with_dependencies(dir.path()).await;
+        let unreachable = json!({"error": {"code": "not_found", "message": "unused"}});
+        let (base, task) = canned_server(manifest(), unreachable).await;
+        let server = verified(&base).await;
+        let (engine, clock, facts) = engine_parts(&store);
+        let wake = std::sync::Arc::new(tokio::sync::Notify::new());
+        let host =
+            std::sync::Arc::new(AndroidManifestHost::new(core, store, server, engine, clock, facts, wake.clone()));
+        let target = host.reconcile(&binding(base)).await.expect("reconcile").expect("target");
+        // `reconcile` alone must not wake: nothing is staged yet.
+        assert!(tokio::time::timeout(std::time::Duration::from_millis(50), wake.notified()).await.is_err());
+
+        let status = player_core::SharedManifestPreparationStatus::default();
+        let mut preparation = player_core::ManifestPreparationCoordinator::new(dependencies, status.clone());
+        preparation.ensure(Some(target), host, &tokio_util::sync::CancellationToken::new()).await;
+
+        tokio::time::timeout(std::time::Duration::from_secs(10), wake.notified())
+            .await
+            .expect("the worker wakes activation once the manifest is pending");
+        assert_eq!(status.lock().expect("status").state, "pending");
+        task.abort();
+    }
+
     #[tokio::test]
     async fn incompatible_manifest_never_reaches_the_store() {
         let dir = tempfile::tempdir().expect("tempdir");
@@ -1019,7 +1065,7 @@ mod tests {
         let (base, task) = canned_server(document, unreachable).await;
         let server = verified(&base).await;
         let (engine, clock, facts) = engine_parts(&store);
-        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts, Default::default());
         let binding = binding(base);
 
         // Fetch validates structure; preparation enforces the renderer profile.
@@ -1074,7 +1120,7 @@ mod tests {
         let server = verified(&base).await;
         let (engine, clock, facts) = engine_parts(&store);
         let seen = facts.clone();
-        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts, Default::default());
         let target = host.reconcile(&binding(base)).await.expect("reconcile").expect("target");
         host.prepare_target(&target).await.expect("prepare");
         let facts = seen.lock().expect("facts");
@@ -1095,7 +1141,7 @@ mod tests {
         let server = verified(&base).await;
         let (engine, clock, facts) = engine_parts(&store);
         let seen = facts.clone();
-        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts);
+        let host = AndroidManifestHost::new(core, store, server, engine, clock, facts, Default::default());
         let target = host.reconcile(&binding(base)).await.expect("reconcile").expect("target");
         host.prepare_target(&target).await.expect_err("incompatible");
         let facts = seen.lock().expect("facts");
