@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use player_client::pairing::DeviceMetadata;
-use player_core::{PairingHost as CorePairingHost, PairingMetadataProvider, PairingStatus};
+use player_core::{PairingHost as CorePairingHost, PairingMetadataProvider, PairingStatus, PhoneSetupView};
 use player_types::PlayerId;
 use serde::Deserialize;
 
@@ -183,12 +183,16 @@ pub fn status_json(status: &PairingStatus) -> String {
     let value = match status {
         PairingStatus::Paired => serde_json::json!({"state": "paired"}),
         PairingStatus::Enrolled => serde_json::json!({"state": "enrolled"}),
-        PairingStatus::Setup => serde_json::json!({"state": "setup"}),
+        PairingStatus::Setup { phone: None } => serde_json::json!({"state": "setup"}),
+        PairingStatus::Setup { phone: Some(phone) } => {
+            serde_json::json!({"state": "setup", "phoneSetup": phone_json(phone)})
+        }
         PairingStatus::AddressRejected => serde_json::json!({"state": "addressRejected"}),
         PairingStatus::Reset => serde_json::json!({"state": "reset"}),
-        PairingStatus::Waiting { code, approval_url, organization_name, expires_at, server_time } => {
+        PairingStatus::Waiting { server_url, code, approval_url, organization_name, expires_at, server_time } => {
             serde_json::json!({
                 "state": "waiting",
+                "serverUrl": server_url,
                 "code": code,
                 "approvalUrl": approval_url,
                 "organizationName": organization_name,
@@ -199,6 +203,16 @@ pub fn status_json(status: &PairingStatus) -> String {
         PairingStatus::Renewing { reason } => serde_json::json!({"state": "renewing", "reason": reason}),
     };
     value.to_string()
+}
+
+fn phone_json(view: &PhoneSetupView) -> serde_json::Value {
+    match view {
+        PhoneSetupView::Ready { url, rejected } => {
+            serde_json::json!({"state": "ready", "url": url, "rejected": rejected})
+        }
+        PhoneSetupView::Paused => serde_json::json!({"state": "paused"}),
+        PhoneSetupView::Unavailable => serde_json::json!({"state": "unavailable"}),
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -299,6 +313,7 @@ mod tests {
     #[test]
     fn status_shapes_are_stable() {
         let waiting = status_json(&PairingStatus::Waiting {
+            server_url: "https://signs.example".to_owned(),
             code: "ABC123".to_owned(),
             approval_url: "https://signs.example/s".to_owned(),
             organization_name: None,
@@ -307,9 +322,19 @@ mod tests {
         });
         assert_eq!(
             serde_json::from_str::<serde_json::Value>(&waiting).expect("json"),
-            serde_json::json!({"state": "waiting", "code": "ABC123", "approvalUrl": "https://signs.example/s", "organizationName": null, "expiresAt": "2026-08-06T07:06:40Z", "serverTime": "2026-08-06T06:56:40Z"}),
+            serde_json::json!({"state": "waiting", "serverUrl": "https://signs.example", "code": "ABC123", "approvalUrl": "https://signs.example/s", "organizationName": null, "expiresAt": "2026-08-06T07:06:40Z", "serverTime": "2026-08-06T06:56:40Z"}),
         );
         assert!(status_json(&PairingStatus::Paired).contains("paired"));
+        assert_eq!(status_json(&PairingStatus::Setup { phone: None }), r#"{"state":"setup"}"#);
+        let ready = PhoneSetupView::Ready { url: "https://setup.tilecast.org/#v=1".to_owned(), rejected: false };
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&status_json(&PairingStatus::Setup { phone: Some(ready) }))
+                .expect("json"),
+            serde_json::json!({"state": "setup", "phoneSetup": {"state": "ready", "url": "https://setup.tilecast.org/#v=1", "rejected": false}}),
+        );
+        assert!(
+            status_json(&PairingStatus::Setup { phone: Some(PhoneSetupView::Paused) }).contains(r#""state":"paused""#)
+        );
         assert!(status_json(&PairingStatus::Renewing { reason: "expired".to_owned() }).contains("expired"));
     }
 
@@ -321,8 +346,8 @@ mod tests {
         let host = AndroidPairingHost::new(meta.clone(), wake, link.clone(), link);
         let facts = host.metadata(player()).await;
         assert_eq!(facts.model, "Stick");
-        host.show_pairing(PairingStatus::Setup).await;
-        assert_eq!(meta.statuses(), vec![status_json(&PairingStatus::Setup)]);
+        host.show_pairing(PairingStatus::Setup { phone: None }).await;
+        assert_eq!(meta.statuses(), vec![status_json(&PairingStatus::Setup { phone: None })]);
         meta.fail_next(true);
         let fallback = host.metadata(player()).await;
         assert_eq!(fallback.model, "unknown");
@@ -344,7 +369,7 @@ mod tests {
         let manifest = manifest_wake.notified();
         tokio::pin!(manifest);
         manifest.as_mut().enable();
-        host.show_pairing(PairingStatus::Setup).await;
+        host.show_pairing(PairingStatus::Setup { phone: None }).await;
         assert!(
             tokio::time::timeout(std::time::Duration::from_millis(50), &mut notified).await.is_err(),
             "setup must not wake the loop"

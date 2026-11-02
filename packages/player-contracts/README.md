@@ -3,6 +3,7 @@
 This directory contains only cross-player fixtures that do not already have a natural package owner.
 
 - `fixtures/server-url-policy.json` is the shared normalization and security corpus for Linux, Android, and Edge server-address entry.
+- `fixtures/phone-setup-envelope.json` holds the phone setup envelope vectors from `docs/phone-setup.md`. Player Core opens them through `player-client`, and the setup relay tests open them with WebCrypto.
 - `fixtures/widget-frames.json` is the shared v19 sandbox-frame contract: the `tcwidget://cap/` URI shape (exact on the authorization table, handshake-fragment-tolerant at the serving layer), the served sandbox headers, the range-refusal rule, and the `widget.external-runtime` execution-ABI version every frame-capable host advertises.
 
 Runners assert the frame fixture directly: `player-types` pins the constants, `edge-protocol` runs the table-URI corpus, `tilecast-windows` runs the request-URI corpus and the served headers, and `player-runtime` pins the execution-ABI constants. Hosts whose serving layer cannot read the fixture mirror the corpus in their own tests instead: Android's `FrameAuthorizationTest`/`TcWidgetBridgeTest` and the WPE `test-validate`/`test-media-client` suites. When the fixture changes, update the mirrors in the same commit.

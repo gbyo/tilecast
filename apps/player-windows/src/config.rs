@@ -60,6 +60,25 @@ pub struct WindowsConfig {
     pub cas: CasConfig,
     #[serde(default)]
     pub log: LogConfig,
+    #[serde(default)]
+    pub pairing: PairingConfig,
+}
+
+/// Phone setup (docs/phone-setup.md): while the screen has no server, the
+/// setup surface shows a QR code a phone can use to send the server address.
+#[derive(Debug, Clone, serde::Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, default)]
+pub struct PairingConfig {
+    /// `false` shows discovery and manual entry only.
+    pub phone_setup: bool,
+    /// The setup relay. Default: the public Tilecast relay.
+    pub setup_relay_url: Option<String>,
+}
+
+impl Default for PairingConfig {
+    fn default() -> Self {
+        Self { phone_setup: true, setup_relay_url: None }
+    }
 }
 
 impl WindowsConfig {
@@ -88,6 +107,11 @@ impl WindowsConfig {
         }
         if self.cas.reserved_free_bytes >= self.cas.limit_bytes {
             return Err("cas.reserved_free_bytes must be below cas.limit_bytes".to_owned());
+        }
+        if let Some(url) = self.pairing.setup_relay_url.as_deref()
+            && player_core::SetupRelay::at(Some(url)).is_none()
+        {
+            return Err(format!("pairing.setup_relay_url is not an allowed address, got {url}"));
         }
         if let Some(level) = self.log.level.as_deref()
             && !["error", "warn", "info", "debug", "trace"].contains(&level)

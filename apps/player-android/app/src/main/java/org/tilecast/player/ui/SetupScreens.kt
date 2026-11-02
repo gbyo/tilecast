@@ -56,6 +56,7 @@ import java.time.Instant
 import kotlinx.coroutines.delay
 import org.tilecast.player.BuildConfig
 import org.tilecast.player.R
+import org.tilecast.player.core.CorePhoneSetup
 import org.tilecast.player.core.DiscoveredServer
 import org.tilecast.player.core.PlayerState
 import org.tilecast.player.ui.theme.SignalBackground
@@ -201,6 +202,81 @@ private fun ScreenTitle(title: String, body: String? = null) {
     body?.let {
         Spacer(Modifier.height(8.dp))
         Text(it, color = SignalMuted, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+/**
+ * A setup screen with the phone setup QR code beside it while Core runs
+ * phone setup (docs/phone-setup.md). The screen keeps its own layout on
+ * the left; the panel takes the free space on the right.
+ */
+@Composable
+fun WithPhoneSetup(phone: CorePhoneSetup?, resume: () -> Unit, content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) {
+        content()
+        val side = Modifier.align(Alignment.CenterEnd).fillMaxWidth(.32f)
+        when (phone) {
+            is CorePhoneSetup.Ready -> PhoneSetupPanel(phone, side)
+            CorePhoneSetup.Paused -> PhoneSetupPaused(resume, side)
+            CorePhoneSetup.Unavailable, null -> Unit
+        }
+    }
+}
+
+@Composable
+private fun PhoneSetupPanel(phone: CorePhoneSetup.Ready, modifier: Modifier) {
+    val qr = remember(phone.url) { qrCode(phone.url) }
+    Panel(modifier) {
+        Image(
+            qr.asImageBitmap(),
+            "QR code for phone setup",
+            Modifier
+                .align(Alignment.CenterHorizontally)
+                .size(200.dp)
+                .clip(RoundedCornerShape(SignalDimensions.PanelRadius))
+                .background(Color.White)
+                .padding(12.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TvIcon(TvIcons.QrCode, SignalBlue, size = 18.dp)
+            Spacer(Modifier.width(10.dp))
+            Text("Set up with your phone", color = SignalText, style = MaterialTheme.typography.titleLarge)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Scan this code with your phone's camera, then continue in Tilecast Studio.",
+            color = SignalMuted,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        if (phone.rejected) {
+            Spacer(Modifier.height(10.dp))
+            Row {
+                TvIcon(TvIcons.Warning, SignalWarning, size = 16.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "The address from the phone could not be used. Scan the code to try again.",
+                    color = SignalWarning,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhoneSetupPaused(resume: () -> Unit, modifier: Modifier) {
+    Panel(modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconTile(TvIcons.QrCode)
+            Spacer(Modifier.width(16.dp))
+            Column {
+                Text("Phone setup paused", color = SignalText, style = MaterialTheme.typography.titleLarge)
+                Text("The setup code stopped after 30 minutes.", color = SignalMuted, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        SignalOutlinedButton(onClick = resume) { ButtonLabel(TvIcons.QrCode, "Show setup code") }
     }
 }
 

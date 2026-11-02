@@ -47,6 +47,9 @@ export const graph = {
     "browser_player",
   ],
   browser_player: [],
+  // The phone setup relay is a separate Cloudflare Worker. Nothing builds
+  // against it; Players and Studio follow its documented contract.
+  setup_relay: [],
   linux: ["edge_runtime", "edge_conformance"],
   protocol: ["server", "android", "runtime", "edge_rust", "edge_server"],
   activity: ["protocol", "edge_activity"],
@@ -146,8 +149,21 @@ const rules = [
   // the real importer over signed assets, so the importer selects it.
   [/^apps\/server\/(internal\/updates|cmd\/tilecast-release-verify)\//, ["ci"]],
   [/^apps\/ios\//, ["ios"]],
-  // The iOS app runs the shared server-address corpus in its tests.
-  [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],
+  [/^apps\/setup-relay\//, ["setup_relay"]],
+  // The phone setup envelope vectors are opened by Player Core and by the
+  // relay's WebCrypto reference.
+  [
+    /^packages\/player-contracts\/fixtures\/phone-setup-envelope\.json$/,
+    ["player_core", "setup_relay"],
+  ],
+  // The setup page takes its logo from Studio's logo component.
+  [/^apps\/dashboard\/src\/components\/TilecastLogo\.tsx$/, ["setup_relay"]],
+  // The iOS app and the phone setup page run the shared server-address
+  // corpus in their tests.
+  [
+    /^packages\/player-contracts\/fixtures\/server-url-policy\.json$/,
+    ["ios", "setup_relay"],
+  ],
   // The v19 sandbox-frame fixture is pinned by player-types, edge-protocol,
   // tilecast-windows, and player-runtime; Android and WPE mirror it in
   // their own suites. It rides the protocol lane plus the shared crates.

@@ -57,7 +57,7 @@ A host publishes one object, `globalThis.tilecastRuntimeHost`, that implements `
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Host → runtime | `subscribe(listener)` delivers `presentation`, `plugins`, `identify`, `command`, `discovered-server` and `remote-web` messages. |
 | Runtime → host | `ready`, `presentationResult`, `reportEvidence`, `reportPlaybackError`.                                                         |
-| Optional       | `setup.submitServerUrl`, `discovery.list`, `remoteWeb.reportRecovered`, `conformance`.                                          |
+| Optional       | `setup.submitServerUrl`, `setup.resumePhoneSetup`, `discovery.list`, `remoteWeb.reportRecovered`, `conformance`.                |
 
 Behavior depends on `capabilities`, never on `info.host`:
 

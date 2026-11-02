@@ -36,6 +36,9 @@ android {
         buildConfigField("long", "MEDIA_CACHE_BYTES", "${providers.gradleProperty("TILECAST_PLAYER_CACHE_BYTES").orElse("8589934592").get()}L")
         buildConfigField("long", "MINIMUM_FREE_BYTES", "${providers.gradleProperty("TILECAST_PLAYER_MINIMUM_FREE_BYTES").orElse("1073741824").get()}L")
         buildConfigField("long", "AUTOMATIC_VIDEO_THRESHOLD_BYTES", "${providers.gradleProperty("TILECAST_PLAYER_AUTOMATIC_VIDEO_THRESHOLD_BYTES").orElse("268435456").get()}L")
+        // Phone setup (docs/phone-setup.md). Empty turns it off; a debug
+        // build can point at a local relay with -PTILECAST_PLAYER_SETUP_RELAY_URL.
+        buildConfigField("String", "SETUP_RELAY_URL", "\"${providers.gradleProperty("TILECAST_PLAYER_SETUP_RELAY_URL").orElse("https://setup.tilecast.org").get()}\"")
         buildConfigField("int", "CONCURRENT_DOWNLOADS", providers.gradleProperty("TILECAST_PLAYER_CONCURRENT_DOWNLOADS").orElse("2").get())
     }
 
