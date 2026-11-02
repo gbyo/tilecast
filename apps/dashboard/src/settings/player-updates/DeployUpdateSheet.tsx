@@ -413,7 +413,7 @@ export function DeployUpdateSheet({
               value={family}
               onValueChange={(value) => {
                 if (!value || value === family) return;
-                setFamily(value as UpdateFamilyTab);
+                setFamily(value);
                 setReleaseGroupId("");
                 setReleaseId("");
                 setPreparedRelease(undefined);
