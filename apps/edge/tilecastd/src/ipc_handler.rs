@@ -220,6 +220,10 @@ impl IpcHandler for DaemonIpc {
                 tracing::info!(component = "ipc", event = "pairing_requested", ok = result.is_ok());
                 to_value(&SubmitServerUrlResult { ok: result.is_ok(), error: result.err().map(SafeText::lossy) })
             }
+            Method::SetupResumePhoneSetup(_) => {
+                crate::pairing::resume_phone_setup(context);
+                to_value(&serde_json::json!({}))
+            }
             Method::PairingReset(_) => {
                 crate::pairing::reset(context).await;
                 to_value(&serde_json::json!({}))
