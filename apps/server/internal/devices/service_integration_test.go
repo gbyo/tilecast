@@ -108,6 +108,37 @@ func TestCompletePairingCredentialAndRevocationFlow(t *testing.T) {
 	if err := service.Heartbeat(ctx, principal, Heartbeat{ScreenWidth: 1920, ScreenHeight: 1080, AvailableStorageBytes: &storage, UptimeSeconds: &uptime, PlayerVersion: "0.2.0"}, "192.168.1.42:1234"); err != nil {
 		t.Fatal(err)
 	}
+	// Full reports, reduced socket reports, and explicit empty capability
+	// reports must remain distinct across an installation upgrade.
+	assertPresentationCapabilities := func(wantVersion, wantRuntime, wantCapabilities int, wantBytes int64) {
+		t.Helper()
+		var versions []int
+		var runtime, capabilityCount int
+		var bundleBytes int64
+		err := pool.QueryRow(ctx, `SELECT presentation_schema_versions,web_runtime_version,web_bundle_limit_bytes,(SELECT count(*) FROM jsonb_object_keys(native_presentation_capabilities)) FROM screen_player_status WHERE screen_id=$1`, screen.ID).Scan(&versions, &runtime, &bundleBytes, &capabilityCount)
+		if err != nil || runtime != wantRuntime || bundleBytes != wantBytes || capabilityCount != wantCapabilities || (wantVersion == 0 && len(versions) != 0) || (wantVersion != 0 && (len(versions) != 1 || versions[0] != wantVersion)) {
+			t.Fatalf("presentation versions=%v runtime=%d capabilities=%d bundle=%d err=%v", versions, runtime, capabilityCount, bundleBytes, err)
+		}
+	}
+	assertPresentationCapabilities(0, 0, 0, 0)
+	for _, heartbeat := range []Heartbeat{
+		{PresentationSchemaVersions: []int{1}, NativePresentationCapabilities: map[string]int{"layout": 1}, WebRuntimeVersion: 2, WebBundleLimitBytes: 4096},
+		{}, // Omission keeps the full report.
+		{WebRuntimeVersion: 3, WebBundleLimitBytes: 8192}, // Partial reports still update.
+	} {
+		if err := service.Heartbeat(ctx, principal, heartbeat, "192.168.1.42:1234"); err != nil {
+			t.Fatal(err)
+		}
+		if heartbeat.WebRuntimeVersion == 3 {
+			assertPresentationCapabilities(1, 3, 1, 8192)
+		} else {
+			assertPresentationCapabilities(1, 2, 1, 4096)
+		}
+	}
+	if err := service.Heartbeat(ctx, principal, Heartbeat{PresentationSchemaVersions: []int{}, NativePresentationCapabilities: map[string]int{}}, "192.168.1.42:1234"); err != nil {
+		t.Fatal(err)
+	}
+	assertPresentationCapabilities(0, 0, 0, 0)
 	safeMode := true
 	maintenance := time.Now().Add(15 * time.Minute).UTC()
 	pinChanged := time.Now().UTC()
