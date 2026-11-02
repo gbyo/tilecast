@@ -23,8 +23,8 @@ use edge_platform::systemd::Notifier;
 use edge_protocol::bounded::{SafeText, ShortText, ShortToken};
 use edge_protocol::ipc::Role;
 use edge_protocol::ipc::event::{
-    ActivationRef, Event, EvidenceKind, PluginState, PresentationAccepted, PresentationActivate, PresentationRejected,
-    RendererInfo, RendererKind, RendererPlatform, RendererProgress, RendererReady,
+    ActivationRef, Event, EvidenceKind, ItemError, PluginState, PresentationAccepted, PresentationActivate,
+    PresentationRejected, RendererInfo, RendererKind, RendererPlatform, RendererProgress, RendererReady,
 };
 use edge_protocol::ipc::presentation::PresentationDocument;
 use edge_protocol::{InstallationId, ScreenId, Sha256Digest, Timestamp};
@@ -873,6 +873,19 @@ impl FakeRenderer {
             .unwrap();
     }
 
+    async fn item_error(&self, activation: &PresentationActivate, item: &str) {
+        let reference = ActivationRef { activation_id: activation.activation_id, generation: activation.generation };
+        self.client
+            .send_event(Event::ItemError(ItemError {
+                activation: reference,
+                item_id: Some(SafeText::new(item.to_owned()).unwrap()),
+                code: ShortToken::new("playback-error").unwrap(),
+                message: SafeText::new("website failed: offline".to_owned()).unwrap(),
+            }))
+            .await
+            .unwrap();
+    }
+
     async fn evidence(&self, activation: &PresentationActivate, kind: EvidenceKind, item: Option<&str>) {
         let reference = ActivationRef { activation_id: activation.activation_id, generation: activation.generation };
         self.client
@@ -1565,7 +1578,7 @@ async fn replacement_waits_for_an_item_boundary_then_commits() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn rejected_pending_trial_restores_active_without_retrying_failed_version() {
+async fn rejected_pending_trial_restores_active_and_holds_the_failed_version_back() {
     let harness = Harness::new().await;
     let first = Asset::new("first", "image/png");
     let (player, initial_renderer) = harness.committed(&first, 3).await;
@@ -1589,9 +1602,75 @@ async fn rejected_pending_trial_restores_active_without_retrying_failed_version(
     let count = renderer.activation_count();
     item_boundary(&renderer).await;
     settle().await;
-    assert_eq!(renderer.activation_count(), count, "the failed version is not retried");
+    assert_eq!(renderer.activation_count(), count, "the failed version is held back, not retried at once");
     assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 3);
     assert_eq!(player.stage(&binding, Stage::Pending).await.unwrap().version, 4);
+    // The server sees the failure, not a manifest that is still preparing,
+    // and the hold is durable: Core retries it on a bounded backoff.
+    let heartbeat = heartbeat(&player.context).await;
+    assert_eq!(heartbeat["activeManifestVersion"], 3);
+    assert!(heartbeat.get("pendingManifestVersion").is_none(), "{heartbeat}");
+    assert_eq!(heartbeat["lastSynchronizationError"], "activation_trial_failed:renderer_refused");
+    let trial = player
+        .context
+        .db()
+        .unwrap()
+        .run(move |c| manifests::trial(c, &binding))
+        .await
+        .unwrap()
+        .expect("a durable trial record");
+    assert_eq!((trial.failures, trial.state), (1, manifests::TrialState::Failed));
+    renderer.stop();
+    player.stop().await;
+}
+
+/// The Runtime isolates a failed item and keeps rotating. That failure once
+/// failed the whole trial, so a takeover whose first item could not load was
+/// reverted to the superseded presentation until the daemon restarted.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_item_failure_during_a_takeover_trial_does_not_revert_the_takeover() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let (player, renderer) = harness.committed(&first, 3).await;
+    renderer.stop();
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    wait_for("the committed presentation after reconnect", || renderer.last().filter(|a| shows(a, &first))).await;
+    let binding = harness.binding();
+
+    let broken = Asset::new("broken", "image/png");
+    let urgent = Asset::new("urgent", "image/png");
+    harness.fake.add_asset(&broken, AssetMode::Serve);
+    harness.fake.add_asset(&urgent, AssetMode::Serve);
+    let takeover_playlist = uuid::Uuid::new_v4().to_string();
+    let (broken_item, urgent_item) = (uuid::Uuid::new_v4(), uuid::Uuid::new_v4());
+    harness.fake.set_manifest(with(manifest(harness.screen, 4, &[&first, &broken, &urgent]), |m| {
+        m["playlist"]["items"] = json!([first.item(uuid::Uuid::new_v4())]);
+        m["playlists"] = json!([{"id": takeover_playlist, "revision": 1, "name": "Alert",
+            "items": [broken.item(broken_item), urgent.item(urgent_item)]}]);
+        m["takeover"] = json!({"id": uuid::Uuid::new_v4().to_string(), "playlistId": takeover_playlist,
+            "activatedAt": Timestamp::from_unix_millis(now_ms() - 60_000).unwrap().to_string(),
+            "expiresAt": Timestamp::from_unix_millis(now_ms() + 3_600_000).unwrap().to_string()});
+    }));
+    player.push();
+    let grants = |activation: &PresentationActivate, asset: &Asset| {
+        activation.content.iter().any(|content| content.size_bytes == asset.bytes.len() as u64)
+    };
+    let trial = wait_for("the takeover trial", || {
+        renderer.last().filter(|a| grants(a, &broken) && grants(a, &urgent) && !grants(a, &first))
+    })
+    .await;
+    let count = renderer.activation_count();
+    renderer.item_error(&trial, &broken_item.to_string()).await;
+    settle().await;
+    assert_eq!(renderer.activation_count(), count, "an isolated item failure does not revert the takeover");
+    renderer.evidence(&trial, EvidenceKind::ItemStarted, Some(&urgent_item.to_string())).await;
+    renderer.evidence(&trial, EvidenceKind::ImageShown, Some(&urgent_item.to_string())).await;
+    wait_until("the takeover promotes", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|m| m.version == 4)
+    })
+    .await;
+    assert_eq!(renderer.activation_count(), count);
+    assert!(heartbeat(&player.context).await.get("lastSynchronizationError").is_none());
     renderer.stop();
     player.stop().await;
 }
@@ -1750,9 +1829,9 @@ async fn invalid_manifests_never_replace_the_committed_presentation() {
     let other = Asset::new("other", "image/png");
     harness.fake.add_asset(&other, AssetMode::Serve);
 
+    // Versions are labels; a restored server can validly report a lower one.
     let cases: Vec<(&str, Value)> = vec![
         ("another screen", manifest(ScreenId::from_uuid(uuid::Uuid::new_v4()), 4, &[&other])),
-        ("an older version", manifest(harness.screen, 2, &[&other])),
         ("an unknown schema", with(manifest(harness.screen, 4, &[&other]), |m| m["schemaVersion"] = json!(99))),
         (
             "a hash claim that is not SHA-256",

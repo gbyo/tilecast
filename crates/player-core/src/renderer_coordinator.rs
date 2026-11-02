@@ -170,6 +170,17 @@ impl RendererCoordinator {
         self.tracker.reject(connection, reference, code)
     }
 
+    /// An item of the current activation failed. Hosts report it to Activity
+    /// and diagnostics; it never fails an activation trial.
+    pub fn item_failed(
+        &mut self,
+        connection: uuid::Uuid,
+        reference: RendererActivationRef,
+        code: Option<ShortToken>,
+    ) -> bool {
+        self.tracker.item_failed(connection, reference, code)
+    }
+
     pub fn progress(
         &mut self,
         connection: uuid::Uuid,

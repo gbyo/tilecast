@@ -153,7 +153,7 @@ impl player_core::OfflineActivationHost for Host {
         let engine = lock(&self.0);
         player_core::OfflineRendererHealth {
             safe_mode: engine.is_safe_mode(),
-            current_error: engine.current_has_renderer_error(),
+            current_refused: engine.current_refused(),
         }
     }
     async fn set_clock_offset(&self, offset_ms: i64) {

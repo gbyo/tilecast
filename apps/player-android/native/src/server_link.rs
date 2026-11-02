@@ -397,28 +397,6 @@ impl AndroidServerLinkHost {
                 heartbeat["deviceClockOffsetSeconds"] = serde_json::json!(offset);
             }
         }
-        if let Ok(Some(bound)) = self.state.run(|connection| player_state::repo::binding::get(connection)).await
-            && let Some(screen_id) = bound.screen_id
-        {
-            let binding = player_state::repo::manifests::Binding {
-                installation_id: bound.installation_id,
-                screen_id,
-                server_url: bound.server_url,
-            };
-            for (stage, field) in [
-                (player_state::repo::manifests::Stage::Active, "activeManifestVersion"),
-                (player_state::repo::manifests::Stage::Pending, "pendingManifestVersion"),
-            ] {
-                let stage_binding = binding.clone();
-                if let Ok(Some(stored)) = self
-                    .state
-                    .run(move |connection| player_state::repo::manifests::get_for(connection, stage, &stage_binding))
-                    .await
-                {
-                    heartbeat[field] = serde_json::json!(stored.version);
-                }
-            }
-        }
         if let Some(revision) = self.config.accepted_revision() {
             heartbeat["activeConfigRevision"] = serde_json::json!(revision);
         }
@@ -442,11 +420,7 @@ impl AndroidServerLinkHost {
             heartbeat["configurationError"] = serde_json::json!(code);
         }
         let preparation = self.preparation.lock().unwrap_or_else(|error| error.into_inner()).clone();
-        if let Some(reason) =
-            preparation.reason.filter(|_| matches!(preparation.state, "failed" | "incompatible" | "invalid"))
-        {
-            heartbeat["lastSynchronizationError"] = serde_json::json!(reason.chars().take(240).collect::<String>());
-        }
+        player_core::ManifestReport::read(&self.state, &preparation).await.apply(&mut heartbeat);
         if let Some(last) = self.commands.lock().unwrap_or_else(|error| error.into_inner()).clone() {
             heartbeat["lastCommandId"] = serde_json::json!(last.id);
             heartbeat["lastCommandState"] = serde_json::json!(last.state);

@@ -409,7 +409,7 @@ impl PresentationEngine {
         {
             return Ok(false);
         }
-        if !self.current_is_accepted() || !self.current_has_activation_evidence() || self.current_has_renderer_error() {
+        if !self.current_is_accepted() || !self.current_has_activation_evidence() || self.current_refused() {
             return Err("plugin_refresh_renderer_unready");
         }
         validate_media_aliases(&extras.plugin_aliases, &current.content).map_err(|_| "plugin_refresh_invalid")?;
@@ -477,8 +477,9 @@ impl PresentationEngine {
         self.native.tracker().accepted_current()
     }
 
-    pub fn current_has_renderer_error(&self) -> bool {
-        self.native.tracker().has_error()
+    /// The renderer refused the current activation as a whole.
+    pub fn current_refused(&self) -> bool {
+        self.native.tracker().refused()
     }
 
     /// Digests the current activation needs pinned.
@@ -588,7 +589,7 @@ impl PresentationEngine {
         item_id: Option<&str>,
         message: &str,
     ) {
-        if self.native.rejected(
+        if self.native.item_failed(
             *session.id().as_uuid(),
             semantic_ref(activation),
             ShortToken::new(widget_failure_code(code, message)).ok(),

@@ -322,7 +322,7 @@ fn superseded_preparation_can_never_become_active() {
 }
 
 #[test]
-fn cached_manifest_is_bound_to_one_screen_server_and_version() {
+fn cached_manifest_is_bound_to_one_screen_and_server() {
     let (_dir, path) = temp_db();
     let db = StateDb::open(&path, OpenOptions::default()).expect("open");
     let binding = binding();
@@ -341,7 +341,19 @@ fn cached_manifest_is_bound_to_one_screen_server_and_version() {
         document: serde_json::json!({}),
         fetched_at: now(),
     };
-    assert!(!db.run_blocking(move |c| manifests::put_target(c, &stale)).unwrap(), "versions never regress");
+    // A restored server database answers with a lower version. It is still
+    // the server's current manifest, so it becomes the target, prepares and
+    // promotes like any other; the committed presentation stays until then.
+    assert!(db.run_blocking(move |c| manifests::put_target(c, &stale)).unwrap(), "a restored server is the target");
+    let restored = stored(&binding, Sha256Digest::of(b"stale"), 9);
+    assert!(db.run_blocking(move |c| manifests::put_pending_for_target(c, &restored)).unwrap());
+    let lookup = binding.clone();
+    assert_eq!(db.run_blocking(move |c| manifests::get_for(c, Stage::Active, &lookup)).unwrap().unwrap().version, 10);
+    let promote = binding.clone();
+    let restored = Sha256Digest::of(b"stale");
+    assert!(db.run_blocking(move |c| manifests::promote_pending(c, &promote, &restored)).unwrap());
+    let lookup = binding.clone();
+    assert_eq!(db.run_blocking(move |c| manifests::get_for(c, Stage::Active, &lookup)).unwrap().unwrap().version, 9);
     let foreign = Binding { screen_id: ScreenId::from_uuid(uuid::Uuid::new_v4()), ..binding.clone() };
     assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
     let foreign = Binding { server_url: "https://other.example".to_owned(), ..binding.clone() };
@@ -349,6 +361,71 @@ fn cached_manifest_is_bound_to_one_screen_server_and_version() {
     let foreign = Binding { installation_id: InstallationId::from_uuid(uuid::Uuid::new_v4()), ..binding.clone() };
     assert_eq!(db.run_blocking(|c| manifests::get_for(c, Stage::Active, &foreign)).unwrap(), None);
     assert_eq!(db.run_blocking(move |c| manifests::target(c, &foreign)).unwrap(), None);
+}
+
+#[test]
+fn activation_trials_are_bound_to_the_pending_digest_and_cleared_with_it() {
+    use manifests::TrialState;
+    let (_dir, path) = temp_db();
+    let db = StateDb::open(&path, OpenOptions::default()).expect("open");
+    let binding = binding();
+    let (a, b) = (Sha256Digest::of(b"a"), Sha256Digest::of(b"b"));
+    let at = |seconds| Timestamp::from_unix_seconds(seconds).expect("time");
+    let (trial_binding, begin) = (binding.clone(), binding.clone());
+    assert!(!db.run_blocking(move |c| manifests::begin_trial(c, &begin, &a, at(1))).unwrap(), "no pending yet");
+    target(&db, &binding, a, 1);
+    let pending = stored(&binding, a, 1);
+    db.run_blocking(move |c| manifests::put_pending_for_target(c, &pending)).unwrap();
+    let begin = binding.clone();
+    assert!(db.run_blocking(move |c| manifests::begin_trial(c, &begin, &a, at(1))).unwrap());
+    let read = || {
+        let binding = trial_binding.clone();
+        db.run_blocking(move |c| manifests::trial(c, &binding)).unwrap()
+    };
+    let running = read().unwrap();
+    assert_eq!((running.state, running.failures, running.started_at), (TrialState::Running, 0, Some(at(1))));
+    let fail = binding.clone();
+    assert_eq!(
+        db.run_blocking(move |c| manifests::fail_trial(c, &fail, &a, "trial_interrupted", at(61))).unwrap(),
+        Some(1)
+    );
+    let failed = read().unwrap();
+    assert_eq!(
+        (failed.state, failed.retry_at, failed.reason.as_deref()),
+        (TrialState::Failed, Some(at(61)), Some("trial_interrupted"))
+    );
+    // A suspension only stops a running trial; it never forgives a failure.
+    let suspend = binding.clone();
+    db.run_blocking(move |c| manifests::suspend_trial(c, &suspend, &a)).unwrap();
+    assert_eq!(read().unwrap().state, TrialState::Failed);
+    let begin = binding.clone();
+    assert!(db.run_blocking(move |c| manifests::begin_trial(c, &begin, &a, at(70))).unwrap());
+    let suspend = binding.clone();
+    db.run_blocking(move |c| manifests::suspend_trial(c, &suspend, &a)).unwrap();
+    let suspended = read().unwrap();
+    assert_eq!((suspended.state, suspended.failures), (TrialState::Idle, 1), "failures survive a suspension");
+    // Another binding never sees the row; a replacement pending drops it.
+    let foreign = Binding { server_url: "https://other.example".to_owned(), ..binding.clone() };
+    assert_eq!(db.run_blocking(move |c| manifests::trial(c, &foreign)).unwrap(), None);
+    target(&db, &binding, b, 2);
+    let replacement = stored(&binding, b, 2);
+    db.run_blocking(move |c| manifests::put_pending_for_target(c, &replacement)).unwrap();
+    assert_eq!(read(), None, "a new pending digest starts without the old failures");
+    let begin = binding.clone();
+    assert!(db.run_blocking(move |c| manifests::begin_trial(c, &begin, &b, at(80))).unwrap());
+    let promote = binding.clone();
+    assert!(db.run_blocking(move |c| manifests::promote_pending(c, &promote, &b)).unwrap());
+    assert_eq!(read(), None, "promotion commits the trial in the same transaction");
+    // Discarding a stale pending removes its trial too.
+    let c_digest = Sha256Digest::of(b"c");
+    target(&db, &binding, c_digest, 3);
+    let pending = stored(&binding, c_digest, 3);
+    db.run_blocking(move |c| manifests::put_pending_for_target(c, &pending)).unwrap();
+    let fail = binding.clone();
+    db.run_blocking(move |c| manifests::fail_trial(c, &fail, &c_digest, "renderer_refused", at(90))).unwrap();
+    let discard = binding.clone();
+    assert!(db.run_blocking(move |c| manifests::discard_pending(c, &discard, &c_digest)).unwrap());
+    assert_eq!(read(), None);
 }
 
 #[test]
