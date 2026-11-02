@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
-	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
 
@@ -29,6 +29,11 @@ type managedUserInput struct {
 	// with no grants: the whole library from an unrestricted creator, and
 	// nothing from a restricted one.
 	ContentAccess *media.ContentAccessInput `json:"contentAccess,omitempty"`
+	// ScreenAccess sets the new account's screen-access policy. It is
+	// accepted on creation only; later changes use the screen-scopes
+	// endpoint. When omitted, the account reaches no screen: an API caller
+	// that forgets the policy must not create a fleet-wide account.
+	ScreenAccess *screenAccessInput `json:"screenAccess,omitempty"`
 }
 
 // canManageAccount reports whether principal may manage an account that holds
@@ -101,6 +106,22 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 	if body.ContentAccess != nil {
 		contentAccess = *body.ContentAccess
 	}
+	screenAccess := authz.PolicyInput{Mode: authz.ModeRestricted, Grants: []authz.Grant{}}
+	if body.ScreenAccess != nil {
+		screenAccess = body.ScreenAccess.policy()
+	}
+	if body.Role == auth.RoleOwner {
+		// An Owner always reaches every screen; the stored row only keeps
+		// the account well defined if it is ever moved to another role.
+		screenAccess = authz.PolicyInput{Mode: authz.ModeAll, Grants: []authz.Grant{}}
+	}
+	if err := screenAccess.Validate(); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, "scope_invalid", strings.TrimPrefix(err.Error(), authz.ErrPolicyInvalid.Error()+": "))
+		return
+	}
+	if !s.screenAccessDelegable(w, r, principal, screenAccess) {
+		return
+	}
 	passwordHash, err := auth.HashPassword(body.Password)
 	if err != nil {
 		s.internalError(w, r, err)
@@ -144,6 +165,12 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 	// transaction, so no account ever exists in the "no policy" state.
 	if err := media.ReplaceContentAccessTx(r.Context(), tx, actor.ID, actorAccess, user.ID, contentAccess); err != nil {
 		s.writeContentAccessError(w, r, err)
+		return
+	}
+	// Screen access is written in the same transaction, so a new account is
+	// never observable with broader screen access than requested.
+	if err := authz.ReplacePolicyTx(r.Context(), tx, actor.ID, user.ID, screenAccess); err != nil {
+		s.writeScreenAccessError(w, r, err)
 		return
 	}
 	if err := tx.Commit(r.Context()); err != nil {
@@ -455,6 +482,9 @@ func validateManagedUser(input managedUserInput, requirePassword bool) error {
 	if input.Role == "" {
 		return errors.New("role is required")
 	}
+	if !requirePassword && input.ScreenAccess != nil {
+		return errors.New("screen access is set with the screen-scopes endpoint after creation")
+	}
 	if requirePassword || input.Password != "" {
 		if len(input.Password) < 12 || len(input.Password) > 1024 {
 			return errors.New("password must be between 12 and 1024 characters")
@@ -486,25 +516,42 @@ func uniqueViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
-// Screen scopes narrow which screens an account may operate on. They are
-// managed alongside the account itself, under the same role hierarchy that
-// governs editing it, so nobody can widen their own reach.
+// Screen access is an explicit per-account policy: all screens, or the
+// union of granted locations and Display Groups. It is managed alongside the
+// account itself, under the same role hierarchy that governs editing it, so
+// nobody can widen their own reach.
+
+// screenAccessInput is the wire shape of a policy.
+type screenAccessInput struct {
+	Mode   string        `json:"mode"`
+	Scopes []authz.Grant `json:"scopes"`
+}
+
+func (input screenAccessInput) policy() authz.PolicyInput {
+	grants := input.Scopes
+	if grants == nil {
+		grants = []authz.Grant{}
+	}
+	return authz.PolicyInput{Mode: input.Mode, Grants: grants}
+}
 
 func (s *server) getUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
 	if !ok {
 		return
 	}
-	scopes, err := s.devices.ScopesFor(r.Context(), id)
+	policy, err := authz.PolicyFor(r.Context(), s.db, id)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
-		"scopes": scopes,
-		// An empty list means the whole fleet, which is worth saying out loud
-		// rather than leaving a reader to infer from an empty table.
-		"wholeFleet": len(scopes) == 0,
+		"mode":       policy.Mode,
+		"scopes":     policy.Grants,
+		"configured": policy.Configured,
+		// Deprecated: read mode. Kept for older clients; it is derived from
+		// the stored mode, never from the number of grants.
+		"wholeFleet": policy.Configured && policy.Mode == authz.ModeAll,
 	}})
 }
 
@@ -513,9 +560,7 @@ func (s *server) putUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var body struct {
-		Scopes []devices.Scope `json:"scopes"`
-	}
+	var body screenAccessInput
 	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
@@ -527,9 +572,16 @@ func (s *server) putUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 	}
 	actor := principal.User
 	if actor.ID == id {
-		// Otherwise a scoped administrator could simply widen themselves.
+		// Otherwise a restricted administrator could simply widen themselves.
 		writeError(w, http.StatusForbidden, "cannot_scope_self",
-			"You cannot change your own screen scope.")
+			"You cannot change your own screen access.")
+		return
+	}
+	if body.Mode == "" {
+		// The old contract read an empty list as the whole fleet. Guessing
+		// the mode now could widen an account, so it must be stated.
+		writeError(w, http.StatusUnprocessableEntity, "screen_access_mode_required",
+			"Choose all screens or restricted access.")
 		return
 	}
 	var target struct{ Role string }
@@ -545,53 +597,59 @@ func (s *server) putUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "forbidden", "You may not change that account.")
 		return
 	}
-	if !s.screenScopesDelegable(w, r, principal, body.Scopes) {
-		return
-	}
-	if target.Role == "owner" {
+	if target.Role == auth.RoleOwner {
 		// An installation must not be able to lock itself out of its own fleet.
 		writeError(w, http.StatusUnprocessableEntity, "owner_not_scopable",
 			"An Owner always reaches every screen.")
 		return
 	}
-	if err := s.devices.ReplaceScopes(r.Context(), actor.ID, id, body.Scopes); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "scope_invalid", err.Error())
+	policy := body.policy()
+	if err := policy.Validate(); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, "scope_invalid", strings.TrimPrefix(err.Error(), authz.ErrPolicyInvalid.Error()+": "))
+		return
+	}
+	if !s.screenAccessDelegable(w, r, principal, policy) {
+		return
+	}
+	tx, err := s.db.Begin(r.Context())
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	defer tx.Rollback(r.Context()) //nolint:errcheck
+	if err := authz.ReplacePolicyTx(r.Context(), tx, actor.ID, id, policy); err != nil {
+		s.writeScreenAccessError(w, r, err)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		s.internalError(w, r, err)
 		return
 	}
 	s.getUserScreenScopes(w, r)
 }
 
-// screenScopesDelegable keeps a screen-scoped administrator from granting more
-// of the fleet than they reach themselves: they cannot grant the whole fleet,
-// and every location or group they grant must be one of their own grants. It
-// returns false when it has already written the response.
-func (s *server) screenScopesDelegable(w http.ResponseWriter, r *http.Request, principal auth.Principal, scopes []devices.Scope) bool {
-	scoped, err := s.devices.Scoped(r.Context(), principal.User.ID, principal.User.Role)
-	if err != nil {
-		s.internalError(w, r, err)
-		return false
-	}
-	if !scoped {
+// screenAccessDelegable keeps a restricted administrator from granting more
+// of the fleet than they reach themselves. It returns false when it has
+// already written the response.
+func (s *server) screenAccessDelegable(w http.ResponseWriter, r *http.Request, principal auth.Principal, policy authz.PolicyInput) bool {
+	err := s.authorizer().Delegable(r.Context(), authz.ActorFor(principal), policy)
+	switch {
+	case err == nil:
 		return true
-	}
-	if len(scopes) == 0 {
-		writeError(w, http.StatusForbidden, "screen_scope_delegation", "You cannot grant the whole fleet because your own screen access is limited.")
-		return false
-	}
-	own, err := s.devices.ScopesFor(r.Context(), principal.User.ID)
-	if err != nil {
+	case errors.Is(err, authz.ErrDelegation) && policy.Mode == authz.ModeAll:
+		writeError(w, http.StatusForbidden, "screen_scope_delegation", "You cannot grant all screens because your own screen access is restricted.")
+	case errors.Is(err, authz.ErrDelegation):
+		writeError(w, http.StatusForbidden, "screen_scope_delegation", "You can grant only locations and Display Groups granted to you directly.")
+	default:
 		s.internalError(w, r, err)
-		return false
 	}
-	held := map[devices.Scope]bool{}
-	for _, scope := range own {
-		held[devices.Scope{Type: scope.Type, ID: scope.ID}] = true
+	return false
+}
+
+func (s *server) writeScreenAccessError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, authz.ErrPolicyInvalid) {
+		writeError(w, http.StatusUnprocessableEntity, "scope_invalid", strings.TrimPrefix(err.Error(), authz.ErrPolicyInvalid.Error()+": "))
+		return
 	}
-	for _, scope := range scopes {
-		if !held[devices.Scope{Type: scope.Type, ID: scope.ID}] {
-			writeError(w, http.StatusForbidden, "screen_scope_delegation", "You can grant only locations and groups within your own screen access.")
-			return false
-		}
-	}
-	return true
+	s.internalError(w, r, err)
 }

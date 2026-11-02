@@ -24,6 +24,7 @@ import type {
   BulkOperationRequest,
   BulkPreview,
   ContentAccessInput,
+  ScreenAccessInput,
   ContentHealthReport,
   IntegrationScope,
   IntegrationToken,
@@ -355,10 +356,24 @@ export function createUser(
     role: User["role"];
     active?: boolean;
     contentAccess?: ContentAccessInput;
+    screenAccess?: ScreenAccessInput;
   },
   csrfToken: string,
 ) {
-  return apiPost("/api/v1/users", { body: input, csrfToken });
+  return apiPost("/api/v1/users", {
+    body: {
+      ...input,
+      ...(input.screenAccess
+        ? {
+            screenAccess: {
+              mode: input.screenAccess.mode,
+              scopes: input.screenAccess.scopes ?? [],
+            },
+          }
+        : {}),
+    },
+    csrfToken,
+  });
 }
 
 export function updateUser(

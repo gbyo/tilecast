@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
 
@@ -328,11 +329,46 @@ func (s *server) getMyAccess(w http.ResponseWriter, r *http.Request) {
 	if writable != nil {
 		content["writableFolderIds"] = writable
 	}
+	screens, err := s.myScreenAccess(r, principal)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
 		"role":         map[string]any{"key": principal.User.Role, "name": role.Name, "builtin": auth.IsBuiltinRole(principal.User.Role)},
 		"capabilities": principal.Capabilities.Strings(),
 		"content":      content,
+		"screens":      screens,
 	}})
+}
+
+// myScreenAccess is the signed-in account's effective screen access as
+// Studio reads it: the explicit mode, and for a restricted account the
+// locations and Display Groups granted to it directly. A missing policy
+// reads as restricted with no grants, which is what it is.
+func (s *server) myScreenAccess(r *http.Request, principal auth.Principal) (map[string]any, error) {
+	access, err := s.authorizer().Access(r.Context(), authz.ActorFor(principal))
+	if err != nil {
+		return nil, err
+	}
+	result := map[string]any{"mode": access.Mode(), "locationIds": []uuid.UUID{}, "groupIds": []uuid.UUID{}}
+	if access.All || !access.Configured {
+		return result, nil
+	}
+	policy, err := authz.PolicyFor(r.Context(), s.db, principal.User.ID)
+	if err != nil {
+		return nil, err
+	}
+	locations, groups := []uuid.UUID{}, []uuid.UUID{}
+	for _, grant := range policy.Grants {
+		if grant.Type == "location" {
+			locations = append(locations, grant.ID)
+		} else {
+			groups = append(groups, grant.ID)
+		}
+	}
+	result["locationIds"], result["groupIds"] = locations, groups
+	return result, nil
 }
 
 func modeName(all bool) string {

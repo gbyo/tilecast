@@ -1850,7 +1850,7 @@
     "saved": "Red de presentación guardada.",
     "deleted": "Red de presentación eliminada.",
     "saveError": "No se pudo guardar la red de presentación.",
-    "manageOnly": "Solo propietarios y administradores pueden gestionar las redes de presentación.",
+    "manageOnly": "Para gestionar las redes de presentación se necesita la capacidad Administrar redes de presentación y acceso a todas las pantallas.",
     "title": "Wi-Fi temporal para presentaciones locales",
     "description": "Las redes de presentación permiten que reproductores Linux compatibles se unan a Wi-Fi solo mientras una sesión de AirPlay lo necesita. Ethernet sigue siendo la vía normal para el tráfico de Tilecast, descargas y distribución de video en grupo.",
     "credentialsUnavailable": "Las credenciales no están disponibles en este servidor.",

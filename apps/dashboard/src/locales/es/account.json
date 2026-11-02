@@ -107,7 +107,9 @@
       "contentTitle": "Acceso al contenido",
       "contentDescription": "A qué archivos multimedia llega esta persona y qué etiquetas puede aplicar.",
       "screensDescription": "A qué pantallas llega esta persona.",
-      "selfNote": "No puedes cambiar tu propio acceso. Pídeselo a otro administrador."
+      "selfNote": "No puedes cambiar tu propio acceso. Pídeselo a otro administrador.",
+      "screensTitle": "Acceso a pantallas",
+      "screensCreateDescription": "A qué pantallas puede llegar esta persona. Elija todas las pantallas o las ubicaciones y los grupos de pantallas donde trabaja."
     }
   },
   "security": {
@@ -390,6 +392,14 @@
       "screen_assign": {
         "label": "Asignar contenido a pantallas",
         "description": "Elegir qué se reproduce, iniciar tomas de control y presentar con AirPlay."
+      },
+      "screen_locations_manage": {
+        "label": "Administrar ubicaciones",
+        "description": "Crear, cambiar el nombre y eliminar ubicaciones. Requiere acceso a todas las pantallas."
+      },
+      "screen_networks_manage": {
+        "label": "Administrar redes de presentación",
+        "description": "Crear, cambiar y eliminar definiciones de redes de presentación. Requiere acceso a todas las pantallas."
       },
       "schedule_read": {
         "label": "Ver programaciones",

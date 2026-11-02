@@ -9,6 +9,8 @@ import type {
   MyAccess,
   Role,
   RoleInput,
+  ScreenAccessInput,
+  ScreenScopes,
   UserContentAccess,
 } from "../types";
 
@@ -65,4 +67,22 @@ export function putUserContentAccess(
 
 export function getMyAccess(): Promise<MyAccess> {
   return apiGet("/api/v1/me/access", {});
+}
+
+export function getUserScreenScopes(id: string): Promise<ScreenScopes> {
+  return apiGet("/api/v1/users/{id}/screen-scopes", {
+    params: { path: { id } },
+  });
+}
+
+export function putUserScreenScopes(
+  id: string,
+  input: ScreenAccessInput,
+  csrfToken: string,
+): Promise<ScreenScopes> {
+  return apiPut("/api/v1/users/{id}/screen-scopes", {
+    params: { path: { id } },
+    body: { mode: input.mode, scopes: input.scopes ?? [] },
+    csrfToken,
+  });
 }

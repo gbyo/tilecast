@@ -525,7 +525,9 @@
       "nameLabel": "Name",
       "descriptionLabel": "Description",
       "descriptionHint": "Optional. Up to 500 characters.",
-      "createAction": "Create group"
+      "createAction": "Create group",
+      "firstScreensLabel": "First screens",
+      "firstScreensHint": "Your screen access is restricted, so a new group starts with at least one of your screens. A group with no screens would be outside your access."
     },
     "overview": {
       "setupTitle": "Add screens to this Display Group",
@@ -871,7 +873,8 @@
     "approving": "Approving…",
     "actionApprove": "Approve and pair",
     "actionRepair": "Repair and replace credential",
-    "actionReplace": "Replace hardware"
+    "actionReplace": "Replace hardware",
+    "restrictedLocationNote": "Your screen access is restricted, so a new screen goes into one of your locations."
   },
   "takeover": {
     "title": "Takeover",
@@ -1263,24 +1266,26 @@
   "scope": {
     "ownerNote": "Owner access applies to the entire fleet.",
     "modeLegend": "Screen access",
-    "modeFull": "Full fleet access",
-    "modeFullHint": "This account can operate every screen in the fleet.",
-    "modeLimited": "Limit access",
+    "modeFull": "All screens",
+    "modeFullHint": "This account can reach every screen, including screens added later.",
+    "modeLimited": "Only selected locations and Display Groups",
     "combineNote": "Locations and Display Groups combine: a screen is included when its location or one of its groups is selected.",
-    "limitedEmpty": "Select at least one location or Display Group, or choose full fleet access.",
-    "loadError": "Screen scope could not be loaded.",
+    "limitedEmpty": "Nothing is selected, so this account reaches no screens.",
+    "loadError": "Screen access could not be loaded.",
     "limited_one": "This account can operate screens in {{count}} selected place only. It still sees the whole content library.",
     "limited_other": "This account can operate screens in {{count}} selected places only. It still sees the whole content library.",
-    "loading": "Loading scope…",
+    "loading": "Loading screen access…",
     "locations": "Locations",
     "noLocations": "No locations exist.",
     "groups": "Display Groups",
     "noGroups": "No Display Groups exist.",
-    "saved": "Screen scope saved.",
-    "saveAction": "Save screen scope",
+    "saved": "Screen access saved.",
+    "saveAction": "Save screen access",
     "searchLabel": "Search places",
     "searchPlaceholder": "Filter locations and Display Groups",
-    "noMatch": "No places match this search."
+    "noMatch": "No places match this search.",
+    "unconfigured": "This account has no saved screen access, so it reaches no screens. Choose its access and save.",
+    "delegationNote": "Your own screen access is restricted, so you can grant only the locations and Display Groups granted to you."
   },
   "archive": {
     "title": "Screen archive",

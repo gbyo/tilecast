@@ -311,6 +311,19 @@ identity; the host stamps it. Core owns the `data_sources` row mechanics,
 the cached projection storage, usage accounting, and manifest invalidation;
 the plugin owns its domain tables and projection content.
 
+### Screen access
+
+`Host.ScreenAccess` decides what a Studio operator may target. A plugin
+route that stores screen targets, or changes a stored target, calls
+`AuthorizeTargetInTx` or `AuthorizeScreenTargetsInTx` inside the same
+transaction as the write. It calls it for the stored target and for the new
+target. A delete calls it for the stored target before anything changes.
+The host decides with the stored-target rule of
+[Screen access](screen-scopes.md) and the `screen.assign` capability. A
+refusal wraps `plugin.ErrOutOfScope`, which the host writes as
+`403 out_of_scope`. Background work without an operator acts for the
+installation and does not call it.
+
 ### Private plugin assets
 
 `Host.PluginAssets` is bound to the calling plugin's identity. Ingest stamps

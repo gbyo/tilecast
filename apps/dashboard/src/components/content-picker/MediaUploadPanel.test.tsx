@@ -234,6 +234,7 @@ describe("MediaUploadPanel destination", () => {
         tagMode: "restricted",
         writableFolderIds,
       },
+      screens: { mode: "restricted", locationIds: [], groupIds: [] },
     });
     vi.spyOn(api, "contentFolders").mockResolvedValue([room313, room314]);
   }

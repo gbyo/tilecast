@@ -12,6 +12,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/execution"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 	"github.com/tilecast/tilecast/apps/server/internal/targeting"
@@ -22,19 +24,15 @@ type Payloads interface {
 	CurrentPluginPayload(context.Context, string, string, uuid.UUID) (Payload, bool, error)
 }
 type Notifier interface{ ManifestChanged(uuid.UUID, int64) }
-type Authorizer interface {
-	AuthorizeTargetDefinitionInTx(context.Context, pgx.Tx, uuid.UUID, string, targeting.Definition) error
-}
 type Service struct {
-	db         *pgxpool.Pool
-	payloads   Payloads
-	notifier   Notifier
-	now        func() time.Time
-	authorizer Authorizer
+	db       *pgxpool.Pool
+	payloads Payloads
+	notifier Notifier
+	now      func() time.Time
 }
 
-func NewService(db *pgxpool.Pool, payloads Payloads, notifier Notifier, authorizer Authorizer) *Service {
-	return &Service{db: db, payloads: payloads, notifier: notifier, now: time.Now, authorizer: authorizer}
+func NewService(db *pgxpool.Pool, payloads Payloads, notifier Notifier) *Service {
+	return &Service{db: db, payloads: payloads, notifier: notifier, now: time.Now}
 }
 
 func (s *Service) begin(ctx context.Context, call Invocation, id string) (context.Context, pgx.Tx, Payload, error) {
@@ -344,15 +342,21 @@ func (s *Service) invalidate(ctx context.Context, tx pgx.Tx, ids []uuid.UUID, re
 	return manifestchanges.BumpScreens(ctx, tx, eligible, reason)
 }
 
+// authorize decides a Studio operator's change to stored targets inside tx.
+// A background invocation acts for the installation under the package's
+// install-time grant and carries no authority to check. Targets are stored
+// and resolved again later, so they take authz's directory rule.
 func (s *Service) authorize(ctx context.Context, tx pgx.Tx, call Invocation, targets targeting.Definition) error {
-	if call.Actor == nil {
+	if call.Authority == nil {
+		if call.Actor != nil {
+			return fmt.Errorf("%w: a Studio invocation needs its operator's authority", ErrForbidden)
+		}
 		return nil
 	}
-	if call.ActorRole != "owner" && call.ActorRole != "administrator" {
-		return fmt.Errorf("%w: configuration requires an Owner or Administrator", ErrForbidden)
+	if err := authz.Require(*call.Authority, auth.CapPluginsManage); err != nil {
+		return fmt.Errorf("%w: configuration requires the plugins.manage capability", ErrForbidden)
 	}
-	if s.authorizer == nil {
-		return fmt.Errorf("external plugin authorization is unavailable")
-	}
-	return s.authorizer.AuthorizeTargetDefinitionInTx(ctx, tx, *call.Actor, call.ActorRole, targets)
+	return authz.New(tx).Tx(tx).Directory(ctx, *call.Authority, auth.CapScreenAssign, authz.Directory{
+		All: targets.Mode == "all", ScreenIDs: targets.ScreenIDs, GroupIDs: targets.GroupIDs, LocationIDs: targets.LocationIDs,
+	})
 }
