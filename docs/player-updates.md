@@ -4,7 +4,7 @@ Tilecast distributes Android APK and Linux AppImage Player builds, Tilecast
 Edge release archives, and Windows Player MSIX packages, through signed
 published releases at `gbyo/tilecast`. No Google Play, Amazon Developer,
 or paid Android developer account is required. Unknown-app installation remains
-a one-time local commissioning permission. On Android 12 and newer, eligible
+an optional, one-time local Android permission. On Android 12 and newer, eligible
 signed self-updates request Android's supported unattended-update mode. Older
 Android and Fire OS installers may still require local confirmation.
 
@@ -292,7 +292,11 @@ Known SDK below the release minimum is incompatible.
 Current-version rules remain unchanged.
 
 Offline commands wait for the Player to reconnect.
-The commands expire after seven days.
+Each attempt expires seven days after its scheduled start, or seven days after
+creation for an immediate attempt. A retry has a new command and deadline.
+An expired attempt becomes a failed target when no current command remains.
+After seven days without intervention, a paused rollout and its remaining
+targets and commands become cancelled. Terminal deployments stay in history.
 Already-current screens receive no update command.
 Canary size is 1–50 and must leave targets for the next cohort.
 Studio disallows a canary selection that contains already-current screens.

@@ -26,6 +26,8 @@ import { NativeHostProvider } from "./NativeHostProvider";
 import { NativeMediaIntakeRefresh } from "./NativeMediaIntakeRefresh";
 import { useNativeHaptic, useNativeShare } from "./useNativeSystem";
 import { useNativeMediaIntake } from "./useNativeMediaIntake";
+import { mockAuthAs, mockWholeLibrary } from "../test/capabilities";
+import { api } from "../api/client";
 
 type Sent = { version: number; type: string; payload: Record<string, unknown> };
 
@@ -98,6 +100,7 @@ function wrapper(client = new QueryClient()) {
 }
 
 beforeEach(() => {
+  mockWholeLibrary();
   window.webkit = undefined;
 });
 
@@ -391,9 +394,15 @@ describe("the upload panel's Choose files control", () => {
     return render(<MediaUploadPanel csrf="csrf" />, { wrapper: wrapper() });
   }
 
-  it("opens the browser file input in a browser", () => {
+  it("opens the browser file input in a browser", async () => {
     const click = vi.spyOn(HTMLInputElement.prototype, "click");
     renderPanel();
+    // The destination is known once the account's access has loaded.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Choose files" }),
+      ).toBeEnabled(),
+    );
     chooseFiles();
     expect(click).toHaveBeenCalledTimes(1);
   });
@@ -433,6 +442,55 @@ describe("the upload panel's Choose files control", () => {
         feedback: "success",
       }),
     );
+  });
+
+  it("tells the host which folder to upload into for a restricted account", async () => {
+    mockAuthAs("classroom_media", ["media.read", "media.upload"]);
+    vi.spyOn(api, "myAccess").mockResolvedValue({
+      role: { key: "classroom_media", name: "Classroom Media", builtin: false },
+      capabilities: ["media.read", "media.upload"],
+      content: {
+        libraryMode: "restricted",
+        tagMode: "restricted",
+        writableFolderIds: ["folder-313"],
+      },
+    });
+    vi.spyOn(api, "contentFolders").mockResolvedValue([
+      {
+        id: "folder-313",
+        name: "Room 313",
+        description: "",
+        assetCount: 0,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+      },
+    ]);
+    const host = installNativeHost({
+      capabilities: { nativeMediaIntake: true },
+      replies: { "system/media-intake-status": status(true) },
+    });
+    renderPanel();
+    await waitFor(() => {
+      chooseFiles();
+      expect(host.types()).toContain("system/media-intake");
+    });
+    const [request] = host.ofType("system/media-intake");
+    // The host uploads with its own credential, so Studio names the folder.
+    expect(request!.folderId).toBe("folder-313");
+  });
+
+  it("names no folder for an account with the whole library", async () => {
+    const host = installNativeHost({
+      capabilities: { nativeMediaIntake: true },
+      replies: { "system/media-intake-status": status(true) },
+    });
+    renderPanel();
+    await waitFor(() => {
+      chooseFiles();
+      expect(host.types()).toContain("system/media-intake");
+    });
+    const [request] = host.ofType("system/media-intake");
+    expect(request).not.toHaveProperty("folderId");
   });
 
   it("uses the browser file input when the host has no native credential", async () => {

@@ -123,11 +123,13 @@ func TestRollbackRestoresPreviousJobs(t *testing.T) {
 	_ = store.RemovePackage(ctx, "acme.lifecycle")        //nolint:errcheck
 
 	plain := lifecycleManifest("1.0.0", nil)
-	if _, err := f.installer.Activate(ctx, lifecycleActivation(plain, lifecycleDigest('b'), f)); err != nil {
+	first, err := f.installer.Activate(ctx, lifecycleActivation(plain, lifecycleDigest('b'), f))
+	if err != nil {
 		t.Fatalf("activate v1: %v", err)
 	}
 	withJobs := lifecycleManifest("2.0.0", []packagemanifest.BackgroundJob{{ID: "refresh", IntervalMinutes: 15}})
-	if _, err := f.installer.Activate(ctx, lifecycleActivation(withJobs, lifecycleDigest('c'), f)); err != nil {
+	second, err := f.installer.Activate(ctx, lifecycleActivation(withJobs, lifecycleDigest('c'), f))
+	if err != nil {
 		t.Fatalf("activate v2: %v", err)
 	}
 	f.service.reconcileWASMJobs(ctx, "test", withJobs.PackageID, withJobs)
@@ -141,6 +143,12 @@ func TestRollbackRestoresPreviousJobs(t *testing.T) {
 	}
 	if installed.Version != "1.0.0" {
 		t.Fatalf("version after rollback = %q", installed.Version)
+	}
+	if first.ExecutionEpoch == second.ExecutionEpoch || installed.ExecutionEpoch == first.ExecutionEpoch || installed.ExecutionEpoch == second.ExecutionEpoch {
+		t.Fatal("update or rollback reused an execution epoch")
+	}
+	if first.StorageEpoch != second.StorageEpoch || first.StorageEpoch != installed.StorageEpoch {
+		t.Fatal("update or rollback replaced package storage")
 	}
 	jobs, err := wasm.ListJobs(ctx, f.pool, withJobs.PackageID)
 	if err != nil || len(jobs) != 0 {

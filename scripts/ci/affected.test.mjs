@@ -250,6 +250,66 @@ test("the package guest SDK and samples ride the package lanes", () => {
     ["docs"],
   );
 });
+test("external plugin contract fixtures reach every native host", () => {
+  for (const path of [
+    "packages/manifest-schema/external-plugin-entry-fixture.json",
+    "packages/package-sdk/test-fixtures/player-surface-probe.js",
+  ]) {
+    const external = affected([path]);
+    for (const area of [
+      "android",
+      "windows",
+      "runtime",
+      "edge_rust",
+      "edge_wpe",
+      "player_core",
+    ])
+      assert.equal(external[area], true, `${path}: ${area}`);
+  }
+});
+test("the plugin state entry fixture reaches its server, SDK, and native consumers", () => {
+  const path = "packages/manifest-schema/plugin-state-entry-fixture.json";
+  const result = affected([path]);
+  for (const area of [
+    "server",
+    "plugins",
+    "android",
+    "windows",
+    "runtime",
+    "edge_rust",
+    "player_core",
+  ])
+    assert.equal(result[area], true, `${path}: ${area}`);
+});
+test("the native registry and the event fixture reach their consumers", () => {
+  for (const path of [
+    "packages/plugin-native-registry/Cargo.toml",
+    "packages/plugin-native-registry/src/lib.rs",
+  ]) {
+    const result = affected([path]);
+    for (const area of [
+      "plugins",
+      "player_core",
+      "android",
+      "windows",
+      "edge_rust",
+    ])
+      assert.equal(result[area], true, `${path}: ${area}`);
+    assert.equal(result.dashboard, false, path);
+  }
+  const events = affected([
+    "packages/player-contracts/fixtures/plugin-events.json",
+  ]);
+  for (const area of ["player_core", "plugins", "runtime", "windows"])
+    assert.equal(events[area], true, area);
+});
+test("the shared ABI constant and WPE bridge select the Runtime lane", () => {
+  for (const path of [
+    "crates/player-types/src/frames.rs",
+    "apps/edge/renderer-wpe/web/tilecast-bridge.js",
+  ])
+    assert.equal(affected([path]).runtime, true, path);
+});
 test("external Widget fixture changes reach every host and shared SDK", () => {
   for (const path of [
     "packages/player-contracts/fixtures/widget-package/bundle.js",
@@ -413,8 +473,10 @@ test("player contract sources select every native consumer and their drift gate"
     "scripts/generate-player-contracts.mjs",
   ]) {
     const result = affected([path]);
-    if (path.endsWith("server-url-policy.json"))
+    if (path.endsWith("server-url-policy.json")) {
       assert.equal(result.ios, true, `${path}: ios`);
+      assert.equal(result.setup_relay, true, `${path}: setup_relay`);
+    }
     for (const area of [
       "ci",
       "server",
@@ -634,6 +696,20 @@ test("actual stacked base excludes base-only commits and retains rename/delete p
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
+});
+
+test("the phone setup relay has its own lane", () => {
+  assert.deepEqual(selected(["apps/setup-relay/src/rendezvous.ts"]), [
+    "setup_relay",
+  ]);
+  assert.deepEqual(selected(["apps/setup-relay/public/address.js"]), [
+    "setup_relay",
+  ]);
+  const vectors = affected([
+    "packages/player-contracts/fixtures/phone-setup-envelope.json",
+  ]);
+  assert.equal(vectors.player_core, true);
+  assert.equal(vectors.setup_relay, true);
 });
 
 test("Browser Player has its own lane and follows the Runtime and the server code it uses", () => {

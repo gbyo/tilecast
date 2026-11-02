@@ -12,7 +12,7 @@ func TestManifestFixtures(t *testing.T) {
 	for _, group := range []struct {
 		dir   string
 		valid bool
-	}{{"valid", true}, {"invalid", false}} {
+	}{{"valid", true}, {"invalid", false}, {"invalid-semantic", false}} {
 		files, err := filepath.Glob(filepath.Join("..", "..", "testdata", "manifests", group.dir, "*.json"))
 		if err != nil || len(files) == 0 {
 			t.Fatalf("no %s fixtures: %v", group.dir, err)

@@ -214,6 +214,10 @@ tc_host_find_frame (TcHost *host, const char *uri)
     if (strcmp (ref->uri, uri) == 0)
       return ref;
   }
+  for (guint i = 0; i < host->plugin_frames->len; i++) {
+    const TcContentRef *ref = g_ptr_array_index (host->plugin_frames, i);
+    if (strcmp (ref->uri, uri) == 0) return ref;
+  }
   return NULL;
 }
 
@@ -382,15 +386,21 @@ handle_media (WebKitURISchemeRequest *request, gpointer user_data)
   "font-src data: http://127.0.0.1:*/media/; connect-src 'none'; worker-src 'none'; object-src 'none'; "           \
   "base-uri 'none'; form-action 'none'"
 
+#define TC_PLUGIN_FRAME_POLICY                                                                                     \
+  "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; "             \
+  "img-src 'none'; media-src 'none'; font-src 'none'; connect-src 'none'; worker-src 'none'; object-src 'none'; "   \
+  "base-uri 'none'; form-action 'none'"
+
 static void
-finish_frame (WebKitURISchemeRequest *request, const char *socket_path, const char *capability, guint64 length)
+finish_frame (WebKitURISchemeRequest *request, const char *socket_path, const char *capability, guint64 length,
+              gboolean external_plugin)
 {
   g_autoptr (GInputStream) stream = frame_stream_new (socket_path, capability, 0, length);
   g_autoptr (WebKitURISchemeResponse) response = webkit_uri_scheme_response_new (stream, (gint64) length);
   webkit_uri_scheme_response_set_status (response, 200, NULL);
   webkit_uri_scheme_response_set_content_type (response, "text/html");
   SoupMessageHeaders *headers = soup_message_headers_new (SOUP_MESSAGE_HEADERS_RESPONSE);
-  soup_message_headers_append (headers, "Content-Security-Policy", TC_FRAME_SANDBOX_POLICY);
+  soup_message_headers_append (headers, "Content-Security-Policy", external_plugin ? TC_PLUGIN_FRAME_POLICY : TC_FRAME_SANDBOX_POLICY);
   soup_message_headers_append (headers, "X-Content-Type-Options", "nosniff");
   soup_message_headers_append (headers, "Accept-Ranges", "none");
   soup_message_headers_append (headers, "Cache-Control", "no-store");
@@ -452,7 +462,7 @@ handle_widget (WebKitURISchemeRequest *request, gpointer user_data)
     finish_media (request, host->media_socket, capability, 0, 0, 416, "text/html", headers);
     return;
   }
-  finish_frame (request, host->media_socket, capability, size);
+  finish_frame (request, host->media_socket, capability, size, ref->external_plugin);
 }
 
 void

@@ -19,17 +19,17 @@
  * the host decides what an extension class may do. Version 2 adds an
  * optional server runtime module and the bounded capabilities it
  * requests; version 3 keeps those capabilities and adds bounded Tilecast
- * service grants. The declarations are requests, never grants — the host
+ * service grants. Version 4 adds one bounded realtime job. The declarations are requests, never grants — the host
  * decides what is supported and permitted, and installation review
  * shows every requested capability before anything is installed.
  */
 import { z } from "zod";
 
 /** The latest Tilecast package manifest version this SDK implements. */
-export const PACKAGE_API_VERSION = 3;
+export const PACKAGE_API_VERSION = 4;
 
 /** Package manifest versions this release can load. */
-export const SUPPORTED_PACKAGE_API_VERSIONS = [1, 2, 3] as const;
+export const SUPPORTED_PACKAGE_API_VERSIONS = [1, 2, 3, 4] as const;
 
 /** Maximum Tilecast service grants one package may request. */
 export const MAX_SERVICE_GRANTS = 16;
@@ -207,6 +207,19 @@ const capabilitiesSchema = z
   .strictObject({
     network: networkCapabilitySchema.optional(),
     background: backgroundCapabilitySchema.optional(),
+    realtime: z
+      .strictObject({
+        jobs: z
+          .array(
+            z.strictObject({
+              id: capabilityJobId,
+              intervalSeconds: z.number().int().min(5).max(60),
+            }),
+          )
+          .length(1),
+      })
+      .optional()
+      .describe("One high-frequency background job (version 4 only)."),
     storage: z
       .literal(true)
       .optional()
@@ -218,7 +231,7 @@ const capabilitiesSchema = z
       .max(MAX_SERVICE_GRANTS)
       .optional()
       .describe(
-        "Requested versioned Tilecast service grants (version 3 only).",
+        "Requested versioned Tilecast service grants (versions 3 and 4).",
       ),
   })
   .describe("Bounded capabilities the package requests.");
@@ -232,7 +245,7 @@ const runtimeSchema = z
 export const packageManifestSchema = z
   .strictObject({
     apiVersion: z
-      .union([z.literal(1), z.literal(2), z.literal(3)])
+      .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
       .describe(
         "Package manifest version. Versions 2 and 3 declare runtime and capabilities; only 3 declares service grants.",
       ),
@@ -309,7 +322,7 @@ export const packageManifestSchema = z
     capabilities: capabilitiesSchema
       .optional()
       .describe(
-        "Bounded capabilities the package requests (versions 2 and 3; services are version 3 only).",
+        "Bounded capabilities the package requests (versions 2 to 4; services require version 3 or 4; realtime requires version 4).",
       ),
   })
   .describe("Tilecast package manifest (tilecast.package.json).")
@@ -326,17 +339,18 @@ export const packageManifestSchema = z
     }
     if (
       manifest.capabilities?.services !== undefined &&
-      manifest.apiVersion !== 3
+      manifest.apiVersion < 3
     ) {
       context.addIssue({
         code: "custom",
         path: ["capabilities", "services"],
-        message: "service grants require apiVersion 3",
+        message: "service grants require apiVersion 3 or 4",
       });
     }
     const executable = manifest.capabilities
       ? (manifest.capabilities.network ??
         manifest.capabilities.background ??
+        manifest.capabilities.realtime ??
         manifest.capabilities.storage ??
         manifest.capabilities.services)
       : undefined;
@@ -353,6 +367,7 @@ export const packageManifestSchema = z
       capabilities &&
       capabilities.network === undefined &&
       capabilities.background === undefined &&
+      capabilities.realtime === undefined &&
       capabilities.storage === undefined &&
       capabilities.studioUI === undefined &&
       capabilities.services === undefined
@@ -417,6 +432,23 @@ export const packageManifestSchema = z
       seenJobs.add(job.id);
     });
     const services = manifest.capabilities?.services ?? [];
+    const realtime = manifest.capabilities?.realtime;
+    if (realtime && manifest.apiVersion !== 4) {
+      context.addIssue({
+        code: "custom",
+        path: ["capabilities", "realtime"],
+        message: "realtime jobs require apiVersion 4",
+      });
+    }
+    for (const [index, job] of (realtime?.jobs ?? []).entries()) {
+      if (seenJobs.has(job.id)) {
+        context.addIssue({
+          code: "custom",
+          path: ["capabilities", "realtime", "jobs", index, "id"],
+          message: "job ids must be unique across job classes",
+        });
+      }
+    }
     const seenServices = new Set<string>();
     services.forEach((service, index) => {
       const key = `${service.id}@${service.version}`;

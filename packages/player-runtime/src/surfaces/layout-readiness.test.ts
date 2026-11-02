@@ -6,7 +6,7 @@ import { zoneMachine } from "../engine/zone-machine";
 import type {
   RuntimeItem,
   RuntimeLayoutZone,
-  RuntimeLayoutZonePlaylistItem,
+  RuntimeLayoutZoneMediaItem,
 } from "../host/contract";
 import { LayoutSurface } from "./layout-surface";
 import type { SurfaceSink } from "./surface";
@@ -14,7 +14,7 @@ import type { SurfaceSink } from "./surface";
 const entry = (
   id: string,
   kind: "image" | "video" = "image",
-): RuntimeLayoutZonePlaylistItem => ({
+): RuntimeLayoutZoneMediaItem => ({
   id,
   kind,
   src: `tcmedia://${id}`,

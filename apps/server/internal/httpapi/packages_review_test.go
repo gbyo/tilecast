@@ -5,21 +5,36 @@ import (
 	"testing"
 
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
+	externalplugin "github.com/tilecast/tilecast/packages/package-sdk/go/plugin"
 )
+
+func TestRenderReviewIncludesVerifiedSurfacePermissions(t *testing.T) {
+	resolution := pipeline.Resolution{Manifest: packagemanifest.Manifest{Contributions: []packagemanifest.Contribution{{Type: "plugin", Path: "./plugin"}}}}
+	nested := []packages.NestedContribution{{Kind: "plugin", Path: "./plugin", ID: "acme.surface.corner", PluginRuntime: &externalplugin.Runtime{Surfaces: []string{"corner.bottom-left"}, Tier: "ambient"}}}
+	review, err := renderReview(resolution, installer.InstalledPackage{}, false, nested)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(review.Contributions) != 1 || review.Contributions[0].PlayerRuntime == nil || review.Contributions[0].PlayerRuntime.Tier != "ambient" {
+		t.Fatalf("review lacks verified permissions: %+v", review)
+	}
+}
 
 func TestRenderReviewIncludesRuntimeCapabilities(t *testing.T) {
 	storage := true
 	resolution := pipeline.Resolution{
 		Manifest: packagemanifest.Manifest{
-			APIVersion:     3,
+			APIVersion:     4,
 			PackageID:      "acme.athletics",
 			PackageVersion: "3.0.0",
 			Runtime:        &packagemanifest.Runtime{Module: "./runtime/plugin.wasm"},
 			Capabilities: &packagemanifest.Capabilities{
 				Network:    &packagemanifest.NetworkCapability{Hosts: []string{"api.example.com"}},
 				Background: &packagemanifest.BackgroundCapability{Jobs: []packagemanifest.BackgroundJob{{ID: "refresh", IntervalMinutes: 60}}},
+				Realtime:   &packagemanifest.RealtimeCapability{Jobs: []packagemanifest.RealtimeJob{{ID: "fast_refresh", IntervalSeconds: 5}}},
 				Storage:    &storage,
 				StudioUI:   &packagemanifest.StudioUICapability{Entry: "./studio/index.html"},
 				Services:   []packagemanifest.ServiceGrant{{ID: "screens.read", Version: 1}, {ID: "takeovers.manage", Version: 1}},
@@ -49,7 +64,8 @@ func TestRenderReviewIncludesRuntimeCapabilities(t *testing.T) {
 					IntervalMinutes int    `json:"intervalMinutes"`
 				} `json:"jobs"`
 			} `json:"background"`
-			Storage  bool `json:"storage"`
+			Realtime packagemanifest.RealtimeCapability `json:"realtime"`
+			Storage  bool                               `json:"storage"`
 			StudioUI struct {
 				Entry string `json:"entry"`
 			} `json:"studioUI"`
@@ -79,6 +95,9 @@ func TestRenderReviewIncludesRuntimeCapabilities(t *testing.T) {
 	}
 	if !decoded.Capabilities.Storage {
 		t.Fatal("storage capability missing from review")
+	}
+	if len(decoded.Capabilities.Realtime.Jobs) != 1 || decoded.Capabilities.Realtime.Jobs[0].ID != "fast_refresh" || decoded.Capabilities.Realtime.Jobs[0].IntervalSeconds != 5 {
+		t.Fatalf("realtime review omitted cadence: %+v", decoded.Capabilities.Realtime)
 	}
 	if decoded.Capabilities.StudioUI.Entry != "./studio/index.html" {
 		t.Fatalf("studio entry = %q", decoded.Capabilities.StudioUI.Entry)

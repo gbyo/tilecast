@@ -53,7 +53,7 @@ func TestUpdatePreviewRoles(t *testing.T) {
 		t.Run(role, func(t *testing.T) {
 			request := requestWithTestPrincipal(httptest.NewRequest(http.MethodPost, "/api/v1/update-deployments/preview", nil), auth.Session{User: auth.User{Role: role}})
 			response := httptest.NewRecorder()
-			s.requireRoles("owner", "administrator")(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })).ServeHTTP(response, request)
+			s.requireCapability(auth.CapScreenManage)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })).ServeHTTP(response, request)
 			want := http.StatusForbidden
 			if role == "owner" || role == "administrator" {
 				want = http.StatusNoContent

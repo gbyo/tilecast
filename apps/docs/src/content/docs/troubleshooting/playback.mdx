@@ -27,6 +27,24 @@ On Android, an ordinary playlist continues with the entries the Player can rende
 
 Use the [Dependency Graph](../../administration/dependency-graph/) when you need to trace the assets and Data Sources used by a presentation.
 
+## An Android screen is black
+
+A black screen on an Android TV, Google TV, or Fire TV Player can have three different causes. Check **Player health** on the screen's **Overview** first.
+
+- **Renderer disconnected or Renderer unavailable.** The display engine isn't running. Look at **Last renderer failure**. On the TV, the Player shows **Display unavailable** with a reason code and a **Restart display** button, instead of a plain black screen. Select it. If it keeps failing, check that Android System WebView is up to date, then restart Tilecast.
+- **Waiting for playback.** The display engine is running and the content hasn't started yet. Check **Activity** for the item that's loading.
+- **Healthy.** The content is probably black. Check the item in the Media library or Layout preview.
+
+A black screen that lasts more than a few seconds and doesn't show **Display unavailable** is a bug. Report it with the Player version, the Android System WebView version, and the output of `adb logcat -d -s TilecastRenderer`. See [Android development](https://github.com/gbyo/tilecast/blob/main/docs/android-development.md#hardware-qualification) for the log events.
+
+## Changing a screen's default content doesn't update the TV
+
+Studio sends the new content to the Player as soon as you save the assignment. The screen should change within a few seconds. If it doesn't:
+
+1. Open the screen's **Overview** and check **Player health**. The screen must be online with a healthy renderer. Fix a disconnected renderer first.
+2. Check **Activity**. If the new content failed to prepare, Studio shows the reason there, for example a Layout that holds a Playlist zone with a Widget in it.
+3. Check that no Takeover, Quick Present, or active Schedule has priority. They show before the normal assignment.
+
 ## A schedule changes at the wrong time
 
 Check the Schedule's timezone and any Player clock warning.

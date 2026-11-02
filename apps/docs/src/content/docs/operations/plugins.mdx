@@ -9,6 +9,11 @@ import darkScreenshot from "../../../assets/screenshots/plugins-dark.png";
 
 Tilecast plugins add optional features that ship with Tilecast. They are not downloaded from a third-party plugin store. Only an Owner or Administrator can install or remove a plugin.
 
+The Forms, Countdown Bar, and Emergency Alerts listings include an icon and
+screenshots of their configuration and display output. Select a screenshot
+to view it larger. These images ship with Tilecast and need no external image
+service. See the [plugin artwork contract](https://github.com/gbyo/tilecast/blob/main/docs/plugin-api.md).
+
 import { Badge, Steps } from "@astrojs/starlight/components";
 
 <Screenshot
@@ -70,11 +75,15 @@ The sidebar holds two cards. **Package status** leads with the current state, su
 
 A Marketplace package does not list what it adds or what it can do until you review it, because Tilecast reads that from the published package. Select **Review & install** to see it before anything installs. On a wide screen the review opens in a dialog; on a phone it opens as a sheet from the bottom. **Cancel** and **Install plugin** stay in view while you scroll.
 
+Package capabilities are requests, not blanket host access. A server runtime that needs outbound network access declares the HTTPS hostnames it needs, and install or update review shows those hosts before activation. Storage, background jobs, Studio interface access, and Tilecast service grants are likewise bounded capabilities. An update can change those requests, which is why **Review update** calls out permission changes before you install the new version.
+
+A capability in the package manifest is a request, not a self-granted permission. Server network access is limited to the HTTPS hostnames the package declares and Tilecast exposes to that package. The package does not receive the Tilecast Server's general network access or Player credentials. Storage, background jobs, and Studio interfaces are separate requested capabilities and are shown in the same review.
+
 ## Manage installed packages
 
 Open an installed marketplace or custom package from **Extension packages** to manage it:
 
-- **Package status** shows what to do about updates. With no update known, **Check for updates** looks for one. When an update is available, the main action is **Review update**; select it to see the version change, what the update adds or removes, any permissions that change, and how the release was verified. **Update to 1.3.0** installs that exact version. After a check that finds nothing newer, the card says **Up to date**, and **Check again** is there if you want to look again.
+- **Package status** shows what to do about updates. With no update known, **Check for updates** looks for one. When an update is available, the main action is **Review update**; select it to see the version change, what the update adds or removes, any permissions that change, and how the release was verified. A new network host or background job is therefore visible before you activate the update; updating is not an automatic permission expansion. **Update to 1.3.0** installs that exact version. After a check that finds nothing newer, the card says **Up to date**, and **Check again** is there if you want to look again.
 - **Plugin settings** appears for a package that ships its own settings interface. It runs isolated from the Studio page and grows to fit its content, up to a limit; taller content scrolls inside it.
 - **Background jobs** lists each scheduled job with its schedule, last result, and next run. A failed job shows a warning, how many times in a row it failed, and a short error.
 
@@ -94,6 +103,18 @@ External Widgets preview inside an isolated frame in the Widget editor and Layou
 You can also list, install, and remove plugins with `tilecast plugin` in the [command-line interface](../../integrations/cli/). Some installed plugins add their own CLI commands and MCP tools.
 
 See [Configure Emergency Alerts](../emergency-alerts/) for coverage, matching rules, display modes, and poll health.
+
+## Plugin changes during playback
+
+Edge, Windows, and Android Players update plugin surfaces without restarting
+the presentation when the manifest changes only plugin state. The current
+playlist item and synchronized playback continue. If delivery fails, the
+Player retries and keeps the previous committed manifest.
+
+Changes to content, Layouts, Widgets, playback timing, or required resources
+still use the normal presentation activation path. See the
+[Player protocol](https://github.com/gbyo/tilecast/blob/main/docs/player-protocol.md)
+for the exact refresh conditions.
 
 ## Plugin guides
 

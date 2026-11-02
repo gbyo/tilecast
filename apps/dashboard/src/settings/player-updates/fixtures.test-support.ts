@@ -72,8 +72,9 @@ export const groups: ScreenGroup[] = [
   } as ScreenGroup,
 ];
 export function preview(ids: string[]): UpdateDeploymentPreview {
+  const selectedIds = new Set(ids);
   const screens = fleet
-    .filter((s) => ids.includes(s.id))
+    .filter((s) => selectedIds.has(s.id))
     .map((s) => ({
       screenId: s.id,
       screenName: s.name,

@@ -256,6 +256,14 @@ impl FakeServer {
             .insert(asset.path(), (asset.bytes.clone(), asset.mime.clone(), mode, asset.digest().to_hex()));
     }
 
+    /// Serves an external Plugin surface frame under its package download path.
+    fn add_frame(&self, path: &str, bytes: &[u8], mode: AssetMode) {
+        self.assets
+            .lock()
+            .unwrap()
+            .insert(path.to_owned(), (bytes.to_vec(), "text/html".to_owned(), mode, Sha256Digest::of(bytes).to_hex()));
+    }
+
     fn set_mode(&self, asset: &Asset, mode: AssetMode) {
         if let Some(entry) = self.assets.lock().unwrap().get_mut(&asset.path()) {
             entry.2 = mode;
@@ -446,7 +454,10 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Out, st
                 _ => Ok(status(StatusCode::NOT_FOUND, "not_found")),
             }
         }
-        asset_path if asset_path.starts_with("/api/v1/player/assets/") => {
+        asset_path
+            if asset_path.starts_with("/api/v1/player/assets/")
+                || asset_path.starts_with("/api/v1/player/packages/") =>
+        {
             let entry = fake.assets.lock().unwrap().get(asset_path).cloned();
             let Some((bytes, mime, mode, digest_hex)) = entry else {
                 return Ok(status(StatusCode::NOT_FOUND, "media_variant_unavailable"));
@@ -758,9 +769,15 @@ struct FakeRenderer {
 
 impl FakeRenderer {
     async fn connect(socket: &Path, mode: Evidence) -> Self {
-        let client = Arc::new(
-            IpcClient::connect(socket, ClientOptions::new(Role::Renderer, "fake-renderer", "0.1.0")).await.unwrap(),
-        );
+        Self::connect_with(socket, mode, &[]).await
+    }
+
+    /// A renderer that also negotiates session features, such as the
+    /// external Plugin frame channel.
+    async fn connect_with(socket: &Path, mode: Evidence, features: &[&str]) -> Self {
+        let mut options = ClientOptions::new(Role::Renderer, "fake-renderer", "0.1.0");
+        options.features = features.iter().map(|feature| ShortToken::new(*feature).unwrap()).collect();
+        let client = Arc::new(IpcClient::connect(socket, options).await.unwrap());
         let log = Arc::new(Mutex::new(RendererLog::default()));
         let task = tokio::spawn({
             let (client, log) = (Arc::clone(&client), Arc::clone(&log));
@@ -1058,6 +1075,7 @@ impl Harness {
     fn config(&self) -> EdgeConfig {
         let dir = self.dir.path();
         let mut config = EdgeConfig::default();
+        config.pairing.phone_setup = false;
         config.paths.state_dir = Some(dir.join("state"));
         config.paths.runtime_dir = Some(dir.join("run"));
         config.renderer.binary = dir.join("no-renderer");
@@ -1231,6 +1249,236 @@ async fn settle() {
 // ------------------------------------------------------------ scenarios
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn plugin_only_revisions_preserve_playback_identity_and_grants() {
+    plugin_revision_case(false).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn plugin_only_revisions_preserve_the_synchronized_video_timeline() {
+    plugin_revision_case(true).await;
+}
+
+const PLUGIN_FRAME_PATH: &str = "/api/v1/player/packages/acme.surfaces/plugins/corner/frame";
+
+fn plugin_frame(label: &str) -> Vec<u8> {
+    format!("<!doctype html><title>{label}</title><p>{label}</p>").into_bytes()
+}
+
+/// The shared external Plugin manifest fixture, pointing at `frame`.
+fn external_plugin_entry(frame: &[u8], state: Value) -> Value {
+    let mut entry: Value =
+        serde_json::from_str(include_str!("../../../../packages/manifest-schema/external-plugin-entry-fixture.json"))
+            .unwrap();
+    entry["package"]["frame"]["sha256"] = json!(Sha256Digest::of(frame).to_hex());
+    entry["package"]["frame"]["fileSize"] = json!(frame.len());
+    entry["package"]["frame"]["downloadPath"] = json!(PLUGIN_FRAME_PATH);
+    entry["state"] = state;
+    entry
+}
+
+fn plugin_frame_digests(renderer: &FakeRenderer) -> Vec<String> {
+    let log = renderer.log.lock().unwrap();
+    log.plugins
+        .last()
+        .map_or_else(Vec::new, |state| state.plugin_frames.iter().map(|frame| frame.frame_digest.to_hex()).collect())
+}
+
+/// A plugin-only change must leave presentation identity, the shared
+/// timeline, the current item, evidence, and every media grant untouched.
+async fn assert_presentation_untouched(
+    player: &Player,
+    renderer: &FakeRenderer,
+    initial: &PresentationActivate,
+    activations: usize,
+    item: &Option<(String, Timestamp)>,
+) {
+    let engine = player.context.presentation.lock().await;
+    assert_eq!(engine.current().unwrap().id, initial.activation_id);
+    assert_eq!(engine.current().unwrap().generation, initial.generation);
+    assert_eq!(&engine.current_item(), item, "the current video item is never restarted");
+    assert!(engine.current_is_accepted() && engine.current_has_activation_evidence());
+    drop(engine);
+    assert_eq!(renderer.activation_count(), activations, "no presentation activation for a plugin change");
+    let latest = renderer.last().unwrap();
+    assert_eq!(latest.content, initial.content, "presentation media grants are never replaced");
+    assert_eq!(latest.timing, initial.timing, "the synchronized timeline and anchor never move");
+    assert!(latest.timing.is_some(), "the group anchor is present");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn external_plugin_surface_changes_leave_synchronized_video_playback_untouched() {
+    let harness = Harness::new().await;
+    let video = Asset::new("video", "video/mp4");
+    harness.fake.add_asset(&video, AssetMode::Serve);
+    let mut document = grouped(harness.screen, 3, &[&video], &[uuid::Uuid::new_v4()]);
+    document["schemaVersion"] = json!(20);
+    harness.fake.set_manifest(document.clone());
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect_with(
+        &player.socket,
+        Evidence::Auto,
+        &[edge_protocol::ipc::RENDERER_FEATURE_PLUGIN_FRAMES],
+    )
+    .await;
+    let binding = harness.binding();
+    wait_until("initial synchronized video committed", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 3)
+    })
+    .await;
+    let initial = renderer.last().unwrap();
+    assert!(matches!(initial.presentation, PresentationDocument::Playing { synchronized: true, .. }));
+    let activations = renderer.activation_count();
+    let item = player.context.presentation.lock().await.current_item();
+    assert!(plugin_frame_digests(&renderer).is_empty(), "no plugin surface before it is assigned");
+
+    let revision = |version: i64, plugins: Value| {
+        let mut next = document.clone();
+        next["manifestVersion"] = json!(version);
+        next["plugins"] = plugins;
+        next
+    };
+    let promote = async |version: i64, plugins: Value| {
+        harness.fake.set_manifest(revision(version, plugins));
+        player.push();
+        wait_until("plugin-only promotion", || async {
+            player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == version)
+        })
+        .await;
+        settle().await;
+    };
+
+    // Add: the surface arrives as an independent frame grant.
+    let first = plugin_frame("first");
+    harness.fake.add_frame(PLUGIN_FRAME_PATH, &first, AssetMode::Serve);
+    promote(4, json!([external_plugin_entry(&first, json!({"label": "one"}))])).await;
+    assert_presentation_untouched(&player, &renderer, &initial, activations, &item).await;
+    let added = renderer.log.lock().unwrap().plugins.last().unwrap().clone();
+    assert_eq!(added.plugin_frames.len(), 1);
+    assert_eq!(added.plugin_frames[0].kind, edge_protocol::frames::FrameKind::ExternalPlugin);
+    assert_eq!(added.plugin_frames[0].frame_digest, Sha256Digest::of(&first));
+    assert!(
+        added.content.iter().all(|media| media.uri != added.plugin_frames[0].uri),
+        "a plugin frame grant is never a media grant"
+    );
+    assert!(
+        initial.content.iter().all(|media| media.uri != added.plugin_frames[0].uri),
+        "a plugin frame grant is never a presentation grant"
+    );
+    assert_eq!(added.plugins[0]["state"]["label"], "one");
+
+    // Update: new state on the retained, already verified frame.
+    promote(5, json!([external_plugin_entry(&first, json!({"label": "two"}))])).await;
+    assert_presentation_untouched(&player, &renderer, &initial, activations, &item).await;
+    let updated = renderer.log.lock().unwrap().plugins.last().unwrap().clone();
+    assert_eq!(updated.plugins[0]["state"]["label"], "two");
+    assert_eq!(plugin_frame_digests(&renderer), vec![Sha256Digest::of(&first).to_hex()]);
+
+    // Replace: a different verified frame takes over.
+    let second = plugin_frame("second");
+    harness.fake.add_frame(PLUGIN_FRAME_PATH, &second, AssetMode::Serve);
+    promote(6, json!([external_plugin_entry(&second, json!({"label": "three"}))])).await;
+    assert_presentation_untouched(&player, &renderer, &initial, activations, &item).await;
+    assert_eq!(plugin_frame_digests(&renderer), vec![Sha256Digest::of(&second).to_hex()]);
+    let verified = renderer.log.lock().unwrap().plugins.len();
+
+    // A replacement that fails verification never displaces the last
+    // verified surface and never touches playback.
+    let third = plugin_frame("third");
+    harness.fake.add_frame(PLUGIN_FRAME_PATH, &third, AssetMode::Corrupt);
+    harness.fake.set_manifest(revision(7, json!([external_plugin_entry(&third, json!({"label": "four"}))])));
+    player.push();
+    wait_until("the corrupt surface frame refused", || async {
+        heartbeat(&player.context).await["lastSynchronizationError"] == "widget_frame_digest_invalid"
+    })
+    .await;
+    settle().await;
+    assert!(player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 6));
+    assert_eq!(renderer.log.lock().unwrap().plugins.len(), verified, "nothing replaced the verified surface");
+    assert_eq!(plugin_frame_digests(&renderer), vec![Sha256Digest::of(&second).to_hex()]);
+    assert_presentation_untouched(&player, &renderer, &initial, activations, &item).await;
+
+    // Remove: only the plugin surface goes away.
+    promote(8, json!([])).await;
+    assert_presentation_untouched(&player, &renderer, &initial, activations, &item).await;
+    let removed = renderer.log.lock().unwrap().plugins.last().unwrap().clone();
+    assert!(removed.plugins.is_empty() && removed.plugin_frames.is_empty());
+    renderer.stop();
+    player.stop().await;
+}
+
+async fn plugin_revision_case(synchronized: bool) {
+    let harness = Harness::new().await;
+    let video = Asset::new("video", "video/mp4");
+    harness.fake.add_asset(&video, AssetMode::Serve);
+    let document = if synchronized {
+        grouped(harness.screen, 3, &[&video], &[uuid::Uuid::new_v4()])
+    } else {
+        manifest(harness.screen, 3, &[&video])
+    };
+    harness.fake.set_manifest(document);
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    let binding = harness.binding();
+    wait_until("initial video committed", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 3)
+    })
+    .await;
+    let initial = renderer.last().unwrap();
+    let activations = renderer.activation_count();
+    let current_item = player.context.presentation.lock().await.current_item();
+    let mut document = player.stage(&binding, Stage::Active).await.unwrap().document;
+    for version in 4..7 {
+        document["manifestVersion"] = json!(version);
+        document["plugins"] = json!([{"id":"badge", "type":"countdown_bar", "version":1,
+            "config":{"label": format!("revision-{version}")}}]);
+        harness.fake.set_manifest(document.clone());
+        player.push();
+        wait_until("plugin-only promotion", || async {
+            player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == version)
+        })
+        .await;
+        let engine = player.context.presentation.lock().await;
+        assert_eq!(engine.current().unwrap().id, initial.activation_id);
+        assert_eq!(engine.current().unwrap().generation, initial.generation);
+        assert_eq!(engine.current_item(), current_item);
+        assert!(engine.current_is_accepted() && engine.current_has_activation_evidence());
+        drop(engine);
+        settle().await;
+        assert_eq!(renderer.activation_count(), activations, "no presentation activation for plugin state");
+        let latest = renderer.log.lock().unwrap().plugins.last().unwrap().clone();
+        assert_eq!(latest.plugins[0]["config"]["label"], format!("revision-{version}"));
+        assert_eq!(renderer.last().unwrap().content, initial.content, "media capabilities remain unchanged");
+        assert_eq!(renderer.last().unwrap().timing, initial.timing, "shared timeline remains unchanged");
+    }
+    document["manifestVersion"] = json!(7);
+    document["plugins"] = json!([]);
+    harness.fake.set_manifest(document.clone());
+    player.push();
+    wait_until("plugin removal promoted", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 7)
+    })
+    .await;
+    assert!(renderer.log.lock().unwrap().plugins.last().unwrap().plugins.is_empty());
+    assert_eq!(renderer.activation_count(), activations);
+    document["manifestVersion"] = json!(8);
+    document["playlist"]["items"][0]["durationMs"] = json!(20_000);
+    harness.fake.set_manifest(document);
+    player.push();
+    wait_until("changed presentation prepared", || async {
+        player.stage(&binding, Stage::Pending).await.is_some_and(|pending| pending.version == 8)
+    })
+    .await;
+    item_boundary(&renderer).await;
+    wait_until("real timing change promoted", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 8)
+    })
+    .await;
+    assert!(renderer.activation_count() > activations);
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     let harness = Harness::new().await;
     let image = Asset::new("image", "image/png");
@@ -1272,6 +1520,18 @@ async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     assert!(heartbeat["lastHealthyPlaybackAt"].is_string());
     assert_eq!(heartbeat["webRuntimeVersion"], 0);
     assert!(heartbeat["nativePresentationCapabilities"].is_object());
+    // The two external ABIs are separate capabilities with separate versions.
+    assert_eq!(heartbeat["nativePresentationCapabilities"]["plugin.external-runtime"], 1);
+    assert_eq!(heartbeat["nativePresentationCapabilities"]["plugin.host"], 2);
+    assert_eq!(heartbeat["nativePresentationCapabilities"]["player.surface"], 1);
+    assert_eq!(heartbeat["nativePresentationCapabilities"]["player.presentation.provide"], 1);
+    // Events need a transport and no native service exists, so neither is reported.
+    assert!(heartbeat["nativePresentationCapabilities"].get("player.events").is_none());
+    assert!(heartbeat["nativePresentationCapabilities"].get("player.reference.signal").is_none());
+    assert_eq!(
+        heartbeat["nativePresentationCapabilities"]["widget.external-runtime"],
+        edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION
+    );
     renderer.stop();
     player.stop().await;
 }

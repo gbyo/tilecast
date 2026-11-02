@@ -1,10 +1,10 @@
 {
   "apiVersion": 2,
-  "id": "minimal_plugin",
+  "id": "minimal_v2",
   "definitionVersion": 1,
-  "name": "Minimal",
-  "description": "The smallest manifest the API accepts.",
-  "category": "Workflow",
+  "name": "Sample",
+  "description": "A Plugin API v2 fixture.",
+  "category": "Display",
   "icon": "puzzle",
   "maintainers": ["@gbyo"],
   "instanceNoun": {

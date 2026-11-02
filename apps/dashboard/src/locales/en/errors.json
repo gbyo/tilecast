@@ -17,6 +17,17 @@
     "database_unavailable": "The database is not ready.",
     "csrf_failed": "The request could not be verified.",
     "conflict": "The record was modified by someone else. Reload and try again.",
-    "file_read_failed": "Could not read the selected file."
+    "file_read_failed": "Could not read the selected file.",
+    "content_scope_restricted": "This action needs access to the whole library.",
+    "upload_folder_required": "Choose a folder to upload into. Your account can only add media to folders it has access to.",
+    "tag_not_assignable": "Your account can't apply one or more of these tags.",
+    "role_delegation": "You can only give a role capabilities you hold yourself. Only an Owner can allow managing people or roles.",
+    "role_protected": "Built-in roles can't be changed or deleted.",
+    "role_in_use": "People still have this role. Move them to another role first.",
+    "role_name_taken": "A role with that name already exists.",
+    "content_access_delegation": "You can only give folders and tags that your own account can reach.",
+    "cannot_change_own_role": "You can't change your own role.",
+    "cannot_scope_self": "You can't change your own content or screen access.",
+    "last_owner_required": "Tilecast needs at least one active Owner."
   }
 }

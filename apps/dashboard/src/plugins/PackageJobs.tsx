@@ -15,7 +15,11 @@ import { Skeleton } from "../components/ui/skeleton";
 import { ItemRow } from "./detail/CapabilityItems";
 import { DetailSection } from "./detail/DetailSections";
 import { jobName } from "./detail/detailView";
-import { formatCadence, formatRelativeTime } from "./detail/format";
+import {
+  formatCadence,
+  formatSecondsCadence,
+  formatRelativeTime,
+} from "./detail/format";
 
 const maxErrorChars = 160;
 
@@ -82,7 +86,9 @@ function JobRow({ job, separated }: { job: PackageJob; separated: boolean }) {
         <ItemTitle>{jobName(job.jobId)}</ItemTitle>
         <ItemDescription className="line-clamp-none">
           <span className="block">
-            {formatCadence(job.intervalMinutes, i18n.language, t)}
+            {job.kind === "realtime"
+              ? `${t("storeDetail.capabilities.realtime.title")} · ${formatSecondsCadence(job.intervalSeconds ?? 5, i18n.language, t)}`
+              : formatCadence(job.intervalMinutes ?? 5, i18n.language, t)}
           </span>
           {failed ? (
             <>

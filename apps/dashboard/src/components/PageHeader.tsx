@@ -18,7 +18,7 @@ export function PageHeader({
     <header
       className={`flex flex-wrap items-start justify-between gap-3 ${className}`.trim()}
     >
-      <div className="grid min-w-0 gap-1">
+      <div className="grid max-w-full min-w-0 gap-1 [overflow-wrap:anywhere]">
         {eyebrow ? (
           <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
             {eyebrow}

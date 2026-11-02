@@ -235,6 +235,7 @@ export type CapabilityRow =
   | { kind: "network"; hosts: string[] }
   | { kind: "storage" }
   | { kind: "background"; jobs: { id: string; intervalMinutes: number }[] }
+  | { kind: "realtime"; jobs: { id: string; intervalSeconds: number }[] }
   | { kind: "studioUI" }
   | { kind: "service"; grant: PackageServiceGrant };
 
@@ -248,6 +249,9 @@ export function capabilityRows(
   if (capabilities?.storage === true) rows.push({ kind: "storage" });
   if (capabilities?.background) {
     rows.push({ kind: "background", jobs: capabilities.background.jobs });
+  }
+  if (capabilities?.realtime) {
+    rows.push({ kind: "realtime", jobs: capabilities.realtime.jobs });
   }
   if (capabilities?.studioUI) rows.push({ kind: "studioUI" });
   for (const grant of capabilities?.services ?? []) {
@@ -301,6 +305,12 @@ export function diffCapabilities(
 }
 
 function canonical(row: CapabilityRow): CapabilityRow {
+  if (row.kind === "realtime") {
+    return {
+      kind: "realtime",
+      jobs: [...row.jobs].sort((a, b) => a.id.localeCompare(b.id)),
+    };
+  }
   if (row.kind === "network") {
     return { kind: "network", hosts: [...row.hosts].sort() };
   }

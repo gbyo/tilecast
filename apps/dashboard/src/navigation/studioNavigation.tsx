@@ -9,6 +9,12 @@ import {
   usePluginSecondaryNavigation,
 } from "@/plugin-host/secondaryNav";
 import { pluginNamespace } from "@/plugin-host/translation";
+import {
+  requirementMet,
+  useCapabilities,
+  type Capability,
+  type CapabilityRequirement,
+} from "@/auth/capabilities";
 import { studioRouteHandle, useStudioRoutes } from "./studioRoutes";
 
 type NavigationMessages = typeof navigationMessages;
@@ -72,6 +78,8 @@ const pluginContributionOrder = 500;
 export type NavigationDestinationDefinition = StudioNavigationMetadata & {
   /** The route's absolute path. */
   to: string;
+  /** Every capability group the route and its ancestors declare. */
+  requirement: CapabilityRequirement;
 };
 
 export type ResolvedNavigationDestination = {
@@ -115,10 +123,18 @@ export function collectNavigationDestinations(
 ): NavigationDestinationDefinition[] {
   const destinations: NavigationDestinationDefinition[] = [];
   const seen = new Set<string>();
-  const visit = (route: RouteObject, base: string) => {
+  const visit = (
+    route: RouteObject,
+    base: string,
+    inherited: CapabilityRequirement,
+  ) => {
     const absolute =
       typeof route.path === "string" ? joinPath(base, route.path) : base;
-    const navigation = studioRouteHandle(route).navigation;
+    const handle = studioRouteHandle(route);
+    const requirement: CapabilityRequirement = handle.capabilities
+      ? [...inherited, handle.capabilities]
+      : inherited;
+    const navigation = handle.navigation;
     if (navigation) {
       const to = absolute || "/";
       if (seen.has(navigation.id)) {
@@ -132,11 +148,11 @@ export function collectNavigationDestinations(
         );
       }
       seen.add(navigation.id);
-      destinations.push({ ...navigation, to });
+      destinations.push({ ...navigation, to, requirement });
     }
-    route.children?.forEach((child) => visit(child, absolute));
+    route.children?.forEach((child) => visit(child, absolute, requirement));
   };
-  routes.forEach((route) => visit(route, ""));
+  routes.forEach((route) => visit(route, "", []));
   return destinations;
 }
 
@@ -183,17 +199,30 @@ export function pluginDestinationId(pluginId: string, itemId: string) {
 function useResolvedStudioNavigation(): ResolvedStudioNavigation {
   const routes = useStudioRoutes();
   const { t } = useTranslation("navigation");
-  const core = useMemo(() => collectNavigationDestinations(routes), [routes]);
+  const capabilities = useCapabilities();
+  const all = useMemo(() => collectNavigationDestinations(routes), [routes]);
+  // A destination the role cannot use is not offered: not in the sidebar, not
+  // in a native host's catalog. The route guard refuses a typed address too.
+  const core = useMemo(
+    () =>
+      all.filter((destination) =>
+        requirementMet(destination.requirement, capabilities),
+      ),
+    [all, capabilities],
+  );
+  const pluginsAllowed = capabilities.can("plugins.use" satisfies Capability);
   // A malformed contribution fails the shell loudly rather than rendering a
   // broken sidebar, so this runs outside any error boundary that would hide
   // it.
   const contributions = useMemo(
     () =>
-      collectSecondaryNavItems(
-        studioPlugins(),
-        core.map((destination) => destination.to),
-      ),
-    [core],
+      pluginsAllowed
+        ? collectSecondaryNavItems(
+            studioPlugins(),
+            all.map((destination) => destination.to),
+          )
+        : [],
+    [all, pluginsAllowed],
   );
   const visible = usePluginSecondaryNavigation(contributions);
 

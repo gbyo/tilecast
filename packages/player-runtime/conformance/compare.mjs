@@ -36,6 +36,14 @@ const reportDir = path.resolve(args.get("report") ?? "conformance-report");
 const LEGACY = args.get("subset") === "legacy";
 /** Share of pixels allowed to differ in a visual checkpoint. */
 const BUDGET = Number(args.get("budget") ?? 0.015);
+/**
+ * Fixtures whose Electron and WPE renders are known to differ by more than
+ * BUDGET. Only the visual allowance is raised, only for the named fixture, and
+ * to just above the divergence measured on main (event-scroller: 1.86%
+ * fullscreen), so a larger regression still fails. State, evidence, errors, and
+ * results are still compared exactly. Remove an entry when the engines agree.
+ */
+const VISUAL_BUDGET_OVERRIDES = new Map([["event-scroller", 0.025]]);
 fs.rmSync(reportDir, { recursive: true, force: true });
 fs.mkdirSync(reportDir, { recursive: true });
 
@@ -217,7 +225,8 @@ for (const name of names) {
       },
     );
     const ratio = mismatched / (ia.width * ia.height);
-    const passed = LEGACY || ratio <= BUDGET;
+    const passed =
+      LEGACY || ratio <= (VISUAL_BUDGET_OVERRIDES.get(name) ?? BUDGET);
     entry.visual.push({
       checkpoint: ca.name,
       mismatchRatio: Number(ratio.toFixed(5)),

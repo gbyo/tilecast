@@ -8,12 +8,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import type { Screen } from "../api/types";
 import { ScreenDetailPage } from "./ScreensPage";
+import { builtinCapabilities } from "../test/capabilities";
 
 vi.mock("../auth/AuthProvider", () => ({
   useAuth: () => ({
     status: {
       csrfToken: "csrf",
       user: { id: "u1", name: "Owner", role: "owner" },
+      capabilities: builtinCapabilities("owner"),
     },
   }),
 }));

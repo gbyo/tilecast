@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/externalplugins"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
@@ -30,6 +31,7 @@ type Service struct {
 	sources               SourceProjector
 	definitions           contentdefs.Catalogs
 	plugins               PluginProjector
+	externalPlugins       ExternalPluginProjector
 	presentationOverrides PresentationOverrideProjector
 	span                  SpanProjector
 	// approvalGate refuses assignment of content that is waiting for review.
@@ -49,6 +51,11 @@ type SourceProjector interface {
 
 type PluginProjector interface {
 	ManifestForScreen(context.Context, uuid.UUID) ([]plugins.ManifestPlugin, error)
+	PlayerStateForScreen(context.Context, uuid.UUID, map[string]int) ([]plugins.PlayerStateEntry, error)
+}
+
+type ExternalPluginProjector interface {
+	ManifestForScreen(context.Context, uuid.UUID) ([]externalplugins.Entry, error)
 }
 
 type SpanProjector interface {
@@ -72,7 +79,10 @@ func (s *Service) SetScheduling(service *scheduling.Service)          { s.schedu
 func (s *Service) SetSourceProjector(projector SourceProjector)       { s.sources = projector }
 func (s *Service) SetContentDefinitions(catalog contentdefs.Catalogs) { s.definitions = catalog }
 func (s *Service) SetPluginProjector(projector PluginProjector)       { s.plugins = projector }
-func (s *Service) SetSpanProjector(projector SpanProjector)           { s.span = projector }
+func (s *Service) SetExternalPluginProjector(projector ExternalPluginProjector) {
+	s.externalPlugins = projector
+}
+func (s *Service) SetSpanProjector(projector SpanProjector) { s.span = projector }
 func (s *Service) SetPresentationOverrides(projector PresentationOverrideProjector) {
 	s.presentationOverrides = projector
 }
@@ -1665,7 +1675,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			return Manifest{}, "", err
 		}
 	}
-	manifest := Manifest{SchemaVersion: 11, ManifestVersion: assignment.ManifestVersion, ScreenID: screenID, GeneratedAt: changed, ServerTime: now, Mode: "presentation", Assets: []ManifestAsset{}, Playlists: []ManifestPlaylist{}, Layouts: []ManifestLayout{}, Schedules: []ManifestSchedule{}, Websites: []ManifestWebsite{}, Widgets: []ManifestWidget{}, DataSources: []ManifestDataSource{}, Plugins: []plugins.ManifestPlugin{}, PrefetchHorizonDays: prefetch, ActivationGraceSeconds: grace}
+	manifest := Manifest{SchemaVersion: 11, ManifestVersion: assignment.ManifestVersion, ScreenID: screenID, GeneratedAt: changed, ServerTime: now, Mode: "presentation", Assets: []ManifestAsset{}, Playlists: []ManifestPlaylist{}, Layouts: []ManifestLayout{}, Schedules: []ManifestSchedule{}, Websites: []ManifestWebsite{}, Widgets: []ManifestWidget{}, DataSources: []ManifestDataSource{}, Plugins: []ManifestPluginEntry{}, PrefetchHorizonDays: prefetch, ActivationGraceSeconds: grace}
 	// Branding is part of the player fallback, not a dashboard-only concern.
 	// Project its exact image variant into the same verified asset set so a
 	// paired player can render the no-content screen while offline. A stale or
@@ -1702,9 +1712,14 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		}
 	}
 	if s.plugins != nil {
-		manifest.Plugins, err = s.plugins.ManifestForScreen(ctx, screenID)
+		var builtin []plugins.ManifestPlugin
+		builtin, err = s.plugins.ManifestForScreen(ctx, screenID)
 		if err != nil {
 			return Manifest{}, "", err
+		}
+		for _, entry := range builtin {
+			copy := entry
+			manifest.Plugins = append(manifest.Plugins, ManifestPluginEntry{Builtin: &copy})
 		}
 	}
 	var syncGroup ManifestSyncGroup
@@ -2198,6 +2213,10 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		}
 	}
 	compiled := make([]*WidgetPresentation, len(manifest.Widgets))
+	zoneWidgets, err := layoutPlaylistWidgets(ctx, s.db, uniqueUUIDs(playlistIDs), uniqueUUIDs(layoutIDs))
+	if err != nil {
+		return Manifest{}, "", err
+	}
 	componentsV2 := make([]*WidgetPresentation, len(manifest.Widgets))
 	componentsV3 := make([]*WidgetPresentation, len(manifest.Widgets))
 	componentsFrame := make([]*WidgetPresentation, len(manifest.Widgets))
@@ -2220,6 +2239,12 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		if err != nil {
 			return Manifest{}, "", fmt.Errorf("%w: Widget “%s” cannot be compiled: %v", ErrConflict, widget.Name, err)
 		}
+		if zoneWidgets[widget.AssetID] {
+			requireLayoutPlaylistWidgets(compiled[index])
+			requireLayoutPlaylistWidgets(componentsV2[index])
+			requireLayoutPlaylistWidgets(componentsV3[index])
+			requireLayoutPlaylistWidgets(componentsFrame[index])
+		}
 		if compiled[index] == nil && componentsV2[index] == nil && componentsV3[index] == nil {
 			canCompileV13 = false
 			break
@@ -2228,6 +2253,9 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	playerCapabilities, capabilityErr := readPlayerPresentationCapabilities(ctx, s.db, screenID)
 	if capabilityErr != nil {
 		return Manifest{}, "", capabilityErr
+	}
+	if len(zoneWidgets) > 0 && playerCapabilities.Native[layoutPlaylistWidgetsCapability] < 1 {
+		return Manifest{}, "", fmt.Errorf("%w: %s requires %s@1 for Layout playlist Widgets", ErrConflict, screenDisplayName(ctx, s.db, screenID), layoutPlaylistWidgetsCapability)
 	}
 	useV13 := false
 	usesComponents := false
@@ -2364,6 +2392,30 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			manifest.SchemaVersion = 14
 		} else {
 			downgradeManifestCrossfades(&manifest)
+		}
+	}
+	if s.externalPlugins != nil && playerCapabilities.Reported && playerCapabilities.Native["plugin.external-runtime"] >= 1 {
+		// Capable Players receive the stable superset even with no entries,
+		// so adding the first plugin changes only plugins and revision data.
+		manifest.SchemaVersion = ManifestSchemaExternalPlugins
+		entries, err := s.externalPlugins.ManifestForScreen(ctx, screenID)
+		if err != nil {
+			return Manifest{}, "", err
+		}
+		if len(entries) > 0 {
+			for _, entry := range entries {
+				copy := entry
+				manifest.Plugins = append(manifest.Plugins, ManifestPluginEntry{External: &copy})
+			}
+		}
+	}
+	if s.plugins != nil && reportsPlayerPluginHost(playerCapabilities) {
+		// Like external plugins above, a capable Player receives the stable
+		// superset even with no entries, so the first state change is a
+		// plugin-only revision rather than a schema change.
+		manifest.SchemaVersion = ManifestSchemaPlayerPlugins
+		if err := s.projectPlayerState(ctx, &manifest, screenID, playerCapabilities.Native, now); err != nil {
+			return Manifest{}, "", err
 		}
 	}
 	encoded, encodeErr := json.Marshal(manifest)

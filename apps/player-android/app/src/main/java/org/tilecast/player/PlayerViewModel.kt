@@ -9,26 +9,37 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.tilecast.player.content.PlayerUpdateManager
 import org.tilecast.player.content.UpdateUiState
+import org.tilecast.player.core.CoreBeginResult
 import org.tilecast.player.core.CoreHostState
+import org.tilecast.player.core.CoreIdentity
+import org.tilecast.player.core.CoreManifestResult
 import org.tilecast.player.core.CorePlatformConfig
 import org.tilecast.player.core.CorePlayerConfig
+import org.tilecast.player.core.CorePairingState
+import org.tilecast.player.core.CorePhoneSetup
+import org.tilecast.player.core.CoreRecoveryResult
 import org.tilecast.player.core.DiscoveredServer
+import org.tilecast.player.core.PairingTarget
 import org.tilecast.player.core.PlayerCoreHost
 import org.tilecast.player.core.PlayerState
+import org.tilecast.player.core.ReconnectBackoff
 import org.tilecast.player.core.SetupPhase
 import org.tilecast.player.core.ServerUrlPolicy
 import org.tilecast.player.core.mapPlayerState
 import org.tilecast.player.network.LanDiscovery
-import org.tilecast.player.network.ServerIdentity
 import org.tilecast.player.reliability.BootRecovery
 import org.tilecast.player.reliability.CommissioningController
 import org.tilecast.player.reliability.CommissioningStatus
@@ -38,17 +49,72 @@ import org.tilecast.player.security.CredentialStore
 import org.tilecast.player.security.MigratingCredentialStore
 import java.time.Instant
 
+/** Narrow host seam used to exercise PlayerViewModel setup without JNI. */
+internal interface PlayerViewModelHost {
+    val state: StateFlow<CoreHostState>
+    val pairingState: StateFlow<CorePairingState>
+    val updateManager: PlayerUpdateManager?
+
+    suspend fun startDrivers()
+    suspend fun refreshStatus()
+    suspend fun fetchIdentity(url: String): CoreIdentity
+    suspend fun beginPairing(url: String): CoreBeginResult
+    suspend fun resetPairing(): Boolean
+    suspend fun resetServer(): Boolean
+    suspend fun resumePhoneSetup(): Boolean = false
+    suspend fun syncManifest(): CoreManifestResult
+    suspend fun rendererRecovery(json: String): CoreRecoveryResult
+    suspend fun effectiveConfig(): CorePlayerConfig
+    suspend fun reportObservations(json: String): Int
+}
+
+private class ProductionPlayerViewModelHost(
+    private val delegate: PlayerCoreHost,
+) : PlayerViewModelHost {
+    override val state = delegate.state
+    override val pairingState = delegate.pairingState
+    override val updateManager = delegate.updateManager
+
+    override suspend fun startDrivers() = delegate.startDrivers()
+    override suspend fun refreshStatus() = delegate.refreshStatus()
+    override suspend fun fetchIdentity(url: String) = delegate.fetchIdentity(url)
+    override suspend fun beginPairing(url: String) = delegate.beginPairing(url)
+    override suspend fun resetPairing() = delegate.resetPairing()
+    override suspend fun resetServer() = delegate.resetServer()
+    override suspend fun resumePhoneSetup() = delegate.resumePhoneSetup()
+    override suspend fun syncManifest() = delegate.syncManifest()
+    override suspend fun rendererRecovery(json: String) = delegate.rendererRecovery(json)
+    override suspend fun effectiveConfig() = delegate.effectiveConfig()
+    override suspend fun reportObservations(json: String) = delegate.reportObservations(json)
+}
+
+internal fun interface LanDiscoverySource {
+    fun discover(): kotlinx.coroutines.flow.Flow<DiscoveredServer>
+}
+
 /**
  * The production Player UI state. Core owns pairing, content, presence,
  * and recovery; this ViewModel owns what Android must do itself: the
  * setup flow (discovery plus a credential-free identity check), the
  * Core state projection the screens render, platform configuration
- * effects, commissioning, updates, OS power effects, and the platform
- * observations Core merges into its heartbeat.
+ * effects, readiness reporting, updates, OS power effects, and the
+ * platform observations Core merges into its heartbeat.
+ *
+ * Setup runs unattended. The Player searches until it finds a server,
+ * pairs at once when it finds exactly one, retries failures with backoff,
+ * and asks for a new code after revocation. An installer only acts when
+ * several servers answer, none answer, or the server identity changed.
  */
-class PlayerViewModel(application: Application) : AndroidViewModel(application) {
-    private val host = PlayerCoreHost.get(application)
-    private val discovery = LanDiscovery(application)
+class PlayerViewModel internal constructor(
+    application: Application,
+    private val host: PlayerViewModelHost,
+    private val discovery: LanDiscoverySource,
+) : AndroidViewModel(application) {
+    constructor(application: Application) : this(
+        application,
+        ProductionPlayerViewModelHost(PlayerCoreHost.get(application)),
+        LanDiscoverySource { LanDiscovery(application).discover() },
+    )
     private val reliability = ReliabilityController(application)
     private val commissioningController = CommissioningController(application, reliability)
     private val credentials: CredentialStore = MigratingCredentialStore.forProduction(application)
@@ -56,7 +122,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     private val updates = host.updateManager
 
     private val mutableSetup = MutableStateFlow<SetupPhase>(SetupPhase.Boot)
-    private var beginUrl: String? = null
+    private val pairingTarget = MutableStateFlow<PairingTarget?>(null)
     private val mutableState = MutableStateFlow<PlayerState>(PlayerState.Unconfigured)
     val state: StateFlow<PlayerState> = mutableState.asStateFlow()
 
@@ -69,10 +135,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val activeHours: StateFlow<Boolean> = mutableActiveHours.asStateFlow()
     private val mutableTakeoverActive = MutableStateFlow(false)
     val takeoverActive: StateFlow<Boolean> = mutableTakeoverActive.asStateFlow()
-    private val mutableRuntimeSupported = MutableStateFlow(true)
-    /** False when the installed WebView cannot host the runtime bridge at all. */
-    val runtimeSupported: StateFlow<Boolean> = mutableRuntimeSupported.asStateFlow()
-
     private val mutableCommissioning = MutableStateFlow(CommissioningStatus())
     val commissioning: StateFlow<CommissioningStatus> = mutableCommissioning.asStateFlow()
 
@@ -84,25 +146,41 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val update: StateFlow<UpdateUiState?> = mutableUpdate.asStateFlow()
     private val updateListener: (UpdateUiState) -> Unit = { viewModelScope.launch { mutableUpdate.value = it } }
 
-    private var discoverJob: Job? = null
-    private var validateJob: Job? = null
-    private var pairingJob: Job? = null
+    private var setupJob: Job? = null
+    private var retryJob: Job? = null
+    private var retryAttempt = 0
+    private val backoff = ReconnectBackoff()
+    /** The server the last attempt used, so a retry goes back to it rather than to search. */
+    private var retryServer: String? = null
+    /** The installer chose manual entry: the search must not pick a server for them. */
+    private var manualEntry = false
+
+    /** Phone setup while Core runs it: a QR code beside the setup screens. */
+    val phoneSetup: StateFlow<CorePhoneSetup?> = host.pairingState
+        .map { (it as? CorePairingState.Setup)?.phone }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private val mutableRetryAt = MutableStateFlow<Long?>(null)
+    /** When the next automatic setup retry runs, in epoch milliseconds, for the countdown. */
+    val retryAt: StateFlow<Long?> = mutableRetryAt.asStateFlow()
 
     init {
         mutableUpdate.value = updates?.restored
         updates?.addListener(updateListener)
         viewModelScope.launch { host.startDrivers() }
         viewModelScope.launch {
-            combine(host.state, host.pairingState, mutableSetup) { core, pairing, setup ->
-                Triple(core, pairing, setup)
-            }.collect { (core, pairing, setup) ->
-                mutableState.value = mapPlayerState(core, pairing, setup, beginUrl)
+            combine(host.state, host.pairingState, mutableSetup, pairingTarget) { core, pairing, setup, target ->
+                SetupInputs(core, pairing, setup, target)
+            }.collect { (core, pairing, setup, target) ->
+                val mapped = mapPlayerState(core, pairing, setup, target)
+                mutableState.value = mapped
+                onStateChanged(mapped, pairing)
                 val status = (core as? CoreHostState.Ready)?.status
                 mutableActiveHours.value = status?.activeHoursState != "off_hours"
                 mutableTakeoverActive.value = status?.takeoverActive == true
                 applyPowerEffects()
                 if (status?.configRevision != appliedConfigRevision) refreshPlatformConfig(status?.configRevision)
-                refreshCommissioning(status?.screenId, status?.cachedFallbackAvailable == true)
+                refreshCommissioning(status?.screenId)
             }
         }
         viewModelScope.launch {
@@ -117,7 +195,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 reportPlatformObservations()
             }
         }
-        discover()
+        startSetup()
     }
 
     override fun onCleared() {
@@ -127,98 +205,211 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
 
     // Setup: discovery and validation stay in Kotlin; pairing is Core's.
 
-    /** Starts Core when needed and lists nearby servers, then projects the result. */
-    fun discover() {
-        discoverJob?.cancel()
-        discoverJob = viewModelScope.launch {
+    private data class SetupInputs(
+        val core: CoreHostState,
+        val pairing: CorePairingState,
+        val setup: SetupPhase,
+        val target: PairingTarget?,
+    )
+
+    /**
+     * Starts or restarts unattended setup: a server Core still remembers
+     * comes first, then the network search. A paired Player, or one that
+     * already shows a code, has nothing to set up. A revoked one clears
+     * its pairing session and asks the same server for a new code.
+     */
+    private fun startSetup(after: Long = 0) {
+        cancelRetry()
+        setupJob?.cancel()
+        setupJob = viewModelScope.launch {
+            delay(after)
             runCatching { host.startDrivers() }
-            mutableSetup.value = SetupPhase.Discovering
-            val found = linkedMapOf<String, DiscoveredServer>()
-            withTimeoutOrNull(5_000) { discovery.discover().catch { }.collect { found[it.baseUrl] = it } }
-            if (mutableSetup.value == SetupPhase.Discovering) mutableSetup.value = SetupPhase.Browsing(found.values.toList())
+            runCatching { host.refreshStatus() }
+            when (mapPlayerState(host.state.value, host.pairingState.value, SetupPhase.Boot)) {
+                is PlayerState.PairedIdle, is PlayerState.PairedConnecting, PlayerState.Enrolling,
+                is PlayerState.WaitingForApproval, PlayerState.PairingRequest, is PlayerState.ServerIdentityMismatch,
+                -> return@launch
+                is PlayerState.CredentialRevoked -> runCatching { host.resetPairing() }
+                else -> Unit
+            }
+            val status = (host.state.value as? CoreHostState.Ready)?.status
+            val known = retryServer ?: status?.serverUrl ?: status?.retainedServerUrl
+            if (known != null && !manualEntry) connect(known, fromManualEntry = false) else search()
         }
+    }
+
+    /** Searches the network again from the start. Also the "Search again" action. */
+    fun discover() {
+        manualEntry = false
+        retryServer = null
+        retryAttempt = 0
+        cancelRetry()
+        setupJob?.cancel()
+        setupJob = viewModelScope.launch {
+            runCatching { host.startDrivers() }
+            search()
+        }
+    }
+
+    /**
+     * Browses until a server answers. Exactly one answer pairs at once;
+     * several are listed for the installer; none keeps the search going.
+     */
+    private suspend fun search() {
+        mutableSetup.value = SetupPhase.Discovering
+        val found = linkedMapOf<String, DiscoveredServer>()
+        while (true) {
+            withTimeoutOrNull(SCAN_MILLIS) {
+                discovery.discover().catch { }.collect {
+                    found[it.baseUrl] = it
+                    if (found.size > 1) mutableSetup.value = SetupPhase.Browsing(found.values.toList())
+                }
+            }
+            val servers = found.values.toList()
+            if (servers.size == 1) {
+                connect(servers.single().baseUrl, fromManualEntry = false)
+                return
+            }
+            mutableSetup.value = SetupPhase.Browsing(servers)
+            delay(RESCAN_MILLIS)
+        }
+    }
+
+    /** Starts a paused phone setup session again. */
+    fun resumePhoneSetup() {
+        viewModelScope.launch { host.resumePhoneSetup() }
     }
 
     fun showManualEntry() {
+        manualEntry = true
+        cancelRetry()
+        setupJob?.cancel()
         mutableSetup.value = SetupPhase.Manual()
     }
 
-    fun validateServer(value: String) {
-        validateJob?.cancel()
-        validateJob = viewModelScope.launch {
-            val normalized = ServerUrlPolicy.normalize(value).getOrElse {
-                mutableSetup.value = SetupPhase.Manual(it.message ?: "Invalid server address")
-                return@launch
+    /** Pairs with an address the installer typed. */
+    fun submitServerAddress(value: String) {
+        manualEntry = true
+        cancelRetry()
+        setupJob?.cancel()
+        setupJob = viewModelScope.launch { connect(ServerUrlPolicy.withDefaultScheme(value), fromManualEntry = true) }
+    }
+
+    fun chooseServer(server: DiscoveredServer) {
+        cancelRetry()
+        setupJob?.cancel()
+        setupJob = viewModelScope.launch { connect(server.baseUrl, fromManualEntry = false) }
+    }
+
+    /**
+     * Checks the server identity without credentials and asks Core for a
+     * pairing code. A failure from manual entry stays on the entry screen;
+     * any other failure retries by itself.
+     */
+    private suspend fun connect(address: String, fromManualEntry: Boolean) {
+        val normalized = ServerUrlPolicy.normalize(address).getOrElse {
+            fail(it.message ?: "Enter a valid server address", fromManualEntry)
+            return
+        }
+        retryServer = normalized.value
+        mutableSetup.value = SetupPhase.Validating(normalized.value)
+        val identity = runCatching { host.fetchIdentity(normalized.value) }.getOrNull()
+        when {
+            identity == null || !identity.ok ->
+                return fail("Could not reach Tilecast at ${normalized.value}", fromManualEntry)
+            identity.product != "tilecast" || identity.apiVersion != "v1" ->
+                return fail("${normalized.value} is not a compatible Tilecast server", fromManualEntry)
+            !identity.pairingEnabled ->
+                return fail("Pairing is turned off on ${identity.organizationName ?: normalized.value}", fromManualEntry)
+        }
+        pairingTarget.value = PairingTarget(normalized.value, normalized.localInsecure)
+        mutableSetup.value = SetupPhase.Requesting
+        val result = runCatching { host.beginPairing(normalized.value) }.getOrNull()
+        when {
+            result?.ok == true -> {
+                manualEntry = false
+                retryAttempt = 0
             }
-            mutableSetup.value = SetupPhase.Validating(normalized.value)
-            val identity = runCatching { host.fetchIdentity(normalized.value) }.getOrNull()
-            if (identity == null || !identity.ok) {
-                mutableSetup.value = SetupPhase.Manual("Could not connect to Tilecast")
-                return@launch
-            }
-            if (identity.product != "tilecast" || identity.apiVersion != "v1") {
-                mutableSetup.value = SetupPhase.Manual("This address is not a compatible Tilecast server")
-                return@launch
-            }
-            mutableSetup.value = SetupPhase.Confirm(
-                normalized,
-                ServerIdentity(
-                    identity.product ?: "tilecast",
-                    identity.installationId ?: "",
-                    identity.organizationName ?: "",
-                    identity.apiVersion ?: "v1",
-                    identity.pairingEnabled,
-                ),
-            )
+            // Core already holds a binding: the paired projection takes
+            // over on the next status refresh.
+            result?.code == "already_paired" -> runCatching { host.refreshStatus() }
+            result?.code == "pairing_disabled" -> fail("Pairing is turned off on this Tilecast server", fromManualEntry = false)
+            else -> fail("Could not request a pairing code from ${normalized.value}", fromManualEntry = false)
         }
     }
 
-    fun chooseServer(server: DiscoveredServer) = validateServer(server.baseUrl)
+    private fun fail(message: String, fromManualEntry: Boolean) {
+        if (fromManualEntry) {
+            mutableSetup.value = SetupPhase.Manual(message)
+            return
+        }
+        mutableSetup.value = SetupPhase.Failed(message)
+        scheduleRetry()
+    }
 
-    fun requestPairing() {
-        pairingJob?.cancel()
-        pairingJob = viewModelScope.launch {
-            val confirm = mutableSetup.value as? SetupPhase.Confirm ?: return@launch
-            mutableSetup.value = SetupPhase.Requesting
-            val result = runCatching { host.beginPairing(confirm.serverUrl.value) }.getOrNull()
-            if (result?.ok == true) {
-                beginUrl = confirm.serverUrl.value
-                return@launch
-            }
-            // Already paired means Core holds a binding: the paired
-            // projection takes over on the next status refresh.
-            if (result?.code == "already_paired") {
-                runCatching { host.refreshStatus() }
-                return@launch
-            }
-            mutableSetup.value = when (result?.code) {
-                "pairing_disabled" -> SetupPhase.Failed("Pairing is disabled on this server")
-                else -> SetupPhase.Failed("Pairing request failed")
-            }
+    /** Runs setup again after a growing delay; the error screen shows the countdown. */
+    private fun scheduleRetry() {
+        if (retryJob?.isActive == true) return
+        val wait = backoff.delayMillis(retryAttempt + 2)
+        retryAttempt += 1
+        mutableRetryAt.value = System.currentTimeMillis() + wait
+        retryJob = viewModelScope.launch {
+            delay(wait)
+            retryJob = null
+            mutableRetryAt.value = null
+            startSetup()
         }
     }
 
-    fun cancelPairing() {
+    private fun cancelRetry() {
+        retryJob?.cancel()
+        retryJob = null
+        mutableRetryAt.value = null
+    }
+
+    /** "Try again now" on the error screen. */
+    fun retryNow() {
+        startSetup()
+    }
+
+    /**
+     * Reacts to states that recover without a person: a revoked screen asks
+     * the same server for a new code, and a rejected address retries. Once
+     * Core pairs or shows a code, setup has nothing left to do.
+     */
+    private fun onStateChanged(state: PlayerState, pairing: CorePairingState) {
+        val busy = setupJob?.isActive == true || retryJob?.isActive == true
+        when {
+            state is PlayerState.PairedIdle || state is PlayerState.PairedConnecting || state == PlayerState.Enrolling -> {
+                setupJob?.cancel()
+                cancelRetry()
+                manualEntry = false
+                retryAttempt = 0
+            }
+            state is PlayerState.WaitingForApproval -> cancelRetry()
+            state is PlayerState.CredentialRevoked -> if (!busy) startSetup(after = REVOKED_NOTICE_MILLIS)
+            pairing is CorePairingState.AddressRejected -> scheduleRetry()
+        }
+    }
+
+    /** "Change server" on the pairing screen: drops the code and searches again. */
+    fun changeServer() {
         viewModelScope.launch {
             runCatching { host.resetPairing() }
-            beginUrl = null
+            pairingTarget.value = null
             discover()
         }
     }
 
-    fun reconnectAfterRevocation() {
-        viewModelScope.launch {
-            runCatching { host.resetPairing() }
-            beginUrl = null
-            discover()
-        }
-    }
-
-    /** Forgets the server connection entirely. The Activity clears renderer website data around this. */
+    /**
+     * Forgets the server connection entirely and searches again. Only an
+     * explicit action reaches this: the identity-mismatch screen or the
+     * maintenance menu.
+     */
     fun resetServer() {
         viewModelScope.launch {
             runCatching { host.resetServer() }
-            beginUrl = null
+            pairingTarget.value = null
             appliedConfigRevision = null
             mutablePlatform.value = null
             discover()
@@ -226,19 +417,6 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // Renderer and clock callbacks from the Activity.
-
-    /** A proven capability may unlock staged content, as the legacy probe pass reconciled. */
-    fun onCapabilitiesChanged() {
-        viewModelScope.launch {
-            runCatching { host.syncManifest() }
-            runCatching { host.refreshStatus() }
-        }
-    }
-
-    /** The installed WebView cannot host the runtime bridge: show the native fallback screen. */
-    fun onRendererUnsupported() {
-        mutableRuntimeSupported.value = false
-    }
 
     /** A clock or timezone jump re-resolves the committed selection. */
     fun onClockChanged() {
@@ -314,49 +492,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
         reliability.scheduleWake(transition.minusSeconds(platform.power.startupGraceSeconds))
     }
 
-    // Commissioning: local setup readiness, unchanged in shape.
+    // Readiness: what Studio reports about unattended operation. Nothing here blocks playback.
 
     fun refreshCommissioning() {
-        val status = (host.state.value as? CoreHostState.Ready)?.status
-        refreshCommissioning(status?.screenId, status?.cachedFallbackAvailable == true)
+        refreshCommissioning((host.state.value as? CoreHostState.Ready)?.status?.screenId)
     }
 
-    private fun refreshCommissioning(screenId: String?, cachedFallbackAvailable: Boolean) {
-        mutableCommissioning.value = commissioningController.status(screenId, cachedFallbackAvailable)
-    }
-
-    fun setCommissioningPin(pin: CharArray) {
-        commissioningController.setPin(pin)
-        refreshCommissioning()
-    }
-
-    fun advanceCommissioning() {
-        val screen = (host.state.value as? CoreHostState.Ready)?.status?.screenId ?: return
-        commissioningController.advance(screen, mutableCommissioning.value.step)
-        refreshCommissioning()
-    }
-
-    fun completeCommissioning() {
-        viewModelScope.launch {
-            val screen = (host.state.value as? CoreHostState.Ready)?.status?.screenId ?: return@launch
-            commissioningController.complete(screen)
-            refreshCommissioning()
-            reportPlatformObservations()
-        }
-    }
-
-    fun runSetupAgain() {
-        val screen = (host.state.value as? CoreHostState.Ready)?.status?.screenId ?: return
-        commissioningController.runAgain(screen)
-        refreshCommissioning()
-    }
-
-    fun runSelfTest(): String {
-        val screen = (host.state.value as? CoreHostState.Ready)?.status?.screenId ?: return "not_paired"
-        val result = commissioningController.runSelfTest(screen)
-        refreshCommissioning()
-        reportPlatformObservations()
-        return result
+    private fun refreshCommissioning(screenId: String?) {
+        mutableCommissioning.value = commissioningController.status(screenId)
     }
 
     // Updates: the app-scoped manager prepares; this projects and drives the approval UI.
@@ -460,17 +603,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             maintenance?.let { put("maintenanceSessionExpiresAt", it.toString()) }
             prefs.getLong("admin-pin-changed-at", 0).takeIf { it > 0 }
                 ?.let { put("adminPinChangedAt", Instant.ofEpochMilli(it).toString()) }
-            put(
-                "commissioningState",
-                if (commissioning.required) {
-                    "in_progress"
-                } else if (commissioning.completedAt != null) {
-                    "complete"
-                } else {
-                    "not_started"
-                },
-            )
-            put("commissioningStep", commissioning.step.wireValue)
+            put("commissioningState", if (commissioning.completedAt != null) "complete" else "not_started")
+            put("commissioningStep", CommissioningStatus.STEP)
             commissioning.completedAt?.let { put("commissioningCompletedAt", it.toString()) }
             put("bootAttemptCount", boot.attemptCount)
             boot.lastAttemptAt?.let { put("bootLastAttemptAt", it.toString()) }
@@ -484,7 +618,14 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 },
             )
             commissioning.selfTestResult?.let { put("selfTestResult", it) }
-            commissioning.selfTestCompletedAt?.let { put("selfTestCompletedAt", it.toString()) }
+            if (commissioning.selfTestResult != null) commissioning.checkedAt?.let { put("selfTestCompletedAt", it.toString()) }
         }.toString()
+    }
+
+    private companion object {
+        const val SCAN_MILLIS = 5_000L
+        const val RESCAN_MILLIS = 10_000L
+        /** Long enough to read why the screen is about to show a new code. */
+        const val REVOKED_NOTICE_MILLIS = 4_000L
     }
 }

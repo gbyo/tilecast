@@ -1,14 +1,14 @@
 # Tilecast Studio UI/UX Redesign Plan
 
-**Status: historical implementation plan, not current UI guidance.** Its Rhea design choices and installation instructions are superseded by [Base Vega design system](design-system.md) and current Studio components. Brand Bug and Noise Meter sections describe retired features, not current Studio routes.
+**Status: historical implementation plan, not current UI guidance.** Its Rhea design choices and installation instructions are superseded by [Base Nova design system](design-system.md) and current Studio components. Brand Bug and Noise Meter sections describe retired features, not current Studio routes.
 **Design system:** shadcn/ui + Base UI + Rhea (historical)
 **Primary shell block:** `dashboard-01`
 **Authentication block:** `login-03`
 **Future documentation shell:** `sidebar-03` + shadcn/typeset
 **Verified against:** Tilecast `main` after PR #523 and current shadcn/ui documentation on 2026-09-22
 
-> **Current visual baseline:** PR 1 replaces Rhea with the official shadcn Base
-> Vega style, neutral theme, Geist, Lucide, and a small radius. Sections in this
+> **Current visual baseline:** The official shadcn Base Nova style supersedes
+> the earlier Vega migration. It uses Neutral, Geist, Lucide, and the default Nova radius. Sections in this
 > plan remain useful for information architecture, workflows, accessibility,
 > route behavior, and component intent. Its Rhea-specific visual choices,
 > expandable route grouping, icon-collapse behavior, and workspace navigation

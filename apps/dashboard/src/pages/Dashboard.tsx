@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { RouteAccessGate } from "../navigation/RouteAccessGate";
 import { useTranslation } from "react-i18next";
 import { accountQueries } from "@/data/account";
 import type { User } from "@/api/types";
@@ -212,7 +213,7 @@ function StudioChrome({
           signOutDisabled={auth.isSubmitting}
         />
       )}
-      <SidebarInset className="min-h-svh overflow-hidden">
+      <SidebarInset className="min-h-svh min-w-0 overflow-hidden">
         <EditorHeaderProvider>
           {auth.status?.demoMode && !editorRoute ? <DemoModeBanner /> : null}
           <StudioTopbar
@@ -225,6 +226,7 @@ function StudioChrome({
             signOutDisabled={auth.isSubmitting}
           />
           <div
+            data-slot={editorRoute ? "studio-editor" : "studio-page"}
             className={
               editorRoute
                 ? "min-h-0 flex-1 overflow-auto"
@@ -232,7 +234,9 @@ function StudioChrome({
             }
           >
             <RouteErrorBoundary key={location.pathname}>
-              <Outlet />
+              <RouteAccessGate>
+                <Outlet />
+              </RouteAccessGate>
             </RouteErrorBoundary>
           </div>
           {/* Saved Widgets capture their thumbnails here, outside any one

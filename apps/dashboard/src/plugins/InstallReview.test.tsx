@@ -18,6 +18,50 @@ async function renderReview(
 describe("InstallReview capabilities", () => {
   afterEach(cleanup);
 
+  it("shows verified external Player surface permissions and tier", async () => {
+    await renderReview(
+      installReview({
+        contributions: [
+          {
+            type: "plugin",
+            path: "./corner",
+            id: "example.surface.corner",
+            playerRuntime: {
+              surfaces: ["corner.bottom-left", "corner.top-right"],
+              tier: "ambient",
+            },
+          },
+        ],
+      }),
+    );
+    expect(screen.getByText("Player surfaces")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Allowed surfaces: Bottom left corner, Top right corner",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Priority tier: Ambient")).toBeInTheDocument();
+  });
+
+  it("reviews realtime activity separately with its seconds cadence", async () => {
+    await renderReview(
+      installReview({
+        capabilities: {
+          realtime: { jobs: [{ id: "refresh", intervalSeconds: 5 }] },
+        },
+      }),
+    );
+    expect(
+      screen.getByText("High-frequency background activity"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Every 5 seconds")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Runs one bounded background job every few seconds, including when Studio is closed.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("says plainly that a content package asks for nothing special", async () => {
     await renderReview(installReview());
     expect(screen.getByText("No special permissions")).toBeInTheDocument();

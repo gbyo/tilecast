@@ -112,6 +112,7 @@ pub struct ResolvedPresentation {
 
 #[derive(Debug, PartialEq)]
 pub(crate) struct SelectionKey {
+    source: String,
     playlist: Option<uuid::Uuid>,
     layout: Option<uuid::Uuid>,
     schedule: Option<uuid::Uuid>,
@@ -121,6 +122,7 @@ pub(crate) struct SelectionKey {
 impl From<&PlaybackIdentity> for SelectionKey {
     fn from(identity: &PlaybackIdentity) -> Self {
         Self {
+            source: identity.selection_source.clone(),
             playlist: identity.playlist_id,
             layout: identity.layout_id,
             schedule: identity.schedule_id,
@@ -333,16 +335,21 @@ fn content_ref(asset: &ManifestAsset) -> Result<ActivationContent, ManifestError
     })
 }
 
-/// Every verified frame claim, deduplicated by document digest like
-/// the content map. Core fetched and verified each one before this
-/// manifest became a candidate; the port mints one grant per claim.
+/// Every distinct package/frame authorization identity. CAS may share
+/// identical bytes; the Runtime still needs each package's table entry.
 fn frame_refs(candidate: &NativeManifest) -> Result<Vec<ActivationFrame>, ManifestError> {
     let mut frames = Vec::with_capacity(candidate.required_frames.len());
     for claim in &candidate.required_frames {
-        if frames.iter().any(|existing: &ActivationFrame| existing.digest == claim.digest) {
+        if frames.iter().any(|existing: &ActivationFrame| {
+            existing.digest == claim.digest
+                && existing.kind == claim.kind
+                && existing.package_id.as_str() == claim.package_id
+                && existing.package_digest == claim.package_digest
+        }) {
             continue;
         }
         frames.push(ActivationFrame {
+            kind: claim.kind,
             package_id: player_types::bounded::SafeText::new(&claim.package_id).map_err(|_| ManifestError::Frame)?,
             package_digest: claim.package_digest,
             digest: claim.digest,
@@ -848,6 +855,21 @@ fn plugins(
     let mut aliases = Vec::new();
     let mut content = Vec::new();
     for plugin in candidate.document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+        if player_core::is_runtime_plugin_data(plugin) {
+            for (asset_id, variant_id) in player_core::plugin_state_media(plugin) {
+                let asset = find_asset(&candidate.assets, &asset_id.to_string(), &variant_id.to_string())
+                    .ok_or(ManifestError::Reference)?;
+                let alias = media_alias(asset);
+                if !aliases.contains(&alias) {
+                    aliases.push(alias);
+                }
+                if !content.iter().any(|existing: &ActivationContent| existing.digest == asset.digest) {
+                    content.push(content_ref(asset)?);
+                }
+            }
+            plugins.push(plugin.clone());
+            continue;
+        }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("");
         if !crate::manifest_host::profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
             return Err(ManifestError::Incompatible(Incompatibility::Plugin(kind.chars().take(32).collect())));
@@ -1088,6 +1110,21 @@ impl OfflineActivationHost for SelectionHost {
         })
     }
 
+    fn preserve_plugin_generation(
+        &self,
+        candidate: &NativeManifest,
+        current: &Self::Key,
+        projection: &mut OfflineProjection<Self::Projection, Self::Key>,
+    ) {
+        if projection.projection.document.get("state").and_then(Value::as_str) == Some("playing")
+            && projection.projection.document.get("generation").and_then(Value::as_u64)
+                == Some(candidate.version.max(0) as u64)
+            && let Some(generation) = current.document.get("generation").and_then(Value::as_u64)
+        {
+            projection.projection.document["generation"] = serde_json::json!(generation);
+            projection.key.document = projection.projection.document.clone();
+        }
+    }
     async fn health(&self) -> OfflineRendererHealth {
         let engine = self.engine.lock().await;
         OfflineRendererHealth { safe_mode: engine.is_safe_mode(), current_error: engine.current_has_renderer_error() }
@@ -1171,6 +1208,24 @@ impl OfflineActivationHost for SelectionHost {
             self.engine.lock().await.activate_request(request, now).await.map_err(|_| "activation_rejected")?;
         let activation_id = outcome.activation_id.parse().map_err(|_| "activation_rejected")?;
         Ok(RendererActivationRef { activation_id, generation: outcome.generation })
+    }
+
+    async fn refresh_plugins(
+        &self,
+        previous: player_types::Sha256Digest,
+        candidate: &NativeManifest,
+        resolved: &Self::Projection,
+        time: ActivationTime,
+    ) -> Result<bool, &'static str> {
+        let request = ActivateRequest {
+            envelope: envelope(resolved, time.offset_ms),
+            content: resolved.content.clone(),
+            frames: resolved.frames.clone(),
+            source: ActivationSource::ServerManifest,
+            identity: Some(identity(candidate, resolved)),
+            clock_offset_ms: time.offset_ms,
+        };
+        self.engine.lock().await.refresh_plugins(previous, request).await
     }
 
     fn promoted(&self) {
@@ -1262,6 +1317,67 @@ mod tests {
         assert_eq!(resolved.content.len(), 1);
         assert!(resolved.projection.is_none());
         assert_eq!(resolved.selection.source, Source::Direct);
+    }
+
+    #[test]
+    fn external_surface_uses_verified_frames_instead_of_a_bundled_feature_id() {
+        let entry: Value = serde_json::from_str(include_str!(
+            "../../../../packages/manifest-schema/external-plugin-entry-fixture.json"
+        ))
+        .expect("fixture");
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(20);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value).expect("external member");
+        let (forwarded, aliases, content) = plugins(&candidate, 1_000).expect("external channel");
+        assert_eq!(forwarded, vec![entry]);
+        assert_eq!(candidate.required_frames.len(), 1);
+        assert_eq!(candidate.required_frames[0].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert!(aliases.is_empty() && content.is_empty());
+        let connected = player_core::ConnectedRendererProfile(crate::manifest_host::profile::packaged().0);
+        assert!(crate::manifest_host::incompatibilities(&candidate.document, &candidate.assets, &connected).is_empty());
+    }
+
+    #[test]
+    fn plugin_state_is_runtime_data_routed_by_player_core() {
+        let entry: Value =
+            serde_json::from_str(include_str!("../../../../packages/manifest-schema/plugin-state-entry-fixture.json"))
+                .expect("fixture");
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(21);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value).expect("v2 state member");
+        let (forwarded, aliases, content) = plugins(&candidate, 1_000).expect("state channel");
+        assert_eq!(forwarded, vec![entry]);
+        assert!(aliases.is_empty() && content.is_empty());
+        let connected = player_core::ConnectedRendererProfile(crate::manifest_host::profile::packaged().0);
+        assert!(crate::manifest_host::incompatibilities(&candidate.document, &candidate.assets, &connected).is_empty());
+    }
+
+    /// Plugin API v2 media: a state entry's declared variant joins the
+    /// activation's content and aliases, so the WebView may load it by
+    /// identity. A variant the manifest does not list fails the manifest.
+    #[test]
+    fn plugin_state_media_is_granted_through_the_activation() {
+        let mut entry: Value =
+            serde_json::from_str(include_str!("../../../../packages/manifest-schema/plugin-state-entry-fixture.json"))
+                .expect("fixture");
+        entry["media"] = serde_json::json!([{"assetId": ASSET, "variantId": VARIANT}]);
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(21);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value.clone()).expect("v2 state member");
+        let (forwarded, aliases, content) = plugins(&candidate, 1_000).expect("state channel");
+        assert_eq!(forwarded, vec![entry.clone()]);
+        assert_eq!(aliases.len(), 1);
+        assert_eq!(aliases[0]["assetId"], ASSET);
+        assert_eq!(aliases[0]["variantId"], VARIANT);
+        assert_eq!(content.len(), 1);
+
+        let missing = "99999999-9999-4999-8999-999999999999";
+        entry["media"] = serde_json::json!([{"assetId": ASSET, "variantId": missing}]);
+        value["plugins"] = serde_json::json!([entry]);
+        assert!(parse(value).is_err(), "a variant the manifest does not list never reaches a grant");
     }
 
     #[test]
@@ -1427,6 +1543,60 @@ mod tests {
         assert_eq!(items[0]["id"], format!("layout-{LAYOUT}"));
         assert_eq!(items[0]["kind"], "layout");
         assert!(resolved.projection.is_some());
+    }
+
+    const OTHER_PLAYLIST: &str = "8a3c5d17-2f40-4c7e-9f38-0b1d6a2e9c44";
+    const OTHER_ITEM: &str = "d1c2b3a4-0f9e-4d8c-8b7a-6e5f4d3c2b1a";
+
+    fn presentation_key(value: Value, now_ms: i64) -> PresentationKey {
+        let candidate = parse(value).expect("fixture parses");
+        let resolved = presentation_with(&candidate, now_ms, &AndroidPlayerConfig::default()).expect("resolves");
+        PresentationKey {
+            document: resolved.document.clone(),
+            content: resolved.content.clone(),
+            timing: resolved.timing.as_ref().map(timing_key),
+            identity: Some(SelectionKey::from(&identity(&candidate, &resolved))),
+        }
+    }
+
+    /// Changing what a screen plays by default must change the key Core
+    /// compares with the activation on screen; an equal key is "nothing to
+    /// do", which would leave the old content up.
+    #[test]
+    fn changing_default_content_changes_the_presentation_key() {
+        let a = manifest();
+        let key_a = presentation_key(a.clone(), 1_000);
+        // The same manifest version re-resolved is the same presentation.
+        assert!(key_a == presentation_key(a.clone(), 1_000));
+
+        // Playlist to a different playlist.
+        let mut other_playlist = a.clone();
+        other_playlist["manifestVersion"] = serde_json::json!(9);
+        other_playlist["playlist"]["id"] = serde_json::json!(OTHER_PLAYLIST);
+        other_playlist["playlist"]["items"][0]["id"] = serde_json::json!(OTHER_ITEM);
+        assert!(key_a != presentation_key(other_playlist.clone(), 1_000));
+
+        // Playlist to a directly assigned Layout.
+        let mut layout = a.clone();
+        layout["manifestVersion"] = serde_json::json!(10);
+        layout["playlist"] = Value::Null;
+        layout["layouts"] = serde_json::json!([{"id": LAYOUT, "document": {"schemaVersion": 2,
+            "canvas": {"width": 1920, "height": 1080}, "placements": []}}]);
+        layout["layout"] = layout["layouts"][0].clone();
+        layout["directFallbackLayout"] = layout["layouts"][0].clone();
+        let key_layout = presentation_key(layout.clone(), 1_000);
+        assert!(key_a != key_layout);
+
+        // Layout to a playlist, and Layout to a different Layout.
+        let mut back = a.clone();
+        back["manifestVersion"] = serde_json::json!(11);
+        assert!(key_layout != presentation_key(back, 1_000));
+        let mut other_layout = layout;
+        other_layout["manifestVersion"] = serde_json::json!(12);
+        other_layout["layouts"][0]["id"] = serde_json::json!(OTHER_PLAYLIST);
+        other_layout["layout"] = other_layout["layouts"][0].clone();
+        other_layout["directFallbackLayout"] = other_layout["layouts"][0].clone();
+        assert!(key_layout != presentation_key(other_layout, 1_000));
     }
 
     #[test]

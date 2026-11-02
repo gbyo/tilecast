@@ -5,7 +5,7 @@ const minutesPerDay = 24 * 60;
 
 function unitLabel(
   locale: string,
-  unit: "minute" | "hour" | "day",
+  unit: "second" | "minute" | "hour" | "day",
   count: number,
 ) {
   return new Intl.NumberFormat(locale, {
@@ -13,6 +13,16 @@ function unitLabel(
     unit,
     unitDisplay: "long",
   }).format(count);
+}
+
+export function formatSecondsCadence(
+  seconds: number,
+  locale: string,
+  t: PluginsT,
+) {
+  return t("storeDetail.cadence.every", {
+    interval: unitLabel(locale, "second", seconds),
+  });
 }
 
 /**

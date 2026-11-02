@@ -8,9 +8,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PlayerPolicyEditor } from "./PlayerPolicyEditor";
 import { api } from "../api/client";
 import { i18n } from "../i18n";
+import { builtinCapabilities } from "../test/capabilities";
 
 vi.mock("../auth/AuthProvider", () => ({
-  useAuth: () => ({ status: { csrfToken: "csrf", user: { role: "owner" } } }),
+  useAuth: () => ({
+    status: {
+      csrfToken: "csrf",
+      user: { role: "owner" },
+      capabilities: builtinCapabilities("owner"),
+    },
+  }),
 }));
 
 const definition = {

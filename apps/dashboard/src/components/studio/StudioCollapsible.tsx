@@ -3,16 +3,16 @@ import type { ComponentProps } from "react";
 import { ChevronDown, ChevronRight, type LucideProps } from "lucide-react";
 import {
   Collapsible,
-  CollapsibleContent as VegaCollapsibleContent,
-  CollapsibleTrigger as VegaCollapsibleTrigger,
+  CollapsibleContent as BaseCollapsibleContent,
+  CollapsibleTrigger as BaseCollapsibleTrigger,
 } from "../ui/collapsible";
 
 function CollapsibleTrigger({
   className,
   ...props
-}: ComponentProps<typeof VegaCollapsibleTrigger>) {
+}: ComponentProps<typeof BaseCollapsibleTrigger>) {
   return (
-    <VegaCollapsibleTrigger
+    <BaseCollapsibleTrigger
       className={cn("group/studio-collapsible-trigger", className)}
       {...props}
     />
@@ -22,9 +22,9 @@ function CollapsibleTrigger({
 function CollapsibleContent({
   className,
   ...props
-}: ComponentProps<typeof VegaCollapsibleContent>) {
+}: ComponentProps<typeof BaseCollapsibleContent>) {
   return (
-    <VegaCollapsibleContent
+    <BaseCollapsibleContent
       className={cn(
         "h-(--collapsible-panel-height) overflow-hidden opacity-100 transition-[height,opacity] duration-(--tc-motion-standard) ease-(--tc-ease-standard) data-starting-style:h-0 data-starting-style:opacity-0 data-ending-style:h-0 data-ending-style:opacity-0 motion-reduce:transition-none",
         className,

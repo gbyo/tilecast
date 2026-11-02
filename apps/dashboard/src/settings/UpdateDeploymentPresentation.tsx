@@ -5,9 +5,12 @@ import { api } from "../api/client";
 import { useAuth } from "../auth/AuthProvider";
 import { usePresentationChrome } from "../native-presentation/presentationContext";
 import {
+  DeploymentBody,
+  DeploymentFooter,
   deploymentDescription,
   useUpdateDeployment,
 } from "./player-updates/UpdateDeploymentDetail";
+import { hasCapability } from "../auth/capabilities";
 
 /**
  * An update deployment's per-screen status in a native presentation, at
@@ -20,9 +23,7 @@ export function UpdateDeploymentPresentation() {
   const { id = "" } = useParams();
   const auth = useAuth();
   const screens = useQuery({ queryKey: ["screens"], queryFn: api.screens });
-  const manageable = ["owner", "administrator"].includes(
-    auth.status?.user?.role ?? "",
-  );
+  const manageable = hasCapability(auth.status, "screen.manage");
   return (
     <UpdateDeploymentBody
       deploymentId={id}
@@ -36,11 +37,11 @@ function UpdateDeploymentBody(
   props: Parameters<typeof useUpdateDeployment>[0],
 ) {
   const { t } = useTranslation(["settings", "common"]);
-  const { deployment, body, footer } = useUpdateDeployment(props);
+  const state = useUpdateDeployment(props);
   usePresentationChrome({
     header: {
-      title: deployment?.versionName ?? t("updates.deploymentTitle"),
-      subtitle: deploymentDescription(deployment, t),
+      title: state.deployment?.versionName ?? t("updates.deploymentTitle"),
+      subtitle: deploymentDescription(state.deployment, t),
       navigation: "close",
       navigationLabel: t("common:actions.close"),
     },
@@ -48,10 +49,12 @@ function UpdateDeploymentBody(
   });
   return (
     <div className="flex min-h-full flex-col">
-      <div className="grid flex-1 gap-4 p-4">{body}</div>
-      {footer && (
+      <div className="grid flex-1 gap-4 p-4">
+        <DeploymentBody state={state} />
+      </div>
+      {state.manageable && state.active && (
         <div className="sticky bottom-0 border-t border-border bg-background p-4">
-          {footer}
+          <DeploymentFooter state={state} />
         </div>
       )}
     </div>

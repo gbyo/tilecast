@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "apiVersion": { "type": "number", "const": 2 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,79}$" },
+    "definitionVersion": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "capabilities": {
+      "type": "object",
+      "properties": { "playerManifest": { "type": "boolean", "const": true } },
+      "required": ["playerManifest"],
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "surfaces": {
+          "minItems": 1,
+          "maxItems": 7,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "strip.top",
+              "strip.bottom",
+              "corner.top-left",
+              "corner.top-right",
+              "corner.bottom-left",
+              "corner.bottom-right",
+              "overlay"
+            ]
+          }
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["emergency", "live", "scheduled", "ambient"]
+        }
+      },
+      "required": ["surfaces", "tier"],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "apiVersion",
+    "id",
+    "definitionVersion",
+    "name",
+    "description",
+    "capabilities",
+    "runtime"
+  ],
+  "additionalProperties": false
+}

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -10,6 +10,14 @@ import {
   Upload,
 } from "lucide-react";
 import { api } from "../../api/client";
+import type {
+  PlayerRelease,
+  PlayerReleaseList,
+  Screen,
+  ScreenGroup,
+  UpdateDeployment,
+  AuthStatus,
+} from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
 import { apiErrorMessage } from "../../i18n";
 import { screenQueries } from "../../data/screens";
@@ -53,7 +61,8 @@ import { ReleaseSourceDialog } from "./ReleaseSourceDialog";
 import { ReleaseUploadDialog } from "./ReleaseUploadDialog";
 import { LoadingRows, UpdateDeploymentDetail } from "./UpdateDeploymentDetail";
 import { deploymentNeedsAttention, families, familyLabel } from "./model";
-import { screenUpdateMeaning, type ScreenFilter } from "../playerUpdateStates";
+import { screenUpdateMeaning } from "../playerUpdateStates";
+import { hasCapability } from "../../auth/capabilities";
 
 export function PlayerUpdatesPanel(props: {
   owner: boolean;
@@ -86,10 +95,7 @@ function PlayerUpdatesWorkspace({
   const [draft, setDraft] = useState<{ releaseId?: string }>();
   const [source, setSource] = useState(false);
   const [upload, setUpload] = useState(false);
-  const [deployment, setDeployment] = useState<{
-    id: string;
-    filter: ScreenFilter;
-  }>();
+  const [deploymentId, setDeploymentId] = useState<string>();
   const openNative = useOpenNativePresentation();
   const releases = useQuery({
     queryKey: ["player-releases"],
@@ -131,43 +137,22 @@ function PlayerUpdatesWorkspace({
     else next.set("view", "releases");
     setParams(next);
   }
-  function changeFamily(value: UpdateFamilyTab) {
-    if (value === family) return;
-    const next = new URLSearchParams(params);
-    if (value === "android") next.delete("platform");
-    else next.set("platform", value);
-    setParams(next);
-  }
   const closeSource = useCallback(() => setSource(false), []);
   const releaseItems = (releases.data?.items ?? []).filter(
     (r) => releaseUpdateTab(r) === family,
   );
-  const allDeployments = deployments.data?.items ?? [];
-  const deploymentItems = allDeployments.filter(
-    (deployment) => releaseUpdateTab(deployment) === family,
+  const deploymentItems = (deployments.data?.items ?? []).filter(
+    (d) => releaseUpdateTab(d) === family,
   );
-  const screenItems = screens.data?.items ?? [];
-  const familyOptions = families.map((value) => {
-    const count = screenItems.filter(
-      (screen) => screenUpdateTab(screen) === value,
-    ).length;
-    return {
-      value,
-      label: `${familyLabel(value, t)} · ${t("updates.console.fleetCount", {
-        count,
-      })}`,
-    };
-  });
+  const allDeployments = deployments.data?.items ?? [];
   const attentionByFamily = families.map((value) => ({
     family: value,
     count: allDeployments.filter(
       (item) =>
-        releaseUpdateTab(item) === value &&
-        (item.status === "active" || item.status === "paused") &&
-        deploymentNeedsAttention(item),
+        releaseUpdateTab(item) === value && deploymentNeedsAttention(item),
     ).length,
   }));
-  const attentionDeployments = attentionByFamily.reduce(
+  const attentionCount = attentionByFamily.reduce(
     (total, item) => total + item.count,
     0,
   );
@@ -178,11 +163,15 @@ function PlayerUpdatesWorkspace({
     (total, item) => total + item.count,
     0,
   );
-  async function showDeployment(
-    id: string,
-    name: string,
-    filter: ScreenFilter = "all",
-  ) {
+  const familyCounts = Object.fromEntries(
+    families.map((value) => [
+      value,
+      (screens.data?.items ?? []).filter(
+        (screen) => screenUpdateTab(screen) === value,
+      ).length,
+    ]),
+  ) as Record<UpdateFamilyTab, number>;
+  async function showDeployment(id: string, name: string) {
     if (
       await openNative({
         path: presentationPath("update-deployment", id),
@@ -191,278 +180,484 @@ function PlayerUpdatesWorkspace({
       })
     )
       return;
-    setDeployment({ id, filter });
+    setDeploymentId(id);
+  }
+  const inventoryError = screens.error ?? groups.error;
+  function changeFamily(value: string) {
+    if (!value || value === family) return;
+    const next = new URLSearchParams(params);
+    if (value === "android") next.delete("platform");
+    else next.set("platform", value);
+    setParams(next);
   }
   return (
     <div className="grid min-w-0 gap-6">
-      {manageable && (screens.error || groups.error) && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            {apiErrorMessage(screens.error ?? groups.error)}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                void screens.refetch();
-                void groups.refetch();
-              }}
-            >
-              {t("common:actions.retry")}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
-      <Tabs
-        value={view}
-        onValueChange={(value) => changeView(String(value))}
-        className="gap-4"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <TabsList
-              variant="line"
-              aria-label={t("updates.console.workspaceViews")}
-            >
-              <TabsTrigger value="deployments">
-                {t("updates.console.deployments")}
-                {attentionDeployments > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="ml-1 h-5 min-w-5 rounded-full px-1.5 text-[10px]"
-                  >
-                    {attentionDeployments}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="releases">
-                {t("updates.console.releases")}
-              </TabsTrigger>
-            </TabsList>
-            <Select
-              items={familyOptions}
-              value={family}
-              onValueChange={(value) => value && changeFamily(value)}
-            >
-              <SelectTrigger
-                aria-label={t("updates.console.playerFamily")}
-                className="h-8 min-w-52"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {familyOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {manageable && (
-              <Button
-                disabled={!screens.data || !groups.data}
-                onClick={() => setDraft({})}
-              >
-                <Rocket aria-hidden="true" />
-                {t("updates.panel.deployAction")}
-              </Button>
-            )}
-            {owner && view === "releases" && (
-              <Button
-                variant="outline"
-                disabled={sync.isPending}
-                onClick={() => sync.mutate()}
-              >
-                {sync.isPending ? (
-                  <Spinner />
-                ) : (
-                  <RefreshCw aria-hidden="true" />
-                )}
-                {t("updates.console.sync")}
-              </Button>
-            )}
-            {owner && view === "releases" && (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t("updates.console.more")}
-                    />
-                  }
-                >
-                  <MoreHorizontal aria-hidden="true" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setUpload(true)}>
-                    <Upload aria-hidden="true" />
-                    {t("updates.panel.uploadRelease")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSource(true)}>
-                    {t("updates.console.configureSource")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-          </div>
-        </div>
-        {view === "deployments" && otherAttention.length > 0 && (
-          <div
-            className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm"
-            role="status"
-          >
-            <CircleAlert
-              className="size-4 shrink-0 text-destructive"
-              aria-hidden="true"
-            />
-            <span className="text-muted-foreground">
-              {t("updates.console.attentionElsewhere", {
-                count: otherAttentionCount,
-              })}
-            </span>
-            <div className="flex flex-wrap gap-1">
-              {otherAttention.map((item) => (
-                <Button
-                  key={item.family}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => changeFamily(item.family)}
-                >
-                  {familyLabel(item.family, t)}
-                  <Badge
-                    variant="destructive"
-                    className="h-5 min-w-5 rounded-full px-1.5 text-[10px]"
-                  >
-                    {item.count}
-                  </Badge>
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-        <TabsContent value="deployments">
-          {deployments.isPending ? (
-            <LoadingRows />
-          ) : (
-            <>
-              {deployments.error && (
-                <Alert variant="destructive">
-                  <AlertDescription>
-                    {t("updates.panel.historyLoadError")}{" "}
-                    {apiErrorMessage(deployments.error)}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void deployments.refetch()}
-                    >
-                      {t("common:actions.retry")}
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              )}
-              {deployments.data && (
-                <DeploymentList
-                  items={deploymentItems}
-                  onOpen={(item, focus = "all") =>
-                    void showDeployment(item.id, item.versionName, focus)
-                  }
-                />
-              )}
-            </>
-          )}
-        </TabsContent>
-        <TabsContent value="releases">
-          {releases.isPending ? (
-            <LoadingRows />
-          ) : (
-            <>
-              {releases.error && (
-                <Alert variant="destructive">
-                  <AlertDescription>
-                    {apiErrorMessage(releases.error)}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void releases.refetch()}
-                    >
-                      {t("common:actions.retry")}
-                    </Button>
-                  </AlertDescription>
-                </Alert>
-              )}
-              {releases.data && (
-                <ReleaseLibrary
-                  items={releaseItems}
-                  catalog={releases.data}
-                  owner={owner}
-                  manageable={manageable}
-                  syncError={sync.error}
-                  onDeploy={(id) => setDraft({ releaseId: id })}
-                />
-              )}
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
-      {draft && manageable && (
-        <DeployUpdateSheet
-          releases={releases.data?.items ?? []}
-          screens={screens.data?.items ?? []}
-          groups={groups.data?.items ?? []}
-          initialFamily={family}
-          preselected={draft.releaseId}
-          onClose={() => setDraft(undefined)}
-          onCreated={(id, createdFamily) => {
-            setDraft(undefined);
-            void client.invalidateQueries({ queryKey: ["update-deployments"] });
-            if (createdFamily !== family) {
-              const next = new URLSearchParams(params);
-              next.delete("view");
-              if (createdFamily === "android") next.delete("platform");
-              else next.set("platform", createdFamily);
-              setParams(next);
-              return;
-            }
-            changeView("deployments");
-            void showDeployment(id, t("updates.deploymentTitle"));
+      {manageable && inventoryError && (
+        <InventoryAlert
+          error={inventoryError}
+          onRetry={() => {
+            void screens.refetch();
+            void groups.refetch();
           }}
         />
       )}
-      {source && owner && releases.data && (
+      <PlayerUpdatesTabs
+        view={view}
+        actions={
+          <PlayerUpdateActions
+            manageable={manageable}
+            owner={owner}
+            inventoryReady={!!screens.data && !!groups.data}
+            syncPending={sync.isPending}
+            onDeploy={() => setDraft({})}
+            onSync={() => sync.mutate()}
+            onUpload={() => setUpload(true)}
+            onConfigure={() => setSource(true)}
+          />
+        }
+        familySwitch={
+          <PlayerFamilySwitch
+            family={family}
+            familyCounts={familyCounts}
+            onChange={changeFamily}
+          />
+        }
+        attentionCount={attentionCount}
+        otherAttention={otherAttention}
+        otherAttentionCount={otherAttentionCount}
+        onAttentionFamilyChange={changeFamily}
+        deploymentsPending={deployments.isPending}
+        deploymentsError={deployments.error}
+        deploymentsReady={!!deployments.data}
+        deploymentItems={deploymentItems}
+        releasesPending={releases.isPending}
+        releasesError={releases.error}
+        catalog={releases.data}
+        releaseItems={releaseItems}
+        owner={owner}
+        manageable={manageable}
+        syncError={sync.error}
+        onViewChange={changeView}
+        onRetryDeployments={() => void deployments.refetch()}
+        onRetryReleases={() => void releases.refetch()}
+        onOpenDeployment={(item) =>
+          void showDeployment(item.id, item.versionName)
+        }
+        onDeploy={(id) => setDraft({ releaseId: id })}
+        onConfigure={() => setSource(true)}
+      />
+      <PlayerUpdateOverlays
+        draft={draft}
+        source={source}
+        upload={upload}
+        deploymentId={deploymentId}
+        family={family}
+        owner={owner}
+        manageable={manageable}
+        allReleases={releases.data?.items ?? []}
+        catalog={releases.data}
+        screens={screens.data?.items ?? []}
+        groups={groups.data?.items ?? []}
+        onCloseDraft={() => setDraft(undefined)}
+        onCreated={(id) => {
+          setDraft(undefined);
+          changeView("deployments");
+          void client.invalidateQueries({ queryKey: ["update-deployments"] });
+          void showDeployment(id, t("updates.deploymentTitle"));
+        }}
+        onCloseSource={closeSource}
+        onCloseUpload={() => setUpload(false)}
+        onImported={() => {
+          setUpload(false);
+          changeView("releases");
+        }}
+        onCloseDeployment={() => setDeploymentId(undefined)}
+      />
+    </div>
+  );
+}
+
+function PlayerUpdateActions({
+  manageable,
+  owner,
+  inventoryReady,
+  syncPending,
+  onDeploy,
+  onSync,
+  onUpload,
+  onConfigure,
+}: {
+  manageable: boolean;
+  owner: boolean;
+  inventoryReady: boolean;
+  syncPending: boolean;
+  onDeploy: () => void;
+  onSync: () => void;
+  onUpload: () => void;
+  onConfigure: () => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  return (
+    <div className="flex flex-wrap items-center gap-2 pb-2">
+      {manageable && (
+        <Button disabled={!inventoryReady} onClick={onDeploy}>
+          <Rocket aria-hidden="true" />
+          {t("updates.panel.deployAction")}
+        </Button>
+      )}
+      {owner && (
+        <Button variant="outline" disabled={syncPending} onClick={onSync}>
+          {syncPending ? <Spinner /> : <RefreshCw aria-hidden="true" />}
+          {t("updates.console.sync")}
+        </Button>
+      )}
+      {owner && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={t("updates.console.more")}
+              />
+            }
+          >
+            <MoreHorizontal aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onUpload}>
+              <Upload aria-hidden="true" />
+              {t("updates.panel.uploadRelease")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onConfigure}>
+              {t("updates.console.configureSource")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+}
+
+function InventoryAlert({
+  error,
+  onRetry,
+}: {
+  error: unknown;
+  onRetry: () => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  return (
+    <Alert variant="destructive">
+      <AlertDescription>
+        {apiErrorMessage(error)}
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          {t("common:actions.retry")}
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+function PlayerFamilySwitch({
+  family,
+  familyCounts,
+  onChange,
+}: {
+  family: UpdateFamilyTab;
+  familyCounts: Record<UpdateFamilyTab, number>;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2">
+      <p className="text-sm text-muted-foreground">
+        {t("updates.console.fleetCount", { count: familyCounts[family] })}
+      </p>
+      <Select
+        items={families.map((value) => ({
+          value,
+          label: `${familyLabel(value, t)} · ${t("updates.console.fleetCount", { count: familyCounts[value] })}`,
+        }))}
+        value={family}
+        onValueChange={(value) => onChange(value ?? "")}
+      >
+        <SelectTrigger
+          aria-label={t("updates.console.playerFamily")}
+          className="min-w-44"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="end">
+          {families.map((value) => (
+            <SelectItem key={value} value={value}>
+              {familyLabel(value, t)} ·{" "}
+              {t("updates.console.fleetCount", { count: familyCounts[value] })}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function PlayerUpdatesTabs({
+  view,
+  actions,
+  familySwitch,
+  attentionCount,
+  otherAttention,
+  otherAttentionCount,
+  onAttentionFamilyChange,
+  deploymentsPending,
+  deploymentsError,
+  deploymentsReady,
+  deploymentItems,
+  releasesPending,
+  releasesError,
+  catalog,
+  releaseItems,
+  owner,
+  manageable,
+  syncError,
+  onViewChange,
+  onRetryDeployments,
+  onRetryReleases,
+  onOpenDeployment,
+  onDeploy,
+  onConfigure,
+}: {
+  view: "deployments" | "releases";
+  actions: ReactNode;
+  familySwitch: ReactNode;
+  attentionCount: number;
+  otherAttention: { family: UpdateFamilyTab; count: number }[];
+  otherAttentionCount: number;
+  onAttentionFamilyChange: (family: string) => void;
+  deploymentsPending: boolean;
+  deploymentsError: unknown;
+  deploymentsReady: boolean;
+  deploymentItems: UpdateDeployment[];
+  releasesPending: boolean;
+  releasesError: unknown;
+  catalog?: PlayerReleaseList;
+  releaseItems: PlayerRelease[];
+  owner: boolean;
+  manageable: boolean;
+  syncError?: unknown;
+  onViewChange: (value: string) => void;
+  onRetryDeployments: () => void;
+  onRetryReleases: () => void;
+  onOpenDeployment: (item: UpdateDeployment) => void;
+  onDeploy: (id: string) => void;
+  onConfigure: () => void;
+}) {
+  const { t } = useTranslation(["settings", "common"]);
+  return (
+    <Tabs
+      value={view}
+      onValueChange={(value) => onViewChange(String(value))}
+      className="gap-4"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b">
+        <TabsList
+          variant="line"
+          aria-label={t("updates.console.workspaceViews")}
+        >
+          <TabsTrigger value="deployments">
+            {t("updates.console.deployments")}
+            {attentionCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="ml-1 h-5 min-w-5 rounded-full px-1.5 text-[10px]"
+              >
+                {attentionCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="releases">
+            {t("updates.console.releases")}
+          </TabsTrigger>
+        </TabsList>
+        {actions}
+      </div>
+      {familySwitch}
+      {view === "deployments" && otherAttention.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2 text-sm"
+          role="status"
+        >
+          <CircleAlert
+            className="size-4 shrink-0 text-destructive"
+            aria-hidden="true"
+          />
+          <span className="text-muted-foreground">
+            {t("updates.console.attentionElsewhere", {
+              count: otherAttentionCount,
+            })}
+          </span>
+          <div className="flex flex-wrap gap-1">
+            {otherAttention.map((item) => (
+              <Button
+                key={item.family}
+                variant="ghost"
+                size="sm"
+                onClick={() => onAttentionFamilyChange(item.family)}
+              >
+                {familyLabel(item.family, t)}
+                <Badge
+                  variant="destructive"
+                  className="h-5 min-w-5 rounded-full px-1.5 text-[10px]"
+                >
+                  {item.count}
+                </Badge>
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+      <TabsContent value="deployments">
+        {deploymentsPending ? (
+          <LoadingRows />
+        ) : (
+          <>
+            {deploymentsError && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {t("updates.panel.historyLoadError")}{" "}
+                  {apiErrorMessage(deploymentsError)}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onRetryDeployments}
+                  >
+                    {t("common:actions.retry")}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            {deploymentsReady && (
+              <DeploymentList
+                items={deploymentItems}
+                onOpen={onOpenDeployment}
+              />
+            )}
+          </>
+        )}
+      </TabsContent>
+      <TabsContent value="releases">
+        {releasesPending ? (
+          <LoadingRows />
+        ) : (
+          <>
+            {releasesError && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {apiErrorMessage(releasesError)}
+                  <Button variant="outline" size="sm" onClick={onRetryReleases}>
+                    {t("common:actions.retry")}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+            {catalog && (
+              <ReleaseLibrary
+                items={releaseItems}
+                catalog={catalog}
+                owner={owner}
+                manageable={manageable}
+                syncError={syncError}
+                onDeploy={onDeploy}
+                onConfigure={onConfigure}
+              />
+            )}
+          </>
+        )}
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function PlayerUpdateOverlays({
+  draft,
+  source,
+  upload,
+  deploymentId,
+  family,
+  owner,
+  manageable,
+  allReleases,
+  catalog,
+  screens,
+  groups,
+  onCloseDraft,
+  onCreated,
+  onCloseSource,
+  onCloseUpload,
+  onImported,
+  onCloseDeployment,
+}: {
+  draft?: { releaseId?: string };
+  source: boolean;
+  upload: boolean;
+  deploymentId?: string;
+  family: UpdateFamilyTab;
+  owner: boolean;
+  manageable: boolean;
+  allReleases: PlayerRelease[];
+  catalog?: PlayerReleaseList;
+  screens: Screen[];
+  groups: ScreenGroup[];
+  onCloseDraft: () => void;
+  onCreated: (id: string) => void;
+  onCloseSource: () => void;
+  onCloseUpload: () => void;
+  onImported: () => void;
+  onCloseDeployment: () => void;
+}) {
+  return (
+    <>
+      {draft && manageable && (
+        <DeployUpdateSheet
+          releases={allReleases}
+          screens={screens}
+          groups={groups}
+          preselected={draft.releaseId}
+          initialFamily={family}
+          onClose={onCloseDraft}
+          onCreated={onCreated}
+        />
+      )}
+      {source && owner && catalog && (
         <ReleaseSourceDialog
-          github={releases.data.githubAuth}
-          onClose={closeSource}
+          github={catalog.githubAuth}
+          onClose={onCloseSource}
         />
       )}
       {upload && owner && (
         <ReleaseUploadDialog
           family={family}
-          onClose={() => setUpload(false)}
-          onImported={() => {
-            setUpload(false);
-            changeView("releases");
-            void client.invalidateQueries({ queryKey: ["player-releases"] });
-          }}
+          onClose={onCloseUpload}
+          onImported={onImported}
         />
       )}
-      {deployment && (
+      {deploymentId && (
         <UpdateDeploymentDetail
-          key={deployment.id}
-          deploymentId={deployment.id}
-          screens={screens.data?.items ?? []}
+          key={deploymentId}
+          deploymentId={deploymentId}
+          screens={screens}
           manageable={manageable}
-          initialFilter={deployment.filter}
           open
-          onOpenChange={(open) => !open && setDeployment(undefined)}
+          onOpenChange={(open) => !open && onCloseDeployment()}
         />
       )}
-    </div>
+    </>
   );
 }
-export function canDeployPlayerUpdates(role: string | undefined) {
-  return role === "owner" || role === "administrator";
+
+/** The account may roll Player updates out to screens. */
+export function canDeployPlayerUpdates(status?: AuthStatus) {
+  return hasCapability(status, "screen.manage");
 }
 export function playerUpdateStateLabel(state: string) {
   const meaning = screenUpdateMeaning(state);

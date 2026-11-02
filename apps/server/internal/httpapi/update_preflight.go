@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -122,7 +123,7 @@ func (s *server) previewUpdateDeployment(w http.ResponseWriter, r *http.Request)
 	}
 	defer tx.Rollback(r.Context())
 	_, targets, err := resolveUpdateSelection(r.Context(), tx, input, false)
-	if err == pgx.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, 422, "player_release_not_verified", "Only fully verified cached releases can be deployed.")
 		return
 	}

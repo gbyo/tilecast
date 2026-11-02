@@ -7,6 +7,9 @@ Screen Overview.
 
 ## Studio inspection
 
+Weekly schedule evaluation checks each date through the next seven days.
+Calendar arithmetic uses local noon to avoid skipped dates during a clock change.
+
 The Playback card shows Expected now with a source badge: Takeover, Show
 Now, Schedule, or Default. It also shows the default content that plays when
 nothing overrides it. The Schedule card shows the active schedule, a truthful

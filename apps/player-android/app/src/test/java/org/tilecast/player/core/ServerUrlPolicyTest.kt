@@ -25,6 +25,19 @@ class ServerUrlPolicyTest {
         assertTrue(ServerUrlPolicy.normalize("ftp://192.168.1.2").isFailure)
         assertTrue(ServerUrlPolicy.normalize("https://example.com/path").isFailure)
     }
+    @Test fun bareLanAddressesDefaultToHttpAndOthersAreUntouched() {
+        assertEquals("http://192.168.1.50:8080", ServerUrlPolicy.withDefaultScheme(" 192.168.1.50:8080 "))
+        assertEquals("http://tilecast.local", ServerUrlPolicy.withDefaultScheme("tilecast.local"))
+        assertEquals("http://10.0.2.2:8080", ServerUrlPolicy.withDefaultScheme("10.0.2.2:8080"))
+        assertEquals("signage.example.com", ServerUrlPolicy.withDefaultScheme("signage.example.com"))
+        assertEquals("8.8.8.8", ServerUrlPolicy.withDefaultScheme("8.8.8.8"))
+        assertEquals("https://192.168.1.50", ServerUrlPolicy.withDefaultScheme("https://192.168.1.50"))
+        assertEquals(
+            "https://signage.example.com",
+            ServerUrlPolicy.normalize(ServerUrlPolicy.withDefaultScheme("signage.example.com")).getOrThrow().value,
+        )
+        assertTrue(ServerUrlPolicy.normalize(ServerUrlPolicy.withDefaultScheme("192.168.1.50:8080")).getOrThrow().localInsecure)
+    }
     @Test fun matchesSharedServerUrlPolicyFixtures() {
         val root = Json.parseToJsonElement(sharedFixture().readText()).jsonObject
         for (element in root.getValue("cases").jsonArray) {

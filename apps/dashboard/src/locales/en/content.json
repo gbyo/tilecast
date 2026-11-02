@@ -241,7 +241,12 @@
       "queueLabel": "Upload queue",
       "resumePrompt": "Select the same file to resume this upload.",
       "retryResume": "Retry or resume {{name}}",
-      "title": "Uploads"
+      "title": "Uploads",
+      "destinationLabel": "Upload to",
+      "chooseFolder": "Choose a folder",
+      "destinationOption": "Upload to {{name}}",
+      "chooseFolderFirst": "Choose a folder to upload into first.",
+      "noWritableFolder": "No folder is available to upload into. Ask an administrator to give you access to one."
     },
     "website": {
       "advancedSettings": "Advanced website settings",

@@ -30,6 +30,8 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Tests read the shipped stylesheet as text (`runtime.css?raw`).
+    css: { include: [/static\/runtime\.css/] },
     // Plugin runtime tests run with the runtime's, in the same environment.
     include: ["src/**/*.test.ts", "../../plugins/*/runtime/**/*.test.ts"],
   },

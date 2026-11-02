@@ -134,9 +134,11 @@ Web Integration Apps that opt into periodic reload require manifest v15 and `web
 
 Use Canva **Share > See all > Embed** to publish a public embed.
 Copy the Smart embed link or the `src` URL from the HTML iframe.
-Tilecast accepts HTTPS `/design/<id>/view` and `/design/<id>/<access-path>/view` URLs on `www.canva.com` or `canva.com`.
-Presentation designs use these same view URLs.
+Tilecast accepts HTTPS `/design/<id>/view`, `/design/<id>/watch`, `/design/<id>/<access-path>/view`, and `/design/<id>/<access-path>/watch` URLs on `www.canva.com` or `canva.com`.
+Presentation designs use these same provider surfaces.
 Tilecast sets the `embed` query field and preserves other query fields except `utm_*` tracking fields.
+The Canva Widget's `slideshow` setting selects the final provider surface: enabled uses `/watch`; disabled or omitted uses `/view`. Tilecast removes any submitted `autoplay` query field because Canva does not document it as an embed control.
+New Canva Widgets default `slideshow` to disabled. Existing saved Widgets that predate the field also remain on manual `/view` playback until the author enables presentation mode.
 Tilecast removes fragments and one trailing slash.
 Encoded path characters must decode to the same supported path shape.
 The canonical playback host is `www.canva.com`.
@@ -177,8 +179,9 @@ Browser Player has no remote website surface and cannot play Canva.
 Legacy Linux Electron reports version 2.
 Native hosts load remote content in isolated views; Studio uses an iframe.
 Provider restrictions can produce different results on each surface.
-Tilecast does not add autoplay, loop, or slide-transition parameters.
-Export video for unattended timed presentations or use existing image/PDF media for static content.
+Tilecast does not inject autoplay scripts, synthesize navigation input, or add undocumented autoplay, loop, or slide-transition query parameters.
+Presentation mode uses Canva's `/watch` surface. Canva may still open paused: Tilecast does not inject provider DOM scripts or synthesize the UI action that starts Canva autoplay. Canva remains responsible for page duration, animation, and transitions; Tilecast intentionally has no per-slide duration override.
+Export video when playback must be independent of Canva or the network, or use existing image/PDF media for static content.
 
 Provider references: [Canva embedding](https://www.canva.com/help/embed-designs/),
 [public view links](https://www.canva.com/en_in/help/sharing-your-design-as-a-public-view-link/), and
@@ -197,7 +200,7 @@ TILECAST_CANVA_LIVE_URL='https://canva.link/<your-public-design-slug>' go test .
 This check verifies the redirect destination, not remote playback.
 
 1. Publish a public embed in Canva. Open its iframe `src` URL in a signed-out browser.
-2. Create a Canva Widget. Paste the public view link, embed URL, and short link in separate attempts. Check the unverified preview or the Studio CSP explanation. Use **Open in Canva** to check the design. Check that access query fields remain in the saved URL.
+2. Create a Canva Widget. Paste the public view link, watch link, embed URL, and short link in separate attempts. Check the unverified preview or the Studio CSP explanation. Use **Open in Canva** to check the design. Check that access query fields remain in the saved URL. With **Slideshow** enabled, verify the compiled/saved provider URL uses `/watch`; disable it and verify the URL uses `/view`.
 3. Paste an editor link or an expired short link. Check the error and recovery guidance. Clear the URL. Check that the previous design disappears.
 4. Save and assign the Widget to a Player that reports `web.remote@2`. Test fullscreen and a Layout placement. Check clipping, sizing, reload, and transitions to another item.
 5. Disconnect the Player network. Check the unavailable placeholder. Restore the network and reactivate the item. Check recovery. Do not expect offline Canva content.
@@ -209,13 +212,28 @@ Physical Fire TV, Google TV WebView, WPE, and WebView2 Canva validation remains 
 
 A Layout arranges Media, Widgets, static text, shapes, playlist zones, and groups. Data Sources are never listed as normal draggable content.
 
-A Layout playlist zone supports only image and video items. Studio previews only those items. Layout publication and assignment validation reject a zone Playlist that contains a Widget, Website, or nested Layout, including content added after the Layout was published.
+A Layout playlist zone supports image, video, and Widget items. A Widget uses
+the same component, compatibility presentation, or isolated remote web surface
+as a direct Layout placement. Package Widgets retain their sandbox execution
+and resource grants. The target Player must report `layout.playlist_widgets@1`
+and every capability that the Widget requires. Assignment and manifest
+generation reject unsupported Players. Media-only zones do not require this
+new capability. Nested Layout items are unsupported in playlist zones.
 
-A playlist zone uses the Player's image timing and playback defaults. An image uses its item duration or the configured default image duration. A video starts at its configured start offset and advances at its end offset, or when the media ends if there is no end offset. Videos do not use the image duration timer. A single-item looping zone restarts the video at its start offset. A non-looping zone pauses its final video at its end offset. Studio uses the same rules in the Layout preview.
+Studio reports an unsupported zone Playlist before publication. The Layout editor reads each visible zone's Playlist and applies `playlistZoneUnsupportedItems` from `@tilecast/presentation-model`, the same rule as `isPlaylistZoneMediaItem` and the server's `ValidatePlaylistZoneMediaOnly`. When a Playlist has an unsupported item, Studio does these things:
+
+- It refuses to add the Playlist as a new zone, and names the offending items.
+- It marks the zone on the canvas instead of previewing the playable subset.
+- It shows the item names and kinds (Widget, Website, YouTube, Layout) in the zone inspector and in a banner above the canvas.
+- It disables Publish and Submit until the Playlist or the zone changes.
+
+Studio rechecks when the window regains focus, so a Playlist that changed after the zone referenced it shows the same report. The server remains the authority. Publication and assignment readiness return `layout_playlist_zone_unsupported` and `presentation_not_ready` with a message that names the Playlist and the items. Do not copy the media rule into another component. Extend the shared helper.
+
+A playlist zone uses the Player's timing and playback defaults. An image uses its item duration or the configured default image duration. A Widget uses its item duration or the 30-second Widget default. The duration starts after the surface is ready and visible. Pause preserves the remaining duration. A YouTube Widget with play-until-end enabled advances on media completion. A video starts at its configured start offset and advances at its end offset, or when the media ends if there is no end offset. Videos do not use the image duration timer. A single-item looping zone restarts the video at its start offset. A non-looping zone pauses its final video at its end offset.
 
 Playlist-zone playback settings are part of the Player payload. The zone loop setting decides whether playback returns to the first playable item or stops on the last one. Each item keeps the zone's corner radius and its Playlist transition. When media fails, the fallback setting shows the Layout background, keeps the last successfully loaded item, or hides the zone. A failed item advances when another item is available. At a non-looping final item, the Player retries after two seconds.
 
-Studio filters playlist-zone items with the same availability windows as the Player. It checks both the item and its Media asset at the selected Layout preview date, or at the current time when the date is not valid. A live preview reevaluates at the next availability boundary without a Layout edit.
+Studio filters playlist-zone items with the same availability windows as the Player. It checks both the item and its asset at the selected Layout preview date, or at the current time when the date is not valid. A live preview reevaluates at the next availability boundary without a Layout edit.
 
 A Widget placement stores a Widget ID, bounds, layer, opacity, and visibility. A Widget manifest may publish a Studio-only `authoring.preview.recommendedFrame` so new placements and previews start at geometry that matches the visual purpose instead of inheriting the Layout canvas aspect ratio. The frame is a preferred shape, not a maximum size: a new placement keeps the area of the default placement with the frame's aspect ratio, limited to 80 percent of the canvas on each side, centered when there is no drop position. The hint is never Player configuration; the placed bounds remain ordinary Layout geometry. Alert Banner uses 1920×160, so it places at 1536×128 on a 1920×1080 canvas and at 3072×256 on a 3840×2160 canvas. Its appearance comes from the shared Widget. Studio does not expose placement-level overrides because the Player Runtime does not apply them. Existing saved override values remain accepted for compatibility but have no effect. Publishing permits at most one visible video-capable placement or zone and one audio-emitting placement or zone.
 

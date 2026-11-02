@@ -310,6 +310,9 @@ pub fn incompatibilities(document: &Value, assets: &[ManifestAsset]) -> Vec<Inco
     // display task applies it when a provider exists and reports the typed
     // reason when none does, as the reference player does.
     for plugin in document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+        if player_core::is_runtime_plugin_data(plugin) {
+            continue;
+        }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("unknown");
         if !crate::renderer_adapter::profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
             push(Incompatibility::Plugin(kind.chars().take(32).collect()));
@@ -361,16 +364,21 @@ impl<'a> Projector<'a> {
         })
     }
 
-    /// Every verified frame claim, deduplicated by document digest like
-    /// the content map. Core fetched and verified each one before this
-    /// manifest became a candidate; the port mints one grant per claim.
+    /// Every distinct package/frame authorization identity. CAS may share
+    /// identical bytes; the Runtime still needs each package's table entry.
     fn frame_refs(&self) -> Result<Vec<VerifiedFrameRef>, ProjectionError> {
         let mut frames = Vec::with_capacity(self.native.required_frames.len());
         for claim in &self.native.required_frames {
-            if frames.iter().any(|existing: &VerifiedFrameRef| existing.sha256 == claim.digest) {
+            if frames.iter().any(|existing: &VerifiedFrameRef| {
+                existing.sha256 == claim.digest
+                    && existing.kind == claim.kind
+                    && existing.package_id.as_str() == claim.package_id
+                    && existing.package_digest == claim.package_digest
+            }) {
                 continue;
             }
             frames.push(VerifiedFrameRef {
+                kind: claim.kind,
                 package_id: player_types::bounded::SafeText::new(claim.package_id.clone())
                     .map_err(|_| ProjectionError::Structure)?,
                 package_digest: claim.package_digest,
@@ -581,6 +589,26 @@ impl<'a> Projector<'a> {
         let mut aliases = Vec::new();
         let mut content = Vec::new();
         for plugin in self.document().get("plugins").and_then(Value::as_array).into_iter().flatten() {
+            if player_core::is_runtime_plugin_data(plugin) {
+                for (asset_id, variant_id) in player_core::plugin_state_media(plugin) {
+                    let asset =
+                        self.asset(&asset_id.to_string(), &variant_id.to_string()).ok_or(ProjectionError::Reference)?;
+                    if !aliases.iter().any(|alias: &MediaAlias| {
+                        alias.asset_id == asset.asset_id && alias.variant_id == asset.variant_id
+                    }) {
+                        aliases.push(MediaAlias {
+                            asset_id: asset.asset_id,
+                            variant_id: asset.variant_id,
+                            uri: content_uri(&asset.digest),
+                        });
+                    }
+                    if !content.iter().any(|existing: &VerifiedContentRef| existing.sha256 == asset.digest) {
+                        content.push(Self::content_ref(asset)?);
+                    }
+                }
+                plugins.push(plugin.clone());
+                continue;
+            }
             let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("");
             if !crate::renderer_adapter::profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
                 return Err(ProjectionError::Incompatible(Incompatibility::Plugin(kind.chars().take(32).collect())));
@@ -900,10 +928,45 @@ mod tests {
     }
 
     #[test]
+    fn external_surface_uses_verified_frames_instead_of_a_bundled_feature_id() {
+        let entry: Value =
+            serde_json::from_str(include_str!("../../../packages/manifest-schema/external-plugin-entry-fixture.json"))
+                .expect("fixture");
+        let screen = player_types::ScreenId::from_uuid(uuid::Uuid::from_u128(3));
+        let value = serde_json::json!({"schemaVersion":20,"manifestVersion":1,"screenId":screen.to_string(),"mode":"presentation",
+            "assets":[],"playlists":[],"widgets":[],"plugins":[entry.clone()]});
+        let native = NativeManifest::parse(value, screen, player_types::Sha256Digest::from_bytes([7; 32]))
+            .expect("verified external member");
+        let (forwarded, aliases, content) = Projector::new(&native).plugins().expect("external channel");
+        assert_eq!(forwarded, vec![entry]);
+        assert_eq!(native.required_frames.len(), 1);
+        assert_eq!(native.required_frames[0].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert!(aliases.is_empty() && content.is_empty());
+        assert!(incompatibilities(&native.document, &native.assets).is_empty());
+    }
+
+    #[test]
+    fn plugin_state_is_runtime_data_routed_by_player_core() {
+        let entry: Value =
+            serde_json::from_str(include_str!("../../../packages/manifest-schema/plugin-state-entry-fixture.json"))
+                .expect("fixture");
+        let screen = player_types::ScreenId::from_uuid(uuid::Uuid::from_u128(3));
+        let value = serde_json::json!({"schemaVersion":21,"manifestVersion":1,"screenId":screen.to_string(),"mode":"presentation",
+            "assets":[],"playlists":[],"widgets":[],"plugins":[entry.clone()]});
+        let native = NativeManifest::parse(value, screen, player_types::Sha256Digest::from_bytes([7; 32]))
+            .expect("v2 state member");
+        let (forwarded, aliases, content) = Projector::new(&native).plugins().expect("state channel");
+        assert_eq!(forwarded, vec![entry]);
+        assert!(aliases.is_empty() && content.is_empty());
+        assert!(incompatibilities(&native.document, &native.assets).is_empty());
+    }
+
+    #[test]
     fn frame_claims_project_deduplicated_by_document() {
         use player_core::ManifestFrame;
         let mut native = website_native();
         let claim = ManifestFrame {
+            kind: player_types::frames::FrameKind::Widget,
             package_id: "acme.athletics".to_owned(),
             package_digest: player_types::Sha256Digest::from_bytes([9; 32]),
             digest: player_types::Sha256Digest::from_bytes([11; 32]),

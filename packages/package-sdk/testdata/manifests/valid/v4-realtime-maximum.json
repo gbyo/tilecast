@@ -1,0 +1,38 @@
+{
+  "apiVersion": 4,
+  "packageId": "example.realtime",
+  "packageVersion": "1.0.0",
+  "name": "Realtime sample",
+  "description": "A bounded high-frequency package job.",
+  "publisher": {
+    "id": "example",
+    "name": "Example"
+  },
+  "repository": "https://github.com/example/tilecast-realtime",
+  "license": "AGPL-3.0-only",
+  "tilecast": {
+    "version": ">=1.0.0 <2.0.0"
+  },
+  "distribution": {
+    "oci": "ghcr.io/example/tilecast-realtime"
+  },
+  "contributions": [
+    {
+      "type": "plugin",
+      "path": "./plugin"
+    }
+  ],
+  "runtime": {
+    "module": "./runtime/server.wasm"
+  },
+  "capabilities": {
+    "realtime": {
+      "jobs": [
+        {
+          "id": "refresh",
+          "intervalSeconds": 60
+        }
+      ]
+    }
+  }
+}

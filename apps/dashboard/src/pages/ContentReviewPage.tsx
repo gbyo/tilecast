@@ -52,6 +52,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { useFormatLocale } from "../i18n";
+import { hasCapability } from "../auth/capabilities";
 
 const stateLabelKeys = {
   pending: "contentReview.state.pending",
@@ -72,8 +73,7 @@ export function ContentReviewPage() {
   const auth = useAuth();
   const client = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
-  const role = auth.status?.user?.role ?? "viewer";
-  const canDecide = ["owner", "administrator", "editor"].includes(role);
+  const canDecide = hasCapability(auth.status, "content.review");
 
   const [filter, setFilter] = useState<ContentReviewState | "">("pending");
   const [selected, setSelected] = useState<ContentReviewItem | null>(null);

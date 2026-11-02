@@ -284,3 +284,125 @@ describe("playback controller", () => {
     });
   });
 });
+
+describe("shared occurrence boundaries", () => {
+  const anchored = (h: ReturnType<typeof harness>, items: RuntimeItem[]) =>
+    h.controller.present({
+      type: "presentation",
+      presentation: playing(items, { synchronized: true }),
+      timing: {
+        groupId: "g",
+        anchorMs: T0,
+        durationsMs: items.map((entry) => entry.durationMs ?? 10_000),
+        clockOffsetMs: 0,
+      },
+    });
+  const actor = (h: ReturnType<typeof harness>) =>
+    (h.controller as unknown as { childRef: unknown }).childRef;
+  const counters = (h: ReturnType<typeof harness>) =>
+    h.controller.diagnostics.snapshot().counters;
+
+  it("keeps the presentation actor across a looping single video", () => {
+    const h = harness();
+    anchored(h, [item("v", { kind: "video", durationMs: 10_000 })]);
+    const first = actor(h);
+    h.ready();
+    const mount = h.stage()!.mount;
+    for (let lap = 1; lap <= 4; lap += 1) {
+      h.clock.advance(10_000);
+      expect(actor(h)).toBe(first);
+      expect(h.stage()!.mount).toBe(mount + lap);
+      expect(h.stage()!.sharedBoundary).toBe(true);
+      h.ready();
+    }
+    expect(counters(h)["presentation-actors"]).toBe(1);
+    expect(counters(h)["occurrence-boundaries"]).toBe(4);
+  });
+
+  it("replaces the actor when the host presents something new", () => {
+    const h = harness();
+    anchored(h, [item("v", { kind: "video", durationMs: 10_000 })]);
+    const first = actor(h);
+    h.clock.advance(10_000);
+    expect(actor(h)).toBe(first);
+    anchored(h, [item("v", { kind: "video", durationMs: 10_000 })]);
+    expect(actor(h)).not.toBe(first);
+    expect(h.stage()!.sharedBoundary).toBeUndefined();
+    expect(counters(h)["presentation-actors"]).toBe(2);
+  });
+
+  it("reports the transition before the start, once per boundary", () => {
+    const h = harness();
+    anchored(h, [item("v", { kind: "video", durationMs: 10_000 })]);
+    h.clock.advance(20_000);
+    expect(h.log).toEqual([
+      "-:item-started:v",
+      "-:item-transition:v",
+      "-:item-started:v",
+      "-:item-transition:v",
+      "-:item-started:v",
+    ]);
+  });
+
+  it("publishes the position after the occurrence is mounted", () => {
+    const h = harness();
+    anchored(h, [item("v", { kind: "video", durationMs: 10_000 })]);
+    const seen: { occurrence: number; mount: number }[] = [];
+    h.controller.onSyncPosition((position) => {
+      if (position) {
+        seen.push({ occurrence: position.occurrence, mount: h.stage()!.mount });
+      }
+    });
+    const before = h.stage()!.mount;
+    h.clock.advance(10_500);
+    // Every position of the new occurrence is seen with the new occurrence
+    // already mounted; none can be applied to the video it replaced.
+    const lap = seen.filter((entry) => entry.occurrence === 1);
+    expect(lap.length).toBeGreaterThan(0);
+    expect(lap.every((entry) => entry.mount === before + 1)).toBe(true);
+  });
+
+  it("ignores a boundary older than the current generation", () => {
+    const h = harness();
+    anchored(h, [item("a", { durationMs: 10_000 }), item("b")]);
+    h.clock.advance(10_000);
+    const mount = h.stage()!.mount;
+    const presentation = playing([item("a")], {
+      synchronized: true,
+      generation: 1,
+    });
+    (
+      h.controller as unknown as {
+        player: { send(event: unknown): void };
+      }
+    ).player.send({ type: "OCCURRENCE", presentation });
+    expect(h.stage()!.mount).toBe(mount);
+    expect(h.stage()!.item.id).toBe("b");
+  });
+
+  it("lets a takeover replace the shared presentation and stops the boundaries", () => {
+    const h = harness();
+    anchored(h, [item("a", { durationMs: 10_000 }), item("b")]);
+    h.clock.advance(10_000);
+    h.controller.present({
+      type: "presentation",
+      presentation: playing([item("t")], { takeover: true }),
+    });
+    expect(h.stage()!.item.id).toBe("t");
+    h.clock.advance(60_000);
+    expect(h.stage()!.item.id).toBe("t");
+    expect(counters(h)["occurrence-boundaries"]).toBe(1);
+  });
+
+  it("does not let a screen skip or finish an occurrence on its own", () => {
+    const h = harness();
+    anchored(h, [item("a", { durationMs: 10_000 }), item("b")]);
+    h.clock.advance(10_000);
+    h.ready();
+    const mount = h.stage()!.mount;
+    h.controller.skip();
+    h.controller.surface({ type: "SURFACE_ENDED", mount, source: "ended" });
+    h.clock.flush();
+    expect(h.stage()!.mount).toBe(mount);
+  });
+});

@@ -4,11 +4,16 @@
  * At activation the wall clock (corrected by the host's server offset) is read
  * once to place this screen in the group's cycle; from then on position comes
  * from the monotonic clock. At each occurrence boundary the timeline reports
- * the outgoing item's transition and re-presents the playlist rotated to the
+ * the outgoing item's transition and hands over the playlist rotated to the
  * expected item with the remaining duration and video offset, so the playback
  * machine (which has no local authority under a shared timeline) mounts
  * exactly what the group is showing. Between boundaries it publishes the
  * expected position four times a second for video drift correction.
+ *
+ * The first presentation after an activation replaces whatever was playing.
+ * Every later boundary of that activation is the same presentation reaching
+ * its next occurrence, and is delivered as such, so the engine does not have to
+ * rebuild itself once per lap.
  *
  * The scheduler only wakes the timeline; every decision is re-evaluated from
  * the clock, so a late timer is corrected rather than trusted.
@@ -43,6 +48,12 @@ export interface SyncPosition {
 
 type Playing = Extract<RuntimePresentation, { state: "playing" }>;
 
+/**
+ * `activation`: a new presentation replaces the current one.
+ * `boundary`: the same presentation reached its next shared occurrence.
+ */
+export type PresentKind = "activation" | "boundary";
+
 export class SynchronizedTimeline {
   private readonly timers: TimerGroup;
   private source: Playing | null = null;
@@ -54,7 +65,10 @@ export class SynchronizedTimeline {
   constructor(
     private readonly clock: RuntimeClock,
     private readonly reporter: EngineReporter,
-    private readonly present: (presentation: Playing) => void,
+    private readonly present: (
+      presentation: Playing,
+      kind: PresentKind,
+    ) => void,
     private readonly publish: (position: SyncPosition | null) => void,
     private readonly nextGeneration: () => number,
   ) {
@@ -119,23 +133,31 @@ export class SynchronizedTimeline {
     const source = this.source;
     if (!source || source.items.length === 0) return;
     const position = this.position();
-    this.publish(this.event(position));
     if (!force && position.occurrence === this.lastOccurrence) {
+      this.publish(this.event(position));
       this.scheduleBoundary(position);
       return;
     }
+    const kind: PresentKind =
+      this.lastOccurrence === null ? "activation" : "boundary";
     if (this.lastOccurrence !== null) {
       this.reporter.evidence("item-transition", this.lastItemId);
     }
     this.lastOccurrence = position.occurrence;
     this.lastItemId = source.items[position.index]?.id ?? null;
-    this.present({
-      ...source,
-      items: rotateForSynchronizedPosition(source.items, position),
-      generation: this.nextGeneration(),
-      // The playback machine suppresses its own advancement on this flag.
-      synchronized: true,
-    });
+    this.present(
+      {
+        ...source,
+        items: rotateForSynchronizedPosition(source.items, position),
+        generation: this.nextGeneration(),
+        // The playback machine suppresses its own advancement on this flag.
+        synchronized: true,
+      },
+      kind,
+    );
+    // After the occurrence is mounted, so a correction for this position is
+    // never applied to the video the previous occurrence left on screen.
+    this.publish(this.event(position));
     this.scheduleBoundary(position);
   }
 

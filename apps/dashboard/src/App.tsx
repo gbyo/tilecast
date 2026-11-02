@@ -10,7 +10,10 @@ import { NativePresentationHost } from "./native-presentation/NativePresentation
 import { NativeMediaIntakeRefresh } from "./native-host/NativeMediaIntakeRefresh";
 import { NativePresentationNavigation } from "./native-presentation/NativePresentationNavigation";
 import { LiveStreamPresentation } from "./components/LiveStreamPresentation";
-import { settingsItems } from "./settings/settingsNavigation";
+import {
+  settingsCapabilities,
+  settingsItems,
+} from "./settings/settingsNavigation";
 import { AuthPage } from "./pages/AuthPage";
 import { DashboardShell, FoundationPage } from "./pages/Dashboard";
 import {
@@ -34,7 +37,7 @@ import { PlaylistPreviewPage } from "./pages/PlaylistPreviewPage";
 import { SchedulesPage, ScheduleEditorPage } from "./pages/SchedulesPage";
 import { DisplayGroupsPage } from "./screens/groups/DisplayGroupsPage";
 import { DisplayGroupDetailPage } from "./screens/groups/DisplayGroupDetailPage";
-import { SettingsPage } from "./pages/SettingsPage";
+import { SettingsIndexRedirect, SettingsPage } from "./pages/SettingsPage";
 import { OAuthApprovalPage } from "./pages/OAuthApprovalPage";
 import { AccountIndexRedirect, MyAccountPage } from "./pages/MyAccountPage";
 import { PreferencesPage } from "./pages/PreferencesPage";
@@ -133,6 +136,7 @@ export const studioRoutes: RouteObject[] = [
         index: true,
         element: <FoundationPage />,
         handle: {
+          capabilities: ["screen.read"],
           navigation: destination({
             id: "overview",
             group: "home",
@@ -154,6 +158,7 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "screens",
         handle: {
+          capabilities: ["screen.read"],
           navigation: destination({
             id: "screens",
             group: "screens",
@@ -193,17 +198,26 @@ export const studioRoutes: RouteObject[] = [
               {
                 path: "pair",
                 element: <ScreensPairRoute />,
-                handle: { breadcrumb: "Pair screen" },
+                handle: {
+                  breadcrumb: "Pair screen",
+                  capabilities: ["screen.pair"],
+                },
               },
               {
                 path: "pair/:code",
                 element: <ScreensPairRoute />,
-                handle: { breadcrumb: "Pair screen" },
+                handle: {
+                  breadcrumb: "Pair screen",
+                  capabilities: ["screen.pair"],
+                },
               },
               {
                 path: "pair/request/:requestId",
                 element: <ScreensPairRoute />,
-                handle: { breadcrumb: "Pair screen" },
+                handle: {
+                  breadcrumb: "Pair screen",
+                  capabilities: ["screen.pair"],
+                },
               },
             ],
           },
@@ -212,7 +226,7 @@ export const studioRoutes: RouteObject[] = [
             element: <FleetBulkPage />,
             handle: {
               breadcrumb: "Bulk changes",
-              searchAllowedRoles: ["owner", "administrator"],
+              capabilities: ["screen.manage"],
               search: search(
                 "Bulk changes",
                 "Apply one change to many screens with a preview",
@@ -231,6 +245,7 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "groups",
         handle: {
+          capabilities: ["screen.read"],
           navigation: destination({
             id: "groups",
             group: "screens",
@@ -259,6 +274,7 @@ export const studioRoutes: RouteObject[] = [
         path: "assets",
         element: <ContentPage />,
         handle: {
+          capabilities: ["media.read"],
           navigation: destination({
             id: "media",
             group: "content",
@@ -284,6 +300,7 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "widgets",
         handle: {
+          capabilities: ["widget.read"],
           navigation: destination({
             id: "widgets",
             group: "content",
@@ -304,12 +321,19 @@ export const studioRoutes: RouteObject[] = [
           {
             path: "new",
             element: <WidgetEditorPage />,
-            handle: { breadcrumb: "Create widget" },
+            handle: {
+              breadcrumb: "Create widget",
+              capabilities: ["widget.edit"],
+            },
           },
           {
             path: "new/:provider",
             element: <WidgetEditorPage />,
-            handle: { breadcrumb: "Create widget", immersiveEditor: true },
+            handle: {
+              breadcrumb: "Create widget",
+              immersiveEditor: true,
+              capabilities: ["widget.edit"],
+            },
           },
           {
             path: ":id",
@@ -325,6 +349,7 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "data-sources",
         handle: {
+          capabilities: ["datasource.read"],
           navigation: destination({
             id: "data-sources",
             group: "content",
@@ -345,12 +370,18 @@ export const studioRoutes: RouteObject[] = [
           {
             path: "new",
             element: <DataSourceEditorPage />,
-            handle: { breadcrumb: "Create data source" },
+            handle: {
+              breadcrumb: "Create data source",
+              capabilities: ["datasource.edit"],
+            },
           },
           {
             path: "new/:provider",
             element: <DataSourceEditorPage />,
-            handle: { breadcrumb: "Create data source" },
+            handle: {
+              breadcrumb: "Create data source",
+              capabilities: ["datasource.edit"],
+            },
           },
           {
             path: ":id",
@@ -362,6 +393,12 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "content-review",
         handle: {
+          capabilities: [
+            "content.review",
+            "playlist.edit",
+            "layout.edit",
+            "campaign.edit",
+          ],
           breadcrumb: "Content review",
           search: search(
             "Content review",
@@ -382,6 +419,7 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "playlists",
         handle: {
+          capabilities: ["playlist.read"],
           navigation: destination({
             id: "playlists",
             group: "presentations",
@@ -409,6 +447,7 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "layouts",
         handle: {
+          capabilities: ["layout.read"],
           navigation: destination({
             id: "layouts",
             group: "presentations",
@@ -440,6 +479,7 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "campaigns",
         handle: {
+          capabilities: ["campaign.read"],
           navigation: destination({
             id: "campaigns",
             group: "presentations",
@@ -467,6 +507,7 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "schedules",
         handle: {
+          capabilities: ["schedule.read"],
           navigation: destination({
             id: "schedules",
             group: "operations",
@@ -486,7 +527,11 @@ export const studioRoutes: RouteObject[] = [
           {
             path: "new",
             element: <ScheduleEditorPage />,
-            handle: { breadcrumb: "Create schedule", immersiveEditor: true },
+            handle: {
+              breadcrumb: "Create schedule",
+              immersiveEditor: true,
+              capabilities: ["schedule.edit"],
+            },
           },
           {
             path: ":id",
@@ -502,6 +547,7 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "plugins",
         handle: {
+          capabilities: ["plugins.use"],
           navigation: destination({
             id: "plugins",
             group: "operations",
@@ -577,6 +623,7 @@ export const studioRoutes: RouteObject[] = [
         path: "activity",
         element: <ActivityPage />,
         handle: {
+          capabilities: ["activity.read"],
           navigation: destination({
             id: "activity",
             group: "secondary",
@@ -659,6 +706,7 @@ export const studioRoutes: RouteObject[] = [
       {
         path: "settings",
         handle: {
+          capabilities: settingsCapabilities,
           navigation: destination({
             id: "settings",
             group: "secondary",
@@ -674,10 +722,7 @@ export const studioRoutes: RouteObject[] = [
           ),
         },
         children: [
-          {
-            index: true,
-            element: <Navigate to="/settings/general" replace />,
-          },
+          { index: true, element: <SettingsIndexRedirect /> },
           ...settingsItems.map((item) => {
             const entry = settingsSearch[item.id];
             return {
@@ -685,6 +730,7 @@ export const studioRoutes: RouteObject[] = [
               element: <SettingsPage />,
               handle: {
                 breadcrumb: item.label,
+                capabilities: item.capabilities,
                 search: {
                   ...search(
                     item.label,
@@ -704,10 +750,7 @@ export const studioRoutes: RouteObject[] = [
             path: "preferences",
             element: <Navigate to="/account/preferences" replace />,
           },
-          {
-            path: "*",
-            element: <Navigate to="/settings/general" replace />,
-          },
+          { path: "*", element: <SettingsIndexRedirect /> },
         ],
       },
     ],

@@ -99,6 +99,36 @@ func TestStaleUpdateAttemptsAndPausedRolloutsExpire(t *testing.T) {
 	}
 }
 
+func TestUpdateRetryKeepsItsNewAttemptWindow(t *testing.T) {
+	f := newEdgeFixture(t)
+	screen := f.screen(t, "Retry Lobby", "linux", "edge", "x86_64", 1000)
+	deployment, _ := f.deploy(t, f.edgeRelease(t, "x86_64"), screen)
+	if _, err := f.pool.Exec(f.ctx, `UPDATE update_deployments SET started_at=now()-interval '8 days' WHERE id=$1`, deployment); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(f.ctx, `UPDATE player_commands SET state='expired',created_at=now()-interval '8 days',expires_at=now()-interval '1 day' WHERE type='install_player_update' AND payload->>'deploymentId'=$1`, deployment.String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(f.ctx, `UPDATE screen_update_states SET state='failed',updated_at=now()-interval '8 days' WHERE deployment_id=$1`, deployment); err != nil {
+		t.Fatal(err)
+	}
+	request := requestWithTestPrincipal(httptest.NewRequest(http.MethodPost, "/retry", nil), auth.Session{User: auth.User{ID: f.user, Role: "owner"}})
+	request = withURLParam(withURLParam(request, "id", deployment.String()), "screenId", screen.String())
+	response := httptest.NewRecorder()
+	f.server.retryUpdateScreen(response, request)
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("retry status=%d body=%s", response.Code, response.Body)
+	}
+	f.server.reconcileUpdateDeployments(f.ctx)
+	var status string
+	if err := f.pool.QueryRow(f.ctx, `SELECT status FROM update_deployments WHERE id=$1`, deployment).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "active" || f.state(t, deployment, screen) != "pending" {
+		t.Fatalf("old attempt expired a retry: deployment=%q target=%q", status, f.state(t, deployment, screen))
+	}
+}
+
 func TestMaintenanceWindowCommandExpiresAfterScheduledAttemptWindow(t *testing.T) {
 	f := newEdgeFixture(t)
 	release := f.edgeRelease(t, "x86_64")

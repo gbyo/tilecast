@@ -46,6 +46,7 @@ apps/ios/                    SwiftUI iOS/iPadOS Studio host and native bridge
 apps/player-android/         Android TV/Google TV/Fire TV Compose host + native Player Core adapter
 apps/player-web/             experimental Browser Player
 apps/player-windows/         Windows native Player host (Rust + WebView2)
+apps/setup-relay/            phone setup relay (Cloudflare Worker, own lockfile)
 apps/edge/                   Linux Edge host (Rust, WPE, systemd, hardware integration)
 apps/player-linux/           legacy Linux Electron Player and helper; maintain compatibility/migration
 crates/player-{types,state,cas,client,core}/  shared native Player crates
@@ -170,6 +171,19 @@ Dashboard accounts may carry a second factor. Preserve these properties:
 - Passkeys store only a public key, and each successful assertion writes the updated credential record back so sign-count clone detection keeps working.
 - WebAuthn is unavailable on plain-HTTP and IP-address installations. Report the reason; do not present a control that cannot work. See `docs/multi-factor-authentication.md`.
 
+### Authorization
+
+Authorization is capabilities plus scopes. Read [`docs/access-control.md`](docs/access-control.md) before changing it.
+
+- The Server owns a closed capability vocabulary in `internal/auth/capabilities.go`. Roles are named sets of capabilities. The five built-in roles are protected and live in code. Installations may add custom roles with keys that start with `custom.`.
+- Gate a management route with `requireCapability(...)`. Do not compare a role name to decide permission. Only identity checks with a meaning of their own use the role key: the protected Owner invariants, multi-factor policy, and compatibility behavior.
+- Session and OAuth/PAT callers reach one decision. The principal carries the live user and the capabilities of the live role. Credential scopes `read`, `write`, and `admin` stay an additional ceiling.
+- A non-Owner may grant only capabilities it holds and never `users.manage` or `roles.manage`. Nobody changes their own role, content access, or screen scope. Preserve the last-active-Owner invariant.
+- Content access is explicit per account. A missing policy grants nothing. Do not copy the "no rows means everything" convention of screen scopes. One predicate (`media.AssetInScopeSQL`) serves lists and authorization. An inaccessible resource answers `404`, and a bulk request with one inaccessible resource changes nothing.
+- Content access is a management boundary. Do not scope Player playback or manifest generation.
+- Studio asks `useCapabilities().can(...)` and reads route capabilities from the route handle. Hiding a control is not a security boundary.
+- `src/test/builtin-capabilities.json` mirrors the built-in role sets. A Go test fails when it drifts.
+
 ### Pairing protocol invariants
 
 The protocol is documented in `docs/player-protocol.md`. Preserve these invariants:
@@ -202,12 +216,14 @@ Return computed status and `lastContactAt`. Do not duplicate the thresholds in R
 
 ### Plugins and extension packages
 
-A **bundled** plugin is a directory below `plugins/`. Read [`docs/plugin-api.md`](docs/plugin-api.md) before you change a bundled plugin or its host. Marketplace packages are separately distributed and have distinct installation and trust boundaries; see [`docs/packages.md`](docs/packages.md) and [`docs/marketplace.md`](docs/marketplace.md). For Widgets V2 and data sources, use [`docs/widgets-v2.md`](docs/widgets-v2.md) and [`docs/data-source-modules.md`](docs/data-source-modules.md).
+A **bundled** plugin is a directory below `plugins/`. Read [`docs/plugin-api.md`](docs/plugin-api.md) before you change a bundled plugin or its host. Two generations are supported: Plugin API v1 (frozen; every bundled plugin today) and Plugin API v2 ([`docs/plugin-api-v2.md`](docs/plugin-api-v2.md)), where Server, Studio, and Player contributions are independent and Player behavior requests versioned services. A Widget is presentation content; a plugin extends Tilecast; a surface is one Player service a plugin may use. New plugins use v2. Do not move an existing plugin to v2 as a side effect of another change. Marketplace packages are separately distributed and have distinct installation and trust boundaries; see [`docs/packages.md`](docs/packages.md) and [`docs/marketplace.md`](docs/marketplace.md). For Widgets V2 and data sources, use [`docs/widgets-v2.md`](docs/widgets-v2.md) and [`docs/data-source-modules.md`](docs/data-source-modules.md).
 
 - Keep everything unique to a plugin in its directory. Do not add a plugin identifier to core code; extend the SDK contribution interfaces instead.
+- A new Player capability for plugins is a narrow, versioned service in `packages/plugin-sdk/player-services.json` with its mirrors, not a field for one plugin. Never add a generic native invoke bridge or branch shared behavior on a platform name.
 - Plugins import only the plugin SDK, `@tilecast/studio`, and their own files. `npm run plugins:check` enforces this.
 - `tilecast.store.json` is presentation only. It must never carry identity, capabilities, requirements, or trust, which stay in the manifest. Store artwork is static WebP checked into the plugin's `store/` directory; do not add an artwork generator.
-- Never edit generated files: `plugins/registry_gen.go`, `.github/CODEOWNERS`, `docs/openapi.yaml`, `packages/plugin-sdk/schema/tilecast-plugin.schema.json`, and `apps/server/internal/database/migrations.lock.json`. Run `npm run plugins:generate`.
+- Never edit generated files: `plugins/registry_gen.go`, `packages/plugin-native-registry/Cargo.toml` and `src/lib.rs`, `.github/CODEOWNERS`, `docs/openapi.yaml`, `packages/plugin-sdk/schema/tilecast-plugin.schema.json`, and `apps/server/internal/database/migrations.lock.json`. Run `npm run plugins:generate`, then `cargo update -w` after the native registry changes.
+- Plugin API v2 keeps six concepts apart: plugin state, plugin events, surfaces, presentation providers, native contributions, and Shared Runtime contributions. A native contribution is a first-party crate in `plugins/<name>/native/<id>/` that exports `contribution()`; it uses typed service traits, and Player builds link it through the generated registry crate. A host sets `pluginState` only when it carries the whole contract, and no host sets `pluginEvents` until it carries events both ways. No shared behavior names a plugin ID or a platform.
 
 ### Database migrations
 
@@ -224,7 +240,7 @@ Media rows must reference generated asset IDs. Uploaded filenames are metadata o
 ## Studio conventions
 
 - React and strict TypeScript, React Router, TanStack Query for Server state, React Hook Form and Zod for forms; use Zustand only for complex local editor state.
-- Prefer the existing shadcn Base UI **Base Vega** components in `apps/dashboard/src/components/ui`, Geist, Lucide, and semantic tokens in `packages/design-tokens`. Read [`docs/design-system.md`](docs/design-system.md) before making UI changes.
+- Prefer the existing shadcn Base UI **Base Nova** components in `apps/dashboard/src/components/ui`, Geist, Lucide, and semantic tokens in `packages/design-tokens`. Read [`docs/design-system.md`](docs/design-system.md) before making UI changes.
 - Preserve domain query ownership and typed API boundaries in `apps/dashboard/src/api/` and `apps/dashboard/src/data/`. Keep local draft state distinct from Server state; plugin-owned UI and operations stay inside their extension interfaces.
 - Build for mobile and desktop together. Reuse established loading, empty, error, confirmation, and feedback patterns. Controls must be usable by keyboard/touch, never hover-only; respect focus order, contrast, and reduced motion.
 - Keep Studio restrained and operational: useful density, clear hierarchy, neutral application chrome, restrained motion, no fabricated analytics or claims that unfinished features exist. Pair status color with text; do not use organization branding as Studio chrome.
@@ -238,6 +254,8 @@ Studio in the browser must remain functional without a native host. Native iOS r
 - Minimum API 23. Get current compile/target SDK, NDK, signing, and toolchain versions from `apps/player-android/app/build.gradle.kts`; do not freeze version numbers in this guide.
 - Protect the device credential with the platform's secure storage. Verify Server installation identity before sending it. Use the established URL policy (HTTPS for public hosts; HTTP only for explicitly allowed local addresses); never downgrade silently.
 - Keep temporary pairing state reconstructable. Do not fork shared Player policy in Kotlin or reimplement playback in Compose to work around the shared renderer.
+- One renderer per process. `ProcessRenderer` owns the `WebViewCoreRenderer`; an Activity only attaches to it. Never create, number, connect, or close a renderer from an Activity. Renderer generations come from `RendererGenerations` and are never reused, and `RendererHandshake` registers each one with Core and fails with a reason code. A live WebView must never be the only thing on screen before the runtime is ready.
+- Tilecast-owned native text takes Geist from `ui/theme/Type.kt`; never set a font family in a composable. `apps/player-android/renderer-profile.json` defines the renderer features and schemas; `npm run player-contracts:generate` writes `native/src/renderer_profile.rs` and `RendererProfile.gen.kt`, which you must not edit.
 - All player controls must work with D-pad focus and remote activation. Show clear paired, unassigned, offline, error, and recovery states instead of exceptions, raw IDs, debug JSON, or placeholders. Do not claim hardware compatibility without device verification.
 
 Follow [`docs/android-development.md`](docs/android-development.md), [`docs/player-core.md`](docs/player-core.md), and [`docs/player-runtime.md`](docs/player-runtime.md) for implementation details and qualification.
@@ -329,7 +347,8 @@ Update documentation with the implementation, not afterward as an approximation.
 - `README.md`
 - `docs/architecture.md`
 - `docs/api.md`, `docs/openapi/core.yaml`, and each plugin's `api/openapi.yaml` (the composed `docs/openapi.yaml` is generated)
-- `docs/plugin-api.md`
+- `docs/plugin-api.md` and `docs/plugin-api-v2.md`
+- `docs/access-control.md`
 - `docs/player-protocol.md`
 - `docs/device-credential-security.md`
 - `docs/android-development.md`

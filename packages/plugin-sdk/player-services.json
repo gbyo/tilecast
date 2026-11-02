@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "host": {
+    "capability": "plugin.host",
+    "version": 2,
+    "description": "The Player Plugin Host for Plugin API 2: plugin_state entries, contribution lifecycle, and service negotiation."
+  },
+  "services": [
+    {
+      "name": "player.clock",
+      "version": 1,
+      "execution": "runtime",
+      "description": "Corrected server time, local and monotonic time, and plugin-owned timers."
+    },
+    {
+      "name": "player.events",
+      "version": 1,
+      "execution": "runtime",
+      "description": "Ephemeral typed events between a plugin's native and Shared Runtime parts: declared names, bounded payloads, never state.",
+      "hostCapability": "pluginEvents"
+    },
+    {
+      "name": "player.media",
+      "version": 1,
+      "execution": "runtime",
+      "description": "Addresses for verified media variants that the plugin's current state entries declare."
+    },
+    {
+      "name": "player.presentation.observe",
+      "version": 1,
+      "execution": "runtime",
+      "description": "Read-only observation of what owns the screen and which item is shown."
+    },
+    {
+      "name": "player.presentation.provide",
+      "version": 1,
+      "execution": "runtime",
+      "description": "Registers a declared presentation provider. The host activates it for an external presentation that names it, and owns its visibility, lifecycle, and fallback."
+    },
+    {
+      "name": "player.reference.signal",
+      "version": 1,
+      "execution": "native",
+      "description": "Reference service that qualifies the native service model: one typed read of a counter the platform owns. No product Player provides it."
+    },
+    {
+      "name": "player.surface",
+      "version": 1,
+      "execution": "runtime",
+      "description": "Host-owned strip, corner, and overlay containers with claim arbitration and content-stage geometry."
+    }
+  ]
+}

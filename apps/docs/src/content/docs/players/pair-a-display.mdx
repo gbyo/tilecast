@@ -21,13 +21,12 @@ import { Steps } from "@astrojs/starlight/components";
 <Steps>
 
 1. Open Tilecast Player on the display.
-2. Choose a nearby Tilecast Server, or enter its address. Use HTTPS for a public hostname. For a private LAN, HTTP is allowed for a private IPv4 address, `localhost`, or a `.local` name. Enter only the server address and optional port, without a path.
-3. Confirm the server identity if the Player asks. Android shows the organization name before connecting. Tilecast Player verifies the installation identity before it sends an existing device credential.
-4. Leave the six-character pairing code visible on the display. The Player also shows a QR code with the same request.
-5. In Studio, open **Screens** > **Fleet** and select **Pair screen**.
-6. Enter the code and compare the request details with the physical display. In the Tilecast iOS app you can select **Scan QR code** instead and point the camera at the QR code on the display. Studio shows the platform, device model, Player version, display resolution, locale, time zone, and network address when available.
-7. Select **Create new screen**, enter a screen name, and add location or room details if useful.
-8. Select **Approve and pair**.
+2. Let the Player find Tilecast Server, or enter its address. Use HTTPS for a public hostname. For a private LAN, HTTP is allowed for a private IPv4 address, `localhost`, or a `.local` name. Enter only the server address and optional port, without a path. Tilecast Player verifies the installation identity before it sends an existing device credential.
+3. Leave the six-character pairing code visible on the display. The Player also shows a QR code with the same request.
+4. In Studio, open **Screens** > **Fleet** and select **Pair screen**.
+5. Enter the code and compare the request details with the physical display. In the [Tilecast iOS app](../../studio/ios-app/) you can select **Scan QR code** instead and point the camera at the QR code on the display. Studio shows the platform, device model, Player version, display resolution, locale, time zone, and network address when available.
+6. Select **Create new screen**, enter a screen name, and add location or room details if useful.
+7. Select **Approve and pair**.
 
 </Steps>
 
@@ -37,7 +36,7 @@ import { Steps } from "@astrojs/starlight/components";
   alt="Pair screen review showing the pending Player hardware details, pairing choices, screen-name fields, and Approve and pair control."
 />
 
-The Player enrolls after approval. An Android Player then opens the required commissioning checklist. Complete it before normal playback; see [Install Tilecast Player on Android TV](../install-android/). A Linux Player returns to its paired screen and waits for content.
+The Player enrolls after approval and starts playback. With nothing assigned yet, it shows **No content assigned**.
 
 ## Replace or repair a Player
 

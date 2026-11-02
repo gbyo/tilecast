@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { useAuth } from "../../auth/AuthProvider";
@@ -119,6 +119,7 @@ export function ReleaseUploadDialog({
   const { t } = useTranslation(["settings", "common"]);
   const locale = useFormatLocale();
   const auth = useAuth();
+  const client = useQueryClient();
   const slots = RELEASE_FILES[family];
   const [files, setFiles] = useState<Record<string, File>>({});
   const [clientError, setClientError] = useState("");
@@ -138,8 +139,9 @@ export function ReleaseUploadDialog({
       setProgress(0);
       setVerifying(false);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast.add({ title: t("updates.panel.releaseUploaded"), type: "success" });
+      await client.invalidateQueries({ queryKey: ["player-releases"] });
       onImported();
     },
   });

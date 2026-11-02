@@ -128,8 +128,8 @@ toolchain flags first.
 Core owns pairing, configuration, manifest preparation, the server link,
 presence, commands, activity, renderer recovery, and capture policy.
 Kotlin owns server discovery, manual address entry, window, kiosk, and
-power effects, renderer hosting, frame capture, commissioning, and
-self-update installation. `PlayerViewModel` projects Core state onto the
+power effects, renderer hosting, frame capture, readiness reporting,
+and self-update installation. `PlayerViewModel` projects Core state onto the
 setup and status screens. It makes no content decisions.
 
 The cutover deleted the legacy Kotlin brains: the player state machine,
@@ -144,13 +144,272 @@ the `androidTest` source set. Only the legacy-import device test uses it,
 to seed a pre-migration database for the native importer. The native
 importer reads the legacy database file directly.
 
-`MainActivity` attaches the `WebViewCoreRenderer` view for paired
-playback. Idle, disabled, unavailable, safe-mode, and off-hours states
-render inside the runtime page. Capture refuses admin, maintenance,
-commissioning, update, and pairing screens with a named reason. Each
+`MainActivity` shows the process-owned `WebViewCoreRenderer` view for
+paired playback. A native status surface covers the view until the
+runtime owns the screen. [Renderer ownership](#renderer-ownership-and-the-core-handshake)
+defines when that is. Idle, disabled, unavailable, safe-mode, and off-hours
+states render inside the runtime page. Capture refuses admin, maintenance,
+update, and pairing screens with a named reason. Each
 capture request carries its own byte budget. The background worker proves
-liveness through Core. A revoked credential drops at once, so the next
-launch re-pairs against the retained server URL.
+liveness through Core. A revoked credential drops at once. The Player then
+requests a new pairing code from the retained server URL.
+
+## Renderer ownership and the Core handshake
+
+Core drives a renderer through renderer reports. A renderer that Core did
+not register shows nothing, and Core reports `Renderer disconnected` for
+it. Follow these rules so a live WebView is always a registered renderer.
+
+### Who owns what
+
+```text
+Player Core (Rust, process-level host)
+    -> Android renderer adapter (WebViewCoreRenderer, process-level)
+    -> trusted shared Player Runtime WebView
+    -> image, video, Layout, Widget, and website surfaces
+
+Compose (MainActivity)
+    -> setup, pairing, maintenance, update, recovery,
+       and the status surface over the WebView
+```
+
+- `ProcessRenderer` owns one `WebViewCoreRenderer` for the process. The
+  WebView uses the application context, so it does not need an Activity.
+- `PlayerCoreHost` owns the Core connection. `MainActivity` never creates,
+  numbers, connects, or closes a renderer.
+- An Activity only attaches. `onCreate` attaches the capture hooks with
+  `ProcessRenderer.attachPresentation`, and `AndroidView` adopts the view.
+  `onDestroy` detaches the hooks and releases the view only while it is
+  still parented to that Activity's window. A replacement Activity keeps
+  its view.
+- Activity recreation, a task restart, and a warm launch reuse the same
+  renderer. They do not reload the runtime.
+- A renderer-process death (`onRenderProcessGone`) creates a replacement
+  WebView with a new generation. This is the only reason a renderer is
+  replaced, apart from the operator action **Restart display**.
+
+Do not move renderer creation, numbering, or closing into an Activity.
+`onDestroy` cannot finish asynchronous work: the coroutine scope of the
+Activity is cancelled with the Activity, so a close started there can stop
+before it reports `disconnected` and before it destroys the WebView.
+
+### Generations
+
+A generation names one WebView instance. `RendererGenerations.allocate`
+gives out generations from one process-wide counter, and `RuntimeCrashPolicy`
+takes every generation from it. A generation is never reused in a process.
+
+Core keeps one live renderer link. A `disconnected` report only removes the
+link when its generation equals the live one. Core refuses a `connected`
+report with a generation lower than the live one and ignores a repeated
+`connected` for the live generation. A late disconnect from an old renderer
+therefore cannot disconnect a newer renderer.
+
+### Registration
+
+`RendererHandshake` makes the `connected` report durable:
+
+1. The renderer creates the WebView and calls `begin(generation)`.
+2. The handshake waits for Core. `PlayerCoreHost.awaitReady` returns when
+   the native host is open. It uses no polling and no delay.
+3. The handshake sends `connected(generation)`.
+4. Answer `APPLIED` registers the generation. Answer `BAD_HANDLE` (Core
+   not ready) retries with a bounded backoff of 50, 100, 250, 500, 1000,
+   2000, and 5000 ms, then fails with `registration_core_unavailable`. Any
+   other answer is a permanent protocol error: the handshake stops and fails
+   with `registration_rejected_<code>`.
+5. Every wait stops when the generation is no longer current.
+
+When the runtime page reports `ready` before registration, the handshake
+keeps it and sends it after registration. When Core ignores a `ready` (it
+has no live link for that generation), the handshake registers again and
+resends `ready`. After three attempts it fails with `ready_not_applied`.
+
+Core replays the current committed presentation when it accepts a `ready`
+report. This applies to a first renderer, a replacement renderer, and a
+renderer that reconnects after Core received new content while no renderer
+was connected.
+
+### What the screen shows
+
+`RendererHandshake.lifecycle` holds a `RendererLifecycle` with a phase and a
+stable reason code. The state comes from the handshake, never from pixels:
+
+| Phase         | Meaning                                                        |
+| ------------- | -------------------------------------------------------------- |
+| `STOPPED`     | No WebView exists.                                             |
+| `CONNECTING`  | A WebView exists. Core has not accepted its connection.        |
+| `LOADING`     | Core accepted the connection. The page has not reported ready. |
+| `READY`       | The runtime reported ready and Core accepted it.               |
+| `FAILED`      | Registration or the runtime document failed. See `reason`.     |
+| `UNSUPPORTED` | The installed WebView cannot host the secure runtime bridge.   |
+
+`MainActivity` keeps the WebView attached so its page can load. It covers
+the view with a native status surface until the phase is `READY`. After 15
+seconds in any other phase, or at once in `FAILED`, the surface names the
+reason code and offers **Restart display**. The surface appears on state, not
+on pixel color, so authored black content is never mistaken for a failure.
+
+### Diagnostics
+
+The renderer writes structured events to logcat under the tag
+`TilecastRenderer`. Each event is `event=<name>` followed by `key=value`
+fields. Fields hold generations, attempt counts, activation IDs, and stable
+codes. They never hold credentials, URLs, headers, or page data.
+
+| Event                                        | Meaning                                                   |
+| -------------------------------------------- | --------------------------------------------------------- |
+| `renderer_owner_created`                     | The process created its one renderer.                     |
+| `renderer_generation_allocated`              | A handshake began for a generation.                       |
+| `webview_creating`, `webview_created`        | The trusted WebView is being created or exists.           |
+| `runtime_document_started`, `_finished`      | The runtime entry page loaded.                            |
+| `runtime_document_failed`                    | The entry page failed. `code` is `net_<n>` or `http_<n>`. |
+| `runtime_asset_failed`                       | A packaged runtime file failed to load.                   |
+| `connected_sent`, `connected_result`         | `connected(N)` and the Core answer code.                  |
+| `connected_retry_scheduled`                  | Core answered `BAD_HANDLE`. A retry follows.              |
+| `connected_accepted`                         | Core registered the generation.                           |
+| `runtime_ready_received`                     | The page reported ready.                                  |
+| `ready_sent`, `ready_result`                 | `ready(N)` and the Core answer code.                      |
+| `reregister_scheduled`                       | Core ignored `ready`. The handshake registers again.      |
+| `activation_queued`                          | Core pushed an activation to the runtime.                 |
+| `activation_accepted`, `activation_rejected` | The runtime accepted or refused the activation.           |
+| `first_playback_evidence`                    | The first evidence report for an activation.              |
+| `renderer_replaced`                          | A new WebView replaced a previous one.                    |
+| `disconnected_sent`, `disconnected_result`   | `disconnected(N)` and the Core answer code.               |
+| `disconnect_stale_ignored`                   | A disconnect for a generation that is not current.        |
+| `render_process_gone`                        | The WebView render process ended.                         |
+| `renderer_failed`                            | The handshake failed. `reason` is the stable code.        |
+
+Answer codes are `0` applied, `1` ignored, `2` malformed, and `3` bad handle.
+
+A handshake failure also reaches the server. The handshake sends a `fault`
+report, Core keeps its code, and the heartbeat carries it as
+`lastRendererFailure`. Tilecast Studio shows it as **Last renderer failure**
+in Player health.
+
+## Capability definitions
+
+External plugin frames use independent grants inside the current presentation
+generation. The host verifies their files before a plugin update. A refused
+update retains the previous grants. A successful update replaces only plugin
+grants and keeps media and Widget grants. Plugin responses deny all passive
+loads. The native message listener accepts only the main Runtime frame, and
+the host bootstrap runs only in the entry document. Child navigation cannot
+enter the trusted Runtime tree. Android does not report
+`plugin.external-runtime@1` and does not set `externalPluginFrames` in its
+Runtime host. Qualification on a physical device must pass first. See
+[external Player plugins](external-player-plugins.md) for the shared contract,
+the support matrix, and the qualification gates.
+
+`apps/player-android/renderer-profile.json` is the one definition of what the
+Android renderer host provides: renderer features, presentation schemas, and
+the `web.remote` and `widget.external-runtime` capabilities. The player
+contracts generator turns it into `native/src/renderer_profile.rs` and
+`RendererProfile.gen.kt`. Declarative presentation capabilities and Widget
+components keep their existing generated sources.
+
+The native crate prepares manifests against `profile::packaged()`. The live
+renderer advertises `RendererReadyReport` after its WebView proves support.
+Both are built from the definitions above, so a manifest that preparation
+accepts is a manifest the live renderer advertises. Two tests enforce this:
+`packaged_profile_equals_the_live_report_contract` in `manifest_host.rs` and
+`RendererReadyReportTest`. Both rebuild the expected report from
+`renderer-profile.json`. Change a capability in the definitions, then run
+`npm run player-contracts:generate`. Never edit a list in `WebViewCoreRenderer`
+or `manifest_host.rs`.
+
+## Typography
+
+Tilecast-owned native text uses Geist. `TilecastFontFamily` and
+`SignalTypography` in `ui/theme/Type.kt` are the only place a font family is
+chosen. The Gradle task `syncGeistFont` copies the vendored official Geist
+variable font from `apps/ios/Tilecast/Resources/Fonts/Geist-Variable.ttf` into
+a generated font resource, and copies its SIL Open Font License into the APK
+assets. The Android build keeps no second font binary. The app never fetches a
+font, so an offline display keeps its typeface. Android 8.0 and later draw
+each weight as a variation of the file. Earlier releases draw the default
+weight. Glyphs that Geist does not contain fall back to the system font.
+
+The shared Player Runtime bundles its own Geist as WOFF2 from
+`@fontsource-variable/geist`, and the WebView loads it from
+`https://appassets.androidplatform.net/assets/shared-runtime/fonts/`.
+`TilecastTypographyTest` fails when a native style leaves Geist, when
+a source file selects a platform font family, and when the packaged runtime
+loses its fonts.
+
+## Hardware qualification
+
+Run this procedure on a physical Google TV, Android TV, or Fire TV device
+after any change to the renderer, `MainActivity`, `ProcessRenderer`, or the
+Core renderer protocol. Emulators do not show every WebView behavior. Use a
+test organization and a screen you can change in Tilecast Studio. Keep
+`adb logcat` open in a second terminal:
+
+```sh
+adb logcat -c
+adb logcat -v time TilecastRenderer:I '*:S'
+```
+
+Do not skip a step that fails. Stop and record the log.
+
+1. **Clean install.** Run `adb uninstall org.tilecast.player`, then
+   `adb install -r app-debug.apk`.
+2. **Launch.** Run
+   `adb shell am start -W -n org.tilecast.player/.MainActivity`.
+   Expect the native setup screens.
+3. **Pair.** Enter the server address and approve the pairing code in Studio.
+   Expect `Connecting <screen name>…`, then playback or `No content assigned`.
+4. **Connected and ready.** Expect this order in the log, with the same
+   generation `N`: `webview_created`, `runtime_document_finished`,
+   `connected_sent`, `connected_accepted`, `runtime_ready_received`,
+   `ready_sent`, `ready_result code=0`. In Studio, **Player health** shows the
+   renderer as Healthy or Waiting for playback, never Disconnected.
+5. **Image.** Assign an image as default content. Expect `activation_queued`,
+   `activation_accepted`, and `first_playback_evidence`. The image shows.
+6. **Video.** Assign a video. Expect the same events and moving video.
+7. **Layout.** Assign a Layout directly. Expect the Layout on screen.
+8. **Playlist zone.** Assign a Layout with a Playlist zone that holds only
+   images and videos. Expect the zone to play.
+9. **Hot update.** Leave the Player running. Do not touch the device. In
+   Studio, change the default content from the item in step 5 to a different
+   item, and change it between a Playlist, a Layout, and back.
+10. **New content appears** within one server push interval (seconds). The log
+    shows a new `activation_queued` with a different `activation` value and
+    **no** `renderer_replaced`, `webview_creating`, or `connected_sent`.
+11. **Warm start.** Run the `am start` command from step 2 again, without
+    force-stop. Expect the content to stay or return at once. The log shows no
+    new `webview_created`.
+12. **Content remains.** Confirm the content and **Player health** are
+    unchanged.
+13. **Background and foreground.** Press Home, wait 30 seconds, then reopen
+    Tilecast from the launcher. The content returns. No `connected_sent`
+    appears.
+14. **Restart the task.** Run `adb shell am force-stop org.tilecast.player`,
+    then `am start`. A new process starts the generation counter again.
+    Expect `Connecting…`, then the step 4 events with a small generation
+    number, then content.
+15. **Renderer-process recreation.** Find the WebView process
+    (`adb shell ps -A | grep -i webview` or `sandboxed_process`) and run
+    `adb shell kill <pid>`. Expect `render_process_gone`, then
+    `renderer_replaced` with a **higher** generation, `connected_accepted`,
+    `ready_result code=0`, and the content again. The app process stays alive.
+16. **Network loss.** Disable the network for 60 seconds, then enable it.
+    Content keeps playing from the cache. After the network returns, Studio
+    shows the Player online again without a restart.
+17. **No indefinite black screen.** At every step above, the screen shows
+    content, the Tilecast starting surface, or the **Display unavailable**
+    surface with a reason code and **Restart display**. A pure black screen
+    that persists for more than 15 seconds with the Activity in the
+    foreground is a failure. Record `adb logcat -d`, `adb shell dumpsys
+activity top`, and the **Player health** panel.
+18. **Studio matches the device.** After each step, compare **Player health**
+    with the screen. A Disconnected renderer on a screen that shows content,
+    or a Healthy renderer on a black screen, is a failure.
+
+Expected status transitions in Studio for a clean launch: Awaiting player,
+Online with renderer Starting, then Waiting for playback, then Healthy once
+the first evidence arrives. A renderer fault shows the code from the log as
+**Last renderer failure**.
 
 ## Launcher branding
 
@@ -202,11 +461,84 @@ To inspect the artwork under circle, squircle, and rounded-square masks, run
 `LauncherBrandingContractTest` fails if the manifest stops using the adaptive
 `@mipmap/ic_launcher` icon or if a required resource is missing.
 
-## Commissioning and unattended-recovery checks
+## Setup flow
 
-Pairing a fresh installation enters the required commissioning wizard before playback. Emulator tests can exercise PIN storage, permission-state verification, unattended self-update policy selection, boot receiver registration, immersive/keep-awake reporting, cached-manifest checks, recovery escalation, and safe mode. They cannot prove firmware foreground-launch behavior, physical-TV wake/standby, or whether a vendor installer honors Android's unattended-update request.
+Setup is unattended. `PlayerViewModel` drives it, and `mapPlayerState`
+projects it onto `PlayerState`. Setup does these steps:
 
-Do not bypass commissioning in debug builds. For repeat testing, use **Run setup again** from the local maintenance menu. `BOOT_COMPLETED` and `LOCKED_BOOT_COMPLETED` recovery state is stored in device-protected preferences. Watchdog crash history is stored independently of the activity so process recreation does not reset escalation.
+1. Setup starts when the Player has no stored credential. Core may already
+   show a pairing code. Setup then does nothing.
+2. If Core reports `retainedServerUrl`, setup uses that server. Core
+   reports it only after the server rejected the credential.
+3. Otherwise, setup browses `_tilecast._tcp` for 5 seconds. If exactly one
+   server answers, setup uses that server. If two or more answer, the
+   screen lists them. If none answers, setup searches again after
+   10 seconds.
+4. Setup reads the public identity of the server without a credential. It
+   checks the product, the API version, and that pairing is enabled.
+5. Setup asks Core for a pairing code. The pairing screen shows the code,
+   the QR code, the server, and an HTTP warning for a local HTTP address.
+   No separate confirmation screen is shown.
+6. After approval, Core enrolls and playback starts. No local step follows.
+
+A failure from a typed address stays on the address screen with a message.
+Any other failure retries with `ReconnectBackoff`. The error screen shows
+the countdown. The identity-mismatch screen is the only screen that waits
+for a person. It needs an explicit reset.
+
+Manual entry calls `ServerUrlPolicy.withDefaultScheme` before
+`ServerUrlPolicy.normalize`. A bare private-network or `.local` address gets
+`http://`. Any other bare address gets `https://`. An address with a scheme
+is not changed, so HTTPS is never downgraded. The shared fixture in
+`packages/player-contracts` still defines `normalize`.
+
+### Remote control rules
+
+- Each screen requests initial focus on its primary control with
+  `rememberInitialFocus`. The pairing screen requests no focus, so a stray
+  OK press does not discard the code.
+- Text input uses `TvTextField`. Up and Down leave the field, OK opens the
+  on-screen keyboard, and the keyboard action key submits. A plain
+  `OutlinedTextField` keeps D-pad focus on a TV, and a remote cannot reach
+  the next control.
+- Every setup screen uses `SetupScaffold`. It shows the setup step, and
+  a footer with the Player version, the device model, and the display
+  IPv4 address.
+- Native icons come from Lucide, the icon set that Studio uses, through
+  `com.composables:icons-lucide-android`. Add an icon to `TvIcons`. An
+  icon never replaces the text of a status.
+- `MainActivity.dispatchKeyEvent` watches the maintenance sequence (Back,
+  Back, Up, Down, OK) before any view gets the key. The playback WebView
+  consumes D-pad and Back keys, so `onKeyDown` cannot see the sequence.
+
+### Readiness reporting
+
+`CommissioningController` reports readiness facts and blocks nothing. The
+heartbeat sends `commissioningState` `complete` after the first enrollment
+of the screen, `commissioningStep` `automatic`, and a `selfTestResult` that
+the current facts give. Accessibility Control and the install permission
+are optional. The maintenance menu opens their Android settings. See
+[Reliability and power](reliability-and-power.md#unattended-setup-and-readiness).
+
+### Emulator verification
+
+Use a Google TV or Android TV system image. The emulator reaches the host
+at `10.0.2.2`. Multicast does not cross the emulator network, so enter
+`10.0.2.2:<port>` on the address screen. Verify these items with remote
+keys only (`adb shell input keyevent`):
+
+- first launch, manual address entry, pairing, approval, and playback
+- a restart that returns to playback without setup
+- a server restart that reconnects
+- a revocation that shows a new code without input, and re-approval
+- a server with a different installation ID at the same address, which
+  shows the identity-mismatch screen and does not show a code
+
+Emulator tests cannot prove firmware foreground launch after boot,
+physical-TV wake and standby, or vendor installer behavior.
+`BOOT_COMPLETED` and `LOCKED_BOOT_COMPLETED` recovery state is stored in
+device-protected preferences. Watchdog crash history is stored separately
+from the activity, so process recreation does not reset escalation.
 
 ```sh
 cd apps/player-android

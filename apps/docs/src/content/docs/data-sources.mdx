@@ -61,6 +61,18 @@ Google Sheets can reach a screen in two different ways:
 
 Both read only a sheet that is published to the web. Tilecast can't read a private sheet.
 
+## Map JSON, CSV, and calendar data
+
+For JSON, choose the array that contains the records, then map scalar values with RFC 6901 JSON Pointer paths. For example, if the response is `{ "items": [{ "name": "Chess Club", "startsAt": "2026-10-13T19:00:00Z" }] }`, use `/items` as the record array and `/name` or `/startsAt` for fields inside each record. Tilecast does not run JavaScript, JMESPath, templates, or expressions against a response.
+
+CSV requires a header row and maps values by exact header name. Tilecast detects comma, semicolon, tab, or pipe delimiters unless you choose one. A malformed CSV row, including invalid quoting or the wrong number of columns, fails that refresh instead of publishing a partial table.
+
+Generic JSON, CSV, Feed, and Calendar connections do not have fields for bearer tokens, API-key headers, or OAuth. Their URLs must not contain credentials. Use an upstream endpoint that is safe to expose to Tilecast Server, or use a provider or extension package that explicitly implements the authenticated service you need.
+
+Calendar expands supported RFC 5545 recurrence rules into a bounded upcoming window, including all-day events and daylight-saving changes. Recurrence exceptions and overridden occurrences from the feed replace the matching generated occurrence. Configure the source timezone to the calendar's intended local timezone instead of relying on the server's system timezone.
+
+When you map a date field, prefer ISO dates or RFC 3339 timestamps. Tilecast can also parse the explicit month-first and day-first formats offered in Studio. An ambiguous value such as `03/04/2026` stays text under automatic detection; choose its format instead of relying on a browser, server, or Player locale to guess.
+
 ## Use its data
 
 In a Widget editor, choose a compatible Data Source under **Data**. Studio fills in the Widget's fields from the source, and you can change each one. See [Create a Widget](../widgets/#create-a-widget). In a Layout, select a text layer, switch **Content mode** to **Dynamic field**, then choose a Data Source and field. For a structured, repeatable display such as a list or ticker, use a Widget rather than a single text binding.
@@ -69,9 +81,13 @@ One Data Source can feed several Widgets and Layout bindings. Studio's Data Sour
 
 ## Check a source that looks out of date
 
-Open the Data Source and check **Last success**, **Last attempt**, its status, and whether the displayed values are cached. A failed refresh can leave cached values available, so an old value may still appear while the upstream connection is unavailable. Check the source URL and the server's network access before changing the Widget.
+Open the Data Source and check **Last success**, **Last attempt**, its status, and whether the displayed values are cached. A failed refresh keeps the last-known-good prepared data only until that source's staleness deadline. After the deadline, consuming Widgets use their empty-state behavior instead of presenting the old records indefinitely.
 
-Tilecast Server makes the remote request. The default `TILECAST_SOURCE_ALLOW_PRIVATE_NETWORKS=false` policy blocks private-network destinations. An administrator must change this setting if a source is intentionally hosted on the installation's private network. A source hosted elsewhere must be reachable from the server, not only from your browser or the Player.
+A failed fetch is tried again at the source's configured refresh interval; Tilecast does not add a separate exponential failure backoff. A provider may have its own minimum refresh interval. Fixing and saving the source schedules a new refresh.
+
+Tilecast Server makes the remote request. The default `TILECAST_SOURCE_ALLOW_PRIVATE_NETWORKS=false` policy blocks private, loopback, link-local, multicast, and other non-global destinations. That check applies during validation, redirects, DNS resolution, and the final connection, so a public URL cannot bypass the policy by redirecting to a private address. An administrator must change the setting only when a source is intentionally hosted on the installation's private network. A source hosted elsewhere must be reachable from the server, not only from your browser or the Player.
+
+Players receive prepared source data, not the upstream URL or credentials. A Player that is offline can keep using the prepared data already in its verified manifest until its configured staleness deadline. It cannot fetch a fresh copy itself.
 
 ## Next steps
 

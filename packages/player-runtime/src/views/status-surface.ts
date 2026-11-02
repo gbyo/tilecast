@@ -9,6 +9,7 @@ import { cssProps } from "./css-props";
 import { pairingQrDataUri } from "./pairing-qr";
 import type {
   DiscoveredServerV1,
+  PhoneSetupStateV1,
   RuntimePresentation,
   SetupResultV1,
 } from "../host/contract";
@@ -19,6 +20,8 @@ export interface SetupBridge {
   submit(url: string): Promise<SetupResultV1>;
   /** Servers already known; later ones arrive through `servers`. */
   available: boolean;
+  /** Present when the host can start a paused phone setup session. */
+  resumePhoneSetup?: () => void;
 }
 
 export class StatusSurface extends LitElement {
@@ -28,6 +31,7 @@ export class StatusSurface extends LitElement {
     servers: { attribute: false },
     setup: { attribute: false },
     setupError: { state: true },
+    suppressed: { attribute: false },
   };
 
   declare presentation: RuntimePresentation | null;
@@ -36,6 +40,11 @@ export class StatusSurface extends LitElement {
   declare servers: DiscoveredServerV1[];
   declare setup: SetupBridge | null;
   declare setupError: string;
+  /**
+   * A presentation provider owns the screen, so this surface draws nothing.
+   * The view sets it; the provider never touches this element.
+   */
+  declare suppressed: boolean;
 
   constructor() {
     super();
@@ -44,6 +53,7 @@ export class StatusSurface extends LitElement {
     this.servers = [];
     this.setup = null;
     this.setupError = "";
+    this.suppressed = false;
   }
 
   // Light DOM: the display is one document and ordinary CSS applies.
@@ -53,6 +63,7 @@ export class StatusSurface extends LitElement {
 
   /** Whether this surface currently covers the playback layers. */
   get visible(): boolean {
+    if (this.suppressed && !this.problem) return false;
     if (this.problem) return true;
     const state = this.presentation?.state;
     return state !== undefined && state !== "playing";
@@ -98,7 +109,7 @@ export class StatusSurface extends LitElement {
     if (!p) return { ...none, content: nothing };
     switch (p.state) {
       case "setup":
-        return { ...none, content: this.renderSetup() };
+        return { ...none, content: this.renderSetup(p.phoneSetup) };
       case "pairing": {
         // Grouped for viewing distance, as the Android player shows it.
         // The raw approval URL never displays: the code and the QR carry it.
@@ -146,7 +157,12 @@ export class StatusSurface extends LitElement {
         const color = HEX.test(p.textColor ?? "") ? p.textColor! : "#F5F7FA";
         return {
           style: { background, color },
-          content: html`<div class="branded-fallback">
+          // `status` is a machine reason code for hosts and diagnostics. It is
+          // exposed as an attribute and never drawn: a room can see this screen.
+          content: html`<div
+            class="branded-fallback"
+            data-status=${p.status ?? nothing}
+          >
             ${
               p.logoSrc
                 ? html`<img
@@ -157,14 +173,7 @@ export class StatusSurface extends LitElement {
                 : nothing
             }
             <h1>${p.title ?? ""}</h1>
-            <p>${p.message ?? ""}</p>
-            ${
-              p.status
-                ? html`<p class="branded-fallback__status">
-                    ${p.status.replaceAll("_", " ")}
-                  </p>`
-                : nothing
-            }
+            ${p.message ? html`<p>${p.message}</p>` : nothing}
             ${
               p.footerText
                 ? html`<p class="branded-fallback__footer">${p.footerText}</p>`
@@ -193,7 +202,46 @@ export class StatusSurface extends LitElement {
     }
   }
 
-  private renderSetup() {
+  private renderPhoneSetup(phone: PhoneSetupStateV1 | undefined) {
+    if (phone?.state === "ready") {
+      const qr = pairingQrDataUri(phone.url ?? "");
+      if (!qr) return nothing;
+      return html`<div class="phone-setup">
+        <img
+          class="phone-setup__qr"
+          src=${qr}
+          alt="QR code: scan with your phone to set up this screen"
+        />
+        <div class="phone-setup__text">
+          <h2>Set up with your phone</h2>
+          <p>
+            Scan this code with your phone's camera, then continue in Tilecast
+            Studio.
+          </p>
+          ${
+            phone.rejected
+              ? html`<p class="phone-setup__notice" role="status">
+                  The address from the phone could not be used. Scan the code
+                  again to try once more.
+                </p>`
+              : nothing
+          }
+        </div>
+      </div>`;
+    }
+    if (phone?.state === "paused" && this.setup?.resumePhoneSetup) {
+      const resume = this.setup.resumePhoneSetup;
+      return html`<div class="phone-setup phone-setup--paused">
+        <p>Phone setup stopped after 30 minutes.</p>
+        <button id="phone-setup-resume" type="button" @click=${() => resume()}>
+          Show setup code
+        </button>
+      </div>`;
+    }
+    return nothing;
+  }
+
+  private renderSetup(phone?: PhoneSetupStateV1) {
     const submit = (url: string) => {
       if (!this.setup?.available) {
         this.setupError = "Setup is not available on this display.";
@@ -213,6 +261,7 @@ export class StatusSurface extends LitElement {
         src="tilecast-logo-white.svg"
         alt="Tilecast"
       />
+      ${this.renderPhoneSetup(phone)}
       <p>Choose your Tilecast server, or enter its address.</p>
       <div id="discovered">
         ${this.servers.map(

@@ -151,6 +151,7 @@ async fn the_production_reserve_would_have_refused_the_same_fixture() {
     let runtime = dir.path().join("selftest");
     std::fs::create_dir_all(&runtime).unwrap();
     let mut config = tilecastd::config::EdgeConfig::default();
+    config.pairing.phone_setup = false;
     config.paths.state_dir = Some(runtime.join("state"));
     config.paths.runtime_dir = Some(runtime.clone());
     config.dev.idle_inhibit = Some(false);

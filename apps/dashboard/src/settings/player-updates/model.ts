@@ -148,7 +148,14 @@ export function groupReleases(releases: PlayerRelease[]) {
     (a, b) => Date.parse(b[0]!.publishedAt) - Date.parse(a[0]!.publishedAt),
   );
 }
+export function releaseGroupKey(releases: PlayerRelease[]) {
+  return releases
+    .map((release) => release.id)
+    .sort()
+    .join(":");
+}
 export function deploymentNeedsAttention(item: UpdateDeployment) {
+  if (item.status !== "active" && item.status !== "paused") return false;
   return (
     item.status === "paused" ||
     item.failedCount > 0 ||

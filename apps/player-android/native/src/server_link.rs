@@ -141,6 +141,7 @@ pub struct AndroidServerLinkHost {
     observations: crate::observations::PlatformObservations,
     manifest_facts: crate::manifest_host::SharedManifestFacts,
     clock: player_types::time::SharedClock,
+    manifest_wake: Arc<Notify>,
     state_dir: PathBuf,
     started_at: std::time::Instant,
 }
@@ -212,6 +213,7 @@ impl AndroidServerLinkHost {
         observations: crate::observations::PlatformObservations,
         manifest_facts: crate::manifest_host::SharedManifestFacts,
         clock: player_types::time::SharedClock,
+        manifest_wake: Arc<Notify>,
         state_dir: PathBuf,
     ) -> Self {
         Self {
@@ -230,6 +232,7 @@ impl AndroidServerLinkHost {
             observations,
             manifest_facts,
             clock,
+            manifest_wake,
             state_dir,
             started_at: std::time::Instant::now(),
         }
@@ -257,6 +260,7 @@ impl AndroidServerLinkHost {
 
         let snapshot = renderer_snapshot(&self.renderer);
         let locked = self.engine.lock().await;
+        let native_services = locked.native_plugin_capabilities();
         let current = locked.current_activation();
         // Capability advertisement follows the live renderer's ready
         // report; before any renderer proves itself the fresh-process
@@ -272,6 +276,10 @@ impl AndroidServerLinkHost {
         // The heartbeat carries one table; Widget components overlay the
         // declarative names, as the legacy merge did.
         for (name, version) in advertised.widget_components() {
+            native.insert(name, serde_json::json!(version));
+        }
+        // Native plugin services this build provides, reported as they are.
+        for (name, version) in native_services {
             native.insert(name, serde_json::json!(version));
         }
         let schemas = advertised.presentation_schemas();
@@ -422,6 +430,11 @@ impl AndroidServerLinkHost {
                 heartbeat["lastPlaybackError"] = serde_json::json!(error);
             }
             heartbeat["safeMode"] = serde_json::json!(snapshot.safe_mode);
+            // A renderer the host could not load or register: the same
+            // field Edge uses, so Studio's "Last renderer failure" names it.
+            if let Some(fault) = snapshot.host_fault.as_deref() {
+                heartbeat["lastRendererFailure"] = serde_json::json!(fault);
+            }
         }
         if let Ok(status) = self.state.run(|connection| player_state::repo::config::status(connection)).await
             && let Some(code) = status.last_error_code
@@ -473,6 +486,7 @@ impl player_core::ServerLinkHost for AndroidServerLinkHost {
             self.engine.clone(),
             self.clock.clone(),
             self.manifest_facts.clone(),
+            self.manifest_wake.clone(),
         ))
     }
 
@@ -584,6 +598,7 @@ mod tests {
             signals.observations.clone(),
             signals.manifest_facts.clone(),
             clock,
+            signals.manifest_wake.clone(),
             dir.to_path_buf(),
         );
         (host, signals, commands, renderer, engine, store)
@@ -632,6 +647,7 @@ mod tests {
             "deviceClockOffsetSeconds",
             "currentItemId",
             "lastPlaybackError",
+            "lastRendererFailure",
         ] {
             assert!(heartbeat.get(key).is_none(), "{key}: {}", heartbeat);
         }
@@ -663,6 +679,16 @@ mod tests {
         let heartbeat = host.build_heartbeat().await;
         assert_eq!(heartbeat["playbackState"], "safe_mode");
         assert_eq!(heartbeat["safeMode"], true);
+    }
+
+    #[tokio::test]
+    async fn a_host_reported_renderer_fault_reaches_player_health() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (host, _signals, _, renderer, _, _) = scratch(dir.path(), FACTS).await;
+        renderer.lock().expect("lock").host_fault = Some("registration_core_unavailable".to_owned());
+        let heartbeat = host.build_heartbeat().await;
+        // The same field Edge uses, so Studio's "Last renderer failure" names it.
+        assert_eq!(heartbeat["lastRendererFailure"], "registration_core_unavailable");
     }
 
     #[tokio::test]

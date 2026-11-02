@@ -2,11 +2,17 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
-import { parsePluginManifest, pluginManifestJSONSchema } from "../src/manifest";
+import {
+  isPlayerFacing,
+  parsePluginManifest,
+  playerEntryTypes,
+  pluginManifestJSONSchema,
+  runtimeEntrypoint,
+} from "../src/manifest";
 
 const fixtures = join(import.meta.dirname, "..", "testdata", "manifests");
 
-function load(group: "valid" | "invalid") {
+function load(group: "valid" | "invalid" | "invalid-semantic") {
   return readdirSync(join(fixtures, group))
     .filter((name) => name.endsWith(".json"))
     .map((name) => ({
@@ -23,6 +29,12 @@ describe("plugin manifest schema", () => {
   });
 
   it.each(load("invalid"))("rejects $name", ({ value }) => {
+    expect(() => parsePluginManifest(value)).toThrow();
+  });
+
+  // Cross-field rules a JSON Schema cannot state. Zod and Go both refuse
+  // these; the portable schema accepts their structure.
+  it.each(load("invalid-semantic"))("rejects $name", ({ value }) => {
     expect(() => parsePluginManifest(value)).toThrow();
   });
 
@@ -71,5 +83,36 @@ describe("plugin manifest schema", () => {
     for (const { name, value } of load("invalid")) {
       expect(validate(value), name).toBe(false);
     }
+  });
+
+  it("normalizes v1 and v2 Player declarations", () => {
+    const fixture = (name: string) =>
+      parsePluginManifest(
+        JSON.parse(readFileSync(join(fixtures, "valid", name), "utf8")),
+      );
+    const v1 = fixture("complete.json");
+    expect(playerEntryTypes(v1)).toEqual(["transit_alert"]);
+    expect(isPlayerFacing(v1)).toBe(true);
+    expect(runtimeEntrypoint(v1)).toBe("./runtime/index.ts");
+
+    const serverStudio = fixture("v2-server-studio.json");
+    expect(playerEntryTypes(serverStudio)).toEqual([]);
+    expect(isPlayerFacing(serverStudio)).toBe(false);
+    expect(runtimeEntrypoint(serverStudio)).toBeUndefined();
+
+    const surfaces = fixture("v2-player-surface.json");
+    expect(playerEntryTypes(surfaces)).toEqual(["service_notice"]);
+    expect(isPlayerFacing(surfaces)).toBe(true);
+    if (surfaces.apiVersion !== 2) throw new Error("expected v2");
+    expect(surfaces.player?.runtime?.surfaces.map((s) => s.tier)).toEqual([
+      "emergency",
+      "ambient",
+    ]);
+
+    const native = fixture("v2-native.json");
+    if (native.apiVersion !== 2) throw new Error("expected v2");
+    expect(native.player?.native).toEqual([
+      { id: "receiver", services: { required: [], optional: [] } },
+    ]);
   });
 });

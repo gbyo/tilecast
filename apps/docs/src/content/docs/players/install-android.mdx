@@ -1,9 +1,9 @@
 ---
 title: Install Tilecast Player on Android TV
-description: Install the signed APK, pair the TV, and complete its required commissioning checklist.
+description: Install the signed APK, open it, and approve the TV in Studio. Playback starts right after approval.
 ---
 
-Tilecast publishes one signed APK for Android TV, Google TV, and Fire TV. Install the APK on the TV, connect it to Tilecast Server, and complete the commissioning checklist before playback.
+Tilecast publishes one signed APK for Android TV, Google TV, and Fire TV. You install it, open it once, and approve the code it shows in Studio. Everything after that runs without anyone at the TV, and the remote is the only input you need.
 
 import { Steps } from "@astrojs/starlight/components";
 
@@ -18,28 +18,41 @@ import { Steps } from "@astrojs/starlight/components";
 
 </Steps>
 
-Use [Pair a display](../pair-a-display/) to select your server and approve the request in Studio. The Player checks the server installation identity before it uses a stored credential. Public hostnames need HTTPS; a private LAN may use a local HTTP address.
-
-## Complete the commissioning checklist
-
-After first enrollment, the Player opens **Harden this player**. This required checklist checks local setup before it enters normal playback.
+## Connect and pair
 
 <Steps>
 
-1. Set a local administrator PIN. It opens the Player maintenance tools on this device.
-2. Follow the **Accessibility Control** step. On Android devices that support the standard accessibility settings, select **Open Accessibility Settings**, enable the service, and select **Verify again**. Accessibility Control is optional on Fire TV; Fire OS does not show the standard Android setting, so you can continue without it.
-3. Under **Allow signed Player updates**, select **Open install permission**, grant the requested Android install permission, and select **Verify again**. The commissioning checklist does not continue until this permission is granted.
-4. Under **Verify launch after boot**, restart the TV once. Return to Tilecast Player and select **Check boot result**. If the device firmware blocks launch after boot, the step remains unverified.
-5. Under **Verify fullscreen presentation**, confirm that immersive mode and keep screen awake show as verified.
-6. Select **Run self-test**, then **View result**.
-7. Review **Zero-Touch Readiness** and select **Finish commissioning**.
+1. The Player looks for Tilecast Server on the network. If it finds exactly one server, it connects by itself and shows a pairing code. If it finds more than one, choose yours from the list.
+2. If no server is found, select **Enter server address** and type the address you use to open Studio, for example `192.168.1.50:8080` or `signage.example.com`. Press the keyboard's action key to connect. A private network address without `https://` connects over HTTP, and the pairing screen says the connection isn't encrypted. Public hostnames need HTTPS.
+3. In Studio, select **Pair screen** and enter the code shown on the TV, or scan its QR code with the Tilecast iOS app. See [Pair a display](../pair-a-display/).
 
 </Steps>
 
-A result with warnings can still be finished. Studio keeps the screen marked partially ready. The check does not guarantee recovery from power, network, hardware, or Android approval failures.
+Playback starts as soon as you approve. A new screen shows **No content assigned** until you assign a playlist or published Layout in [Tilecast Studio](../../studio/).
 
-Android may still show an installation confirmation for a Player update, depending on the OS version and device firmware. The permission allows Tilecast to request signed updates; it does not override every system installer prompt.
+The pairing code changes by itself every ten minutes until you approve it. If the TV can't reach the server, it keeps retrying and shows when the next attempt runs.
+
+## Optional Android permissions
+
+Two Android permissions make a TV more self-sufficient. Neither is needed for playback, and the Player never stops to ask for them.
+
+- **Accessibility Control** lets Tilecast return to playback when another app opens and request sleep outside active hours. Fire OS doesn't show this setting in its normal menu.
+- **Install permission** lets Tilecast install signed Player updates. On Android 12 and newer, eligible updates install without anyone at the screen. Older installers may still ask for local confirmation.
+
+Studio shows which of these a screen has on its **Reliability** tab. To grant them, open the maintenance menu on the TV and choose **Accessibility Settings** or **Install permission**.
+
+## Open the maintenance menu
+
+On the remote, press **Back**, **Back**, **Up**, **Down**, then **OK**. The first time, the Player asks you to set a local PIN. Later it asks for that PIN.
+
+The menu can restart the Player, clear safe mode, open the Android settings above, or forget the server so the TV pairs again. While the menu is open, Tilecast pauses its return-to-playback and sleep behavior for up to 15 minutes.
+
+## If the screen is revoked or moves to a new server
+
+If you revoke the screen in Studio, the TV shows a new pairing code for the same server right away. Approve it to bring the screen back.
+
+If the server address starts answering as a different Tilecast installation, the TV stops and shows **This server has changed**. It doesn't send its credential to the new installation. Select **Reset and search again** to pair with the new server.
 
 ## After setup
 
-A new screen has no assigned content. Use [Tilecast Studio](../../studio/) to assign a playlist or published Layout. For later software releases, see [Update a Player](../update-a-player/).
+For later software releases, see [Update a Player](../update-a-player/).

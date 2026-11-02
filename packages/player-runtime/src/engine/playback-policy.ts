@@ -244,6 +244,114 @@ export function transitionForSwap(
   return configured || "fade";
 }
 
+// ------------------------------------------------- video surface reuse
+//
+// A synchronized group moves every screen to the next occurrence through the
+// shared timeline, and a single video looping in a group is the ordinary case:
+// the same file, from its start, again. Mounting a second decoder for it costs
+// a pipeline start-up on every lap, and on hardware that can barely sustain one
+// fullscreen decode that is the whole cost. An ungrouped screen restarts the
+// element it already has; a grouped screen may do the same, but only when the
+// element is provably the right one for the occurrence.
+//
+// This is the one place that decides. The stage assembles the facts (it alone
+// can read the element and the layer) and acts on the verdict; the engine never
+// reuses anything by item id alone.
+
+/** What identifies a video's media and how it is played. */
+export interface VideoPlaybackConfig {
+  itemId: string;
+  /** The capability URL the element decodes. */
+  src: string;
+  fitMode: string;
+  audioEnabled: boolean;
+  volume: number;
+  /** Where the clip ends, in media time; null plays to the file's end. */
+  endOffsetMs: number | null;
+}
+
+export interface VideoReuseSurface {
+  /** The surface is on the visible layer, not staged and not fading out. */
+  visible: boolean;
+  disposed: boolean;
+  /** The element reported an error, or the surface reported a failure. */
+  failed: boolean;
+  /** The surface has already shown a first frame. */
+  shown: boolean;
+  /** `HTMLMediaElement.readyState`. */
+  readyState: number;
+}
+
+export type VideoReuseRejection =
+  | "not-a-shared-boundary"
+  | "not-video"
+  | "surface-not-visible"
+  | "surface-disposed"
+  | "surface-failed"
+  | "surface-not-ready"
+  | "item-changed"
+  | "source-changed"
+  | "fit-changed"
+  | "audio-changed"
+  | "volume-changed"
+  | "trim-end-changed"
+  | "start-out-of-range";
+
+export type VideoReuseVerdict =
+  { reuse: true } | { reuse: false; reason: VideoReuseRejection };
+
+/** `HTMLMediaElement.HAVE_CURRENT_DATA`: a frame is available. */
+const HAVE_CURRENT_DATA = 2;
+
+export interface VideoReuseInput {
+  /** The incoming occurrence is a shared boundary, not a replacement. */
+  sharedBoundary: boolean;
+  /** The incoming item is a video. */
+  incomingIsVideo: boolean;
+  surface: VideoReuseSurface;
+  outgoing: VideoPlaybackConfig;
+  incoming: VideoPlaybackConfig;
+  /** Where the incoming occurrence starts in the clip, in media time. */
+  incomingStartMs: number | null;
+}
+
+export function videoReuseVerdict(input: VideoReuseInput): VideoReuseVerdict {
+  const no = (reason: VideoReuseRejection): VideoReuseVerdict => ({
+    reuse: false,
+    reason,
+  });
+  if (!input.sharedBoundary) return no("not-a-shared-boundary");
+  if (!input.incomingIsVideo) return no("not-video");
+  const { surface, outgoing, incoming } = input;
+  if (surface.disposed) return no("surface-disposed");
+  if (surface.failed) return no("surface-failed");
+  if (!surface.visible) return no("surface-not-visible");
+  if (!surface.shown || surface.readyState < HAVE_CURRENT_DATA) {
+    return no("surface-not-ready");
+  }
+  // Same file is not enough on its own: the item id is part of the identity
+  // because it names the occurrence's evidence and its transition rule.
+  if (outgoing.itemId !== incoming.itemId) return no("item-changed");
+  if (outgoing.src !== incoming.src) return no("source-changed");
+  if (outgoing.fitMode !== incoming.fitMode) return no("fit-changed");
+  if (outgoing.audioEnabled !== incoming.audioEnabled) {
+    return no("audio-changed");
+  }
+  if (outgoing.volume !== incoming.volume) return no("volume-changed");
+  if (outgoing.endOffsetMs !== incoming.endOffsetMs) {
+    return no("trim-end-changed");
+  }
+  const start = input.incomingStartMs ?? 0;
+  if (
+    !Number.isFinite(start) ||
+    start < 0 ||
+    (incoming.endOffsetMs !== null && start >= incoming.endOffsetMs)
+  ) {
+    return no("start-out-of-range");
+  }
+  return { reuse: true };
+}
+
 // ------------------------------------------------------- crossfade cleanup
 //
 // The delayed teardown after a crossfade must act on the layer that actually
@@ -285,6 +393,7 @@ export const tilecastPlaybackPolicy = {
   shouldClearOutgoingLayer,
   shouldPauseOutgoingLayer,
   transitionForSwap,
+  videoReuseVerdict,
   videoSyncCorrection,
   zoneStepAllowed,
   SYNC_IGNORE_DRIFT_MS,

@@ -106,6 +106,17 @@ p {
   font-size: 0.72em;
 }
 
+/* A zone whose Playlist holds items the zone cannot play: it says so instead
+   of previewing the playable subset. Text keeps its own contrast; the border
+   and icon carry the status so it is never color alone. */
+.layout-playlist-zone--invalid {
+  border-color: var(--tc-status-danger);
+}
+
+.layout-playlist-zone--invalid svg {
+  color: var(--tc-status-danger);
+}
+
 .layout-app-placement__provider {
   font-size: 0.7em;
   text-transform: uppercase;
