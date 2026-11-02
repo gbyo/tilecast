@@ -195,6 +195,7 @@ impl AndroidHost {
         renderer_platform: Arc<dyn crate::renderer::RendererPlatform>,
         user_agent: String,
         jvm: Option<Arc<Jvm>>,
+        phone_setup: Option<Arc<dyn player_core::PhoneRelay>>,
     ) -> Result<Self, HostError> {
         std::fs::create_dir_all(&paths.root).map_err(|_| HostError::FilesDir)?;
         let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -221,7 +222,10 @@ impl AndroidHost {
             .map_err(|_| HostError::Cas)?;
         let credentials: Arc<dyn player_client::CredentialStore> =
             Arc::new(JvmCredentialStore::new(Arc::clone(&calls)));
-        let pairing = core.pairing(Arc::clone(&credentials), Arc::new(JvmPairingStore::new(calls)));
+        let mut pairing = core.pairing(Arc::clone(&credentials), Arc::new(JvmPairingStore::new(calls)));
+        if let Some(relay) = phone_setup {
+            pairing = pairing.with_phone_setup(relay);
+        }
         let config = Arc::new(AndroidConfigHost::new(paths.installed_config.clone(), cas.clone()));
         let signals = Arc::new(crate::server_link::LinkSignals::default());
         let renderer_snapshot = Arc::new(Mutex::new(RendererSnapshot::default()));
@@ -588,6 +592,11 @@ impl AndroidHost {
         Ok(())
     }
 
+    /// Starts a paused phone setup session again.
+    pub fn resume_phone_setup(&self) {
+        self.drivers.pairing().resume_phone_setup();
+    }
+
     /// Resets pairing: suppresses auto-begin, drops the saved session, and
     /// reports reset to the Kotlin surface.
     pub fn reset_pairing(&self) {
@@ -853,17 +862,26 @@ fn validated(user_agent: &str) -> Result<String, HostError> {
 /// Opens the process host against the Kotlin handler. Fails when the files
 /// dir is unusable or a host is already live. `files_dir` must be the
 /// app-private files directory.
-pub fn open_host(files_dir: &Path, jvm: Arc<Jvm>, user_agent: &str) -> Result<i64, HostError> {
+///
+/// `setup_relay` is the phone setup relay origin; empty turns phone setup off.
+pub fn open_host(files_dir: &Path, jvm: Arc<Jvm>, user_agent: &str, setup_relay: &str) -> Result<i64, HostError> {
     let calls: Arc<dyn StoreCalls> = Arc::new(JvmStoreCalls::new(jvm.clone()));
     let meta: Arc<dyn MetadataSource> = Arc::new(JvmMetadataSource::new(jvm.clone()));
     let platform: Arc<dyn crate::commands::PlatformCommands> =
         Arc::new(crate::commands::JvmPlatformCommands::new(jvm.clone()));
     let renderer: Arc<dyn crate::renderer::RendererPlatform> = Arc::new(JvmRendererPlatform::new(jvm.clone()));
-    open_host_with(files_dir, calls, meta, platform, renderer, user_agent, Some(jvm))
+    let phone_setup = match setup_relay {
+        "" => None,
+        origin => {
+            player_core::SetupRelay::at(Some(origin)).map(|relay| Arc::new(relay) as Arc<dyn player_core::PhoneRelay>)
+        }
+    };
+    open_host_with(files_dir, calls, meta, platform, renderer, user_agent, Some(jvm), phone_setup)
 }
 
 /// Opens the process host against abstract stores. Production uses
 /// [`open_host`]; host tests substitute in-memory fakes.
+#[allow(clippy::too_many_arguments)]
 pub fn open_host_with(
     files_dir: &Path,
     calls: Arc<dyn StoreCalls>,
@@ -872,6 +890,7 @@ pub fn open_host_with(
     renderer: Arc<dyn crate::renderer::RendererPlatform>,
     user_agent: &str,
     jvm: Option<Arc<Jvm>>,
+    phone_setup: Option<Arc<dyn player_core::PhoneRelay>>,
 ) -> Result<i64, HostError> {
     if files_dir.as_os_str().is_empty() || !files_dir.is_absolute() {
         return Err(HostError::FilesDir);
@@ -881,7 +900,7 @@ pub fn open_host_with(
     if live.is_some() {
         return Err(HostError::AlreadyLive);
     }
-    let host = AndroidHost::open(core_paths(files_dir), calls, meta, platform, renderer, user_agent, jvm)?;
+    let host = AndroidHost::open(core_paths(files_dir), calls, meta, platform, renderer, user_agent, jvm, phone_setup)?;
     *live = Some(Arc::new(host));
     Ok(LIVE_HANDLE)
 }
@@ -936,7 +955,7 @@ mod tests {
         let renderer: Arc<dyn crate::renderer::RendererPlatform> =
             Arc::new(crate::renderer::MemRendererPlatform::default());
         assert!(matches!(
-            open_host_with(Path::new("relative"), calls, meta, platform, renderer, "ua", None),
+            open_host_with(Path::new("relative"), calls, meta, platform, renderer, "ua", None, None),
             Err(HostError::FilesDir)
         ));
     }

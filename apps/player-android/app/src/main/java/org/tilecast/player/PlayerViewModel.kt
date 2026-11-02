@@ -9,10 +9,13 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
@@ -26,6 +29,7 @@ import org.tilecast.player.core.CoreManifestResult
 import org.tilecast.player.core.CorePlatformConfig
 import org.tilecast.player.core.CorePlayerConfig
 import org.tilecast.player.core.CorePairingState
+import org.tilecast.player.core.CorePhoneSetup
 import org.tilecast.player.core.CoreRecoveryResult
 import org.tilecast.player.core.DiscoveredServer
 import org.tilecast.player.core.PairingTarget
@@ -57,6 +61,7 @@ internal interface PlayerViewModelHost {
     suspend fun beginPairing(url: String): CoreBeginResult
     suspend fun resetPairing(): Boolean
     suspend fun resetServer(): Boolean
+    suspend fun resumePhoneSetup(): Boolean = false
     suspend fun syncManifest(): CoreManifestResult
     suspend fun rendererRecovery(json: String): CoreRecoveryResult
     suspend fun effectiveConfig(): CorePlayerConfig
@@ -76,6 +81,7 @@ private class ProductionPlayerViewModelHost(
     override suspend fun beginPairing(url: String) = delegate.beginPairing(url)
     override suspend fun resetPairing() = delegate.resetPairing()
     override suspend fun resetServer() = delegate.resetServer()
+    override suspend fun resumePhoneSetup() = delegate.resumePhoneSetup()
     override suspend fun syncManifest() = delegate.syncManifest()
     override suspend fun rendererRecovery(json: String) = delegate.rendererRecovery(json)
     override suspend fun effectiveConfig() = delegate.effectiveConfig()
@@ -148,6 +154,11 @@ class PlayerViewModel internal constructor(
     private var retryServer: String? = null
     /** The installer chose manual entry: the search must not pick a server for them. */
     private var manualEntry = false
+
+    /** Phone setup while Core runs it: a QR code beside the setup screens. */
+    val phoneSetup: StateFlow<CorePhoneSetup?> = host.pairingState
+        .map { (it as? CorePairingState.Setup)?.phone }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val mutableRetryAt = MutableStateFlow<Long?>(null)
     /** When the next automatic setup retry runs, in epoch milliseconds, for the countdown. */
@@ -262,6 +273,11 @@ class PlayerViewModel internal constructor(
             mutableSetup.value = SetupPhase.Browsing(servers)
             delay(RESCAN_MILLIS)
         }
+    }
+
+    /** Starts a paused phone setup session again. */
+    fun resumePhoneSetup() {
+        viewModelScope.launch { host.resumePhoneSetup() }
     }
 
     fun showManualEntry() {

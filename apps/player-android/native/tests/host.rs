@@ -28,7 +28,7 @@ fn open(files_dir: &Path) -> i64 {
     let meta = Arc::new(MemMetadataSource::with_facts(
         r#"{"manufacturer":"test","model":"test","osRelease":"14","playerVersion":"0.25.0","screenWidth":1920,"screenHeight":1080,"locale":"en-US","timezone":"UTC"}"#,
     ));
-    open_host_with(files_dir, calls, meta, platform(), renderer(), USER_AGENT, None).expect("open")
+    open_host_with(files_dir, calls, meta, platform(), renderer(), USER_AGENT, None, None).expect("open")
 }
 
 #[test]
@@ -43,7 +43,7 @@ fn host_lifecycle_opens_state_cas_and_core() {
     // A second open fails while the first host is alive: one Core per process.
     let calls = Arc::new(MemStoreCalls::default());
     let meta = Arc::new(MemMetadataSource::with_facts("{}"));
-    assert!(open_host_with(&files_dir, calls, meta, platform(), renderer(), USER_AGENT, None).is_err());
+    assert!(open_host_with(&files_dir, calls, meta, platform(), renderer(), USER_AGENT, None, None).is_err());
 
     let status = with_host(handle, |host| host.status()).expect("status");
     // Readers run without the global lock held: a nested read on the same
@@ -93,12 +93,15 @@ fn host_lifecycle_opens_state_cas_and_core() {
 fn open_rejects_unusable_dirs_and_agents() {
     let calls = Arc::new(MemStoreCalls::default());
     let meta = Arc::new(MemMetadataSource::with_facts("{}"));
-    assert!(open_host_with(Path::new(""), calls, meta, platform(), renderer(), USER_AGENT, None).is_err());
+    assert!(open_host_with(Path::new(""), calls, meta, platform(), renderer(), USER_AGENT, None, None).is_err());
     let calls = Arc::new(MemStoreCalls::default());
     let meta = Arc::new(MemMetadataSource::with_facts("{}"));
-    assert!(open_host_with(Path::new("relative/path"), calls, meta, platform(), renderer(), USER_AGENT, None).is_err());
+    assert!(
+        open_host_with(Path::new("relative/path"), calls, meta, platform(), renderer(), USER_AGENT, None, None)
+            .is_err()
+    );
     let files = tempfile::tempdir().unwrap();
     let calls = Arc::new(MemStoreCalls::default());
     let meta = Arc::new(MemMetadataSource::with_facts("{}"));
-    assert!(open_host_with(files.path(), calls, meta, platform(), renderer(), "", None).is_err());
+    assert!(open_host_with(files.path(), calls, meta, platform(), renderer(), "", None, None).is_err());
 }

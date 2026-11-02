@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "description": "Phone setup envelope vectors. See docs/phone-setup.md. A Player opens each envelope with its private key and the setup code; the shared secret lets implementations that cannot import a fixed private key check the HKDF and AES-GCM steps.",
+  "player": {
+    "privateKeyJwk": {
+      "kty": "EC",
+      "crv": "P-256",
+      "d": "-9NSbkZY59CNF6FSqFI-dreRgAP567qZYxIBP0ieMc8",
+      "x": "Vy0QTZD45yDrKKfvMi_wi09YdTQzO1ORWRqqUMdM3DM",
+      "y": "od5uumgxeTYei5COPsJBCBx9wPRVNgPZ9pt6u8t_pPI"
+    },
+    "publicKey": "BFctEE2Q-Ocg6yin7zIv8ItPWHU0MztTkVkaqlDHTNwzod5uumgxeTYei5COPsJBCBx9wPRVNgPZ9pt6u8t_pPI",
+    "setupCode": "Z5ySczQ0pPyM7NbIDHKMmA"
+  },
+  "cases": [
+    {
+      "name": "valid envelope opens to the payload",
+      "envelope": {
+        "v": 1,
+        "epk": "BE83ImwtlqFHOuTAay3WTduo5vQTl9N0BEqKG2SEfA1cVv1CHxZcNkVHRacOwy3VQi2ipGk0JjCQxW1vkbIjp0w",
+        "iv": "elzs8IWC3oVRtaes",
+        "ct": "fEFi6lHLIU13P7Evs7EkRx1C3vLorqqQ42LJEutlKuWnsSOuJf4gIZRNZsoDIQZ_Q77AXPJyO4BA5Lq6AyD1kO5Bc7guLvJ7lYSVMiizh6glaGSepIctfQiTvTaiHQRcVtrOxNh5v5VNSLcpGM1UZzyG-Q"
+      },
+      "sharedSecret": "xiGS-sNjdFrFZuN2esdahuhibhcNlCWVRNffPEVH6Fk",
+      "accepted": true,
+      "payload": {
+        "serverUrl": "https://signage.example.org",
+        "installationId": "0b0f4a52-9f1e-4f43-a0a4-6d3f7c1d2e11"
+      }
+    },
+    {
+      "name": "tampered ciphertext is rejected",
+      "envelope": {
+        "v": 1,
+        "epk": "BE83ImwtlqFHOuTAay3WTduo5vQTl9N0BEqKG2SEfA1cVv1CHxZcNkVHRacOwy3VQi2ipGk0JjCQxW1vkbIjp0w",
+        "iv": "elzs8IWC3oVRtaes",
+        "ct": "fUFi6lHLIU13P7Evs7EkRx1C3vLorqqQ42LJEutlKuWnsSOuJf4gIZRNZsoDIQZ_Q77AXPJyO4BA5Lq6AyD1kO5Bc7guLvJ7lYSVMiizh6glaGSepIctfQiTvTaiHQRcVtrOxNh5v5VNSLcpGM1UZzyG-Q"
+      },
+      "sharedSecret": "xiGS-sNjdFrFZuN2esdahuhibhcNlCWVRNffPEVH6Fk",
+      "accepted": false
+    },
+    {
+      "name": "envelope sealed for another setup code is rejected",
+      "envelope": {
+        "v": 1,
+        "epk": "BOYMbrxdnn5frq-Br1Wvf4l7ncv_QJblA_hadB9B-7Io6lhrqCsdNZ23UM5KE_-tluEdW8repJx5mQxeFss5kPY",
+        "iv": "0-Fv7458vFWKuT9A",
+        "ct": "MSYOPEB4ZbrCd69JQE1xv0ESNeyfNviDXGLTJQ2IeRDZcTjjJBsvHbCFxc74Jkgin0WJhQ-fkK7iKurFeg2r5NPFaDLGdSb22kmR7_Rnn6ZovppYlbaxacuuLLJa25S9USmpnfwlrEAF8_rcAGnZHg5z4Q"
+      },
+      "sharedSecret": "3fR2dIkX8mhZ7JsRI-3m_w1EnfRNQn925WuOMBtZIWQ",
+      "accepted": false
+    },
+    {
+      "name": "payload with an unknown field is rejected",
+      "envelope": {
+        "v": 1,
+        "epk": "BFA4OQsmcsldzoVLWzQcYhaTUVa_9eA7hn6cltnhx-0Eevjh1qN7d0ckJz4hFtIIviOmqG8KZCDWdYPj1JjoVRI",
+        "iv": "UysIglFzTaDkwHZs",
+        "ct": "s3giXQnNnaVEbwcs6Xx07pDpQFsh_gA5WC3DjyTVXWVlG1QlSxOWrYP4JanY-7LnkNUmQVxOokY4rHuo3feyPVU4TnJb26kM7_ZE_HymhLdzvSipVXkHgjsxsSdZ5DDLR6DCY5xNJ1Ste3kw3Z8N6zLuFcTwYFEEC1UdtJj0aOc"
+      },
+      "sharedSecret": "2LucJLzg0y6CBPuZkbqDQ_-u0ZrJnsuSqX7W0FmJB10",
+      "accepted": false
+    },
+    {
+      "name": "payload without installationId is rejected",
+      "envelope": {
+        "v": 1,
+        "epk": "BE5i5Bd2qcOFWla89d5RgHynWmBw2gEZvN0LB3J3F_3s3Q2w-ko1LBOs-lY3nXpC0L-CZT2Xi2za306l-VMyql0",
+        "iv": "yed_h12ewhjgS_DD",
+        "ct": "zZKRCcLo6wJL031cn0PwtZ_611tQKLSnaEJdpbfD3cmiJT9WCeQ7TLLpUl_8gQNr-uVwx7_3mUiuD7I"
+      },
+      "sharedSecret": "sNaQoyfe3BMlZw9V23mufq5zlCjkL55z9R_-oI-nALc",
+      "accepted": false
+    },
+    {
+      "name": "payload that is not JSON is rejected",
+      "envelope": {
+        "v": 1,
+        "epk": "BPURtP9oj7FwBuql_LjnWq0m1yEbnv_G1UYx1JbQCRsNWDjd6AoVPAX9REhv5U_B5Nmg1DsfKFGiuXTOXb3RtCU",
+        "iv": "8tC1WjSUUhjGGKzF",
+        "ct": "m65eFmlLCxc_rtWyxEMTOI25Q6zKqskm"
+      },
+      "sharedSecret": "kt0ctTPMc-G1FqCQ5P84CKQq84g_GF-tspiUpUzDE4g",
+      "accepted": false
+    }
+  ]
+}
