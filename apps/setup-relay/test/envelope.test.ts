@@ -134,3 +134,43 @@ it("carries a sealed server address from Studio to the Player", async () => {
   const other = encode(crypto.getRandomValues(new Uint8Array(16)));
   await expect(open(other, player, playerKey, envelope)).rejects.toThrow();
 });
+
+it("opens the shared Player fixture with WebCrypto", async () => {
+  const { default: fixture } =
+    await import("../../../packages/player-contracts/fixtures/phone-setup-envelope.json");
+  const player = await crypto.subtle.importKey(
+    "jwk",
+    { ...fixture.player.privateKeyJwk, ext: true },
+    ECDH,
+    false,
+    ["deriveBits"],
+  );
+  const playerKey = decode(fixture.player.publicKey);
+  for (const testCase of fixture.cases) {
+    const epk = decode(testCase.envelope.epk);
+    const peer = await crypto.subtle.importKey("raw", epk, ECDH, false, []);
+    const algorithm = { name: "ECDH", public: peer };
+    const shared = await crypto.subtle.deriveBits(
+      algorithm as unknown as SubtleCryptoDeriveKeyAlgorithm,
+      player,
+      256,
+    );
+    expect(encode(shared), testCase.name).toBe(testCase.sharedSecret);
+    const opened = open(
+      fixture.player.setupCode,
+      { privateKey: player, publicKey: player } as CryptoKeyPair,
+      playerKey,
+      testCase.envelope,
+    ).then((payload) => {
+      const value = payload as Record<string, unknown>;
+      const keys = Object.keys(value).sort().join();
+      if (keys !== "installationId,serverUrl") throw new Error("payload");
+      return value;
+    });
+    if (testCase.accepted) {
+      expect(await opened, testCase.name).toEqual(testCase.payload);
+    } else {
+      await expect(opened, testCase.name).rejects.toThrow();
+    }
+  }
+});

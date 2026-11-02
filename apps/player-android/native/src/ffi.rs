@@ -46,7 +46,7 @@ use crate::jvm::Jvm;
 const MAX_FILES_DIR_CHARS: usize = 4096;
 const MAX_URL_CHARS: usize = 2048;
 
-fn open_handle(env: &mut Env, files_dir: &str, user_agent: &str, handler: &JObject) -> i64 {
+fn open_handle(env: &mut Env, files_dir: &str, user_agent: &str, setup_relay: &str, handler: &JObject) -> i64 {
     if files_dir.is_empty() || files_dir.len() > MAX_FILES_DIR_CHARS {
         return 0;
     }
@@ -54,7 +54,7 @@ fn open_handle(env: &mut Env, files_dir: &str, user_agent: &str, handler: &JObje
         Ok(jvm) => Arc::new(jvm),
         Err(_) => return 0,
     };
-    open_host(Path::new(files_dir), jvm, user_agent).unwrap_or(0)
+    open_host(Path::new(files_dir), jvm, user_agent, setup_relay).unwrap_or(0)
 }
 
 fn status_json(handle: i64) -> String {
@@ -132,13 +132,15 @@ pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeOpen
     _this: JObject<'local>,
     files_dir: JString<'local>,
     user_agent: JString<'local>,
+    setup_relay: JString<'local>,
     handler: JObject<'local>,
 ) -> i64 {
     unowned
         .with_env(|env| -> errors::Result<i64> {
             let dir = files_dir.try_to_string(env).unwrap_or_default();
             let agent = user_agent.try_to_string(env).unwrap_or_default();
-            Ok(open_handle(env, &dir, &agent, &handler))
+            let relay = setup_relay.try_to_string(env).unwrap_or_default();
+            Ok(open_handle(env, &dir, &agent, &relay, &handler))
         })
         .resolve::<errors::ThrowRuntimeExAndDefault>()
 }
@@ -177,6 +179,17 @@ pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeRese
 ) -> i32 {
     unowned
         .with_env(|_env| -> errors::Result<i32> { Ok(lifecycle_code(handle, |host| host.reset_pairing())) })
+        .resolve::<errors::ThrowRuntimeExAndDefault>()
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_org_tilecast_player_core_PlayerCoreNative_nativeResumePhoneSetup<'local>(
+    mut unowned: EnvUnowned<'local>,
+    _this: JObject<'local>,
+    handle: i64,
+) -> i32 {
+    unowned
+        .with_env(|_env| -> errors::Result<i32> { Ok(lifecycle_code(handle, |host| host.resume_phone_setup())) })
         .resolve::<errors::ThrowRuntimeExAndDefault>()
 }
 

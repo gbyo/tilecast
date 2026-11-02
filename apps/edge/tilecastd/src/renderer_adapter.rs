@@ -158,7 +158,7 @@ pub(crate) fn metadata(
         player_core::CaptureState::SafeMode
     } else {
         match document {
-            PresentationDocument::Setup {} => player_core::CaptureState::Setup,
+            PresentationDocument::Setup { .. } => player_core::CaptureState::Setup,
             PresentationDocument::Pairing { .. } => player_core::CaptureState::Pairing,
             PresentationDocument::SafeMode { .. } => player_core::CaptureState::SafeMode,
             _ => player_core::CaptureState::Presentation,
@@ -799,7 +799,7 @@ mod tests {
                 "requiredCapabilities": {"widget.tilecast.clock": 2, "content.text": 1}}}]}),
         };
         let metadata = metadata(
-            &PresentationDocument::Setup {},
+            &PresentationDocument::Setup { phone_setup: None },
             crate::presentation::ActivationSource::ServerManifest,
             Some(&projection),
         )
@@ -816,7 +816,7 @@ mod tests {
         projection.manifest["widgets"][0]["presentation"]["requiredCapabilities"]["content.text"] = json!(0);
         assert!(
             super::metadata(
-                &PresentationDocument::Setup {},
+                &PresentationDocument::Setup { phone_setup: None },
                 crate::presentation::ActivationSource::ServerManifest,
                 Some(&projection)
             )
@@ -931,9 +931,13 @@ mod tests {
                 takeover_id: None,
                 next_transition_ms: None,
             }),
-            document: PresentationDocument::Setup {},
-            renderer_metadata: metadata(&PresentationDocument::Setup {}, ActivationSource::ServerManifest, None)
-                .unwrap(),
+            document: PresentationDocument::Setup { phone_setup: None },
+            renderer_metadata: metadata(
+                &PresentationDocument::Setup { phone_setup: None },
+                ActivationSource::ServerManifest,
+                None,
+            )
+            .unwrap(),
             content: vec![edge_protocol::ipc::presentation::ContentRef {
                 sha256: digest,
                 size_bytes: 4,
@@ -1097,9 +1101,13 @@ mod tests {
             id: edge_protocol::ids::ActivationId::from_uuid(uuid::Uuid::nil()),
             generation: 3,
             identity: None,
-            document: PresentationDocument::Setup {},
-            renderer_metadata: metadata(&PresentationDocument::Setup {}, ActivationSource::ServerManifest, None)
-                .unwrap(),
+            document: PresentationDocument::Setup { phone_setup: None },
+            renderer_metadata: metadata(
+                &PresentationDocument::Setup { phone_setup: None },
+                ActivationSource::ServerManifest,
+                None,
+            )
+            .unwrap(),
             content: vec![
                 edge_protocol::ipc::presentation::ContentRef {
                     sha256: digest,

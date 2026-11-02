@@ -453,6 +453,61 @@ body {
 #setup-input {
   font-family: inherit;
 }
+/* Setup: the phone setup QR code, above discovery and manual entry. */
+#message .phone-setup {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 40px;
+  max-width: min(90%, 1200px);
+  text-align: left;
+}
+#message .phone-setup__qr {
+  width: clamp(160px, 26vmin, 300px);
+  height: auto;
+  image-rendering: crisp-edges;
+}
+#message .phone-setup__text {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#message .phone-setup__text h2 {
+  margin: 0;
+  font-size: 40px;
+  color: #fff;
+}
+#message .phone-setup__text p {
+  max-width: 100%;
+}
+#message .phone-setup__notice {
+  color: #ffb4a8;
+}
+#message .phone-setup--paused {
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+}
+#phone-setup-resume {
+  font: inherit;
+  font-size: 24px;
+  padding: 14px 28px;
+  border-radius: 8px;
+  border: 1px solid #4c8bf5;
+  background: #16202b;
+  color: #fff;
+  cursor: pointer;
+}
+#phone-setup-resume:focus-visible {
+  outline: 3px solid #4c8bf5;
+  outline-offset: 2px;
+}
+@media (max-aspect-ratio: 1/1) {
+  #message .phone-setup {
+    flex-direction: column;
+    text-align: center;
+  }
+}
 tc-player,
 tc-stage,
 tc-status-surface,

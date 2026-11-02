@@ -132,6 +132,9 @@ identity creation, session creation, enrollment retry and storage order,
 session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
+Core also owns phone setup sessions (`docs/phone-setup.md`): the relay wait,
+the 30-minute session limit, and the identity check before pairing starts.
+Each host draws the session state and supplies the relay address.
 The shared macOS and Linux gates and all selected Edge jobs passed.
 Core now owns binding-scoped offline manifest reads, stale pending retirement,
 active-hours and disabled gates, pending grace and trial deadlines, evidence

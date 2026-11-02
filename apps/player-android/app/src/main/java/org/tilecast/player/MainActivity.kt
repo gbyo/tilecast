@@ -90,6 +90,7 @@ import org.tilecast.player.ui.ManualEntryScreen
 import org.tilecast.player.ui.PairingScreen
 import org.tilecast.player.ui.RevokedScreen
 import org.tilecast.player.ui.SearchingScreen
+import org.tilecast.player.ui.WithPhoneSetup
 import org.tilecast.player.ui.SetupErrorScreen
 import org.tilecast.player.ui.SetupScaffold
 import org.tilecast.player.ui.setupStep
@@ -217,6 +218,7 @@ class MainActivity : ComponentActivity() {
     val activeHours by model.activeHours.collectAsStateWithLifecycle()
     val safeMode by model.safeMode.collectAsStateWithLifecycle()
     val retryAt by model.retryAt.collectAsStateWithLifecycle()
+    val phoneSetup by model.phoneSetup.collectAsStateWithLifecycle()
     val rendererLifecycle by (renderer?.lifecycle ?: remember { MutableStateFlow(RendererLifecycle(RendererPhase.STOPPED)) })
         .collectAsStateWithLifecycle()
     val rendererView by (renderer?.viewFlow ?: remember { MutableStateFlow<WebView?>(null) }).collectAsStateWithLifecycle()
@@ -252,9 +254,15 @@ class MainActivity : ComponentActivity() {
     SetupScaffold(state.setupStep()) {
         state.let { current ->
             when (current) {
-                PlayerState.Unconfigured, PlayerState.Discovering -> SearchingScreen(emptyList(), model::chooseServer, model::showManualEntry)
-                is PlayerState.ServerSelection -> SearchingScreen(current.servers, model::chooseServer, model::showManualEntry)
-                is PlayerState.ManualServerEntry -> ManualEntryScreen(current.error, model::submitServerAddress, model::discover)
+                PlayerState.Unconfigured, PlayerState.Discovering -> WithPhoneSetup(phoneSetup, model::resumePhoneSetup) {
+                    SearchingScreen(emptyList(), model::chooseServer, model::showManualEntry)
+                }
+                is PlayerState.ServerSelection -> WithPhoneSetup(phoneSetup, model::resumePhoneSetup) {
+                    SearchingScreen(current.servers, model::chooseServer, model::showManualEntry)
+                }
+                is PlayerState.ManualServerEntry -> WithPhoneSetup(phoneSetup, model::resumePhoneSetup) {
+                    ManualEntryScreen(current.error, model::submitServerAddress, model::discover)
+                }
                 is PlayerState.ValidatingServer -> LoadingScreen("Connecting to ${current.serverUrl}…")
                 PlayerState.PairingRequest -> LoadingScreen("Requesting a pairing code…")
                 is PlayerState.WaitingForApproval -> PairingScreen(current, model::changeServer)
