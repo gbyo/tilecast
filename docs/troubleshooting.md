@@ -8,7 +8,8 @@
 
 ## Reliability and power
 
-- **Zero-Touch Readiness says Needs setup or Partially ready:** inspect every safeguard on the screen’s Reliability tab. Accessibility and install permission require local Android approval. Boot launch is confirmed only after a real boot and healthy foreground return. Cached fallback requires fully prepared downloadable content. Use **Run setup again** in the local maintenance menu without deleting pairing.
+- **Zero-Touch Readiness says Needs setup or Partially ready:** inspect every safeguard on the screen’s Reliability tab. Accessibility and install permission require local Android approval. Open them from the local maintenance menu. Boot launch is confirmed only after a healthy foreground return. Cached fallback requires fully prepared downloadable content. Playback continues while a safeguard is missing.
+- **Android TV shows Looking for your Tilecast server:** multicast discovery did not find a server. The Player continues to search. Select **Enter server address** and type the Studio address. A bare private address such as `192.168.1.50:8080` uses HTTP.
 - **A canary update paused:** review the safe rollout reason. Tilecast pauses for explicit failure, safe mode, or a missed reconnect; it does not continue to held screens automatically after a bad canary.
 
 - **Managed Kiosk remains Standard:** the policy is requested but Android has not confirmed device-owner permission and active lock task. Provision locally on compatible firmware.

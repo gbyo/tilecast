@@ -18,9 +18,10 @@ use crate::jvm::{Jvm, method};
 
 /// Facts Kotlin reports for this device. Every field is optional on the
 /// wire: missing facts fall back to the contract defaults in
-/// [`DeviceMetadata::new`], never to an error.
+/// [`DeviceMetadata::new`], never to an error. The same document also
+/// carries heartbeat-only facts, so fields pairing does not use are ignored.
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 struct Facts {
     // Server-visible platform tag. Kotlin sends the same values the legacy
     // Player reports ("android-tv", or "fire-tv" on Amazon hardware), so
@@ -279,6 +280,20 @@ mod tests {
         assert_eq!(meta.screen_width, 3840);
         assert_eq!(meta.timezone, "Europe/Berlin");
         assert_eq!(meta.player_installation_id, player().as_uuid().to_string());
+    }
+
+    #[test]
+    fn facts_accept_the_full_kotlin_document() {
+        // DeviceFacts.toJson also carries heartbeat-only fields.
+        let meta = Facts::parse(
+            r#"{"platform":"android-tv","manufacturer":"Google","model":"Chromecast","osRelease":"14","playerVersion":"0.27.0","screenWidth":1920,"screenHeight":1080,"locale":"en-US","timezone":"America/Chicago","androidSdk":34,"playerVersionCode":40,"installerSource":"com.android.shell","installPermissionStatus":"required"}"#,
+        )
+        .metadata(player());
+        assert_eq!(meta.manufacturer, "Google");
+        assert_eq!(meta.model, "Chromecast");
+        assert_eq!(meta.player_version, "0.27.0");
+        assert_eq!(meta.screen_width, 1920);
+        assert_eq!(meta.screen_height, 1080);
     }
 
     #[test]

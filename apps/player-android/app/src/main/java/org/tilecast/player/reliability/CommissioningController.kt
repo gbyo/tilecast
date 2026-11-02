@@ -1,61 +1,51 @@
 package org.tilecast.player.reliability
 
 import android.content.Context
-import android.content.Intent
 import android.os.Build
 import java.time.Instant
-import org.tilecast.player.MainActivity
 
-enum class CommissioningStep(val wireValue: String) {
-    ADMIN_PIN("admin_pin"),
-    ACCESSIBILITY("accessibility"),
-    INSTALL_PERMISSION("install_permission"),
-    BOOT_RECOVERY("boot_recovery"),
-    PRESENTATION("presentation"),
-    @Deprecated("Retained only to migrate players commissioned by older releases")
-    CACHED_FALLBACK("cached_fallback"),
-    SELF_TEST("self_test"),
-    RESULT("result"),
-    ;
-
-    companion object {
-        val activeEntries = entries.filterNot { it == CACHED_FALLBACK }
-    }
-}
-
+/**
+ * Unattended-readiness facts for one paired screen. There is no local
+ * wizard and nothing here blocks playback: the Player applies fullscreen,
+ * keep-awake, and launch-after-boot by itself, and reports the optional
+ * Android permissions it does not hold. Studio's Reliability view shows
+ * the result, and the maintenance menu opens the matching settings.
+ */
 data class CommissioningStatus(
-    val required: Boolean = false,
-    val step: CommissioningStep = CommissioningStep.ADMIN_PIN,
-    val adminPinSet: Boolean = false,
     val accessibilitySupported: Boolean = true,
     val accessibilityEnabled: Boolean = false,
     val installPermissionGranted: Boolean = false,
     val bootLaunchVerified: Boolean = false,
     val immersiveVerified: Boolean = false,
     val keepAwakeVerified: Boolean = false,
-    val cachedFallbackAvailable: Boolean = false,
-    val selfTestResult: String? = null,
-    val selfTestCompletedAt: Instant? = null,
+    /** When this Player first played as this screen; null before pairing. */
     val completedAt: Instant? = null,
+    val checkedAt: Instant? = null,
 ) {
-    val readiness: String
+    /** The self-test verdict Studio shows: every optional safeguard is in place, or not. */
+    val selfTestResult: String?
         get() {
-            if (!required && completedAt == null) return "needs_setup"
-            val supported =
-                listOf(
-                    adminPinSet,
-                    !accessibilitySupported || accessibilityEnabled,
-                    installPermissionGranted,
-                    bootLaunchVerified,
-                    immersiveVerified,
-                    keepAwakeVerified,
-                )
-            return when {
-                supported.all { it } && selfTestResult == "passed" -> "ready"
-                completedAt != null -> "partially_ready"
-                else -> "needs_setup"
-            }
+            if (completedAt == null) return null
+            val ready =
+                (!accessibilitySupported || accessibilityEnabled) &&
+                    installPermissionGranted &&
+                    bootLaunchVerified &&
+                    immersiveVerified &&
+                    keepAwakeVerified
+            return if (ready) "passed" else "completed_with_warnings"
         }
+
+    val readiness: String
+        get() = when (selfTestResult) {
+            null -> "needs_setup"
+            "passed" -> "ready"
+            else -> "partially_ready"
+        }
+
+    companion object {
+        /** Readiness has no steps; the heartbeat names the automatic flow. */
+        const val STEP = "automatic"
+    }
 }
 
 class CommissioningController(
@@ -64,84 +54,22 @@ class CommissioningController(
 ) {
     private val preferences = context.getSharedPreferences("tilecast-commissioning", Context.MODE_PRIVATE)
 
-    fun status(screenId: String?, cachedFallbackAvailable: Boolean): CommissioningStatus {
+    fun status(screenId: String?): CommissioningStatus {
         if (screenId == null) return CommissioningStatus()
+        val key = "completed-at-$screenId"
         val completedAt =
-            preferences
-                .getLong("completed-at-$screenId", 0)
-                .takeIf { it > 0 }
-                ?.let(Instant::ofEpochMilli)
-        val storedStep = CommissioningStep.entries.getOrElse(preferences.getInt("step-$screenId", 0)) { CommissioningStep.ADMIN_PIN }
-        val step =
-            if (storedStep == CommissioningStep.CACHED_FALLBACK) {
-                preferences.edit().putInt("step-$screenId", CommissioningStep.SELF_TEST.ordinal).commit()
-                CommissioningStep.SELF_TEST
-            } else {
-                storedStep
-            }
-        val boot = BootRecovery.status(context)
-        val accessibilitySupported = !Build.MANUFACTURER.equals("Amazon", ignoreCase = true)
+            preferences.getLong(key, 0).takeIf { it > 0 }
+                ?: System.currentTimeMillis().also { preferences.edit().putLong(key, it).apply() }
+        val window = context.getSharedPreferences("tilecast-reliability", Context.MODE_PRIVATE)
         return CommissioningStatus(
-            required = completedAt == null || preferences.getBoolean("run-again-$screenId", false),
-            step = step,
-            adminPinSet = reliability.hasAdminPin(),
-            accessibilitySupported = accessibilitySupported,
+            accessibilitySupported = !Build.MANUFACTURER.equals("Amazon", ignoreCase = true),
             accessibilityEnabled = reliability.accessibilityEnabled(),
             installPermissionGranted = Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls(),
-            bootLaunchVerified = boot.launchVerified,
-            immersiveVerified = context.getSharedPreferences("tilecast-reliability", Context.MODE_PRIVATE).getBoolean("immersive", false),
-            keepAwakeVerified = context.getSharedPreferences("tilecast-reliability", Context.MODE_PRIVATE).getBoolean("keep-screen-on", false),
-            cachedFallbackAvailable = cachedFallbackAvailable,
-            selfTestResult = preferences.getString("self-test-result-$screenId", null),
-            selfTestCompletedAt = preferences.getLong("self-test-at-$screenId", 0).takeIf { it > 0 }?.let(Instant::ofEpochMilli),
-            completedAt = completedAt,
+            bootLaunchVerified = BootRecovery.status(context).launchVerified,
+            immersiveVerified = window.getBoolean("immersive", false),
+            keepAwakeVerified = window.getBoolean("keep-screen-on", false),
+            completedAt = Instant.ofEpochMilli(completedAt),
+            checkedAt = Instant.now(),
         )
-    }
-
-    fun setPin(pin: CharArray) = reliability.setAdminPin(pin)
-
-    fun advance(screenId: String, current: CommissioningStep) {
-        val active = CommissioningStep.activeEntries
-        val currentIndex = active.indexOf(current).coerceAtLeast(0)
-        val next = active[(currentIndex + 1).coerceAtMost(active.lastIndex)]
-        preferences.edit().putInt("step-$screenId", next.ordinal).commit()
-    }
-
-    fun runSelfTest(screenId: String): String {
-        val boot = BootRecovery.status(context)
-        val accessibilitySupported = !Build.MANUFACTURER.equals("Amazon", ignoreCase = true)
-        val accessibilityReady = !accessibilitySupported || reliability.accessibilityEnabled()
-        val passed =
-            reliability.hasAdminPin() &&
-                accessibilityReady &&
-                (Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls()) &&
-                boot.launchVerified
-        val result = if (passed) "passed" else "completed_with_warnings"
-        preferences.edit().putString("self-test-result-$screenId", result).putLong("self-test-at-$screenId", System.currentTimeMillis()).commit()
-        return result
-    }
-
-    fun complete(screenId: String) {
-        val saved =
-            preferences
-                .edit()
-                .putLong("completed-at-$screenId", System.currentTimeMillis())
-                .putBoolean("run-again-$screenId", false)
-                .putInt("step-$screenId", CommissioningStep.RESULT.ordinal)
-                .commit()
-        if (!saved) return
-
-        context.startActivity(
-            Intent(context, MainActivity::class.java)
-                .addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_CLEAR_TASK,
-                ),
-        )
-    }
-
-    fun runAgain(screenId: String) {
-        preferences.edit().putBoolean("run-again-$screenId", true).putInt("step-$screenId", 0).remove("self-test-result-$screenId").remove("self-test-at-$screenId").commit()
     }
 }

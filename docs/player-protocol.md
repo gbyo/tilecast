@@ -33,7 +33,15 @@ Hardware replacement is a separate approval mode from pairing recovery. Studio c
 
 The new credential is inserted before the old credential is retired. The hardware update, history transition, old-credential revocation, and enrollment-token consumption commit together; any failure rolls back the whole replacement and leaves the old player usable. `screen_player_history` stores the installation ID, platform, version, hardware metadata, pairing time, retirement time, and reason. Credential repair continues to use the stable player installation UUID and does not create a hardware-replacement history row.
 
-Only the latest pending or approved pairing session for a player installation is actionable. Tilecast Player stores its session ID, private poll secret, visible code, expiry, and polling interval in Room, resumes that session after activity or process recreation, and clears it after enrollment or expiry. A stored device credential is attempted first and is cleared only after an authenticated endpoint confirms that it is invalid or revoked.
+Only the latest pending or approved pairing session for a player installation is actionable. Player Core stores its session ID, private poll secret, visible code, expiry, and polling interval in its private pairing file. Core resumes that session after activity or process recreation and clears it after enrollment or expiry. A stored device credential is attempted first and is cleared only after an authenticated endpoint confirms that it is invalid or revoked.
+
+### Revocation recovery
+
+After the server rejects a device credential, the binding keeps the server URL. The credential state becomes `rejected`. The Android host reports that URL as `retainedServerUrl` in its status. It never reports the credential.
+
+The Player then creates a new pairing session against the same server and shows the new code. It does not search the network again. An Owner or Administrator approves the code to restore the screen. When Core creates a session by itself, it polls that session at once, as it does after an explicit request.
+
+An explicit reset sets the credential state to `none`. The Player then searches for a server again.
 
 ## Authenticated connection
 
