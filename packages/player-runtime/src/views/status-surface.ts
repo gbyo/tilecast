@@ -154,7 +154,12 @@ export class StatusSurface extends LitElement {
         const color = HEX.test(p.textColor ?? "") ? p.textColor! : "#F5F7FA";
         return {
           style: { background, color },
-          content: html`<div class="branded-fallback">
+          // `status` is a machine reason code for hosts and diagnostics. It is
+          // exposed as an attribute and never drawn: a room can see this screen.
+          content: html`<div
+            class="branded-fallback"
+            data-status=${p.status ?? nothing}
+          >
             ${
               p.logoSrc
                 ? html`<img
@@ -165,14 +170,7 @@ export class StatusSurface extends LitElement {
                 : nothing
             }
             <h1>${p.title ?? ""}</h1>
-            <p>${p.message ?? ""}</p>
-            ${
-              p.status
-                ? html`<p class="branded-fallback__status">
-                    ${p.status.replaceAll("_", " ")}
-                  </p>`
-                : nothing
-            }
+            ${p.message ? html`<p>${p.message}</p>` : nothing}
             ${
               p.footerText
                 ? html`<p class="branded-fallback__footer">${p.footerText}</p>`
