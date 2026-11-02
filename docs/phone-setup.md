@@ -6,11 +6,12 @@ phone. The person does not type the address with a remote.
 Status:
 
 - The setup relay in `apps/setup-relay` is implemented and tested.
-- The Studio route `/screens/setup` is not implemented.
-- No Player shows the setup QR code yet.
-
-Until a Player implements this contract, the Player gets the server address
-from [LAN discovery](mdns-discovery.md) or from manual entry.
+- The Edge, Windows, and Android Players show the setup QR code and accept an
+  envelope. Player Core implements the Player requirements once for all three.
+- The Studio route `/screens/setup` is not implemented. Until it is, no phone
+  can complete a setup.
+- The legacy Electron Linux Player does not implement phone setup. It gets the
+  server address from [LAN discovery](mdns-discovery.md) or from manual entry.
 
 ## Why a relay
 
@@ -209,10 +210,49 @@ the slot with the SHA-256 hash of the setup code.
   policy rejects.
 - Read the server identity. If the installation ID is not `installationId`,
   reject the address.
-- Show the server confirmation screen before pairing, as for a typed address.
+- Start pairing with the address. The pairing screen shows the server
+  organization, the server address, and the local-HTTP warning before a
+  person approves the screen in Studio.
 - Keep LAN discovery and manual entry on the same screen.
 - Never send a device credential, a poll secret, or an enrollment token to the
   relay.
+
+### Implementation
+
+Player Core owns the setup session in
+`crates/player-core/src/pairing/phone_setup.rs`. `player-client` owns the relay
+connection and the envelope in `crates/player-client/src/phone_setup.rs`.
+
+- A host turns phone setup on with `PairingCoordinator::with_phone_setup`.
+  `PairingCoordinator::run` then runs the session beside the pairing loop.
+- Core starts a session only when reconcile shows the setup surface for a
+  Player without a server. A typed address, a reset, or enrollment stops the
+  session.
+- Core reports the session in `PairingStatus::Setup { phone }` as
+  `PhoneSetupView::Ready`, `Paused`, or `Unavailable`. The host draws it.
+- An unreachable relay shows `Unavailable` and retries after 15 seconds. The
+  retry interval doubles to at most 5 minutes, inside the 30-minute session.
+- `PairingCoordinator::resume_phone_setup` starts a new session after
+  `Paused`.
+- `PairingStatus::Waiting` carries the session server address, so a host that
+  did not start the session can show it.
+- `packages/player-contracts/fixtures/phone-setup-envelope.json` pins the
+  envelope. `player-client` opens it with the shared secret, and the relay
+  tests open it with WebCrypto.
+
+Each host draws the session and supplies the relay address:
+
+| Host    | Surface                                                              | Relay setting                                                                          |
+| ------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Edge    | Runtime setup surface through `phoneSetup` in the setup presentation | `[pairing] phone_setup` and `setup_relay_url` in `/etc/tilecast-edge/edge.toml`        |
+| Windows | Runtime setup surface through `phoneSetup` in the setup presentation | `[pairing] phone_setup` and `setup_relay_url` in `tilecast-windows.toml`               |
+| Android | Compose panel beside the search and manual entry screens             | Build property `TILECAST_PLAYER_SETUP_RELAY_URL`; an empty value turns phone setup off |
+
+The Runtime shows the QR code when the setup presentation has
+`phoneSetup.state` `ready`. It shows a "Show setup code" control for `paused`
+when the host reports `capabilities.phoneSetup`. The control calls
+`setup.resumePhoneSetup`. On Edge the renderer forwards it to `tilecastd` as
+the IPC method `setup.resume_phone_setup`.
 
 ## Studio requirements
 

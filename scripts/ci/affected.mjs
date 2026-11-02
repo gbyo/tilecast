@@ -150,6 +150,12 @@ const rules = [
   [/^apps\/server\/(internal\/updates|cmd\/tilecast-release-verify)\//, ["ci"]],
   [/^apps\/ios\//, ["ios"]],
   [/^apps\/setup-relay\//, ["setup_relay"]],
+  // The phone setup envelope vectors are opened by Player Core and by the
+  // relay's WebCrypto reference.
+  [
+    /^packages\/player-contracts\/fixtures\/phone-setup-envelope\.json$/,
+    ["player_core", "setup_relay"],
+  ],
   // The setup page takes its logo from Studio's logo component.
   [/^apps\/dashboard\/src\/components\/TilecastLogo\.tsx$/, ["setup_relay"]],
   // The iOS app and the phone setup page run the shared server-address

@@ -705,6 +705,11 @@ test("the phone setup relay has its own lane", () => {
   assert.deepEqual(selected(["apps/setup-relay/public/address.js"]), [
     "setup_relay",
   ]);
+  const vectors = affected([
+    "packages/player-contracts/fixtures/phone-setup-envelope.json",
+  ]);
+  assert.equal(vectors.player_core, true);
+  assert.equal(vectors.setup_relay, true);
 });
 
 test("Browser Player has its own lane and follows the Runtime and the server code it uses", () => {

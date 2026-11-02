@@ -136,7 +136,7 @@ fn android_tls_config() -> Result<rustls::ClientConfig, ServerError> {
     Ok(config)
 }
 
-fn tls_config(
+pub(crate) fn tls_config(
     additional_roots: &[rustls::pki_types::CertificateDer<'static>],
 ) -> Result<rustls::ClientConfig, ServerError> {
     // Operator-supplied CAs keep the static configuration on every platform:

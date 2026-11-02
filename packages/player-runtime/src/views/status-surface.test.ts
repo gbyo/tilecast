@@ -56,6 +56,81 @@ describe("status-surface manual setup", () => {
   });
 });
 
+describe("status-surface phone setup", () => {
+  function renderPhone(
+    phoneSetup: Extract<
+      StatusSurface["presentation"],
+      { state: "setup" }
+    >["phoneSetup"],
+    resumePhoneSetup?: () => void,
+  ) {
+    const view = document.createElement(
+      "tc-status-surface",
+    ) as unknown as StatusSurface;
+    view.presentation = { state: "setup", phoneSetup };
+    view.servers = [];
+    view.setup = {
+      available: true,
+      submit: async () => ({ ok: true }),
+      resumePhoneSetup,
+    };
+    document.body.append(view);
+    return view;
+  }
+
+  it("shows the setup QR code beside manual entry", async () => {
+    const view = renderPhone({
+      state: "ready",
+      url: "https://setup.tilecast.org/#v=1&r=AAAAAAAAAAAAAAAAAAAAAA&k=B",
+    });
+    await view.updateComplete;
+    const qr = view.querySelector<HTMLImageElement>(".phone-setup__qr");
+    expect(qr?.src).toMatch(/^data:image\/svg\+xml/);
+    expect(view.querySelector(".phone-setup h2")?.textContent).toBe(
+      "Set up with your phone",
+    );
+    expect(view.querySelector(".phone-setup__notice")).toBeNull();
+    expect(view.querySelector("#setup-input")).not.toBeNull();
+    view.remove();
+  });
+
+  it("explains a rejected address", async () => {
+    const view = renderPhone({
+      state: "ready",
+      url: "https://setup.tilecast.org/#v=1",
+      rejected: true,
+    });
+    await view.updateComplete;
+    expect(view.querySelector(".phone-setup__notice")?.textContent).toContain(
+      "could not be used",
+    );
+    view.remove();
+  });
+
+  it("offers a button that resumes a paused session", async () => {
+    const resume = vi.fn();
+    const view = renderPhone({ state: "paused" }, resume);
+    await view.updateComplete;
+    expect(view.querySelector(".phone-setup__qr")).toBeNull();
+    view.querySelector<HTMLButtonElement>("#phone-setup-resume")!.click();
+    expect(resume).toHaveBeenCalledOnce();
+    view.remove();
+  });
+
+  it("shows nothing for phone setup when the relay is unavailable or the host cannot resume", async () => {
+    for (const [state, resume] of [
+      [{ state: "unavailable" }, vi.fn()],
+      [{ state: "paused" }, undefined],
+    ] as const) {
+      const view = renderPhone(state, resume);
+      await view.updateComplete;
+      expect(view.querySelector(".phone-setup")).toBeNull();
+      expect(view.querySelector("#setup-input")).not.toBeNull();
+      view.remove();
+    }
+  });
+});
+
 describe("status-surface under a presentation provider", () => {
   it("draws nothing while a provider owns the screen, and returns when it does not", async () => {
     const view = document.createElement(

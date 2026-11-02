@@ -181,6 +181,12 @@ impl Harness {
         Self { dir, fake, url }
     }
 
+    fn config(&self) -> WindowsConfig {
+        let mut config = WindowsConfig::default();
+        config.pairing.phone_setup = false;
+        config
+    }
+
     fn paths(&self) -> WindowsPaths {
         WindowsPaths::new(self.dir.path().join("state"), self.dir.path().join("run"))
     }
@@ -191,7 +197,7 @@ impl Harness {
 
     async fn start(&self) -> Player {
         let (context, signals) =
-            tilecast_windows::daemon::build_with_sealer(WindowsConfig::default(), self.paths(), Arc::new(TestSealer))
+            tilecast_windows::daemon::build_with_sealer(self.config(), self.paths(), Arc::new(TestSealer))
                 .await
                 .unwrap();
         let task = tokio::spawn(tilecast_windows::daemon::run(Arc::clone(&context), signals));

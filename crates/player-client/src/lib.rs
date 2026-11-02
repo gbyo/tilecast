@@ -6,6 +6,7 @@ pub mod credential;
 pub mod download;
 pub mod live_stream;
 pub mod pairing;
+pub mod phone_setup;
 pub mod player_api;
 pub mod updates;
 pub mod url_policy;

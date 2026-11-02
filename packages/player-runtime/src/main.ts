@@ -220,6 +220,10 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
         host.setup
           ? host.setup.submitServerUrl(String(url).slice(0, 512))
           : Promise.resolve({ ok: false, error: "Setup is not available." }),
+      resumePhoneSetup:
+        capabilities.phoneSetup && host.setup?.resumePhoneSetup
+          ? () => host.setup?.resumePhoneSetup?.()
+          : undefined,
     },
   });
 

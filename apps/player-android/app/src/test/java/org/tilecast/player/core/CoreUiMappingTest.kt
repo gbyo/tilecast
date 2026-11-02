@@ -14,6 +14,17 @@ class CoreUiMappingTest {
     private fun waiting(): CorePairingState.Waiting =
         CorePairingState.Waiting("ABC123", "https://signs.example/approve", "Org", "2026-10-05T01:00:00Z", "2026-10-05T00:50:00Z")
 
+    @Test fun aSessionCoreStartedNamesItsServer() {
+        // Phone setup starts pairing without a Kotlin target or a binding:
+        // the session's own server address fills the screen and its
+        // local-HTTP warning.
+        val host = ready("""{"ok":true,"paired":false}""")
+        val pairing = waiting().copy(serverUrl = "http://192.168.1.50:8080")
+        val state = mapPlayerState(host, pairing, SetupPhase.Discovering) as PlayerState.WaitingForApproval
+        assertEquals("http://192.168.1.50:8080", state.serverUrl)
+        assertTrue(state.localInsecure)
+    }
+
     @Test fun hostFailureOwnsTheScreen() {
         val state = mapPlayerState(CoreHostState.Failed("open_failed"), CorePairingState.Unknown, SetupPhase.Boot)
         assertTrue(state is PlayerState.ConnectionError)
@@ -25,7 +36,7 @@ class CoreUiMappingTest {
         val revoked = mapPlayerState(host, CorePairingState.Paired, SetupPhase.Boot)
         assertEquals(PlayerState.CredentialRevoked("Lobby"), revoked)
         val missing = ready("""{"ok":true,"paired":false,"linkState":"stopped","linkReason":"device_credential_missing"}""")
-        assertEquals(PlayerState.CredentialRevoked(null), mapPlayerState(missing, CorePairingState.Setup, SetupPhase.Boot))
+        assertEquals(PlayerState.CredentialRevoked(null), mapPlayerState(missing, CorePairingState.Setup(), SetupPhase.Boot))
     }
 
     @Test fun aNewPairingSessionRecoversFromRevocation() {
@@ -103,23 +114,23 @@ class CoreUiMappingTest {
 
     @Test fun setupPhaseShowsWhileCoreIsSilent() {
         val host = ready("""{"ok":true,"paired":false,"linkState":"unbound"}""")
-        assertEquals(PlayerState.Unconfigured, mapPlayerState(host, CorePairingState.Setup, SetupPhase.Boot))
-        assertEquals(PlayerState.Discovering, mapPlayerState(host, CorePairingState.Setup, SetupPhase.Discovering))
+        assertEquals(PlayerState.Unconfigured, mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Boot))
+        assertEquals(PlayerState.Discovering, mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Discovering))
         val servers = listOf(DiscoveredServer("Library", "http://lib.local:8080", null))
         assertEquals(
             PlayerState.ServerSelection(servers),
-            mapPlayerState(host, CorePairingState.Setup, SetupPhase.Browsing(servers)),
+            mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Browsing(servers)),
         )
         assertEquals(
             PlayerState.ManualServerEntry("bad"),
-            mapPlayerState(host, CorePairingState.Setup, SetupPhase.Manual("bad")),
+            mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Manual("bad")),
         )
         assertEquals(
             PlayerState.ValidatingServer("http://x"),
-            mapPlayerState(host, CorePairingState.Setup, SetupPhase.Validating("http://x")),
+            mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Validating("http://x")),
         )
-        assertEquals(PlayerState.PairingRequest, mapPlayerState(host, CorePairingState.Setup, SetupPhase.Requesting))
-        val failed = mapPlayerState(host, CorePairingState.Setup, SetupPhase.Failed("nope"))
+        assertEquals(PlayerState.PairingRequest, mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Requesting))
+        val failed = mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Failed("nope"))
         assertEquals(PlayerState.ConnectionError("nope"), failed)
     }
 }
