@@ -9,11 +9,7 @@ use std::path::PathBuf;
 fn the_built_runtime_loads_and_verifies() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/player-runtime/dist/runtime");
     if !dir.join("runtime-manifest.json").is_file() {
-        assert!(
-            std::env::var_os("TILECAST_REQUIRE_BUILT_RUNTIME").is_none(),
-            "no built runtime at {}",
-            dir.display()
-        );
+        assert!(std::env::var_os("TILECAST_REQUIRE_BUILT_RUNTIME").is_none(), "no built runtime at {}", dir.display());
         println!("no built runtime; run npm run build:runtime --workspace @tilecast/player-runtime");
         return;
     }
