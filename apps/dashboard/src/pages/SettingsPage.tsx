@@ -23,6 +23,7 @@ import {
   type SettingsSectionId,
 } from "../settings/settingsNavigation";
 import { useCapabilities, type Capabilities } from "../auth/capabilities";
+import { useMyAccess } from "../content/mediaPermissions";
 import { RolesPage } from "./RolesPage";
 import { useNavigationWarning } from "../settings/useNavigationWarning";
 import { useConfirm } from "../components/ConfirmDialog";
@@ -239,6 +240,11 @@ function Destination({
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const { can } = capabilities;
+  // Locations and Presentation Network definitions are organization
+  // structure: changing them changes what other accounts reach, so they need
+  // their own capability and access to every screen.
+  const myAccess = useMyAccess();
+  const wholeFleet = myAccess.data?.screens.mode === "all";
   // Organization settings are one document; settings.manage edits it. The
   // panels below each follow the capability for what they change.
   const manageable = can("settings.manage");
@@ -246,7 +252,11 @@ function Destination({
   if (active === "roles") return <RolesPage />;
   if (active === "dependency-graph") return <DependencyExplorerPage />;
   if (active === "locations")
-    return <LocationsPanel canManage={can("screen.manage")} />;
+    return (
+      <LocationsPanel
+        canManage={can("screen.locations.manage") && wholeFleet}
+      />
+    );
   if (active === "system")
     return <SystemPanel canManage={can("system.manage")} />;
   if (active === "backups")
@@ -327,7 +337,11 @@ function Destination({
       />
     );
   if (active === "presentation-networks")
-    return <PresentationNetworksPanel canManage={can("screen.manage")} />;
+    return (
+      <PresentationNetworksPanel
+        canManage={can("screen.networks.manage") && wholeFleet}
+      />
+    );
   let before: React.ReactNode;
   // Automatic NWS alert handling is the Emergency Alerts plugin, not a default.
   // What is left here is the policy for a Takeover a person starts by hand.

@@ -41,6 +41,8 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error, logger *slog.
 		writeErrorCode(w, http.StatusNotFound, "plugin_instance_not_found", "The plugin instance was not found.")
 	case errors.Is(err, ErrInvalid):
 		writeErrorCode(w, http.StatusBadRequest, "invalid_plugin_configuration", err.Error())
+	case errors.Is(err, plugin.ErrOutOfScope):
+		writeErrorCode(w, http.StatusForbidden, "out_of_scope", "Some of the selected screens are outside your screen access.")
 	default:
 		if logger == nil {
 			logger = slog.Default()

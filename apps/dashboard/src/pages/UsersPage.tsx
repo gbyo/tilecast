@@ -27,7 +27,11 @@ import {
 } from "../settings/access/ContentAccessFields";
 import { ContentAccessEditor } from "../settings/access/ContentAccessEditor";
 import { RoleCapabilitySummary } from "../settings/access/RoleCapabilitySummary";
-import { ScreenScopeEditor } from "./ScreenScopeEditor";
+import { delegablePlaces, ScreenScopeEditor } from "./ScreenScopeEditor";
+import {
+  ScreenAccessFields,
+  type ScreenAccessDraft,
+} from "../settings/access/ScreenAccessFields";
 import {
   Tabs,
   TabsContent,
@@ -107,6 +111,11 @@ async function withUserError<T>(
     }
     throw new Error(fallbackMessage, { cause: error });
   }
+}
+
+/** A role that sees screens, for which screen access matters. */
+function roleUsesScreens(role?: Role) {
+  return Boolean(role?.capabilities.includes("screen.read"));
 }
 
 /** A role that includes Media or Widgets, for which content access matters. */
@@ -358,7 +367,7 @@ function UserCreateDialog({
   onClose: () => void;
   onCreated: () => Promise<void>;
 }) {
-  const { t } = useTranslation(["account", "common"]);
+  const { t } = useTranslation(["account", "common", "screens"]);
   const labels = useRoleLabels(roles);
   const myAccess = useQuery({ queryKey: ["my-access"], queryFn: api.myAccess });
   const [name, setName] = useState("");
@@ -370,8 +379,35 @@ function UserCreateDialog({
       "viewer",
   );
   const [content, setContent] = useState<ContentAccessDraft>();
+  const [screens, setScreens] = useState<ScreenAccessDraft>();
   const selectedRole = roles.find((entry) => entry.key === role);
   const usesMedia = roleUsesMedia(selectedRole);
+  const usesScreens = roleUsesScreens(selectedRole) && role !== "owner";
+  const locations = useQuery({
+    queryKey: ["locations"],
+    queryFn: api.locations,
+    enabled: usesScreens,
+  });
+  const groups = useQuery({
+    queryKey: ["screen-groups"],
+    queryFn: () => api.screenGroups(),
+    enabled: usesScreens,
+  });
+  const offered = delegablePlaces(
+    myAccess.data,
+    locations.data?.items ?? [],
+    groups.data?.items ?? [],
+  );
+  // Screen access is chosen before the account exists and saved with it in
+  // one request. It starts from the creator's own mode: all screens from
+  // someone who has them, and nothing selected from someone who does not.
+  useEffect(() => {
+    if (screens || !myAccess.data) return;
+    setScreens({
+      mode: myAccess.data.screens.mode === "all" ? "all" : "restricted",
+      scopes: [],
+    });
+  }, [screens, myAccess.data]);
   const folders = useQuery({ ...contentQueries.folders(), enabled: usesMedia });
   const tags = useQuery({ ...contentQueries.tags(), enabled: usesMedia });
   // A new account starts with the creator's own reach: the whole library from
@@ -410,6 +446,12 @@ function UserCreateDialog({
                   },
                 }
               : {}),
+            // Always sent: an omitted policy creates an account that
+            // reaches no screen.
+            screenAccess: {
+              mode: screens?.mode ?? "restricted",
+              scopes: screens?.mode === "restricted" ? screens.scopes : [],
+            },
           },
           csrf,
         ),
@@ -531,6 +573,31 @@ function UserCreateDialog({
                 <p className="text-sm text-muted-foreground" role="note">
                   {t("contentAccess.library.emptyNote")}
                 </p>
+              )}
+            </AccessSection>
+          )}
+          {usesScreens && (
+            <AccessSection
+              title={t("users.access.screensTitle")}
+              description={t("users.access.screensCreateDescription")}
+            >
+              {locations.error || groups.error ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {apiErrorMessage(locations.error ?? groups.error)}
+                  </AlertDescription>
+                </Alert>
+              ) : screens && locations.data && groups.data ? (
+                <ScreenAccessFields
+                  value={screens}
+                  onChange={setScreens}
+                  locations={offered.locations}
+                  groups={offered.groups}
+                  allowAll={offered.allowAll}
+                  idPrefix="users-add-screens"
+                />
+              ) : (
+                <Spinner aria-label={t("screens:scope.loading")} />
               )}
             </AccessSection>
           )}

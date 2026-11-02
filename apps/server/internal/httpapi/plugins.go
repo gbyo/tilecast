@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/catalog"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
@@ -203,7 +204,12 @@ func (s *server) dependencyGraph(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	screens, err := s.devices.ListScreensForUser(r.Context(), principal.User.ID, principal.User.Role)
+	access, err := s.authorizer().Access(r.Context(), authz.ActorFor(principal))
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	screens, err := s.devices.ListScreensForAccess(r.Context(), access)
 	if err != nil {
 		s.internalError(w, r, err)
 		return

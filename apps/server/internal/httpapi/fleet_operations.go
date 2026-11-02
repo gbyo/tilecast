@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 )
 
@@ -23,10 +24,13 @@ func (s *server) previewBulkOperation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	// Scope is checked on the selection before the preview expands it through
-	// sync groups, so an operator cannot reach outside their scope by naming one
-	// screen in a group that straddles it.
-	if !s.authorizeScreenList(w, r, body.ScreenIDs, nil) {
+	// Access is checked on the selection before the preview expands it
+	// through Display Groups, and every named screen's group peers must be
+	// reachable too, so an operator cannot reach outside their access by
+	// naming one screen in a group that straddles it.
+	if !s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Selection(r.Context(), actor, auth.CapScreenManage, authz.Selection{ScreenIDs: body.ScreenIDs, Peers: true})
+	}) {
 		return
 	}
 	preview, err := s.fleet.Build(r.Context(), body.Request)
@@ -47,10 +51,13 @@ func (s *server) applyBulkOperation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	// Scope is checked on the selection before the preview expands it through
-	// sync groups, so an operator cannot reach outside their scope by naming one
-	// screen in a group that straddles it.
-	if !s.authorizeScreenList(w, r, body.ScreenIDs, nil) {
+	// Access is checked on the selection before the preview expands it
+	// through Display Groups, and every named screen's group peers must be
+	// reachable too, so an operator cannot reach outside their access by
+	// naming one screen in a group that straddles it.
+	if !s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Selection(r.Context(), actor, auth.CapScreenManage, authz.Selection{ScreenIDs: body.ScreenIDs, Peers: true})
+	}) {
 		return
 	}
 	expected := -1
@@ -89,15 +96,14 @@ func (s *server) undoBulkOperation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	user := principal.User
-	operation, err := s.fleet.Undo(r.Context(), user.ID, user.Role, id)
+	operation, err := s.fleet.Undo(r.Context(), authz.ActorFor(principal), id)
 	switch {
 	case errors.Is(err, fleetops.ErrNotFound):
 		writeError(w, http.StatusNotFound, "not_found", "That operation no longer exists.")
 		return
-	case errors.Is(err, devices.ErrOutOfScope):
-		// Same answer as reading an out-of-scope screen: a scoped operator must
-		// not learn that the operation exists.
+	case errors.Is(err, authz.ErrOutOfScope), errors.Is(err, authz.ErrNotFound):
+		// Same answer as reading an out-of-scope screen: a restricted
+		// operator must not learn that the operation exists.
 		writeError(w, http.StatusNotFound, "not_found", "That operation no longer exists.")
 		return
 	case errors.Is(err, fleetops.ErrNotReversible):
@@ -121,7 +127,7 @@ func (s *server) listBulkOperations(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	operations, err := s.fleet.Recent(r.Context(), principal.User.ID, principal.User.Role, limit)
+	operations, err := s.fleet.Recent(r.Context(), authz.ActorFor(principal), limit)
 	if err != nil {
 		s.internalError(w, r, err)
 		return

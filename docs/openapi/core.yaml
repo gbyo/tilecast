@@ -3251,6 +3251,15 @@ paths:
                     Media library access for the new account. When omitted,
                     the account receives the creator's own library and tag
                     modes with no grants.
+                screenAccess:
+                  $ref: "#/components/schemas/ScreenAccessInput"
+                  description: >-
+                    Screen access for the new account, written in the same
+                    transaction as the account. When omitted, the account is
+                    restricted with no grants and reaches no screen. An Owner
+                    always reaches every screen. A caller with restricted
+                    screen access may grant only locations and Display Groups
+                    granted to it directly (screen_scope_delegation).
       responses:
         "201":
           description: User account created
@@ -3263,11 +3272,13 @@ paths:
                   data: { $ref: "#/components/schemas/User" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
-        "403": { description: Insufficient role }
+        "403":
+          description: >-
+            Insufficient role, or screen access the caller may not delegate
         "409": { description: Username already in use }
         "422":
           description: >-
-            Name, username, password, or role invalid
+            Name, username, password, role, or screen access invalid
   /api/v1/users/{id}:
     patch:
       operationId: updateUser
@@ -3381,9 +3392,11 @@ paths:
     get:
       operationId: getUserScreenScopes
       description: >-
-        Read which locations and sync groups an account may operate screens
-        in. Requires an Owner or Administrator with the admin scope. An
-        empty grant list means the whole fleet.
+        Read an account's screen access: the explicit mode and, for
+        restricted access, the granted locations and Display Groups.
+        Requires users.manage and the admin scope. A restricted policy with
+        no grants reaches no screen. configured is false when the account
+        has no stored policy, which also reaches no screen.
       parameters:
         - in: path
           name: id
@@ -3405,10 +3418,13 @@ paths:
     put:
       operationId: putUserScreenScopes
       description: >-
-        Replace an account's screen scope grants. Requires an Owner or
-        Administrator with the admin scope. Cookie-authenticated unsafe
-        requests require X-CSRF-Token. An Owner cannot be scoped and
-        nobody can change their own scope.
+        Replace an account's screen access. Requires users.manage and the
+        admin scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token. mode is required: all screens is an explicit choice,
+        never an empty grant list. An Owner cannot be restricted, nobody can
+        change their own screen access, and a caller with restricted screen
+        access may grant only locations and Display Groups granted to it
+        directly.
       parameters:
         - in: path
           name: id
@@ -3422,16 +3438,10 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [scopes]
-              properties:
-                scopes:
-                  type: array
-                  items: { $ref: "#/components/schemas/ScreenScope" }
+            schema: { $ref: "#/components/schemas/ScreenAccessInput" }
       responses:
         "200":
-          description: Screen scope grants replaced
+          description: Screen access replaced
           content:
             application/json:
               schema:
@@ -3441,9 +3451,15 @@ paths:
                   data: { $ref: "#/components/schemas/ScreenScopeList" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
-        "403": { description: Insufficient role }
+        "403":
+          description: >-
+            Insufficient role, own account (cannot_scope_self), or screen
+            access the caller may not delegate (screen_scope_delegation)
         "404": { description: User not found }
-        "422": { description: Scope invalid or account not scopable }
+        "422":
+          description: >-
+            Mode missing (screen_access_mode_required), grants invalid
+            (scope_invalid), or the account is an Owner (owner_not_scopable)
   /api/v1/users/{id}/content-access:
     get:
       operationId: getUserContentAccess
@@ -6501,7 +6517,11 @@ paths:
     post:
       operationId: createScreenGroup
       description: >-
-        Create screen group. Requires an authenticated dashboard user.
+        Create a Display Group, optionally with its first members, in one
+        transaction. Requires screen.manage. A caller with restricted screen
+        access must name at least one screen, and every named screen and its
+        current group peers must be within its access: an empty group has
+        no anchor and would be unreachable to it (403 out_of_scope).
       parameters:
         [
           {
@@ -6515,7 +6535,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/ScreenGroupInput" }
+            schema: { $ref: "#/components/schemas/ScreenGroupCreateInput" }
       responses:
         "201":
           description: Display Group created in Mirror mode
@@ -15434,6 +15454,26 @@ components:
         description: { type: string }
         presentationGatewayScreenId: { type: [string, "null"], format: uuid }
         clearPresentationGateway: { type: boolean }
+    ScreenGroupCreateInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        description: { type: string }
+        screenIds:
+          type: array
+          description: >-
+            First members. Required, and at least one, for a caller with
+            restricted screen access.
+          items: { type: string, format: uuid }
+        presentationGatewayScreenId:
+          type: [string, "null"]
+          format: uuid
+          description: Ignored on creation. Set it with an update.
+        clearPresentationGateway:
+          type: boolean
+          description: Ignored on creation.
     ScreenGroupMemberInput:
       type: object
       additionalProperties: false
@@ -18146,7 +18186,7 @@ components:
     MyAccess:
       type: object
       additionalProperties: false
-      required: [role, capabilities, content]
+      required: [role, capabilities, content, screens]
       properties:
         role:
           type: object
@@ -18172,6 +18212,23 @@ components:
               description: >-
                 Folders the account may upload into. Absent when the account
                 reaches the whole library, which may also use the root.
+        screens:
+          type: object
+          additionalProperties: false
+          required: [mode, locationIds, groupIds]
+          description: >-
+            The signed-in account's screen access. An account without a
+            stored policy reads as restricted with no grants.
+          properties:
+            mode: { $ref: "#/components/schemas/ScreenAccessMode" }
+            locationIds:
+              type: array
+              items: { type: string, format: uuid }
+              description: Locations granted directly. Empty for all screens.
+            groupIds:
+              type: array
+              items: { type: string, format: uuid }
+              description: Display Groups granted directly. Empty for all screens.
     ManagedUser:
       type: object
       additionalProperties: false
@@ -18204,15 +18261,42 @@ components:
         type: { type: string, enum: [location, group] }
         id: { type: string, format: uuid }
         name: { type: string }
+    ScreenAccessMode:
+      type: string
+      enum: [all, restricted]
+      description: >-
+        all reaches every screen. restricted reaches the union of the
+        granted locations and Display Groups, and nothing without grants.
+    ScreenAccessInput:
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode: { $ref: "#/components/schemas/ScreenAccessMode" }
+        scopes:
+          type: array
+          description: Grants for restricted access. Must be empty for all.
+          items: { $ref: "#/components/schemas/ScreenScope" }
     ScreenScopeList:
       type: object
       additionalProperties: false
-      required: [scopes, wholeFleet]
+      required: [mode, scopes, configured, wholeFleet]
       properties:
+        mode: { $ref: "#/components/schemas/ScreenAccessMode" }
         scopes:
           type: array
           items: { $ref: "#/components/schemas/ScreenScope" }
-        wholeFleet: { type: boolean }
+        configured:
+          type: boolean
+          description: >-
+            False when the account has no stored policy, which reaches no
+            screen until one is saved.
+        wholeFleet:
+          type: boolean
+          deprecated: true
+          description: >-
+            Read mode instead. True exactly when a stored policy is in mode
+            all; never derived from the number of grants.
     AuthStatus:
       type: object
       additionalProperties: false

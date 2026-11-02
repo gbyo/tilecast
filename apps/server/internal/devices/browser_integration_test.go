@@ -50,7 +50,7 @@ func browserEnvironment(t *testing.T) (context.Context, *pgxpool.Pool, auth.Sess
 
 func TestBrowserRecoveryEpochAndKeyRenewal(t *testing.T) {
 	ctx, _, owner, service := browserEnvironment(t)
-	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Browser Lobby", Description: "Logical screen"})
+	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Browser Lobby", Description: "Logical screen", Authorize: SystemApproval})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestBrowserRecoveryEpochAndKeyRenewal(t *testing.T) {
 	if _, err := service.BrowserChallenge(ctx, first.SlotID, first.BindingID); !errors.Is(err, ErrInvalidCredential) {
 		t.Fatal("old device key can start reauthentication")
 	}
-	otherSlot, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Other Browser"})
+	otherSlot, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Other Browser", Authorize: SystemApproval})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestBrowserRecoveryEpochAndKeyRenewal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.ApprovePairingWithOptions(ctx, pairing.ID, owner.User.ID, PairingApproval{Name: "Paired browser"}); err != nil {
+	if _, err := service.ApprovePairingWithOptions(ctx, pairing.ID, owner.User.ID, PairingApproval{Name: "Paired browser", Authorize: SystemApproval}); err != nil {
 		t.Fatal(err)
 	}
 	polled, err := service.PollPairing(ctx, pairing.ID, pairing.PollSecret)
@@ -188,7 +188,7 @@ func browserTestMetadata(installation uuid.UUID) DeviceMetadata {
 
 func TestBrowserRenewalRequiresTheExactChallengeForTheSlotAndBinding(t *testing.T) {
 	ctx, _, owner, service := browserEnvironment(t)
-	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Renewal"})
+	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Renewal", Authorize: SystemApproval})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +246,7 @@ func TestBrowserRenewalRequiresTheExactChallengeForTheSlotAndBinding(t *testing.
 
 func TestBrowserRevokePairingIsPermanent(t *testing.T) {
 	ctx, _, owner, service := browserEnvironment(t)
-	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Retired"})
+	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Retired", Authorize: SystemApproval})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,7 +283,7 @@ func TestBrowserRevokePairingIsPermanent(t *testing.T) {
 
 func TestBrowserAuditRowsUseTheSharedAttributionPath(t *testing.T) {
 	ctx, pool, owner, service := browserEnvironment(t)
-	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Audited"})
+	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Audited", Authorize: SystemApproval})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +317,7 @@ func TestBrowserAuditRowsUseTheSharedAttributionPath(t *testing.T) {
 
 func TestBrowserHeartbeatStoresItsBoundedSectionAndNoOneElsesDoes(t *testing.T) {
 	ctx, pool, owner, service := browserEnvironment(t)
-	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Status"})
+	launch, err := service.CreateBrowserSlot(ctx, owner.User.ID, PairingApproval{Name: "Status", Authorize: SystemApproval})
 	if err != nil {
 		t.Fatal(err)
 	}
