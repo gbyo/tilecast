@@ -208,10 +208,14 @@ func intervalAt(s Schedule, at time.Time) (*Active, []time.Time) {
 	}
 	loc, _ := time.LoadLocation(s.Timezone)
 	local := at.In(loc)
-	dates := []time.Time{local.AddDate(0, 0, -1), local, local.AddDate(0, 0, 1), local.AddDate(0, 0, 2), local.AddDate(0, 0, 7)}
+	// Use noon for calendar arithmetic: adding a day to a wall time inside a
+	// DST gap can normalize back onto the previous date and skip an occurrence.
+	y, m, d := local.Date()
+	day := time.Date(y, m, d, 12, 0, 0, 0, loc)
 	var active *Active
 	transitions := []time.Time{}
-	for _, date := range dates {
+	for offset := -1; offset <= 7; offset++ {
+		date := day.AddDate(0, 0, offset)
 		if !containsDay(s.DaysOfWeek, int(date.Weekday())) || !dateAllowed(s, date) {
 			continue
 		}

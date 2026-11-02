@@ -7,6 +7,11 @@ Tilecast Studio supports an authenticator app, passkeys, and single-use recovery
 
 import { Steps } from "@astrojs/starlight/components";
 
+When you sign out successfully, Studio clears cached account data and cancels
+pending reads. Signing in again loads data for that account, including when a
+previous session has expired. If sign-out fails because the server is
+unreachable, your current session stays open.
+
 ## Enroll a factor
 
 ### Use an authenticator app

@@ -466,6 +466,83 @@ tc-outside-hours {
   background: #000;
 }
 /*
+ * The startup sequence (src/startup). The pulse is the one in
+ * .github/logos/animated/tilecast-logo-pulse-white.svg, unchanged. The layer
+ * stays above everything the runtime draws until the reveal removes it.
+ * The card box is the front tile's viewBox inside the logo's, so the front
+ * tile draws exactly where the logo puts it.
+ */
+#tc-startup {
+  --tc-startup-width: min(560px, 30vw);
+  --tc-startup-height: calc(var(--tc-startup-width) * 295.25 / 1207.43);
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  overflow: hidden;
+  background: #000;
+  cursor: none;
+}
+#tc-startup .tc-startup__logo {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: var(--tc-startup-width);
+  height: var(--tc-startup-height);
+  perspective-origin: 50% 50%;
+}
+#tc-startup .tc-startup__mark {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+#tc-startup .tc-startup__card {
+  position: absolute;
+  left: calc(var(--tc-startup-width) * 99.36 / 1207.43);
+  top: calc(var(--tc-startup-height) * 92.42 / 295.25);
+  width: calc(var(--tc-startup-width) * 184.13 / 1207.43);
+  height: calc(var(--tc-startup-height) * 178.83 / 295.25);
+  backface-visibility: hidden;
+}
+#tc-startup .tc-startup__card svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+#tc-startup .tc-startup__tile {
+  animation: tc-startup-pulse 1.5s ease-in-out infinite both;
+}
+#tc-startup .tc-startup__tile--middle {
+  animation-delay: 0.18s;
+}
+#tc-startup .tc-startup__tile--front {
+  animation-delay: 0.36s;
+}
+#tc-startup .tc-startup__shade {
+  opacity: 0;
+}
+@keyframes tc-startup-pulse {
+  0%,
+  60%,
+  100% {
+    opacity: 0.22;
+    transform: translate(0, 0);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(4.6px, 4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #tc-startup .tc-startup__tile {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+/*
  * Conformance runs freeze CSS motion at a deterministic frame so engine
  * snapshots compare the same instant. Production never sets this class.
  */
