@@ -451,6 +451,7 @@ class PlayerViewModel internal constructor(
         appliedConfigRevision = revision
         mutablePlatform.value = config.platform
         applyPlatformPolicy(config)
+        applyPowerEffects()
         reportPlatformObservations()
     }
 
@@ -476,12 +477,15 @@ class PlayerViewModel internal constructor(
      * Edges only: a steady state never re-requests.
      */
     private var lastPowerActive: Boolean? = null
+    private var lastPowerPolicy: Any? = null
 
     private fun applyPowerEffects() {
         val active = mutableActiveHours.value
-        if (active == lastPowerActive) return
-        lastPowerActive = active
+        // Wait for the configuration so the edge is not consumed without it.
         val platform = mutablePlatform.value ?: return
+        if (active == lastPowerActive && platform.power == lastPowerPolicy) return
+        lastPowerActive = active
+        lastPowerPolicy = platform.power
         if (active) {
             reliability.requestWake()
             return
