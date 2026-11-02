@@ -4,8 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 )
 
 // Confirmed screen playback time is wall-clock time: the union of root
@@ -63,17 +62,17 @@ type playbackDurations struct {
 	ContentExposureMS int64
 }
 
-func (s *server) playbackDurations(ctx context.Context, from, to time.Time, scopeUser uuid.UUID, scoped bool) (playbackDurations, error) {
+func (s *server) playbackDurations(ctx context.Context, from, to time.Time, access authz.ScreenAccess) (playbackDurations, error) {
 	var durations playbackDurations
 	confirmedQuery := confirmedScreenPlaybackSQL
 	contentQuery := contentExposureSQL
 	args := []any{from, to}
-	if scoped {
+	if !access.All {
 		// The merged islands carry no screens alias, so the scope joins
 		// screens back at the outer level rather than inside the CTEs.
-		confirmedQuery += ` JOIN screens s ON s.id = merged.screen_id WHERE ` + devices.InScopeSQL("s", "$3")
-		contentQuery += ` AND ` + devices.InScopeSQL("s", "$3")
-		args = append(args, scopeUser)
+		confirmedQuery += ` JOIN screens s ON s.id = merged.screen_id WHERE ` + access.ScreenSQL("s", "$3")
+		contentQuery += ` AND ` + access.ScreenSQL("s", "$3")
+		args = append(args, access.UserID)
 	}
 	if err := s.db.QueryRow(ctx, confirmedQuery, args...).Scan(&durations.ConfirmedScreenMS); err != nil {
 		return durations, err

@@ -96,12 +96,23 @@ writes nothing.
 
 Two contexts bound every call. Background jobs run as the system with
 no user actor; writes attribute NULL like every other system write.
-Studio interface calls run as the signed-in account with the
-dashboard role and scope policy of the operation. A missing grant, a
-forbidden context, or an invalid actor denies the call before any
+Studio interface calls run as the signed-in account. Each Studio call
+takes the same capability check and the same `authz` decision as the
+matching dashboard route: `screens.read@1/get` and
+`players.display-control@1` decide the screen, `content.read@1` decides
+the group or schedule as a container, `takeovers.manage@1` decides the
+selection or the takeover, and the lists keep the objects that the
+single-object decision allows. An object outside the account's screen
+access answers `not_found`, like the dashboard's `404`. A missing grant,
+a forbidden context, or an invalid actor denies the call before any
 domain code runs.
 
-Reads reuse the domain and shared-host services with Studio scoping.
+The call context alone decides which rule applies. A background call
+keeps the install-time grant of the package and takes no user's screen
+access. A Studio call without an actor is refused; it never runs as a
+background call. See [Screen access](screen-scopes.md).
+
+Reads reuse the domain and shared-host services.
 Mutations run through the canonical domain services with
 same-transaction audit and after-commit fan-out, so package writes
 obey the same rules as dashboard writes. No operation runs its own SQL

@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/backup"
 	"github.com/tilecast/tilecast/apps/server/internal/campaigns"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
@@ -98,6 +99,8 @@ type OperationsConfig struct {
 
 type server struct {
 	auth                          *auth.Service
+	authz                         *authz.Authorizer
+	registeredObjectRules         map[string]bool
 	devices                       *devices.Service
 	media                         *media.Service
 	playlists                     *playlists.Service
@@ -165,27 +168,29 @@ func (a *API) ReconcileAirplaySessions(ctx context.Context) {
 
 func New(deps Dependencies) *API {
 	s := &server{
-		auth:              deps.Auth,
-		devices:           deps.Devices,
-		media:             deps.Media,
-		playlists:         deps.Playlists,
-		campaigns:         deps.Campaigns,
-		presentations:     deps.Presentations,
-		plugins:           deps.Plugins,
-		marketplace:       deps.Marketplace,
-		installer:         deps.Installer,
-		packages:          deps.Packages,
-		wasm:              deps.WASM,
-		layouts:           deps.Layouts,
-		scheduling:        deps.Scheduling,
-		db:                deps.DB,
-		logger:            deps.Logger,
-		cookieName:        deps.CookieName,
-		secureCookies:     deps.SecureCookies,
-		authLimiter:       newRateLimiter(10, 10*time.Minute),
-		pairingLimiter:    newRateLimiter(10, time.Minute),
-		codeLimiter:       newRateLimiter(30, 10*time.Minute),
-		operationsLimiter: newRateLimiter(60, time.Minute),
+		auth:                  deps.Auth,
+		authz:                 authz.New(deps.DB),
+		registeredObjectRules: map[string]bool{},
+		devices:               deps.Devices,
+		media:                 deps.Media,
+		playlists:             deps.Playlists,
+		campaigns:             deps.Campaigns,
+		presentations:         deps.Presentations,
+		plugins:               deps.Plugins,
+		marketplace:           deps.Marketplace,
+		installer:             deps.Installer,
+		packages:              deps.Packages,
+		wasm:                  deps.WASM,
+		layouts:               deps.Layouts,
+		scheduling:            deps.Scheduling,
+		db:                    deps.DB,
+		logger:                deps.Logger,
+		cookieName:            deps.CookieName,
+		secureCookies:         deps.SecureCookies,
+		authLimiter:           newRateLimiter(10, 10*time.Minute),
+		pairingLimiter:        newRateLimiter(10, time.Minute),
+		codeLimiter:           newRateLimiter(30, 10*time.Minute),
+		operationsLimiter:     newRateLimiter(60, time.Minute),
 		// Provisioning is unauthenticated by necessity — the box has no
 		// credential until it pairs — so it gets its own budget, generous
 		// enough for a cart of machines behind one NAT.
@@ -216,6 +221,7 @@ func New(deps Dependencies) *API {
 		// sending share one implementation.
 		s.fleet.SetCommandEnqueuer(s)
 		s.fleet.SetCommandApplicability(devices.PlatformSupportsCommand)
+		s.fleet.SetScopeAuthorizer(s.authorizer())
 	}
 	if s.media != nil && s.auth != nil {
 		// Upload finalization re-decides the destination folder against the

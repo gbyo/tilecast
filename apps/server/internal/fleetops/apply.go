@@ -9,7 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 )
 
 // Operation is the record of an applied bulk change.
@@ -224,7 +225,8 @@ func auditResult(operation Operation) string {
 // It re-applies the previous assignment through the same single-screen path, so
 // undo is an ordinary change with its own audit trail rather than a hidden
 // rewrite of history.
-func (s *Service) Undo(ctx context.Context, user uuid.UUID, role string, id uuid.UUID) (Operation, error) {
+func (s *Service) Undo(ctx context.Context, actor authz.Actor, id uuid.UUID) (Operation, error) {
+	user := actor.UserID
 	var action string
 	var reversible bool
 	var undoneAt, expires *time.Time
@@ -247,6 +249,24 @@ func (s *Service) Undo(ctx context.Context, user uuid.UUID, role string, id uuid
 	if expires == nil || time.Now().After(*expires) {
 		return Operation{}, fmt.Errorf("%w: the undo window has closed. Change the screens again instead.", ErrValidation)
 	}
+	var entries []undoEntry
+	if err := json.Unmarshal(undoRaw, &entries); err != nil {
+		return Operation{}, err
+	}
+	// Access is enforced against the caller, not against the stored
+	// operation, and before the claim: a refused undo must leave the
+	// operation exactly as it was. Without this an operation id would be a
+	// way to rewrite screens the caller can no longer reach, or never could.
+	if s.scopes == nil {
+		return Operation{}, errors.New("fleet operations need a screen access authorizer")
+	}
+	screens := make([]uuid.UUID, 0, len(entries))
+	for _, entry := range entries {
+		screens = append(screens, entry.ScreenID)
+	}
+	if err := s.scopes.Screens(ctx, actor, auth.CapScreenManage, screens); err != nil {
+		return Operation{}, err
+	}
 	// Claim it before restoring anything. The read above and the write at the
 	// end left a window in which two concurrent undos both passed the check and
 	// both re-applied the previous assignments.
@@ -258,24 +278,6 @@ func (s *Service) Undo(ctx context.Context, user uuid.UUID, role string, id uuid
 	}
 	if claim.RowsAffected() == 0 {
 		return Operation{}, fmt.Errorf("%w: this operation was already undone", ErrValidation)
-	}
-
-	var entries []undoEntry
-	if err := json.Unmarshal(undoRaw, &entries); err != nil {
-		return Operation{}, err
-	}
-	// Scope is enforced against the caller, not against the stored operation.
-	// Preview and apply are checked on the way in; without this, an operation id
-	// would be a way to rewrite screens the caller can no longer reach -- or
-	// never could.
-	if s.scopes != nil {
-		screens := make([]uuid.UUID, 0, len(entries))
-		for _, entry := range entries {
-			screens = append(screens, entry.ScreenID)
-		}
-		if err := s.scopes.AuthorizeScreens(ctx, user, role, screens); err != nil {
-			return Operation{}, err
-		}
 	}
 
 	restored, failed := 0, 0
@@ -322,7 +324,7 @@ func (s *Service) Undo(ctx context.Context, user uuid.UUID, role string, id uuid
 // operation that touched anything outside the scope is withheld whole rather
 // than shown with rows removed: a partial account of somebody else's change is
 // more misleading than no entry at all.
-func (s *Service) Recent(ctx context.Context, user uuid.UUID, role string, limit int) ([]Operation, error) {
+func (s *Service) Recent(ctx context.Context, actor authz.Actor, limit int) ([]Operation, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 10
 	}
@@ -345,17 +347,18 @@ func (s *Service) Recent(ctx context.Context, user uuid.UUID, role string, limit
 			return nil, err
 		}
 		_ = json.Unmarshal(raw, &operation.Results)
-		if s.scopes != nil {
-			screens := make([]uuid.UUID, 0, len(operation.Results))
-			for _, result := range operation.Results {
-				screens = append(screens, result.ScreenID)
+		if s.scopes == nil {
+			return nil, errors.New("fleet operations need a screen access authorizer")
+		}
+		screens := make([]uuid.UUID, 0, len(operation.Results))
+		for _, result := range operation.Results {
+			screens = append(screens, result.ScreenID)
+		}
+		if err := s.scopes.Screens(ctx, actor, auth.CapScreenManage, screens); err != nil {
+			if errors.Is(err, authz.ErrOutOfScope) {
+				continue
 			}
-			if err := s.scopes.AuthorizeScreens(ctx, user, role, screens); err != nil {
-				if errors.Is(err, devices.ErrOutOfScope) {
-					continue
-				}
-				return nil, err
-			}
+			return nil, err
 		}
 		// A window that has already closed is reported as closed rather than
 		// offering a control that will be refused.

@@ -124,6 +124,7 @@ func New(t *testing.T, p plugin.Plugin, opts ...Option) *Harness {
 	h.exec(`INSERT INTO organization_settings(singleton,organization_name,id) VALUES(TRUE,'Plugin Harness',$1)`, h.OrgID)
 	h.exec(`INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Owner','harness-owner','unused','owner',TRUE)`, h.OwnerID)
 	h.exec(`INSERT INTO user_content_access(user_id,library_mode,tag_mode) VALUES($1,'all','all')`, h.OwnerID)
+	h.exec(`INSERT INTO user_screen_access(user_id,mode) VALUES($1,'all')`, h.OwnerID)
 	playlistService := playlists.NewService(pool, nil)
 	storage, err := media.NewLocalStorage(t.TempDir())
 	if err != nil {

@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/updates"
 )
 
@@ -113,7 +115,7 @@ func (s *server) previewUpdateDeployment(w http.ResponseWriter, r *http.Request)
 		writeError(w, 422, "update_deployment_invalid", "A release and at least one target are required.")
 		return
 	}
-	if !s.authorizeScreenList(w, r, input.ScreenIDs, input.GroupIDs) {
+	if !s.authorizeUpdateTargets(w, r, input.ScreenIDs, input.GroupIDs) {
 		return
 	}
 	tx, err := s.db.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
@@ -135,7 +137,7 @@ func (s *server) previewUpdateDeployment(w http.ResponseWriter, r *http.Request)
 	for _, target := range targets {
 		ids = append(ids, target.ID)
 	}
-	if !s.authorizeScreenList(w, r, ids, nil) {
+	if !s.authorizeUpdateTargets(w, r, ids, nil) {
 		return
 	}
 	preview := updatePreview{TargetCount: len(targets), Screens: targets}
@@ -153,4 +155,13 @@ func (s *server) previewUpdateDeployment(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	writeJSON(w, 200, map[string]any{"data": preview})
+}
+
+// authorizeUpdateTargets decides the screens and groups of an update
+// deployment, all or nothing. It runs on the selection and again on the
+// screens the selection resolved to.
+func (s *server) authorizeUpdateTargets(w http.ResponseWriter, r *http.Request, screens, groups []uuid.UUID) bool {
+	return s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Selection(r.Context(), actor, auth.CapScreenManage, authz.Selection{ScreenIDs: screens, GroupIDs: groups})
+	})
 }
