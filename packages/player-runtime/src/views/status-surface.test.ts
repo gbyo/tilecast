@@ -83,3 +83,47 @@ describe("status-surface under a presentation provider", () => {
     view.remove();
   });
 });
+
+describe("status-surface branded states", () => {
+  it("shows the title and subtitle but never the machine reason code", async () => {
+    const view = document.createElement(
+      "tc-status-surface",
+    ) as unknown as StatusSurface;
+    view.presentation = {
+      state: "idle",
+      title: "No content assigned",
+      message: "This screen is ready for content.",
+      status: "no_content",
+    };
+    document.body.append(view);
+    await view.updateComplete;
+
+    const fallback = view.querySelector(".branded-fallback");
+    expect(fallback?.querySelector("h1")?.textContent).toBe(
+      "No content assigned",
+    );
+    expect(fallback?.querySelector("p")?.textContent).toBe(
+      "This screen is ready for content.",
+    );
+    expect(fallback?.querySelectorAll("p")).toHaveLength(1);
+    expect(view.textContent).not.toMatch(/no[ _]content$/i);
+    expect(fallback?.getAttribute("data-status")).toBe("no_content");
+    view.remove();
+  });
+
+  it("draws no empty subtitle when the message is blank", async () => {
+    const view = document.createElement(
+      "tc-status-surface",
+    ) as unknown as StatusSurface;
+    view.presentation = {
+      state: "disabled",
+      title: "Screen disabled",
+      message: "",
+      status: "disabled",
+    };
+    document.body.append(view);
+    await view.updateComplete;
+    expect(view.querySelectorAll(".branded-fallback p")).toHaveLength(0);
+    view.remove();
+  });
+});

@@ -230,6 +230,31 @@ body {
   height: auto;
   margin-bottom: 8px;
 }
+/* Branded idle, disabled and unavailable states: one centred column that
+   spans the surface, so subtitle width is measured against the screen and not
+   against the shrink-wrapped column. */
+#message .branded-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 20px;
+  width: 100%;
+}
+#message .branded-fallback p {
+  font-size: 32px;
+  line-height: 1.35;
+  color: inherit;
+  opacity: 0.78;
+  max-width: min(80%, 1100px);
+  text-wrap: balance;
+}
+#message .branded-fallback .branded-fallback__footer {
+  font-size: 22px;
+  opacity: 0.6;
+  margin-top: 16px;
+}
 #message .branded-fallback__logo {
   display: block;
   width: auto;
