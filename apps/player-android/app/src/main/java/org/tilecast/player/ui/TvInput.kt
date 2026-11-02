@@ -72,8 +72,10 @@ fun TvTextField(
             when (event.key.nativeKeyCode) {
                 AndroidKeyEvent.KEYCODE_DPAD_DOWN -> focus.moveFocus(FocusDirection.Down)
                 AndroidKeyEvent.KEYCODE_DPAD_UP -> focus.moveFocus(FocusDirection.Up)
-                AndroidKeyEvent.KEYCODE_DPAD_CENTER -> { keyboard?.show(); true }
-                AndroidKeyEvent.KEYCODE_ENTER, AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> { keyboard?.hide(); onSubmit(); true }
+                AndroidKeyEvent.KEYCODE_DPAD_CENTER,
+                AndroidKeyEvent.KEYCODE_ENTER,
+                AndroidKeyEvent.KEYCODE_NUMPAD_ENTER,
+                -> { keyboard?.show(); true }
                 else -> false
             }
         },
