@@ -4,7 +4,9 @@ import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { MoreHorizontal, RefreshCw, Rocket, Upload } from "lucide-react";
 import { api } from "../../api/client";
+import type { AuthStatus } from "../../api/types";
 import { useAuth } from "../../auth/AuthProvider";
+import { hasCapability } from "../../auth/capabilities";
 import { apiErrorMessage } from "../../i18n";
 import { screenQueries } from "../../data/screens";
 import {
@@ -47,10 +49,7 @@ import { ReleaseSourceDialog } from "./ReleaseSourceDialog";
 import { ReleaseUploadDialog } from "./ReleaseUploadDialog";
 import { LoadingRows, UpdateDeploymentDetail } from "./UpdateDeploymentDetail";
 import { deploymentNeedsAttention, families, familyLabel } from "./model";
-import {
-  screenUpdateMeaning,
-  type ScreenFilter,
-} from "../playerUpdateStates";
+import { screenUpdateMeaning, type ScreenFilter } from "../playerUpdateStates";
 
 export function PlayerUpdatesPanel(props: {
   owner: boolean;
@@ -405,8 +404,8 @@ function PlayerUpdatesWorkspace({
     </div>
   );
 }
-export function canDeployPlayerUpdates(role: string | undefined) {
-  return role === "owner" || role === "administrator";
+export function canDeployPlayerUpdates(status?: AuthStatus) {
+  return hasCapability(status, "screen.manage");
 }
 export function playerUpdateStateLabel(state: string) {
   const meaning = screenUpdateMeaning(state);

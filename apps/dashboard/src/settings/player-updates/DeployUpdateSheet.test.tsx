@@ -70,9 +70,7 @@ describe("guided deployment", () => {
   it("requires a concrete artifact, distinguishes architectures, and preserves valid Back state", async () => {
     mount();
     expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-    await userEvent.click(
-      screen.getByRole("radio", { name: /0.26.0-beta.6/ }),
-    );
+    await userEvent.click(screen.getByRole("radio", { name: /0.26.0-beta.6/ }));
     expect(
       screen.getByRole("radio", {
         name: /Intel \/ AMD 64-bit · x86_64/,
@@ -140,7 +138,7 @@ describe("guided deployment", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Prepare & continue" }),
     );
-    await screen.findByRole("combobox", { name: /targets/i });
+    await screen.findByRole("combobox", { name: /target/i });
     expect(api.cachePlayerRelease).toHaveBeenCalledWith("r1", "csrf");
     expect(screen.getByText(/0.26.0-beta.6/)).toBeInTheDocument();
   });

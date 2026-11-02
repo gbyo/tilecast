@@ -135,7 +135,7 @@ describe("Player Updates workspace", () => {
     mount();
     const deploymentsTab = screen.getByRole("tab", { name: /Deployments/ });
     expect(deploymentsTab).toHaveAttribute("aria-selected", "true");
-    expect(within(deploymentsTab).getByText("1")).toBeInTheDocument();
+    expect(await within(deploymentsTab).findByText("1")).toBeInTheDocument();
     expect(
       await screen.findByText("1 screen needs a retry."),
     ).toBeInTheDocument();
@@ -194,6 +194,7 @@ describe("Player Updates workspace", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Deploy update" }));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /0.26.0-beta.6/ }));
     await user.click(screen.getByRole("radio", { name: /x86_64/ }));
     // Browser navigation can change the URL while the modal draft is open.
     await act(async () => {
@@ -221,11 +222,11 @@ describe("Player Updates workspace", () => {
       screen.getByRole("button", { name: "Deploy aarch64" }),
     );
     const radio = await screen.findByRole("radio", {
-      name: /0.26.0-beta.6.*Beta.*aarch64/,
+      name: /ARM64.*aarch64/,
     });
     // A concrete artifact is selected, even though the version is shared.
     expect(
-      screen
+      within(screen.getByRole("radiogroup", { name: "Build" }))
         .getAllByRole("radio")
         .filter((r) => r.getAttribute("aria-checked") === "true"),
     ).toHaveLength(1);

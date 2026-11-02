@@ -110,9 +110,7 @@ export function DeployUpdateSheet({
     ? releaseUpdateTab(initialRelease)
     : initialFamily;
   const initialGroups = groupReleases(
-    releases.filter(
-      (item) => releaseUpdateTab(item) === initialReleaseFamily,
-    ),
+    releases.filter((item) => releaseUpdateTab(item) === initialReleaseFamily),
   );
   const initialGroup = initialRelease
     ? initialGroups.find((items) =>
@@ -121,8 +119,7 @@ export function DeployUpdateSheet({
     : undefined;
 
   const [stage, setStage] = useState(1);
-  const [family, setFamily] =
-    useState<UpdateFamilyTab>(initialReleaseFamily);
+  const [family, setFamily] = useState<UpdateFamilyTab>(initialReleaseFamily);
   const [releaseGroupId, setReleaseGroupId] = useState(
     initialGroup ? releaseGroupKey(initialGroup) : "",
   );
@@ -567,18 +564,22 @@ export function DeployUpdateSheet({
                                 htmlFor={`release-build-${item.id}`}
                                 className="flex flex-wrap gap-2"
                               >
-                                {architectureLabel(item.architecture, t)}
-                                <Badge
-                                  variant={
-                                    deployable(item) ? "outline" : "secondary"
-                                  }
-                                >
-                                  {deployable(item)
-                                    ? t("updates.console.buildReady")
-                                    : item.cacheStatus === "downloading"
+                                <span>
+                                  {architectureLabel(item.architecture, t)}
+                                  {item.architecture &&
+                                    ` · ${item.architecture}`}
+                                </span>
+                                {deployable(item) ? (
+                                  <Badge variant="outline">
+                                    {t("updates.console.buildReady")}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary">
+                                    {item.cacheStatus === "downloading"
                                       ? t("updates.console.preparingBuild")
                                       : t("updates.console.buildPrepareNeeded")}
-                                </Badge>
+                                  </Badge>
+                                )}
                               </FieldLabel>
                               <FieldDescription>
                                 {item.architecture && (
@@ -664,6 +665,7 @@ export function DeployUpdateSheet({
                 </ComboboxValue>
                 <ComboboxChipsInput
                   id="update-target-search"
+                  aria-label={t("updates.panel.targetsLabel")}
                   placeholder={
                     selected.length
                       ? undefined
