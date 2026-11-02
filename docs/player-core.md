@@ -142,6 +142,49 @@ ordering and wake timers. Hosts project Runtime documents and supply opaque
 comparison keys. Edge retains Runtime document comparison, projection, and
 surface construction. Core checks packaged and connected support before a trial.
 
+### Activation trials
+
+Core owns the trial of a pending manifest and its outcome. The outcome is
+durable in the `activation_trial` table of `player-state`. The row is bound to
+the binding and the pending digest.
+
+1. Core records the trial as running before the host shows the manifest.
+2. Core promotes the manifest only when the current renderer accepted exactly
+   that activation and reported content evidence for it.
+3. Only two facts fail a trial: the renderer refused the whole activation, or
+   no accepted content evidence arrived in 30 seconds. A host also fails a
+   trial when it cannot issue the activation.
+4. An item failure does not fail a trial. The Runtime isolates the failed item
+   and continues to the next item, which can supply the evidence. Hosts send
+   item failures to `RendererCoordinator::item_failed`, never to `rejected`.
+   The failure stays a diagnostic and an Activity playback error.
+5. A failed manifest is held back. The committed presentation shows until the
+   retry time. Core then tries the manifest again without a new Server change.
+   The delay is one minute after the first failure, five minutes after the
+   second, fifteen minutes after the third, and one hour after that. A retry
+   time more than one hour ahead ends the hold, because the wall clock stepped
+   back.
+6. A process that ends during a trial without an orderly shutdown leaves a
+   running row. The next process counts that trial as a failure with the
+   reason `trial_interrupted`. A manifest that stops the process cannot cause
+   a crash loop. An orderly shutdown suspends the trial. A policy surface or
+   Safe Mode also suspends it. A suspension is not a failure.
+7. Promotion and replacement of the pending manifest delete the row in the
+   same transaction. A new pending digest starts with no failures.
+
+Every native host reports the manifest stages through
+`player_core::ManifestReport`. A held-back manifest is not reported as
+`pendingManifestVersion`. The heartbeat reports
+`lastSynchronizationError: activation_trial_failed:<reason>` instead, unless a
+preparation error for a newer target applies. The reasons are
+`renderer_refused`, `no_content_evidence`, `activation_rejected`, and
+`trial_interrupted`.
+
+The manifest digest identifies the Server's answer. The version is a label.
+Core accepts a target with a lower version than the committed manifest. A
+Server that restores its database from a backup reports lower versions, and
+the Player must converge to that answer without another Server change.
+
 Core also owns the plugin-only manifest refresh decision. The full manifest
 comparison permits changes only to `plugins`, `manifestVersion`, `generatedAt`,
 and `serverTime`. Every other field must be equal, including unknown fields.

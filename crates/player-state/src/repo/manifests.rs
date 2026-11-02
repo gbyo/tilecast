@@ -9,6 +9,13 @@
 //!   acceptance and meaningful evidence, and again only while the manifest is
 //!   still the target. The former active document moves to `previous` in the
 //!   same transaction.
+//! * The activation trial ([`trial`]) records the pending manifest's trial
+//!   outcome so that a restart neither forgets a failure nor retries a
+//!   manifest that ended the process during its trial at once.
+//!
+//! The target is the server's latest answer even when its version is lower
+//! than the committed one: a restored server database moves the version
+//! counter back, and the player must converge to it without another change.
 //!
 //! A manifest is identified by the SHA-256 of its stable encoding. Every read
 //! is bound to the installation, screen and normalized server URL.
@@ -158,17 +165,14 @@ pub fn target(connection: &Connection, binding: &Binding) -> Result<Option<Targe
     .transpose()
 }
 
-/// Records the server's latest valid manifest. Returns false (and writes
-/// nothing) when the version is lower than the committed presentation: the
-/// server never moves a screen's manifest version backwards.
+/// Records the server's latest valid manifest. The digest, not the version,
+/// identifies it: a lower version than the committed presentation is still
+/// the server's current answer (for example after a database restore).
 pub fn put_target(connection: &mut Connection, target: &Target) -> Result<bool> {
     if target.etag.len() > 200 || target.version < 0 {
         return Err(StateError::InvalidValue("manifest target bound".to_owned()));
     }
     let tx = connection.transaction()?;
-    if get_for(&tx, Stage::Active, &target.binding)?.is_some_and(|active| target.version < active.version) {
-        return Ok(false);
-    }
     tx.execute(
         "INSERT INTO manifest_target (singleton, installation_id, screen_id, server_url, digest, version, etag,
              document, fetched_at_ms)
@@ -200,17 +204,16 @@ pub fn put_pending_for_target(connection: &mut Connection, manifest: &StoredMani
     if target(&tx, &manifest.binding)?.map(|target| target.digest) != Some(manifest.digest) {
         return Ok(false);
     }
-    if get_for(&tx, Stage::Active, &manifest.binding)?.is_some_and(|active| manifest.version < active.version) {
-        return Err(StateError::InvalidValue("manifest version regressed".to_owned()));
-    }
     write_stage(&tx, Stage::Pending, manifest)?;
+    tx.execute("DELETE FROM activation_trial WHERE digest != ?1", params![manifest.digest.to_hex()])?;
     tx.commit()?;
     Ok(true)
 }
 
-/// Drops a pending manifest that is no longer the target.
-pub fn discard_pending(connection: &Connection, binding: &Binding, digest: &Sha256Digest) -> Result<bool> {
-    let changed = connection.execute(
+/// Drops a pending manifest that is no longer the target, with its trial.
+pub fn discard_pending(connection: &mut Connection, binding: &Binding, digest: &Sha256Digest) -> Result<bool> {
+    let tx = connection.transaction()?;
+    let changed = tx.execute(
         "DELETE FROM manifests WHERE stage = 'pending' AND installation_id = ?1 AND screen_id = ?2
              AND server_url = ?3 AND digest = ?4",
         params![
@@ -220,6 +223,8 @@ pub fn discard_pending(connection: &Connection, binding: &Binding, digest: &Sha2
             digest.to_hex()
         ],
     )?;
+    tx.execute("DELETE FROM activation_trial WHERE digest = ?1", params![digest.to_hex()])?;
+    tx.commit()?;
     Ok(changed > 0)
 }
 
@@ -240,6 +245,178 @@ pub fn promote_pending(connection: &mut Connection, binding: &Binding, digest: &
     }
     write_stage(&tx, Stage::Active, &pending)?;
     tx.execute("DELETE FROM manifests WHERE stage = 'pending'", [])?;
+    tx.execute("DELETE FROM activation_trial", [])?;
     tx.commit()?;
     Ok(true)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrialState {
+    /// Known, not on screen: never started, or suspended by a policy surface.
+    Idle,
+    /// On screen and awaiting acceptance and content evidence.
+    Running,
+    /// Failed; held back until `retry_at`.
+    Failed,
+}
+
+impl TrialState {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Idle => "idle",
+            Self::Running => "running",
+            Self::Failed => "failed",
+        }
+    }
+
+    fn parse(value: &str) -> Result<Self> {
+        match value {
+            "idle" => Ok(Self::Idle),
+            "running" => Ok(Self::Running),
+            "failed" => Ok(Self::Failed),
+            _ => Err(StateError::InvalidValue("activation trial state".to_owned())),
+        }
+    }
+}
+
+/// The pending manifest's trial outcome. Bound to the binding and digest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActivationTrial {
+    pub binding: Binding,
+    pub digest: Sha256Digest,
+    pub state: TrialState,
+    /// Consecutive failed or interrupted trials of this digest.
+    pub failures: u32,
+    pub started_at: Option<Timestamp>,
+    pub retry_at: Option<Timestamp>,
+    pub reason: Option<String>,
+}
+
+const MAX_TRIAL_REASON: usize = 64;
+
+pub fn trial(connection: &Connection, binding: &Binding) -> Result<Option<ActivationTrial>> {
+    type Row = (String, String, i64, Option<i64>, Option<i64>, Option<String>);
+    let row: Option<Row> = connection
+        .query_row(
+            "SELECT digest, state, failures, started_at_ms, retry_at_ms, reason FROM activation_trial
+             WHERE singleton = 1 AND installation_id = ?1 AND screen_id = ?2 AND server_url = ?3",
+            params![binding.installation_id.to_string(), binding.screen_id.to_string(), binding.server_url],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+        )
+        .optional()?;
+    row.map(|(digest, state, failures, started, retry, reason)| {
+        Ok(ActivationTrial {
+            binding: binding.clone(),
+            digest: parse_digest(&digest)?,
+            state: TrialState::parse(&state)?,
+            failures: u32::try_from(failures)
+                .map_err(|_| StateError::InvalidValue("activation trial failures".to_owned()))?,
+            started_at: super::from_ms_opt(started)?,
+            retry_at: super::from_ms_opt(retry)?,
+            reason,
+        })
+    })
+    .transpose()
+}
+
+fn write_trial(connection: &Connection, trial: &ActivationTrial) -> Result<()> {
+    if trial.reason.as_ref().is_some_and(|reason| reason.len() > MAX_TRIAL_REASON) {
+        return Err(StateError::InvalidValue("activation trial reason".to_owned()));
+    }
+    connection.execute(
+        "INSERT INTO activation_trial (singleton, installation_id, screen_id, server_url, digest, state, failures,
+             started_at_ms, retry_at_ms, reason)
+         VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+         ON CONFLICT (singleton) DO UPDATE SET installation_id = excluded.installation_id,
+             screen_id = excluded.screen_id, server_url = excluded.server_url, digest = excluded.digest,
+             state = excluded.state, failures = excluded.failures, started_at_ms = excluded.started_at_ms,
+             retry_at_ms = excluded.retry_at_ms, reason = excluded.reason",
+        params![
+            trial.binding.installation_id.to_string(),
+            trial.binding.screen_id.to_string(),
+            trial.binding.server_url,
+            trial.digest.to_hex(),
+            trial.state.as_str(),
+            i64::from(trial.failures),
+            trial.started_at.map(ms),
+            trial.retry_at.map(ms),
+            trial.reason,
+        ],
+    )?;
+    Ok(())
+}
+
+/// The trial row for exactly this pending manifest, or a fresh one. Another
+/// digest's row (or another binding's) never carries its failures over.
+fn trial_for_pending(
+    connection: &Connection,
+    binding: &Binding,
+    digest: &Sha256Digest,
+) -> Result<Option<ActivationTrial>> {
+    if get_for(connection, Stage::Pending, binding)?.is_none_or(|pending| pending.digest != *digest) {
+        return Ok(None);
+    }
+    let existing = trial(connection, binding)?.filter(|trial| trial.digest == *digest);
+    Ok(Some(existing.unwrap_or(ActivationTrial {
+        binding: binding.clone(),
+        digest: *digest,
+        state: TrialState::Idle,
+        failures: 0,
+        started_at: None,
+        retry_at: None,
+        reason: None,
+    })))
+}
+
+/// Marks the pending manifest's trial as running, before the host shows it,
+/// so a process that ends during the trial is known after a restart. Returns
+/// false when `digest` is no longer the pending manifest.
+pub fn begin_trial(
+    connection: &mut Connection,
+    binding: &Binding,
+    digest: &Sha256Digest,
+    now: Timestamp,
+) -> Result<bool> {
+    let tx = connection.transaction()?;
+    let Some(mut trial) = trial_for_pending(&tx, binding, digest)? else { return Ok(false) };
+    trial.state = TrialState::Running;
+    trial.started_at = Some(now);
+    trial.retry_at = None;
+    write_trial(&tx, &trial)?;
+    tx.commit()?;
+    Ok(true)
+}
+
+/// Records one failed (or interrupted) trial and holds the manifest back
+/// until `retry_at`. Returns the consecutive failure count, or None when
+/// `digest` is no longer the pending manifest.
+pub fn fail_trial(
+    connection: &mut Connection,
+    binding: &Binding,
+    digest: &Sha256Digest,
+    reason: &str,
+    retry_at: Timestamp,
+) -> Result<Option<u32>> {
+    let tx = connection.transaction()?;
+    let Some(mut trial) = trial_for_pending(&tx, binding, digest)? else { return Ok(None) };
+    trial.state = TrialState::Failed;
+    trial.failures = trial.failures.saturating_add(1);
+    trial.retry_at = Some(retry_at);
+    trial.reason = Some(reason.chars().take(MAX_TRIAL_REASON).collect());
+    write_trial(&tx, &trial)?;
+    tx.commit()?;
+    Ok(Some(trial.failures))
+}
+
+/// A policy surface replaced a running trial before it could prove itself.
+/// That is not a failure; the failure count and reason stay as they were.
+pub fn suspend_trial(connection: &mut Connection, binding: &Binding, digest: &Sha256Digest) -> Result<()> {
+    let tx = connection.transaction()?;
+    if let Some(mut trial) = trial_for_pending(&tx, binding, digest)?.filter(|trial| trial.state == TrialState::Running)
+    {
+        trial.state = TrialState::Idle;
+        write_trial(&tx, &trial)?;
+        tx.commit()?;
+    }
+    Ok(())
 }

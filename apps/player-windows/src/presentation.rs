@@ -378,7 +378,7 @@ impl PresentationEngine {
         {
             return Ok(false);
         }
-        if !self.current_is_accepted() || !self.current_has_activation_evidence() || self.current_has_renderer_error() {
+        if !self.current_is_accepted() || !self.current_has_activation_evidence() || self.current_refused() {
             return Err("plugin_refresh_renderer_unready");
         }
         validate_media_aliases(&resolved.plugin_aliases, &current.content).map_err(|_| "plugin_refresh_invalid")?;
@@ -446,8 +446,9 @@ impl PresentationEngine {
         self.native.tracker().accepted_current()
     }
 
-    pub fn current_has_renderer_error(&self) -> bool {
-        self.native.tracker().has_error()
+    /// The renderer refused the current activation as a whole.
+    pub fn current_refused(&self) -> bool {
+        self.native.tracker().refused()
     }
 
     /// When the renderer last reported progress for any activation.
@@ -599,7 +600,7 @@ impl PresentationEngine {
         let Some(activation) = report.activation.as_ref() else {
             return;
         };
-        if self.native.rejected(session, semantic_ref(activation), ShortToken::new("playback-error").ok()) {
+        if self.native.item_failed(session, semantic_ref(activation), ShortToken::new("playback-error").ok()) {
             self.signal(player_core::ActivitySignal::PlaybackError {
                 item_id: report.item_id.clone(),
                 message: report.message.clone(),
@@ -607,16 +608,18 @@ impl PresentationEngine {
         }
     }
 
-    /// A WebView2 process exited. The crash feeds the ladder as a rejection
-    /// of the current activation, so recovery stays spaced and safe mode
-    /// stays the backstop; the crash itself is reported as a playback error.
+    /// A WebView2 process exited. The crash is recorded as the renderer's
+    /// last failure and reported as a playback error. It is not a refusal of
+    /// the activation: as on Edge, a crash during a trial fails it only when
+    /// no content evidence follows, and the recovery ladder judges playback
+    /// health from evidence, never from this report.
     pub fn renderer_process_failed(&mut self, session: uuid::Uuid, kind: &str) {
         tracing::warn!(component = "presentation", event = "renderer_process_failed", kind);
         let Some(current) = self.current.as_ref() else {
             return;
         };
         let code = kind.replace(':', "-");
-        self.native.rejected(
+        self.native.item_failed(
             session,
             RendererActivationRef { activation_id: current.id, generation: current.generation },
             ShortToken::new(code).ok(),
@@ -1687,6 +1690,75 @@ mod tests {
                 .expect("compare changed projection"),
             "equal IDs cannot hide changed projection inputs"
         );
+    }
+
+    /// An isolated item failure, or a crashed WebView2 child process, is a
+    /// diagnostic. It must not refuse the activation: that once failed every
+    /// trial whose first item failed and blocked plugin-only refreshes.
+    #[test]
+    fn item_failures_and_process_crashes_never_refuse_the_activation() {
+        let (mut engine, mut commands, session) = test_engine();
+        let digest = Sha256Digest::of(b"pixels");
+        let identity = PlaybackIdentity {
+            manifest: Sha256Digest::of(b"manifest-1"),
+            manifest_version: 1,
+            selection_source: "takeover",
+            playlist_id: Some(uuid::Uuid::from_u128(17)),
+            layout_id: None,
+            schedule_id: None,
+            takeover_id: Some(uuid::Uuid::from_u128(18)),
+            next_transition_ms: None,
+        };
+        let resolved = ResolvedPresentation {
+            document: image_document(&digest),
+            content: image_content(digest),
+            frames: vec![],
+            timing: None,
+            projection: None,
+            plugins: vec![],
+            plugin_aliases: vec![],
+            next_transition_ms: None,
+            selection: player_core::Selection {
+                playlist_id: identity.playlist_id,
+                layout_id: None,
+                schedule_id: None,
+                takeover_id: identity.takeover_id,
+                source: player_core::Source::Takeover,
+                next_transition_ms: None,
+                playback_anchor_ms: None,
+            },
+        };
+        let reference = engine.activate_server_presentation(identity, resolved, 1_000).expect("activation");
+        engine.renderer_ready(session, ready());
+        while commands.try_recv().is_ok() {}
+        engine.accepted(session, &reference);
+        engine.item_error(
+            session,
+            &bridge::PlaybackErrorReport {
+                activation: Some(reference.clone()),
+                item_id: Some("item-1".into()),
+                message: "website failed: offline".into(),
+            },
+        );
+        engine.renderer_process_failed(session, "gpu:crashed");
+        assert!(!engine.current_refused(), "isolated failures do not refuse the activation");
+        assert!(engine.current_is_accepted());
+        assert_eq!(engine.native.tracker().last_error().map(ShortToken::as_str), Some("gpu-crashed"));
+        // The item renders on its next turn and proves the activation, so
+        // its trial can promote.
+        assert!(engine.progress(
+            session,
+            &bridge::EvidenceReport {
+                activation: Some(reference.clone()),
+                item_id: Some("item-1".into()),
+                kind: "image-shown".into(),
+                zone_id: None,
+            },
+            2_000
+        ));
+        assert!(engine.current_has_activation_evidence() && !engine.current_refused());
+        engine.rejected(session, &reference, "invalid_document");
+        assert!(engine.current_refused(), "a refusal of the whole activation is recorded");
     }
 
     /// Plugin API v2 on Windows: state reaches the Runtime on its own

@@ -7,6 +7,7 @@ mod configuration;
 mod display;
 mod live_stream;
 mod manifest_content;
+mod manifest_report;
 mod manifest_resources;
 mod manifest_worker;
 mod manifests;
@@ -60,6 +61,7 @@ pub use manifest_content::{
     MANIFEST_PIN_PREFIX, ManifestOriginSources, ManifestPreparationError, ManifestSourcePlan, PreparedContent,
     manifest_pin_holder, stream_claims,
 };
+pub use manifest_report::ManifestReport;
 pub use manifest_resources::{
     AssetPolicy, ManifestAsset, ManifestBundle, ManifestFrame, NATIVE_MANIFEST_SCHEMAS, NativeManifest,
     NativeManifestError, StreamClaim, StreamReason, is_external_runtime_plugin,
@@ -87,7 +89,8 @@ pub use network_assignment::{
 };
 pub use offline_activation::{
     ACTIVATION_TRIAL_TIMEOUT_MS, ActivationGate, OfflineActivationCoordinator, OfflineManifestState, TrialDecision,
-    TrialEvidence, activation_gate, activation_grace_ms, overrides_activation_gate, should_activate_pending,
+    TrialEvidence, TrialFailure, activation_gate, activation_grace_ms, overrides_activation_gate,
+    should_activate_pending, trial_retry_delay_ms,
 };
 pub use offline_driver::{
     ActivationSource, ActivationTime, OfflineActivationHost, OfflineActivationSignals, OfflineCurrent,
