@@ -85,7 +85,13 @@ jobs:
       - run: python3 scripts/ci/check-player-architecture.py
       - run: cargo fmt -p tilecast-windows -- --check
       - run: cargo clippy --locked -p tilecast-windows --all-targets --all-features -- -D warnings
+      # The runtime artifact proof loads the real built bundle; requiring it
+      # keeps that test from passing without one.
+      - run: npm ci
+      - run: npm run build --workspace @tilecast/player-runtime
       - run: cargo test --locked -p tilecast-windows --all-features
+        env:
+          TILECAST_REQUIRE_BUILT_RUNTIME: "1"
       - name: MSIX version-mapping smoke test
         run: |
           set -euo pipefail
