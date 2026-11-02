@@ -312,6 +312,9 @@ func TestUpdateDeploymentExpiresAfterSevenDays(t *testing.T) {
 	if _, err := f.pool.Exec(f.ctx, `UPDATE update_deployments SET started_at=now()-interval '8 days' WHERE id=$1`, deployment); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := f.pool.Exec(f.ctx, `UPDATE player_commands SET created_at=now()-interval '8 days',expires_at=now()-interval '1 day' WHERE type='install_player_update' AND payload->>'deploymentId'=$1`, deployment.String()); err != nil {
+		t.Fatal(err)
+	}
 	f.server.reconcileUpdateDeployments(f.ctx)
 
 	var state, safeError, status string
@@ -319,7 +322,7 @@ func TestUpdateDeploymentExpiresAfterSevenDays(t *testing.T) {
 	if err := f.pool.QueryRow(f.ctx, `SELECT st.state,COALESCE(st.safe_error,''),d.status,d.completed_at IS NOT NULL FROM screen_update_states st JOIN update_deployments d ON d.id=st.deployment_id WHERE st.deployment_id=$1 AND st.screen_id=$2`, deployment, screen).Scan(&state, &safeError, &status, &completed); err != nil {
 		t.Fatal(err)
 	}
-	if state != "failed" || safeError != "Update deployment expired after seven days." || status != "completed" || !completed {
+	if state != "failed" || safeError != "Update attempt expired after seven days without completing." || status != "completed" || !completed {
 		t.Fatalf("expired deployment = state %q error %q status %q completed %v", state, safeError, status, completed)
 	}
 
