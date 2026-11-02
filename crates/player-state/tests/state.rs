@@ -170,6 +170,35 @@ fn pinned_objects_are_never_eviction_candidates() {
 }
 
 #[test]
+fn unpinned_delete_keeps_an_object_pinned_after_selection() {
+    let (_dir, path) = temp_db();
+    let db = StateDb::open(&path, OpenOptions::default()).expect("open");
+    let a = Sha256Digest::of(b"a");
+    let record = cas::ObjectRecord {
+        sha256: a,
+        size_bytes: 1,
+        domain: cas::Domain::Media,
+        content_type: None,
+        source_kind: cas::SourceKind::Origin,
+        verify_state: cas::VerifyState::Verified,
+        verified_at: now(),
+        created_at: now(),
+        last_accessed_at: now(),
+    };
+    db.run_blocking(|c| cas::put_object(c, &record)).expect("put");
+    // Eviction selected the object while it was unpinned; a pin then commits.
+    assert!(!db.run_blocking(|c| cas::is_pinned(c, &a)).expect("check"));
+    db.run_blocking(|c| cas::replace_pins(c, cas::PinReason::ActivePresentation, "activation-1", &[a], now()))
+        .expect("pin");
+    assert!(!db.run_blocking(|c| cas::delete_unpinned_object(c, &a)).expect("delete"));
+    assert_eq!(db.run_blocking(|c| cas::usage(c)).expect("usage").object_count, 1);
+    db.run_blocking(|c| cas::replace_pins(c, cas::PinReason::ActivePresentation, "activation-1", &[], now()))
+        .expect("unpin");
+    assert!(db.run_blocking(|c| cas::delete_unpinned_object(c, &a)).expect("delete"));
+    assert_eq!(db.run_blocking(|c| cas::usage(c)).expect("usage").object_count, 0);
+}
+
+#[test]
 fn outbox_is_bounded_oldest_first_with_counters() {
     let (_dir, path) = temp_db();
     let db = StateDb::open(&path, OpenOptions::default()).expect("open");
