@@ -1,0 +1,50 @@
+---
+title: Use Studio on iPhone and iPad
+description: Install the Tilecast app from the App Store, connect it to your Tilecast Server, and manage your screens from an iPhone or iPad.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+The Tilecast app for iPhone and iPad shows your server's own Tilecast Studio with native navigation: tabs on iPhone, and a sidebar on iPad. It doesn't replace your server or work without one. Everything you do in the app happens on your Tilecast Server, the same as in a browser.
+
+[Download Tilecast on the App Store](https://apps.apple.com/us/app/tilecast/id6817553078). The app needs iOS 26 or iPadOS 26 or later.
+
+## Add your server
+
+<Steps>
+
+1. Open the app and tap **Add Server**.
+2. Enter the address you use for Studio in a browser, such as `signage.example.org`. An address without `http://` or `https://` uses HTTPS.
+3. Sign in. The app opens your server's own sign-in page, so your password, passkey, and authenticator codes work as they do in a browser.
+4. Approve **Tilecast for iOS** when your server asks.
+
+</Steps>
+
+You can add several Tilecast installations and switch between them. On iPhone, server controls are under **More**. On iPad, they're at the top of the sidebar.
+
+Use HTTPS for a server you reach over the internet. Plain HTTP works only for a server on your local network, such as `http://192.0.2.10:8080`, and the app shows that the connection is not encrypted before you add it. To reach a local server, allow **Local Network** access for Tilecast when iOS asks. If you denied it, turn it on in **Settings** > **Privacy & Security** > **Local Network**.
+
+If your server uses a certificate from your organization's own certificate authority, install that authority's profile on the device, then turn on full trust for it in **Settings** > **General** > **About** > **Certificate Trust Settings**. The app never accepts an untrusted certificate.
+
+## What the app adds
+
+Every Studio page works in the app, including pages from plugins. When your server is updated, new Studio features appear in the app without an app update. The app also adds a few things a phone does better:
+
+- **Scan QR code** when you [pair a display](../../players/pair-a-display/), instead of typing the six-character code.
+- Uploading media from **Photo Library** or **Choose Files…** when you select **Choose files** in Media. This needs a current Tilecast Server.
+- Sharing, haptics, and maps through the system's own controls.
+
+## Sign out or revoke access
+
+Sign out from **More** on iPhone or from the server menu on iPad. Signing out removes the app's sign-in for that server.
+
+The app appears as **Tilecast for iOS** under **Authorized operators** in **My Account** > **Sign-in security**. Revoke it there to sign the app out from another device. See [Protect Studio accounts](../../administration/sign-in-security/) for the rest of that page.
+
+## Known limits
+
+- Layout and Playlist previews that open in a new window don't open in the app. Use Studio in a browser for those.
+- Downloads, such as a settings export, aren't available in the app.
+- Media uploads continue only while the app is open.
+- On iPad, the app uses one window.
+
+The app is open source like the rest of Tilecast. To build it from source or change it, see [iOS app development](../../developers/ios-app/).
