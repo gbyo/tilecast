@@ -17,11 +17,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.tilecast.player.content.PlayerUpdateManager
 import org.tilecast.player.content.UpdateUiState
+import org.tilecast.player.core.CoreBeginResult
 import org.tilecast.player.core.CoreHostState
+import org.tilecast.player.core.CoreIdentity
+import org.tilecast.player.core.CoreManifestResult
 import org.tilecast.player.core.CorePlatformConfig
 import org.tilecast.player.core.CorePlayerConfig
 import org.tilecast.player.core.CorePairingState
+import org.tilecast.player.core.CoreRecoveryResult
 import org.tilecast.player.core.DiscoveredServer
 import org.tilecast.player.core.PairingTarget
 import org.tilecast.player.core.PlayerCoreHost
@@ -40,6 +45,47 @@ import org.tilecast.player.security.CredentialStore
 import org.tilecast.player.security.MigratingCredentialStore
 import java.time.Instant
 
+/** Narrow host seam used to exercise PlayerViewModel setup without JNI. */
+internal interface PlayerViewModelHost {
+    val state: StateFlow<CoreHostState>
+    val pairingState: StateFlow<CorePairingState>
+    val updateManager: PlayerUpdateManager?
+
+    suspend fun startDrivers()
+    suspend fun refreshStatus()
+    suspend fun fetchIdentity(url: String): CoreIdentity
+    suspend fun beginPairing(url: String): CoreBeginResult
+    suspend fun resetPairing(): Boolean
+    suspend fun resetServer(): Boolean
+    suspend fun syncManifest(): CoreManifestResult
+    suspend fun rendererRecovery(json: String): CoreRecoveryResult
+    suspend fun effectiveConfig(): CorePlayerConfig
+    suspend fun reportObservations(json: String): Int
+}
+
+private class ProductionPlayerViewModelHost(
+    private val delegate: PlayerCoreHost,
+) : PlayerViewModelHost {
+    override val state = delegate.state
+    override val pairingState = delegate.pairingState
+    override val updateManager = delegate.updateManager
+
+    override suspend fun startDrivers() = delegate.startDrivers()
+    override suspend fun refreshStatus() = delegate.refreshStatus()
+    override suspend fun fetchIdentity(url: String) = delegate.fetchIdentity(url)
+    override suspend fun beginPairing(url: String) = delegate.beginPairing(url)
+    override suspend fun resetPairing() = delegate.resetPairing()
+    override suspend fun resetServer() = delegate.resetServer()
+    override suspend fun syncManifest() = delegate.syncManifest()
+    override suspend fun rendererRecovery(json: String) = delegate.rendererRecovery(json)
+    override suspend fun effectiveConfig() = delegate.effectiveConfig()
+    override suspend fun reportObservations(json: String) = delegate.reportObservations(json)
+}
+
+internal fun interface LanDiscoverySource {
+    fun discover(): kotlinx.coroutines.flow.Flow<DiscoveredServer>
+}
+
 /**
  * The production Player UI state. Core owns pairing, content, presence,
  * and recovery; this ViewModel owns what Android must do itself: the
@@ -53,9 +99,16 @@ import java.time.Instant
  * and asks for a new code after revocation. An installer only acts when
  * several servers answer, none answer, or the server identity changed.
  */
-class PlayerViewModel(application: Application) : AndroidViewModel(application) {
-    private val host = PlayerCoreHost.get(application)
-    private val discovery = LanDiscovery(application)
+class PlayerViewModel internal constructor(
+    application: Application,
+    private val host: PlayerViewModelHost,
+    private val discovery: LanDiscoverySource,
+) : AndroidViewModel(application) {
+    constructor(application: Application) : this(
+        application,
+        ProductionPlayerViewModelHost(PlayerCoreHost.get(application)),
+        LanDiscoverySource { LanDiscovery(application).discover() },
+    )
     private val reliability = ReliabilityController(application)
     private val commissioningController = CommissioningController(application, reliability)
     private val credentials: CredentialStore = MigratingCredentialStore.forProduction(application)
