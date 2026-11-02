@@ -116,6 +116,9 @@ Edge helpers do not depend on CAS, state, the server client, or Core.
 Preserve the type boundary between public `ServerClient` and
 `AuthenticatedServer`. Only installation identity verification may create an
 authenticated client. Never send a stored credential before that check.
+The check is not a one-time event. `AuthenticatedServer` repeats it inside the
+client, so every Core task, and every host, gets the same rule. See
+[`device-credential-security.md`](device-credential-security.md#identity-changes-during-a-session).
 
 `DeviceCredential` owns parsing, redacted Debug, and authorization headers.
 `CredentialStore` owns load, save, and remove. The HTTP client must not know the

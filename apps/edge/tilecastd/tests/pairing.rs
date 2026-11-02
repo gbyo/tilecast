@@ -461,6 +461,12 @@ async fn installation_mismatch_records_evidence_quarantines_and_stops_content() 
     let player = harness.start().await;
     let renderer = Renderer::connect(&player.socket).await;
     pair_and_approve(&harness, &renderer).await;
+    // The server answering is not yet contact recorded; swapping earlier would
+    // stop the pass that is still reporting its first contact.
+    wait_for("recorded contact", || {
+        player.context.last_server_contact.lock().unwrap_or_else(|poison| poison.into_inner()).map(|_| ())
+    })
+    .await;
     let expected = harness.fake.installation.lock().unwrap().to_string();
     // Seed the caches so quarantine has something to move aside.
     let state = harness.dir.path().join("state");

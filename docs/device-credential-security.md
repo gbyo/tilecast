@@ -39,6 +39,29 @@ Commands contain only identifiers, the expected version and hash, the mode, and 
 
 Releases come only from `gbyo/tilecast`. The server verifies the Ed25519 statement, APK checksum, Android signature, and signing certificate.
 
+## Identity changes during a session
+
+The installation ID is public. A Player uses it to find out that the server at a saved address is the server it paired with. It is not a secret. It protects against a mistake, such as a reset database, a replaced host, or a reused address. Over plain HTTP on a LAN, an attacker who controls the address can copy the ID. For that case, use HTTPS. The TLS certificate then identifies the server.
+
+A different installation can take over an address after the Player verified it. The Player holds a verified server handle between link passes. The command, preview, Watch Live, Activity, media, and update tasks each send requests with that handle on their own schedule.
+
+Native Players apply these rules. The rules are in the shared client, so every task and every platform follows them:
+
+- Before the Player sends the credential, it reads `/api/v1/system/identity`. This read carries no credential. The ID must equal the saved installation ID.
+- One matching read allows credentialed requests for five seconds. A burst of requests, such as the manifest, configuration, and a media download, shares one read. A poll that comes after a quiet interval makes its own read. A clone of the handle shares the same record.
+- A transport failure on a credentialed request removes the record. The next request reads identity first, regardless of the five-second window.
+- A 401 or 403 answer is not given to the caller until a new identity read matches. A different installation answers `device_credential_invalid` for a credential it does not know. Without this rule, that answer would make the Player delete a valid credential. With it, the Player reports an installation mismatch and keeps the credential.
+- If the read fails or does not match, the Player does not send the credential. The caller gets an installation mismatch or a network error. The link stops on a mismatch and shows both installation IDs.
+- The Player opens the Player socket only after the same check.
+- A matching read later in the session lets the link continue. A mismatch is not stored as a permanent state.
+
+The limits of this design are:
+
+- A request that starts inside the five-second window can reach a substitute server. That request carries the credential. The substitute server does not know the credential, so it answers 401 and the Player stops as described above. This risk exists only for a short time after a swap.
+- A swap between the identity read and the request cannot be detected. No design closes this gap. The read does not authenticate the server.
+- A failure while the Player reads a response body does not remove the record. The window still bounds the next request.
+- A read of the identity endpoint is a small unauthenticated request. The extra load is about one read for each command poll, which is seven seconds.
+
 ## Tilecast Edge
 
 On a Tilecast Edge Linux player, `tilecastd` is the only process that holds
