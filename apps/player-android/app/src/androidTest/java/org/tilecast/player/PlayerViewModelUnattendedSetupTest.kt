@@ -12,9 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -35,14 +33,12 @@ import org.tilecast.player.core.DiscoveredServer
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlayerViewModelUnattendedSetupTest {
     private lateinit var scheduler: TestCoroutineScheduler
-    private lateinit var dispatcher: StandardTestDispatcher
     private val models = mutableListOf<PlayerViewModel>()
 
     @Before
     fun setUp() {
         scheduler = TestCoroutineScheduler()
-        dispatcher = StandardTestDispatcher(scheduler)
-        Dispatchers.setMain(dispatcher)
+        Dispatchers.setMain(StandardTestDispatcher(scheduler))
     }
 
     @After
