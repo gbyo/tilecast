@@ -451,6 +451,9 @@ class PlayerViewModel internal constructor(
         appliedConfigRevision = revision
         mutablePlatform.value = config.platform
         applyPlatformPolicy(config)
+        // A new policy re-applies the current active-hours state.
+        lastPowerActive = null
+        applyPowerEffects()
         reportPlatformObservations()
     }
 
@@ -480,8 +483,10 @@ class PlayerViewModel internal constructor(
     private fun applyPowerEffects() {
         val active = mutableActiveHours.value
         if (active == lastPowerActive) return
-        lastPowerActive = active
+        // The edge is recorded only once a policy can act on it, so a status
+        // that arrives before the configuration is applied when it loads.
         val platform = mutablePlatform.value ?: return
+        lastPowerActive = active
         if (active) {
             reliability.requestWake()
             return
