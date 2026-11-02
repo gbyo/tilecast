@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { authStatusFor } from "../test/capabilities";
 import { canDeployPlayerUpdates, playerUpdateStateLabel } from "./SettingsPage";
 
 describe("Player Updates settings", () => {
@@ -9,9 +10,9 @@ describe("Player Updates settings", () => {
   });
 
   it("restricts deployment mutations to owners and administrators", () => {
-    expect(canDeployPlayerUpdates("owner")).toBe(true);
-    expect(canDeployPlayerUpdates("administrator")).toBe(true);
-    expect(canDeployPlayerUpdates("editor")).toBe(false);
-    expect(canDeployPlayerUpdates("viewer")).toBe(false);
+    expect(canDeployPlayerUpdates(authStatusFor("owner"))).toBe(true);
+    expect(canDeployPlayerUpdates(authStatusFor("administrator"))).toBe(true);
+    expect(canDeployPlayerUpdates(authStatusFor("editor"))).toBe(false);
+    expect(canDeployPlayerUpdates(authStatusFor("viewer"))).toBe(false);
   });
 });

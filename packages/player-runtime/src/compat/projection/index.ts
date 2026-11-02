@@ -42,6 +42,11 @@ export { renderLayout, spanViewport } from "./layout-render";
 export { renderWidget } from "./widget-render";
 export { isRemoteWebWidget, remoteWebForWidget } from "./web-widget";
 export {
+  specFromYouTube,
+  youtubeEmbedUrl,
+  isYouTubeEndedMessage,
+} from "../../remote-web/spec";
+export {
   COMPONENT_PRESENTATION_SCHEMA,
   isComponentWidget,
   projectWidgetComponent,

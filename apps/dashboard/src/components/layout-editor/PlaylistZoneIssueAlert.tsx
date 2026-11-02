@@ -7,9 +7,7 @@ import type { PlaylistZoneIssue } from "./playlistZoneIssues";
 const NAMED_ITEMS = 5;
 
 /**
- * Says which items a playlist zone cannot play and what to do about them. The
- * zone contract is intentionally images and videos only, so the fix is always
- * in the content, never in the Player.
+ * Names unsupported entries and explains the nested Layout restriction.
  */
 export function PlaylistZoneIssueAlert({
   issue,

@@ -7,10 +7,10 @@ import (
 	"strings"
 )
 
-var canvaDesignPath = regexp.MustCompile(`^/design/[A-Za-z0-9_-]{8,200}(?:/[A-Za-z0-9_-]{8,200})?/view/?$`)
+var canvaDesignPath = regexp.MustCompile(`^/design/[A-Za-z0-9_-]{8,200}(?:/[A-Za-z0-9_-]{8,200})?/(?:view|watch)/?$`)
 var canvaShortPath = regexp.MustCompile(`^/[A-Za-z0-9_-]{1,200}/?$`)
 
-// CanvaURL accepts only design view/embed links or a short link awaiting resolution.
+// CanvaURL accepts only design view/watch embed links or a short link awaiting resolution.
 // URL validity cannot establish that the owner has published a public embed.
 func CanvaURL(raw string) (*url.URL, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
@@ -39,7 +39,7 @@ func CanvaURL(raw string) (*url.URL, error) {
 		u.Host = "www.canva.com"
 		u.Path = strings.TrimSuffix(u.Path, "/")
 		// Preserve access and presentation parameters. Only known marketing fields
-		// are removed; no undocumented autoplay or loop parameters are invented.
+		// are removed; playback mode is selected separately by CanvaPlaybackURL.
 		for key := range query {
 			if strings.HasPrefix(strings.ToLower(key), "utm_") {
 				query.Del(key)
@@ -47,6 +47,30 @@ func CanvaURL(raw string) (*url.URL, error) {
 		}
 		query.Set("embed", "")
 	}
+	u.RawQuery = query.Encode()
+	return u, nil
+}
+
+// CanvaPlaybackURL selects Canva's manual view or watch presentation surface after
+// validating and canonicalizing the provider URL. Short links stay unresolved
+// here; authoring resolves them before playback compilation.
+func CanvaPlaybackURL(raw string, slideshow bool) (*url.URL, error) {
+	u, err := CanvaURL(raw)
+	if err != nil || u.Host == "canva.link" {
+		return u, err
+	}
+	path := strings.TrimSuffix(u.Path, "/")
+	separator := strings.LastIndex(path, "/")
+	if separator < 0 {
+		return nil, errors.New("Canva design URL is missing a presentation mode")
+	}
+	mode := "view"
+	if slideshow {
+		mode = "watch"
+	}
+	query := u.Query()
+	query.Del("autoplay")
+	u.Path = path[:separator+1] + mode
 	u.RawQuery = query.Encode()
 	return u, nil
 }

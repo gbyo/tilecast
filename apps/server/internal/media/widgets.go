@@ -173,6 +173,7 @@ func (p webDefinitionWidgetProvider) Normalize(ctx context.Context, raw json.Raw
 		if parseErr != nil {
 			return nil, parseErr
 		}
+		canonical := u.String()
 		if u.Host == "canva.link" {
 			client := canvaLinkClient()
 			defer client.CloseIdleConnections()
@@ -180,10 +181,14 @@ func (p webDefinitionWidgetProvider) Normalize(ctx context.Context, raw json.Raw
 			if resolveErr != nil {
 				return nil, resolveErr
 			}
-			configuration[spec.URLField] = resolved
-		} else {
-			configuration[spec.URLField] = u.String()
+			canonical = resolved
 		}
+		slideshow, _ := configuration["slideshow"].(bool)
+		playbackURL, playbackErr := contentdefs.CanvaPlaybackURL(canonical, slideshow)
+		if playbackErr != nil {
+			return nil, playbackErr
+		}
+		configuration[spec.URLField] = playbackURL.String()
 	}
 	if _, _, err = contentdefs.WebPresentationURL(p.definition, configuration); err != nil {
 		return nil, err

@@ -14,7 +14,8 @@ package org.tilecast.player.runtime
  * resolver ignores it.
  */
 object FrameAuthorization {
-    data class AuthorizedFrame(val frameToken: String)
+    enum class Kind { WIDGET, EXTERNAL_PLUGIN }
+    data class AuthorizedFrame(val frameToken: String, val kind: Kind = Kind.WIDGET, val sizeBytes: Long? = null)
 
     fun authorize(rawUri: String?, authorized: Set<AuthorizedFrame>): AuthorizedFrame? {
         if (authorized.isEmpty()) return null

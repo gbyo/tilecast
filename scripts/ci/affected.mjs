@@ -155,6 +155,27 @@ const rules = [
     /^packages\/player-contracts\/fixtures\/widget-frames\.json$/,
     ["protocol", "player_core"],
   ],
+  // The generic entry fixture belongs to the manifest contract and is
+  // projected by all three native hosts through Player Core frame claims.
+  [
+    /^packages\/manifest-schema\/external-plugin-entry-fixture\.json$/,
+    ["protocol", "player_core"],
+  ],
+  // The plugin state entry fixture is replayed by the server, the shared
+  // Runtime and plugin SDK, and every native host's frame-claim tests.
+  [
+    /^packages\/manifest-schema\/plugin-state-entry-fixture\.json$/,
+    ["protocol", "player_core", "server", "plugins", "runtime"],
+  ],
+  // The plugin event fixture and the Player service vocabulary are replayed
+  // by Player Core, the shared Runtime, and the plugin SDK.
+  [
+    /^packages\/player-contracts\/fixtures\/plugin-events\.json$/,
+    ["player_core", "plugins", "runtime"],
+  ],
+  // The generated native contribution registry is linked by every native
+  // Player host and regenerated from plugin manifests.
+  [/^packages\/plugin-native-registry\//, ["plugins", "player_core"]],
   // External Widget conformance fixtures are executed by the shared Widget
   // SDK and projected by the Runtime, then exercised by native hosts.
   // Keep each changed fixture on the relevant cross-player validation lanes.
@@ -181,6 +202,14 @@ const rules = [
   [
     /^(apps\/player-linux\/|scripts\/(build-linux-player-release\.sh|verify-linux-player-release\.mjs)$)/,
     ["linux"],
+  ],
+  // The Runtime's plugin-capability test pins the shared ABI constant and the
+  // WPE bridge flag. It also scans the Windows and Android host sources; those
+  // trees are not mapped here because each would select every Runtime
+  // dependent. Whoever enables the ABI in a host edits that test anyway.
+  [
+    /^(crates\/player-types\/src\/frames\.rs|apps\/edge\/renderer-wpe\/web\/tilecast-bridge\.js)$/,
+    ["runtime"],
   ],
   [/^packages\/player-runtime\//, ["runtime"]],
   [/^packages\/presentation-model\//, ["dashboard", "runtime"]],
@@ -227,7 +256,7 @@ const rules = [
   // Files with authenticated Player endpoints, their decoders, or shared
   // routing/authentication. A contract test audits every Player handler.
   [
-    /^apps\/server\/internal\/httpapi\/(devices|player_socket|player_manifest|player_config|player_media|player_packages|heartbeat_decode|heartbeat_json|pairing_json|manifest_integration|retired_heartbeat_integration|operations|display_control|airplay|airplay_reconcile|live_stream|span|previews|updates|presentation_networks|presentation_overrides|routes|server|middleware|principal)(_[^/]+)?\.go$/,
+    /^apps\/server\/internal\/httpapi\/(devices|player_socket|player_manifest|player_config|player_media|player_packages|player_plugin_frames|heartbeat_decode|heartbeat_json|pairing_json|manifest_integration|retired_heartbeat_integration|operations|display_control|airplay|airplay_reconcile|live_stream|span|previews|updates|presentation_networks|presentation_overrides|routes|server|middleware|principal)(_[^/]+)?\.go$/,
     ["protocol"],
   ],
   [
@@ -259,6 +288,11 @@ const rules = [
       "docs",
       "cli",
     ],
+  ],
+  // Surface ABI fixtures run on the Runtime and each native host.
+  [
+    /^packages\/package-sdk\/test-fixtures\/player-surface-probe\.js$/,
+    ["protocol", "player_core"],
   ],
   [/^packages\/package-sdk\//, ["plugins", "server", "docs"]],
   // The reference Wasm guest SDK and its Hello Services sample ride the

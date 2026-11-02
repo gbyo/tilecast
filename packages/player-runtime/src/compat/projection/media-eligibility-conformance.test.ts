@@ -66,7 +66,9 @@ describe("Layout projection adopts media eligibility fixtures", () => {
     };
     if (
       fixture.reason === "unsupported_item_kind" &&
-      !fixture.item?.availableFrom
+      !fixture.item?.availableFrom &&
+      // A Widget item without a Widget record is skipped, not rejected.
+      fixture.item?.assetType !== "widget"
     ) {
       expect(() => renderLayout(document, ctx)).toThrow();
       return;

@@ -2,7 +2,7 @@ import { Button } from "../ui/button";
 import {
   AppPlacementPreview,
   AssetPlaybackPreview,
-  isPlaylistZoneMediaItem,
+  isPlaylistZoneItem,
   PlaylistZonePreview,
   WidgetLivePreview,
   assetPreviewStyle,
@@ -83,8 +83,7 @@ export function LayoutPlacementView({
   };
   const playlistPreviewItem = playlist?.items.find(
     (playlistItem) =>
-      playlistItem.assetStatus === "ready" &&
-      isPlaylistZoneMediaItem(playlistItem),
+      playlistItem.assetStatus === "ready" && isPlaylistZoneItem(playlistItem),
   );
   return (
     <div

@@ -21,10 +21,11 @@ Scope applies to **screen operations**:
 - Takeover and Quick Present reads/stops
 - reading a screen, its status, its commands, and its policy
 
-Scope does **not** apply to the content library. A scoped account still sees and
-edits every playlist, Layout, Widget, Data Source, and media file. A shared
-library is the point of a shared library, and scoping content is a separate and
-larger decision.
+A screen scope does **not** apply to the content library. A scoped account still
+sees and edits every playlist, Layout, Widget, and Data Source its role allows.
+Media has its own scope, called content access. Content access narrows the
+Media library to granted folders and tags. See
+[access-control.md](access-control.md).
 
 ## The rules
 

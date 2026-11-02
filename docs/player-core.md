@@ -141,6 +141,50 @@ active, and a changed binding resets trial state. Core drives offline activation
 ordering and wake timers. Hosts project Runtime documents and supply opaque
 comparison keys. Edge retains Runtime document comparison, projection, and
 surface construction. Core checks packaged and connected support before a trial.
+
+Core also owns the plugin-only manifest refresh decision. The full manifest
+comparison permits changes only to `plugins`, `manifestVersion`, `generatedAt`,
+and `serverTime`. Every other field must be equal, including unknown fields.
+An equal selection key alone does not qualify a revision. The host must also
+compare the complete projected presentation under its engine lock. Content,
+frame claims, timing, projection inputs, and selection must remain equal.
+
+The hosts derive the Runtime document's `generation` from the manifest version.
+For a proven plugin-only revision, they retain the current value before this
+comparison. They also retain it on later projections of that same manifest.
+No presentation field changes as a result of this metadata transfer.
+
+A qualified refresh retains the activation ID and generation. The host sends
+only plugin state through the existing resource grants. It retains the current
+item, synchronized timeline, acceptance, evidence, and recovery state. Failed
+delivery retries without a new presentation activation. Successful delivery
+updates the on-screen manifest identity. Core then promotes the pending
+manifest through the existing target-fenced commit. A restart before this
+commit uses the last committed manifest. Edge retains an applied playlist
+resume rotation across proven plugin-only revisions.
+
+Plugin API v2 `plugin_state` entries use the same plugin-only path. Core
+owns their routing in `plugin_host.rs`. `is_runtime_plugin_data` classifies
+external and `plugin_state` entries as Runtime data, so a host never looks
+them up in its renderer feature list. Manifest validation accepts
+`plugin_state` only from schema 21, applies the Server's bounds, and makes
+each declared media variant a forced verified download. Hosts grant that
+media with `plugin_state_media`, as they grant other plugin media. Core also
+owns `NativePluginHost` in `native_host.rs`: registration of first-party
+native contributions, negotiation of typed native services
+(`native_services.rs`), state routing by declared plugin and state type,
+bounded plugin events (`plugin_events.rs`), and error isolation. A host keeps a
+`NativePluginFeed` beside its renderer port. The feed reads the presentation
+document and the runtime context that the host already sends, so a platform adds
+three calls and no plugin logic. The generated crate
+`packages/plugin-native-registry` lists the contributions that a build
+compiles in. See [Plugin API v2](plugin-api-v2.md#native-contributions).
+
+Core retains an in-memory proof for delivered plugin state until promotion.
+The proof names the committed base and the exact digest on screen. A newer
+plugin-only target can replace that delivered state without a presentation
+activation. A changed binding clears the proof. A process restart does not
+restore it.
 Core now owns server relationship verification, credential rejection,
 retry backoff, and persisted policy-clock samples. Core now drives the server
 socket, reconnect and liveness timers, heartbeat fallback, push handling,
@@ -465,7 +509,9 @@ Server reconciliation, manifests, offline activation, commands, and recovery;
 see [Android development](android-development.md) for the completed cutover.
 Kotlin supplies private stores and device facts and keeps the credential
 in the Keystore. A pairing reset clears the session and preserves an enrolled
-credential; Core reserves credential removal for revocation.
+credential; Core reserves credential removal for revocation. A session that
+Core begins by itself, for a rejected binding or a renewal retry, is polled at
+once, the same as a session that the host requests.
 
 Independent Players share fixtures at the rule's natural
 owner. `packages/player-contracts` contains only ownerless cross-player fixtures.

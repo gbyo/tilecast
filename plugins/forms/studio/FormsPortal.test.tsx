@@ -12,7 +12,10 @@ import {
 } from "./FormsPortalPage";
 import { formsApi } from "./api";
 import { ApiError } from "@tilecast/studio";
-import { StudioSessionProvider } from "@tilecast/studio/testing";
+import {
+  StudioSessionProvider,
+  testStudioSession,
+} from "@tilecast/studio/testing";
 import type {
   FormDataSource,
   FormRecord,
@@ -39,18 +42,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function testSession(role = "viewer") {
-  return {
-    csrfToken: "tok",
-    role,
-    canManage: role === "owner" || role === "administrator",
-    authenticated: true,
-    setupRequired: false,
-    isLoading: false,
-    isSubmitting: false,
-    logout: () => Promise.resolve(),
-  };
-}
+const testSession = testStudioSession;
 
 const workflow: FormWorkflow = {
   states: [

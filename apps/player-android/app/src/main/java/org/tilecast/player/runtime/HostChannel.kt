@@ -96,6 +96,7 @@ object HostChannel {
         val engine = sanitized(engineVersion).ifBlank { "unknown" }
         return """
         (function(){
+        if(window!==window.top||window.location.href!=="${TrustedRuntimeOrigin.entryUrl}")return;
         if(window.__tilecastHostInstalled)return;
         window.__tilecastHostInstalled=true;
         window.__tilecastHostReady=true;
@@ -177,7 +178,10 @@ object HostChannel {
         window.tilecastRuntimeHost={
           contractVersion:1,
           info:{host:"android",hostVersion:"HOSTVERSION",engine:"android-webview",engineVersion:"ENGINEVERSION"},
-          capabilities:{remoteWeb:"host-view",synchronizedPlayback:true,setup:false,discovery:false},
+          capabilities:{remoteWeb:"host-view",synchronizedPlayback:true,setup:false,discovery:false,
+            // Plugin API v2: plugin_state arrives in the plugins message, and tcmedia://variant/
+            // loads are authorized against the activation's media grants.
+            pluginState:true,variantMedia:true},
           subscribe:function(listener){
             listeners.add(listener);
             if(lastPresentation)listener(lastPresentation);

@@ -21,6 +21,7 @@ members = [
     "apps/player-windows",
     "packages/package-guest-sdk",
     "packages/package-samples/hello-services/guest",
+    "packages/plugin-native-registry",
 ]
 default-members = [
     "apps/edge/crates/edge-protocol",

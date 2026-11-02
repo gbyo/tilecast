@@ -13,7 +13,7 @@ import type {
 
 /**
  * A playlist zone whose Playlist holds items the Player cannot play in a
- * zone. The rule is the shared media-only contract in
+ * zone. The rule is the shared supported-item contract in
  * `@tilecast/presentation-model`; the server enforces the same rule when a
  * Layout publishes and when it is assigned, so this only reports what would
  * fail there, earlier and with the item names.

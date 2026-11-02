@@ -102,7 +102,8 @@ func TestPlaylistSubmissionStaysFrozenWhileTheDraftMoves(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	submission, err := workflow.SubmitExpected(ctx, owner.User.ID, "owner", approvals.TypePlaylist, playlist.ID, nil, draft.DraftRevision)
+	ownerAuthority, _ := auth.BuiltinCapabilities(auth.RoleOwner)
+	submission, err := workflow.SubmitExpected(ctx, owner.User.ID, ownerAuthority, approvals.TypePlaylist, playlist.ID, nil, draft.DraftRevision)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,14 +114,14 @@ func TestPlaylistSubmissionStaysFrozenWhileTheDraftMoves(t *testing.T) {
 	if _, err = service.AddItem(ctx, playlist.ID, owner.User.ID, ItemInput{AssetID: assetIDs[1], DurationMS: &duration}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = workflow.Approve(ctx, owner.User.ID, "owner", submission.ID, "looks good"); err != nil {
+	if _, err = workflow.Approve(ctx, owner.User.ID, ownerAuthority, submission.ID, "looks good"); err != nil {
 		t.Fatal(err)
 	}
 	afterApprove, _, err := service.BuildManifest(ctx, screenID)
 	if err != nil || afterApprove.ManifestVersion != before.ManifestVersion {
 		t.Fatalf("approval changed manifest: before=%d after=%d err=%v", before.ManifestVersion, afterApprove.ManifestVersion, err)
 	}
-	if _, err = workflow.PublishSubmission(ctx, owner.User.ID, "owner", submission.ID); err != nil {
+	if _, err = workflow.PublishSubmission(ctx, owner.User.ID, ownerAuthority, submission.ID); err != nil {
 		t.Fatal(err)
 	}
 	afterPublish, _, err := service.BuildManifest(ctx, screenID)

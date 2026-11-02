@@ -34,6 +34,19 @@ export function isPlaylistZoneMediaItem(item: {
   );
 }
 
+/** Renderable zone categories. Individual Widget capabilities are negotiated. */
+export function isPlaylistZoneItem(item: {
+  assetType: string;
+  layoutId?: string | null;
+}): boolean {
+  return (
+    !item.layoutId &&
+    (item.assetType === "image" ||
+      item.assetType === "video" ||
+      item.assetType === "widget")
+  );
+}
+
 /** What kind of item a Layout playlist zone cannot play. */
 export type PlaylistZoneItemKind =
   "widget" | "website" | "youtube" | "layout" | "other";
@@ -55,21 +68,16 @@ export interface PlaylistZoneUnsupportedItem {
 
 /**
  * Names why a Playlist item cannot play in a Layout playlist zone, or null
- * when it can. This is the one place the media-only rule is described to an
- * operator: it classifies exactly the items {@link isPlaylistZoneMediaItem}
+ * when it can. This is the one place the zone item rule is described to an
+ * operator: it classifies exactly the items {@link isPlaylistZoneItem}
  * rejects, and the server's publication and assignment checks reject the same
  * set, so Studio can only warn about what would fail.
  */
 export function classifyPlaylistZoneItem(
   item: Pick<PlaylistZoneItemLike, "assetType" | "widgetProvider" | "layoutId">,
 ): PlaylistZoneItemKind | null {
-  if (isPlaylistZoneMediaItem(item)) return null;
+  if (isPlaylistZoneItem(item)) return null;
   if (item.layoutId || item.assetType === "layout") return "layout";
-  if (item.assetType === "widget") {
-    if (item.widgetProvider === "website") return "website";
-    if (item.widgetProvider === "youtube") return "youtube";
-    return "widget";
-  }
   return "other";
 }
 

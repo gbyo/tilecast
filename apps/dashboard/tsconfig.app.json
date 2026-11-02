@@ -2,6 +2,15 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "paths": {
+      "@tilecast/player-runtime/zone-playback": [
+        "../../packages/player-runtime/src/engine/zone-playback.ts"
+      ],
+      "@tilecast/player-runtime/projection": [
+        "../../packages/player-runtime/src/compat/projection/index.ts"
+      ],
+      "@tilecast/player-runtime/host-contract": [
+        "../../packages/player-runtime/src/host/contract.ts"
+      ],
       "@/*": ["./src/*"],
       "@tilecast/studio": ["./src/plugin-host/kit.ts"],
       "@tilecast/studio/ui/*": ["./src/components/ui/*"],

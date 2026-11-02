@@ -10,10 +10,15 @@
  * tests fail on any diagnostic, so a mismatch never reaches a release.
  */
 import type { PluginManifestInput } from "@tilecast/plugin-sdk/manifest";
+import type { AnyPlayerPluginDefinition } from "@tilecast/plugin-sdk/player";
 import type {
   RuntimePluginDefinition,
   SurfaceSlot,
 } from "@tilecast/plugin-sdk/runtime";
+import {
+  discoverPlayerPlugins,
+  type PlayerDiscovery,
+} from "./player-discovery";
 
 export interface DiscoveredRuntimePlugin {
   /** Directory below plugins/. */
@@ -26,10 +31,13 @@ export interface RuntimeDiscovery {
   problems: string[];
 }
 
-type ManifestModules = Record<string, PluginManifestInput>;
-type RuntimeModules = Record<string, { default?: RuntimePluginDefinition }>;
+export type ManifestModules = Record<string, PluginManifestInput>;
+export type RuntimeModules = Record<
+  string,
+  { default?: RuntimePluginDefinition | AnyPlayerPluginDefinition }
+>;
 
-function directoryOf(path: string): string {
+export function directoryOf(path: string): string {
   const match = /\/plugins\/([^/]+)\//.exec(path);
   if (!match?.[1]) throw new Error(`not a plugin path: ${path}`);
   return match[1];
@@ -41,8 +49,9 @@ const sameSet = (left: readonly string[], right: readonly string[]) =>
   left.every((value) => right.includes(value));
 
 /**
- * Pair manifests with runtime definitions. Every renderer lives in its own
- * plugin below plugins/; nothing central lists plugins or renders for them.
+ * Pair Plugin API v1 manifests with runtime definitions. Every renderer lives
+ * in its own plugin below plugins/; nothing central lists plugins or renders
+ * for them. Plugin API v2 modules are left to `discoverPlayerPlugins`.
  */
 export function discoverRuntimePlugins(
   manifests: ManifestModules,
@@ -56,14 +65,16 @@ export function discoverRuntimePlugins(
   const candidates: {
     dir: string;
     definition: RuntimePluginDefinition | undefined;
-    manifest: PluginManifestInput | undefined;
+    manifest: Extract<PluginManifestInput, { apiVersion: 1 }> | undefined;
   }[] = [];
   for (const [path, module] of Object.entries(modules)) {
     const dir = directoryOf(path);
+    const manifest = byDir.get(dir);
+    if (manifest?.apiVersion === 2) continue;
     candidates.push({
       dir,
-      definition: module.default,
-      manifest: byDir.get(dir),
+      definition: module.default as RuntimePluginDefinition | undefined,
+      manifest,
     });
   }
 
@@ -118,13 +129,22 @@ export function discoverRuntimePlugins(
   return { plugins, problems };
 }
 
+const bundledManifests = import.meta.glob<PluginManifestInput>(
+  "../../../../plugins/*/tilecast.plugin.json",
+  { eager: true, import: "default" },
+);
+const bundledModules: RuntimeModules = import.meta.glob(
+  "../../../../plugins/*/runtime/index.ts",
+  { eager: true },
+);
+
 export const runtimeDiscovery: RuntimeDiscovery = discoverRuntimePlugins(
-  import.meta.glob<PluginManifestInput>(
-    "../../../../plugins/*/tilecast.plugin.json",
-    { eager: true, import: "default" },
-  ),
-  import.meta.glob<{ default?: RuntimePluginDefinition }>(
-    "../../../../plugins/*/runtime/index.ts",
-    { eager: true },
-  ),
+  bundledManifests,
+  bundledModules,
+);
+
+export const playerDiscovery: PlayerDiscovery = discoverPlayerPlugins(
+  bundledManifests,
+  bundledModules,
+  runtimeDiscovery.plugins.flatMap((plugin) => plugin.definition.manifestTypes),
 );

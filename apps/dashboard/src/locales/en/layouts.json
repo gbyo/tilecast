@@ -415,16 +415,16 @@
   },
   "preview": {
     "zoneEmpty": "No ready items",
-    "zoneUnsupported": "Only images and videos can play in a Layout playlist zone.",
+    "zoneUnsupported": "Playlist zones support images, videos, and supported Widgets. Nested Layouts are unsupported.",
     "unknownProvider": "Widget"
   },
   "zoneIssue": {
-    "title": "This Layout zone can only play images and videos.",
+    "title": "This Layout zone contains unsupported playlist items.",
     "intro": "\"{{playlist}}\" contains unsupported items:",
     "item": "{{name}} — {{kind}}",
     "more_one": "and {{count}} more item",
     "more_other": "and {{count}} more items",
-    "fix": "Remove those items or use them as separate Layout placements.",
+    "fix": "Remove unsupported entries. Play nested Layouts as root content.",
     "kind": {
       "widget": "Widget",
       "website": "Website",

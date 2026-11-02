@@ -49,6 +49,21 @@ class RuntimeHostSessionTest {
         )
     }
 
+    @Test fun pluginUpdatePreservesActivationAndRejectsForeignGeneration() {
+        val session = session(Sink())
+        session.offer(presentationMessage("act1", 17))
+        assertTrue(session.matchesActivation("act1", 17))
+        assertFalse(session.matchesActivation("act1", 18))
+        assertFalse(session.matchesActivation("act2", 17))
+        session.offer(RuntimeBridgeProtocol.parseHostMessage("""{"type":"plugins","plugins":[],"clockOffsetMs":50}""").getOrThrow())
+        assertTrue(session.matchesActivation("act1", 17))
+        session.offer(presentationMessage("act2", 18))
+        assertFalse(session.matchesActivation("act1", 17))
+        assertTrue(session.matchesActivation("act2", 18))
+        session.offer(presentationMessage("act2", 2_147_483_648L))
+        assertTrue(session.matchesActivation("act2", 2_147_483_648L))
+    }
+
     @Test fun rejectsStaleRendererCallbacks() {
         val sink = Sink()
         val session = session(sink)

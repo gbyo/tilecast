@@ -69,6 +69,9 @@ func (s *server) updateWidgetPreviewImage(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
+	if _, ok := s.authorizeAsset(w, r, id, assetEdit, false); !ok {
+		return
+	}
 	user := principal.User
 	if err = s.media.StoreWidgetPreview(r.Context(), id, user.ID, data); err != nil {
 		s.writeMediaError(w, r, err)
@@ -81,6 +84,10 @@ type createUploadRequest struct {
 	Filename  string `json:"filename"`
 	MIMEType  string `json:"mimeType"`
 	SizeBytes int64  `json:"sizeBytes"`
+	// FolderID is the folder the asset will be created in. Omitted or null
+	// is the library root, which only an account with the whole library may
+	// use; a restricted account must name one of its folders.
+	FolderID *uuid.UUID `json:"folderId,omitempty"`
 }
 
 func (s *server) createUpload(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +109,20 @@ func (s *server) createUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
-	upload, err := s.media.CreateUpload(r.Context(), user.ID, body.Filename, body.MIMEType, body.SizeBytes)
+	access, err := s.contentAccess(r)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	upload, err := s.media.CreateUpload(r.Context(), user.ID, access, body.FolderID, body.Filename, body.MIMEType, body.SizeBytes)
+	if errors.Is(err, media.ErrOutOfScope) {
+		if body.FolderID == nil {
+			writeError(w, http.StatusUnprocessableEntity, "upload_folder_required", "Choose a folder to upload into. Your account can upload only into its assigned folders.")
+			return
+		}
+		writeError(w, http.StatusNotFound, "content_folder_not_found", "The destination folder was not found.")
+		return
+	}
 	if err != nil {
 		s.writeMediaError(w, r, err)
 		return
@@ -177,6 +197,10 @@ func (s *server) completeUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	user := principal.User
 	asset, err := s.media.FinalizeUpload(r.Context(), id, user.ID)
+	if errors.Is(err, media.ErrOutOfScope) {
+		writeError(w, http.StatusForbidden, "upload_destination_forbidden", "You can no longer upload into this folder. Cancel the upload and choose another folder.")
+		return
+	}
 	if err != nil {
 		s.writeMediaError(w, r, err)
 		return
@@ -216,7 +240,12 @@ func (s *server) listAssets(w http.ResponseWriter, r *http.Request) {
 			*target = &id
 		}
 	}
-	result, err := s.media.ListAssets(r.Context(), media.ListOptions{Search: query.Get("search"), Type: query.Get("type"), WidgetProvider: query.Get("provider"), Status: query.Get("status"), Sort: query.Get("sort"), FolderID: folderID, CollectionID: collectionID, TagID: tagID, Page: page, PageSize: pageSize, Archived: query.Get("archived") == "true"})
+	view, err := s.libraryView(r)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	result, err := s.media.ListAssets(r.Context(), media.ListOptions{Search: query.Get("search"), Type: query.Get("type"), WidgetProvider: query.Get("provider"), Status: query.Get("status"), Sort: query.Get("sort"), FolderID: folderID, CollectionID: collectionID, TagID: tagID, Page: page, PageSize: pageSize, Archived: query.Get("archived") == "true", View: &view})
 	if err != nil {
 		s.writeMediaError(w, r, err)
 		return
@@ -228,11 +257,16 @@ func (s *server) getAsset(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if _, ok := s.authorizeAsset(w, r, id, assetRead, false); !ok {
+		return
+	}
 	asset, err := s.media.GetAsset(r.Context(), id)
 	if err != nil {
 		s.writeMediaError(w, r, err)
 		return
 	}
+	principal, _ := principalOf(r)
+	assetUsageVisibility(principal, &asset)
 	writeJSON(w, http.StatusOK, map[string]any{"data": asset})
 }
 func (s *server) createWebsite(w http.ResponseWriter, r *http.Request) {
@@ -251,6 +285,9 @@ func (s *server) createWebsite(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	if !s.requireWholeLibrary(w, r) {
 		return
 	}
 	user := principal.User
@@ -283,6 +320,9 @@ func (s *server) updateWebsite(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
+	if _, ok := s.authorizeAsset(w, r, id, assetEdit, false); !ok {
+		return
+	}
 	user := principal.User
 	asset, err := s.media.UpdateWebsite(r.Context(), id, user.ID, body)
 	if err != nil {
@@ -294,6 +334,9 @@ func (s *server) updateWebsite(w http.ResponseWriter, r *http.Request) {
 func (s *server) websiteDiagnostics(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
 	if !ok {
+		return
+	}
+	if _, ok := s.authorizeAsset(w, r, id, assetRead, false); !ok {
 		return
 	}
 	result, err := s.media.WebsiteDiagnostics(r.Context(), id)
@@ -321,6 +364,9 @@ func (s *server) createWidget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
+	if !s.requireWholeLibrary(w, r) {
+		return
+	}
 	user := principal.User
 	asset, err := s.media.CreateWidget(r.Context(), user.ID, body)
 	if err != nil {
@@ -338,6 +384,9 @@ func (s *server) updateWidget(w http.ResponseWriter, r *http.Request) {
 	var body media.WidgetInput
 	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if _, ok := s.authorizeAsset(w, r, id, assetEdit, false); !ok {
 		return
 	}
 	if body.Provider == "" {
@@ -399,6 +448,14 @@ func (s *server) duplicateWidget(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	if _, ok := s.authorizeAsset(w, r, id, assetEdit, false); !ok {
+		return
+	}
+	// The copy is created at the library root, which a restricted account
+	// cannot reach, so duplication needs the whole library.
+	if !s.requireWholeLibrary(w, r) {
 		return
 	}
 	user := principal.User
@@ -712,6 +769,9 @@ func (s *server) updateAsset(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
+	if _, ok := s.authorizeAsset(w, r, id, assetEdit, false); !ok {
+		return
+	}
 	user := principal.User
 	availabilitySet := body.AvailabilitySet != nil && *body.AvailabilitySet
 	var asset media.Asset
@@ -725,6 +785,7 @@ func (s *server) updateAsset(w http.ResponseWriter, r *http.Request) {
 		s.writeMediaError(w, r, err)
 		return
 	}
+	assetUsageVisibility(principal, &asset)
 	writeJSON(w, http.StatusOK, map[string]any{"data": asset})
 }
 func (s *server) retryAsset(w http.ResponseWriter, r *http.Request) {
@@ -735,6 +796,9 @@ func (s *server) retryAsset(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	if _, ok := s.authorizeAsset(w, r, id, assetEdit, false); !ok {
 		return
 	}
 	user := principal.User
@@ -757,6 +821,9 @@ func (s *server) deleteAsset(w http.ResponseWriter, r *http.Request) {
 	principal, ok := principalOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	if _, ok := s.authorizeAsset(w, r, id, assetDelete, true); !ok {
 		return
 	}
 	user := principal.User
@@ -782,6 +849,9 @@ func (s *server) archiveAssets(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
+	if _, ok := s.authorizeAssets(w, r, body.AssetIDs, assetArchive, true); !ok {
+		return
+	}
 	user := principal.User
 	if err := s.media.ArchiveAssets(r.Context(), body.AssetIDs, user.ID); err != nil {
 		s.writeMediaError(w, r, err)
@@ -801,6 +871,9 @@ func (s *server) restoreAssets(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
+	if _, ok := s.authorizeAssets(w, r, body.AssetIDs, assetArchive, true); !ok {
+		return
+	}
 	user := principal.User
 	if err := s.media.RestoreAssets(r.Context(), body.AssetIDs, user.ID); err != nil {
 		s.writeMediaError(w, r, err)
@@ -812,6 +885,9 @@ func (s *server) restoreAssets(w http.ResponseWriter, r *http.Request) {
 func (s *server) assetThumbnail(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
 	if !ok {
+		return
+	}
+	if _, ok := s.authorizeAsset(w, r, id, assetRead, true); !ok {
 		return
 	}
 	widgetPreview, widgetErr := s.media.WidgetPreview(r.Context(), id)
@@ -838,6 +914,9 @@ func (s *server) assetThumbnail(w http.ResponseWriter, r *http.Request) {
 func (s *server) assetPlaybackPreview(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
 	if !ok {
+		return
+	}
+	if _, ok := s.authorizeAsset(w, r, id, assetRead, true); !ok {
 		return
 	}
 	delivery, err := s.media.PlaybackPreview(r.Context(), id)
@@ -870,8 +949,12 @@ func (s *server) writeMediaError(w http.ResponseWriter, r *http.Request, err err
 		// before the text-matching cases below, which would otherwise decide
 		// the status from words in the message.
 		writeError(w, http.StatusConflict, "plugin_not_installed", unavailable.Error())
-	case errors.Is(err, media.ErrNotFound):
+	case errors.Is(err, media.ErrNotFound), errors.Is(err, media.ErrOutOfScope):
 		writeError(w, http.StatusNotFound, "not_found", "The requested media resource was not found.")
+	case errors.Is(err, media.ErrTagNotAssignable):
+		writeError(w, http.StatusForbidden, "tag_not_assignable", "One or more tags cannot be applied by your account.")
+	case errors.Is(err, media.ErrScopeRestricted):
+		writeError(w, http.StatusForbidden, "content_scope_restricted", "This action requires access to the whole library.")
 	case errors.Is(err, media.ErrUploadTooLarge):
 		writeError(w, http.StatusRequestEntityTooLarge, "upload_too_large", "The upload exceeds this installation's size limit.")
 	case errors.Is(err, media.ErrOffsetMismatch):

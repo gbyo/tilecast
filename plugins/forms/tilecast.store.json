@@ -3,5 +3,26 @@
     "name": "Tilecast",
     "url": "https://tilecast.org"
   },
-  "longDescription": "Forms lets your organization collect structured submissions, review them, and publish approved records back into Tilecast. Build forms in Studio, share them through My Forms, and route responses through an approval workflow before they become reusable signage data.\n\nApproved records can feed Widgets and Layout bindings just like other Tilecast data, making it possible to connect announcements, directories, menus, event listings, and other displays to a controlled submission process."
+  "longDescription": "Forms lets your organization collect structured submissions, review them, and publish approved records back into Tilecast. Build forms in Studio, share them through My Forms, and route responses through an approval workflow before they become reusable signage data.\n\nApproved records can feed Widgets and Layout bindings just like other Tilecast data, making it possible to connect announcements, directories, menus, event listings, and other displays to a controlled submission process.",
+  "artwork": {
+    "icon": "./store/icon.webp",
+    "screenshots": [
+      {
+        "src": "./store/01-submissions.webp",
+        "alt": "A completed Morning Announcements submission form, the Approve decision, and the resulting announcements on a hallway display."
+      },
+      {
+        "src": "./store/02-builder.webp",
+        "alt": "The Forms builder for the Morning Announcements form, with fields for title, message, event date, club, and submitter, a live preview, and field settings."
+      },
+      {
+        "src": "./store/03-approvals.webp",
+        "alt": "The Approvals inbox listing a Chess Club Meeting submission from Jordan Lee, with the review panel open and Approve, Reject, and Request changes actions."
+      },
+      {
+        "src": "./store/04-published.webp",
+        "alt": "The Outputs view listing four approved Morning Announcements records, which feed a hallway display that shows them as cards."
+      }
+    ]
+  }
 }

@@ -25,15 +25,25 @@ permission prompt for exactly that Tilecast origin. The request names
 one origin pattern (`https://signage.example.org/*`): no wildcard
 grant, no access to every site. On approval the worker persists the
 origin in extension storage and registers the isolated content bridge
-for `/player/*` on that origin only. The player page reloads and the
-bridge handshakes.
+for `/player/*` on the granted origins only. One registration covers
+all granted origins, and each connect or disconnect rewrites it from
+the full list, so a change to one origin keeps the bridge on the
+others. The player page reloads and the bridge handshakes.
 
 The extension never uses `externally_connectable` for arbitrary
 self-hosted servers and adds no Native Messaging permission or
 daemon. Disconnecting from the popup removes the origin grant,
-unregisters the bridge, and drops the connection. The Browser Player
-stays fully usable without a Companion, and removing one never breaks
-playback.
+removes that origin from the bridge registration, and drops the
+connection. The Browser Player stays fully usable without a Companion,
+and removing one never breaks playback.
+
+A revoked grant or a disabled extension sends no bye. The Browser
+Player therefore sends a describe request on each heartbeat. If no
+described answer arrives within 10 seconds, the Player drops the
+Companion provider. The next heartbeat then reports an empty
+capability set. The Player marks a capability set as reported only
+after the server accepts the heartbeat, so a failed report goes out
+again.
 
 ## Protocol
 

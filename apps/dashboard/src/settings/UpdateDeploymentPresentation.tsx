@@ -10,6 +10,7 @@ import {
   deploymentDescription,
   useUpdateDeployment,
 } from "./player-updates/UpdateDeploymentDetail";
+import { hasCapability } from "../auth/capabilities";
 
 /**
  * An update deployment's per-screen status in a native presentation, at
@@ -22,9 +23,7 @@ export function UpdateDeploymentPresentation() {
   const { id = "" } = useParams();
   const auth = useAuth();
   const screens = useQuery({ queryKey: ["screens"], queryFn: api.screens });
-  const manageable = ["owner", "administrator"].includes(
-    auth.status?.user?.role ?? "",
-  );
+  const manageable = hasCapability(auth.status, "screen.manage");
   return (
     <UpdateDeploymentBody
       deploymentId={id}

@@ -23,11 +23,17 @@ import {
   screen as screenFixture,
 } from "../components/overview/fixtures";
 import { OperationsDashboard } from "./OperationsDashboard";
+import { builtinCapabilities } from "../test/capabilities";
 
 let role = "owner";
 
 vi.mock("../auth/AuthProvider", () => ({
-  useAuth: () => ({ status: { user: { id: "u1", role } } }),
+  useAuth: () => ({
+    status: {
+      user: { id: "u1", role },
+      capabilities: builtinCapabilities(role),
+    },
+  }),
 }));
 
 vi.mock("../components/FleetUptimePanel", () => ({

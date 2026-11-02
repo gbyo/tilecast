@@ -669,7 +669,8 @@
       "integrations": "Integration tokens",
       "import-export": "Import and export",
       "dependency-graph": "Dependency Explorer",
-      "preferences": "Preferences"
+      "preferences": "Preferences",
+      "roles": "Roles"
     },
     "sections": {
       "general": {
@@ -771,6 +772,10 @@
       "preferences": {
         "title": "Preferences",
         "description": "Appearance and workflow preferences for your Studio account."
+      },
+      "roles": {
+        "title": "Roles",
+        "description": "Decide what people can do. Use the built-in roles or create your own, then assign them on the Users page."
       }
     }
   },

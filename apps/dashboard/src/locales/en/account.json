@@ -30,7 +30,7 @@
     }
   },
   "users": {
-    "accessDenied": "Owner or Administrator access is required to manage Studio users.",
+    "accessDenied": "Your role doesn't include managing people.",
     "addForm": {
       "title": "Add a user",
       "passwordHint": "Passwords must contain at least 12 characters.",
@@ -78,7 +78,14 @@
       "deleteTitle": "Permanently delete {{name}}?",
       "deleteBody": "This removes their login, preferences, and security credentials. This cannot be undone.",
       "deleteAction": "Delete permanently",
-      "deleting": "Deleting…"
+      "deleting": "Deleting…",
+      "tabsLabel": "Account settings",
+      "tabs": {
+        "account": "Account",
+        "role": "Role",
+        "content": "Content access",
+        "screens": "Screen access"
+      }
     },
     "toasts": {
       "created": "User created.",
@@ -89,6 +96,18 @@
     },
     "errors": {
       "requestFailed": "Tilecast could not update this account."
+    },
+    "roleSelect": {
+      "builtin": "Built-in roles",
+      "custom": "Custom roles"
+    },
+    "access": {
+      "roleTitle": "Role",
+      "roleDescription": "What this person can do in Studio.",
+      "contentTitle": "Content access",
+      "contentDescription": "Which media this person can reach and which tags they can apply.",
+      "screensDescription": "Which screens this person can reach.",
+      "selfNote": "You can't change your own access. Ask another administrator."
     }
   },
   "security": {
@@ -226,5 +245,286 @@
     "revoked": "Revoked",
     "revoke": "Revoke",
     "revokeError": "Tilecast could not revoke the token."
+  },
+  "roleAdmin": {
+    "groups": {
+      "media": "Media",
+      "widgets": "Widgets",
+      "dataSources": "Data Sources",
+      "playlists": "Playlists",
+      "layouts": "Layouts",
+      "campaigns": "Campaigns",
+      "review": "Content review",
+      "screens": "Screens",
+      "schedules": "Schedules",
+      "activity": "Activity",
+      "plugins": "Plugins",
+      "administration": "Administration"
+    },
+    "capabilities": {
+      "media_read": {
+        "label": "View media",
+        "description": "See media in the library and its details."
+      },
+      "media_upload": {
+        "label": "Upload media",
+        "description": "Add images and videos."
+      },
+      "media_edit": {
+        "label": "Edit media details",
+        "description": "Rename, describe, set availability, and retry processing."
+      },
+      "media_organize": {
+        "label": "Move and collect media",
+        "description": "Move media between folders and in or out of collections."
+      },
+      "media_tags_assign": {
+        "label": "Apply tags",
+        "description": "Add and remove tags on media. Content access can limit which tags."
+      },
+      "media_archive": {
+        "label": "Archive and restore media",
+        "description": "Take media out of rotation and bring it back."
+      },
+      "media_delete": {
+        "label": "Delete media",
+        "description": "Delete media permanently, and delete folders, tags, or collections the role manages."
+      },
+      "media_folders_manage": {
+        "label": "Manage folders",
+        "description": "Create, rename, and move folders. Needs the whole library."
+      },
+      "media_tags_manage": {
+        "label": "Manage tags",
+        "description": "Create and rename tags. Needs every tag."
+      },
+      "media_collections_manage": {
+        "label": "Manage collections",
+        "description": "Create and rename collections. Needs the whole library."
+      },
+      "widget_read": {
+        "label": "View Widgets",
+        "description": "See Widgets and websites."
+      },
+      "widget_edit": {
+        "label": "Create and edit Widgets",
+        "description": "Build and change Widgets and websites."
+      },
+      "widget_delete": {
+        "label": "Archive and delete Widgets",
+        "description": "Take Widgets out of rotation or delete them."
+      },
+      "datasource_read": {
+        "label": "View Data Sources",
+        "description": "See Data Sources and their data."
+      },
+      "datasource_edit": {
+        "label": "Create and edit Data Sources",
+        "description": "Connect feeds, calendars, spreadsheets, and manual data."
+      },
+      "datasource_manage": {
+        "label": "Manage Data Sources",
+        "description": "Delete Data Sources and create forms that collect responses."
+      },
+      "playlist_read": {
+        "label": "View playlists",
+        "description": "See playlists and their history."
+      },
+      "playlist_edit": {
+        "label": "Edit playlists",
+        "description": "Create playlists and change drafts. Without publish, changes go to review."
+      },
+      "playlist_publish": {
+        "label": "Publish playlists",
+        "description": "Put playlist changes live and restore earlier versions."
+      },
+      "playlist_delete": {
+        "label": "Delete playlists",
+        "description": "Delete playlists."
+      },
+      "layout_read": {
+        "label": "View Layouts",
+        "description": "See Layouts and their history."
+      },
+      "layout_edit": {
+        "label": "Edit Layouts",
+        "description": "Create Layouts and change drafts. Without publish, changes go to review."
+      },
+      "layout_publish": {
+        "label": "Publish Layouts",
+        "description": "Put Layout changes live and restore earlier versions."
+      },
+      "layout_delete": {
+        "label": "Delete Layouts",
+        "description": "Delete Layouts."
+      },
+      "campaign_read": {
+        "label": "View campaigns",
+        "description": "See campaigns and their releases."
+      },
+      "campaign_edit": {
+        "label": "Edit campaigns",
+        "description": "Create campaigns, change drafts, and archive them."
+      },
+      "campaign_publish": {
+        "label": "Publish campaigns",
+        "description": "Release campaigns to screens."
+      },
+      "content_review": {
+        "label": "Review submissions",
+        "description": "Approve, request changes, schedule, and roll back submitted content."
+      },
+      "screen_read": {
+        "label": "View screens",
+        "description": "See screens, Display Groups, status, live view, and playback."
+      },
+      "screen_manage": {
+        "label": "Manage screens",
+        "description": "Change screen settings, groups, locations, commands, and Player updates."
+      },
+      "screen_pair": {
+        "label": "Pair and revoke screens",
+        "description": "Approve new players and revoke their credentials."
+      },
+      "screen_assign": {
+        "label": "Assign content to screens",
+        "description": "Choose what plays, start takeovers, and present with AirPlay."
+      },
+      "schedule_read": {
+        "label": "View schedules",
+        "description": "See schedules and what they will play."
+      },
+      "schedule_edit": {
+        "label": "Edit schedules",
+        "description": "Create, change, turn on or off, and delete schedules."
+      },
+      "activity_read": {
+        "label": "View activity",
+        "description": "See fleet health, proof of play, incidents, and screen timelines."
+      },
+      "activity_audit": {
+        "label": "View content history",
+        "description": "See the audit log of content changes."
+      },
+      "activity_manage": {
+        "label": "Manage activity",
+        "description": "See the full audit log, export reports, and update incidents and retention."
+      },
+      "plugins_use": {
+        "label": "Use plugins",
+        "description": "Open plugin pages and browse the Plugin Store."
+      },
+      "plugins_manage": {
+        "label": "Manage plugins",
+        "description": "Install, update, configure, and remove plugins."
+      },
+      "users_manage": {
+        "label": "Manage people",
+        "description": "Add accounts and set their role, content access, and screen access."
+      },
+      "roles_manage": {
+        "label": "Manage roles",
+        "description": "Create and change custom roles."
+      },
+      "settings_manage": {
+        "label": "Change installation settings",
+        "description": "Edit organization settings, branding, and notifications."
+      },
+      "system_manage": {
+        "label": "Run system maintenance",
+        "description": "See system status and run maintenance."
+      },
+      "system_backups": {
+        "label": "Backups and restore",
+        "description": "Create, download, and restore backups."
+      },
+      "integrations_manage": {
+        "label": "Integration tokens",
+        "description": "Create and revoke integration tokens."
+      },
+      "player_releases": {
+        "label": "Player releases",
+        "description": "Check, cache, and remove Player releases."
+      }
+    },
+    "summary": {
+      "none": "This role grants nothing yet."
+    },
+    "page": {
+      "intro": "A role is what someone can do. Built-in roles are fixed; add your own to give people exactly the access their work needs.",
+      "createAction": "Create role",
+      "loading": "Loading roles…",
+      "builtin": "Built-in",
+      "custom": "Custom",
+      "people_one": "{{count}} person",
+      "people_other": "{{count}} people",
+      "capabilityCount_one": "{{count}} capability",
+      "capabilityCount_other": "{{count}} capabilities",
+      "viewAction": "View",
+      "duplicateAction": "Duplicate",
+      "duplicateLabel": "Duplicate {{name}} as a new role",
+      "deleteTitle": "Delete the {{name}} role?",
+      "deleteBody": "Nobody holds this role. Deleting it cannot be undone.",
+      "deleteInUse_one": "{{count}} person still holds this role. Move them to another role first.",
+      "deleteInUse_other": "{{count}} people still hold this role. Move them to another role first."
+    },
+    "toasts": {
+      "created": "Role created.",
+      "updated": "Role updated.",
+      "deleted": "Role deleted."
+    },
+    "editor": {
+      "createTitle": "Create a role",
+      "editTitle": "Edit {{name}}",
+      "description": "Choose what people with this role can do. Content and screen access, set per person on the Users page, narrow where they can do it.",
+      "builtinDescription": "Built-in roles cannot be changed. Duplicate one to start a custom role from it.",
+      "nameLabel": "Name",
+      "namePlaceholder": "For example, Classroom Media",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Who this role is for",
+      "capabilitiesTitle": "What this role can do",
+      "capabilitiesHint": "Turning on an action also turns on what it needs, such as viewing before uploading.",
+      "capabilitiesViewHint": "Everything this role allows, by area.",
+      "groupCount": "{{count}} of {{total}}",
+      "ownerReserved": "Reserved for the Owner role.",
+      "ownerOnly": "Only an Owner can grant this.",
+      "notYours": "Your own role does not include this.",
+      "createAction": "Create role",
+      "copyName": "{{name}} copy"
+    }
+  },
+  "contentAccess": {
+    "ownerNote": "Owners always reach the whole library and can apply every tag.",
+    "loadError": "Content access could not be loaded.",
+    "loading": "Loading content access",
+    "roleHasNoMedia": "This person's role doesn't include Media or Widgets, so content access has no effect until their role does.",
+    "notConfigured": "This account has no content access yet, so it can't see any media. Choose access and save.",
+    "saved": "Content access saved.",
+    "saveAction": "Save content access",
+    "library": {
+      "legend": "Media library",
+      "description": "A folder includes everything inside it.",
+      "all": "Entire library",
+      "allHint": "Every folder, plus media that isn't in a folder.",
+      "restricted": "Only selected folders",
+      "restrictedHint_one": "{{count}} folder selected. Media outside it, including unfiled media, stays hidden.",
+      "restrictedHint_other": "{{count}} folders selected. Media outside them, including unfiled media, stays hidden.",
+      "searchLabel": "Search folders",
+      "searchPlaceholder": "Search folders",
+      "noFolders": "There are no folders yet. Create folders in Media first.",
+      "noMatch": "No folders match.",
+      "included": "Included",
+      "subtreeNote": "Uploads from this person land in one of these folders.",
+      "emptyNote": "With no folders selected, this person can't see or upload any media."
+    },
+    "tags": {
+      "legend": "Tags they can apply",
+      "description": "Tags label media, for example to feed a tag-based playlist. They never make media visible.",
+      "all": "Any tag",
+      "restricted": "Only selected tags",
+      "restrictedHint_one": "{{count}} tag selected.",
+      "restrictedHint_other": "{{count}} tags selected.",
+      "noTags": "There are no tags yet."
+    }
   }
 }

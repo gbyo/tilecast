@@ -472,8 +472,12 @@ async fn installation_mismatch_records_evidence_quarantines_and_stops_content() 
     *harness.fake.installation.lock().unwrap() = InstallationId::from_str(&rotated).unwrap();
     player.context.server_wake.notify_one();
     let db = player.context.db().unwrap().clone();
-    wait_for("the mismatch record", || db.run_blocking(|c| edge_state::repo::installation_mismatch::get(c)).ok()?)
-        .await;
+    // The record is stored with its planned moves before the caches move, so
+    // wait for the completed quarantine rather than the first write.
+    wait_for("the completed quarantine", || {
+        db.run_blocking(|c| edge_state::repo::installation_mismatch::get(c)).ok()?.filter(|r| r.quarantine_complete)
+    })
+    .await;
     let record = db.run(|c| edge_state::repo::installation_mismatch::get(c)).await.unwrap().expect("mismatch evidence");
     assert_eq!(record.expected_installation_id, expected);
     assert_eq!(record.actual_installation_id, rotated);

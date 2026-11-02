@@ -41,7 +41,7 @@ import {
 import { WidgetsToolbar } from "../components/content/widgets/WidgetsToolbar";
 import { WidgetSnapshotBackfill } from "../content/WidgetSnapshotBackfill";
 import { useCompactLayout } from "../hooks/use-compact-layout";
-import { canManageContent } from "./ContentPage";
+import { hasCapability } from "../auth/capabilities";
 
 export function WidgetsPage() {
   const { t } = useTranslation(["content", "common"]);
@@ -51,7 +51,7 @@ export function WidgetsPage() {
   const queryClient = useQueryClient();
   const compact = useCompactLayout();
   const csrf = auth.status?.csrfToken ?? "";
-  const canManage = canManageContent(auth.status?.user);
+  const canManage = hasCapability(auth.status, "widget.edit");
   const [search, setSearch] = useState("");
   const [provider, setProvider] = useState("");
   const [sort, setSort] = useState<WidgetSort>(defaultWidgetSort);

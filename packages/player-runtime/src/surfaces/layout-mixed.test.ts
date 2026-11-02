@@ -8,6 +8,7 @@ import type {
 } from "../host/contract";
 import type { RuntimeWidgetHost } from "../widgets/host";
 import { LayoutSurface } from "./layout-surface";
+import { specFromWebDescriptor, specFromYouTube } from "../remote-web/spec";
 import type { MediaSurface, SurfaceEnvironment, SurfaceSink } from "./surface";
 
 const component: RuntimeLayoutZonePlaylistItem = {
@@ -144,6 +145,7 @@ function harness(
     sink,
     states,
     disposals,
+    widgets,
     zone: surface.element.firstElementChild as HTMLElement,
     adjacent: surface.element.lastElementChild,
   };
@@ -169,6 +171,162 @@ afterEach(() => {
 });
 
 describe("mixed Layout playlist lifecycle", () => {
+  it("mounts sandboxed occurrences through the shared Widget host and releases their execution at the boundary", async () => {
+    if (component.kind !== "widget" || !("component" in component.widget))
+      throw new Error("expected component fixture");
+    const widget = {
+      ...component.widget,
+      execution: { kind: "sandboxed" as const, frameUrl: "authorized-frame" },
+      media: { "asset/variant": "authorized-media" },
+    };
+    const h = harness([{ ...component, widget }, tree]);
+    await h.surface.activate();
+    expect(h.widgets.mount).toHaveBeenCalledWith(
+      expect.any(HTMLElement),
+      widget,
+      expect.any(Function),
+    );
+    h.clock.advance(1000);
+    expect(h.disposals[0]).not.toHaveBeenCalled();
+    h.states[0]!({ state: "ready" });
+    await settle();
+    await paint();
+    h.clock.advance(100);
+    await settle();
+    await paint();
+    expect(h.disposals[0]).toHaveBeenCalledOnce();
+    expect(h.adjacent?.textContent).toBe("Always here");
+  });
+
+  it.each([
+    {
+      provider: "remote page",
+      spec: specFromWebDescriptor({
+        mode: "remote",
+        url: "https://example.org",
+      })!,
+    },
+    {
+      provider: "fixed YouTube",
+      spec: specFromYouTube(
+        { videoId: "dQw4w9WgXcQ", fixedDurationSeconds: 1 },
+        null,
+      )!,
+    },
+  ])(
+    "gives $provider its full slot after host readiness and retains its audio policy",
+    async ({ spec }) => {
+      let prepared!: () => void;
+      const dispose = vi.fn();
+      const remote = vi.fn(
+        (_item: RuntimeItem, _sink: SurfaceSink): MediaSurface => ({
+          element: document.createElement("div"),
+          prepare: () =>
+            new Promise<void>((resolve) => {
+              prepared = resolve;
+            }),
+          activate: vi.fn().mockResolvedValue(undefined),
+          pause: vi.fn(),
+          seek: vi.fn().mockResolvedValue(undefined),
+          dispose,
+        }),
+      );
+      const h = harness(
+        [
+          {
+            id: "timed-web",
+            kind: "remote-web",
+            durationMs: 100,
+            remoteWeb: spec,
+            audioEnabled: true,
+            volume: 0.4,
+          },
+          tree,
+        ],
+        remote,
+      );
+      await h.surface.activate();
+      h.clock.advance(1000);
+      expect(
+        h.zone.firstElementChild?.getAttribute("data-tilecast-zone-item"),
+      ).toBe("timed-web");
+      expect(h.sink.evidence).not.toHaveBeenCalledWith(
+        "layout-zone-rendered",
+        "rotating",
+      );
+      prepared();
+      await settle();
+      expect(remote.mock.calls[0]?.[0]).toMatchObject({
+        remoteWeb: spec,
+        audioEnabled: true,
+        volume: 0.4,
+      });
+      h.clock.advance(99);
+      expect(dispose).not.toHaveBeenCalled();
+      h.clock.advance(1);
+      await settle();
+      await paint();
+      expect(dispose).toHaveBeenCalledOnce();
+      expect(h.adjacent?.textContent).toBe("Always here");
+      expect(h.sink.ended).not.toHaveBeenCalled();
+    },
+  );
+
+  it("waits for YouTube completion and disposes its player before the next occurrence without accepting duplicate ends", async () => {
+    const instances: {
+      sink: SurfaceSink;
+      dispose: ReturnType<typeof vi.fn>;
+    }[] = [];
+    const remote = vi.fn(
+      (_item: RuntimeItem, sink: SurfaceSink): MediaSurface => {
+        expect(
+          instances.every(
+            (instance) => instance.dispose.mock.calls.length === 1,
+          ),
+        ).toBe(true);
+        const dispose = vi.fn();
+        instances.push({ sink, dispose });
+        return {
+          element: document.createElement("div"),
+          prepare: vi.fn().mockResolvedValue(undefined),
+          activate: vi.fn().mockResolvedValue(undefined),
+          pause: vi.fn(),
+          seek: vi.fn().mockResolvedValue(undefined),
+          dispose,
+        };
+      },
+    );
+    const spec = specFromYouTube({ videoId: "dQw4w9WgXcQ" }, null)!;
+    const h = harness(
+      [
+        { id: "first", kind: "remote-web", durationMs: 100, remoteWeb: spec },
+        { id: "second", kind: "remote-web", durationMs: 100, remoteWeb: spec },
+        tree,
+      ],
+      remote,
+    );
+    await h.surface.activate();
+    await settle();
+    h.clock.advance(1000);
+    expect(remote).toHaveBeenCalledOnce();
+    instances[0]!.sink.ended("ended");
+    await settle();
+    expect(remote).toHaveBeenCalledTimes(2);
+    instances[0]!.sink.ended("ended");
+    expect(
+      h.zone.firstElementChild?.getAttribute("data-tilecast-zone-item"),
+    ).toBe("second");
+    instances[1]!.sink.ended("ended");
+    await settle();
+    await paint();
+    expect(instances[1]!.dispose).toHaveBeenCalledOnce();
+    expect(
+      h.zone.firstElementChild?.getAttribute("data-tilecast-zone-item"),
+    ).toBe("tree");
+    expect(h.adjacent?.textContent).toBe("Always here");
+    expect(h.sink.ended).not.toHaveBeenCalled();
+  });
+
   it("rotates image → component → video → compatibility Widget with independent adjacent content", async () => {
     const h = harness([media("image"), component, media("video"), tree]);
     await h.surface.activate();

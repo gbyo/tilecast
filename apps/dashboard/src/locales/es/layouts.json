@@ -423,17 +423,17 @@
   },
   "preview": {
     "zoneEmpty": "No hay elementos listos",
-    "zoneUnsupported": "En una zona de lista de reproducción de un diseño solo se pueden reproducir imágenes y vídeos.",
+    "zoneUnsupported": "Las zonas admiten imágenes, vídeos y Widgets compatibles. No admiten diseños anidados.",
     "unknownProvider": "Widget"
   },
   "zoneIssue": {
-    "title": "Esta zona del diseño solo puede reproducir imágenes y vídeos.",
+    "title": "Esta zona contiene elementos de lista de reproducción no compatibles.",
     "intro": "«{{playlist}}» contiene elementos no admitidos:",
     "item": "{{name}} — {{kind}}",
     "more_one": "y {{count}} elemento más",
     "more_many": "y {{count}} elementos más",
     "more_other": "y {{count}} elementos más",
-    "fix": "Quita esos elementos o úsalos como ubicaciones independientes del diseño.",
+    "fix": "Elimina las entradas no compatibles. Reproduce los diseños anidados como contenido principal.",
     "kind": {
       "widget": "Widget",
       "website": "Sitio web",

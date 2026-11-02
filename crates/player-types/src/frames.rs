@@ -1,9 +1,34 @@
-//! Shared native Widget-frame values.
+//! Shared native sandbox-frame values.
 //!
 //! External Widgets execute as documents served from verified frame grants.
 //! Every native host names them the same way and confines them with the
 //! same sandbox policy, so the values here are cross-player constants,
 //! pinned by the conformance fixtures.
+
+/// Execution authority travels separately from the shared frame CAS domain.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FrameKind {
+    #[default]
+    Widget,
+    ExternalPlugin,
+}
+
+pub const EXTERNAL_PLUGIN_RUNTIME_CAPABILITY: &str = "plugin.external-runtime";
+pub const EXTERNAL_PLUGIN_RUNTIME_VERSION: u32 = 1;
+pub const PLUGIN_FRAME_RESPONSE_POLICY: &str = "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; media-src 'none'; font-src 'none'; connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
+
+impl FrameKind {
+    pub fn is_widget(&self) -> bool {
+        *self == Self::Widget
+    }
+    pub fn response_policy(self) -> &'static str {
+        match self {
+            Self::Widget => FRAME_RESPONSE_POLICY,
+            Self::ExternalPlugin => PLUGIN_FRAME_RESPONSE_POLICY,
+        }
+    }
+}
 
 /// The custom scheme naming Widget frame loads: `tcwidget://cap/<opaque>`.
 pub const FRAME_SCHEME: &str = "tcwidget";

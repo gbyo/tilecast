@@ -119,6 +119,11 @@ func (s *Service) Setup(ctx context.Context, input SetupInput) (Session, error) 
 	if _, err := tx.Exec(ctx, `INSERT INTO users (id, name, username, password_hash, role, active, created_at, last_login_at) VALUES ($1,$2,$3,$4,$5,TRUE,$6,$6)`, user.ID, user.Name, user.Username, passwordHash, user.Role, user.CreatedAt); err != nil {
 		return Session{}, fmt.Errorf("create owner: %w", err)
 	}
+	// The Owner is never restricted, but an explicit policy keeps the
+	// account's access well defined if it is ever moved to another role.
+	if _, err := tx.Exec(ctx, `INSERT INTO user_content_access(user_id,library_mode,tag_mode) VALUES($1,'all','all')`, user.ID); err != nil {
+		return Session{}, fmt.Errorf("create owner content access: %w", err)
+	}
 	user.LastLoginAt = &user.CreatedAt
 
 	session, err := s.createSession(ctx, tx, user, "password", false)

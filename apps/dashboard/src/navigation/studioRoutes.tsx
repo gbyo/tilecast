@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { matchRoutes, type RouteObject } from "react-router";
-import type { User } from "../api/types";
+import type { Capability, CapabilityRequirement } from "../auth/capabilities";
 import type { StudioNavigationMetadata } from "./studioNavigation";
 
 export type BreadcrumbResource =
@@ -44,8 +44,14 @@ export type StudioRouteHandle = {
    * header that hosts the page's controls, and no page heading of its own.
    */
   immersiveEditor?: boolean;
-  /** Roles that can discover this route through command search. */
-  searchAllowedRoles?: readonly User["role"][];
+  /**
+   * The route needs at least one of these capabilities. Requirements stack
+   * down the tree: a child route also needs everything its ancestors need.
+   * The sidebar, native navigation catalog, command search, and the route
+   * guard all read this one declaration, so they cannot disagree. Hiding a
+   * route is a convenience; the API decides every request on its own.
+   */
+  capabilities?: readonly Capability[];
   search?: {
     label: string;
     description: string;
@@ -94,4 +100,18 @@ export function isImmersiveEditorRoute(
   return deepest
     ? studioRouteHandle(deepest.route).immersiveEditor === true
     : false;
+}
+
+/**
+ * The requirement for a path: one capability group per matched route that
+ * declares one, from the root down.
+ */
+export function routeRequirement(
+  routes: readonly RouteObject[],
+  pathname: string,
+): CapabilityRequirement {
+  const matches = matchRoutes(routes as RouteObject[], pathname) ?? [];
+  return matches
+    .map((match) => studioRouteHandle(match.route).capabilities)
+    .filter((group): group is readonly Capability[] => Boolean(group));
 }

@@ -1,0 +1,19 @@
+{
+  "apiVersion": 2,
+  "id": "status_badge",
+  "definitionVersion": 1,
+  "name": "Status badge",
+  "description": "An external corner surface.",
+  "capabilities": {
+    "playerManifest": false
+  },
+  "runtime": {
+    "surfaces": [
+      "corner.top-left",
+      "corner.top-right",
+      "corner.bottom-left",
+      "corner.bottom-right"
+    ],
+    "tier": "ambient"
+  }
+}

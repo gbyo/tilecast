@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
-	"github.com/tilecast/tilecast/apps/server/internal/plugins"
 )
 
 var (
@@ -226,7 +225,7 @@ type Manifest struct {
 	Websites               []ManifestWebsite             `json:"websites"`
 	Widgets                []ManifestWidget              `json:"widgets"`
 	DataSources            []ManifestDataSource          `json:"dataSources"`
-	Plugins                []plugins.ManifestPlugin      `json:"plugins"`
+	Plugins                []ManifestPluginEntry         `json:"plugins"`
 	PresentationOverride   *ManifestPresentationOverride `json:"presentationOverride,omitempty"`
 	Takeover               *ManifestTakeover             `json:"takeover,omitempty"`
 	// LegacyTakeover mirrors Takeover under the pre-rename `emergency` key. A

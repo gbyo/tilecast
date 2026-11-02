@@ -280,12 +280,20 @@ impl AndroidHost {
     /// The coarse status snapshot shared with Kotlin (bridge contract v1).
     /// Paths identify storage; they carry no credentials or content.
     pub fn status(&self) -> serde_json::Value {
-        let bound = self
+        let binding = self
             .runtime
             .block_on(self.state.run(|connection| player_state::repo::binding::get(connection)))
             .ok()
-            .flatten()
-            .filter(|bound| bound.credential_state == player_state::repo::binding::CredentialState::Stored);
+            .flatten();
+        // The binding outlives a revoked credential: it still names the
+        // server, so setup can ask that server for a new code. An explicit
+        // reset leaves no credential state, and setup searches instead.
+        let retained_server_url = binding
+            .as_ref()
+            .filter(|binding| binding.credential_state == player_state::repo::binding::CredentialState::Rejected)
+            .map(|binding| binding.server_url.clone());
+        let bound =
+            binding.filter(|bound| bound.credential_state == player_state::repo::binding::CredentialState::Stored);
         let signals = self.drivers.link_signals();
         let link = signals.link_state.lock().unwrap_or_else(|error| error.into_inner()).clone();
         let last_contact = *signals.last_server_contact.lock().unwrap_or_else(|error| error.into_inner());
@@ -307,6 +315,7 @@ impl AndroidHost {
             // installer, and commissioning read. The credential itself
             // never leaves the Keystore.
             "serverUrl": bound.as_ref().map(|bound| bound.server_url.clone()),
+            "retainedServerUrl": retained_server_url,
             "installationId": bound.as_ref().map(|bound| bound.installation_id.to_string()),
             "organizationName": bound.as_ref().and_then(|bound| bound.organization_name.clone()),
             "screenId": bound.as_ref().and_then(|bound| bound.screen_id.map(|id| id.to_string())),
@@ -471,7 +480,7 @@ impl AndroidHost {
                 client.verify_installation(binding.installation_id, credential).await.map_err(|error| {
                     if rejected(&error) { HostError::CredentialRejected } else { HostError::SyncFailed }
                 })?;
-            let host = AndroidManifestHost::new(core.clone(), cas, server, engine, clock, facts);
+            let host = AndroidManifestHost::new(core.clone(), cas, server, engine, clock, facts, manifest_wake.clone());
             let target = host.reconcile(&binding).await.map_err(|error| match &error {
                 player_core::ManifestSyncError::Server(server) if rejected(server) => {
                     HostError::CredentialRejected

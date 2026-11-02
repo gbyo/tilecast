@@ -390,6 +390,23 @@ const countdown = {
   },
 };
 
+/**
+ * A Plugin API v2 state entry for a plugin no Player build includes. Every
+ * host that forwards plugin_state must carry it to the Runtime and the
+ * Runtime must leave it, playback, and the v1 plugins alone.
+ */
+const stateEntry = (label) => ({
+  id: "state-1",
+  type: "plugin_state",
+  version: 1,
+  plugin: "unbundled_plugin",
+  definitionVersion: 1,
+  stateType: "unbundled_plugin",
+  stateVersion: 1,
+  state: { label },
+  media: [],
+});
+
 const ticker = {
   id: "alert-1",
   type: "alert_ticker",
@@ -455,8 +472,9 @@ export const fixtures = [
         present: {
           presentation: {
             state: "idle",
-            title: "Greenwood Schools",
-            message: "No content assigned.",
+            title: "No content assigned",
+            status: "no_content",
+            message: "This screen is ready for content.",
             backgroundColor: "#0E141B",
             textColor: "#F5F7FA",
             footerText: "Tilecast",
@@ -729,6 +747,189 @@ export const fixtures = [
       { checkpoint: "layout", visual: true },
       { advance: 5_000 },
       { checkpoint: "zone-rotated", visual: true },
+    ],
+  },
+  {
+    name: "layout-mixed",
+    description:
+      "A real image → component Widget → decoded video → compatibility Widget rotation, with a neighboring Widget held independently.",
+    legacy: false,
+    requiresVideo: true,
+    steps: [
+      {
+        present: {
+          presentation: playing([
+            item("mixed-layout", {
+              kind: "layout",
+              durationMs: null,
+              layout: {
+                canvasWidth: 1920,
+                canvasHeight: 1080,
+                background: "#000000",
+                zones: [
+                  {
+                    id: "rotation",
+                    x: 0,
+                    y: 0,
+                    width: 960,
+                    height: 1080,
+                    layer: 0,
+                    opacity: 1,
+                    loop: true,
+                    playlistItems: [
+                      {
+                        id: "image",
+                        kind: "image",
+                        src: "media:landscape",
+                        durationMs: 1000,
+                        fit: "contain",
+                        muted: true,
+                        volume: 0,
+                        loop: false,
+                      },
+                      {
+                        id: "component",
+                        kind: "widget",
+                        widget: clockComponent({ style: "analog" }),
+                        durationMs: 1000,
+                      },
+                      {
+                        id: "video",
+                        kind: "video",
+                        src: "media:clip",
+                        durationMs: null,
+                        fit: "contain",
+                        muted: true,
+                        volume: 0,
+                        loop: false,
+                        videoEndOffsetMs: 3000,
+                      },
+                      {
+                        id: "compatibility",
+                        kind: "widget",
+                        widget: {
+                          background: "#16324D",
+                          root: text("Zone Widget", {
+                            fontSize: 72,
+                            color: "#FFFFFF",
+                          }),
+                        },
+                        durationMs: 1000,
+                      },
+                    ],
+                  },
+                  {
+                    id: "neighbor",
+                    x: 960,
+                    y: 0,
+                    width: 960,
+                    height: 1080,
+                    layer: 0,
+                    opacity: 1,
+                    loop: false,
+                    playlistItems: [
+                      {
+                        id: "neighbor-clock",
+                        kind: "widget",
+                        widget: clockComponent({ style: "minimal" }),
+                        durationMs: 1000,
+                      },
+                    ],
+                  },
+                ],
+              },
+            }),
+          ]),
+          activation: activation(1),
+        },
+      },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "rotation",
+          count: 1,
+        },
+      },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "neighbor",
+          count: 1,
+        },
+      },
+      {
+        assertZoneItems: [
+          { zoneId: "rotation", itemId: "image" },
+          { zoneId: "neighbor", itemId: "neighbor-clock" },
+        ],
+      },
+      { assertWidgets: [{ type: "tilecast.clock" }] },
+      { checkpoint: "mixed-image", visual: true },
+      { advance: 1000 },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "rotation",
+          count: 2,
+        },
+      },
+      {
+        assertZoneItems: [
+          { zoneId: "rotation", itemId: "component" },
+          { zoneId: "neighbor", itemId: "neighbor-clock" },
+        ],
+      },
+      {
+        assertWidgets: [{ type: "tilecast.clock" }, { type: "tilecast.clock" }],
+      },
+      { checkpoint: "mixed-component", visual: true },
+      { advance: 1000 },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "rotation",
+          count: 3,
+        },
+      },
+      {
+        assertZoneItems: [
+          { zoneId: "rotation", itemId: "video" },
+          { zoneId: "neighbor", itemId: "neighbor-clock" },
+        ],
+      },
+      { assertWidgets: [{ type: "tilecast.clock" }] },
+      { checkpoint: "mixed-video" },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "rotation",
+          count: 4,
+          timeoutMs: 20000,
+        },
+      },
+      {
+        assertZoneItems: [
+          { zoneId: "rotation", itemId: "compatibility" },
+          { zoneId: "neighbor", itemId: "neighbor-clock" },
+        ],
+      },
+      { assertWidgets: [{ type: "tilecast.clock" }] },
+      { checkpoint: "mixed-compatibility", visual: true },
+      { advance: 1000 },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "rotation",
+          count: 5,
+        },
+      },
+      {
+        assertZoneItems: [
+          { zoneId: "rotation", itemId: "image" },
+          { zoneId: "neighbor", itemId: "neighbor-clock" },
+        ],
+      },
+      { checkpoint: "mixed-loop", visual: true },
     ],
   },
   {
@@ -1113,6 +1314,40 @@ export const fixtures = [
       { plugins: { plugins: [] } },
       { advance: 1_000 },
       { checkpoint: "cleared", visual: true },
+    ],
+  },
+  {
+    name: "plugin-state",
+    // Plugin API v2 state travels beside v1 plugins on its own channel. No
+    // bundled plugin owns this entry, so the Runtime keeps it and does
+    // nothing visible; what the fixture proves is that state arriving,
+    // changing and clearing never restarts playback or disturbs a v1 plugin,
+    // on every host that forwards plugin_state.
+    legacy: false,
+    description:
+      "Plugin API v2 state next to a v1 plugin: a plugin-only update restarts nothing.",
+    capabilities: { pluginState: true },
+    steps: [
+      {
+        present: {
+          presentation: playing([
+            item("under", { src: "media:square", durationMs: null }),
+          ]),
+          activation: activation(1),
+        },
+      },
+      { plugins: { plugins: [countdown, stateEntry("Lobby")] } },
+      { advance: 0 },
+      { checkpoint: "state-beside-v1-plugin", visual: true },
+      { plugins: { plugins: [countdown, stateEntry("Gym")] } },
+      { advance: 0 },
+      { checkpoint: "plugin-only-update" },
+      { plugins: { plugins: [countdown] } },
+      { advance: 0 },
+      { checkpoint: "state-cleared" },
+      { plugins: { plugins: [] } },
+      { advance: 1_000 },
+      { checkpoint: "all-cleared" },
     ],
   },
   {

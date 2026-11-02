@@ -65,6 +65,8 @@ pub struct ContentRef {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FrameRef {
+    #[serde(default, skip_serializing_if = "player_types::frames::FrameKind::is_widget")]
+    pub kind: player_types::frames::FrameKind,
     pub package_id: SafeText<128>,
     pub package_digest: Sha256Digest,
     pub sha256: Sha256Digest,

@@ -39,6 +39,7 @@ typedef struct {
   char uri[128];
   guint64 size_bytes;
   char *mime_type;
+  gboolean external_plugin;
 } TcContentRef;
 
 typedef struct _TcHost TcHost;
@@ -94,6 +95,7 @@ struct _TcHost {
   GPtrArray *content;          /* TcContentRef*, current activation + plugins */
   GPtrArray *plugin_content;   /* TcContentRef*, current plugin state */
   GPtrArray *frames;           /* TcContentRef*, current activation frame allowlist */
+  GPtrArray *plugin_frames;    /* TcContentRef*, independent plugin frame allowlist */
   GHashTable *media_aliases;   /* "<asset>/<variant>" -> capability URI, from plugin state */
   char *current_activation_id;
   gint64 current_generation;

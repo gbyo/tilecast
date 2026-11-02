@@ -3,13 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
-  "description": "The Tilecast Plugin API v1: the manifest schema, the Studio and Player runtime contracts, and the Go SDK (go/).",
+  "description": "The Tilecast Plugin API (v1 and v2): the manifest schema, the Player service vocabulary, the Studio and Player runtime contracts, and the Go SDK (go/).",
   "type": "module",
   "exports": {
     "./manifest": "./src/manifest.ts",
     "./automation": "./src/automation.ts",
     "./runtime": "./src/runtime.ts",
     "./runtime/testing": "./src/runtime-testing.ts",
+    "./player": "./src/player.ts",
+    "./services": "./src/services.ts",
+    "./player-services.json": "./player-services.json",
     "./schema/tilecast-plugin.schema.json": "./schema/tilecast-plugin.schema.json",
     "./schema/tilecast-automation.schema.json": "./schema/tilecast-automation.schema.json"
   },

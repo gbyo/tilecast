@@ -1,0 +1,32 @@
+{
+  "apiVersion": 2,
+  "id": "ambient_audio",
+  "definitionVersion": 1,
+  "name": "Ambient Audio",
+  "description": "Player behavior without a visual surface.",
+  "category": "Display",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "player": {
+    "state": [
+      {
+        "type": "ambient_audio",
+        "version": 1
+      }
+    ],
+    "runtime": {
+      "entrypoint": "./runtime/index.ts",
+      "services": {
+        "required": ["player.clock"],
+        "optional": ["player.presentation.observe@1"]
+      }
+    }
+  }
+}

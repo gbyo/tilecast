@@ -200,6 +200,15 @@ export class PlaybackController {
     }
   }
 
+  /**
+   * A presentation provider that the view started stopped without being
+   * asked to. The host has already recovered the screen; this reports the
+   * failure for the current activation.
+   */
+  reportProviderFailure(message: string): void {
+    this.reports.playbackError(this.activation, null, message.slice(0, 240));
+  }
+
   subscribe(listener: (state: RuntimeViewState) => void): () => void {
     this.listeners.add(listener);
     listener(this.view);

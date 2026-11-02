@@ -56,6 +56,13 @@ object RendererReadyReport {
                 put(name, version)
             }
             put(RendererProfile.WEB_REMOTE_CAPABILITY, RendererProfile.WEB_REMOTE_VERSION)
+            // Plugin API v2: the same shared Runtime hosts it on this WebView,
+            // with the services the generated contract names. A host-assisted
+            // service such as player.events is not in that list.
+            put(RendererProfile.PLUGIN_HOST_CAPABILITY, RendererProfile.PLUGIN_HOST_VERSION)
+            for ((name, version) in RendererProfile.SHARED_RUNTIME_PLAYER_SERVICES) {
+                put(name, version)
+            }
         }
 
     fun widgetComponents(support: RuntimeSupport): JsonObject =

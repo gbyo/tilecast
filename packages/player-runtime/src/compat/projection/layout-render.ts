@@ -4,9 +4,9 @@
  * Each placement becomes an absolutely-positioned zone on the canvas.
  * Widget/primitive placements resolve to render trees; asset placements to a
  * cached image/video; playlist zones carry their own item list that the
- * renderer rotates independently. A single bad placement is isolated (skipped)
- * rather than failing the whole layout; a grossly invalid document returns
- * null so the previously active presentation stays up.
+ * renderer rotates independently. Unsupported playlist entries reject
+ * projection explicitly. Unavailable media retains its eligibility policy;
+ * a grossly invalid document returns null to retain the active presentation.
  */
 
 import { projectZoneWidget } from "./zone-widget";
@@ -255,7 +255,14 @@ function renderPlacement(
       if (!widget) {
         return null;
       }
-      const projected = projectZoneWidget(widget, ctx, placement.height);
+      // A fixed placement that cannot project is skipped like any other
+      // unrenderable placement; playlist Widgets stay strict (buildZoneItems).
+      let projected: ReturnType<typeof projectZoneWidget>;
+      try {
+        projected = projectZoneWidget(widget, ctx, placement.height);
+      } catch {
+        return null;
+      }
       if (projected.kind === "remote-web")
         return { ...base, remoteWeb: projected.remoteWeb };
       return "component" in projected.widget
@@ -348,7 +355,7 @@ function buildZoneItems(
       throw new Error("Nested Layouts are unsupported in playlist zones");
     if (item.assetType === "widget") {
       const widget = ctx.widgets.get(item.assetId);
-      if (!widget) throw new Error("Layout playlist Widget is missing");
+      if (!widget) continue;
       const settings = resolvePlaybackItemSettings(
         item,
         playback,

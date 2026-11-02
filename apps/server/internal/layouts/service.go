@@ -540,6 +540,11 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 	return nil
 }
 
+// DraftDependencies lists what the Layout's current draft references.
+func (s *Service) DraftDependencies(ctx context.Context, id uuid.UUID) ([]Dependency, error) {
+	return s.draftDependencies(ctx, id)
+}
+
 func (s *Service) draftDependencies(ctx context.Context, id uuid.UUID) ([]Dependency, error) {
 	rows, err := s.db.Query(ctx, `SELECT dependency_type,dependency_id FROM layout_draft_dependencies WHERE layout_id=$1 ORDER BY dependency_type,dependency_id`, id)
 	if err != nil {

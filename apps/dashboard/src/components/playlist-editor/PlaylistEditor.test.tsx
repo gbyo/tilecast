@@ -16,6 +16,7 @@ import type { Playlist } from "../../api/types";
 import * as authModule from "../../auth/AuthProvider";
 import { toast } from "../ui/toast";
 import { PlaylistEditorPage } from "./PlaylistEditor";
+import { builtinCapabilities } from "../../test/capabilities";
 
 const defaultMatchMedia = window.matchMedia.bind(window);
 
@@ -90,6 +91,7 @@ function mockServer(overrides: Partial<Playlist> = {}) {
       authenticated: true,
       setupRequired: false,
       user: { id: "u1", name: "Owner", username: "owner", role: "owner" },
+      capabilities: builtinCapabilities("owner"),
       csrfToken: "token",
     },
     isLoading: false,
@@ -292,6 +294,33 @@ describe("PlaylistEditor panes", () => {
 
     pending[1]!.resolve(responseFor(pending[1]!.itemIds));
     await waitFor(() => expect(visibleOrder()).toEqual(["item-a", "item-b"]));
+  });
+
+  it("restores order and usable focus when a reorder fails", async () => {
+    mockDesktop();
+    mockServer();
+    let reject: (error: Error) => void = () => {};
+    vi.spyOn(api, "reorderPlaylist").mockImplementation(
+      () =>
+        new Promise((_resolve, rejectRequest) => {
+          reject = rejectRequest;
+        }),
+    );
+    renderEditor();
+    const inspect = await screen.findByRole("button", {
+      name: "Inspect Alpha",
+    });
+    inspect.focus();
+    fireEvent.keyDown(inspect, { key: "ArrowDown", altKey: true });
+    const order = () =>
+      Array.from(document.querySelectorAll("[data-playlist-item]")).map((row) =>
+        row.getAttribute("data-playlist-item"),
+      );
+    await waitFor(() => expect(order()).toEqual(["item-b", "item-a"]));
+    expect(inspect).toHaveFocus();
+    reject(new Error("Offline"));
+    await waitFor(() => expect(order()).toEqual(["item-a", "item-b"]));
+    expect(inspect).toHaveFocus();
   });
 
   it("puts playback defaults in a compact authoring bar and reports bulk changes with a toast", async () => {

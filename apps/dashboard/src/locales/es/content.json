@@ -251,7 +251,12 @@
       "queueLabel": "Cola de subidas",
       "resumePrompt": "Selecciona el mismo archivo para reanudar la subida.",
       "retryResume": "Reintentar o reanudar {{name}}",
-      "title": "Subidas"
+      "title": "Subidas",
+      "destinationLabel": "Subir a",
+      "chooseFolder": "Elige una carpeta",
+      "destinationOption": "Subir a {{name}}",
+      "chooseFolderFirst": "Elige primero una carpeta de destino.",
+      "noWritableFolder": "No hay ninguna carpeta disponible para subir archivos. Pide a un administrador que te dé acceso a una."
     },
     "website": {
       "advancedSettings": "Ajustes avanzados del sitio web",

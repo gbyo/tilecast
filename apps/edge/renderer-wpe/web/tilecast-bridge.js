@@ -25,10 +25,66 @@
 (() => {
   "use strict";
 
-  const handlers = globalThis.webkit && globalThis.webkit.messageHandlers;
-  if (!handlers || !handlers.tilecast) {
+  if (
+    window.parent !== window ||
+    location.href !== "tilecast://runtime/index.html"
+  )
     return;
-  }
+  const requests = new Map();
+  let requestId = 0;
+  const emitNative = (name, value) => {
+    const raw = JSON.stringify(value);
+    if (new TextEncoder().encode(raw).length > 65536)
+      throw new Error("Host request exceeds its bound");
+    document.dispatchEvent(new CustomEvent(name, { detail: raw }));
+  };
+  document.addEventListener("tilecast-native-answer", (event) => {
+    if (
+      event.target !== document ||
+      typeof event.detail !== "string" ||
+      new TextEncoder().encode(event.detail).length > 65536
+    )
+      return;
+    let answer;
+    try {
+      answer = JSON.parse(event.detail);
+    } catch {
+      return;
+    }
+    const pending = requests.get(answer?.id);
+    if (!pending) return;
+    requests.delete(answer.id);
+    clearTimeout(pending.timer);
+    if (answer.ok === true) pending.resolve(answer.value);
+    else pending.reject(new Error("Host request failed"));
+  });
+  const handlers = {
+    tilecast: {
+      postMessage: (message) => emitNative("tilecast-native-report", message),
+    },
+    tilecastRequest: {
+      postMessage: (message) =>
+        new Promise((resolve, reject) => {
+          if (requests.size >= 8 || requestId >= Number.MAX_SAFE_INTEGER) {
+            reject(new Error("Host request unavailable"));
+            return;
+          }
+          const id = ++requestId;
+          const timer = setTimeout(() => {
+            requests.delete(id);
+            reject(new Error("Host request timed out"));
+          }, 60000);
+          requests.set(id, { resolve, reject, timer });
+          try {
+            emitNative("tilecast-native-request", { id, message });
+          } catch (error) {
+            requests.delete(id);
+            clearTimeout(timer);
+            reject(error);
+          }
+        }),
+    },
+  };
   const post = (message) => handlers.tilecast.postMessage(message);
   const text = (value, max) => String(value == null ? "" : value).slice(0, max);
 
@@ -129,6 +185,7 @@
           emit({
             type: "plugins",
             plugins: data.plugins,
+            pluginFrames: data.pluginFrames || [],
             clockOffsetMs: data.clockOffsetMs,
           });
           return true;
@@ -200,6 +257,20 @@
       // keeps its default iframe-sandbox attribute on top of the served
       // response policy.
       externalFrames: true,
+      // External Plugin surfaces are a separate ABI (plugin.external-runtime@1)
+      // from external Widget frames. They execute through the same verified,
+      // navigation-filtered frame channel with a stricter response policy
+      // and independent grants. tilecastd reports the matching heartbeat
+      // capability; the two must change together.
+      externalPluginFrames: true,
+      // Plugin API v2: tilecastd forwards plugin_state entries in the
+      // plugins snapshot, with grants for their declared media, so the
+      // Runtime reports its Player Plugin Host and services. tilecastd
+      // reports the same capabilities; the two must change together.
+      pluginState: true,
+      // Plugin media is addressed by identity at tcmedia://variant/ and
+      // authorized by the aliases in the current plugin state.
+      variantMedia: true,
       // Edge shows the pulse logo outside active hours; other hosts omit this
       // and keep the Cast logo.
       outsideHoursLogo: "pulse",

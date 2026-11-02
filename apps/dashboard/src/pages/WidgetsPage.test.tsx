@@ -16,6 +16,7 @@ import type { Asset, WidgetDefinition } from "../api/types";
 import { toast } from "../components/ui/toast";
 import { WIDGET_PREVIEW_CAPTURE_VERSION } from "../content/widgetPreviewCapture";
 import { WidgetsPage } from "./WidgetsPage";
+import { builtinCapabilities } from "../test/capabilities";
 
 const auth = vi.hoisted(() => ({ role: "administrator" }));
 
@@ -24,6 +25,7 @@ vi.mock("../auth/AuthProvider", () => ({
     status: {
       csrfToken: "csrf-token",
       user: { id: "user-1", role: auth.role },
+      capabilities: builtinCapabilities(auth.role),
     },
   }),
 }));

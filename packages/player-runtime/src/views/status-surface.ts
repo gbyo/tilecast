@@ -28,6 +28,7 @@ export class StatusSurface extends LitElement {
     servers: { attribute: false },
     setup: { attribute: false },
     setupError: { state: true },
+    suppressed: { attribute: false },
   };
 
   declare presentation: RuntimePresentation | null;
@@ -36,6 +37,11 @@ export class StatusSurface extends LitElement {
   declare servers: DiscoveredServerV1[];
   declare setup: SetupBridge | null;
   declare setupError: string;
+  /**
+   * A presentation provider owns the screen, so this surface draws nothing.
+   * The view sets it; the provider never touches this element.
+   */
+  declare suppressed: boolean;
 
   constructor() {
     super();
@@ -44,6 +50,7 @@ export class StatusSurface extends LitElement {
     this.servers = [];
     this.setup = null;
     this.setupError = "";
+    this.suppressed = false;
   }
 
   // Light DOM: the display is one document and ordinary CSS applies.
@@ -53,6 +60,7 @@ export class StatusSurface extends LitElement {
 
   /** Whether this surface currently covers the playback layers. */
   get visible(): boolean {
+    if (this.suppressed && !this.problem) return false;
     if (this.problem) return true;
     const state = this.presentation?.state;
     return state !== undefined && state !== "playing";
@@ -146,7 +154,12 @@ export class StatusSurface extends LitElement {
         const color = HEX.test(p.textColor ?? "") ? p.textColor! : "#F5F7FA";
         return {
           style: { background, color },
-          content: html`<div class="branded-fallback">
+          // `status` is a machine reason code for hosts and diagnostics. It is
+          // exposed as an attribute and never drawn: a room can see this screen.
+          content: html`<div
+            class="branded-fallback"
+            data-status=${p.status ?? nothing}
+          >
             ${
               p.logoSrc
                 ? html`<img
@@ -157,14 +170,7 @@ export class StatusSurface extends LitElement {
                 : nothing
             }
             <h1>${p.title ?? ""}</h1>
-            <p>${p.message ?? ""}</p>
-            ${
-              p.status
-                ? html`<p class="branded-fallback__status">
-                    ${p.status.replaceAll("_", " ")}
-                  </p>`
-                : nothing
-            }
+            ${p.message ? html`<p>${p.message}</p>` : nothing}
             ${
               p.footerText
                 ? html`<p class="branded-fallback__footer">${p.footerText}</p>`

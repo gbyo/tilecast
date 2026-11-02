@@ -30,8 +30,10 @@ import { Steps } from "@astrojs/starlight/components";
 The Studio panel restores archives already stored by this installation. Downloading an archive gives you an off-host copy; it doesn't add that file back to **Available backups**.
 
 :::caution
-An archive includes the full database, including each enrolled user's authenticator secret. Protect backups like credentials. With Docker Compose, backups are stored under `/data/backups` in the `tilecast_data` volume; a copy on that volume won't protect you if its storage is lost.
+An archive includes the full database, including each enrolled user's authenticator secret. Tilecast backup archives are ordinary tar archives; Tilecast does not encrypt the archive itself. Protect the file like credentials, and use encrypted storage or transport when your environment requires it. With Docker Compose, backups are stored under `/data/backups` in the `tilecast_data` volume; a copy on that volume won't protect you if its storage is lost.
 :::
+
+**Verify** is an integrity check, not an encryption check. Tilecast reads the complete archive and checks every listed file's size and SHA-256 digest. Verification also rejects missing or extra files, unsafe archive entries, corrupt archives, and unsupported backup formats. A downloaded backup keeps those checksums inside its manifest, so verify the copy again after moving it back to a Tilecast host before restoring it.
 
 If you use Presentation Networks, keep `TILECAST_PRESENTATION_NETWORK_KEY` with your deployment secrets. This environment variable is not included in the backup.
 
