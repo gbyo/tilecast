@@ -27,6 +27,7 @@ import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 import { toast } from "../../components/ui/toast";
 import { useMyAccess } from "../../content/mediaPermissions";
+import { screenQueries } from "../../data/screens";
 
 /**
  * Create or edit a Display Group. The dialog owns its mutation so a failed
@@ -58,8 +59,7 @@ export function DisplayGroupDialog({
   const myAccess = useMyAccess();
   const needsMembers = !editing && myAccess.data?.screens.mode === "restricted";
   const screens = useQuery({
-    queryKey: ["screens"],
-    queryFn: api.screens,
+    ...screenQueries.list(),
     enabled: needsMembers && open,
   });
 

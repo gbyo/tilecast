@@ -154,13 +154,13 @@ func (a ScreenAccess) GroupSQL(alias, userParam string) string {
 // ScheduleSQL is the predicate "this schedules row is reachable": at least
 // one target, and every target a reachable screen or Display Group.
 func (a ScreenAccess) ScheduleSQL(alias, userParam string) string {
-	return a.policySQL(userParam, `(EXISTS(SELECT 1 FROM schedule_targets authz_t0 WHERE authz_t0.schedule_id=` + alias + `.id)
+	return a.policySQL(userParam, `(EXISTS(SELECT 1 FROM schedule_targets authz_t0 WHERE authz_t0.schedule_id=`+alias+`.id)
 	AND NOT EXISTS(SELECT 1 FROM schedule_targets authz_t
 	        LEFT JOIN screens authz_ts ON authz_t.target_type='screen' AND authz_ts.id=authz_t.screen_id
 	        LEFT JOIN screen_groups authz_tg ON authz_t.target_type='group' AND authz_tg.id=authz_t.screen_group_id
-	        WHERE authz_t.schedule_id=` + alias + `.id AND NOT COALESCE(
-	          (authz_t.target_type='screen' AND authz_ts.id IS NOT NULL AND ` + grantedScreenSQL("authz_ts", userParam) + `)
-	          OR (authz_t.target_type='group' AND authz_tg.id IS NOT NULL AND ` + grantedGroupSQL("authz_tg", userParam) + `), FALSE)))`)
+	        WHERE authz_t.schedule_id=`+alias+`.id AND NOT COALESCE(
+	          (authz_t.target_type='screen' AND authz_ts.id IS NOT NULL AND `+grantedScreenSQL("authz_ts", userParam)+`)
+	          OR (authz_t.target_type='group' AND authz_tg.id IS NOT NULL AND `+grantedGroupSQL("authz_tg", userParam)+`), FALSE)))`)
 }
 
 // TakeoverSQL is the predicate "this takeover is reachable", judged by the
@@ -187,9 +187,9 @@ func locationGrantSQL(idExpr, userParam string) string {
 // restricted account sees the names relevant to its own screens, not the
 // organization's catalog.
 func (a ScreenAccess) LocationVisibleSQL(alias, userParam string) string {
-	return a.policySQL(userParam, `(` + locationGrantSQL(alias+".id", userParam) + `
-	OR EXISTS(SELECT 1 FROM screens authz_ls WHERE authz_ls.location_id=` + alias + `.id
-	          AND authz_ls.deleted_at IS NULL AND ` + grantedScreenSQL("authz_ls", userParam) + `))`)
+	return a.policySQL(userParam, `(`+locationGrantSQL(alias+".id", userParam)+`
+	OR EXISTS(SELECT 1 FROM screens authz_ls WHERE authz_ls.location_id=`+alias+`.id
+	          AND authz_ls.deleted_at IS NULL AND `+grantedScreenSQL("authz_ls", userParam)+`))`)
 }
 
 // exists runs a single-boolean query.
@@ -340,8 +340,8 @@ func (z *Authorizer) Takeover(ctx context.Context, actor Actor, capability auth.
 // PresentationOverrideSQL is the predicate "this presentation_overrides
 // row is reachable", judged by its target as an assignment.
 func (a ScreenAccess) PresentationOverrideSQL(alias, userParam string) string {
-	return a.policySQL(userParam, `((` + alias + `.target_type='screen' AND EXISTS(SELECT 1 FROM screens authz_os WHERE authz_os.id=` + alias + `.target_id AND ` + grantedPeersSQL("authz_os", userParam) + `))
-	OR (` + alias + `.target_type='group' AND EXISTS(SELECT 1 FROM screen_groups authz_og WHERE authz_og.id=` + alias + `.target_id AND ` + grantedGroupSQL("authz_og", userParam) + `)))`)
+	return a.policySQL(userParam, `((`+alias+`.target_type='screen' AND EXISTS(SELECT 1 FROM screens authz_os WHERE authz_os.id=`+alias+`.target_id AND `+grantedPeersSQL("authz_os", userParam)+`))
+	OR (`+alias+`.target_type='group' AND EXISTS(SELECT 1 FROM screen_groups authz_og WHERE authz_og.id=`+alias+`.target_id AND `+grantedGroupSQL("authz_og", userParam)+`)))`)
 }
 
 // PresentationOverride authorizes one active Quick Present by its target.

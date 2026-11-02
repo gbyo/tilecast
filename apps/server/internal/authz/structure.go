@@ -90,9 +90,9 @@ func (z *Authorizer) Pairing(ctx context.Context, actor Actor, target PairingTar
 // reached only through its pairing code.
 func (a ScreenAccess) PairingSessionSQL(alias, userParam string) string {
 	return a.policySQL(userParam, `EXISTS(SELECT 1 FROM screens authz_ps
-	       WHERE authz_ps.player_installation_id=` + alias + `.player_installation_id
+	       WHERE authz_ps.player_installation_id=`+alias+`.player_installation_id
 	         AND authz_ps.deleted_at IS NULL AND authz_ps.archived_at IS NULL
-	         AND ` + grantedScreenSQL("authz_ps", userParam) + `)`)
+	         AND `+grantedScreenSQL("authz_ps", userParam)+`)`)
 }
 
 // PairingCodeSQL is the predicate "this session may be resolved by its
@@ -100,9 +100,9 @@ func (a ScreenAccess) PairingSessionSQL(alias, userParam string) string {
 // hardware paired to a live screen also needs that screen to be reachable.
 func (a ScreenAccess) PairingCodeSQL(alias, userParam string) string {
 	return a.policySQL(userParam, `(NOT EXISTS(SELECT 1 FROM screens authz_pl
-	       WHERE authz_pl.player_installation_id=` + alias + `.player_installation_id
+	       WHERE authz_pl.player_installation_id=`+alias+`.player_installation_id
 	         AND authz_pl.deleted_at IS NULL AND authz_pl.archived_at IS NULL)
-	OR ` + a.PairingSessionSQL(alias, userParam) + `)`)
+	OR `+a.PairingSessionSQL(alias, userParam)+`)`)
 }
 
 // PairingSession authorizes resolving or rejecting one pairing session.

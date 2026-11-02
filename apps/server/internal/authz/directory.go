@@ -55,6 +55,6 @@ func (a ScreenAccess) DirectGrantSQL(kind, idExpr, userParam string) string {
 		return "FALSE"
 	}
 	return a.policySQL(userParam, `EXISTS(SELECT 1 FROM user_screen_scopes authz_dir
-	       WHERE authz_dir.user_id=` + userParam + ` AND authz_dir.scope_type='` + kind + `'
-	         AND authz_dir.scope_id=` + idExpr + `)`)
+	       WHERE authz_dir.user_id=`+userParam+` AND authz_dir.scope_type='`+kind+`'
+	         AND authz_dir.scope_id=`+idExpr+`)`)
 }
