@@ -14,12 +14,13 @@ var manifest []byte
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-// storeJSON is the Plugin Store presentation: curated metadata that changes
-// nothing the manifest declares. Static artwork joins it when the plugin
-// ships images in store/ and embeds them next to this file.
+// Store metadata and artwork describe the plugin without changing its capabilities.
 //
 //go:embed tilecast.store.json
 var storeJSON []byte
+
+//go:embed store/*.webp
+var storeFiles embed.FS
 
 // automationJSON is the resolved Automation Contract v1 document pluginctl
 // generates from automation.yaml. It is data, not code: the host serves it
@@ -30,5 +31,5 @@ var storeJSON []byte
 var automationJSON []byte
 
 func New() plugin.Plugin {
-	return server.New(plugin.NewBundle(manifest, migrations).WithStore(storeJSON, nil), automationJSON)
+	return server.New(plugin.NewBundle(manifest, migrations).WithStore(storeJSON, storeFiles), automationJSON)
 }

@@ -989,9 +989,13 @@ impl PresentationEngine {
         })
     }
 
-    /// The server-address entry surface for a fresh installation.
-    pub fn show_setup(&mut self, now_ms: i64) {
-        let document = serde_json::json!({"state": "setup"});
+    /// The server-address entry surface for a fresh installation, with the
+    /// phone setup QR code while phone setup runs.
+    pub fn show_setup(&mut self, phone_setup: Option<&player_core::PhoneSetupView>, now_ms: i64) {
+        let mut document = serde_json::json!({"state": "setup"});
+        if let Some(phone) = phone_setup {
+            document["phoneSetup"] = phone_setup_document(phone);
+        }
         if self.showing(ActivationSource::StatusSurface, &document) {
             return;
         }
@@ -1163,6 +1167,7 @@ fn host_capabilities() -> Value {
         "remoteWeb": "host-view",
         "synchronizedPlayback": true,
         "setup": true,
+        "phoneSetup": true,
         "discovery": true,
         "externalFrames": true,
         // Plugin API v2: plugin_state rides the plugins message, its media
@@ -1202,7 +1207,22 @@ async fn refresh_unbound_surface(context: &DaemonContext, now_ms: i64) {
         ("waiting", Some(code)) => {
             engine.show_pairing(&code, &view.approval_url, view.organization_name.as_deref(), now_ms)
         }
-        _ => engine.show_setup(now_ms),
+        _ => engine.show_setup(view.phone_setup.as_ref(), now_ms),
+    }
+}
+
+/// The Runtime's `PhoneSetupStateV1`.
+fn phone_setup_document(view: &player_core::PhoneSetupView) -> Value {
+    match view {
+        player_core::PhoneSetupView::Ready { url, rejected } => {
+            let mut document = serde_json::json!({"state": "ready", "url": url.chars().take(512).collect::<String>()});
+            if *rejected {
+                document["rejected"] = Value::Bool(true);
+            }
+            document
+        }
+        player_core::PhoneSetupView::Paused => serde_json::json!({"state": "paused"}),
+        player_core::PhoneSetupView::Unavailable => serde_json::json!({"state": "unavailable"}),
     }
 }
 
@@ -1214,6 +1234,10 @@ async fn handle_request(context: &DaemonContext, ui: &UiHandle, request: bridge:
                 Err(message) => Ok(serde_json::json!({"ok": false, "error": message})),
             };
             let _ = ui.post(bridge::response_message(&request.id, result));
+        }
+        bridge::HostMethod::ResumePhoneSetup => {
+            crate::pairing::resume_phone_setup(context);
+            let _ = ui.post(bridge::response_message(&request.id, Ok(serde_json::json!({}))));
         }
         bridge::HostMethod::ListDiscoveredServers => {
             // A browse that finds nothing (or a multicast stack that does
@@ -1932,12 +1956,30 @@ mod tests {
     }
 
     #[test]
+    fn the_setup_surface_carries_phone_setup() {
+        let (mut engine, _, _) = test_engine();
+        let ready =
+            player_core::PhoneSetupView::Ready { url: "https://setup.tilecast.org/#v=1".into(), rejected: true };
+        engine.show_setup(Some(&ready), 1_000);
+        let document = engine.current().expect("setup current").document.clone();
+        assert_eq!(
+            document,
+            serde_json::json!({"state": "setup", "phoneSetup": {"state": "ready",
+                "url": "https://setup.tilecast.org/#v=1", "rejected": true}})
+        );
+        engine.show_setup(Some(&player_core::PhoneSetupView::Paused), 2_000);
+        assert_eq!(engine.current().expect("paused").document["phoneSetup"], serde_json::json!({"state": "paused"}));
+        engine.show_setup(None, 3_000);
+        assert_eq!(engine.current().expect("plain").document, serde_json::json!({"state": "setup"}));
+    }
+
+    #[test]
     fn surfaces_dedupe_and_carry_no_content() {
         let (mut engine, _, _) = test_engine();
         let config = crate::player_config::WindowsPlayerConfig::default();
-        engine.show_setup(1_000);
+        engine.show_setup(None, 1_000);
         let first = engine.current().expect("setup current").clone();
-        engine.show_setup(2_000);
+        engine.show_setup(None, 2_000);
         assert_eq!(engine.current().expect("still setup").generation, first.generation);
         engine.show_pairing("ABCDEF", "https://signs.example.org/s/1", Some("Library"), 3_000);
         let pairing = engine.current().expect("pairing current").clone();

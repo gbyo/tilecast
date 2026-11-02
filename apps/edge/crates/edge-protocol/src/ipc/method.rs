@@ -91,6 +91,8 @@ pub enum Method {
     /// Ask the renderer to show the daemon's status surface (self-test).
     DiagnosticsShowStatus(Empty),
     SetupSubmitServerUrl(SubmitServerUrlParams),
+    /// Start a phone setup session again after it paused.
+    SetupResumePhoneSetup(Empty),
     /// Start pairing with a server address from the operator (headless
     /// installation). Same result as `setup.submit_server_url`.
     PairingStart(SubmitServerUrlParams),
@@ -150,6 +152,7 @@ methods! {
     CasVerify => "cas.verify", [Tilecastctl], admin = true;
     DiagnosticsShowStatus => "diagnostics.show_status", [Tilecastctl], admin = true;
     SetupSubmitServerUrl => "setup.submit_server_url", [Renderer], admin = false;
+    SetupResumePhoneSetup => "setup.resume_phone_setup", [Renderer], admin = false;
     PairingStart => "pairing.start", [Tilecastctl], admin = true;
     PairingReset => "pairing.reset", [Tilecastctl], admin = true;
     UnpairDevice => "device.unpair", [Tilecastctl], admin = true;

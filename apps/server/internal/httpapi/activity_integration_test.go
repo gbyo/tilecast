@@ -212,6 +212,40 @@ func TestConcurrentHTTPAndWebSocketHeartbeatTransitionsStayAtomic(t *testing.T) 
 	})
 }
 
+func TestFirstConnectionActivitySurvivesReorderedHeartbeatDerivation(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		ctx := context.Background()
+		first := env.server.captureHeartbeatActivity(ctx, env.screenID)
+		if first.previousHeartbeat != nil {
+			t.Fatal("new screen already has a heartbeat")
+		}
+		if err := env.server.devices.MarkHeartbeatContact(ctx, env.screenID, "192.168.1.42:1234"); err != nil {
+			t.Fatal(err)
+		}
+		// A second transport sees the contact update before the first request
+		// reaches the activity lock, then derives activity ahead of it.
+		second := env.server.captureHeartbeatActivity(ctx, env.screenID)
+		if second.previousHeartbeat == nil {
+			t.Fatal("second request did not observe the first contact")
+		}
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/player/heartbeat", nil)
+		now := time.Now().UTC()
+		env.server.recordHeartbeatActivity(r, env.screenID, second, now)
+		env.server.recordHeartbeatActivity(r, env.screenID, first, now.Add(time.Millisecond))
+		env.server.recordHeartbeatActivity(r, env.screenID, second, now.Add(2*time.Millisecond))
+		var connected, intervals int
+		if err := env.pool.QueryRow(ctx, `SELECT count(*) FROM player_activity_events WHERE screen_id=$1 AND event_type='player.connected'`, env.screenID).Scan(&connected); err != nil {
+			t.Fatal(err)
+		}
+		if err := env.pool.QueryRow(ctx, `SELECT count(*) FROM screen_state_intervals WHERE screen_id=$1 AND ended_at IS NULL`, env.screenID).Scan(&intervals); err != nil {
+			t.Fatal(err)
+		}
+		if connected != 1 || intervals != 1 {
+			t.Fatalf("connected=%d open intervals=%d", connected, intervals)
+		}
+	})
+}
+
 func TestReplacedSocketCannotMarkActiveReplacementDisconnected(t *testing.T) {
 	withActivityDatabase(t, func(env activityTestEnvironment) {
 		principal := devices.DevicePrincipal{ScreenID: env.screenID, ScreenName: "Cafeteria TV", Enabled: true}

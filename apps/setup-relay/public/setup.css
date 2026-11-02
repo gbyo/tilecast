@@ -1,0 +1,244 @@
+/* The Studio sign-in page, without Tailwind. Theme values come from
+   apps/dashboard/src/styles.css; layout and control sizes come from
+   AuthPage.tsx and the ui/card, ui/field, ui/input and ui/button components.
+   Keep them in step when Studio's theme changes. */
+:root {
+  color-scheme: light;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.625rem;
+  --font-sans: "Geist Variable", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10 */
+main {
+  display: flex;
+  min-height: 100svh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--muted);
+}
+
+@media (min-width: 768px) {
+  main {
+    padding: 40px;
+  }
+}
+
+/* flex w-full max-w-sm flex-col gap-6 */
+.column {
+  display: flex;
+  width: 100%;
+  max-width: 24rem;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Brand compact: 22px high, centered. */
+.brand {
+  display: block;
+  height: 22px;
+  align-self: center;
+  color: var(--foreground);
+}
+
+/* Card: rounded-xl bg-card py-4 text-sm ring-1 ring-foreground/10 */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 16px 0;
+  overflow: hidden;
+  border-radius: calc(var(--radius) * 1.4);
+  background: var(--card);
+  font-size: 14px;
+  line-height: 20px;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+/* CardHeader with text-center */
+.card-header {
+  display: grid;
+  gap: 4px;
+  padding: 0 16px;
+  text-align: center;
+}
+
+/* font-heading text-xl font-medium */
+h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 28px;
+}
+
+.description {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+
+/* CardContent with FieldGroup: flex flex-col gap-5 */
+.card-content {
+  padding: 0 16px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Field: flex flex-col gap-2 */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Label: text-sm leading-none font-medium */
+label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* Input: h-8 rounded-lg border-input px-2.5 py-1 text-base md:text-sm */
+input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+@media (min-width: 768px) {
+  input {
+    font-size: 14px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  input {
+    background: color-mix(in oklab, var(--input) 30%, transparent);
+  }
+}
+
+input::placeholder {
+  color: var(--muted-foreground);
+}
+
+input:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--destructive);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 20%, transparent);
+}
+
+/* FieldError: text-sm font-normal text-destructive */
+.field-error {
+  margin: 0;
+  color: var(--destructive);
+  font-size: 14px;
+}
+
+.field-error:empty {
+  display: none;
+}
+
+/* Button default: h-8 rounded-lg bg-primary text-sm font-medium */
+button {
+  display: inline-flex;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 150ms;
+}
+
+button:hover {
+  background: color-mix(in oklab, var(--primary) 80%, transparent);
+}
+
+button:active {
+  translate: 0 1px;
+}
+
+button:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.footnote {
+  margin: 0;
+  padding: 0 24px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}

@@ -88,7 +88,9 @@ func (d *Dispatcher) managedEnsure(ctx context.Context, call Call) (any, *Denial
 		return nil, nil, invalidInput("data source configuration and payload must be JSON")
 	}
 	var widgetConfig map[string]any
-	if err := json.Unmarshal([]byte(input.WidgetConfiguration), &widgetConfig); err != nil {
+	// JSON null decodes without error into a nil map, which the host's
+	// data source binding below cannot write to.
+	if err := json.Unmarshal([]byte(input.WidgetConfiguration), &widgetConfig); err != nil || widgetConfig == nil {
 		return nil, nil, invalidInput("widget configuration must be a JSON object")
 	}
 	if len(input.CacheCategory) > 80 {
@@ -512,7 +514,7 @@ func (d *Dispatcher) playerCommand(ctx context.Context, call Call, operation str
 		return nil, nil, notFound("screen was not found")
 	}
 	if errors.Is(err, devices.ErrCommandLimit) {
-		return nil, nil, unavailable(errors.New("screen reached its pending-command limit"))
+		return nil, nil, &CallError{Code: ErrCodeUnavailable, Message: "The screen reached its pending-command limit."}
 	}
 	if errors.Is(err, devices.ErrCommandUnsupported) {
 		return nil, nil, forbidden("player cannot run this command")
