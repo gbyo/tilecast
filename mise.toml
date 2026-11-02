@@ -10,5 +10,5 @@
 # reports the versions installed here.
 [tools]
 node = "22"
-go = "1.26"
+go = "1.27"
 java = "17"
