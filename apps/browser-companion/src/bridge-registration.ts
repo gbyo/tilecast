@@ -12,8 +12,12 @@ export interface BridgeScripting {
     scripts: chrome.scripting.RegisteredContentScript[],
   ): Promise<void>;
   unregisterContentScripts(options?: { ids?: string[] }): Promise<void>;
-  getRegisteredContentScripts(options?: { ids?: string[] }): Promise<chrome.scripting.RegisteredContentScript[]>;
-  updateContentScripts(scripts: chrome.scripting.RegisteredContentScript[]): Promise<void>;
+  getRegisteredContentScripts(options?: {
+    ids?: string[];
+  }): Promise<chrome.scripting.RegisteredContentScript[]>;
+  updateContentScripts(
+    scripts: chrome.scripting.RegisteredContentScript[],
+  ): Promise<void>;
 }
 
 /** The registration for these origins, or null when none is granted. */
