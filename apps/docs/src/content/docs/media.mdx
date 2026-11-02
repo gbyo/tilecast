@@ -15,7 +15,7 @@ import { Steps } from "@astrojs/starlight/components";
 
 ## Upload images and videos
 
-An Owner, Administrator, or Editor can upload media.
+Owners, Administrators, Editors, Contributors, and anyone whose [custom role](../administration/roles-and-content-access/) includes uploading can upload media.
 
 <Steps>
 
@@ -29,6 +29,12 @@ An Owner, Administrator, or Editor can upload media.
 If the browser loses its connection during an upload, select the original file again to resume it. It must have the same name and size as the file used to start that upload. Open the asset details for a failed item and select **Retry processing** when that action is available.
 
 The default maximum upload size is 10 GiB per file. An administrator can change it with `TILECAST_MAX_UPLOAD_BYTES` on the server.
+
+### Upload into a folder
+
+If an administrator limited your account to certain folders, every upload lands in one of them. Studio uploads into the folder you're viewing when you can add media there. With one allowed folder, it uses that folder automatically. With several, choose one under **Upload to** before you upload. If you have no folder yet, Studio says so, and you'll need an administrator to give you one. An upload never lands outside your folders, even briefly.
+
+If an administrator removes your access to a folder while a file is uploading, the upload stops and the file isn't added. You can still cancel it.
 
 ## Know what happens to the uploaded file
 
@@ -71,7 +77,7 @@ Select an asset to edit its name, description, and organization. Each asset belo
 - Use a Collection to group assets that you reuse together. An asset can be in several Collections.
 - Use Tags as labels and filters. A Tag can also drive a [Tag-driven Playlist](../playlists/).
 
-Create and manage Folders, Collections, and Tags from the **Organize** menu. Changing or deleting one of these labels doesn't delete its assets. Deleting a Folder leaves its assets in the library as **Unfiled**; deleting a Tag removes that Tag from its assets.
+Create and manage Folders, Collections, and Tags from the **Organize** menu. Accounts limited to certain folders or tags don't see this menu, because it changes the structure the whole library shares. Changing or deleting one of these labels doesn't delete its assets. Deleting a Folder leaves its assets in the library as **Unfiled**; deleting a Tag removes that Tag from its assets.
 
 In an asset's details, set **Available from** to delay when it can be used. Set **Expires at** to stop the Player using it at the selected local date and time, including when the Player is offline. An expired item appears in **Archive**.
 

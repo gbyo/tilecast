@@ -23,6 +23,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -132,19 +133,20 @@ var (
 // Resolution is a fully resolved, verified artifact: the manifest,
 // the pinned digest, and the provenance that approved it.
 type Resolution struct {
-	Manifest      packagemanifest.Manifest
-	ManifestJSON  json.RawMessage
-	Digest        string
-	RegistryRef   string
-	ReleaseTag    string
-	ReleaseName   string
-	PublishedAt   time.Time
-	Owner         string
-	Repo          string
-	RepositoryURL string
-	Signer        string
-	Trust         installer.TrustState
-	Compatible    bool
+	listingIdentityOnly bool
+	Manifest            packagemanifest.Manifest
+	ManifestJSON        json.RawMessage
+	Digest              string
+	RegistryRef         string
+	ReleaseTag          string
+	ReleaseName         string
+	PublishedAt         time.Time
+	Owner               string
+	Repo                string
+	RepositoryURL       string
+	Signer              string
+	Trust               installer.TrustState
+	Compatible          bool
 }
 
 // CustomSource is a persisted custom repository binding.
@@ -572,10 +574,14 @@ func (s *Service) materialize(ctx context.Context, resolution Resolution) (packa
 	if verified.Manifest.PackageID != resolution.Manifest.PackageID ||
 		verified.Manifest.PackageVersion != resolution.Manifest.PackageVersion ||
 		verified.Manifest.Distribution.OCI != resolution.Manifest.Distribution.OCI ||
-		verified.Manifest.Tilecast.Version != resolution.Manifest.Tilecast.Version {
+		verified.Manifest.Tilecast.Version != resolution.Manifest.Tilecast.Version ||
+		(!resolution.listingIdentityOnly && (verified.Manifest.APIVersion != resolution.Manifest.APIVersion ||
+			!reflect.DeepEqual(verified.Manifest.Runtime, resolution.Manifest.Runtime) ||
+			!reflect.DeepEqual(verified.Manifest.Capabilities, resolution.Manifest.Capabilities) ||
+			!reflect.DeepEqual(verified.Manifest.Contributions, resolution.Manifest.Contributions))) {
 		return packagemanifest.Manifest{}, nil, ErrCrossCheck
 	}
-	contributions, err := packages.ReadContributions(contentDir, verified.Manifest)
+	contributions, err := packages.ReadVerifiedContributions(ctx, layoutDir, contentDir, verified)
 	if err != nil {
 		return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
 	}
@@ -592,6 +598,18 @@ func (s *Service) materialize(ctx context.Context, resolution Resolution) (packa
 		return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
 	}
 	return verified.Manifest, contributions, nil
+}
+
+// ReviewContributions reads verified Player permissions without installing.
+// Legacy packages without plugin contributions keep the manifest-only review.
+func (s *Service) ReviewContributions(ctx context.Context, resolution Resolution) ([]packages.NestedContribution, error) {
+	for _, contribution := range resolution.Manifest.Contributions {
+		if contribution.Type == packagemanifest.ContributionPlugin {
+			_, nested, err := s.materialize(ctx, resolution)
+			return nested, err
+		}
+	}
+	return nil, nil
 }
 
 // ContentDir returns the extracted content directory for a retained
@@ -905,6 +923,7 @@ func (s *Service) resolveListing(ctx context.Context, listing catalog.Listing) (
 		return Resolution{}, err
 	}
 	return Resolution{
+		listingIdentityOnly: true,
 		Manifest: packagemanifest.Manifest{
 			// Listing-derived manifests declare no version 2 features.
 			APIVersion:     1,

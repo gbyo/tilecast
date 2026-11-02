@@ -158,7 +158,7 @@ pub(crate) fn metadata(
         player_core::CaptureState::SafeMode
     } else {
         match document {
-            PresentationDocument::Setup {} => player_core::CaptureState::Setup,
+            PresentationDocument::Setup { .. } => player_core::CaptureState::Setup,
             PresentationDocument::Pairing { .. } => player_core::CaptureState::Pairing,
             PresentationDocument::SafeMode { .. } => player_core::CaptureState::SafeMode,
             _ => player_core::CaptureState::Presentation,
@@ -183,6 +183,15 @@ pub(crate) fn packaged_profile() -> player_core::PackagedRendererProfile {
                 .iter()
                 .map(|(name, version)| (token(*name), *version))
                 .chain(std::iter::once((token("web.remote"), profile::WEB_RUNTIME_VERSION)))
+                // The packaged Runtime announces external Plugin surfaces
+                // because the packaged WPE bridge enables them.
+                .chain(std::iter::once((
+                    token(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_CAPABILITY),
+                    edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_VERSION,
+                )))
+                // The packaged bridge forwards Plugin API v2 state, so the
+                // Runtime hosts v2 contributions with its own services.
+                .chain(player_core::shared_runtime_plugin_capabilities().map(|(name, version)| (token(name), version)))
                 .collect(),
             crate::widget_capabilities::WIDGET_COMPONENTS
                 .iter()
@@ -239,6 +248,7 @@ pub(crate) fn prepare(activation: &Activation, clock_offset_ms: i64) -> Result<R
         .frames
         .iter()
         .map(|reference| player_core::VerifiedFrameRef {
+            kind: reference.kind,
             package_id: reference.package_id.clone(),
             package_digest: reference.package_digest,
             sha256: reference.sha256,
@@ -284,6 +294,7 @@ fn frame_authorization_table(
         .map(|frame| {
             let uri = grants.get(&frame.sha256).ok_or(RendererPortError::InvalidActivation)?.frame_uri();
             Ok(RendererFrameRef {
+                kind: frame.kind,
                 uri: SafeText::new(uri).map_err(invalid)?,
                 package_id: frame.package_id.clone(),
                 package_digest: frame.package_digest,
@@ -432,6 +443,7 @@ impl RendererPort for EdgeRendererPort {
                     .frames()
                     .iter()
                     .map(|frame| edge_protocol::ipc::presentation::FrameRef {
+                        kind: frame.kind,
                         package_id: frame.package_id.clone(),
                         package_digest: frame.package_digest,
                         sha256: frame.sha256,
@@ -480,7 +492,21 @@ impl RendererPort for EdgeRendererPort {
                 })
             })
             .collect::<Result<_, RendererPortError>>()?;
-        let frames = frame_authorization_table(activation.frames(), &grants.frames)?;
+        let widget_claims: Vec<_> =
+            activation.frames().iter().filter(|frame| frame.kind.is_widget()).cloned().collect();
+        let plugin_claims: Vec<_> =
+            activation.frames().iter().filter(|frame| !frame.kind.is_widget()).cloned().collect();
+        let frames = frame_authorization_table(&widget_claims, &grants.frames)?;
+        let plugin_frames = frame_authorization_table(&plugin_claims, &grants.frames)?;
+        if !plugin_frames.is_empty()
+            && !self
+                .session
+                .features()
+                .iter()
+                .any(|feature| feature.as_str() == edge_protocol::ipc::RENDERER_FEATURE_PLUGIN_FRAMES)
+        {
+            return Err(RendererPortError::InvalidActivation);
+        }
         if !frames.is_empty() && !session_grants_frames(&self.session) {
             // The renderer never negotiated frame delivery: fail the
             // activation rather than execute frames it cannot confine.
@@ -515,13 +541,20 @@ impl RendererPort for EdgeRendererPort {
                 .cloned()
                 .collect();
             PluginState {
+                plugin_frames,
                 plugins: context.plugins,
                 content: plugin_content,
                 clock_offset_ms: context.clock_offset_ms,
                 aliases: context.aliases,
             }
         } else {
-            PluginState { plugins: vec![], content: vec![], clock_offset_ms: context.clock_offset_ms, aliases: vec![] }
+            PluginState {
+                plugin_frames: vec![],
+                plugins: vec![],
+                content: vec![],
+                clock_offset_ms: context.clock_offset_ms,
+                aliases: vec![],
+            }
         };
         let sent = self
             .session
@@ -536,7 +569,25 @@ impl RendererPort for EdgeRendererPort {
         reference: RendererActivationRef,
         context: &RuntimePayload,
     ) -> Result<(), RendererPortError> {
-        let media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+        self.update_plugin_frames(reference, context, &[])
+    }
+
+    fn update_plugin_frames(
+        &self,
+        reference: RendererActivationRef,
+        context: &RuntimePayload,
+        frames: &[player_core::VerifiedFrameRef],
+    ) -> Result<(), RendererPortError> {
+        if !frames.is_empty()
+            && !self
+                .session
+                .features()
+                .iter()
+                .any(|feature| feature.as_str() == edge_protocol::ipc::RENDERER_FEATURE_PLUGIN_FRAMES)
+        {
+            return Err(RendererPortError::InvalidActivation);
+        }
+        let mut media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
         let Some((_, grants)) = media.as_ref().filter(|(cached, _)| {
             cached.activation_id == reference.activation_id && cached.generation == reference.generation
         }) else {
@@ -565,12 +616,55 @@ impl RendererPort for EdgeRendererPort {
                 })
             })
             .collect::<Result<_, RendererPortError>>()?;
-        self.send(Event::PluginState(PluginState {
+        let native_frames: Vec<_> = frames
+            .iter()
+            .map(|frame| edge_protocol::ipc::presentation::FrameRef {
+                kind: frame.kind,
+                package_id: frame.package_id.clone(),
+                package_digest: frame.package_digest,
+                sha256: frame.sha256,
+                size_bytes: frame.size_bytes,
+            })
+            .collect();
+        let now_ms = self.clock.now().unix_millis();
+        let mut registry = self.registry.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+        let update = registry
+            .prepare_plugin_frames(self.session.id(), reference.generation, now_ms, &native_frames)
+            .map_err(|_| RendererPortError::ResourceUnavailable)?;
+        let plugin_frames = match frame_authorization_table(frames, &update.grants) {
+            Ok(table) => table,
+            Err(error) => {
+                let _ = registry.finish_plugin_frames(update, false, now_ms);
+                return Err(error);
+            }
+        };
+        let mut next_frames: HashMap<_, _> = grants
+            .frames
+            .iter()
+            .filter(|(_, token)| {
+                registry
+                    .resolve_frame(self.session.id(), token.as_str(), now_ms)
+                    .is_some_and(|grant| grant.kind == crate::media::MediaGrantKind::Frame)
+            })
+            .map(|(digest, token)| (*digest, token.clone()))
+            .collect();
+        next_frames.extend(update.grants.iter().map(|(digest, token)| (*digest, token.clone())));
+        let delivered = self.send(Event::PluginState(PluginState {
+            plugin_frames,
             plugins: context.plugins,
             aliases: context.aliases,
             content,
             clock_offset_ms: context.clock_offset_ms,
-        }))
+        }));
+        registry
+            .finish_plugin_frames(update, delivered.is_ok(), now_ms)
+            .map_err(|_| RendererPortError::InvalidActivation)?;
+        if delivered.is_ok()
+            && let Some((_, grants)) = media.as_mut()
+        {
+            grants.frames = next_frames;
+        }
+        delivered
     }
 
     fn clear(&self, reason: &edge_protocol::bounded::ShortToken) -> Result<(), RendererPortError> {
@@ -705,7 +799,7 @@ mod tests {
                 "requiredCapabilities": {"widget.tilecast.clock": 2, "content.text": 1}}}]}),
         };
         let metadata = metadata(
-            &PresentationDocument::Setup {},
+            &PresentationDocument::Setup { phone_setup: None },
             crate::presentation::ActivationSource::ServerManifest,
             Some(&projection),
         )
@@ -722,7 +816,7 @@ mod tests {
         projection.manifest["widgets"][0]["presentation"]["requiredCapabilities"]["content.text"] = json!(0);
         assert!(
             super::metadata(
-                &PresentationDocument::Setup {},
+                &PresentationDocument::Setup { phone_setup: None },
                 crate::presentation::ActivationSource::ServerManifest,
                 Some(&projection)
             )
@@ -837,9 +931,13 @@ mod tests {
                 takeover_id: None,
                 next_transition_ms: None,
             }),
-            document: PresentationDocument::Setup {},
-            renderer_metadata: metadata(&PresentationDocument::Setup {}, ActivationSource::ServerManifest, None)
-                .unwrap(),
+            document: PresentationDocument::Setup { phone_setup: None },
+            renderer_metadata: metadata(
+                &PresentationDocument::Setup { phone_setup: None },
+                ActivationSource::ServerManifest,
+                None,
+            )
+            .unwrap(),
             content: vec![edge_protocol::ipc::presentation::ContentRef {
                 sha256: digest,
                 size_bytes: 4,
@@ -877,6 +975,71 @@ mod tests {
     }
 
     #[test]
+    fn packaged_profile_offers_the_plugin_surface_abi_independently_of_widget_frames() {
+        use player_core::RendererRequirement;
+        let plugin = || {
+            edge_protocol::bounded::ShortToken::new(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_CAPABILITY).unwrap()
+        };
+        let required = |version| RendererRequirement::Declarative { name: plugin(), version };
+        assert_eq!(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_VERSION, 1);
+        packaged_profile()
+            .check(&required(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_VERSION))
+            .expect("plugin.external-runtime @1");
+        assert!(
+            packaged_profile().check(&required(edge_protocol::frames::EXTERNAL_PLUGIN_RUNTIME_VERSION + 1)).is_err()
+        );
+        // The Widget frame ABI is a different capability: the plugin name is
+        // never offered as a Widget component, or the Widget name as a plugin.
+        assert!(
+            packaged_profile().check(&RendererRequirement::WidgetComponent { name: plugin(), version: 1 }).is_err()
+        );
+        assert!(
+            packaged_profile()
+                .check(&RendererRequirement::Declarative {
+                    name: edge_protocol::bounded::ShortToken::new(edge_protocol::frames::EXTERNAL_RUNTIME_CAPABILITY)
+                        .unwrap(),
+                    version: edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+                })
+                .is_err()
+        );
+    }
+
+    /// The Runtime announces plugin support only when the host bridge says it
+    /// executes plugin frames, and the heartbeat reports the same ABI only
+    /// because that bridge does. The WPE bridge is JavaScript shipped beside
+    /// the Runtime, so its source is pinned here: removing the flag must fail
+    /// a test, not silently stop plugin projection.
+    #[test]
+    fn the_shipped_wpe_bridge_enables_the_plugin_surface_abi_this_edge_reports() {
+        let bridge = include_str!("../../renderer-wpe/web/tilecast-bridge.js");
+        assert_eq!(bridge.matches("externalPluginFrames: true").count(), 1);
+        assert_eq!(bridge.matches("externalFrames: true").count(), 1);
+        assert!(!bridge.contains("externalPluginFrames: false"));
+    }
+
+    /// Plugin API v2: the bridge forwards plugin_state, so the packaged
+    /// profile offers the Player Plugin Host and the Shared Runtime services.
+    /// None of them is a plugin name, and none implies the external ABI.
+    #[test]
+    fn packaged_profile_offers_the_plugin_api_2_host_and_its_runtime_services() {
+        use player_core::RendererRequirement;
+        let bridge = include_str!("../../renderer-wpe/web/tilecast-bridge.js");
+        assert_eq!(bridge.matches("pluginState: true").count(), 1);
+        // The WPE scheme handler serves tcmedia://variant/ only through the
+        // aliases in the current plugin state, so the Runtime may use it.
+        assert_eq!(bridge.matches("variantMedia: true").count(), 1);
+        assert!(!bridge.contains("pluginEvents"), "no event transport is wired on this host");
+        let declarative = |name: &str, version| RendererRequirement::Declarative {
+            name: edge_protocol::bounded::ShortToken::new(name).unwrap(),
+            version,
+        };
+        for (name, version) in player_core::shared_runtime_plugin_capabilities() {
+            packaged_profile().check(&declarative(name, version)).expect(name);
+        }
+        assert!(packaged_profile().check(&declarative(player_core::PLAYER_PLUGIN_HOST_CAPABILITY, 3)).is_err());
+    }
+
+    #[test]
     fn packaged_profile_offers_the_frame_execution_abi_at_two() {
         use player_core::RendererRequirement;
         let name =
@@ -902,6 +1065,7 @@ mod tests {
         let package = Sha256Digest::parse(&"e".repeat(64)).unwrap();
         let document = Sha256Digest::parse(&"f".repeat(64)).unwrap();
         let claim = player_core::VerifiedFrameRef {
+            kind: player_types::frames::FrameKind::Widget,
             package_id: SafeText::new("acme.athletics").unwrap(),
             package_digest: package,
             sha256: document,
@@ -937,9 +1101,13 @@ mod tests {
             id: edge_protocol::ids::ActivationId::from_uuid(uuid::Uuid::nil()),
             generation: 3,
             identity: None,
-            document: PresentationDocument::Setup {},
-            renderer_metadata: metadata(&PresentationDocument::Setup {}, ActivationSource::ServerManifest, None)
-                .unwrap(),
+            document: PresentationDocument::Setup { phone_setup: None },
+            renderer_metadata: metadata(
+                &PresentationDocument::Setup { phone_setup: None },
+                ActivationSource::ServerManifest,
+                None,
+            )
+            .unwrap(),
             content: vec![
                 edge_protocol::ipc::presentation::ContentRef {
                     sha256: digest,

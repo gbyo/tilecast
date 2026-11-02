@@ -563,6 +563,7 @@ mod grant_tests {
         let media = registry.prepare(session, 1, 0, std::slice::from_ref(&content), &streams).unwrap();
         let media_token = media[&content.sha256].as_str().to_owned();
         let frame = FrameRef {
+            kind: player_types::frames::FrameKind::Widget,
             package_id: SafeText::new("acme.athletics").unwrap(),
             package_digest: Sha256Digest::parse(&"e".repeat(64)).unwrap(),
             sha256: Sha256Digest::parse(&"f".repeat(64)).unwrap(),

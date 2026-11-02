@@ -319,12 +319,78 @@ func (s *Service) AddScreen(ctx context.Context, group, screen, user uuid.UUID) 
 		return err
 	}
 	defer tx.Rollback(ctx)
+	notes, configRevision, err := addScreenInTx(ctx, tx, group, screen, user)
+	if err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+	s.notify(notes)
+	if notifier, ok := s.notifier.(interface{ ConfigChanged(uuid.UUID, int64) }); ok {
+		notifier.ConfigChanged(screen, configRevision)
+	}
+	_ = s.audit(ctx, user, "screen_group.screen_added", "screen_group", group)
+	return nil
+}
+
+// CreateGroupWithScreens creates a group and adds its first members in one
+// transaction. authorize runs inside that transaction before anything is
+// written, so a refused creation leaves nothing behind and a group never
+// exists, even briefly, without the members that anchor it.
+func (s *Service) CreateGroupWithScreens(ctx context.Context, user uuid.UUID, name, description string, screens []uuid.UUID, authorize func(context.Context, pgx.Tx) error) (Group, error) {
+	if err := validateGroup(name, description); err != nil {
+		return Group{}, err
+	}
+	if authorize == nil {
+		return Group{}, errors.New("group creation needs an authorization decision")
+	}
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return Group{}, err
+	}
+	defer tx.Rollback(ctx)
+	if err = authorize(ctx, tx); err != nil {
+		return Group{}, err
+	}
+	id := ids.New(ctx)
+	if _, err = tx.Exec(ctx, `INSERT INTO screen_groups(id,organization_id,name,description,created_by)SELECT $1,id,$2,$3,$4 FROM organization_settings WHERE singleton`, id, strings.TrimSpace(name), description, user); err != nil {
+		return Group{}, err
+	}
+	notes := []note{}
+	revisions := map[uuid.UUID]int64{}
+	for _, screen := range screens {
+		added, revision, err := addScreenInTx(ctx, tx, id, screen, user)
+		if err != nil {
+			return Group{}, err
+		}
+		notes = append(notes, added...)
+		revisions[screen] = revision
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Group{}, err
+	}
+	s.notify(notes)
+	if notifier, ok := s.notifier.(interface{ ConfigChanged(uuid.UUID, int64) }); ok {
+		for screen, revision := range revisions {
+			notifier.ConfigChanged(screen, revision)
+		}
+	}
+	_ = s.audit(ctx, user, "screen_group.created", "screen_group", id)
+	for range screens {
+		_ = s.audit(ctx, user, "screen_group.screen_added", "screen_group", id)
+	}
+	return s.GetGroup(ctx, id)
+}
+
+// addScreenInTx is one membership addition inside tx.
+func addScreenInTx(ctx context.Context, tx pgx.Tx, group, screen, user uuid.UUID) ([]note, int64, error) {
 	// A group-targeted display-control schedule follows every member. Check the
 	// new member before changing membership so an Android Player cannot acquire
 	// a schedule it has no way to execute after the schedule itself was created
 	// for an all-Linux group.
 	var unsupported bool
-	if err = tx.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		SELECT EXISTS(
 			SELECT 1
 			FROM screens sc
@@ -340,81 +406,73 @@ func (s *Service) AddScreen(ctx context.Context, group, screen, user uuid.UUID) 
 				  AND schedule.display_action IS NOT NULL
 			  )
 		)`, group, screen).Scan(&unsupported); err != nil {
-		return err
+		return nil, 0, err
 	}
 	if unsupported {
-		return fmt.Errorf("%w: display-control schedules are supported only on Linux Players", ErrDisplayControlUnsupported)
+		return nil, 0, fmt.Errorf("%w: display-control schedules are supported only on Linux Players", ErrDisplayControlUnsupported)
 	}
 	tag, err := tx.Exec(ctx, `INSERT INTO screen_group_memberships(screen_group_id,screen_id,added_by) SELECT g.id,sc.id,$3 FROM screen_groups g JOIN screens sc ON sc.organization_id=g.organization_id WHERE g.id=$1 AND sc.id=$2 AND g.deleted_at IS NULL`, group, screen, user)
 	if err != nil {
 		var databaseError *pgconn.PgError
 		if errors.As(err, &databaseError) && (databaseError.ConstraintName == "screen_group_memberships_one_group_per_screen" || databaseError.ConstraintName == "screen_group_memberships_pkey") {
-			return fmt.Errorf("%w: screen already belongs to a sync group", ErrConflict)
+			return nil, 0, fmt.Errorf("%w: screen already belongs to a sync group", ErrConflict)
 		}
-		return err
+		return nil, 0, err
 	}
 	if tag.RowsAffected() == 0 {
-		return ErrConflict
+		return nil, 0, ErrConflict
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO screen_group_playlist_assignments(screen_group_id,playlist_id,layout_id,assigned_by,assigned_at) SELECT $1,a.playlist_id,a.layout_id,$3,a.assigned_at FROM screen_playlist_assignments a WHERE a.screen_id=$2 ON CONFLICT(screen_group_id)DO NOTHING`, group, screen, user); err != nil {
-		return err
+		return nil, 0, err
 	}
 	// Snapshot the screen's own assignment and schedule targets so leaving the
 	// group can restore them instead of inheriting the group's content.
 	if _, err = tx.Exec(ctx, `DELETE FROM screen_group_membership_snapshots WHERE screen_id=$1`, screen); err != nil {
-		return err
+		return nil, 0, err
 	}
 	if _, err = tx.Exec(ctx, `DELETE FROM screen_group_membership_schedule_snapshots WHERE screen_id=$1`, screen); err != nil {
-		return err
+		return nil, 0, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO screen_group_membership_snapshots(screen_id,playlist_id,layout_id,assigned_by,assigned_at) SELECT sc.id,a.playlist_id,a.layout_id,a.assigned_by,a.assigned_at FROM screens sc LEFT JOIN screen_playlist_assignments a ON a.screen_id=sc.id WHERE sc.id=$1`, screen); err != nil {
-		return err
+		return nil, 0, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO screen_group_membership_schedule_snapshots(screen_id,schedule_id) SELECT screen_id,schedule_id FROM schedule_targets WHERE target_type='screen' AND screen_id=$1`, screen); err != nil {
-		return err
+		return nil, 0, err
 	}
 	if _, err = tx.Exec(ctx, `DELETE FROM screen_playlist_assignments WHERE screen_id=$1`, screen); err != nil {
-		return err
+		return nil, 0, err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_group_id) SELECT schedule_id,'group',$1 FROM schedule_targets WHERE target_type='screen' AND screen_id=$2 ON CONFLICT(schedule_id,screen_group_id)DO NOTHING`, group, screen); err != nil {
-		return err
+		return nil, 0, err
 	}
 	if _, err = tx.Exec(ctx, `DELETE FROM schedule_targets WHERE target_type='screen' AND screen_id=$1`, screen); err != nil {
-		return err
+		return nil, 0, err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE screen_groups SET playback_epoch=now(),updated_at=now() WHERE id=$1`, group); err != nil {
-		return err
+		return nil, 0, err
 	}
 	memberRows, err := tx.Query(ctx, `SELECT screen_id FROM screen_group_memberships WHERE screen_group_id=$1`, group)
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
 	memberIDs := []uuid.UUID{}
 	for memberRows.Next() {
 		var id uuid.UUID
 		if err = memberRows.Scan(&id); err != nil {
 			memberRows.Close()
-			return err
+			return nil, 0, err
 		}
 		memberIDs = append(memberIDs, id)
 	}
 	memberRows.Close()
 	notes, err := bumpScreens(ctx, tx, memberIDs, "sync_group.membership_changed")
 	if err != nil {
-		return err
+		return nil, 0, err
 	}
 	var configRevision int64
 	_, _ = tx.Exec(ctx, `INSERT INTO screen_config_state(screen_id)VALUES($1)ON CONFLICT DO NOTHING`, screen)
 	_ = tx.QueryRow(ctx, `UPDATE screen_config_state SET config_revision=config_revision+1,changed_at=now(),change_reason='screen_group.membership_changed' WHERE screen_id=$1 RETURNING config_revision`, screen).Scan(&configRevision)
-	if err = tx.Commit(ctx); err != nil {
-		return err
-	}
-	s.notify(notes)
-	if notifier, ok := s.notifier.(interface{ ConfigChanged(uuid.UUID, int64) }); ok {
-		notifier.ConfigChanged(screen, configRevision)
-	}
-	_ = s.audit(ctx, user, "screen_group.screen_added", "screen_group", group)
-	return nil
+	return notes, configRevision, nil
 }
 
 // restoreScreenSnapshot reinstates the playlist assignment and screen-targeted

@@ -1,14 +1,22 @@
 import { isPlayerUrl, originPattern } from "@tilecast/companion-protocol";
+import { syncBridgeRegistration } from "./bridge-registration";
 
 /**
  * Action popup: the setup UX. The user opens the Browser Player, invokes
  * the extension, and the popup offers to connect exactly the visible
  * player origin — never every site, never by default. On approval the
  * worker persists the origin grant and registers the isolated bridge
- * for /player/* on that origin only.
+ * for /player/* on the granted origins only.
  */
 
-const BRIDGE_SCRIPT_ID = "tilecast-companion-bridge";
+async function grantedOrigins(): Promise<string[]> {
+  const stored = await chrome.storage.local.get(["grantedOrigins"]);
+  return (
+    Array.isArray(stored["grantedOrigins"])
+      ? (stored["grantedOrigins"] as unknown[])
+      : []
+  ).filter((entry): entry is string => typeof entry === "string");
+}
 
 async function currentPlayerTab(): Promise<
   { id: number; url: string } | undefined
@@ -21,11 +29,7 @@ async function currentPlayerTab(): Promise<
 }
 
 async function isConnected(origin: string): Promise<boolean> {
-  const stored = await chrome.storage.local.get(["grantedOrigins"]);
-  const origins = Array.isArray(stored["grantedOrigins"])
-    ? (stored["grantedOrigins"] as unknown[])
-    : [];
-  return origins.includes(origin);
+  return (await grantedOrigins()).includes(origin);
 }
 
 async function connect(
@@ -41,65 +45,43 @@ async function connect(
     return "failed";
   }
   if (!granted) return "declined";
+  const origins = await grantedOrigins();
+  const next = origins.includes(origin) ? origins : [...origins, origin];
   try {
-    await chrome.scripting.unregisterContentScripts({
-      ids: [BRIDGE_SCRIPT_ID],
-    });
+    await syncBridgeRegistration(chrome.scripting, next);
   } catch {
-    // Absent registration: nothing to clear.
-  }
-  try {
-    await chrome.scripting.registerContentScripts([
-      {
-        id: BRIDGE_SCRIPT_ID,
-        matches: [`${origin}/player/*`],
-        js: ["content.js"],
-        runAt: "document_start",
-        world: "ISOLATED",
-        allFrames: false,
-      },
-    ]);
-  } catch {
+    // Restore the bridge for the origins that were already granted.
+    try {
+      await syncBridgeRegistration(chrome.scripting, origins);
+    } catch {
+      // Nothing more to restore from here.
+    }
     await chrome.permissions.remove({ origins: [pattern] });
     return "failed";
   }
-  const stored = await chrome.storage.local.get(["grantedOrigins"]);
-  const origins = (
-    Array.isArray(stored["grantedOrigins"])
-      ? (stored["grantedOrigins"] as unknown[])
-      : []
-  ).filter((entry): entry is string => typeof entry === "string");
-  if (!origins.includes(origin)) {
-    origins.push(origin);
-    await chrome.storage.local.set({ grantedOrigins: origins });
-  }
+  if (next !== origins)
+    await chrome.storage.local.set({ grantedOrigins: next });
   return "connected";
 }
 
 async function disconnect(origin: string): Promise<void> {
   const pattern = originPattern(origin);
-  const stored = await chrome.storage.local.get([
-    "grantedOrigins",
-    "connections",
-  ]);
-  const origins = (
-    Array.isArray(stored["grantedOrigins"])
-      ? (stored["grantedOrigins"] as unknown[])
-      : []
-  ).filter((entry): entry is string => typeof entry === "string");
+  const stored = await chrome.storage.local.get(["connections"]);
+  const remaining = (await grantedOrigins()).filter(
+    (entry) => entry !== origin,
+  );
   const connections = (
     Array.isArray(stored["connections"]) ? stored["connections"] : []
   ) as { origin?: string }[];
   await chrome.storage.local.set({
-    grantedOrigins: origins.filter((entry) => entry !== origin),
+    grantedOrigins: remaining,
     connections: connections.filter((entry) => entry.origin !== origin),
   });
   try {
-    await chrome.scripting.unregisterContentScripts({
-      ids: [BRIDGE_SCRIPT_ID],
-    });
+    // The other granted origins keep their bridge.
+    await syncBridgeRegistration(chrome.scripting, remaining);
   } catch {
-    // Already gone.
+    // The worker grant is already gone, so a stale match stays inert.
   }
   if (pattern) {
     try {

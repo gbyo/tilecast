@@ -44,7 +44,8 @@ fn to_value<T: serde::Serialize>(value: &T) -> Result<Value, ErrorBody> {
 
 /// Renderer features this daemon understands. Unknown requested features
 /// are ignored rather than rejected (see `edge_protocol::ipc`).
-const RENDERER_SESSION_FEATURES: &[&str] = &[edge_protocol::ipc::RENDERER_FEATURE_WIDGET_FRAMES];
+const RENDERER_SESSION_FEATURES: &[&str] =
+    &[edge_protocol::ipc::RENDERER_FEATURE_WIDGET_FRAMES, edge_protocol::ipc::RENDERER_FEATURE_PLUGIN_FRAMES];
 
 #[async_trait]
 impl IpcHandler for DaemonIpc {
@@ -218,6 +219,10 @@ impl IpcHandler for DaemonIpc {
                 let result = crate::pairing::begin(context, params.url.as_str()).await;
                 tracing::info!(component = "ipc", event = "pairing_requested", ok = result.is_ok());
                 to_value(&SubmitServerUrlResult { ok: result.is_ok(), error: result.err().map(SafeText::lossy) })
+            }
+            Method::SetupResumePhoneSetup(_) => {
+                crate::pairing::resume_phone_setup(context);
+                to_value(&serde_json::json!({}))
             }
             Method::PairingReset(_) => {
                 crate::pairing::reset(context).await;

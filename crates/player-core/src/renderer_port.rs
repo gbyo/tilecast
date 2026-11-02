@@ -194,6 +194,16 @@ pub trait RendererPort: Send + Sync {
     ) -> Result<(), RendererPortError> {
         Err(RendererPortError::NotReady)
     }
+    /// Replace independent, verified plugin-frame grants and state. Presentation
+    /// frames and media must stay live; unsupported hosts refuse executable frames.
+    fn update_plugin_frames(
+        &self,
+        reference: RendererActivationRef,
+        context: &RuntimePayload,
+        frames: &[VerifiedFrameRef],
+    ) -> Result<(), RendererPortError> {
+        if frames.is_empty() { self.update_plugins(reference, context) } else { Err(RendererPortError::NotReady) }
+    }
     fn clear(&self, reason: &ShortToken) -> Result<(), RendererPortError>;
     fn send_command(&self, command_id: uuid::Uuid, command: &SemanticRendererCommand) -> Result<(), RendererPortError>;
     fn request_capture(&self, request: RendererCaptureRequest) -> Result<(), RendererPortError>;
@@ -320,6 +330,7 @@ mod tests {
         )
         .unwrap();
         let frames = vec![VerifiedFrameRef {
+            kind: player_types::frames::FrameKind::Widget,
             package_id: SafeText::new("acme.athletics").unwrap(),
             package_digest: Sha256Digest::of(b"package"),
             sha256: frame,
@@ -331,6 +342,7 @@ mod tests {
         assert!(activation.content().is_empty());
         let oversized = vec![
             VerifiedFrameRef {
+                kind: player_types::frames::FrameKind::Widget,
                 package_id: SafeText::new("acme.athletics").unwrap(),
                 package_digest: Sha256Digest::of(b"package"),
                 sha256: frame,

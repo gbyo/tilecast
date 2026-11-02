@@ -43,14 +43,15 @@ const (
 	ErrNoOperation = -7
 )
 
-// Call framing bounds. The host writes the call input at address 0 and
-// offers the output window beside it; guests stay within their declared
+// Legacy input starts at zero. API 4 reserves a non-null input window so
+// Rust guests can read it without constructing a null slice. Guests stay within their declared
 // memory, which always spans at least one 64 KiB page.
 const (
-	callInputAddr  = 0
-	callOutputAddr = 16 << 10
-	callInputCap   = 16 << 10
-	callOutputCap  = 16 << 10
+	callInputAddr   = 0
+	callInputAddrV4 = 32 << 10
+	callOutputAddr  = 16 << 10
+	callInputCap    = 16 << 10
+	callOutputCap   = 16 << 10
 	// MaxBridgeInputBytes caps one Studio UI bridge payload, decoded.
 	// It matches the call-input window the host frames for the guest.
 	MaxBridgeInputBytes = callInputCap
@@ -81,8 +82,9 @@ type ServiceCaller interface {
 
 // Call is one guest invocation.
 type Call struct {
-	ExecutionEpoch uuid.UUID
-	StorageEpoch   uuid.UUID
+	PackageAPIVersion packagemanifest.APIVersionNum
+	ExecutionEpoch    uuid.UUID
+	StorageEpoch      uuid.UUID
 	// PackageID scopes storage, logs, and the compile cache entry.
 	PackageID string
 	// Digest keys the compiled module cache: the pinned artifact digest.
@@ -93,7 +95,7 @@ type Call struct {
 	Grants Grants
 	// Entry is run_job or handle_ui_request.
 	Entry string
-	// Input is framed at address 0: a job identity or a UI request.
+	// Input is a job identity or a UI request, framed for the package API.
 	Input []byte
 	// Timeout bounds the whole call, guest and host functions alike.
 	Timeout time.Duration
@@ -258,10 +260,14 @@ func (h *Host) Invoke(ctx context.Context, call Call) (Result, error) {
 	}
 	defer instance.Close(ctx) //nolint:errcheck
 	memory := instance.Memory()
-	if memory == nil || memory.Size() < callOutputAddr+callOutputCap {
+	inputAddr := uint32(callInputAddr)
+	if call.PackageAPIVersion == 4 {
+		inputAddr = callInputAddrV4
+	}
+	if memory == nil || memory.Size() < callOutputAddr+callOutputCap || memory.Size() < inputAddr+callInputCap {
 		return Result{}, errors.New("wasm: guest memory too small for the call frame")
 	}
-	if !memory.Write(callInputAddr, call.Input) {
+	if !memory.Write(inputAddr, call.Input) {
 		return Result{}, errors.New("wasm: cannot frame the call input")
 	}
 	fn := instance.ExportedFunction(call.Entry)
@@ -270,9 +276,9 @@ func (h *Host) Invoke(ctx context.Context, call Call) (Result, error) {
 	}
 	var results []uint64
 	if call.Entry == "run_job" {
-		results, err = fn.Call(ctx, callInputAddr, uint64(len(call.Input)))
+		results, err = fn.Call(ctx, uint64(inputAddr), uint64(len(call.Input)))
 	} else {
-		results, err = fn.Call(ctx, callInputAddr, uint64(len(call.Input)), callOutputAddr, callOutputCap)
+		results, err = fn.Call(ctx, uint64(inputAddr), uint64(len(call.Input)), callOutputAddr, callOutputCap)
 	}
 	if err != nil {
 		return Result{}, fmt.Errorf("wasm: call %s: %w", call.Entry, err)

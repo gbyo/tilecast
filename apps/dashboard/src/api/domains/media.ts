@@ -618,7 +618,13 @@ export function previewSavedDataSource(
 }
 
 export function createUpload(
-  input: { filename: string; mimeType: string; sizeBytes: number },
+  input: {
+    filename: string;
+    mimeType: string;
+    sizeBytes: number;
+    /** Destination folder; omitted is the library root. */
+    folderId?: string | null;
+  },
   csrfToken: string,
 ): Promise<UploadSession> {
   return apiPost("/api/v1/uploads", { body: input, csrfToken });

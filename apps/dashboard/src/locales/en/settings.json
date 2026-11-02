@@ -669,7 +669,8 @@
       "integrations": "Integration tokens",
       "import-export": "Import and export",
       "dependency-graph": "Dependency Explorer",
-      "preferences": "Preferences"
+      "preferences": "Preferences",
+      "roles": "Roles"
     },
     "sections": {
       "general": {
@@ -771,6 +772,10 @@
       "preferences": {
         "title": "Preferences",
         "description": "Appearance and workflow preferences for your Studio account."
+      },
+      "roles": {
+        "title": "Roles",
+        "description": "Decide what people can do. Use the built-in roles or create your own, then assign them on the Users page."
       }
     }
   },
@@ -1797,7 +1802,7 @@
     "saved": "Presentation Network saved.",
     "deleted": "Presentation Network deleted.",
     "saveError": "The Presentation Network could not be saved.",
-    "manageOnly": "Only Owners and Administrators may manage Presentation Networks.",
+    "manageOnly": "Managing Presentation Networks needs the Manage Presentation Networks capability and access to every screen.",
     "title": "Temporary Wi-Fi for local presentation",
     "description": "Presentation Networks let supported Linux players join Wi-Fi only while an AirPlay session needs it. Ethernet remains the normal path for Tilecast traffic, downloads, and group video fan-out.",
     "credentialsUnavailable": "Credentials are unavailable on this server.",

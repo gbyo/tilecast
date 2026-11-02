@@ -1,4 +1,25 @@
 {
+  "playerRuntime": {
+    "title": "Superficies del reproductor",
+    "allowedSurfaces": "Superficies permitidas: {{surfaces}}",
+    "priority": "Nivel de prioridad: {{tier}}",
+    "surfaces": {
+      "strip": { "top": "Franja superior", "bottom": "Franja inferior" },
+      "corner": {
+        "top-left": "Esquina superior izquierda",
+        "top-right": "Esquina superior derecha",
+        "bottom-left": "Esquina inferior izquierda",
+        "bottom-right": "Esquina inferior derecha"
+      },
+      "overlay": "Superposición de pantalla completa"
+    },
+    "tiers": {
+      "emergency": "Emergencia",
+      "live": "En directo",
+      "scheduled": "Programado",
+      "ambient": "Ambiental"
+    }
+  },
   "list": {
     "title": "Complementos",
     "subtitle": "Añade las funciones e integraciones opcionales de Tilecast a esta instalación.",

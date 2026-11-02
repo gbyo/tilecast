@@ -15,6 +15,7 @@ import type {
   ScreenGroup,
 } from "../api/types";
 import * as authModule from "../auth/AuthProvider";
+import { builtinCapabilities } from "../test/capabilities";
 import { ScheduleEditorPage } from "./ScheduleEditorPage";
 
 export class RequestWithoutSignal extends globalThis.Request {
@@ -40,6 +41,7 @@ export function mockAuth(role = "owner") {
       authenticated: true,
       user: { id: "u1", name: "Op", username: "op", role },
       csrfToken: "tok",
+      capabilities: builtinCapabilities(role),
     },
     isLoading: false,
   } as unknown as ReturnType<typeof authModule.useAuth>);

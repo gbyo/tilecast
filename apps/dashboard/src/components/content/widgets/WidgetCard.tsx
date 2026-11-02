@@ -37,6 +37,7 @@ export function WidgetCard({
   return (
     <ActionContextMenu
       label={actionsLabel}
+      title={asset.name}
       actions={actions}
       render={
         <Card

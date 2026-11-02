@@ -1,6 +1,13 @@
 package httpapi
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
+	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
+)
 
 // contentHealth reports content that is degrading quietly: a Data Source
 // serving stale cache, a playlist with nothing available, media about to
@@ -13,6 +20,52 @@ func (s *server) contentHealth(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.internalError(w, r, err)
 		return
+	}
+	// The report spans the installation. Each section is shown only to a
+	// role that may read that kind of resource, and expiring media only when
+	// it is within the caller's content access.
+	principal, _ := principalOf(r)
+	if !principal.Can(auth.CapDataSourceRead) {
+		report.StaleSources = []contenthealth.StaleSource{}
+	}
+	if !principal.Can(auth.CapPlaylistRead) {
+		report.EmptyPlaylists = []contenthealth.EmptyPlaylist{}
+	}
+	if !principal.Can(auth.CapScreenRead) {
+		report.UnassignedScreens = []contenthealth.UnassignedScreen{}
+	} else {
+		// Unassigned screens are live screen facts: a restricted account sees
+		// only the screens it reaches, by the same rule as the screen list.
+		ids := make([]uuid.UUID, 0, len(report.UnassignedScreens))
+		for _, screen := range report.UnassignedScreens {
+			ids = append(ids, screen.ID)
+		}
+		reached, err := s.authorizer().Reachable(r.Context(), authz.ActorFor(principal), auth.CapScreenRead, authz.KindScreen, ids)
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
+		visible := []contenthealth.UnassignedScreen{}
+		for _, screen := range report.UnassignedScreens {
+			if reached[screen.ID] {
+				visible = append(visible, screen)
+			}
+		}
+		report.UnassignedScreens = visible
+	}
+	if !principal.Can(auth.CapMediaRead) {
+		report.ExpiringAssets = []contenthealth.ExpiringAsset{}
+	} else if access, err := s.contentAccess(r); err != nil {
+		s.internalError(w, r, err)
+		return
+	} else if !access.LibraryAll {
+		visible := []contenthealth.ExpiringAsset{}
+		for _, asset := range report.ExpiringAssets {
+			if _, err := s.media.AuthorizeAssets(r.Context(), access, []uuid.UUID{asset.ID}, true); err == nil {
+				visible = append(visible, asset)
+			}
+		}
+		report.ExpiringAssets = visible
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": report})
 }

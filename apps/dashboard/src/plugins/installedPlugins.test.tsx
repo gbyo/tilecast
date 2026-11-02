@@ -43,6 +43,7 @@ import { diffContributions } from "./pluginCatalog";
 import { PluginActionsMenu, blockerInstruction } from "./PluginActionsMenu";
 import { filterStoreEntries } from "./pluginCatalog";
 import { PluginRouteGate } from "./PluginRouteGate";
+import { builtinCapabilities } from "../test/capabilities";
 
 /** A store entry in the server's shape, wrapping a catalog fixture. */
 function storeEntry(item: PluginSummary): PluginStoreEntry {
@@ -85,6 +86,7 @@ vi.mock("../auth/AuthProvider", () => ({
       authenticated: true,
       csrfToken: "csrf",
       user: { id: "user", name: "User", role: auth.role },
+      capabilities: builtinCapabilities(auth.role),
     },
   }),
 }));

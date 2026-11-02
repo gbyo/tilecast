@@ -335,16 +335,21 @@ fn content_ref(asset: &ManifestAsset) -> Result<ActivationContent, ManifestError
     })
 }
 
-/// Every verified frame claim, deduplicated by document digest like
-/// the content map. Core fetched and verified each one before this
-/// manifest became a candidate; the port mints one grant per claim.
+/// Every distinct package/frame authorization identity. CAS may share
+/// identical bytes; the Runtime still needs each package's table entry.
 fn frame_refs(candidate: &NativeManifest) -> Result<Vec<ActivationFrame>, ManifestError> {
     let mut frames = Vec::with_capacity(candidate.required_frames.len());
     for claim in &candidate.required_frames {
-        if frames.iter().any(|existing: &ActivationFrame| existing.digest == claim.digest) {
+        if frames.iter().any(|existing: &ActivationFrame| {
+            existing.digest == claim.digest
+                && existing.kind == claim.kind
+                && existing.package_id.as_str() == claim.package_id
+                && existing.package_digest == claim.package_digest
+        }) {
             continue;
         }
         frames.push(ActivationFrame {
+            kind: claim.kind,
             package_id: player_types::bounded::SafeText::new(&claim.package_id).map_err(|_| ManifestError::Frame)?,
             package_digest: claim.package_digest,
             digest: claim.digest,
@@ -850,6 +855,21 @@ fn plugins(
     let mut aliases = Vec::new();
     let mut content = Vec::new();
     for plugin in candidate.document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+        if player_core::is_runtime_plugin_data(plugin) {
+            for (asset_id, variant_id) in player_core::plugin_state_media(plugin) {
+                let asset = find_asset(&candidate.assets, &asset_id.to_string(), &variant_id.to_string())
+                    .ok_or(ManifestError::Reference)?;
+                let alias = media_alias(asset);
+                if !aliases.contains(&alias) {
+                    aliases.push(alias);
+                }
+                if !content.iter().any(|existing: &ActivationContent| existing.digest == asset.digest) {
+                    content.push(content_ref(asset)?);
+                }
+            }
+            plugins.push(plugin.clone());
+            continue;
+        }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("");
         if !crate::manifest_host::profile::FEATURES.contains(&format!("plugin.{kind}").as_str()) {
             return Err(ManifestError::Incompatible(Incompatibility::Plugin(kind.chars().take(32).collect())));
@@ -1205,7 +1225,7 @@ impl OfflineActivationHost for SelectionHost {
             identity: Some(identity(candidate, resolved)),
             clock_offset_ms: time.offset_ms,
         };
-        self.engine.lock().await.refresh_plugins(previous, request)
+        self.engine.lock().await.refresh_plugins(previous, request).await
     }
 
     fn promoted(&self) {
@@ -1297,6 +1317,67 @@ mod tests {
         assert_eq!(resolved.content.len(), 1);
         assert!(resolved.projection.is_none());
         assert_eq!(resolved.selection.source, Source::Direct);
+    }
+
+    #[test]
+    fn external_surface_uses_verified_frames_instead_of_a_bundled_feature_id() {
+        let entry: Value = serde_json::from_str(include_str!(
+            "../../../../packages/manifest-schema/external-plugin-entry-fixture.json"
+        ))
+        .expect("fixture");
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(20);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value).expect("external member");
+        let (forwarded, aliases, content) = plugins(&candidate, 1_000).expect("external channel");
+        assert_eq!(forwarded, vec![entry]);
+        assert_eq!(candidate.required_frames.len(), 1);
+        assert_eq!(candidate.required_frames[0].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert!(aliases.is_empty() && content.is_empty());
+        let connected = player_core::ConnectedRendererProfile(crate::manifest_host::profile::packaged().0);
+        assert!(crate::manifest_host::incompatibilities(&candidate.document, &candidate.assets, &connected).is_empty());
+    }
+
+    #[test]
+    fn plugin_state_is_runtime_data_routed_by_player_core() {
+        let entry: Value =
+            serde_json::from_str(include_str!("../../../../packages/manifest-schema/plugin-state-entry-fixture.json"))
+                .expect("fixture");
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(21);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value).expect("v2 state member");
+        let (forwarded, aliases, content) = plugins(&candidate, 1_000).expect("state channel");
+        assert_eq!(forwarded, vec![entry]);
+        assert!(aliases.is_empty() && content.is_empty());
+        let connected = player_core::ConnectedRendererProfile(crate::manifest_host::profile::packaged().0);
+        assert!(crate::manifest_host::incompatibilities(&candidate.document, &candidate.assets, &connected).is_empty());
+    }
+
+    /// Plugin API v2 media: a state entry's declared variant joins the
+    /// activation's content and aliases, so the WebView may load it by
+    /// identity. A variant the manifest does not list fails the manifest.
+    #[test]
+    fn plugin_state_media_is_granted_through_the_activation() {
+        let mut entry: Value =
+            serde_json::from_str(include_str!("../../../../packages/manifest-schema/plugin-state-entry-fixture.json"))
+                .expect("fixture");
+        entry["media"] = serde_json::json!([{"assetId": ASSET, "variantId": VARIANT}]);
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(21);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value.clone()).expect("v2 state member");
+        let (forwarded, aliases, content) = plugins(&candidate, 1_000).expect("state channel");
+        assert_eq!(forwarded, vec![entry.clone()]);
+        assert_eq!(aliases.len(), 1);
+        assert_eq!(aliases[0]["assetId"], ASSET);
+        assert_eq!(aliases[0]["variantId"], VARIANT);
+        assert_eq!(content.len(), 1);
+
+        let missing = "99999999-9999-4999-8999-999999999999";
+        entry["media"] = serde_json::json!([{"assetId": ASSET, "variantId": missing}]);
+        value["plugins"] = serde_json::json!([entry]);
+        assert!(parse(value).is_err(), "a variant the manifest does not list never reaches a grant");
     }
 
     #[test]

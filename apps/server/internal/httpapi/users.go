@@ -5,36 +5,17 @@ import (
 	"errors"
 	"net/http"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
-	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
+	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
 
 var managedUsernamePattern = regexp.MustCompile(`^[a-zA-Z0-9._@+-]{3,254}$`)
-
-// sortedManagedRoles keeps the validation message in step with the set, so a
-// new role cannot be accepted while the error still lists the old ones.
-func sortedManagedRoles() []string {
-	out := make([]string, 0, len(managedRoles))
-	for role := range managedRoles {
-		out = append(out, role)
-	}
-	sort.Strings(out)
-	return out
-}
-
-var managedRoles = map[string]bool{
-	"owner":         true,
-	"administrator": true,
-	"editor":        true,
-	"contributor":   true,
-	"viewer":        true,
-}
 
 type managedUserInput struct {
 	Name     string `json:"name"`
@@ -42,6 +23,45 @@ type managedUserInput struct {
 	Password string `json:"password"`
 	Role     string `json:"role"`
 	Active   *bool  `json:"active,omitempty"`
+	// ContentAccess sets the new account's Media library policy. It is
+	// accepted on creation only; later changes use the content-access
+	// endpoint. When omitted, the account receives the creator's own modes
+	// with no grants: the whole library from an unrestricted creator, and
+	// nothing from a restricted one.
+	ContentAccess *media.ContentAccessInput `json:"contentAccess,omitempty"`
+	// ScreenAccess sets the new account's screen-access policy. It is
+	// accepted on creation only; later changes use the screen-scopes
+	// endpoint. When omitted, the account reaches no screen: an API caller
+	// that forgets the policy must not create a fleet-wide account.
+	ScreenAccess *screenAccessInput `json:"screenAccess,omitempty"`
+}
+
+// canManageAccount reports whether principal may manage an account that holds
+// role, or place an account on it. It needs users.manage, and the role must be
+// one the principal may delegate: the Owner may manage anyone, nobody else
+// may manage the protected Owner and Administrator identities, and a role is
+// otherwise manageable only when it grants nothing the principal could not
+// grant themselves.
+func (s *server) canManageAccount(ctx context.Context, principal auth.Principal, role string) (bool, error) {
+	if !principal.Can(auth.CapUsersManage) {
+		return false, nil
+	}
+	capabilities, err := s.auth.ResolveCapabilities(ctx, role)
+	if err != nil {
+		return false, err
+	}
+	return principal.Delegator().CanAssignRole(role, capabilities), nil
+}
+
+// roleExists reports whether key names a role.
+func (s *server) roleExists(ctx context.Context, key string) (bool, error) {
+	if _, err := s.auth.GetRole(ctx, key); err != nil {
+		if errors.Is(err, auth.ErrRoleNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
@@ -63,8 +83,43 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor := principal.User
-	if !canManageRole(actor.Role, body.Role) {
-		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may create Owner or Administrator accounts.")
+	if exists, err := s.roleExists(r.Context(), body.Role); err != nil {
+		s.internalError(w, r, err)
+		return
+	} else if !exists {
+		writeError(w, http.StatusUnprocessableEntity, "validation_failed", "role must be an existing role")
+		return
+	}
+	if allowed, err := s.canManageAccount(r.Context(), principal, body.Role); err != nil {
+		s.internalError(w, r, err)
+		return
+	} else if !allowed {
+		writeError(w, http.StatusForbidden, "insufficient_role", "You cannot assign that role. Only an Owner may assign the Owner or Administrator role or a role with more authority than your own.")
+		return
+	}
+	actorAccess, err := s.contentAccess(r)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	contentAccess := media.ContentAccessInput{LibraryMode: modeName(actorAccess.LibraryAll), TagMode: modeName(actorAccess.TagsAll)}
+	if body.ContentAccess != nil {
+		contentAccess = *body.ContentAccess
+	}
+	screenAccess := authz.PolicyInput{Mode: authz.ModeRestricted, Grants: []authz.Grant{}}
+	if body.ScreenAccess != nil {
+		screenAccess = body.ScreenAccess.policy()
+	}
+	if body.Role == auth.RoleOwner {
+		// An Owner always reaches every screen; the stored row only keeps
+		// the account well defined if it is ever moved to another role.
+		screenAccess = authz.PolicyInput{Mode: authz.ModeAll, Grants: []authz.Grant{}}
+	}
+	if err := screenAccess.Validate(); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, "scope_invalid", strings.TrimPrefix(err.Error(), authz.ErrPolicyInvalid.Error()+": "))
+		return
+	}
+	if !s.screenAccessDelegable(w, r, principal, screenAccess) {
 		return
 	}
 	passwordHash, err := auth.HashPassword(body.Password)
@@ -106,6 +161,18 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
+	// Every account is created with an explicit content policy in the same
+	// transaction, so no account ever exists in the "no policy" state.
+	if err := media.ReplaceContentAccessTx(r.Context(), tx, actor.ID, actorAccess, user.ID, contentAccess); err != nil {
+		s.writeContentAccessError(w, r, err)
+		return
+	}
+	// Screen access is written in the same transaction, so a new account is
+	// never observable with broader screen access than requested.
+	if err := authz.ReplacePolicyTx(r.Context(), tx, actor.ID, user.ID, screenAccess); err != nil {
+		s.writeScreenAccessError(w, r, err)
+		return
+	}
 	if err := tx.Commit(r.Context()); err != nil {
 		s.internalError(w, r, err)
 		return
@@ -145,8 +212,18 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if !canManageRole(actor.Role, target.Role) || !canManageRole(actor.Role, body.Role) {
-		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may manage Owner or Administrator accounts.")
+	if exists, err := s.roleExists(r.Context(), body.Role); err != nil {
+		s.internalError(w, r, err)
+		return
+	} else if !exists {
+		writeError(w, http.StatusUnprocessableEntity, "validation_failed", "role must be an existing role")
+		return
+	}
+	if actor.ID == target.ID && body.Role != target.Role && !principal.IsOwner() {
+		writeError(w, http.StatusForbidden, "cannot_change_own_role", "You cannot change your own role.")
+		return
+	}
+	if !s.canManageBoth(w, r, principal, target.Role, body.Role) {
 		return
 	}
 	active := target.Active
@@ -178,7 +255,7 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	lastOwner, err := removesLastActiveOwner(r.Context(), tx, id, body.Role != "owner" || !active)
+	lastOwner, err := removesLastActiveOwner(r.Context(), tx, id, body.Role != auth.RoleOwner || !active)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -281,8 +358,7 @@ func (s *server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if !canManageRole(actor.Role, target.Role) {
-		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may manage Owner or Administrator accounts.")
+	if !s.canManageBoth(w, r, principal, target.Role, target.Role) {
 		return
 	}
 	tx, err := s.db.Begin(r.Context())
@@ -350,8 +426,7 @@ func (s *server) permanentlyDeleteUser(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if !canManageRole(actor.Role, target.Role) {
-		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may manage Owner or Administrator accounts.")
+	if !s.canManageBoth(w, r, principal, target.Role, target.Role) {
 		return
 	}
 	if target.Active {
@@ -404,8 +479,11 @@ func validateManagedUser(input managedUserInput, requirePassword bool) error {
 	if !managedUsernamePattern.MatchString(input.Username) {
 		return errors.New("username must be 3 to 254 characters and contain only letters, numbers, or . _ @ + -")
 	}
-	if !managedRoles[input.Role] {
-		return errors.New("role must be " + strings.Join(sortedManagedRoles(), ", "))
+	if input.Role == "" {
+		return errors.New("role is required")
+	}
+	if !requirePassword && input.ScreenAccess != nil {
+		return errors.New("screen access is set with the screen-scopes endpoint after creation")
 	}
 	if requirePassword || input.Password != "" {
 		if len(input.Password) < 12 || len(input.Password) > 1024 {
@@ -415,12 +493,22 @@ func validateManagedUser(input managedUserInput, requirePassword bool) error {
 	return nil
 }
 
-func canManageRole(actorRole, targetRole string) bool {
-	if actorRole == "owner" {
-		return true
+// canManageBoth checks that principal may manage an account on its current
+// role and on the role it is moving to. It returns false when it has already
+// written the response.
+func (s *server) canManageBoth(w http.ResponseWriter, r *http.Request, principal auth.Principal, current, next string) bool {
+	for _, role := range []string{current, next} {
+		allowed, err := s.canManageAccount(r.Context(), principal, role)
+		if err != nil {
+			s.internalError(w, r, err)
+			return false
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "insufficient_role", "You cannot manage that account. Only an Owner may manage Owner or Administrator accounts or roles with more authority than your own.")
+			return false
+		}
 	}
-	return actorRole == "administrator" &&
-		(targetRole == "editor" || targetRole == "contributor" || targetRole == "viewer")
+	return true
 }
 
 func uniqueViolation(err error) bool {
@@ -428,25 +516,42 @@ func uniqueViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
-// Screen scopes narrow which screens an account may operate on. They are
-// managed alongside the account itself, under the same role hierarchy that
-// governs editing it, so nobody can widen their own reach.
+// Screen access is an explicit per-account policy: all screens, or the
+// union of granted locations and Display Groups. It is managed alongside the
+// account itself, under the same role hierarchy that governs editing it, so
+// nobody can widen their own reach.
+
+// screenAccessInput is the wire shape of a policy.
+type screenAccessInput struct {
+	Mode   string        `json:"mode"`
+	Scopes []authz.Grant `json:"scopes"`
+}
+
+func (input screenAccessInput) policy() authz.PolicyInput {
+	grants := input.Scopes
+	if grants == nil {
+		grants = []authz.Grant{}
+	}
+	return authz.PolicyInput{Mode: input.Mode, Grants: grants}
+}
 
 func (s *server) getUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
 	if !ok {
 		return
 	}
-	scopes, err := s.devices.ScopesFor(r.Context(), id)
+	policy, err := authz.PolicyFor(r.Context(), s.db, id)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": map[string]any{
-		"scopes": scopes,
-		// An empty list means the whole fleet, which is worth saying out loud
-		// rather than leaving a reader to infer from an empty table.
-		"wholeFleet": len(scopes) == 0,
+		"mode":       policy.Mode,
+		"scopes":     policy.Grants,
+		"configured": policy.Configured,
+		// Deprecated: read mode. Kept for older clients; it is derived from
+		// the stored mode, never from the number of grants.
+		"wholeFleet": policy.Configured && policy.Mode == authz.ModeAll,
 	}})
 }
 
@@ -455,9 +560,7 @@ func (s *server) putUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var body struct {
-		Scopes []devices.Scope `json:"scopes"`
-	}
+	var body screenAccessInput
 	if err := decodeJSON(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
@@ -469,9 +572,16 @@ func (s *server) putUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 	}
 	actor := principal.User
 	if actor.ID == id {
-		// Otherwise a scoped administrator could simply widen themselves.
+		// Otherwise a restricted administrator could simply widen themselves.
 		writeError(w, http.StatusForbidden, "cannot_scope_self",
-			"You cannot change your own screen scope.")
+			"You cannot change your own screen access.")
+		return
+	}
+	if body.Mode == "" {
+		// The old contract read an empty list as the whole fleet. Guessing
+		// the mode now could widen an account, so it must be stated.
+		writeError(w, http.StatusUnprocessableEntity, "screen_access_mode_required",
+			"Choose all screens or restricted access.")
 		return
 	}
 	var target struct{ Role string }
@@ -480,19 +590,66 @@ func (s *server) putUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "user_not_found", "That account no longer exists.")
 		return
 	}
-	if !canManageRole(actor.Role, target.Role) {
+	if allowed, err := s.canManageAccount(r.Context(), principal, target.Role); err != nil {
+		s.internalError(w, r, err)
+		return
+	} else if !allowed {
 		writeError(w, http.StatusForbidden, "forbidden", "You may not change that account.")
 		return
 	}
-	if target.Role == "owner" {
+	if target.Role == auth.RoleOwner {
 		// An installation must not be able to lock itself out of its own fleet.
 		writeError(w, http.StatusUnprocessableEntity, "owner_not_scopable",
 			"An Owner always reaches every screen.")
 		return
 	}
-	if err := s.devices.ReplaceScopes(r.Context(), actor.ID, id, body.Scopes); err != nil {
-		writeError(w, http.StatusUnprocessableEntity, "scope_invalid", err.Error())
+	policy := body.policy()
+	if err := policy.Validate(); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, "scope_invalid", strings.TrimPrefix(err.Error(), authz.ErrPolicyInvalid.Error()+": "))
+		return
+	}
+	if !s.screenAccessDelegable(w, r, principal, policy) {
+		return
+	}
+	tx, err := s.db.Begin(r.Context())
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	defer tx.Rollback(r.Context()) //nolint:errcheck
+	if err := authz.ReplacePolicyTx(r.Context(), tx, actor.ID, id, policy); err != nil {
+		s.writeScreenAccessError(w, r, err)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		s.internalError(w, r, err)
 		return
 	}
 	s.getUserScreenScopes(w, r)
+}
+
+// screenAccessDelegable keeps a restricted administrator from granting more
+// of the fleet than they reach themselves. It returns false when it has
+// already written the response.
+func (s *server) screenAccessDelegable(w http.ResponseWriter, r *http.Request, principal auth.Principal, policy authz.PolicyInput) bool {
+	err := s.authorizer().Delegable(r.Context(), authz.ActorFor(principal), policy)
+	switch {
+	case err == nil:
+		return true
+	case errors.Is(err, authz.ErrDelegation) && policy.Mode == authz.ModeAll:
+		writeError(w, http.StatusForbidden, "screen_scope_delegation", "You cannot grant all screens because your own screen access is restricted.")
+	case errors.Is(err, authz.ErrDelegation):
+		writeError(w, http.StatusForbidden, "screen_scope_delegation", "You can grant only locations and Display Groups granted to you directly.")
+	default:
+		s.internalError(w, r, err)
+	}
+	return false
+}
+
+func (s *server) writeScreenAccessError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, authz.ErrPolicyInvalid) {
+		writeError(w, http.StatusUnprocessableEntity, "scope_invalid", strings.TrimPrefix(err.Error(), authz.ErrPolicyInvalid.Error()+": "))
+		return
+	}
+	s.internalError(w, r, err)
 }

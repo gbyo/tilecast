@@ -624,6 +624,28 @@ describe("Layout editor layers and zoom controls", () => {
     );
   });
 
+  it("lets Base UI own canvas shortcuts while a context menu is open", async () => {
+    mockDesktop();
+    mockAuth();
+    renderLayoutEditor();
+    const placement = await screen.findByText("New text");
+    const tile = placement.closest(".layout-placement")!;
+    fireEvent.contextMenu(tile);
+    const menu = await screen.findByRole("menu");
+    expect(menu).toBeVisible();
+    // A window-level shortcut must not save or delete the object behind the menu.
+    fireEvent.keyDown(window, { key: "Delete" });
+    fireEvent.keyDown(window, { key: "s", ctrlKey: true });
+    expect(placement).toBeInTheDocument();
+    expect(api.saveLayoutDraft).not.toHaveBeenCalled();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument(),
+    );
+    fireEvent.keyDown(window, { key: "Delete" });
+    await waitFor(() => expect(placement).not.toBeInTheDocument());
+  });
+
   it("keeps deletion local to focused inputs and editable controls", async () => {
     // The inspector is the desktop side panel; narrow screens use a sheet.
     mockDesktop();

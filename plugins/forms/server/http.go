@@ -17,16 +17,18 @@ var _ plugin.RouteProvider = (*Service)(nil)
 // maxAttachmentRequestBytes bounds the JSON body for an attachment upload (base64 inflates ~33%).
 const maxAttachmentRequestBytes = 40 << 20
 
-// contentManagers may create a form. The creator becomes its manager. This
-// preserves the historical global-role requirement: Owner and Administrator
-// alone would lock Editors out of form creation.
-var contentManagers = map[string]bool{"owner": true, "administrator": true, "editor": true}
+// createFormCapability is the core capability that may create a form: a form
+// is a Data Source that collects submissions, so creating one takes Data
+// Source management (Owner, Administrator, and Editor among the built-in
+// roles). The creator becomes the form's manager; every later decision is
+// the form's own grant lattice.
+const createFormCapability = "datasource.manage"
 
 // Routes declares every Forms route. All routes take AccessSession: any
 // enrolled dashboard session may reach them, mutations carry the host CSRF
 // check, and per-form capabilities are enforced inside each handler (grants
 // depend on the {id} path param). Creating a form additionally requires the
-// content-manager global role, checked explicitly in the handler.
+// Data Source management capability, checked explicitly in the handler.
 func (s *Service) Routes(router plugin.Router) {
 	router.Handle(http.MethodPost, "/forms", plugin.AccessSession, s.createForm)
 	router.Handle(http.MethodGet, "/forms", plugin.AccessSession, s.listForms)
@@ -112,8 +114,8 @@ type createFormRequest struct {
 }
 
 func (s *Service) createForm(w http.ResponseWriter, r *http.Request) error {
-	if !contentManagers[principal(r).Role] {
-		return &plugin.APIError{Status: http.StatusForbidden, Code: "insufficient_role", Message: "Owner or Administrator access is required."}
+	if !principal(r).Can(createFormCapability) {
+		return &plugin.APIError{Status: http.StatusForbidden, Code: "insufficient_role", Message: "Your role does not allow creating forms."}
 	}
 	var body createFormRequest
 	if err := plugin.DecodeJSON(w, r, &body); err != nil {

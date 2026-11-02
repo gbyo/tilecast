@@ -364,7 +364,10 @@ fn serve_frame(
     let Some(grant) = grant else {
         return missing();
     };
-    debug_assert_eq!(grant.kind, crate::media::MediaGrantKind::Frame);
+    debug_assert!(matches!(
+        grant.kind,
+        crate::media::MediaGrantKind::Frame | crate::media::MediaGrantKind::PluginFrame
+    ));
     if range.is_some() {
         let headers = format!("Content-Range: bytes */{}\r\nCache-Control: no-store\r\n", grant.size_bytes);
         return (416, "Range Not Satisfiable", headers, empty());
@@ -376,7 +379,12 @@ fn serve_frame(
     if record.size_bytes != grant.size_bytes {
         return missing();
     }
-    let headers = crate::schemes::frame_response_headers(grant.size_bytes);
+    let kind = if grant.kind == crate::media::MediaGrantKind::PluginFrame {
+        player_types::frames::FrameKind::ExternalPlugin
+    } else {
+        player_types::frames::FrameKind::Widget
+    };
+    let headers = crate::schemes::frame_response_headers_for(grant.size_bytes, kind);
     if head_only {
         (200, "OK", headers, empty())
     } else {
@@ -783,7 +791,8 @@ fn wire_host(
         return Err("the WebView2 controller could not start".to_string());
     };
     let mut token = 0i64;
-    for pattern in ["tilecast://*/*", "tcmedia://*/*"] {
+    // The trusted view has no network. Remote Websites have a separate environment.
+    for pattern in ["*"] {
         unsafe {
             webview
                 .AddWebResourceRequestedFilter(&HSTRING::from(pattern), COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)
@@ -809,6 +818,56 @@ fn wire_host(
             .add_WebResourceRequested(&resource_handler, &mut token)
             .map_err(|error| format!("resource interception failed: {error}"))?;
     }
+    host._tokens.push(token);
+
+    let frame_media = host.services.media.clone();
+    let frame_session = host.services.session;
+    let guard_cell = Rc::clone(cell);
+    let frame_guard = FrameCreatedEventHandler::create(Box::new(
+        move |_: Option<ICoreWebView2>, args: Option<ICoreWebView2FrameCreatedEventArgs>| {
+            let Some(args) = args else { return Ok(()) };
+            let Ok(frame) = (unsafe { args.Frame() }) else { return Ok(()) };
+            let Ok(frame2) = frame.cast::<ICoreWebView2Frame2>() else {
+                fail_startup(&guard_cell, "sandbox frame navigation guard is unavailable".into());
+                return Ok(());
+            };
+            let media = frame_media.clone();
+            let navigated = Rc::new(std::cell::Cell::new(false));
+            let navigation = FrameNavigationStartingEventHandler::create(Box::new(
+                move |_: Option<ICoreWebView2Frame>, args: Option<ICoreWebView2NavigationStartingEventArgs>| {
+                    let Some(args) = args else { return Ok(()) };
+                    let mut uri = PWSTR::null();
+                    let allowed = if unsafe { args.Uri(&mut uri) }.is_ok() && !navigated.get() {
+                        crate::schemes::parse_widget_url(&pwstr_to_string(uri)).is_some_and(|request| {
+                            media.lock().ok().is_some_and(|registry| {
+                                registry.resolve_frame(frame_session, &request.capability, now_ms()).is_some()
+                            })
+                        })
+                    } else {
+                        false
+                    };
+                    if allowed {
+                        navigated.set(true);
+                    } else {
+                        unsafe {
+                            args.SetCancel(true)?;
+                        }
+                    }
+                    Ok(())
+                },
+            ));
+            let mut frame_token = 0;
+            if unsafe { frame2.add_NavigationStarting(&navigation, &mut frame_token) }.is_err() {
+                fail_startup(&guard_cell, "sandbox frame navigation guard could not attach".into());
+            }
+            Ok(())
+        },
+    ));
+    let frame_webview = webview
+        .cast::<ICoreWebView2_4>()
+        .map_err(|error| format!("sandbox frame navigation guard is unavailable: {error}"))?;
+    unsafe { frame_webview.add_FrameCreated(&frame_guard, &mut token) }
+        .map_err(|error| format!("sandbox frame navigation guard failed: {error}"))?;
     host._tokens.push(token);
 
     let message_cell = Rc::clone(cell);

@@ -134,6 +134,50 @@ body {
   z-index: 30;
   overflow: hidden;
 }
+.tc-external-surface {
+  overflow: hidden;
+}
+.tc-external-surface iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+}
+.tc-external-surface[data-kind="corner"] {
+  width: min(480px, 100vw);
+  height: 140px;
+}
+.tc-external-surface[data-slot="corner.top-left"] {
+  top: var(--tc-corner-lift-top, 0px);
+  left: 0;
+}
+.tc-external-surface[data-slot="corner.top-right"] {
+  top: var(--tc-corner-lift-top, 0px);
+  right: 0;
+}
+.tc-external-surface[data-slot="corner.bottom-left"] {
+  bottom: var(--tc-corner-lift-bottom, 0px);
+  left: 0;
+}
+.tc-external-surface[data-slot="corner.bottom-right"] {
+  bottom: var(--tc-corner-lift-bottom, 0px);
+  right: 0;
+}
+.tc-external-surface[data-kind="strip"] {
+  left: 0;
+  right: 0;
+  height: var(--tc-strip-height, 0px);
+}
+.tc-external-surface[data-slot="strip.top"] {
+  top: 0;
+}
+.tc-external-surface[data-slot="strip.bottom"] {
+  bottom: 0;
+}
+.tc-external-surface[data-kind="overlay"] {
+  inset: 0;
+}
 .layer.visible {
   opacity: 1;
 }
@@ -143,6 +187,22 @@ body {
   width: 100%;
   height: 100%;
   border: 0;
+}
+/* A presentation provider's host-owned stage: shown only while a provider
+   holds the screen, and below nothing the host draws on top. */
+#provider-stage {
+  position: absolute;
+  inset: 0;
+  display: none;
+  background: #000;
+  z-index: 21;
+}
+#provider-stage.visible {
+  display: block;
+}
+.tc-provider-session {
+  position: absolute;
+  inset: 0;
 }
 #message {
   position: absolute;
@@ -169,6 +229,31 @@ body {
   width: min(420px, 42vw);
   height: auto;
   margin-bottom: 8px;
+}
+/* Branded idle, disabled and unavailable states: one centred column that
+   spans the surface, so subtitle width is measured against the screen and not
+   against the shrink-wrapped column. */
+#message .branded-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 20px;
+  width: 100%;
+}
+#message .branded-fallback p {
+  font-size: 32px;
+  line-height: 1.35;
+  color: inherit;
+  opacity: 0.78;
+  max-width: min(80%, 1100px);
+  text-wrap: balance;
+}
+#message .branded-fallback .branded-fallback__footer {
+  font-size: 22px;
+  opacity: 0.6;
+  margin-top: 16px;
 }
 #message .branded-fallback__logo {
   display: block;
@@ -368,6 +453,61 @@ body {
 #setup-input {
   font-family: inherit;
 }
+/* Setup: the phone setup QR code, above discovery and manual entry. */
+#message .phone-setup {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 40px;
+  max-width: min(90%, 1200px);
+  text-align: left;
+}
+#message .phone-setup__qr {
+  width: clamp(160px, 26vmin, 300px);
+  height: auto;
+  image-rendering: crisp-edges;
+}
+#message .phone-setup__text {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#message .phone-setup__text h2 {
+  margin: 0;
+  font-size: 40px;
+  color: #fff;
+}
+#message .phone-setup__text p {
+  max-width: 100%;
+}
+#message .phone-setup__notice {
+  color: #ffb4a8;
+}
+#message .phone-setup--paused {
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+}
+#phone-setup-resume {
+  font: inherit;
+  font-size: 24px;
+  padding: 14px 28px;
+  border-radius: 8px;
+  border: 1px solid #4c8bf5;
+  background: #16202b;
+  color: #fff;
+  cursor: pointer;
+}
+#phone-setup-resume:focus-visible {
+  outline: 3px solid #4c8bf5;
+  outline-offset: 2px;
+}
+@media (max-aspect-ratio: 1/1) {
+  #message .phone-setup {
+    flex-direction: column;
+    text-align: center;
+  }
+}
 tc-player,
 tc-stage,
 tc-status-surface,
@@ -404,6 +544,83 @@ tc-outside-hours {
   object-fit: contain;
   display: block;
   background: #000;
+}
+/*
+ * The startup sequence (src/startup). The pulse is the one in
+ * .github/logos/animated/tilecast-logo-pulse-white.svg, unchanged. The layer
+ * stays above everything the runtime draws until the reveal removes it.
+ * The card box is the front tile's viewBox inside the logo's, so the front
+ * tile draws exactly where the logo puts it.
+ */
+#tc-startup {
+  --tc-startup-width: min(560px, 30vw);
+  --tc-startup-height: calc(var(--tc-startup-width) * 295.25 / 1207.43);
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  overflow: hidden;
+  background: #000;
+  cursor: none;
+}
+#tc-startup .tc-startup__logo {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: var(--tc-startup-width);
+  height: var(--tc-startup-height);
+  perspective-origin: 50% 50%;
+}
+#tc-startup .tc-startup__mark {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+#tc-startup .tc-startup__card {
+  position: absolute;
+  left: calc(var(--tc-startup-width) * 99.36 / 1207.43);
+  top: calc(var(--tc-startup-height) * 92.42 / 295.25);
+  width: calc(var(--tc-startup-width) * 184.13 / 1207.43);
+  height: calc(var(--tc-startup-height) * 178.83 / 295.25);
+  backface-visibility: hidden;
+}
+#tc-startup .tc-startup__card svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+#tc-startup .tc-startup__tile {
+  animation: tc-startup-pulse 1.5s ease-in-out infinite both;
+}
+#tc-startup .tc-startup__tile--middle {
+  animation-delay: 0.18s;
+}
+#tc-startup .tc-startup__tile--front {
+  animation-delay: 0.36s;
+}
+#tc-startup .tc-startup__shade {
+  opacity: 0;
+}
+@keyframes tc-startup-pulse {
+  0%,
+  60%,
+  100% {
+    opacity: 0.22;
+    transform: translate(0, 0);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(4.6px, 4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #tc-startup .tc-startup__tile {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 /*
  * Conformance runs freeze CSS motion at a deterministic frame so engine

@@ -9,6 +9,14 @@ Status: accepted. The foundation is implemented and the built-in plugins
 have moved to the new structure; see [Migration status](#migration-status).
 This document describes the frozen Plugin API v1 contract.
 
+[Plugin API v2](plugin-api-v2.md) is supported beside v1. It describes a
+plugin by independent Server, Studio, and Player contributions, and Player
+behavior by versioned services. A surface is one of those services. The
+bundled plugins stay on v1. The Server contract, Studio host, migrations,
+OpenAPI, documentation, and conformance sections below apply to both
+versions. The `runtime` member, `capabilities.playerManifest`, and the
+[Player runtime](#player-runtime) section apply to v1 only.
+
 ## Context
 
 Before Plugin API v1, the then-current built-in plugins had one shared installation
@@ -303,6 +311,19 @@ identity; the host stamps it. Core owns the `data_sources` row mechanics,
 the cached projection storage, usage accounting, and manifest invalidation;
 the plugin owns its domain tables and projection content.
 
+### Screen access
+
+`Host.ScreenAccess` decides what a Studio operator may target. A plugin
+route that stores screen targets, or changes a stored target, calls
+`AuthorizeTargetInTx` or `AuthorizeScreenTargetsInTx` inside the same
+transaction as the write. It calls it for the stored target and for the new
+target. A delete calls it for the stored target before anything changes.
+The host decides with the stored-target rule of
+[Screen access](screen-scopes.md) and the `screen.assign` capability. A
+refusal wraps `plugin.ErrOutOfScope`, which the host writes as
+`403 out_of_scope`. Background work without an operator acts for the
+installation and does not call it.
+
 ### Private plugin assets
 
 `Host.PluginAssets` is bound to the calling plugin's identity. Ingest stamps
@@ -337,11 +358,15 @@ endpoints: the Emergency Alerts Check Now poll declares it.
 
 | Access          | Check before the handler                                                 |
 | --------------- | ------------------------------------------------------------------------ |
-| `AccessViewer`  | Enrolled dashboard session. `GET` and `HEAD` only.                       |
-| `AccessManager` | Owner or Administrator, and the session CSRF token.                      |
+| `AccessViewer`  | Enrolled dashboard session with `plugins.use`. `GET` and `HEAD` only.    |
+| `AccessManager` | The `plugins.manage` capability, and the session CSRF token.             |
 | `AccessSession` | Enrolled session. The CSRF token on unsafe methods. The handler decides. |
 
-The handler gets the user from `plugin.PrincipalFrom`. It returns an error for
+The handler gets the user from `plugin.PrincipalFrom`. The principal holds the
+role key and the effective core capabilities. Use `Principal.Can("<capability>")`
+to decide permission. Do not compare `Principal.Role` to a role name, because an
+installation may define custom roles with keys that start with `custom.`. Only
+the key `owner` has a meaning of its own. See [access-control.md](access-control.md). It returns an error for
 the host to write: `plugin.ErrNotFound` gives `404 plugin_instance_not_found`,
 `plugin.ErrInvalid` gives `400 invalid_plugin_configuration`,
 `plugin.ErrNotInstalled` gives `409 plugin_not_installed`, and a

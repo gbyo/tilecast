@@ -66,7 +66,7 @@ export function MediaAssetPresentation() {
     <MediaAssetPresentationBody
       key={asset.data.id}
       asset={asset.data}
-      canManage={canManageContent(auth.status?.user)}
+      canManage={canManageContent(auth.status)}
       csrf={auth.status?.csrfToken ?? ""}
       onChanged={(saved) => queryClient.setQueryData(["assets", id], saved)}
       onRequestClose={() => presentation?.close()}

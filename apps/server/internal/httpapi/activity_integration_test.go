@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
@@ -207,6 +208,40 @@ func TestConcurrentHTTPAndWebSocketHeartbeatTransitionsStayAtomic(t *testing.T) 
 		}
 		if connected != 1 || openIntervals != 1 || allOpen != 1 {
 			t.Fatalf("connected=%d openUp=%d allOpen=%d", connected, openIntervals, allOpen)
+		}
+	})
+}
+
+func TestFirstConnectionActivitySurvivesReorderedHeartbeatDerivation(t *testing.T) {
+	withActivityDatabase(t, func(env activityTestEnvironment) {
+		ctx := context.Background()
+		first := env.server.captureHeartbeatActivity(ctx, env.screenID)
+		if first.previousHeartbeat != nil {
+			t.Fatal("new screen already has a heartbeat")
+		}
+		if err := env.server.devices.MarkHeartbeatContact(ctx, env.screenID, "192.168.1.42:1234"); err != nil {
+			t.Fatal(err)
+		}
+		// A second transport sees the contact update before the first request
+		// reaches the activity lock, then derives activity ahead of it.
+		second := env.server.captureHeartbeatActivity(ctx, env.screenID)
+		if second.previousHeartbeat == nil {
+			t.Fatal("second request did not observe the first contact")
+		}
+		r := httptest.NewRequest(http.MethodPost, "/api/v1/player/heartbeat", nil)
+		now := time.Now().UTC()
+		env.server.recordHeartbeatActivity(r, env.screenID, second, now)
+		env.server.recordHeartbeatActivity(r, env.screenID, first, now.Add(time.Millisecond))
+		env.server.recordHeartbeatActivity(r, env.screenID, second, now.Add(2*time.Millisecond))
+		var connected, intervals int
+		if err := env.pool.QueryRow(ctx, `SELECT count(*) FROM player_activity_events WHERE screen_id=$1 AND event_type='player.connected'`, env.screenID).Scan(&connected); err != nil {
+			t.Fatal(err)
+		}
+		if err := env.pool.QueryRow(ctx, `SELECT count(*) FROM screen_state_intervals WHERE screen_id=$1 AND ended_at IS NULL`, env.screenID).Scan(&intervals); err != nil {
+			t.Fatal(err)
+		}
+		if connected != 1 || intervals != 1 {
+			t.Fatalf("connected=%d open intervals=%d", connected, intervals)
 		}
 	})
 }
@@ -606,7 +641,7 @@ func TestOverlappingZonesDoNotInflateScreenPlaybackTime(t *testing.T) {
 		// a replacement starts before the outgoing session is closed.
 		insertSession("presentation", "root-b", 5*time.Minute, 10*time.Minute, "")
 
-		durations, err := env.server.playbackDurations(ctx, start.Add(-time.Minute), start.Add(time.Hour), uuid.Nil, false)
+		durations, err := env.server.playbackDurations(ctx, start.Add(-time.Minute), start.Add(time.Hour), authz.ScreenAccess{All: true})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -618,7 +653,7 @@ func TestOverlappingZonesDoNotInflateScreenPlaybackTime(t *testing.T) {
 		}
 
 		// Clipping: a window covering only the first five minutes sees only that.
-		clipped, err := env.server.playbackDurations(ctx, start, start.Add(5*time.Minute), uuid.Nil, false)
+		clipped, err := env.server.playbackDurations(ctx, start, start.Add(5*time.Minute), authz.ScreenAccess{All: true})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -740,7 +775,7 @@ func TestFleetHealthMeasuresOnlyTheOperationalFleet(t *testing.T) {
 			}
 		}
 
-		health, err := env.server.fleetHealth(ctx, now, uuid.Nil, false)
+		health, err := env.server.fleetHealth(ctx, now, authz.ScreenAccess{All: true})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -756,7 +791,7 @@ func TestFleetHealthMeasuresOnlyTheOperationalFleet(t *testing.T) {
 		if _, err := env.pool.Exec(ctx, `UPDATE screen_player_status SET safe_mode=TRUE WHERE screen_id=$1`, env.screenID); err != nil {
 			t.Fatal(err)
 		}
-		health, err = env.server.fleetHealth(ctx, now, uuid.Nil, false)
+		health, err = env.server.fleetHealth(ctx, now, authz.ScreenAccess{All: true})
 		if err != nil {
 			t.Fatal(err)
 		}

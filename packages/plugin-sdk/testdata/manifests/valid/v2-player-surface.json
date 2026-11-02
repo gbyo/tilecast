@@ -1,0 +1,52 @@
+{
+  "apiVersion": 2,
+  "id": "service_notices",
+  "definitionVersion": 1,
+  "name": "Service Notices",
+  "description": "Two visual contributions with their own tiers.",
+  "category": "Display",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  },
+  "server": {
+    "entrypoint": "./plugin.go"
+  },
+  "studio": {
+    "route": "/plugins/service-notices",
+    "entrypoint": "./studio/index.tsx"
+  },
+  "player": {
+    "state": [
+      {
+        "type": "service_notice",
+        "version": 1
+      },
+      {
+        "type": "service_notice",
+        "version": 2
+      }
+    ],
+    "runtime": {
+      "entrypoint": "./runtime/index.ts",
+      "services": {
+        "required": ["player.clock@1", "player.surface@1"],
+        "optional": []
+      },
+      "surfaces": [
+        {
+          "id": "ticker",
+          "slots": ["strip.top", "strip.bottom"],
+          "tier": "emergency"
+        },
+        {
+          "id": "badge",
+          "slots": ["corner.top-right"],
+          "tier": "ambient"
+        }
+      ]
+    }
+  }
+}

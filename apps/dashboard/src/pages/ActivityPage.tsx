@@ -58,6 +58,7 @@ import {
   type ActivityTabName,
 } from "./activityLinks";
 import "./ActivityPage.css";
+import { hasCapability } from "../auth/capabilities";
 
 type ActivityTab = ActivityTabName;
 
@@ -99,9 +100,12 @@ export function ActivityPage() {
   const desktop = useDesktopLayout();
   const auth = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const role = auth.status?.user?.role ?? "";
-  const privileged = ["owner", "administrator"].includes(role);
-  const tab = normalizeTab(searchParams.get("tab"), role);
+  // Full activity (screen events, the whole audit log, sensitive detail)
+  // needs activity.manage; activity.audit alone shows content history.
+  const privileged = hasCapability(auth.status, "activity.manage");
+  const canViewAudit =
+    privileged || hasCapability(auth.status, "activity.audit");
+  const tab = normalizeTab(searchParams.get("tab"), privileged, canViewAudit);
 
   /** Exact-identifier filters, kept behind a disclosure but still chipped. */
   const advancedProofFilters: FilterDefinition[] = advancedProofFilterKeys.map(
@@ -140,7 +144,8 @@ export function ActivityPage() {
   const users = useQuery({
     queryKey: ["activity", "users"],
     queryFn: api.users,
-    enabled: privileged,
+    // Names for the actor filter come from the people list.
+    enabled: privileged && hasCapability(auth.status, "users.manage"),
   });
   const locations = useQuery({
     queryKey: ["activity", "locations"],
@@ -359,13 +364,11 @@ export function ActivityPage() {
     // question from the other side: the screen is fine, the content is not.
     { value: "content-health" as const, label: t("page.tabs.contentHealth") },
     ...(privileged
-      ? [
-          { value: "events" as const, label: t("page.tabs.events") },
-          { value: "audit" as const, label: t("page.tabs.audit") },
-        ]
-      : role === "editor"
-        ? [{ value: "audit" as const, label: t("page.tabs.audit") }]
-        : []),
+      ? [{ value: "events" as const, label: t("page.tabs.events") }]
+      : []),
+    ...(canViewAudit
+      ? [{ value: "audit" as const, label: t("page.tabs.audit") }]
+      : []),
   ];
 
   function selectTab(value: ActivityTab) {
@@ -542,7 +545,7 @@ export function ActivityPage() {
             <OverviewTab
               range={range}
               canViewScreenEvents={privileged}
-              canViewAudit={privileged || role === "editor"}
+              canViewAudit={canViewAudit}
             />
           )}
           {tab === "proof" && (
@@ -577,18 +580,15 @@ export function ActivityPage() {
   );
 }
 
-function normalizeTab(value: string | null, role: string): ActivityTab {
+function normalizeTab(
+  value: string | null,
+  privileged: boolean,
+  canViewAudit: boolean,
+): ActivityTab {
   if (value === "proof" || value === "incidents" || value === "content-health")
     return value;
-  if (value === "events" && ["owner", "administrator"].includes(role)) {
-    return value;
-  }
-  if (
-    value === "audit" &&
-    ["owner", "administrator", "editor"].includes(role)
-  ) {
-    return value;
-  }
+  if (value === "events" && privileged) return value;
+  if (value === "audit" && canViewAudit) return value;
   return "overview";
 }
 

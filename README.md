@@ -52,6 +52,7 @@ Tilecast also includes:
 - publishing and review workflows for teams
 - an API, webhooks, integration tokens, and Prometheus-compatible metrics
 - installable plugins for optional features such as forms and emergency alerts
+- a [Tilecast app for iPhone and iPad](https://apps.apple.com/us/app/tilecast/id6817553078) that hosts Studio with native navigation
 
 See [the documentation](https://tilecast.org/) for the full feature set.
 

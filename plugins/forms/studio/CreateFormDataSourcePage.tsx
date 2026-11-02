@@ -164,7 +164,7 @@ export function CreateFormDataSourcePage() {
     setReview(values);
   };
 
-  if (session.role === undefined || session.role === "viewer") {
+  if (!session.can("datasource.manage")) {
     return (
       <section className="mx-auto grid w-full max-w-2xl gap-4 px-4 py-6 sm:px-6">
         <Alert variant="destructive">

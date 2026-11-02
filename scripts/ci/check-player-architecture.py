@@ -19,6 +19,12 @@ SHARED = {
 ANDROID_NATIVE = "apps/player-android/native"
 ANDROID_CRATE = "tilecast-player-android-native"
 KINDS = ("dependencies", "dev-dependencies", "build-dependencies")
+# The generated list of first-party native plugin contributions. A Player host
+# may depend on it, because it links contributions and never decides support
+# or names a platform. It depends on player-core and on contribution crates
+# under plugins/<plugin>/native/<id>, which pluginctl bounds to shared crates.
+NATIVE_REGISTRY = Path("packages/plugin-native-registry")
+NATIVE_REGISTRY_CRATE = "plugin-native-registry"
 # Anything only a Windows host can use stays in apps/player-windows; the
 # shared crates build and test on every host OS.
 PLATFORM_PREFIXES = ("windows", "webview2")
@@ -187,6 +193,8 @@ def android_native_violations(root):
         if kind == "missing":
             errors.append(f"{ANDROID_CRATE}: missing local dependency {alias}")
             continue
+        if kind == "local" and is_native_registry(root, package, target):
+            continue
         if kind == "local":
             # Local dependencies must stay in the shared layer: no Edge
             # crates, no other apps, no sibling platform code.
@@ -199,13 +207,50 @@ def android_native_violations(root):
     return errors
 
 
+def is_native_registry(root, package, target):
+    """The generated native contribution registry, at its one documented path."""
+    return package == NATIVE_REGISTRY_CRATE and target == (root / NATIVE_REGISTRY).resolve()
+
+
+def native_registry_violations(root):
+    """The registry links player-core and first-party contribution crates only."""
+    path = root / NATIVE_REGISTRY / "Cargo.toml"
+    if not path.is_file():
+        return []
+    manifest = read_manifest(path)
+    if manifest.get("package", {}).get("name") != NATIVE_REGISTRY_CRATE:
+        return [f"{NATIVE_REGISTRY}/Cargo.toml: expected package {NATIVE_REGISTRY_CRATE}"]
+    errors = []
+    workspace_path, workspace = workspace_for(path)
+    plugins = (root / "plugins").resolve()
+    for alias, original in dependency_tables(manifest):
+        kind, package, target = classify_dependency(alias, original, path.parent, workspace_path, workspace)
+        if kind in ("unresolved", "missing"):
+            errors.append(f"{NATIVE_REGISTRY_CRATE}: {kind} dependency {alias}")
+        elif kind == "local":
+            native = target.parent.name == "native" and plugins in target.parents
+            if package == "player-core":
+                if target != (root / "crates" / "player-core").resolve():
+                    errors.append(f"{NATIVE_REGISTRY_CRATE}: {alias} points outside the shared Player crates")
+            elif not native:
+                errors.append(
+                    f"{NATIVE_REGISTRY_CRATE}: {alias} must be player-core or a plugins/<plugin>/native/<id> crate"
+                )
+        elif package in SHARED:
+            if package != "player-core":
+                errors.append(f"{NATIVE_REGISTRY_CRATE}: forbidden shared dependency {package}")
+        elif target_is_host(package):
+            errors.append(f"{NATIVE_REGISTRY_CRATE}: forbidden native host dependency {package}")
+    return errors
+
+
 def target_is_host(package):
     return str(package).startswith(("edge-", "tilecast"))
 
 
 def violations(root):
     registered = registered_crates(root)
-    return shared_violations(root, registered) + windows_violations(root)
+    return shared_violations(root, registered) + windows_violations(root) + native_registry_violations(root)
 
 
 def main():

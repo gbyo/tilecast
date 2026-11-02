@@ -21,6 +21,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
+	"github.com/tilecast/tilecast/apps/server/internal/targeting"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
@@ -88,7 +91,7 @@ func (p publicInstance) Version() string   { return p.version }
 // devices domain implements it; the plugin host and external Tilecast
 // services share the projection instead of each writing screen SQL.
 type ScreenLister interface {
-	PluginScreens(ctx context.Context, user *uuid.UUID, role string, query plugin.ScreenListQuery) (plugin.ScreenListResult, error)
+	PluginScreens(ctx context.Context, access *authz.ScreenAccess, query plugin.ScreenListQuery) (plugin.ScreenListResult, error)
 	PluginScreen(ctx context.Context, id uuid.UUID) (plugin.ScreenFacts, error)
 }
 
@@ -164,6 +167,49 @@ func (s *Service) hostFor(id string) plugin.Host {
 		DataSources:          dataSourceService{db: s.db, invalidator: s.dsInvalidator, pluginID: id, provider: provider},
 		Users:                userService{db: s.db},
 		PluginAssets:         pluginAssetService{db: s.db, backend: s.attachments, pluginID: id},
+		ScreenAccess:         screenAccessService{},
+	}
+}
+
+// screenAccessService answers plugin routes with authz's directory rule,
+// the rule every stored target in core uses.
+type screenAccessService struct{}
+
+func (screenAccessService) AuthorizeTargetInTx(ctx context.Context, tx pgx.Tx, principal plugin.Principal, target plugin.Target) error {
+	directory := authz.Directory{}
+	switch target.Scope {
+	case plugin.TargetAll:
+		directory.All = true
+	case plugin.TargetScreens:
+		directory.ScreenIDs = target.IDs
+	case plugin.TargetSyncGroups:
+		directory.GroupIDs = target.IDs
+	case plugin.TargetLocations:
+		directory.LocationIDs = target.IDs
+	default:
+		return fmt.Errorf("%w: unknown target scope %q", plugin.ErrInvalid, target.Scope)
+	}
+	return decideDirectory(ctx, tx, principal, directory)
+}
+
+func (screenAccessService) AuthorizeScreenTargetsInTx(ctx context.Context, tx pgx.Tx, principal plugin.Principal, targets plugin.ScreenTargets) error {
+	return decideDirectory(ctx, tx, principal, authz.Directory{ScreenIDs: targets.ScreenIDs, GroupIDs: targets.GroupIDs})
+}
+
+func decideDirectory(ctx context.Context, tx pgx.Tx, principal plugin.Principal, directory authz.Directory) error {
+	held := make([]auth.Capability, 0, len(principal.Capabilities))
+	for _, capability := range principal.Capabilities {
+		held = append(held, auth.Capability(capability))
+	}
+	actor := authz.ActorForRole(principal.UserID, principal.Role, auth.NewCapabilitySet(held...))
+	err := authz.New(tx).Tx(tx).Directory(ctx, actor, auth.CapScreenAssign, directory)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, authz.ErrOutOfScope), errors.Is(err, authz.ErrForbidden), errors.Is(err, authz.ErrNotFound):
+		return fmt.Errorf("%w: %v", plugin.ErrOutOfScope, err)
+	default:
+		return err
 	}
 }
 
@@ -284,56 +330,19 @@ func (targetService) ValidateInTx(ctx context.Context, tx pgx.Tx, target plugin.
 }
 
 func (targetService) ValidateScreenTargetsInTx(ctx context.Context, tx pgx.Tx, targets plugin.ScreenTargets) error {
-	if len(targets.ScreenIDs)+len(targets.GroupIDs) > 1000 {
-		return fmt.Errorf("%w: too many screen targets", plugin.ErrInvalid)
+	err := targeting.ValidateScreenGroups(ctx, tx, targets.ScreenIDs, targets.GroupIDs)
+	if errors.Is(err, targeting.ErrInvalid) {
+		return fmt.Errorf("%w: %v", plugin.ErrInvalid, err)
 	}
-	for _, item := range []struct {
-		ids              []uuid.UUID
-		table, condition string
-	}{
-		{targets.ScreenIDs, "screens", "deleted_at IS NULL AND archived_at IS NULL"},
-		{targets.GroupIDs, "screen_groups", "deleted_at IS NULL"},
-	} {
-		seen := map[uuid.UUID]bool{}
-		for _, id := range item.ids {
-			if id == uuid.Nil || seen[id] {
-				return fmt.Errorf("%w: duplicate or empty target", plugin.ErrInvalid)
-			}
-			seen[id] = true
-		}
-		var count int
-		err := tx.QueryRow(ctx, `SELECT count(*) FROM `+item.table+` WHERE id=ANY($1) AND organization_id=(SELECT id FROM organization_settings WHERE singleton) AND `+item.condition, item.ids).Scan(&count)
-		if err != nil {
-			return err
-		}
-		if count != len(item.ids) {
-			return fmt.Errorf("%w: one or more targets do not exist", plugin.ErrInvalid)
-		}
-	}
-	return nil
+	return err
 }
 
 func (targetService) ResolveScreensInTx(ctx context.Context, tx pgx.Tx, targets plugin.ScreenTargets) ([]uuid.UUID, error) {
-	rows, err := tx.Query(ctx, `SELECT DISTINCT s.id FROM screens s WHERE s.organization_id=(SELECT id FROM organization_settings WHERE singleton) AND s.deleted_at IS NULL AND s.archived_at IS NULL AND (s.id=ANY($1) OR EXISTS(SELECT 1 FROM screen_group_memberships m JOIN screen_groups g ON g.id=m.screen_group_id WHERE m.screen_id=s.id AND m.screen_group_id=ANY($2) AND g.deleted_at IS NULL)) ORDER BY s.id`, targets.ScreenIDs, targets.GroupIDs)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	ids := []uuid.UUID{}
-	for rows.Next() {
-		var id uuid.UUID
-		if err = rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	return ids, rows.Err()
+	return targeting.Resolve(ctx, tx, targeting.Definition{Mode: "selected", ScreenIDs: targets.ScreenIDs, GroupIDs: targets.GroupIDs})
 }
 
 func (t targetService) AppliesToScreen(ctx context.Context, screenID uuid.UUID, targets plugin.ScreenTargets) (bool, error) {
-	var applies bool
-	err := t.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screens s WHERE s.id=$1 AND s.organization_id=(SELECT id FROM organization_settings WHERE singleton) AND s.deleted_at IS NULL AND s.archived_at IS NULL AND (s.id=ANY($2) OR EXISTS(SELECT 1 FROM screen_group_memberships m JOIN screen_groups g ON g.id=m.screen_group_id WHERE m.screen_id=s.id AND m.screen_group_id=ANY($3) AND g.deleted_at IS NULL)))`, screenID, targets.ScreenIDs, targets.GroupIDs).Scan(&applies)
-	return applies, err
+	return targeting.Applies(ctx, t.db, targeting.Definition{Mode: "selected", ScreenIDs: targets.ScreenIDs, GroupIDs: targets.GroupIDs}, screenID)
 }
 
 type screenService struct{ service *Service }
@@ -350,7 +359,7 @@ func (s screenService) List(ctx context.Context, query plugin.ScreenListQuery) (
 	if err != nil {
 		return plugin.ScreenListResult{}, err
 	}
-	return lister.PluginScreens(ctx, nil, "", query)
+	return lister.PluginScreens(ctx, nil, query)
 }
 
 func (s screenService) Get(ctx context.Context, id uuid.UUID) (plugin.ScreenFacts, error) {

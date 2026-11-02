@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ActivityPage } from "./ActivityPage";
 import { api } from "../api/client";
+import { builtinCapabilities } from "../test/capabilities";
 
 let role = "owner";
 
@@ -22,6 +23,7 @@ vi.mock("../auth/AuthProvider", () => ({
       authenticated: true,
       csrfToken: "token",
       user: { id: "user-1", name: "Owner", role },
+      capabilities: builtinCapabilities(role),
     },
   }),
 }));

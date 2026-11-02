@@ -259,7 +259,10 @@ func TestPlaylistAssignmentManifestLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	takeoverID := uuid.New()
-	_, err = pool.Exec(ctx, `INSERT INTO takeovers(id,organization_id,name,playlist_id,status,activated_by,activated_at,expires_at)VALUES($1,$2,'Test takeover',$3,'active',$4,now(),now()+interval '1 hour')`, takeoverID, org, playlist.ID, owner.User.ID)
+	// Keep this fixture active on both clocks when PostgreSQL runs in a VM.
+	// The exact activation and expiration boundaries are asserted below.
+	activatedAt := time.Now().UTC().Add(-time.Minute)
+	_, err = pool.Exec(ctx, `INSERT INTO takeovers(id,organization_id,name,playlist_id,status,activated_by,activated_at,expires_at)VALUES($1,$2,'Test takeover',$3,'active',$4,$5,$6)`, takeoverID, org, playlist.ID, owner.User.ID, activatedAt, activatedAt.Add(time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}

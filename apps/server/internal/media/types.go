@@ -153,6 +153,9 @@ type ContentTag struct {
 	Name       string    `json:"name"`
 	Color      string    `json:"color"`
 	AssetCount int       `json:"assetCount,omitempty"`
+	// Assignable reports whether the caller may apply or remove the tag. It
+	// is set on the tag list only.
+	Assignable *bool `json:"assignable,omitempty"`
 }
 
 type BulkOrganizeInput struct {
@@ -163,6 +166,12 @@ type BulkOrganizeInput struct {
 	RemoveTagIDs        []uuid.UUID
 	AddCollectionIDs    []uuid.UUID
 	RemoveCollectionIDs []uuid.UUID
+	// Access is the caller's content access; every asset, the destination
+	// folder, and every tag are checked against it inside the transaction.
+	Access Access
+	// Authorize, when set, decides whether the caller's role may organize
+	// assets of the resolved types. It runs inside the transaction.
+	Authorize func([]AssetRef) error
 }
 
 // Widget is the visual configuration attached to a widget asset (assets.type='widget').
@@ -787,6 +796,9 @@ type Upload struct {
 	ResultingAssetID *uuid.UUID   `json:"assetId,omitempty"`
 	UploadEndpoint   string       `json:"uploadEndpoint"`
 	MaximumSize      int64        `json:"maximumSizeBytes"`
+	// FolderID is the destination folder the asset will be created in; nil
+	// is the library root.
+	FolderID *uuid.UUID `json:"folderId,omitempty"`
 }
 
 type ListOptions struct {
@@ -794,6 +806,9 @@ type ListOptions struct {
 	FolderID, CollectionID, TagID              *uuid.UUID
 	Page, PageSize                             int
 	Archived                                   bool
+	// View narrows the list to what one account may see. The zero value is
+	// the whole library, for internal callers.
+	View *View
 }
 
 // DataSourceListOptions filters the Data Source library.

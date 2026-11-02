@@ -1,0 +1,12 @@
+{
+  "id": "0a8f6a52-3d6e-4c50-9a2e-55d7b5a7c001",
+  "type": "plugin_state",
+  "version": 1,
+  "plugin": "sample_beacon",
+  "definitionVersion": 1,
+  "stateType": "sample_beacon",
+  "stateVersion": 1,
+  "state": { "label": "Lobby", "level": 3 },
+  "media": [],
+  "validUntil": "2030-01-01T00:00:00Z"
+}

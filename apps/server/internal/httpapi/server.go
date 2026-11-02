@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/backup"
 	"github.com/tilecast/tilecast/apps/server/internal/campaigns"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
@@ -98,6 +99,8 @@ type OperationsConfig struct {
 
 type server struct {
 	auth                          *auth.Service
+	authz                         *authz.Authorizer
+	registeredObjectRules         map[string]bool
 	devices                       *devices.Service
 	media                         *media.Service
 	playlists                     *playlists.Service
@@ -165,27 +168,29 @@ func (a *API) ReconcileAirplaySessions(ctx context.Context) {
 
 func New(deps Dependencies) *API {
 	s := &server{
-		auth:              deps.Auth,
-		devices:           deps.Devices,
-		media:             deps.Media,
-		playlists:         deps.Playlists,
-		campaigns:         deps.Campaigns,
-		presentations:     deps.Presentations,
-		plugins:           deps.Plugins,
-		marketplace:       deps.Marketplace,
-		installer:         deps.Installer,
-		packages:          deps.Packages,
-		wasm:              deps.WASM,
-		layouts:           deps.Layouts,
-		scheduling:        deps.Scheduling,
-		db:                deps.DB,
-		logger:            deps.Logger,
-		cookieName:        deps.CookieName,
-		secureCookies:     deps.SecureCookies,
-		authLimiter:       newRateLimiter(10, 10*time.Minute),
-		pairingLimiter:    newRateLimiter(10, time.Minute),
-		codeLimiter:       newRateLimiter(30, 10*time.Minute),
-		operationsLimiter: newRateLimiter(60, time.Minute),
+		auth:                  deps.Auth,
+		authz:                 authz.New(deps.DB),
+		registeredObjectRules: map[string]bool{},
+		devices:               deps.Devices,
+		media:                 deps.Media,
+		playlists:             deps.Playlists,
+		campaigns:             deps.Campaigns,
+		presentations:         deps.Presentations,
+		plugins:               deps.Plugins,
+		marketplace:           deps.Marketplace,
+		installer:             deps.Installer,
+		packages:              deps.Packages,
+		wasm:                  deps.WASM,
+		layouts:               deps.Layouts,
+		scheduling:            deps.Scheduling,
+		db:                    deps.DB,
+		logger:                deps.Logger,
+		cookieName:            deps.CookieName,
+		secureCookies:         deps.SecureCookies,
+		authLimiter:           newRateLimiter(10, 10*time.Minute),
+		pairingLimiter:        newRateLimiter(10, time.Minute),
+		codeLimiter:           newRateLimiter(30, 10*time.Minute),
+		operationsLimiter:     newRateLimiter(60, time.Minute),
 		// Provisioning is unauthenticated by necessity — the box has no
 		// credential until it pairs — so it gets its own budget, generous
 		// enough for a cart of machines behind one NAT.
@@ -216,6 +221,13 @@ func New(deps Dependencies) *API {
 		// sending share one implementation.
 		s.fleet.SetCommandEnqueuer(s)
 		s.fleet.SetCommandApplicability(devices.PlatformSupportsCommand)
+		s.fleet.SetScopeAuthorizer(s.authorizer())
+	}
+	if s.media != nil && s.auth != nil {
+		// Upload finalization re-decides the destination folder against the
+		// creator's live role and content access, including when the
+		// background reconciler finishes an interrupted upload.
+		s.media.SetUploadAuthorizer(s.authorizeUploadDestination)
 	}
 	if s.devices != nil {
 		// A heartbeat that reports the last preparing participant as ready should
@@ -242,17 +254,49 @@ func New(deps Dependencies) *API {
 	return &API{Handler: s.routes(), server: s}
 }
 
-func (s *server) requireRoles(roles ...string) func(http.Handler) http.Handler {
+// requireCapability refuses a request whose principal's role does not grant
+// capability. It is the management authorization boundary: every route names
+// the kind of work it performs, and a session and a bearer grant reach the
+// same decision because both resolve the live role. A grant's scope ceiling
+// is checked separately by requireScope.
+func (s *server) requireCapability(capability auth.Capability) func(http.Handler) http.Handler {
+	return s.requireAnyCapability(capability)
+}
+
+// requireAnyCapability passes when the principal holds at least one of
+// capabilities. It is for reads that several areas legitimately share.
+func (s *server) requireAnyCapability(capabilities ...auth.Capability) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			principal, ok := principalOf(r)
-			if !ok || !principal.HasRole(roles...) {
-				writeError(w, http.StatusForbidden, "insufficient_role", "Owner or Administrator access is required.")
+			if !ok {
+				writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+				return
+			}
+			if !principal.CanAny(capabilities...) {
+				writeError(w, http.StatusForbidden, "insufficient_role", "Your role does not allow this action.")
 				return
 			}
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// can reports whether the request's principal holds capability.
+func (s *server) can(r *http.Request, capability auth.Capability) bool {
+	principal, ok := principalOf(r)
+	return ok && principal.Can(capability)
+}
+
+// resolvePrincipal attaches the live role's effective capabilities. Both the
+// session and the bearer path call it, so they cannot diverge.
+func (s *server) resolvePrincipal(ctx context.Context, principal auth.Principal) (auth.Principal, error) {
+	capabilities, err := s.auth.ResolveCapabilities(ctx, principal.User.Role)
+	if err != nil {
+		return auth.Principal{}, err
+	}
+	principal.Capabilities = capabilities
+	return principal, nil
 }
 
 func (s *server) health(w http.ResponseWriter, _ *http.Request) {
@@ -310,8 +354,14 @@ func (s *server) authStatus(w http.ResponseWriter, r *http.Request) {
 				if grant, err := s.oauth.LookupBearer(r.Context(), credential); err == nil {
 					if user, err := s.activeUser(r.Context(), grant.UserID); err == nil && user.ID != uuid.Nil {
 						pending, _ := s.enrollmentPending(r.Context(), user, s.mfaPolicy(r))
+						capabilities, err := s.auth.ResolveCapabilities(r.Context(), user.Role)
+						if err != nil {
+							s.internalError(w, r, err)
+							return
+						}
 						result["authenticated"] = true
 						result["user"] = user
+						result["capabilities"] = capabilities.Strings()
 						result["authMethod"] = grant.BearerAuthMethod()
 						result["mfaEnrollmentRequired"] = pending
 						authenticated = true
@@ -328,8 +378,14 @@ func (s *server) authStatus(w http.ResponseWriter, r *http.Request) {
 				session, authenticated = s.demoSession(r.Context(), w)
 			}
 			if authenticated && result["authenticated"] != true {
+				capabilities, err := s.auth.ResolveCapabilities(r.Context(), session.User.Role)
+				if err != nil {
+					s.internalError(w, r, err)
+					return
+				}
 				result["authenticated"] = true
 				result["user"] = session.User
+				result["capabilities"] = capabilities.Strings()
 				result["csrfToken"] = session.CSRFToken
 				result["authMethod"] = session.AuthMethod
 				result["mfaEnrollmentRequired"] = session.EnrollmentPending
@@ -370,8 +426,9 @@ func (s *server) setup(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
+	capabilities, _ := auth.BuiltinCapabilities(auth.RoleOwner)
 	s.setSessionCookie(w, session)
-	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]any{"user": session.User, "csrfToken": session.CSRFToken}})
+	writeJSON(w, http.StatusCreated, map[string]any{"data": map[string]any{"user": session.User, "csrfToken": session.CSRFToken, "capabilities": capabilities.Strings()}})
 }
 
 type loginRequest struct {
@@ -408,7 +465,7 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		}})
 		return
 	}
-	s.sessionResponse(w, http.StatusOK, *result.Session)
+	s.sessionResponse(w, r, http.StatusOK, *result.Session)
 }
 
 func (s *server) logout(w http.ResponseWriter, r *http.Request) {
@@ -436,8 +493,13 @@ func (s *server) requireSession(next http.Handler) http.Handler {
 		// The session stays the credential. The principal is the user:
 		// management authorization below reads it, and future bearer
 		// credentials will produce the same shape.
+		principal, err := s.resolvePrincipal(r.Context(), auth.PrincipalFromSession(session))
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
 		ctx := context.WithValue(r.Context(), sessionContextKey, session)
-		next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(ctx, auth.PrincipalFromSession(session))))
+		next.ServeHTTP(w, r.WithContext(auth.WithPrincipal(ctx, principal)))
 	})
 }
 
@@ -489,7 +551,7 @@ func (s *server) requireReleasePublisher(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		s.requireSession(s.requireRoles("owner")(s.requireCSRF(next))).ServeHTTP(w, r)
+		s.requireSession(s.requireCapability(auth.CapPlayerReleases)(s.requireCSRF(next))).ServeHTTP(w, r)
 	})
 }
 

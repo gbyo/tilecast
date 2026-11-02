@@ -90,7 +90,7 @@ func (s *server) studioBridge(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	result, err := s.wasm.InvokeUI(r.Context(), packageID, services.Actor{UserID: principal.User.ID, Role: principal.User.Role}, input)
+	result, err := s.wasm.InvokeUI(r.Context(), packageID, services.Actor{UserID: principal.User.ID, Role: principal.User.Role, Capabilities: principal.Capabilities}, input)
 	if err != nil {
 		if errors.Is(err, installer.ErrNotFound) || errors.Is(err, wasm.ErrNoStudioUI) || errors.Is(err, wasm.ErrNoRuntime) {
 			writeError(w, http.StatusNotFound, "package_studio_unavailable", "The package has no Studio interface.")

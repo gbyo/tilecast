@@ -179,6 +179,9 @@ public final class MediaIntakeCoordinator {
             return conclude(outcomeIfNothingUploaded: .failed)
         }
         self.directory = directory
+        // The destination Studio chose for this intake. Every file in it goes
+        // to the same folder, and the server checks the folder for each one.
+        let folderID = request?.folderID
         var mediaIDs: [Int: UUID] = [:]
         for (index, source) in sources.enumerated() {
             guard generation == self.generation else { return }
@@ -205,7 +208,7 @@ public final class MediaIntakeCoordinator {
             let result: Result<UploadedMedia, MediaUploadError>
             do {
                 let coordinator = self
-                result = .success(try await uploader.upload(file) { sent in
+                result = .success(try await uploader.upload(file, folderID: folderID) { sent in
                     Task { @MainActor in coordinator.progress(itemID, sent) }
                 })
             } catch {

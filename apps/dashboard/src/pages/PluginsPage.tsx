@@ -46,7 +46,7 @@ export function PluginsPage() {
   const auth = useAuth();
   const [searchParams] = useSearchParams();
   const store = usePluginStore();
-  const canInstall = canManage(auth.status?.user?.role);
+  const canInstall = canManage(auth.status);
   const addParam = searchParams.get("add");
 
   if (addParam !== null) {

@@ -1,0 +1,73 @@
+---
+title: Give a teacher access to one folder
+description: Create a custom role, limit an account to one Media folder and one tag, and let a Tag-driven Playlist show what they upload.
+---
+
+import { Steps } from "@astrojs/starlight/components";
+
+This guide sets up a common school arrangement. A teacher uploads signage for Room 313. They see only Media, only the Room 313 folder, and only the Room 313 Signage tag. They can't open Playlists, Screens, or Settings.
+
+You need the **Owner** or **Administrator** role. To grant a role that can manage people, you need the **Owner** role.
+
+## Prepare the library
+
+<Steps>
+
+1. Open **Content** > **Media**.
+2. Select **Organize** > **Create folder** and create **Room 313**.
+3. Select **Organize** > **Create tag** and create **Room 313 Signage**.
+
+</Steps>
+
+## Create the role
+
+<Steps>
+
+1. Open **Settings** > **Roles** and select **Create role**.
+2. Name it **Classroom Media**.
+3. Turn on **View media**, **Upload media**, **Edit media details**, **Archive and restore media**, and **Apply tags**. Leave everything else off.
+4. Select **Create role**.
+
+</Steps>
+
+The role says what the teacher can do. It doesn't yet say where. **Apply tags** lets the teacher add and remove tags, but not create or rename them. **Delete media** is a separate action. Add it only if the teacher should be able to permanently delete archived media.
+
+## Add the teacher
+
+<Steps>
+
+1. Open **Settings** > **Users** and select **Add user**.
+2. Enter the teacher's name, username, and a temporary password, then choose the **Classroom Media** role.
+3. Under **Content access**, choose **Only selected folders** and tick **Room 313**.
+4. Under **Tags they can apply**, choose **Only selected tags** and tick **Room 313 Signage**.
+5. Select **Add user**.
+
+</Steps>
+
+Content access can also be changed later from the **Content access** tab in the user's editor.
+
+## Show the media on screens
+
+A Tag-driven Playlist includes every Ready item with its tag. Create one for **Room 313 Signage** (see [Create a Tag-driven Playlist](../../playlists/#create-a-tag-driven-playlist)) and put it on the Room 313 screen. When the teacher uploads an image or video and applies the tag, the Playlist picks it up. The teacher doesn't need access to Playlists or Screens.
+
+## What the teacher sees
+
+After signing in, the teacher lands in **Media**. Studio doesn't show Fleet, Playlists, Layouts, Schedules, Activity, Plugins, or installation Settings. The teacher's own **My Account** and preferences are still available.
+
+In Media, the teacher sees only the Room 313 folder and the media inside it, including in search, counts, filters, previews, and **Archive**. Uploads go straight into Room 313. The teacher can apply or remove **Room 313 Signage**, and no other tag.
+
+A link or ID for media in another folder shows as not found, the same as media that doesn't exist. If a request names several items and one is outside the teacher's folder, Tilecast changes none of them.
+
+## Change or remove access
+
+Edit the account's **Content access** at any time. The change applies on the teacher's next request, including to a sign-in they already have open and to any personal access token they hold. An upload in progress checks the folder again when it finishes.
+
+Setting **Entire library** again restores full access. An account with no content access at all can't see any media.
+
+## Limits to know about
+
+- Content access limits the Media library. It doesn't limit Playlists, Layouts, Widgets, or Data Sources. Give the teacher those only when you want them to have the whole area.
+- A teacher limited to folders can't create, rename, move, or delete folders, Collections, or Tags. An Owner or Administrator with the whole library does that.
+- Widgets and websites are created at the top of the library, so an account limited to folders can't create them.
+- Screens and Players aren't limited by content access. Media still plays on a screen when its Playlist or Layout includes it, whoever uploaded it. See [Manage users and roles](../users-and-roles/) for screen access.
+- Activity reports aren't limited by content access or screen access.

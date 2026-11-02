@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
 
@@ -228,8 +229,19 @@ func (s *server) createBrowserSlot(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	principal, _ := principalOf(r)
-	launch, err := s.devices.CreateBrowserSlot(r.Context(), principal.User.ID, devices.PairingApproval{Name: body.Name, LocationID: body.LocationID, RoomName: body.RoomName, RoomNumber: body.RoomNumber, Description: body.Description})
+	principal, ok := principalOf(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
+		return
+	}
+	launch, err := s.devices.CreateBrowserSlot(r.Context(), principal.User.ID, devices.PairingApproval{
+		Name: body.Name, LocationID: body.LocationID, RoomName: body.RoomName, RoomNumber: body.RoomNumber, Description: body.Description,
+		Authorize: s.pairingDecision(authz.ActorFor(principal)),
+	})
+	if isAuthzError(err) {
+		s.writeAuthzError(w, r, err, notFoundAnswer{"not_found", "The requested location was not found."})
+		return
+	}
 	if err != nil {
 		s.writeDeviceError(w, r, err)
 		return

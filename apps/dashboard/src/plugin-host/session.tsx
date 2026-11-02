@@ -5,9 +5,18 @@ import { canManage } from "../plugins/shared";
 /** What a plugin page knows about the signed-in user. */
 export interface StudioSession {
   csrfToken: string;
+  /**
+   * The account's role key. Custom roles exist, so decide authorization with
+   * `can`, never by comparing role names; only "owner" means something of
+   * its own.
+   */
   role?: string;
-  /** Owner or Administrator: may change plugin configuration. */
+  /** The core plugins.manage capability: may change plugin configuration. */
   canManage: boolean;
+  /** The core capabilities the account's role grants. */
+  capabilities: readonly string[];
+  /** Whether the account's role grants a core capability. */
+  can: (capability: string) => boolean;
   /**
    * Whether the session is authenticated. Top-level portal shells render
    * nothing and redirect to login while this is false.
@@ -45,10 +54,13 @@ export function useStudioSession(): StudioSession {
   if (override) return override;
   if (!auth) throw new Error("useStudioSession must be used within Studio");
   const role = auth.status?.user?.role;
+  const capabilities = auth.status?.capabilities ?? [];
   return {
     csrfToken: auth.status?.csrfToken ?? "",
     role,
-    canManage: canManage(role),
+    canManage: canManage(auth.status),
+    capabilities,
+    can: (capability) => capabilities.includes(capability),
     authenticated: auth.status?.authenticated ?? false,
     setupRequired: auth.status?.setupRequired ?? false,
     isLoading: auth.isLoading,

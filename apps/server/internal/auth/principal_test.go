@@ -31,14 +31,16 @@ func TestPrincipalFromSessionDerivesManagementIdentity(t *testing.T) {
 	if principal.GrantID != nil || principal.ClientID != "" || principal.ClientInstance != "" {
 		t.Fatalf("session principal carries grant fields: %+v", principal)
 	}
-	if !principal.HasRole("owner", "administrator") || principal.HasRole("viewer") {
-		t.Fatal("role check is wrong")
+	if principal.IsOwner() {
+		t.Fatal("an administrator is not the Owner")
 	}
-	if !principal.CanManage() {
-		t.Fatal("administrator should manage")
+	// The session alone carries no authority: the request boundary resolves
+	// capabilities from the live role.
+	if principal.Can(CapUsersManage) {
+		t.Fatal("an unresolved principal must hold no capabilities")
 	}
-	viewer := Principal{User: User{Role: "viewer"}}
-	if viewer.CanManage() || !viewer.HasRole("viewer") {
-		t.Fatal("viewer role check is wrong")
+	principal.Capabilities, _ = BuiltinCapabilities(principal.User.Role)
+	if !principal.Can(CapUsersManage) || principal.Can(CapSystemBackups) {
+		t.Fatal("administrator capabilities are wrong")
 	}
 }

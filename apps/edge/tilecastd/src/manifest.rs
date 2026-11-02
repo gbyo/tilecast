@@ -444,6 +444,9 @@ pub fn incompatibilities(document: &Value, assets: &[Asset]) -> Vec<Incompatibil
     // display task applies it when a provider exists and reports the typed
     // reason when none does, as the reference Linux player does.
     for plugin in document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+        if player_core::is_runtime_plugin_data(plugin) {
+            continue;
+        }
         let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("unknown");
         if is_retired_plugin(kind) {
             continue;
@@ -502,16 +505,21 @@ impl Candidate {
         })
     }
 
-    /// Every verified frame claim, deduplicated by document digest like
-    /// the content map. Core fetched and verified each one before this
-    /// manifest became a candidate; the port mints one grant per claim.
+    /// Every distinct package/frame authorization identity. CAS may share
+    /// identical bytes; the Runtime still needs each package's table entry.
     fn frame_refs(&self) -> Result<Vec<FrameRef>, ManifestError> {
         let mut frames = Vec::with_capacity(self.required_frames.len());
         for claim in &self.required_frames {
-            if frames.iter().any(|existing: &FrameRef| existing.sha256 == claim.digest) {
+            if frames.iter().any(|existing: &FrameRef| {
+                existing.sha256 == claim.digest
+                    && existing.kind == claim.kind
+                    && existing.package_id.as_str() == claim.package_id
+                    && existing.package_digest == claim.package_digest
+            }) {
                 continue;
             }
             frames.push(FrameRef {
+                kind: claim.kind,
                 package_id: SafeText::new(claim.package_id.clone()).map_err(|_| ManifestError::Frame)?,
                 package_digest: claim.package_digest,
                 sha256: claim.digest,
@@ -1043,6 +1051,28 @@ impl Candidate {
         let mut aliases = Vec::new();
         let mut content = Vec::new();
         for plugin in self.document.get("plugins").and_then(Value::as_array).into_iter().flatten() {
+            if player_core::is_runtime_plugin_data(plugin) {
+                // Plugin API v2 media is granted like any plugin media; the
+                // entry itself stays opaque Runtime data.
+                for (asset_id, variant_id) in player_core::plugin_state_media(plugin) {
+                    let asset =
+                        self.asset(&asset_id.to_string(), &variant_id.to_string()).ok_or(ManifestError::Reference)?;
+                    if !aliases.iter().any(|alias: &MediaAlias| {
+                        alias.asset_id == asset.asset_id && alias.variant_id == asset.variant_id
+                    }) {
+                        aliases.push(MediaAlias {
+                            asset_id: asset.asset_id,
+                            variant_id: asset.variant_id,
+                            uri: text(&content_uri(&asset.digest))?,
+                        });
+                    }
+                    if !content.iter().any(|existing: &ContentRef| existing.sha256 == asset.digest) {
+                        content.push(Self::content_ref(asset)?);
+                    }
+                }
+                plugins.push(plugin.clone());
+                continue;
+            }
             let kind = plugin.get("type").and_then(Value::as_str).unwrap_or("");
             if is_retired_plugin(kind) {
                 tracing::warn!(component = "manifest", event = "retired_plugin_ignored", kind);
@@ -1188,16 +1218,60 @@ mod tests {
 
     #[test]
     fn accepts_every_schema_the_server_compiler_emits_and_nothing_else() {
-        for schema in [11, 12, 13, 14, 15, 16, 17, 18, 19] {
+        for schema in [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert!(parse(value).is_ok(), "schema {schema}");
         }
-        for schema in [10, 20] {
+        for schema in [10, 22] {
             let mut value = manifest();
             value["schemaVersion"] = serde_json::json!(schema);
             assert_eq!(parse(value).unwrap_err(), ManifestError::Schema, "schema {schema}");
         }
+    }
+
+    #[test]
+    fn external_surface_uses_verified_frames_instead_of_a_bundled_feature_id() {
+        let entry: Value = serde_json::from_str(include_str!(
+            "../../../../packages/manifest-schema/external-plugin-entry-fixture.json"
+        ))
+        .unwrap();
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(20);
+        value["plugins"] = serde_json::json!([entry.clone()]);
+        let candidate = parse(value).expect("verified external member");
+        let resolved = candidate.presentation(1_000).expect("projection");
+        assert_eq!(resolved.plugins, vec![entry]);
+        assert_eq!(candidate.required_frames.len(), 1);
+        assert_eq!(candidate.required_frames[0].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert!(resolved.plugin_aliases.is_empty());
+    }
+
+    /// Plugin API v2 state is Runtime data routed by Player Core: it is not
+    /// a renderer feature, its declared media is granted like any plugin
+    /// media, and no plugin identity appears in Edge.
+    #[test]
+    fn plugin_state_is_runtime_data_with_granted_media() {
+        let mut entry: Value =
+            serde_json::from_str(include_str!("../../../../packages/manifest-schema/plugin-state-entry-fixture.json"))
+                .unwrap();
+        entry["media"] = serde_json::json!([{"assetId": ASSET, "variantId": VARIANT}]);
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(21);
+        value["plugins"] = serde_json::json!([entry.clone(), entry.clone()]);
+        value["plugins"][1]["id"] = serde_json::json!("second-entry");
+        let candidate = parse(value).expect("v2 state is accepted");
+        assert!(incompatibilities(&candidate.document, &candidate.assets).is_empty());
+        let resolved = candidate.presentation(1_000).expect("projection");
+        assert_eq!(resolved.plugins.len(), 2);
+        assert_eq!(resolved.plugins[0], entry);
+        // One grant for the shared variant, however many entries declare it.
+        assert_eq!(resolved.plugin_aliases.len(), 1);
+
+        let mut value = manifest();
+        value["schemaVersion"] = serde_json::json!(20);
+        value["plugins"] = serde_json::json!([entry]);
+        assert!(parse(value).is_err(), "plugin_state needs schema 21");
     }
 
     #[test]
@@ -1478,7 +1552,7 @@ mod tests {
             let reasons = incompatibilities(&candidate.document, &candidate.assets);
             assert_eq!(reasons.first().map(Incompatibility::code), Some("presentation_incompatible_widget_capability"));
         }
-        value["schemaVersion"] = serde_json::json!(20);
+        value["schemaVersion"] = serde_json::json!(22);
         assert!(parse(value).is_err(), "a manifest schema from a later release is refused");
     }
 

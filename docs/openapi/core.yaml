@@ -3205,8 +3205,8 @@ paths:
     get:
       operationId: listUsers
       description: >-
-        List dashboard user accounts. Requires an Owner or Administrator
-        with the admin scope.
+        List dashboard user accounts. Requires the users.manage capability
+        and the admin scope.
       responses:
         "200":
           description: User accounts with MFA enrollment state
@@ -3222,9 +3222,10 @@ paths:
     post:
       operationId: createUser
       description: >-
-        Create a dashboard user account. Requires an Owner or Administrator
-        with the admin scope. Only an Owner may create Owner or
-        Administrator accounts. Cookie-authenticated unsafe requests require
+        Create a dashboard user account. Requires the users.manage capability
+        and the admin scope. Only an Owner may assign the Owner or
+        Administrator role, or a role that grants a capability the caller
+        does not hold. Cookie-authenticated unsafe requests require
         X-CSRF-Token.
       parameters:
         - in: header
@@ -3242,10 +3243,23 @@ paths:
                 name: { type: string }
                 username: { type: string }
                 password: { type: string }
-                role:
-                  type: string
-                  enum: [owner, administrator, editor, contributor, viewer]
+                role: { $ref: "#/components/schemas/UserRole" }
                 active: { type: boolean }
+                contentAccess:
+                  $ref: "#/components/schemas/ContentAccessInput"
+                  description: >-
+                    Media library access for the new account. When omitted,
+                    the account receives the creator's own library and tag
+                    modes with no grants.
+                screenAccess:
+                  $ref: "#/components/schemas/ScreenAccessInput"
+                  description: >-
+                    Screen access for the new account, written in the same
+                    transaction as the account. When omitted, the account is
+                    restricted with no grants and reaches no screen. An Owner
+                    always reaches every screen. A caller with restricted
+                    screen access may grant only locations and Display Groups
+                    granted to it directly (screen_scope_delegation).
       responses:
         "201":
           description: User account created
@@ -3258,11 +3272,13 @@ paths:
                   data: { $ref: "#/components/schemas/User" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
-        "403": { description: Insufficient role }
+        "403":
+          description: >-
+            Insufficient role, or screen access the caller may not delegate
         "409": { description: Username already in use }
         "422":
           description: >-
-            Name, username, password, or role invalid
+            Name, username, password, role, or screen access invalid
   /api/v1/users/{id}:
     patch:
       operationId: updateUser
@@ -3289,9 +3305,7 @@ paths:
                 name: { type: string }
                 username: { type: string }
                 password: { type: string }
-                role:
-                  type: string
-                  enum: [owner, administrator, editor, contributor, viewer]
+                role: { $ref: "#/components/schemas/UserRole" }
                 active: { type: boolean }
       responses:
         "200":
@@ -3378,9 +3392,11 @@ paths:
     get:
       operationId: getUserScreenScopes
       description: >-
-        Read which locations and sync groups an account may operate screens
-        in. Requires an Owner or Administrator with the admin scope. An
-        empty grant list means the whole fleet.
+        Read an account's screen access: the explicit mode and, for
+        restricted access, the granted locations and Display Groups.
+        Requires users.manage and the admin scope. A restricted policy with
+        no grants reaches no screen. configured is false when the account
+        has no stored policy, which also reaches no screen.
       parameters:
         - in: path
           name: id
@@ -3402,10 +3418,13 @@ paths:
     put:
       operationId: putUserScreenScopes
       description: >-
-        Replace an account's screen scope grants. Requires an Owner or
-        Administrator with the admin scope. Cookie-authenticated unsafe
-        requests require X-CSRF-Token. An Owner cannot be scoped and
-        nobody can change their own scope.
+        Replace an account's screen access. Requires users.manage and the
+        admin scope. Cookie-authenticated unsafe requests require
+        X-CSRF-Token. mode is required: all screens is an explicit choice,
+        never an empty grant list. An Owner cannot be restricted, nobody can
+        change their own screen access, and a caller with restricted screen
+        access may grant only locations and Display Groups granted to it
+        directly.
       parameters:
         - in: path
           name: id
@@ -3419,16 +3438,10 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [scopes]
-              properties:
-                scopes:
-                  type: array
-                  items: { $ref: "#/components/schemas/ScreenScope" }
+            schema: { $ref: "#/components/schemas/ScreenAccessInput" }
       responses:
         "200":
-          description: Screen scope grants replaced
+          description: Screen access replaced
           content:
             application/json:
               schema:
@@ -3438,9 +3451,259 @@ paths:
                   data: { $ref: "#/components/schemas/ScreenScopeList" }
         "400": { description: Invalid request body }
         "401": { description: Dashboard authentication required }
+        "403":
+          description: >-
+            Insufficient role, own account (cannot_scope_self), or screen
+            access the caller may not delegate (screen_scope_delegation)
+        "404": { description: User not found }
+        "422":
+          description: >-
+            Mode missing (screen_access_mode_required), grants invalid
+            (scope_invalid), or the account is an Owner (owner_not_scopable)
+  /api/v1/users/{id}/content-access:
+    get:
+      operationId: getUserContentAccess
+      description: >-
+        Read which part of the Media library an account reaches and which
+        tags it may apply. Requires the users.manage capability and the
+        admin scope.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Content access policy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UserContentAccess" }
+        "401": { description: Dashboard authentication required }
         "403": { description: Insufficient role }
         "404": { description: User not found }
-        "422": { description: Scope invalid or account not scopable }
+    put:
+      operationId: putUserContentAccess
+      description: >-
+        Replace an account's content access. Requires the users.manage
+        capability and the admin scope. Cookie-authenticated unsafe requests
+        require X-CSRF-Token. An Owner cannot be restricted, nobody can change
+        their own access, and nobody can grant folders or tags outside their
+        own access.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContentAccessInput" }
+      responses:
+        "200":
+          description: Content access replaced
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/UserContentAccess" }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403":
+          {
+            description: "Insufficient role, own account, or grant outside the caller's access",
+          }
+        "404": { description: User not found }
+        "422": { description: Policy invalid or account not restrictable }
+  /api/v1/roles:
+    get:
+      operationId: listRoles
+      description: >-
+        List the built-in and custom roles with their capabilities and member
+        counts. Requires users.manage or roles.manage and the admin scope.
+      responses:
+        "200":
+          description: Roles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/RoleList" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+    post:
+      operationId: createRole
+      description: >-
+        Create a custom role. Requires the roles.manage capability and the
+        admin scope. A caller other than the Owner may include only
+        capabilities they hold, and never users.manage or roles.manage.
+        Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleRequest" }
+      responses:
+        "201":
+          description: Role created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Role" }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403":
+          {
+            description: Insufficient role or capability outside the caller's authority,
+          }
+        "409": { description: Role name already in use }
+        "422": { description: "Name, description, or capability set invalid" }
+  /api/v1/roles/capabilities:
+    get:
+      operationId: listCapabilities
+      description: >-
+        The closed capability vocabulary, with whether the caller may grant
+        each capability in a custom role. Requires users.manage or
+        roles.manage and the admin scope.
+      responses:
+        "200":
+          description: Capability vocabulary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [items]
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          { $ref: "#/components/schemas/CapabilityDefinition" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+  /api/v1/roles/{key}:
+    parameters:
+      - in: path
+        name: key
+        required: true
+        schema: { $ref: "#/components/schemas/UserRole" }
+    get:
+      operationId: getRole
+      description: >-
+        Read one role. Requires users.manage or roles.manage and the admin
+        scope.
+      responses:
+        "200":
+          description: Role
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Role" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient role }
+        "404": { description: Role not found }
+    patch:
+      operationId: updateRole
+      description: >-
+        Replace a custom role's name, description, and capabilities. Built-in
+        roles cannot be changed. The change applies to every account on the
+        role at its next request. Requires the roles.manage capability, the
+        admin scope, and authority to grant both the old and the new
+        capabilities. Cookie-authenticated unsafe requests require
+        X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleRequest" }
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/Role" }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403":
+          {
+            description: Insufficient role or capability outside the caller's authority,
+          }
+        "404": { description: Role not found }
+        "409": { description: Built-in role or name already in use }
+        "422": { description: "Name, description, or capability set invalid" }
+    delete:
+      operationId: deleteRole
+      description: >-
+        Delete a custom role that no account holds. Requires the roles.manage
+        capability and the admin scope. Cookie-authenticated unsafe requests
+        require X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Role deleted }
+        "401": { description: Dashboard authentication required }
+        "403":
+          {
+            description: Insufficient role or capability outside the caller's authority,
+          }
+        "404": { description: Role not found }
+        "409": { description: Built-in role or role still assigned }
+  /api/v1/me/access:
+    get:
+      operationId: getMyAccess
+      description: >-
+        The signed-in account's role, effective capabilities, and Media
+        content access. Available to every enrolled account with the read
+        scope.
+      responses:
+        "200":
+          description: Effective access
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/MyAccess" }
+        "401": { description: Dashboard authentication required }
   /api/v1/auth/logout:
     post:
       operationId: logout
@@ -5274,7 +5537,16 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/UploadSession" }
+        "403": { description: The role cannot upload media }
+        "404":
+          {
+            description: Destination folder not found or outside the caller's access,
+          }
         "413": { description: Upload exceeds the configured maximum }
+        "422":
+          {
+            description: A folder is required for an account with restricted content access,
+          }
         "507": { description: Reserved free storage would be violated }
   /api/v1/uploads/{id}:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
@@ -5674,6 +5946,53 @@ paths:
             },
           "404": { description: Package or bundle unavailable },
         }
+  /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame:
+    parameters:
+      - { $ref: "#/components/parameters/PackageID" }
+      - in: path
+        name: pluginId
+        required: true
+        schema: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
+    get:
+      operationId: downloadPackagePluginFrame
+      description: >-
+        Download the deterministically assembled frame of an installed external Plugin API v2 contribution.
+        Requires a device credential. Players verify exact size and SHA-256 before execution.
+        The response confines scripts to an opaque sandbox and denies network and subresource loads.
+      security: [{ deviceBearer: [] }]
+      parameters:
+        - {
+            in: header,
+            name: Range,
+            schema: { type: string, example: bytes=0-1048575 },
+          }
+        - { in: header, name: If-Range, schema: { type: string } }
+        - { in: header, name: If-None-Match, schema: { type: string } }
+      responses:
+        "200":
+          description: Complete external plugin frame
+          content:
+            text/html:
+              schema: { type: string, format: binary }
+        "206":
+          description: Requested byte range
+          content:
+            text/html:
+              schema: { type: string, format: binary }
+        "304": { description: ETag matched }
+        "401": { description: Device credential invalid or revoked }
+        "403": { description: Screen disabled }
+        "404": { description: Package or frame unavailable }
+        "416": { description: Range not satisfiable }
+    head:
+      operationId: inspectPackagePluginFrame
+      description: Inspect an installed external plugin frame with a device credential.
+      security: [{ deviceBearer: [] }]
+      responses:
+        "200": { description: External plugin frame metadata }
+        "401": { description: Device credential invalid or revoked }
+        "403": { description: Screen disabled }
+        "404": { description: Package or frame unavailable }
   /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame:
     parameters:
       - {
@@ -6198,7 +6517,11 @@ paths:
     post:
       operationId: createScreenGroup
       description: >-
-        Create screen group. Requires an authenticated dashboard user.
+        Create a Display Group, optionally with its first members, in one
+        transaction. Requires screen.manage. A caller with restricted screen
+        access must name at least one screen, and every named screen and its
+        current group peers must be within its access: an empty group has
+        no anchor and would be unreachable to it (403 out_of_scope).
       parameters:
         [
           {
@@ -6212,7 +6535,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/ScreenGroupInput" }
+            schema: { $ref: "#/components/schemas/ScreenGroupCreateInput" }
       responses:
         "201":
           description: Display Group created in Mirror mode
@@ -12108,6 +12431,31 @@ components:
               id:
                 type: string
                 description: Package-qualified contribution ID read from the artifact's nested manifest. Present on update checks, which read the artifact; absent when the review resolved only the published manifest.
+              playerRuntime:
+                type: object
+                required: [surfaces, tier]
+                description: Verified external Player surface permissions. Present for executable plugin contributions.
+                properties:
+                  surfaces:
+                    type: array
+                    minItems: 1
+                    maxItems: 7
+                    uniqueItems: true
+                    items:
+                      type: string
+                      enum:
+                        [
+                          strip.top,
+                          strip.bottom,
+                          corner.top-left,
+                          corner.top-right,
+                          corner.bottom-left,
+                          corner.bottom-right,
+                          overlay,
+                        ]
+                  tier:
+                    type: string
+                    enum: [emergency, live, scheduled, ambient]
         runtime:
           type: object
           required: [module]
@@ -13789,8 +14137,7 @@ components:
       properties:
         challengeToken: { type: string }
     AccountRole:
-      type: string
-      enum: [owner, administrator, editor, contributor, viewer]
+      $ref: "#/components/schemas/UserRole"
     AuthUser:
       type: object
       additionalProperties: false
@@ -13812,6 +14159,10 @@ components:
       required: [user, csrfToken, authMethod, mfaEnrollmentRequired]
       properties:
         user: { $ref: "#/components/schemas/AuthUser" }
+        capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+          description: Effective capabilities of the signed-in user's role.
         csrfToken: { type: string }
         authMethod: { $ref: "#/components/schemas/AuthMethod" }
         mfaEnrollmentRequired: { type: boolean }
@@ -15103,6 +15454,26 @@ components:
         description: { type: string }
         presentationGatewayScreenId: { type: [string, "null"], format: uuid }
         clearPresentationGateway: { type: boolean }
+    ScreenGroupCreateInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1 }
+        description: { type: string }
+        screenIds:
+          type: array
+          description: >-
+            First members. Required, and at least one, for a caller with
+            restricted screen access.
+          items: { type: string, format: uuid }
+        presentationGatewayScreenId:
+          type: [string, "null"]
+          format: uuid
+          description: Ignored on creation. Set it with an update.
+        clearPresentationGateway:
+          type: boolean
+          description: Ignored on creation.
     ScreenGroupMemberInput:
       type: object
       additionalProperties: false
@@ -15786,6 +16157,124 @@ components:
         results:
           type: array
           items: { $ref: "#/components/schemas/DisplayControlGroupResult" }
+    ManifestBuiltinPlugin:
+      type: object
+      additionalProperties: false
+      required: [id, type, version, config]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        version: { type: integer, minimum: 1 }
+        config: { type: object, additionalProperties: true }
+    ManifestPluginState:
+      type: object
+      additionalProperties: false
+      description: Plugin API v2 Player state for one bundled plugin. The Player Plugin Host routes it by plugin and stateType. It carries no configuration a Player does not need and is never resolved through a renderer feature list.
+      required:
+        [
+          id,
+          type,
+          version,
+          plugin,
+          definitionVersion,
+          stateType,
+          stateVersion,
+          state,
+          media,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, const: plugin_state }
+        version: { type: integer, const: 1 }
+        plugin: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
+        definitionVersion: { type: integer, minimum: 1, maximum: 1000000 }
+        stateType: { type: string, pattern: "^[a-z][a-z0-9_]{0,79}$" }
+        stateVersion: { type: integer, minimum: 1, maximum: 1000 }
+        state:
+          type: object
+          additionalProperties: true
+          description: At most 16 KiB of JSON, sixteen nested levels, and 2048 values.
+        media:
+          oneOf:
+            - { type: "null" }
+            - type: array
+              maxItems: 16
+              description: Verified media variants the state uses. Each variant is also in assets.
+              items:
+                type: object
+                additionalProperties: false
+                required: [assetId, variantId]
+                properties:
+                  assetId: { type: string, format: uuid }
+                  variantId: { type: string, format: uuid }
+        validUntil: { type: string, format: date-time }
+    ManifestExternalPlugin:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          type,
+          version,
+          definitionVersion,
+          package,
+          runtime,
+          state,
+          validUntil,
+        ]
+      properties:
+        id: { type: string, maxLength: 128 }
+        type: { type: string, const: external_plugin }
+        version: { type: integer, const: 1 }
+        definitionVersion: { type: integer, minimum: 1, maximum: 1000000 }
+        package:
+          type: object
+          additionalProperties: false
+          required: [packageId, packageDigest, contributionId, frame]
+          properties:
+            packageId: { type: string, maxLength: 128 }
+            packageDigest: { type: string, pattern: "^sha256:[0-9a-f]{64}$" }
+            contributionId: { type: string, maxLength: 128 }
+            frame:
+              type: object
+              additionalProperties: false
+              required: [sha256, fileSize, downloadPath]
+              properties:
+                sha256: { type: string, pattern: "^[0-9a-f]{64}$" }
+                fileSize: { type: integer, minimum: 1, maximum: 1114112 }
+                downloadPath: { type: string, maxLength: 1024 }
+        runtime:
+          type: object
+          additionalProperties: false
+          required: [surfaces, tier]
+          properties:
+            surfaces:
+              type: array
+              minItems: 1
+              maxItems: 7
+              uniqueItems: true
+              items:
+                {
+                  type: string,
+                  enum:
+                    [
+                      strip.top,
+                      strip.bottom,
+                      corner.top-left,
+                      corner.top-right,
+                      corner.bottom-left,
+                      corner.bottom-right,
+                      overlay,
+                    ],
+                }
+            tier: { type: string, enum: [emergency, live, scheduled, ambient] }
+        state:
+          {
+            type: object,
+            additionalProperties: true,
+            description: "Canonical JSON is bounded to 16 KiB, 16 nested levels, and 2048 values.",
+          }
+        validUntil: { type: string, format: date-time }
     PlayerManifest:
       type: object
       additionalProperties: false
@@ -15802,8 +16291,8 @@ components:
       properties:
         schemaVersion:
           type: integer
-          enum: [11, 12, 13, 14, 15, 16, 17]
-          description: The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players.
+          enum: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]
+          description: The Server selects a version from the Player's reported presentation capabilities. New versions do not change responses for older Players. Version 21 adds Plugin API v2 plugin_state entries and is sent only to a Player that reports plugin.host at version 2.
         manifestVersion: { type: integer, format: int64, minimum: 1 }
         screenId: { type: string, format: uuid }
         generatedAt: { type: string, format: date-time }
@@ -15854,6 +16343,14 @@ components:
           { type: array, items: { type: object, additionalProperties: true } }
         dataSources:
           { type: array, items: { type: object, additionalProperties: true } }
+        plugins:
+          type: array
+          maxItems: 64
+          items:
+            oneOf:
+              - { $ref: "#/components/schemas/ManifestBuiltinPlugin" }
+              - { $ref: "#/components/schemas/ManifestPluginState" }
+              - { $ref: "#/components/schemas/ManifestExternalPlugin" }
         presentationOverride:
           {
             oneOf:
@@ -16649,6 +17146,15 @@ components:
         filename: { type: string, minLength: 1, maxLength: 255 }
         mimeType: { type: string }
         sizeBytes: { type: integer, format: int64, minimum: 1 }
+        folderId:
+          type: [string, "null"]
+          format: uuid
+          description: >-
+            Folder the asset is created in. Omitted or null is the library
+            root, which only an account with access to the whole library may
+            use; an account with restricted content access must name one of
+            its folders. The server authorizes the folder now and again when
+            the upload completes.
     UploadSession:
       type: object
       required:
@@ -16674,6 +17180,10 @@ components:
         assetId: { type: string, format: uuid }
         uploadEndpoint: { type: string }
         maximumSizeBytes: { type: integer, format: int64 }
+        folderId:
+          type: string
+          format: uuid
+          description: Destination folder; absent for the library root.
     AssetVariant:
       type: object
       required:
@@ -16794,6 +17304,10 @@ components:
         name: { type: string }
         color: { type: string }
         assetCount: { type: integer, minimum: 0 }
+        assignable:
+          type: boolean
+          description: >-
+            On the tag list, whether the caller may apply or remove this tag.
     ContentFolder:
       type: object
       additionalProperties: false
@@ -17501,7 +18015,220 @@ components:
         lastLoginAt: { type: string, format: date-time }
     UserRole:
       type: string
-      enum: [owner, administrator, editor, contributor, viewer]
+      pattern: "^[a-z][a-z0-9.-]{1,63}$"
+      description: >-
+        Role key. The built-in roles are owner, administrator, editor,
+        contributor, and viewer. Custom role keys start with "custom.".
+        Decide authorization from the capabilities the server reports, not
+        from the role key.
+      examples:
+        [
+          owner,
+          administrator,
+          editor,
+          contributor,
+          viewer,
+          custom.classroom-media,
+        ]
+    Capability:
+      type: string
+      pattern: "^[a-z][a-z0-9_.]{1,63}$"
+      description: >-
+        One capability from the server's closed vocabulary, such as
+        media.upload or playlist.publish. GET /api/v1/roles/capabilities
+        lists them.
+    CapabilityDefinition:
+      type: object
+      additionalProperties: false
+      required: [key, group, requires, ownerReserved, delegable, grantable]
+      properties:
+        key: { $ref: "#/components/schemas/Capability" }
+        group:
+          type: string
+          enum:
+            [
+              media,
+              widgets,
+              dataSources,
+              playlists,
+              layouts,
+              campaigns,
+              review,
+              screens,
+              schedules,
+              activity,
+              plugins,
+              administration,
+            ]
+        requires:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+        ownerReserved:
+          type: boolean
+          description: Held only by the built-in Owner role.
+        delegable:
+          type: boolean
+          description: >-
+            False for capabilities that administer access; only the Owner
+            may put them in a custom role.
+        grantable:
+          type: boolean
+          description: Whether the caller may include it in a custom role.
+    Role:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          key,
+          name,
+          description,
+          builtin,
+          capabilities,
+          userCount,
+          createdAt,
+          updatedAt,
+          editable,
+          assignable,
+        ]
+      properties:
+        key: { $ref: "#/components/schemas/UserRole" }
+        name: { type: string }
+        description: { type: string }
+        builtin: { type: boolean }
+        capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+        userCount:
+          type: integer
+          minimum: 0
+          description: Active accounts on the role.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        editable:
+          type: boolean
+          description: Whether the caller may change or delete the role.
+        assignable:
+          type: boolean
+          description: Whether the caller may place accounts on the role.
+    RoleList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Role" }
+    RoleRequest:
+      type: object
+      additionalProperties: false
+      required: [name, capabilities]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 60 }
+        description: { type: string, maxLength: 280 }
+        capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+    ContentAccessMode:
+      type: string
+      enum: [all, restricted]
+    ContentAccessInput:
+      type: object
+      additionalProperties: false
+      required: [libraryMode, tagMode]
+      properties:
+        libraryMode: { $ref: "#/components/schemas/ContentAccessMode" }
+        tagMode: { $ref: "#/components/schemas/ContentAccessMode" }
+        folderIds:
+          type: array
+          maxItems: 200
+          items: { type: string, format: uuid }
+          description: Granted folders; each covers its descendants.
+        tagIds:
+          type: array
+          maxItems: 200
+          items: { type: string, format: uuid }
+          description: Tags the account may apply and remove.
+    ContentGrant:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        path:
+          { type: string, description: "Folder ancestry joined with ' / '." }
+    UserContentAccess:
+      type: object
+      additionalProperties: false
+      required: [policy, ownerUnrestricted]
+      properties:
+        policy:
+          type: object
+          additionalProperties: false
+          required: [libraryMode, tagMode, folders, tags, configured]
+          properties:
+            libraryMode: { $ref: "#/components/schemas/ContentAccessMode" }
+            tagMode: { $ref: "#/components/schemas/ContentAccessMode" }
+            folders:
+              type: array
+              items: { $ref: "#/components/schemas/ContentGrant" }
+            tags:
+              type: array
+              items: { $ref: "#/components/schemas/ContentGrant" }
+            configured:
+              type: boolean
+              description: >-
+                False when the account has no stored policy, which means it
+                reaches no content until one is saved.
+        ownerUnrestricted:
+          type: boolean
+          description: The account is an Owner and always reaches everything.
+    MyAccess:
+      type: object
+      additionalProperties: false
+      required: [role, capabilities, content, screens]
+      properties:
+        role:
+          type: object
+          additionalProperties: false
+          required: [key, name, builtin]
+          properties:
+            key: { $ref: "#/components/schemas/UserRole" }
+            name: { type: string }
+            builtin: { type: boolean }
+        capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+        content:
+          type: object
+          additionalProperties: false
+          required: [libraryMode, tagMode]
+          properties:
+            libraryMode: { $ref: "#/components/schemas/ContentAccessMode" }
+            tagMode: { $ref: "#/components/schemas/ContentAccessMode" }
+            writableFolderIds:
+              type: array
+              items: { type: string, format: uuid }
+              description: >-
+                Folders the account may upload into. Absent when the account
+                reaches the whole library, which may also use the root.
+        screens:
+          type: object
+          additionalProperties: false
+          required: [mode, locationIds, groupIds]
+          description: >-
+            The signed-in account's screen access. An account without a
+            stored policy reads as restricted with no grants.
+          properties:
+            mode: { $ref: "#/components/schemas/ScreenAccessMode" }
+            locationIds:
+              type: array
+              items: { type: string, format: uuid }
+              description: Locations granted directly. Empty for all screens.
+            groupIds:
+              type: array
+              items: { type: string, format: uuid }
+              description: Display Groups granted directly. Empty for all screens.
     ManagedUser:
       type: object
       additionalProperties: false
@@ -17534,15 +18261,42 @@ components:
         type: { type: string, enum: [location, group] }
         id: { type: string, format: uuid }
         name: { type: string }
+    ScreenAccessMode:
+      type: string
+      enum: [all, restricted]
+      description: >-
+        all reaches every screen. restricted reaches the union of the
+        granted locations and Display Groups, and nothing without grants.
+    ScreenAccessInput:
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode: { $ref: "#/components/schemas/ScreenAccessMode" }
+        scopes:
+          type: array
+          description: Grants for restricted access. Must be empty for all.
+          items: { $ref: "#/components/schemas/ScreenScope" }
     ScreenScopeList:
       type: object
       additionalProperties: false
-      required: [scopes, wholeFleet]
+      required: [mode, scopes, configured, wholeFleet]
       properties:
+        mode: { $ref: "#/components/schemas/ScreenAccessMode" }
         scopes:
           type: array
           items: { $ref: "#/components/schemas/ScreenScope" }
-        wholeFleet: { type: boolean }
+        configured:
+          type: boolean
+          description: >-
+            False when the account has no stored policy, which reaches no
+            screen until one is saved.
+        wholeFleet:
+          type: boolean
+          deprecated: true
+          description: >-
+            Read mode instead. True exactly when a stored policy is in mode
+            all; never derived from the number of grants.
     AuthStatus:
       type: object
       additionalProperties: false
@@ -17554,6 +18308,13 @@ components:
         passkeysUnavailableReason: { type: string }
         demoMode: { type: boolean }
         user: { $ref: "#/components/schemas/User" }
+        capabilities:
+          type: array
+          items: { $ref: "#/components/schemas/Capability" }
+          description: >-
+            Effective capabilities of the authenticated user's live role.
+            Studio uses them to decide which workspaces and actions to offer;
+            every API route still makes its own decision.
         csrfToken: { type: string }
         authMethod:
           type: string

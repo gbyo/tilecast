@@ -16,6 +16,7 @@ import type { Schedule, ScheduleListParams } from "../api/types";
 import { toast } from "../components/ui/toast";
 import { scheduleKeys } from "../data/schedules";
 import { SchedulesPage } from "./SchedulesPage";
+import { builtinCapabilities } from "../test/capabilities";
 
 const auth = vi.hoisted(() => ({ role: "administrator" }));
 
@@ -24,6 +25,7 @@ vi.mock("../auth/AuthProvider", () => ({
     status: {
       csrfToken: "csrf-token",
       user: { id: "user-1", role: auth.role },
+      capabilities: builtinCapabilities(auth.role),
     },
   }),
 }));

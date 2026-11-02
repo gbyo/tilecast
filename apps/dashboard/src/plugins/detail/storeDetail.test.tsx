@@ -38,6 +38,7 @@ import {
   marketplaceListing,
   updateCheck,
 } from "../catalogFixtures";
+import { builtinCapabilities } from "../../test/capabilities";
 
 const auth = vi.hoisted(() => ({ role: "owner" }));
 vi.mock("../../auth/AuthProvider", () => ({
@@ -46,6 +47,7 @@ vi.mock("../../auth/AuthProvider", () => ({
       authenticated: true,
       csrfToken: "csrf",
       user: { id: "user", name: "User", role: auth.role },
+      capabilities: builtinCapabilities(auth.role),
     },
   }),
 }));

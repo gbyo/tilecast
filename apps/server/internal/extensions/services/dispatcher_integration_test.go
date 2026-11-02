@@ -122,7 +122,7 @@ func (f *serviceFixture) studio(userID uuid.UUID, role, packageID, capability, o
 		panic(err)
 	}
 	data, denial, failure := f.dispatcher.Call(context.Background(), Call{
-		PackageID: packageID, Context: ContextStudio, Actor: &Actor{UserID: userID, Role: role},
+		PackageID: packageID, Context: ContextStudio, Actor: &Actor{UserID: userID, Role: role, Capabilities: builtinActor(role).Capabilities},
 		Grants:    []packagemanifest.ServiceGrant{{ID: capability, Version: 1}},
 		Operation: operation, Input: raw,
 	})
@@ -465,5 +465,50 @@ func TestPlayerCommandStudioRole(t *testing.T) {
 	}
 	if creator == nil || *creator != f.ownerID {
 		t.Fatalf("creator = %v, want the studio actor", creator)
+	}
+}
+
+func TestPlayerCommandStudioScope(t *testing.T) {
+	f := newServiceFixture(t)
+	ctx := context.Background()
+	org := serviceOrgID(t, f.pool)
+	inScope, outOfScope := uuid.New(), uuid.New()
+	for _, id := range []uuid.UUID{inScope, outOfScope} {
+		insertPlayerCommandScreen(t, f.pool, org, id, `{"display.power":{"version":1,"provider":"hdmi_cec"}}`, `{}`)
+	}
+	locationID := uuid.New()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO locations(id,organization_id,name) VALUES($1,$2,'Main Building')`, locationID, org); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx, `UPDATE screens SET location_id=$1 WHERE id=$2`, locationID, inScope); err != nil {
+		t.Fatal(err)
+	}
+	adminID := uuid.New()
+	if _, err := f.pool.Exec(ctx, `INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Scoped Admin','service-scoped-admin','unused','administrator',TRUE)`, adminID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx, `INSERT INTO user_screen_access(user_id,mode) VALUES($1,'restricted')`, adminID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx, `INSERT INTO user_screen_scopes(user_id,scope_type,scope_id) VALUES($1,'location',$2)`, adminID, locationID); err != nil {
+		t.Fatal(err)
+	}
+	// Outside the account's scope reads as not found and queues nothing.
+	denied := f.studio(adminID, "administrator", "acme.display", "players.display-control", "players.display-control@1/display.power",
+		map[string]any{"screenId": outOfScope.String(), "input": map[string]any{"state": "off"}})
+	if denied.failure == nil || denied.failure.Code != ErrCodeNotFound {
+		t.Fatalf("out-of-scope result = %+v", denied)
+	}
+	var queued int
+	if err := f.pool.QueryRow(ctx, `SELECT count(*) FROM player_commands WHERE screen_id=$1`, outOfScope).Scan(&queued); err != nil {
+		t.Fatal(err)
+	}
+	if queued != 0 {
+		t.Fatalf("out-of-scope screen has %d queued commands", queued)
+	}
+	data := mustData(t, f.studio(adminID, "administrator", "acme.display", "players.display-control", "players.display-control@1/display.power",
+		map[string]any{"screenId": inScope.String(), "input": map[string]any{"state": "off"}}))
+	if data["commandType"] != "display_power_off" {
+		t.Fatalf("in-scope answer = %+v", data)
 	}
 }

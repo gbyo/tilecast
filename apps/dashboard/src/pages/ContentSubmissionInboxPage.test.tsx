@@ -17,6 +17,7 @@ import type { ContentSubmission } from "../api/types";
 import { i18n } from "../i18n";
 import { formatLocale } from "../i18n/languages";
 import { toast } from "../components/ui/toast";
+import { builtinCapabilities } from "../test/capabilities";
 
 // The page renders a card list for narrow screens and a table for wide ones,
 // and hides one with CSS. jsdom applies no CSS, so tests read the table.
@@ -27,6 +28,7 @@ vi.mock("../auth/AuthProvider", () => ({
     status: {
       csrfToken: "csrf",
       user: { role: "editor", id: "u1", username: "ed" },
+      capabilities: builtinCapabilities("editor"),
     },
   }),
 }));

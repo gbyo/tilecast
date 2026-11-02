@@ -16,7 +16,14 @@ var files embed.FS
 
 func Handler() http.Handler {
 	static, _ := fs.Sub(files, "static")
+	return staticHandler(static)
+}
+
+func staticHandler(static fs.FS) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The entry document must be revalidated after an upgrade. Only hashed
+		// build assets are safe to reuse indefinitely.
+		w.Header().Set("Cache-Control", "no-cache")
 		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
 		if name == "." || name == "" {
 			name = "index.html"
@@ -29,6 +36,10 @@ func Handler() http.Handler {
 				w.Header().Set("Content-Type", contentType)
 			}
 			http.ServeFileFS(w, r, static, name)
+			return
+		}
+		if strings.HasPrefix(name, "assets/") || name == "assets" {
+			http.NotFound(w, r)
 			return
 		}
 		r.URL.Path = "/"

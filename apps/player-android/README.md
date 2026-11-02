@@ -26,7 +26,7 @@ Player Core (Rust, process-level host: PlayerCoreHost)
     -> image / video / Layout / Widget / website surfaces
 
 Compose (MainActivity)
-    -> setup, pairing, maintenance, commissioning, update, recovery,
+    -> setup, pairing, maintenance, update, recovery,
        and the status surface over the WebView
 ```
 

@@ -17,6 +17,23 @@ host process (tilecastd/WPE, Windows/WebView2, legacy Electron, or Android trust
   XState playback engine ── scheduler (monotonic clock) ── synchronized timeline
 ```
 
+## Document startup
+
+The trusted document contains a Tilecast logo on a black startup layer.
+The Runtime prepares the first presentation beneath this layer.
+The logo runs for at least one 1.5-second cycle before the reveal.
+The Runtime removes the layer after the first presentation paints.
+Reduced motion uses an opacity change without the card movement.
+Conformance runs remove the layer before the Runtime reports ready.
+
+An accepted presentation starts a ten-second preparation limit.
+The reveal has a separate four-second limit.
+These limits remove the layer if animation readiness or completion stalls.
+Without an accepted presentation, the logo stays visible.
+The sequence runs once per document and uses no persistent state.
+Host-layer Website surfaces stay hidden until the reveal uncovers playback.
+Media URI surfaces stay inside the Runtime document.
+
 ## 1. Ownership
 
 The runtime owns:
@@ -40,7 +57,7 @@ A host publishes one object, `globalThis.tilecastRuntimeHost`, that implements `
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | Host → runtime | `subscribe(listener)` delivers `presentation`, `plugins`, `identify`, `command`, `discovered-server` and `remote-web` messages. |
 | Runtime → host | `ready`, `presentationResult`, `reportEvidence`, `reportPlaybackError`.                                                         |
-| Optional       | `setup.submitServerUrl`, `discovery.list`, `remoteWeb.reportRecovered`, `conformance`.                                          |
+| Optional       | `setup.submitServerUrl`, `setup.resumePhoneSetup`, `discovery.list`, `remoteWeb.reportRecovered`, `conformance`.                |
 
 Behavior depends on `capabilities`, never on `info.host`:
 
@@ -51,6 +68,14 @@ Behavior depends on `capabilities`, never on `info.host`:
 | `setup`                | `true`             | `true`                       | `true`             |
 | `discovery`            | `true`             | `true` (Avahi, `tilecastd`)  | `false`            |
 | `outsideHoursLogo`     | absent (`cast`)    | `pulse`                      | absent (`cast`)    |
+
+`pluginState` is optional. A host sets it when it forwards Plugin API v2 `plugin_state` entries in `plugins` messages, with grants for their declared media, and replays them to a reloaded document. Only then does the support report include `plugin.host@2` and the live Player service versions. The Edge WPE bridge, the Browser Player host, the Windows host script table, and the Android install script set it.
+
+`variantMedia` is optional. A host sets it when it serves `tcmedia://variant/<asset>/<variant>` and authorizes each load against the current plugin state or activation grants. The Runtime then builds that address for `player.media@1`. A host that sends explicit `media` bindings, such as the Browser Player, leaves it unset. Edge, Windows, and Android set it.
+
+`pluginEvents` is optional. A host sets it only when it sends `plugin-event` messages to the Runtime and provides `host.pluginEvents.emit`. Only then does the Runtime offer `player.events@1`. No host sets it yet. See [Plugin API v2](plugin-api-v2.md#plugin-events).
+
+A presentation provider is a Runtime service, so it needs no host capability. The host still owns the container, visibility, evidence, and recovery of its session. See [Plugin API v2](plugin-api-v2.md#presentation-providers).
 
 `outsideHoursLogo` is optional. It selects the animated logo for the "Bouncing logo" display outside active hours: `cast` or `pulse`. If a host does not set it, or sets a value that the runtime does not know, the runtime shows `cast`. The runtime ships both logo files.
 
@@ -199,6 +224,7 @@ The tests prove the counts of actors, mounts and decoders, the evidence order, t
 ## 5. Views, surfaces and transitions
 
 - **Views** are Lit 3 components in light DOM (`src/views`): `<tc-player>`, `<tc-status-surface>` and `<tc-outside-hours>`. They render the engine's view state and decide nothing about playback. Style bindings use `cssProps` (CSSOM only), because Lit's `styleMap` writes a `style` attribute, which `style-src 'self'` refuses.
+  The `status` field of a branded presentation is a reason code for hosts and diagnostics. The status surface writes it to `data-status` and never shows it on the screen.
 - **Surfaces** implement `MediaSurface` (`prepare`, `activate`, `pause`, `seek`, `dispose`): `ImageSurface`, `HtmlVideoSurface`, `WidgetSurface`, `LayoutSurface`, the legacy Electron `WebviewWebsiteSurface`, and `HostRemoteWebSurface` for host-owned remote web. Edge supplies that host view through the isolated WPE helper. The engine depends on the interface only, so another native media pipeline, if hardware testing ever justifies one, needs no change to the engine.
 - **The stage** (`surfaces/stage.ts`) owns fullscreen media surfaces. Layout playlist zones own nested instances of the same media, Widget, and host-isolated remote web surfaces. The playback layers carry no Lit bindings, so no reactive update can replace an active `<video>`. An incoming occurrence is prepared on the hidden layer. The outgoing surface is paused and released when the transition finishes, so two full-screen decoders overlap for the transition and no longer.
 - **Transitions** use the Web Animations API (`transitions/crossfade.ts`). A transition has one clock and one `finished` signal. Only the incoming layer fades. It paints above the outgoing layer, which stays fully opaque until the transition ends. Each layer has a black backdrop, so fading both layers makes the picture go dark in the middle of the transition. A takeover, a newer swap, or the staging of the next occurrence cancels the transition, which puts both layers in their resting state at once.
@@ -206,7 +232,8 @@ The tests prove the counts of actors, mounts and decoders, the evidence order, t
 - **Video evidence**: `HtmlVideoSurface` reports `video-progress` only while decoded frames are presented, when `requestVideoFrameCallback` is available and has fired. Otherwise it falls back to advancing media time. The API makes evidence stronger; playback never requires it.
 - **Layout child readiness**: `layout-shown` reports the visible canvas. A playlist zone prepares media while hidden. Images become ready after successful load. Videos become ready at `canplay`. The zone activates media only when the parent Layout is active. It reports `layout-zone-rendered` after successful activation. Selection, append, and transition start do not prove child readiness. A fade or crossfade keeps outgoing good media until incoming media is ready. Video progress carries the zone ID. Load and play failures report a zone error, apply the configured fallback, and advance or retry the zone. Static image load failures also report a zone error. Other zones continue to play.
 - **Zone video loops**: the zone applies the native loop policy after playback starts. It disables native looping before each play attempt. This sequence prevents a WebKit stall when a prepared, paused video starts with native looping enabled. Trimmed videos still use zone advances to restore their authored start offset.
-- **Plugin surfaces** come from the runtime surface host (`src/plugins`). The host finds each runtime plugin when the runtime is built, gives it one container for each surface that it declares, arbitrates each slot by the declared tier and the claimed priority, and sets the content-stage insets and the corner lift. A plugin draws only inside its containers. [plugin-api.md](plugin-api.md#player-runtime) is the contract.
+- **Player plugins** (Plugin API v2) come from the Player Plugin Host (`src/plugins/player-host.ts`). It activates a plugin while `plugin_state` for it exists, routes each plugin only its own state, and binds the services the plugin requests from the service registry (`src/plugins/services.ts`, `src/plugins/service-providers.ts`): `player.clock@1`, `player.media@1`, `player.presentation.observe@1`, and `player.surface@1`. It has no evaluation loop. A plugin that throws is disposed alone. The host reads only `plugins` messages and a read-only presentation observation, so plugin state never reaches playback. [plugin-api-v2.md](plugin-api-v2.md) is the contract.
+- **Plugin surfaces** come from the runtime surface host (`src/plugins`). It also implements `player.surface@1`: a v2 visual contribution joins the same arbitration with its own declared tier and pushes its claims. The host finds each runtime plugin when the runtime is built, gives it one container for each surface that it declares, arbitrates each slot by the declared tier and the claimed priority, and sets the content-stage insets and the corner lift. A plugin draws only inside its containers. [plugin-api.md](plugin-api.md#player-runtime) is the contract.
 
 ### 5.1 Layout promotion follow-up
 

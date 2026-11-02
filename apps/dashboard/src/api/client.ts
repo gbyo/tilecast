@@ -1,5 +1,17 @@
-import type { ScreenScope, ScreenScopes, PlayerReleaseImport } from "./types";
+import type { PlayerReleaseImport } from "./types";
 import { ApiError } from "./errors";
+import {
+  createRole,
+  deleteRole,
+  getMyAccess,
+  getUserScreenScopes,
+  putUserScreenScopes,
+  getUserContentAccess,
+  listCapabilities,
+  listRoles,
+  putUserContentAccess,
+  updateRole,
+} from "./domains/access";
 import {
   createBrowserPlayer,
   browserPlayerSlot,
@@ -560,20 +572,16 @@ export const api = {
   restoreCampaignRelease,
   publishCampaign,
   archiveCampaign,
-  // Per-user screen scopes stay on the raw request: the server exposes no
-  // screen-scopes route for them, so they cannot enter the typed contract.
-  userScreenScopes: (userId: string) =>
-    request<ScreenScopes>(`/users/${userId}/screen-scopes`),
-  putUserScreenScopes: (
-    userId: string,
-    scopes: ScreenScope[],
-    csrfToken: string,
-  ) =>
-    request<ScreenScopes>(`/users/${userId}/screen-scopes`, {
-      method: "PUT",
-      headers: { "X-CSRF-Token": csrfToken },
-      body: JSON.stringify({ scopes }),
-    }),
+  userScreenScopes: getUserScreenScopes,
+  putUserScreenScopes,
+  roles: listRoles,
+  capabilityCatalog: listCapabilities,
+  createRole,
+  updateRole,
+  deleteRole,
+  userContentAccess: getUserContentAccess,
+  putUserContentAccess,
+  myAccess: getMyAccess,
   integrationTokens: listIntegrationTokens,
   createIntegrationToken,
   revokeIntegrationToken,

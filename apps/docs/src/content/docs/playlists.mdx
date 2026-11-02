@@ -57,6 +57,8 @@ Choose **Tag-driven playlist** when the Playlist should follow media labels inst
 
 The generated timeline contains Ready media that currently matches the selected tags. Its items aren't manually ordered. Tilecast orders matching assets by name, without case affecting the sort; an internal stable ID breaks a tie between identical names. Rename assets when you need to control their order. Add or change Tags on assets to change which media matches; edit the source rule to change the matching behavior.
 
+Publish the source rule before assigning the Playlist as a Screen's default content. Tilecast checks the published rule's matching media when you assign it. A Tag-driven Playlist needs at least one matching Ready image or video with a playable variant. Archived, deleted, and expired media don't count. Media with a future availability date can be assigned, but it won't play before that date. See the [playlist API contract](https://github.com/gbyo/tilecast/blob/main/docs/api.md#playlists) for the exact rules.
+
 ## Restore a Playlist revision
 
 Owners, Administrators, and Editors can restore a revision. In the Playlist editor, open **More playlist actions** > **History** to review saved revisions. Select **Restore** on a revision to copy its available items into the working draft. Restore creates a new revision; it does not change what is playing until you publish the draft or submit it for review.

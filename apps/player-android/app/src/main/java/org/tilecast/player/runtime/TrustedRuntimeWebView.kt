@@ -3,6 +3,7 @@ package org.tilecast.player.runtime
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
+import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -75,6 +76,10 @@ class TrustedRuntimeWebView(
         }
         val generation = crashPolicy.currentGeneration()
         val webView = WebView(appContext)
+        // A parent that adds the view without parameters (Compose's
+        // AndroidView does) would give it WRAP_CONTENT, and WebView then
+        // lays the page out at zero height: content plays, nothing shows.
+        webView.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         with(webView.settings) {
             javaScriptEnabled = true
             allowFileAccess = false
@@ -121,11 +126,8 @@ class TrustedRuntimeWebView(
                 // WebView's 404 path), and the sandbox attribute keeps
                 // the frame opaque. The main frame still never leaves
                 // the trusted runtime tree.
-                if (!request.isForMainFrame &&
-                    (url?.startsWith("${MediaAuthorization.SCHEME}:", ignoreCase = true) == true ||
-                        url?.startsWith("${FrameAuthorization.SCHEME}:", ignoreCase = true) == true)
-                ) {
-                    return false
+                if (!request.isForMainFrame) {
+                    return FrameAuthorization.tokenOf(url) == null
                 }
                 return shouldBlockTopLevelNavigation(view, url)
             }
@@ -217,8 +219,8 @@ class TrustedRuntimeWebView(
             webView,
             RuntimeBridgeProtocol.BRIDGE_NAME,
             setOf(TrustedRuntimeOrigin.origin),
-            { _, message, sourceOrigin, _, replyProxy ->
-                if (sourceOrigin.toString() != TrustedRuntimeOrigin.origin) return@addWebMessageListener
+            { _, message, sourceOrigin, isMainFrame, replyProxy ->
+                if (!isMainFrame || sourceOrigin.toString() != TrustedRuntimeOrigin.origin) return@addWebMessageListener
                 val payload = message?.data ?: return@addWebMessageListener
                 onRuntimeMessage(payload, generation, replyProxy)
             },

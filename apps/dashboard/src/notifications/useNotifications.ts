@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { BackupJob, ScreenStatus, User } from "../api/types";
+import { useCapabilities } from "../auth/capabilities";
 
 // Notifications are derived on the fly from the live domain data the Studio already
 // polls; there is no stored notification model. Priority orders how urgently a person
@@ -65,37 +66,41 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function useNotifications(user?: User): NotificationFeed {
   const { t, i18n } = useTranslation("activity");
-  const canManageSystem =
-    user?.role === "owner" || user?.role === "administrator";
-  const canOperate = user?.role !== "viewer";
+  // Each feed is read only by a role that can read its source, so a
+  // Media-only account polls nothing it would be refused.
+  const { can } = useCapabilities();
+  const signedIn = Boolean(user);
+  const fleet = signedIn && can("screen.read");
 
   const screens = useQuery({
     queryKey: ["screens"],
     queryFn: api.screens,
     refetchInterval: 10_000,
+    enabled: fleet,
   });
   const deployments = useQuery({
     queryKey: ["update-deployments"],
     queryFn: api.updateDeployments,
     refetchInterval: 15_000,
+    enabled: fleet,
   });
   const pairings = useQuery({
     queryKey: ["pending-pairings"],
     queryFn: api.pendingPairings,
     refetchInterval: 30_000,
-    enabled: canManageSystem,
+    enabled: signedIn && can("screen.pair"),
   });
   const backups = useQuery({
     queryKey: ["backups"],
     queryFn: api.backups,
     refetchInterval: 60_000,
-    enabled: canManageSystem,
+    enabled: signedIn && can("system.backups"),
   });
   const takeovers = useQuery({
     queryKey: ["takeovers"],
     queryFn: api.takeovers,
     refetchInterval: 30_000,
-    enabled: canOperate,
+    enabled: fleet && can("screen.assign"),
   });
   const failedAssets = useQuery({
     queryKey: ["assets", "failed"],
@@ -104,6 +109,7 @@ export function useNotifications(user?: User): NotificationFeed {
         new URLSearchParams({ status: "failed", page: "1", pageSize: "50" }),
       ),
     refetchInterval: 60_000,
+    enabled: signedIn && can("media.read"),
   });
 
   const items = useMemo<NotificationItem[]>(() => {

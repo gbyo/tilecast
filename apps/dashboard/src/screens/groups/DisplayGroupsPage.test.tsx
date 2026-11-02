@@ -15,13 +15,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../api/client";
 import type { Screen, ScreenGroup } from "../../api/types";
 import { DisplayGroupsPage } from "./DisplayGroupsPage";
+import { builtinCapabilities } from "../../test/capabilities";
 
 const mocks = vi.hoisted(() => ({ confirm: vi.fn(), toastAdd: vi.fn() }));
 const role = vi.hoisted(() => ({ current: "owner" }));
 
 vi.mock("../../auth/AuthProvider", () => ({
   useAuth: () => ({
-    status: { csrfToken: "csrf-token", user: { role: role.current } },
+    status: {
+      csrfToken: "csrf-token",
+      user: { role: role.current },
+      capabilities: builtinCapabilities(role.current),
+    },
   }),
 }));
 

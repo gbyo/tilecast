@@ -1,4 +1,25 @@
 {
+  "playerRuntime": {
+    "title": "Player surfaces",
+    "allowedSurfaces": "Allowed surfaces: {{surfaces}}",
+    "priority": "Priority tier: {{tier}}",
+    "surfaces": {
+      "strip": { "top": "Top strip", "bottom": "Bottom strip" },
+      "corner": {
+        "top-left": "Top left corner",
+        "top-right": "Top right corner",
+        "bottom-left": "Bottom left corner",
+        "bottom-right": "Bottom right corner"
+      },
+      "overlay": "Full-screen overlay"
+    },
+    "tiers": {
+      "emergency": "Emergency",
+      "live": "Live",
+      "scheduled": "Scheduled",
+      "ambient": "Ambient"
+    }
+  },
   "list": {
     "title": "Plugins",
     "subtitle": "Add optional Tilecast features and integrations to this installation.",

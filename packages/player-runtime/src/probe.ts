@@ -12,17 +12,23 @@ import type { TilecastRuntimeHostV1 } from "./host/contract";
 import type { ManualClock } from "./clock/scheduler";
 import type { PlaybackController } from "./engine/controller";
 import type { RuntimeSurfaceHost } from "./plugins/host";
+import type { PlayerPluginHost } from "./plugins/player-host";
+import type { PresentationProviders } from "./plugins/presentation-providers";
 import type { PlayerRoot } from "./views/player-root";
 import type { RuntimeWidgetHost } from "./widgets/host";
+import type { StartupSequence } from "./startup/sequence";
 
 export interface ProbeOptions {
   version: string;
   host: TilecastRuntimeHostV1;
   controller: PlaybackController;
   surfaces: RuntimeSurfaceHost;
+  playerPlugins: PlayerPluginHost;
+  providers: PresentationProviders;
   view: PlayerRoot;
   manual: ManualClock | null;
   widgets: RuntimeWidgetHost;
+  startup?: StartupSequence;
 }
 
 const frames = () =>
@@ -79,7 +85,8 @@ function describeLayer(layer: HTMLElement | null): Record<string, unknown> {
 }
 
 export function installProbe(options: ProbeOptions): void {
-  const { controller, surfaces, view, manual } = options;
+  const { controller, surfaces, playerPlugins, providers, view, manual } =
+    options;
   const probe = {
     version: options.version,
     contractVersion: options.host.contractVersion,
@@ -87,6 +94,10 @@ export function installProbe(options: ProbeOptions): void {
     capabilities: { ...options.host.capabilities },
     /** `widget.<type>` → version for every bundled first-class Widget. */
     widgetCapabilities: options.widgets.capabilities(),
+    /** The startup sequence of this document (src/startup). */
+    startup() {
+      return options.startup?.describe() ?? null;
+    },
     describe() {
       const state = controller.state;
       const message = document.getElementById("message");
@@ -119,6 +130,12 @@ export function installProbe(options: ProbeOptions): void {
         // Which runtime plugin holds each surface slot, what it shows there,
         // and the content-stage insets the host applied.
         plugins: surfaces.describe(),
+        // Plugin API v2 lifecycle: which plugins are active, unsupported,
+        // or failed on this Player, and which services they lack.
+        playerPlugins: playerPlugins.describe(),
+        // Presentation providers registered by v2 plugins and the one that
+        // currently holds the screen, if any.
+        providers: providers.describe(),
         identify: document
           .getElementById("identify")
           ?.classList.contains("visible")

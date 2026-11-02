@@ -1,4 +1,5 @@
 import { contentQueries } from "../data/content";
+import { isAppleControlClick } from "../lib/pointer";
 import { cn } from "cn";
 import { layoutKeys, layoutQueries } from "../data/layouts";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
@@ -219,6 +220,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { useFormatLocale } from "../i18n";
 import { captureLayoutPreview } from "../content/widgetPreviewCapture";
+import { hasCapability } from "../auth/capabilities";
 
 // Room the canvas keeps clear of the floating chrome: the dock on the left
 // (12px inset + 46px wide) and the zoom bar at the bottom (12px inset + 32px
@@ -640,10 +642,10 @@ export function LayoutEditorPage() {
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
-  const canPublish = ["owner", "administrator", "editor"].includes(
-    auth.status?.user?.role ?? "",
-  );
-  const canSubmit = canPublish || auth.status?.user?.role === "contributor";
+  // Publishing directly needs layout.publish; an author without it submits
+  // the draft for review instead.
+  const canPublish = hasCapability(auth.status, "layout.publish");
+  const canSubmit = canPublish || hasCapability(auth.status, "layout.edit");
   const queryClient = useQueryClient();
   const layoutQuery = useQuery(layoutQueries.detail(id));
   const contentQuery = useQuery({
@@ -1850,6 +1852,11 @@ export function LayoutEditorPage() {
   // Right-click target for the canvas menu. Capture-phase handlers set this
   // before the Base UI trigger opens, so the content always matches the pointer.
   const [menuTarget, setMenuTarget] = useState<LayoutMenuTarget | null>(null);
+  const openContextMenus = useRef(new Set<string>());
+  const trackContextMenu = (id: string, open: boolean) => {
+    if (open) openContextMenus.current.add(id);
+    else openContextMenus.current.delete(id);
+  };
   const openPlacementMenu = (
     _event: ReactMouseEvent<HTMLElement>,
     item: LayoutPlacement,
@@ -2097,6 +2104,7 @@ export function LayoutEditorPage() {
     item: LayoutPlacement,
     resize = false,
   ) => {
+    if (isAppleControlClick(event)) return;
     if (beginPan(event)) return;
     event.stopPropagation();
     if (activeTool) {
@@ -2219,6 +2227,8 @@ export function LayoutEditorPage() {
   };
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
+      // Base UI owns the keyboard for the lifetime of an open context menu.
+      if (openContextMenus.current.size > 0) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void save();
@@ -2232,9 +2242,6 @@ export function LayoutEditorPage() {
         (isInteractiveShortcutTarget(event.target) && !controlCommand)
       )
         return;
-      // While a context menu is up its own keys own the keyboard, so arrowing through
-      // the items does not also nudge or delete the selection behind it.
-      if (window.document.querySelector(".context-menu-layer")) return;
       if (event.key === "Escape" && activeToolRef.current) {
         setActiveTool(null);
         return;
@@ -2527,11 +2534,18 @@ export function LayoutEditorPage() {
         title={t("editor.sectionLayers")}
         meta={String(document.placements.length)}
       />
-      <ItemGroup className="gap-0.5 p-2" aria-label={t("editor.sectionLayers")}>
+      <ItemGroup
+        data-density-surface="collection"
+        className="gap-0.5 p-2"
+        aria-label={t("editor.sectionLayers")}
+      >
         {[...document.placements]
           .sort((a, b) => b.layer - a.layer)
           .map((item) => (
-            <ContextMenu key={item.id}>
+            <ContextMenu
+              key={item.id}
+              onOpenChange={(open) => trackContextMenu(item.id, open)}
+            >
               <ContextMenuTrigger
                 render={
                   <Item
@@ -3611,7 +3625,7 @@ export function LayoutEditorPage() {
           </ButtonGroup>
         </div>
       )}
-      <ContextMenu>
+      <ContextMenu onOpenChange={(open) => trackContextMenu("canvas", open)}>
         <ContextMenuTrigger
           render={
             <div
@@ -3623,6 +3637,7 @@ export function LayoutEditorPage() {
                 panMode === "dragging" && "cursor-grabbing",
               )}
               onPointerDown={(event) => {
+                if (isAppleControlClick(event)) return;
                 if (beginPan(event, true)) return;
                 if (activeTool) {
                   beginToolDraw(event);

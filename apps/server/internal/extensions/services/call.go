@@ -6,11 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/execution"
+	"github.com/tilecast/tilecast/apps/server/internal/externalplugins"
 
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
@@ -53,6 +56,9 @@ const (
 type Actor struct {
 	UserID uuid.UUID
 	Role   string
+	// Capabilities is the actor's live role authority, resolved by the host
+	// for the request that started the call.
+	Capabilities auth.CapabilitySet
 }
 
 // Call is one authorized-or-not service invocation from a guest.
@@ -110,8 +116,11 @@ func conflict(message string) *CallError {
 	return &CallError{Code: ErrCodeConflict, Message: message}
 }
 
+// unavailable answers an internal failure. The guest is third-party code,
+// so the cause stays in the server log and never reaches the envelope.
 func unavailable(err error) *CallError {
-	return &CallError{Code: ErrCodeUnavailable, Message: "The service is temporarily unavailable: " + err.Error()}
+	slog.Warn("package service call failed", "error", err)
+	return &CallError{Code: ErrCodeUnavailable, Message: "The service is temporarily unavailable."}
 }
 
 // Envelope is the wire shape every executed call answers: ok with data,
@@ -155,18 +164,19 @@ type Limits struct {
 // operation runs its own SQL against domain tables except the
 // package-ownership rows the dispatcher itself owns.
 type Dependencies struct {
-	DB         *pgxpool.Pool
-	Devices    *devices.Service
-	Playlists  *playlists.Service
-	Layouts    *layouts.Service
-	Media      *media.Service
-	Scheduling *scheduling.Service
-	Takeovers  *takeovers.Service
-	Managed    *managedpresentations.Service
-	Settings   *settings.Service
-	Shared     plugins.SharedHost
-	Limits     Limits
-	Now        func() time.Time
+	ExternalPlugins *externalplugins.Service
+	DB              *pgxpool.Pool
+	Devices         *devices.Service
+	Playlists       *playlists.Service
+	Layouts         *layouts.Service
+	Media           *media.Service
+	Scheduling      *scheduling.Service
+	Takeovers       *takeovers.Service
+	Managed         *managedpresentations.Service
+	Settings        *settings.Service
+	Shared          plugins.SharedHost
+	Limits          Limits
+	Now             func() time.Time
 }
 
 // Dispatcher routes authorized service calls to domain services.
@@ -254,6 +264,12 @@ func (d *Dispatcher) Call(ctx context.Context, call Call) (any, *Denial, *CallEr
 		return d.screensGet(ctx, call)
 	case "targets.resolve@1/resolve":
 		return d.targetsResolve(ctx, call)
+	case "targets.resolve@2/resolve":
+		return d.targetsResolveV2(ctx, call)
+	case "targets.resolve@2/options":
+		return d.targetOptions(ctx, call)
+	case "plugin-runtime.state@1/get", "plugin-runtime.state@1/configure", "plugin-runtime.state@1/publish", "plugin-runtime.state@1/clear":
+		return d.externalPluginState(ctx, call)
 	case "content.read@1/playlists.list":
 		return d.playlistsList(ctx, call)
 	case "content.read@1/playlists.get":
@@ -324,20 +340,3 @@ func decode(input []byte, out any) *CallError {
 	}
 	return nil
 }
-
-// studioRole enforces the dashboard role policy for studio-context
-// mutations. Background calls are authorized by the install-time grant
-// itself, so they never reach here.
-func studioRole(call Call, roles ...string) *CallError {
-	if call.Context != ContextStudio || call.Actor == nil {
-		return nil
-	}
-	for _, role := range roles {
-		if call.Actor.Role == role {
-			return nil
-		}
-	}
-	return forbidden("this operation requires a different Studio role")
-}
-
-var errOutOfScope = errors.New("outside the account's screen scope")

@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/airplay"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/presentnet"
 )
 
@@ -141,11 +143,13 @@ func (s *server) createAirplaySession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 422, "airplay_target_invalid", "Choose a screen or group.")
 		return
 	}
-	if input.TargetType == "screen" {
-		if !s.authorizeScreenList(w, r, []uuid.UUID{input.TargetID}, nil) {
-			return
-		}
-	} else if !s.authorizeScreenList(w, r, nil, []uuid.UUID{input.TargetID}) {
+	selection := authz.Selection{ScreenIDs: []uuid.UUID{input.TargetID}, Peers: true}
+	if input.TargetType == "group" {
+		selection = authz.Selection{GroupIDs: []uuid.UUID{input.TargetID}}
+	}
+	if !s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Selection(r.Context(), actor, auth.CapScreenAssign, selection)
+	}) {
 		return
 	}
 	if input.DurationMinutes != 0 && input.DurationMinutes != 15 && input.DurationMinutes != 30 && input.DurationMinutes != 60 {
@@ -504,9 +508,6 @@ func (s *server) getAirplaySession(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if !s.authorizeAirplayRecord(w, r, record) {
-		return
-	}
 	writeJSON(w, 200, map[string]any{"data": s.airplaySessionResponse(r.Context(), record, nil)})
 }
 
@@ -539,9 +540,6 @@ func (s *server) stopAirplaySession(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		s.internalError(w, r, err)
-		return
-	}
-	if !s.authorizeAirplayRecord(w, r, record) {
 		return
 	}
 	if record.Status == "ended" || record.Status == "expired" || record.Status == "failed" {
@@ -866,19 +864,6 @@ func (s *server) activeAirplaySessionForScreens(ctx context.Context, screenIDs [
 		return nil, err
 	}
 	return &id, nil
-}
-
-func (s *server) authorizeAirplayRecord(w http.ResponseWriter, r *http.Request, record airplaySessionRecord) bool {
-	screens, err := s.airplaySessionScreens(r.Context(), record.ID)
-	if err != nil {
-		s.internalError(w, r, err)
-		return false
-	}
-	ids := make([]uuid.UUID, 0, len(screens))
-	for _, screen := range screens {
-		ids = append(ids, screen.ID)
-	}
-	return s.authorizeScreenList(w, r, ids, nil)
 }
 
 func (s *server) stopAirplaySessionInternal(ctx context.Context, record airplaySessionRecord, userID uuid.UUID, reason string) error {

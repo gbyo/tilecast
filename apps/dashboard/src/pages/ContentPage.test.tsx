@@ -13,7 +13,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import i18next from "i18next";
 import { api, ApiError } from "../api/client";
-import type { Asset, User } from "../api/types";
+import { capabilitiesFrom } from "../auth/capabilities";
+import { mediaPermissionsFrom } from "../content/mediaPermissions";
+import { authStatusFor, builtinCapabilities } from "../test/capabilities";
+import type { Asset } from "../api/types";
 import { WidgetProviderGallery } from "../content/SourceEditors";
 import enContent from "../locales/en/content.json";
 import esContent from "../locales/es/content.json";
@@ -66,15 +69,6 @@ function withQueryClient(children: React.ReactNode) {
     </QueryClientProvider>
   );
 }
-
-const user = (role: User["role"]): User => ({
-  id: "user",
-  name: "Test User",
-  username: "test",
-  role,
-  active: true,
-  createdAt: "2026-01-01T00:00:00Z",
-});
 
 const asset: Asset = {
   id: "asset-1",
@@ -136,10 +130,10 @@ describe("bulk deletion feedback localization", () => {
 
 describe("content library", () => {
   it("enforces viewer read-only behavior", () => {
-    expect(canManageContent(user("owner"))).toBe(true);
-    expect(canManageContent(user("administrator"))).toBe(true);
-    expect(canManageContent(user("editor"))).toBe(true);
-    expect(canManageContent(user("viewer"))).toBe(false);
+    expect(canManageContent(authStatusFor("owner"))).toBe(true);
+    expect(canManageContent(authStatusFor("administrator"))).toBe(true);
+    expect(canManageContent(authStatusFor("editor"))).toBe(true);
+    expect(canManageContent(authStatusFor("viewer"))).toBe(false);
     expect(canManageContent(undefined)).toBe(false);
   });
 
@@ -412,6 +406,51 @@ describe("content library", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  it("suppresses Widget footer commands during batch selection and preserves checkbox focus", () => {
+    const widget: Asset = { ...asset, type: "widget" };
+    const collection = (selectedIds: Set<string>) => (
+      <AssetCollection
+        items={[widget]}
+        view="grid"
+        onSelect={vi.fn()}
+        canManage
+        onToggle={vi.fn()}
+        onDuplicate={vi.fn()}
+        onArchive={vi.fn()}
+        selectedIds={selectedIds}
+      />
+    );
+    const { rerender } = render(collection(new Set()));
+    expect(screen.getByRole("button", { name: "Edit" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Duplicate Welcome" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Archive Welcome" }),
+    ).toBeVisible();
+    const checkbox = screen.getByRole("checkbox", { name: "Select Welcome" });
+    checkbox.focus();
+    rerender(collection(new Set([asset.id])));
+    expect(checkbox).toHaveFocus();
+    expect(
+      screen.queryByRole("button", { name: "Edit" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Duplicate Welcome" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Archive Welcome" }),
+    ).not.toBeInTheDocument();
+    // Primary resource navigation and the selection control remain available.
+    expect(screen.getByRole("button", { name: "Edit Welcome" })).toBeVisible();
+    fireEvent.contextMenu(document.querySelector(".asset-card")!);
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    rerender(collection(new Set()));
+    expect(
+      screen.getByRole("button", { name: "Archive Welcome" }),
+    ).toBeVisible();
+  });
+
   it("offers catalog-driven Widget entries", async () => {
     const choose = vi.fn();
     vi.spyOn(api, "contentDefinitions").mockResolvedValue({
@@ -660,6 +699,16 @@ describe("create organizer dialog", () => {
   });
 });
 
+const wholeLibraryPermissions = mediaPermissionsFrom(
+  capabilitiesFrom(authStatusFor("owner")),
+  {
+    role: { key: "owner", name: "Owner", builtin: true },
+    capabilities: builtinCapabilities("owner"),
+    content: { libraryMode: "all", tagMode: "all" },
+    screens: { mode: "all", locationIds: [], groupIds: [] },
+  },
+);
+
 describe("content organizer entry point", () => {
   const folder = {
     id: "folder-1",
@@ -676,6 +725,7 @@ describe("content organizer entry point", () => {
     return render(
       withQueryClient(
         <ContentOrganizer
+          permissions={wholeLibraryPermissions}
           csrf="csrf-token"
           folders={[folder]}
           collections={[]}

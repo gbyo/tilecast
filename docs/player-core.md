@@ -132,6 +132,9 @@ identity creation, session creation, enrollment retry and storage order,
 session renewal, reset suppression, and polling cadence.
 Edge supplies device metadata and private credential and session stores.
 Edge still constructs pairing surfaces and supplies wake and shutdown signals.
+Core also owns phone setup sessions (`docs/phone-setup.md`): the relay wait,
+the 30-minute session limit, and the identity check before pairing starts.
+Each host draws the session state and supplies the relay address.
 The shared macOS and Linux gates and all selected Edge jobs passed.
 Core now owns binding-scoped offline manifest reads, stale pending retirement,
 active-hours and disabled gates, pending grace and trial deadlines, evidence
@@ -162,6 +165,23 @@ updates the on-screen manifest identity. Core then promotes the pending
 manifest through the existing target-fenced commit. A restart before this
 commit uses the last committed manifest. Edge retains an applied playlist
 resume rotation across proven plugin-only revisions.
+
+Plugin API v2 `plugin_state` entries use the same plugin-only path. Core
+owns their routing in `plugin_host.rs`. `is_runtime_plugin_data` classifies
+external and `plugin_state` entries as Runtime data, so a host never looks
+them up in its renderer feature list. Manifest validation accepts
+`plugin_state` only from schema 21, applies the Server's bounds, and makes
+each declared media variant a forced verified download. Hosts grant that
+media with `plugin_state_media`, as they grant other plugin media. Core also
+owns `NativePluginHost` in `native_host.rs`: registration of first-party
+native contributions, negotiation of typed native services
+(`native_services.rs`), state routing by declared plugin and state type,
+bounded plugin events (`plugin_events.rs`), and error isolation. A host keeps a
+`NativePluginFeed` beside its renderer port. The feed reads the presentation
+document and the runtime context that the host already sends, so a platform adds
+three calls and no plugin logic. The generated crate
+`packages/plugin-native-registry` lists the contributions that a build
+compiles in. See [Plugin API v2](plugin-api-v2.md#native-contributions).
 
 Core retains an in-memory proof for delivered plugin state until promotion.
 The proof names the committed base and the exact digest on screen. A newer
@@ -492,7 +512,9 @@ Server reconciliation, manifests, offline activation, commands, and recovery;
 see [Android development](android-development.md) for the completed cutover.
 Kotlin supplies private stores and device facts and keeps the credential
 in the Keystore. A pairing reset clears the session and preserves an enrolled
-credential; Core reserves credential removal for revocation.
+credential; Core reserves credential removal for revocation. A session that
+Core begins by itself, for a rejected binding or a renewal retry, is polled at
+once, the same as a session that the host requests.
 
 Independent Players share fixtures at the rule's natural
 owner. `packages/player-contracts` contains only ownerless cross-player fixtures.

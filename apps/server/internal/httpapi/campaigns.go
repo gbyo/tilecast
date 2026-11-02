@@ -182,9 +182,9 @@ func (s *server) publishCampaign(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, "editorial_unavailable", "Editorial publication is unavailable.")
 		return
 	}
-	result, publishErr := s.approvals.SubmitAndPublish(r.Context(), user.ID, user.Role, approvals.TypeCampaign, id, body.ExpectedDraftRevision)
+	result, publishErr := s.approvals.SubmitAndPublish(r.Context(), user.ID, principal, approvals.TypeCampaign, id, body.ExpectedDraftRevision)
 	if errors.Is(publishErr, approvals.ErrReviewRequired) {
-		submission, submitErr := s.approvals.SubmitExpected(r.Context(), user.ID, user.Role, approvals.TypeCampaign, id, nil, body.ExpectedDraftRevision)
+		submission, submitErr := s.approvals.SubmitExpected(r.Context(), user.ID, principal, approvals.TypeCampaign, id, nil, body.ExpectedDraftRevision)
 		if submitErr != nil {
 			s.writeEditorialError(w, r, submitErr)
 			return

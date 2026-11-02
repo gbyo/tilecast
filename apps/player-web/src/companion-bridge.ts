@@ -18,6 +18,13 @@ const PLAYER_IDENTITY = "tilecast-browser-player";
 /** Invoke round-trip budget before the provider answers failure. */
 const INVOKE_TIMEOUT_MS = 10_000;
 
+/**
+ * Describe round-trip budget. A Companion that stops answering — its
+ * origin grant was revoked, or the extension was disabled or removed —
+ * sends no bye, so silence past this budget disconnects it.
+ */
+export const REFRESH_TIMEOUT_MS = 10_000;
+
 interface Pending {
   resolve: (result: TypedCapabilityResult) => void;
   timer: ReturnType<typeof setTimeout>;
@@ -32,14 +39,15 @@ interface Pending {
  * shape, and payload bounds. Without a Companion the bridge stays
  * silent and normal playback is untouched; when the Companion
  * disconnects (or a permission is revoked and its messages stop
- * validating) the provider is removed and its capabilities disappear
- * on the next heartbeat.
+ * validating, so a refresh goes unanswered) the provider is removed and
+ * its capabilities disappear on the next heartbeat.
  */
 export class CompanionBridge {
   private connection: string | undefined;
   private described: CompanionCapabilities = {};
   private pending = new Map<string, Pending>();
   private counter = 0;
+  private refreshTimer: ReturnType<typeof setTimeout> | undefined;
   private readonly provider: BrowserCapabilityProvider;
   private registered = false;
 
@@ -103,7 +111,8 @@ export class CompanionBridge {
       case "companion-described":
         // Described answers update the provider whether or not they
         // match a refresh: the handshake answer carries the first set
-        // unsolicited.
+        // unsolicited. Any answer proves the Companion is still there.
+        this.clearRefreshTimer();
         this.described = parsed.capabilities;
         if (!this.registered) {
           this.registry.add(this.provider);
@@ -126,9 +135,19 @@ export class CompanionBridge {
     return `page-${this.counter}`;
   }
 
-  /** Asks the Companion for its current set; the provider updates on answer. */
+  /**
+   * Asks the Companion for its current set; the provider updates on
+   * answer. No answer within the budget disconnects the Companion. A
+   * refresh already waiting keeps its own deadline.
+   */
   refresh(): void {
-    if (this.connection === undefined) return;
+    if (this.connection === undefined || this.refreshTimer !== undefined) {
+      return;
+    }
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = undefined;
+      this.disconnect();
+    }, REFRESH_TIMEOUT_MS);
     this.postMessage(
       {
         source: COMPANION_SOURCE,
@@ -194,8 +213,15 @@ export class CompanionBridge {
     });
   }
 
+  private clearRefreshTimer(): void {
+    if (this.refreshTimer === undefined) return;
+    clearTimeout(this.refreshTimer);
+    this.refreshTimer = undefined;
+  }
+
   /** Drops the connection: pending invokes fail, the provider leaves. */
   disconnect(): void {
+    this.clearRefreshTimer();
     for (const [, pending] of this.pending) {
       clearTimeout(pending.timer);
       pending.resolve({

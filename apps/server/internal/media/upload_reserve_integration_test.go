@@ -73,10 +73,10 @@ func TestUploadReserveCountsAcceptedUploadsStillToWrite(t *testing.T) {
 	// 1000 bytes free, a 100-byte reserve. The pending session leaves 200 free,
 	// so a 150-byte upload would leave less than the reserve.
 	service := NewService(pool, fixedSpaceStorage{available: 1000}, Config{MaxUploadBytes: 10_000, ReservedFreeBytes: 100})
-	if _, err = service.CreateUpload(ctx, owner.User.ID, "small.png", "image/png", 150); !errors.Is(err, ErrInsufficientSpace) {
+	if _, err = service.CreateUpload(ctx, owner.User.ID, FullAccess(owner.User.ID), nil, "small.png", "image/png", 150); !errors.Is(err, ErrInsufficientSpace) {
 		t.Fatalf("upload beside a pending session = %v, want ErrInsufficientSpace", err)
 	}
-	if _, err = service.CreateUpload(ctx, owner.User.ID, "small.png", "image/png", 50); err != nil {
+	if _, err = service.CreateUpload(ctx, owner.User.ID, FullAccess(owner.User.ID), nil, "small.png", "image/png", 50); err != nil {
 		t.Fatalf("upload that fits beside the pending session: %v", err)
 	}
 }
@@ -131,7 +131,7 @@ func TestUploadCreationWaitsForReserveLock(t *testing.T) {
 	service := NewService(pool, fixedSpaceStorage{available: 1000}, Config{MaxUploadBytes: 10_000, ReservedFreeBytes: 100})
 	done := make(chan error, 1)
 	go func() {
-		_, err := service.CreateUpload(ctx, owner.User.ID, "small.png", "image/png", 50)
+		_, err := service.CreateUpload(ctx, owner.User.ID, FullAccess(owner.User.ID), nil, "small.png", "image/png", 50)
 		done <- err
 	}()
 	select {

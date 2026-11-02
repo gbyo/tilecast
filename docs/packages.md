@@ -2,10 +2,12 @@
 
 An extension package is a distribution container, not a fourth extension
 API. It carries distribution, version, provenance, and contribution
-metadata for Widgets, declarative Data Sources, and (once the external
-runtime exists) plugin behavior. The contribution contracts themselves
-(`tilecast.widget.json`, `tilecast.datasource.json`,
-`tilecast.plugin.json`) do not change. See
+metadata for Widgets, declarative Data Sources, and external Player
+plugins. External Player plugins use the separate API 2 descriptor.
+See [External Player plugins](external-player-plugins.md).
+Each contribution manifest has its own versioned contract:
+`tilecast.widget.json`, `tilecast.datasource.json`, or
+`tilecast.plugin.json`. See
 [Content extension model](content-extension-model.md) for the architecture.
 
 ## Manifest
@@ -177,6 +179,14 @@ joins the content catalog.
 
 ## Player bundle delivery
 
+Reviews of plugin contributions read their descriptors from the verified
+artifact. Studio shows the allowed Player surfaces and priority tier. The
+extracted descriptor must match its authenticated layer bytes. Custom package
+activation also checks the reviewed runtime, capability requests, and
+contribution list against the published manifest. A changed permission fails
+the cross-check. Marketplace listings provide identity only; their verified
+artifact supplies execution permissions before review.
+
 A Widget contribution may ship an execution bundle at the fixed path
 `runtime/index.js` inside the package. The pipeline records the bundle SHA-256
 and size in the contribution snapshot at install time; a Widget presentation
@@ -213,13 +223,20 @@ player endpoint.
 
 ## External runtime
 
-A version 2 or 3 package runs server behavior in a capability-based
+A version 2, 3, or 4 package runs server behavior in a capability-based
 WebAssembly host (`internal/extensions/wasm`, engine wazero). The host
 imports one module, `tilecast`, with no WASI. The guest calls six host
 functions: key read, key write, approved HTTPS fetch, log line, clock
 read, and service call. Nothing else is reachable. The call input window is 16 KiB. The
 output window is 16 KiB. A job call times out after 30 seconds. A
 Studio interface call times out after 5 seconds.
+
+Package API 1 through 3 retain their input address of zero.
+Package API 4 places input at address 32768. Its input window ends at 49152.
+The output address stays 16384, with a 16384-byte capacity.
+Guests reserve these windows and use the addresses supplied to their exports.
+The non-null input address lets a Rust guest read a valid slice.
+The exports and host import signatures do not change.
 
 Install validation inspects the module bytes before anything is
 retained or executed. The module must carry the Wasm magic and

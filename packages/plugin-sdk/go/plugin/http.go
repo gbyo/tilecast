@@ -19,15 +19,18 @@ import (
 type Access int
 
 const (
-	// AccessViewer allows any authenticated user. Use it for reads.
+	// AccessViewer allows any authenticated user whose role may use plugins
+	// (the core plugins.use capability). Use it for reads.
 	AccessViewer Access = iota + 1
-	// AccessManager allows Owner and Administrator with the admin grant
-	// scope, and requires the session CSRF token on cookie requests. Use
-	// it for configuration writes.
+	// AccessManager allows a user whose role may manage plugins (the core
+	// plugins.manage capability: Owner and Administrator among the built-in
+	// roles) with the admin grant scope, and requires the session CSRF token
+	// on cookie requests. Use it for configuration writes.
 	AccessManager
-	// AccessSession allows any authenticated user, requires the CSRF token
-	// on unsafe cookie requests but never on bearer requests, and leaves
-	// the finer authorization to the handler through PrincipalFrom.
+	// AccessSession allows any authenticated user whose role may use plugins,
+	// requires the CSRF token on unsafe cookie requests but never on bearer
+	// requests, and leaves the finer authorization to the handler through
+	// PrincipalFrom.
 	AccessSession
 )
 
@@ -55,12 +58,37 @@ const (
 // Principal is the authenticated dashboard user of a request.
 type Principal struct {
 	UserID uuid.UUID
-	Role   string
+	// Role is the user's role key. Built-in roles are owner, administrator,
+	// editor, contributor, and viewer; an installation may also define
+	// custom roles, whose keys start with "custom.". Decide authorization
+	// with Can, not by comparing role names. Only the Owner identity itself
+	// ("owner") carries meaning of its own.
+	Role string
+	// Capabilities are the core capabilities the user's role grants, such as
+	// "plugins.manage" or "datasource.manage". The host resolves them from
+	// the live role on every request.
+	Capabilities []string
 }
 
-// CanManage reports whether the principal is an Owner or Administrator.
+// Can reports whether the principal's role grants a core capability.
+func (p Principal) Can(capability string) bool {
+	for _, held := range p.Capabilities {
+		if held == capability {
+			return true
+		}
+	}
+	return false
+}
+
+// CanManage reports whether the principal may change plugin configuration:
+// the core plugins.manage capability. A principal built without
+// capabilities (an older test fixture) falls back to the built-in Owner and
+// Administrator roles.
 func (p Principal) CanManage() bool {
-	return p.Role == "owner" || p.Role == "administrator"
+	if p.Capabilities == nil {
+		return p.Role == "owner" || p.Role == "administrator"
+	}
+	return p.Can("plugins.manage")
 }
 
 type principalKey struct{}
@@ -85,6 +113,9 @@ var (
 	ErrInvalid = errors.New("invalid plugin configuration")
 	// ErrNotInstalled: the plugin is not installed (409).
 	ErrNotInstalled = errors.New("plugin is not installed")
+	// ErrOutOfScope: the operator may not target those screens (403
+	// out_of_scope). ScreenAccess returns it; a plugin passes it through.
+	ErrOutOfScope = errors.New("some of the selected screens are outside your screen access")
 )
 
 // APIError is an explicit HTTP error response.

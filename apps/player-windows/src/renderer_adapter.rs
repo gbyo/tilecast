@@ -59,6 +59,9 @@ pub(crate) fn packaged_profile() -> player_core::PackagedRendererProfile {
                 .iter()
                 .map(|(name, version)| (token(*name), *version))
                 .chain(std::iter::once((token("web.remote"), profile::WEB_RUNTIME_VERSION)))
+                // The host script sets pluginState, so the Runtime hosts
+                // Plugin API v2 contributions with its own services.
+                .chain(player_core::shared_runtime_plugin_capabilities().map(|(name, version)| (token(name), version)))
                 .collect(),
             crate::widget_capabilities::WIDGET_COMPONENTS
                 .iter()
@@ -364,28 +367,34 @@ impl WebViewPort {
     }
 }
 
-/// Reads the projection media map out of an unsubstituted runtime context:
-/// manifest asset/variant identity to the verified digest its blanked URI
-/// binding names. The bindings carry the digests; the JSON carries the
-/// identity; neither is trusted without the other.
+/// Reads the media maps out of an unsubstituted runtime context: manifest
+/// asset/variant identity to the verified digest its blanked URI binding
+/// names. `projection.media` carries presentation media and `pluginAliases`
+/// carries the variants Plugin API v2 state declares. The bindings carry the
+/// digests; the JSON carries the identity; neither is trusted without the
+/// other.
 fn context_aliases(
     context: &player_core::RuntimePayload,
 ) -> Vec<((uuid::Uuid, uuid::Uuid), player_types::Sha256Digest)> {
     let mut aliases = Vec::new();
-    let media =
-        context.value().get("projection").and_then(|projection| projection.get("media")).and_then(Value::as_array);
-    let Some(media) = media else {
-        return aliases;
-    };
-    for (index, entry) in media.iter().enumerate() {
-        let asset = entry.get("assetId").and_then(Value::as_str).and_then(|id| id.parse().ok());
-        let variant = entry.get("variantId").and_then(Value::as_str).and_then(|id| id.parse().ok());
-        let (Some(asset_id), Some(variant_id)) = (asset, variant) else {
+    let sources = [
+        (context.value().get("projection").and_then(|projection| projection.get("media")), "/projection/media"),
+        (context.value().get("pluginAliases"), "/pluginAliases"),
+    ];
+    for (media, base) in sources {
+        let Some(media) = media.and_then(Value::as_array) else {
             continue;
         };
-        let pointer = format!("/projection/media/{index}/uri");
-        if let Some(binding) = context.bindings().iter().find(|binding| binding.pointer.as_str() == pointer) {
-            aliases.push(((asset_id, variant_id), binding.object));
+        for (index, entry) in media.iter().enumerate() {
+            let asset = entry.get("assetId").and_then(Value::as_str).and_then(|id| id.parse().ok());
+            let variant = entry.get("variantId").and_then(Value::as_str).and_then(|id| id.parse().ok());
+            let (Some(asset_id), Some(variant_id)) = (asset, variant) else {
+                continue;
+            };
+            let pointer = format!("{base}/{index}/uri");
+            if let Some(binding) = context.bindings().iter().find(|binding| binding.pointer.as_str() == pointer) {
+                aliases.push(((asset_id, variant_id), binding.object));
+            }
         }
     }
     aliases
@@ -417,8 +426,13 @@ impl RendererPort for WebViewPort {
         // Frames ride the projection's authorization table, joined by
         // digest. A frame claim without a projection to authorize it
         // fails the activation rather than executing unconfined.
-        if !activation.frames().is_empty() {
-            let table = frame_authorization_table(activation.frames(), &frame_grants)?;
+        let widget_frames: Vec<_> =
+            activation.frames().iter().filter(|frame| frame.kind.is_widget()).cloned().collect();
+        let plugin_frames: Vec<_> =
+            activation.frames().iter().filter(|frame| !frame.kind.is_widget()).cloned().collect();
+        let plugin_table = frame_authorization_table(&plugin_frames, &frame_grants)?;
+        if !widget_frames.is_empty() {
+            let table = frame_authorization_table(&widget_frames, &frame_grants)?;
             let Some(context) = context.as_mut() else {
                 return Err(RendererPortError::InvalidActivation);
             };
@@ -462,6 +476,7 @@ impl RendererPort for WebViewPort {
             "type": "plugins",
             "plugins": plugins,
             "clockOffsetMs": clock_offset_ms,
+            "pluginFrames": plugin_table,
         }))
     }
 
@@ -470,14 +485,39 @@ impl RendererPort for WebViewPort {
         reference: player_core::RendererActivationRef,
         context: &RuntimePayload,
     ) -> Result<(), RendererPortError> {
-        let media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
+        self.update_plugin_frames(reference, context, &[])
+    }
+
+    fn update_plugin_frames(
+        &self,
+        reference: player_core::RendererActivationRef,
+        context: &RuntimePayload,
+        frames: &[VerifiedFrameRef],
+    ) -> Result<(), RendererPortError> {
+        let now_ms = self.ui.now_ms();
+        let mut media = self.media.lock().map_err(|_| RendererPortError::ResourceUnavailable)?;
         let grants =
             media.active_grants(self.session, reference.generation).ok_or(RendererPortError::InvalidActivation)?;
         let context = substitute_grants(context.value().clone(), context.bindings(), &grants)?;
-        self.post(serde_json::json!({
+        let update = media
+            .prepare_plugin_frames(self.session, reference.generation, now_ms, frames)
+            .map_err(|_| RendererPortError::ResourceUnavailable)?;
+        let table = match frame_authorization_table(frames, &update.grants) {
+            Ok(table) => table,
+            Err(error) => {
+                let _ = media.finish_plugin_frames(update, false, now_ms);
+                return Err(error);
+            }
+        };
+        let delivered = self.post(serde_json::json!({
             "type": "plugins", "plugins": context.get("plugins").cloned().unwrap_or(serde_json::json!([])),
             "clockOffsetMs": context.get("clockOffsetMs").and_then(Value::as_i64).unwrap_or(0),
-        }))
+            "pluginFrames": table,
+        }));
+        media
+            .finish_plugin_frames(update, delivered.is_ok(), now_ms)
+            .map_err(|_| RendererPortError::InvalidActivation)?;
+        delivered
     }
 
     fn clear(&self, reason: &player_types::bounded::ShortToken) -> Result<(), RendererPortError> {
@@ -540,8 +580,48 @@ mod tests {
             .expect("web.remote v2 periodic reload");
     }
 
+    /// Plugin API v2: the host script sets pluginState, so the packaged
+    /// profile offers the Player Plugin Host and the Shared Runtime
+    /// services, exactly as the other hosts that run the same Runtime do.
+    #[test]
+    fn packaged_profile_offers_the_plugin_api_2_host_and_its_runtime_services() {
+        let declarative = |name: &str, version| player_core::RendererRequirement::Declarative {
+            name: player_types::bounded::ShortToken::new(name).expect("test fixture"),
+            version,
+        };
+        for (name, version) in player_core::shared_runtime_plugin_capabilities() {
+            packaged_profile().check(&declarative(name, version)).expect(name);
+        }
+        assert!(packaged_profile().check(&declarative(player_core::PLAYER_PLUGIN_HOST_CAPABILITY, 3)).is_err());
+        // Events need a transport this host does not have.
+        assert!(packaged_profile().check(&declarative("player.events", 1)).is_err());
+        let script = include_str!("runtime_host.js");
+        assert!(!script.contains("pluginState"), "the capability comes from the native host table");
+    }
+
+    /// Plugin media aliases are registered by identity beside the
+    /// presentation's, each through the digest its binding names.
+    #[test]
+    fn plugin_aliases_register_beside_projection_media() {
+        let asset = uuid::Uuid::from_u128(1);
+        let variant = uuid::Uuid::from_u128(2);
+        let plugin_variant = uuid::Uuid::from_u128(3);
+        let pixels = player_types::Sha256Digest::of(b"pixels");
+        let sound = player_types::Sha256Digest::of(b"sound");
+        let payload = payload(serde_json::json!({
+            "projection": {"media": [{"assetId": asset, "variantId": variant,
+                "uri": crate::projection::content_uri(&pixels)}]},
+            "pluginAliases": [{"assetId": asset, "variantId": plugin_variant,
+                "uri": crate::projection::content_uri(&sound)}],
+            "plugins": [],
+        }))
+        .expect("payload");
+        assert_eq!(context_aliases(&payload), vec![((asset, variant), pixels), ((asset, plugin_variant), sound)]);
+    }
+
     fn frame(document: &[u8]) -> VerifiedFrameRef {
         VerifiedFrameRef {
+            kind: player_types::frames::FrameKind::Widget,
             package_id: SafeText::new("acme.athletics").expect("test fixture"),
             package_digest: player_types::Sha256Digest::of(b"package"),
             sha256: player_types::Sha256Digest::of(document),

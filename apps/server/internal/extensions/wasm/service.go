@@ -40,13 +40,14 @@ var (
 // the Studio UI bridge calls InvokeUI. All three fail closed when the
 // package, the module, or the grant is gone.
 type Service struct {
-	host      *Host
-	installer *installer.Service
-	content   func(ctx context.Context, ref, digest string) (string, error)
-	caller    ServiceCaller
-	slots     chan struct{}
-	mu        sync.Mutex
-	modules   map[uuid.UUID]cachedModule
+	host           *Host
+	installer      *installer.Service
+	content        func(ctx context.Context, ref, digest string) (string, error)
+	caller         ServiceCaller
+	slots          chan struct{}
+	mu             sync.Mutex
+	modules        map[uuid.UUID]cachedModule
+	verifiedModule func(context.Context, string, string, string) ([]byte, error)
 }
 
 type cachedModule struct {
@@ -73,6 +74,10 @@ func NewService(ctx context.Context, install *installer.Service, content func(ct
 // one, every service call is denied.
 func WithServiceCaller(caller ServiceCaller) func(*Service) {
 	return func(s *Service) { s.caller = caller }
+}
+
+func WithVerifiedModuleReader(read func(context.Context, string, string, string) ([]byte, error)) func(*Service) {
+	return func(s *Service) { s.verifiedModule = read }
 }
 
 // SetServiceCaller wires the dispatcher after construction, for callers
@@ -203,18 +208,19 @@ func (s *Service) InvokeJob(ctx context.Context, packageID, jobID string) (int32
 		fetchLimit = 3 * time.Second
 	}
 	result, err := s.host.Invoke(ctx, Call{
-		ExecutionEpoch: prepared.executionEpoch,
-		StorageEpoch:   prepared.storageEpoch,
-		PackageID:      packageID,
-		Digest:         prepared.digest,
-		Module:         prepared.module,
-		Grants:         prepared.grants,
-		Entry:          "run_job",
-		Input:          []byte(jobID),
-		Timeout:        timeout,
-		FetchTimeout:   fetchLimit,
-		Context:        services.ContextBackground,
-		Caller:         s.caller,
+		PackageAPIVersion: prepared.manifest.APIVersion,
+		ExecutionEpoch:    prepared.executionEpoch,
+		StorageEpoch:      prepared.storageEpoch,
+		PackageID:         packageID,
+		Digest:            prepared.digest,
+		Module:            prepared.module,
+		Grants:            prepared.grants,
+		Entry:             "run_job",
+		Input:             []byte(jobID),
+		Timeout:           timeout,
+		FetchTimeout:      fetchLimit,
+		Context:           services.ContextBackground,
+		Caller:            s.caller,
 	})
 	if err != nil {
 		return 0, err
@@ -245,18 +251,19 @@ func (s *Service) InvokeUI(ctx context.Context, packageID string, actor services
 	}
 	defer cancel()
 	return s.host.Invoke(ctx, Call{
-		ExecutionEpoch: prepared.executionEpoch,
-		StorageEpoch:   prepared.storageEpoch,
-		PackageID:      packageID,
-		Digest:         prepared.digest,
-		Module:         prepared.module,
-		Grants:         prepared.grants,
-		Entry:          "handle_ui_request",
-		Input:          request,
-		Timeout:        UICallTimeout,
-		Context:        services.ContextStudio,
-		Actor:          &actor,
-		Caller:         s.caller,
+		PackageAPIVersion: prepared.manifest.APIVersion,
+		ExecutionEpoch:    prepared.executionEpoch,
+		StorageEpoch:      prepared.storageEpoch,
+		PackageID:         packageID,
+		Digest:            prepared.digest,
+		Module:            prepared.module,
+		Grants:            prepared.grants,
+		Entry:             "handle_ui_request",
+		Input:             request,
+		Timeout:           UICallTimeout,
+		Context:           services.ContextStudio,
+		Actor:             &actor,
+		Caller:            s.caller,
 	})
 }
 
@@ -287,18 +294,28 @@ func (s *Service) prepare(ctx context.Context, packageID string) (prepared, erro
 	if hit && cached.digest == installed.Digest {
 		module = cached.bytes
 	} else {
-		contentDir, err := s.content(ctx, installed.RegistryReference, installed.Digest)
-		if err != nil {
-			return prepared{}, err
-		}
-		joined := filepath.Join(contentDir, manifest.Runtime.Module)
-		rel, err := filepath.Rel(contentDir, joined)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-			return prepared{}, fmt.Errorf("wasm: runtime module escapes the package")
-		}
-		module, err = readCapped(joined, MaxModuleBytes)
-		if err != nil {
-			return prepared{}, err
+		if s.verifiedModule != nil {
+			module, err = s.verifiedModule(ctx, installed.RegistryReference, installed.Digest, manifest.Runtime.Module)
+			if err != nil {
+				return prepared{}, err
+			}
+			if len(module) == 0 || len(module) > MaxModuleBytes {
+				return prepared{}, fmt.Errorf("wasm: runtime module exceeds its byte bound")
+			}
+		} else {
+			contentDir, err := s.content(ctx, installed.RegistryReference, installed.Digest)
+			if err != nil {
+				return prepared{}, err
+			}
+			joined := filepath.Join(contentDir, manifest.Runtime.Module)
+			rel, err := filepath.Rel(contentDir, joined)
+			if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				return prepared{}, fmt.Errorf("wasm: runtime module escapes the package")
+			}
+			module, err = readCapped(joined, MaxModuleBytes)
+			if err != nil {
+				return prepared{}, err
+			}
 		}
 		s.mu.Lock()
 		// The cache contains only bytes read from a verified retained artifact.
