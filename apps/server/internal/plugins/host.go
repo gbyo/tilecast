@@ -21,6 +21,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/targeting"
 	"github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
@@ -89,7 +91,7 @@ func (p publicInstance) Version() string   { return p.version }
 // devices domain implements it; the plugin host and external Tilecast
 // services share the projection instead of each writing screen SQL.
 type ScreenLister interface {
-	PluginScreens(ctx context.Context, user *uuid.UUID, role string, query plugin.ScreenListQuery) (plugin.ScreenListResult, error)
+	PluginScreens(ctx context.Context, access *authz.ScreenAccess, query plugin.ScreenListQuery) (plugin.ScreenListResult, error)
 	PluginScreen(ctx context.Context, id uuid.UUID) (plugin.ScreenFacts, error)
 }
 
@@ -165,6 +167,49 @@ func (s *Service) hostFor(id string) plugin.Host {
 		DataSources:          dataSourceService{db: s.db, invalidator: s.dsInvalidator, pluginID: id, provider: provider},
 		Users:                userService{db: s.db},
 		PluginAssets:         pluginAssetService{db: s.db, backend: s.attachments, pluginID: id},
+		ScreenAccess:         screenAccessService{},
+	}
+}
+
+// screenAccessService answers plugin routes with authz's directory rule,
+// the rule every stored target in core uses.
+type screenAccessService struct{}
+
+func (screenAccessService) AuthorizeTargetInTx(ctx context.Context, tx pgx.Tx, principal plugin.Principal, target plugin.Target) error {
+	directory := authz.Directory{}
+	switch target.Scope {
+	case plugin.TargetAll:
+		directory.All = true
+	case plugin.TargetScreens:
+		directory.ScreenIDs = target.IDs
+	case plugin.TargetSyncGroups:
+		directory.GroupIDs = target.IDs
+	case plugin.TargetLocations:
+		directory.LocationIDs = target.IDs
+	default:
+		return fmt.Errorf("%w: unknown target scope %q", plugin.ErrInvalid, target.Scope)
+	}
+	return decideDirectory(ctx, tx, principal, directory)
+}
+
+func (screenAccessService) AuthorizeScreenTargetsInTx(ctx context.Context, tx pgx.Tx, principal plugin.Principal, targets plugin.ScreenTargets) error {
+	return decideDirectory(ctx, tx, principal, authz.Directory{ScreenIDs: targets.ScreenIDs, GroupIDs: targets.GroupIDs})
+}
+
+func decideDirectory(ctx context.Context, tx pgx.Tx, principal plugin.Principal, directory authz.Directory) error {
+	held := make([]auth.Capability, 0, len(principal.Capabilities))
+	for _, capability := range principal.Capabilities {
+		held = append(held, auth.Capability(capability))
+	}
+	actor := authz.ActorForRole(principal.UserID, principal.Role, auth.NewCapabilitySet(held...))
+	err := authz.New(tx).Tx(tx).Directory(ctx, actor, auth.CapScreenAssign, directory)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, authz.ErrOutOfScope), errors.Is(err, authz.ErrForbidden), errors.Is(err, authz.ErrNotFound):
+		return fmt.Errorf("%w: %v", plugin.ErrOutOfScope, err)
+	default:
+		return err
 	}
 }
 
@@ -314,7 +359,7 @@ func (s screenService) List(ctx context.Context, query plugin.ScreenListQuery) (
 	if err != nil {
 		return plugin.ScreenListResult{}, err
 	}
-	return lister.PluginScreens(ctx, nil, "", query)
+	return lister.PluginScreens(ctx, nil, query)
 }
 
 func (s screenService) Get(ctx context.Context, id uuid.UUID) (plugin.ScreenFacts, error) {

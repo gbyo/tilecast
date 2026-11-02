@@ -183,9 +183,6 @@ func (s *server) previewGroupDisplayControl(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusUnprocessableEntity, "display_control_action_invalid", "Choose a supported group Display Control action.")
 		return
 	}
-	if !s.authorizeScreenList(w, r, nil, []uuid.UUID{id}) {
-		return
-	}
 	preview, err := s.loadGroupDisplayControlPreview(r.Context(), id, command)
 	if errors.Is(err, errDisplayControlGroupNotFound) {
 		writeError(w, http.StatusNotFound, "display_group_not_found", "Display Group was not found.")
@@ -211,9 +208,6 @@ func (s *server) applyGroupDisplayControl(w http.ResponseWriter, r *http.Request
 	input.CommandType = strings.TrimSpace(input.CommandType)
 	if !displayControlGroupCommandValid(input.CommandType) {
 		writeError(w, http.StatusUnprocessableEntity, "display_control_action_invalid", "Choose a supported group Display Control action.")
-		return
-	}
-	if !s.authorizeScreenList(w, r, nil, []uuid.UUID{id}) {
 		return
 	}
 	preview, err := s.loadGroupDisplayControlPreview(r.Context(), id, input.CommandType)

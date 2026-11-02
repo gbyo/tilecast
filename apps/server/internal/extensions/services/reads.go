@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
@@ -17,8 +18,8 @@ import (
 
 // This file implements the read operations. Every handler reuses a domain
 // or shared-host read; none runs its own domain SQL. Studio-context reads
-// enforce the same screen scoping the dashboard handlers enforce, and
-// background reads run installation-wide under the install-time grant.
+// take the same capability and authz decision the dashboard handlers take,
+// and background reads run installation-wide under the install-time grant.
 
 func (d *Dispatcher) organizationGet(ctx context.Context, call Call) (any, *Denial, *CallError) {
 	var input struct{}
@@ -49,29 +50,16 @@ type pageInput struct {
 	PageSize int    `json:"pageSize"`
 }
 
-func (d *Dispatcher) studioScope(ctx context.Context, call Call) (scoped bool, user uuid.UUID, role string, failure *CallError) {
-	if call.Context != ContextStudio || call.Actor == nil {
-		return false, uuid.Nil, "", nil
-	}
-	narrowed, err := d.deps.Devices.Scoped(ctx, call.Actor.UserID, call.Actor.Role)
-	if err != nil {
-		return false, uuid.Nil, "", unavailable(err)
-	}
-	return narrowed, call.Actor.UserID, call.Actor.Role, nil
-}
-
 func (d *Dispatcher) screensList(ctx context.Context, call Call) (any, *Denial, *CallError) {
 	var input pageInput
 	if failure := decode(call.Input, &input); failure != nil {
 		return nil, nil, failure
 	}
-	var user *uuid.UUID
-	role := ""
-	if call.Context == ContextStudio && call.Actor != nil {
-		user = &call.Actor.UserID
-		role = call.Actor.Role
+	access, failure := d.screenAccess(ctx, call, auth.CapScreenRead)
+	if failure != nil {
+		return nil, nil, failure
 	}
-	result, err := d.deps.Devices.PluginScreens(ctx, user, role, plugin.ScreenListQuery{Search: input.Search, Page: input.Page, PageSize: input.PageSize})
+	result, err := d.deps.Devices.PluginScreens(ctx, access, plugin.ScreenListQuery{Search: input.Search, Page: input.Page, PageSize: input.PageSize})
 	if err != nil {
 		return nil, nil, unavailable(err)
 	}
@@ -88,15 +76,10 @@ func (d *Dispatcher) screensGet(ctx context.Context, call Call) (any, *Denial, *
 	if input.ID == uuid.Nil {
 		return nil, nil, invalidInput("id is required")
 	}
-	if call.Context == ContextStudio && call.Actor != nil {
-		// Mirror the dashboard's per-screen middleware: outside the
-		// account's scope reads as not found, never as forbidden.
-		if err := d.deps.Devices.AuthorizeScreen(ctx, call.Actor.UserID, call.Actor.Role, input.ID); err != nil {
-			if errors.Is(err, devices.ErrOutOfScope) {
-				return nil, nil, notFound("screen was not found")
-			}
-			return nil, nil, unavailable(err)
-		}
+	if failure := d.authorize(ctx, call, "screen was not found", func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Screen(ctx, actor, auth.CapScreenRead, input.ID)
+	}); failure != nil {
+		return nil, nil, failure
 	}
 	facts, err := d.deps.Devices.PluginScreen(ctx, input.ID)
 	if errors.Is(err, devices.ErrNotFound) {
@@ -122,6 +105,13 @@ func (d *Dispatcher) targetsResolve(ctx context.Context, call Call) (any, *Denia
 	if input.GroupIDs == nil {
 		input.GroupIDs = []uuid.UUID{}
 	}
+	// Naming a screen or group outside the operator's access is refused
+	// whole, not silently narrowed, and a group is judged as a container.
+	if failure := d.authorize(ctx, call, "", func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Selection(ctx, actor, auth.CapScreenRead, authz.Selection{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs})
+	}); failure != nil {
+		return nil, nil, failure
+	}
 	tx, err := d.deps.DB.Begin(ctx)
 	if err != nil {
 		return nil, nil, unavailable(err)
@@ -141,20 +131,13 @@ func (d *Dispatcher) targetsResolve(ctx context.Context, call Call) (any, *Denia
 	if err := tx.Commit(ctx); err != nil {
 		return nil, nil, unavailable(err)
 	}
-	if call.Context == ContextStudio && call.Actor != nil {
-		// Mirror the dashboard's bulk authorization: naming a screen
-		// outside the account's scope is forbidden, not silent.
-		if err := d.deps.Devices.AuthorizeScreens(ctx, call.Actor.UserID, call.Actor.Role, resolved); err != nil {
-			if errors.Is(err, devices.ErrOutOfScope) {
-				return nil, nil, forbidden("some of the selected screens are outside your assigned scope")
-			}
-			return nil, nil, unavailable(err)
-		}
-	}
 	return map[string]any{"screenIds": resolved}, nil, nil
 }
 
 func (d *Dispatcher) playlistsList(ctx context.Context, call Call) (any, *Denial, *CallError) {
+	if failure := requireCapability(call, auth.CapPlaylistRead); failure != nil {
+		return nil, nil, failure
+	}
 	var input pageInput
 	if failure := decode(call.Input, &input); failure != nil {
 		return nil, nil, failure
@@ -167,6 +150,9 @@ func (d *Dispatcher) playlistsList(ctx context.Context, call Call) (any, *Denial
 }
 
 func (d *Dispatcher) playlistsGet(ctx context.Context, call Call) (any, *Denial, *CallError) {
+	if failure := requireCapability(call, auth.CapPlaylistRead); failure != nil {
+		return nil, nil, failure
+	}
 	var input struct {
 		ID uuid.UUID `json:"id"`
 	}
@@ -187,6 +173,9 @@ func (d *Dispatcher) playlistsGet(ctx context.Context, call Call) (any, *Denial,
 }
 
 func (d *Dispatcher) layoutsList(ctx context.Context, call Call) (any, *Denial, *CallError) {
+	if failure := requireCapability(call, auth.CapLayoutRead); failure != nil {
+		return nil, nil, failure
+	}
 	var input pageInput
 	if failure := decode(call.Input, &input); failure != nil {
 		return nil, nil, failure
@@ -199,6 +188,9 @@ func (d *Dispatcher) layoutsList(ctx context.Context, call Call) (any, *Denial, 
 }
 
 func (d *Dispatcher) layoutsGet(ctx context.Context, call Call) (any, *Denial, *CallError) {
+	if failure := requireCapability(call, auth.CapLayoutRead); failure != nil {
+		return nil, nil, failure
+	}
 	var input struct {
 		ID uuid.UUID `json:"id"`
 	}
@@ -219,6 +211,9 @@ func (d *Dispatcher) layoutsGet(ctx context.Context, call Call) (any, *Denial, *
 }
 
 func (d *Dispatcher) datasourcesList(ctx context.Context, call Call) (any, *Denial, *CallError) {
+	if failure := requireCapability(call, auth.CapDataSourceRead); failure != nil {
+		return nil, nil, failure
+	}
 	var flat struct {
 		Search   string `json:"search"`
 		Page     int    `json:"page"`
@@ -237,6 +232,9 @@ func (d *Dispatcher) datasourcesList(ctx context.Context, call Call) (any, *Deni
 }
 
 func (d *Dispatcher) datasourcesGet(ctx context.Context, call Call) (any, *Denial, *CallError) {
+	if failure := requireCapability(call, auth.CapDataSourceRead); failure != nil {
+		return nil, nil, failure
+	}
 	var input struct {
 		ID uuid.UUID `json:"id"`
 	}
@@ -276,19 +274,19 @@ func (d *Dispatcher) schedulesList(ctx context.Context, call Call) (any, *Denial
 		}
 		return nil, nil, unavailable(err)
 	}
-	scoped, user, role, failure := d.studioScope(ctx, call)
+	access, failure := d.screenAccess(ctx, call, auth.CapScheduleRead)
 	if failure != nil {
 		return nil, nil, failure
 	}
-	if !scoped {
+	if access == nil || access.All {
 		result, err := d.deps.Scheduling.List(ctx, filter, input.Page, input.PageSize)
 		if err != nil {
 			return nil, nil, unavailable(err)
 		}
 		return result, nil, nil
 	}
-	// Mirror the dashboard's scoped schedule list: scan, keep the
-	// records whose every target is in scope, then page.
+	// Mirror the dashboard's narrowed schedule list: scan, keep the records
+	// the schedule decision would allow, then page.
 	page, pageSize := input.Page, input.PageSize
 	if page < 1 {
 		page = 1
@@ -304,13 +302,16 @@ func (d *Dispatcher) schedulesList(ctx context.Context, call Call) (any, *Denial
 			return nil, nil, unavailable(err)
 		}
 		defaultTimezone = batch.DefaultTimezone
+		ids := make([]uuid.UUID, 0, len(batch.Items))
 		for _, record := range batch.Items {
-			screens, groups := scheduleTargetIDs(record.Targets)
-			allowed, err := d.targetsWithinScope(ctx, user, role, screens, groups)
-			if err != nil {
-				return nil, nil, unavailable(err)
-			}
-			if allowed {
+			ids = append(ids, record.ID)
+		}
+		reached, failure := d.reachable(ctx, call, auth.CapScheduleRead, authz.KindSchedule, ids)
+		if failure != nil {
+			return nil, nil, failure
+		}
+		for _, record := range batch.Items {
+			if reached[record.ID] {
 				visible = append(visible, record)
 			}
 		}
@@ -339,22 +340,17 @@ func (d *Dispatcher) schedulesGet(ctx context.Context, call Call) (any, *Denial,
 	if input.ID == uuid.Nil {
 		return nil, nil, invalidInput("id is required")
 	}
+	if failure := d.authorize(ctx, call, "schedule was not found", func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Schedule(ctx, actor, auth.CapScheduleRead, input.ID)
+	}); failure != nil {
+		return nil, nil, failure
+	}
 	record, err := d.deps.Scheduling.Get(ctx, input.ID)
 	if errors.Is(err, scheduling.ErrNotFound) {
 		return nil, nil, notFound("schedule was not found")
 	}
 	if err != nil {
 		return nil, nil, unavailable(err)
-	}
-	if call.Context == ContextStudio && call.Actor != nil {
-		screens, groups := scheduleTargetIDs(record.Targets)
-		allowed, err := d.targetsWithinScope(ctx, call.Actor.UserID, call.Actor.Role, screens, groups)
-		if err != nil {
-			return nil, nil, unavailable(err)
-		}
-		if !allowed {
-			return nil, nil, notFound("schedule was not found")
-		}
 	}
 	return record, nil, nil
 }
@@ -364,18 +360,18 @@ func (d *Dispatcher) groupsList(ctx context.Context, call Call) (any, *Denial, *
 	if failure := decode(call.Input, &input); failure != nil {
 		return nil, nil, failure
 	}
-	scoped, user, role, failure := d.studioScope(ctx, call)
+	access, failure := d.screenAccess(ctx, call, auth.CapScreenRead)
 	if failure != nil {
 		return nil, nil, failure
 	}
-	if !scoped {
+	if access == nil || access.All {
 		result, err := d.deps.Scheduling.ListGroups(ctx, input.Search, input.Page, input.PageSize)
 		if err != nil {
 			return nil, nil, unavailable(err)
 		}
 		return result, nil, nil
 	}
-	// Mirror the dashboard's scoped group list.
+	// Mirror the dashboard's narrowed group list.
 	page, pageSize := input.Page, input.PageSize
 	if page < 1 {
 		page = 1
@@ -389,16 +385,16 @@ func (d *Dispatcher) groupsList(ctx context.Context, call Call) (any, *Denial, *
 		if err != nil {
 			return nil, nil, unavailable(err)
 		}
+		ids := make([]uuid.UUID, 0, len(batch.Items))
 		for _, group := range batch.Items {
-			screens := make([]uuid.UUID, 0, len(group.Screens))
-			for _, screen := range group.Screens {
-				screens = append(screens, screen.ID)
-			}
-			allowed, err := d.targetsWithinScope(ctx, user, role, screens, nil)
-			if err != nil {
-				return nil, nil, unavailable(err)
-			}
-			if allowed {
+			ids = append(ids, group.ID)
+		}
+		reached, failure := d.reachable(ctx, call, auth.CapScreenRead, authz.KindGroup, ids)
+		if failure != nil {
+			return nil, nil, failure
+		}
+		for _, group := range batch.Items {
+			if reached[group.ID] {
 				visible = append(visible, group)
 			}
 		}
@@ -427,6 +423,11 @@ func (d *Dispatcher) groupsGet(ctx context.Context, call Call) (any, *Denial, *C
 	if input.ID == uuid.Nil {
 		return nil, nil, invalidInput("id is required")
 	}
+	if failure := d.authorize(ctx, call, "screen group was not found", func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Group(ctx, actor, auth.CapScreenRead, input.ID)
+	}); failure != nil {
+		return nil, nil, failure
+	}
 	group, err := d.deps.Scheduling.GetGroup(ctx, input.ID)
 	if errors.Is(err, scheduling.ErrNotFound) {
 		return nil, nil, notFound("screen group was not found")
@@ -434,67 +435,14 @@ func (d *Dispatcher) groupsGet(ctx context.Context, call Call) (any, *Denial, *C
 	if err != nil {
 		return nil, nil, unavailable(err)
 	}
-	if call.Context == ContextStudio && call.Actor != nil {
-		screens := make([]uuid.UUID, 0, len(group.Screens))
-		for _, screen := range group.Screens {
-			screens = append(screens, screen.ID)
-		}
-		allowed, err := d.targetsWithinScope(ctx, call.Actor.UserID, call.Actor.Role, screens, nil)
-		if err != nil {
-			return nil, nil, unavailable(err)
-		}
-		if !allowed {
-			return nil, nil, notFound("screen group was not found")
-		}
-	}
 	return group, nil, nil
-}
-
-// targetsWithinScope mirrors the dashboard's screen-target predicate: a
-// group counts through its members, and an empty selection is allowed.
-func (d *Dispatcher) targetsWithinScope(ctx context.Context, user uuid.UUID, role string, screens, groups []uuid.UUID) (bool, error) {
-	targets := append([]uuid.UUID{}, screens...)
-	if len(groups) > 0 {
-		for _, group := range groups {
-			members, err := d.deps.Scheduling.GetGroup(ctx, group)
-			if errors.Is(err, scheduling.ErrNotFound) {
-				continue
-			}
-			if err != nil {
-				return false, err
-			}
-			for _, screen := range members.Screens {
-				targets = append(targets, screen.ID)
-			}
-		}
-	}
-	if err := d.deps.Devices.AuthorizeScreens(ctx, user, role, targets); err != nil {
-		if errors.Is(err, devices.ErrOutOfScope) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
-}
-
-func scheduleTargetIDs(targets []scheduling.Target) (screens, groups []uuid.UUID) {
-	screens, groups = []uuid.UUID{}, []uuid.UUID{}
-	for _, target := range targets {
-		switch target.Type {
-		case "screen":
-			screens = append(screens, target.ID)
-		case "group":
-			groups = append(groups, target.ID)
-		}
-	}
-	return screens, groups
 }
 
 func (d *Dispatcher) usersGet(ctx context.Context, call Call) (any, *Denial, *CallError) {
 	// Mirror the dashboard's user management boundary: only Owners and
 	// Administrators browse the directory from Studio. Background
 	// attribution runs under the install-time grant instead.
-	if failure := studioCapability(call, auth.CapUsersManage); failure != nil {
+	if failure := requireCapability(call, auth.CapUsersManage); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -534,7 +482,7 @@ func directoryUsers(users []plugin.DirectoryUser) []map[string]any {
 }
 
 func (d *Dispatcher) usersSearch(ctx context.Context, call Call) (any, *Denial, *CallError) {
-	if failure := studioCapability(call, auth.CapUsersManage); failure != nil {
+	if failure := requireCapability(call, auth.CapUsersManage); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -552,7 +500,7 @@ func (d *Dispatcher) usersSearch(ctx context.Context, call Call) (any, *Denial, 
 }
 
 func (d *Dispatcher) usersListByRole(ctx context.Context, call Call) (any, *Denial, *CallError) {
-	if failure := studioCapability(call, auth.CapUsersManage); failure != nil {
+	if failure := requireCapability(call, auth.CapUsersManage); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {

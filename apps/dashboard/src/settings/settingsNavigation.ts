@@ -129,7 +129,7 @@ export const settingsNavigation: SettingsNavigationGroup[] = [
       "presentation-networks",
       "Presentation Networks",
       "player/presentation-networks",
-      ["screen.manage"],
+      ["screen.networks.manage"],
     ),
   ]),
   group("operations", "Operations", [

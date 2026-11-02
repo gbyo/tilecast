@@ -454,6 +454,7 @@ describe("the upload panel's Choose files control", () => {
         tagMode: "restricted",
         writableFolderIds: ["folder-313"],
       },
+      screens: { mode: "restricted", locationIds: [], groupIds: [] },
     });
     vi.spyOn(api, "contentFolders").mockResolvedValue([
       {

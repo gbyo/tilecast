@@ -4467,6 +4467,24 @@ func (e ScheduleTargetType) Valid() bool {
 	}
 }
 
+// Defines values for ScreenAccessMode.
+const (
+	ScreenAccessModeAll        ScreenAccessMode = "all"
+	ScreenAccessModeRestricted ScreenAccessMode = "restricted"
+)
+
+// Valid indicates whether the value is a known member of the ScreenAccessMode enum.
+func (e ScreenAccessMode) Valid() bool {
+	switch e {
+	case ScreenAccessModeAll:
+		return true
+	case ScreenAccessModeRestricted:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ScreenAssignmentSchedulePresentationType.
 const (
 	ScreenAssignmentSchedulePresentationTypeLayout   ScreenAssignmentSchedulePresentationType = "layout"
@@ -9052,6 +9070,18 @@ type MyAccess struct {
 		Key  UserRole `json:"key"`
 		Name string   `json:"name"`
 	} `json:"role"`
+
+	// Screens The signed-in account's screen access. An account without a stored policy reads as restricted with no grants.
+	Screens struct {
+		// GroupIds Display Groups granted directly. Empty for all screens.
+		GroupIds []openapi_types.UUID `json:"groupIds"`
+
+		// LocationIds Locations granted directly. Empty for all screens.
+		LocationIds []openapi_types.UUID `json:"locationIds"`
+
+		// Mode all reaches every screen. restricted reaches the union of the granted locations and Display Groups, and nothing without grants.
+		Mode ScreenAccessMode `json:"mode"`
+	} `json:"screens"`
 }
 
 // NotificationCategory defines model for NotificationCategory.
@@ -11158,6 +11188,18 @@ type Screen struct {
 	UptimeSeconds         *int64              `json:"uptimeSeconds,omitempty"`
 }
 
+// ScreenAccessInput defines model for ScreenAccessInput.
+type ScreenAccessInput struct {
+	// Mode all reaches every screen. restricted reaches the union of the granted locations and Display Groups, and nothing without grants.
+	Mode ScreenAccessMode `json:"mode"`
+
+	// Scopes Grants for restricted access. Must be empty for all.
+	Scopes *[]ScreenScope `json:"scopes,omitempty"`
+}
+
+// ScreenAccessMode all reaches every screen. restricted reaches the union of the granted locations and Display Groups, and nothing without grants.
+type ScreenAccessMode string
+
 // ScreenActivity defines model for ScreenActivity.
 type ScreenActivity struct {
 	CurrentIssue *ScreenAttentionItem `json:"currentIssue,omitempty"`
@@ -11258,6 +11300,20 @@ type ScreenGroupDisplayMode string
 
 // ScreenGroupPresentationType defines model for ScreenGroup.PresentationType.
 type ScreenGroupPresentationType string
+
+// ScreenGroupCreateInput defines model for ScreenGroupCreateInput.
+type ScreenGroupCreateInput struct {
+	// ClearPresentationGateway Ignored on creation.
+	ClearPresentationGateway *bool   `json:"clearPresentationGateway,omitempty"`
+	Description              *string `json:"description,omitempty"`
+	Name                     string  `json:"name"`
+
+	// PresentationGatewayScreenId Ignored on creation. Set it with an update.
+	PresentationGatewayScreenId *openapi_types.UUID `json:"presentationGatewayScreenId,omitempty"`
+
+	// ScreenIds First members. Required, and at least one, for a caller with restricted screen access.
+	ScreenIds *[]openapi_types.UUID `json:"screenIds,omitempty"`
+}
 
 // ScreenGroupInput defines model for ScreenGroupInput.
 type ScreenGroupInput struct {
@@ -11422,8 +11478,16 @@ type ScreenScopeType string
 
 // ScreenScopeList defines model for ScreenScopeList.
 type ScreenScopeList struct {
-	Scopes     []ScreenScope `json:"scopes"`
-	WholeFleet bool          `json:"wholeFleet"`
+	// Configured False when the account has no stored policy, which reaches no screen until one is saved.
+	Configured bool `json:"configured"`
+
+	// Mode all reaches every screen. restricted reaches the union of the granted locations and Display Groups, and nothing without grants.
+	Mode   ScreenAccessMode `json:"mode"`
+	Scopes []ScreenScope    `json:"scopes"`
+
+	// WholeFleet Read mode instead. True exactly when a stored policy is in mode all; never derived from the number of grants.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	WholeFleet bool `json:"wholeFleet"`
 }
 
 // ScreenSnapshot defines model for ScreenSnapshot.
@@ -14264,8 +14328,11 @@ type CreateUserJSONBody struct {
 	// Role Role key. The built-in roles are owner, administrator, editor, contributor, and viewer. Custom role keys start with "custom.". Decide authorization from the capabilities the server reports, not from the role key.
 	//
 	// Examples: owner, administrator, editor, contributor, viewer, custom.classroom-media
-	Role     UserRole `json:"role"`
-	Username string   `json:"username"`
+	Role UserRole `json:"role"`
+
+	// ScreenAccess Screen access for the new account, written in the same transaction as the account. When omitted, the account is restricted with no grants and reaches no screen. An Owner always reaches every screen. A caller with restricted screen access may grant only locations and Display Groups granted to it directly (screen_scope_delegation).
+	ScreenAccess *ScreenAccessInput `json:"screenAccess,omitempty"`
+	Username     string             `json:"username"`
 }
 
 // CreateUserParams defines parameters for CreateUser.
@@ -14304,11 +14371,6 @@ type PutUserContentAccessParams struct {
 // PermanentlyDeleteUserParams defines parameters for PermanentlyDeleteUser.
 type PermanentlyDeleteUserParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
-}
-
-// PutUserScreenScopesJSONBody defines parameters for PutUserScreenScopes.
-type PutUserScreenScopesJSONBody struct {
-	Scopes []ScreenScope `json:"scopes"`
 }
 
 // PutUserScreenScopesParams defines parameters for PutUserScreenScopes.
@@ -14660,7 +14722,7 @@ type PreviewScheduleJSONRequestBody PreviewScheduleJSONBody
 type UpdateScheduleJSONRequestBody = ScheduleInput
 
 // CreateScreenGroupJSONRequestBody defines body for CreateScreenGroup for application/json ContentType.
-type CreateScreenGroupJSONRequestBody = ScreenGroupInput
+type CreateScreenGroupJSONRequestBody = ScreenGroupCreateInput
 
 // UpdateScreenGroupJSONRequestBody defines body for UpdateScreenGroup for application/json ContentType.
 type UpdateScreenGroupJSONRequestBody = ScreenGroupInput
@@ -14768,7 +14830,7 @@ type UpdateUserJSONRequestBody UpdateUserJSONBody
 type PutUserContentAccessJSONRequestBody = ContentAccessInput
 
 // PutUserScreenScopesJSONRequestBody defines body for PutUserScreenScopes for application/json ContentType.
-type PutUserScreenScopesJSONRequestBody PutUserScreenScopesJSONBody
+type PutUserScreenScopesJSONRequestBody = ScreenAccessInput
 
 // CreateWidgetJSONRequestBody defines body for CreateWidget for application/json ContentType.
 type CreateWidgetJSONRequestBody = WidgetInput
@@ -18133,13 +18195,13 @@ type ClientInterface interface {
 	// CreateScreenGroupWithBody performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Create screen group. Requires an authenticated dashboard user.
+	// Create a Display Group, optionally with its first members, in one transaction. Requires screen.manage. A caller with restricted screen access must name at least one screen, and every named screen and its current group peers must be within its access: an empty group has no anchor and would be unreachable to it (403 out_of_scope).
 	CreateScreenGroupWithBody(ctx context.Context, params *CreateScreenGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateScreenGroup performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Create screen group. Requires an authenticated dashboard user.
+	// Create a Display Group, optionally with its first members, in one transaction. Requires screen.manage. A caller with restricted screen access must name at least one screen, and every named screen and its current group peers must be within its access: an empty group has no anchor and would be unreachable to it (403 out_of_scope).
 	CreateScreenGroup(ctx context.Context, params *CreateScreenGroupParams, body CreateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteScreenGroup performs a DELETE /api/v1/screen-groups/{id} (the `DeleteScreenGroup` operationId) request.
@@ -19002,19 +19064,19 @@ type ClientInterface interface {
 
 	// GetUserScreenScopes performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
 	//
-	// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+	// Read an account's screen access: the explicit mode and, for restricted access, the granted locations and Display Groups. Requires users.manage and the admin scope. A restricted policy with no grants reaches no screen. configured is false when the account has no stored policy, which also reaches no screen.
 	GetUserScreenScopes(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutUserScreenScopesWithBody performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	// Replace an account's screen access. Requires users.manage and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. mode is required: all screens is an explicit choice, never an empty grant list. An Owner cannot be restricted, nobody can change their own screen access, and a caller with restricted screen access may grant only locations and Display Groups granted to it directly.
 	PutUserScreenScopesWithBody(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PutUserScreenScopes performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
 	// Takes a body of the `application/json` content type.
 	//
-	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	// Replace an account's screen access. Requires users.manage and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. mode is required: all screens is an explicit choice, never an empty grant list. An Owner cannot be restricted, nobody can change their own screen access, and a caller with restricted screen access may grant only locations and Display Groups granted to it directly.
 	PutUserScreenScopes(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ResetUserSecurity performs a POST /api/v1/users/{id}/security/reset (the `ResetUserSecurity` operationId) request.
@@ -25631,7 +25693,7 @@ func (c *Client) ListScreenGroups(ctx context.Context, params *ListScreenGroupsP
 // CreateScreenGroupWithBody performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request,
 // with any type of body and a specified content type.
 //
-// Create screen group. Requires an authenticated dashboard user.
+// Create a Display Group, optionally with its first members, in one transaction. Requires screen.manage. A caller with restricted screen access must name at least one screen, and every named screen and its current group peers must be within its access: an empty group has no anchor and would be unreachable to it (403 out_of_scope).
 func (c *Client) CreateScreenGroupWithBody(ctx context.Context, params *CreateScreenGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateScreenGroupRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
@@ -25647,7 +25709,7 @@ func (c *Client) CreateScreenGroupWithBody(ctx context.Context, params *CreateSc
 // CreateScreenGroup performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Create screen group. Requires an authenticated dashboard user.
+// Create a Display Group, optionally with its first members, in one transaction. Requires screen.manage. A caller with restricted screen access must name at least one screen, and every named screen and its current group peers must be within its access: an empty group has no anchor and would be unreachable to it (403 out_of_scope).
 func (c *Client) CreateScreenGroup(ctx context.Context, params *CreateScreenGroupParams, body CreateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateScreenGroupRequest(c.Server, params, body)
 	if err != nil {
@@ -27910,7 +27972,7 @@ func (c *Client) PermanentlyDeleteUser(ctx context.Context, id openapi_types.UUI
 
 // GetUserScreenScopes performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
 //
-// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+// Read an account's screen access: the explicit mode and, for restricted access, the granted locations and Display Groups. Requires users.manage and the admin scope. A restricted policy with no grants reaches no screen. configured is false when the account has no stored policy, which also reaches no screen.
 func (c *Client) GetUserScreenScopes(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetUserScreenScopesRequest(c.Server, id)
 	if err != nil {
@@ -27926,7 +27988,7 @@ func (c *Client) GetUserScreenScopes(ctx context.Context, id openapi_types.UUID,
 // PutUserScreenScopesWithBody performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
 // with any type of body and a specified content type.
 //
-// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+// Replace an account's screen access. Requires users.manage and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. mode is required: all screens is an explicit choice, never an empty grant list. An Owner cannot be restricted, nobody can change their own screen access, and a caller with restricted screen access may grant only locations and Display Groups granted to it directly.
 func (c *Client) PutUserScreenScopesWithBody(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutUserScreenScopesRequestWithBody(c.Server, id, params, contentType, body)
 	if err != nil {
@@ -27942,7 +28004,7 @@ func (c *Client) PutUserScreenScopesWithBody(ctx context.Context, id openapi_typ
 // PutUserScreenScopes performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
 // Takes a body of the `application/json` content type.
 //
-// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+// Replace an account's screen access. Requires users.manage and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. mode is required: all screens is an explicit choice, never an empty grant list. An Owner cannot be restricted, nobody can change their own screen access, and a caller with restricted screen access may grant only locations and Display Groups granted to it directly.
 func (c *Client) PutUserScreenScopes(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutUserScreenScopesRequest(c.Server, id, params, body)
 	if err != nil {
@@ -51277,7 +51339,7 @@ type ClientWithResponsesInterface interface {
 	// CreateScreenGroupWithBodyWithResponse performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Create screen group. Requires an authenticated dashboard user.
+	// Create a Display Group, optionally with its first members, in one transaction. Requires screen.manage. A caller with restricted screen access must name at least one screen, and every named screen and its current group peers must be within its access: an empty group has no anchor and would be unreachable to it (403 out_of_scope).
 	//
 	// Returns a wrapper object for the known response body format(s).
 	CreateScreenGroupWithBodyWithResponse(ctx context.Context, params *CreateScreenGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScreenGroupResponse, error)
@@ -51285,7 +51347,7 @@ type ClientWithResponsesInterface interface {
 	// CreateScreenGroupWithResponse performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Create screen group. Requires an authenticated dashboard user.
+	// Create a Display Group, optionally with its first members, in one transaction. Requires screen.manage. A caller with restricted screen access must name at least one screen, and every named screen and its current group peers must be within its access: an empty group has no anchor and would be unreachable to it (403 out_of_scope).
 	CreateScreenGroupWithResponse(ctx context.Context, params *CreateScreenGroupParams, body CreateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScreenGroupResponse, error)
 
 	// DeleteScreenGroupWithResponse performs a DELETE /api/v1/screen-groups/{id} (the `DeleteScreenGroup` operationId) request.
@@ -52334,7 +52396,7 @@ type ClientWithResponsesInterface interface {
 
 	// GetUserScreenScopesWithResponse performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
 	//
-	// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+	// Read an account's screen access: the explicit mode and, for restricted access, the granted locations and Display Groups. Requires users.manage and the admin scope. A restricted policy with no grants reaches no screen. configured is false when the account has no stored policy, which also reaches no screen.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserScreenScopesResponse, error)
@@ -52342,7 +52404,7 @@ type ClientWithResponsesInterface interface {
 	// PutUserScreenScopesWithBodyWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
 	// with any type of body and a specified content type.
 	//
-	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	// Replace an account's screen access. Requires users.manage and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. mode is required: all screens is an explicit choice, never an empty grant list. An Owner cannot be restricted, nobody can change their own screen access, and a caller with restricted screen access may grant only locations and Display Groups granted to it directly.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	PutUserScreenScopesWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error)
@@ -52350,7 +52412,7 @@ type ClientWithResponsesInterface interface {
 	// PutUserScreenScopesWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
 	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 	//
-	// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+	// Replace an account's screen access. Requires users.manage and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. mode is required: all screens is an explicit choice, never an empty grant list. An Owner cannot be restricted, nobody can change their own screen access, and a caller with restricted screen access may grant only locations and Display Groups granted to it directly.
 	PutUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error)
 
 	// ResetUserSecurityWithResponse performs a POST /api/v1/users/{id}/security/reset (the `ResetUserSecurity` operationId) request.
@@ -76102,7 +76164,7 @@ func (c *ClientWithResponses) ListScreenGroupsWithResponse(ctx context.Context, 
 // CreateScreenGroupWithBodyWithResponse performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request,
 // with any type of body and a specified content type.
 //
-// Create screen group. Requires an authenticated dashboard user.
+// Create a Display Group, optionally with its first members, in one transaction. Requires screen.manage. A caller with restricted screen access must name at least one screen, and every named screen and its current group peers must be within its access: an empty group has no anchor and would be unreachable to it (403 out_of_scope).
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) CreateScreenGroupWithBodyWithResponse(ctx context.Context, params *CreateScreenGroupParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateScreenGroupResponse, error) {
@@ -76116,7 +76178,7 @@ func (c *ClientWithResponses) CreateScreenGroupWithBodyWithResponse(ctx context.
 // CreateScreenGroupWithResponse performs a POST /api/v1/screen-groups (the `CreateScreenGroup` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Create screen group. Requires an authenticated dashboard user.
+// Create a Display Group, optionally with its first members, in one transaction. Requires screen.manage. A caller with restricted screen access must name at least one screen, and every named screen and its current group peers must be within its access: an empty group has no anchor and would be unreachable to it (403 out_of_scope).
 func (c *ClientWithResponses) CreateScreenGroupWithResponse(ctx context.Context, params *CreateScreenGroupParams, body CreateScreenGroupJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateScreenGroupResponse, error) {
 	rsp, err := c.CreateScreenGroup(ctx, params, body, reqEditors...)
 	if err != nil {
@@ -78005,7 +78067,7 @@ func (c *ClientWithResponses) PermanentlyDeleteUserWithResponse(ctx context.Cont
 
 // GetUserScreenScopesWithResponse performs a GET /api/v1/users/{id}/screen-scopes (the `GetUserScreenScopes` operationId) request.
 //
-// Read which locations and sync groups an account may operate screens in. Requires an Owner or Administrator with the admin scope. An empty grant list means the whole fleet.
+// Read an account's screen access: the explicit mode and, for restricted access, the granted locations and Display Groups. Requires users.manage and the admin scope. A restricted policy with no grants reaches no screen. configured is false when the account has no stored policy, which also reaches no screen.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) GetUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, reqEditors ...RequestEditorFn) (*GetUserScreenScopesResponse, error) {
@@ -78019,7 +78081,7 @@ func (c *ClientWithResponses) GetUserScreenScopesWithResponse(ctx context.Contex
 // PutUserScreenScopesWithBodyWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request,
 // with any type of body and a specified content type.
 //
-// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+// Replace an account's screen access. Requires users.manage and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. mode is required: all screens is an explicit choice, never an empty grant list. An Owner cannot be restricted, nobody can change their own screen access, and a caller with restricted screen access may grant only locations and Display Groups granted to it directly.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) PutUserScreenScopesWithBodyWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error) {
@@ -78033,7 +78095,7 @@ func (c *ClientWithResponses) PutUserScreenScopesWithBodyWithResponse(ctx contex
 // PutUserScreenScopesWithResponse performs a PUT /api/v1/users/{id}/screen-scopes (the `PutUserScreenScopes` operationId) request.
 // Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
 //
-// Replace an account's screen scope grants. Requires an Owner or Administrator with the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. An Owner cannot be scoped and nobody can change their own scope.
+// Replace an account's screen access. Requires users.manage and the admin scope. Cookie-authenticated unsafe requests require X-CSRF-Token. mode is required: all screens is an explicit choice, never an empty grant list. An Owner cannot be restricted, nobody can change their own screen access, and a caller with restricted screen access may grant only locations and Display Groups granted to it directly.
 func (c *ClientWithResponses) PutUserScreenScopesWithResponse(ctx context.Context, id openapi_types.UUID, params *PutUserScreenScopesParams, body PutUserScreenScopesJSONRequestBody, reqEditors ...RequestEditorFn) (*PutUserScreenScopesResponse, error) {
 	rsp, err := c.PutUserScreenScopes(ctx, id, params, body, reqEditors...)
 	if err != nil {

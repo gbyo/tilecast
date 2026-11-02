@@ -13,6 +13,7 @@ import (
 
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/displaycontrol"
 	"github.com/tilecast/tilecast/apps/server/internal/playercaps"
@@ -57,7 +58,7 @@ func packageMetadata(call Call) map[string]any {
 func (d *Dispatcher) managedEnsure(ctx context.Context, call Call) (any, *Denial, *CallError) {
 	// Managed presentations create playlists and data sources, so Studio
 	// callers need content-author roles, matching the dashboard.
-	if failure := studioCapability(call, auth.CapPlaylistEdit); failure != nil {
+	if failure := requireCapability(call, auth.CapPlaylistEdit); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -149,7 +150,7 @@ func (d *Dispatcher) managedEnsure(ctx context.Context, call Call) (any, *Denial
 }
 
 func (d *Dispatcher) managedUpdateData(ctx context.Context, call Call) (any, *Denial, *CallError) {
-	if failure := studioCapability(call, auth.CapPlaylistEdit); failure != nil {
+	if failure := requireCapability(call, auth.CapPlaylistEdit); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -244,7 +245,7 @@ func (d *Dispatcher) takeoverActivate(ctx context.Context, call Call) (any, *Den
 	// Takeovers are the most disruptive Studio action: only Owners and
 	// Administrators trigger them from Studio, matching the dashboard.
 	// Background activation runs under the install-time grant.
-	if failure := studioCapability(call, auth.CapScreenAssign); failure != nil {
+	if failure := requireCapability(call, auth.CapScreenAssign); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -284,17 +285,10 @@ func (d *Dispatcher) takeoverActivate(ctx context.Context, call Call) (any, *Den
 	if err := d.deps.Playlists.ValidatePresentationNow(ctx, "playlist", input.PlaylistID, now); err != nil {
 		return nil, nil, invalidInput("select a ready, non-empty playlist")
 	}
-	if call.Context == ContextStudio && call.Actor != nil {
-		resolved, err := d.resolveTargets(ctx, input.ScreenIDs, input.GroupIDs)
-		if err != nil {
-			return nil, nil, unavailable(err)
-		}
-		if err := d.deps.Devices.AuthorizeScreens(ctx, call.Actor.UserID, call.Actor.Role, resolved); err != nil {
-			if errors.Is(err, devices.ErrOutOfScope) {
-				return nil, nil, forbidden("some of the selected screens are outside your assigned scope")
-			}
-			return nil, nil, unavailable(err)
-		}
+	if failure := d.authorize(ctx, call, "", func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Selection(ctx, actor, auth.CapScreenAssign, authz.Selection{ScreenIDs: input.ScreenIDs, GroupIDs: input.GroupIDs})
+	}); failure != nil {
+		return nil, nil, failure
 	}
 	if err := d.deps.Playlists.ValidatePresentationTargets(ctx, &input.PlaylistID, nil, input.ScreenIDs, input.GroupIDs); err != nil {
 		return nil, nil, invalidInput("the playlist cannot play on the selected targets")
@@ -335,21 +329,8 @@ func (d *Dispatcher) reauthenticationRequired(ctx context.Context) bool {
 	return required
 }
 
-func (d *Dispatcher) resolveTargets(ctx context.Context, screens, groups []uuid.UUID) ([]uuid.UUID, error) {
-	tx, err := d.deps.DB.Begin(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback(ctx) //nolint:errcheck
-	resolved, err := d.deps.Shared.Targets.ResolveScreensInTx(ctx, tx, plugin.ScreenTargets{ScreenIDs: screens, GroupIDs: groups})
-	if err != nil {
-		return nil, err
-	}
-	return resolved, tx.Commit(ctx)
-}
-
 func (d *Dispatcher) takeoverCancel(ctx context.Context, call Call) (any, *Denial, *CallError) {
-	if failure := studioCapability(call, auth.CapScreenAssign); failure != nil {
+	if failure := requireCapability(call, auth.CapScreenAssign); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -365,19 +346,10 @@ func (d *Dispatcher) takeoverCancel(ctx context.Context, call Call) (any, *Denia
 	if len(input.Reason) > 1000 {
 		return nil, nil, invalidInput("reason is too long")
 	}
-	if call.Context == ContextStudio && call.Actor != nil {
-		// Mirror the dashboard's takeover middleware: outside scope
-		// reads as not found.
-		screens, err := d.deps.Takeovers.TargetScreens(ctx, input.ID)
-		if err != nil {
-			return nil, nil, unavailable(err)
-		}
-		if err := d.deps.Devices.AuthorizeScreens(ctx, call.Actor.UserID, call.Actor.Role, screens); err != nil {
-			if errors.Is(err, devices.ErrOutOfScope) {
-				return nil, nil, notFound("takeover was not found")
-			}
-			return nil, nil, unavailable(err)
-		}
+	if failure := d.authorize(ctx, call, "takeover was not found", func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Takeover(ctx, actor, auth.CapScreenAssign, input.ID)
+	}); failure != nil {
+		return nil, nil, failure
 	}
 	tx, err := d.deps.DB.Begin(ctx)
 	if err != nil {
@@ -472,7 +444,7 @@ func (d *Dispatcher) auditWrite(ctx context.Context, call Call) (any, *Denial, *
 func (d *Dispatcher) playerCommand(ctx context.Context, call Call, operation string) (any, *Denial, *CallError) {
 	// Display commands are Owner/Administrator actions on the dashboard;
 	// Studio package calls match. Background runs under the grant.
-	if failure := studioCapability(call, auth.CapScreenManage); failure != nil {
+	if failure := requireCapability(call, auth.CapScreenManage); failure != nil {
 		return nil, nil, failure
 	}
 	var input struct {
@@ -485,15 +457,12 @@ func (d *Dispatcher) playerCommand(ctx context.Context, call Call, operation str
 	if input.ScreenID == uuid.Nil {
 		return nil, nil, invalidInput("screenId is required")
 	}
-	if call.Context == ContextStudio && call.Actor != nil {
-		// Mirror the dashboard's per-screen middleware: outside the
-		// account's scope reads as not found, never as forbidden.
-		if err := d.deps.Devices.AuthorizeScreen(ctx, call.Actor.UserID, call.Actor.Role, input.ScreenID); err != nil {
-			if errors.Is(err, devices.ErrOutOfScope) {
-				return nil, nil, notFound("screen was not found")
-			}
-			return nil, nil, unavailable(err)
-		}
+	// The dashboard's per-screen rule: outside the operator's access reads
+	// as not found, never as forbidden.
+	if failure := d.authorize(ctx, call, "screen was not found", func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Screen(ctx, actor, auth.CapScreenManage, input.ScreenID)
+	}); failure != nil {
+		return nil, nil, failure
 	}
 	operationInput := input.Input
 	if operationInput == nil {

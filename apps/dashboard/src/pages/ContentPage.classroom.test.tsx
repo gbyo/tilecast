@@ -41,6 +41,7 @@ const teacherAccess = (writableFolderIds: string[]): MyAccess => ({
     tagMode: "restricted",
     writableFolderIds,
   },
+  screens: { mode: "restricted", locationIds: [], groupIds: [] },
 });
 
 const room313 = {
@@ -190,6 +191,7 @@ describe("Classroom Media in the library", () => {
       role: { key: "editor", name: "Editor", builtin: true },
       capabilities: classroomMedia,
       content: { libraryMode: "all", tagMode: "all" },
+      screens: { mode: "all", locationIds: [], groupIds: [] },
     });
     render(withQueryClient(<ContentPage />));
     await screen.findByText("Poster-1");

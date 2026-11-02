@@ -11,6 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/execution"
@@ -72,14 +74,14 @@ func newFixture(t *testing.T) *fixture {
 		exec(`INSERT INTO screen_player_status(screen_id,presentation_schema_versions,native_presentation_capabilities)VALUES($1,'{1,2,3}','{"plugin.external-runtime":1}')`, id)
 	}
 	exec(`INSERT INTO screen_group_memberships(screen_group_id,screen_id,added_by)VALUES($1,$2,$3)`, f.group, f.screens[0], f.owner)
-	f.call = externalplugins.Invocation{PackageID: "acme.surface", Digest: "sha256:" + strings.Repeat("a", 64), Epoch: uuid.New(), Actor: &f.owner, ActorRole: "owner"}
+	f.call = externalplugins.Invocation{PackageID: "acme.surface", Digest: "sha256:" + strings.Repeat("a", 64), Epoch: uuid.New(), Actor: &f.owner, Authority: &authz.Actor{UserID: f.owner, Owner: true, Capabilities: ownerCapabilities()}}
 	exec(`INSERT INTO installed_packages(organization_id,package_id,package_version,digest,source_kind,source_reference,registry_reference,trust_state,manifest,execution_epoch,storage_epoch)
  VALUES($1,$2,'1.0.0',$3,'custom','https://github.com/acme/surface','ghcr.io/acme/surface','verified','{}',$4,$5)`, f.org, f.call.PackageID, f.call.Digest, f.call.Epoch, uuid.New())
 	exec(`INSERT INTO installed_package_contributions(organization_id,package_id,kind,contribution_id,contribution_path)VALUES($1,$2,'plugin',$3,'./plugin')`, f.org, f.call.PackageID, "acme.surface.corner")
 	f.payloads = &payloads{payload: externalplugins.Payload{PackageID: f.call.PackageID, PackageDigest: f.call.Digest, ExecutionEpoch: f.call.Epoch, ContributionID: "acme.surface.corner",
 		Descriptor: externalplugin.Manifest{APIVersion: 2, ID: "corner", DefinitionVersion: 1, Name: "Corner", Description: "Test surface.", Capabilities: externalplugin.Capabilities{PlayerManifest: true}, Runtime: externalplugin.Runtime{Surfaces: []string{"corner.bottom-left"}, Tier: "ambient"}}, FrameSHA256Hex: strings.Repeat("b", 64), FrameSize: 1000}}
 	f.devices = devices.NewService(pool, devices.NewPresenceHub(), "")
-	f.service = externalplugins.NewService(pool, f.payloads, f.devices, f.devices)
+	f.service = externalplugins.NewService(pool, f.payloads, f.devices)
 	return f
 }
 
@@ -107,7 +109,7 @@ func (f *fixture) publish(t *testing.T, revision int64) externalplugins.View {
 	t.Helper()
 	background := f.call
 	background.Actor = nil
-	background.ActorRole = ""
+	background.Authority = nil
 	view, err := f.service.Publish(f.ctx, background, externalplugins.PublishInput{ContributionID: "acme.surface.corner", ConfigurationRevision: revision, State: json.RawMessage(`{"count":12}`), ValidUntil: time.Now().UTC().Add(75 * time.Second).Truncate(time.Millisecond)})
 	if err != nil {
 		t.Fatal(err)
@@ -222,17 +224,17 @@ func TestScopedTargetPickerAndConfiguration(t *testing.T) {
 	if _, err := f.pool.Exec(f.ctx, `INSERT INTO users(id,name,username,password_hash,role)VALUES($1,'Scoped Admin','scoped','unused','administrator')`, admin); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.pool.Exec(f.ctx, `INSERT INTO user_screen_scopes(user_id,scope_type,scope_id,created_by)VALUES($1,'location',$2,$3)`, admin, f.locA, f.owner); err != nil {
+	if _, err := f.pool.Exec(f.ctx, `WITH policy AS (INSERT INTO user_screen_access(user_id,mode) VALUES($1,'restricted') ON CONFLICT (user_id) DO UPDATE SET mode='restricted') INSERT INTO user_screen_scopes(user_id,scope_type,scope_id,created_by)VALUES($1,'location',$2,$3)`, admin, f.locA, f.owner); err != nil {
 		t.Fatal(err)
 	}
 	call := f.call
 	call.Actor = &admin
-	call.ActorRole = "administrator"
-	if _, err := f.service.Configure(f.ctx, call, externalplugins.ConfigureInput{ContributionID: "acme.surface.corner", Enabled: true, Configuration: json.RawMessage(`{}`), Targets: targeting.Definition{Mode: "all"}}); !errors.Is(err, devices.ErrOutOfScope) {
+	call.Authority = &authz.Actor{UserID: admin, Capabilities: administratorCapabilities()}
+	if _, err := f.service.Configure(f.ctx, call, externalplugins.ConfigureInput{ContributionID: "acme.surface.corner", Enabled: true, Configuration: json.RawMessage(`{}`), Targets: targeting.Definition{Mode: "all"}}); !errors.Is(err, authz.ErrOutOfScope) {
 		t.Fatalf("scoped all accepted: %v", err)
 	}
 	for _, kind := range []string{"screen", "group", "location"} {
-		page, err := f.devices.PluginTargetOptions(f.ctx, &admin, "administrator", devices.TargetOptionQuery{Kind: kind, PageSize: 1})
+		page, err := f.devices.PluginTargetOptions(f.ctx, &authz.ScreenAccess{UserID: admin, Configured: true}, devices.TargetOptionQuery{Kind: kind, PageSize: 1})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -255,7 +257,7 @@ func TestScopedTargetPickerAndConfiguration(t *testing.T) {
 		_, err := f.service.Configure(f.ctx, call, externalplugins.ConfigureInput{ContributionID: "acme.surface.corner", Enabled: enabled,
 			Configuration: json.RawMessage(`{}`), Targets: targeting.Definition{Mode: "selected", LocationIDs: []uuid.UUID{f.locA}},
 			ExpectedConfigurationRevision: global.ConfigurationRevision})
-		if !errors.Is(err, devices.ErrOutOfScope) {
+		if !errors.Is(err, authz.ErrOutOfScope) {
 			t.Fatalf("scoped administrator changed global targets (enabled=%v): %v", enabled, err)
 		}
 	}
@@ -272,14 +274,14 @@ func TestConfigureAuthorizesThePreviousTargets(t *testing.T) {
 	if _, err := f.pool.Exec(f.ctx, `INSERT INTO users(id,name,username,password_hash,role)VALUES($1,'Scoped Admin','scoped','unused','administrator')`, admin); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.pool.Exec(f.ctx, `INSERT INTO user_screen_scopes(user_id,scope_type,scope_id,created_by)VALUES($1,'location',$2,$3)`, admin, f.locA, f.owner); err != nil {
+	if _, err := f.pool.Exec(f.ctx, `WITH policy AS (INSERT INTO user_screen_access(user_id,mode) VALUES($1,'restricted') ON CONFLICT (user_id) DO UPDATE SET mode='restricted') INSERT INTO user_screen_scopes(user_id,scope_type,scope_id,created_by)VALUES($1,'location',$2,$3)`, admin, f.locA, f.owner); err != nil {
 		t.Fatal(err)
 	}
 	call := f.call
 	call.Actor = &admin
-	call.ActorRole = "administrator"
+	call.Authority = &authz.Actor{UserID: admin, Capabilities: administratorCapabilities()}
 	input := externalplugins.ConfigureInput{ContributionID: "acme.surface.corner", ExpectedConfigurationRevision: 1, Enabled: true, Configuration: json.RawMessage(`{"stolen":true}`), Targets: targeting.Definition{Mode: "selected", LocationIDs: []uuid.UUID{f.locA}}}
-	if _, err := f.service.Configure(f.ctx, call, input); !errors.Is(err, devices.ErrOutOfScope) {
+	if _, err := f.service.Configure(f.ctx, call, input); !errors.Is(err, authz.ErrOutOfScope) {
 		t.Fatalf("scoped administrator rewrote an instance that targets screens outside the scope: %v", err)
 	}
 	view, err := f.service.Get(f.ctx, f.call, "acme.surface.corner")
@@ -305,9 +307,24 @@ func TestInvalidPersistedStateSkipsOnlyItsEntry(t *testing.T) {
 func TestConfigureRefusesAnActorWhoseRoleIsNotOwnerOrAdministrator(t *testing.T) {
 	f := newFixture(t)
 	call := f.call
-	call.ActorRole = "editor"
+	call.Authority = &authz.Actor{UserID: *call.Actor, Capabilities: editorCapabilities()}
 	_, err := f.service.Configure(f.ctx, call, externalplugins.ConfigureInput{ContributionID: "acme.surface.corner", Enabled: true, Configuration: json.RawMessage(`{}`), Targets: targeting.Definition{Mode: "all"}})
 	if !errors.Is(err, externalplugins.ErrForbidden) || errors.Is(err, externalplugins.ErrInvalid) {
 		t.Fatalf("a role refusal must be forbidden, not invalid input: %v", err)
 	}
+}
+
+func ownerCapabilities() auth.CapabilitySet {
+	set, _ := auth.BuiltinCapabilities(auth.RoleOwner)
+	return set
+}
+
+func administratorCapabilities() auth.CapabilitySet {
+	set, _ := auth.BuiltinCapabilities(auth.RoleAdministrator)
+	return set
+}
+
+func editorCapabilities() auth.CapabilitySet {
+	set, _ := auth.BuiltinCapabilities(auth.RoleEditor)
+	return set
 }
