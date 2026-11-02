@@ -263,6 +263,7 @@ async fn wrong_direction_and_sequence_violations_close_the_session() {
             status: None,
         }),
         content: vec![],
+        frames: vec![],
         timing: None,
         projection: None,
     }));
@@ -378,6 +379,7 @@ async fn slow_client_is_disconnected_instead_of_buffered() {
     let mut closed = false;
     for _ in 0..10_000 {
         let event = Event::PluginState(PluginState {
+            plugin_frames: vec![],
             plugins: vec![big.clone()],
             content: vec![],
             clock_offset_ms: 0,

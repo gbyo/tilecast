@@ -286,7 +286,9 @@ function RecordReviewBody({
         setError(t("review.refreshedConflict"));
       } else {
         setError(
-          err instanceof Error ? err.message : t("review.applyFallback"),
+          err instanceof Error
+            ? apiErrorMessage(err)
+            : t("review.applyFallback"),
         );
       }
     } finally {
@@ -310,7 +312,9 @@ function RecordReviewBody({
       onChanged();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t("review.commentFallback"),
+        err instanceof Error
+          ? apiErrorMessage(err)
+          : t("review.commentFallback"),
       );
     } finally {
       setBusy(false);

@@ -121,6 +121,12 @@ func capabilityEvidence(screenID uuid.UUID, requirements []presentationWidgetReq
 	}
 	for _, requirement := range requirements {
 		widget := widgetCapabilityEvidence(requirement, player)
+		if requirement.LayoutPlaylist && player.Native[layoutPlaylistWidgetsCapability] < 1 {
+			widget.Status = "blocked"
+			widget.Reason = "layout_playlist_widgets_unsupported"
+			report.Status = "blocked"
+			report.Reason = "layout_playlist_widgets_unsupported"
+		}
 		report.Widgets = append(report.Widgets, widget)
 		if widget.Status == "blocked" && report.Status != "blocked" {
 			report.Status = "blocked"

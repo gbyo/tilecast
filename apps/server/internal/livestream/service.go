@@ -12,12 +12,15 @@ import (
 )
 
 const (
-	LeaseDuration = 15 * time.Second
-	FrameInterval = 125 * time.Millisecond
-	MaxFrameBytes = 100 * 1024
-	MaxWidth      = 640
-	MaxHeight     = 360
-	frameHeader   = 33
+	LeaseDuration     = 15 * time.Second
+	FrameInterval     = 125 * time.Millisecond
+	MaxFrameBytes     = 100 * 1024
+	MaxWidth          = 640
+	MaxHeight         = 360
+	EdgeMaxWidth      = 960
+	EdgeMaxHeight     = 540
+	EdgeFrameInterval = 100 * time.Millisecond
+	frameHeader       = 33
 
 	// A healthy Watch Live stream should deliver frames many times per second.
 	// These deliberately generous bounds detect an actual stall without
@@ -109,6 +112,22 @@ func (s *Service) Start(screenID uuid.UUID) Session {
 	return result
 }
 
+// SelectProfile upgrades only the current in-memory lease after a player
+// explicitly opts in. Unknown clients retain the legacy profile.
+func (s *Service) SelectProfile(screenID uuid.UUID, high bool) Session {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	active := s.activeLocked(screenID)
+	if active == nil {
+		return Session{ScreenID: screenID, FrameIntervalMillis: int(FrameInterval.Milliseconds()), MaxWidth: MaxWidth, MaxHeight: MaxHeight, MaxFrameBytes: MaxFrameBytes}
+	}
+	if high && active.MaxWidth == MaxWidth {
+		active.FrameIntervalMillis = int(EdgeFrameInterval.Milliseconds())
+		active.MaxWidth, active.MaxHeight = EdgeMaxWidth, EdgeMaxHeight
+	}
+	return active.Session
+}
+
 func (s *Service) Renew(screenID, sessionID uuid.UUID) (Session, error) {
 	now := s.now().UTC()
 	s.mu.Lock()
@@ -190,6 +209,9 @@ func (s *Service) Publish(screenID, sessionID uuid.UUID, frame Frame) error {
 	if active == nil || active.ID != sessionID {
 		return ErrNotFound
 	}
+	if frame.Width > active.MaxWidth || frame.Height > active.MaxHeight || len(frame.JPEG) > active.MaxFrameBytes {
+		return ErrInvalidFrame
+	}
 	frame.JPEG = bytes.Clone(frame.JPEG)
 	acceptedAt := s.now().UTC()
 	active.LastFrameAt = &acceptedAt
@@ -260,8 +282,8 @@ func validateFrame(frame Frame) error {
 	if frame.CapturedAt.IsZero() {
 		return fmt.Errorf("%w: capture time is required", ErrInvalidFrame)
 	}
-	if frame.Width < 1 || frame.Width > MaxWidth || frame.Height < 1 || frame.Height > MaxHeight {
-		return fmt.Errorf("%w: dimensions exceed %dx%d", ErrInvalidFrame, MaxWidth, MaxHeight)
+	if frame.Width < 1 || frame.Width > EdgeMaxWidth || frame.Height < 1 || frame.Height > EdgeMaxHeight {
+		return fmt.Errorf("%w: dimensions exceed %dx%d", ErrInvalidFrame, EdgeMaxWidth, EdgeMaxHeight)
 	}
 	if len(frame.JPEG) < 4 || len(frame.JPEG) > MaxFrameBytes {
 		return fmt.Errorf("%w: JPEG must be between 4 and %d bytes", ErrInvalidFrame, MaxFrameBytes)

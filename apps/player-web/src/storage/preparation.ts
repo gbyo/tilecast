@@ -1,7 +1,8 @@
-import type {
-  ObjectIndex,
-  ResourceClaim,
-  VerifiedStore,
+import {
+  PREPARATION_OWNER_PREFIX,
+  type ObjectIndex,
+  type ResourceClaim,
+  type VerifiedStore,
 } from "./verified-store";
 
 /** Holds each prepared object through the atomic activation commit. */
@@ -28,7 +29,7 @@ export async function prepareResources(
   }
   if (!Number.isSafeInteger(total) || total > store.limitBytes)
     throw new Error("Presentation exceeds the Browser Player cache limit");
-  const owner = `preparing:${crypto.randomUUID()}`;
+  const owner = `${PREPARATION_OWNER_PREFIX}${crypto.randomUUID()}`;
   const release = async () => {
     for (const digest of distinct.keys()) {
       const object = await index.get(digest);

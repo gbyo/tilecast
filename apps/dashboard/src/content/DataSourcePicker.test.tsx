@@ -103,6 +103,7 @@ function picker(sources: DataSource[]) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  const invalidate = vi.spyOn(client, "invalidateQueries");
   const result = render(
     <QueryClientProvider client={client}>
       <DataSourcePicker
@@ -113,12 +114,12 @@ function picker(sources: DataSource[]) {
       />
     </QueryClientProvider>,
   );
-  return { ...result, onChange };
+  return { ...result, onChange, invalidate };
 }
 
 describe("DataSourcePicker", () => {
   it("selects a source created in place, without leaving the editor", async () => {
-    const { onChange } = picker([]);
+    const { onChange, invalidate } = picker([]);
 
     await userEvent.click(
       screen.getByRole("button", { name: /Connect new data/ }),
@@ -136,6 +137,10 @@ describe("DataSourcePicker", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save csv" }));
 
     expect(onChange).toHaveBeenCalledWith("created-source");
+    // The shared list of saved sources is refreshed, so the new one resolves.
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ["definition-form-data-sources"],
+    });
     // The flow closes on save and hands control back to the form it was opened from.
     expect(screen.queryByRole("dialog")).toBeNull();
   });

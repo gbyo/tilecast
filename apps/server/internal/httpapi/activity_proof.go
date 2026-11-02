@@ -11,7 +11,7 @@ import (
 )
 
 func (s *server) listProofOfPlay(w http.ResponseWriter, r *http.Request) {
-	role, ok := activityRole(r)
+	visibility, ok := activityVisibilityOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
@@ -44,7 +44,7 @@ func (s *server) listProofOfPlay(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 	items := make([]proofOfPlayRecord, 0, page.Limit+1)
 	for rows.Next() {
-		item, err := scanProof(rows.Scan, role)
+		item, err := scanProof(rows.Scan, visibility)
 		if err != nil {
 			s.internalError(w, r, err)
 			return
@@ -77,7 +77,7 @@ const proofSelectSQL = `
 
 type proofScanner func(dest ...any) error
 
-func scanProof(scan proofScanner, role string) (proofOfPlayRecord, error) {
+func scanProof(scan proofScanner, visibility activityVisibility) (proofOfPlayRecord, error) {
 	var item proofOfPlayRecord
 	var raw []byte
 	err := scan(&item.ID, &item.StartedAt, &item.EndedAt, &item.ScreenID, &item.ScreenName, &item.GroupID, &item.GroupName,
@@ -89,7 +89,7 @@ func scanProof(scan proofScanner, role string) (proofOfPlayRecord, error) {
 	if err != nil {
 		return item, err
 	}
-	item.Details = activityMetadata(raw, item.Result == "failed", role)
+	item.Details = activityMetadata(raw, item.Result == "failed", visibility)
 	return item, nil
 }
 
@@ -261,12 +261,12 @@ func (s *server) proofOfPlaySummary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) exportProofOfPlay(w http.ResponseWriter, r *http.Request) {
-	role, ok := activityRole(r)
+	visibility, ok := activityVisibilityOf(r)
 	if !ok {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	if !activityCanExport(role) {
+	if !activityCanExport(visibility) {
 		writeError(w, http.StatusForbidden, "activity_export_restricted", "Activity exports require Owner or Administrator access.")
 		return
 	}
@@ -291,7 +291,7 @@ func (s *server) exportProofOfPlay(w http.ResponseWriter, r *http.Request) {
 	writer := csv.NewWriter(w)
 	_ = writer.Write([]string{"Started at", "Ended at", "Screen", "Group", "Session type", "Presentation", "Presentation type", "Revision", "Content", "Content type", "Playlist item ID", "Layout placement ID", "Actual duration ms", "Expected duration ms", "Result", "Terminal reason", "Trigger", "Schedule ID", "Takeover ID", "Manifest version", "Failure code", "Source ID", "Selected record ID", "Selection date", "Source cached at", "Source revision", "Snapshot hash"})
 	for rows.Next() {
-		item, err := scanProof(rows.Scan, "owner")
+		item, err := scanProof(rows.Scan, activityVisibility{sensitive: true})
 		if err != nil {
 			continue
 		}

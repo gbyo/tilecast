@@ -96,8 +96,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     retry: false,
     staleTime: 30_000,
   });
+  const clearSessionQueries = () => {
+    // Query keys are shared across accounts. Removing also cancels pending
+    // requests so a previous session cannot repopulate the next one's cache.
+    queryClient.removeQueries({
+      predicate: ({ queryKey }) =>
+        !(
+          queryKey.length === 2 &&
+          queryKey[0] === authKey[0] &&
+          queryKey[1] === authKey[1]
+        ),
+    });
+  };
   const setSession = (result: SessionResult) => {
     leaveChallenge();
+    clearSessionQueries();
     queryClient.setQueryData<AuthStatus>(authKey, {
       ...(query.data ?? { setupRequired: false }),
       setupRequired: false,
@@ -245,6 +258,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     },
     onSuccess: () => {
       leaveChallenge();
+      clearSessionQueries();
       queryClient.setQueryData<AuthStatus>(authKey, {
         ...(query.data ?? { setupRequired: false }),
         setupRequired: false,

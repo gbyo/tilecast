@@ -14,6 +14,10 @@ Use this section when you need exact API details, limits, or implementation-faci
 - [Personal access tokens](../integrations/personal-access-tokens/) and [integration tokens](../integrations/tokens/) explain the two kinds of API token, their permissions, and their lifecycle.
 - [Manual Table integration](../integrations/manual-table/) and [fleet health](../integrations/fleet-health/) document supported integration requests.
 
+## Releases
+
+- [Releases and downloads](./releases/) explains the Stable and Beta channels, where each platform's download lives, and how updates are ordered.
+
 ## Product operations
 
 - [Screen status](../operations/screen-status/) explains Fleet connection labels.

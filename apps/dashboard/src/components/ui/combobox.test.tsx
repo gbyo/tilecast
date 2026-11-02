@@ -51,7 +51,12 @@ describe("Combobox accessible names", () => {
           <ComboboxValue>
             {(value: Fruit[]) =>
               value.map((item) => (
-                <ComboboxChip key={item.id}>{item.label}</ComboboxChip>
+                <ComboboxChip
+                  key={item.id}
+                  removeLabel={`Remove ${item.label}`}
+                >
+                  {item.label}
+                </ComboboxChip>
               ))
             }
           </ComboboxValue>
@@ -61,6 +66,8 @@ describe("Combobox accessible names", () => {
     );
 
     expect(screen.getByText("Apple")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove Apple" }),
+    ).toBeInTheDocument();
   });
 });

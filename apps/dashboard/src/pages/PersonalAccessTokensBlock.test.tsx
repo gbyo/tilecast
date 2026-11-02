@@ -62,6 +62,14 @@ describe("PersonalAccessTokensBlock", () => {
     expect(screen.getByText(/old-script.*Expired/)).toBeInTheDocument();
   });
 
+  it("names token scopes by their labels, not their identifiers", async () => {
+    renderBlock();
+
+    // The second fixture token carries read and write scopes.
+    expect(await screen.findByText(/Read · Write/)).toBeInTheDocument();
+    expect(screen.queryByText(/read · write/)).toBeNull();
+  });
+
   it("shows the new secret once on a confirmation screen", async () => {
     const user = userEvent.setup();
     const writeText = vi

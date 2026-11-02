@@ -28,6 +28,19 @@ describe("DateInput", () => {
     expect(onChange).toHaveBeenCalledWith("2026-09-15");
   });
 
+  it("does not show an impossible calendar date as a real one", () => {
+    render(<DateInput id="date" value="2026-02-31" onChange={vi.fn()} />);
+    // Rolling February 31 into March would display March 3. It must show nothing.
+    expect(
+      screen.queryByRole("button", {
+        name: new Date(2026, 2, 3).toLocaleDateString(),
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /pick a date/i }),
+    ).toBeInTheDocument();
+  });
+
   it("shows the selected date and clears it on request", async () => {
     const onChange = vi.fn();
     render(<DateInput id="date" value="2026-09-23" onChange={onChange} />);

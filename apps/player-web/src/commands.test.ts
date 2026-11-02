@@ -2,6 +2,7 @@ import { IDBFactory, IDBKeyRange } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
 import { PlayerAPI } from "./api";
 import { BROWSER_COMMANDS } from "./capabilities.gen";
+import { CapabilityProviderRegistry } from "./capability-providers";
 import {
   CommandRunner,
   CommandStore,
@@ -177,6 +178,36 @@ describe("Browser Player commands", () => {
     expect(h.remote.results.every((entry) => entry["success"] === false)).toBe(
       true,
     );
+  });
+
+  it("routes a provider-backed command through the registry", async () => {
+    const database = await openDatabase(new IDBFactory());
+    const remote = server(() => [command("display_power_off", "k1")]);
+    const registry = new CapabilityProviderRegistry();
+    const seen: { operation: string; input: Record<string, unknown> }[] = [];
+    registry.add({
+      id: "fake-display",
+      describe: () => ({
+        "display.power": { version: 1, provider: "fake" },
+      }),
+      invoke: async (operation, input) => {
+        seen.push({ operation, input });
+        return { success: true, code: "fake_powered_off" };
+      },
+    });
+    const runner = new CommandRunner(
+      remote.api,
+      new CommandStore(database, "slot"),
+      browserCommandHandlers(controls()),
+      registry,
+    );
+    await runner.poll();
+    expect(seen).toEqual([
+      { operation: "display.power", input: { state: "off" } },
+    ]);
+    expect(remote.results).toEqual([
+      { success: true, code: "fake_powered_off", message: "" },
+    ]);
   });
 
   it("bounds identify to the range the Runtime accepts", async () => {

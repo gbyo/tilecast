@@ -10,7 +10,7 @@ import kotlinx.serialization.SerialName
 object PlayerPresentationSupport {
     val schemas = listOf(1)
     val native = PresentationCapabilities.BASELINE_DECLARATIVE_PRESENTATION_CAPABILITIES
-    const val webRuntimeVersion = 2
+    const val webRuntimeVersion = org.tilecast.player.core.RendererProfile.WEB_REMOTE_VERSION
     const val webBundleLimitBytes = 20L * 1024 * 1024
 }
 

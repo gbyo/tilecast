@@ -39,6 +39,7 @@ jobs:
       ci: ${{ steps.paths.outputs.ci }}
       player_core: ${{ steps.paths.outputs.player_core }}
       browser_player: ${{ steps.paths.outputs.browser_player }}
+      setup_relay: ${{ steps.paths.outputs.setup_relay }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -74,6 +75,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.browser_player == 'true'
     uses: ./.github/workflows/validate-player-web.yml
+
+  setup_relay_ci:
+    needs: changes
+    if: needs.changes.outputs.setup_relay == 'true'
+    uses: ./.github/workflows/validate-setup-relay.yml
 
   android_ci:
     needs: changes
@@ -155,6 +161,7 @@ jobs:
       - ci_contract
       - player_core_ci
       - browser_player_ci
+      - setup_relay_ci
       - android_ci
       - linux_player_ci
       - server_ci
@@ -177,6 +184,8 @@ jobs:
           PLAYER_CORE_CI_RESULT: ${{ needs.player_core_ci.result }}
           BROWSER_PLAYER_CI_SELECTED: ${{ needs.changes.outputs.browser_player == 'true' }}
           BROWSER_PLAYER_CI_RESULT: ${{ needs.browser_player_ci.result }}
+          SETUP_RELAY_CI_SELECTED: ${{ needs.changes.outputs.setup_relay == 'true' }}
+          SETUP_RELAY_CI_RESULT: ${{ needs.setup_relay_ci.result }}
           ANDROID_CI_SELECTED: ${{ needs.changes.outputs.android == 'true' }}
           ANDROID_CI_RESULT: ${{ needs.android_ci.result }}
           LINUX_PLAYER_CI_SELECTED: ${{ needs.changes.outputs.linux == 'true' }}
@@ -221,6 +230,7 @@ jobs:
           check ci_contract "$CI_CONTRACT_SELECTED" "$CI_CONTRACT_RESULT"
           check player_core_ci "$PLAYER_CORE_CI_SELECTED" "$PLAYER_CORE_CI_RESULT"
           check browser_player_ci "$BROWSER_PLAYER_CI_SELECTED" "$BROWSER_PLAYER_CI_RESULT"
+          check setup_relay_ci "$SETUP_RELAY_CI_SELECTED" "$SETUP_RELAY_CI_RESULT"
           check android_ci "$ANDROID_CI_SELECTED" "$ANDROID_CI_RESULT"
           check linux_player_ci "$LINUX_PLAYER_CI_SELECTED" "$LINUX_PLAYER_CI_RESULT"
           check server_ci "$SERVER_CI_SELECTED" "$SERVER_CI_RESULT"

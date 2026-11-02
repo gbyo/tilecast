@@ -116,6 +116,12 @@ pub struct WpePlatformProvider {
 }
 
 impl WpePlatformProvider {
+    /// Whether a DRM device exists. This process cannot judge whether the
+    /// renderer may open it: `tilecast-edge.service` has no DRM device access
+    /// by design, and the renderer service owns the `video` and `render`
+    /// groups. Reading the device from here would report a permission error
+    /// for a renderer that is rendering on it. The connected renderer reports
+    /// what it can use, and the daemon applies that report to this capability.
     fn drm_state(&self) -> (CapabilityState, Option<&'static str>, Option<&'static str>) {
         let Ok(entries) = std::fs::read_dir(&self.dri_dir) else {
             return (CapabilityState::Unsupported, Some("no_drm_device"), Some("No DRM display device was found."));
@@ -128,18 +134,11 @@ impl WpePlatformProvider {
         if cards.is_empty() {
             return (CapabilityState::Unsupported, Some("no_drm_device"), Some("No DRM display device was found."));
         }
-        let accessible = cards
-            .iter()
-            .any(|card| rustix::fs::access(card, rustix::fs::Access::READ_OK | rustix::fs::Access::WRITE_OK).is_ok());
-        if accessible {
-            (CapabilityState::Available, None, None)
-        } else {
-            (
-                CapabilityState::Blocked,
-                Some("drm_permission_denied"),
-                Some("A DRM device exists but the tilecast account cannot open it (video group or seat ACL missing)."),
-            )
-        }
+        (
+            CapabilityState::Supported,
+            Some("drm_unverified"),
+            Some("A DRM device is present. The renderer reports whether it can use it."),
+        )
     }
 
     fn wayland_state(&self) -> (CapabilityState, Option<&'static str>, Option<&'static str>) {
@@ -238,6 +237,30 @@ mod tests {
         assert_eq!(drm.reason_code.as_ref().map(|r| r.as_str()), Some("no_drm_device"));
         let headless = found.iter().find(|c| c.id.as_str() == ids::RENDERER_WPE_HEADLESS).expect("headless");
         assert_eq!(headless.state, CapabilityState::Available);
+    }
+
+    #[tokio::test]
+    async fn a_present_drm_device_is_never_reported_as_permission_denied_by_the_daemon() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let dri = dir.path().join("dri");
+        std::fs::create_dir(&dri).expect("dri");
+        let card = dri.join("card0");
+        std::fs::write(&card, b"").expect("card");
+        // The daemon account has no access to this node, as with the real
+        // device under `DevicePolicy=closed`.
+        std::fs::set_permissions(&card, std::os::unix::fs::PermissionsExt::from_mode(0o000)).expect("mode");
+        let binary = dir.path().join("tilecast-renderer-wpe");
+        std::fs::write(&binary, b"").expect("write");
+        let provider = WpePlatformProvider {
+            renderer_binary: binary,
+            dri_dir: dri,
+            wayland_runtime_dir: None,
+            wayland_display: None,
+        };
+        let found = provider.probe(now()).await.expect("probe");
+        let drm = found.iter().find(|c| c.id.as_str() == ids::RENDERER_WPE_DRM).expect("drm");
+        assert_eq!(drm.state, CapabilityState::Supported);
+        assert_eq!(drm.reason_code.as_ref().map(|r| r.as_str()), Some("drm_unverified"));
     }
 
     #[tokio::test]

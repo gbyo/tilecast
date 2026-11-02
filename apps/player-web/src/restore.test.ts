@@ -53,6 +53,63 @@ async function committed() {
   return { database, memory, store, activation };
 }
 
+async function committedWithFrame() {
+  const frameBody = "<!doctype html><html><body>score</body></html>";
+  const frameDigest = createHash("sha256").update(frameBody).digest("hex");
+  const database = await openDatabase(new IDBFactory());
+  const memory = memoryStore();
+  const index = new IndexedObjects(database);
+  const store = () => new VerifiedStore(index, memory.files, 10_000);
+  await store().prepare(
+    { digest, size: body.length, mimeType: "video/mp4" },
+    async () => new Response(body),
+  );
+  await store().prepare(
+    { digest: frameDigest, size: frameBody.length, mimeType: "text/html" },
+    async () => new Response(frameBody),
+  );
+  const activation: PreparedActivation = await commitActivation(database, {
+    ...binding,
+    generation: 1,
+    activationId: "activation",
+    resources: [
+      {
+        assetId: "a",
+        variantId: "v",
+        digest,
+        size: body.length,
+        mimeType: "video/mp4",
+      },
+    ],
+    frames: [
+      {
+        digest: frameDigest,
+        size: frameBody.length,
+        mimeType: "text/html",
+        packageId: "acme.athletics",
+        packageDigest: "sha256:" + digest,
+        frameDigest,
+      },
+    ],
+    presentation: {
+      type: "presentation",
+      presentation: { state: "idle" },
+      projection: { schema: 1, clockOffsetMs: 0, manifest: {}, media: [] },
+    },
+    plugins: { type: "plugins", plugins: [], clockOffsetMs: 0 },
+  });
+  const frameUri = activation.presentation.projection!.widgetFrames![0]!.uri;
+  return {
+    database,
+    memory,
+    store,
+    activation,
+    frameUri,
+    frameDigest,
+    frameBody,
+  };
+}
+
 describe("offline restoration of the last committed activation", () => {
   it("restores an activation whose resources still match, without any server", async () => {
     const h = await committed();
@@ -119,6 +176,33 @@ describe("offline restoration of the last committed activation", () => {
     expect(
       await activeGrant(h.database, h.activation.plugins.media![0]!.uri),
     ).toBeUndefined();
+  });
+
+  it("rehashes committed frames before their grants authorize reads", async () => {
+    const h = await committedWithFrame();
+    const restored = await restoreLocalActivation(
+      h.database,
+      h.store(),
+      binding,
+    );
+    expect(restored?.activationId).toBe("activation");
+    expect(await activeGrant(h.database, h.frameUri)).toMatchObject({
+      kind: "frame",
+      activationId: "activation",
+    });
+  });
+
+  it("discards the whole activation for a corrupted frame", async () => {
+    const h = await committedWithFrame();
+    h.memory.bytes.set(
+      h.frameDigest,
+      new Blob(["y".repeat(h.frameBody.length)]),
+    );
+    expect(
+      await restoreLocalActivation(h.database, h.store(), binding),
+    ).toBeUndefined();
+    expect(await loadActivation(h.database, "slot")).toBeUndefined();
+    expect(await activeGrant(h.database, h.frameUri)).toBeUndefined();
   });
 
   it("restores nothing for a browser that was never bound", async () => {

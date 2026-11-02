@@ -72,6 +72,7 @@ func browserPlayerRoute(path string) bool {
 	}
 	return strings.HasPrefix(path, "/api/v1/player/assets/") || strings.HasPrefix(path, "/api/v1/player/span-panels/") ||
 		strings.HasPrefix(path, "/api/v1/player/browser/") ||
+		strings.HasPrefix(path, "/api/v1/player/packages/") ||
 		strings.HasPrefix(path, "/api/v1/player/commands/") && (strings.HasSuffix(path, "/acknowledge") || strings.HasSuffix(path, "/result"))
 }
 

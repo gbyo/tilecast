@@ -39,6 +39,7 @@ typedef struct {
   char uri[128];
   guint64 size_bytes;
   char *mime_type;
+  gboolean external_plugin;
 } TcContentRef;
 
 typedef struct _TcHost TcHost;
@@ -93,6 +94,8 @@ struct _TcHost {
   /* Daemon-provided state. */
   GPtrArray *content;          /* TcContentRef*, current activation + plugins */
   GPtrArray *plugin_content;   /* TcContentRef*, current plugin state */
+  GPtrArray *frames;           /* TcContentRef*, current activation frame allowlist */
+  GPtrArray *plugin_frames;    /* TcContentRef*, independent plugin frame allowlist */
   GHashTable *media_aliases;   /* "<asset>/<variant>" -> capability URI, from plugin state */
   char *current_activation_id;
   gint64 current_generation;
@@ -135,6 +138,13 @@ void tc_protocol_send_health (TcHost *host, const char *state, const char *reaso
 
 /* preview.c: answers preview.request with a bounded JPEG of the view. */
 void tc_preview_capture (TcHost *host, JsonObject *data);
+/* Follows the buffers the view presents, so a capture shows what the display
+ * shows (HTML video included). Attach once, before the first frame. */
+void tc_preview_attach_view (TcHost *host, WPEView *view);
+/* Drops the retained buffer, for example after the web process died. */
+void tc_preview_clear_presented_buffer (TcHost *host);
+/* Disconnects from the view and drops the retained buffer. */
+void tc_preview_detach_view (TcHost *host);
 
 /* drm-probe.c: --probe-drm. Prints one JSON object; returns the exit status. */
 int tc_drm_probe (const char *dri_dir);
@@ -153,6 +163,7 @@ void tc_view_reply_json (TcHost *host, WebKitScriptMessageReply *reply, const ch
 /* schemes.c */
 void tc_schemes_register (TcHost *host);
 const TcContentRef *tc_host_find_content (TcHost *host, const char *uri);
+const TcContentRef *tc_host_find_frame (TcHost *host, const char *uri);
 void tc_content_ref_free (gpointer ref);
 
 G_END_DECLS

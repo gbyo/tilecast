@@ -137,7 +137,7 @@ fn iso(ms: i64) -> Option<String> {
 /// committed and pending manifest versions, and what the renderer is actually
 /// showing and why.
 pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
-    let (current, current_item, progress_at, safe_mode, ready) = {
+    let (current, current_item, progress_at, safe_mode, ready, native_services) = {
         let engine = context.presentation.lock().unwrap_or_else(|poison| poison.into_inner());
         (
             engine.current().cloned(),
@@ -145,6 +145,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
             engine.last_progress_at(),
             engine.is_safe_mode(),
             engine.renderer_is_ready(),
+            engine.native_plugin_capabilities(),
         )
     };
     let healthy = ready
@@ -168,7 +169,18 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
     let native: serde_json::Map<String, serde_json::Value> = crate::renderer_adapter::profile::NATIVE_CAPABILITIES
         .iter()
         .chain(crate::widget_capabilities::WIDGET_COMPONENTS)
+        .chain(std::iter::once(&(
+            player_types::frames::EXTERNAL_RUNTIME_CAPABILITY,
+            player_types::frames::EXTERNAL_RUNTIME_FRAME_VERSION,
+        )))
         .map(|(name, version)| ((*name).to_owned(), serde_json::json!(version)))
+        // Plugin API v2: the Shared Runtime hosts it on this player, and the
+        // native services this build provides are reported as they are.
+        .chain(
+            player_core::shared_runtime_plugin_capabilities()
+                .map(|(name, version)| (name.to_owned(), serde_json::json!(version))),
+        )
+        .chain(native_services.into_iter().map(|(name, version)| (name, serde_json::json!(version))))
         .collect();
     let (screen_width, screen_height) = crate::device::display_size(None);
     let mut heartbeat = serde_json::json!({
@@ -187,7 +199,7 @@ pub async fn build_heartbeat(context: &DaemonContext) -> serde_json::Value {
         "nativePresentationCapabilities": native,
         // The remote web environment serves surfaces once the UI thread
         // starts; its process events maintain the flag.
-        "webRuntimeVersion": i32::from(context.remote_web_available.load(std::sync::atomic::Ordering::Acquire)),
+        "webRuntimeVersion": if context.remote_web_available.load(std::sync::atomic::Ordering::Acquire) { crate::renderer_adapter::profile::WEB_RUNTIME_VERSION } else { 0 },
     });
     // `lastMeaningfulProgressAt` is a telemetry field, not a heartbeat one:
     // the server's strict HTTP heartbeat decoding refuses the whole message

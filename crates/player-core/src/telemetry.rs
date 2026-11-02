@@ -41,6 +41,15 @@ pub struct TelemetryGauges {
     pub item_started_at: Option<player_types::Timestamp>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_meaningful_progress_at: Option<player_types::Timestamp>,
+    /// How long the content on screen has failed to produce the evidence it
+    /// owes. Omitted while playback is healthy.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub playback_stall_duration_ms: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stall_reason: Option<String>,
+    /// Whether the content on screen is supposed to be moving (video).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expected_motion: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub renderer_state: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

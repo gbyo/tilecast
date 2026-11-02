@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 )
 
@@ -60,7 +61,7 @@ func (s *Service) ValidatePresentationInTx(ctx context.Context, tx pgx.Tx, conte
 	if id == uuid.Nil || (contentType != "playlist" && contentType != "layout" && contentType != "asset") {
 		return fmt.Errorf("%w: content reference is invalid", ErrPresentationNotReady)
 	}
-	state := readinessState{tx: tx, at: at.UTC(), visited: map[string]bool{}, active: map[string]bool{}}
+	state := readinessState{tx: tx, at: at.UTC(), visited: map[string]bool{}, active: map[string]bool{}, definitions: s.definitions}
 	switch contentType {
 	case "playlist":
 		return state.playlist(ctx, id, false)
@@ -77,7 +78,7 @@ func (s *Service) ValidatePresentationNowInTx(ctx context.Context, tx pgx.Tx, co
 	if err := s.ValidatePresentationInTx(ctx, tx, contentType, id, at); err != nil {
 		return err
 	}
-	state := readinessState{tx: tx, at: at.UTC(), visited: map[string]bool{}, active: map[string]bool{}}
+	state := readinessState{tx: tx, at: at.UTC(), visited: map[string]bool{}, active: map[string]bool{}, definitions: s.definitions}
 	var err error
 	switch contentType {
 	case "playlist":
@@ -91,10 +92,11 @@ func (s *Service) ValidatePresentationNowInTx(ctx context.Context, tx pgx.Tx, co
 }
 
 type readinessState struct {
-	tx      pgx.Tx
-	at      time.Time
-	visited map[string]bool
-	active  map[string]bool
+	tx          pgx.Tx
+	at          time.Time
+	visited     map[string]bool
+	active      map[string]bool
+	definitions contentdefs.Catalogs
 }
 
 func (s *readinessState) enter(kind string, id uuid.UUID) (func(), error) {
@@ -122,32 +124,10 @@ func (s *readinessState) playlist(ctx context.Context, id uuid.UUID, requireAvai
 	} else if err != nil {
 		return err
 	}
-	rows, err := s.tx.Query(ctx, `SELECT id,asset_id,layout_id FROM playlist_items WHERE playlist_id=$1 ORDER BY position,id`, id)
+	refs, err := s.playlistReferences(ctx, id)
 	if err != nil {
 		return err
 	}
-	// pgx does not permit a second query on the same connection while rows are
-	// still being consumed. Materialize the tiny identity projection first so
-	// nested playlist/layout validation can safely query through the same tx.
-	type itemRef struct {
-		id      uuid.UUID
-		assetID uuid.UUID
-		layout  *uuid.UUID
-	}
-	refs := []itemRef{}
-	for rows.Next() {
-		var ref itemRef
-		if err = rows.Scan(&ref.id, &ref.assetID, &ref.layout); err != nil {
-			rows.Close()
-			return err
-		}
-		refs = append(refs, ref)
-	}
-	if err = rows.Err(); err != nil {
-		rows.Close()
-		return err
-	}
-	rows.Close()
 	count, available := 0, 0
 	for _, ref := range refs {
 		count++
@@ -179,6 +159,55 @@ func (s *readinessState) playlist(ctx context.Context, id uuid.UUID, requireAvai
 	return nil
 }
 
+type readinessItemRef struct {
+	id      uuid.UUID
+	assetID uuid.UUID
+	layout  *uuid.UUID
+}
+
+// playlistReferences resolves published membership for both readiness paths.
+// Tag playlists retain manual items for switching back to a static timeline;
+// those items do not participate while the published tag rule is active.
+func (s *readinessState) playlistReferences(ctx context.Context, id uuid.UUID) ([]readinessItemRef, error) {
+	rows, err := s.tx.Query(ctx, `WITH matched AS (
+		SELECT at.asset_id
+		FROM playlists p
+		JOIN playlist_tags pt ON pt.playlist_id=p.id
+		JOIN content_asset_tags at ON at.tag_id=pt.tag_id
+		WHERE p.id=$1 AND p.deleted_at IS NULL AND p.source_type='tag'
+		GROUP BY at.asset_id,p.tag_match
+		HAVING p.tag_match='any' OR (p.tag_match='all' AND count(*)=(SELECT count(*) FROM playlist_tags WHERE playlist_id=$1))
+	), items AS (
+		SELECT i.id,COALESCE(i.asset_id,'00000000-0000-0000-0000-000000000000'::uuid) AS asset_id,i.layout_id,i.position::bigint
+		FROM playlist_items i JOIN playlists p ON p.id=i.playlist_id
+		WHERE p.id=$1 AND p.deleted_at IS NULL AND p.source_type='static'
+		UNION ALL
+		SELECT a.id,a.id,NULL::uuid,row_number() OVER(ORDER BY lower(a.name),a.id)-1
+		FROM matched m JOIN assets a ON a.id=m.asset_id
+		WHERE a.deleted_at IS NULL AND a.archived_at IS NULL AND a.origin='library'
+		  AND a.type IN ('image','video') AND a.processing_status='ready'
+		  AND (a.expires_at IS NULL OR a.expires_at>$2)
+		  AND EXISTS(SELECT 1 FROM asset_variants WHERE asset_id=a.id AND deleted_at IS NULL AND player_compatible=TRUE)
+	)
+	SELECT id,asset_id,layout_id FROM items ORDER BY position,id`, id, s.at)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	// pgx does not permit a second query on the same connection while rows are
+	// still being consumed. Materialize the tiny identity projection first so
+	// nested playlist/layout validation can safely query through the same tx.
+	refs := []readinessItemRef{}
+	for rows.Next() {
+		var ref readinessItemRef
+		if err = rows.Scan(&ref.id, &ref.assetID, &ref.layout); err != nil {
+			return nil, err
+		}
+		refs = append(refs, ref)
+	}
+	return refs, rows.Err()
+}
+
 func (s *readinessState) layout(ctx context.Context, id uuid.UUID, requireAvailable bool) error {
 	leave, err := s.enter("layout", id)
 	if err != nil {
@@ -199,6 +228,9 @@ func (s *readinessState) layout(ctx context.Context, id uuid.UUID, requireAvaila
 	}
 	if err = layouts.ValidateDocument(document); err != nil {
 		return fmt.Errorf("%w: layout %q is invalid: %v", ErrPresentationNotReady, name, err)
+	}
+	if err = layouts.ValidatePlaybackLimits(ctx, s.tx, document, s.definitions); err != nil {
+		return fmt.Errorf("%w: layout %q playback limits: %v", ErrPresentationNotReady, name, err)
 	}
 	available := 0
 	if document.Canvas.BackgroundAssetID != nil {
@@ -249,7 +281,7 @@ func (s *readinessState) layout(ctx context.Context, id uuid.UUID, requireAvaila
 			if placement.PlaylistID == nil {
 				return fmt.Errorf("%w: layout %q playlist zone is missing its playlist", ErrPresentationNotReady, name)
 			}
-			if err = layouts.ValidatePlaylistZoneMediaOnly(ctx, s.tx, placement.PlaylistID); err != nil {
+			if err = layouts.ValidatePlaylistZoneItems(ctx, s.tx, placement.PlaylistID); err != nil {
 				return fmt.Errorf("%w: layout %q playlist zone: %v", ErrPresentationNotReady, name, err)
 			}
 			if err = s.playlist(ctx, *placement.PlaylistID, false); err != nil {
@@ -527,28 +559,10 @@ func (s *readinessState) presentationAvailable(ctx context.Context, kind string,
 	case "asset":
 		return s.renderableAssetAvailable(ctx, id)
 	case "playlist":
-		rows, err := s.tx.Query(ctx, `SELECT asset_id,layout_id FROM playlist_items WHERE playlist_id=$1 ORDER BY position,id`, id)
+		refs, err := s.playlistReferences(ctx, id)
 		if err != nil {
 			return false
 		}
-		type itemRef struct {
-			assetID uuid.UUID
-			layout  *uuid.UUID
-		}
-		refs := []itemRef{}
-		for rows.Next() {
-			var ref itemRef
-			if rows.Scan(&ref.assetID, &ref.layout) != nil {
-				rows.Close()
-				return false
-			}
-			refs = append(refs, ref)
-		}
-		if rows.Err() != nil {
-			rows.Close()
-			return false
-		}
-		rows.Close()
 		for _, ref := range refs {
 			if ref.layout != nil {
 				if s.presentationAvailable(ctx, "layout", *ref.layout, active) {

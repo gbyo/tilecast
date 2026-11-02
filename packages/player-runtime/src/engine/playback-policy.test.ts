@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { tilecastPlaybackPolicy } from "./playback-policy";
+import {
+  tilecastPlaybackPolicy,
+  videoReuseVerdict,
+  type VideoPlaybackConfig,
+  type VideoReuseSurface,
+} from "./playback-policy";
 
 interface SyncState {
   lastSeekAtMs: number | null;
@@ -355,5 +360,107 @@ describe("crossfade cleanup", () => {
         currentFill: 1,
       }),
     ).toBe(true);
+  });
+});
+
+describe("video surface reuse", () => {
+  const config: VideoPlaybackConfig = {
+    itemId: "v",
+    src: "tcmedia://cap/v",
+    fitMode: "contain",
+    audioEnabled: false,
+    volume: 1,
+    endOffsetMs: null,
+  };
+  const healthy: VideoReuseSurface = {
+    visible: true,
+    disposed: false,
+    failed: false,
+    shown: true,
+    readyState: 4,
+  };
+  const verdict = (
+    overrides: {
+      surface?: Partial<VideoReuseSurface>;
+      incoming?: Partial<VideoPlaybackConfig>;
+      outgoing?: Partial<VideoPlaybackConfig>;
+      sharedBoundary?: boolean;
+      incomingIsVideo?: boolean;
+      incomingStartMs?: number | null;
+    } = {},
+  ) =>
+    videoReuseVerdict({
+      sharedBoundary: overrides.sharedBoundary ?? true,
+      incomingIsVideo: overrides.incomingIsVideo ?? true,
+      surface: { ...healthy, ...overrides.surface },
+      outgoing: { ...config, ...overrides.outgoing },
+      incoming: { ...config, ...overrides.incoming },
+      incomingStartMs:
+        overrides.incomingStartMs === undefined ? 0 : overrides.incomingStartMs,
+    });
+
+  it("reuses the same media and settings on a shared boundary", () => {
+    expect(verdict()).toEqual({ reuse: true });
+    expect(verdict({ incomingStartMs: null })).toEqual({ reuse: true });
+    expect(verdict({ incomingStartMs: 4_000 })).toEqual({ reuse: true });
+  });
+
+  it.each([
+    ["not-a-shared-boundary", { sharedBoundary: false }],
+    ["not-video", { incomingIsVideo: false }],
+    ["surface-not-visible", { surface: { visible: false } }],
+    ["surface-disposed", { surface: { disposed: true } }],
+    ["surface-failed", { surface: { failed: true } }],
+    ["surface-not-ready", { surface: { shown: false } }],
+    ["surface-not-ready", { surface: { readyState: 1 } }],
+    ["item-changed", { incoming: { itemId: "w" } }],
+    ["source-changed", { incoming: { src: "tcmedia://cap/other" } }],
+    ["fit-changed", { incoming: { fitMode: "cover" } }],
+    ["audio-changed", { incoming: { audioEnabled: true } }],
+    ["volume-changed", { incoming: { volume: 0.5 } }],
+    ["trim-end-changed", { incoming: { endOffsetMs: 9_000 } }],
+    ["trim-end-changed", { outgoing: { endOffsetMs: 9_000 } }],
+  ] as const)("refuses with %s", (reason, overrides) => {
+    expect(verdict(overrides)).toEqual({ reuse: false, reason });
+  });
+
+  it("does not decide on the item id alone", () => {
+    // The same id, a different file: this is not the same video.
+    expect(verdict({ incoming: { src: "tcmedia://cap/replaced" } })).toEqual({
+      reuse: false,
+      reason: "source-changed",
+    });
+    // The same file, a different item: the occurrence has its own identity.
+    expect(verdict({ incoming: { itemId: "other" } })).toEqual({
+      reuse: false,
+      reason: "item-changed",
+    });
+  });
+
+  it("refuses a start offset outside the trimmed clip", () => {
+    const trimmed = { endOffsetMs: 10_000 };
+    const out = { reuse: false, reason: "start-out-of-range" };
+    expect(
+      verdict({
+        incoming: trimmed,
+        outgoing: trimmed,
+        incomingStartMs: 10_000,
+      }),
+    ).toEqual(out);
+    expect(
+      verdict({ incoming: trimmed, outgoing: trimmed, incomingStartMs: 9_999 }),
+    ).toEqual({ reuse: true });
+    expect(verdict({ incomingStartMs: -1 })).toEqual(out);
+    expect(verdict({ incomingStartMs: Number.NaN })).toEqual(out);
+  });
+
+  it("checks the element before the item", () => {
+    // An unusable element is reported as such even when the media also changed.
+    expect(
+      verdict({
+        surface: { failed: true },
+        incoming: { itemId: "w", src: "tcmedia://cap/w" },
+      }),
+    ).toEqual({ reuse: false, reason: "surface-failed" });
   });
 });

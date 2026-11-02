@@ -1,4 +1,5 @@
 import { contentQueries } from "../data/content";
+import { isAppleControlClick } from "../lib/pointer";
 import { cn } from "cn";
 import { layoutKeys, layoutQueries } from "../data/layouts";
 import { ContentPicker, PlaylistPicker } from "../components/content-picker";
@@ -114,6 +115,11 @@ import { PlacementInspector } from "../components/layout-editor/PlacementInspect
 import { toast } from "../components/ui/toast";
 import { LayoutPlacementView as PlacementView } from "../components/layout-editor/LayoutPlacementView";
 import {
+  playlistZoneIssue,
+  playlistZoneQueryKey,
+  usePlaylistZoneIssues,
+} from "../components/layout-editor/playlistZoneIssues";
+import {
   LayoutCaptureCoordinator,
   LAYOUT_CAPTURE_SETTLE_TIMEOUT_MS,
   layoutPreviewNeedsCapture,
@@ -214,6 +220,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { UsedByPanel } from "../content/UsedByPanel";
 import { useFormatLocale } from "../i18n";
 import { captureLayoutPreview } from "../content/widgetPreviewCapture";
+import { hasCapability } from "../auth/capabilities";
 
 // Room the canvas keeps clear of the floating chrome: the dock on the left
 // (12px inset + 46px wide) and the zoom bar at the bottom (12px inset + 32px
@@ -635,10 +642,10 @@ export function LayoutEditorPage() {
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
-  const canPublish = ["owner", "administrator", "editor"].includes(
-    auth.status?.user?.role ?? "",
-  );
-  const canSubmit = canPublish || auth.status?.user?.role === "contributor";
+  // Publishing directly needs layout.publish; an author without it submits
+  // the draft for review instead.
+  const canPublish = hasCapability(auth.status, "layout.publish");
+  const canSubmit = canPublish || hasCapability(auth.status, "layout.edit");
   const queryClient = useQueryClient();
   const layoutQuery = useQuery(layoutQueries.detail(id));
   const contentQuery = useQuery({
@@ -727,6 +734,9 @@ export function LayoutEditorPage() {
     [contentQuery.data?.items, definitionsQuery.data],
   );
   const [document, setDocument] = useState<LayoutDocument>();
+  // Playlist zones whose Playlist holds items a zone cannot play. Checked
+  // against the Playlist as it is now, so a later Playlist edit shows up too.
+  const zoneIssues = usePlaylistZoneIssues(document);
   const [selection, setSelection] = useState(new Set<string>());
   const [past, setPast] = useState<LayoutDocument[]>([]);
   const [future, setFuture] = useState<LayoutDocument[]>([]);
@@ -1575,17 +1585,47 @@ export function LayoutEditorPage() {
         : t("editor.addedMany", { count: assets.length }),
     );
   };
-  const addPlaylistZone = (
+  const addPlaylistZone = async (
     playlist: Playlist,
     position?: { x: number; y: number },
   ) => {
     if (!document) return;
-    rememberPlaylists([playlist]);
-    const item = createPlaylistZonePlacement(
-      playlist,
-      document.canvas,
-      position,
-    );
+    // The library list carries no item detail; the zone rule needs it.
+    let detail: Playlist;
+    try {
+      detail = await queryClient.fetchQuery({
+        queryKey: playlistZoneQueryKey(playlist.id),
+        queryFn: () => api.playlist(playlist.id),
+        staleTime: 10_000,
+      });
+    } catch {
+      // Without the items the zone rule can't be checked, so don't add it unchecked.
+      toast.add({
+        title: t("zoneIssue.checkFailedTitle"),
+        description: t("zoneIssue.checkFailedDescription", {
+          playlist: playlist.name,
+        }),
+        type: "error",
+      });
+      return;
+    }
+    const issue = playlistZoneIssue({ id: "", name: playlist.name }, detail);
+    if (issue) {
+      toast.add({
+        title: t("zoneIssue.addRefusedTitle"),
+        description: t("zoneIssue.addRefusedDescription", {
+          playlist: playlist.name,
+          items: issue.items
+            .slice(0, 5)
+            .map((item) => `${item.name} (${t(`zoneIssue.kind.${item.kind}`)})`)
+            .join(", "),
+        }),
+        type: "error",
+      });
+      return;
+    }
+    rememberPlaylists([detail]);
+    const item = createPlaylistZonePlacement(detail, document.canvas, position);
     stack(item);
     setSelection(new Set([item.id]));
     announceAdded(playlist.name);
@@ -1812,6 +1852,11 @@ export function LayoutEditorPage() {
   // Right-click target for the canvas menu. Capture-phase handlers set this
   // before the Base UI trigger opens, so the content always matches the pointer.
   const [menuTarget, setMenuTarget] = useState<LayoutMenuTarget | null>(null);
+  const openContextMenus = useRef(new Set<string>());
+  const trackContextMenu = (id: string, open: boolean) => {
+    if (open) openContextMenus.current.add(id);
+    else openContextMenus.current.delete(id);
+  };
   const openPlacementMenu = (
     _event: ReactMouseEvent<HTMLElement>,
     item: LayoutPlacement,
@@ -2059,6 +2104,7 @@ export function LayoutEditorPage() {
     item: LayoutPlacement,
     resize = false,
   ) => {
+    if (isAppleControlClick(event)) return;
     if (beginPan(event)) return;
     event.stopPropagation();
     if (activeTool) {
@@ -2181,6 +2227,8 @@ export function LayoutEditorPage() {
   };
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
+      // Base UI owns the keyboard for the lifetime of an open context menu.
+      if (openContextMenus.current.size > 0) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
         void save();
@@ -2194,9 +2242,6 @@ export function LayoutEditorPage() {
         (isInteractiveShortcutTarget(event.target) && !controlCommand)
       )
         return;
-      // While a context menu is up its own keys own the keyboard, so arrowing through
-      // the items does not also nudge or delete the selection behind it.
-      if (window.document.querySelector(".context-menu-layer")) return;
       if (event.key === "Escape" && activeToolRef.current) {
         setActiveTool(null);
         return;
@@ -2354,7 +2399,7 @@ export function LayoutEditorPage() {
     position?: { x: number; y: number },
   ) => {
     if (item.kind === "asset") addContent(item.asset, position);
-    else addPlaylistZone(item.playlist, position);
+    else void addPlaylistZone(item.playlist, position);
   };
 
   const dropLibraryItem = (event: ReactDragEvent<HTMLDivElement>) => {
@@ -2463,6 +2508,7 @@ export function LayoutEditorPage() {
       playlist={
         primary.playlistId ? playlistByID.get(primary.playlistId) : undefined
       }
+      zoneIssue={zoneIssues.byPlacement.get(primary.id)}
       dataSources={dataSources}
       update={(change) => mutateSelected(change)}
       duplicate={duplicateSelection}
@@ -2488,11 +2534,18 @@ export function LayoutEditorPage() {
         title={t("editor.sectionLayers")}
         meta={String(document.placements.length)}
       />
-      <ItemGroup className="gap-0.5 p-2" aria-label={t("editor.sectionLayers")}>
+      <ItemGroup
+        data-density-surface="collection"
+        className="gap-0.5 p-2"
+        aria-label={t("editor.sectionLayers")}
+      >
         {[...document.placements]
           .sort((a, b) => b.layer - a.layer)
           .map((item) => (
-            <ContextMenu key={item.id}>
+            <ContextMenu
+              key={item.id}
+              onOpenChange={(open) => trackContextMenu(item.id, open)}
+            >
               <ContextMenuTrigger
                 render={
                   <Item
@@ -3572,7 +3625,7 @@ export function LayoutEditorPage() {
           </ButtonGroup>
         </div>
       )}
-      <ContextMenu>
+      <ContextMenu onOpenChange={(open) => trackContextMenu("canvas", open)}>
         <ContextMenuTrigger
           render={
             <div
@@ -3584,6 +3637,7 @@ export function LayoutEditorPage() {
                 panMode === "dragging" && "cursor-grabbing",
               )}
               onPointerDown={(event) => {
+                if (isAppleControlClick(event)) return;
                 if (beginPan(event, true)) return;
                 if (activeTool) {
                   beginToolDraw(event);
@@ -3681,6 +3735,7 @@ export function LayoutEditorPage() {
                         ? playlistByID.get(item.playlistId)
                         : undefined
                     }
+                    zoneIssue={zoneIssues.byPlacement.get(item.id)}
                     assetsById={contentByID}
                     canvas={document.canvas}
                     captureCoordinator={captureCoordinator}
@@ -3830,7 +3885,9 @@ export function LayoutEditorPage() {
                           <MenubarSeparator />
                           <MenubarItem
                             disabled={
-                              saveState !== "saved" || publish.isPending
+                              saveState !== "saved" ||
+                              publish.isPending ||
+                              zoneIssues.issues.length > 0
                             }
                             onClick={() => publish.mutate()}
                           >
@@ -4138,7 +4195,11 @@ export function LayoutEditorPage() {
                     </DropdownMenuItem>
                     {canSubmit && (
                       <DropdownMenuItem
-                        disabled={saveState !== "saved" || publish.isPending}
+                        disabled={
+                          saveState !== "saved" ||
+                          publish.isPending ||
+                          zoneIssues.issues.length > 0
+                        }
                         onClick={() => publish.mutate()}
                       >
                         {publish.isPending && <Spinner aria-hidden="true" />}
@@ -4220,7 +4281,11 @@ export function LayoutEditorPage() {
                 <Button
                   type="button"
                   size="sm"
-                  disabled={saveState !== "saved" || publish.isPending}
+                  disabled={
+                    saveState !== "saved" ||
+                    publish.isPending ||
+                    zoneIssues.issues.length > 0
+                  }
                   aria-busy={publish.isPending || undefined}
                   onClick={() => publish.mutate()}
                 >
@@ -4258,6 +4323,43 @@ export function LayoutEditorPage() {
               {t("editor.conflictReload")}
             </Button>
           </AlertAction>
+        </Alert>
+      )}
+      {zoneIssues.issues.length > 0 && (
+        <Alert
+          variant="destructive"
+          className="shrink-0 rounded-none border-x-0 border-t-0"
+        >
+          <TriangleAlert aria-hidden="true" />
+          <AlertTitle>
+            {t("zoneIssue.bannerTitle", { count: zoneIssues.issues.length })}
+          </AlertTitle>
+          <AlertDescription>
+            {t("zoneIssue.bannerDescription")}
+            <ul className="mt-1 list-disc ps-5">
+              {zoneIssues.issues.map((issue) => (
+                <li key={issue.placementId}>
+                  <button
+                    type="button"
+                    className="underline underline-offset-2"
+                    onClick={() => setSelection(new Set([issue.placementId]))}
+                  >
+                    {issue.placementName}
+                  </button>
+                  {" — "}
+                  {issue.items
+                    .slice(0, 3)
+                    .map(
+                      (item) =>
+                        `${item.name} (${t(`zoneIssue.kind.${item.kind}`)})`,
+                    )
+                    .join(", ")}
+                  {issue.items.length > 3 &&
+                    ` ${t("zoneIssue.more", { count: issue.items.length - 3 })}`}
+                </li>
+              ))}
+            </ul>
+          </AlertDescription>
         </Alert>
       )}
       <div className={cn("min-h-0 flex-1", !desktop && "min-h-[70vh]")}>
@@ -4302,7 +4404,8 @@ export function LayoutEditorPage() {
           description={t("editor.pickerPlaylistDescription")}
           confirmLabel={t("editor.pickerConfirm")}
           onConfirm={(choice) => {
-            if (choice.kind === "playlist") addPlaylistZone(choice.playlist);
+            if (choice.kind === "playlist")
+              void addPlaylistZone(choice.playlist);
             setPickerOpen(false);
           }}
           onClose={() => setPickerOpen(false)}

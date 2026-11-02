@@ -15,6 +15,7 @@
     "./sandbox-bridge": "./src/sandbox-bridge.ts",
     "./discovery": "./src/discovery.ts",
     "./fixtures": "./src/fixtures.ts",
+    "./identity": "./src/identity.ts",
     "./testing": "./src/testing.ts",
     "./schema/tilecast-widget.schema.json": "./schema/tilecast-widget.schema.json",
     "./stories": "./src/stories.ts"

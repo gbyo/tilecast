@@ -9,11 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"image/jpeg"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
 	"github.com/tilecast/tilecast/apps/server/internal/manifestchanges"
 )
@@ -40,9 +42,15 @@ type Service struct {
 	notifier         Notifier
 	invalidator      ManifestInvalidator
 	publicationGuard func(context.Context, uuid.UUID, uuid.UUID, int64) error
+	definitions      contentdefs.Catalogs
 }
 
-func NewService(db *pgxpool.Pool) *Service       { return &Service{db: db} }
+func NewService(db *pgxpool.Pool) *Service {
+	return &Service{db: db, definitions: contentdefs.MustLoad()}
+}
+func (s *Service) SetContentDefinitions(definitions contentdefs.Catalogs) {
+	s.definitions = definitions
+}
 func (s *Service) SetNotifier(notifier Notifier) { s.notifier = notifier }
 func (s *Service) SetManifestInvalidator(invalidator ManifestInvalidator) {
 	s.invalidator = invalidator
@@ -223,9 +231,6 @@ func (s *Service) SaveDraft(ctx context.Context, id, userID uuid.UUID, expected 
 		return Layout{}, err
 	}
 	deps := Dependencies(document)
-	if err := s.validateDependencies(ctx, deps); err != nil {
-		return Layout{}, err
-	}
 	encoded, err := json.Marshal(document)
 	if err != nil {
 		return Layout{}, err
@@ -235,6 +240,12 @@ func (s *Service) SaveDraft(ctx context.Context, id, userID uuid.UUID, expected 
 		return Layout{}, err
 	}
 	defer tx.Rollback(ctx)
+	// Validate inside the transaction: the share locks taken on referenced
+	// Data Sources are held until the dependency rows commit, so a deletion
+	// that checks usage afterwards sees this draft.
+	if err := s.validateDependenciesTx(ctx, tx, deps); err != nil {
+		return Layout{}, err
+	}
 	command, err := tx.Exec(ctx, `UPDATE layouts SET draft_document=$1,draft_revision=draft_revision+1,orientation=$2,canvas_width=$3,canvas_height=$4,preview_image=NULL,preview_content_type=NULL,preview_width=NULL,preview_height=NULL,preview_updated_at=NULL,preview_capture_version=NULL,updated_by=$5,updated_at=now() WHERE id=$6 AND deleted_at IS NULL AND draft_revision=$7`, encoded, document.Canvas.Orientation, document.Canvas.Width, document.Canvas.Height, userID, id, expected)
 	if err != nil {
 		return Layout{}, err
@@ -529,6 +540,11 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 	return nil
 }
 
+// DraftDependencies lists what the Layout's current draft references.
+func (s *Service) DraftDependencies(ctx context.Context, id uuid.UUID) ([]Dependency, error) {
+	return s.draftDependencies(ctx, id)
+}
+
 func (s *Service) draftDependencies(ctx context.Context, id uuid.UUID) ([]Dependency, error) {
 	rows, err := s.db.Query(ctx, `SELECT dependency_type,dependency_id FROM layout_draft_dependencies WHERE layout_id=$1 ORDER BY dependency_type,dependency_id`, id)
 	if err != nil {
@@ -560,6 +576,20 @@ func (s *Service) validateDependencies(ctx context.Context, deps []Dependency) e
 	return s.validateDependencyQuery(ctx, s.db, deps)
 }
 func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, document Document) error {
+	return ValidatePlaybackLimits(ctx, tx, document, s.definitions)
+}
+
+// ValidatePlaybackLimits is shared by publication and assignment readiness.
+// A Playlist can acquire another video-capable item after its Layout publishes.
+func ValidatePlaybackLimits(ctx context.Context, tx queryer, document Document, definitions contentdefs.Catalogs) error {
+	remoteProviders := []string{"youtube"}
+	remote := map[string]bool{"youtube": true}
+	for _, definition := range definitions.Snapshot().Widgets {
+		if definition.Runtime == "web" {
+			remoteProviders = append(remoteProviders, definition.ID)
+			remote[definition.ID] = true
+		}
+	}
 	videoCapable, audioEmitting, youtubePlacements := 0, 0, 0
 	for _, placement := range document.Placements {
 		if !placement.Visible {
@@ -579,7 +609,7 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 			if err := tx.QueryRow(ctx, `SELECT provider FROM widgets WHERE asset_id=$1`, placement.WidgetID).Scan(&provider); err != nil {
 				return err
 			}
-			video = provider == "website" || provider == "youtube"
+			video = remote[provider]
 			if provider == "youtube" {
 				youtubePlacements++
 				// The embedded player needs at least 200x200 CSS pixels; the
@@ -599,15 +629,25 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 			}
 			audio = video && !muted
 		case "playlistZone":
-			if err := ValidatePlaylistZoneMediaOnly(ctx, tx, placement.PlaylistID); err != nil {
+			if err := ValidatePlaylistZoneItems(ctx, tx, placement.PlaylistID); err != nil {
 				return err
 			}
 			if err := tx.QueryRow(ctx, `SELECT EXISTS(
 				SELECT 1 FROM playlist_items i LEFT JOIN assets a ON a.id=i.asset_id
 				LEFT JOIN widgets src ON src.asset_id=a.id
-				WHERE i.playlist_id=$1 AND (i.layout_id IS NOT NULL OR a.type='video' OR src.provider IN ('website','youtube'))
-			)`, placement.PlaylistID).Scan(&video); err != nil {
+				WHERE i.playlist_id=$1 AND (a.type='video' OR src.provider=ANY($2::text[]))
+			)`, placement.PlaylistID, remoteProviders).Scan(&video); err != nil {
 				return err
+			}
+			var youtube bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlist_items i JOIN widgets w ON w.asset_id=i.asset_id WHERE i.playlist_id=$1 AND w.provider='youtube')`, placement.PlaylistID).Scan(&youtube); err != nil {
+				return err
+			}
+			if youtube {
+				youtubePlacements++
+				if placement.Width < 200 || placement.Height < 200 {
+					return errors.New("youtube playlist zones must be at least 200 by 200 pixels")
+				}
 			}
 			audio = video && (placement.Playback == nil || !placement.Playback.Muted)
 		}
@@ -630,10 +670,12 @@ func (s *Service) validatePlaybackLimitsTx(ctx context.Context, tx pgx.Tx, docum
 	return nil
 }
 
-// ValidatePlaylistZoneMediaOnly rejects Playlist items that the bounded Player
+// ValidatePlaylistZoneItems rejects Playlist items that the bounded Player
 // zone contract cannot project. Keep this check available to assignment
 // readiness as well as Layout publication because a Playlist can change later.
-func ValidatePlaylistZoneMediaOnly(ctx context.Context, q interface {
+// The error names the Playlist and the offending items so an operator can fix
+// the content instead of guessing. Widgets use negotiated Player capabilities.
+func ValidatePlaylistZoneItems(ctx context.Context, q interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }, playlistID *uuid.UUID) error {
 	if playlistID == nil {
@@ -643,14 +685,82 @@ func ValidatePlaylistZoneMediaOnly(ctx context.Context, q interface {
 	if err := q.QueryRow(ctx, `SELECT EXISTS(
 		SELECT 1 FROM playlist_items i
 		LEFT JOIN assets a ON a.id=i.asset_id
-		WHERE i.playlist_id=$1 AND (i.layout_id IS NOT NULL OR a.type NOT IN ('image','video'))
+		LEFT JOIN widgets w ON w.asset_id=a.id
+		WHERE i.playlist_id=$1 AND (i.layout_id IS NOT NULL OR a.id IS NULL OR a.type NOT IN ('image','video','widget') OR (a.type='widget' AND w.asset_id IS NULL))
 	)`, *playlistID).Scan(&unsupported); err != nil {
 		return err
 	}
-	if unsupported {
-		return errors.New("Layout playlist zones support only image and video items")
+	if !unsupported {
+		return nil
 	}
-	return nil
+	return &PlaylistZoneUnsupportedError{Detail: describePlaylistZoneItems(ctx, q, *playlistID)}
+}
+
+// PlaylistZoneUnsupportedError is returned when a Layout playlist zone points
+// at a Playlist with nested Layouts or unsupported content.
+type PlaylistZoneUnsupportedError struct {
+	// Detail names the Playlist and its offending items. It can be empty when
+	// the lookup that builds it fails; the rule violation stands regardless.
+	Detail string
+}
+
+func (e *PlaylistZoneUnsupportedError) Error() string {
+	message := "Layout playlist zones support images, videos, and supported Widgets; nested Layouts are unsupported"
+	if e.Detail == "" {
+		return message
+	}
+	return message + ". " + e.Detail
+}
+
+// maxZoneItemsNamed bounds how many offending items an error lists.
+const maxZoneItemsNamed = 5
+
+func describePlaylistZoneItems(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, playlistID uuid.UUID) string {
+	var name string
+	var total int
+	var items []byte
+	err := q.QueryRow(ctx, `SELECT p.name,
+		(SELECT count(*) FROM playlist_items i LEFT JOIN assets a ON a.id=i.asset_id LEFT JOIN widgets w ON w.asset_id=a.id
+			WHERE i.playlist_id=p.id AND (i.layout_id IS NOT NULL OR a.id IS NULL OR a.type NOT IN ('image','video','widget') OR (a.type='widget' AND w.asset_id IS NULL))),
+		COALESCE((SELECT jsonb_agg(jsonb_build_object('name',x.name,'kind',x.kind) ORDER BY x.position) FROM (
+			SELECT i.position, COALESCE(a.name,l.name,'') AS name,
+				CASE WHEN i.layout_id IS NOT NULL THEN 'Layout'
+					WHEN w.provider='website' THEN 'Website'
+					WHEN w.provider='youtube' THEN 'YouTube'
+					WHEN a.type='widget' THEN 'Widget'
+					ELSE 'Item' END AS kind
+			FROM playlist_items i
+			LEFT JOIN assets a ON a.id=i.asset_id
+			LEFT JOIN layouts l ON l.id=i.layout_id
+			LEFT JOIN widgets w ON w.asset_id=a.id
+			WHERE i.playlist_id=p.id AND (i.layout_id IS NOT NULL OR a.id IS NULL OR a.type NOT IN ('image','video','widget') OR (a.type='widget' AND w.asset_id IS NULL))
+			ORDER BY i.position LIMIT `+strconv.Itoa(maxZoneItemsNamed)+`) x),'[]'::jsonb)
+		FROM playlists p WHERE p.id=$1`, playlistID).Scan(&name, &total, &items)
+	if err != nil {
+		return ""
+	}
+	var named []struct {
+		Name string `json:"name"`
+		Kind string `json:"kind"`
+	}
+	if json.Unmarshal(items, &named) != nil || len(named) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(named))
+	for _, item := range named {
+		if item.Name == "" {
+			parts = append(parts, item.Kind)
+			continue
+		}
+		parts = append(parts, fmt.Sprintf("%s (%s)", item.Name, item.Kind))
+	}
+	listed := strings.Join(parts, ", ")
+	if total > len(named) {
+		listed += fmt.Sprintf(", and %d more", total-len(named))
+	}
+	return fmt.Sprintf("Playlist %q contains items a zone cannot play: %s. Remove unsupported entries from the Playlist. Nested Layouts must play as root content.", name, listed)
 }
 
 // validateStructuredBindingsTx checks that each custom text binding references an existing
@@ -694,7 +804,7 @@ func (s *Service) validateDependencyQuery(ctx context.Context, q queryer, deps [
 				return err
 			}
 		case "data_source":
-			err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM data_sources WHERE id=$1 AND deleted_at IS NULL)`, dep.ID).Scan(&valid)
+			err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM data_sources WHERE id=$1 AND deleted_at IS NULL FOR SHARE)`, dep.ID).Scan(&valid)
 			if err != nil {
 				return err
 			}

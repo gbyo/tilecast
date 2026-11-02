@@ -1,6 +1,7 @@
 import { ApiError } from "../../api/errors";
-import type { Screen, ScreenGroup } from "../../api/types";
+import type { Screen, ScreenGroup, AuthStatus } from "../../api/types";
 import { screenNeedsAttention } from "../fleet/fleetModel";
+import { hasCapability } from "../../auth/capabilities";
 
 export type GroupDetailTab =
   "overview" | "members" | "content" | "display" | "policy";
@@ -22,8 +23,9 @@ export function normalizeGroupDetailTab(
     : "overview";
 }
 
-export const canManageGroups = (role?: string) =>
-  role === "owner" || role === "administrator";
+/** The account may create, change, and delete Display Groups. */
+export const canManageGroups = (status?: AuthStatus) =>
+  hasCapability(status, "screen.manage");
 
 /** Where the tab for a group lives, for links and post-create navigation. */
 export function groupPath(id: string, tab?: GroupDetailTab) {

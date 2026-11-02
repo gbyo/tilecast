@@ -115,9 +115,9 @@ describe("localizeDefinitionField", () => {
   });
 });
 
-describe("the shipped Website and YouTube definitions", () => {
+describe("the shipped localized definitions", () => {
   const catalog = repositoryCatalog();
-  const keyed = ["website", "youtube"].map((id) =>
+  const keyed = ["website", "youtube", "event-scroller"].map((id) =>
     catalog.widgets.find((widget) => widget.id === id)!,
   );
 

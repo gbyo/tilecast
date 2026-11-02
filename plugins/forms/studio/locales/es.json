@@ -1,5 +1,12 @@
 {
   "access": {
+    "roles": {
+      "owner": "Propietario",
+      "administrator": "Administrador",
+      "editor": "Editor",
+      "contributor": "Colaborador",
+      "viewer": "Visor"
+    },
     "capabilities": {
       "manage": {
         "label": "Gestionar",
@@ -634,6 +641,7 @@
       "submissionsTitle": "Tus envíos",
       "submissionsLoading": "Cargando envíos…",
       "submissionsEmpty": "Aún no hay envíos",
+      "submissionsError": "No se pudieron cargar tus envíos. Inténtalo más tarde.",
       "submissionsEmptySubmit": "Inicia un envío para verlo aquí.",
       "submissionsEmptyNone": "No has enviado a este formulario.",
       "submissionsPages": "Páginas de tus envíos",

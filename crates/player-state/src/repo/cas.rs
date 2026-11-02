@@ -13,6 +13,7 @@ pub enum Domain {
     Update,
     RendererBundle,
     WidgetBundle,
+    WidgetFrame,
     LegacyState,
 }
 
@@ -23,6 +24,7 @@ impl Domain {
             Self::Update => "update",
             Self::RendererBundle => "renderer_bundle",
             Self::WidgetBundle => "widget_bundle",
+            Self::WidgetFrame => "widget_frame",
             Self::LegacyState => "legacy_state",
         }
     }
@@ -32,6 +34,7 @@ impl Domain {
             "update" => Self::Update,
             "renderer_bundle" => Self::RendererBundle,
             "widget_bundle" => Self::WidgetBundle,
+            "widget_frame" => Self::WidgetFrame,
             "legacy_state" => Self::LegacyState,
             _ => Self::Media,
         }
@@ -44,6 +47,7 @@ impl Domain {
             Self::LegacyState => 1,
             Self::RendererBundle => 2,
             Self::WidgetBundle => 2,
+            Self::WidgetFrame => 2,
             Self::Update => 3,
         }
     }
@@ -180,6 +184,17 @@ pub fn mark_verified(connection: &Connection, digest: &Sha256Digest, now: Timest
 /// After an unclean shutdown every object must be re-hashed before use.
 pub fn mark_all_suspect(connection: &Connection) -> Result<usize> {
     Ok(connection.execute("UPDATE cas_objects SET verify_state = 'suspect'", [])?)
+}
+
+/// Drops every object, partial, and pin row. Used when the cache directories
+/// are quarantined: the rows would otherwise describe files that moved away.
+pub fn forget_all(connection: &mut Connection) -> Result<()> {
+    let tx = connection.transaction()?;
+    tx.execute("DELETE FROM cas_pins", [])?;
+    tx.execute("DELETE FROM cas_partials", [])?;
+    tx.execute("DELETE FROM cas_objects", [])?;
+    tx.commit()?;
+    Ok(())
 }
 
 /// Applies batched access times (docs/tilecast-edge.md §6.2: never one write per read).

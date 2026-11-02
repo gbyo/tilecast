@@ -129,7 +129,7 @@ impl DaemonHandlers {
     }
 
     async fn restart_renderer(&self, code: &str) -> CommandResult {
-        if self.context.presentation.lock().await.restart_renderer("command") {
+        if self.context.presentation.lock().await.restart_renderer("command", self.context.now().unix_millis()) {
             crate::presentation::persist_supervision(&self.context).await;
             CommandResult::ok(code, "")
         } else {

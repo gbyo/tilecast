@@ -52,9 +52,9 @@ You can also create a token from the CLI with `tilecast token create`. The CLI p
 
 A token acts as your account, and Tilecast Server checks your account again on every request:
 
-- Your role and screen access limit what the token can do. A scope never adds a permission your role doesn't have.
+- Your role, content access, and screen access limit what the token can do. A scope never adds a permission your role doesn't have.
 - The token's scopes limit it further. A token with only **Read** can't change anything, even if you're an Owner.
-- If your account is disabled, or your role or screen access changes, the token follows the change on its next request.
+- If your account is disabled, or your role, content access, or screen access changes, the token follows the change on its next request.
 - If the organization requires multi-factor authentication and you haven't enrolled, requests with the token are refused until you enroll in Studio.
 
 Some actions stay in the browser. A token can't enroll or remove sign-in factors, manage passkeys or recovery codes, or approve a CLI sign-in.

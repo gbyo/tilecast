@@ -58,6 +58,21 @@ pub struct ContentRef {
     pub mime_type: SafeText<127>,
 }
 
+/// One verified sandbox-frame document a presentation executes. The digest
+/// selects bytes from the frame domain; the package pair identifies the
+/// frame-table entry the Runtime joins. Frames are always documents; the
+/// serving layer names `text/html` itself.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FrameRef {
+    #[serde(default, skip_serializing_if = "player_types::frames::FrameKind::is_widget")]
+    pub kind: player_types::frames::FrameKind,
+    pub package_id: SafeText<128>,
+    pub package_digest: Sha256Digest,
+    pub sha256: Sha256Digest,
+    pub size_bytes: u64,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ItemKind {
@@ -138,12 +153,33 @@ pub struct StatusSurface {
     pub status: Option<SafeText<120>>,
 }
 
+/// Phone setup on the setup surface (docs/phone-setup.md), tagged by `state`
+/// exactly like the web runtime's `PhoneSetupStateV1`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum PhoneSetupDocument {
+    /// Show `url`, the setup page address, as a QR code.
+    Ready {
+        url: SafeText<512>,
+        /// The last address from a phone could not be used.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        rejected: bool,
+    },
+    /// The session reached its time limit; offer to resume it.
+    Paused {},
+    /// The setup relay cannot be reached; show no QR code.
+    Unavailable {},
+}
+
 /// The presentation union, tagged by `state` exactly like the web runtime.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum PresentationDocument {
     /// No server configured yet; the runtime shows its setup surface.
-    Setup {},
+    Setup {
+        #[serde(rename = "phoneSetup", default, skip_serializing_if = "Option::is_none")]
+        phone_setup: Option<PhoneSetupDocument>,
+    },
     Pairing {
         code: SafeText<16>,
         #[serde(rename = "approvalUrl")]
@@ -192,7 +228,7 @@ fn features<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<PresentationFe
 impl PresentationDocument {
     pub fn state_name(&self) -> &'static str {
         match self {
-            Self::Setup {} => "setup",
+            Self::Setup { .. } => "setup",
             Self::Pairing { .. } => "pairing",
             Self::Idle(_) => "idle",
             Self::Disabled(_) => "disabled",

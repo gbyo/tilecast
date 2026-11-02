@@ -15,15 +15,23 @@
  *   and the parent never sends the channel to a newly loaded document,
  *   so the connection dies with the document it was bound to.
  * - The hello is authenticated before the transfer: it must come from
- *   the placement's own frame window, from the expected origin (the
- *   frame origin for `hosted`, `"null"` for inline embeddings), and —
- *   for inline documents the parent built — it must echo the per-attach
- *   token embedded in that document. A substituted document cannot
- *   hello its way to the init it never received.
+ *   the placement's own frame window, from the opaque origin `"null"`
+ *   every sandboxed frame posts as (hosted or inline: the sandbox
+ *   never grants `allow-same-origin`), and it must echo the per-attach
+ *   token the parent bound to that document — in the frame URL
+ *   fragment for hosted documents, interpolated for inline ones. A
+ *   substituted document cannot hello its way to the init it never
+ *   received.
  * - Every placement also mints a 128-bit nonce. The parent sends it with
  *   `init`; the frame echoes it on every report, and the parent drops
  *   anything that does not match. A stale or foreign frame cannot drive
  *   another placement's state.
+ * - Every input carries a revision, starting at 1 per attach. The frame
+ *   assigns it to the element (the same `Symbol.for` key WidgetMount
+ *   uses, so SDK-built Widgets announce with it), drops element events
+ *   from an older revision, and echoes it on every report; the parent
+ *   drops reports from an older revision. A slow asynchronous Widget
+ *   can never settle a previous input after an update.
  * - The parent sends only the Widget contract: bounded config, prepared
  *   data documents, host-authorized media URIs, and a serializable
  *   context snapshot. No credentials, no storage handles, no host
@@ -97,6 +105,8 @@ export interface ParentToFrameMessage {
   readonly protocol: typeof SANDBOX_BRIDGE_PROTOCOL;
   readonly nonce: string;
   readonly kind: ParentToFrameKind;
+  /** Input revision: 1 on `init`, bumped on every in-place `update`. */
+  readonly revision: number;
   readonly snapshot?: SandboxSnapshot;
 }
 
@@ -129,6 +139,8 @@ export function parseFrameHello(data: unknown): FrameHelloMessage | null {
 export interface FrameStateReport {
   readonly protocol: typeof SANDBOX_BRIDGE_PROTOCOL;
   readonly nonce: string;
+  /** Echo of the input revision the frame applied for this report. */
+  readonly revision: number;
   readonly state: WidgetMountState;
 }
 
@@ -198,26 +210,28 @@ export interface FrameMessageEvent {
 
 /**
  * Parse one inbound frame message. Anything from a non-opaque origin,
- * any protocol or nonce mismatch, or any malformed body answers null:
- * the caller drops it without touching placement state.
+ * any protocol, nonce, or revision mismatch, or any malformed body
+ * answers null: the caller drops it without touching placement state.
  */
 export function parseFrameMessage(
   event: FrameMessageEvent,
   nonce: string,
+  revision: number,
 ): FrameStateReport | null {
   if (event.origin !== "null") return null;
-  return parseFrameReport(event.data, nonce);
+  return parseFrameReport(event.data, nonce, revision);
 }
 
 /**
  * Parse one report body without an origin check. Port traffic carries no
  * origin — the transferred port is the authentication — so the executor
- * parses what its own port delivers and still drops anything malformed
- * or nonce-mismatched.
+ * parses what its own port delivers and still drops anything malformed,
+ * nonce-mismatched, or reported for a superseded input revision.
  */
 export function parseFrameReport(
   data: unknown,
   nonce: string,
+  revision: number,
 ): FrameStateReport | null {
   if (typeof data !== "object" || data === null) return null;
   const report = data as Partial<FrameStateReport>;
@@ -225,6 +239,7 @@ export function parseFrameReport(
   if (typeof report.nonce !== "string" || report.nonce !== nonce) {
     return null;
   }
+  if (report.revision !== revision) return null;
   const state = report.state;
   if (typeof state !== "object" || state === null) return null;
   const kind = (state as Partial<WidgetMountState>).state;
@@ -232,6 +247,7 @@ export function parseFrameReport(
     return {
       protocol: SANDBOX_BRIDGE_PROTOCOL,
       nonce,
+      revision,
       state: { state: "ready" },
     };
   }
@@ -239,6 +255,7 @@ export function parseFrameReport(
     return {
       protocol: SANDBOX_BRIDGE_PROTOCOL,
       nonce,
+      revision,
       state: {
         state: "empty",
         reason: boundedCode(
@@ -252,6 +269,7 @@ export function parseFrameReport(
     return {
       protocol: SANDBOX_BRIDGE_PROTOCOL,
       nonce,
+      revision,
       state: {
         state: "error",
         code: boundedCode((state as { code?: unknown }).code, "frame_error"),

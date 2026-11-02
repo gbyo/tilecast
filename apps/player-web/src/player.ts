@@ -27,6 +27,11 @@ import {
   CommandStore,
 } from "./commands";
 import {
+  CapabilityProviderRegistry,
+  encodeCapabilitySet,
+} from "./capability-providers";
+import { CompanionBridge } from "./companion-bridge";
+import {
   browserStatus,
   controllingShellVersion,
   describeBrowser,
@@ -122,6 +127,9 @@ export class BrowserPlayer {
   private index!: IndexedObjects;
   private activity: ActivityEngine | undefined;
   private commands: CommandRunner | undefined;
+  private readonly capabilityProviders = new CapabilityProviderRegistry();
+  private companion: CompanionBridge | undefined;
+  private reportedCapabilities: string | undefined;
   private link:
     { server: { installationId: string }; bound: BrowserSession } | undefined;
   private registration: ServiceWorkerRegistration | undefined;
@@ -165,6 +173,13 @@ export class BrowserPlayer {
       evidence: (value) => this.onEvidence(value),
       error: (value) => this.onPlaybackError(value),
     });
+    // The optional Companion contributes providers when it is installed
+    // and granted; without it the bridge stays silent.
+    this.companion = new CompanionBridge(
+      this.capabilityProviders,
+      __HOST_VERSION__,
+    );
+    this.companion.attach();
   }
 
   /** The Player stops: its page is going away or the host is shutting down. */
@@ -403,6 +418,7 @@ export class BrowserPlayer {
         skipItem: () => this.skipItem(),
         identify: (seconds) => this.identify(seconds),
       }),
+      this.capabilityProviders,
     );
   }
 
@@ -527,12 +543,7 @@ export class BrowserPlayer {
         backoff = outcome;
       }
       try {
-        await Promise.race([
-          pause(backoff, this.abort.signal),
-          new Promise<void>((resolve) =>
-            this.wake.addEventListener("wake", () => resolve(), { once: true }),
-          ),
-        ]);
+        await waitForPoll(this.wake, backoff, this.abort.signal);
       } catch {
         break;
       }
@@ -704,6 +715,20 @@ export class BrowserPlayer {
     const playing =
       meaningfulEvidence(this.state) &&
       this.active?.presentation.presentation.state === "playing";
+    // The capability report goes out when providers exist or the set
+    // changed: a steady empty set stays omitted, while a disconnect
+    // sends one explicit empty set that clears the stored report. The
+    // set counts as reported only once the server accepts it, so a
+    // failed clear goes out again on the next heartbeat.
+    const described = this.capabilityProviders.describe();
+    const encoded = encodeCapabilitySet(described);
+    const capabilities =
+      encoded !== this.reportedCapabilities || this.capabilityProviders.size > 0
+        ? described
+        : undefined;
+    // An unanswered refresh disconnects a silent Companion, so its
+    // capabilities leave by the next heartbeat.
+    this.companion?.refresh();
     await this.api.request(
       "/api/v1/player/heartbeat",
       heartbeatPayload({
@@ -755,8 +780,10 @@ export class BrowserPlayer {
               (document as { wasDiscarded?: boolean }).wasDiscarded === true,
           }),
         },
+        ...(capabilities !== undefined ? { capabilities } : {}),
       }),
     );
+    if (capabilities !== undefined) this.reportedCapabilities = encoded;
   }
 
   /**
@@ -919,4 +946,33 @@ export function compatibilityProblem(message: string): void {
   copy.textContent = message;
   main.append(title, copy);
   document.body.replaceChildren(main);
+}
+
+/**
+ * Waits for the next poll: the interval, an early wake, or abort. The wake
+ * listener is removed on every exit path. A timeout that wins would otherwise
+ * leave one callback behind per poll until the next wake event.
+ */
+export async function waitForPoll(
+  wake: EventTarget,
+  milliseconds: number,
+  signal: AbortSignal,
+): Promise<void> {
+  const waiter = new AbortController();
+  const stop = () => waiter.abort(signal.reason);
+  signal.addEventListener("abort", stop, { once: true });
+  try {
+    await Promise.race([
+      pause(milliseconds, waiter.signal),
+      new Promise<void>((resolve) =>
+        wake.addEventListener("wake", () => resolve(), {
+          once: true,
+          signal: waiter.signal,
+        }),
+      ),
+    ]);
+  } finally {
+    signal.removeEventListener("abort", stop);
+    waiter.abort();
+  }
 }

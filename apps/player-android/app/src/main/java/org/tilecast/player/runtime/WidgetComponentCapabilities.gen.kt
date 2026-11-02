@@ -17,6 +17,7 @@ object WidgetComponentCapabilities {
         "widget.tilecast.chart" to 1,
         "widget.tilecast.clock" to 2,
         "widget.tilecast.countdown" to 1,
+        "widget.tilecast.event-scroller" to 1,
         "widget.tilecast.image-notice" to 1,
         "widget.tilecast.list" to 1,
         "widget.tilecast.menu-board" to 1,

@@ -31,6 +31,11 @@ pub trait ServerLinkHost: ConfigurationHost {
     fn record_activity(&self, event: ActivityEvent);
     async fn heartbeat(&self) -> serde_json::Value;
     async fn presentation_protected(&self) -> bool;
+    /// A pass ended in an installation identity mismatch. The host
+    /// quarantines server-derived caches and surfaces the stopped state;
+    /// Core never touches host stores. Called every mismatched pass, so the
+    /// host must treat it as idempotent. Default: ignore.
+    async fn identity_mismatch(&self, _expected: &str, _actual: &str) {}
 }
 
 /// Signals shared with commands, activation, status, and Watch Live coordinators.
@@ -164,7 +169,10 @@ pub(crate) async fn drive_server_link<H: ServerLinkHost>(
         {
             delay = delay.min(next.saturating_duration_since(Instant::now()));
         }
-        *context.signals.link_state.lock().unwrap_or_else(|e| e.into_inner()) = state;
+        *context.signals.link_state.lock().unwrap_or_else(|e| e.into_inner()) = state.clone();
+        if let LinkState::IdentityMismatch { expected, actual } = &state {
+            context.host.identity_mismatch(expected, actual).await;
+        }
         let deadline = tokio::time::sleep(delay);
         tokio::pin!(deadline);
         loop {
@@ -452,5 +460,241 @@ mod tests {
         assert_eq!(link.socket_liveness_remaining(), SOCKET_LIVENESS_TIMEOUT);
         assert_eq!(link.socket_failures, 1);
         assert!(link.next_socket_attempt.is_some());
+    }
+}
+
+/// The socket-to-reconcile path, run through the real driver, a real
+/// WebSocket, and a fake server that only counts manifest requests.
+#[cfg(test)]
+mod push_tests {
+    use super::*;
+    use crate::{ConfigurationHost, Dependencies, ManifestFailureKind, ManifestPrepared, ManifestWorkerFailure};
+    use futures_util::SinkExt as _;
+    use player_client::DeviceCredential;
+    use player_client::credential::{CredentialError, CredentialStore};
+    use player_state::repo::binding::{self, CredentialState, ServerBinding};
+    use player_state::{OpenOptions, StateDb};
+    use player_types::time::{ManualClock, WallClock as _};
+    use player_types::{InstallationId, ScreenId};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tokio::sync::mpsc;
+    use tokio_tungstenite::tungstenite::Message;
+
+    const CREDENTIAL: &str = "tc_device_abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz0123456789ABCD";
+    const INSTALLATION: u128 = 7;
+
+    #[derive(Debug)]
+    struct Credentials;
+    impl CredentialStore for Credentials {
+        fn load(&self) -> Result<Option<DeviceCredential>, CredentialError> {
+            Ok(Some(DeviceCredential::parse(CREDENTIAL).expect("credential")))
+        }
+        fn save(&self, _: &DeviceCredential) -> Result<(), CredentialError> {
+            Ok(())
+        }
+        fn remove(&self) -> Result<(), CredentialError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Debug)]
+    struct Host;
+    #[async_trait::async_trait]
+    impl ConfigurationHost for Host {
+        type Projection = ();
+        fn prepare_configuration(&self, _: &serde_json::Value, _: &NativeConfiguration) -> Result<(), &'static str> {
+            Ok(())
+        }
+        async fn install_configuration(&self, _: Option<()>) {}
+    }
+    #[async_trait::async_trait]
+    impl ManifestWorkerHost for Host {
+        async fn content_intact(&self, _: &Target) -> bool {
+            true
+        }
+        async fn prepare(&self, _: &Target) -> Result<ManifestPrepared, ManifestWorkerFailure> {
+            Err(ManifestWorkerFailure { kind: ManifestFailureKind::Invalid, reason: "unused" })
+        }
+    }
+    #[async_trait::async_trait]
+    impl ServerLinkHost for Host {
+        type Preparation = Host;
+        fn preparation_host(&self, _: &AuthenticatedServer) -> Arc<Host> {
+            Arc::new(Host)
+        }
+        fn native_configuration(&self) -> NativeConfiguration {
+            NativeConfiguration::default()
+        }
+        fn jitter_unit(&self) -> f64 {
+            0.5
+        }
+        fn record_activity(&self, _: ActivityEvent) {}
+        async fn heartbeat(&self) -> serde_json::Value {
+            serde_json::json!({})
+        }
+        async fn presentation_protected(&self) -> bool {
+            false
+        }
+    }
+
+    /// Answers identity, accepts the player socket, and counts manifest GETs.
+    /// Every other request is a 404, which the driver tolerates.
+    async fn fake_server(manifest_requests: Arc<AtomicUsize>) -> (String, mpsc::UnboundedSender<&'static str>) {
+        let (push, pushes) = mpsc::unbounded_channel::<&'static str>();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("listener");
+        let address = listener.local_addr().expect("address");
+        tokio::spawn(async move {
+            let mut pushes = Some(pushes);
+            loop {
+                let Ok((stream, _)) = listener.accept().await else { return };
+                let mut head = [0_u8; 32];
+                let upgrade = matches!(stream.peek(&mut head).await, Ok(n) if head[..n].starts_with(b"GET /api/v1/player/socket"));
+                if upgrade {
+                    // Its own task: the accept loop keeps serving requests.
+                    let queue = pushes.take().expect("one socket");
+                    tokio::spawn(async move {
+                        let Ok(mut socket) = tokio_tungstenite::accept_async(stream).await else { return };
+                        let hello = r#"{"type":"server.hello","protocolVersion":1}"#;
+                        let _ = socket.send(Message::Text(hello.into())).await;
+                        let mut queue = queue;
+                        while let Some(kind) = queue.recv().await {
+                            let message = format!(r#"{{"type":"{kind}"}}"#);
+                            if socket.send(Message::Text(message.into())).await.is_err() {
+                                break;
+                            }
+                        }
+                    });
+                    continue;
+                }
+                let counter = manifest_requests.clone();
+                let service = hyper::service::service_fn(move |request: hyper::Request<hyper::body::Incoming>| {
+                    let counter = counter.clone();
+                    async move {
+                        let (status, body) = match request.uri().path() {
+                            "/api/v1/system/identity" => (
+                                200,
+                                serde_json::json!({"data": {
+                                    "product": "tilecast",
+                                    "installationId": InstallationId::from_uuid(uuid::Uuid::from_u128(INSTALLATION)),
+                                    "organizationName": "Test",
+                                    "apiVersion": "v1",
+                                    "pairingEnabled": false,
+                                }})
+                                .to_string(),
+                            ),
+                            "/api/v1/player/manifest" => {
+                                counter.fetch_add(1, Ordering::SeqCst);
+                                (404, r#"{"error":{"code":"not_found","message":"none"}}"#.to_owned())
+                            }
+                            _ => (404, r#"{"error":{"code":"not_found","message":"none"}}"#.to_owned()),
+                        };
+                        Ok::<_, std::convert::Infallible>(
+                            hyper::Response::builder()
+                                .status(status)
+                                .header("content-type", "application/json")
+                                .body(http_body_util::Full::new(bytes::Bytes::from(body)))
+                                .expect("response"),
+                        )
+                    }
+                });
+                tokio::spawn(async move {
+                    let _ = hyper::server::conn::http1::Builder::new()
+                        .serve_connection(hyper_util::rt::TokioIo::new(stream), service)
+                        .await;
+                });
+            }
+        });
+        (format!("http://{address}"), push)
+    }
+
+    async fn wait_for(counter: &AtomicUsize, at_least: usize, within: Duration) -> bool {
+        let deadline = Instant::now() + within;
+        while Instant::now() < deadline {
+            if counter.load(Ordering::SeqCst) >= at_least {
+                return true;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        counter.load(Ordering::SeqCst) >= at_least
+    }
+
+    /// A `manifest.changed` push must reconcile at once. The scheduled
+    /// reconciliation is two minutes away, so only the push can explain a
+    /// second request inside the window.
+    #[tokio::test]
+    async fn manifest_changed_push_reconciles_immediately() {
+        let requests = Arc::new(AtomicUsize::new(0));
+        let (base, push) = fake_server(requests.clone()).await;
+        let directory = tempfile::tempdir().expect("tempdir");
+        let state = StateDb::open(directory.path().join("state.db"), OpenOptions::default()).expect("state");
+        let clock = ManualClock::new(Timestamp::from_unix_millis(1_700_000_000_000).expect("clock"));
+        let now = clock.now();
+        let binding = ServerBinding {
+            server_url: base,
+            installation_id: InstallationId::from_uuid(uuid::Uuid::from_u128(INSTALLATION)),
+            organization_name: None,
+            screen_id: Some(ScreenId::from_uuid(uuid::Uuid::from_u128(9))),
+            screen_name: None,
+            credential_state: CredentialState::Stored,
+            identity_verified_at: None,
+            bound_at: now,
+        };
+        state.run(move |connection| binding::put(connection, &binding, now)).await.expect("bind");
+
+        let dependencies = Dependencies { state, clock };
+        let relationship = ServerRelationship::new(dependencies.clone(), Arc::new(Credentials));
+        let (server_wake, manifest_wake, command_wake, preview_wake, live_stream_wake) =
+            (Notify::new(), Notify::new(), Notify::new(), Notify::new(), Notify::new());
+        let preparation = SharedManifestPreparationStatus::default();
+        let link_state = Mutex::new(LinkState::Unbound);
+        let last_contact = Mutex::new(None);
+        let (command_server, _) = watch::channel(None);
+        let sync_request = AtomicU64::new(0);
+        let (sync_done, _) = watch::channel((0, false));
+        let (live_frames, _) = watch::channel(None);
+        let status_due = AtomicBool::new(false);
+        let shutdown = CancellationToken::new();
+        let host = Host;
+        let services = ServerLinkServices {
+            relationship: &relationship,
+            host: &host,
+            signals: ServerLinkSignals {
+                server_wake: &server_wake,
+                manifest_wake: &manifest_wake,
+                preparation: &preparation,
+                link_state: &link_state,
+                last_server_contact: &last_contact,
+                command_wake: &command_wake,
+                preview_wake: &preview_wake,
+                command_server: &command_server,
+                sync_request: &sync_request,
+                sync_done: &sync_done,
+                live_stream_wake: &live_stream_wake,
+                live_frames: &live_frames,
+                status_due: &status_due,
+            },
+            user_agent: "test",
+            player_version: "0.0.0",
+            shutdown: &shutdown,
+        };
+
+        let outcome = tokio::time::timeout(Duration::from_secs(20), async {
+            let driver = drive_server_link(dependencies.clone(), services);
+            let checks = async {
+                // Opening the socket reconciles once to recover any lost push.
+                assert!(wait_for(&requests, 1, Duration::from_secs(5)).await, "no initial reconcile");
+                tokio::time::sleep(Duration::from_millis(300)).await;
+                assert_eq!(requests.load(Ordering::SeqCst), 1, "nothing but a push may reconcile now");
+                push.send("manifest.changed").expect("socket task");
+                assert!(
+                    wait_for(&requests, 2, Duration::from_secs(2)).await,
+                    "manifest.changed did not reconcile within two seconds"
+                );
+                shutdown.cancel();
+            };
+            tokio::join!(driver, checks);
+        })
+        .await;
+        outcome.expect("driver and checks finished");
     }
 }

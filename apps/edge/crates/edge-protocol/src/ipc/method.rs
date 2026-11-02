@@ -91,11 +91,16 @@ pub enum Method {
     /// Ask the renderer to show the daemon's status surface (self-test).
     DiagnosticsShowStatus(Empty),
     SetupSubmitServerUrl(SubmitServerUrlParams),
+    /// Start a phone setup session again after it paused.
+    SetupResumePhoneSetup(Empty),
     /// Start pairing with a server address from the operator (headless
     /// installation). Same result as `setup.submit_server_url`.
     PairingStart(SubmitServerUrlParams),
     /// Abandon a pairing in progress and clear its secrets.
     PairingReset(Empty),
+    /// Forget the server relationship: binding, credential, pairing files,
+    /// queued results, and staged configuration. Idempotent.
+    UnpairDevice(Empty),
     DiscoveryList(Empty),
 }
 
@@ -147,8 +152,10 @@ methods! {
     CasVerify => "cas.verify", [Tilecastctl], admin = true;
     DiagnosticsShowStatus => "diagnostics.show_status", [Tilecastctl], admin = true;
     SetupSubmitServerUrl => "setup.submit_server_url", [Renderer], admin = false;
+    SetupResumePhoneSetup => "setup.resume_phone_setup", [Renderer], admin = false;
     PairingStart => "pairing.start", [Tilecastctl], admin = true;
     PairingReset => "pairing.reset", [Tilecastctl], admin = true;
+    UnpairDevice => "device.unpair", [Tilecastctl], admin = true;
     DiscoveryList => "discovery.list", [Renderer, Tilecastctl], admin = false;
 }
 
@@ -185,6 +192,9 @@ mod tests {
         assert!(pairing.is_administrative());
         assert_eq!(pairing.allowed_roles(), &[Role::Tilecastctl]);
         assert!(Method::decode("pairing.reset", json!({})).expect("valid").is_administrative());
+        let unpair = Method::decode("device.unpair", json!({})).expect("valid");
+        assert!(unpair.is_administrative());
+        assert_eq!(unpair.allowed_roles(), &[Role::Tilecastctl]);
         assert!(!Method::decode("discovery.list", json!({})).expect("valid").is_administrative());
         let many: Vec<_> = (0..=MAX_DISCOVERED_SERVERS)
             .map(|_| json!({"name": "Library", "serverUrl": "http://signs.local"}))

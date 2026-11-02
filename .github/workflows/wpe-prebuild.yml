@@ -1,10 +1,17 @@
 name: Tilecast WPE Prebuild
 
 # Compiles the pinned WPE WebKit once per (version, builder inputs,
-# architecture) and publishes the deterministic tar as an immutable release
-# asset, so Edge releases download WebKit instead of recompiling it (~2h).
-# The release workflow falls back to the CI cache and then to a from-scratch
-# compile, so a missing prebuild slows a release but never blocks it.
+# architecture) and publishes the deterministic tar to GitHub Packages as an
+# immutable OCI artifact, ghcr.io/gbyo/tilecast-wpe, so Edge releases pull
+# WebKit instead of recompiling it (~2h). The artifact is a single tar layer
+# under a Tilecast artifact type; it is not a runnable container image. It
+# replaces the architecture-specific GitHub Releases this workflow used to
+# create (docs/release-process.md).
+#
+# The Edge release workflow falls back to the CI cache and then to a
+# from-scratch compile, so a missing prebuild slows a release but never blocks
+# it. The prebuild carries a GitHub build provenance attestation for the tar,
+# and fetch-wpe-prebuild.sh verifies it before the release uses the bytes.
 on:
   push:
     branches:
@@ -15,11 +22,13 @@ on:
       - apps/edge/release/build-edge-release.sh
       - apps/edge/release/inputs.py
       - apps/edge/release/prebuild-wpe.sh
+      - apps/edge/release/publish-wpe-prebuild.sh
+      - apps/edge/release/fetch-wpe-prebuild.sh
       - .github/workflows/wpe-prebuild.yml
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   prebuild:
@@ -37,26 +46,36 @@ jobs:
       group: wpe-prebuild-${{ matrix.arch }}
       cancel-in-progress: false
     permissions:
-      contents: write
+      contents: read
+      packages: write
       id-token: write
       attestations: write
     steps:
       - uses: actions/checkout@v7
 
-      - name: Resolve prebuild tag
+      - uses: oras-project/setup-oras@v2
+        with:
+          version: 1.3.4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve the prebuild reference
         id: prebuild
         run: |
           set -euo pipefail
-          echo "tag=$(python3 apps/edge/release/inputs.py wpe-tag '${{ matrix.arch }}')" >> "$GITHUB_OUTPUT"
+          echo "ref=$(python3 apps/edge/release/inputs.py wpe-ref '${{ matrix.arch }}')" >> "$GITHUB_OUTPUT"
           echo "tar=$(python3 apps/edge/release/inputs.py wpe-tar '${{ matrix.arch }}')" >> "$GITHUB_OUTPUT"
 
       - name: Skip when the prebuild already exists
         id: exists
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if gh release view '${{ steps.prebuild.outputs.tag }}' >/dev/null 2>&1; then
+          if oras manifest fetch --descriptor '${{ steps.prebuild.outputs.ref }}' >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
@@ -81,28 +100,15 @@ jobs:
             ${{ runner.temp }}/wpe-prebuild/${{ steps.prebuild.outputs.tar }}
 
       - name: Publish the immutable prebuild
+        id: publish
         if: steps.exists.outputs.published != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          tag='${{ steps.prebuild.outputs.tag }}'
-          tar='${{ steps.prebuild.outputs.tar }}'
-          version=$(python3 apps/edge/release/inputs.py wpe-version)
-          key=$(python3 apps/edge/release/inputs.py wpe-key)
-          wpe_sha256=$(sed -n 's/^WPE_SHA256=//p' apps/edge/release/build-wpe.sh)
-          builder_sha256=$(sha256sum apps/edge/release/Dockerfile.builder | cut -d' ' -f1)
-          script_sha256=$(sha256sum apps/edge/release/build-wpe.sh | cut -d' ' -f1)
-          tar_sha256=$(sha256sum "$RUNNER_TEMP/wpe-prebuild/$tar" | cut -d' ' -f1)
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "another run published $tag; nothing to do"
-            exit 0
-          fi
-          gh release create "$tag" "$RUNNER_TEMP/wpe-prebuild/$tar" \
-            --target "$GITHUB_SHA" \
-            --title "WPE WebKit $version prebuild (${{ matrix.arch }})" \
-            --notes "Prebuilt WPE WebKit $version for Tilecast Edge releases (${{ matrix.arch }}).
-          The release workflow downloads this tar instead of recompiling WebKit.
-          Inputs key: $key. WPE source SHA-256: $wpe_sha256.
-          Dockerfile.builder SHA-256: $builder_sha256. build-wpe.sh SHA-256: $script_sha256.
-          Tar SHA-256: $tar_sha256. Built from commit $GITHUB_SHA."
+        run: apps/edge/release/publish-wpe-prebuild.sh "$RUNNER_TEMP/wpe-prebuild/${{ steps.prebuild.outputs.tar }}" '${{ matrix.arch }}'
+
+      # Provenance for the registry object as well, stored beside it. The
+      # release build verifies the tar's own attestation above.
+      - uses: actions/attest-build-provenance@v4
+        if: steps.exists.outputs.published != 'true' && steps.publish.outputs.digest != ''
+        with:
+          subject-name: ghcr.io/gbyo/tilecast-wpe
+          subject-digest: ${{ steps.publish.outputs.digest }}
+          push-to-registry: true

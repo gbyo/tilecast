@@ -248,11 +248,7 @@ test("Dashboard and Server jobs publish timing summaries with read-only Actions 
     assert.match(summary.run, new RegExp(`${reportArg} `), file);
   }
 
-  for (const file of [
-    "pr-validation.yml",
-    "ci-heavy.yml",
-    "server-release.yml",
-  ]) {
+  for (const file of ["pr-validation.yml", "ci-heavy.yml", "release.yml"]) {
     const workflow = parse(readFileSync(`.github/workflows/${file}`, "utf8"));
     assert.equal(workflow.permissions.actions, "read", file);
   }

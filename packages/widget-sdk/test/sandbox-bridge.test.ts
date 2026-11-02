@@ -41,22 +41,26 @@ describe("sandbox bridge", () => {
     const good = {
       protocol: SANDBOX_BRIDGE_PROTOCOL,
       nonce,
+      revision: 2,
       state: { state: "ready" },
     };
-    expect(parseFrameMessage({ origin: "null", data: good }, nonce)).toEqual({
-      protocol: SANDBOX_BRIDGE_PROTOCOL,
-      nonce,
-      state: { state: "ready" },
-    });
+    expect(parseFrameMessage({ origin: "null", data: good }, nonce, 2)).toEqual(
+      {
+        protocol: SANDBOX_BRIDGE_PROTOCOL,
+        nonce,
+        revision: 2,
+        state: { state: "ready" },
+      },
+    );
     // Wrong origin: a page, the host itself, or anything else.
     for (const origin of [
       "https://studio.example",
       "http://localhost:4173",
       "",
     ]) {
-      expect(parseFrameMessage({ origin, data: good }, nonce)).toBeNull();
+      expect(parseFrameMessage({ origin, data: good }, nonce, 2)).toBeNull();
     }
-    // Wrong protocol, wrong nonce, missing state.
+    // Wrong protocol, wrong nonce, stale revision, missing state.
     expect(
       parseFrameMessage(
         {
@@ -64,19 +68,31 @@ describe("sandbox bridge", () => {
           data: { ...good, protocol: "tilecast.widget.bridge/2" },
         },
         nonce,
+        2,
       ),
     ).toBeNull();
     expect(
       parseFrameMessage(
         { origin: "null", data: { ...good, nonce: createBridgeNonce() } },
         nonce,
+        2,
       ),
     ).toBeNull();
-    expect(parseFrameMessage({ origin: "null", data: null }, nonce)).toBeNull();
+    // A slow frame's report for a superseded input never settles state.
+    expect(
+      parseFrameMessage({ origin: "null", data: good }, nonce, 3),
+    ).toBeNull();
+    expect(
+      parseFrameMessage({ origin: "null", data: { ...good } }, nonce, 1),
+    ).toBeNull();
+    expect(
+      parseFrameMessage({ origin: "null", data: null }, nonce, 2),
+    ).toBeNull();
     expect(
       parseFrameMessage(
         { origin: "null", data: { ...good, state: { state: "melting" } } },
         nonce,
+        2,
       ),
     ).toBeNull();
   });
@@ -129,25 +145,31 @@ describe("sandbox bridge", () => {
         {
           protocol: SANDBOX_BRIDGE_PROTOCOL,
           nonce,
+          revision: 1,
           state: { state: "ready" },
         },
         nonce,
+        1,
       ),
     ).toEqual({
       protocol: SANDBOX_BRIDGE_PROTOCOL,
       nonce,
+      revision: 1,
       state: { state: "ready" },
     });
     // The port is the authentication, but the body rules still hold:
-    // wrong protocol, wrong nonce, and malformed states stay dropped.
+    // wrong protocol, wrong nonce, stale revision, and malformed
+    // states stay dropped.
     expect(
       parseFrameReport(
         {
           protocol: "tilecast.widget.bridge/2",
           nonce,
+          revision: 1,
           state: { state: "ready" },
         },
         nonce,
+        1,
       ),
     ).toBeNull();
     expect(
@@ -155,20 +177,36 @@ describe("sandbox bridge", () => {
         {
           protocol: SANDBOX_BRIDGE_PROTOCOL,
           nonce: createBridgeNonce(),
+          revision: 1,
           state: { state: "ready" },
         },
         nonce,
+        1,
       ),
     ).toBeNull();
-    expect(parseFrameReport(null, nonce)).toBeNull();
     expect(
       parseFrameReport(
         {
           protocol: SANDBOX_BRIDGE_PROTOCOL,
           nonce,
+          revision: 1,
+          state: { state: "ready" },
+        },
+        nonce,
+        2,
+      ),
+    ).toBeNull();
+    expect(parseFrameReport(null, nonce, 1)).toBeNull();
+    expect(
+      parseFrameReport(
+        {
+          protocol: SANDBOX_BRIDGE_PROTOCOL,
+          nonce,
+          revision: 1,
           state: { state: "melting" },
         },
         nonce,
+        1,
       ),
     ).toBeNull();
   });
@@ -181,10 +219,12 @@ describe("sandbox bridge", () => {
         data: {
           protocol: SANDBOX_BRIDGE_PROTOCOL,
           nonce,
+          revision: 1,
           state: { state: "empty", reason: "<img src=x>" },
         },
       },
       nonce,
+      1,
     );
     expect(empty?.state).toEqual({ state: "empty", reason: "unspecified" });
     const error = parseFrameMessage(
@@ -193,10 +233,12 @@ describe("sandbox bridge", () => {
         data: {
           protocol: SANDBOX_BRIDGE_PROTOCOL,
           nonce,
+          revision: 1,
           state: { state: "error", code: "../../etc/passwd" },
         },
       },
       nonce,
+      1,
     );
     expect(error?.state).toEqual({ state: "error", code: "frame_error" });
     const clean = parseFrameMessage(
@@ -205,10 +247,12 @@ describe("sandbox bridge", () => {
         data: {
           protocol: SANDBOX_BRIDGE_PROTOCOL,
           nonce,
+          revision: 1,
           state: { state: "error", code: "bad_input" },
         },
       },
       nonce,
+      1,
     );
     expect(clean?.state).toEqual({ state: "error", code: "bad_input" });
   });
@@ -218,6 +262,7 @@ describe("sandbox bridge", () => {
       protocol: SANDBOX_BRIDGE_PROTOCOL,
       nonce: createBridgeNonce(),
       kind: "init",
+      revision: 1,
       snapshot: {
         component: { type: "acme.big", version: 1, config: null },
         documents: {

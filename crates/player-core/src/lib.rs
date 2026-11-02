@@ -11,11 +11,17 @@ mod manifest_resources;
 mod manifest_worker;
 mod manifests;
 mod native_configuration;
+mod native_host;
+mod native_services;
 mod network_assignment;
 mod offline_activation;
 mod offline_driver;
 mod origin;
 mod pairing;
+mod playback_health;
+mod plugin_events;
+mod plugin_host;
+mod plugin_refresh;
 mod preview;
 mod renderer_commands;
 mod renderer_coordinator;
@@ -51,9 +57,13 @@ pub use display::{
 };
 pub use live_stream::{LiveFrame, LiveStreamApi, LiveStreamHost, clear_live_frame, drive_live_stream};
 pub use manifest_content::{
-    MANIFEST_PIN_PREFIX, ManifestOriginSources, ManifestPreparationError, ManifestSourcePlan, manifest_pin_holder,
+    MANIFEST_PIN_PREFIX, ManifestOriginSources, ManifestPreparationError, ManifestSourcePlan, PreparedContent,
+    manifest_pin_holder, stream_claims,
 };
-pub use manifest_resources::{ManifestAsset, NATIVE_MANIFEST_SCHEMAS, NativeManifest, NativeManifestError};
+pub use manifest_resources::{
+    AssetPolicy, ManifestAsset, ManifestBundle, ManifestFrame, NATIVE_MANIFEST_SCHEMAS, NativeManifest,
+    NativeManifestError, StreamClaim, StreamReason, is_external_runtime_plugin,
+};
 pub use manifest_worker::{
     ManifestFailureKind, ManifestPreparationCoordinator, ManifestPreparationStatus, ManifestWorkerFailure,
     ManifestWorkerHost, SharedManifestPreparationStatus,
@@ -62,6 +72,14 @@ pub use manifests::{ManifestCoordinator, ManifestPrepared, ManifestSyncError, ma
 pub use native_configuration::{
     ActiveHours, ActiveHoursResult, Cache, ConfigError as ConfigurationError, NativeConfiguration, Reliability, Sync,
     evaluate_active_hours,
+};
+pub use native_host::{
+    NativeContext, NativeContributionDescriptor, NativeEventDeclaration, NativeEvents, NativePluginContribution,
+    NativePluginError, NativePluginFeed, NativePluginHost, NativePluginState, NativePluginStatus,
+    NativeRegistrationError, ServiceRef,
+};
+pub use native_services::{
+    NativeServiceKind, NativeServiceSet, NativeServices, ReferenceSignal, ReferenceSignalService,
 };
 pub use network_assignment::{
     Assignment as NetworkAssignment, ProvisioningDecision as NetworkProvisioningDecision,
@@ -75,11 +93,21 @@ pub use offline_driver::{
     ActivationSource, ActivationTime, OfflineActivationHost, OfflineActivationSignals, OfflineCurrent,
     OfflineProjection, OfflineRendererHealth, drive_offline_activation,
 };
-pub use origin::{InvalidDownloadPath, OriginBlobSource};
+pub use origin::{InvalidDownloadPath, OriginBlobSource, StreamReadError};
 pub use pairing::{
-    PAIRING_RETRY, PairingCoordinator, PairingError, PairingHost, PairingMetadataProvider, PairingOutcome,
-    PairingStatus,
+    PAIRING_RETRY, PHONE_SETUP_SESSION_LIMIT, PairingCoordinator, PairingError, PairingHost, PairingMetadataProvider,
+    PairingOutcome, PairingStatus, PhoneRelay, PhoneSetupView, SetupRelay,
 };
+pub use playback_health::{HealthTolerances, PlaybackHealth, Stall, StallReason};
+pub use plugin_events::{
+    EventSource, MAX_EVENT_PAYLOAD_BYTES, MAX_EVENT_PAYLOAD_DEPTH, MAX_EVENT_PAYLOAD_VALUES,
+    MAX_PENDING_EVENTS_PER_PLUGIN, PLUGIN_EVENT_MESSAGE_TYPE, PluginEvent, PluginEventError, validate_event_payload,
+};
+pub use plugin_host::{
+    PLAYER_PLUGIN_HOST_CAPABILITY, PLAYER_PLUGIN_HOST_VERSION, PLUGIN_STATE_TYPE, SHARED_RUNTIME_PLAYER_SERVICES,
+    is_plugin_state_entry, is_runtime_plugin_data, plugin_state_media, shared_runtime_plugin_capabilities,
+};
+pub use plugin_refresh::{is_plugin_only_revision, manifest_without_plugin_revision};
 pub use preview::{
     PREVIEW_FIRST_SUSPENSION, PREVIEW_MAX_HEIGHT, PREVIEW_MAX_SUSPENSION, PREVIEW_MAX_WIDTH, PreviewApi, PreviewHealth,
     PreviewHost, drive_preview,
@@ -88,9 +116,10 @@ pub use renderer_commands::{
     RendererCommandBroker, RendererCommandError, SemanticRendererCommandResult, StartupWebsiteClear,
     WEBSITE_DATA_CLEAR_TIMEOUT,
 };
-pub use renderer_coordinator::{RendererCoordinator, RendererDispatch};
+pub use renderer_coordinator::{RecoveryCause, RecoverySnapshot, RendererCoordinator, RendererDispatch};
 pub use renderer_document::{
-    ContentRef as VerifiedContentRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError, RendererMetadata,
+    ContentRef as VerifiedContentRef, FrameRef as VerifiedFrameRef, MAX_RENDERER_REQUIREMENTS, PreparedActivationError,
+    RendererMetadata, StreamSource,
 };
 pub use renderer_port::{
     CapturedFrame, RendererActivation, RendererActivationRef, RendererCaptureRequest, RendererPort, RendererPortError,

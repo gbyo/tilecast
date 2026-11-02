@@ -17,7 +17,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { api } from "@/api/client";
 import type { Asset, WidgetDefinition } from "@/api/types";
 import { toast } from "@/components/ui/toast";
@@ -76,13 +76,20 @@ export function useWidgetEditorSession({
 }: WidgetEditorSessionOptions) {
   const { t } = useTranslation(["content", "common"]);
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const newName = t("widgets.editor.newName", { name: definition.name });
   const [start] = useState(() =>
     initialDraft(definition, authoring, asset, newName),
   );
+  // A create that changed the draft while in flight hands its newer draft to
+  // the created Widget's route, so those edits survive the navigation.
+  const carried = (location.state as { carriedDraft?: WidgetDraft } | null)
+    ?.carriedDraft;
   const [baseline, setBaseline] = useState<WidgetDraft>(start);
-  const [draft, setDraft] = useState<WidgetDraft>(start);
+  const [draft, setDraft] = useState<WidgetDraft>(
+    asset && carried ? carried : start,
+  );
   const isNew = !asset;
   // Edits since the Widget opened or was last saved.
   const changed = !sameDraft(baseline, draft);
@@ -106,7 +113,7 @@ export function useWidgetEditorSession({
   // must not ask to discard what was just saved or deliberately removed.
   const bypass = useRef(false);
   const leave = useCallback(
-    (to: string, options?: { replace?: boolean }) => {
+    (to: string, options?: { replace?: boolean; state?: unknown }) => {
       bypass.current = true;
       void Promise.resolve(navigate(to, options)).finally(() => {
         bypass.current = false;
@@ -186,9 +193,10 @@ export function useWidgetEditorSession({
           query.set("returnTo", returnTo);
           query.set("created", "1");
         }
+        const newer = sameDraft(draft, sent) ? undefined : draft;
         leave(
           `/widgets/${saved.id}${query.size ? `?${query.toString()}` : ""}`,
-          { replace: true },
+          { replace: true, state: newer ? { carriedDraft: newer } : undefined },
         );
       }
     },

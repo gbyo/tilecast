@@ -34,8 +34,10 @@ import {
 export function FormsPluginPage() {
   const { t } = usePluginTranslation("forms", en);
   const session = useStudioSession();
-  // Creating a form needs a content-manager role (owner, administrator, or editor), not IAM manage.
-  const canCreate = session.role !== undefined && session.role !== "viewer";
+  // Creating a form needs the core Data Source management capability, the
+  // same check the server makes before the form exists. Every later decision
+  // is the form's own grant.
+  const canCreate = session.can("datasource.manage");
   const forms = useQuery({
     queryKey: ["forms"],
     queryFn: formsApi.listForms,

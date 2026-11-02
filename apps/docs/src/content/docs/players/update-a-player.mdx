@@ -13,7 +13,7 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 
 1. Open **Settings** > **Player updates** in Studio.
 2. Select **Android**, **Linux**, **Tilecast Edge**, or **Windows**.
-3. If you need a GitHub release that is not listed yet, select **Sync from GitHub**. Only an Owner can synchronize releases.
+3. If you need a GitHub release that is not listed yet, select **Sync from GitHub**. Only an Owner can synchronize releases. A Tilecast release holds the Player platforms built for one version. A Stable release includes Windows, and a Beta may leave it out. Beta releases are marked as the Beta channel. A screen on a Beta can update to the next Beta or to Stable.
 4. Select **Download** beside the release. Wait until its status is **Ready to deploy**. Only a cached and verified release can be deployed.
 
 </Steps>
@@ -31,6 +31,14 @@ import { Steps, TabItem, Tabs } from "@astrojs/starlight/components";
 </Steps>
 
 An offline screen receives the update after it reconnects. Use **Deployment history** to check each screen. Cancelling a deployment stops screens that have not finished; it does not roll back screens that already updated.
+
+### What a canary rollout does
+
+Canary screens are the only targets released at first. The remaining targets stay held until every canary has either updated successfully or was already on that release. Tilecast then releases the held targets automatically.
+
+The rollout pauses instead of continuing when a canary reports an update failure. It also pauses when a canary enters safe mode or remains in the installing or reconnecting state for ten minutes. Review the failed screen and the pause reason in **Deployment history** before continuing or replacing the deployment. A bad canary never automatically releases the held screens.
+
+Canary selection does not change platform compatibility. A release still targets only its Player family and, for architecture-specific Edge and Windows releases, the matching architecture.
 
 ## What to expect on each platform
 
@@ -56,7 +64,7 @@ The screen downloads and verifies the release, installs it beside the current re
 
 <TabItem label="Windows">
 
-The Player downloads the signed package from its paired server, verifies the release signature and the Windows publisher identity, installs the package, and restarts into the new version. It stays on its own architecture: an ARM64 screen never installs an x64 package.
+Once a signed Windows release is published, the Player downloads its package from the paired server, verifies the release signature and the Windows publisher identity, installs the package, and restarts into the new version. It stays on its own architecture: an ARM64 screen never installs an x64 package. The PC must trust the Windows publisher certificate; see [Windows installation](../install-windows/) and [update troubleshooting](../../troubleshooting/player-updates/).
 
 </TabItem>
 

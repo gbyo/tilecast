@@ -1,8 +1,8 @@
 /**
  * A web integration previews through the Server's presentation compiler,
  * which turns its configuration into the address a sandboxed frame loads.
- * The last page that compiled stays in view while a new address is typed
- * or turns out to be invalid; the problem is reported separately.
+ * Most integrations retain the last compiled page while editing. Canva
+ * clears it so a previous design cannot appear to validate a new link.
  */
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -58,38 +58,108 @@ export function useWebIntegrationPreview({
     () => webPreviewConfiguration(provider, configuration),
     [provider, configuration],
   );
-  const settledKey = useDebounced(
-    stableSerialize(previewConfiguration),
-    COMPILE_DELAY_MS,
-  );
+  const currentKey = stableSerialize(previewConfiguration);
+  const settledKey = useDebounced(currentKey, COMPILE_DELAY_MS);
+  const isCanva = provider === "canva";
+  const isCurrent = currentKey === settledKey;
   const compiled = useQuery({
     queryKey: ["compiled-widget-preview", provider, settledKey],
     queryFn: () =>
       api.compileWidgetPreview(provider, JSON.parse(settledKey) as never, csrf),
-    enabled: canCompile && hasAddress,
+    enabled: canCompile && hasAddress && (!isCanva || isCurrent),
     retry: false,
   });
-  const presentation = useLastGood(compiled.data ?? null);
+  const lastGood = useLastGood(compiled.data ?? null);
+  // A previous Canva design must not appear to validate the newly pasted URL.
+  const presentation = isCanva
+    ? isCurrent && hasAddress
+      ? (compiled.data ?? null)
+      : null
+    : lastGood;
 
-  const status = webPreviewStatus(
+  const [blockedKey, setBlockedKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isCanva) return;
+    const onViolation = (event: SecurityPolicyViolationEvent) => {
+      if (
+        event.disposition !== "enforce" ||
+        !["frame-src", "child-src", "default-src"].includes(
+          event.effectiveDirective,
+        )
+      )
+        return;
+      // Cross-origin CSP reports can omit the path and query. Compare origins
+      // without publishing the design's access parameters in diagnostics.
+      try {
+        if (new URL(event.blockedURI).origin === "https://www.canva.com")
+          setBlockedKey(currentKey);
+      } catch {
+        /* A non-URL report cannot identify this preview. */
+      }
+    };
+    document.addEventListener("securitypolicyviolation", onViolation);
+    return () =>
+      document.removeEventListener("securitypolicyviolation", onViolation);
+  }, [isCanva, currentKey]);
+  const restricted = isCanva && canCompile && blockedKey === currentKey;
+
+  let status = webPreviewStatus(
     {
       canCompile,
       hasAddress,
       hasSavedThumbnail: Boolean(savedThumbnailUrl),
-      isPending: compiled.isPending,
-      errorDetail: compiled.isError
-        ? apiErrorMessage(compiled.error)
-        : undefined,
+      isPending: compiled.isPending || (isCanva && !isCurrent),
+      errorDetail:
+        compiled.isError && (!isCanva || isCurrent)
+          ? apiErrorMessage(compiled.error)
+          : undefined,
       hasPresentation: presentation !== null,
     },
     t,
   );
-  const surface: WebPreviewSurface | null = !canCompile
-    ? savedThumbnailUrl
-      ? { kind: "thumbnail", url: savedThumbnailUrl }
-      : null
-    : presentation
-      ? { kind: "presentation", presentation }
-      : null;
-  return { status, surface };
+  if (isCanva && status.kind === "ready" && canCompile) {
+    status = {
+      kind: "unverified",
+      message: t("widgets.editor.preview.canvaUnverified"),
+    };
+  }
+  if (restricted && status.kind === "unverified") {
+    status = {
+      kind: "unavailable",
+      message: t("widgets.editor.preview.canvaRestricted"),
+    };
+  }
+  const surface: WebPreviewSurface | null = restricted
+    ? null
+    : !canCompile
+      ? savedThumbnailUrl
+        ? { kind: "thumbnail", url: savedThumbnailUrl }
+        : null
+      : presentation
+        ? { kind: "presentation", presentation }
+        : null;
+  return {
+    status,
+    surface,
+    externalUrl: isCanva ? canvaExternalURL(address) : null,
+  };
+}
+
+/** Only provider links can become an authoring action, including invalid design paths. */
+function canvaExternalURL(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const url = new URL(value.trim());
+    if (
+      url.protocol !== "https:" ||
+      url.username ||
+      url.password ||
+      url.port ||
+      !["canva.com", "www.canva.com", "canva.link"].includes(url.hostname)
+    )
+      return null;
+    return url.href;
+  } catch {
+    return null;
+  }
 }

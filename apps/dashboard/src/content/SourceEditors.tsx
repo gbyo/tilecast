@@ -19,7 +19,18 @@ import {
 
 import { Input } from "../components/ui/input";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import {
+  isYouTubeEndedMessage,
+  youtubeEmbedUrl,
+} from "@tilecast/player-runtime/projection";
+import type { RemoteWebYouTubeContentV1 } from "@tilecast/player-runtime/host-contract";
 import type { CSSProperties, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -320,6 +331,9 @@ export function DeclarativePresentationPreview({
   now,
   assetImageUrl,
   onWebReady,
+  onWebError,
+  onWebEnded,
+  youtube,
 }: {
   presentation: WidgetPresentation;
   // The primary source's payload. Bindings that name a dataset the map does not carry fall back
@@ -332,9 +346,40 @@ export function DeclarativePresentationPreview({
   now?: Date;
   assetImageUrl?: string;
   onWebReady?: () => void;
+  onWebError?: () => void;
+  onWebEnded?: () => void;
+  youtube?: RemoteWebYouTubeContentV1;
 }) {
   const { t } = useTranslation(["content", "common"]);
   const [liveNow, setLiveNow] = useState(() => now ?? new Date());
+  const frame = useRef<HTMLIFrameElement>(null);
+  let webUrl = presentation.web?.url;
+  if (youtube) {
+    const url = new URL(youtubeEmbedUrl(youtube));
+    url.searchParams.set("enablejsapi", "1");
+    url.searchParams.set("origin", window.location.origin);
+    webUrl = url.toString();
+  }
+  const completeWeb = useEffectEvent(() => onWebEnded?.());
+  const isYouTube = youtube !== undefined;
+  useEffect(() => {
+    if (!isYouTube || !webUrl) return;
+    const origin = new URL(webUrl).origin;
+    let completed = false;
+    const message = (event: MessageEvent) => {
+      if (
+        completed ||
+        event.source !== frame.current?.contentWindow ||
+        event.origin !== origin ||
+        !isYouTubeEndedMessage(event.data)
+      )
+        return;
+      completed = true;
+      completeWeb();
+    };
+    window.addEventListener("message", message);
+    return () => window.removeEventListener("message", message);
+  }, [isYouTube, webUrl]);
   useEffect(() => {
     if (now || presentation.kind !== "native") return;
     // Returning from a fixed preview time resumes at the real instant instead of showing the
@@ -344,19 +389,28 @@ export function DeclarativePresentationPreview({
     return () => window.clearInterval(timer);
   }, [now, presentation.kind]);
   if (presentation.kind === "web") {
-    const url = presentation.web?.url;
+    const url = webUrl;
     if (!url) return t("widgets.preview.webUnavailable");
     const external =
       new URL(url, window.location.href).origin !== window.location.origin;
     return (
       <iframe
+        ref={frame}
         className="presentation-preview__web"
         src={url}
         title={t("widgets.preview.webTitle")}
         sandbox={`allow-scripts allow-forms allow-popups allow-presentation${external ? " allow-same-origin" : ""}`}
         allow="autoplay; encrypted-media; fullscreen"
         referrerPolicy="strict-origin-when-cross-origin"
-        onLoad={onWebReady}
+        onLoad={() => {
+          if (youtube)
+            frame.current?.contentWindow?.postMessage(
+              JSON.stringify({ event: "listening", id: 1 }),
+              new URL(url).origin,
+            );
+          onWebReady?.();
+        }}
+        onError={onWebError}
       />
     );
   }

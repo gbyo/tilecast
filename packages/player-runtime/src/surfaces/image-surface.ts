@@ -40,7 +40,18 @@ export class ImageSurface implements MediaSurface {
   prepare(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.img.onload = () => {
-        if (!this.disposed) resolve();
+        if (this.disposed) return;
+        // Loaded is not painted: a large image decodes lazily on first paint,
+        // and a layer swapped in before then dissolves in as blank black. A
+        // failed decode is not a failed image, so the swap goes ahead.
+        const ready = () => {
+          if (!this.disposed) resolve();
+        };
+        if (typeof this.img.decode === "function") {
+          this.img.decode().then(ready, ready);
+        } else {
+          ready();
+        }
       };
       this.img.onerror = () => {
         if (!this.disposed) reject(new Error("image failed to load"));

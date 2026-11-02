@@ -12,14 +12,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { authStatusFor } from "../test/capabilities";
 import { ScreenFleetTable } from "../components/ScreenFleetTable";
 import type { WireScreenPreview as ScreenPreviewMetadata } from "../api/domains/screens";
 import { i18n } from "../i18n";
-import type { PowerAssistResults, Screen, User } from "../api/types";
+import type { PowerAssistResults, Screen } from "../api/types";
 import { canManageScreens } from "../data/screens";
 import {
   autostartSummary,
   autostartWarning,
+  formatPlayerCapabilities,
   formatReportedStatus,
   reportsAutostart,
   reliabilityCapabilityWarning,
@@ -41,15 +43,29 @@ describe("reliability status display", () => {
       "Not reported",
     );
   });
-});
 
-const user = (role: User["role"]): User => ({
-  id: "user",
-  name: "Test User",
-  username: "test",
-  role,
-  active: true,
-  createdAt: new Date().toISOString(),
+  it("summarizes reported player capabilities in sorted order", () => {
+    expect(
+      formatPlayerCapabilities(
+        {
+          "display.volume": { version: 1, provider: "ddc_ci" },
+          "display.power": { version: 1, provider: "hdmi_cec" },
+        },
+        t,
+      ),
+    ).toBe("display.power@1 (hdmi_cec), display.volume@1 (ddc_ci)");
+    expect(formatPlayerCapabilities(undefined, t)).toBe("Not reported");
+    expect(formatPlayerCapabilities({}, t)).toBe("Not reported");
+    expect(
+      formatPlayerCapabilities(
+        { "display.power": { version: 1 } } as unknown as Record<
+          string,
+          { version: number; provider: string }
+        >,
+        t,
+      ),
+    ).toBe("Not reported");
+  });
 });
 
 afterEach(() => {
@@ -60,10 +76,10 @@ afterEach(() => {
 
 describe("screen management", () => {
   it("restricts pairing and credential management by role", () => {
-    expect(canManageScreens(user("owner"))).toBe(true);
-    expect(canManageScreens(user("administrator"))).toBe(true);
-    expect(canManageScreens(user("editor"))).toBe(false);
-    expect(canManageScreens(user("viewer"))).toBe(false);
+    expect(canManageScreens(authStatusFor("owner"))).toBe(true);
+    expect(canManageScreens(authStatusFor("administrator"))).toBe(true);
+    expect(canManageScreens(authStatusFor("editor"))).toBe(false);
+    expect(canManageScreens(authStatusFor("viewer"))).toBe(false);
   });
 
   it("shows a useful empty state and pairing action to administrators", () => {

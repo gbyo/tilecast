@@ -9,6 +9,11 @@
  */
 (function () {
   "use strict";
+  if (
+    window.parent !== window ||
+    window.location.href !== "tilecast://runtime/index.html"
+  )
+    return;
   if (typeof window.chrome === "undefined" || !window.chrome.webview) {
     return;
   }
@@ -140,6 +145,11 @@
         return request("setup.submitServerUrl", { url: text(url, 512) });
       },
     };
+    if (capabilities.phoneSetup) {
+      host.setup.resumePhoneSetup = function () {
+        request("setup.resumePhoneSetup", {}).catch(function () {});
+      };
+    }
   }
   if (capabilities && capabilities.discovery) {
     host.discovery = {

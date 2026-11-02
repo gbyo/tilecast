@@ -70,6 +70,8 @@ export interface PresentationContext {
   mountedAtMs: number;
   previousItemId: string | null;
   stage: StageEntry | null;
+  /** The next mount starts a shared occurrence boundary. */
+  sharedBoundary: boolean;
   completion: ItemCompletion;
   timers: TimerGroup;
   clock: RuntimeClock;
@@ -100,7 +102,12 @@ export type PresentationEvent =
   | OnMount<"OUTCOME", { outcome: Exclude<CompletionOutcome, "ignore"> }>
   | { type: "RETRY" }
   | { type: "SKIP" }
-  | { type: "STOP" };
+  | { type: "STOP" }
+  /**
+   * The shared timeline reached its next occurrence boundary. The playlist is
+   * rotated to the expected item; this actor stays, and mounts it.
+   */
+  | { type: "OCCURRENCE"; items: RuntimeItem[]; generation: number };
 
 function currentItem(context: PresentationContext): RuntimeItem | null {
   return context.stage?.item ?? null;
@@ -183,6 +190,16 @@ export const presentationMachine = setup({
     },
     canSkip: ({ context }) =>
       context.stage !== null && context.authority === "local",
+    /**
+     * Only a shared presentation takes boundaries, and only forward: a
+     * generation that is not newer belongs to a timeline that has been
+     * replaced.
+     */
+    newerSharedOccurrence: ({ context, event }) =>
+      event.type === "OCCURRENCE" &&
+      context.authority === "shared" &&
+      event.items.length > 0 &&
+      event.generation > context.generation,
     advances: ({ event }) =>
       event.type === "OUTCOME" && event.outcome === "advance",
     restarts: ({ event }) =>
@@ -204,9 +221,11 @@ export const presentationMachine = setup({
         transition: transitionForSwap(item.transition, outgoing, item.id),
         phase: "preparing",
         restarts: 0,
+        ...(context.sharedBoundary ? { sharedBoundary: true as const } : {}),
       };
       return {
         stage,
+        sharedBoundary: false,
         nextMount: context.nextMount + 1,
         mountedAtMs: context.clock.monotonicNow(),
         // Exactly one completion may act per occurrence. Only a single-video
@@ -249,6 +268,22 @@ export const presentationMachine = setup({
         if (!untilEnd) due(authored ?? WEBSITE_DEFAULT_MS);
       }
     },
+    /**
+     * Take the next shared occurrence. What a freshly started actor would
+     * hold, apart from the mount numbering, which continues.
+     */
+    adoptOccurrence: assign(({ event }) =>
+      event.type === "OCCURRENCE"
+        ? {
+            items: event.items,
+            generation: event.generation,
+            index: 0,
+            consecutiveFailures: 0,
+            consecutiveEmptySkips: 0,
+            sharedBoundary: true,
+          }
+        : {},
+    ),
     nextIndex: assign(({ context }) => ({
       index: (context.index + 1) % context.items.length,
     })),
@@ -464,6 +499,7 @@ export const presentationMachine = setup({
       mountedAtMs: input.clock.monotonicNow(),
       previousItemId: input.previousItemId,
       stage: null,
+      sharedBoundary: false,
       completion: new ItemCompletion(authority, false),
       timers: new TimerGroup(input.clock),
       clock: input.clock,
@@ -478,6 +514,12 @@ export const presentationMachine = setup({
     // A grouped screen cannot skip on its own: the shared timeline would snap
     // it back within milliseconds.
     SKIP: { guard: "canSkip", target: ".advancing", reenter: true },
+    OCCURRENCE: {
+      guard: "newerSharedOccurrence",
+      target: ".routing",
+      reenter: true,
+      actions: "adoptOccurrence",
+    },
     SURFACE_EVIDENCE: { guard: "isCurrent", actions: "reportSurfaceEvidence" },
     ZONE_FAILED: { guard: "isCurrent", actions: "reportZoneFailure" },
   },

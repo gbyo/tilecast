@@ -40,7 +40,7 @@ use crate::host::{
     EDGE_DAEMON, EDGE_ENABLED_UNITS, EDGE_RENDERER, EDGE_UNITS, EDGE_WEB, Host, HostError, IMPORT_OUTPUT, IMPORT_UNIT,
     SELFTEST_HOST_UNIT, SELFTEST_OUTPUT, SELFTEST_RENDERER_UNIT, UPDATE_SOCKET, Watched,
 };
-use crate::settle::{Expectation, Verdict, evaluate, summary};
+use crate::settle::{Expectation, Verdict, evaluate, requires_fresh_progress, summary};
 use crate::state::{Attempt, Backend, Kind, Phase, SCHEMA_VERSION, StateError, StateStore, UnitRecord};
 
 /// Free space kept after the media copy and its import into the content
@@ -615,6 +615,7 @@ impl<'a, H: Host> Migrator<'a, H> {
         };
         let mut stable_since: Option<i64> = None;
         let mut progress_at_start = None;
+        let mut window_needs_progress: Option<bool> = None;
         let mut daemon_started = None;
         let mut daemon_restarts = 0;
         let mut last_reason = "daemon_unreachable";
@@ -669,12 +670,21 @@ impl<'a, H: Host> Migrator<'a, H> {
                 }
                 Verdict::Ready => {
                     let progress = status.as_ref().and_then(|s| s.renderer.last_progress_at);
+                    let needs_progress = requires_fresh_progress(status.as_ref(), &expected);
+                    // A switch between static and moving content restarts the
+                    // window: the progress baseline belongs to the old kind.
+                    if window_needs_progress.is_some_and(|before| before != needs_progress) {
+                        stable_since = None;
+                    }
+                    window_needs_progress = Some(needs_progress);
                     let since = *stable_since.get_or_insert_with(|| {
                         progress_at_start = progress;
                         now
                     });
-                    // A frozen screen keeps reporting the same last progress.
-                    let advanced = attempt.kind == Kind::CleanInstall || progress != progress_at_start;
+                    // A frozen screen keeps reporting the same last progress. Only
+                    // server content is expected to move; a policy or idle
+                    // surface settles on accepted evidence held for the window.
+                    let advanced = !needs_progress || progress != progress_at_start;
                     last_reason = if advanced { "stable_window" } else { "no_fresh_progress" };
                     if now - since >= stable_ms && advanced {
                         attempt.settlement = Some(summary(status.as_ref()));

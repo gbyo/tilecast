@@ -23,6 +23,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/registry"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
@@ -131,19 +133,20 @@ var (
 // Resolution is a fully resolved, verified artifact: the manifest,
 // the pinned digest, and the provenance that approved it.
 type Resolution struct {
-	Manifest      packagemanifest.Manifest
-	ManifestJSON  json.RawMessage
-	Digest        string
-	RegistryRef   string
-	ReleaseTag    string
-	ReleaseName   string
-	PublishedAt   time.Time
-	Owner         string
-	Repo          string
-	RepositoryURL string
-	Signer        string
-	Trust         installer.TrustState
-	Compatible    bool
+	listingIdentityOnly bool
+	Manifest            packagemanifest.Manifest
+	ManifestJSON        json.RawMessage
+	Digest              string
+	RegistryRef         string
+	ReleaseTag          string
+	ReleaseName         string
+	PublishedAt         time.Time
+	Owner               string
+	Repo                string
+	RepositoryURL       string
+	Signer              string
+	Trust               installer.TrustState
+	Compatible          bool
 }
 
 // CustomSource is a persisted custom repository binding.
@@ -292,7 +295,7 @@ func (s *Service) reconcileWASMJobs(ctx context.Context, operation, packageID st
 	}
 	sync := s.syncJobs
 	if sync == nil {
-		sync = wasm.SyncJobs
+		sync = wasm.SyncInstalledJobs
 	}
 	if err := sync(ctx, s.db, packageID, jobs); err != nil {
 		s.log().ErrorContext(ctx, "package wasm job sync failed after commit",
@@ -362,6 +365,11 @@ func (s *Service) ResolveCustom(ctx context.Context, repoURL string) (Resolution
 	manifest, err := packagemanifest.Parse(raw)
 	if err != nil {
 		return Resolution{}, fmt.Errorf("%w: %v", ErrManifestInvalid, err)
+	}
+	if manifest.Capabilities != nil {
+		if err := services.ValidateGrants(manifest.Capabilities.Services); err != nil {
+			return Resolution{}, fmt.Errorf("%w: %v", ErrManifestInvalid, err)
+		}
 	}
 	digest, err := s.registry.Resolve(ctx, manifest.Distribution.OCI, release.Tag)
 	if err != nil {
@@ -479,7 +487,7 @@ func (s *Service) InstallCustom(ctx context.Context, repoURL string, userID uuid
 func Activation(resolution Resolution, ociManifest packagemanifest.Manifest, nested []packages.NestedContribution, userID uuid.UUID) installer.Activation {
 	contributions := make([]installer.Contribution, 0, len(nested))
 	for _, item := range nested {
-		contributions = append(contributions, installer.Contribution{Kind: item.Kind, ID: item.ID, Path: item.Path})
+		contributions = append(contributions, installer.Contribution{Kind: item.Kind, ID: item.ID, Path: item.Path, Digest: item.Digest})
 	}
 	kind := installer.SourceCustom
 	reference := resolution.RepositoryURL + "@" + resolution.ReleaseTag
@@ -555,16 +563,25 @@ func (s *Service) materialize(ctx context.Context, resolution Resolution) (packa
 	if err != nil {
 		return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
 	}
+	if verified.Manifest.Capabilities != nil {
+		if err := services.ValidateGrants(verified.Manifest.Capabilities.Services); err != nil {
+			return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
+		}
+	}
 	// Identity, version, origin, and compatibility range must agree: the
 	// review showed the discovered manifest, and activation runs the
 	// published one. Anything else drifts display text only.
 	if verified.Manifest.PackageID != resolution.Manifest.PackageID ||
 		verified.Manifest.PackageVersion != resolution.Manifest.PackageVersion ||
 		verified.Manifest.Distribution.OCI != resolution.Manifest.Distribution.OCI ||
-		verified.Manifest.Tilecast.Version != resolution.Manifest.Tilecast.Version {
+		verified.Manifest.Tilecast.Version != resolution.Manifest.Tilecast.Version ||
+		(!resolution.listingIdentityOnly && (verified.Manifest.APIVersion != resolution.Manifest.APIVersion ||
+			!reflect.DeepEqual(verified.Manifest.Runtime, resolution.Manifest.Runtime) ||
+			!reflect.DeepEqual(verified.Manifest.Capabilities, resolution.Manifest.Capabilities) ||
+			!reflect.DeepEqual(verified.Manifest.Contributions, resolution.Manifest.Contributions))) {
 		return packagemanifest.Manifest{}, nil, ErrCrossCheck
 	}
-	contributions, err := packages.ReadContributions(contentDir, verified.Manifest)
+	contributions, err := packages.ReadVerifiedContributions(ctx, layoutDir, contentDir, verified)
 	if err != nil {
 		return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
 	}
@@ -581,6 +598,18 @@ func (s *Service) materialize(ctx context.Context, resolution Resolution) (packa
 		return packagemanifest.Manifest{}, nil, fmt.Errorf("%w: %v", ErrArtifactInvalid, err)
 	}
 	return verified.Manifest, contributions, nil
+}
+
+// ReviewContributions reads verified Player permissions without installing.
+// Legacy packages without plugin contributions keep the manifest-only review.
+func (s *Service) ReviewContributions(ctx context.Context, resolution Resolution) ([]packages.NestedContribution, error) {
+	for _, contribution := range resolution.Manifest.Contributions {
+		if contribution.Type == packagemanifest.ContributionPlugin {
+			_, nested, err := s.materialize(ctx, resolution)
+			return nested, err
+		}
+	}
+	return nil, nil
 }
 
 // ContentDir returns the extracted content directory for a retained
@@ -894,6 +923,7 @@ func (s *Service) resolveListing(ctx context.Context, listing catalog.Listing) (
 		return Resolution{}, err
 	}
 	return Resolution{
+		listingIdentityOnly: true,
 		Manifest: packagemanifest.Manifest{
 			// Listing-derived manifests declare no version 2 features.
 			APIVersion:     1,

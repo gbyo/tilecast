@@ -96,8 +96,15 @@ describe("Widget host parity", () => {
     expect(
       filesContaining(dashboardRoot, "new SandboxedWidgetExecutor("),
     ).toEqual(["content/WidgetPreviewHost.tsx"]);
-    expect(filesContaining(playerRuntimeRoot, "new WidgetMount({")).toEqual([
-      "widgets/host.ts",
-    ]);
+    // The Runtime mounts through the same executor pair behind the one
+    // widget host: bundled Widgets trusted, package Widgets sandboxed.
+    // No other Runtime file may construct mounts or executors directly.
+    expect(filesContaining(playerRuntimeRoot, "new WidgetMount({")).toEqual([]);
+    expect(
+      filesContaining(playerRuntimeRoot, "new TrustedWidgetExecutor("),
+    ).toEqual(["widgets/host.ts"]);
+    expect(
+      filesContaining(playerRuntimeRoot, "new SandboxedWidgetExecutor("),
+    ).toEqual(["widgets/host.ts"]);
   });
 });

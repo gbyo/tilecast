@@ -47,6 +47,8 @@ enum Command {
     },
     /// Abandon a pairing in progress and clear its secrets.
     PairingReset,
+    /// Forget this screen's server relationship so it can pair again.
+    Unpair,
     /// List Tilecast Servers announced on the local network.
     Discover,
 }
@@ -86,6 +88,7 @@ async fn run(cli: Cli) -> ExitCode {
             }
         },
         Command::PairingReset => Method::PairingReset(Empty {}),
+        Command::Unpair => Method::UnpairDevice(Empty {}),
         Command::Discover => Method::DiscoveryList(Empty {}),
     };
     let is_pairing = matches!(method, Method::PairingStart(_));
@@ -152,6 +155,19 @@ fn print_status(value: &Value) {
     );
     if let Some(at) = &link.last_contact_at {
         println!("    last contact {at}");
+    }
+    if let Some(mismatch) = &status.installation_mismatch {
+        println!(
+            "  installation mismatch: expected {} but {} reported {} (detected {})",
+            mismatch.expected_installation_id,
+            mismatch.server_url,
+            mismatch.actual_installation_id,
+            mismatch.detected_at
+        );
+        for dir in [&mismatch.quarantined_cas_dir, &mismatch.quarantined_partial_dir].into_iter().flatten() {
+            println!("    quarantined {dir}");
+        }
+        println!("    re-pair the screen (tilecastctl pair) or forget it (tilecastctl unpair)");
     }
     if let Some(cas) = &status.cas {
         println!(

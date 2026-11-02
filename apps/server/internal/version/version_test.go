@@ -47,25 +47,51 @@ func TestDisplayReportsInjectedVersionForStable(t *testing.T) {
 	}
 }
 
+func TestDisplayReportsInjectedVersionForBeta(t *testing.T) {
+	t.Cleanup(func() {
+		Version = DevelopmentVersion
+		Channel = ChannelDevelopment
+	})
+	Version = "0.26.0-beta.1"
+	Channel = ChannelBeta
+	if got := Display(); got != "0.26.0-beta.1" {
+		t.Fatalf("beta display = %q, want %q", got, "0.26.0-beta.1")
+	}
+	if !IsRelease() {
+		t.Fatal("a beta build is a release build")
+	}
+	Channel = ChannelDevelopment
+	if IsRelease() {
+		t.Fatal("a development build is not a release build")
+	}
+}
+
 func TestParseReleaseTag(t *testing.T) {
 	cases := []struct {
 		tag     string
 		version string
+		channel string
 		valid   bool
 	}{
-		{"server-v0.11.0", "0.11.0", true},
-		{"server-v1.2.3", "1.2.3", true},
-		{"server-v0.11.0-beta", "", false},
-		{"server-v0.11", "", false},
-		{"v0.11.0", "", false},
-		{"player-v0.11.0", "", false},
-		{"server-v0.11.0 ", "", false},
-		{" server-v0.11.0", "", false},
-		{"latest", "", false},
-		{"", "", false},
+		{"v0.26.0", "0.26.0", ChannelStable, true},
+		{"v1.2.3", "1.2.3", ChannelStable, true},
+		{"v0.26.0-beta.1", "0.26.0-beta.1", ChannelBeta, true},
+		{"v0.26.0-beta.98", "0.26.0-beta.98", ChannelBeta, true},
+		{"v0.26.0-beta", "", "", false},
+		{"v0.26.0-beta.0", "", "", false},
+		{"v0.26.0-beta.01", "", "", false},
+		{"v0.26.0-rc.1", "", "", false},
+		{"v0.26", "", "", false},
+		{"0.26.0", "", "", false},
+		{"server-v0.26.0", "", "", false},
+		{"player-v0.26.0", "", "", false},
+		{"v0.26.0 ", "", "", false},
+		{" v0.26.0", "", "", false},
+		{"latest", "", "", false},
+		{"", "", "", false},
 	}
 	for _, tc := range cases {
-		version, err := ParseReleaseTag(tc.tag)
+		version, channel, err := ParseReleaseTag(tc.tag)
 		if !tc.valid {
 			if err == nil {
 				t.Errorf("ParseReleaseTag(%q) = %q, want an error", tc.tag, version)
@@ -76,8 +102,8 @@ func TestParseReleaseTag(t *testing.T) {
 			t.Errorf("ParseReleaseTag(%q) returned an error: %v", tc.tag, err)
 			continue
 		}
-		if version != tc.version {
-			t.Errorf("ParseReleaseTag(%q) = %q, want %q", tc.tag, version, tc.version)
+		if version != tc.version || channel != tc.channel {
+			t.Errorf("ParseReleaseTag(%q) = %q, %q, want %q, %q", tc.tag, version, channel, tc.version, tc.channel)
 		}
 	}
 }

@@ -172,6 +172,11 @@ export type MediaIntakePayload = {
   requestId: string;
   accept?: MediaIntakeKind[];
   multiple?: boolean;
+  /**
+   * The Media folder the host uploads into. A restricted account must name
+   * one of its folders; the server checks it again when each upload ends.
+   */
+  folderId?: string;
 };
 
 export type MediaIntakeOutcome =

@@ -249,12 +249,12 @@ func TestArchitectureRequired(t *testing.T) {
 }
 
 func TestEdgeVersionCodeMatchesTheReleaseBuild(t *testing.T) {
-	for name, want := range map[string]int64{"0.1.0": 1000, "1.2.3-rc.1": 1002003, "10.20.30": 10020030} {
+	for name, want := range map[string]int64{"0.1.0": 1000, "0.2.1-preview.1": 2001, "0.26.0-beta.1": 2600001, "0.26.0": 2600099} {
 		if got, ok := EdgeVersionCode(name); !ok || got != want {
 			t.Fatalf("%s: got %d %v", name, got, ok)
 		}
 	}
-	for _, bad := range []string{"1.2", "v1.2.3", "1.2000.0", "1.2.3-", "1.2.3-rc_1"} {
+	for _, bad := range []string{"1.2", "v1.2.3", "1.2000.0", "1.2.3-", "1.2.3-rc_1", "1.2.3-rc.1"} {
 		if _, ok := EdgeVersionCode(bad); ok {
 			t.Fatalf("%s accepted", bad)
 		}

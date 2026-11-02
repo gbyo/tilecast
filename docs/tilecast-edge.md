@@ -209,6 +209,12 @@ Reads never cause one write each. CAS access times are batched in memory and flu
 
 The daemon records a running marker at start and clears it on clean shutdown. A start that finds the marker set runs an integrity check and marks every CAS object as suspect. A suspect object is re-hashed before its next use.
 
+### 6.4 Playlist resume
+
+An ordinary playlist restarts at its last reliably presented item after a daemon restart, reboot, or power cut. The daemon writes one checkpoint row on accepted item evidence: the server binding, manifest version and digest, playlist, item, and presentation time. Only a new triple writes; duplicate evidence costs no transaction.
+
+At cold start the first ordinary playlist projection rotates to the checkpointed item when the binding, manifest, playlist, and 24-hour freshness all still match, and when `resumeAfterRestart` is not false (the server default is true). The rotation reorders the projected items in memory; it never rewrites the server manifest. The applied rotation sticks for the session, so repeated projections keep one stable activation key. A proven plugin-only revision retains that rotation. Synchronized groups, takeovers, layouts, and presentation changes start from the head. Anything invalid falls back to the ordinary order.
+
 ## 7. Local IPC
 
 The IPC contract is `edge_protocol::ipc`, protocol version 1. It is renderer-neutral.
@@ -259,6 +265,12 @@ Readiness, the renderer and playback never wait for the server. At start the dae
 
 A failed reconciliation or preparation never replaces the last good state. A new manifest becomes active only after every object it needs is verified and pinned.
 
+### 8.5 Installation mismatch and unpair
+
+When the server's installation ID stops matching the binding, the daemon stops server content and records the evidence: the server URL, both installation IDs, the detection time, the last successful contact, and where the quarantined caches went. The record is written before any cache moves. It names the planned moves and stays incomplete until every move is done. The content store and partial downloads move aside (never deleted), fresh owner-only directories take their place, and the content store forgets its object, partial, and pin rows, because those rows describe files that moved. The screen shows a mismatch surface instead of server content. A restart or the next mismatched pass finishes an incomplete record, and a move that already happened is not repeated. Only a mismatch quarantines; unreachable servers, generic errors, and rejected credentials never do. The record clears on a re-pair, an unpair, or a recovered server. A recovered server clears it on its first verified heartbeat. Studio truthfully shows the screen disconnected; the evidence lives on the device (`tilecastctl status`).
+
+`tilecastctl unpair` forgets the server relationship: the binding, device credential, pairing files, queued results, and staged configuration. It is idempotent, so a failed run converges on retry: a retry runs the whole cleanup again, including the pairing files, even when the binding and credential are already gone. The database steps run in one transaction. The screen returns to setup so it can pair again. Discovery keeps no preference to clear: every `discovery.list` is a fresh browse.
+
 ## 9. Content store
 
 ### 9.1 Identity and invariants
@@ -293,6 +305,20 @@ Pins have a reason and a holder: the active and pending presentation, prefetch, 
 
 `tilecastctl` can verify one object on request. A corrupt object is removed; the next preparation that needs it fetches it again. Background scrubbing, when added, uses the same verification and is rate-limited.
 
+### 9.5 Stream-backed video
+
+A video can play without a complete local copy. Each playlist item carries a delivery policy, `download`, `stream`, or `automatic`:
+
+- `download` must be fetched and verified before activation. It never falls back to streaming: a video that does not fit the store fails preparation with `media_cache_too_small`.
+- `automatic` downloads when the video fits and streams when it does not. The threshold is half the cache limit, so one object can never consume the whole store.
+- `stream` plays from the origin while online, or from CAS when the bytes are already verified there.
+
+The partition is deterministic in the manifest, the policies, and the threshold, so prepare, verify, and diagnostics always agree. Only videos stream; images, bundles, and frames always download. A variant streams only when every one of its uses allows it: any `download` item, or any policy-less reference (layout, branding, website fallback, plugin image), keeps it a verified download.
+
+The media grant carries the stream backend: the manifest's authenticated player download path. The media channel serves verified CAS bytes first when present, then bounded origin range reads (`Range` with `If-Range` on the manifest validator) behind the same opaque `tcmedia://cap/…` URI and the same HEAD/READ protocol. The renderer never learns the path, the URL, the credential, or which backend answered. Only an exact `206` whose Content-Range start, end, and total match the manifest claim is accepted; a `200` (Range ignored), `416`, wrong range, wrong total, or changed ETag fails the read with a typed reason (`credential_rejected`, `origin_not_found`, `range_rejected`, `stream_truncated`, `origin_unreachable`), and the renderer's normal skip/fallback policy answers. A partial stream is never promoted to CAS and never pinned. Concurrent origin reads are bounded, each read is timed out, no registry lock is held across I/O, and the grant, the generation, and the verified relationship are re-checked before the bytes are released — so revocation, mismatch, re-pairing, or an activation replacement mid-read withholds the bytes.
+
+Stream-backed video has reduced offline guarantees: offline, its reads fail typed and the playlist moves on. The heartbeat reports the `media-streaming` capability and the activation's `streamBackedAssetCount`, and a stream failure never discards the committed manifest or starts a repair download.
+
 ## 10. Renderer
 
 ### 10.1 Baseline
@@ -308,6 +334,30 @@ Electron and WPE host the shared Tilecast Player Runtime (`@tilecast/player-runt
 The host adapter (`web/tilecast-bridge.js`) implements the runtime's versioned host contract, `TilecastRuntimeHostV1`, and exposes only its typed members. Behavior follows the capabilities the adapter advertises, never the host's name. Runtime file names are validated against a fixed grammar: top-level files and `fonts/<name>`. Host-to-page delivery calls one fixed function with typed arguments; no script source is built from strings. The runtime document's CSP is `script-src 'self'` and `style-src 'self'`, with no inline allowance.
 
 ### 10.3 Media access
+
+The WPE native message handlers belong to a named JavaScript world.
+Only the exact top-level Runtime document receives its relay script.
+The typed page adapter uses bounded DOM events on that document to reach
+the relay. Opaque package frames cannot reach the parent document or the
+named world's native handlers. Reports have a 64 KiB limit. At most eight
+requests await a reply, with a sixty-second limit.
+
+Widget and plugin frame grants have separate execution kinds.
+Plugin frame responses deny image, media, font, and network loads.
+A plugin state update carries an independent frame authorization table.
+New grants are staged before delivery. Success commits them; failure retains
+the previous set. Removed grants drain without changing presentation grants.
+The iframe port ends on navigation, and native policy refuses non-grant
+frame URLs before a request is sent.
+
+WPE compiles a fixed document filter before it loads the Runtime.
+The filter denies Runtime documents in child frames.
+It denies a new document load from a current package frame, including a reload
+or a different live grant. Initial loads can share the same verified frame.
+Filter compilation failure prevents view startup.
+The headless navigation test checks scheme reads before and after hostile
+navigations. Its negative control removes only the test view's filter.
+The production renderer has no filter bypass.
 
 The renderer reads media only through `tcmedia://`, and only for objects that the current activation or plugin state lists, with the declared size. It never receives a directory to browse and never receives a path from the page. The target is a daemon-owned media capability channel: `tilecastd` grants short-lived per-activation capabilities and serves the bytes itself, so the renderer needs no filesystem access to the CAS at all.
 

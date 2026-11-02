@@ -86,11 +86,20 @@ pub struct OfflineActivationCoordinator {
     invalid_pending: Option<Sha256Digest>,
     pending_error_version: Option<Sha256Digest>,
     trial: Option<(Sha256Digest, i64)>,
+    plugin_refresh: Option<(Sha256Digest, Sha256Digest)>,
 }
 
 impl OfflineActivationCoordinator {
     pub fn new(dependencies: Dependencies, store: Option<ContentStore>) -> Self {
-        Self { dependencies, store, binding: None, invalid_pending: None, pending_error_version: None, trial: None }
+        Self {
+            dependencies,
+            store,
+            binding: None,
+            invalid_pending: None,
+            pending_error_version: None,
+            trial: None,
+            plugin_refresh: None,
+        }
     }
 
     pub async fn load(&mut self) -> Option<OfflineManifestState> {
@@ -110,6 +119,7 @@ impl OfflineActivationCoordinator {
             self.invalid_pending = None;
             self.pending_error_version = None;
             self.trial = None;
+            self.plugin_refresh = None;
         }
         let read = |stage| {
             let binding = binding.clone();
@@ -157,6 +167,14 @@ impl OfflineActivationCoordinator {
 
     pub fn pending_rejected(&self, digest: Sha256Digest) -> bool {
         self.pending_error_version == Some(digest)
+    }
+
+    pub(crate) fn plugin_refresh_matches(&self, base: Sha256Digest, on_screen: Option<Sha256Digest>) -> bool {
+        self.plugin_refresh.is_some_and(|(proven_base, delivered)| proven_base == base && on_screen == Some(delivered))
+    }
+
+    pub(crate) fn note_plugin_refresh(&mut self, base: Sha256Digest, delivered: Sha256Digest) {
+        self.plugin_refresh = Some((base, delivered));
     }
 
     /// Returns true only for the first projection failure for this pending digest.

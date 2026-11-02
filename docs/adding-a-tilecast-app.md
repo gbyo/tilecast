@@ -14,6 +14,13 @@ Use a Web Integration for a provider that documents a public/published embed mec
 
 Test accepted and rejected hosts, normalization, reload serialization, and Player behavior. Setup copy must say when publishing makes data public and must not imply Tilecast bypasses provider authentication or embedding policy.
 
+Resolve provider short links during authoring, then store the canonical URL in the existing configuration field.
+Keep manifest compilation independent of provider availability.
+Reuse the Source transport for DNS-pinned connections with a fixed provider URL policy.
+Do not inherit private-network permission for a public short-link provider.
+Studio iframe load events do not prove that cross-origin content loaded successfully.
+See the [Canva contract and manual verification](widgets-and-layouts.md#canva-link-and-preview-contract) for this implementation.
+
 ## Connected App
 
 Use this path for private Google, Microsoft, Meta, or similar data. It requires the separate Connections domain: server-side protected credentials, explicit scopes, status/reconnect/revoke behavior, and a connection ID in App configuration. Tokens and secrets must never enter manifests or Players. Until that domain and its backup policy are implemented, keep the catalog entry disabled with a concise reason.

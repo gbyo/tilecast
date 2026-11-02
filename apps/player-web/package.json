@@ -11,10 +11,12 @@
     "typecheck": "tsc --noEmit",
     "pretest": "npm run deps",
     "test": "vitest run",
-    "test:e2e": "npm run build && playwright test -c e2e/playwright.config.ts"
+    "test:e2e": "npm run build && playwright test -c e2e/playwright.config.ts",
+    "test:e2e:frames": "npm run build && playwright test -c e2e/frames/playwright.config.ts"
   },
   "dependencies": {
     "@noble/hashes": "2.2.0",
+    "@tilecast/companion-protocol": "*",
     "@tilecast/player-active-hours": "*",
     "@tilecast/player-activity": "*",
     "@tilecast/player-runtime": "*"

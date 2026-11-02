@@ -38,6 +38,7 @@ import {
   marketplaceListing,
   updateCheck,
 } from "../catalogFixtures";
+import { builtinCapabilities } from "../../test/capabilities";
 
 const auth = vi.hoisted(() => ({ role: "owner" }));
 vi.mock("../../auth/AuthProvider", () => ({
@@ -46,6 +47,7 @@ vi.mock("../../auth/AuthProvider", () => ({
       authenticated: true,
       csrfToken: "csrf",
       user: { id: "user", name: "User", role: auth.role },
+      capabilities: builtinCapabilities(auth.role),
     },
   }),
 }));
@@ -367,7 +369,7 @@ describe("Included detail page", () => {
     expect(await screen.findByText("No special permissions")).toBeVisible();
     expect(
       screen.getByText(
-        "This plugin doesn't request network access, local storage, background jobs, or a custom Studio interface.",
+        "This plugin doesn't request network access, local storage, background jobs, a custom Studio interface, or Tilecast services.",
       ),
     ).toBeVisible();
     // Nothing to list, so no Requirements section to restate it.
@@ -1309,6 +1311,45 @@ describe("Update review", () => {
     ).toBeEnabled();
   });
 
+  it("calls out an added Tilecast service as new permissions", async () => {
+    check = updateCheck({
+      installed: installedPackage(),
+      available: true,
+      upToDate: false,
+      latest: latest({
+        contributions: [{ type: "widget", path: "lobby" }],
+        capabilities: {
+          network: { hosts: ["api.old.example"] },
+          storage: true,
+          services: [
+            {
+              id: "takeovers.manage",
+              version: 1,
+              name: "Emergency takeovers",
+              description: "Start and cancel takeovers.",
+              category: "manage",
+              operations: [
+                {
+                  name: "takeovers.manage@1/activate",
+                  title: "Start takeover",
+                  description: "Start a takeover.",
+                  mutating: true,
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+    const user = userEvent.setup();
+    const dialog = await openUpdateReview(user);
+    expect(within(dialog).getByText("New permissions")).toBeVisible();
+    expect(within(dialog).getByText("Emergency takeovers")).toBeVisible();
+    expect(
+      within(dialog).getByText("Start takeover (changes data)"),
+    ).toBeVisible();
+  });
+
   it("says when contributions and permissions did not change", async () => {
     check = updateCheck({
       installed: installedPackage(),
@@ -2084,7 +2125,13 @@ describe("Screenshot lightbox", () => {
       name: `Enlarge screenshot: ${alt}`,
     });
     await user.click(opener);
-    return { opener, dialog: await screen.findByRole("dialog") };
+    const dialog = await screen.findByRole("dialog");
+    // Key presses go to the focused element, and the dialog moves focus into
+    // itself after it opens. Wait for that so a loaded runner cannot drop them.
+    await waitFor(() =>
+      expect(dialog).toContainElement(document.activeElement as HTMLElement),
+    );
+    return { opener, dialog };
   }
 
   it("shows the position and steps with Previous and Next, without closing", async () => {
@@ -2137,6 +2184,11 @@ describe("Screenshot lightbox", () => {
   it("moves with the arrow keys and stops at the ends", async () => {
     const user = userEvent.setup();
     const { dialog } = await openShot(user, "Forecast");
+    const next = within(dialog).getByRole("button", {
+      name: "Next screenshot",
+    });
+    next.focus();
+    expect(next).toHaveFocus();
     await user.keyboard("{ArrowRight}");
     expect(within(dialog).getByText("2 of 3")).toBeVisible();
     await user.keyboard("{ArrowRight}{ArrowRight}");
@@ -2180,6 +2232,11 @@ describe("Screenshot lightbox", () => {
     try {
       const user = userEvent.setup();
       const { dialog } = await openShot(user, "Forecast");
+      const next = within(dialog).getByRole("button", {
+        name: "Next screenshot",
+      });
+      next.focus();
+      expect(next).toHaveFocus();
       await user.keyboard("{ArrowLeft}");
       expect(within(dialog).getByText("2 of 3")).toBeVisible();
       await user.keyboard("{ArrowRight}");

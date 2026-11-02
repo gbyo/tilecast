@@ -24,7 +24,7 @@
 //! `player.ts#buildPresentation`) calls [`PresentationEngine::activate`] the
 //! same way, after its content is verified and pinned in the CAS.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
@@ -39,7 +39,7 @@ use edge_protocol::ipc::event::{
     RendererCommandKind, RendererConfigure, RendererMediaRef, RendererProgress, RendererReady, SyncTiming,
 };
 use edge_protocol::ipc::presentation::{
-    ContentRef, PresentationDocument, PresentationError, StatusSurface, validate_content_references,
+    ContentRef, FrameRef, PresentationDocument, PresentationError, StatusSurface, validate_content_references,
 };
 use edge_protocol::ipc::status::RendererStatus;
 use player_core::RendererPort;
@@ -55,6 +55,19 @@ fn policy_time(now_ms: i64) -> Timestamp {
 
 fn semantic_ref(reference: ActivationRef) -> player_core::RendererActivationRef {
     player_core::RendererActivationRef { activation_id: reference.activation_id, generation: reference.generation }
+}
+
+/// Names a Widget mount failure for the last-error status. The runtime
+/// reports every mount outcome as `widget <code>`; the daemon records
+/// the bounded category, never the raw mount detail.
+fn widget_failure_code<'a>(code: &'a str, message: &str) -> &'a str {
+    if !message.starts_with("widget ") {
+        return code;
+    }
+    if message.starts_with("widget widget_ready_timeout") {
+        return "widget_sandbox_timeout";
+    }
+    "widget_execution_failed"
 }
 
 pub use player_core::ActivationSource;
@@ -82,6 +95,10 @@ pub struct ServerExtras {
     pub projection: Option<ProjectionContext>,
     pub plugins: Vec<serde_json::Value>,
     pub plugin_aliases: Vec<MediaAlias>,
+    /// Network backends for this activation's stream-backed videos, by
+    /// content digest. Only digests also in the activation content gain
+    /// grants; anything else here is never attached.
+    pub streams: HashMap<edge_protocol::Sha256Digest, player_core::StreamSource>,
 }
 
 #[derive(Debug, Clone)]
@@ -94,6 +111,7 @@ pub struct Activation {
     pub document: PresentationDocument,
     pub renderer_metadata: player_core::RendererMetadata,
     pub content: Vec<ContentRef>,
+    pub frames: Vec<FrameRef>,
     pub timing: Option<SyncTiming>,
     pub source: ActivationSource,
     pub extras: ServerExtras,
@@ -116,6 +134,8 @@ impl Activation {
             generation: self.generation,
             presentation: document,
             content,
+            // Fallback activations carry no media and no frames.
+            frames: Vec::new(),
             timing,
             projection,
         }))
@@ -167,11 +187,35 @@ pub struct PresentationEngine {
     incompatible_reason: Option<String>,
     native: player_core::RendererCoordinator,
     restart_count: u64,
+    /// Last renderer restart (recovery rung or explicit command), restored
+    /// from the supervision record so it survives daemon restarts.
+    last_restart: Option<(ShortToken, Timestamp)>,
     /// Proof-of-play signals for the activity task.
     activity: Option<crate::activity::Handle>,
     /// Corrected-minus-local wall offset handed to the runtime for
     /// time-dependent projection (countdowns, date-selected records).
     clock_offset_ms: i64,
+    /// Ephemeral loopback media port, set once the daemon binds it. The
+    /// renderer port mirrors capability aliases onto loopback URLs for
+    /// opaque frames only while this port is known.
+    loopback_port: Option<u16>,
+    /// First-party native plugin contributions this build compiles in. It
+    /// reads what the renderer receives, so a native part and its Shared
+    /// Runtime part see one plugin state.
+    native_plugins: player_core::NativePluginFeed,
+    /// The stall last written to the log, so a stall is reported when it
+    /// starts and when it ends rather than on every supervision tick.
+    reported_stall: Option<(player_core::StallReason, Option<String>, Option<String>)>,
+}
+
+/// Recovery facts for heartbeat diagnostics. Core owns the ladder; Edge
+/// projects the snapshot plus the restarts it executed.
+#[derive(Debug, Clone)]
+pub struct RecoveryReport {
+    pub snapshot: player_core::RecoverySnapshot,
+    pub restart_count: u64,
+    pub last_restart: Option<(ShortToken, Timestamp)>,
+    pub safe_mode_reason: Option<SafeText<240>>,
 }
 
 impl PresentationEngine {
@@ -203,13 +247,35 @@ impl PresentationEngine {
                 policy_time(now_ms),
             ),
             restart_count: 0,
+            last_restart: None,
             activity: None,
             clock_offset_ms: 0,
+            loopback_port: None,
+            // Edge provides no native plugin services yet, so a contribution
+            // that requires one stays unsupported.
+            native_plugins: player_core::NativePluginFeed::registered(
+                player_core::NativeServices::new(),
+                plugin_native_registry::contributions(),
+            ),
+            reported_stall: None,
         }
+    }
+
+    /// Native plugin service capabilities this build provides, for the heartbeat.
+    pub fn native_plugin_capabilities(&self) -> Vec<(String, u32)> {
+        self.native_plugins.capabilities()
+    }
+
+    fn corrected_now_ms(&self) -> i64 {
+        self.clock.now().unix_millis().saturating_add(self.clock_offset_ms)
     }
 
     pub fn set_clock_offset(&mut self, offset_ms: i64) {
         self.clock_offset_ms = offset_ms;
+    }
+
+    pub fn set_loopback_port(&mut self, port: u16) {
+        self.loopback_port = Some(port);
     }
 
     /// Issues a new activation and sends it if a ready renderer is connected.
@@ -221,7 +287,7 @@ impl PresentationEngine {
         source: ActivationSource,
         now_ms: i64,
     ) -> Result<ActivationRef, PresentationError> {
-        self.activate_revision(document, content, timing, source, None, ServerExtras::default(), now_ms)
+        self.activate_revision(document, content, Vec::new(), timing, source, None, ServerExtras::default(), now_ms)
     }
 
     /// Activates a prepared server presentation. The identity binds renderer
@@ -231,6 +297,7 @@ impl PresentationEngine {
         identity: PlaybackIdentity,
         document: PresentationDocument,
         content: Vec<ContentRef>,
+        frames: Vec<FrameRef>,
         extras: ServerExtras,
         now_ms: i64,
     ) -> Result<ActivationRef, PresentationError> {
@@ -246,6 +313,7 @@ impl PresentationEngine {
         self.activate_revision(
             document,
             content,
+            frames,
             timing,
             ActivationSource::ServerManifest,
             Some(identity),
@@ -259,6 +327,7 @@ impl PresentationEngine {
         &mut self,
         document: PresentationDocument,
         content: Vec<ContentRef>,
+        frames: Vec<FrameRef>,
         timing: Option<SyncTiming>,
         source: ActivationSource,
         identity: Option<PlaybackIdentity>,
@@ -282,6 +351,7 @@ impl PresentationEngine {
             document,
             renderer_metadata,
             content,
+            frames,
             timing,
             source,
             extras,
@@ -302,6 +372,73 @@ impl PresentationEngine {
         self.current = Some(activation);
         self.push_current();
         Ok(reference)
+    }
+
+    pub fn refresh_plugins(
+        &mut self,
+        previous: edge_protocol::Sha256Digest,
+        identity: PlaybackIdentity,
+        resolved: &crate::manifest::ResolvedPresentation,
+        extras: ServerExtras,
+    ) -> Result<bool, &'static str> {
+        let Some(current) = self.current.as_ref() else { return Ok(false) };
+        let projection = |value: &Option<ProjectionContext>| {
+            value.clone().map(|mut value| {
+                value.clock_offset_ms = 0;
+                value.manifest = player_core::manifest_without_plugin_revision(&value.manifest);
+                value
+            })
+        };
+        let timing = |value: &Option<SyncTiming>| {
+            value.clone().map(|mut value| {
+                value.clock_offset_ms = 0;
+                value
+            })
+        };
+        if current.source != ActivationSource::ServerManifest
+            || current.manifest() != Some(previous)
+            || current.document != resolved.document
+            || current.content != resolved.content
+            || current
+                .frames
+                .iter()
+                .filter(|frame| frame.kind.is_widget())
+                .ne(resolved.frames.iter().filter(|frame| frame.kind.is_widget()))
+            || timing(&current.timing) != timing(&extras.timing)
+            || projection(&current.extras.projection) != projection(&extras.projection)
+        {
+            return Ok(false);
+        }
+        if !self.current_is_accepted() || !self.current_has_activation_evidence() || self.current_has_renderer_error() {
+            return Err("plugin_refresh_renderer_unready");
+        }
+        validate_media_aliases(&extras.plugin_aliases, &current.content).map_err(|_| "plugin_refresh_invalid")?;
+        for plugin in &extras.plugins {
+            edge_protocol::ipc::presentation::validate_value(plugin, &current.content)
+                .map_err(|_| "plugin_refresh_invalid")?;
+        }
+        let mut next = current.clone();
+        next.frames = resolved.frames.clone();
+        next.identity = Some(identity);
+        next.extras = extras;
+        let prepared =
+            crate::renderer_adapter::prepare(&next, self.clock_offset_ms).map_err(|_| "plugin_refresh_invalid")?;
+        let Some(link) = self.renderer.as_ref().filter(|link| link.ready.is_some()) else {
+            return Err("plugin_refresh_renderer_unready");
+        };
+        link.port()
+            .update_plugin_frames(
+                prepared.reference(),
+                prepared.runtime_context().ok_or("plugin_refresh_invalid")?,
+                &prepared.frames().iter().filter(|frame| !frame.kind.is_widget()).cloned().collect::<Vec<_>>(),
+            )
+            .map_err(|_| "plugin_refresh_delivery_failed")?;
+        let now_ms = self.corrected_now_ms();
+        if let Some(context) = prepared.runtime_context() {
+            self.native_plugins.plugins_updated(context.value(), now_ms);
+        }
+        self.current = Some(next);
+        Ok(true)
     }
 
     pub fn current(&self) -> Option<&Activation> {
@@ -349,6 +486,11 @@ impl PresentationEngine {
         self.current.iter().flat_map(|a| a.content.iter().map(|c| c.sha256)).collect()
     }
 
+    /// The connected renderer's connection identity.
+    pub fn renderer_connection(&self) -> Option<uuid::Uuid> {
+        self.renderer.as_ref().map(|link| *link.session.id().as_uuid())
+    }
+
     pub fn renderer_connected(&mut self, session: SessionHandle, now_ms: i64) {
         let connection = *session.id().as_uuid();
         let port = crate::renderer_adapter::EdgeRendererPort::new(
@@ -357,6 +499,9 @@ impl PresentationEngine {
             self.media_registry.clone(),
             self.clock.clone(),
         );
+        if let Some(loopback) = self.loopback_port {
+            port.set_loopback_port(loopback);
+        }
         let _ = port.configure(&self.configure.kiosk);
         self.renderer = Some(RendererLink { session, ready: None, port, remote_web_restarting: false });
         self.native.connected(connection, policy_time(now_ms));
@@ -400,13 +545,19 @@ impl PresentationEngine {
     }
 
     pub fn progress(&mut self, session: &SessionHandle, report: &RendererProgress, now: Timestamp) -> bool {
+        self.progress_for(*session.id().as_uuid(), report, now)
+    }
+
+    /// The report of an identified renderer connection. Core accepts it only
+    /// for the current connection and activation.
+    pub fn progress_for(&mut self, connection: uuid::Uuid, report: &RendererProgress, now: Timestamp) -> bool {
         let semantic = player_core::SemanticRendererProgress {
             activation: semantic_ref(report.activation),
             kind: crate::renderer_adapter::evidence(report.kind),
             item_id: report.item_id.clone(),
             zone_id: report.zone_id.clone(),
         };
-        let decision = self.native.progress(*session.id().as_uuid(), &semantic, now);
+        let decision = self.native.progress(connection, &semantic, now);
         if let Some(kind) = decision.activity_signal {
             self.signal(crate::activity::Signal::Renderer {
                 kind,
@@ -437,7 +588,11 @@ impl PresentationEngine {
         item_id: Option<&str>,
         message: &str,
     ) {
-        if self.native.rejected(*session.id().as_uuid(), semantic_ref(activation), ShortToken::new(code).ok()) {
+        if self.native.rejected(
+            *session.id().as_uuid(),
+            semantic_ref(activation),
+            ShortToken::new(widget_failure_code(code, message)).ok(),
+        ) {
             self.signal(crate::activity::Signal::PlaybackError {
                 item_id: item_id.map(str::to_owned),
                 message: message.to_owned(),
@@ -448,7 +603,44 @@ impl PresentationEngine {
     /// Periodic supervision. Returns the action taken, for logging/tests.
     pub fn tick(&mut self, now_ms: i64) -> HealAction {
         let action = self.native.evaluate_recovery(policy_time(now_ms));
+        self.report_stall_transition(now_ms);
         self.execute_recovery(action, now_ms)
+    }
+
+    /// What the content on screen owes and whether it is paying, for
+    /// telemetry and diagnostics.
+    pub fn playback_health(&self, now_ms: i64) -> player_core::PlaybackHealth {
+        self.native.playback_health(policy_time(now_ms))
+    }
+
+    /// Whether the item on screen is expected to be moving, once it started.
+    pub fn expected_motion(&self) -> Option<bool> {
+        self.native.current_expectation().map(|expectation| expectation == player_core::Expectation::Video)
+    }
+
+    /// Writes one line when playback becomes stalled and one when it recovers.
+    /// The detail names the content kind, reason, item and zone, never a
+    /// location, so it is safe for any log.
+    fn report_stall_transition(&mut self, now_ms: i64) {
+        let health = self.playback_health(now_ms);
+        let key = health.stall().map(|stall| (stall.reason, stall.item_id.clone(), stall.zone_id.clone()));
+        if key == self.reported_stall {
+            return;
+        }
+        match health.stall() {
+            Some(stall) => tracing::warn!(
+                component = "presentation",
+                event = "playback_stalled",
+                reason = stall.reason.as_str(),
+                expectation = stall.expectation.as_str(),
+                item = stall.item_id.as_deref().unwrap_or(""),
+                zone = stall.zone_id.as_deref().unwrap_or(""),
+                since_unix_ms = stall.since_ms,
+                stalled_for_ms = stall.duration_ms(now_ms)
+            ),
+            None => tracing::info!(component = "presentation", event = "playback_recovered"),
+        }
+        self.reported_stall = key;
     }
 
     fn execute_recovery(&mut self, action: HealAction, now_ms: i64) -> HealAction {
@@ -459,6 +651,7 @@ impl PresentationEngine {
                     let _ = self.activate_revision(
                         current.document,
                         current.content,
+                        current.frames,
                         current.timing,
                         current.source,
                         current.identity,
@@ -474,6 +667,7 @@ impl PresentationEngine {
             }
             HealAction::RestartRenderer => {
                 self.restart_count += 1;
+                self.note_restart("recovery", now_ms);
                 if let Some(link) = &self.renderer {
                     let _ = self.native.dispatch_recovery(link.port(), action, uuid::Uuid::new_v4());
                 }
@@ -490,7 +684,21 @@ impl PresentationEngine {
             }
         }
         if action != HealAction::None {
-            tracing::warn!(component = "presentation", event = "heal_action", action = ?action);
+            let cause = self.native.last_recovery().filter(|cause| cause.action == action);
+            let recovery = self.native.recovery_snapshot();
+            tracing::warn!(
+                component = "presentation",
+                event = "heal_action",
+                action = ?action,
+                reason = cause.map_or("", |cause| cause.stall.reason.as_str()),
+                expectation = cause.map_or("", |cause| cause.stall.expectation.as_str()),
+                item = cause.and_then(|cause| cause.stall.item_id.as_deref()).unwrap_or(""),
+                zone = cause.and_then(|cause| cause.stall.zone_id.as_deref()).unwrap_or(""),
+                since_unix_ms = cause.map_or(0, |cause| cause.stall.since_ms),
+                stalled_for_ms = cause.map_or(0, |cause| cause.stalled_for_ms()),
+                escalation_step = recovery.escalation_step,
+                ladder_runs = recovery.ladder_runs
+            );
             if let Some(event) = self.native.recovery_event(action) {
                 self.signal(crate::activity::Signal::Event(Box::new(event)));
             }
@@ -501,6 +709,7 @@ impl PresentationEngine {
     pub fn clear(&mut self, reason: &str) {
         self.current = None;
         self.native.clear();
+        self.native_plugins.cleared();
         if let Some(link) = &self.renderer {
             let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("cleared").expect("literal"));
             let _ = link.port().clear(&reason);
@@ -524,6 +733,12 @@ impl PresentationEngine {
         let incompatible = match self.native.dispatch(*session.id().as_uuid(), &semantic, link.port()) {
             Ok(player_core::RendererDispatch::Queued) => {
                 self.incompatible_reason = None;
+                let now_ms = self.corrected_now_ms();
+                self.native_plugins.activated(
+                    semantic.document().value(),
+                    semantic.runtime_context().map(player_core::RuntimePayload::value),
+                    now_ms,
+                );
                 return;
             }
             Ok(player_core::RendererDispatch::Incompatible(missing)) => missing,
@@ -687,6 +902,27 @@ impl PresentationEngine {
         self.restart_count
     }
 
+    /// Last renderer restart reason and time, for heartbeat diagnostics.
+    pub fn last_restart(&self) -> Option<(&ShortToken, Timestamp)> {
+        self.last_restart.as_ref().map(|(reason, at)| (reason, *at))
+    }
+
+    /// Recovery facts for heartbeat diagnostics, projected from Player Core.
+    /// Unknown stays unknown: a missing restart or failure is omitted
+    /// downstream, never reported as zero or empty.
+    pub fn recovery_report(&self) -> RecoveryReport {
+        RecoveryReport {
+            snapshot: self.native.recovery_snapshot(),
+            restart_count: self.restart_count,
+            last_restart: self.last_restart.clone(),
+            safe_mode_reason: self.native.is_safe_mode().then(|| self.native.safe_mode_reason()),
+        }
+    }
+
+    pub fn safe_mode_reason(&self) -> SafeText<240> {
+        self.native.safe_mode_reason()
+    }
+
     pub fn is_safe_mode(&self) -> bool {
         self.native.is_safe_mode()
     }
@@ -742,6 +978,7 @@ impl PresentationEngine {
         self.activate_revision(
             current.document,
             current.content,
+            current.frames,
             current.timing,
             current.source,
             current.identity,
@@ -778,14 +1015,20 @@ impl PresentationEngine {
 
     /// Asks the connected renderer to exit so systemd starts a fresh one; the
     /// current activation is restored when it reconnects.
-    pub fn restart_renderer(&mut self, reason: &str) -> bool {
+    pub fn restart_renderer(&mut self, reason: &str, now_ms: i64) -> bool {
         let Some(link) = self.renderer.as_ref() else { return false };
         let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("command").expect("literal token"));
         let sent = link.port().request_restart(&reason, 5_000).is_ok();
         if sent {
             self.restart_count += 1;
+            self.note_restart(reason.as_str(), now_ms);
         }
         sent
+    }
+
+    fn note_restart(&mut self, reason: &str, now_ms: i64) {
+        let reason = ShortToken::new(reason).unwrap_or_else(|_| ShortToken::new("recovery").expect("literal token"));
+        self.last_restart = Some((reason, policy_time(now_ms)));
     }
 
     /// Leaves safe mode and restarts the ladder. Returns whether safe mode
@@ -800,6 +1043,10 @@ impl PresentationEngine {
     /// persisted supervisor state.
     pub fn restore_supervision(&mut self, record: &edge_state::repo::renderer::RendererRecord, now_ms: i64) {
         self.restart_count = record.restart_count;
+        self.last_restart = match (&record.last_restart_reason, record.last_restart_at) {
+            (Some(reason), Some(at)) => ShortToken::new(reason).ok().map(|token| (token, at)),
+            _ => None,
+        };
         if record.safe_mode {
             let reason = record.safe_mode_reason.as_deref().unwrap_or("recovery");
             self.native.restore_safe_mode(reason, policy_time(now_ms));
@@ -821,6 +1068,8 @@ impl PresentationEngine {
     ) -> edge_state::repo::renderer::RendererRecord {
         let mut next = previous.clone();
         next.restart_count = self.restart_count;
+        next.last_restart_at = self.last_restart.as_ref().map(|(_, at)| *at);
+        next.last_restart_reason = self.last_restart.as_ref().map(|(reason, _)| reason.as_str().to_owned());
         next.safe_mode = self.native.is_safe_mode();
         next.safe_mode_reason = self.native.is_safe_mode().then(|| self.native.safe_mode_reason().to_string());
         next
@@ -874,6 +1123,15 @@ mod tests {
     }
 
     #[test]
+    fn widget_failures_record_bounded_categories_not_mount_detail() {
+        assert_eq!(widget_failure_code("playback_error", "widget widget_ready_timeout"), "widget_sandbox_timeout");
+        assert_eq!(widget_failure_code("playback_error", "widget widget_resolve_failed"), "widget_execution_failed");
+        assert_eq!(widget_failure_code("playback_error", "widget frame_error"), "widget_execution_failed");
+        assert_eq!(widget_failure_code("playback_error", "a video stalled"), "playback_error");
+        assert_eq!(widget_failure_code("decode_error", "widget widget_ready_timeout"), "widget_sandbox_timeout");
+    }
+
+    #[test]
     fn supervision_restore_holds_safe_mode_and_seed_restarts() {
         let mut engine = engine();
         let record = edge_state::repo::renderer::RendererRecord {
@@ -891,6 +1149,41 @@ mod tests {
         assert!(!snapshot.safe_mode);
         assert_eq!(snapshot.safe_mode_reason, None);
         assert_eq!(snapshot.restart_count, 7);
+    }
+
+    #[test]
+    fn last_restart_survives_a_daemon_restart_and_reports_invalid_tokens_as_unknown() {
+        let mut engine = engine();
+        let record = edge_state::repo::renderer::RendererRecord {
+            restart_count: 3,
+            last_restart_at: Some(Timestamp::from_unix_millis(1_700_000_000_000).expect("restart time")),
+            last_restart_reason: Some("recovery".into()),
+            ..Default::default()
+        };
+        engine.restore_supervision(&record, 2_000);
+        let (reason, at) = engine.last_restart().expect("restored restart");
+        assert_eq!(reason.as_str(), "recovery");
+        assert_eq!(at.unix_millis(), 1_700_000_000_000);
+        let snapshot = engine.supervision_snapshot(&record);
+        assert_eq!(snapshot.last_restart_at, record.last_restart_at);
+        assert_eq!(snapshot.last_restart_reason.as_deref(), Some("recovery"));
+        // A reason that is no longer a valid token reports no last restart
+        // rather than a misleading one.
+        let invalid = edge_state::repo::renderer::RendererRecord {
+            last_restart_at: Some(Timestamp::from_unix_millis(1_700_000_000_000).expect("restart time")),
+            last_restart_reason: Some("not a token!".into()),
+            ..Default::default()
+        };
+        engine.restore_supervision(&invalid, 2_000);
+        assert_eq!(engine.last_restart(), None);
+    }
+
+    #[test]
+    fn explicit_restart_without_a_renderer_records_nothing() {
+        let mut engine = engine();
+        assert!(!engine.restart_renderer("command", 2_000));
+        assert_eq!(engine.restart_count(), 0);
+        assert_eq!(engine.last_restart(), None);
     }
 
     #[test]

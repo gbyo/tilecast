@@ -151,11 +151,41 @@ func TestSatisfiesTilecastRange(t *testing.T) {
 		{">2.0.0", "2.0.0", false},
 		{">=1.2.0 || <2.0.0", "1.5.0", false},
 		{">=1.2.0", "one.two.three", false},
+		// A Beta release satisfies the ranges its core satisfies.
+		{">=0.20.0 <1.0.0", "0.26.0-beta.1", true},
+		// The 0.27.0 Beta line satisfies a Stable 0.27.0 minimum; the 0.26 line does not.
+		{">=0.27.0 <0.28.0", "0.27.0-beta.4", true},
+		{">=0.27.0 <0.28.0", "0.27.0", true},
+		{">=0.27.0 <0.28.0", "0.26.0-beta.9", false},
+		{">=0.27.0", "0.26.0-beta.12", false},
+		{">=0.26.0", "0.26.0-beta.0", false},
+		{">=0.20.0", "0.26.0-rc.1", false},
+		{">=0.0.0", "0.0.0-dev", false},
 		{"", "1.5.0", false},
 		{">=1.2.0", "", false},
 	} {
 		if got := SatisfiesTilecastRange(tc.versionRange, tc.version); got != tc.want {
 			t.Errorf("SatisfiesTilecastRange(%q, %q) = %v, want %v", tc.versionRange, tc.version, got, tc.want)
 		}
+	}
+}
+
+// TestParseAcceptsSampleManifest keeps the Hello Services sample
+// installable: the server-authoritative parser must accept the exact
+// manifest the sample ships.
+func TestParseAcceptsSampleManifest(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "package-samples", "hello-services", "tilecast.package.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if manifest.APIVersion != 3 || manifest.PackageID != "example.hello-services" {
+		t.Fatalf("manifest = %+v", manifest)
+	}
+	if manifest.Capabilities == nil || len(manifest.Capabilities.Services) != 3 {
+		t.Fatalf("services = %+v", manifest.Capabilities)
 	}
 }

@@ -73,6 +73,8 @@ pub enum HostMethod {
         url: String,
     },
     ListDiscoveredServers,
+    /// `setup.resumePhoneSetup`: start a paused phone setup session again.
+    ResumePhoneSetup,
     /// A `remoteWeb.create` spec; the handler validates it and answers
     /// `{ok, target|code}`, so refusals stay typed instead of silent.
     RemoteWebCreate {
@@ -121,6 +123,8 @@ pub const EVIDENCE_KINDS: &[&str] = &[
     "layout-shown",
     "layout-alive",
     "layout-zone-rendered",
+    "layout-zone-declared",
+    "layout-zone-rotating",
     "website-loaded",
     "website-alive",
     "surface-shown",
@@ -241,6 +245,7 @@ pub fn parse_runtime_message(encoded: &str) -> Option<RuntimeMessage> {
                     HostMethod::SubmitServerUrl { url }
                 }
                 "discovery.list" => HostMethod::ListDiscoveredServers,
+                "setup.resumePhoneSetup" => HostMethod::ResumePhoneSetup,
                 "remoteWeb.create" => {
                     let params = object.get("params")?.as_object()?;
                     HostMethod::RemoteWebCreate { params: Value::Object(params.clone()) }
@@ -392,6 +397,15 @@ mod tests {
             request,
             RuntimeMessage::Request(HostRequest { method: HostMethod::SubmitServerUrl { .. }, .. })
         ));
+    }
+
+    #[test]
+    fn resume_phone_setup_parses_without_params() {
+        let request = parse_runtime_message(
+            r#"{"kind": "request", "id": "8", "method": "setup.resumePhoneSetup", "params": {}}"#,
+        )
+        .expect("request");
+        assert!(matches!(request, RuntimeMessage::Request(HostRequest { method: HostMethod::ResumePhoneSetup, .. })));
     }
 
     #[test]

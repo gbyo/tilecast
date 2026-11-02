@@ -1,0 +1,173 @@
+{
+  "name": "Wildcat athletics",
+  "configuration": {
+    "dataSourceId": "11111111-1111-4111-8111-111111111111",
+    "titleField": "title",
+    "startField": "start",
+    "endField": "end",
+    "locationField": "location",
+    "categoryField": "category",
+    "heading": "WILDCAT ATHLETICS",
+    "maximumItems": 20,
+    "hideEnded": true,
+    "showWeekday": true,
+    "showDate": true,
+    "showTime": true,
+    "showLocation": false,
+    "showCategory": false,
+    "showDividers": true,
+    "dateStyle": "short",
+    "emptyText": "",
+    "flow": "auto",
+    "verticalDirection": "up",
+    "horizontalDirection": "left",
+    "scrollSpeed": 3,
+    "scrolling": true,
+    "density": "comfortable",
+    "backgroundColor": "",
+    "foregroundColor": "",
+    "accentColor": ""
+  },
+  "documents": {
+    "11111111-1111-4111-8111-111111111111": {
+      "schemaVersion": 1,
+      "datasets": [
+        {
+          "id": "events",
+          "kind": "records",
+          "cache": {
+            "usingCachedData": false,
+            "unavailable": false
+          },
+          "fields": [
+            {
+              "key": "title",
+              "label": "Title",
+              "type": "text",
+              "role": "title"
+            },
+            {
+              "key": "start",
+              "label": "Start",
+              "type": "datetime",
+              "role": "start"
+            },
+            {
+              "key": "end",
+              "label": "End",
+              "type": "datetime",
+              "role": "end"
+            },
+            {
+              "key": "location",
+              "label": "Location",
+              "type": "text",
+              "role": "location"
+            },
+            {
+              "key": "category",
+              "label": "Category",
+              "type": "text",
+              "role": "category"
+            }
+          ],
+          "records": [
+            {
+              "id": "event-1",
+              "values": {
+                "title": {
+                  "kind": "text",
+                  "text": "JV Volleyball vs. Greenwood"
+                },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-10-12T21:30:00Z"
+                },
+                "end": {
+                  "kind": "datetime",
+                  "datetime": "2026-10-12T22:30:00Z"
+                },
+                "location": {
+                  "kind": "text",
+                  "text": "Main gym"
+                },
+                "category": {
+                  "kind": "text",
+                  "text": "Athletics"
+                }
+              }
+            },
+            {
+              "id": "event-2",
+              "values": {
+                "title": {
+                  "kind": "text",
+                  "text": "Varsity Volleyball vs. Greenwood"
+                },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-10-12T23:00:00Z"
+                },
+                "location": {
+                  "kind": "text",
+                  "text": "Main gym"
+                },
+                "category": {
+                  "kind": "text",
+                  "text": "Athletics"
+                }
+              }
+            },
+            {
+              "id": "event-3",
+              "values": {
+                "title": {
+                  "kind": "text",
+                  "text": "Girls Tennis at Emerald"
+                },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-10-13T21:00:00Z"
+                }
+              }
+            },
+            {
+              "id": "event-4",
+              "values": {
+                "title": {
+                  "kind": "text",
+                  "text": "Varsity Football vs. Saluda"
+                },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-10-16T23:30:00Z"
+                }
+              }
+            },
+            {
+              "id": "event-5",
+              "values": {
+                "title": {
+                  "kind": "text",
+                  "text": "Cross Country Region Meet"
+                },
+                "start": {
+                  "kind": "datetime",
+                  "datetime": "2026-10-17T13:00:00Z"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "context": {
+    "now": "2026-10-12T20:00:00Z",
+    "locale": "en-US",
+    "timeZone": "America/New_York",
+    "hourCycle": "h12",
+    "reducedMotion": false
+  },
+  "expect": "ready"
+}

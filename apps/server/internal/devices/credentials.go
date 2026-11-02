@@ -322,7 +322,15 @@ func (s *Service) Heartbeat(ctx context.Context, principal DevicePrincipal, hear
 		}
 		_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET autostart_state=NULLIF($2,''),autostart_target=NULLIF($3,''),autostart_supervised=$4,autostart_linger_enabled=$5,autostart_error=NULLIF($6,'') WHERE screen_id=$1`, principal.ScreenID, heartbeat.AutostartState, target, heartbeat.AutostartSupervised, heartbeat.AutostartLingerEnabled, autostartError)
 	}
-	_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET presentation_schema_versions=$2,native_presentation_capabilities=$3,web_runtime_version=$4,web_bundle_limit_bytes=$5 WHERE screen_id=$1`, principal.ScreenID, heartbeat.PresentationSchemaVersions, heartbeat.NativePresentationCapabilities, heartbeat.WebRuntimeVersion, heartbeat.WebBundleLimitBytes)
+	// A reduced socket status or a legacy Player may omit this entire block.
+	// Do not erase its last full report or send SQL NULL to non-null columns.
+	if heartbeat.PresentationSchemaVersions != nil || heartbeat.NativePresentationCapabilities != nil || heartbeat.WebRuntimeVersion != 0 || heartbeat.WebBundleLimitBytes != 0 {
+		var capabilities any
+		if heartbeat.NativePresentationCapabilities != nil {
+			capabilities = heartbeat.NativePresentationCapabilities
+		}
+		_, _ = s.db.Exec(ctx, `UPDATE screen_player_status SET presentation_schema_versions=COALESCE($2,presentation_schema_versions),native_presentation_capabilities=COALESCE($3::jsonb,native_presentation_capabilities),web_runtime_version=$4,web_bundle_limit_bytes=$5 WHERE screen_id=$1`, principal.ScreenID, heartbeat.PresentationSchemaVersions, capabilities, heartbeat.WebRuntimeVersion, heartbeat.WebBundleLimitBytes)
+	}
 	// AirPlay capability and external-presentation status are optional Linux
 	// fields. The helper is best effort so older/non-Linux players continue to
 	// heartbeat normally while the migration rolls through the fleet.
@@ -330,10 +338,14 @@ func (s *Service) Heartbeat(ctx context.Context, principal DevicePrincipal, hear
 	// Display Control is also optional. Invalid capability claims are discarded
 	// by the helper rather than taking a healthy legacy player offline.
 	s.updateDisplayControlHeartbeat(ctx, principal.ScreenID, heartbeat)
+	// Generic Player Capability status, populated from the same probe.
+	s.updatePlayerCapabilitiesHeartbeat(ctx, principal.ScreenID, heartbeat)
 	// Presentation Network capability and the wired address AirPlay group RTP
 	// fan-out needs. Also optional and also best effort; a player that predates
 	// the feature simply reports nothing and keeps its existing AirPlay behavior.
 	s.updatePresentationNetworkHeartbeat(ctx, principal.ScreenID, heartbeat)
+	// Edge renderer diagnostics. Also optional and also best effort.
+	s.updateRendererDiagnosticsHeartbeat(ctx, principal.ScreenID, heartbeat)
 	healthyPlaybackAt := effectiveHealthyPlaybackAt(heartbeat)
 	if heartbeat.ConfiguredReliabilityMode != "" || heartbeat.SafeMode != nil {
 		var previousSafeMode bool

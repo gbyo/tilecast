@@ -5,6 +5,7 @@ import { ItemGroup } from "../../components/ui/item";
 import { diffContributions } from "../pluginCatalog";
 import { CapabilityItem, ContributionItem } from "./CapabilityItems";
 import {
+  capabilityRowKey,
   capabilityRows,
   contributionRows,
   diffCapabilities,
@@ -32,6 +33,7 @@ function previousSummary(
       count: row.jobs.length,
     });
   }
+  if (row.kind === "service") return row.grant.description;
   return "";
 }
 
@@ -51,7 +53,7 @@ export function ContributionReview({ review, installed }: Review) {
   const contributionDiff = installed
     ? diffContributions(installed.contributions, review.contributions)
     : undefined;
-  return contributionDiff ? (
+  const content = contributionDiff ? (
     <ReviewSection title={t("storeDetail.review.contributionChanges")}>
       {contributionDiff.added.length === 0 &&
       contributionDiff.removed.length === 0 ? (
@@ -127,6 +129,45 @@ export function ContributionReview({ review, installed }: Review) {
       )}
     </ReviewSection>
   );
+  const executable = review.contributions.filter(
+    (entry) => entry.playerRuntime,
+  );
+  return (
+    <>
+      {content}
+      {executable.length > 0 && (
+        <ReviewSection title={t("playerRuntime.title")}>
+          <div className="grid gap-3">
+            {executable.map((entry) => (
+              <div key={entry.id ?? entry.path} className="text-sm">
+                <p className="font-medium">
+                  {
+                    contributionRows([
+                      { kind: entry.type, path: entry.path },
+                    ])[0]?.name
+                  }
+                </p>
+                <p className="text-muted-foreground">
+                  {t("playerRuntime.allowedSurfaces", {
+                    surfaces: entry
+                      .playerRuntime!.surfaces.map((surface) =>
+                        t(`playerRuntime.surfaces.${surface}`),
+                      )
+                      .join(", "),
+                  })}
+                </p>
+                <p className="text-muted-foreground">
+                  {t("playerRuntime.priority", {
+                    tier: t(`playerRuntime.tiers.${entry.playerRuntime!.tier}`),
+                  })}
+                </p>
+              </div>
+            ))}
+          </div>
+        </ReviewSection>
+      )}
+    </>
+  );
 }
 
 /** What the package may do, or for an update how that changes. */
@@ -153,7 +194,11 @@ export function CapabilityReview({ review, installed }: Review) {
               </p>
               <ItemGroup render={<ul />} className="gap-2">
                 {capabilityDiff.added.map((row) => (
-                  <CapabilityItem key={row.kind} row={row} variant="muted" />
+                  <CapabilityItem
+                    key={capabilityRowKey(row)}
+                    row={row}
+                    variant="muted"
+                  />
                 ))}
               </ItemGroup>
             </div>
@@ -165,7 +210,7 @@ export function CapabilityReview({ review, installed }: Review) {
               </p>
               <div className="grid gap-2">
                 {capabilityDiff.changed.map(({ before, after }) => (
-                  <div key={after.kind} className="grid gap-1">
+                  <div key={capabilityRowKey(after)} className="grid gap-1">
                     <ItemGroup render={<ul />}>
                       <CapabilityItem row={after} variant="muted" />
                     </ItemGroup>
@@ -186,7 +231,11 @@ export function CapabilityReview({ review, installed }: Review) {
               </p>
               <ItemGroup render={<ul />} className="gap-2">
                 {capabilityDiff.removed.map((row) => (
-                  <CapabilityItem key={row.kind} row={row} variant="muted" />
+                  <CapabilityItem
+                    key={capabilityRowKey(row)}
+                    row={row}
+                    variant="muted"
+                  />
                 ))}
               </ItemGroup>
             </div>
@@ -209,7 +258,11 @@ export function CapabilityReview({ review, installed }: Review) {
       ) : (
         <ItemGroup render={<ul />} className="gap-2">
           {capabilities.map((row) => (
-            <CapabilityItem key={row.kind} row={row} variant="muted" />
+            <CapabilityItem
+              key={capabilityRowKey(row)}
+              row={row}
+              variant="muted"
+            />
           ))}
         </ItemGroup>
       )}

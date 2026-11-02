@@ -171,21 +171,21 @@ impl ManifestCoordinator {
                 // file after an unclean stop, say) and was removed. Fetch and
                 // verify it again; the stage is unchanged, and activation pins
                 // and shows the manifest once it is whole.
-                let digests = candidate.prepare_content(store, plan).await?;
+                let prepared = candidate.prepare_content(store, plan).await?;
                 let reason =
                     if stage == Stage::Active { PinReason::ActivePresentation } else { PinReason::PendingPresentation };
                 store
-                    .replace_pins(reason, &crate::manifest_pin_holder(&candidate.digest), digests)
+                    .replace_pins(reason, &crate::manifest_pin_holder(&candidate.digest), prepared.verified)
                     .await
                     .map_err(crate::ManifestPreparationError::from)?;
                 tracing::info!(component = "manifest", event = "repaired", manifest = %candidate.digest.short());
                 return Ok(ManifestPrepared::Repaired);
             }
         }
-        let digests = candidate.prepare_content(store, plan).await?;
+        let prepared = candidate.prepare_content(store, plan).await?;
         let holder = crate::manifest_pin_holder(&candidate.digest);
         store
-            .replace_pins(PinReason::PendingPresentation, &holder, digests)
+            .replace_pins(PinReason::PendingPresentation, &holder, prepared.verified)
             .await
             .map_err(crate::ManifestPreparationError::from)?;
         let stored = StoredManifest {
@@ -318,6 +318,51 @@ mod tests {
                         "sha256":Sha256Digest::of(bytes),"fileSize":bytes.len(),
                         "downloadPath":"/api/v1/player/packages/acme.athletics/widgets/scoreboard"}}}}]);
         value
+    }
+
+    fn with_frame(binding: &Binding, version: i64, bytes: &[u8]) -> Value {
+        let mut value = document(binding, version);
+        value["schemaVersion"] = json!(19);
+        let widget = uuid::Uuid::from_u128(10);
+        value["widgets"] = json!([{"assetId":widget,"name":"Scores","provider":"acme.athletics.scoreboard",
+            "presentation":{"schemaVersion":3,"kind":"component",
+                "requiredCapabilities":{"widget.external-runtime":2},
+                "component":{"type":"acme.athletics.scoreboard","version":2,
+                    "config":{},"dataSources":[],"media":[],"empty":"render",
+                    "package":{"packageId":"acme.athletics",
+                        "digest":format!("sha256:{}", Sha256Digest::of(b"package").to_hex()),
+                        "frame":{"sha256":Sha256Digest::of(bytes),"fileSize":bytes.len(),
+                            "downloadPath":"/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame"}}}}}]);
+        value
+    }
+
+    #[tokio::test]
+    async fn verified_preparation_fetches_required_widget_frames() {
+        let (dir, core, binding) = fixture();
+        let store = content_store(&dir, &core).await;
+        let bytes = b"widget frame fixture";
+        let path = dir.path().join("source");
+        std::fs::write(&path, bytes).unwrap();
+        let sources = Sources { path, supersede: None };
+        let target = core
+            .reconcile_with(&Api::modified(with_frame(&binding, 1, bytes), "one"), &binding)
+            .await
+            .unwrap()
+            .unwrap();
+        let candidate = NativeManifest::parse(target.document.clone(), binding.screen_id, target.digest).unwrap();
+        assert_eq!(
+            core.prepare_target(&store, &sources, &target, &candidate).await.unwrap(),
+            ManifestPrepared::Pending
+        );
+        let digest = candidate.required_frames[0].digest;
+        assert!(store.verified_path(&digest).await.unwrap().is_some());
+        assert!(
+            core.dependencies
+                .state
+                .run(move |connection| player_state::repo::cas::is_pinned(connection, &digest))
+                .await
+                .unwrap()
+        );
     }
 
     #[tokio::test]

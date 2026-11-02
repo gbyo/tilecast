@@ -47,6 +47,9 @@ export const graph = {
     "browser_player",
   ],
   browser_player: [],
+  // The phone setup relay is a separate Cloudflare Worker. Nothing builds
+  // against it; Players and Studio follow its documented contract.
+  setup_relay: [],
   linux: ["edge_runtime", "edge_conformance"],
   protocol: ["server", "android", "runtime", "edge_rust", "edge_server"],
   activity: ["protocol", "edge_activity"],
@@ -93,6 +96,12 @@ const rules = [
   [/^apps\/player-android\//, ["android"]],
   // Browser Player and the server code that authenticates and serves it.
   [/^apps\/player-web\//, ["browser_player"]],
+  // The optional Companion extension and its page protocol ride the
+  // Browser Player lane: the validator tests and builds them together.
+  [
+    /^(apps\/browser-companion|packages\/companion-protocol)\//,
+    ["browser_player"],
+  ],
   [
     /^apps\/server\/internal\/(web\/player|httpapi\/browser_player|devices\/browser)/,
     ["browser_player"],
@@ -116,9 +125,87 @@ const rules = [
     /^packages\/settings-schema\/active-hours-fixtures\.json$/,
     ["player_core", "linux", "browser_player"],
   ],
+  // The release version ordering is one rule written in Go (the server), Rust
+  // (Edge and the Windows Player) and Python (the release scripts and the
+  // Edge release build). Each runs the shared corpus, so the corpus selects
+  // every one of them. The Python implementation also feeds the Edge release
+  // build, whose tests run in the Edge Rust lane.
+  [
+    /^packages\/player-contracts\/fixtures\/release-versions\.json$/,
+    ["server", "edge_rust", "windows", "ci"],
+  ],
+  [/^scripts\/release\/release_version\.py$/, ["ci", "edge_rust"]],
+  [/^scripts\/release\//, ["ci"]],
+  // Which components a hotfix may carry forward unchanged is decided from each
+  // build's real inputs: scripts/release/test_release_inputs.py reads the Cargo,
+  // Go, npm, Gradle and Docker graphs. These files define those graphs and
+  // otherwise select only their own area, so they also select that check. The
+  // root manifests, the lockfiles and the workflows already select it.
+  [
+    /^(deploy\/docker\/Dockerfile|apps\/server\/go\.mod|apps\/player-android\/(app\/)?(build|settings)\.gradle\.kts|apps\/(edge|player-windows|player-android\/native)(\/.+)?\/Cargo\.toml|apps\/(dashboard|player-web)\/package\.json|packages\/player-runtime\/package\.json)$/,
+    ["ci"],
+  ],
+  // The release pipeline test builds the server's release verifier and runs
+  // the real importer over signed assets, so the importer selects it.
+  [/^apps\/server\/(internal\/updates|cmd\/tilecast-release-verify)\//, ["ci"]],
   [/^apps\/ios\//, ["ios"]],
-  // The iOS app runs the shared server-address corpus in its tests.
-  [/^packages\/player-contracts\/fixtures\/server-url-policy\.json$/, ["ios"]],
+  [/^apps\/setup-relay\//, ["setup_relay"]],
+  // The phone setup envelope vectors are opened by Player Core and by the
+  // relay's WebCrypto reference.
+  [
+    /^packages\/player-contracts\/fixtures\/phone-setup-envelope\.json$/,
+    ["player_core", "setup_relay"],
+  ],
+  // The setup page takes its logo from Studio's logo component.
+  [/^apps\/dashboard\/src\/components\/TilecastLogo\.tsx$/, ["setup_relay"]],
+  // The iOS app and the phone setup page run the shared server-address
+  // corpus in their tests.
+  [
+    /^packages\/player-contracts\/fixtures\/server-url-policy\.json$/,
+    ["ios", "setup_relay"],
+  ],
+  // The v19 sandbox-frame fixture is pinned by player-types, edge-protocol,
+  // tilecast-windows, and player-runtime; Android and WPE mirror it in
+  // their own suites. It rides the protocol lane plus the shared crates.
+  [
+    /^packages\/player-contracts\/fixtures\/widget-frames\.json$/,
+    ["protocol", "player_core"],
+  ],
+  // The generic entry fixture belongs to the manifest contract and is
+  // projected by all three native hosts through Player Core frame claims.
+  [
+    /^packages\/manifest-schema\/external-plugin-entry-fixture\.json$/,
+    ["protocol", "player_core"],
+  ],
+  // The plugin state entry fixture is replayed by the server, the shared
+  // Runtime and plugin SDK, and every native host's frame-claim tests.
+  [
+    /^packages\/manifest-schema\/plugin-state-entry-fixture\.json$/,
+    ["protocol", "player_core", "server", "plugins", "runtime"],
+  ],
+  // The plugin event fixture and the Player service vocabulary are replayed
+  // by Player Core, the shared Runtime, and the plugin SDK.
+  [
+    /^packages\/player-contracts\/fixtures\/plugin-events\.json$/,
+    ["player_core", "plugins", "runtime"],
+  ],
+  // The generated native contribution registry is linked by every native
+  // Player host and regenerated from plugin manifests.
+  [/^packages\/plugin-native-registry\//, ["plugins", "player_core"]],
+  // External Widget conformance fixtures are executed by the shared Widget
+  // SDK and projected by the Runtime, then exercised by native hosts.
+  // Keep each changed fixture on the relevant cross-player validation lanes.
+  [
+    /^packages\/player-contracts\/fixtures\/widget-package\//,
+    ["widgets", "protocol", "player_core"],
+  ],
+  // The versioned Player Capability registry is replayed by the server
+  // drift test, imported by the Browser Player providers, and mirrored
+  // in player-types.
+  [
+    /^packages\/player-contracts\/player-capabilities\.json$/,
+    ["browser_player", "server", "player_core"],
+  ],
   // The iOS app's navigation icons are generated from Studio's icon mapping.
   [/^apps\/dashboard\/src\/navigation\/NavigationIcon\.tsx$/, ["ios"]],
   // Studio and the iOS app both run the native bridge contract's fixtures.
@@ -131,6 +218,14 @@ const rules = [
   [
     /^(apps\/player-linux\/|scripts\/(build-linux-player-release\.sh|verify-linux-player-release\.mjs)$)/,
     ["linux"],
+  ],
+  // The Runtime's plugin-capability test pins the shared ABI constant and the
+  // WPE bridge flag. It also scans the Windows and Android host sources; those
+  // trees are not mapped here because each would select every Runtime
+  // dependent. Whoever enables the ABI in a host edits that test anyway.
+  [
+    /^(crates\/player-types\/src\/frames\.rs|apps\/edge\/renderer-wpe\/web\/tilecast-bridge\.js)$/,
+    ["runtime"],
   ],
   [/^packages\/player-runtime\//, ["runtime"]],
   [/^packages\/presentation-model\//, ["dashboard", "runtime"]],
@@ -177,7 +272,7 @@ const rules = [
   // Files with authenticated Player endpoints, their decoders, or shared
   // routing/authentication. A contract test audits every Player handler.
   [
-    /^apps\/server\/internal\/httpapi\/(devices|player_socket|player_manifest|player_config|player_media|player_packages|heartbeat_decode|heartbeat_json|pairing_json|manifest_integration|retired_heartbeat_integration|operations|display_control|airplay|airplay_reconcile|live_stream|span|previews|updates|presentation_networks|presentation_overrides|routes|server|middleware|principal)(_[^/]+)?\.go$/,
+    /^apps\/server\/internal\/httpapi\/(devices|player_socket|player_manifest|player_config|player_media|player_packages|player_plugin_frames|heartbeat_decode|heartbeat_json|pairing_json|manifest_integration|retired_heartbeat_integration|operations|display_control|airplay|airplay_reconcile|live_stream|span|previews|updates|presentation_networks|presentation_overrides|routes|server|middleware|principal)(_[^/]+)?\.go$/,
     ["protocol"],
   ],
   [
@@ -210,7 +305,19 @@ const rules = [
       "cli",
     ],
   ],
+  // Surface ABI fixtures run on the Runtime and each native host.
+  [
+    /^packages\/package-sdk\/test-fixtures\/player-surface-probe\.js$/,
+    ["protocol", "player_core"],
+  ],
   [/^packages\/package-sdk\//, ["plugins", "server", "docs"]],
+  // The reference Wasm guest SDK and its Hello Services sample ride the
+  // package lanes: plugins validates the sample manifest, and the server
+  // suite runs the committed sample module through the real host.
+  [
+    /^(packages\/package-guest-sdk|packages\/package-samples)\//,
+    ["plugins", "server"],
+  ],
   [/^packages\/edge-protocol\//, edgeAreas],
   [/^apps\/player-windows\//, ["windows"]],
   [/^apps\/edge\/(tilecastd|tilecastctl|crates)\//, ["edge_rust"]],

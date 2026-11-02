@@ -20,6 +20,7 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/sandbox"
 	"github.com/tilecast/tilecast/apps/server/internal/testdb"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
 )
@@ -91,9 +92,9 @@ func (f *contributionsFixture) seedPackage(t *testing.T, packageID, digest strin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = f.pool.Exec(ctx, `INSERT INTO installed_packages(organization_id,package_id,package_version,digest,source_kind,source_reference,registry_reference,trust_state,manifest)
-		VALUES($1,$2,$3,$4,'custom','https://github.com/acme/tilecast-test','ghcr.io/acme/tilecast-test','verified',$5)`,
-		organizationID, packageID, manifest.PackageVersion, digest, encoded); err != nil {
+	if _, err = f.pool.Exec(ctx, `INSERT INTO installed_packages(organization_id,package_id,package_version,digest,source_kind,source_reference,registry_reference,trust_state,manifest,execution_epoch,storage_epoch)
+		VALUES($1,$2,$3,$4,'custom','https://github.com/acme/tilecast-test','ghcr.io/acme/tilecast-test','verified',$5,$6,$7)`,
+		organizationID, packageID, manifest.PackageVersion, digest, encoded, uuid.New(), uuid.New()); err != nil {
 		t.Fatal(err)
 	}
 	dir := t.TempDir()
@@ -414,6 +415,16 @@ func TestRebuildSnapshotsWidgetPayload(t *testing.T) {
 	}
 	if payload.Size != int64(len(testWidgetBundle)) {
 		t.Fatalf("bundle size = %d", payload.Size)
+	}
+	frame, err := sandbox.AssembleFrame(testWidgetBundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if payload.FrameSHA256Hex != frame.SHA256Hex {
+		t.Fatalf("frame hash = %q, want %q", payload.FrameSHA256Hex, frame.SHA256Hex)
+	}
+	if payload.FrameSize != frame.Size {
+		t.Fatalf("frame size = %d, want %d", payload.FrameSize, frame.Size)
 	}
 	if _, ok := f.service.WidgetPayload("acme.athletics", "missing"); ok {
 		t.Fatal("unknown contribution has a bundle")

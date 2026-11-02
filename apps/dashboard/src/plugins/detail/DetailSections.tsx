@@ -14,6 +14,7 @@ import { Skeleton } from "../../components/ui/skeleton";
 import { CapabilityItem, ContributionItem, ItemRow } from "./CapabilityItems";
 import {
   aboutParagraphs,
+  capabilityRowKey,
   capabilityRows,
   type ContributionRow,
   type PluginDetailViewModel,
@@ -179,7 +180,11 @@ export function CapabilitiesSection({
       ) : (
         <ItemGroup render={<ul />} className="gap-0">
           {rows.map((row, index) => (
-            <CapabilityItem key={row.kind} row={row} separated={index > 0} />
+            <CapabilityItem
+              key={capabilityRowKey(row)}
+              row={row}
+              separated={index > 0}
+            />
           ))}
         </ItemGroup>
       )}

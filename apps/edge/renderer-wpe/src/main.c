@@ -178,6 +178,8 @@ main (int argc, char **argv)
   host.exit_after_seconds = exit_after > 0 ? (guint) exit_after : 0;
   host.content = g_ptr_array_new_with_free_func (tc_content_ref_free);
   host.plugin_content = g_ptr_array_new_with_free_func (tc_content_ref_free);
+  host.plugin_frames = g_ptr_array_new_with_free_func (tc_content_ref_free);
+  host.frames = g_ptr_array_new_with_free_func (tc_content_ref_free);
   host.media_aliases = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
   host.pending_replies = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
                                                 (GDestroyNotify) webkit_script_message_reply_unref);
@@ -233,6 +235,7 @@ main (int argc, char **argv)
   tc_remote_web_stop (&host);
   g_clear_pointer (&host.runtime_support, json_node_unref);
 
+  tc_preview_detach_view (&host);
   g_clear_object (&host.view);
   g_clear_object (&host.network_session);
   g_clear_object (&host.web_context);
@@ -241,6 +244,8 @@ main (int argc, char **argv)
   g_hash_table_unref (host.pending_replies);
   g_ptr_array_unref (host.content);
   g_ptr_array_unref (host.plugin_content);
+  g_ptr_array_unref (host.plugin_frames);
+  g_ptr_array_unref (host.frames);
   g_hash_table_unref (host.media_aliases);
   return host.exit_code;
 }

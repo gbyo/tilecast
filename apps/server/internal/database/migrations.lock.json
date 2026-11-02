@@ -724,5 +724,53 @@
     "file": "00122_external_plugin_state.sql",
     "owner": "core",
     "sha256": "0218ba51f80d13f720f771105f7d7309af7103530bf441f390014fe066ce0af5"
+  },
+  {
+    "version": 123,
+    "file": "00123_edge_renderer_diagnostics.sql",
+    "owner": "core",
+    "sha256": "d24408d6b26c06172b8c99b48c787638a75b8cfa20de0ec65914648d44c9eb43"
+  },
+  {
+    "version": 124,
+    "file": "00124_edge_stream_backed_assets.sql",
+    "owner": "core",
+    "sha256": "c69e5cc6949f9aca62938d3f35165412f1bc75fc7c98ddf0470fa43712023a6b"
+  },
+  {
+    "version": 125,
+    "file": "00125_contribution_definition_digest.sql",
+    "owner": "core",
+    "sha256": "e31f2ff70535463074236fd85864dd81ded1d291524be8dbd7ed45fdb1e7b6ee"
+  },
+  {
+    "version": 126,
+    "file": "00126_external_package_managed_presentations.sql",
+    "owner": "core",
+    "sha256": "4f3f4b3fcb8e1210b0085291cd14d451a45b46a5e2a7453527f0841f73cafe9d"
+  },
+  {
+    "version": 127,
+    "file": "00127_player_capabilities.sql",
+    "owner": "core",
+    "sha256": "80c2fb6aba9631681319bd50913f4010351bde28ade2e797688a01849cdb1bb1"
+  },
+  {
+    "version": 128,
+    "file": "00128_external_plugin_runtime.sql",
+    "owner": "core",
+    "sha256": "91e1e538d2164ba748e801f8aada3680a2593022ffac80d7ea29120dcce9a08d"
+  },
+  {
+    "version": 129,
+    "file": "00129_rbac_roles_and_content_access.sql",
+    "owner": "core",
+    "sha256": "d5cdee81a5842d5cda54dd5175f47d779580992431b3b8811dd9e6d5beb70f28"
+  },
+  {
+    "version": 130,
+    "file": "00130_external_plugin_surfaces.sql",
+    "owner": "core",
+    "sha256": "3857823215133de890d9f11ef4b573a545c43363593e380322178769b856d534"
   }
 ]

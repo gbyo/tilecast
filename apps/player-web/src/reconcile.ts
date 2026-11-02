@@ -96,6 +96,7 @@ export async function reconcileSelection(
     config.configRevision,
     selected,
     plan.requirements.map((requirement) => requirement.digest),
+    plan.frameRequirements.map((requirement) => requirement.frameDigest),
   ]);
   const correctedNow = now() + clockOffsetMs;
   if (
@@ -105,17 +106,27 @@ export async function reconcileSelection(
     return { changed: false, plan };
   }
   const limit = Number(config.cache?.["maximumBytes"] ?? 2 * 1024 ** 3);
-  const paths = new Map(
-    plan.requirements.map((requirement) => [
-      requirement.digest,
-      requirement.downloadPath,
-    ]),
-  );
-  const claims = plan.requirements.map((requirement) => ({
-    digest: requirement.digest,
-    size: requirement.size,
-    mimeType: requirement.mimeType,
-  }));
+  const paths = new Map([
+    ...plan.requirements.map(
+      (requirement) => [requirement.digest, requirement.downloadPath] as const,
+    ),
+    ...plan.frameRequirements.map(
+      (requirement) =>
+        [requirement.frameDigest, requirement.downloadPath] as const,
+    ),
+  ]);
+  const claims = [
+    ...plan.requirements.map((requirement) => ({
+      digest: requirement.digest,
+      size: requirement.size,
+      mimeType: requirement.mimeType,
+    })),
+    ...plan.frameRequirements.map((requirement) => ({
+      digest: requirement.frameDigest,
+      size: requirement.size,
+      mimeType: "text/html",
+    })),
+  ];
   const result = await dependencies.exclusively(async () => {
     const store = new VerifiedStore(
       dependencies.index,
@@ -155,9 +166,20 @@ export async function reconcileSelection(
             size: requirement.size,
             mimeType: requirement.mimeType,
           })),
+          frames: plan.frameRequirements.map((requirement) => ({
+            packageId: requirement.packageId,
+            packageDigest: requirement.packageDigest,
+            frameDigest: requirement.frameDigest,
+            digest: requirement.frameDigest,
+            size: requirement.size,
+            mimeType: "text/html",
+          })),
         },
-        (media) =>
-          realizePresentation(plan, media, { activationId, generation }),
+        (media, frames) =>
+          realizePresentation(plan, media, frames, {
+            activationId,
+            generation,
+          }),
       );
       memory.generation = generation;
       return { activation };

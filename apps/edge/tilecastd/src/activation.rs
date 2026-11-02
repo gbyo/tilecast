@@ -26,6 +26,7 @@
 //! manifest is never promoted while a policy surface is shown, because it
 //! has not produced evidence on screen; it is tried when content returns.
 
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
 use edge_protocol::ipc::presentation::PresentationDocument;
@@ -123,7 +124,11 @@ fn identity(candidate: &Candidate, resolved: &ResolvedPresentation) -> PlaybackI
     }
 }
 
-fn extras(resolved: &ResolvedPresentation, offset_ms: i64) -> ServerExtras {
+fn extras(
+    resolved: &ResolvedPresentation,
+    offset_ms: i64,
+    streams: HashMap<edge_protocol::Sha256Digest, player_core::StreamSource>,
+) -> ServerExtras {
     ServerExtras {
         timing: resolved.timing.as_ref().map(|timing| edge_protocol::ipc::event::SyncTiming {
             group_id: edge_protocol::bounded::SafeText::lossy(&timing.group_id),
@@ -134,11 +139,32 @@ fn extras(resolved: &ResolvedPresentation, offset_ms: i64) -> ServerExtras {
         projection: resolved.projection.clone(),
         plugins: resolved.plugins.clone(),
         plugin_aliases: resolved.plugin_aliases.clone(),
+        streams,
     }
+}
+
+/// Stream backends for this activation: the manifest's stream claims
+/// intersected with the projected content, so gated content (mismatch,
+/// policy surfaces) never gains a network backend.
+fn stream_sources(
+    context: &DaemonContext,
+    candidate: &Candidate,
+    content: &[edge_protocol::ipc::presentation::ContentRef],
+) -> HashMap<edge_protocol::Sha256Digest, player_core::StreamSource> {
+    let Some(cas) = context.cas.as_ref() else { return HashMap::new() };
+    let in_content: BTreeSet<edge_protocol::Sha256Digest> = content.iter().map(|reference| reference.sha256).collect();
+    player_core::stream_claims(candidate, cas.download_threshold_bytes())
+        .into_iter()
+        .filter(|claim| in_content.contains(&claim.digest))
+        .filter_map(|claim| {
+            player_core::StreamSource::new(claim.download_path).map(|source| (claim.digest, source)).ok()
+        })
+        .collect()
 }
 
 #[derive(Debug, PartialEq)]
 struct SelectionKey {
+    source: &'static str,
     playlist: Option<uuid::Uuid>,
     layout: Option<uuid::Uuid>,
     schedule: Option<uuid::Uuid>,
@@ -148,6 +174,7 @@ struct SelectionKey {
 impl From<&PlaybackIdentity> for SelectionKey {
     fn from(identity: &PlaybackIdentity) -> Self {
         Self {
+            source: identity.selection_source,
             playlist: identity.playlist_id,
             layout: identity.layout_id,
             schedule: identity.schedule_id,
@@ -185,8 +212,33 @@ impl player_core::OfflineActivationHost for Host {
         time: player_core::ActivationTime,
     ) -> Result<player_core::OfflineProjection<Self::Projection, Self::Key>, &'static str> {
         let candidate = Candidate::from_native(native.clone());
-        let resolved =
+        let mut resolved =
             candidate.presentation_with(time.presentation_ms(), configuration).map_err(|error| error.reason_code())?;
+        // A recorded installation mismatch stops server content: the screen
+        // shows the mismatch surface instead of anything the old server sent.
+        if let Some(record) = crate::mismatch::content_blocked(&self.0) {
+            resolved.document = crate::mismatch::mismatch_surface(&record);
+            resolved.timing = None;
+            resolved.content = Vec::new();
+            resolved.projection = None;
+            resolved.plugins = Vec::new();
+            resolved.plugin_aliases = Vec::new();
+        }
+        // Durable playlist resume, before the activation key is computed: the
+        // resumed order is the projection, so it never reads as a change.
+        // After a mismatch gate the content is empty and this is a no-op.
+        {
+            let mut resume = self.0.resume.lock().unwrap_or_else(|poison| poison.into_inner());
+            resume.observe_manifest(&candidate.document, &candidate.digest.to_hex(), candidate.version);
+            crate::resume::maybe_rotate(
+                &mut resume,
+                &mut resolved,
+                &candidate.digest.to_hex(),
+                candidate.version,
+                configuration.runtime.playback.resume_after_restart(),
+                time.presentation_ms(),
+            );
+        }
         let metadata = crate::renderer_adapter::metadata(
             &resolved.document,
             ActivationSource::ServerManifest,
@@ -227,6 +279,20 @@ impl player_core::OfflineActivationHost for Host {
             evidence: engine.current_has_activation_evidence(),
             playing: matches!(&activation.document, PresentationDocument::Playing { items, .. } if !items.is_empty()),
         })
+    }
+    fn preserve_plugin_generation(
+        &self,
+        candidate: &player_core::NativeManifest,
+        current: &Self::Key,
+        projection: &mut player_core::OfflineProjection<Self::Projection, Self::Key>,
+    ) {
+        if let PresentationDocument::Playing { generation: active, .. } = &current.document
+            && let PresentationDocument::Playing { generation: pending, .. } = &mut projection.projection.document
+            && *pending == candidate.version.max(0) as u64
+        {
+            *pending = *active;
+            projection.key.document = projection.projection.document.clone();
+        }
     }
     async fn health(&self) -> player_core::OfflineRendererHealth {
         let engine = self.0.presentation.lock().await;
@@ -270,12 +336,20 @@ impl player_core::OfflineActivationHost for Host {
     ) -> Result<player_core::RendererActivationRef, &'static str> {
         let candidate = Candidate::from_native(native.clone());
         let identity = identity(&candidate, &resolved);
-        let extras = extras(&resolved, time.offset_ms);
+        let streams = stream_sources(&self.0, &candidate, &resolved.content);
+        let extras = extras(&resolved, time.offset_ms, streams);
         self.0
             .presentation
             .lock()
             .await
-            .activate_server_presentation(identity, resolved.document, resolved.content, extras, time.local_ms)
+            .activate_server_presentation(
+                identity,
+                resolved.document,
+                resolved.content,
+                resolved.frames,
+                extras,
+                time.local_ms,
+            )
             .map(|reference| player_core::RendererActivationRef {
                 activation_id: reference.activation_id,
                 generation: reference.generation,
@@ -284,6 +358,23 @@ impl player_core::OfflineActivationHost for Host {
                 tracing::warn!(component = "activation", event = "activation_rejected", error = %error);
                 "activation_rejected"
             })
+    }
+    async fn refresh_plugins(
+        &self,
+        previous: player_types::Sha256Digest,
+        native: &player_core::NativeManifest,
+        resolved: &Self::Projection,
+        time: player_core::ActivationTime,
+    ) -> Result<bool, &'static str> {
+        let candidate = Candidate::from_native(native.clone());
+        let identity = identity(&candidate, resolved);
+        let streams = stream_sources(&self.0, &candidate, &resolved.content);
+        self.0.presentation.lock().await.refresh_plugins(
+            previous,
+            identity,
+            resolved,
+            extras(resolved, time.offset_ms, streams),
+        )
     }
     fn promoted(&self) {
         self.0.manifest_wake.notify_one();

@@ -33,6 +33,7 @@ import {
   useNativePresentation,
   usePresentationChrome,
 } from "./presentationContext";
+import { builtinCapabilities } from "../test/capabilities";
 
 const mocks = vi.hoisted(() => ({
   api: {
@@ -66,6 +67,7 @@ vi.mock("@/auth/AuthProvider", () => ({
       authenticated: true,
       csrfToken: "csrf",
       user: { role: "owner" },
+      capabilities: builtinCapabilities("owner"),
     },
   }),
 }));

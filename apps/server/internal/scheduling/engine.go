@@ -153,6 +153,9 @@ func NextInterval(s Schedule, from time.Time) (Active, bool) {
 		if s.OneTimeStart == nil || s.OneTimeEnd == nil || !s.OneTimeEnd.After(from) {
 			return Active{}, false
 		}
+		if !oneTimeAllowed(s, *s.OneTimeStart, *s.OneTimeEnd) {
+			return Active{}, false
+		}
 		return Active{s, *s.OneTimeStart, *s.OneTimeEnd}, true
 	}
 	if s.DailyStart == nil || s.DailyEnd == nil {
@@ -198,17 +201,21 @@ func intervalAt(s Schedule, at time.Time) (*Active, []time.Time) {
 	if s.Type == OneTime {
 		start, end := *s.OneTimeStart, *s.OneTimeEnd
 		var a *Active
-		if !at.Before(start) && at.Before(end) {
+		if !at.Before(start) && at.Before(end) && oneTimeAllowed(s, start, end) {
 			a = &Active{s, start, end}
 		}
 		return a, []time.Time{start, end}
 	}
 	loc, _ := time.LoadLocation(s.Timezone)
 	local := at.In(loc)
-	dates := []time.Time{local.AddDate(0, 0, -1), local, local.AddDate(0, 0, 1), local.AddDate(0, 0, 2), local.AddDate(0, 0, 7)}
+	// Use noon for calendar arithmetic: adding a day to a wall time inside a
+	// DST gap can normalize back onto the previous date and skip an occurrence.
+	y, m, d := local.Date()
+	day := time.Date(y, m, d, 12, 0, 0, 0, loc)
 	var active *Active
 	transitions := []time.Time{}
-	for _, date := range dates {
+	for offset := -1; offset <= 7; offset++ {
+		date := day.AddDate(0, 0, offset)
 		if !containsDay(s.DaysOfWeek, int(date.Weekday())) || !dateAllowed(s, date) {
 			continue
 		}
@@ -226,6 +233,23 @@ func intervalAt(s Schedule, at time.Time) (*Active, []time.Time) {
 	}
 	return active, transitions
 }
+
+// oneTimeAllowed applies a Campaign's date bounds to a fixed window. The
+// window's first and last local days, in the schedule's time zone, must fall
+// inside the bounds, as recurring occurrences already do.
+func oneTimeAllowed(s Schedule, start, end time.Time) bool {
+	if s.StartDate == nil && s.EndDate == nil {
+		return true
+	}
+	loc, err := time.LoadLocation(s.Timezone)
+	if err != nil {
+		return false
+	}
+	first := start.In(loc).Format("2006-01-02")
+	last := end.In(loc).Add(-time.Nanosecond).Format("2006-01-02")
+	return (s.StartDate == nil || first >= *s.StartDate) && (s.EndDate == nil || last <= *s.EndDate)
+}
+
 func dateAllowed(s Schedule, d time.Time) bool {
 	v := d.Format("2006-01-02")
 	return (s.StartDate == nil || v >= *s.StartDate) && (s.EndDate == nil || v <= *s.EndDate)

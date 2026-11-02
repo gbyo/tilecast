@@ -12,7 +12,10 @@ import {
 } from "./FormsPortalPage";
 import { formsApi } from "./api";
 import { ApiError } from "@tilecast/studio";
-import { StudioSessionProvider } from "@tilecast/studio/testing";
+import {
+  StudioSessionProvider,
+  testStudioSession,
+} from "@tilecast/studio/testing";
 import type {
   FormDataSource,
   FormRecord,
@@ -39,18 +42,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function testSession(role = "viewer") {
-  return {
-    csrfToken: "tok",
-    role,
-    canManage: role === "owner" || role === "administrator",
-    authenticated: true,
-    setupRequired: false,
-    isLoading: false,
-    isSubmitting: false,
-    logout: () => Promise.resolve(),
-  };
-}
+const testSession = testStudioSession;
 
 const workflow: FormWorkflow = {
   states: [
@@ -329,6 +321,21 @@ describe("Forms portal", () => {
 
     await waitFor(() => expect(create).toHaveBeenCalled());
     await waitFor(() => expect(transition).toHaveBeenCalled());
+  });
+
+  it("reports a failed submissions request instead of an empty list", async () => {
+    vi.spyOn(formsApi, "getForm").mockResolvedValue(form(["submit"]));
+    vi.spyOn(formsApi, "listFormRecords").mockRejectedValue(
+      new Error("Records offline"),
+    );
+    renderPortal("/forms/f1");
+
+    expect(
+      await screen.findByText(
+        "We could not load your submissions. Try again later.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No submissions yet")).toBeNull();
   });
 
   it("confirms the submission landed after returning to the form", async () => {

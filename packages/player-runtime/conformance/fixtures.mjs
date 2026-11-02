@@ -7,6 +7,8 @@
  * and remote web content are never pixel-compared.
  */
 
+import eventScrollerFixture from "../../../widgets/event-scroller/fixtures/default.json" with { type: "json" };
+
 const WALL = "2026-09-01T16:00:00.000Z";
 const VIEWPORT = { width: 1280, height: 720 };
 
@@ -188,6 +190,59 @@ const componentLayout = {
   ],
 };
 
+const eventScrollerComponent = (
+  config = {},
+  documents = eventScrollerFixture.documents,
+) => ({
+  component: {
+    type: "tilecast.event-scroller",
+    version: 1,
+    config: { ...eventScrollerFixture.configuration, ...config },
+    dataSources: [eventScrollerFixture.configuration.dataSourceId],
+    media: [],
+    empty: "skip-eligible",
+  },
+  documents,
+  media: {},
+  regional: { locale: "en-US", timeZone: "America/New_York", hourCycle: "h12" },
+});
+
+const scrollerBoundaryDocuments = {
+  [eventScrollerFixture.configuration.dataSourceId]: {
+    schemaVersion: 1,
+    datasets: [
+      {
+        id: "events",
+        kind: "records",
+        cache: { usingCachedData: true, unavailable: false },
+        fields: [
+          { key: "title", label: "Title", type: "text" },
+          { key: "start", label: "Start", type: "datetime" },
+          { key: "end", label: "End", type: "datetime" },
+        ],
+        records: [
+          {
+            id: "current",
+            values: {
+              title: { kind: "text", text: "Current event" },
+              start: { kind: "datetime", datetime: "2026-09-01T15:00:00Z" },
+              end: { kind: "datetime", datetime: "2026-09-01T16:00:05Z" },
+            },
+          },
+          {
+            id: "next",
+            values: {
+              title: { kind: "text", text: "Next event" },
+              start: { kind: "datetime", datetime: "2026-09-01T16:01:00Z" },
+              end: { kind: "datetime", datetime: "2026-09-01T16:02:00Z" },
+            },
+          },
+        ],
+      },
+    ],
+  },
+};
+
 /** The one stable current-widget compatibility fixture. */
 const compatWidget = {
   background: "#101826",
@@ -335,6 +390,23 @@ const countdown = {
   },
 };
 
+/**
+ * A Plugin API v2 state entry for a plugin no Player build includes. Every
+ * host that forwards plugin_state must carry it to the Runtime and the
+ * Runtime must leave it, playback, and the v1 plugins alone.
+ */
+const stateEntry = (label) => ({
+  id: "state-1",
+  type: "plugin_state",
+  version: 1,
+  plugin: "unbundled_plugin",
+  definitionVersion: 1,
+  stateType: "unbundled_plugin",
+  stateVersion: 1,
+  state: { label },
+  media: [],
+});
+
 const ticker = {
   id: "alert-1",
   type: "alert_ticker",
@@ -400,8 +472,9 @@ export const fixtures = [
         present: {
           presentation: {
             state: "idle",
-            title: "Greenwood Schools",
-            message: "No content assigned.",
+            title: "No content assigned",
+            status: "no_content",
+            message: "This screen is ready for content.",
             backgroundColor: "#0E141B",
             textColor: "#F5F7FA",
             footerText: "Tilecast",
@@ -677,6 +750,189 @@ export const fixtures = [
     ],
   },
   {
+    name: "layout-mixed",
+    description:
+      "A real image → component Widget → decoded video → compatibility Widget rotation, with a neighboring Widget held independently.",
+    legacy: false,
+    requiresVideo: true,
+    steps: [
+      {
+        present: {
+          presentation: playing([
+            item("mixed-layout", {
+              kind: "layout",
+              durationMs: null,
+              layout: {
+                canvasWidth: 1920,
+                canvasHeight: 1080,
+                background: "#000000",
+                zones: [
+                  {
+                    id: "rotation",
+                    x: 0,
+                    y: 0,
+                    width: 960,
+                    height: 1080,
+                    layer: 0,
+                    opacity: 1,
+                    loop: true,
+                    playlistItems: [
+                      {
+                        id: "image",
+                        kind: "image",
+                        src: "media:landscape",
+                        durationMs: 1000,
+                        fit: "contain",
+                        muted: true,
+                        volume: 0,
+                        loop: false,
+                      },
+                      {
+                        id: "component",
+                        kind: "widget",
+                        widget: clockComponent({ style: "analog" }),
+                        durationMs: 1000,
+                      },
+                      {
+                        id: "video",
+                        kind: "video",
+                        src: "media:clip",
+                        durationMs: null,
+                        fit: "contain",
+                        muted: true,
+                        volume: 0,
+                        loop: false,
+                        videoEndOffsetMs: 3000,
+                      },
+                      {
+                        id: "compatibility",
+                        kind: "widget",
+                        widget: {
+                          background: "#16324D",
+                          root: text("Zone Widget", {
+                            fontSize: 72,
+                            color: "#FFFFFF",
+                          }),
+                        },
+                        durationMs: 1000,
+                      },
+                    ],
+                  },
+                  {
+                    id: "neighbor",
+                    x: 960,
+                    y: 0,
+                    width: 960,
+                    height: 1080,
+                    layer: 0,
+                    opacity: 1,
+                    loop: false,
+                    playlistItems: [
+                      {
+                        id: "neighbor-clock",
+                        kind: "widget",
+                        widget: clockComponent({ style: "minimal" }),
+                        durationMs: 1000,
+                      },
+                    ],
+                  },
+                ],
+              },
+            }),
+          ]),
+          activation: activation(1),
+        },
+      },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "rotation",
+          count: 1,
+        },
+      },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "neighbor",
+          count: 1,
+        },
+      },
+      {
+        assertZoneItems: [
+          { zoneId: "rotation", itemId: "image" },
+          { zoneId: "neighbor", itemId: "neighbor-clock" },
+        ],
+      },
+      { assertWidgets: [{ type: "tilecast.clock" }] },
+      { checkpoint: "mixed-image", visual: true },
+      { advance: 1000 },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "rotation",
+          count: 2,
+        },
+      },
+      {
+        assertZoneItems: [
+          { zoneId: "rotation", itemId: "component" },
+          { zoneId: "neighbor", itemId: "neighbor-clock" },
+        ],
+      },
+      {
+        assertWidgets: [{ type: "tilecast.clock" }, { type: "tilecast.clock" }],
+      },
+      { checkpoint: "mixed-component", visual: true },
+      { advance: 1000 },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "rotation",
+          count: 3,
+        },
+      },
+      {
+        assertZoneItems: [
+          { zoneId: "rotation", itemId: "video" },
+          { zoneId: "neighbor", itemId: "neighbor-clock" },
+        ],
+      },
+      { assertWidgets: [{ type: "tilecast.clock" }] },
+      { checkpoint: "mixed-video" },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "rotation",
+          count: 4,
+          timeoutMs: 20000,
+        },
+      },
+      {
+        assertZoneItems: [
+          { zoneId: "rotation", itemId: "compatibility" },
+          { zoneId: "neighbor", itemId: "neighbor-clock" },
+        ],
+      },
+      { assertWidgets: [{ type: "tilecast.clock" }] },
+      { checkpoint: "mixed-compatibility", visual: true },
+      { advance: 1000 },
+      {
+        waitForEvidence: {
+          kind: "layout-zone-rendered",
+          zoneId: "rotation",
+          count: 5,
+        },
+      },
+      {
+        assertZoneItems: [
+          { zoneId: "rotation", itemId: "image" },
+          { zoneId: "neighbor", itemId: "neighbor-clock" },
+        ],
+      },
+      { checkpoint: "mixed-loop", visual: true },
+    ],
+  },
+  {
     name: "widget-compat",
     description: "The stable current-widget compatibility fixture.",
     steps: [
@@ -768,6 +1024,194 @@ export const fixtures = [
             // Wide strip: one row.
             styles: [
               { selector: ".stack", property: "flex-direction", value: "row" },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  {
+    name: "event-scroller",
+    description:
+      "Event Scroller under the runtime CSP: offline expiry and cap refill, static reduced motion, fullscreen board and adaptive Layout rail.",
+    steps: [
+      {
+        present: {
+          presentation: playing([
+            item("events-fullscreen", {
+              kind: "widget",
+              durationMs: null,
+              widget: eventScrollerComponent(),
+            }),
+          ]),
+          activation: activation(1),
+        },
+      },
+      { checkpoint: "fullscreen", visual: true },
+      {
+        assertWidgets: [
+          {
+            type: "tilecast.event-scroller",
+            textIncludes: ["WILDCAT ATHLETICS", "JV Volleyball", "5:30 PM"],
+            styles: [
+              {
+                selector: ".track",
+                property: "flex-direction",
+                value: "column",
+              },
+              { selector: ".track", property: "animation-name", value: "none" },
+              { selector: ".track", property: "transform", value: "none" },
+            ],
+          },
+        ],
+      },
+      {
+        present: {
+          presentation: playing([
+            item("events-clock", {
+              kind: "widget",
+              durationMs: null,
+              widget: eventScrollerComponent(
+                { maximumItems: 1 },
+                scrollerBoundaryDocuments,
+              ),
+            }),
+          ]),
+          activation: activation(2),
+        },
+      },
+      { checkpoint: "cached-current" },
+      {
+        assertWidgets: [
+          { type: "tilecast.event-scroller", textIncludes: ["Current event"] },
+        ],
+      },
+      { advance: 5008 },
+      { checkpoint: "expired-refilled" },
+      {
+        assertWidgets: [
+          { type: "tilecast.event-scroller", textIncludes: ["Next event"] },
+        ],
+      },
+      {
+        present: {
+          presentation: playing([
+            item("events-layout", {
+              kind: "layout",
+              durationMs: null,
+              layout: {
+                canvasWidth: 1920,
+                canvasHeight: 1080,
+                background: "#0e141b",
+                zones: [
+                  {
+                    id: "board",
+                    x: 60,
+                    y: 60,
+                    width: 1200,
+                    height: 650,
+                    layer: 1,
+                    opacity: 1,
+                    component: eventScrollerComponent(),
+                  },
+                  {
+                    id: "sidebar",
+                    x: 1340,
+                    y: 60,
+                    width: 500,
+                    height: 960,
+                    layer: 1,
+                    opacity: 1,
+                    component: eventScrollerComponent({
+                      heading: "",
+                      showLocation: true,
+                      showCategory: true,
+                    }),
+                  },
+                  {
+                    id: "rail",
+                    x: 60,
+                    y: 810,
+                    width: 1200,
+                    height: 180,
+                    layer: 1,
+                    opacity: 1,
+                    component: eventScrollerComponent({ heading: "" }),
+                  },
+                ],
+              },
+            }),
+          ]),
+          activation: activation(3),
+        },
+      },
+      { checkpoint: "layout", visual: true },
+      {
+        assertWidgets: [
+          {
+            type: "tilecast.event-scroller",
+            textIncludes: ["JV Volleyball"],
+            styles: [
+              {
+                selector: ".track",
+                property: "flex-direction",
+                value: "column",
+              },
+            ],
+          },
+          {
+            type: "tilecast.event-scroller",
+            textIncludes: ["JV Volleyball"],
+            styles: [
+              { selector: ".location", property: "display", value: "none" },
+              { selector: ".category", property: "display", value: "none" },
+            ],
+          },
+          {
+            type: "tilecast.event-scroller",
+            textIncludes: ["JV Volleyball"],
+            styles: [
+              { selector: ".track", property: "flex-direction", value: "row" },
+            ],
+          },
+        ],
+      },
+      {
+        present: {
+          presentation: playing([
+            item("events-sizing", {
+              kind: "widget",
+              durationMs: null,
+              widget: eventScrollerComponent({
+                textScale: 160,
+                headingScale: 120,
+                rowLayout: "natural",
+                rowSpacing: 0,
+                contentPadding: 0,
+                headingSpacing: 0,
+              }),
+            }),
+          ]),
+          activation: activation(4),
+        },
+      },
+      { checkpoint: "author-sizing", visual: true },
+      {
+        assertWidgets: [
+          {
+            type: "tilecast.event-scroller",
+            textIncludes: ["WILDCAT ATHLETICS", "JV Volleyball"],
+            styles: [
+              { selector: ".board", property: "padding-top", value: "0px" },
+              { selector: ".row", property: "padding-top", value: "0px" },
+              { selector: ".row", property: "padding-bottom", value: "0px" },
+              { selector: ".heading", property: "margin-bottom", value: "0px" },
+              {
+                selector: ".heading",
+                property: "padding-bottom",
+                value: "0px",
+              },
+              { selector: ".group", property: "align-content", value: "start" },
             ],
           },
         ],
@@ -870,6 +1314,40 @@ export const fixtures = [
       { plugins: { plugins: [] } },
       { advance: 1_000 },
       { checkpoint: "cleared", visual: true },
+    ],
+  },
+  {
+    name: "plugin-state",
+    // Plugin API v2 state travels beside v1 plugins on its own channel. No
+    // bundled plugin owns this entry, so the Runtime keeps it and does
+    // nothing visible; what the fixture proves is that state arriving,
+    // changing and clearing never restarts playback or disturbs a v1 plugin,
+    // on every host that forwards plugin_state.
+    legacy: false,
+    description:
+      "Plugin API v2 state next to a v1 plugin: a plugin-only update restarts nothing.",
+    capabilities: { pluginState: true },
+    steps: [
+      {
+        present: {
+          presentation: playing([
+            item("under", { src: "media:square", durationMs: null }),
+          ]),
+          activation: activation(1),
+        },
+      },
+      { plugins: { plugins: [countdown, stateEntry("Lobby")] } },
+      { advance: 0 },
+      { checkpoint: "state-beside-v1-plugin", visual: true },
+      { plugins: { plugins: [countdown, stateEntry("Gym")] } },
+      { advance: 0 },
+      { checkpoint: "plugin-only-update" },
+      { plugins: { plugins: [countdown] } },
+      { advance: 0 },
+      { checkpoint: "state-cleared" },
+      { plugins: { plugins: [] } },
+      { advance: 1_000 },
+      { checkpoint: "all-cleared" },
     ],
   },
   {

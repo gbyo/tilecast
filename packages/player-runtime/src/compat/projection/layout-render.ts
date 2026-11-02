@@ -4,12 +4,12 @@
  * Each placement becomes an absolutely-positioned zone on the canvas.
  * Widget/primitive placements resolve to render trees; asset placements to a
  * cached image/video; playlist zones carry their own item list that the
- * renderer rotates independently. A single bad placement is isolated (skipped)
- * rather than failing the whole layout; a grossly invalid document returns
- * null so the previously active presentation stays up.
+ * renderer rotates independently. Unsupported playlist entries reject
+ * projection explicitly. Unavailable media retains its eligibility policy;
+ * a grossly invalid document returns null to retain the active presentation.
  */
 
-import { isRemoteWebWidget, remoteWebForWidget } from "./web-widget";
+import { projectZoneWidget } from "./zone-widget";
 import {
   formatValue,
   resolveRegionalFormatting,
@@ -19,8 +19,6 @@ import {
 import { normalizeSource } from "./datasource";
 import { isAvailableAt } from "./content-availability";
 import { resolveMediaEligibility } from "@tilecast/presentation-model";
-import { renderWidget } from "./widget-render";
-import { projectWidgetComponent } from "../../widgets/projection";
 import type {
   LayoutDocument,
   LayoutPlacement,
@@ -257,37 +255,19 @@ function renderPlacement(
       if (!widget) {
         return null;
       }
-      if (isRemoteWebWidget(widget)) {
-        const remoteWeb = remoteWebForWidget(
-          widget,
-          ctx.manifest.assets,
-          ctx.at,
-        );
-        return remoteWeb ? { ...base, remoteWeb } : null;
-      }
-      // A first-class component renders itself in the zone; it is never
-      // converted back into a render tree because it is in a Layout.
-      if (widget.presentation?.kind === "component") {
-        const component = projectWidgetComponent(widget, {
-          dataSources: ctx.dataSources,
-          assets: ctx.manifest.assets,
-          regionalFormat:
-            ctx.regionalFormat ?? resolveRegionalFormatting(undefined),
-          at: ctx.at,
-        });
-        return component ? { ...base, component } : null;
-      }
-      const payload = renderWidget(widget, {
-        dataSources: ctx.dataSources,
-        assets: ctx.manifest.assets,
-        at: ctx.at,
-        zoneHeight: placement.height,
-        regionalFormat: ctx.regionalFormat,
-      });
-      if (!payload) {
+      // A fixed placement that cannot project is skipped like any other
+      // unrenderable placement; playlist Widgets stay strict (buildZoneItems).
+      let projected: ReturnType<typeof projectZoneWidget>;
+      try {
+        projected = projectZoneWidget(widget, ctx, placement.height);
+      } catch {
         return null;
       }
-      return { ...base, render: payload.root };
+      if (projected.kind === "remote-web")
+        return { ...base, remoteWeb: projected.remoteWeb };
+      return "component" in projected.widget
+        ? { ...base, component: projected.widget }
+        : { ...base, render: projected.widget.root };
     }
     case "asset": {
       const asset = placement.assetId
@@ -328,13 +308,7 @@ function renderPlacement(
       if (!playlist) {
         return null;
       }
-      const items = buildZoneItems(
-        playlist,
-        ctx.manifest,
-        placement,
-        ctx.at,
-        ctx.playback,
-      );
+      const items = buildZoneItems(playlist, ctx, placement);
       if (items.length === 0) {
         return null;
       }
@@ -370,13 +344,46 @@ function renderPlacement(
 
 function buildZoneItems(
   playlist: ManifestPlaylist,
-  manifest: Manifest,
+  ctx: LayoutRenderContext,
   placement: LayoutPlacement,
-  at: Date,
-  playback: Record<string, unknown> | undefined,
 ): LayoutPlaylistItem[] {
+  const { manifest, at, playback } = ctx;
   const items: LayoutPlaylistItem[] = [];
   for (const item of playlist.items) {
+    if (!isAvailableAt(item, at)) continue;
+    if (item.layoutId || item.assetType === "layout")
+      throw new Error("Nested Layouts are unsupported in playlist zones");
+    if (item.assetType === "widget") {
+      const widget = ctx.widgets.get(item.assetId);
+      if (!widget) continue;
+      const settings = resolvePlaybackItemSettings(
+        item,
+        playback,
+        fallbackDurationMsFor(
+          "widget",
+          defaultImageDurationMsForPlayback(playback),
+        ),
+      );
+      const projected = projectZoneWidget(widget, ctx, placement.height);
+      items.push({
+        id: item.id,
+        durationMs: settings.durationMs,
+        radius: placement.playback?.cornerRadius ?? 0,
+        transition: settings.transition,
+        ...projected,
+        ...(projected.kind === "remote-web"
+          ? {
+              audioEnabled: !(
+                placement.playback?.muted ?? !settings.audioEnabled
+              ),
+              volume: settings.volume,
+            }
+          : {}),
+      });
+      continue;
+    }
+    if (item.assetType !== "image" && item.assetType !== "video")
+      throw new Error("Unsupported Layout playlist item");
     const asset = manifest.assets.find(
       (a) => a.assetId === item.assetId && a.variantId === item.variantId,
     );

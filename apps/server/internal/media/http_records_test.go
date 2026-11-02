@@ -163,6 +163,20 @@ func TestHTTPRecordsMapsCSVColumnsByHeader(t *testing.T) {
 	}
 }
 
+func TestHTTPRecordsRejectsMalformedCSV(t *testing.T) {
+	definition, ok := contentdefs.MustLoad().DataSource("google-sheet")
+	if !ok || definition.Fetch == nil {
+		t.Fatal("google-sheet definition is missing a fetch specification")
+	}
+	// The unterminated quote swallows the rest of the body. Returning the
+	// valid prefix would publish a partial snapshot as a successful refresh.
+	body := []byte("date,title,detail\n2026-04-01,Good record,Front lobby\n2026-04-02,\"unterminated,Room 2\n2026-04-03,Later record,Hall\n")
+	rows, err := httpRecordsFromCSV(body, *definition.Fetch, 10)
+	if err == nil {
+		t.Fatalf("expected malformed CSV to fail, got %d rows", len(rows))
+	}
+}
+
 // TestEveryFetchDefinitionPinsItsHost is the standing guard on the adapter's core promise:
 // no release definition may let an author choose which service is contacted.
 func TestEveryFetchDefinitionPinsItsHost(t *testing.T) {

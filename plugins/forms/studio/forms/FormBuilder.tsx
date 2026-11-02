@@ -131,12 +131,19 @@ export function FormBuilder({
     !publishedSchema || !schemasEquivalent(draft, publishedSchema);
 
   const saveDraft = useMutation({
-    mutationFn: () => formsApi.updateFormDraft(form.id, draft, csrf),
+    mutationFn: (submitted: FormSchema) =>
+      formsApi.updateFormDraft(form.id, submitted, csrf),
     onMutate: () => setSaveError(""),
-    onSuccess: (updated) => {
+    onSuccess: (updated, submitted) => {
       toast.add({ title: t("toasts.draftSaved"), type: "success" });
       setBaseline(JSON.stringify(updated.draftSchema));
-      setDraft(cloneSchema(updated.draftSchema));
+      // Only a draft that still matches what was sent takes the server copy.
+      // Anything edited while the request was pending stays as unsaved changes.
+      setDraft((current) =>
+        JSON.stringify(current) === JSON.stringify(submitted)
+          ? cloneSchema(updated.draftSchema)
+          : current,
+      );
       void queryClient.invalidateQueries({
         queryKey: ["form-data-source", form.id],
       });
@@ -555,7 +562,7 @@ export function FormBuilder({
   ) : null;
 
   return (
-    <div className="grid gap-4">
+    <fieldset disabled={saveDraft.isPending} className="grid min-w-0 gap-4">
       {!readOnly && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">
           <span className="text-sm text-muted-foreground">
@@ -572,7 +579,7 @@ export function FormBuilder({
               variant="secondary"
               disabled={!dirty || saveDraft.isPending}
               aria-busy={saveDraft.isPending || undefined}
-              onClick={() => saveDraft.mutate()}
+              onClick={() => saveDraft.mutate(draft)}
             >
               {saveDraft.isPending && <Spinner aria-hidden="true" />}
               {t("builder.saveDraft")}
@@ -718,6 +725,6 @@ export function FormBuilder({
           </SheetContent>
         </Sheet>
       )}
-    </div>
+    </fieldset>
   );
 }

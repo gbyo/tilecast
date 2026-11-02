@@ -312,8 +312,41 @@ The presentation requires `widget.external-runtime`. Hosts that do not report
 that capability receive normal compatibility handling and never execute the
 bundle.
 
-The bundle path inside a package is fixed by the package contract. Authors do
-not provide arbitrary Player filesystem paths.
+Version 1 is retrieval-only: the Player verifies the raw bundle but never
+executes it. Version 2 executes the assembled sandbox frame:
+
+```text
+widget.external-runtime = 2
+```
+
+A presentation for an external Widget carries a `package` block with the
+package ID and the verified package digest, plus exactly one artifact. A
+version 1 presentation names the bundle SHA-256, size, and authenticated
+download path; a version 2 presentation names only the `frame` block with
+the sandbox frame SHA-256, size, and authenticated download path. Manifest
+schema 18 carries version 1 claims and schema 19 carries version 2 claims;
+each selects itself only for presentations that use an external Widget, and
+other presentations keep their schema. A Player reporting only version 1
+keeps its version 18 bundle claim; Players without the external-runtime
+capability keep their current compatibility behavior.
+
+The Player fetches the artifact through the same verified preparation path
+as media: it downloads the bytes, checks size and SHA-256, pins the
+verified bytes in the content store, and only then stores the pending
+manifest. When preparation fails, the Player keeps the last known playable
+presentation. It never activates a manifest whose artifacts are missing or
+fail verification.
+
+The bundle path is fixed (`runtime/index.js` inside the package). Authors
+never declare it. Do not add downloaded Widget types to the bundled component
+capability list.
+
+The sandbox frame is the deterministic assembly of the verified bundle
+with the generated frame bootstrap: the same assembler produces the Studio
+preview document and the Player executable document, so one cached frame
+serves every attach. Execution runs only inside the opaque-origin
+`allow-scripts` frame behind the Widget bridge
+(`docs/records/widget-sandbox-spike.md`).
 
 ## 17. Studio model
 

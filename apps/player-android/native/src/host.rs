@@ -195,6 +195,7 @@ impl AndroidHost {
         renderer_platform: Arc<dyn crate::renderer::RendererPlatform>,
         user_agent: String,
         jvm: Option<Arc<Jvm>>,
+        phone_setup: Option<Arc<dyn player_core::PhoneRelay>>,
     ) -> Result<Self, HostError> {
         std::fs::create_dir_all(&paths.root).map_err(|_| HostError::FilesDir)?;
         let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -221,7 +222,10 @@ impl AndroidHost {
             .map_err(|_| HostError::Cas)?;
         let credentials: Arc<dyn player_client::CredentialStore> =
             Arc::new(JvmCredentialStore::new(Arc::clone(&calls)));
-        let pairing = core.pairing(Arc::clone(&credentials), Arc::new(JvmPairingStore::new(calls)));
+        let mut pairing = core.pairing(Arc::clone(&credentials), Arc::new(JvmPairingStore::new(calls)));
+        if let Some(relay) = phone_setup {
+            pairing = pairing.with_phone_setup(relay);
+        }
         let config = Arc::new(AndroidConfigHost::new(paths.installed_config.clone(), cas.clone()));
         let signals = Arc::new(crate::server_link::LinkSignals::default());
         let renderer_snapshot = Arc::new(Mutex::new(RendererSnapshot::default()));
@@ -280,12 +284,20 @@ impl AndroidHost {
     /// The coarse status snapshot shared with Kotlin (bridge contract v1).
     /// Paths identify storage; they carry no credentials or content.
     pub fn status(&self) -> serde_json::Value {
-        let bound = self
+        let binding = self
             .runtime
             .block_on(self.state.run(|connection| player_state::repo::binding::get(connection)))
             .ok()
-            .flatten()
-            .filter(|bound| bound.credential_state == player_state::repo::binding::CredentialState::Stored);
+            .flatten();
+        // The binding outlives a revoked credential: it still names the
+        // server, so setup can ask that server for a new code. An explicit
+        // reset leaves no credential state, and setup searches instead.
+        let retained_server_url = binding
+            .as_ref()
+            .filter(|binding| binding.credential_state == player_state::repo::binding::CredentialState::Rejected)
+            .map(|binding| binding.server_url.clone());
+        let bound =
+            binding.filter(|bound| bound.credential_state == player_state::repo::binding::CredentialState::Stored);
         let signals = self.drivers.link_signals();
         let link = signals.link_state.lock().unwrap_or_else(|error| error.into_inner()).clone();
         let last_contact = *signals.last_server_contact.lock().unwrap_or_else(|error| error.into_inner());
@@ -307,6 +319,7 @@ impl AndroidHost {
             // installer, and commissioning read. The credential itself
             // never leaves the Keystore.
             "serverUrl": bound.as_ref().map(|bound| bound.server_url.clone()),
+            "retainedServerUrl": retained_server_url,
             "installationId": bound.as_ref().map(|bound| bound.installation_id.to_string()),
             "organizationName": bound.as_ref().and_then(|bound| bound.organization_name.clone()),
             "screenId": bound.as_ref().and_then(|bound| bound.screen_id.map(|id| id.to_string())),
@@ -471,7 +484,7 @@ impl AndroidHost {
                 client.verify_installation(binding.installation_id, credential).await.map_err(|error| {
                     if rejected(&error) { HostError::CredentialRejected } else { HostError::SyncFailed }
                 })?;
-            let host = AndroidManifestHost::new(core.clone(), cas, server, engine, clock, facts);
+            let host = AndroidManifestHost::new(core.clone(), cas, server, engine, clock, facts, manifest_wake.clone());
             let target = host.reconcile(&binding).await.map_err(|error| match &error {
                 player_core::ManifestSyncError::Server(server) if rejected(server) => {
                     HostError::CredentialRejected
@@ -577,6 +590,11 @@ impl AndroidHost {
         self.runtime.block_on(async move { coordinator.begin(&url, &user_agent, &host).await })?;
         self.drivers.wake_pairing();
         Ok(())
+    }
+
+    /// Starts a paused phone setup session again.
+    pub fn resume_phone_setup(&self) {
+        self.drivers.pairing().resume_phone_setup();
     }
 
     /// Resets pairing: suppresses auto-begin, drops the saved session, and
@@ -691,6 +709,15 @@ impl AndroidHost {
             self.runtime.block_on(async { self.renderer.lock().await.renderer_unsupported() });
             return APPLIED;
         }
+        // A fault the host itself saw: it carries a code, and the
+        // generation only says which renderer it came from.
+        if kind == "fault" {
+            let Some(code) = report.get("code").and_then(serde_json::Value::as_str) else {
+                return MALFORMED;
+            };
+            let applied = self.runtime.block_on(async { self.renderer.lock().await.renderer_fault(code) });
+            return if applied { APPLIED } else { MALFORMED };
+        }
         let Some(generation) = report.get("generation").and_then(serde_json::Value::as_i64) else {
             return MALFORMED;
         };
@@ -700,10 +727,7 @@ impl AndroidHost {
             let mut engine = self.renderer.lock().await;
             let now = engine.clock().now();
             let applied = match kind {
-                "connected" => {
-                    engine.renderer_connected(generation, now);
-                    true
-                }
+                "connected" => engine.renderer_connected(generation, now),
                 "disconnected" => {
                     engine.renderer_disconnected(generation);
                     true
@@ -838,17 +862,26 @@ fn validated(user_agent: &str) -> Result<String, HostError> {
 /// Opens the process host against the Kotlin handler. Fails when the files
 /// dir is unusable or a host is already live. `files_dir` must be the
 /// app-private files directory.
-pub fn open_host(files_dir: &Path, jvm: Arc<Jvm>, user_agent: &str) -> Result<i64, HostError> {
+///
+/// `setup_relay` is the phone setup relay origin; empty turns phone setup off.
+pub fn open_host(files_dir: &Path, jvm: Arc<Jvm>, user_agent: &str, setup_relay: &str) -> Result<i64, HostError> {
     let calls: Arc<dyn StoreCalls> = Arc::new(JvmStoreCalls::new(jvm.clone()));
     let meta: Arc<dyn MetadataSource> = Arc::new(JvmMetadataSource::new(jvm.clone()));
     let platform: Arc<dyn crate::commands::PlatformCommands> =
         Arc::new(crate::commands::JvmPlatformCommands::new(jvm.clone()));
     let renderer: Arc<dyn crate::renderer::RendererPlatform> = Arc::new(JvmRendererPlatform::new(jvm.clone()));
-    open_host_with(files_dir, calls, meta, platform, renderer, user_agent, Some(jvm))
+    let phone_setup = match setup_relay {
+        "" => None,
+        origin => {
+            player_core::SetupRelay::at(Some(origin)).map(|relay| Arc::new(relay) as Arc<dyn player_core::PhoneRelay>)
+        }
+    };
+    open_host_with(files_dir, calls, meta, platform, renderer, user_agent, Some(jvm), phone_setup)
 }
 
 /// Opens the process host against abstract stores. Production uses
 /// [`open_host`]; host tests substitute in-memory fakes.
+#[allow(clippy::too_many_arguments)]
 pub fn open_host_with(
     files_dir: &Path,
     calls: Arc<dyn StoreCalls>,
@@ -857,6 +890,7 @@ pub fn open_host_with(
     renderer: Arc<dyn crate::renderer::RendererPlatform>,
     user_agent: &str,
     jvm: Option<Arc<Jvm>>,
+    phone_setup: Option<Arc<dyn player_core::PhoneRelay>>,
 ) -> Result<i64, HostError> {
     if files_dir.as_os_str().is_empty() || !files_dir.is_absolute() {
         return Err(HostError::FilesDir);
@@ -866,7 +900,7 @@ pub fn open_host_with(
     if live.is_some() {
         return Err(HostError::AlreadyLive);
     }
-    let host = AndroidHost::open(core_paths(files_dir), calls, meta, platform, renderer, user_agent, jvm)?;
+    let host = AndroidHost::open(core_paths(files_dir), calls, meta, platform, renderer, user_agent, jvm, phone_setup)?;
     *live = Some(Arc::new(host));
     Ok(LIVE_HANDLE)
 }
@@ -921,7 +955,7 @@ mod tests {
         let renderer: Arc<dyn crate::renderer::RendererPlatform> =
             Arc::new(crate::renderer::MemRendererPlatform::default());
         assert!(matches!(
-            open_host_with(Path::new("relative"), calls, meta, platform, renderer, "ua", None),
+            open_host_with(Path::new("relative"), calls, meta, platform, renderer, "ua", None, None),
             Err(HostError::FilesDir)
         ));
     }

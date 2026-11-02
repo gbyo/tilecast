@@ -15,6 +15,8 @@ import {
   stubStudioApi,
 } from "@tilecast/studio/testing";
 import { CountdownBarEditorPage } from "./CountdownBarsPage";
+import { countdownApi } from "./api";
+import type { CountdownBar } from "./api";
 
 function renderEditor(path: string) {
   return renderPluginRoute(<CountdownBarEditorPage />, {
@@ -112,6 +114,26 @@ describe("Countdown Bar editor", () => {
     await waitFor(() => expect(submitted).toHaveLength(1));
     expect(submitted[0]?.daysOfWeek).toEqual([1, 2, 4, 5]);
   }, 10_000);
+
+  it("keeps the form closed until the saved bar loads", async () => {
+    let finish!: (value: CountdownBar) => void;
+    vi.spyOn(countdownApi, "get").mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    renderEditor("/plugins/countdown-bar/bar-1");
+    expect(
+      await screen.findByRole("button", { name: "Save changes" }),
+    ).toBeDisabled();
+    expect(screen.getByLabelText("Name")).toBeDisabled();
+    finish(storedInstance as unknown as CountdownBar);
+    await waitFor(() =>
+      expect(screen.getByLabelText("Name")).toHaveValue("Lunch"),
+    );
+    expect(screen.getByLabelText("Name")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeEnabled();
+  });
 
   it("shows and preserves the days stored on an existing instance", async () => {
     renderEditor("/plugins/countdown-bar/bar-1");

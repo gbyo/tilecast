@@ -49,8 +49,50 @@ export interface RuntimeCapabilitiesV1 {
   readonly synchronizedPlayback: boolean;
   /** `setup.submitServerUrl` is available. */
   readonly setup: boolean;
+  /**
+   * The setup presentation can carry `phoneSetup`, and
+   * `setup.resumePhoneSetup` is available. Absent means unavailable.
+   */
+  readonly phoneSetup?: boolean;
   /** `discovery.list` and `discovered-server` messages are available. */
   readonly discovery: boolean;
+  /**
+   * The host serves verified sandbox frames for package-contributed
+   * Widgets. Absent means unavailable: the runtime then never reports
+   * the frame execution ABI.
+   */
+  readonly externalFrames?: boolean;
+  /** Verified plugin frames, isolated bridges and refused child navigation. */
+  readonly externalPluginFrames?: boolean;
+  /**
+   * The host forwards Plugin API v2 `plugin_state` entries in `plugins`
+   * messages, with grants for the media they declare. Absent means
+   * unavailable: the runtime then never reports the v2 plugin host.
+   */
+  readonly pluginState?: boolean;
+  /**
+   * The host serves plugin media at `tcmedia://variant/<asset>/<variant>`
+   * and authorizes each load against the current plugin state, so the
+   * runtime may address a declared variant by identity. A host that sends
+   * explicit `media` bindings or supplies `media.resolve` leaves this unset.
+   */
+  readonly variantMedia?: boolean;
+  /**
+   * The host carries Plugin API v2 events between a plugin's native and
+   * Shared Runtime parts: it sends `plugin-event` messages and provides
+   * `pluginEvents.emit`. Absent means unavailable: the runtime then never
+   * reports `player.events`.
+   */
+  readonly pluginEvents?: boolean;
+  /**
+   * Where a served frame's sandbox comes from. `attribute` sets the
+   * iframe sandbox attribute; `response` navigates bare and takes the
+   * sandbox from the response `sandbox` directive, for hosts whose
+   * serving layer only sees bare navigations: a browser service
+   * worker never sees a sandboxed iframe's navigation. Absent means
+   * `attribute`.
+   */
+  readonly externalFrameSandbox?: "attribute" | "response";
   /**
    * The animated logo for the "Bouncing logo" display. Absent, or any value
    * the runtime does not know, means `"cast"`.
@@ -260,6 +302,19 @@ export interface RuntimeWidgetComponentV1 {
 }
 
 /**
+ * Sandboxed execution for a package-contributed Widget. The frame URL is
+ * the host's authorized URL for the verified frame: the projector
+ * translated the manifest claim through the host's frame table, and a
+ * canonical reference that matches no authorized entry rejects the
+ * activation instead. The executor appends its own per-attach token;
+ * the URL carries no placement identity.
+ */
+export interface RuntimeWidgetSandboxExecutionV1 {
+  kind: "sandboxed";
+  frameUrl: string;
+}
+
+/**
  * A projected component: the reference plus the prepared resources it is
  * granted, and the regional formatting its context uses. Date-aware datasets
  * are selected for the Player instant and change when the local date changes.
@@ -277,22 +332,46 @@ export interface RuntimeWidgetComponentPayload {
     timeZone: string;
     hourCycle: "locale" | "h12" | "h23";
   };
+  /**
+   * Present only for package-contributed Widgets: the authorized frame
+   * to execute. Absent for bundled Widgets, which mount trusted. The
+   * host selects the executor from this field alone; it never inspects
+   * the component type to decide.
+   */
+  execution?: RuntimeWidgetSandboxExecutionV1;
 }
 
-export interface RuntimeLayoutZonePlaylistItem {
+export interface RuntimeLayoutZoneItemTiming {
   id: string;
+  durationMs: number | null;
+  radius?: number;
+  transition?: "none" | "fade" | "crossfade";
+}
+
+export interface RuntimeLayoutZoneMediaItem extends RuntimeLayoutZoneItemTiming {
   kind: "image" | "video";
   src: string;
-  durationMs: number | null;
   fit: string;
   muted: boolean;
   volume: number;
   loop: boolean;
   videoStartOffsetMs?: number | null;
   videoEndOffsetMs?: number | null;
-  radius?: number;
-  transition?: "none" | "fade" | "crossfade";
 }
+
+/** Zone occurrences reuse the same prepared Widget payloads as root items. */
+export type RuntimeLayoutZonePlaylistItem =
+  | RuntimeLayoutZoneMediaItem
+  | (RuntimeLayoutZoneItemTiming & {
+      kind: "widget";
+      widget: RuntimeWidgetPayload | RuntimeWidgetComponentPayload;
+    })
+  | (RuntimeLayoutZoneItemTiming & {
+      kind: "remote-web";
+      remoteWeb: RuntimeRemoteWebSpecV1;
+      audioEnabled?: boolean;
+      volume?: number;
+    });
 
 export interface RuntimeLayoutZone {
   id: string;
@@ -379,8 +458,18 @@ export interface BrandedSurfaceFields {
   status?: string;
 }
 
+/**
+ * Phone setup on the setup surface (docs/phone-setup.md). `ready` carries the
+ * setup page address to show as a QR code; `rejected` is true after the last
+ * address from a phone could not be used.
+ */
+export type PhoneSetupStateV1 =
+  | { state: "ready"; url: string; rejected?: boolean }
+  | { state: "paused" }
+  | { state: "unavailable" };
+
 export type RuntimePresentation =
-  | { state: "setup" }
+  | { state: "setup"; phoneSetup?: PhoneSetupStateV1 }
   | {
       state: "pairing";
       code: string;
@@ -445,6 +534,27 @@ export interface ProjectionContextV1 {
   manifest: Record<string, unknown>;
   media: { assetId: string; variantId: string; uri: string }[];
   /**
+   * Authorization table: every sandbox frame the references may execute.
+   * The host lists only frames it verified and pinned for this
+   * activation; the projector joins each manifest frame claim to its
+   * authorized URI and rejects the activation on any mismatch. Absent
+   * when the activation carries no external Widgets.
+   */
+  widgetFrames?: {
+    packageId: string;
+    packageDigest: string;
+    frameDigest: string;
+    uri: string;
+  }[];
+  /**
+   * Host-authorized media aliases for opaque sandbox Widgets. Edge maps
+   * existing, generation-scoped media grants onto loopback HTTP URLs because
+   * WPE rejects custom-scheme loads inside opaque-origin frames. If absent,
+   * the host's ordinary media table is used (Browser, Android, Windows).
+   * This table must never contain device credentials or origin URLs.
+   */
+  widgetMedia?: { assetId: string; variantId: string; uri: string }[];
+  /**
    * The accepted player configuration's playback section: regional
    * formatting and layout playlist-zone defaults. Optional and additive;
    * absent means the projection defaults.
@@ -471,12 +581,66 @@ export interface RuntimePluginV1 {
   config: unknown;
 }
 
+export type PluginSurfaceSlot =
+  | "strip.top"
+  | "strip.bottom"
+  | "corner.top-left"
+  | "corner.top-right"
+  | "corner.bottom-left"
+  | "corner.bottom-right"
+  | "overlay";
+export type PluginSurfaceTier = "emergency" | "live" | "scheduled" | "ambient";
+
+/** Public state and immutable execution claims; no private configuration. */
+export interface ExternalRuntimePluginV1 {
+  id: string;
+  type: "external_plugin";
+  version: 1;
+  definitionVersion: number;
+  package: {
+    packageId: string;
+    packageDigest: string;
+    contributionId: string;
+    frame: { sha256: string; fileSize: number; downloadPath: string };
+  };
+  runtime: { surfaces: PluginSurfaceSlot[]; tier: PluginSurfaceTier };
+  state: Record<string, unknown>;
+  validUntil: string;
+}
+
+/**
+ * Plugin API v2 Player state for one bundled plugin. The Player Plugin Host
+ * routes it by `plugin` and `stateType`; it never selects a renderer by type.
+ */
+export interface PluginStateEntryV1 {
+  id: string;
+  type: "plugin_state";
+  version: 1;
+  plugin: string;
+  definitionVersion: number;
+  stateType: string;
+  stateVersion: number;
+  state: Record<string, unknown>;
+  media: { assetId: string; variantId: string }[] | null;
+  validUntil?: string;
+}
+
+/** Only the native host can supply these verified plugin-frame grants. */
+export interface PluginFrameBindingV1 {
+  packageId: string;
+  packageDigest: string;
+  frameDigest: string;
+  uri: string;
+}
+
 export interface PluginsMessage {
   type: "plugins";
-  plugins: RuntimePluginV1[];
+  plugins: (RuntimePluginV1 | ExternalRuntimePluginV1 | PluginStateEntryV1)[];
   clockOffsetMs: number;
   /** Explicit grants for plugin media, replaced with each plugin snapshot. */
   media?: ProjectionContextV1["media"];
+  /** Independent of presentation Widget and media grants. */
+  pluginFrames?: PluginFrameBindingV1[];
 }
 
 export interface IdentifyMessage {
@@ -506,7 +670,22 @@ export interface RemoteWebMessage {
   event: RemoteWebEventV1;
 }
 
+/**
+ * One ephemeral Plugin API v2 event between a plugin's native and Shared
+ * Runtime parts. The same shape travels both ways. It is bounded and typed;
+ * it never carries state. `packages/player-contracts/fixtures/plugin-events.json`
+ * pins the shape and bounds for Player Core and the Runtime.
+ */
+export interface PluginEventMessageV1 {
+  type: "plugin-event";
+  plugin: string;
+  event: string;
+  version: number;
+  payload: Record<string, unknown>;
+}
+
 export type HostMessageV1 =
+  | PluginEventMessageV1
   | RemoteWebMessage
   | PresentationMessage
   | PluginsMessage
@@ -519,6 +698,12 @@ export type HostMessageV1 =
 /**
  * Playback evidence. The vocabulary is the Tilecast player's existing one; the
  * host's supervisor decides what counts as meaningful for each item kind.
+ *
+ * `layout-zone-declared` and `layout-zone-rotating` are not progress. A Layout
+ * reports one per zone it actually mounted, with the zone's id, so the host
+ * knows which zones owe a first `layout-zone-rendered` and which also owe
+ * continuing ones. Only the Runtime knows this: it alone decides which
+ * placements become zones.
  */
 export const EVIDENCE_KINDS = [
   "item-started",
@@ -531,6 +716,8 @@ export const EVIDENCE_KINDS = [
   "layout-shown",
   "layout-alive",
   "layout-zone-rendered",
+  "layout-zone-declared",
+  "layout-zone-rotating",
   "website-loaded",
   "website-alive",
   "surface-shown",
@@ -606,9 +793,20 @@ export interface TilecastRuntimeHostV1 {
     resolve(assetId: string, variantId: string): string;
   };
 
+  /**
+   * Present when `capabilities.pluginEvents`. Hands one Shared Runtime
+   * event to the plugin's native part. Returns false when the host refuses
+   * it, for example when too many events are undelivered.
+   */
+  readonly pluginEvents?: {
+    emit(message: PluginEventMessageV1): boolean;
+  };
+
   /** Present when `capabilities.setup`. */
   readonly setup?: {
     submitServerUrl(url: string): Promise<SetupResultV1>;
+    /** Present when `capabilities.phoneSetup`. Starts a paused session again. */
+    resumePhoneSetup?(): void;
   };
   /** Present when `capabilities.discovery`. */
   readonly discovery?: {
@@ -688,6 +886,7 @@ export function hostContractProblem(value: unknown): string | null {
   }
   const optional: [keyof RuntimeCapabilitiesV1, string, string][] = [
     ["setup", "setup", "submitServerUrl"],
+    ["phoneSetup", "setup", "resumePhoneSetup"],
     ["discovery", "discovery", "list"],
     ["remoteWeb", "remoteWeb", "reportRecovered"],
   ];
@@ -704,6 +903,12 @@ export function hostContractProblem(value: unknown): string | null {
       if (typeof group[method] !== "function") {
         return `capability remoteWeb "host-view" is advertised without remoteWeb.${method}()`;
       }
+    }
+  }
+  if (capabilities["pluginEvents"]) {
+    const events = host["pluginEvents"] as Record<string, unknown> | undefined;
+    if (!events || typeof events["emit"] !== "function") {
+      return "capability pluginEvents is advertised without pluginEvents.emit()";
     }
   }
   if (host["media"] !== undefined) {

@@ -65,6 +65,26 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "widget_bundle_domain",
         sql: include_str!("../migrations/0008_widget_bundle_domain.sql"),
     },
+    Migration {
+        version: 9,
+        name: "renderer_last_restart",
+        sql: include_str!("../migrations/0009_renderer_last_restart.sql"),
+    },
+    Migration {
+        version: 10,
+        name: "playback_checkpoint",
+        sql: include_str!("../migrations/0010_playback_checkpoint.sql"),
+    },
+    Migration {
+        version: 11,
+        name: "installation_mismatch",
+        sql: include_str!("../migrations/0011_installation_mismatch.sql"),
+    },
+    Migration {
+        version: 12,
+        name: "widget_frame_domain",
+        sql: include_str!("../migrations/0012_widget_frame_domain.sql"),
+    },
 ];
 
 pub fn latest_schema_version() -> u32 {

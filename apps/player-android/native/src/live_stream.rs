@@ -145,6 +145,7 @@ mod tests {
                             "presentation": {"state": "playing", "items": [{"id": "item-1", "kind": "image", "src": ""}]},
                         }),
                         content: Vec::new(),
+                        frames: Vec::new(),
                         source: player_core::ActivationSource::ServerManifest,
                         identity: None,
                         clock_offset_ms: 0,

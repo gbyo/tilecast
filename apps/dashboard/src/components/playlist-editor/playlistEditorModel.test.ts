@@ -5,6 +5,7 @@ import {
   formatDuration,
   movePlaylistItem,
   movePlaylistItemToEdge,
+  playlistItemsWithOrder,
   reorderPlaylistItems,
 } from "./playlistEditorModel";
 
@@ -79,10 +80,52 @@ describe("playlist reorder actions", () => {
     ]);
   });
 
+  it("uses explicit before/after placement in either drag direction", () => {
+    const list = items(["a", "b", "c", "d"]);
+
+    expect(reorderPlaylistItems(list, "a", "c", "before")).toEqual([
+      "b",
+      "a",
+      "c",
+      "d",
+    ]);
+    expect(reorderPlaylistItems(list, "a", "c", "after")).toEqual([
+      "b",
+      "c",
+      "a",
+      "d",
+    ]);
+    expect(reorderPlaylistItems(list, "d", "b", "before")).toEqual([
+      "a",
+      "d",
+      "b",
+      "c",
+    ]);
+    expect(reorderPlaylistItems(list, "d", "b", "after")).toEqual([
+      "a",
+      "b",
+      "d",
+      "c",
+    ]);
+  });
+
+  it("rebuilds playlist items in a validated optimistic order", () => {
+    const list = items(["a", "b", "c"]);
+    const ordered = playlistItemsWithOrder(list, ["c", "a", "b"]);
+
+    expect(ordered.map((item) => item.id)).toEqual(["c", "a", "b"]);
+    expect(ordered.map((item) => item.position)).toEqual([0, 1, 2]);
+    expect(playlistItemsWithOrder(list, ["a", "a", "c"])).toBe(list);
+    expect(playlistItemsWithOrder(list, ["a", "b"])).toBe(list);
+  });
+
   it("returns the current order for an unknown item", () => {
     const list = items(["a", "b"]);
     expect(movePlaylistItemToEdge(list, "missing", "top")).toEqual(["a", "b"]);
     expect(movePlaylistItem(list, "missing", 1)).toEqual(["a", "b"]);
-    expect(reorderPlaylistItems(list, "missing", "a")).toEqual(["a", "b"]);
+    expect(reorderPlaylistItems(list, "missing", "a", "before")).toEqual([
+      "a",
+      "b",
+    ]);
   });
 });

@@ -240,9 +240,20 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID, force bool) (Archive
 	if err != nil {
 		return Archive{}, err
 	}
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return Archive{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	// Two deletions of complete archives must not both see the other one and
+	// both proceed. The lock serializes the guard with the row delete, so the
+	// second request sees the first one's committed removal.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('tilecast.backup.catalog'))`); err != nil {
+		return Archive{}, err
+	}
 	if !force && archive.Status == "complete" {
 		var newerComplete int
-		if err := s.db.QueryRow(ctx, `SELECT count(*) FROM backup_archives WHERE status = 'complete' AND id <> $1`, id).Scan(&newerComplete); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM backup_archives WHERE status = 'complete' AND id <> $1`, id).Scan(&newerComplete); err != nil {
 			return Archive{}, err
 		}
 		if newerComplete == 0 {
@@ -254,8 +265,11 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID, force bool) (Archive
 		return Archive{}, fmt.Errorf("delete archive file: %w", err)
 	}
 	os.Remove(path + metaSuffix)
-	if _, err := s.db.Exec(ctx, `DELETE FROM backup_archives WHERE id = $1`, id); err != nil {
+	if _, err := tx.Exec(ctx, `DELETE FROM backup_archives WHERE id = $1`, id); err != nil {
 		return Archive{}, fmt.Errorf("remove catalog entry: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Archive{}, fmt.Errorf("commit archive delete: %w", err)
 	}
 	return archive, nil
 }

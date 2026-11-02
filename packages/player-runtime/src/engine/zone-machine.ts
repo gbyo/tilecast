@@ -1,5 +1,5 @@
 /**
- * A layout playlist zone: an independent loop of images and videos inside a
+ * A layout playlist zone: an independent loop of media and Widgets inside a
  * layout, with its own timing. The zone actor decides which entry is shown and
  * when to move on; the layout surface only mounts what it is told and reports
  * media events back. Stopping the actor (when its layout leaves the screen)
@@ -7,46 +7,118 @@
  * decoder warm.
  */
 import { assign, setup, type ActorRefFrom } from "xstate";
-import type { RuntimeLayoutZonePlaylistItem } from "../host/contract";
+import type {
+  RuntimeLayoutZonePlaylistItem,
+  RuntimeRemoteWebSpecV1,
+} from "../host/contract";
 import { TimerGroup, type RuntimeClock } from "../clock/scheduler";
 import { positiveDurationMs } from "../clock/duration";
 import {
   resolveNativeVideoLoop,
   resolvePlaylistAdvance,
+  fallbackDurationMsFor,
 } from "@tilecast/presentation-model";
 
 /** A zone entry that failed to play is retried after this long. */
 export const ZONE_RETRY_MS = 2_000;
 export const ZONE_IMAGE_DEFAULT_MS = 10_000;
 
+/** Timing metadata only; surfaces retain ownership of content payloads. */
+export interface ZoneTimingEntry {
+  id: string;
+  kind: RuntimeLayoutZonePlaylistItem["kind"];
+  durationMs: number | null;
+  loop?: boolean;
+  videoStartOffsetMs?: number | null;
+  videoEndOffsetMs?: number | null;
+  remoteWeb?: Pick<RuntimeRemoteWebSpecV1, "presentation">;
+}
+
+function timedDuration(
+  entry: Pick<ZoneTimingEntry, "kind" | "durationMs">,
+): number {
+  return (
+    positiveDurationMs(entry.durationMs) ??
+    fallbackDurationMsFor(entry.kind, ZONE_IMAGE_DEFAULT_MS) ??
+    ZONE_IMAGE_DEFAULT_MS
+  );
+}
+/**
+ * The longest an image may stay up in a zone the host holds to continuing
+ * render evidence. The host's tolerance for a quiet zone is five minutes, so
+ * this keeps a healthy rotation well inside it.
+ */
+export const ZONE_ROTATION_MAX_ENTRY_MS = 120_000;
+
+/**
+ * Whether a playlist zone keeps producing render evidence for as long as it is
+ * healthy. A zone that renders once and holds owes nothing more, like a still
+ * image. A zone owes continuing evidence only when it advances on a bounded
+ * cadence the Runtime itself controls: it loops, has more than one entry, and
+ * every entry is timed with a short duration. A video entry ends when the
+ * media ends, which no timer here bounds, so such a zone is not held to a
+ * cadence it cannot promise.
+ */
+export function zoneOwesContinuingEvidence(zone: {
+  loop?: boolean;
+  playlistItems?: readonly (Pick<
+    RuntimeLayoutZonePlaylistItem,
+    "kind" | "durationMs"
+  > & { remoteWeb?: RuntimeRemoteWebSpecV1 })[];
+}): boolean {
+  const entries = zone.playlistItems ?? [];
+  if (entries.length < 2 || (zone.loop ?? true) === false) return false;
+  return entries.every(
+    (entry) =>
+      entry.kind !== "video" &&
+      !(
+        entry.kind === "remote-web" &&
+        entry.remoteWeb?.presentation.playUntilEnd
+      ) &&
+      timedDuration(entry) <= ZONE_ROTATION_MAX_ENTRY_MS,
+  );
+}
+
 export interface ZoneInput {
-  items: RuntimeLayoutZonePlaylistItem[];
+  items: ZoneTimingEntry[];
   loop?: boolean;
   clock: RuntimeClock;
-  /** Every advance is fresh evidence that the zone is alive. */
-  onAdvance: () => void;
+  /** Called only when the selected media is ready and visible. */
+  onReady: () => void;
 }
 
 export interface ZoneContext {
-  items: RuntimeLayoutZonePlaylistItem[];
+  items: ZoneTimingEntry[];
   loop: boolean;
   /** How many entries have been shown; the current one is `(shown-1) % n`. */
   shown: number;
   /** Distinguishes retries of one item from stale media callbacks. */
   epoch: number;
+  ready: boolean;
+  paused: boolean;
+  failed: boolean;
+  consecutiveFailures: number;
+  clock: RuntimeClock;
+  deadline: number | null;
+  remainingMs: number | null;
   timers: TimerGroup;
-  onAdvance: () => void;
+  onReady: () => void;
 }
 
 export type ZoneEvent =
+  | { type: "MEDIA_READY"; epoch: number }
   | { type: "MEDIA_ENDED"; epoch: number }
   | { type: "MEDIA_FAILED"; epoch: number }
+  | { type: "PAUSE"; epoch: number }
+  | { type: "RESUME"; epoch: number }
   | { type: "NEXT"; epoch: number }
   | { type: "RETRY"; epoch: number };
 
-export function zoneEntry(
-  context: Pick<ZoneContext, "items" | "shown"> & { loop?: boolean },
-): { entry: RuntimeLayoutZonePlaylistItem; loop: boolean } | null {
+export function zoneEntry<Entry extends ZoneTimingEntry>(context: {
+  items: Entry[];
+  shown: number;
+  loop?: boolean;
+}): { entry: Entry; loop: boolean } | null {
   if (context.items.length === 0 || context.shown === 0) return null;
   const entry = context.items[(context.shown - 1) % context.items.length]!;
   return {
@@ -82,22 +154,59 @@ export const zoneMachine = setup({
     advance: assign(({ context }) => ({
       shown: context.shown + 1,
       epoch: context.epoch + 1,
+      ready: false,
+      failed: false,
+      deadline: null,
+      remainingMs: null,
     })),
-    retryCurrent: assign(({ context }) => ({ epoch: context.epoch + 1 })),
-    announce: ({ context }) => context.onAdvance(),
-    schedule: ({ context, self }) => {
+    retryCurrent: assign(({ context }) => ({
+      epoch: context.epoch + 1,
+      ready: false,
+      failed: false,
+      deadline: null,
+      remainingMs: null,
+      consecutiveFailures: 0,
+    })),
+    markReady: assign({ ready: true, consecutiveFailures: 0 }),
+    countFailure: assign(({ context }) => ({
+      consecutiveFailures: context.consecutiveFailures + 1,
+    })),
+    markFailed: assign({ ready: false, failed: true }),
+    pause: assign(({ context }) => ({
+      paused: true,
+      remainingMs:
+        context.deadline === null
+          ? context.remainingMs
+          : Math.max(0, context.deadline - context.clock.monotonicNow()),
+      deadline: null,
+    })),
+    resume: assign({ paused: false }),
+    announce: ({ context }) => context.onReady(),
+    schedule: assign(({ context, self }) => {
       context.timers.cancelAll();
       const current = zoneEntry(context);
-      if (!current || current.entry.kind !== "image") return;
-      if (!canAdvance(context)) return;
+      if (
+        context.paused ||
+        !context.ready ||
+        !current ||
+        current.entry.kind === "video" ||
+        (current.entry.kind === "remote-web" &&
+          current.entry.remoteWeb?.presentation.playUntilEnd) ||
+        !canAdvance(context)
+      )
+        return {};
       const epoch = context.epoch;
-      context.timers.after(
+      const duration =
+        context.remainingMs ??
         // Zero reads as unset, so two zero-length images do not swap at
         // timer speed.
-        positiveDurationMs(current.entry.durationMs) ?? ZONE_IMAGE_DEFAULT_MS,
-        () => self.send({ type: "NEXT", epoch }),
-      );
-    },
+        timedDuration(current.entry);
+      context.timers.after(duration, () => self.send({ type: "NEXT", epoch }));
+      return {
+        deadline: context.clock.monotonicNow() + duration,
+        remainingMs: null,
+      };
+    }),
     retryLater: ({ context, self }) => {
       context.timers.cancelAll();
       const epoch = context.epoch;
@@ -114,8 +223,15 @@ export const zoneMachine = setup({
     loop: input.loop ?? true,
     shown: 0,
     epoch: 0,
+    ready: false,
+    paused: false,
+    failed: false,
+    consecutiveFailures: 0,
+    clock: input.clock,
+    deadline: null,
+    remainingMs: null,
     timers: new TimerGroup(input.clock),
-    onAdvance: input.onAdvance,
+    onReady: input.onReady,
   }),
   initial: "start",
   states: {
@@ -124,21 +240,41 @@ export const zoneMachine = setup({
     },
     idle: {},
     showing: {
-      entry: ["advance", "announce", "schedule"],
+      entry: "advance",
       exit: "stopTimers",
       on: {
+        PAUSE: { guard: "current", actions: ["pause", "stopTimers"] },
+        RESUME: [
+          {
+            guard: ({ context, event }) =>
+              event.epoch === context.epoch && context.failed,
+            actions: ["resume", "retryLater"],
+          },
+          { guard: "current", actions: ["resume", "schedule"] },
+        ],
+        MEDIA_READY: {
+          guard: ({ context, event }) =>
+            event.epoch === context.epoch &&
+            !context.ready &&
+            !context.failed &&
+            !context.paused,
+          actions: ["markReady", "announce", "schedule"],
+        },
         NEXT: {
           guard: ({ context, event }) =>
-            event.epoch === context.epoch && canAdvance(context),
+            !context.paused &&
+            event.epoch === context.epoch &&
+            canAdvance(context),
           target: "showing",
           reenter: true,
         },
         RETRY: {
           guard: "current",
-          actions: ["retryCurrent", "schedule"],
+          actions: "retryCurrent",
         },
         MEDIA_ENDED: {
           guard: ({ context, event }) =>
+            !context.paused &&
             event.epoch === context.epoch &&
             !zoneEntry(context)?.loop &&
             canAdvance(context),
@@ -148,11 +284,14 @@ export const zoneMachine = setup({
         MEDIA_FAILED: [
           {
             guard: ({ context, event }) =>
-              event.epoch === context.epoch && canAdvance(context),
+              event.epoch === context.epoch &&
+              canAdvance(context) &&
+              context.consecutiveFailures + 1 < context.items.length,
             target: "showing",
             reenter: true,
+            actions: "countFailure",
           },
-          { guard: "current", actions: "retryLater" },
+          { guard: "current", actions: ["markFailed", "retryLater"] },
         ],
       },
     },

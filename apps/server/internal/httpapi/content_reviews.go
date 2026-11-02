@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
+	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 )
 
 func (s *server) listContentSubmissions(w http.ResponseWriter, r *http.Request) {
@@ -72,7 +73,7 @@ func (s *server) submitContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
-	result, err := s.approvals.SubmitExpected(r.Context(), user.ID, user.Role, contentType, id, body.RequestedPublicationAt, body.ExpectedRevision)
+	result, err := s.approvals.SubmitExpected(r.Context(), user.ID, principal, contentType, id, body.RequestedPublicationAt, body.ExpectedRevision)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
 		return
@@ -102,7 +103,7 @@ func (s *server) requestContentChanges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
-	result, err := s.approvals.RequestChanges(r.Context(), user.ID, user.Role, id, body.Note)
+	result, err := s.approvals.RequestChanges(r.Context(), user.ID, principal, id, body.Note)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
 		return
@@ -128,7 +129,7 @@ func (s *server) decideSubmission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
-	result, err := s.approvals.Approve(r.Context(), user.ID, user.Role, id, body.Note)
+	result, err := s.approvals.Approve(r.Context(), user.ID, principal, id, body.Note)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
 		return
@@ -147,7 +148,7 @@ func (s *server) publishContentSubmission(w http.ResponseWriter, r *http.Request
 		return
 	}
 	user := principal.User
-	result, err := s.approvals.PublishSubmission(r.Context(), user.ID, user.Role, id)
+	result, err := s.approvals.PublishSubmission(r.Context(), user.ID, principal, id)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
 		return
@@ -173,7 +174,7 @@ func (s *server) scheduleContentSubmission(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	user := principal.User
-	result, err := s.approvals.Schedule(r.Context(), user.ID, user.Role, id, body.RequestedPublicationAt)
+	result, err := s.approvals.Schedule(r.Context(), user.ID, principal, id, body.RequestedPublicationAt)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
 		return
@@ -192,7 +193,7 @@ func (s *server) cancelContentSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
-	result, err := s.approvals.CancelSchedule(r.Context(), user.ID, user.Role, id)
+	result, err := s.approvals.CancelSchedule(r.Context(), user.ID, principal, id)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
 		return
@@ -259,7 +260,7 @@ func (s *server) restorePublicationToDraft(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	user := principal.User
-	snapshot, err := s.approvals.RestorePublicationToDraft(r.Context(), user.ID, user.Role, contentType, contentID, publicationID)
+	snapshot, err := s.approvals.RestorePublicationToDraft(r.Context(), user.ID, principal, contentType, contentID, publicationID)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
 		return
@@ -288,7 +289,7 @@ func (s *server) rollbackPublication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
-	result, err := s.approvals.Rollback(r.Context(), user.ID, user.Role, contentType, contentID, publicationID)
+	result, err := s.approvals.Rollback(r.Context(), user.ID, principal, contentType, contentID, publicationID)
 	if err != nil {
 		s.writeEditorialError(w, r, err)
 		return
@@ -301,7 +302,10 @@ func (s *server) rollbackPublication(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) writeEditorialError(w http.ResponseWriter, r *http.Request, err error) {
+	var zone *layouts.PlaylistZoneUnsupportedError
 	switch {
+	case errors.As(err, &zone):
+		writeError(w, http.StatusUnprocessableEntity, "layout_playlist_zone_unsupported", zone.Error())
 	case errors.Is(err, approvals.ErrNotFound):
 		writeError(w, http.StatusNotFound, "submission_not_found", "The requested editorial resource was not found.")
 	case errors.Is(err, approvals.ErrReviewRequired):

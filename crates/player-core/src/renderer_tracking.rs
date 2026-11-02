@@ -69,6 +69,9 @@ impl RendererTracker {
         self.current_item = None;
         self.meaningful = false;
         self.content_progress = false;
+        // A replacement renderer must prove the activation again, so its
+        // first evidence is logged even when the previous one logged it.
+        self.logged.clear();
     }
 
     pub fn disconnected(&mut self, connection: uuid::Uuid) {
@@ -272,5 +275,21 @@ mod tests {
         }
         assert_eq!(tracker.logged.len(), 512);
         assert_eq!(tracker.content_items().len(), 256);
+    }
+
+    #[test]
+    fn a_replacement_renderer_logs_its_evidence_again() {
+        let one = uuid::Uuid::from_u128(1);
+        let two = uuid::Uuid::from_u128(2);
+        let now = Timestamp::from_unix_millis(0).unwrap();
+        let mut tracker = RendererTracker::default();
+        tracker.activate(reference(1));
+        tracker.connected(one);
+        let shown = report(1, ProgressEvidence::ImageShown);
+        assert!(tracker.progress(one, &shown, Expectation::Still, now).log_evidence);
+        assert!(!tracker.progress(one, &shown, Expectation::Still, now).log_evidence);
+        tracker.disconnected(one);
+        tracker.connected(two);
+        assert!(tracker.progress(two, &shown, Expectation::Still, now).log_evidence);
     }
 }

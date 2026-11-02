@@ -23,11 +23,21 @@ bounded recovery step for stale mounts left by older artifacts.
 
 Tilecast Player has two reliability modes. **Standard Reliability** works with a normally installed APK and provides cached startup, boot recovery, immersive fullscreen, keep-awake behavior, bounded playback recovery, safe mode, and locally approved Accessibility Control Assist. Android can still let a user leave the app. **Managed Kiosk** is effective only when Android confirms device-owner/device-policy provisioning and active lock task. Requesting it in policy is not proof that it is active.
 
-## First-run commissioning
+## Unattended setup and readiness
 
-Every newly paired player completes a local wizard before normal playback. It sets the hashed maintenance PIN, opens and verifies Accessibility Settings and unknown-app installation permission, verifies a healthy boot return, confirms immersive and keep-awake state, confirms a downloadable cached fallback, runs a self-test, and reports the final readiness state. Protected Android settings are never automated or marked complete based only on policy. **Run setup again** is available from the bounded local maintenance menu.
+An Android Player starts playback immediately after enrollment. No local step blocks playback.
 
-New effective defaults request launch after boot, keep-awake, immersive presentation, accessibility return control, cached offline playback, recovery escalation, safe mode, and the stable update channel. Accessibility and unknown-app installation remain one-time local commissioning permissions. Eligible self-updates on Android 12 and newer can proceed unattended after commissioning. Sleep outside active hours remains off until configured.
+The Player applies launch after boot, immersive presentation, and keep-awake by itself. Accessibility Control and unknown-app installation are optional local Android permissions. The Player does not request them during setup. The local maintenance menu opens the related Android settings.
+
+The Player reports its readiness facts in each heartbeat. The Reliability view in Studio shows them:
+
+- `commissioningState` is `complete` after the first enrollment of the screen. `commissioningStep` is `automatic`.
+- `selfTestResult` is `passed` when every safeguard is in place. Otherwise it is `completed_with_warnings`.
+- Studio shows **Ready** or **Partially ready** from the reported facts.
+
+Protected Android settings are never automated or marked complete based only on policy.
+
+New effective defaults request launch after boot, keep-awake, immersive presentation, accessibility return control, cached offline playback, recovery escalation, safe mode, and the stable update channel. Eligible self-updates on Android 12 and newer can proceed unattended when the install permission is granted. Sleep outside active hours remains off until configured.
 
 ## Active hours
 
@@ -85,6 +95,8 @@ Layouts are judged per zone, because a whole-layout signal hides the case that m
 ### What the player reports
 
 Every heartbeat carries `lastMeaningfulProgressAt`, `stallStartedAt`, `stallDurationMs`, `stallReason`, `expectedMotion` and `rendererResponding`. The stall is measured from when progress was last _seen_, not from when it was noticed, so the duration reflects how long the screen has actually been wrong rather than the poll interval.
+
+Native Players apply the same table. Tilecast Edge, Windows, and Android decide health in Player Core ([Playback health](player-core.md#playback-health)). A liveness report resets the recovery supervisor only while the content owes nothing else, so a static Layout, Widget, or Website that renders once is not recovered, and a frozen zone, a page that never rendered, or a stopped video is.
 
 `stallReason` names the content failure where the content is the evidence — a frozen video reports `video_position_frozen`, not `renderer_not_responding`, because the player has no evidence the renderer died. Blaming the renderer is reserved for indefinite content, where the probe genuinely is the only signal.
 

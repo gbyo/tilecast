@@ -10,6 +10,10 @@ import sys
 ROOT = Path(__file__).resolve().parents[3]
 WPE_INPUTS = ("Dockerfile.builder", "build-wpe.sh")
 WPE_ARCHES = ("x86_64", "aarch64")
+# The OCI repository of the prebuilt private WPE WebKit: an artifact, not a
+# runnable image. Its tag is wpe_version-wpe_key-arch and is published once.
+WPE_REPOSITORY = "ghcr.io/gbyo/tilecast-wpe"
+WPE_ARTIFACT_TYPE = "application/vnd.tilecast.wpe-prebuild.v1"
 
 
 def version():
@@ -74,6 +78,24 @@ def wpe_tag(arch):
     return f"wpe-{wpe_version()}-{wpe_key()}-{arch}"
 
 
+def wpe_ref_for(version, key, arch):
+    """OCI reference of one prebuild. The tag binds a WPE version, the
+    normalized builder inputs key and an architecture; a registry tag allows
+    no other characters than these."""
+    if arch not in WPE_ARCHES:
+        raise ValueError(f"unsupported WPE architecture: {arch}")
+    if not re.fullmatch(r"[0-9A-Za-z.]+", version) or not re.fullmatch(r"[0-9a-f]{16}", key):
+        raise ValueError("a WPE version and inputs key must be plain, for a registry tag")
+    return f"{WPE_REPOSITORY}:{version}-{key}-{arch}"
+
+
+def wpe_ref(arch):
+    """OCI reference of this checkout's prebuild: the immutable registry tag
+    binding the pinned WPE version, the normalized builder inputs and the
+    architecture."""
+    return wpe_ref_for(wpe_version(), wpe_key(), arch)
+
+
 def wpe_tar(arch):
     """Cache filename the release builder restores a WPE tar from."""
     if arch not in WPE_ARCHES:
@@ -95,5 +117,9 @@ if __name__ == "__main__":
         print(wpe_tag(args[1]))
     elif len(args) == 2 and args[0] == "wpe-tar":
         print(wpe_tar(args[1]))
+    elif len(args) == 2 and args[0] == "wpe-ref":
+        print(wpe_ref(args[1]))
+    elif len(args) == 4 and args[0] == "wpe-ref-for":
+        print(wpe_ref_for(args[1], args[2], args[3]))
     else:
-        raise SystemExit("use version, state-schema, wpe-key, wpe-version, wpe-tag <arch> or wpe-tar <arch>")
+        raise SystemExit("use version, state-schema, wpe-key, wpe-version, wpe-tag <arch>, wpe-tar <arch>, wpe-ref <arch> or wpe-ref-for <version> <key> <arch>")

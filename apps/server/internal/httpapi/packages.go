@@ -11,7 +11,9 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/packages"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	packagemanifest "github.com/tilecast/tilecast/packages/package-sdk/go/package"
+	externalplugin "github.com/tilecast/tilecast/packages/package-sdk/go/plugin"
 )
 
 // Package lifecycle routes: resolving a custom repository for review,
@@ -84,6 +86,10 @@ func (s *server) renderInstalledPackage(r *http.Request, item installer.Installe
 	if err != nil {
 		return installedPackageResponse{}, err
 	}
+	capabilities, err := summarizeCapabilities(manifest)
+	if err != nil {
+		return installedPackageResponse{}, err
+	}
 	rendered := installedPackageResponse{
 		PackageID:         item.PackageID,
 		Version:           item.Version,
@@ -99,7 +105,7 @@ func (s *server) renderInstalledPackage(r *http.Request, item installer.Installe
 		ActivatedAt:       item.ActivatedAt,
 		HasRollback:       item.HasPrevious,
 		Contributions:     []packageContribution{},
-		Capabilities:      summarizeCapabilities(manifest),
+		Capabilities:      capabilities,
 	}
 	if manifest.Runtime != nil {
 		rendered.Runtime = &reviewRuntime{Module: manifest.Runtime.Module}
@@ -161,14 +167,37 @@ func (s *server) getPackage(w http.ResponseWriter, r *http.Request) {
 // reviewContribution is one manifest contribution. ID is the
 // package-qualified identity, present when the review read the artifact.
 type reviewContribution struct {
-	Type string `json:"type"`
-	Path string `json:"path"`
-	ID   string `json:"id,omitempty"`
+	Type          string                  `json:"type"`
+	Path          string                  `json:"path"`
+	ID            string                  `json:"id,omitempty"`
+	PlayerRuntime *externalplugin.Runtime `json:"playerRuntime,omitempty"`
 }
 
 // reviewRuntime names the external server behavior module.
 type reviewRuntime struct {
 	Module string `json:"module"`
+}
+
+// reviewServiceOperation is one registry operation Studio may name inside a
+// service grant. It is display metadata only; invocation checks the
+// registry token itself.
+type reviewServiceOperation struct {
+	Name        string `json:"name"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Mutating    bool   `json:"mutating"`
+}
+
+// reviewServiceGrant is one requested Tilecast service with resolved
+// registry metadata. Studio renders this detail instead of decoding the
+// raw capability token.
+type reviewServiceGrant struct {
+	ID          string                   `json:"id"`
+	Version     int                      `json:"version"`
+	Name        string                   `json:"name"`
+	Description string                   `json:"description"`
+	Category    string                   `json:"category"`
+	Operations  []reviewServiceOperation `json:"operations"`
 }
 
 // reviewCapabilities mirrors the manifest's bounded capability requests
@@ -185,16 +214,18 @@ type reviewCapabilities struct {
 			IntervalMinutes int    `json:"intervalMinutes"`
 		} `json:"jobs"`
 	} `json:"background,omitempty"`
-	Storage  bool `json:"storage,omitempty"`
+	Realtime *packagemanifest.RealtimeCapability `json:"realtime,omitempty"`
+	Storage  bool                                `json:"storage,omitempty"`
 	StudioUI *struct {
 		Entry string `json:"entry"`
 	} `json:"studioUI,omitempty"`
+	Services []reviewServiceGrant `json:"services,omitempty"`
 }
 
-func summarizeCapabilities(manifest packagemanifest.Manifest) *reviewCapabilities {
+func summarizeCapabilities(manifest packagemanifest.Manifest) (*reviewCapabilities, error) {
 	caps := manifest.Capabilities
 	if caps == nil {
-		return nil
+		return nil, nil
 	}
 	review := &reviewCapabilities{}
 	if caps.Network != nil {
@@ -220,12 +251,40 @@ func summarizeCapabilities(manifest packagemanifest.Manifest) *reviewCapabilitie
 	if caps.Storage != nil && *caps.Storage {
 		review.Storage = true
 	}
+	if caps.Realtime != nil {
+		review.Realtime = &packagemanifest.RealtimeCapability{Jobs: append([]packagemanifest.RealtimeJob{}, caps.Realtime.Jobs...)}
+	}
 	if caps.StudioUI != nil {
 		review.StudioUI = &struct {
 			Entry string `json:"entry"`
 		}{Entry: caps.StudioUI.Entry}
 	}
-	return review
+	if len(caps.Services) > 0 {
+		details, err := services.Details(caps.Services)
+		if err != nil {
+			return nil, err
+		}
+		for _, detail := range details {
+			grant := reviewServiceGrant{
+				ID:          detail.ID,
+				Version:     detail.Version,
+				Name:        detail.Name,
+				Description: detail.Description,
+				Category:    detail.Category,
+				Operations:  make([]reviewServiceOperation, 0, len(detail.Operations)),
+			}
+			for _, operation := range detail.Operations {
+				grant.Operations = append(grant.Operations, reviewServiceOperation{
+					Name:        operation.Name,
+					Title:       operation.Title,
+					Description: operation.Description,
+					Mutating:    operation.Mutating,
+				})
+			}
+			review.Services = append(review.Services, grant)
+		}
+	}
+	return review, nil
 }
 
 type resolveReview struct {
@@ -252,7 +311,7 @@ type resolveReview struct {
 
 // renderReview builds the install review. nested are the contribution
 // identities read from the artifact, or nil when the review did not read it.
-func renderReview(resolution pipeline.Resolution, installed installer.InstalledPackage, isInstalled bool, nested []packages.NestedContribution) resolveReview {
+func renderReview(resolution pipeline.Resolution, installed installer.InstalledPackage, isInstalled bool, nested []packages.NestedContribution) (resolveReview, error) {
 	review := resolveReview{
 		PackageID:     resolution.Manifest.PackageID,
 		Version:       resolution.Manifest.PackageVersion,
@@ -279,6 +338,7 @@ func renderReview(resolution pipeline.Resolution, installed installer.InstalledP
 		for _, item := range nested {
 			if item.Kind == contribution.Type && item.Path == contribution.Path {
 				entry.ID = item.ID
+				entry.PlayerRuntime = item.PluginRuntime
 				break
 			}
 		}
@@ -287,11 +347,15 @@ func renderReview(resolution pipeline.Resolution, installed installer.InstalledP
 	if resolution.Manifest.Runtime != nil {
 		review.Runtime = &reviewRuntime{Module: resolution.Manifest.Runtime.Module}
 	}
-	review.Capabilities = summarizeCapabilities(resolution.Manifest)
+	capabilities, err := summarizeCapabilities(resolution.Manifest)
+	if err != nil {
+		return resolveReview{}, err
+	}
+	review.Capabilities = capabilities
 	if isInstalled {
 		review.InstalledVersion = installed.Version
 	}
-	return review
+	return review, nil
 }
 
 // resolveGitHubRepository resolves a repository URL to the install
@@ -320,7 +384,17 @@ func (s *server) resolveGitHubRepository(w http.ResponseWriter, r *http.Request)
 		s.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": renderReview(resolution, installed, isInstalled, nil)})
+	nested, err := s.packages.ReviewContributions(r.Context(), resolution)
+	if err != nil {
+		s.writePackageError(w, r, err)
+		return
+	}
+	review, err := renderReview(resolution, installed, isInstalled, nested)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": review})
 }
 
 // resolveMarketplacePackage resolves a cached marketplace listing to
@@ -340,7 +414,17 @@ func (s *server) resolveMarketplacePackage(w http.ResponseWriter, r *http.Reques
 		s.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"data": renderReview(resolution, installed, isInstalled, nil)})
+	nested, err := s.packages.ReviewContributions(r.Context(), resolution)
+	if err != nil {
+		s.writePackageError(w, r, err)
+		return
+	}
+	review, err := renderReview(resolution, installed, isInstalled, nested)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"data": review})
 }
 
 // installStorePackage installs the store entry: a marketplace listing by
@@ -423,7 +507,11 @@ func (s *server) checkPackageUpdate(w http.ResponseWriter, r *http.Request) {
 		UpToDate: check.UpToDate, LastChecked: check.LastChecked,
 	}
 	if check.Available {
-		latest := renderReview(check.Resolution, check.Installed, true, check.Contributions)
+		latest, err := renderReview(check.Resolution, check.Installed, true, check.Contributions)
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
 		response.Latest = &latest
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": response})
@@ -550,6 +638,8 @@ func (s *server) writePackageError(w http.ResponseWriter, r *http.Request, err e
 		writeError(w, http.StatusNotFound, "package_not_installed", "The package is not installed.")
 	case errors.Is(err, installer.ErrIncompatible):
 		writeError(w, http.StatusUnprocessableEntity, "package_incompatible", "The package does not support this Tilecast release.")
+	case errors.Is(err, installer.ErrServiceUnknown):
+		writeError(w, http.StatusUnprocessableEntity, "manifest_invalid", "The package requests an unknown Tilecast service.")
 	case errors.Is(err, installer.ErrNamespace):
 		writeError(w, http.StatusUnprocessableEntity, "namespace_violation", "A contribution falls outside the package namespace.")
 	case errors.Is(err, installer.ErrCollision):

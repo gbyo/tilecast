@@ -130,6 +130,25 @@ describe("verified browser content store", () => {
     expect(h.bytes.size).toBe(2);
   });
 
+  it("releases preparation pins left by an ended page so the cache can evict", async () => {
+    const h = harness(10);
+    const abandoned = claim("aaaa"),
+      active = claim("bbbb"),
+      incoming = claim("cccc");
+    await h.store.prepare(abandoned, async () => new Response("aaaa"));
+    await h.store.prepare(active, async () => new Response("bbbb"));
+    // A page crashed after pinning `abandoned` and before its release ran.
+    h.metadata.get(abandoned.digest)!.pins = ["preparing:page-that-ended"];
+    h.metadata.get(active.digest)!.pins = ["active"];
+    await h.store.reconcile();
+    expect(h.metadata.get(abandoned.digest)!.pins).toEqual([]);
+    expect(h.metadata.get(active.digest)!.pins).toEqual(["active"]);
+    await h.store.prepare(incoming, async () => new Response("cccc"));
+    expect(h.metadata.has(abandoned.digest)).toBe(false);
+    expect(h.metadata.has(active.digest)).toBe(true);
+    expect(h.metadata.has(incoming.digest)).toBe(true);
+  });
+
   it("aborts an interrupted streamed download and propagates quota errors", async () => {
     const h = harness();
     const stream = new ReadableStream<Uint8Array>({

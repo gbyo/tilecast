@@ -36,7 +36,19 @@ fn set_view(
     approval_url: String,
     organization_name: Option<String>,
 ) {
-    let view = PairingView { state, code, reason, approval_url, organization_name };
+    set_view_with_phone(context, state, code, reason, approval_url, organization_name, None);
+}
+
+fn set_view_with_phone(
+    context: &DaemonContext,
+    state: &'static str,
+    code: Option<String>,
+    reason: Option<String>,
+    approval_url: String,
+    organization_name: Option<String>,
+    phone_setup: Option<player_core::PhoneSetupView>,
+) {
+    let view = PairingView { state, code, reason, approval_url, organization_name, phone_setup };
     let mut current = context.pairing.lock().unwrap_or_else(|e| e.into_inner());
     if *current != view {
         *current = view;
@@ -102,7 +114,10 @@ impl player_core::PairingHost for Metadata<'_> {
                 context.server_wake.notify_one();
                 context.manifest_wake.notify_one();
             }
-            PairingStatus::Setup | PairingStatus::AddressRejected => {
+            PairingStatus::Setup { phone } => {
+                set_view_with_phone(context, "unpaired", None, None, String::new(), None, phone);
+            }
+            PairingStatus::AddressRejected => {
                 set_view(context, "unpaired", None, None, String::new(), None);
             }
             PairingStatus::Reset => {
@@ -115,6 +130,13 @@ impl player_core::PairingHost for Metadata<'_> {
                 set_view(context, "renewing", None, Some(reason), String::new(), None)
             }
         }
+    }
+}
+
+/// Starts a paused phone setup session again (`setup.resumePhoneSetup`).
+pub fn resume_phone_setup(context: &DaemonContext) {
+    if let Ok(core) = coordinator(context) {
+        core.resume_phone_setup();
     }
 }
 

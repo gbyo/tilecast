@@ -1,0 +1,14 @@
+{
+  "apiVersion": 2,
+  "id": "minimal_v2",
+  "definitionVersion": 1,
+  "name": "Sample",
+  "description": "A Plugin API v2 fixture.",
+  "category": "Display",
+  "icon": "puzzle",
+  "maintainers": ["@gbyo"],
+  "instanceNoun": {
+    "singular": "item",
+    "plural": "items"
+  }
+}

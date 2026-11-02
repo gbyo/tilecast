@@ -12,6 +12,13 @@ export interface VerifiedObject extends ResourceClaim {
   pins: string[];
 }
 
+/**
+ * Owner prefix of the temporary pin a preparation holds until its activation
+ * commits. The pin lives only while the CAS lock is held, so one that is still
+ * recorded when reconciliation runs was left by a page that ended first.
+ */
+export const PREPARATION_OWNER_PREFIX = "preparing:";
+
 /** Metadata persistence and OPFS are separate narrow adapters. */
 export interface ObjectIndex {
   list(): Promise<VerifiedObject[]>;
@@ -132,12 +139,20 @@ export class VerifiedStore {
 
   /**
    * Startup reconciliation, under the CAS lock: drops index metadata whose
-   * bytes are gone or the wrong size, then bytes that have no metadata.
+   * bytes are gone or the wrong size, releases preparation pins that no live
+   * page can still hold, then drops bytes that have no metadata.
    */
   async reconcile(): Promise<void> {
     for (const object of await this.index.list()) {
       const file = await this.files.read(object.digest);
       if (!file || file.size !== object.size) await this.corrupt(object.digest);
+    }
+    for (const object of await this.index.list()) {
+      const pins = object.pins.filter(
+        (pin) => !pin.startsWith(PREPARATION_OWNER_PREFIX),
+      );
+      if (pins.length !== object.pins.length)
+        await this.index.put({ ...object, pins });
     }
     await this.files.reconcile?.(
       new Set((await this.index.list()).map((object) => object.digest)),

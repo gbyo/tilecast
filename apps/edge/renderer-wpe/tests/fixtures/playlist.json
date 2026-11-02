@@ -67,6 +67,48 @@
         }
       },
       {
+        "id": "item-layout-video",
+        "kind": "layout",
+        "src": "",
+        "durationMs": 15000,
+        "fitMode": "contain",
+        "audioEnabled": false,
+        "volume": 1.0,
+        "videoStartOffsetMs": null,
+        "videoEndOffsetMs": null,
+        "layout": {
+          "canvasWidth": 1920,
+          "canvasHeight": 1080,
+          "background": "#808080",
+          "zones": [
+            {
+              "id": "zone-video",
+              "x": 0,
+              "y": 0,
+              "width": 1920,
+              "height": 1080,
+              "layer": 0,
+              "opacity": 1,
+              "loop": true,
+              "fallback": "background",
+              "playlistItems": [
+                {
+                  "id": "zone-clip",
+                  "kind": "video",
+                  "src": "media:clip",
+                  "durationMs": null,
+                  "fit": "contain",
+                  "muted": true,
+                  "volume": 0,
+                  "loop": false,
+                  "transition": "none"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      {
         "id": "item-layout",
         "kind": "layout",
         "src": "",

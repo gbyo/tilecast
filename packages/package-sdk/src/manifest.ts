@@ -18,17 +18,24 @@
  * no code to download: contribution paths point inside the package, and
  * the host decides what an extension class may do. Version 2 adds an
  * optional server runtime module and the bounded capabilities it
- * requests; the declarations are requests, never grants — the host
+ * requests; version 3 keeps those capabilities and adds bounded Tilecast
+ * service grants. Version 4 adds one bounded realtime job. The declarations are requests, never grants — the host
  * decides what is supported and permitted, and installation review
  * shows every requested capability before anything is installed.
  */
 import { z } from "zod";
 
 /** The latest Tilecast package manifest version this SDK implements. */
-export const PACKAGE_API_VERSION = 2;
+export const PACKAGE_API_VERSION = 4;
 
 /** Package manifest versions this release can load. */
-export const SUPPORTED_PACKAGE_API_VERSIONS = [1, 2] as const;
+export const SUPPORTED_PACKAGE_API_VERSIONS = [1, 2, 3, 4] as const;
+
+/** Maximum Tilecast service grants one package may request. */
+export const MAX_SERVICE_GRANTS = 16;
+
+/** Maximum requested service capability version. */
+export const MAX_SERVICE_VERSION = 99;
 
 /**
  * A qualified package identity: at least two dot-separated segments of
@@ -142,6 +149,34 @@ const backgroundJobSchema = z.strictObject({
     .describe("How often the host runs the job, in minutes."),
 });
 
+/**
+ * A Tilecast service capability identity: dotted lowercase segments such as
+ * `screens.read` or `managed-presentations.manage`. The manifest checks
+ * only the shape and bounds; the server registry decides which identities
+ * and versions exist at install/review time.
+ */
+export const serviceCapabilityIdPattern =
+  /^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/;
+
+const serviceGrantSchema = z
+  .strictObject({
+    id: z
+      .string()
+      .max(64)
+      .regex(
+        serviceCapabilityIdPattern,
+        "must be a dotted service identity such as screens.read",
+      )
+      .describe("Stable Tilecast service capability identity."),
+    version: z
+      .number()
+      .int()
+      .min(1)
+      .max(MAX_SERVICE_VERSION)
+      .describe("Requested service capability version."),
+  })
+  .describe("One requested Tilecast service grant.");
+
 const networkCapabilitySchema = z
   .strictObject({
     hosts: z
@@ -172,11 +207,32 @@ const capabilitiesSchema = z
   .strictObject({
     network: networkCapabilitySchema.optional(),
     background: backgroundCapabilitySchema.optional(),
+    realtime: z
+      .strictObject({
+        jobs: z
+          .array(
+            z.strictObject({
+              id: capabilityJobId,
+              intervalSeconds: z.number().int().min(5).max(60),
+            }),
+          )
+          .length(1),
+      })
+      .optional()
+      .describe("One high-frequency background job (version 4 only)."),
     storage: z
       .literal(true)
       .optional()
       .describe("Request plugin-owned key/value storage."),
     studioUI: studioUICapabilitySchema.optional(),
+    services: z
+      .array(serviceGrantSchema)
+      .min(1)
+      .max(MAX_SERVICE_GRANTS)
+      .optional()
+      .describe(
+        "Requested versioned Tilecast service grants (versions 3 and 4).",
+      ),
   })
   .describe("Bounded capabilities the package requests.");
 
@@ -189,9 +245,9 @@ const runtimeSchema = z
 export const packageManifestSchema = z
   .strictObject({
     apiVersion: z
-      .union([z.literal(1), z.literal(2)])
+      .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
       .describe(
-        "Package manifest version. Only 2 declares runtime and capabilities.",
+        "Package manifest version. Versions 2 and 3 declare runtime and capabilities; only 3 declares service grants.",
       ),
     packageId: z
       .string()
@@ -262,10 +318,12 @@ export const packageManifestSchema = z
       .describe("Issue tracker for the package."),
     runtime: runtimeSchema
       .optional()
-      .describe("External server behavior module (version 2 only)."),
+      .describe("External server behavior module (versions 2 and 3)."),
     capabilities: capabilitiesSchema
       .optional()
-      .describe("Bounded capabilities the package requests (version 2 only)."),
+      .describe(
+        "Bounded capabilities the package requests (versions 2 to 4; services require version 3 or 4; realtime requires version 4).",
+      ),
   })
   .describe("Tilecast package manifest (tilecast.package.json).")
   .superRefine((manifest, context) => {
@@ -279,17 +337,29 @@ export const packageManifestSchema = z
         message: "runtime and capabilities require apiVersion 2",
       });
     }
+    if (
+      manifest.capabilities?.services !== undefined &&
+      manifest.apiVersion < 3
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["capabilities", "services"],
+        message: "service grants require apiVersion 3 or 4",
+      });
+    }
     const executable = manifest.capabilities
       ? (manifest.capabilities.network ??
         manifest.capabilities.background ??
-        manifest.capabilities.storage)
+        manifest.capabilities.realtime ??
+        manifest.capabilities.storage ??
+        manifest.capabilities.services)
       : undefined;
     if (executable !== undefined && !manifest.runtime) {
       context.addIssue({
         code: "custom",
         path: ["capabilities"],
         message:
-          "network, background, and storage capabilities require a runtime module",
+          "network, background, storage, and service capabilities require a runtime module",
       });
     }
     const capabilities = manifest.capabilities;
@@ -297,8 +367,10 @@ export const packageManifestSchema = z
       capabilities &&
       capabilities.network === undefined &&
       capabilities.background === undefined &&
+      capabilities.realtime === undefined &&
       capabilities.storage === undefined &&
-      capabilities.studioUI === undefined
+      capabilities.studioUI === undefined &&
+      capabilities.services === undefined
     ) {
       context.addIssue({
         code: "custom",
@@ -358,6 +430,36 @@ export const packageManifestSchema = z
         });
       }
       seenJobs.add(job.id);
+    });
+    const services = manifest.capabilities?.services ?? [];
+    const realtime = manifest.capabilities?.realtime;
+    if (realtime && manifest.apiVersion !== 4) {
+      context.addIssue({
+        code: "custom",
+        path: ["capabilities", "realtime"],
+        message: "realtime jobs require apiVersion 4",
+      });
+    }
+    for (const [index, job] of (realtime?.jobs ?? []).entries()) {
+      if (seenJobs.has(job.id)) {
+        context.addIssue({
+          code: "custom",
+          path: ["capabilities", "realtime", "jobs", index, "id"],
+          message: "job ids must be unique across job classes",
+        });
+      }
+    }
+    const seenServices = new Set<string>();
+    services.forEach((service, index) => {
+      const key = `${service.id}@${service.version}`;
+      if (seenServices.has(key)) {
+        context.addIssue({
+          code: "custom",
+          path: ["capabilities", "services", index],
+          message: "service grants must be unique",
+        });
+      }
+      seenServices.add(key);
     });
   });
 
@@ -424,7 +526,11 @@ export function satisfiesTilecastRange(
   range: string,
   version: string,
 ): boolean {
-  const current = parseTilecastVersion(version);
+  // A Beta release satisfies the ranges its core satisfies; any other
+  // suffix, such as a development build's "-dev", stays unparseable.
+  const current = parseTilecastVersion(
+    version.trim().replace(/-beta\.[1-9][0-9]?$/, ""),
+  );
   if (!current) return false;
   const clauses = range.trim().split(/\s+/);
   if (clauses.length === 0 || clauses.some((clause) => clause === "")) {

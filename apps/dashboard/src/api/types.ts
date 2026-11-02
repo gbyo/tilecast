@@ -6,11 +6,19 @@ export type BrowserLaunch =
   components["schemas"]["BrowserLaunchResponse"]["data"];
 export type BrowserScreenInput = components["schemas"]["BrowserScreenRequest"];
 
+/** A built-in role key. Custom role keys start with "custom.". */
+export type BuiltinRole =
+  "owner" | "administrator" | "editor" | "contributor" | "viewer";
+
 export type User = {
   id: string;
   name: string;
   username: string;
-  role: "owner" | "administrator" | "editor" | "contributor" | "viewer";
+  /**
+   * The account's role key: a built-in role or a custom one. Decide what an
+   * account may do from AuthStatus.capabilities, never from this value.
+   */
+  role: string;
   active: boolean;
   createdAt: string;
   lastLoginAt?: string;
@@ -26,6 +34,8 @@ export type AuthStatus = {
   setupRequired: boolean;
   authenticated: boolean;
   user?: User;
+  /** Effective capabilities of the account's live role. */
+  capabilities?: string[];
   csrfToken?: string;
   /** A session sign-in factor, or the bearer kind when the caller used a grant. */
   authMethod?: AuthMethod | "pat" | "oauth";
@@ -60,6 +70,7 @@ export type MFAChallenge = {
 
 export type SessionResult = {
   user: User;
+  capabilities?: string[];
   csrfToken: string;
   authMethod?: AuthMethod;
   mfaEnrollmentRequired?: boolean;
@@ -711,6 +722,13 @@ export type ReliabilityStatus = {
   safeMode?: boolean;
   lastWatchdogFailure?: string;
   lastWatchdogRecoveryAt?: string;
+  /** Edge renderer diagnostics; absent on players that do not report them. */
+  lastRendererFailure?: string;
+  rendererRestartCount?: number;
+  lastRendererRestartAt?: string;
+  lastRendererRestartReason?: string;
+  safeModeReason?: string;
+  playerHealth?: PlayerHealth;
   maintenanceSessionExpiresAt?: string;
   commissioningState?: string;
   commissioningStep?: string;
@@ -786,10 +804,42 @@ export type ReliabilityStatus = {
   displayControlLastCommandSentAt?: string;
   displayControlLastStateConfirmedAt?: string;
   displayControlError?: string;
+  playerCapabilities?: Record<string, { version: number; provider: string }>;
   powerAssist: PowerAssistResults;
 };
 
 type AirplayString<T extends string> = T | (string & {});
+
+/**
+ * One derived presentation of a screen's condition, computed server-side
+ * from connection state, player status, and the telemetry snapshot
+ * (see internal/httpapi/player_health.go). Unknown states stay unknown:
+ * a missing field means unreported, never zero.
+ */
+export type PlayerHealth = {
+  state: PlayerHealthState;
+  observedAt?: string;
+  cause?: string;
+  rendererState?: string;
+  lastProgressAt?: string;
+  lastRecoveryReason?: string;
+  lastRecoveryAt?: string;
+  recoveryLevel?: number;
+  updateState?: string;
+  updateError?: string;
+};
+
+export type PlayerHealthState =
+  | "disconnected"
+  | "healthy"
+  | "renderer_unavailable"
+  | "waiting_for_evidence"
+  | "recovering"
+  | "safe_mode"
+  | "sleeping_or_disabled"
+  | "presentation_failed"
+  | "needs_intervention"
+  | "unknown";
 
 export type AirplaySessionScreenState = {
   screenId: string;
@@ -999,7 +1049,7 @@ export type MaintenanceAction =
 
 export type SystemStatus = {
   tilecastVersion: string;
-  channel: "stable" | "development";
+  channel: "stable" | "beta" | "development";
   buildCommit: string;
   buildDate: string;
   uptimeSeconds: number;
@@ -1385,17 +1435,37 @@ export type PackageRuntime = {
  * entry is a request the host reviews before installation; nothing here
  * grants itself.
  */
+export type PackageServiceOperation = {
+  name: string;
+  title: string;
+  description: string;
+  mutating: boolean;
+};
+
+export type PackageServiceGrant = {
+  id: string;
+  version: number;
+  name: string;
+  description: string;
+  category: string;
+  operations: PackageServiceOperation[];
+};
+
 export type PackageCapabilities = {
   network?: { hosts: string[] };
   background?: { jobs: { id: string; intervalMinutes: number }[] };
+  realtime?: { jobs: { id: string; intervalSeconds: number }[] };
   storage?: boolean;
   studioUI?: { entry: string };
+  services?: PackageServiceGrant[];
 };
 
 /** One declared package background job with the scheduler cursor. */
 export type PackageJob = {
   jobId: string;
   intervalMinutes: number;
+  intervalSeconds?: number;
+  kind?: "ordinary" | "realtime";
   nextRunAt: string;
   lastRunAt?: string;
   lastStatus: string;
@@ -1453,7 +1523,23 @@ export type GitHubInstallReview = {
   manifest: PackageManifestSummary;
   compatible: boolean;
   /** id is the package-qualified identity, present on update checks. */
-  contributions: { type: string; path: string; id?: string }[];
+  contributions: {
+    type: string;
+    path: string;
+    id?: string;
+    playerRuntime?: {
+      surfaces: (
+        | "strip.top"
+        | "strip.bottom"
+        | "corner.top-left"
+        | "corner.top-right"
+        | "corner.bottom-left"
+        | "corner.bottom-right"
+        | "overlay"
+      )[];
+      tier: "emergency" | "live" | "scheduled" | "ambient";
+    };
+  }[];
   runtime?: PackageRuntime;
   capabilities?: PackageCapabilities;
   digest: string;
@@ -1705,12 +1791,21 @@ export type GitHubDevicePoll = {
 export type UpdateDeploymentMode =
   "download_only" | "install_now" | "maintenance_window";
 
+export type UpdateDeploymentSelection = {
+  releaseId: string;
+  screenIds: string[];
+  groupIds: string[];
+};
+export type UpdateDeploymentPreview =
+  import("@tilecast/api-schema/generated/openapi").components["schemas"]["UpdateDeploymentPreview"];
+
 export type UpdateDeployment = {
   id: string;
   name: string;
   mode: string;
   status: string;
   createdAt: string;
+  completedAt?: string | null;
   platform: PlayerPlatform;
   playerFamily?: PlayerFamily;
   architecture?: string;
@@ -1721,6 +1816,7 @@ export type UpdateDeployment = {
   failedCount: number;
   waitingForUserCount: number;
   rolloutMode?: string;
+  incompatibleCount?: number;
   rolloutPhase?: string;
   canarySize?: number;
   pauseReason?: string;
@@ -1769,7 +1865,7 @@ export type UpdateDeploymentDetail = {
   mode: string;
   status: string;
   createdAt: string;
-  completedAt?: string;
+  completedAt?: string | null;
   platform: PlayerPlatform;
   playerFamily?: PlayerFamily;
   architecture?: string;
@@ -1920,6 +2016,8 @@ export type ContentTag = {
   name: string;
   color: string;
   assetCount?: number;
+  /** On the tag list: whether the signed-in account may apply the tag. */
+  assignable?: boolean;
 };
 export type BulkOrganizeInput = {
   assetIds: string[];
@@ -3082,6 +3180,90 @@ export type ScreenScope = {
 export type ScreenScopes = {
   scopes: ScreenScope[];
   wholeFleet: boolean;
+};
+
+export type CapabilityGroup =
+  | "media"
+  | "widgets"
+  | "dataSources"
+  | "playlists"
+  | "layouts"
+  | "campaigns"
+  | "review"
+  | "screens"
+  | "schedules"
+  | "activity"
+  | "plugins"
+  | "administration";
+
+/** One entry of the server's closed capability vocabulary. */
+export type CapabilityDefinition = {
+  key: string;
+  group: CapabilityGroup;
+  requires: string[];
+  /** Held only by the built-in Owner role. */
+  ownerReserved: boolean;
+  /** False for capabilities that administer access itself. */
+  delegable: boolean;
+  /** Whether the signed-in account may put it in a custom role. */
+  grantable: boolean;
+};
+
+export type Role = {
+  key: string;
+  name: string;
+  description: string;
+  builtin: boolean;
+  capabilities: string[];
+  /** Active accounts on the role. */
+  userCount: number;
+  createdAt: string;
+  updatedAt: string;
+  /** The signed-in account may change or delete the role. */
+  editable: boolean;
+  /** The signed-in account may place accounts on the role. */
+  assignable: boolean;
+};
+
+export type RoleInput = {
+  name: string;
+  description: string;
+  capabilities: string[];
+};
+
+export type ContentAccessMode = "all" | "restricted";
+
+export type ContentAccessInput = {
+  libraryMode: ContentAccessMode;
+  tagMode: ContentAccessMode;
+  folderIds?: string[];
+  tagIds?: string[];
+};
+
+export type ContentGrant = { id: string; name: string; path?: string };
+
+export type UserContentAccess = {
+  policy: {
+    libraryMode: ContentAccessMode;
+    tagMode: ContentAccessMode;
+    folders: ContentGrant[];
+    tags: ContentGrant[];
+    /** False when the account has no policy yet and reaches no content. */
+    configured: boolean;
+  };
+  ownerUnrestricted: boolean;
+};
+
+/** The signed-in account's own role, capabilities, and content access. */
+export type MyAccess = {
+  role: { key: string; name: string; builtin: boolean };
+  capabilities: string[];
+  content: {
+    libraryMode: ContentAccessMode;
+    tagMode: ContentAccessMode;
+    /** Folders the account may upload into; absent for the whole library. */
+    writableFolderIds?: string[];
+  };
 };
 
 export type ScreenSnapshot = {

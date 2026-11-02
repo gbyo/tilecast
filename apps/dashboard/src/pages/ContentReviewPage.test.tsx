@@ -16,6 +16,7 @@ import { api, ApiError } from "../api/client";
 import type { ContentReviewItem } from "../api/types";
 import { i18n } from "../i18n";
 import { formatLocale } from "../i18n/languages";
+import { builtinCapabilities } from "../test/capabilities";
 
 // The page renders a card list for narrow screens and a table from lg up,
 // and hides one with CSS. jsdom applies no CSS, so tests read the table.
@@ -23,7 +24,13 @@ const desktop = async () => within(await screen.findByRole("table"));
 
 let role = "editor";
 vi.mock("../auth/AuthProvider", () => ({
-  useAuth: () => ({ status: { csrfToken: "csrf", user: { role } } }),
+  useAuth: () => ({
+    status: {
+      csrfToken: "csrf",
+      user: { role },
+      capabilities: builtinCapabilities(role),
+    },
+  }),
 }));
 
 const pending: ContentReviewItem = {

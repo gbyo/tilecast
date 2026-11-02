@@ -59,6 +59,20 @@ enum AssetMode {
     /// A resume is answered with a `Content-Range` that does not start at
     /// the requested offset.
     BadRange,
+    /// Answered 200 to a Range request, as an origin that ignores ranges.
+    IgnoreRange,
+    /// A stream-backed video: serve any requested range of a virtual
+    /// object of the claimed size, with deterministic bytes and the
+    /// manifest digest's ETag. Stream bytes are never hash-verified
+    /// (the hash covers the whole object), only range- and
+    /// validator-checked, so pseudo-bytes are faithful.
+    Stream(usize),
+}
+
+/// Deterministic stream bytes: positionally verifiable without storing
+/// a multi-megabyte object in the test.
+fn stream_bytes(start: usize, end: usize) -> Bytes {
+    Bytes::from((start..=end).map(|i| (i % 251) as u8).collect::<Vec<_>>())
 }
 
 /// How the server's listener behaves, beyond answering 503 (`offline`).
@@ -84,17 +98,18 @@ fn requested_range(request: &Request<Body>, len: usize) -> Option<(usize, usize)
     (start <= end).then_some((start, end))
 }
 
-fn partial(bytes: &[u8], end: usize, claimed_start: usize, mime: &str) -> Out {
+fn partial(bytes: &[u8], end: usize, claimed_start: usize, mime: &str, digest_hex: &str) -> Out {
     let mut response = Response::new(body(bytes[claimed_start..=end].to_vec()));
     *response.status_mut() = StatusCode::PARTIAL_CONTENT;
     let headers = response.headers_mut();
     headers.insert("content-range", format!("bytes {claimed_start}-{end}/{}", bytes.len()).parse().unwrap());
     headers.insert("content-type", mime.parse().unwrap());
+    headers.insert("etag", format!("\"sha256-{digest_hex}\"").parse().unwrap());
     response
 }
 
-/// Bytes, media type and behavior of one served variant path.
-type Served = (Vec<u8>, String, AssetMode);
+/// Bytes, media type, behavior, and manifest digest of one served variant path.
+type Served = (Vec<u8>, String, AssetMode, String);
 
 struct FakeServer {
     installation: InstallationId,
@@ -104,6 +119,8 @@ struct FakeServer {
     link: AtomicU8,
     /// Asset requests that carried a `Range` header.
     range_requests: AtomicUsize,
+    /// Asset requests answered with a full body (no `Range` header).
+    served_full: AtomicUsize,
     /// The player WebSocket: off by default, which the daemon treats like a
     /// server that refuses it and falls back to the HTTP heartbeat.
     socket_enabled: AtomicBool,
@@ -173,6 +190,7 @@ impl FakeServer {
             offline: AtomicBool::new(false),
             link: AtomicU8::new(LINK_UP),
             range_requests: AtomicUsize::new(0),
+            served_full: AtomicUsize::new(0),
             socket_enabled: AtomicBool::new(false),
             socket_connections: AtomicUsize::new(0),
             socket_statuses: Mutex::new(Vec::new()),
@@ -232,7 +250,18 @@ impl FakeServer {
     }
 
     fn add_asset(&self, asset: &Asset, mode: AssetMode) {
-        self.assets.lock().unwrap().insert(asset.path(), (asset.bytes.clone(), asset.mime.clone(), mode));
+        self.assets
+            .lock()
+            .unwrap()
+            .insert(asset.path(), (asset.bytes.clone(), asset.mime.clone(), mode, asset.digest().to_hex()));
+    }
+
+    /// Serves an external Plugin surface frame under its package download path.
+    fn add_frame(&self, path: &str, bytes: &[u8], mode: AssetMode) {
+        self.assets
+            .lock()
+            .unwrap()
+            .insert(path.to_owned(), (bytes.to_vec(), "text/html".to_owned(), mode, Sha256Digest::of(bytes).to_hex()));
     }
 
     fn set_mode(&self, asset: &Asset, mode: AssetMode) {
@@ -425,11 +454,17 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Out, st
                 _ => Ok(status(StatusCode::NOT_FOUND, "not_found")),
             }
         }
-        asset_path if asset_path.starts_with("/api/v1/player/assets/") => {
+        asset_path
+            if asset_path.starts_with("/api/v1/player/assets/")
+                || asset_path.starts_with("/api/v1/player/packages/") =>
+        {
             let entry = fake.assets.lock().unwrap().get(asset_path).cloned();
-            let Some((bytes, mime, mode)) = entry else {
+            let Some((bytes, mime, mode, digest_hex)) = entry else {
                 return Ok(status(StatusCode::NOT_FOUND, "media_variant_unavailable"));
             };
+            if request.headers().get("range").is_none() {
+                fake.served_full.fetch_add(1, Ordering::SeqCst);
+            }
             match mode {
                 AssetMode::Missing => Ok(status(StatusCode::NOT_FOUND, "media_variant_unavailable")),
                 AssetMode::Unavailable => Ok(status(StatusCode::SERVICE_UNAVAILABLE, "maintenance")),
@@ -437,6 +472,27 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Out, st
                     let mut wrong = bytes.clone();
                     wrong[0] ^= 0xff;
                     Ok(Response::new(body(Bytes::from(wrong))))
+                }
+                AssetMode::IgnoreRange => {
+                    let mut response = Response::new(body(Bytes::from(bytes)));
+                    response.headers_mut().insert("content-type", mime.parse().unwrap());
+                    Ok(response)
+                }
+                AssetMode::Stream(claimed) => {
+                    let Some((start, end)) = requested_range(&request, claimed) else {
+                        let mut response = Response::new(body(Bytes::new()));
+                        *response.status_mut() = StatusCode::RANGE_NOT_SATISFIABLE;
+                        response.headers_mut().insert("content-range", format!("bytes */{claimed}").parse().unwrap());
+                        return Ok(response);
+                    };
+                    fake.range_requests.fetch_add(1, Ordering::SeqCst);
+                    let mut response = Response::new(body(stream_bytes(start, end)));
+                    *response.status_mut() = StatusCode::PARTIAL_CONTENT;
+                    let headers = response.headers_mut();
+                    headers.insert("content-type", mime.parse().unwrap());
+                    headers.insert("content-range", format!("bytes {start}-{end}/{claimed}").parse().unwrap());
+                    headers.insert("etag", format!("\"sha256-{digest_hex}\"").parse().unwrap());
+                    Ok(response)
                 }
                 AssetMode::Held => {
                     fake.release.notified().await;
@@ -461,7 +517,7 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Out, st
                     if let Some((start, end)) = requested_range(&request, bytes.len()) {
                         fake.range_requests.fetch_add(1, Ordering::SeqCst);
                         let claimed = if mode == AssetMode::BadRange { (start + 7).min(end) } else { start };
-                        return Ok(partial(&bytes, end, claimed, &mime));
+                        return Ok(partial(&bytes, end, claimed, &mime, &digest_hex));
                     }
                     let mut response = Response::new(body(Bytes::from(bytes)));
                     response.headers_mut().insert("content-type", mime.parse().unwrap());
@@ -713,9 +769,15 @@ struct FakeRenderer {
 
 impl FakeRenderer {
     async fn connect(socket: &Path, mode: Evidence) -> Self {
-        let client = Arc::new(
-            IpcClient::connect(socket, ClientOptions::new(Role::Renderer, "fake-renderer", "0.1.0")).await.unwrap(),
-        );
+        Self::connect_with(socket, mode, &[]).await
+    }
+
+    /// A renderer that also negotiates session features, such as the
+    /// external Plugin frame channel.
+    async fn connect_with(socket: &Path, mode: Evidence, features: &[&str]) -> Self {
+        let mut options = ClientOptions::new(Role::Renderer, "fake-renderer", "0.1.0");
+        options.features = features.iter().map(|feature| ShortToken::new(*feature).unwrap()).collect();
+        let client = Arc::new(IpcClient::connect(socket, options).await.unwrap());
         let log = Arc::new(Mutex::new(RendererLog::default()));
         let task = tokio::spawn({
             let (client, log) = (Arc::clone(&client), Arc::clone(&log));
@@ -819,6 +881,19 @@ impl FakeRenderer {
                 item_id: item.map(|id| SafeText::new(id.to_owned()).unwrap()),
                 kind,
                 zone_id: None,
+            }))
+            .await
+            .unwrap();
+    }
+
+    async fn zone_evidence(&self, activation: &PresentationActivate, kind: EvidenceKind, item: &str, zone: &str) {
+        let reference = ActivationRef { activation_id: activation.activation_id, generation: activation.generation };
+        self.client
+            .send_event(Event::RendererProgress(RendererProgress {
+                activation: reference,
+                item_id: Some(SafeText::new(item.to_owned()).unwrap()),
+                kind,
+                zone_id: Some(SafeText::new(zone.to_owned()).unwrap()),
             }))
             .await
             .unwrap();
@@ -1000,6 +1075,7 @@ impl Harness {
     fn config(&self) -> EdgeConfig {
         let dir = self.dir.path();
         let mut config = EdgeConfig::default();
+        config.pairing.phone_setup = false;
         config.paths.state_dir = Some(dir.join("state"));
         config.paths.runtime_dir = Some(dir.join("run"));
         config.renderer.binary = dir.join("no-renderer");
@@ -1124,10 +1200,16 @@ async fn wait_until<F: std::future::Future<Output = bool>>(what: &str, mut check
 /// A playing activation whose only granted media is `asset`, reached through
 /// an opaque capability rather than a content address or path.
 fn shows(activation: &PresentationActivate, asset: &Asset) -> bool {
+    shows_sized(activation, asset, asset.bytes.len() as u64)
+}
+
+/// `shows`, but the grant carries a manifest-claimed size instead of the
+/// origin's actual bytes: streamed assets are never fully present.
+fn shows_sized(activation: &PresentationActivate, asset: &Asset, size_bytes: u64) -> bool {
     let PresentationDocument::Playing { items, .. } = &activation.presentation else { return false };
     items.first().is_some_and(|item| item.src.as_str().starts_with("tcmedia://cap/"))
         && activation.content.len() == 1
-        && activation.content[0].size_bytes == asset.bytes.len() as u64
+        && activation.content[0].size_bytes == size_bytes
         && activation.content[0].mime_type.as_str() == asset.mime
 }
 
@@ -1165,6 +1247,236 @@ async fn settle() {
 }
 
 // ------------------------------------------------------------ scenarios
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn plugin_only_revisions_preserve_playback_identity_and_grants() {
+    plugin_revision_case(false).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn plugin_only_revisions_preserve_the_synchronized_video_timeline() {
+    plugin_revision_case(true).await;
+}
+
+const PLUGIN_FRAME_PATH: &str = "/api/v1/player/packages/acme.surfaces/plugins/corner/frame";
+
+fn plugin_frame(label: &str) -> Vec<u8> {
+    format!("<!doctype html><title>{label}</title><p>{label}</p>").into_bytes()
+}
+
+/// The shared external Plugin manifest fixture, pointing at `frame`.
+fn external_plugin_entry(frame: &[u8], state: Value) -> Value {
+    let mut entry: Value =
+        serde_json::from_str(include_str!("../../../../packages/manifest-schema/external-plugin-entry-fixture.json"))
+            .unwrap();
+    entry["package"]["frame"]["sha256"] = json!(Sha256Digest::of(frame).to_hex());
+    entry["package"]["frame"]["fileSize"] = json!(frame.len());
+    entry["package"]["frame"]["downloadPath"] = json!(PLUGIN_FRAME_PATH);
+    entry["state"] = state;
+    entry
+}
+
+fn plugin_frame_digests(renderer: &FakeRenderer) -> Vec<String> {
+    let log = renderer.log.lock().unwrap();
+    log.plugins
+        .last()
+        .map_or_else(Vec::new, |state| state.plugin_frames.iter().map(|frame| frame.frame_digest.to_hex()).collect())
+}
+
+/// A plugin-only change must leave presentation identity, the shared
+/// timeline, the current item, evidence, and every media grant untouched.
+async fn assert_presentation_untouched(
+    player: &Player,
+    renderer: &FakeRenderer,
+    initial: &PresentationActivate,
+    activations: usize,
+    item: &Option<(String, Timestamp)>,
+) {
+    let engine = player.context.presentation.lock().await;
+    assert_eq!(engine.current().unwrap().id, initial.activation_id);
+    assert_eq!(engine.current().unwrap().generation, initial.generation);
+    assert_eq!(&engine.current_item(), item, "the current video item is never restarted");
+    assert!(engine.current_is_accepted() && engine.current_has_activation_evidence());
+    drop(engine);
+    assert_eq!(renderer.activation_count(), activations, "no presentation activation for a plugin change");
+    let latest = renderer.last().unwrap();
+    assert_eq!(latest.content, initial.content, "presentation media grants are never replaced");
+    assert_eq!(latest.timing, initial.timing, "the synchronized timeline and anchor never move");
+    assert!(latest.timing.is_some(), "the group anchor is present");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn external_plugin_surface_changes_leave_synchronized_video_playback_untouched() {
+    let harness = Harness::new().await;
+    let video = Asset::new("video", "video/mp4");
+    harness.fake.add_asset(&video, AssetMode::Serve);
+    let mut document = grouped(harness.screen, 3, &[&video], &[uuid::Uuid::new_v4()]);
+    document["schemaVersion"] = json!(20);
+    harness.fake.set_manifest(document.clone());
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect_with(
+        &player.socket,
+        Evidence::Auto,
+        &[edge_protocol::ipc::RENDERER_FEATURE_PLUGIN_FRAMES],
+    )
+    .await;
+    let binding = harness.binding();
+    wait_until("initial synchronized video committed", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 3)
+    })
+    .await;
+    let initial = renderer.last().unwrap();
+    assert!(matches!(initial.presentation, PresentationDocument::Playing { synchronized: true, .. }));
+    let activations = renderer.activation_count();
+    let item = player.context.presentation.lock().await.current_item();
+    assert!(plugin_frame_digests(&renderer).is_empty(), "no plugin surface before it is assigned");
+
+    let revision = |version: i64, plugins: Value| {
+        let mut next = document.clone();
+        next["manifestVersion"] = json!(version);
+        next["plugins"] = plugins;
+        next
+    };
+    let promote = async |version: i64, plugins: Value| {
+        harness.fake.set_manifest(revision(version, plugins));
+        player.push();
+        wait_until("plugin-only promotion", || async {
+            player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == version)
+        })
+        .await;
+        settle().await;
+    };
+
+    // Add: the surface arrives as an independent frame grant.
+    let first = plugin_frame("first");
+    harness.fake.add_frame(PLUGIN_FRAME_PATH, &first, AssetMode::Serve);
+    promote(4, json!([external_plugin_entry(&first, json!({"label": "one"}))])).await;
+    assert_presentation_untouched(&player, &renderer, &initial, activations, &item).await;
+    let added = renderer.log.lock().unwrap().plugins.last().unwrap().clone();
+    assert_eq!(added.plugin_frames.len(), 1);
+    assert_eq!(added.plugin_frames[0].kind, edge_protocol::frames::FrameKind::ExternalPlugin);
+    assert_eq!(added.plugin_frames[0].frame_digest, Sha256Digest::of(&first));
+    assert!(
+        added.content.iter().all(|media| media.uri != added.plugin_frames[0].uri),
+        "a plugin frame grant is never a media grant"
+    );
+    assert!(
+        initial.content.iter().all(|media| media.uri != added.plugin_frames[0].uri),
+        "a plugin frame grant is never a presentation grant"
+    );
+    assert_eq!(added.plugins[0]["state"]["label"], "one");
+
+    // Update: new state on the retained, already verified frame.
+    promote(5, json!([external_plugin_entry(&first, json!({"label": "two"}))])).await;
+    assert_presentation_untouched(&player, &renderer, &initial, activations, &item).await;
+    let updated = renderer.log.lock().unwrap().plugins.last().unwrap().clone();
+    assert_eq!(updated.plugins[0]["state"]["label"], "two");
+    assert_eq!(plugin_frame_digests(&renderer), vec![Sha256Digest::of(&first).to_hex()]);
+
+    // Replace: a different verified frame takes over.
+    let second = plugin_frame("second");
+    harness.fake.add_frame(PLUGIN_FRAME_PATH, &second, AssetMode::Serve);
+    promote(6, json!([external_plugin_entry(&second, json!({"label": "three"}))])).await;
+    assert_presentation_untouched(&player, &renderer, &initial, activations, &item).await;
+    assert_eq!(plugin_frame_digests(&renderer), vec![Sha256Digest::of(&second).to_hex()]);
+    let verified = renderer.log.lock().unwrap().plugins.len();
+
+    // A replacement that fails verification never displaces the last
+    // verified surface and never touches playback.
+    let third = plugin_frame("third");
+    harness.fake.add_frame(PLUGIN_FRAME_PATH, &third, AssetMode::Corrupt);
+    harness.fake.set_manifest(revision(7, json!([external_plugin_entry(&third, json!({"label": "four"}))])));
+    player.push();
+    wait_until("the corrupt surface frame refused", || async {
+        heartbeat(&player.context).await["lastSynchronizationError"] == "widget_frame_digest_invalid"
+    })
+    .await;
+    settle().await;
+    assert!(player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 6));
+    assert_eq!(renderer.log.lock().unwrap().plugins.len(), verified, "nothing replaced the verified surface");
+    assert_eq!(plugin_frame_digests(&renderer), vec![Sha256Digest::of(&second).to_hex()]);
+    assert_presentation_untouched(&player, &renderer, &initial, activations, &item).await;
+
+    // Remove: only the plugin surface goes away.
+    promote(8, json!([])).await;
+    assert_presentation_untouched(&player, &renderer, &initial, activations, &item).await;
+    let removed = renderer.log.lock().unwrap().plugins.last().unwrap().clone();
+    assert!(removed.plugins.is_empty() && removed.plugin_frames.is_empty());
+    renderer.stop();
+    player.stop().await;
+}
+
+async fn plugin_revision_case(synchronized: bool) {
+    let harness = Harness::new().await;
+    let video = Asset::new("video", "video/mp4");
+    harness.fake.add_asset(&video, AssetMode::Serve);
+    let document = if synchronized {
+        grouped(harness.screen, 3, &[&video], &[uuid::Uuid::new_v4()])
+    } else {
+        manifest(harness.screen, 3, &[&video])
+    };
+    harness.fake.set_manifest(document);
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    let binding = harness.binding();
+    wait_until("initial video committed", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 3)
+    })
+    .await;
+    let initial = renderer.last().unwrap();
+    let activations = renderer.activation_count();
+    let current_item = player.context.presentation.lock().await.current_item();
+    let mut document = player.stage(&binding, Stage::Active).await.unwrap().document;
+    for version in 4..7 {
+        document["manifestVersion"] = json!(version);
+        document["plugins"] = json!([{"id":"badge", "type":"countdown_bar", "version":1,
+            "config":{"label": format!("revision-{version}")}}]);
+        harness.fake.set_manifest(document.clone());
+        player.push();
+        wait_until("plugin-only promotion", || async {
+            player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == version)
+        })
+        .await;
+        let engine = player.context.presentation.lock().await;
+        assert_eq!(engine.current().unwrap().id, initial.activation_id);
+        assert_eq!(engine.current().unwrap().generation, initial.generation);
+        assert_eq!(engine.current_item(), current_item);
+        assert!(engine.current_is_accepted() && engine.current_has_activation_evidence());
+        drop(engine);
+        settle().await;
+        assert_eq!(renderer.activation_count(), activations, "no presentation activation for plugin state");
+        let latest = renderer.log.lock().unwrap().plugins.last().unwrap().clone();
+        assert_eq!(latest.plugins[0]["config"]["label"], format!("revision-{version}"));
+        assert_eq!(renderer.last().unwrap().content, initial.content, "media capabilities remain unchanged");
+        assert_eq!(renderer.last().unwrap().timing, initial.timing, "shared timeline remains unchanged");
+    }
+    document["manifestVersion"] = json!(7);
+    document["plugins"] = json!([]);
+    harness.fake.set_manifest(document.clone());
+    player.push();
+    wait_until("plugin removal promoted", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 7)
+    })
+    .await;
+    assert!(renderer.log.lock().unwrap().plugins.last().unwrap().plugins.is_empty());
+    assert_eq!(renderer.activation_count(), activations);
+    document["manifestVersion"] = json!(8);
+    document["playlist"]["items"][0]["durationMs"] = json!(20_000);
+    harness.fake.set_manifest(document);
+    player.push();
+    wait_until("changed presentation prepared", || async {
+        player.stage(&binding, Stage::Pending).await.is_some_and(|pending| pending.version == 8)
+    })
+    .await;
+    item_boundary(&renderer).await;
+    wait_until("real timing change promoted", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|active| active.version == 8)
+    })
+    .await;
+    assert!(renderer.activation_count() > activations);
+    renderer.stop();
+    player.stop().await;
+}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
@@ -1208,6 +1520,18 @@ async fn assignment_prepares_activates_and_promotes_only_after_evidence() {
     assert!(heartbeat["lastHealthyPlaybackAt"].is_string());
     assert_eq!(heartbeat["webRuntimeVersion"], 0);
     assert!(heartbeat["nativePresentationCapabilities"].is_object());
+    // The two external ABIs are separate capabilities with separate versions.
+    assert_eq!(heartbeat["nativePresentationCapabilities"]["plugin.external-runtime"], 1);
+    assert_eq!(heartbeat["nativePresentationCapabilities"]["plugin.host"], 2);
+    assert_eq!(heartbeat["nativePresentationCapabilities"]["player.surface"], 1);
+    assert_eq!(heartbeat["nativePresentationCapabilities"]["player.presentation.provide"], 1);
+    // Events need a transport and no native service exists, so neither is reported.
+    assert!(heartbeat["nativePresentationCapabilities"].get("player.events").is_none());
+    assert!(heartbeat["nativePresentationCapabilities"].get("player.reference.signal").is_none());
+    assert_eq!(
+        heartbeat["nativePresentationCapabilities"]["widget.external-runtime"],
+        edge_protocol::frames::EXTERNAL_RUNTIME_FRAME_VERSION
+    );
     renderer.stop();
     player.stop().await;
 }
@@ -1867,6 +2191,25 @@ async fn outside_active_hours_the_screen_rests_until_a_takeover_outranks_it() {
     tokio::time::sleep(Duration::from_secs(1)).await;
     assert!(!renderer.log.lock().unwrap().activations.iter().any(|a| shows(a, &asset)));
 
+    // Off-hours is an intentional policy surface, not stalled playback. Drive
+    // synthetic supervision well past the complete recovery window and prove
+    // it neither executes a recovery rung nor latches safe mode.
+    {
+        let mut engine = player.context.presentation.lock().await;
+        let restart_count = engine.restart_count();
+        let mut at = now_ms() + 10 * 60_000;
+        for _ in 0..40 {
+            assert_eq!(engine.tick(at), player_core::HealAction::None);
+            at += 100_000;
+        }
+        assert!(!engine.is_safe_mode());
+        assert_eq!(engine.restart_count(), restart_count);
+        let snapshot = engine.recovery_report().snapshot;
+        assert_eq!((snapshot.escalation_step, snapshot.ladder_runs, snapshot.last_action_at_ms), (0, 0, None));
+    }
+    assert_eq!(heartbeat(&player.context).await["safeMode"], false);
+    assert!(matches!(renderer.last().unwrap().presentation, PresentationDocument::Sleep { .. }));
+
     let urgent = Asset::new("urgent", "image/png");
     harness.fake.add_asset(&urgent, AssetMode::Serve);
     let takeover_playlist = uuid::Uuid::new_v4().to_string();
@@ -1991,6 +2334,159 @@ async fn safe_mode_holds_its_surface_until_exit_safe_mode_and_sync_now_reconcile
     wait_for("the sync result", || harness.fake.results_for(&sync).into_iter().next()).await;
     assert_eq!(harness.fake.results_for(&sync)[0]["code"], "synchronized");
     assert!(harness.fake.manifest_requests.load(Ordering::SeqCst) > before, "sync_now reconciled the manifest");
+    renderer.stop();
+    player.stop().await;
+}
+
+// ------------------------------------------------------------ playback health
+
+/// A layout item with two zones, assigned and committed. The renderer accepts
+/// but reports nothing until the test does, as a Runtime would.
+async fn layout_player(harness: &Harness) -> (Player, FakeRenderer, PresentationActivate, String) {
+    let background = Asset::new("background", "image/png");
+    harness.fake.add_asset(&background, AssetMode::Serve);
+    let layout = uuid::Uuid::new_v4().to_string();
+    let item = uuid::Uuid::new_v4().to_string();
+    harness.fake.set_manifest(with(manifest(harness.screen, 3, &[&background]), |m| {
+        m["schemaVersion"] = json!(13);
+        m["layouts"] = json!([{"id": layout, "document": {"schemaVersion": 2,
+            "canvas": {"width": 1920, "height": 1080, "backgroundAssetId": background.asset_id.to_string(),
+                "backgroundVariantId": background.variant_id.to_string()},
+            "placements": []}}]);
+        m["playlist"]["items"] = json!([{"id": item, "assetId": layout, "layoutId": layout, "assetType": "layout",
+            "deliveryPolicy": "stream", "durationMs": 5000, "fitMode": "contain", "transition": "none",
+            "audioEnabled": false, "volume": 0}]);
+    }));
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    let activation = wait_for("the layout activation", || {
+        renderer.last().filter(|a| matches!(&a.presentation, PresentationDocument::Playing { .. }))
+    })
+    .await;
+    let (item_id, _) = first_item(&activation).unwrap();
+    (player, renderer, activation, item_id)
+}
+
+/// What the Runtime reports as a layout starts: the item, the zones it
+/// mounted, the layout and the zones that have rendered.
+async fn start_layout(renderer: &FakeRenderer, activation: &PresentationActivate, item: &str, rendered: &[&str]) {
+    renderer.evidence(activation, EvidenceKind::ItemStarted, Some(item)).await;
+    for zone in ["clock", "banner"] {
+        renderer.zone_evidence(activation, EvidenceKind::LayoutZoneDeclared, item, zone).await;
+    }
+    renderer.evidence(activation, EvidenceKind::LayoutShown, Some(item)).await;
+    for zone in rendered {
+        renderer.zone_evidence(activation, EvidenceKind::LayoutZoneRendered, item, zone).await;
+    }
+}
+
+fn progress_report(
+    engine: &tilecastd::presentation::PresentationEngine,
+    kind: EvidenceKind,
+    item: &str,
+    zone: Option<&str>,
+) -> RendererProgress {
+    let current = engine.current().expect("an activation");
+    RendererProgress {
+        activation: ActivationRef { activation_id: current.id, generation: current.generation },
+        item_id: Some(SafeText::new(item.to_owned()).unwrap()),
+        kind,
+        zone_id: zone.map(|zone| SafeText::new(zone.to_owned()).unwrap()),
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_static_layout_with_periodic_liveness_stays_healthy_for_hours() {
+    let harness = Harness::new().await;
+    let (player, renderer, activation, item) = layout_player(&harness).await;
+    start_layout(&renderer, &activation, &item, &["clock", "banner"]).await;
+    let binding = harness.binding();
+    wait_until("promotion on layout evidence", || async { player.stage(&binding, Stage::Active).await.is_some() })
+        .await;
+
+    // Eight hours in thirty-second steps: the Runtime reports `layout_alive`
+    // and nothing else. Beta.4 treated the first three silent minutes as a
+    // stall and walked the recovery ladder into Safe Mode from here.
+    let mut engine = player.context.presentation.lock().await;
+    let connection = engine.renderer_connection().expect("a connected renderer");
+    let restarts = engine.restart_count();
+    let started = now_ms();
+    for step in 1..=(8 * 3600 / 30) {
+        let at = started + step * 30_000;
+        let report = progress_report(&engine, EvidenceKind::LayoutAlive, &item, None);
+        engine.progress_for(connection, &report, Timestamp::from_unix_millis(at).unwrap());
+        assert_eq!(engine.tick(at), player_core::HealAction::None, "step {step}");
+    }
+    assert!(!engine.is_safe_mode());
+    assert_eq!(engine.restart_count(), restarts);
+    assert!(engine.playback_health(started + 8 * 3_600_000).is_healthy());
+    let snapshot = engine.recovery_report().snapshot;
+    assert_eq!((snapshot.escalation_step, snapshot.ladder_runs, snapshot.last_action_at_ms), (0, 0, None));
+    drop(engine);
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_zone_that_never_renders_still_reaches_safe_mode_and_previews_stay_protected() {
+    use player_core::PreviewHost as _;
+    let harness = Harness::new().await;
+    let (player, renderer, activation, item) = layout_player(&harness).await;
+    start_layout(&renderer, &activation, &item, &["clock"]).await;
+    let binding = harness.binding();
+    wait_until("promotion on layout evidence", || async { player.stage(&binding, Stage::Active).await.is_some() })
+        .await;
+
+    // The Runtime keeps reporting `layout_alive`, so only the zone that owes
+    // its first render is wrong. A reactivation restarts the Runtime's item,
+    // which reports the same broken layout again.
+    let mut actions = Vec::new();
+    {
+        let mut engine = player.context.presentation.lock().await;
+        let connection = engine.renderer_connection().expect("a connected renderer");
+        let started = now_ms();
+        let mut generation = engine.current().expect("an activation").generation;
+        for step in 1..=(6 * 3600 / 30) {
+            let at = started + step * 30_000;
+            let when = Timestamp::from_unix_millis(at).unwrap();
+            let report = |engine: &_, kind, zone| progress_report(engine, kind, &item, zone);
+            if engine.current().expect("an activation").generation != generation {
+                generation = engine.current().unwrap().generation;
+                for (kind, zone) in [
+                    (EvidenceKind::ItemStarted, None),
+                    (EvidenceKind::LayoutZoneDeclared, Some("clock")),
+                    (EvidenceKind::LayoutZoneDeclared, Some("banner")),
+                    (EvidenceKind::LayoutShown, None),
+                    (EvidenceKind::LayoutZoneRendered, Some("clock")),
+                ] {
+                    let r = report(&engine, kind, zone);
+                    engine.progress_for(connection, &r, when);
+                }
+            }
+            let r = report(&engine, EvidenceKind::LayoutAlive, None);
+            engine.progress_for(connection, &r, when);
+            let action = engine.tick(at);
+            if action != player_core::HealAction::None {
+                actions.push((step * 30, action));
+            }
+            if engine.is_safe_mode() {
+                break;
+            }
+        }
+        assert!(engine.is_safe_mode(), "a zone that never renders is real: {actions:?}");
+    }
+    assert_eq!(actions[0].1, player_core::HealAction::Reactivate);
+    assert!(actions[0].0 > 5 * 60, "liveness holds recovery off only until the zone's tolerance: {actions:?}");
+    assert_eq!(actions.last().unwrap().1, player_core::HealAction::EnterSafeMode);
+    wait_for("the safe-mode surface", || {
+        renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::SafeMode { .. }))
+    })
+    .await;
+    // Fixing the trigger does not open the protected state to capture.
+    assert_eq!(
+        player.context.capture_preview(640, 360, 4096).await.unwrap_err(),
+        player_core::CaptureError::ProtectedState
+    );
     renderer.stop();
     player.stop().await;
 }
@@ -3004,6 +3500,279 @@ async fn watch_live_safe_mode_emits_no_frames() {
     player.context.command_wake.notify_one();
     wait_for("the result", || harness.fake.results_for(&exit).into_iter().next()).await;
     wait_long("live frames after safe mode", 60, async || live_frames_for(&harness.fake, &session) > frames).await;
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn heartbeat_reports_recovery_position_and_last_restart() {
+    let harness = Harness::new().await;
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    // A healthy player reports its ladder position and omits every unknown
+    // renderer fact rather than zeroing it.
+    let fresh = heartbeat(&player.context).await;
+    assert_eq!(fresh["recoveryLevel"], 0);
+    assert_eq!(fresh["recoveryCount"], 0);
+    assert_eq!(fresh["rendererRestartCount"], 0);
+    assert!(fresh.get("lastRendererFailure").is_none());
+    assert!(fresh.get("lastRendererRestartAt").is_none());
+    assert!(fresh.get("lastRendererRestartReason").is_none());
+    assert!(fresh.get("safeModeReason").is_none());
+    // An explicit restart is reported with its reason and time.
+    let at = player.context.now().unix_millis();
+    assert!(player.context.presentation.lock().await.restart_renderer("command", at));
+    let restarted = heartbeat(&player.context).await;
+    assert_eq!(restarted["rendererRestartCount"], 1);
+    assert_eq!(restarted["lastRendererRestartReason"], "command");
+    assert!(restarted.get("lastRendererRestartAt").is_some());
+    renderer.stop();
+    player.stop().await;
+}
+
+fn playing_order(activation: &PresentationActivate) -> Vec<String> {
+    let PresentationDocument::Playing { items, .. } = &activation.presentation else { return Vec::new() };
+    items.iter().map(|item| item.id.as_str().to_owned()).collect()
+}
+
+async fn read_checkpoint(player: &Player) -> Option<edge_state::repo::playback_checkpoint::PlaybackCheckpoint> {
+    player.context.db().unwrap().run(|c| edge_state::repo::playback_checkpoint::get(c)).await.unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn accepted_item_evidence_writes_the_resume_checkpoint() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let second = Asset::new("second", "image/png");
+    harness.fake.add_asset(&first, AssetMode::Serve);
+    harness.fake.add_asset(&second, AssetMode::Serve);
+    harness.fake.set_manifest(manifest(harness.screen, 3, &[&first, &second]));
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    let activation =
+        wait_for("the playlist activation", || renderer.last().filter(|a| playing_order(a).len() == 2)).await;
+    let order = playing_order(&activation);
+    // Raw progress is not a checkpoint: only accepted item evidence writes.
+    renderer.evidence(&activation, EvidenceKind::ItemStarted, Some(&order[1])).await;
+    wait_until("the checkpoint write", || async { read_checkpoint(&player).await.is_some() }).await;
+    let checkpoint = read_checkpoint(&player).await.unwrap();
+    assert_eq!(checkpoint.item_id, order[1]);
+    assert_eq!(checkpoint.manifest_version, 3);
+    assert!(!checkpoint.manifest_digest.is_empty());
+    assert_eq!(checkpoint.screen_id, harness.screen.to_string());
+    assert_eq!(checkpoint.installation_id, harness.installation.to_string());
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn cold_start_resumes_the_checkpointed_item() {
+    let harness = Harness::new().await;
+    let first = Asset::new("first", "image/png");
+    let second = Asset::new("second", "image/png");
+    harness.fake.add_asset(&first, AssetMode::Serve);
+    harness.fake.add_asset(&second, AssetMode::Serve);
+    harness.fake.set_manifest(manifest(harness.screen, 3, &[&first, &second]));
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    let activation =
+        wait_for("the playlist activation", || renderer.last().filter(|a| playing_order(a).len() == 2)).await;
+    let order = playing_order(&activation);
+    renderer.evidence(&activation, EvidenceKind::ItemStarted, Some(&order[1])).await;
+    renderer.evidence(&activation, EvidenceKind::ImageShown, Some(&order[1])).await;
+    let binding = harness.binding();
+    wait_until("promotion", || async { player.stage(&binding, Stage::Active).await.is_some() }).await;
+    wait_until("the checkpoint write", || async { read_checkpoint(&player).await.is_some() }).await;
+    renderer.stop();
+    player.stop().await;
+
+    // A cold start on the same state resumes at the checkpointed item, and
+    // the resumed order sticks: no later activation reorders to the head.
+    let player = harness.start().await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    let resumed = wait_for("the resumed activation", || renderer.last().filter(|a| playing_order(a).len() == 2)).await;
+    assert_eq!(playing_order(&resumed)[0], order[1]);
+    settle().await;
+    // Renderer readiness can deliver the startup idle surface before the
+    // cached manifest is projected. Only playlist activations indicate churn.
+    let playlist_orders: Vec<_> =
+        renderer.log.lock().unwrap().activations.iter().map(playing_order).filter(|order| !order.is_empty()).collect();
+    assert_eq!(playlist_orders, vec![vec![order[1].clone(), order[0].clone()]], "the resumed order sticks");
+    renderer.stop();
+    player.stop().await;
+}
+
+// ------------------------------------------------------------ PR4: authenticated large-video streaming
+
+/// A manifest whose video claims `file_size` bytes under `policy`. The
+/// origin serves `mode` for its download path; the claim and the bytes
+/// only meet for ranges the test reads back.
+fn stream_manifest(screen: ScreenId, version: i64, asset: &Asset, file_size: usize, policy: &str) -> Value {
+    let mut document = manifest(screen, version, &[asset]);
+    document["assets"][0]["fileSize"] = json!(file_size);
+    document["playlist"]["items"][0]["deliveryPolicy"] = json!(policy);
+    document
+}
+
+/// One media-socket request from the test process. The fake renderer
+/// connected from this same process, so lineage accepts the peer.
+async fn media_ask(player: &Player, request: Value) -> (Value, Vec<u8>) {
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+    let path = tilecastd::media_channel::socket_path(&player.context.paths.runtime_dir);
+    let mut stream = tokio::net::UnixStream::connect(&path).await.unwrap();
+    let body = serde_json::to_vec(&request).unwrap();
+    stream.write_all(&(body.len() as u32).to_be_bytes()).await.unwrap();
+    stream.write_all(&body).await.unwrap();
+    let mut header = [0u8; 4];
+    stream.read_exact(&mut header).await.unwrap();
+    let mut reply = vec![0u8; u32::from_be_bytes(header) as usize];
+    stream.read_exact(&mut reply).await.unwrap();
+    let mut payload = Vec::new();
+    stream.read_to_end(&mut payload).await.unwrap();
+    (serde_json::from_slice(&reply).unwrap(), payload)
+}
+
+fn activation_capability(activation: &PresentationActivate) -> String {
+    activation.content[0].uri.as_str().trim_start_matches("tcmedia://cap/").to_owned()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn oversize_automatic_video_streams_without_downloading() {
+    let harness = Harness::new().await;
+    let video = Asset::new("big.mp4", "video/mp4");
+    const CLAIMED: usize = 200_000;
+    harness.fake.add_asset(&video, AssetMode::Stream(CLAIMED));
+    harness.fake.set_manifest(stream_manifest(harness.screen, 1, &video, CLAIMED, "automatic"));
+    // Threshold 4_000: the 200 KB claim streams, a download would fail.
+    let mut config = harness.config();
+    config.cas.limit_bytes = 8_000;
+    let player = harness.start_killable(config, Environment::default()).await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    wait_for("the stream activation", || renderer.last().filter(|a| shows_sized(a, &video, CLAIMED as u64))).await;
+    assert_eq!(harness.fake.served_full.load(Ordering::SeqCst), 0, "preparation never downloads a stream claim");
+    // The heartbeat reports the capability and the uncached content.
+    let beat = heartbeat(&player.context).await;
+    assert_eq!(beat["streamBackedAssetCount"], 1);
+    assert_eq!(beat["nativePresentationCapabilities"]["media-streaming"], 1);
+    // The renderer's opaque capability reads origin ranges with the
+    // manifest's size, and the reply leaks no path or credential.
+    let activation = renderer.last().unwrap();
+    assert!(!serde_json::to_string(&activation).unwrap().contains("api/v1"));
+    let token = activation_capability(&activation);
+    let socket = tilecastd::media_channel::socket_path(&player.context.paths.runtime_dir);
+    assert!(socket.exists(), "the media socket is bound");
+    let (head, _) = media_ask(&player, json!({"op": "head", "capability": token})).await;
+    assert_eq!(head, json!({"status": "ok", "sizeBytes": CLAIMED, "mimeType": "video/mp4"}));
+    let (reply, payload) =
+        media_ask(&player, json!({"op": "read", "capability": token, "offset": 1000, "length": 64})).await;
+    assert_eq!(reply, json!({"status": "ok", "length": 64}));
+    assert_eq!(payload, stream_bytes(1000, 1063).to_vec());
+    // Seeking backwards re-reads an earlier range, not a replayed prefix.
+    let (reply, payload) =
+        media_ask(&player, json!({"op": "read", "capability": token, "offset": 8, "length": 4})).await;
+    assert_eq!(reply, json!({"status": "ok", "length": 4}));
+    assert_eq!(payload, stream_bytes(8, 11).to_vec());
+    // Positive renderer evidence still promotes the stream manifest.
+    let binding = harness.binding();
+    wait_until("promotion", || async { player.stage(&binding, Stage::Active).await.is_some_and(|m| m.version == 1) })
+        .await;
+    assert_eq!(harness.fake.served_full.load(Ordering::SeqCst), 0, "promotion fetches nothing either");
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn explicit_download_beyond_cache_fails_preparation_visibly() {
+    let harness = Harness::new().await;
+    let video = Asset::new("huge.mp4", "video/mp4");
+    harness.fake.add_asset(&video, AssetMode::Serve);
+    harness.fake.set_manifest(stream_manifest(harness.screen, 1, &video, 200_000, "download"));
+    let mut config = harness.config();
+    config.cas.limit_bytes = 8_000;
+    let player = harness.start_killable(config, Environment::default()).await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::AcceptOnly).await;
+    let binding = harness.binding();
+    // Explicit `download` never falls back to streaming: preparation fails
+    // with a typed reason, and nothing becomes pending.
+    let reason = player.prepared_as(&binding, "failed").await;
+    assert_eq!(reason.as_deref(), Some("media_cache_too_small"));
+    assert!(player.stage(&binding, Stage::Pending).await.is_none());
+    assert!(player.stage(&binding, Stage::Active).await.is_none());
+    assert_eq!(heartbeat(&player.context).await["lastSynchronizationError"], "media_cache_too_small");
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn origin_that_ignores_ranges_is_rejected_not_replayed() {
+    let harness = Harness::new().await;
+    let video = Asset::new("flat.mp4", "video/mp4");
+    const CLAIMED: usize = 200_000;
+    harness.fake.add_asset(&video, AssetMode::IgnoreRange);
+    harness.fake.set_manifest(stream_manifest(harness.screen, 1, &video, CLAIMED, "automatic"));
+    let mut config = harness.config();
+    config.cas.limit_bytes = 8_000;
+    let player = harness.start_killable(config, Environment::default()).await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    // Preparation still succeeds (streams never fetch); the read fails
+    // because a 200 is not the exact 206 the grant requires.
+    wait_for("the stream activation", || renderer.last().filter(|a| shows_sized(a, &video, CLAIMED as u64))).await;
+    let token = activation_capability(&renderer.last().unwrap());
+    let (reply, payload) =
+        media_ask(&player, json!({"op": "read", "capability": token, "offset": 0, "length": 16})).await;
+    assert_eq!(reply, json!({"status": "denied", "reason": "range_rejected"}));
+    assert!(payload.is_empty());
+    renderer.stop();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn unavailable_stream_keeps_the_committed_manifest() {
+    let harness = Harness::new().await;
+    let image = Asset::new("stable.png", "image/png");
+    let video = Asset::new("fragile.mp4", "video/mp4");
+    const CLAIMED: usize = 200_000;
+    let mut config = harness.config();
+    config.cas.limit_bytes = 8_000;
+    // v1 commits an ordinary cached image first.
+    harness.fake.add_asset(&image, AssetMode::Serve);
+    harness.fake.set_manifest(manifest(harness.screen, 1, &[&image]));
+    let player = harness.start_killable(config, Environment::default()).await;
+    let renderer = FakeRenderer::connect(&player.socket, Evidence::Auto).await;
+    let binding = harness.binding();
+    wait_until("v1 promotion", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|m| m.version == 1)
+    })
+    .await;
+    // v2 streams; it activates and promotes without downloading.
+    harness.fake.add_asset(&video, AssetMode::Stream(CLAIMED));
+    harness.fake.set_manifest(stream_manifest(harness.screen, 2, &video, CLAIMED, "automatic"));
+    player.push();
+    wait_until("the pending v2", || async {
+        player.stage(&binding, Stage::Pending).await.is_some_and(|m| m.version == 2)
+    })
+    .await;
+    item_boundary(&renderer).await;
+    wait_for("the v2 activation", || renderer.last().filter(|a| shows_sized(a, &video, CLAIMED as u64))).await;
+    wait_until("v2 promotion", || async {
+        player.stage(&binding, Stage::Active).await.is_some_and(|m| m.version == 2)
+    })
+    .await;
+    let full_before = harness.fake.served_full.load(Ordering::SeqCst);
+    let activations = renderer.activation_count();
+    // The origin loses the variant mid-playback: reads fail typed, and
+    // the committed manifest stands — no rollback, no repair loop, no
+    // re-activation.
+    harness.fake.set_mode(&video, AssetMode::Missing);
+    let token = activation_capability(&renderer.last().unwrap());
+    let (reply, payload) =
+        media_ask(&player, json!({"op": "read", "capability": token, "offset": 0, "length": 16})).await;
+    assert_eq!(reply, json!({"status": "denied", "reason": "origin_not_found"}));
+    assert!(payload.is_empty());
+    settle().await;
+    assert_eq!(player.stage(&binding, Stage::Active).await.unwrap().version, 2);
+    assert_eq!(harness.fake.served_full.load(Ordering::SeqCst), full_before, "no repair download is attempted");
+    assert_eq!(renderer.activation_count(), activations, "the renderer is not re-driven");
     renderer.stop();
     player.stop().await;
 }

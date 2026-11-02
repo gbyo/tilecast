@@ -15,6 +15,7 @@ export const WIDGET_COMPONENT_CAPABILITIES: Readonly<Record<string, number>> =
     "widget.tilecast.chart": 1,
     "widget.tilecast.clock": 2,
     "widget.tilecast.countdown": 1,
+    "widget.tilecast.event-scroller": 1,
     "widget.tilecast.image-notice": 1,
     "widget.tilecast.list": 1,
     "widget.tilecast.menu-board": 1,

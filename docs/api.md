@@ -2,6 +2,16 @@
 
 The generated [OpenAPI specification](openapi.yaml) is the canonical endpoint schema, composed from `docs/openapi/core.yaml` and extension fragments. This document explains cross-endpoint and operational behavior, not a second source of schema truth.
 
+`POST /api/v1/update-deployments/preview` checks a release and its direct or
+Display Group targets without writing deployment, command, audit, or cache data.
+It requires an Owner or Administrator session, CSRF, and write scope.
+The response includes resolved targets, compatibility reasons, and eligible,
+offline, already-current, and blocked counts.
+Preview and creation use the same resolver.
+Creation checks current metadata again in its transaction.
+Preview does not reserve targets or grant authorization.
+See [Player updates](player-updates.md#deployment-preflight-and-creation).
+
 The Server exposes JSON endpoints under `/api/v1`. Successful responses use `{"data": ...}`. Errors use `{"error":{"code":"...","message":"..."}}`. Unknown JSON fields and request bodies over 1 MiB are rejected.
 
 Player updates use release check/cache endpoints, Owner-only GitHub device-authorization start/poll/disconnect endpoints, deployment list/detail/create/cancel/retry endpoints, and device-authenticated update metadata, byte-range APK, and status endpoints. Only targeted screens can retrieve APK data. GitHub access tokens are never included in API responses. See [player-updates.md](player-updates.md) and `openapi.yaml`.
@@ -231,9 +241,9 @@ Personal access tokens ride the same grant model with their own `tcp_` prefix, s
 
 ### Management authentication
 
-Management routes share one boundary, `requireUser`, which accepts either an enrolled dashboard session cookie or `Authorization: Bearer` with an OAuth access token (`tca_`) or personal access token (`tcp_`). Both produce the same principal: the live user row, so disabling an account or changing its role or screen scope takes effect on the next request, with the grant contributing only its identity and scope ceiling. The credential source is explicit: a request carrying an `Authorization` header is authenticated as that Bearer [REDACTED] not at all, and never falls back to an ambient browser cookie. Device credentials (`tc_device_`), integration tokens (`tci_`), and refresh secrets are never accepted here, exactly as sessions are never accepted as player credentials.
+Management routes share one boundary, `requireUser`, and each route then names the capability it needs with `requireCapability`. The principal carries the effective capabilities of the live role, so a bearer credential and a session reach the same decision. See [Access control](access-control.md). `requireUser` accepts either an enrolled dashboard session cookie or `Authorization: Bearer` with an OAuth access token (`tca_`) or personal access token (`tcp_`). Both produce the same principal: the live user row, so disabling an account or changing its role or screen scope takes effect on the next request, with the grant contributing only its identity and scope ceiling. The credential source is explicit: a request carrying an `Authorization` header is authenticated as that Bearer [REDACTED] not at all, and never falls back to an ambient browser cookie. Device credentials (`tc_device_`), integration tokens (`tci_`), and refresh secrets are never accepted here, exactly as sessions are never accepted as player credentials.
 
-Grant scopes are hierarchical — `admin` implies `write` implies `read` — and every management route names the scope it needs: reads take `read`, mutations take `write`, and user, token, grant, backup, and security administration take `admin` on top of the role check. A user who owes the organization a second factor is gated with `mfa_enrollment_required` on either credential.
+Grant scopes are hierarchical — `admin` implies `write` implies `read` — and every management route names the scope it needs: reads take `read`, mutations take `write`, and user, token, grant, backup, and security administration take `admin` on top of the capability check. A user who owes the organization a second factor is gated with `mfa_enrollment_required` on either credential.
 
 CSRF depends on the credential type. Cookie-backed browser requests require `X-CSRF-Token` on unsafe methods, exactly as before. Bearer requests never send it and are never asked for it. Browser security ceremonies stay session-only: MFA enrollment and removal, passkeys, recovery codes, logout, and OAuth approval/denial refuse bearer credentials outright.
 
@@ -287,13 +297,13 @@ Three gates protect the contract. `npm run plugins:check` enforces per-operation
 
 ## Media uploads and library
 
-All routes below require a dashboard session. Owner, Administrator, and Editor may mutate media; Viewer is read-only. Every mutation requires `X-CSRF-Token`.
+All routes below require a dashboard session. Each route needs a `media.*` capability, and content access decides which assets the account reaches. The built-in Owner, Administrator, Editor, and Contributor roles may upload and edit media; Viewer is read-only. See [Access control](access-control.md). Every mutation requires `X-CSRF-Token`.
 
-- `POST /api/v1/uploads` creates a 24-hour resumable session.
+- `POST /api/v1/uploads` creates a 24-hour resumable session. The body may name a destination `folderId`. An account with the whole library may omit it, and the asset is then created at the library root. An account with restricted content access must name one of its folders: a missing `folderId` answers `422 upload_folder_required`, and a folder outside the account's access answers `404`. The Server authorizes the folder when the session is created and again, inside the transaction that creates the asset, when the upload completes. The client does not repeat the folder at completion.
 - `HEAD /api/v1/uploads/{id}` returns `Upload-Offset`, `Upload-Length`, `Upload-Status`, and `Upload-Expires`.
 - `PATCH /api/v1/uploads/{id}` accepts `application/offset+octet-stream` and requires the exact `Upload-Offset`. A mismatch returns `409 upload_offset_mismatch` without moving the accepted offset.
 - `POST /api/v1/uploads/{id}/complete` validates size, synchronizes the file, hashes it, detects its actual type, atomically promotes it, creates the asset and original variant, and queues inspection. Repeating completion after success returns the same asset.
-- `DELETE /api/v1/uploads/{id}` cancels an unfinished upload and removes temporary bytes.
+- `DELETE /api/v1/uploads/{id}` cancels an unfinished upload and removes temporary bytes. The account that started the upload may cancel it after its access is revoked.
 - `GET /api/v1/assets` is paginated and supports `search`, `type`, `status`, `folderId`, `collectionId`, `tagId`, `sort`, `page`, and `pageSize` (maximum 100). Active content is returned by default; `archived=true` returns manually archived content plus content whose `expiresAt` has elapsed. This time-based transition is computed against the database clock, so it needs no cleanup job or browser session.
 - `POST /api/v1/assets/archive` moves 1–100 unused assets out of the active library without deleting their files or folder, collection, and tag organization. The transaction is rejected if any selected asset is missing or still used by a playlist, Layout, Widget, or shared setting.
 - `POST /api/v1/assets/restore` returns 1–100 archived or expired assets to the active library while preserving organization. Restoring expired content clears its elapsed `expiresAt`; restoring manually archived content preserves a future expiration.
@@ -318,6 +328,8 @@ Responses include a hash-derived ETag, correct MIME type and length, and `Accept
 
 `GET` and `HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId}` use the same device authentication and serve the installed, verified execution bundle for an external Widget contribution. Unknown packages, unknown Widgets, missing bundles, and malformed IDs return 404 `package_widget_unavailable`. See [Extension packages](packages.md) for the delivery rules.
 
+`GET` and `HEAD /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame` use the same device authentication and serve the deterministic sandbox frame assembled over that verified bundle: the exact bytes, SHA-256, and size the v19 manifest claim names. The response carries the Player frame `sandbox` Content-Security-Policy. Unknown packages, unknown Widgets, missing bundles, and malformed IDs share the same 404 `package_widget_unavailable`.
+
 `GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame` serves the same contribution as a sandboxed frame document for Studio previews: the generated bootstrap with the verified bundle interpolated. Any signed-in account may read it. The response carries a `sandbox` Content-Security-Policy without `allow-same-origin`, so the document runs at an opaque origin even when opened top-level, and `X-Frame-Options: SAMEORIGIN` permits the Studio iframe. Unknown packages, unknown Widgets, missing bundles, and malformed IDs share the same 404 `package_widget_unavailable`. See [Widget sandbox spike](records/widget-sandbox-spike.md) for the isolation design and measurements.
 
 `GET /api/v1/packages/{packageId}/studio/frame` serves the Studio interface entry page of an installed version 2 package with the same opaque-origin sandbox policy. `POST /api/v1/packages/{packageId}/studio/bridge` relays one Studio interface call into the package guest with the dashboard session and CSRF token the frame cannot hold; Owner or Administrator only. The request carries base64 input, and a successful invocation answers 200 with the guest status code and base64 output. `GET /api/v1/packages/{packageId}/jobs` reports the declared background jobs with the scheduler cursor. See [Extension packages](packages.md) for the runtime contract.
@@ -331,6 +343,8 @@ Media assets may define optional `availableFrom` and `expiresAt` RFC 3339 timest
 Playlist item inputs may set `usePlayerDefaults: true`. The effective Player configuration then supplies volume, fit, image duration, transition, audio, and resume behavior on both Android and Linux, including items inside layout playlist zones. The flag is explicit so authored item values remain deterministic when it is false.
 
 `PUT /api/v1/playlists/{id}/tag-rule` switches a playlist between a manual timeline and an automatically populated media timeline. An enabled rule contains 1–20 tag IDs, `match: "any" | "all"`, and an image duration from one second through 24 hours. Tag playlists include only ready library images and videos with a playable variant, sort deterministically by name and ID, use full-length video, and retain their manual items so switching back to manual restores the previous timeline. Direct item mutations are rejected while the tag rule is active.
+
+Assignment validation uses the published tag rule and its matching media. Retained manual items do not count as tag playlist content. A tag playlist with no matching ready media is rejected. Future-dated matching media can be assigned, but immediate presentation requires at least one item within its availability window.
 
 Tilecast Studio can open a playlist preview in a separate authenticated browser window. The preview follows the saved item order, durations, fit, transitions, video trim points, audio settings, and looping behavior without assigning the playlist to a screen. An image, Widget, or Layout starts its duration when Studio reports it ready. A video advances at its end or at its configured trim point. Images and videos use their playable variants; Widget and Layout items use their generated Studio preview image when available. Migrated Widget items render their real Web Component through the shared Studio preview surface, with Widget ready/empty/error lifecycle driving item readiness; a Widget whose required Data Source fails to load reports an item error instead of going ready. This browser preview is an authoring aid and does not replace validation on an Android TV or Fire TV device.
 
@@ -430,7 +444,7 @@ Per-form grants (`manage`): `GET /api/v1/data-sources/{id}/grants`, `PUT …/gra
 
 `GET/POST /api/v1/layouts` lists or creates Layouts. `GET/PATCH /api/v1/layouts/{id}` reads or edits metadata, and `PUT /api/v1/layouts/{id}/draft` autosaves a validated renderer-neutral document with `expectedDraftRevision` optimistic concurrency. Successful draft reads and writes include an ETag. `POST /api/v1/layouts/{id}/publish` enters the common Draft → Review → Publish workflow: it publishes directly when policy permits, or returns a review submission when approval is required. Players never receive a draft.
 
-`GET /api/v1/layouts/{id}/revisions` returns the native immutable history. Unified publication history is exposed below `/api/v1/content-history/layout/{id}/publications`, with semantic comparison, Restore as draft, and rollback actions. `POST /api/v1/layouts/{id}/revisions/{revisionId}/restore` remains a compatibility route and copies an old document into a new draft without changing live state. Duplicate and delete operations are `POST /api/v1/layouts/{id}/duplicate` and `DELETE /api/v1/layouts/{id}`. Validation errors use `layout_validation_failed`; stale draft writes use `layout_revision_conflict`.
+`GET /api/v1/layouts/{id}/revisions` returns the native immutable history. Unified publication history is exposed below `/api/v1/content-history/layout/{id}/publications`, with semantic comparison, Restore as draft, and rollback actions. `POST /api/v1/layouts/{id}/revisions/{revisionId}/restore` remains a compatibility route and copies an old document into a new draft without changing live state. Duplicate and delete operations are `POST /api/v1/layouts/{id}/duplicate` and `DELETE /api/v1/layouts/{id}`. Validation errors use `layout_validation_failed`; stale draft writes use `layout_revision_conflict`. A playlist zone whose Playlist contains a Widget, Website, or nested Layout fails publication with `layout_playlist_zone_unsupported`. The message names the Playlist and the offending items. Assignment readiness reports the same message inside `presentation_not_ready`.
 
 Content responses include `layoutUsage` with stable Layout IDs, names, and published state. Content deletion returns `asset_in_use` when a draft or published revision depends on the item. Layout Widget placements refer to the shared Widget. Legacy placement override values remain accepted in saved documents for compatibility, but Studio and Player ignore them.
 
@@ -480,13 +494,23 @@ Publication verifies that every referenced Playlist/Layout is still the root rev
 
 `GET /users/{id}/screen-scopes` and `PUT /users/{id}/screen-scopes` manage which locations and sync groups an account may operate screens in. No grants means the whole fleet; an Owner cannot be scoped, and nobody can change their own scope. Screen routes enforce it: an out-of-scope screen answers `404 screen_not_found` rather than `403`, so a scoped operator cannot enumerate the rest of the fleet, and an operation naming a mix answers `403 out_of_scope`. `GET /screens` is filtered by the same predicate that authorizes each operation. An update deployment is not a screen, so the update-deployment routes are scoped by the set of screens the deployment reaches: the reads narrow to the caller's screens and every count is a count of those, cancelling answers `403 out_of_scope` unless the caller reaches the whole deployment, a retry follows the single-screen rule, and a deployment reaching nothing in scope answers `404`. Activity reporting is deliberately not scoped. See [Screen scopes](screen-scopes.md).
 
+### Roles and content access
+
+- `GET /api/v1/roles` lists the built-in and custom roles. Each role includes its `capabilities`, its active `userCount`, whether the caller may `edit` it, and whether the caller may `assign` it.
+- `GET /api/v1/roles/capabilities` returns the closed capability vocabulary with the group, requirements, and delegation flags of each entry.
+- `POST /api/v1/roles`, `PATCH /api/v1/roles/{key}`, and `DELETE /api/v1/roles/{key}` manage custom roles. They need `roles.manage`. A custom role key starts with `custom.`. The Server answers `403 role_delegation` when the caller would grant a capability it does not hold or a capability that administers access, `403 role_protected` for a built-in role, `409 role_in_use` when an account holds the role, and `409 role_name_taken` for a duplicate name.
+- `GET /api/v1/users/{id}/content-access` and `PUT /api/v1/users/{id}/content-access` read and replace an account's content access (`libraryMode`, `tagMode`, `folderIds`, `tagIds`). They need `users.manage`. The Owner cannot be restricted, and nobody can change their own content access. A grant outside the caller's own reach answers `403 content_access_delegation`.
+- `GET /api/v1/me/access` returns the signed-in account's role, effective capabilities, content modes, and writable folder IDs.
+- The `role` field of the user routes is a role key. The five built-in keys remain valid.
+- A restricted account that attempts an action that needs the whole library receives `403 content_scope_restricted`. A tag it may not apply answers `403 tag_not_assignable`.
+
 ## Integration tokens
 
 Integration tokens are a third authentication boundary, separate from the dashboard cookie and the device credential. They authenticate with `Authorization: Bearer tci_<public-id>.<secret>`: the public part selects the record and the random secret is checked against its SHA-256 hash with a constant-time comparison. The secret is returned once by `POST /integration-tokens` and is never stored or readable afterwards. Every authentication failure answers `401 invalid_token`, so a revoked token is indistinguishable from an unknown one, and a missing scope answers `403 insufficient_scope`.
 
 Scopes are a closed set: `data_source:write` and `activity:read`. Token routes take no session and no CSRF token, and each names the scope it needs:
 
-- `PUT /integration/data-sources/{id}/rows` — replaces the rows of a Manual Table Data Source, at most 500 per write. Column keys must already exist on the source; a write cannot create or delete a source or change its columns. Routed through the ordinary update so the cached player payload, audit entry, and bound Widgets stay consistent.
+- `PUT /integration/data-sources/{id}/rows` — replaces the rows of a Manual Table Data Source, at most 500 per write. Column keys must already exist on the source; a write cannot create or delete a source or change its columns. Routed through the ordinary update so the cached player payload, audit entry, and bound Widgets stay consistent. A write that races a Studio edit to the same source returns `409 data_source_changed` and writes nothing; retry it.
 - `GET /integration/activity/fleet` and `GET /integration/metrics` — bounded fleet counts as JSON and as Prometheus text. There is no `online` count: presence lives in the process-local socket hub, which these reads cannot see, so the field reported is `recent` (contacted within two minutes).
 
 A token is attributed to the account that created it, and stops working if that account is removed. Owner-only management lives at `GET/POST /integration-tokens` and `DELETE /integration-tokens/{id}`; a token can never mint or revoke another. See [Integration tokens](integrations.md).

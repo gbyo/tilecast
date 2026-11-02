@@ -12,25 +12,38 @@
 // and no code to download: unknown fields are rejected, contribution
 // paths point inside the package, and the host decides what an extension
 // class may do. Version 2 adds an optional server runtime module and the
-// bounded capabilities it requests; the declarations are requests, never
-// grants, and installation review shows every one before anything is
-// installed.
+// bounded capabilities it requests; version 3 keeps those capabilities
+// and adds bounded Tilecast service grants. The declarations are
+// requests, never grants, and installation review shows every one before
+// anything is installed.
 package packagemanifest
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 )
 
 // APIVersion is the latest package manifest version this SDK implements.
-const APIVersion = 2
+const APIVersion = 4
 
 // SupportedAPIVersions lists the manifest versions this release can load.
-var SupportedAPIVersions = []int{1, 2}
+var SupportedAPIVersions = []int{1, 2, 3, 4}
+
+// Service grant bounds. The TypeScript validator mirrors these limits so
+// shared fixtures keep both implementations aligned.
+const (
+	// MaxServiceGrants caps the versioned Tilecast services one package
+	// may request.
+	MaxServiceGrants = 16
+	// MaxServiceVersion caps a requested service capability version. The
+	// server registry still decides which versions exist.
+	MaxServiceVersion = 99
+)
 
 var (
 	packageIDPattern     = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$`)
@@ -46,9 +59,14 @@ var (
 	// Validate enforces the 253-octet ceiling separately.
 	capabilityHostPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*$`)
 	capabilityJobPattern  = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,79}$`)
+	serviceIDPattern      = regexp.MustCompile(`^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$`)
 	numericHostPattern    = regexp.MustCompile(`^[0-9.]+$`)
 	rangeClausePattern    = regexp.MustCompile(`^(>=|<=|>|<|=)?(\d{1,5}(?:\.\d{1,5}){0,2})$`)
 	versionPattern        = regexp.MustCompile(`^(\d{1,5})(?:\.(\d{1,5}))?(?:\.(\d{1,5}))?$`)
+	// betaSuffixPattern is the "-beta.N" a Beta release carries. A Beta server
+	// satisfies the ranges its release core satisfies; any other suffix, such
+	// as a development build's "-dev", stays unparseable.
+	betaSuffixPattern = regexp.MustCompile(`-beta\.[1-9][0-9]?$`)
 )
 
 // Contribution types name the existing extension contract the nested
@@ -100,15 +118,26 @@ type Runtime struct {
 
 // Capabilities declares the bounded capabilities the package requests.
 // Every entry is a request the host reviews; nothing here grants
-// itself. Version 2 only.
+// itself. Runtime capabilities are versions 2 and 3; service grants are
+// versions 3 and 4 only. Realtime jobs require version 4.
 type Capabilities struct {
 	Network    *NetworkCapability    `json:"network,omitempty"`
 	Background *BackgroundCapability `json:"background,omitempty"`
+	Realtime   *RealtimeCapability   `json:"realtime,omitempty"`
 	// Storage is a pointer so an explicit false is rejected, mirroring
 	// the TypeScript literal(true): the capability is requested by
 	// presence, never by value.
 	Storage  *bool               `json:"storage,omitempty"`
 	StudioUI *StudioUICapability `json:"studioUI,omitempty"`
+	Services []ServiceGrant      `json:"services,omitempty"`
+}
+
+// ServiceGrant requests one versioned Tilecast service capability. The
+// manifest checks only shape, bounds, and uniqueness; the server service
+// registry decides which identities and versions exist.
+type ServiceGrant struct {
+	ID      string `json:"id"`
+	Version int    `json:"version"`
 }
 
 // NetworkCapability approves outbound HTTPS origins, explicitly listed.
@@ -125,6 +154,34 @@ type BackgroundJob struct {
 // BackgroundCapability declares package-owned background behavior.
 type BackgroundCapability struct {
 	Jobs []BackgroundJob `json:"jobs"`
+}
+
+// RealtimeCapability is an explicitly reviewed high-frequency job class.
+// It does not change the ordinary five-minute minimum or scheduler cadence.
+type RealtimeCapability struct {
+	Jobs []RealtimeJob `json:"jobs"`
+}
+
+type RealtimeJob struct {
+	ID              string     `json:"id"`
+	IntervalSeconds IntegerNum `json:"intervalSeconds"`
+}
+
+// IntegerNum accepts JSON integer values such as 5 and 5.0 identically.
+// Contract-specific bounds are still enforced by the authoritative validator.
+type IntegerNum int32
+
+func (number *IntegerNum) UnmarshalJSON(raw []byte) error {
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return err
+	}
+	parsed, ok := value.(float64)
+	if !ok || math.Trunc(parsed) != parsed || parsed < math.MinInt32 || parsed > math.MaxInt32 {
+		return fmt.Errorf("value must be an integer")
+	}
+	*number = IntegerNum(parsed)
+	return nil
 }
 
 // StudioUICapability names the sandboxed Studio UI entry page.
@@ -155,7 +212,7 @@ func (v *APIVersionNum) UnmarshalJSON(data []byte) error {
 	}
 	number, ok := value.(float64)
 	if !ok {
-		return fmt.Errorf("apiVersion must be 1 or 2")
+		return fmt.Errorf("apiVersion must be 1, 2, 3, or 4")
 	}
 	for _, supported := range SupportedAPIVersions {
 		if number == float64(supported) {
@@ -163,7 +220,7 @@ func (v *APIVersionNum) UnmarshalJSON(data []byte) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("apiVersion must be 1 or 2")
+	return fmt.Errorf("apiVersion must be 1, 2, 3, or 4")
 }
 
 // Parse decodes and validates one package manifest document. Unknown fields
@@ -192,7 +249,7 @@ func Validate(m Manifest) error {
 		}
 	}
 	if !supported {
-		return fmt.Errorf("package manifest: apiVersion must be 1 or 2")
+		return fmt.Errorf("package manifest: apiVersion must be 1, 2, 3, or 4")
 	}
 	if utf8.RuneCountInString(m.PackageID) > 128 || !packageIDPattern.MatchString(m.PackageID) {
 		return fmt.Errorf("package manifest: packageId must be a qualified identity such as acme.athletics")
@@ -264,23 +321,26 @@ func Validate(m Manifest) error {
 		}
 	}
 	if m.Capabilities != nil {
-		if err := validateCapabilities(m.Capabilities, m.Runtime != nil); err != nil {
+		if err := validateCapabilities(m.APIVersion, m.Capabilities, m.Runtime != nil); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// validateCapabilities checks the version 2 capability declarations:
-// bounded, typed, and explicit. Network, background, and storage act
-// through the runtime module, so they require one; a Studio UI may
-// stand alone.
-func validateCapabilities(caps *Capabilities, hasRuntime bool) error {
-	if caps.Network == nil && caps.Background == nil && caps.Storage == nil && caps.StudioUI == nil {
+// validateCapabilities checks the version 2 and 3 capability
+// declarations: bounded, typed, and explicit. Network, background,
+// storage, and services act through the runtime module, so they require
+// one; a Studio UI may stand alone. Services require version 3 or 4.
+func validateCapabilities(apiVersion APIVersionNum, caps *Capabilities, hasRuntime bool) error {
+	if caps.Network == nil && caps.Background == nil && caps.Realtime == nil && caps.Storage == nil && caps.StudioUI == nil && len(caps.Services) == 0 {
 		return fmt.Errorf("package manifest: capabilities must declare at least one capability")
 	}
-	if (caps.Network != nil || caps.Background != nil || caps.Storage != nil) && !hasRuntime {
-		return fmt.Errorf("package manifest: network, background, and storage capabilities require a runtime module")
+	if len(caps.Services) > 0 && apiVersion < 3 {
+		return fmt.Errorf("package manifest: service grants require apiVersion 3 or 4")
+	}
+	if (caps.Network != nil || caps.Background != nil || caps.Realtime != nil || caps.Storage != nil || len(caps.Services) > 0) && !hasRuntime {
+		return fmt.Errorf("package manifest: network, background, storage, and service capabilities require a runtime module")
 	}
 	if caps.Network != nil {
 		if len(caps.Network.Hosts) < 1 || len(caps.Network.Hosts) > 8 {
@@ -317,6 +377,42 @@ func validateCapabilities(caps *Capabilities, hasRuntime bool) error {
 	}
 	if caps.Storage != nil && !*caps.Storage {
 		return fmt.Errorf("package manifest: storage is requested by presence, never by value")
+	}
+	if caps.Realtime != nil {
+		if apiVersion != 4 {
+			return fmt.Errorf("package manifest: realtime jobs require apiVersion 4")
+		}
+		if len(caps.Realtime.Jobs) != 1 {
+			return fmt.Errorf("package manifest: realtime jobs must hold exactly one entry")
+		}
+		job := caps.Realtime.Jobs[0]
+		if !capabilityJobPattern.MatchString(job.ID) || job.IntervalSeconds < 5 || job.IntervalSeconds > 60 {
+			return fmt.Errorf("package manifest: realtime job requires a valid identity and a 5 to 60 second interval")
+		}
+		if caps.Background != nil {
+			for _, ordinary := range caps.Background.Jobs {
+				if ordinary.ID == job.ID {
+					return fmt.Errorf("package manifest: job ids must be unique across job classes")
+				}
+			}
+		}
+	}
+	if len(caps.Services) > MaxServiceGrants {
+		return fmt.Errorf("package manifest: services must hold 1 to %d grants", MaxServiceGrants)
+	}
+	seen := make(map[string]bool, len(caps.Services))
+	for _, service := range caps.Services {
+		if utf8.RuneCountInString(service.ID) > 64 || !serviceIDPattern.MatchString(service.ID) {
+			return fmt.Errorf("package manifest: service id %q must be a dotted service identity such as screens.read", service.ID)
+		}
+		if service.Version < 1 || service.Version > MaxServiceVersion {
+			return fmt.Errorf("package manifest: service %q version must be 1 to %d", service.ID, MaxServiceVersion)
+		}
+		unique := fmt.Sprintf("%s@%d", service.ID, service.Version)
+		if seen[unique] {
+			return fmt.Errorf("package manifest: service grants must be unique")
+		}
+		seen[unique] = true
 	}
 	if caps.StudioUI != nil {
 		if !packagePathPattern.MatchString(caps.StudioUI.Entry) || !strings.HasSuffix(caps.StudioUI.Entry, ".html") {
@@ -382,7 +478,7 @@ func InNamespace(contributionID, packageID string) bool {
 // manifest compatibility range. Every space-separated clause must hold.
 // Unknown input fails closed.
 func SatisfiesTilecastRange(versionRange, version string) bool {
-	current, ok := parseTilecastVersion(version)
+	current, ok := parseTilecastVersion(betaSuffixPattern.ReplaceAllString(strings.TrimSpace(version), ""))
 	if !ok {
 		return false
 	}

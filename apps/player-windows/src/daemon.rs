@@ -40,6 +40,8 @@ pub struct PairingView {
     /// empty unless a session is waiting for approval.
     pub approval_url: String,
     pub organization_name: Option<String>,
+    /// Phone setup on the setup surface; `None` when it is off.
+    pub phone_setup: Option<player_core::PhoneSetupView>,
 }
 
 /// Durable state, or the reason it could not be opened. Recovery mode keeps
@@ -230,7 +232,12 @@ pub async fn build_with_sealer(
             .await
             .context("opening the content store")?;
             let relationship = core.server_relationship(credentials.clone());
-            let pairing = core.pairing(credentials, sessions);
+            let mut pairing = core.pairing(credentials, sessions);
+            if config.pairing.phone_setup
+                && let Some(relay) = player_core::SetupRelay::at(config.pairing.setup_relay_url.as_deref())
+            {
+                pairing = pairing.with_phone_setup(Arc::new(relay));
+            }
             (Some(core), Some(store), Some(relationship), Some(pairing))
         }
         StateMode::Recovery { .. } => (None, None, None, None),

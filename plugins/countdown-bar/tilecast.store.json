@@ -3,5 +3,22 @@
     "name": "Tilecast",
     "url": "https://tilecast.org"
   },
-  "longDescription": "Countdown Bar adds a live, scheduled countdown along the bottom of your screens without interrupting what is already playing. Create weekly or one-time countdowns, target all screens or specific screens, groups, or locations, and control how the bar looks and behaves.\n\nOptional progress fill, urgency stages, completion text, and confetti let the same countdown move naturally from a quiet reminder to a final call. When multiple countdowns overlap, Tilecast automatically chooses the right one using priority and target time."
+  "longDescription": "Countdown Bar adds a live, scheduled countdown along the bottom of your screens without interrupting what is already playing. Create weekly or one-time countdowns, target all screens or specific screens, groups, or locations, and control how the bar looks and behaves.\n\nOptional progress fill, urgency stages, completion text, and confetti let the same countdown move naturally from a quiet reminder to a final call. When multiple countdowns overlap, Tilecast automatically chooses the right one using priority and target time.",
+  "artwork": {
+    "icon": "./store/icon.webp",
+    "screenshots": [
+      {
+        "src": "./store/01-countdown.webp",
+        "alt": "A school hallway display showing a Homecoming Pep Rally poster with a Countdown Bar along the bottom that reads \"Pep Rally starts in 8m 42s\"."
+      },
+      {
+        "src": "./store/02-schedule.webp",
+        "alt": "The Countdown Bar editor's Timing and Targets sections, set to a weekly schedule at 3:10 PM on weekdays with a 30-minute lead time and two display groups selected."
+      },
+      {
+        "src": "./store/03-urgency.webp",
+        "alt": "Three Countdown Bar urgency stages on the same display: a neutral bar at 14 minutes, an orange \"Starting soon\" bar under 4 minutes, and a red \"Urgent\" bar at 38 seconds."
+      }
+    ]
+  }
 }

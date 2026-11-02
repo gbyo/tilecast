@@ -154,6 +154,8 @@ impl TelemetryHost for AndroidTelemetryHost {
             display_connected: display.map(|_| true),
             display_resolution: display.map(|(width, height)| format!("{width}x{height}")),
             display_refresh_hz: None,
+            // Stall diagnostics are not projected on this host yet: omitted, not zero.
+            ..TelemetryGauges::default()
         }
     }
 

@@ -75,6 +75,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group";
 import { toast } from "../components/ui/toast";
+import { hasCapability } from "../auth/capabilities";
 
 export type LayoutsT = TFunction<"layouts", undefined>;
 
@@ -334,7 +335,7 @@ export function LayoutsPage() {
   const formatLocale = useFormatLocale();
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
-  const canManage = auth.status?.user?.role !== "viewer";
+  const canManage = hasCapability(auth.status, "layout.edit");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -417,7 +418,7 @@ export function LayoutsPage() {
     onSuccess: (layout) => {
       pendingAnnouncementRef.current = null;
       setPendingAnnouncementLayoutId(undefined);
-      toast.add({ title: "Layout created.", type: "success" });
+      toast.add({ title: t("library.toastCreated"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       void navigate(`/layouts/${layout.id}`);
     },
@@ -433,7 +434,7 @@ export function LayoutsPage() {
     mutationFn: (id: string) => api.duplicateLayout(id, csrf),
     onMutate: () => setActionError(""),
     onSuccess: (layout) => {
-      toast.add({ title: "Layout duplicated.", type: "success" });
+      toast.add({ title: t("library.toastDuplicated"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       void navigate(`/layouts/${layout.id}`);
     },
@@ -475,7 +476,7 @@ export function LayoutsPage() {
     mutationFn: (id: string) => api.deleteLayout(id, csrf),
     onMutate: () => setActionError(""),
     onSuccess: () => {
-      toast.add({ title: "Layout deleted.", type: "success" });
+      toast.add({ title: t("library.toastDeleted"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
     },
     onError: (error) =>
@@ -791,6 +792,7 @@ export function LayoutsPage() {
               <ActionContextMenu
                 key={layout.id}
                 label={menuLabel}
+                title={layout.name}
                 actions={actionsFor(layout)}
                 render={
                   <article

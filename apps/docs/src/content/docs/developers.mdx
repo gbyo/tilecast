@@ -40,6 +40,11 @@ Tilecast is an AGPL-3.0-only project in the [`gbyo/tilecast` repository](https:/
     description="Build and test the iOS and iPadOS app, and decide whether a feature belongs in Studio or in the app."
     href="ios-app/"
   />
+  <LinkCard
+    title="Releasing Tilecast"
+    description="Cut a Stable or Beta release, resume one that stopped, and see what the workflow checks before it publishes."
+    href="releasing/"
+  />
 </CardGrid>
 
 To explore Studio with sample data instead of an empty database, [run a demo installation](demo-mode/). Security reports follow the private process in the repository's [Security Policy](https://github.com/gbyo/tilecast/blob/main/SECURITY.md).
@@ -57,4 +62,5 @@ To explore Studio with sample data instead of an empty database, [run a demo ins
 - [HTTP API overview](../reference/api/) explains the shared API contract and links to the OpenAPI description.
 - [Command-line interface](../integrations/cli/) and [MCP](../integrations/mcp/) cover the remote `tilecast` CLI, including how to build it from `apps/cli`.
 - [Build a first-party plugin](./plugins/) covers the bundled Plugin API workflow, including CLI and MCP automation.
+- [Call Tilecast services from an external package](./external-packages/) covers versioned service grants and Player Capability operations for third-party packages.
 - [Architecture](architecture/) lists the engineering contracts that live with the code.

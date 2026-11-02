@@ -262,6 +262,18 @@ impl Host {
                 };
                 serve_grant(&self.services.cas, &self.runtime, grant, range, head_only)
             }
+            Some(crate::schemes::SchemeRequest::Widget(request)) => {
+                if !self.current_source_is_runtime() {
+                    return text_response(404, "Not Found", "text/plain", b"not found".to_vec());
+                }
+                let grant = {
+                    let media = self.services.media.lock().unwrap_or_else(|poison| poison.into_inner());
+                    media.resolve_frame(self.services.session, &request.capability, now_ms()).cloned()
+                };
+                // Media capabilities presented here resolve to nothing:
+                // grant usage is pinned at mint time.
+                serve_frame(&self.services.cas, &self.runtime, grant, range, head_only)
+            }
             None => text_response(404, "Not Found", "text/plain", b"not found".to_vec()),
         }
     }
@@ -325,6 +337,59 @@ fn serve_grant(
             let headers = format!("Content-Range: bytes */{}\r\nCache-Control: no-store\r\n", grant.size_bytes);
             (416, "Range Not Satisfiable", headers, empty())
         }
+    }
+}
+
+/// Serves one resolved frame grant: whole documents only, confined by the
+/// shared frame sandbox policy. Mirrors `serve_grant`'s verified open and
+/// size check; every failure answers an identical 404, and any Range
+/// answers 416 because a partial frame can never execute.
+fn serve_frame(
+    cas: &player_cas::ContentStore,
+    runtime: &tokio::runtime::Runtime,
+    grant: Option<crate::media::MediaGrant>,
+    range: Option<String>,
+    head_only: bool,
+) -> (i32, &'static str, String, windows::Win32::System::Com::IStream) {
+    use crate::streams::MemStream;
+    let empty = || MemStream::new(Vec::new());
+    let missing = || {
+        (
+            404,
+            "Not Found",
+            "Content-Type: text/plain\r\nContent-Length: 9\r\nCache-Control: no-store\r\n".to_string(),
+            MemStream::new(b"not found".to_vec()),
+        )
+    };
+    let Some(grant) = grant else {
+        return missing();
+    };
+    debug_assert!(matches!(
+        grant.kind,
+        crate::media::MediaGrantKind::Frame | crate::media::MediaGrantKind::PluginFrame
+    ));
+    if range.is_some() {
+        let headers = format!("Content-Range: bytes */{}\r\nCache-Control: no-store\r\n", grant.size_bytes);
+        return (416, "Range Not Satisfiable", headers, empty());
+    }
+    let opened = cas.clone();
+    let Ok(Some((file, record))) = runtime.block_on(opened.open_verified(&grant.sha256)) else {
+        return missing();
+    };
+    if record.size_bytes != grant.size_bytes {
+        return missing();
+    }
+    let kind = if grant.kind == crate::media::MediaGrantKind::PluginFrame {
+        player_types::frames::FrameKind::ExternalPlugin
+    } else {
+        player_types::frames::FrameKind::Widget
+    };
+    let headers = crate::schemes::frame_response_headers_for(grant.size_bytes, kind);
+    if head_only {
+        (200, "OK", headers, empty())
+    } else {
+        let stream = crate::streams::FileRangeStream::new(file, 0, grant.size_bytes);
+        (200, "OK", headers, stream)
     }
 }
 
@@ -726,7 +791,8 @@ fn wire_host(
         return Err("the WebView2 controller could not start".to_string());
     };
     let mut token = 0i64;
-    for pattern in ["tilecast://*/*", "tcmedia://*/*"] {
+    // The trusted view has no network. Remote Websites have a separate environment.
+    for pattern in ["*"] {
         unsafe {
             webview
                 .AddWebResourceRequestedFilter(&HSTRING::from(pattern), COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL)
@@ -752,6 +818,56 @@ fn wire_host(
             .add_WebResourceRequested(&resource_handler, &mut token)
             .map_err(|error| format!("resource interception failed: {error}"))?;
     }
+    host._tokens.push(token);
+
+    let frame_media = host.services.media.clone();
+    let frame_session = host.services.session;
+    let guard_cell = Rc::clone(cell);
+    let frame_guard = FrameCreatedEventHandler::create(Box::new(
+        move |_: Option<ICoreWebView2>, args: Option<ICoreWebView2FrameCreatedEventArgs>| {
+            let Some(args) = args else { return Ok(()) };
+            let Ok(frame) = (unsafe { args.Frame() }) else { return Ok(()) };
+            let Ok(frame2) = frame.cast::<ICoreWebView2Frame2>() else {
+                fail_startup(&guard_cell, "sandbox frame navigation guard is unavailable".into());
+                return Ok(());
+            };
+            let media = frame_media.clone();
+            let navigated = Rc::new(std::cell::Cell::new(false));
+            let navigation = FrameNavigationStartingEventHandler::create(Box::new(
+                move |_: Option<ICoreWebView2Frame>, args: Option<ICoreWebView2NavigationStartingEventArgs>| {
+                    let Some(args) = args else { return Ok(()) };
+                    let mut uri = PWSTR::null();
+                    let allowed = if unsafe { args.Uri(&mut uri) }.is_ok() && !navigated.get() {
+                        crate::schemes::parse_widget_url(&pwstr_to_string(uri)).is_some_and(|request| {
+                            media.lock().ok().is_some_and(|registry| {
+                                registry.resolve_frame(frame_session, &request.capability, now_ms()).is_some()
+                            })
+                        })
+                    } else {
+                        false
+                    };
+                    if allowed {
+                        navigated.set(true);
+                    } else {
+                        unsafe {
+                            args.SetCancel(true)?;
+                        }
+                    }
+                    Ok(())
+                },
+            ));
+            let mut frame_token = 0;
+            if unsafe { frame2.add_NavigationStarting(&navigation, &mut frame_token) }.is_err() {
+                fail_startup(&guard_cell, "sandbox frame navigation guard could not attach".into());
+            }
+            Ok(())
+        },
+    ));
+    let frame_webview = webview
+        .cast::<ICoreWebView2_4>()
+        .map_err(|error| format!("sandbox frame navigation guard is unavailable: {error}"))?;
+    unsafe { frame_webview.add_FrameCreated(&frame_guard, &mut token) }
+        .map_err(|error| format!("sandbox frame navigation guard failed: {error}"))?;
     host._tokens.push(token);
 
     let message_cell = Rc::clone(cell);

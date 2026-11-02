@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "description": "What the Android Player's shared Player Runtime host supports, as one definition. scripts/generate-player-contracts.mjs turns it into the Rust packaged profile and the Kotlin live ready report. Declarative presentation capabilities come from packages/manifest-schema/presentation-capabilities.json and Widget components from the Widget manifests; this file adds only what the Android host itself provides.",
+  "features": [
+    "status-surfaces-v1",
+    "image",
+    "video",
+    "render-tree-v1",
+    "layout-v1",
+    "synchronized-playback-v1",
+    "span-viewport-v1",
+    "plugin.countdown_bar",
+    "plugin.alert_ticker",
+    "remote-web-v1",
+    "website",
+    "youtube"
+  ],
+  "presentationSchemas": {
+    "baseline": [1],
+    "componentRuntime": [2]
+  },
+  "webRemote": { "name": "web.remote", "version": 2 },
+  "externalWidgetRuntime": { "name": "widget.external-runtime", "version": 2 }
+}

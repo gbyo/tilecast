@@ -25,7 +25,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
-use crate::manifest::{ReleaseError, hex, is_version_name, verify_signature, version_code};
+use crate::manifest::{ReleaseError, hex, is_version_name, verify_signature, version_channel, version_code};
 
 pub const ENVELOPE_SCHEMA_VERSION: u32 = 1;
 /// The Player release family of Tilecast Edge. The server also knows
@@ -127,6 +127,9 @@ fn validate(envelope: &UpdateEnvelope) -> Result<(), ReleaseError> {
     }
     if !matches!(envelope.channel.as_str(), "stable" | "beta") {
         return Err(ReleaseError::Invalid("invalid channel"));
+    }
+    if version_channel(&envelope.version_name).is_some_and(|implied| implied != envelope.channel) {
+        return Err(ReleaseError::Invalid("the channel does not match the version"));
     }
     if envelope.release_notes.len() > MAX_RELEASE_NOTES {
         return Err(ReleaseError::Invalid("release notes too long"));
@@ -244,5 +247,31 @@ mod tests {
         unknown["downloadUrl"] = serde_json::json!("https://example.org/x");
         let bytes = serde_json::to_vec(&unknown).unwrap();
         assert!(verify_envelope(&bytes, &signer.signature(&bytes), &signer.public()).is_err(), "unknown field");
+    }
+
+    /// A Beta and its Stable carry distinct codes, and the channel must be the
+    /// one the version name implies, so a Beta can update to the next Beta or
+    /// to Stable and a Beta can never be offered as Stable.
+    #[test]
+    fn unified_versions_carry_their_own_code_and_channel() {
+        let signer = Signer::new();
+        let unified = |name: &str, code: u64, channel: &str| {
+            let mut document = envelope();
+            document["versionName"] = serde_json::json!(name);
+            document["versionCode"] = serde_json::json!(code);
+            document["channel"] = serde_json::json!(channel);
+            document["artifactAssetName"] = serde_json::json!(format!("tilecast-edge-{name}-x86_64.tar.zst"));
+            let bytes = serde_json::to_vec(&document).unwrap();
+            verify_envelope(&bytes, &signer.signature(&bytes), &signer.public())
+                .map(|verified| verified.envelope.version_code)
+        };
+        assert_eq!(unified("0.26.0-beta.1", 2_600_001, "beta").unwrap(), 2_600_001);
+        assert_eq!(unified("0.26.0", 2_600_099, "stable").unwrap(), 2_600_099);
+        assert!(unified("0.26.0", 2_600_001, "stable").is_err(), "the legacy code of a Stable is refused");
+        assert!(unified("0.26.0-beta.1", 2_600_001, "stable").is_err(), "a Beta cannot be Stable");
+        assert!(unified("0.26.0", 2_600_099, "beta").is_err(), "a Stable cannot be Beta");
+        assert!(unified("0.26.0-rc.1", 2_600_001, "beta").is_err(), "only beta.N names exist");
+        // A preview that shipped before the cutover keeps its legacy code.
+        assert_eq!(unified("0.2.1-preview.1", 2_001, "beta").unwrap(), 2_001);
     }
 }

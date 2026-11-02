@@ -126,3 +126,10 @@ pub fn set_credential_state(connection: &Connection, state: CredentialState, now
     )?;
     Ok(())
 }
+
+/// Forgets the server relationship. Unpair only: nothing else deletes the
+/// binding, and generic link errors must never reach this.
+pub fn clear(connection: &Connection) -> Result<()> {
+    connection.execute("DELETE FROM server_binding WHERE id = 1", [])?;
+    Ok(())
+}

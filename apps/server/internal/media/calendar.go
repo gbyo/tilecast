@@ -157,34 +157,8 @@ func isPrivateSourceIP(ip net.IP) bool {
 }
 
 func (s *Service) sourceHTTPClient() *http.Client {
-	dialer := &net.Dialer{Timeout: s.cfg.SourceFetch.Timeout}
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
-			host, port, err := net.SplitHostPort(address)
-			if err != nil {
-				return nil, err
-			}
-			addresses, err := net.DefaultResolver.LookupIPAddr(ctx, host)
-			if err != nil {
-				return nil, err
-			}
-			for _, resolved := range addresses {
-				if !s.cfg.SourceFetch.AllowPrivateNetworks && isPrivateSourceIP(resolved.IP) {
-					continue
-				}
-				connection, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(resolved.IP.String(), port))
-				if dialErr == nil {
-					return connection, nil
-				}
-			}
-			return nil, errors.New("Source URL has no permitted address")
-		},
-		TLSHandshakeTimeout:   s.cfg.SourceFetch.Timeout,
-		ResponseHeaderTimeout: s.cfg.SourceFetch.Timeout,
-		IdleConnTimeout:       30 * time.Second,
-	}
 	return &http.Client{
-		Transport: transport,
+		Transport: sourceHTTPTransport(s.cfg.SourceFetch, net.DefaultResolver.LookupIPAddr, (&net.Dialer{Timeout: s.cfg.SourceFetch.Timeout}).DialContext),
 		Timeout:   s.cfg.SourceFetch.Timeout,
 		CheckRedirect: func(request *http.Request, via []*http.Request) error {
 			if len(via) >= s.cfg.SourceFetch.MaximumRedirects {
@@ -193,6 +167,36 @@ func (s *Service) sourceHTTPClient() *http.Client {
 			_, err := s.validateSourceURL(request.Context(), request.URL.String())
 			return err
 		},
+	}
+}
+
+// sourceHTTPTransport pins each connection to a checked DNS result. Callers can
+// impose a narrower URL policy without inheriting installation LAN permission.
+func sourceHTTPTransport(policy SourceFetchPolicy, lookup func(context.Context, string) ([]net.IPAddr, error), dial func(context.Context, string, string) (net.Conn, error)) *http.Transport {
+	return &http.Transport{
+		DialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(address)
+			if err != nil {
+				return nil, err
+			}
+			addresses, err := lookup(ctx, host)
+			if err != nil {
+				return nil, err
+			}
+			for _, resolved := range addresses {
+				if !policy.AllowPrivateNetworks && isPrivateSourceIP(resolved.IP) {
+					continue
+				}
+				connection, dialErr := dial(ctx, network, net.JoinHostPort(resolved.IP.String(), port))
+				if dialErr == nil {
+					return connection, nil
+				}
+			}
+			return nil, errors.New("Source URL has no permitted address")
+		},
+		TLSHandshakeTimeout:   policy.Timeout,
+		ResponseHeaderTimeout: policy.Timeout,
+		IdleConnTimeout:       30 * time.Second,
 	}
 }
 

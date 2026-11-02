@@ -98,6 +98,10 @@ extension MediaUploadError {
             String(localized: "This file is larger than the server allows.")
         case .insufficientStorage:
             String(localized: "The server has no space left.")
+        case .notPermitted:
+            String(localized: "Your role can’t upload media.")
+        case .folderUnavailable:
+            String(localized: "You don’t have access to upload into this folder.")
         case .rejected:
             String(localized: "The server didn’t accept this upload.")
         case .unavailable:

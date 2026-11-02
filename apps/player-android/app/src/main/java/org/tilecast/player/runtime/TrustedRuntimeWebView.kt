@@ -3,6 +3,7 @@ package org.tilecast.player.runtime
 import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
+import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
@@ -26,12 +27,20 @@ sealed interface TrustedRuntimeEndpoint {
     data class Unsupported(val reason: String) : TrustedRuntimeEndpoint
 }
 
+/** Names of the runtime document lifecycle events the WebView owner reports. */
+object RuntimeDocumentEvent {
+    const val DOCUMENT_STARTED = "runtime_document_started"
+    const val DOCUMENT_FINISHED = "runtime_document_finished"
+    const val DOCUMENT_FAILED = "runtime_document_failed"
+    const val ASSET_FAILED = "runtime_asset_failed"
+}
+
 class TrustedRuntimeWebView(
     context: Context,
     private val crashPolicy: RuntimeCrashPolicy = RuntimeCrashPolicy(),
     private val onRuntimeMessage: (String, Long, JavaScriptReplyProxy?) -> Unit = { _, _, _ -> },
     private val documentStartScript: String = RuntimeBridgeProtocol.bootstrapScript(),
-    /** Serves host-authorized media (tcmedia:) to the trusted page. */
+    /** Serves host-authorized media (tcmedia:) and sandbox frames (tcwidget:) to the trusted page. */
     private val mediaInterceptor: (url: String, rangeHeader: String?) -> WebResourceResponse? = { _, _ -> null },
     private val onRendererGone: (deadGeneration: Long) -> Unit = {},
     /**
@@ -40,6 +49,11 @@ class TrustedRuntimeWebView(
      * completes, so a late result must re-advertise capabilities.
      */
     private val onComponentProbeDone: (Boolean) -> Unit = {},
+    /**
+     * Document lifecycle for diagnostics: (renderer generation, event, code).
+     * Codes are WebView error numbers, never URLs or page data.
+     */
+    private val onDocumentEvent: (generation: Long, event: String, code: String?) -> Unit = { _, _, _ -> },
 ) {
     private val appContext = context.applicationContext
     private val assetLoader = WebViewAssetLoader.Builder()
@@ -62,6 +76,10 @@ class TrustedRuntimeWebView(
         }
         val generation = crashPolicy.currentGeneration()
         val webView = WebView(appContext)
+        // A parent that adds the view without parameters (Compose's
+        // AndroidView does) would give it WRAP_CONTENT, and WebView then
+        // lays the page out at zero height: content plays, nothing shows.
+        webView.layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         with(webView.settings) {
             javaScriptEnabled = true
             allowFileAccess = false
@@ -84,7 +102,9 @@ class TrustedRuntimeWebView(
                 request: WebResourceRequest,
             ): WebResourceResponse? {
                 val url = request.url?.toString() ?: return super.shouldInterceptRequest(view, request)
-                if (url.startsWith("${MediaAuthorization.SCHEME}:", ignoreCase = true)) {
+                if (url.startsWith("${MediaAuthorization.SCHEME}:", ignoreCase = true) ||
+                    url.startsWith("${FrameAuthorization.SCHEME}:", ignoreCase = true)
+                ) {
                     return mediaInterceptor(url, request.requestHeaders?.get("Range"))
                         ?: super.shouldInterceptRequest(view, request)
                 }
@@ -98,15 +118,75 @@ class TrustedRuntimeWebView(
                 return true
             }
 
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                shouldBlockTopLevelNavigation(view, request.url?.toString())
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                val url = request.url?.toString()
+                // Subframe navigations to intercepted capability schemes
+                // are confined content, not top-level escapes: the
+                // interceptor serves only host-authorized bytes (or the
+                // WebView's 404 path), and the sandbox attribute keeps
+                // the frame opaque. The main frame still never leaves
+                // the trusted runtime tree.
+                if (!request.isForMainFrame) {
+                    return FrameAuthorization.tokenOf(url) == null
+                }
+                return shouldBlockTopLevelNavigation(view, url)
+            }
 
             @Suppress("DEPRECATION")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean =
                 shouldBlockTopLevelNavigation(view, url)
 
+            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                if (url == TrustedRuntimeOrigin.entryUrl) {
+                    onDocumentEvent(generation, RuntimeDocumentEvent.DOCUMENT_STARTED, null)
+                }
+            }
+
+            override fun onReceivedError(
+                view: WebView,
+                request: WebResourceRequest,
+                error: android.webkit.WebResourceError,
+            ) {
+                super.onReceivedError(view, request, error)
+                reportLoadFailure(request, "net_${error.errorCode}")
+            }
+
+            override fun onReceivedHttpError(
+                view: WebView,
+                request: WebResourceRequest,
+                errorResponse: WebResourceResponse,
+            ) {
+                super.onReceivedHttpError(view, request, errorResponse)
+                reportLoadFailure(request, "http_${errorResponse.statusCode}")
+            }
+
+            /**
+             * A main-frame failure means the trusted runtime document did not
+             * load: the screen would stay blank, so it is a renderer failure.
+             * A failed packaged asset is logged with its packaged path only;
+             * media and Widget frame URLs never enter diagnostics.
+             */
+            private fun reportLoadFailure(request: WebResourceRequest, code: String) {
+                if (request.isForMainFrame) {
+                    onDocumentEvent(generation, RuntimeDocumentEvent.DOCUMENT_FAILED, code)
+                    return
+                }
+                val url = request.url
+                if (TrustedRuntimeOrigin.origin == "${url.scheme}://${url.host}") {
+                    onDocumentEvent(
+                        generation,
+                        RuntimeDocumentEvent.ASSET_FAILED,
+                        "$code:${url.path.orEmpty().take(96)}",
+                    )
+                }
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
+                if (url == TrustedRuntimeOrigin.entryUrl) {
+                    onDocumentEvent(generation, RuntimeDocumentEvent.DOCUMENT_FINISHED, null)
+                }
                 // Prove the installed WebView runs the Widget runtime
                 // contract before its capabilities are ever advertised.
                 if (!probeDispatched && url == TrustedRuntimeOrigin.entryUrl) {
@@ -139,8 +219,8 @@ class TrustedRuntimeWebView(
             webView,
             RuntimeBridgeProtocol.BRIDGE_NAME,
             setOf(TrustedRuntimeOrigin.origin),
-            { _, message, sourceOrigin, _, replyProxy ->
-                if (sourceOrigin.toString() != TrustedRuntimeOrigin.origin) return@addWebMessageListener
+            { _, message, sourceOrigin, isMainFrame, replyProxy ->
+                if (!isMainFrame || sourceOrigin.toString() != TrustedRuntimeOrigin.origin) return@addWebMessageListener
                 val payload = message?.data ?: return@addWebMessageListener
                 onRuntimeMessage(payload, generation, replyProxy)
             },

@@ -231,6 +231,126 @@ test("plugin surfaces follow their consumers", () => {
   );
   assert.equal(affected(["plugins/weather/service.go"]).server, true);
 });
+test("the package guest SDK and samples ride the package lanes", () => {
+  for (const path of [
+    "packages/package-guest-sdk/Cargo.toml",
+    "packages/package-guest-sdk/src/lib.rs",
+    "packages/package-samples/hello-services/tilecast.package.json",
+    "packages/package-samples/hello-services/guest/src/lib.rs",
+    "packages/package-samples/hello-services/runtime/hello_services.wasm",
+  ]) {
+    const result = affected([path]);
+    for (const area of ["plugins", "server", "container", "e2e"])
+      assert.equal(result[area], true, `${path}: ${area}`);
+    assert.equal(result.player_core, false, path);
+    assert.equal(result.ios, false, path);
+  }
+  assert.deepEqual(
+    selected(["packages/package-samples/hello-services/README.md"]),
+    ["docs"],
+  );
+});
+test("external plugin contract fixtures reach every native host", () => {
+  for (const path of [
+    "packages/manifest-schema/external-plugin-entry-fixture.json",
+    "packages/package-sdk/test-fixtures/player-surface-probe.js",
+  ]) {
+    const external = affected([path]);
+    for (const area of [
+      "android",
+      "windows",
+      "runtime",
+      "edge_rust",
+      "edge_wpe",
+      "player_core",
+    ])
+      assert.equal(external[area], true, `${path}: ${area}`);
+  }
+});
+test("the plugin state entry fixture reaches its server, SDK, and native consumers", () => {
+  const path = "packages/manifest-schema/plugin-state-entry-fixture.json";
+  const result = affected([path]);
+  for (const area of [
+    "server",
+    "plugins",
+    "android",
+    "windows",
+    "runtime",
+    "edge_rust",
+    "player_core",
+  ])
+    assert.equal(result[area], true, `${path}: ${area}`);
+});
+test("the native registry and the event fixture reach their consumers", () => {
+  for (const path of [
+    "packages/plugin-native-registry/Cargo.toml",
+    "packages/plugin-native-registry/src/lib.rs",
+  ]) {
+    const result = affected([path]);
+    for (const area of [
+      "plugins",
+      "player_core",
+      "android",
+      "windows",
+      "edge_rust",
+    ])
+      assert.equal(result[area], true, `${path}: ${area}`);
+    assert.equal(result.dashboard, false, path);
+  }
+  const events = affected([
+    "packages/player-contracts/fixtures/plugin-events.json",
+  ]);
+  for (const area of ["player_core", "plugins", "runtime", "windows"])
+    assert.equal(events[area], true, area);
+});
+test("the shared ABI constant and WPE bridge select the Runtime lane", () => {
+  for (const path of [
+    "crates/player-types/src/frames.rs",
+    "apps/edge/renderer-wpe/web/tilecast-bridge.js",
+  ])
+    assert.equal(affected([path]).runtime, true, path);
+});
+test("external Widget fixture changes reach every host and shared SDK", () => {
+  for (const path of [
+    "packages/player-contracts/fixtures/widget-package/bundle.js",
+    "packages/player-contracts/fixtures/widget-package/hostile.js",
+  ]) {
+    const result = affected([path]);
+    for (const area of [
+      "widgets",
+      "server",
+      "dashboard",
+      "runtime",
+      "browser_player",
+      "android",
+      "windows",
+      "edge_rust",
+      "edge_wpe",
+      "edge_conformance",
+      "player_core",
+    ]) {
+      assert.equal(result[area], true, `${path}: ${area}`);
+    }
+  }
+});
+test("the player capability registry selects its browser, server, and Rust consumers", () => {
+  const result = affected([
+    "packages/player-contracts/player-capabilities.json",
+  ]);
+  for (const area of [
+    "browser_player",
+    "server",
+    "player_core",
+    "container",
+    "e2e",
+    "android",
+    "windows",
+    "edge_rust",
+  ])
+    assert.equal(result[area], true, area);
+  assert.equal(result.ios, false);
+  assert.equal(result.docs, false);
+});
 test("new data source catalog has server, Studio and conformance", () => {
   const result = affected([
     "data-sources/announcements/tilecast.datasource.json",
@@ -325,6 +445,27 @@ test("activity ingestion, derivation and shared evidence select parity", () => {
   ])
     assert.equal(affected([path]).edge_activity, true, path);
 });
+test("the release version corpus selects every implementation of the ordering", () => {
+  const result = affected([
+    "packages/player-contracts/fixtures/release-versions.json",
+  ]);
+  for (const area of ["server", "edge_rust", "windows", "ci"])
+    assert.equal(result[area], true, area);
+  // The Python implementation feeds the Edge release build.
+  assert.equal(
+    affected(["scripts/release/release_version.py"]).edge_rust,
+    true,
+  );
+  // Release coordination scripts need only the CI contract lane.
+  const scripts = affected(["scripts/release/release_assemble.py"]);
+  assert.equal(scripts.ci, true);
+  assert.equal(scripts.android, false);
+  assert.equal(scripts.server, false);
+  // The pipeline test runs the server's importer over signed assets.
+  const importer = affected(["apps/server/internal/updates/discovery.go"]);
+  assert.equal(importer.server, true);
+  assert.equal(importer.ci, true);
+});
 test("player contract sources select every native consumer and their drift gate", () => {
   for (const path of [
     "packages/manifest-schema/presentation-capabilities.json",
@@ -332,8 +473,10 @@ test("player contract sources select every native consumer and their drift gate"
     "scripts/generate-player-contracts.mjs",
   ]) {
     const result = affected([path]);
-    if (path.endsWith("server-url-policy.json"))
+    if (path.endsWith("server-url-policy.json")) {
       assert.equal(result.ios, true, `${path}: ios`);
+      assert.equal(result.setup_relay, true, `${path}: setup_relay`);
+    }
     for (const area of [
       "ci",
       "server",
@@ -347,6 +490,28 @@ test("player contract sources select every native consumer and their drift gate"
     ])
       assert.equal(result[area], true, `${path}: ${area}`);
   }
+});
+test("the widget-frames fixture selects the protocol lane and the shared crates", () => {
+  const result = affected([
+    "packages/player-contracts/fixtures/widget-frames.json",
+  ]);
+  for (const area of [
+    "protocol",
+    "player_core",
+    "server",
+    "android",
+    "runtime",
+    "windows",
+    "linux",
+    "edge_rust",
+    "edge_server",
+    "edge_wpe",
+    "edge_conformance",
+    "browser_player",
+  ])
+    assert.equal(result[area], true, area);
+  assert.equal(result.ios, false);
+  assert.equal(result.docs, false);
 });
 test("shared schema contracts distinguish players from ordinary API consumers", () => {
   for (const path of [
@@ -533,11 +698,32 @@ test("actual stacked base excludes base-only commits and retains rename/delete p
   }
 });
 
+test("the phone setup relay has its own lane", () => {
+  assert.deepEqual(selected(["apps/setup-relay/src/rendezvous.ts"]), [
+    "setup_relay",
+  ]);
+  assert.deepEqual(selected(["apps/setup-relay/public/address.js"]), [
+    "setup_relay",
+  ]);
+  const vectors = affected([
+    "packages/player-contracts/fixtures/phone-setup-envelope.json",
+  ]);
+  assert.equal(vectors.player_core, true);
+  assert.equal(vectors.setup_relay, true);
+});
+
 test("Browser Player has its own lane and follows the Runtime and the server code it uses", () => {
   assert.ok(areas.includes("browser_player"));
   assert.deepEqual(selected(["apps/player-web/src/application.ts"]), [
     "browser_player",
   ]);
+  // The Companion extension rides the Browser Player lane.
+  for (const path of [
+    "apps/browser-companion/src/background.ts",
+    "packages/companion-protocol/src/protocol.ts",
+  ]) {
+    assert.deepEqual(selected([path]), ["browser_player"], path);
+  }
   for (const path of [
     "apps/server/internal/web/player.go",
     "apps/server/internal/httpapi/browser_player.go",
@@ -601,4 +787,21 @@ test("the Browser capability matrix selects every generated consumer", () => {
     for (const area of ["browser_player", "server", "dashboard", "docs", "ci"])
       assert.equal(result[area], true, `${path} ${area}`);
   }
+});
+
+test("a change to a build graph reruns the release input checks and nothing else new", () => {
+  for (const file of [
+    "deploy/docker/Dockerfile",
+    "apps/server/go.mod",
+    "apps/player-windows/Cargo.toml",
+    "apps/edge/tilecastd/Cargo.toml",
+    "apps/edge/crates/edge-release/Cargo.toml",
+    "apps/player-android/native/Cargo.toml",
+    "apps/player-android/app/build.gradle.kts",
+    "apps/dashboard/package.json",
+    "packages/player-runtime/package.json",
+  ])
+    assert.equal(affected([file]).ci, true, file);
+  assert.equal(affected(["apps/player-windows/src/main.rs"]).ci, false);
+  assert.equal(affected(["apps/player-windows/Cargo.toml"]).windows, true);
 });

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { PanelLeft } from "lucide-react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useCapabilities } from "../auth/capabilities";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import {
@@ -28,10 +29,16 @@ import {
   SidebarMenuItem,
 } from "../components/ui/sidebar";
 import {
-  settingsNavigation,
+  visibleSettingsNavigation,
   sectionDetails,
   type SettingsSectionId,
 } from "./settingsNavigation";
+
+/** The Settings sections the signed-in account can see. */
+function useVisibleSettings() {
+  const { canAny } = useCapabilities();
+  return visibleSettingsNavigation(canAny);
+}
 
 export function SettingsShell({
   active,
@@ -47,6 +54,7 @@ export function SettingsShell({
   const { t } = useTranslation(["settings", "common"]);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const details = sectionDetails[active];
+  const settingsNavigation = useVisibleSettings();
   const items = settingsNavigation.flatMap((group) => group.items);
   const activeItem = items.find((item) => item.id === active);
   if (details.workspace)
@@ -204,16 +212,18 @@ function SettingsSectionsNav({
   onNavigate: (next: SettingsSectionId) => boolean;
 }) {
   const { t } = useTranslation(["settings", "common"]);
-  const groupKeyOf = (id: SettingsSectionId) =>
-    settingsNavigation.find((group) =>
-      group.items.some((item) => item.id === id),
-    )?.labelKey;
-  const [openGroups, setOpenGroups] = useState<Set<string>>(() => {
-    const activeGroup = groupKeyOf(active);
-    return new Set(activeGroup ? [activeGroup] : []);
-  });
+  const settingsNavigation = useVisibleSettings();
+  // The group that holds the active section. The effect depends on this key
+  // and not on the navigation list, which is rebuilt on every render: a
+  // group the person collapses must stay collapsed until the active section
+  // moves to another group.
+  const activeGroup = settingsNavigation.find((group) =>
+    group.items.some((item) => item.id === active),
+  )?.labelKey;
+  const [openGroups, setOpenGroups] = useState<Set<string>>(
+    () => new Set(activeGroup ? [activeGroup] : []),
+  );
   useEffect(() => {
-    const activeGroup = groupKeyOf(active);
     if (!activeGroup) return;
     setOpenGroups((prev) => {
       if (prev.has(activeGroup)) return prev;
@@ -221,7 +231,7 @@ function SettingsSectionsNav({
       next.add(activeGroup);
       return next;
     });
-  }, [active]);
+  }, [activeGroup]);
   const setGroupOpen = (key: string, open: boolean) => {
     setOpenGroups((prev) => {
       const next = new Set(prev);

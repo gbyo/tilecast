@@ -28,21 +28,87 @@ pub fn is_version_name(value: &str) -> bool {
         })
 }
 
-/// The version code of a `release/VERSION` name, or `None` when it is not
-/// a `major.minor.patch` triple in range: `major * 1_000_000 + minor *
-/// 1_000 + patch`, ignoring any pre-release suffix.
-pub fn version_code(version_name: &str) -> Option<u64> {
+/// The legacy code of the first coordinated release, 0.26.0. Every version
+/// below it keeps its legacy code; every unified code is above every one.
+pub const UNIFIED_CUTOVER_CORE_CODE: u64 = 26_000;
+/// The largest update version code; it keeps every code inside the Android
+/// `versionCode` range.
+pub const MAXIMUM_VERSION_CODE: u64 = 2_100_000_000;
+
+/// A parsed version: its version code, the channel the name implies, and the
+/// slot a Beta number or Stable takes in the code and the package version.
+struct ParsedVersion {
+    code: u64,
+    channel: Option<&'static str>,
+    slot: Option<u16>,
+    parts: (u64, u64, u64),
+}
+
+/// Splits a version name. Below the cutover the code is the legacy `major *
+/// 1_000_000 + minor * 1_000 + patch` and the prerelease suffix does not
+/// count. From the cutover on a name is `X.Y.Z` (Stable) or `X.Y.Z-beta.N` (N
+/// from 1 to 98), and the code is the core code times 100 plus a slot: N for a
+/// Beta, 99 for Stable. A Beta sorts below its own Stable and above the
+/// previous release, so a Beta can update to the next Beta or to Stable.
+fn parse_version(version_name: &str) -> Option<ParsedVersion> {
     if !is_version_name(version_name) {
         return None;
     }
-    let core = version_name.split_once('-').map_or(version_name, |(core, _)| core);
+    let (core, suffix) = match version_name.split_once('-') {
+        Some((core, suffix)) => (core, Some(suffix)),
+        None => (version_name, None),
+    };
     let mut parts = core.split('.');
     let (major, minor, patch) =
         (parts.next()?.parse::<u64>().ok()?, parts.next()?.parse::<u64>().ok()?, parts.next()?.parse::<u64>().ok()?);
     if parts.next().is_some() || major >= 1_000_000 || minor >= 1_000 || patch >= 1_000 {
         return None;
     }
-    Some(major * 1_000_000 + minor * 1_000 + patch)
+    let core_code = major * 1_000_000 + minor * 1_000 + patch;
+    if core_code < UNIFIED_CUTOVER_CORE_CODE {
+        return Some(ParsedVersion { code: core_code, channel: None, slot: None, parts: (major, minor, patch) });
+    }
+    let (slot, channel) = match suffix {
+        None => (99_u16, "stable"),
+        Some(suffix) => {
+            let number = suffix.strip_prefix("beta.")?;
+            // 1 to 98 with no sign and no leading zero.
+            if number.is_empty()
+                || number.len() > 2
+                || number.starts_with('0')
+                || !number.bytes().all(|b| b.is_ascii_digit())
+            {
+                return None;
+            }
+            let number: u16 = number.parse().ok()?;
+            if number > 98 {
+                return None;
+            }
+            (number, "beta")
+        }
+    };
+    let code = core_code * 100 + u64::from(slot);
+    (code <= MAXIMUM_VERSION_CODE).then_some(ParsedVersion {
+        code,
+        channel: Some(channel),
+        slot: Some(slot),
+        parts: (major, minor, patch),
+    })
+}
+
+/// The version code of a `release/VERSION` name, or `None` when it is not a
+/// valid release version. The one ordering the server, the player, the
+/// package, the Android build, and Tilecast Edge share;
+/// `packages/player-contracts/fixtures/release-versions.json` is the corpus
+/// each of them runs.
+pub fn version_code(version_name: &str) -> Option<u64> {
+    parse_version(version_name).map(|parsed| parsed.code)
+}
+
+/// The channel a version name implies: `stable` for `X.Y.Z` and `beta` for
+/// `X.Y.Z-beta.N` from the cutover on, `None` below it.
+pub fn version_channel(version_name: &str) -> Option<&'static str> {
+    parse_version(version_name).and_then(|parsed| parsed.channel)
 }
 
 /// This build's version code, or zero when `release/VERSION` is malformed.
@@ -66,34 +132,39 @@ impl std::fmt::Display for MsixVersion {
 }
 
 /// The deterministic mapping from a Tilecast release to its MSIX package
-/// version: `major.minor.patch.<channel>`, with revision 1 for beta and
-/// 2 for stable. The human triple stays readable in the first three
-/// parts; the prerelease suffix is ignored exactly as in
-/// [`version_code`], so the server, the player, and the package share
-/// one ordering.
+/// version: `major.minor.patch.<slot>`. The human triple stays readable in
+/// the first three parts. From the unified release on, the slot is the Beta
+/// number for a Beta and 99 for Stable, the same slot the version code uses,
+/// so Windows orders packages exactly as the server orders updates: Beta 1,
+/// Beta 2, Stable, then the next version. Below the cutover the revision is
+/// 1 for beta and 2 for stable, as before.
 ///
-/// Monotonic within a channel, and Windows orders a beta package below
-/// the stable package of the same core. That ordering only governs the
-/// package: the update version code ignores the channel, so the server
-/// and the player refuse a stable release whose core equals an imported
-/// beta. Promote a beta by releasing a higher patch version. `None` fails the release build closed: an
-/// invalid version name, an unknown channel, or a major above 65535
-/// (every MSIX part must fit 16 bits, and `0.0.0.0` is reserved, which
-/// the nonzero revision rules out).
+/// `None` fails the release build closed: an invalid version name, an
+/// unknown channel, a channel that contradicts the version name, or a
+/// version above the version-code ceiling (every MSIX part must fit 16
+/// bits, and `0.0.0.0` is reserved, which the nonzero revision rules out).
 pub fn msix_version(version_name: &str, channel: &str) -> Option<MsixVersion> {
-    let revision = match channel {
-        "beta" => 1,
-        "stable" => 2,
-        _ => return None,
-    };
-    if !is_version_name(version_name) {
+    if !matches!(channel, "stable" | "beta") {
         return None;
     }
-    let core = version_name.split_once('-').map_or(version_name, |(core, _)| core);
-    let mut parts = core.split('.');
-    let (major, minor, patch) =
-        (parts.next()?.parse::<u64>().ok()?, parts.next()?.parse::<u64>().ok()?, parts.next()?.parse::<u64>().ok()?);
-    if parts.next().is_some() || major > 65_535 || minor >= 1_000 || patch >= 1_000 {
+    let parsed = parse_version(version_name)?;
+    let revision = match (parsed.channel, parsed.slot) {
+        (Some(implied), Some(slot)) => {
+            if implied != channel {
+                return None;
+            }
+            slot
+        }
+        _ => {
+            if channel == "beta" {
+                1
+            } else {
+                2
+            }
+        }
+    };
+    let (major, minor, patch) = parsed.parts;
+    if major > 65_535 || minor >= 1_000 || patch >= 1_000 {
         return None;
     }
     Some(MsixVersion { major: major as u16, minor: minor as u16, build: patch as u16, revision })
@@ -697,11 +768,91 @@ async fn fail(
 mod tests {
     use super::*;
 
+    #[derive(serde::Deserialize)]
+    struct VersionCorpus {
+        codes: Vec<CorpusCode>,
+        invalid: Vec<String>,
+        ordered: Vec<String>,
+        channels: Vec<CorpusChannel>,
+        msix: Vec<CorpusMsix>,
+        #[serde(rename = "msixInvalid")]
+        msix_invalid: Vec<CorpusMsixInvalid>,
+        #[serde(rename = "cutoverCoreCode")]
+        cutover_core_code: u64,
+        #[serde(rename = "maximumCode")]
+        maximum_code: u64,
+    }
+    #[derive(serde::Deserialize)]
+    struct CorpusCode {
+        name: String,
+        code: u64,
+    }
+    #[derive(serde::Deserialize)]
+    struct CorpusChannel {
+        name: String,
+        channel: Option<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct CorpusMsix {
+        name: String,
+        channel: String,
+        package: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct CorpusMsixInvalid {
+        name: String,
+        channel: String,
+    }
+
+    fn corpus() -> VersionCorpus {
+        serde_json::from_str(include_str!("../../../packages/player-contracts/fixtures/release-versions.json"))
+            .expect("the shared release version corpus parses")
+    }
+
+    #[test]
+    fn version_codes_match_the_shared_corpus() {
+        let corpus = corpus();
+        assert_eq!(corpus.cutover_core_code, UNIFIED_CUTOVER_CORE_CODE);
+        assert_eq!(corpus.maximum_code, MAXIMUM_VERSION_CODE);
+        for case in &corpus.codes {
+            assert_eq!(version_code(&case.name), Some(case.code), "{}", case.name);
+        }
+        for name in &corpus.invalid {
+            assert_eq!(version_code(name), None, "{name:?} must be invalid");
+        }
+        for case in &corpus.channels {
+            assert_eq!(version_channel(&case.name), case.channel.as_deref(), "{}", case.name);
+        }
+        let codes: Vec<u64> = corpus.ordered.iter().map(|name| version_code(name).expect("valid")).collect();
+        assert!(codes.windows(2).all(|pair| pair[0] < pair[1]), "codes must strictly increase: {codes:?}");
+    }
+
+    #[test]
+    fn msix_versions_match_the_shared_corpus() {
+        let corpus = corpus();
+        for case in &corpus.msix {
+            let mapped = msix_version(&case.name, &case.channel).unwrap_or_else(|| panic!("{} maps", case.name));
+            assert_eq!(mapped.to_string(), case.package, "{} {}", case.name, case.channel);
+        }
+        for case in &corpus.msix_invalid {
+            assert_eq!(msix_version(&case.name, &case.channel), None, "{} {}", case.name, case.channel);
+        }
+        // A package orders exactly as the update version code does.
+        let packages: Vec<MsixVersion> = corpus
+            .ordered
+            .iter()
+            .map(|name| msix_version(name, version_channel(name).unwrap_or("stable")).expect("maps"))
+            .collect();
+        assert!(packages.windows(2).all(|pair| pair[0] < pair[1]), "packages must strictly increase: {packages:?}");
+    }
+
     #[test]
     fn version_codes_match_the_server_scheme() {
         assert_eq!(version_code("0.1.0"), Some(1_000));
-        assert_eq!(version_code("1.2.3"), Some(1_002_003));
-        assert_eq!(version_code("1.2.3-rc.1"), Some(1_002_003));
+        assert_eq!(version_code("0.2.3"), Some(2_003));
+        assert_eq!(version_code("0.2.3-rc.1"), Some(2_003));
+        assert_eq!(version_code("1.2.3"), Some(100_200_399), "a version above the cutover is Stable");
+        assert_eq!(version_code("1.2.3-rc.1"), None, "a version above the cutover must be Stable or Beta");
         assert_eq!(version_code("1.2"), None);
         assert_eq!(version_code("1.2.3.4"), None);
         assert_eq!(version_code("1.1000.0"), None);
@@ -729,30 +880,28 @@ mod tests {
 
     #[test]
     fn msix_versions_keep_the_triple_readable() {
+        // Below the cutover the revision is the channel, as before.
         assert_eq!(msix_version("0.1.0", "stable").expect("maps").to_string(), "0.1.0.2");
-        assert_eq!(msix_version("1.2.3", "stable").expect("maps").to_string(), "1.2.3.2");
-        assert_eq!(msix_version("1.2.3", "beta").expect("maps").to_string(), "1.2.3.1");
-        assert_eq!(msix_version("1.2.3-rc.1", "beta").expect("maps").to_string(), "1.2.3.1");
+        assert_eq!(msix_version("0.2.3", "beta").expect("maps").to_string(), "0.2.3.1");
+        assert_eq!(msix_version("0.2.3-rc.1", "beta").expect("maps").to_string(), "0.2.3.1");
         assert_eq!(msix_version("0.0.0", "beta").expect("maps").to_string(), "0.0.0.1");
+        // From the cutover on it is the slot.
+        assert_eq!(msix_version("0.26.0-beta.7", "beta").expect("maps").to_string(), "0.26.0.7");
+        assert_eq!(msix_version("0.26.0", "stable").expect("maps").to_string(), "0.26.0.99");
     }
 
     #[test]
     fn msix_versions_order_with_the_release_line() {
-        let (beta, stable) =
-            (msix_version("1.2.3", "beta").expect("maps"), msix_version("1.2.3", "stable").expect("maps"));
-        assert!(beta < stable, "a beta sorts below its stable release");
-        assert!(stable < msix_version("1.2.4", "beta").expect("maps"));
-        assert!(msix_version("1.2.3", "stable").expect("maps") < msix_version("1.3.0", "beta").expect("maps"));
-        assert!(msix_version("1.999.999", "stable").expect("maps") < msix_version("2.0.0", "beta").expect("maps"));
-        // Same ordering as the version code within a channel.
-        let codes = ["0.1.0", "0.2.0", "1.0.0", "1.0.1", "1.2.3", "10.0.0"];
-        let quads: Vec<MsixVersion> = codes.iter().map(|name| msix_version(name, "stable").expect("maps")).collect();
-        let mut sorted = quads.clone();
-        sorted.sort();
-        assert_eq!(quads, sorted);
-        let mut codes_sorted: Vec<u64> = codes.iter().map(|name| version_code(name).expect("code")).collect();
-        codes_sorted.sort();
-        assert_eq!(codes_sorted, codes.iter().map(|name| version_code(name).expect("code")).collect::<Vec<_>>());
+        let beta_one = msix_version("0.26.0-beta.1", "beta").expect("maps");
+        let beta_two = msix_version("0.26.0-beta.2", "beta").expect("maps");
+        let stable = msix_version("0.26.0", "stable").expect("maps");
+        assert!(beta_one < beta_two && beta_two < stable, "Beta 1, Beta 2, Stable");
+        assert!(stable < msix_version("0.26.1-beta.1", "beta").expect("maps"));
+        assert!(
+            msix_version("0.26.999", "stable").expect("maps") < msix_version("0.27.0-beta.1", "beta").expect("maps")
+        );
+        // A package shipped before the cutover sorts below every unified one.
+        assert!(msix_version("0.2.3", "stable").expect("maps") < beta_one);
     }
 
     fn command(payload: serde_json::Value) -> ServerCommand {
@@ -870,8 +1019,10 @@ mod tests {
         assert!(msix_version("1.2.3", "").is_none());
         assert!(msix_version("1.2", "stable").is_none());
         assert!(msix_version("1.1000.0", "stable").is_none());
-        assert!(msix_version("65535.999.999", "stable").is_some(), "the largest mappable major");
-        assert!(msix_version("65536.0.0", "stable").is_none(), "major must fit 16 bits");
-        assert!(msix_version("100000.0.0", "stable").is_none());
+        assert!(msix_version("20.999.999", "stable").is_some(), "the largest version the code can carry");
+        assert!(msix_version("21.0.0", "stable").is_none(), "a version above the code ceiling");
+        assert!(msix_version("0.26.0-beta.1", "stable").is_none(), "a Beta name is not a Stable package");
+        assert!(msix_version("0.26.0", "beta").is_none(), "a Stable name is not a Beta package");
+        assert!(msix_version("0.26.0-rc.1", "beta").is_none());
     }
 }

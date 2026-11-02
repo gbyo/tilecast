@@ -35,6 +35,8 @@ The graph selects these contracts:
 | Edge installer or units | Rust and migration under systemd                                                       |
 | Server player protocol  | Server, Android, runtime and real-server Edge tests                                    |
 | Activity contract       | Player protocol contracts and activity parity                                          |
+| Release version corpus  | Server, Edge, Windows and the CI contract, which run the same corpus                   |
+| Release scripts         | CI workflow contracts, which run the release script tests                              |
 | Documentation           | Documentation checks                                                                   |
 
 Unknown shared packages select all areas. Workflow, dependency, and classifier changes also select all areas. Add a consumer rule and tests when you add a shared package.
@@ -58,6 +60,12 @@ Every Linux Player change runs its unit tests and TypeScript build. Pull request
 Changes to the Linux Player on `main` always run the packaged release contract. The reusable Linux workflow reports success only after fast validation and any selected package job pass. The aggregate PR check accepts a skipped package job when the path classifier did not select it.
 
 ## Local iteration
+
+Playback-plan and content-health integration tests use the shared per-package
+test database helper.
+They do not truncate tables in the database named by `TEST_DATABASE_URL`.
+The production workspace contract checks the Docker build stages for the
+workspace dependencies of Studio and Browser Player.
 
 Run `make dev` to start the local PostgreSQL service, the Go server with reload, and the Vite dashboard. Press Ctrl-C to stop them. See [development setup](development.md) for ports, database settings, and the FFmpeg requirement.
 
@@ -197,7 +205,7 @@ Pull request CI runs the `millionco/react-doctor@v2` action in `ci-dashboard.yml
 
 The checkout uses `fetch-depth: 0` so the action can find the merge base. The action sets `REACT_DOCTOR_NO_TELEMETRY` to stop crash reporting. The workflow pins the react-doctor `version` input to the version in `apps/dashboard/package.json`: change both together.
 
-The `dashboard_ci` job in `pr-validation.yml` grants `issues: write` and `pull-requests: write` for the comments, and keeps `checks: write` for test reporting. A called workflow cannot request more than its caller grants, so `server-release.yml` grants the same permissions to its `dashboard_ci` job.
+The `dashboard_ci` job in `pr-validation.yml` grants `issues: write` and `pull-requests: write` for the comments, and keeps `checks: write` for test reporting. A called workflow cannot request more than its caller grants, so `release.yml` grants the same permissions to its `dashboard_ci` job.
 
 ## Public documentation captures
 

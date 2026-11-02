@@ -1,0 +1,52 @@
+{
+  "apiVersion": 3,
+  "packageId": "example.hello-services",
+  "packageVersion": "1.0.0",
+  "name": "Hello Services",
+  "description": "Sample Package API v3 guest: a scheduled job that reads screens and writes one audit event.",
+  "publisher": {
+    "id": "example",
+    "name": "Example"
+  },
+  "repository": "https://github.com/gbyo/tilecast",
+  "license": "AGPL-3.0-only",
+  "tilecast": {
+    "version": ">=1.0.0 <2.0.0"
+  },
+  "distribution": {
+    "oci": "ghcr.io/example/tilecast-hello-services"
+  },
+  "contributions": [
+    {
+      "type": "dataSource",
+      "path": "./data-sources/census"
+    }
+  ],
+  "runtime": {
+    "module": "./runtime/hello_services.wasm"
+  },
+  "capabilities": {
+    "background": {
+      "jobs": [
+        {
+          "id": "report",
+          "intervalMinutes": 60
+        }
+      ]
+    },
+    "services": [
+      {
+        "id": "organization.read",
+        "version": 1
+      },
+      {
+        "id": "screens.read",
+        "version": 1
+      },
+      {
+        "id": "audit.write",
+        "version": 1
+      }
+    ]
+  }
+}

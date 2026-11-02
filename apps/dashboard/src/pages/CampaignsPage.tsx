@@ -71,6 +71,7 @@ import {
 import { Skeleton } from "../components/ui/skeleton";
 import { Textarea } from "../components/ui/textarea";
 import { toast } from "../components/ui/toast";
+import { hasCapability } from "../auth/capabilities";
 
 function nextHour() {
   const date = new Date(Date.now() + 60 * 60 * 1000);
@@ -153,9 +154,7 @@ function CampaignLibrary() {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  const canCreate = ["owner", "administrator", "editor"].includes(
-    auth.status?.user?.role ?? "viewer",
-  );
+  const canCreate = hasCapability(auth.status, "campaign.edit");
   const query = useInfiniteQuery({
     queryKey: ["campaigns"],
     initialPageParam: 1,
@@ -330,9 +329,8 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
   const auth = useAuth();
   const csrf = auth.status?.csrfToken ?? "";
   const navigate = useNavigate();
-  const role = auth.status?.user?.role ?? "viewer";
-  const canEdit = ["owner", "administrator", "editor"].includes(role);
-  const canPublish = ["owner", "administrator"].includes(role);
+  const canEdit = hasCapability(auth.status, "campaign.edit");
+  const canPublish = hasCapability(auth.status, "campaign.publish");
   const queryClient = useQueryClient();
   const campaignQuery = useQuery({
     queryKey: ["campaign", campaignId],
@@ -635,7 +633,9 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               <Button
                 type="button"
                 onClick={() => save.mutate()}
-                disabled={save.isPending}
+                // Saving and publishing both carry the draft revision, so one
+                // waits for the other.
+                disabled={save.isPending || publish.isPending}
               >
                 <Save size={16} aria-hidden="true" />{" "}
                 {t("campaigns.editor.saveDraft")}
@@ -645,7 +645,7 @@ function CampaignEditor({ campaignId }: { campaignId: string }) {
               <Button
                 type="button"
                 onClick={() => publish.mutate()}
-                disabled={publish.isPending}
+                disabled={publish.isPending || save.isPending}
               >
                 <Send size={16} aria-hidden="true" />{" "}
                 {t("campaigns.editor.submitPublish")}

@@ -649,7 +649,11 @@ export function EmergencyAlertsPage() {
           <CardFooter className="flex-wrap gap-2">
             <Button
               type="button"
-              disabled={!editable || saveMonitor.isPending}
+              // Saving before the stored settings load would submit component
+              // defaults and replace the saved monitor.
+              disabled={
+                !editable || !monitorInitialized || saveMonitor.isPending
+              }
               onClick={() => saveMonitor.mutate()}
             >
               {saveMonitor.isPending && (

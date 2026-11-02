@@ -67,7 +67,7 @@ import { DataSourceEditor } from "../content/data-sources/dispatcher";
 import { providerLabel, sourceIcon } from "../content/dataSourceProviderMeta";
 import { SourceStatus } from "../content/DataSourcePicker";
 import { UsedByPanel } from "../content/UsedByPanel";
-import { canManageContent } from "./ContentPage";
+import { hasCapability } from "../auth/capabilities";
 
 export function DataSourcesPage() {
   const { t } = useTranslation(["content", "common"]);
@@ -75,7 +75,7 @@ export function DataSourcesPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const csrf = auth.status?.csrfToken ?? "";
-  const canManage = canManageContent(auth.status?.user);
+  const canManage = hasCapability(auth.status, "datasource.edit");
   const [search, setSearch] = useState("");
   const [provider, setProvider] = useState("");
   const [sortAscending, setSortAscending] = useState(false);
@@ -128,7 +128,7 @@ export function DataSourcesPage() {
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateDataSource(id, csrf),
     onSuccess: (created) => {
-      toast.add({ title: "Data Source duplicated.", type: "success" });
+      toast.add({ title: t("dataSources.duplicated"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: ["data-sources"] });
       void navigate(`/data-sources/${created.id}`);
     },
@@ -378,6 +378,7 @@ export function DataSourcesPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common:actions.cancel")}</AlertDialogCancel>
             <AlertDialogAction
+              variant="destructive"
               disabled={remove.isPending}
               onClick={() => {
                 if (pendingDelete) {
@@ -409,11 +410,19 @@ function DataSourceMobileCard({
   const menuLabel = t("dataSources.list.rowActions", { name: source.name });
   const updatedLabel = formatDateTime(source.updatedAt, locale);
   return (
-    <article className="grid gap-3 rounded-xl border border-border p-3">
+    <ActionContextMenu
+      label={menuLabel}
+      title={source.name}
+      actions={actions}
+      render={
+        <article className="grid gap-3 rounded-xl border border-border p-3" />
+      }
+    >
       <div className="flex min-w-0 items-start gap-3">
         <div className="min-w-0 flex-1">
           <Link
             to={`/data-sources/${source.id}`}
+            title={source.name}
             className="block truncate font-medium underline-offset-4 hover:underline"
           >
             {source.name}
@@ -443,7 +452,7 @@ function DataSourceMobileCard({
       <p className="text-xs text-muted-foreground">
         {t("dataSources.list.columns.updated")}: {updatedLabel}
       </p>
-    </article>
+    </ActionContextMenu>
   );
 }
 
@@ -462,6 +471,7 @@ function DataSourceRow({
   return (
     <ActionContextMenu
       label={menuLabel}
+      title={source.name}
       actions={actions}
       render={<TableRow data-slot="data-source-row" />}
     >
@@ -614,12 +624,12 @@ export function DataSourceEditorPage() {
           provider={provider}
           dataSource={dataSource}
           csrf={csrf}
-          readOnly={!canManageContent(auth.status?.user)}
+          readOnly={!hasCapability(auth.status, "datasource.edit")}
           onClose={close}
           onSaved={saved}
           page
         />
-      ) : canManageContent(auth.status?.user) ? (
+      ) : hasCapability(auth.status, "datasource.edit") ? (
         <DataSourceCreateShell
           provider={provider}
           definition={definition}

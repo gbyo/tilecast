@@ -6,7 +6,7 @@
 //! retirement. The lifecycle mirrors the Edge daemon's, because the Runtime
 //! sees the same `tcmedia://cap/<opaque>` URIs on every native host.
 
-use player_core::VerifiedContentRef;
+use player_core::{VerifiedContentRef, VerifiedFrameRef};
 use player_types::Sha256Digest;
 use ring::rand::{SecureRandom as _, SystemRandom};
 use std::collections::{HashMap, HashSet};
@@ -30,6 +30,14 @@ impl MediaCapability {
         format!("tcmedia://cap/{}", self.0)
     }
 
+    /// The frame-document URI for a capability minted by
+    /// [`MediaRegistry::prepare_frames`]: `tcwidget://cap/<opaque>`. The
+    /// token authenticates identically; only the scheme tells the host to
+    /// confine the answer as a sandboxed frame.
+    pub fn frame_uri(&self) -> String {
+        format!("{}://{}/{}", player_types::frames::FRAME_SCHEME, player_types::frames::FRAME_CAPABILITY_HOST, self.0)
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -48,6 +56,24 @@ pub enum GenerationState {
     Draining,
 }
 
+/// What a grant authorizes reads for. Media and frame capabilities share
+/// one token space and lifecycle; the usage is pinned at mint time and a
+/// grant never serves the other scheme.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaGrantKind {
+    Media,
+    Frame,
+    PluginFrame,
+}
+
+#[derive(Debug)]
+pub struct PluginFrameUpdate {
+    pub grants: HashMap<Sha256Digest, MediaCapability>,
+    created: Vec<MediaCapability>,
+    session: uuid::Uuid,
+    generation: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MediaGrant {
     pub session: uuid::Uuid,
@@ -55,6 +81,7 @@ pub struct MediaGrant {
     pub sha256: Sha256Digest,
     pub size_bytes: u64,
     pub mime_type: String,
+    pub kind: MediaGrantKind,
     pub state: GenerationState,
     pub expires_at_ms: Option<i64>,
 }
@@ -116,6 +143,31 @@ impl MediaRegistry {
             self.grants.clear();
             self.renderer = Some(renderer);
         }
+    }
+
+    /// Reuse only active grants for this exact renderer and generation.
+    pub fn active_grants(
+        &self,
+        session: uuid::Uuid,
+        generation: u64,
+    ) -> Option<HashMap<Sha256Digest, MediaCapability>> {
+        if self.renderer.is_none_or(|renderer| renderer.session != session)
+            || self.generations.get(&generation)?.state != GenerationState::Active
+        {
+            return None;
+        }
+        Some(
+            self.grants
+                .iter()
+                .filter(|(_, grant)| {
+                    grant.session == session
+                        && grant.generation == generation
+                        && grant.kind == MediaGrantKind::Media
+                        && grant.state == GenerationState::Active
+                })
+                .map(|(token, grant)| (grant.sha256, token.clone()))
+                .collect(),
+        )
     }
 
     pub fn renderer(&self) -> Option<RendererInstance> {
@@ -183,6 +235,7 @@ impl MediaRegistry {
                     sha256: reference.sha256,
                     size_bytes: reference.size_bytes,
                     mime_type: reference.mime_type.as_str().to_owned(),
+                    kind: MediaGrantKind::Media,
                     state: GenerationState::Prepared,
                     expires_at_ms: Some(now_ms.saturating_add(PREPARED_LIFETIME_MS)),
                 },
@@ -198,6 +251,203 @@ impl MediaRegistry {
             },
         );
         Ok(minted)
+    }
+
+    /// Creates one opaque frame capability per distinct verified frame,
+    /// attached to the generation `prepare` opened. A digest claimed as
+    /// both media and a frame fails the activation rather than serving
+    /// either: the substitution maps are digest-keyed and must not guess.
+    pub fn prepare_frames(
+        &mut self,
+        session: uuid::Uuid,
+        generation: u64,
+        now_ms: i64,
+        frames: &[VerifiedFrameRef],
+    ) -> Result<HashMap<Sha256Digest, MediaCapability>, MediaError> {
+        if self.renderer.is_none_or(|renderer| renderer.session != session) {
+            return Err(MediaError::RendererChanged);
+        }
+        let Some(entry) = self.generations.get(&generation) else {
+            return Err(MediaError::NotPrepared);
+        };
+        if entry.state != GenerationState::Prepared {
+            return Err(MediaError::NotPrepared);
+        }
+        if frames.len() > MAX_GRANTS_PER_GENERATION {
+            return Err(MediaError::TooMany);
+        }
+        let mut unique = HashMap::new();
+        for reference in frames {
+            if let Some(previous) = unique.insert(reference.sha256, reference)
+                && (previous.size_bytes != reference.size_bytes || previous.kind != reference.kind)
+            {
+                return Err(MediaError::ConflictingContent);
+            }
+        }
+        for digest in unique.keys() {
+            let dual_claimed = self
+                .grants
+                .values()
+                .any(|grant| grant.session == session && grant.generation == generation && grant.sha256 == *digest);
+            if dual_claimed {
+                return Err(MediaError::ConflictingContent);
+            }
+        }
+        let random = SystemRandom::new();
+        let mut minted = HashMap::new();
+        let mut seen = HashSet::new();
+        for reference in unique.values() {
+            let token = loop {
+                let mut bytes = [0u8; TOKEN_BYTES];
+                random.fill(&mut bytes).map_err(|_| MediaError::Random)?;
+                let candidate = MediaCapability(bytes.iter().map(|byte| format!("{byte:02x}")).collect());
+                if !self.grants.contains_key(&candidate) && seen.insert(candidate.clone()) {
+                    break candidate;
+                }
+            };
+            minted.insert(reference.sha256, token.clone());
+            let entry = self.generations.get_mut(&generation).expect("generation prepared above");
+            entry.tokens.push(token.clone());
+            self.grants.insert(
+                token,
+                MediaGrant {
+                    session,
+                    generation,
+                    sha256: reference.sha256,
+                    size_bytes: reference.size_bytes,
+                    mime_type: "text/html".to_owned(),
+                    kind: if reference.kind.is_widget() { MediaGrantKind::Frame } else { MediaGrantKind::PluginFrame },
+                    state: GenerationState::Prepared,
+                    expires_at_ms: Some(now_ms.saturating_add(PREPARED_LIFETIME_MS)),
+                },
+            );
+        }
+        Ok(minted)
+    }
+
+    /// Stage only plugin-frame grants while retaining the presentation generation.
+    pub fn prepare_plugin_frames(
+        &mut self,
+        session: uuid::Uuid,
+        generation: u64,
+        now_ms: i64,
+        frames: &[VerifiedFrameRef],
+    ) -> Result<PluginFrameUpdate, MediaError> {
+        self.expire(now_ms);
+        if self.renderer.is_none_or(|renderer| renderer.session != session) {
+            return Err(MediaError::RendererChanged);
+        }
+        if self.generations.get(&generation).is_none_or(|entry| entry.state != GenerationState::Active) {
+            return Err(MediaError::NotPrepared);
+        }
+        if frames.len() > 32 {
+            return Err(MediaError::TooMany);
+        }
+        let mut unique = HashMap::new();
+        for frame in frames {
+            if frame.kind != player_types::frames::FrameKind::ExternalPlugin {
+                return Err(MediaError::ConflictingContent);
+            }
+            if unique
+                .insert(frame.sha256, frame)
+                .is_some_and(|old: &VerifiedFrameRef| old.size_bytes != frame.size_bytes)
+            {
+                return Err(MediaError::ConflictingContent);
+            }
+            if self.grants.values().any(|grant| {
+                grant.session == session
+                    && grant.generation == generation
+                    && grant.sha256 == frame.sha256
+                    && (grant.kind != MediaGrantKind::PluginFrame || grant.size_bytes != frame.size_bytes)
+            }) {
+                return Err(MediaError::ConflictingContent);
+            }
+        }
+        let mut update = PluginFrameUpdate { grants: HashMap::new(), created: Vec::new(), session, generation };
+        let mut additions = Vec::new();
+        let random = SystemRandom::new();
+        for frame in unique.values() {
+            if let Some((token, _)) = self.grants.iter().find(|(_, grant)| {
+                grant.session == session
+                    && grant.generation == generation
+                    && grant.kind == MediaGrantKind::PluginFrame
+                    && grant.sha256 == frame.sha256
+                    && grant.state == GenerationState::Active
+            }) {
+                update.grants.insert(frame.sha256, token.clone());
+                continue;
+            }
+            if self.generations[&generation].tokens.len() + additions.len() >= MAX_GRANTS_PER_GENERATION {
+                return Err(MediaError::TooMany);
+            }
+            let token = loop {
+                let mut bytes = [0; TOKEN_BYTES];
+                random.fill(&mut bytes).map_err(|_| MediaError::Random)?;
+                let token = MediaCapability(bytes.iter().map(|byte| format!("{byte:02x}")).collect());
+                if !self.grants.contains_key(&token) && !update.created.contains(&token) {
+                    break token;
+                }
+            };
+            update.grants.insert(frame.sha256, token.clone());
+            update.created.push(token.clone());
+            additions.push((
+                token,
+                MediaGrant {
+                    session,
+                    generation,
+                    sha256: frame.sha256,
+                    size_bytes: frame.size_bytes,
+                    mime_type: "text/html".into(),
+                    kind: MediaGrantKind::PluginFrame,
+                    state: GenerationState::Prepared,
+                    expires_at_ms: Some(now_ms.saturating_add(PREPARED_LIFETIME_MS)),
+                },
+            ));
+        }
+        self.generations
+            .get_mut(&generation)
+            .expect("checked generation")
+            .tokens
+            .extend(update.created.iter().cloned());
+        self.grants.extend(additions);
+        Ok(update)
+    }
+
+    /// Delivery commits only this snapshot. Failure leaves all prior grants active.
+    pub fn finish_plugin_frames(
+        &mut self,
+        update: PluginFrameUpdate,
+        delivered: bool,
+        now_ms: i64,
+    ) -> Result<(), MediaError> {
+        let live = self.renderer.is_some_and(|renderer| renderer.session == update.session)
+            && self.generations.get(&update.generation).is_some_and(|entry| entry.state == GenerationState::Active);
+        if !delivered || !live {
+            for token in &update.created {
+                self.grants.remove(token);
+            }
+            if let Some(entry) = self.generations.get_mut(&update.generation) {
+                entry.tokens.retain(|token| !update.created.contains(token));
+            }
+            return if live { Ok(()) } else { Err(MediaError::RendererChanged) };
+        }
+        let retained: HashSet<_> = update.grants.values().collect();
+        for (token, grant) in &mut self.grants {
+            if grant.session != update.session
+                || grant.generation != update.generation
+                || grant.kind != MediaGrantKind::PluginFrame
+            {
+                continue;
+            }
+            if retained.contains(token) {
+                grant.state = GenerationState::Active;
+                grant.expires_at_ms = None;
+            } else if grant.state == GenerationState::Active {
+                grant.state = GenerationState::Draining;
+                grant.expires_at_ms = Some(now_ms.saturating_add(DRAIN_LIFETIME_MS));
+            }
+        }
+        Ok(())
     }
 
     /// Registers an activation's projection media map for its prepared
@@ -302,18 +552,35 @@ impl MediaRegistry {
         for generation in expired {
             self.retire(generation);
         }
+        self.grants.retain(|_, grant| grant.expires_at_ms.is_none_or(|expires| now_ms < expires));
+        for entry in self.generations.values_mut() {
+            entry.tokens.retain(|token| self.grants.contains_key(token));
+        }
     }
 
     /// Unknown or malformed tokens get the same answer. A digest, even when
-    /// known to the player, can never be used as a read grant.
+    /// known to the player, can never be used as a read grant. A frame
+    /// capability never resolves here; the usage pinned at mint time
+    /// decides which scheme serves a grant.
     pub fn resolve(&self, session: uuid::Uuid, token: &str, now_ms: i64) -> Option<&MediaGrant> {
+        self.resolve_kind(session, token, now_ms, MediaGrantKind::Media)
+    }
+
+    /// Resolves a frame capability for the widget scheme. Media
+    /// capabilities never resolve here.
+    pub fn resolve_frame(&self, session: uuid::Uuid, token: &str, now_ms: i64) -> Option<&MediaGrant> {
+        self.resolve_kind(session, token, now_ms, MediaGrantKind::Frame)
+            .or_else(|| self.resolve_kind(session, token, now_ms, MediaGrantKind::PluginFrame))
+    }
+
+    fn resolve_kind(&self, session: uuid::Uuid, token: &str, now_ms: i64, kind: MediaGrantKind) -> Option<&MediaGrant> {
         if self.renderer.is_none_or(|renderer| renderer.session != session) {
             return None;
         }
         let token = MediaCapability::parse(token)?;
-        self.grants
-            .get(&token)
-            .filter(|grant| grant.session == session && grant.expires_at_ms.is_none_or(|expires| now_ms < expires))
+        self.grants.get(&token).filter(|grant| {
+            grant.session == session && grant.kind == kind && grant.expires_at_ms.is_none_or(|expires| now_ms < expires)
+        })
     }
 
     /// Resolves a plugin media load (`tcmedia://variant/…`) through the
@@ -337,6 +604,7 @@ impl MediaRegistry {
             let live = self.grants.values().find(|grant| {
                 grant.session == session
                     && grant.generation == *generation
+                    && grant.kind == MediaGrantKind::Media
                     && grant.sha256 == *digest
                     && grant.expires_at_ms.is_none_or(|expires| now_ms < expires)
             });
@@ -358,6 +626,17 @@ mod tests {
             sha256: Sha256Digest::of(object),
             size_bytes: object.len() as u64,
             mime_type: SafeText::new("image/png").expect("test fixture"),
+            stream: None,
+        }
+    }
+
+    fn frame(document: &[u8]) -> VerifiedFrameRef {
+        VerifiedFrameRef {
+            kind: player_types::frames::FrameKind::Widget,
+            package_id: SafeText::new("acme.athletics").expect("test fixture"),
+            package_digest: Sha256Digest::of(b"package"),
+            sha256: Sha256Digest::of(document),
+            size_bytes: document.len() as u64,
         }
     }
 
@@ -406,6 +685,100 @@ mod tests {
         let pending = second.values().next().expect("test fixture").as_str().to_owned();
         assert!(registry.resolve(session, &pending, PREPARED_LIFETIME_MS - 1).is_some());
         assert!(registry.resolve(session, &pending, PREPARED_LIFETIME_MS + 1).is_none());
+    }
+
+    #[test]
+    fn plugin_frame_refresh_retains_presentation_grants_and_commits_only_after_delivery() {
+        let (mut registry, session) = bound();
+        let video = content(b"video");
+        let media = registry.prepare(session, 7, 0, std::slice::from_ref(&video)).expect("prepare media");
+        let widget = frame(b"widget");
+        let widgets = registry.prepare_frames(session, 7, 0, std::slice::from_ref(&widget)).expect("prepare Widget");
+        registry.activate(session, 7, 100).expect("activate");
+        let mut plugin = frame(b"plugin");
+        plugin.kind = player_types::frames::FrameKind::ExternalPlugin;
+        let update =
+            registry.prepare_plugin_frames(session, 7, 200, std::slice::from_ref(&plugin)).expect("stage plugin");
+        let token = update.grants[&plugin.sha256].clone();
+        registry.finish_plugin_frames(update, true, 200).expect("commit plugin");
+        let repeated = registry
+            .prepare_plugin_frames(session, 7, 300, std::slice::from_ref(&plugin))
+            .expect("stage unchanged plugin");
+        assert_eq!(repeated.grants[&plugin.sha256], token);
+        registry.finish_plugin_frames(repeated, true, 300).expect("commit unchanged plugin");
+        let mut replacement = frame(b"replacement");
+        replacement.kind = player_types::frames::FrameKind::ExternalPlugin;
+        let refused = registry.prepare_plugin_frames(session, 7, 400, &[replacement]).expect("stage replacement");
+        let refused_token = refused.grants.values().next().expect("replacement token").clone();
+        registry.finish_plugin_frames(refused, false, 400).expect("abort replacement");
+        assert!(registry.resolve_frame(session, refused_token.as_str(), 500).is_none());
+        assert_eq!(
+            registry.resolve_frame(session, token.as_str(), 500).expect("retained plugin").state,
+            GenerationState::Active
+        );
+        let removal = registry.prepare_plugin_frames(session, 7, 600, &[]).expect("stage removal");
+        registry.finish_plugin_frames(removal, true, 600).expect("commit removal");
+        assert_eq!(
+            registry.resolve_frame(session, token.as_str(), 700).expect("draining plugin").state,
+            GenerationState::Draining
+        );
+        registry.expire(600 + DRAIN_LIFETIME_MS);
+        assert!(registry.resolve_frame(session, token.as_str(), 600 + DRAIN_LIFETIME_MS).is_none());
+        assert_eq!(registry.active_grants(session, 7).expect("same presentation"), media);
+        assert_eq!(
+            registry.resolve_frame(session, widgets[&widget.sha256].as_str(), 40_000).expect("retained Widget").state,
+            GenerationState::Active
+        );
+    }
+
+    #[test]
+    fn frame_grants_resolve_only_as_frames_and_share_the_lifecycle() {
+        let (mut registry, session) = bound();
+        registry.prepare(session, 1, 0, &[content(b"a")]).expect("prepare");
+        let minted = registry.prepare_frames(session, 1, 0, &[frame(b"frame")]).expect("prepare frames");
+        let token = minted.values().next().expect("test fixture").as_str().to_owned();
+        // Usage is pinned at mint time: a frame capability never
+        // resolves as media, and a media capability never as a frame.
+        assert!(registry.resolve(session, &token, 1_000).is_none());
+        let media = registry.prepare(session, 2, 0, &[content(b"b")]).expect("prepare");
+        let media_token = media.values().next().expect("test fixture").as_str().to_owned();
+        assert!(registry.resolve_frame(session, &media_token, 1_000).is_none());
+        let grant = registry.resolve_frame(session, &token, 1_000).expect("resolves as frame");
+        assert_eq!(grant.kind, MediaGrantKind::Frame);
+        assert_eq!(grant.mime_type, "text/html");
+        assert_eq!(grant.generation, 1);
+        // Frames drain and retire with their generation.
+        registry.activate(session, 1, 1_000).expect("activate");
+        registry.activate(session, 2, 2_000).expect("activate");
+        assert!(registry.resolve_frame(session, &token, 3_000).is_some());
+        assert!(registry.resolve_frame(session, &token, 2_000 + DRAIN_LIFETIME_MS + 1).is_none());
+    }
+
+    #[test]
+    fn dual_claimed_digests_and_unprepared_frames_fail() {
+        let (mut registry, session) = bound();
+        // A digest claimed as both media and a frame fails the
+        // activation rather than serving either.
+        registry.prepare(session, 1, 0, &[content(b"same")]).expect("prepare");
+        assert_eq!(registry.prepare_frames(session, 1, 0, &[frame(b"same")]), Err(MediaError::ConflictingContent));
+        // Frames attach to the generation `prepare` opened: no
+        // generation, a live generation, or the wrong session fails.
+        assert_eq!(registry.prepare_frames(session, 9, 0, &[frame(b"frame")]), Err(MediaError::NotPrepared));
+        registry.activate(session, 1, 1_000).expect("activate");
+        assert_eq!(registry.prepare_frames(session, 1, 2_000, &[frame(b"frame")]), Err(MediaError::NotPrepared));
+        assert_eq!(
+            registry.prepare_frames(uuid::Uuid::new_v4(), 1, 2_000, &[frame(b"frame")]),
+            Err(MediaError::RendererChanged)
+        );
+        // Same digest, two sizes is a conflict like media.
+        let (mut registry, session) = bound();
+        registry.prepare(session, 1, 0, &[content(b"a")]).expect("prepare");
+        let mut second = frame(b"frame");
+        second.size_bytes += 1;
+        assert_eq!(
+            registry.prepare_frames(session, 1, 0, &[frame(b"frame"), second]),
+            Err(MediaError::ConflictingContent)
+        );
     }
 
     #[test]

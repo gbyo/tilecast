@@ -8,7 +8,8 @@
 
 ## Reliability and power
 
-- **Zero-Touch Readiness says Needs setup or Partially ready:** inspect every safeguard on the screen’s Reliability tab. Accessibility and install permission require local Android approval. Boot launch is confirmed only after a real boot and healthy foreground return. Cached fallback requires fully prepared downloadable content. Use **Run setup again** in the local maintenance menu without deleting pairing.
+- **Zero-Touch Readiness says Needs setup or Partially ready:** inspect every safeguard on the screen’s Reliability tab. Accessibility and install permission require local Android approval. Open them from the local maintenance menu. Boot launch is confirmed only after a healthy foreground return. Cached fallback requires fully prepared downloadable content. Playback continues while a safeguard is missing.
+- **Android TV shows Connect to Tilecast Server and Searching this network…:** multicast discovery did not find a server. The Player continues to search. Select **Enter server address** and type the Studio address. A bare private address such as `192.168.1.50:8080` uses HTTP.
 - **A canary update paused:** review the safe rollout reason. Tilecast pauses for explicit failure, safe mode, or a missed reconnect; it does not continue to held screens automatically after a bad canary.
 
 - **Managed Kiosk remains Standard:** the policy is requested but Android has not confirmed device-owner permission and active lock task. Provision locally on compatible firmware.
@@ -23,7 +24,7 @@
 - **Code expired:** request a new code on the TV; pairing sessions last ten minutes.
 - **Identity changed:** confirm the address points to the intended installation, then reset the saved connection. Tilecast will not send the old credential to a different installation ID.
 - **Screen is disabled:** enable it in Screens. Pairing remains intact.
-- **Pairing revoked:** choose Pair again on the TV and approve a new request.
+- **Pairing revoked:** the Player automatically shows a new pairing code for the same server. Approve the new request in Studio.
 - **Pairing recovery required:** the player installation matches an existing screen with an active credential. Review the existing screen name and select **Repair and replace credential**. The old credential remains valid until this player successfully enrolls, and all content relationships stay on the original screen record.
 - **Unsupported request field:** update Studio and Player together. Strict JSON errors now name the mismatched field; pairing and enrollment request bodies are never written to logs.
 - **Tunnel connection fails:** enter the public HTTPS hostname manually and verify the Tunnel routes to `http://server:8080`.

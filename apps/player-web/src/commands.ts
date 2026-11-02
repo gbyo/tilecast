@@ -1,5 +1,9 @@
 import { PlayerAPIError, type PlayerAPI } from "./api";
 import { browserSupportsCommand, BROWSER_COMMANDS } from "./capabilities.gen";
+import type {
+  CapabilityProviderRegistry,
+  TypedCapabilityResult,
+} from "./capability-providers";
 import { completed, result as requestResult } from "./storage/database";
 
 /**
@@ -100,11 +104,15 @@ export const commandResult = (
   message: cap(message, 240),
 });
 
+const providerOutcome = (routed: TypedCapabilityResult): CommandResult =>
+  commandResult(routed.success, routed.code, routed.message ?? "");
+
 export class CommandRunner {
   constructor(
     private readonly api: PlayerAPI,
     private readonly store: CommandStore,
     private readonly handlers: ReadonlyMap<string, CommandHandler>,
+    private readonly capabilities?: CapabilityProviderRegistry,
   ) {}
 
   /** Fetches and handles every pending command, in the order the server lists them. */
@@ -159,6 +167,21 @@ export class CommandRunner {
       commandId: command.id,
       type: command.type,
     };
+    if (!handler && this.capabilities) {
+      // A provider-backed command (for example a Companion display
+      // operation) runs through the registry, with the same
+      // store-before-report durability as a static handler.
+      const routed = await this.capabilities.invokeCommand(
+        command.type,
+        command.payload,
+      );
+      if (routed !== undefined) {
+        const outcome = providerOutcome(routed);
+        await this.store.put({ ...base, status: "done", result: outcome });
+        await this.report(command, outcome);
+        return;
+      }
+    }
     if (!handler) {
       const unsupported = commandResult(
         false,

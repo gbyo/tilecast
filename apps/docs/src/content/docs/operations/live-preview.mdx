@@ -39,7 +39,9 @@ Watch live is separate from the periodic preview. The stream runs only while the
 
 If the stream connection ends, select **Retry stream** in the window to reconnect to the current session.
 
-Frame rate and update speed depend on the Player and network.
+Frame rate and update speed depend on the Player and network. The baseline Watch live profile is up to 640 × 360 at 8 frames per second. Updated Edge Players request up to 960 × 540 at 10 frames per second. Each JPEG frame is capped at 100 KiB, and a slow connection drops intermediate frames instead of building a backlog.
+
+Those are ceilings, not guaranteed rates. Capture time, JPEG encoding, Player load, and network latency can reduce the actual frame rate. At the hard frame-size ceiling, 8 FPS is about 6.4 Mbit/s before transport overhead; real signage frames are usually smaller. Close Watch live when you are finished so the Player stops doing the higher-rate capture work.
 
 ## When preview is unavailable
 

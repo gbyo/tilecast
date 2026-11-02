@@ -4,6 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "../components/ui/toast";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthProvider";
 import { EnrollmentWizard, LoadingButton } from "./EnrollmentWizard";
@@ -199,6 +200,47 @@ describe("the guided first sign-in", () => {
     expect(await screen.findByText("Step 1 of 2")).toBeTruthy();
     expect(screen.queryByText("Passkey")).toBeNull();
   });
+
+  it("says so when the browser cannot copy the recovery codes", async () => {
+    stubServer();
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: undefined,
+    });
+    const feedback = vi.spyOn(toast, "add");
+    try {
+      renderWizard();
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Get started" }),
+      );
+      await userEvent.type(
+        await screen.findByLabelText("Six-digit code"),
+        "123456",
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: "Confirm and continue" }),
+      );
+      await userEvent.type(
+        await screen.findByLabelText(/Confirm your password/),
+        "a long password",
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: "Generate codes" }),
+      );
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Copy all" }),
+      );
+      expect(feedback).toHaveBeenCalledWith({
+        title:
+          "This browser cannot copy to the clipboard. Write the codes down instead.",
+        type: "error",
+      });
+    } finally {
+      if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  }, 15_000);
 
   it("starts at the step the account still owes", async () => {
     stubServer({ totpEnrolled: true });

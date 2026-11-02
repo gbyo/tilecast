@@ -73,6 +73,19 @@ export function PersonalAccessTokensBlock() {
     },
   });
 
+  // Scopes arrive from the API as tokens; they are shown with their labels.
+  const scopeLabel = (scope: string) => {
+    switch (scope) {
+      case "read":
+        return t("pat.scope.read");
+      case "write":
+        return t("pat.scope.write");
+      case "admin":
+        return t("pat.scope.admin");
+      default:
+        return scope;
+    }
+  };
   const toggleScope = (scope: "read" | "write" | "admin") =>
     setScopes((current) =>
       current.includes(scope)
@@ -255,7 +268,7 @@ export function PersonalAccessTokensBlock() {
                       : ""}
                 </ItemTitle>
                 <ItemDescription>
-                  {pat.scopes.join(" · ")} ·{" "}
+                  {pat.scopes.map(scopeLabel).join(" · ")} ·{" "}
                   {t("pat.createdOn", { date: formatDate(pat.createdAt) })} ·{" "}
                   {expiryLabel(pat.expiresAt)}
                   {pat.lastUsedAt

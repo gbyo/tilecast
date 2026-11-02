@@ -9,6 +9,14 @@ Status: accepted. The foundation is implemented and the built-in plugins
 have moved to the new structure; see [Migration status](#migration-status).
 This document describes the frozen Plugin API v1 contract.
 
+[Plugin API v2](plugin-api-v2.md) is supported beside v1. It describes a
+plugin by independent Server, Studio, and Player contributions, and Player
+behavior by versioned services. A surface is one of those services. The
+bundled plugins stay on v1. The Server contract, Studio host, migrations,
+OpenAPI, documentation, and conformance sections below apply to both
+versions. The `runtime` member, `capabilities.playerManifest`, and the
+[Player runtime](#player-runtime) section apply to v1 only.
+
 ## Context
 
 Before Plugin API v1, the then-current built-in plugins had one shared installation
@@ -337,11 +345,15 @@ endpoints: the Emergency Alerts Check Now poll declares it.
 
 | Access          | Check before the handler                                                 |
 | --------------- | ------------------------------------------------------------------------ |
-| `AccessViewer`  | Enrolled dashboard session. `GET` and `HEAD` only.                       |
-| `AccessManager` | Owner or Administrator, and the session CSRF token.                      |
+| `AccessViewer`  | Enrolled dashboard session with `plugins.use`. `GET` and `HEAD` only.    |
+| `AccessManager` | The `plugins.manage` capability, and the session CSRF token.             |
 | `AccessSession` | Enrolled session. The CSRF token on unsafe methods. The handler decides. |
 
-The handler gets the user from `plugin.PrincipalFrom`. It returns an error for
+The handler gets the user from `plugin.PrincipalFrom`. The principal holds the
+role key and the effective core capabilities. Use `Principal.Can("<capability>")`
+to decide permission. Do not compare `Principal.Role` to a role name, because an
+installation may define custom roles with keys that start with `custom.`. Only
+the key `owner` has a meaning of its own. See [access-control.md](access-control.md). It returns an error for
 the host to write: `plugin.ErrNotFound` gives `404 plugin_instance_not_found`,
 `plugin.ErrInvalid` gives `400 invalid_plugin_configuration`,
 `plugin.ErrNotInstalled` gives `409 plugin_not_installed`, and a
@@ -731,17 +743,17 @@ Plugin API v1 does not load third-party code. The contract keeps a path open:
 
 ## Migration status
 
-| Milestone | Scope                                                                             | Status  |
-| --------- | --------------------------------------------------------------------------------- | ------- |
-| 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI                  | Done    |
-| 2         | Countdown Bar in `plugins/countdown-bar/`                                         | Done    |
-| 3         | Generic runtime surface host                                                      | Done    |
-| 4         | Retire Brand Bug and Noise Meter with compatibility shims                         | Done    |
-| 5         | Emergency Alerts                                                                  | Done    |
-| 6         | Forms                                                                             | Done    |
-| 7         | Remove the remaining special cases; freeze the v1 contract                        | Done    |
-| 8         | Multi-zone authoring shipped under its Layout contract                            | Done    |
-| 9         | Proof of play shipped under its Activity contract                                 | Done    |
+| Milestone | Scope                                                            | Status |
+| --------- | ---------------------------------------------------------------- | ------ |
+| 1         | Layout, manifest, SDKs, host, discovery, tooling, CODEOWNERS, CI | Done   |
+| 2         | Countdown Bar in `plugins/countdown-bar/`                        | Done   |
+| 3         | Generic runtime surface host                                     | Done   |
+| 4         | Retire Brand Bug and Noise Meter with compatibility shims        | Done   |
+| 5         | Emergency Alerts                                                 | Done   |
+| 6         | Forms                                                            | Done   |
+| 7         | Remove the remaining special cases; freeze the v1 contract       | Done   |
+| 8         | Multi-zone authoring shipped under its Layout contract           | Done   |
+| 9         | Proof of play shipped under its Activity contract                | Done   |
 
 Countdown Bar has moved completely, including its Player renderer. Brand Bug
 and Noise Meter are retired: their old installation rows and data remain, but

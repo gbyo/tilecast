@@ -150,6 +150,44 @@ parse_content (JsonObject *data, const char *member, gboolean *ok)
   return refs;
 }
 
+/* Parses a frame list, rejecting any entry that is not a widget
+ * capability URI with a non-negative size. */
+static GPtrArray *
+parse_frames (JsonObject *data, const char *member, gboolean *ok)
+{
+  GPtrArray *refs = g_ptr_array_new_with_free_func (tc_content_ref_free);
+  *ok = TRUE;
+  if (!json_object_has_member (data, member))
+    return refs;
+  if (!tc_frame_refs_valid (json_object_get_member (data, member), g_strcmp0 (member, "pluginFrames") == 0)) {
+    *ok = FALSE;
+    return refs;
+  }
+  JsonArray *array = json_object_get_array_member (data, member);
+  if (array == NULL || json_array_get_length (array) > TC_MAX_CONTENT_REFS) {
+    *ok = FALSE;
+    return refs;
+  }
+  for (guint i = 0; i < json_array_get_length (array); i++) {
+    JsonObject *entry = json_array_get_object_element (array, i);
+    const char *uri = entry ? json_object_get_string_member_with_default (entry, "uri", NULL) : NULL;
+    gint64 size = entry ? json_object_get_int_member_with_default (entry, "sizeBytes", -1) : -1;
+    const char *kind = entry ? json_object_get_string_member_with_default (entry, "kind", "widget") : "";
+    if (!tc_is_widget_capability_uri (uri) || size <= 0 || size > 1114112
+        || (g_strcmp0 (kind, "widget") != 0 && g_strcmp0 (kind, "external_plugin") != 0)) {
+      *ok = FALSE;
+      return refs;
+    }
+    TcContentRef *ref = g_new0 (TcContentRef, 1);
+    g_strlcpy (ref->uri, uri, sizeof ref->uri);
+    ref->size_bytes = (guint64) size;
+    ref->mime_type = g_strdup ("text/html");
+    ref->external_plugin = g_strcmp0 (kind, "external_plugin") == 0;
+    g_ptr_array_add (refs, ref);
+  }
+  return refs;
+}
+
 static void
 rebuild_allowed_content (TcHost *host, GPtrArray *activation_content)
 {
@@ -200,11 +238,22 @@ handle_activate (TcHost *host, JsonObject *data, JsonNode *data_node)
   gint64 generation = json_object_get_int_member_with_default (data, "generation", -1);
   gboolean ok = FALSE;
   g_autoptr (GPtrArray) content = parse_content (data, "content", &ok);
-  if (activation_id == NULL || generation < 0 || !ok || !json_object_has_member (data, "presentation")) {
+  gboolean frames_ok = FALSE;
+  g_autoptr (GPtrArray) frames = parse_frames (data, "frames", &frames_ok);
+  if (activation_id == NULL || generation < 0 || !ok || !frames_ok
+      || !json_object_has_member (data, "presentation")) {
     g_warning ("protocol: ignoring malformed presentation.activate");
     return;
   }
   rebuild_allowed_content (host, content);
+  g_ptr_array_set_size (host->frames, 0);
+  for (guint i = 0; i < frames->len; i++) {
+    TcContentRef *source = g_ptr_array_index (frames, i);
+    TcContentRef *copy = g_new0 (TcContentRef, 1);
+    *copy = *source;
+    copy->mime_type = g_strdup (source->mime_type);
+    g_ptr_array_add (host->frames, copy);
+  }
   g_free (host->current_activation_id);
   host->current_activation_id = g_strdup (activation_id);
   host->current_generation = generation;
@@ -258,6 +307,12 @@ parse_aliases (JsonObject *data, GPtrArray *content, gboolean *ok)
 static void
 handle_plugins (TcHost *host, JsonObject *data, JsonNode *data_node)
 {
+  gboolean frames_ok = FALSE;
+  g_autoptr (GPtrArray) frames = parse_frames (data, "pluginFrames", &frames_ok);
+  if (!frames_ok || frames->len > 32) return;
+  for (guint i = 0; i < frames->len; i++) {
+    if (!((TcContentRef *) g_ptr_array_index (frames, i))->external_plugin) return;
+  }
   gboolean ok = FALSE;
   GPtrArray *content = parse_content (data, "content", &ok);
   gboolean aliases_ok = FALSE;
@@ -273,6 +328,8 @@ handle_plugins (TcHost *host, JsonObject *data, JsonNode *data_node)
   host->media_aliases = aliases;
   g_ptr_array_unref (host->plugin_content);
   host->plugin_content = content;
+  g_ptr_array_unref (host->plugin_frames);
+  host->plugin_frames = g_steal_pointer (&frames);
   /* Keep the activation's own content allowed alongside the new plugins. */
   g_autoptr (GPtrArray) activation = g_ptr_array_new_with_free_func (tc_content_ref_free);
   if (host->current_activation_json != NULL) {

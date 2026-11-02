@@ -1,10 +1,10 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -12,28 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/media"
 )
 
 var managedUsernamePattern = regexp.MustCompile(`^[a-zA-Z0-9._@+-]{3,254}$`)
-
-// sortedManagedRoles keeps the validation message in step with the set, so a
-// new role cannot be accepted while the error still lists the old ones.
-func sortedManagedRoles() []string {
-	out := make([]string, 0, len(managedRoles))
-	for role := range managedRoles {
-		out = append(out, role)
-	}
-	sort.Strings(out)
-	return out
-}
-
-var managedRoles = map[string]bool{
-	"owner":         true,
-	"administrator": true,
-	"editor":        true,
-	"contributor":   true,
-	"viewer":        true,
-}
 
 type managedUserInput struct {
 	Name     string `json:"name"`
@@ -41,6 +23,40 @@ type managedUserInput struct {
 	Password string `json:"password"`
 	Role     string `json:"role"`
 	Active   *bool  `json:"active,omitempty"`
+	// ContentAccess sets the new account's Media library policy. It is
+	// accepted on creation only; later changes use the content-access
+	// endpoint. When omitted, the account receives the creator's own modes
+	// with no grants: the whole library from an unrestricted creator, and
+	// nothing from a restricted one.
+	ContentAccess *media.ContentAccessInput `json:"contentAccess,omitempty"`
+}
+
+// canManageAccount reports whether principal may manage an account that holds
+// role, or place an account on it. It needs users.manage, and the role must be
+// one the principal may delegate: the Owner may manage anyone, nobody else
+// may manage the protected Owner and Administrator identities, and a role is
+// otherwise manageable only when it grants nothing the principal could not
+// grant themselves.
+func (s *server) canManageAccount(ctx context.Context, principal auth.Principal, role string) (bool, error) {
+	if !principal.Can(auth.CapUsersManage) {
+		return false, nil
+	}
+	capabilities, err := s.auth.ResolveCapabilities(ctx, role)
+	if err != nil {
+		return false, err
+	}
+	return principal.Delegator().CanAssignRole(role, capabilities), nil
+}
+
+// roleExists reports whether key names a role.
+func (s *server) roleExists(ctx context.Context, key string) (bool, error) {
+	if _, err := s.auth.GetRole(ctx, key); err != nil {
+		if errors.Is(err, auth.ErrRoleNotFound) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
@@ -62,9 +78,28 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actor := principal.User
-	if !canManageRole(actor.Role, body.Role) {
-		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may create Owner or Administrator accounts.")
+	if exists, err := s.roleExists(r.Context(), body.Role); err != nil {
+		s.internalError(w, r, err)
 		return
+	} else if !exists {
+		writeError(w, http.StatusUnprocessableEntity, "validation_failed", "role must be an existing role")
+		return
+	}
+	if allowed, err := s.canManageAccount(r.Context(), principal, body.Role); err != nil {
+		s.internalError(w, r, err)
+		return
+	} else if !allowed {
+		writeError(w, http.StatusForbidden, "insufficient_role", "You cannot assign that role. Only an Owner may assign the Owner or Administrator role or a role with more authority than your own.")
+		return
+	}
+	actorAccess, err := s.contentAccess(r)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	contentAccess := media.ContentAccessInput{LibraryMode: modeName(actorAccess.LibraryAll), TagMode: modeName(actorAccess.TagsAll)}
+	if body.ContentAccess != nil {
+		contentAccess = *body.ContentAccess
 	}
 	passwordHash, err := auth.HashPassword(body.Password)
 	if err != nil {
@@ -103,6 +138,12 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		s.internalError(w, r, err)
+		return
+	}
+	// Every account is created with an explicit content policy in the same
+	// transaction, so no account ever exists in the "no policy" state.
+	if err := media.ReplaceContentAccessTx(r.Context(), tx, actor.ID, actorAccess, user.ID, contentAccess); err != nil {
+		s.writeContentAccessError(w, r, err)
 		return
 	}
 	if err := tx.Commit(r.Context()); err != nil {
@@ -144,8 +185,18 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if !canManageRole(actor.Role, target.Role) || !canManageRole(actor.Role, body.Role) {
-		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may manage Owner or Administrator accounts.")
+	if exists, err := s.roleExists(r.Context(), body.Role); err != nil {
+		s.internalError(w, r, err)
+		return
+	} else if !exists {
+		writeError(w, http.StatusUnprocessableEntity, "validation_failed", "role must be an existing role")
+		return
+	}
+	if actor.ID == target.ID && body.Role != target.Role && !principal.IsOwner() {
+		writeError(w, http.StatusForbidden, "cannot_change_own_role", "You cannot change your own role.")
+		return
+	}
+	if !s.canManageBoth(w, r, principal, target.Role, body.Role) {
 		return
 	}
 	active := target.Active
@@ -155,17 +206,6 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 	if actor.ID == target.ID && !active {
 		writeError(w, http.StatusConflict, "cannot_deactivate_self", "You cannot deactivate your own account.")
 		return
-	}
-	if target.Role == "owner" && (body.Role != "owner" || !active) {
-		var owners int
-		if err := s.db.QueryRow(r.Context(), `SELECT count(*) FROM users WHERE role='owner' AND active=TRUE`).Scan(&owners); err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-		if owners <= 1 {
-			writeError(w, http.StatusConflict, "last_owner_required", "Tilecast must keep at least one active Owner account.")
-			return
-		}
 	}
 	var passwordHash *string
 	var passwordValue any
@@ -184,6 +224,19 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context()) //nolint:errcheck
+	if err := lockActiveOwnerInvariant(r.Context(), tx); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	lastOwner, err := removesLastActiveOwner(r.Context(), tx, id, body.Role != auth.RoleOwner || !active)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if lastOwner {
+		writeError(w, http.StatusConflict, "last_owner_required", "Tilecast must keep at least one active Owner account.")
+		return
+	}
 	var updated auth.User
 	err = tx.QueryRow(r.Context(), `
 		UPDATE users SET
@@ -226,6 +279,34 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"data": updated})
 }
 
+// lockActiveOwnerInvariant serializes every write that can remove an active
+// Owner. Without it, two requests can each count another Owner before either
+// commits, and both can commit.
+func lockActiveOwnerInvariant(ctx context.Context, tx pgx.Tx) error {
+	_, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('tilecast.users.active-owner'))`)
+	return err
+}
+
+// removesLastActiveOwner reports whether the write would leave no active Owner.
+// The check reads the current row inside the locked transaction, so it does not
+// depend on any state read before the transaction began.
+func removesLastActiveOwner(ctx context.Context, tx pgx.Tx, id uuid.UUID, removesAccess bool) (bool, error) {
+	if !removesAccess {
+		return false, nil
+	}
+	var targetIsOwner, otherOwnerExists bool
+	err := tx.QueryRow(ctx, `
+		SELECT
+			EXISTS(SELECT 1 FROM users WHERE id=$1 AND role='owner' AND active=TRUE),
+			EXISTS(SELECT 1 FROM users WHERE id<>$1 AND role='owner' AND active=TRUE)`,
+		id,
+	).Scan(&targetIsOwner, &otherOwnerExists)
+	if err != nil {
+		return false, err
+	}
+	return targetIsOwner && !otherOwnerExists, nil
+}
+
 func (s *server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	id, ok := urlUUID(w, r, "id")
 	if !ok {
@@ -250,20 +331,8 @@ func (s *server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if !canManageRole(actor.Role, target.Role) {
-		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may manage Owner or Administrator accounts.")
+	if !s.canManageBoth(w, r, principal, target.Role, target.Role) {
 		return
-	}
-	if target.Role == "owner" && target.Active {
-		var owners int
-		if err := s.db.QueryRow(r.Context(), `SELECT count(*) FROM users WHERE role='owner' AND active=TRUE`).Scan(&owners); err != nil {
-			s.internalError(w, r, err)
-			return
-		}
-		if owners <= 1 {
-			writeError(w, http.StatusConflict, "last_owner_required", "Tilecast must keep at least one active Owner account.")
-			return
-		}
 	}
 	tx, err := s.db.Begin(r.Context())
 	if err != nil {
@@ -271,6 +340,19 @@ func (s *server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context()) //nolint:errcheck
+	if err := lockActiveOwnerInvariant(r.Context(), tx); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	lastOwner, err := removesLastActiveOwner(r.Context(), tx, id, true)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if lastOwner {
+		writeError(w, http.StatusConflict, "last_owner_required", "Tilecast must keep at least one active Owner account.")
+		return
+	}
 	if _, err := tx.Exec(r.Context(), `UPDATE users SET active=FALSE WHERE id=$1`, id); err != nil {
 		s.internalError(w, r, err)
 		return
@@ -317,8 +399,7 @@ func (s *server) permanentlyDeleteUser(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if !canManageRole(actor.Role, target.Role) {
-		writeError(w, http.StatusForbidden, "insufficient_role", "Only an Owner may manage Owner or Administrator accounts.")
+	if !s.canManageBoth(w, r, principal, target.Role, target.Role) {
 		return
 	}
 	if target.Active {
@@ -371,8 +452,8 @@ func validateManagedUser(input managedUserInput, requirePassword bool) error {
 	if !managedUsernamePattern.MatchString(input.Username) {
 		return errors.New("username must be 3 to 254 characters and contain only letters, numbers, or . _ @ + -")
 	}
-	if !managedRoles[input.Role] {
-		return errors.New("role must be " + strings.Join(sortedManagedRoles(), ", "))
+	if input.Role == "" {
+		return errors.New("role is required")
 	}
 	if requirePassword || input.Password != "" {
 		if len(input.Password) < 12 || len(input.Password) > 1024 {
@@ -382,12 +463,22 @@ func validateManagedUser(input managedUserInput, requirePassword bool) error {
 	return nil
 }
 
-func canManageRole(actorRole, targetRole string) bool {
-	if actorRole == "owner" {
-		return true
+// canManageBoth checks that principal may manage an account on its current
+// role and on the role it is moving to. It returns false when it has already
+// written the response.
+func (s *server) canManageBoth(w http.ResponseWriter, r *http.Request, principal auth.Principal, current, next string) bool {
+	for _, role := range []string{current, next} {
+		allowed, err := s.canManageAccount(r.Context(), principal, role)
+		if err != nil {
+			s.internalError(w, r, err)
+			return false
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "insufficient_role", "You cannot manage that account. Only an Owner may manage Owner or Administrator accounts or roles with more authority than your own.")
+			return false
+		}
 	}
-	return actorRole == "administrator" &&
-		(targetRole == "editor" || targetRole == "contributor" || targetRole == "viewer")
+	return true
 }
 
 func uniqueViolation(err error) bool {
@@ -447,8 +538,14 @@ func (s *server) putUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "user_not_found", "That account no longer exists.")
 		return
 	}
-	if !canManageRole(actor.Role, target.Role) {
+	if allowed, err := s.canManageAccount(r.Context(), principal, target.Role); err != nil {
+		s.internalError(w, r, err)
+		return
+	} else if !allowed {
 		writeError(w, http.StatusForbidden, "forbidden", "You may not change that account.")
+		return
+	}
+	if !s.screenScopesDelegable(w, r, principal, body.Scopes) {
 		return
 	}
 	if target.Role == "owner" {
@@ -462,4 +559,39 @@ func (s *server) putUserScreenScopes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.getUserScreenScopes(w, r)
+}
+
+// screenScopesDelegable keeps a screen-scoped administrator from granting more
+// of the fleet than they reach themselves: they cannot grant the whole fleet,
+// and every location or group they grant must be one of their own grants. It
+// returns false when it has already written the response.
+func (s *server) screenScopesDelegable(w http.ResponseWriter, r *http.Request, principal auth.Principal, scopes []devices.Scope) bool {
+	scoped, err := s.devices.Scoped(r.Context(), principal.User.ID, principal.User.Role)
+	if err != nil {
+		s.internalError(w, r, err)
+		return false
+	}
+	if !scoped {
+		return true
+	}
+	if len(scopes) == 0 {
+		writeError(w, http.StatusForbidden, "screen_scope_delegation", "You cannot grant the whole fleet because your own screen access is limited.")
+		return false
+	}
+	own, err := s.devices.ScopesFor(r.Context(), principal.User.ID)
+	if err != nil {
+		s.internalError(w, r, err)
+		return false
+	}
+	held := map[devices.Scope]bool{}
+	for _, scope := range own {
+		held[devices.Scope{Type: scope.Type, ID: scope.ID}] = true
+	}
+	for _, scope := range scopes {
+		if !held[devices.Scope{Type: scope.Type, ID: scope.ID}] {
+			writeError(w, http.StatusForbidden, "screen_scope_delegation", "You can grant only locations and groups within your own screen access.")
+			return false
+		}
+	}
+	return true
 }

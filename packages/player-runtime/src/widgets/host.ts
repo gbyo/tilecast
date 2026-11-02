@@ -4,11 +4,12 @@
  *
  * The runtime finds every Widget module below widgets/ when it is built,
  * builds each Widget's context (the corrected clock, regional formatting,
- * theme, motion and mode) and mounts it with the shared WidgetMount. Every
- * Widget renders the same way whether it is fullscreen or in a Layout
- * zone; only its container differs. The runtime, not the Widget, turns the
- * mount's state into playback evidence (surfaces/widget-surface.ts,
- * surfaces/layout-surface.ts).
+ * theme, motion and mode) and mounts it with the shared Widget executors:
+ * bundled Widgets mount trusted, package-contributed Widgets run in a
+ * sandboxed frame. Every Widget renders the same way whether it is
+ * fullscreen or in a Layout zone; only its container differs. The runtime,
+ * not the Widget, turns the mount's state into playback evidence
+ * (surfaces/widget-surface.ts, surfaces/layout-surface.ts).
  *
  * There is no Widget switch here: adding a Widget adds a directory.
  */
@@ -28,7 +29,12 @@ import {
   type WidgetDiscovery,
 } from "@tilecast/widget-sdk/discovery";
 import type { WidgetManifestInput } from "@tilecast/widget-sdk/manifest";
-import { WidgetMount, type WidgetMountState } from "@tilecast/widget-sdk/mount";
+import type { WidgetMountState } from "@tilecast/widget-sdk/mount";
+import {
+  TrustedWidgetExecutor,
+  type WidgetExecution,
+} from "@tilecast/widget-sdk/executor";
+import { SandboxedWidgetExecutor } from "@tilecast/widget-sdk/sandboxed-executor";
 import type { RuntimeClock } from "../clock/scheduler";
 import type { RuntimeWidgetComponentPayload } from "../host/contract";
 
@@ -72,6 +78,14 @@ export interface RuntimeWidgetHostOptions {
   /** 0 in snapshot conformance runs. */
   animationScale: number;
   reducedMotion(): boolean;
+  /**
+   * Where a served frame's sandbox comes from. `response` navigates
+   * bare and takes the sandbox from the response `sandbox` directive,
+   * for hosts whose serving layer only sees bare navigations (a
+   * browser service worker never sees a sandboxed iframe's
+   * navigation). Absent means `attribute`.
+   */
+  externalFrameSandbox?: "attribute" | "response";
 }
 
 export class RuntimeWidgetHost {
@@ -121,16 +135,19 @@ export class RuntimeWidgetHost {
     });
   }
 
-  /** Mount a projected component into `container`. */
+  /**
+   * Mount a projected component into `container`. The payload's
+   * `execution` descriptor selects the executor: sandboxed for
+   * package-contributed Widgets, trusted for bundled ones. The host
+   * never inspects the component type to decide.
+   */
   mount(
     container: HTMLElement,
     payload: RuntimeWidgetComponentPayload,
     onState: (state: WidgetMountState) => void,
-  ): WidgetMount {
+  ): WidgetExecution {
     const { component } = payload;
-    return new WidgetMount({
-      registry: this.registry,
-      container,
+    const request = {
       component: {
         type: component.type,
         version: component.version,
@@ -147,9 +164,26 @@ export class RuntimeWidgetHost {
       ),
       context: this.context(payload),
       onState,
+    };
+    if (payload.execution?.kind === "sandboxed") {
+      // The Server compiled these grants from the Widget manifest, so
+      // the granted names are the declaration the frame filters by.
+      return new SandboxedWidgetExecutor().mount(container, {
+        ...request,
+        declared: {
+          dataSources: component.dataSources,
+          media: component.media,
+        },
+        embedding: "hosted",
+        frameUrl: payload.execution.frameUrl,
+        frameSandbox: this.options.externalFrameSandbox ?? "attribute",
+      });
+    }
+    return new TrustedWidgetExecutor({
+      registry: this.registry,
       // The runtime's CSP refuses <style> elements, so a Widget whose styles
       // cannot be adopted fails visibly instead of rendering unstyled.
       requireAdoptedStyleSheets: true,
-    });
+    }).mount(container, request);
   }
 }

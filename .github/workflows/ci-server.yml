@@ -56,7 +56,7 @@ jobs:
           TEST_DATABASE_URL: postgres://tilecast:tilecast_test_password@localhost:5432/tilecast_test?sslmode=disable
       - name: Test Reporter
         if: ${{ !cancelled() }}
-        uses: dorny/test-reporter@v3.0.0
+        uses: dorny/test-reporter@v3.2.0
         with:
           name: Server tests
           path: apps/server/test-results.json

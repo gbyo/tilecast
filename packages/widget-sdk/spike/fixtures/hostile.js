@@ -45,10 +45,11 @@
     function finish(extra) {
       line.textContent = verdicts.join(" ") + " " + extra;
       self.appendChild(line);
+      var revision = self[Symbol.for("tilecast.widget.inputRevision")];
       self.dispatchEvent(
         new CustomEvent("tilecast-widget-ready", {
           bubbles: true,
-          detail: {},
+          detail: { revision: revision },
         }),
       );
     }

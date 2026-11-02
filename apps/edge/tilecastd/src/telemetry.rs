@@ -30,6 +30,7 @@ async fn observe(context: &DaemonContext) -> player_core::TelemetryTick {
     };
     let engine = context.presentation.lock().await;
     let status = engine.status();
+    let content_healthy = engine.playback_health(context.now().unix_millis()).is_healthy();
     let playing = engine.current().is_some_and(|a| {
         matches!(&a.document, edge_protocol::ipc::presentation::PresentationDocument::Playing { items, .. } if !items.is_empty())
     });
@@ -38,7 +39,9 @@ async fn observe(context: &DaemonContext) -> player_core::TelemetryTick {
         connected,
         renderer_connected: status.connected,
         playing,
-        healthy: status.state.as_str() == "healthy",
+        // A renderer that has produced evidence is not healthy playback
+        // while the content on screen owes evidence it is not producing.
+        healthy: status.state.as_str() == "healthy" && content_healthy,
     }
 }
 
@@ -49,10 +52,13 @@ fn device_uptime_seconds() -> Option<i64> {
 }
 
 async fn gauges(context: &DaemonContext, now: edge_protocol::Timestamp) -> player_core::TelemetryGauges {
-    let (status, display) = {
+    let (status, display, health, expected_motion) = {
         let engine = context.presentation.lock().await;
-        (engine.status(), engine.ready_info().and_then(|ready| ready.display.clone()))
+        let health = engine.playback_health(now.unix_millis());
+        let expected_motion = engine.expected_motion();
+        (engine.status(), engine.ready_info().and_then(|ready| ready.display.clone()), health, expected_motion)
     };
+    let stall = health.stall();
     let (usage, offset) = match context.db() {
         Some(db) => (
             db.run(|c| edge_state::repo::cas::usage(c)).await.ok(),
@@ -64,6 +70,9 @@ async fn gauges(context: &DaemonContext, now: edge_protocol::Timestamp) -> playe
         current_item_id: status.current_item_id.as_ref().map(|id| id.as_str().chars().take(128).collect()),
         item_started_at: status.current_item_started_at,
         last_meaningful_progress_at: status.last_progress_at,
+        playback_stall_duration_ms: stall.map(|stall| stall.duration_ms(now.unix_millis())),
+        stall_reason: stall.map(|stall| stall.reason.as_str().to_owned()),
+        expected_motion,
         renderer_state: Some(status.state.as_str().to_owned()),
         cache_used_bytes: usage.as_ref().map(|u| u.used_bytes),
         cache_limit_bytes: usage.as_ref().map(|_| context.config.cas.limit_bytes),

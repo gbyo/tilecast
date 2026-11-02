@@ -30,6 +30,30 @@ describe("package manifest schema", () => {
     expect(() => parsePackageManifest(value)).toThrow();
   });
 
+  it("accepts the Hello Services sample manifest", () => {
+    const sample = JSON.parse(
+      readFileSync(
+        join(
+          import.meta.dirname,
+          "..",
+          "..",
+          "package-samples",
+          "hello-services",
+          "tilecast.package.json",
+        ),
+        "utf8",
+      ),
+    );
+    const manifest = parsePackageManifest(sample);
+    expect(manifest.apiVersion).toBe(3);
+    expect(manifest.packageId).toBe("example.hello-services");
+    expect(manifest.capabilities?.services?.map((grant) => grant.id)).toEqual([
+      "organization.read",
+      "screens.read",
+      "audit.write",
+    ]);
+  });
+
   it("publishes a Draft 2020-12 JSON Schema that matches the checked-in file", () => {
     const generated = packageManifestJSONSchema();
     expect(generated.$schema).toBe(
@@ -74,6 +98,10 @@ describe("tilecast compatibility ranges", () => {
     ["=1.4.2", "1.4.3", false],
     [">2.0.0", "2.0.1", true],
     [">2.0.0", "2.0.0", false],
+    [">=0.20.0 <1.0.0", "0.26.0-beta.1", true],
+    [">=0.27.0", "0.26.0-beta.12", false],
+    [">=0.26.0", "0.26.0-beta.0", false],
+    [">=0.20.0", "0.26.0-rc.1", false],
   ])("%s satisfies %s is %s", (range, version, expected) => {
     expect(satisfiesTilecastRange(range, version)).toBe(expected);
   });

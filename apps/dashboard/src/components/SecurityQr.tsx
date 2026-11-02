@@ -14,6 +14,8 @@ export function SecurityQr({ uri }: { uri: string }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let active = true;
+    // A different URI must not keep showing the previous code while its own renders.
+    setDataUrl(undefined);
     setFailed(false);
     void QRCode.toDataURL(uri, { margin: 1, width: 220 }).then(
       (value) => {

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tilecast Browser Companion</title>
+    <style>
+      body {
+        font:
+          14px/1.4 system-ui,
+          sans-serif;
+        margin: 0;
+        min-width: 280px;
+        padding: 12px;
+        color: #1a1a1a;
+      }
+      #status {
+        margin: 0 0 12px;
+      }
+      #action {
+        font: inherit;
+        padding: 6px 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <p id="status">Loading.</p>
+    <button id="action" type="button" hidden>Connect</button>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

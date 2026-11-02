@@ -48,6 +48,16 @@ func TestEveryReleaseWidgetCompilesFromItsDefaults(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			if definition.Component != nil && !definition.HasFallback() {
+				presentation, err := (&Service{definitions: catalog}).compileWidgetComponent(definition.ID, raw)
+				if err != nil || presentation == nil || presentation.Component == nil {
+					t.Fatalf("compile component-only defaults: %+v, %v", presentation, err)
+				}
+				if presentation.RequiredCapabilities["widget."+definition.Component.Type] != definition.Component.Version {
+					t.Fatalf("component capability missing: %+v", presentation.RequiredCapabilities)
+				}
+				return
+			}
 			presentation, err := compileDefinitionPresentation(definition, raw)
 			if err != nil {
 				t.Fatalf("compile from defaults: %v", err)

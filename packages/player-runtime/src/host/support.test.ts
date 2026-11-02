@@ -21,7 +21,39 @@ describe("Runtime readiness support", () => {
       runtimeSupport({}, false).declarativeCapabilities["web.remote"],
     ).toBeUndefined();
     expect(runtimeSupport({}, true).declarativeCapabilities["web.remote"]).toBe(
-      1,
+      2,
     );
+  });
+});
+
+describe("external frame execution", () => {
+  it("reports the frame ABI only when the host serves frames", () => {
+    expect(
+      runtimeSupport({}, false).widgetComponents["widget.external-runtime"],
+    ).toBeUndefined();
+    expect(
+      runtimeSupport({}, false, true).widgetComponents[
+        "widget.external-runtime"
+      ],
+    ).toBe(2);
+  });
+});
+
+describe("Plugin API v2 host", () => {
+  it("reports the host and its live services only for a forwarding host", () => {
+    const services = { "player.clock": 1, "player.surface": 1 };
+    const without = runtimeSupport({}, false, false, false, null);
+    expect(without.declarativeCapabilities["plugin.host"]).toBeUndefined();
+    expect(without.declarativeCapabilities["player.clock"]).toBeUndefined();
+    const with_ = runtimeSupport({}, false, false, false, services);
+    expect(with_.declarativeCapabilities).toMatchObject({
+      "plugin.host": 2,
+      "player.clock": 1,
+      "player.surface": 1,
+    });
+    // The v2 host never implies the external surface ABI.
+    expect(
+      with_.declarativeCapabilities["plugin.external-runtime"],
+    ).toBeUndefined();
   });
 });

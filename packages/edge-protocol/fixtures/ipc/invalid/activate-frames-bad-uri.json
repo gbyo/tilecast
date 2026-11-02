@@ -1,0 +1,44 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 4,
+    "event": "presentation.activate",
+    "data": {
+      "activationId": "3f2b8c1d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "generation": 3,
+      "presentation": {
+        "state": "playing",
+        "items": [
+          {
+            "id": "item-widget",
+            "kind": "widget",
+            "src": "",
+            "durationMs": 30000,
+            "fitMode": "contain",
+            "audioEnabled": false,
+            "volume": 1.0,
+            "videoStartOffsetMs": null,
+            "videoEndOffsetMs": null,
+            "widget": {
+              "widgetAssetId": "2f1c0e3d-5a7b-4c9d-8e1f-0a2b3c4d5e6f"
+            }
+          }
+        ],
+        "takeover": false,
+        "generation": 3,
+        "synchronized": false
+      },
+      "content": [],
+      "frames": [
+        {
+          "uri": "tcmedia://cap/dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "packageId": "acme.athletics",
+          "packageDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+          "frameDigest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "sizeBytes": 512
+        }
+      ],
+      "timing": null
+    }
+  }
+}

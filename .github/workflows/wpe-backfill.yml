@@ -1,0 +1,81 @@
+name: WPE Prebuild Backfill
+
+# One-time migration of the WPE WebKit prebuilds that wpe-prebuild.yml used to
+# publish as GitHub Releases (tags wpe-<version>-<key>-<arch>) to GHCR
+# (ghcr.io/gbyo/tilecast-wpe). Each old tar is published only after it hashes
+# to the digest GitHub records, hashes to the SHA-256 in its release notes, and
+# has a build provenance attestation from wpe-prebuild.yml. Nothing already in
+# GHCR is replaced, and nothing is deleted here: wpe-release-cleanup.yml is the
+# separate, guarded step that removes the old releases once this has run.
+#
+# Run with dry_run on first (the default): it performs every check and
+# publishes nothing. Safe to rerun; it converges.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Verify every old prebuild and publish nothing
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.list.outputs.tags }}
+    steps:
+      - id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tags="$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName \
+            --jq '[.[].tagName | select(test("^wpe-[0-9A-Za-z.]+-[0-9a-f]{16}-(x86_64|aarch64)$"))]')"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "Old WPE prebuild releases: $tags"
+
+  backfill:
+    needs: list
+    if: needs.list.outputs.tags != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.list.outputs.tags) }}
+    concurrency:
+      group: wpe-backfill-${{ matrix.tag }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oras-project/setup-oras@v2
+        with:
+          version: 1.3.4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify the old prebuild and publish it to GHCR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          flags=()
+          if [ "$DRY_RUN" = true ]; then
+            flags=(--dry-run)
+          fi
+          apps/edge/release/migrate-wpe-prebuild.sh backfill '${{ matrix.tag }}' "${flags[@]}"

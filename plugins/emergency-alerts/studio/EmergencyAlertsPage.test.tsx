@@ -394,6 +394,51 @@ describe("Emergency Alerts plugin", () => {
   });
 });
 
+describe("Emergency Alerts monitor save", () => {
+  it("does not save monitor defaults before the stored settings load", async () => {
+    let finish!: (
+      value: Awaited<ReturnType<typeof api.nwsAlertSettings>>,
+    ) => void;
+    vi.spyOn(api, "nwsAlertSettings").mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const save = vi.spyOn(api, "updateNWSAlertMonitor");
+    vi.spyOn(api, "screens").mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(api, "screenGroups").mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(api, "playlists").mockResolvedValue({ items: [], total: 0 });
+    vi.spyOn(api, "nwsZones").mockResolvedValue({ items: [] });
+    renderPluginRoute(<EmergencyAlertsPage />, {
+      path: "/plugins/emergency-alerts",
+      role,
+    });
+    const saveButton = await screen.findByRole("button", {
+      name: "Save NWS monitor",
+    });
+    expect(saveButton).toBeDisabled();
+    expect(save).not.toHaveBeenCalled();
+    finish({
+      monitor: {
+        enabled: true,
+        areas: ["OH"],
+        zones: [],
+        pollIntervalSeconds: 120,
+        lastPolledAt: "2026-07-28T12:00:00Z",
+        lastSuccessAt: "2026-07-28T12:00:00Z",
+        lastMatchedCount: 1,
+        updatedAt: "2026-07-28T12:00:00Z",
+      },
+      rules: [],
+      activeAlerts: [],
+    });
+    expect(await screen.findByText("Entire Ohio")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Save NWS monitor" }),
+    ).toBeEnabled();
+  });
+});
+
 describe("Emergency Alerts unsaved changes", () => {
   function mockSettings(rules: NWSAlertRule[] = [], pollIntervalSeconds = 120) {
     vi.spyOn(api, "nwsAlertSettings").mockResolvedValue({

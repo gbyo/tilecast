@@ -69,7 +69,7 @@ fixture (const char *name)
 
 static void
 run_case (const char *request_name, const char *response_name, const char *bytes, gsize byte_count,
-          gboolean is_head, gboolean expect_ok)
+          gboolean is_head, gboolean expect_ok, gboolean frame)
 {
   g_autofree char *dir = g_dir_make_tmp ("tilecast-media-client-XXXXXX", NULL);
   g_assert_nonnull (dir);
@@ -87,14 +87,16 @@ run_case (const char *request_name, const char *response_name, const char *bytes
   if (is_head) {
     guint64 size = 0;
     g_autofree char *mime = NULL;
-    ok = tc_media_head (path, CAPABILITY, &size, &mime, &error);
+    ok = frame ? tc_media_head_frame (path, CAPABILITY, &size, &mime, &error)
+               : tc_media_head (path, CAPABILITY, &size, &mime, &error);
     if (expect_ok) {
       g_assert_cmpuint (size, ==, 5);
       g_assert_cmpstr (mime, ==, "image/png");
     }
   } else {
     char buffer[3] = { 0 };
-    ok = tc_media_read (path, CAPABILITY, 2, buffer, sizeof buffer, &error);
+    ok = frame ? tc_media_read_frame (path, CAPABILITY, 2, buffer, sizeof buffer, &error)
+               : tc_media_read (path, CAPABILITY, 2, buffer, sizeof buffer, &error);
     if (expect_ok)
       g_assert_cmpmem (buffer, sizeof buffer, "cde", 3);
   }
@@ -112,19 +114,31 @@ run_case (const char *request_name, const char *response_name, const char *bytes
 static void
 test_head (void)
 {
-  run_case ("head-request.json", "head-response.json", NULL, 0, TRUE, TRUE);
+  run_case ("head-request.json", "head-response.json", NULL, 0, TRUE, TRUE, FALSE);
 }
 
 static void
 test_read (void)
 {
-  run_case ("read-request.json", "read-response.json", "cde", 3, FALSE, TRUE);
+  run_case ("read-request.json", "read-response.json", "cde", 3, FALSE, TRUE, FALSE);
 }
 
 static void
 test_denied (void)
 {
-  run_case ("head-request.json", "denied-response.json", NULL, 0, TRUE, FALSE);
+  run_case ("head-request.json", "denied-response.json", NULL, 0, TRUE, FALSE, FALSE);
+}
+
+static void
+test_head_frame (void)
+{
+  run_case ("head-frame-request.json", "head-response.json", NULL, 0, TRUE, TRUE, TRUE);
+}
+
+static void
+test_read_frame (void)
+{
+  run_case ("read-frame-request.json", "read-response.json", "cde", 3, FALSE, TRUE, TRUE);
 }
 
 static void
@@ -145,6 +159,8 @@ main (int argc, char **argv)
   g_test_add_func ("/media/head", test_head);
   g_test_add_func ("/media/read", test_read);
   g_test_add_func ("/media/denied", test_denied);
+  g_test_add_func ("/media/head-frame", test_head_frame);
+  g_test_add_func ("/media/read-frame", test_read_frame);
   g_test_add_func ("/media/invalid-capability", test_invalid_capability);
   return g_test_run ();
 }

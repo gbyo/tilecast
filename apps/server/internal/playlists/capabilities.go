@@ -23,7 +23,8 @@ type presentationWidgetRequirement struct {
 	// Component is presentation schema 3, which carries the empty policy.
 	Component *WidgetPresentation
 	// ComponentV2 preserves the released component contract for older Players.
-	ComponentV2 *WidgetPresentation
+	ComponentV2    *WidgetPresentation
+	LayoutPlaylist bool
 }
 
 type playerPresentationCapabilities struct {
@@ -86,6 +87,11 @@ func (s *Service) validatePresentationForScreens(ctx context.Context, q presenta
 		player, err := readPlayerPresentationCapabilities(ctx, q, screenID)
 		if err != nil {
 			return err
+		}
+		for _, requirement := range requirements {
+			if requirement.LayoutPlaylist && player.Native[layoutPlaylistWidgetsCapability] < 1 {
+				return fmt.Errorf("%w: %s cannot use Layout playlist Widget %q: requires %s@1", ErrConflict, screenDisplayName(ctx, q, screenID), requirement.Name, layoutPlaylistWidgetsCapability)
+			}
 		}
 		if !player.Reported {
 			if v13Blocker != "" {
@@ -156,6 +162,10 @@ func (s *Service) presentationRequirements(ctx context.Context, q presentationQu
 }
 
 func (s *Service) presentationRequirementsForRoot(ctx context.Context, q presentationQuery, playlistID, layoutID, assetID *uuid.UUID) ([]presentationWidgetRequirement, string, error) {
+	zoneWidgets, err := layoutPlaylistWidgets(ctx, q, rootIDs(playlistID), rootIDs(layoutID))
+	if err != nil {
+		return nil, "", err
+	}
 	allowPrivateHTTP := orgPrivateHTTPFrom(ctx, q)
 	// Effective availability is evaluated once per requirements pass: a
 	// plugin-owned provider whose plugin is not installed cannot be
@@ -237,6 +247,12 @@ func (s *Service) presentationRequirementsForRoot(ctx context.Context, q present
 		requirement.ComponentV2, err = s.compileWidgetComponentForSchema(requirement.Provider, requirement.Configuration, componentPresentationSchemaLegacy)
 		if err != nil {
 			return nil, "", fmt.Errorf("compile Widget %q: %w", requirement.Name, err)
+		}
+		if zoneWidgets[requirement.AssetID] {
+			requirement.LayoutPlaylist = true
+			requireLayoutPlaylistWidgets(requirement.Presentation)
+			requireLayoutPlaylistWidgets(requirement.Component)
+			requireLayoutPlaylistWidgets(requirement.ComponentV2)
 		}
 		if requirement.Presentation == nil && requirement.Component == nil && requirement.ComponentV2 == nil {
 			continue

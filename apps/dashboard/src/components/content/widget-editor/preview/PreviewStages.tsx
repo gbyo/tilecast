@@ -4,6 +4,7 @@
  * child's status back into its own state.
  */
 import { useTranslation } from "react-i18next";
+import { buttonVariants } from "@/components/ui/button";
 import type { ContentDefinitionField } from "@/api/types";
 import type { StudioPreviewComponent } from "@/content/studioWidgets";
 import type { PreviewTime } from "@/content/previewTime";
@@ -72,6 +73,7 @@ export function WebPreviewStage({
   savedThumbnailUrl?: string;
   urlField: string;
 }) {
+  const { t } = useTranslation("content");
   const preview = useWebIntegrationPreview({
     provider,
     configuration,
@@ -82,6 +84,20 @@ export function WebPreviewStage({
   });
   return (
     <PreviewStage stageRef={view.stageRef} status={preview.status}>
+      {preview.externalUrl && (
+        <a
+          href={preview.externalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={buttonVariants({
+            variant: "outline",
+            size: "sm",
+            className: "absolute right-3 top-3 z-10",
+          })}
+        >
+          {t("widgets.editor.preview.openCanva")}
+        </a>
+      )}
       <WebIntegrationPreview
         surface={preview.surface}
         frame={view.frame}

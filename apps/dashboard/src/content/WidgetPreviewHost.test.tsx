@@ -405,7 +405,13 @@ describe("WidgetPreviewHost", () => {
         expect(found).not.toBeNull();
         return found!;
       });
-      expect(frame.getAttribute("src")).toBe(sandbox.frameUrl);
+      // The frame URL carries the per-attach token as a fragment the
+      // server never sees; the cached document stays token-free.
+      const src = frame.getAttribute("src") ?? "";
+      expect(src.startsWith(`${sandbox.frameUrl}#`)).toBe(true);
+      expect(src.slice(sandbox.frameUrl.length + 1)).toMatch(
+        /^[A-Za-z0-9_-]{22}$/,
+      );
       expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
       expect(frame.getAttribute("referrerpolicy")).toBe("no-referrer");
       expect(container.querySelector("acme-scoreboard")).toBeNull();
@@ -432,30 +438,38 @@ describe("WidgetPreviewHost", () => {
           transfer: call[2],
         }));
       // The frame hello drives the handshake; the transfer carries the
-      // port the frame reports on.
-      const frameOrigin = new URL(sandbox.frameUrl, window.location.href)
-        .origin;
+      // port the frame reports on. The sandboxed frame posts from the
+      // opaque origin and echoes the fragment token bound to this attach.
+      const helloToken = (frame.getAttribute("src") ?? "").split("#")[1] ?? "";
+      expect(helloToken).not.toBe("");
       act(() => {
         window.dispatchEvent(
           new MessageEvent("message", {
-            origin: frameOrigin,
+            origin: "null",
             source: frame.contentWindow,
             data: {
               protocol: "tilecast.widget.bridge/1",
               kind: "frame-hello",
-              helloToken: "",
+              helloToken,
             },
           }),
         );
       });
       await waitFor(() => expect(posted()).toHaveLength(1));
-      const init = posted()[0]?.message as { nonce?: unknown };
+      const init = posted()[0]?.message as {
+        nonce?: unknown;
+        revision?: unknown;
+      };
       expect(typeof init.nonce).toBe("string");
+      // The mount effect mounts and the sync effect immediately updates,
+      // so the init already carries the second input revision.
+      expect(init.revision).toBe(2);
       const framePort = (posted()[0]?.transfer as unknown[])[0] as MessagePort;
       act(() => {
         framePort.postMessage({
           protocol: "tilecast.widget.bridge/1",
           nonce: init.nonce,
+          revision: init.revision,
           state: { state: "ready" },
         });
       });

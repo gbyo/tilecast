@@ -1,0 +1,695 @@
+{
+  "$schema": "../../packages/widget-sdk/schema/tilecast-widget.schema.json",
+  "apiVersion": 1,
+  "id": "event-scroller",
+  "version": 1,
+  "configVersion": 1,
+  "name": "Event Scroller",
+  "description": "Continuously scroll scheduled events on a full-screen board or a horizontal rail.",
+  "category": "Information",
+  "icon": "calendar",
+  "runtime": "native",
+  "configurationSchema": {
+    "fields": [
+      {
+        "key": "dataSourceId",
+        "label": "Data Source",
+        "labelKey": "definitions:event-scroller.fields.dataSourceId.label",
+        "control": "data_source",
+        "default": "",
+        "acceptedDataSourceKinds": ["records"],
+        "description": "Connect a calendar or another records source.",
+        "ui": {
+          "section": "data",
+          "order": 1
+        },
+        "descriptionKey": "definitions:event-scroller.fields.dataSourceId.description"
+      },
+      {
+        "key": "titleField",
+        "label": "Title field",
+        "labelKey": "definitions:event-scroller.fields.titleField.label",
+        "control": "data_source_field",
+        "default": "",
+        "dataSourceFieldTypes": ["text"],
+        "ui": {
+          "section": "data",
+          "order": 2,
+          "semanticRole": "title",
+          "legacyKeys": ["title", "name", "event", "headline"],
+          "typeFallback": false
+        }
+      },
+      {
+        "key": "startField",
+        "label": "Start field",
+        "labelKey": "definitions:event-scroller.fields.startField.label",
+        "control": "data_source_field",
+        "default": "",
+        "dataSourceFieldTypes": ["datetime", "date"],
+        "ui": {
+          "section": "data",
+          "order": 3,
+          "semanticRole": "start",
+          "legacyKeys": ["startTime", "start", "date"],
+          "typeFallback": false
+        }
+      },
+      {
+        "key": "endField",
+        "label": "End field",
+        "labelKey": "definitions:event-scroller.fields.endField.label",
+        "control": "data_source_field",
+        "default": "",
+        "dataSourceFieldTypes": ["datetime", "date"],
+        "ui": {
+          "section": "data",
+          "order": 4,
+          "semanticRole": "end",
+          "legacyKeys": ["endTime", "end"],
+          "typeFallback": false
+        }
+      },
+      {
+        "key": "locationField",
+        "label": "Location field",
+        "labelKey": "definitions:event-scroller.fields.locationField.label",
+        "control": "data_source_field",
+        "default": "",
+        "dataSourceFieldTypes": ["text"],
+        "ui": {
+          "section": "data",
+          "order": 5,
+          "semanticRole": "location",
+          "legacyKeys": ["location"],
+          "typeFallback": false
+        }
+      },
+      {
+        "key": "categoryField",
+        "label": "Category field",
+        "labelKey": "definitions:event-scroller.fields.categoryField.label",
+        "control": "data_source_field",
+        "default": "",
+        "dataSourceFieldTypes": ["text"],
+        "ui": {
+          "section": "data",
+          "order": 6,
+          "semanticRole": "category",
+          "legacyKeys": ["category"],
+          "typeFallback": false
+        }
+      },
+      {
+        "key": "heading",
+        "label": "Heading",
+        "labelKey": "definitions:event-scroller.fields.heading.label",
+        "control": "text",
+        "default": "",
+        "maxLength": 120,
+        "ui": {
+          "section": "content",
+          "order": 1
+        }
+      },
+      {
+        "key": "maximumItems",
+        "label": "Maximum events",
+        "labelKey": "definitions:event-scroller.fields.maximumItems.label",
+        "control": "integer",
+        "default": 20,
+        "minimum": 1,
+        "maximum": 100,
+        "ui": {
+          "section": "content",
+          "order": 2
+        }
+      },
+      {
+        "key": "hideEnded",
+        "label": "Hide past events",
+        "labelKey": "definitions:event-scroller.fields.hideEnded.label",
+        "control": "boolean",
+        "default": true,
+        "description": "Ended events leave the board using the Player clock. Events without an end stay through their local day.",
+        "ui": {
+          "section": "content",
+          "order": 3
+        },
+        "descriptionKey": "definitions:event-scroller.fields.hideEnded.description"
+      },
+      {
+        "key": "showWeekday",
+        "label": "Show weekday",
+        "labelKey": "definitions:event-scroller.fields.showWeekday.label",
+        "control": "boolean",
+        "default": true,
+        "ui": {
+          "section": "content",
+          "order": 4
+        }
+      },
+      {
+        "key": "showDate",
+        "label": "Show date",
+        "labelKey": "definitions:event-scroller.fields.showDate.label",
+        "control": "boolean",
+        "default": true,
+        "ui": {
+          "section": "content",
+          "order": 5
+        }
+      },
+      {
+        "key": "showTime",
+        "label": "Show time",
+        "labelKey": "definitions:event-scroller.fields.showTime.label",
+        "control": "boolean",
+        "default": true,
+        "ui": {
+          "section": "content",
+          "order": 6
+        }
+      },
+      {
+        "key": "showLocation",
+        "label": "Show location",
+        "labelKey": "definitions:event-scroller.fields.showLocation.label",
+        "control": "boolean",
+        "default": true,
+        "ui": {
+          "section": "content",
+          "order": 7
+        }
+      },
+      {
+        "key": "showCategory",
+        "label": "Show category",
+        "labelKey": "definitions:event-scroller.fields.showCategory.label",
+        "control": "boolean",
+        "default": false,
+        "ui": {
+          "section": "content",
+          "order": 8
+        }
+      },
+      {
+        "key": "showDividers",
+        "label": "Show dividers",
+        "labelKey": "definitions:event-scroller.fields.showDividers.label",
+        "control": "boolean",
+        "default": true,
+        "ui": {
+          "section": "content",
+          "order": 9
+        }
+      },
+      {
+        "key": "dateStyle",
+        "label": "Date style",
+        "labelKey": "definitions:event-scroller.fields.dateStyle.label",
+        "control": "select",
+        "default": "short",
+        "options": [
+          {
+            "value": "short",
+            "label": "Short month and day",
+            "labelKey": "definitions:event-scroller.fields.dateStyle.options.short"
+          },
+          {
+            "value": "day",
+            "label": "Day of month",
+            "labelKey": "definitions:event-scroller.fields.dateStyle.options.day"
+          },
+          {
+            "value": "numeric",
+            "label": "Numeric month and day",
+            "labelKey": "definitions:event-scroller.fields.dateStyle.options.numeric"
+          }
+        ],
+        "ui": {
+          "section": "content",
+          "order": 10,
+          "visibleWhen": {
+            "key": "showDate",
+            "equals": true
+          }
+        }
+      },
+      {
+        "key": "emptyText",
+        "label": "Empty message",
+        "labelKey": "definitions:event-scroller.fields.emptyText.label",
+        "control": "text",
+        "default": "",
+        "maxLength": 200,
+        "description": "Leave blank to use the standard empty message.",
+        "ui": {
+          "section": "content",
+          "order": 11
+        },
+        "descriptionKey": "definitions:event-scroller.fields.emptyText.description"
+      },
+      {
+        "key": "flow",
+        "label": "Flow",
+        "labelKey": "definitions:event-scroller.fields.flow.label",
+        "control": "select",
+        "default": "auto",
+        "options": [
+          {
+            "value": "auto",
+            "label": "Auto",
+            "labelKey": "definitions:event-scroller.fields.flow.options.auto"
+          },
+          {
+            "value": "vertical",
+            "label": "Vertical",
+            "labelKey": "definitions:event-scroller.fields.flow.options.vertical"
+          },
+          {
+            "value": "horizontal",
+            "label": "Horizontal",
+            "labelKey": "definitions:event-scroller.fields.flow.options.horizontal"
+          }
+        ],
+        "ui": {
+          "section": "behavior",
+          "order": 1,
+          "styleCard": true
+        }
+      },
+      {
+        "key": "verticalDirection",
+        "label": "Vertical direction",
+        "labelKey": "definitions:event-scroller.fields.verticalDirection.label",
+        "control": "select",
+        "default": "up",
+        "options": [
+          {
+            "value": "up",
+            "label": "Up",
+            "labelKey": "definitions:event-scroller.fields.verticalDirection.options.up"
+          },
+          {
+            "value": "down",
+            "label": "Down",
+            "labelKey": "definitions:event-scroller.fields.verticalDirection.options.down"
+          }
+        ],
+        "ui": {
+          "section": "behavior",
+          "order": 2,
+          "visibleWhen": {
+            "key": "flow",
+            "notEquals": "horizontal"
+          }
+        }
+      },
+      {
+        "key": "horizontalDirection",
+        "label": "Horizontal direction",
+        "labelKey": "definitions:event-scroller.fields.horizontalDirection.label",
+        "control": "select",
+        "default": "left",
+        "options": [
+          {
+            "value": "left",
+            "label": "Left",
+            "labelKey": "definitions:event-scroller.fields.horizontalDirection.options.left"
+          },
+          {
+            "value": "right",
+            "label": "Right",
+            "labelKey": "definitions:event-scroller.fields.horizontalDirection.options.right"
+          }
+        ],
+        "ui": {
+          "section": "behavior",
+          "order": 3,
+          "visibleWhen": {
+            "key": "flow",
+            "notEquals": "vertical"
+          }
+        }
+      },
+      {
+        "key": "scrollSpeed",
+        "label": "Scroll speed",
+        "labelKey": "definitions:event-scroller.fields.scrollSpeed.label",
+        "control": "number",
+        "default": 3,
+        "minimum": 1,
+        "maximum": 10,
+        "description": "1 is slow, 10 is fast. The reading pace stays consistent as you add events.",
+        "ui": {
+          "section": "behavior",
+          "order": 4,
+          "slider": true,
+          "visibleWhen": {
+            "key": "scrolling",
+            "equals": true
+          }
+        },
+        "descriptionKey": "definitions:event-scroller.fields.scrollSpeed.description"
+      },
+      {
+        "key": "scrolling",
+        "label": "Scrolling enabled",
+        "labelKey": "definitions:event-scroller.fields.scrolling.label",
+        "control": "boolean",
+        "default": true,
+        "ui": {
+          "section": "behavior",
+          "order": 5
+        }
+      },
+      {
+        "key": "textScale",
+        "label": "Text size (%)",
+        "labelKey": "definitions:event-scroller.fields.textScale.label",
+        "description": "100 uses the automatic size. Increase it for larger event text.",
+        "descriptionKey": "definitions:event-scroller.fields.textScale.description",
+        "control": "integer",
+        "default": 100,
+        "minimum": 50,
+        "maximum": 300,
+        "ui": { "section": "appearance", "order": 1, "slider": true }
+      },
+      {
+        "key": "headingScale",
+        "label": "Heading size (%)",
+        "labelKey": "definitions:event-scroller.fields.headingScale.label",
+        "description": "Resize the heading independently of the event text.",
+        "descriptionKey": "definitions:event-scroller.fields.headingScale.description",
+        "control": "integer",
+        "default": 100,
+        "minimum": 50,
+        "maximum": 200,
+        "ui": {
+          "section": "appearance",
+          "order": 2,
+          "slider": true,
+          "visibleWhen": { "key": "heading", "notEquals": "" }
+        }
+      },
+      {
+        "key": "rowLayout",
+        "label": "Row layout",
+        "labelKey": "definitions:event-scroller.fields.rowLayout.label",
+        "description": "Natural spacing keeps rows together. Short lists can leave space after the last event.",
+        "descriptionKey": "definitions:event-scroller.fields.rowLayout.description",
+        "control": "select",
+        "default": "fill",
+        "options": [
+          {
+            "value": "fill",
+            "label": "Fill viewport",
+            "labelKey": "definitions:event-scroller.fields.rowLayout.options.fill"
+          },
+          {
+            "value": "natural",
+            "label": "Natural spacing",
+            "labelKey": "definitions:event-scroller.fields.rowLayout.options.natural"
+          }
+        ],
+        "ui": { "section": "appearance", "order": 3, "styleCard": true }
+      },
+      {
+        "key": "rowSpacing",
+        "label": "Row spacing (%)",
+        "labelKey": "definitions:event-scroller.fields.rowSpacing.label",
+        "description": "Adjust space above and below event text. Choose Natural spacing to remove the extra space used to fill the viewport.",
+        "descriptionKey": "definitions:event-scroller.fields.rowSpacing.description",
+        "control": "integer",
+        "default": 100,
+        "minimum": 0,
+        "maximum": 200,
+        "ui": { "section": "appearance", "order": 4, "slider": true }
+      },
+      {
+        "key": "contentPadding",
+        "label": "Outer padding (%)",
+        "labelKey": "definitions:event-scroller.fields.contentPadding.label",
+        "description": "Adjust the space around the board. 0 removes it; 100 uses the automatic padding.",
+        "descriptionKey": "definitions:event-scroller.fields.contentPadding.description",
+        "control": "integer",
+        "default": 100,
+        "minimum": 0,
+        "maximum": 200,
+        "ui": { "section": "appearance", "order": 5, "slider": true }
+      },
+      {
+        "key": "headingSpacing",
+        "label": "Heading spacing (%)",
+        "labelKey": "definitions:event-scroller.fields.headingSpacing.label",
+        "description": "Adjust the space below the heading and around its divider.",
+        "descriptionKey": "definitions:event-scroller.fields.headingSpacing.description",
+        "control": "integer",
+        "default": 100,
+        "minimum": 0,
+        "maximum": 200,
+        "ui": {
+          "section": "appearance",
+          "order": 7,
+          "slider": true,
+          "visibleWhen": { "key": "heading", "notEquals": "" }
+        }
+      },
+      {
+        "key": "density",
+        "label": "Density",
+        "labelKey": "definitions:event-scroller.fields.density.label",
+        "control": "select",
+        "default": "comfortable",
+        "options": [
+          {
+            "value": "compact",
+            "label": "Compact",
+            "labelKey": "definitions:event-scroller.fields.density.options.compact"
+          },
+          {
+            "value": "comfortable",
+            "label": "Comfortable",
+            "labelKey": "definitions:event-scroller.fields.density.options.comfortable"
+          },
+          {
+            "value": "spacious",
+            "label": "Spacious",
+            "labelKey": "definitions:event-scroller.fields.density.options.spacious"
+          }
+        ],
+        "ui": {
+          "section": "appearance",
+          "order": 6,
+          "styleCard": true,
+          "visibleWhen": { "key": "rowLayout", "equals": "fill" }
+        }
+      },
+      {
+        "key": "backgroundColor",
+        "label": "Background",
+        "labelKey": "definitions:event-scroller.fields.backgroundColor.label",
+        "control": "color",
+        "default": "",
+        "ui": {
+          "section": "appearance",
+          "order": 8
+        }
+      },
+      {
+        "key": "foregroundColor",
+        "label": "Foreground",
+        "labelKey": "definitions:event-scroller.fields.foregroundColor.label",
+        "control": "color",
+        "default": "",
+        "ui": {
+          "section": "appearance",
+          "order": 9
+        }
+      },
+      {
+        "key": "accentColor",
+        "label": "Accent",
+        "labelKey": "definitions:event-scroller.fields.accentColor.label",
+        "control": "color",
+        "default": "",
+        "ui": {
+          "section": "appearance",
+          "order": 10
+        }
+      }
+    ]
+  },
+  "defaultConfiguration": {
+    "dataSourceId": "",
+    "titleField": "",
+    "startField": "",
+    "endField": "",
+    "locationField": "",
+    "categoryField": "",
+    "heading": "",
+    "maximumItems": 20,
+    "hideEnded": true,
+    "showWeekday": true,
+    "showDate": true,
+    "showTime": true,
+    "showLocation": true,
+    "showCategory": false,
+    "showDividers": true,
+    "dateStyle": "short",
+    "emptyText": "",
+    "flow": "auto",
+    "verticalDirection": "up",
+    "horizontalDirection": "left",
+    "scrollSpeed": 3,
+    "scrolling": true,
+    "density": "comfortable",
+    "textScale": 100,
+    "headingScale": 100,
+    "rowLayout": "fill",
+    "rowSpacing": 100,
+    "contentPadding": 100,
+    "headingSpacing": 100,
+    "backgroundColor": "",
+    "foregroundColor": "",
+    "accentColor": ""
+  },
+  "presentationSchemaVersion": 1,
+  "requiredCapabilities": { "content.text": 1 },
+  "emptyStateBehavior": "text",
+  "legacyEditor": false,
+  "authoring": {
+    "preview": {
+      "time": true,
+      "recommendedFrame": {
+        "width": 1920,
+        "height": 1080
+      }
+    }
+  },
+  "deprecation": {},
+  "component": {
+    "type": "tilecast.event-scroller",
+    "version": 1,
+    "tagName": "tc-widget-event-scroller",
+    "entrypoint": "./runtime/index.ts",
+    "configTemplate": {
+      "dataSourceId": {
+        "$config": "dataSourceId",
+        "default": ""
+      },
+      "titleField": {
+        "$config": "titleField",
+        "default": ""
+      },
+      "startField": {
+        "$config": "startField",
+        "default": ""
+      },
+      "endField": {
+        "$config": "endField",
+        "default": ""
+      },
+      "locationField": {
+        "$config": "locationField",
+        "default": ""
+      },
+      "categoryField": {
+        "$config": "categoryField",
+        "default": ""
+      },
+      "heading": {
+        "$config": "heading",
+        "default": ""
+      },
+      "maximumItems": {
+        "$config": "maximumItems",
+        "default": 20
+      },
+      "hideEnded": {
+        "$config": "hideEnded",
+        "default": true
+      },
+      "showWeekday": {
+        "$config": "showWeekday",
+        "default": true
+      },
+      "showDate": {
+        "$config": "showDate",
+        "default": true
+      },
+      "showTime": {
+        "$config": "showTime",
+        "default": true
+      },
+      "showLocation": {
+        "$config": "showLocation",
+        "default": true
+      },
+      "showCategory": {
+        "$config": "showCategory",
+        "default": false
+      },
+      "showDividers": {
+        "$config": "showDividers",
+        "default": true
+      },
+      "dateStyle": {
+        "$config": "dateStyle",
+        "default": "short"
+      },
+      "emptyText": {
+        "$config": "emptyText",
+        "default": ""
+      },
+      "flow": {
+        "$config": "flow",
+        "default": "auto"
+      },
+      "verticalDirection": {
+        "$config": "verticalDirection",
+        "default": "up"
+      },
+      "horizontalDirection": {
+        "$config": "horizontalDirection",
+        "default": "left"
+      },
+      "scrollSpeed": {
+        "$config": "scrollSpeed",
+        "default": 3
+      },
+      "scrolling": {
+        "$config": "scrolling",
+        "default": true
+      },
+      "density": {
+        "$config": "density",
+        "default": "comfortable"
+      },
+      "textScale": { "$config": "textScale", "default": 100 },
+      "headingScale": { "$config": "headingScale", "default": 100 },
+      "rowLayout": { "$config": "rowLayout", "default": "fill" },
+      "rowSpacing": { "$config": "rowSpacing", "default": 100 },
+      "contentPadding": { "$config": "contentPadding", "default": 100 },
+      "headingSpacing": { "$config": "headingSpacing", "default": 100 },
+      "background": {
+        "$config": "backgroundColor",
+        "default": ""
+      },
+      "foreground": {
+        "$config": "foregroundColor",
+        "default": ""
+      },
+      "accent": {
+        "$config": "accentColor",
+        "default": ""
+      }
+    },
+    "dataSourceFields": ["dataSourceId"],
+    "empty": "skip-eligible"
+  },
+  "compatibility": {
+    "fallback": "none"
+  }
+}

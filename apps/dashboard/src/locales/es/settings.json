@@ -669,7 +669,8 @@
       "integrations": "Tokens de integración",
       "import-export": "Importar y exportar",
       "dependency-graph": "Explorador de dependencias",
-      "preferences": "Preferencias"
+      "preferences": "Preferencias",
+      "roles": "Roles"
     },
     "sections": {
       "general": {
@@ -771,6 +772,10 @@
       "preferences": {
         "title": "Preferencias",
         "description": "Preferencias de apariencia y flujo de trabajo para tu cuenta de Studio."
+      },
+      "roles": {
+        "title": "Roles",
+        "description": "Decide qué puede hacer cada persona. Usa los roles integrados o crea los tuyos y asígnalos en la página Usuarios."
       }
     }
   },
@@ -1061,6 +1066,7 @@
     }
   },
   "retention": {
+    "saved": "Ajustes de retención de actividad guardados.",
     "title": "Retención de actividad",
     "description": "La limpieza se ejecuta en lotes acotados en segundo plano y respeta los límites estrictos del despliegue.",
     "save": "Guardar retención",
@@ -1084,6 +1090,8 @@
     }
   },
   "branding": {
+    "loginBackgroundSaved": "Fondo de inicio de sesión guardado.",
+    "loginBackgroundRemoved": "Fondo de inicio de sesión eliminado.",
     "title": "Imágenes de la organización",
     "description": "Sube imágenes desde este dispositivo. Tilecast guarda el recurso elegido internamente.",
     "logo": {
@@ -1109,6 +1117,47 @@
     "remove": "Quitar"
   },
   "backups": {
+    "kinds": {
+      "manual": "Manual",
+      "scheduled": "Programada",
+      "preRestore": "Antes de restaurar",
+      "imported": "Importada"
+    },
+    "verification": {
+      "unverified": "Sin verificar",
+      "failed": "Verificación fallida"
+    },
+    "jobKinds": {
+      "backup": "Copia de seguridad",
+      "verify": "Verificación",
+      "restore": "Restauración"
+    },
+    "jobStatuses": {
+      "queued": "En cola",
+      "running": "En curso",
+      "succeeded": "Completada",
+      "failed": "Fallida",
+      "cancelled": "Cancelada"
+    },
+    "phases": {
+      "checking_disk_space": "Comprobando el espacio en disco",
+      "database_snapshot": "Guardando la base de datos",
+      "pre_restore_backup": "Creando copia previa a la restauración",
+      "finalizing_archive": "Finalizando el archivo",
+      "verifying": "Verificando",
+      "verifying_archive": "Verificando el archivo",
+      "staging_files": "Preparando archivos",
+      "restoring_database": "Restaurando la base de datos",
+      "activating_files": "Activando archivos",
+      "validating": "Validando",
+      "finalizing": "Finalizando",
+      "complete": "Completado"
+    },
+    "triggers": {
+      "manual": "Manual",
+      "scheduled": "Programada",
+      "preRestore": "Antes de restaurar"
+    },
     "ownerOnly": "Solo el propietario puede gestionar las copias.",
     "loading": "Cargando copias…",
     "loadError": "No se pudieron cargar las copias.",
@@ -1234,6 +1283,119 @@
     }
   },
   "updates": {
+    "console": {
+      "incompatibleTargets": "Pantallas incompatibles: {{count}}.",
+      "playerFamily": "Familia de reproductor",
+      "families": {
+        "android": "Android",
+        "linux": "Linux heredado",
+        "edge": "Tilecast Edge",
+        "windows": "Windows"
+      },
+      "status": {
+        "active": "Activo",
+        "paused": "En pausa",
+        "completed": "Completado",
+        "cancelled": "Cancelado"
+      },
+      "deployments": "Despliegues",
+      "releases": "Versiones",
+      "workspaceViews": "Vistas de actualizaciones",
+      "fleetCount": "{{count}} pantallas",
+      "fleetCount_one": "{{count}} pantalla",
+      "fleetCount_other": "{{count}} pantallas",
+      "fleetCount_many": "{{count}} pantallas",
+      "targetCount": "{{count}} pantallas",
+      "targetCount_one": "{{count}} pantalla",
+      "targetCount_other": "{{count}} pantallas",
+      "targetCount_many": "{{count}} pantallas",
+      "selectedCount": "{{count}} pantallas seleccionadas",
+      "selectedCount_one": "{{count}} pantalla seleccionada",
+      "selectedCount_other": "{{count}} pantallas seleccionadas",
+      "selectedCount_many": "{{count}} pantallas seleccionadas",
+      "activeDeployments": "Despliegues activos y pendientes de atención",
+      "recentDeployments": "Despliegues recientes",
+      "noHistory": "No hay despliegues completados",
+      "noHistoryHint": "Los despliegues completados aparecen aquí.",
+      "viewRollout": "Ver despliegue",
+      "sync": "Sincronizar versiones",
+      "synced": "Catálogo de versiones sincronizado.",
+      "more": "Más acciones",
+      "continue": "Continuar",
+      "step": "{{stage}} de 3 — {{title}}",
+      "steps": {
+        "release": "Versión",
+        "targets": "Destinos",
+        "rollout": "Despliegue"
+      },
+      "stepHints": {
+        "release": "Elige un archivo verificado. Su arquitectura debe coincidir con las pantallas.",
+        "targets": "Busca pantallas o Grupos de pantallas. Tilecast comprueba cada pantalla incluida.",
+        "rollout": "Elige cuándo instalar y revisa el despliegue antes de iniciarlo."
+      },
+      "noReadyRelease": "Prepara una versión en la vista Versiones antes de desplegarla.",
+      "prepareFirst": "Preparar y verificar antes de desplegar",
+      "screens": "Pantallas",
+      "noTargetMatch": "No hay destinos coincidentes",
+      "groupMembers": "{{count}} miembros · {{eligible}} compatibles",
+      "checkingCompatibility": "Comprobando compatibilidad…",
+      "selectEligible": "Seleccionar todos los aptos",
+      "removeTarget": "Quitar {{name}}",
+      "modeHints": {
+        "install_now": "Descargar, verificar y solicitar la instalación ahora.",
+        "download_only": "Preparar la actualización en cada pantalla sin instalarla.",
+        "maintenance_window": "Descargar ahora e instalar a partir de la hora elegida."
+      },
+      "windowHint": "Hora local de este navegador. Los reproductores instalan a partir de ese momento.",
+      "futureWindow": "Elige una fecha y hora futuras.",
+      "canaryRollout": "Despliegue canario",
+      "canaryHint": "Actualiza primero un grupo pequeño. Continúa solo cuando todos tengan éxito.",
+      "invalidCanary": "Usa entre 1 y 50 pantallas canarias, menos que los destinos aptos. Quita las pantallas ya actualizadas antes de usar canarios.",
+      "canarySummary": "{{count}} pantallas canarias",
+      "canarySummary_one": "{{count}} pantalla canaria",
+      "canarySummary_other": "{{count}} pantallas canarias",
+      "canarySummary_many": "{{count}} pantallas canarias",
+      "canaryPhase": "Etapa del despliegue: {{phase}}",
+      "waitingCanary": "Esperando al canario",
+      "review": "Revisión del despliegue",
+      "blockedTitle": "Las pantallas seleccionadas no pueden recibir esta versión",
+      "offlineWarning": "{{count}} pantallas no tienen latido reciente. Las órdenes esperan la reconexión y caducan a los siete días.",
+      "offlineWarning_one": "{{count}} pantalla no tiene latido reciente. La orden espera la reconexión y caduca a los siete días.",
+      "offlineWarning_other": "{{count}} pantallas no tienen latido reciente. Las órdenes esperan la reconexión y caducan a los siete días.",
+      "offlineWarning_many": "{{count}} pantallas no tienen latido reciente. Las órdenes esperan la reconexión y caducan a los siete días.",
+      "currentWarning": "{{count}} pantallas ya tienen esta versión o una posterior. No reciben una orden de actualización.",
+      "currentWarning_one": "{{count}} pantalla ya tiene esta versión o una posterior. No recibe una orden de actualización.",
+      "currentWarning_other": "{{count}} pantallas ya tienen esta versión o una posterior. No reciben una orden de actualización.",
+      "currentWarning_many": "{{count}} pantallas ya tienen esta versión o una posterior. No reciben una orden de actualización.",
+      "configureSource": "Configurar origen",
+      "sourceHint": "El acceso a GitHub es opcional. Las cargas firmadas funcionan sin GitHub.",
+      "deviceFlowHint": "Activa Device Flow en la aplicación OAuth. GitHub también requiere una URL de retorno; sirve la del repositorio Tilecast.",
+      "uploadHint": "Selecciona el archivo, su manifiesto firmado y la firma separada. El servidor debe verificarlos.",
+      "fileTooLarge": "{{name}} no debe superar {{size}}.",
+      "verifyingRelease": "Verificando la versión firmada…",
+      "artifact": "Archivo del reproductor",
+      "manifest": "Manifiesto",
+      "signature": "Firma",
+      "releaseLibrary": "Biblioteca de versiones",
+      "checked": "Comprobado {{time}}",
+      "noReleases": "No hay versiones disponibles",
+      "noReleasesHint": "Sincroniza GitHub o carga una versión firmada desde Más acciones.",
+      "prepareRequested": "Descarga del archivo solicitada.",
+      "prepareArtifact": "Preparar archivo",
+      "deployArtifact": "Desplegar {{architecture}}",
+      "releaseCommands": "Acciones para {{version}} {{architecture}}",
+      "deploymentUsage": "{{count}} despliegues · {{active}} activos",
+      "technicalDetails": "Detalles técnicos",
+      "versionCode": "Código de versión",
+      "sha256": "SHA-256",
+      "verification": "Verificación",
+      "fullyVerified": "Archivo y manifiesto verificados",
+      "manifestVerified": "Firma del manifiesto verificada",
+      "certificate": "SHA-256 del certificado de firma",
+      "releaseNotes": "Notas de la versión",
+      "noNotes": "No hay notas de la versión.",
+      "trustedKeyMissing": "Configura la clave pública de confianza en el servidor antes de importar versiones."
+    },
     "states": {
       "held": {
         "label": "En espera de canarias",
@@ -1295,7 +1457,7 @@
       },
       "incompatible": {
         "label": "Incompatible",
-        "detail": "Esta versión no puede ejecutarse en la versión de Android de esta pantalla."
+        "detail": "Esta versión no es compatible con los requisitos del dispositivo de esta pantalla."
       },
       "unknown": {
         "label": "Desconocido",

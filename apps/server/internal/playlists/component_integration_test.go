@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/tilecast/tilecast/apps/server/internal/contentdefs"
+	"github.com/tilecast/tilecast/apps/server/internal/layouts"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	formsserver "github.com/tilecast/tilecast/plugins/forms/server"
 )
@@ -391,7 +392,7 @@ func TestCardsDataSourceAssetGetsAnExactVerifiedMediaGrant(t *testing.T) {
 	}
 }
 
-func TestLayoutZoneAssignmentRejectsUnsupportedPlaylistItems(t *testing.T) {
+func TestLayoutZoneAssignmentRequiresMixedPlaylistCapability(t *testing.T) {
 	f := setupCapabilityFixture(t)
 	playlist, err := f.service.Create(f.ctx, f.user, "Zone playlist", "", "static")
 	if err != nil {
@@ -429,6 +430,7 @@ func TestLayoutZoneAssignmentRejectsUnsupportedPlaylistItems(t *testing.T) {
 		{`INSERT INTO layouts(id,organization_id,name,orientation,canvas_width,canvas_height,draft_document,created_by)VALUES($1,$2,'Zone layout','landscape',1920,1080,$3::jsonb,$4)`, []any{layoutID, f.org, encoded, f.user}},
 		{`INSERT INTO layout_revisions(id,layout_id,revision,document,document_sha256,published_by)VALUES($1,$2,1,$3::jsonb,$4,$5)`, []any{revisionID, layoutID, encoded, hex.EncodeToString(digest[:]), f.user}},
 		{`UPDATE layouts SET published_revision_id=$2 WHERE id=$1`, []any{layoutID, revisionID}},
+		{`INSERT INTO layout_revision_dependencies(revision_id,dependency_type,dependency_id)VALUES($1,'playlist',$2)`, []any{revisionID, playlist.ID}},
 	} {
 		if _, err = f.pool.Exec(f.ctx, statement.sql, statement.args...); err != nil {
 			t.Fatal(err)
@@ -447,8 +449,12 @@ func TestLayoutZoneAssignmentRejectsUnsupportedPlaylistItems(t *testing.T) {
 		t.Fatal(err)
 	}
 	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
-	if err = f.service.ValidatePresentationTargets(f.ctx, nil, &layoutID, []uuid.UUID{f.screen}, nil); err == nil || !strings.Contains(err.Error(), "only image and video items") {
-		t.Fatalf("assignment validation accepted a Widget added after Layout publication: %v", err)
+	if err = f.service.ValidatePresentationTargets(f.ctx, nil, &layoutID, []uuid.UUID{f.screen}, nil); err == nil || !strings.Contains(err.Error(), "layout.playlist_widgets@1") {
+		t.Fatalf("assignment validation accepted a Widget without the zone capability: %v", err)
+	}
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{"layout.playlist_widgets": 1, "widget.tilecast.clock": 2})
+	if err = f.service.ValidatePresentationTargets(f.ctx, nil, &layoutID, []uuid.UUID{f.screen}, nil); err != nil {
+		t.Fatalf("mixed zone rejected by a supporting Player: %v", err)
 	}
 }
 
@@ -541,5 +547,131 @@ func TestExternalWidgetManifestVersion(t *testing.T) {
 	}
 	if ref.DownloadPath != "/api/v1/player/packages/acme.athletics/widgets/scoreboard" {
 		t.Fatalf("download path = %q", ref.DownloadPath)
+	}
+}
+
+// TestExternalWidgetFrameManifestVersion proves an installed package
+// Widget reaches a frame-capable Player as a v19 component naming its
+// verified package digest and sandbox frame download, while a
+// retrieval-only Player keeps the v18 bundle claim and an incapable
+// Player keeps the declared compatibility presentation.
+func TestExternalWidgetFrameManifestVersion(t *testing.T) {
+	f := setupCapabilityFixture(t)
+	catalog := externalWidgetCatalog(t)
+	f.service.SetContentDefinitions(catalog)
+	f.media.SetContentDefinitions(catalog)
+	f.service.SetPackagePayloads(stubPackagePayloads{
+		[2]string{"acme.athletics", "scoreboard"}: {
+			PackageDigest:  "sha256:" + strings.Repeat("a", 64),
+			SHA256Hex:      strings.Repeat("b", 64),
+			Size:           42,
+			FrameSHA256Hex: strings.Repeat("c", 64),
+			FrameSize:      4242,
+		},
+	})
+	raw, _ := json.Marshal(map[string]any{"title": "Friday"})
+	widget, err := f.media.CreateWidget(f.ctx, f.user, media.WidgetInput{Provider: "acme.athletics.scoreboard", Name: "Scores", Configuration: raw})
+	if err != nil {
+		t.Fatalf("create external Widget: %v", err)
+	}
+	playlist, err := f.service.Create(f.ctx, f.user, "Scores rotation", "", "static")
+	if err != nil {
+		t.Fatal(err)
+	}
+	duration := int64(30_000)
+	if _, err := f.service.AddItem(f.ctx, playlist.ID, f.user, ItemInput{AssetID: widget.ID, DurationMS: &duration, DeliveryPolicy: "stream"}); err != nil {
+		t.Fatal(err)
+	}
+	publishDraftForTest(t, f.ctx, f.service, playlist.ID, f.user)
+	if _, err := f.service.Assign(f.ctx, f.screen, playlist.ID, f.user); err != nil {
+		t.Fatal(err)
+	}
+
+	// Without the execution ABI the Player keeps compatibility.
+	f.reportCapabilities(t, "{1,2,3}", nil)
+	manifest, _, err := f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion == ManifestSchemaExternalWidgetFrames || manifest.SchemaVersion == ManifestSchemaExternalComponents {
+		t.Fatalf("incapable Player received v%d", manifest.SchemaVersion)
+	}
+	served := onlyWidget(t, manifest)
+	if served.Presentation == nil || served.Presentation.Kind != "native" {
+		t.Fatalf("incapable Player did not receive compatibility: %+v", served.Presentation)
+	}
+
+	// With the retrieval ABI the same Widget arrives as a v18 bundle claim.
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{contentdefs.ExternalRuntimeCapability: contentdefs.ExternalRuntimeVersion})
+	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion != ManifestSchemaExternalComponents {
+		t.Fatalf("manifest version = %d, want %d", manifest.SchemaVersion, ManifestSchemaExternalComponents)
+	}
+	served = onlyWidget(t, manifest)
+	if served.Presentation == nil || served.Presentation.Kind != "component" || served.Presentation.Component == nil {
+		t.Fatalf("retrieval-only Player did not receive a component: %+v", served.Presentation)
+	}
+	if ref := served.Presentation.Component.Package; ref == nil || ref.Frame != nil || ref.SHA256 == "" {
+		t.Fatalf("retrieval-only Player did not receive a v18 bundle claim: %+v", ref)
+	}
+
+	// With the frame ABI the Widget arrives as an executable v19 claim.
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{contentdefs.ExternalRuntimeCapability: contentdefs.ExternalRuntimeFrameVersion})
+	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.SchemaVersion != ManifestSchemaExternalWidgetFrames {
+		t.Fatalf("manifest version = %d, want %d", manifest.SchemaVersion, ManifestSchemaExternalWidgetFrames)
+	}
+	served = onlyWidget(t, manifest)
+	if served.Presentation == nil || served.Presentation.Kind != "component" || served.Presentation.Component == nil {
+		t.Fatalf("frame-capable Player did not receive a component: %+v", served.Presentation)
+	}
+	ref := served.Presentation.Component.Package
+	if ref == nil {
+		t.Fatal("frame component names no package")
+	}
+	if ref.PackageID != "acme.athletics" || ref.Digest != "sha256:"+strings.Repeat("a", 64) {
+		t.Fatalf("package identity = %+v", ref)
+	}
+	if ref.SHA256 != "" || ref.FileSize != 0 || ref.DownloadPath != "" || ref.Frame == nil {
+		t.Fatalf("v19 claim is not frame-only: %+v", ref)
+	}
+	if ref.Frame.SHA256 != strings.Repeat("c", 64) || ref.Frame.FileSize != 4242 {
+		t.Fatalf("frame claim = %+v", ref.Frame)
+	}
+	if ref.Frame.DownloadPath != "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame" {
+		t.Fatalf("frame download path = %q", ref.Frame.DownloadPath)
+	}
+	// The same package claim must survive Layout → Playlist → Widget traversal.
+	layoutService := layouts.NewService(f.pool)
+	layoutService.SetContentDefinitions(catalog)
+	layout, err := layoutService.Create(f.ctx, f.user, "Package zone", "", "landscape", 1920, 1080)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := layouts.Document{SchemaVersion: 2, Canvas: layouts.Canvas{Width: 1920, Height: 1080, Orientation: "landscape", BackgroundColor: "#000000"}, Placements: []layouts.Placement{{ID: uuid.New(), Type: "playlistZone", Name: "Scores", Width: 960, Height: 1080, Visible: true, Opacity: 1, PlaylistID: &playlist.ID}}}
+	layout, err = layoutService.SaveDraft(f.ctx, layout.ID, f.user, layout.DraftRevision, document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = layoutService.Publish(f.ctx, layout.ID, f.user, layout.DraftRevision); err != nil {
+		t.Fatal(err)
+	}
+	f.reportCapabilities(t, "{1,2,3}", map[string]int{contentdefs.ExternalRuntimeCapability: contentdefs.ExternalRuntimeFrameVersion, layoutPlaylistWidgetsCapability: 1})
+	if _, err = f.service.AssignPresentation(f.ctx, f.screen, nil, &layout.ID, f.user); err != nil {
+		t.Fatal(err)
+	}
+	manifest, _, err = f.service.BuildManifest(f.ctx, f.screen)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zoneWidget := onlyWidget(t, manifest)
+	if manifest.SchemaVersion != ManifestSchemaExternalWidgetFrames || zoneWidget.Presentation.Component.Package.Frame == nil || zoneWidget.Presentation.Component.Package.Frame.SHA256 != ref.Frame.SHA256 || zoneWidget.Presentation.RequiredCapabilities[layoutPlaylistWidgetsCapability] != 1 {
+		t.Fatalf("Layout lost package frame isolation: %+v", zoneWidget.Presentation)
 	}
 }

@@ -2,7 +2,12 @@ import { createActor } from "xstate";
 import { describe, expect, it } from "vitest";
 import { ManualClock } from "../clock/scheduler";
 import type { RuntimeLayoutZonePlaylistItem } from "../host/contract";
-import { zoneEntry, zoneMachine, ZONE_RETRY_MS } from "./zone-machine";
+import {
+  zoneEntry,
+  zoneMachine,
+  zoneOwesContinuingEvidence,
+  ZONE_RETRY_MS,
+} from "./zone-machine";
 import fixtures from "../../../presentation-model/fixtures/zone-policy.json";
 
 function item(
@@ -23,6 +28,112 @@ function item(
 }
 
 describe("layout playlist-zone playback", () => {
+  it("uses the shared Widget duration fallback for an unset timed occurrence", () => {
+    const clock = new ManualClock({ wallMs: 0 });
+    const actor = createActor(zoneMachine, {
+      input: {
+        items: [
+          { id: "widget", kind: "widget", durationMs: null },
+          item("next"),
+        ],
+        clock,
+        onReady() {},
+      },
+    });
+    actor.start();
+    actor.send({
+      type: "MEDIA_READY",
+      epoch: actor.getSnapshot().context.epoch,
+    });
+    clock.advance(29_999);
+    expect(actor.getSnapshot().context.shown).toBe(1);
+    clock.advance(1);
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    actor.stop();
+  });
+  it("backs off when a loop of Widgets all fail instead of spinning mounts", () => {
+    const clock = new ManualClock({ wallMs: 0 });
+    const actor = createActor(zoneMachine, {
+      input: {
+        items: [
+          { id: "a", kind: "widget", durationMs: 100 },
+          { id: "b", kind: "widget", durationMs: 100 },
+        ],
+        clock,
+        onReady() {},
+      },
+    });
+    actor.start();
+    actor.send({
+      type: "MEDIA_FAILED",
+      epoch: actor.getSnapshot().context.epoch,
+    });
+    actor.send({
+      type: "MEDIA_FAILED",
+      epoch: actor.getSnapshot().context.epoch,
+    });
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    const epoch = actor.getSnapshot().context.epoch;
+    clock.advance(ZONE_RETRY_MS - 1);
+    expect(actor.getSnapshot().context.epoch).toBe(epoch);
+    clock.advance(1);
+    expect(actor.getSnapshot().context.epoch).toBe(epoch + 1);
+    actor.stop();
+    expect(clock.pendingTimers).toBe(0);
+  });
+  it("times Widgets only after readiness, preserves remaining time, and rejects duplicate and stale completions", () => {
+    const clock = new ManualClock({ wallMs: 0 });
+    const widget: RuntimeLayoutZonePlaylistItem = {
+      id: "widget",
+      kind: "widget",
+      durationMs: 100,
+      widget: {
+        background: "#000",
+        root: { t: "text", value: "Welcome", style: {} },
+      },
+    };
+    const actor = createActor(zoneMachine, {
+      input: { items: [widget, item("next")], clock, onReady() {} },
+    });
+    actor.start();
+    const epoch = actor.getSnapshot().context.epoch;
+    clock.advance(100_000);
+    expect(actor.getSnapshot().context.shown).toBe(1);
+    actor.send({ type: "MEDIA_READY", epoch });
+    clock.advance(40);
+    actor.send({ type: "MEDIA_READY", epoch });
+    actor.send({ type: "PAUSE", epoch });
+    clock.advance(1000);
+    actor.send({ type: "RESUME", epoch });
+    clock.advance(59);
+    expect(actor.getSnapshot().context.shown).toBe(1);
+    clock.advance(1);
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    actor.send({ type: "MEDIA_ENDED", epoch });
+    actor.send({ type: "MEDIA_FAILED", epoch });
+    expect(actor.getSnapshot().context.shown).toBe(2);
+    actor.stop();
+    expect(clock.pendingTimers).toBe(0);
+  });
+
+  it("holds bounded timed Widgets to continuing evidence", () => {
+    expect(
+      zoneOwesContinuingEvidence({
+        playlistItems: [
+          { kind: "image", durationMs: 1000 },
+          { kind: "widget", durationMs: 30_000 },
+        ],
+      }),
+    ).toBe(true);
+    expect(
+      zoneOwesContinuingEvidence({
+        playlistItems: [
+          { kind: "widget", durationMs: 600_000 },
+          { kind: "image", durationMs: 1000 },
+        ],
+      }),
+    ).toBe(false);
+  });
   it.each(fixtures.advance)("$name", (fixture) => {
     const clock = new ManualClock({ wallMs: 0 });
     const actor = createActor(zoneMachine, {
@@ -30,7 +141,7 @@ describe("layout playlist-zone playback", () => {
         items: Array.from({ length: fixture.count }, (_, i) => item(String(i))),
         loop: fixture.loop,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
@@ -67,10 +178,14 @@ describe("layout playlist-zone playback", () => {
         items: [item("first"), item("clip", "video")],
         loop: true,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
+    actor.send({
+      type: "MEDIA_READY",
+      epoch: actor.getSnapshot().context.epoch,
+    });
     clock.advance(100);
     expect(zoneEntry(actor.getSnapshot().context)?.entry.id).toBe("clip");
     clock.advance(100_000);
@@ -89,7 +204,7 @@ describe("layout playlist-zone playback", () => {
         items: [item("first"), item("last")],
         loop: false,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
@@ -110,7 +225,7 @@ describe("layout playlist-zone playback", () => {
         items: [item("first"), item("last")],
         loop: true,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
@@ -134,7 +249,7 @@ describe("layout playlist-zone playback", () => {
         items: [item("first"), item("last")],
         loop: false,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
@@ -168,14 +283,60 @@ describe("layout playlist-zone playback", () => {
         items: [zero, { ...item("b"), durationMs: 0 }],
         loop: true,
         clock,
-        onAdvance() {},
+        onReady() {},
       },
     });
     actor.start();
+    actor.send({
+      type: "MEDIA_READY",
+      epoch: actor.getSnapshot().context.epoch,
+    });
     clock.advance(9_999);
     expect(actor.getSnapshot().context.shown).toBe(1);
     clock.advance(1);
     expect(actor.getSnapshot().context.shown).toBe(2);
     actor.stop();
+  });
+});
+
+describe("zones that owe continuing render evidence", () => {
+  const images = (count: number, durationMs: number | null = 100) =>
+    Array.from({ length: count }, (_, i) => ({
+      ...item(String(i)),
+      durationMs,
+    }));
+
+  it("is true only for a looping rotation of short images", () => {
+    expect(zoneOwesContinuingEvidence({ playlistItems: images(2) })).toBe(true);
+    expect(
+      zoneOwesContinuingEvidence({
+        loop: true,
+        playlistItems: images(3, null),
+      }),
+    ).toBe(true);
+    expect(
+      zoneOwesContinuingEvidence({ playlistItems: images(2, 120_000) }),
+    ).toBe(true);
+  });
+
+  it("is false for a zone that renders once and holds", () => {
+    expect(zoneOwesContinuingEvidence({})).toBe(false);
+    expect(zoneOwesContinuingEvidence({ playlistItems: images(1) })).toBe(
+      false,
+    );
+    expect(
+      zoneOwesContinuingEvidence({ loop: false, playlistItems: images(3) }),
+    ).toBe(false);
+  });
+
+  it("is false when the Runtime cannot bound how long an entry stays", () => {
+    expect(
+      zoneOwesContinuingEvidence({
+        playlistItems: [...images(2), item("clip", "video")],
+      }),
+    ).toBe(false);
+    expect(
+      zoneOwesContinuingEvidence({ playlistItems: images(2, 120_001) }),
+    ).toBe(false);
   });
 });

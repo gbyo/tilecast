@@ -1,0 +1,21 @@
+{
+  "frame": {
+    "type": "event",
+    "seq": 2,
+    "event": "presentation.activate",
+    "data": {
+      "activationId": "3f2b8c1d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "generation": 1,
+      "presentation": {
+        "state": "setup",
+        "phoneSetup": {
+          "state": "ready",
+          "url": "https://setup.tilecast.org/#v=1&r=Z5ySczQ0pPyM7NbIDHKMmA&k=BFctEE2Q-Ocg6yin7zIv8ItPWHU0MztTkVkaqlDHTNwzod5uumgxeTYei5COPsJBCBx9wPRVNgPZ9pt6u8t_pPI",
+          "rejected": true
+        }
+      },
+      "content": [],
+      "timing": null
+    }
+  }
+}

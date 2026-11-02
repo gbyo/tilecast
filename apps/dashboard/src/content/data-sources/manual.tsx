@@ -133,6 +133,28 @@ export function ManualDataSourceEditor({
         columnIndex === index ? { ...column, ...patch } : column,
       ),
     }));
+  // A key is the name a row's value is stored under. Renaming the column moves
+  // every row's value with it, so existing cells keep their content.
+  const renameColumnKey = (index: number, nextKey: string) =>
+    setConfiguration((current) => {
+      const previousKey = current.columns[index]?.key;
+      if (previousKey === undefined || previousKey === nextKey) return current;
+      return {
+        ...current,
+        columns: current.columns.map((column, columnIndex) =>
+          columnIndex === index ? { ...column, key: nextKey } : column,
+        ),
+        rows: current.rows.map((row) => {
+          if (!(previousKey in row.values)) return row;
+          const values: Record<string, string> = {
+            ...row.values,
+            [nextKey]: row.values[previousKey] ?? "",
+          };
+          delete values[previousKey];
+          return { ...row, values };
+        }),
+      };
+    });
   const isUnspecifiedLegacyCurrency = (column: ManualColumn) =>
     originalColumns.current.some(
       (original) =>
@@ -226,9 +248,7 @@ export function ManualDataSourceEditor({
                 id={`manual-column-key-${index}`}
                 value={column.key}
                 disabled={readOnly}
-                onChange={(event) =>
-                  updateColumn(index, { key: event.target.value })
-                }
+                onChange={(event) => renameColumnKey(index, event.target.value)}
               />
             </Field>
             <Field>

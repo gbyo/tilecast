@@ -5,8 +5,11 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/google/uuid"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/execution"
 )
 
 // KV bounds for plugin-owned storage.
@@ -118,6 +121,27 @@ func (s *PostgresKV) Get(ctx context.Context, packageID, key string) ([]byte, er
 		return nil, errors.New("wasm: storage key must hold 1 to 128 bytes")
 	}
 	var value []byte
+	if call := invocationOf(ctx); call != nil && call.executionEpoch != uuid.Nil {
+		tx, err := s.pool.Begin(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer tx.Rollback(ctx) //nolint:errcheck
+		ctx, err = execution.Lock(ctx, tx, packageID)
+		if err != nil {
+			return nil, err
+		}
+		storage, err := execution.Check(ctx, tx, packageID, call.digest, call.executionEpoch)
+		if err != nil {
+			return nil, err
+		}
+		err = tx.QueryRow(ctx, `SELECT value FROM external_plugin_kv
+			WHERE package_id=$1 AND key=$2 AND storage_epoch=$3`, packageID, key, storage).Scan(&value)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrKVNotFound
+		}
+		return value, err
+	}
 	err := s.pool.QueryRow(ctx,
 		`SELECT value FROM external_plugin_kv WHERE package_id = $1 AND key = $2`,
 		packageID, key).Scan(&value)
@@ -145,14 +169,26 @@ func (s *PostgresKV) Set(ctx context.Context, packageID, key string, value []byt
 		return err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	ctx, err = execution.Lock(ctx, tx, packageID)
+	if err != nil {
+		return err
+	}
+	var storage *uuid.UUID
+	if call := invocationOf(ctx); call != nil && call.executionEpoch != uuid.Nil {
+		epoch, err := execution.Check(ctx, tx, packageID, call.digest, call.executionEpoch)
+		if err != nil {
+			return err
+		}
+		storage = &epoch
+	}
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, "external_plugin_kv:"+packageID); err != nil {
 		return err
 	}
 	var total int64
 	err = tx.QueryRow(ctx,
 		`SELECT COALESCE(SUM(octet_length(value)), 0) FROM external_plugin_kv
-		 WHERE package_id = $1 AND key <> $2`,
-		packageID, key).Scan(&total)
+		 WHERE package_id = $1 AND key <> $2 AND storage_epoch IS NOT DISTINCT FROM $3`,
+		packageID, key, storage).Scan(&total)
 	if err != nil {
 		return err
 	}
@@ -160,11 +196,11 @@ func (s *PostgresKV) Set(ctx context.Context, packageID, key string, value []byt
 		return errors.New("wasm: package storage quota exceeded")
 	}
 	tag, execErr := tx.Exec(ctx,
-		`INSERT INTO external_plugin_kv(organization_id, package_id, key, value, updated_at)
-		 SELECT id, $1, $2, $3, now() FROM organization_settings WHERE singleton
+		`INSERT INTO external_plugin_kv(organization_id, package_id, key, value, updated_at, storage_epoch)
+		 SELECT id, $1, $2, $3, now(), $4 FROM organization_settings WHERE singleton
 		 ON CONFLICT (organization_id, package_id, key)
-		 DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
-		packageID, key, value)
+		 DO UPDATE SET value = EXCLUDED.value, updated_at = now(), storage_epoch = EXCLUDED.storage_epoch`,
+		packageID, key, value, storage)
 	if execErr != nil {
 		return execErr
 	}
@@ -176,6 +212,22 @@ func (s *PostgresKV) Set(ctx context.Context, packageID, key string, value []byt
 
 // RemovePackage implements KVStore.
 func (s *PostgresKV) RemovePackage(ctx context.Context, packageID string) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM external_plugin_kv WHERE package_id = $1`, packageID)
-	return err
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	ctx, err = execution.Lock(ctx, tx, packageID)
+	if err != nil {
+		return err
+	}
+	// A delayed removal may run after the same package was reinstalled.
+	// Delete only rows outside the current storage lifetime in that case.
+	_, err = tx.Exec(ctx, `DELETE FROM external_plugin_kv kv WHERE package_id=$1
+		AND NOT EXISTS(SELECT 1 FROM installed_packages installed
+			WHERE installed.package_id=$1 AND installed.storage_epoch=kv.storage_epoch)`, packageID)
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }

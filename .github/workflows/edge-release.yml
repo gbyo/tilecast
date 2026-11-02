@@ -1,18 +1,54 @@
 name: Tilecast Edge Release
 
-# Builds signed Tilecast Edge releases, one per architecture: the private
-# WPE WebKit build, the renderer, the Rust binaries and the Player Runtime,
-# on the pinned Debian 13 builder (apps/edge/release/Dockerfile.builder).
-# Each architecture builds natively on its own runner; emulation is never
-# ARM64 support. It uploads the artifacts and their build provenance
-# attestation. Publishing a GitHub release is a separate, human step.
+# Builds signed Tilecast Edge release artifacts, one per architecture: the
+# private WPE WebKit build, the renderer, the Rust binaries and the Player
+# Runtime, on the pinned Debian 13 builder (apps/edge/release/
+# Dockerfile.builder). Each architecture builds natively on its own runner;
+# emulation is never ARM64 support. It uploads the artifacts and their build
+# provenance attestation as temporary Actions artifacts. It never publishes:
+# the coordinated release (release.yml) calls it, assembles every platform
+# into one draft GitHub release, verifies it, and publishes it once.
 #
-# WPE WebKit arrives in three tiers: the published immutable prebuild
-# (wpe-prebuild.yml), the best-effort CI cache, then a from-scratch
-# compile. A missing prebuild slows a release but never blocks it.
+# Run on its own (workflow_dispatch) it is a release-candidate build check: it
+# builds whatever version the checkout carries, or stamps release_version when
+# one is given, and publishes nothing.
+#
+# WPE WebKit arrives in three tiers: the immutable GHCR prebuild
+# (wpe-prebuild.yml), the best-effort CI cache, then a from-scratch compile. A
+# missing or rejected prebuild slows a release but never blocks it.
 on:
+  workflow_call:
+    inputs:
+      release_version:
+        description: Coordinated release version to stamp, for example 0.26.0-beta.1
+        required: true
+        type: string
+      channel:
+        description: Update channel in the signed envelope
+        required: true
+        type: string
+      arches:
+        description: JSON list of architectures to build
+        required: false
+        default: '["x86_64","aarch64"]'
+        type: string
+      verify_reproducible:
+        description: Build the tree a second time and require identical file digests
+        required: false
+        default: true
+        type: boolean
+      bridge:
+        description: Build the Edge bridge release (edge-bridge-release.yml). Stamps only Edge, with a legacy-compatible version below 0.26.0
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
+      release_version:
+        description: Optional coordinated release version to stamp; the checkout's own version when empty
+        required: false
+        default: ""
+        type: string
       verify_reproducible:
         description: Build the tree a second time and require identical file digests
         required: false
@@ -39,19 +75,43 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        include:
-          - arch: x86_64
-            runner: ubuntu-latest
-          - arch: aarch64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+        arch: ${{ fromJSON(inputs.arches || '["x86_64","aarch64"]') }}
+    # Native builds on native runners; emulation is never ARM64 support.
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     timeout-minutes: 360
     permissions:
       contents: read
+      packages: read
       id-token: write
       attestations: write
     steps:
       - uses: actions/checkout@v7
+
+      - name: Stamp the release version
+        if: inputs.release_version != ''
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+          BRIDGE: ${{ inputs.bridge && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          # The bridge is the one Edge build that is not a coordinated release:
+          # it stamps Edge only, with a version a deployed 0.2.1 screen accepts.
+          if [ "$BRIDGE" = true ]; then
+            python3 scripts/release/stamp_version.py --version "$RELEASE_VERSION" --edge-only
+          else
+            python3 scripts/release/stamp_version.py --version "$RELEASE_VERSION"
+          fi
+
+      - uses: oras-project/setup-oras@v2
+        with:
+          version: 1.3.4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Fetch prebuilt WPE WebKit
         id: wpe
@@ -61,12 +121,12 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/edge-release-cache"
           echo "key=$(python3 apps/edge/release/inputs.py wpe-key)" >> "$GITHUB_OUTPUT"
-          tag=$(python3 apps/edge/release/inputs.py wpe-tag '${{ matrix.arch }}')
-          tar=$(python3 apps/edge/release/inputs.py wpe-tar '${{ matrix.arch }}')
-          if gh release download "$tag" --pattern "$tar" --dir "$RUNNER_TEMP/edge-release-cache"; then
-            echo "prebuilt WPE WebKit $tag restored"
+          # Exit 1 is "no prebuild", 2 is "a prebuild that failed a check". Both
+          # fall back to the CI cache and then to compiling WebKit.
+          if apps/edge/release/fetch-wpe-prebuild.sh '${{ matrix.arch }}' "$RUNNER_TEMP/edge-release-cache"; then
+            echo "prebuilt WPE WebKit restored from GHCR"
           else
-            echo "no prebuilt WPE WebKit $tag; falling back to the CI cache or a from-scratch compile" >&2
+            echo "no usable prebuilt WPE WebKit; falling back to the CI cache or a from-scratch compile" >&2
           fi
 
       - uses: actions/setup-node@v7
@@ -117,7 +177,7 @@ jobs:
 
       - name: Build, sign and package
         env:
-          CHANNEL: ${{ inputs.channel }}
+          CHANNEL: ${{ inputs.channel || 'stable' }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/edge-release-cache" "$RUNNER_TEMP/edge-release"
@@ -127,6 +187,17 @@ jobs:
             -e TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_FILE=/keys/update-public.pem \
             -e TILECAST_EDGE_CHANNEL="$CHANNEL" \
             tilecast-edge-release-builder /src/apps/edge/release/build-edge-release.sh
+
+      - name: The release reports the stamped version
+        if: inputs.release_version != ''
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/edge-release"
+          test "$(jq -er .versionName "$out/tree/tilecast-edge-release.json")" = "$RELEASE_VERSION"
+          test "$(jq -er .versionName "$out/tilecast-edge-update-${{ matrix.arch }}.json")" = "$RELEASE_VERSION"
+          test "$(jq -er .versionCode "$out/tilecast-edge-update-${{ matrix.arch }}.json")" = "$(python3 scripts/release/release_version.py code "$RELEASE_VERSION")"
 
       - name: Require user namespaces for the sandbox check
         # The kernel check that Ubuntu 24.04 runners apply to unconfined
@@ -150,7 +221,7 @@ jobs:
       - name: Rebuild and compare every file digest
         if: ${{ inputs.verify_reproducible }}
         env:
-          CHANNEL: ${{ inputs.channel }}
+          CHANNEL: ${{ inputs.channel || 'stable' }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/edge-release-again"

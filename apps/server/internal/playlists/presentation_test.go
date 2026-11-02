@@ -233,6 +233,23 @@ func TestDefinitionWebPresentationCompilesProviderURLAndPeriodicReload(t *testin
 	}
 }
 
+func TestCanvaPresentationPreservesPlaybackPolicy(t *testing.T) {
+	p, err := presentationTestService().CompileWidgetPresentation("canva", json.RawMessage(`{"canvaUrl":"https://www.canva.com/design/DAGabcdefgh/token_123456/view?access=keep","slideshow":true,"refreshIntervalSeconds":1800}`), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.RequiredCapabilities["web.remote"] != 2 || p.Web.URL != "https://www.canva.com/design/DAGabcdefgh/token_123456/watch?access=keep&embed=" || len(p.Web.AllowedHosts) != 1 || p.Web.AllowedHosts[0] != "www.canva.com" || p.Web.Lifecycle != "keep_warm" || p.Web.WarmSeconds != 60 || !p.Web.OnlineOnly || p.Web.FallbackBehavior != "placeholder" || p.Web.Reload.IntervalSeconds != 1800 {
+		t.Fatalf("unexpected Canva descriptor: %#v", p.Web)
+	}
+	legacy, err := presentationTestService().CompileWidgetPresentation("canva", json.RawMessage(`{"canvaUrl":"https://www.canva.com/design/DAGabcdefgh/token_123456/watch?access=keep","refreshIntervalSeconds":1800}`), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.Web.URL != "https://www.canva.com/design/DAGabcdefgh/token_123456/view?access=keep&embed=" {
+		t.Fatalf("legacy Canva Widget changed playback mode: %s", legacy.Web.URL)
+	}
+}
+
 func TestWebReloadRequiresManifestV15WithoutChangingOlderWebContent(t *testing.T) {
 	manifest := Manifest{Widgets: []ManifestWidget{{Presentation: &WidgetPresentation{
 		Kind: "web",

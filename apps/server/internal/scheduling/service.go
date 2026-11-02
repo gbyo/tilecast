@@ -292,6 +292,15 @@ func (s *Service) DeleteGroup(ctx context.Context, id, user uuid.UUID) error {
 	if _, err = tx.Exec(ctx, `DELETE FROM screen_group_memberships WHERE screen_group_id=$1`, id); err != nil {
 		return err
 	}
+	// Schedules and Quick Presents that targeted the group can no longer reach
+	// any screen. Disable the schedules and stop the sessions, so the lists do
+	// not show them as active and their Stop action does not fail later.
+	if _, err = tx.Exec(ctx, `UPDATE schedules SET enabled=FALSE,updated_at=now() WHERE deleted_at IS NULL AND enabled AND id IN (SELECT schedule_id FROM schedule_targets WHERE target_type='group' AND screen_group_id=$1)`, id); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE presentation_overrides SET stopped_at=now() WHERE target_type='group' AND target_id=$1 AND stopped_at IS NULL`, id); err != nil {
+		return err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
@@ -551,7 +560,7 @@ func (s *Service) validateInputFor(ctx context.Context, in Input, platformCheck 
 		var targetOK bool
 		var targetErr error
 		if t.Type == "screen" {
-			targetErr = s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screens sc JOIN organization_settings o ON o.id=sc.organization_id AND o.singleton WHERE sc.id=$1)`, t.ID).Scan(&targetOK)
+			targetErr = s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screens sc JOIN organization_settings o ON o.id=sc.organization_id AND o.singleton WHERE sc.id=$1 AND sc.archived_at IS NULL)`, t.ID).Scan(&targetOK)
 		} else {
 			targetErr = s.db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screen_groups g JOIN organization_settings o ON o.id=g.organization_id AND o.singleton WHERE g.id=$1 AND g.deleted_at IS NULL)`, t.ID).Scan(&targetOK)
 		}
@@ -614,13 +623,23 @@ func (s *Service) withDefaultTimezone(ctx context.Context, in Input) (Input, err
 	err := s.db.QueryRow(ctx, `SELECT default_timezone FROM organization_settings WHERE singleton`).Scan(&in.Timezone)
 	return in, err
 }
+
+// rowQuerier is satisfied by both the pool and a transaction.
+type rowQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 func (s *Service) normalizeSyncGroupTargets(ctx context.Context, in Input) (Input, error) {
+	return normalizeSyncGroupTargetsWith(ctx, s.db, in)
+}
+
+func normalizeSyncGroupTargetsWith(ctx context.Context, q rowQuerier, in Input) (Input, error) {
 	normalized := make([]Target, 0, len(in.Targets))
 	seen := map[string]bool{}
 	for _, target := range in.Targets {
 		if target.Type == "screen" {
 			var groupID *uuid.UUID
-			if err := s.db.QueryRow(ctx, `SELECT m.screen_group_id FROM screens sc LEFT JOIN screen_group_memberships m ON m.screen_id=sc.id WHERE sc.id=$1`, target.ID).Scan(&groupID); err != nil {
+			if err := q.QueryRow(ctx, `SELECT m.screen_group_id FROM screens sc LEFT JOIN screen_group_memberships m ON m.screen_id=sc.id WHERE sc.id=$1`, target.ID).Scan(&groupID); err != nil {
 				return in, err
 			}
 			if groupID != nil {
@@ -728,6 +747,19 @@ func (s *Service) write(ctx context.Context, id, user uuid.UUID, in Input, creat
 		return err
 	}
 	defer tx.Rollback(ctx)
+	// Lock each screen target, then normalize under that lock. A membership
+	// change locks the same screen row, so a screen that joins a group after
+	// the pre-check is stored as its group target, not as a screen-only target.
+	for _, target := range in.Targets {
+		if target.Type == "screen" {
+			if _, err = tx.Exec(ctx, `SELECT 1 FROM screens WHERE id=$1 FOR UPDATE`, target.ID); err != nil {
+				return err
+			}
+		}
+	}
+	if in, err = normalizeSyncGroupTargetsWith(ctx, tx, in); err != nil {
+		return err
+	}
 	old, err := affectedForSchedule(ctx, tx, id)
 	if err != nil {
 		return err
@@ -750,7 +782,7 @@ func (s *Service) write(ctx context.Context, id, user uuid.UUID, in Input, creat
 	for _, t := range in.Targets {
 		var tag pgconn.CommandTag
 		if t.Type == "screen" {
-			tag, err = tx.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_id)SELECT $1,'screen',sc.id FROM screens sc JOIN schedules s ON s.id=$1 AND s.organization_id=sc.organization_id WHERE sc.id=$2`, id, t.ID)
+			tag, err = tx.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_id)SELECT $1,'screen',sc.id FROM screens sc JOIN schedules s ON s.id=$1 AND s.organization_id=sc.organization_id WHERE sc.id=$2 AND sc.archived_at IS NULL`, id, t.ID)
 		} else {
 			tag, err = tx.Exec(ctx, `INSERT INTO schedule_targets(schedule_id,target_type,screen_group_id)SELECT $1,'group',g.id FROM screen_groups g JOIN schedules s ON s.id=$1 AND s.organization_id=g.organization_id WHERE g.id=$2 AND g.deleted_at IS NULL`, id, t.ID)
 		}

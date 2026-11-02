@@ -214,7 +214,7 @@ rollback on a real disk.
   failures. Phase 3 finishes all three without competing implementations.
 - AirPlay remains unsupported by Edge. It is out of scope and must not be
   presented as implemented.
-- The readiness plan references `docs/tilecast-edge-sandbox-review.md`.
+- The readiness plan references `docs/records/edge/0.2.1-sandbox-review.md`.
   That file does not exist. Sandbox material lives in
   `docs/tilecast-edge-remote-web-threat-review.md` and
   `docs/widget-sandbox-threat-model.md`.

@@ -72,6 +72,8 @@ async fn gauges(context: &DaemonContext, now: player_types::Timestamp) -> player
         display_connected: None,
         display_resolution: None,
         display_refresh_hz: None,
+        // Stall diagnostics are not projected on this host yet: omitted, not zero.
+        ..player_core::TelemetryGauges::default()
     }
 }
 

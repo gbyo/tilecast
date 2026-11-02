@@ -7,10 +7,11 @@
   Object.setPrototypeOf(WidgetElement.prototype, HTMLElement.prototype);
   Object.setPrototypeOf(WidgetElement, HTMLElement);
   WidgetElement.prototype.connectedCallback = function () {
+    var revision = this[Symbol.for("tilecast.widget.inputRevision")];
     this.dispatchEvent(
       new CustomEvent("tilecast-widget-error", {
         bubbles: true,
-        detail: { code: "<img src=x onerror=alert(1)>" },
+        detail: { code: "<img src=x onerror=alert(1)>", revision: revision },
       }),
     );
   };

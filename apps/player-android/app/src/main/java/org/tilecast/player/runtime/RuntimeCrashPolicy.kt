@@ -7,8 +7,15 @@ package org.tilecast.player.runtime
  * dropped. Recovery always constructs a fresh WebView and replays current
  * state only after the new runtime signals ready.
  */
-class RuntimeCrashPolicy {
-    private var generation = 1L
+class RuntimeCrashPolicy(
+    /**
+     * Source of renderer generations. Production passes the process-wide
+     * allocator so no two renderers in one process ever share an identity;
+     * the default is a private counter for isolated host tests.
+     */
+    private val allocate: () -> Long = localGenerations(),
+) {
+    private var generation = allocate()
     private var deadGenerations: MutableSet<Long> = HashSet()
     private var readyGenerations: MutableSet<Long> = HashSet()
 
@@ -23,7 +30,7 @@ class RuntimeCrashPolicy {
 
     /** Starts a fresh instance. Returns its generation. */
     fun onRecreated(): Long {
-        generation += 1
+        generation = allocate()
         return generation
     }
 
@@ -38,4 +45,11 @@ class RuntimeCrashPolicy {
         reportGeneration == generation && reportGeneration !in deadGenerations
 
     fun isReady(): Boolean = generation in readyGenerations
+
+    private companion object {
+        fun localGenerations(): () -> Long {
+            var last = 0L
+            return { ++last }
+        }
+    }
 }

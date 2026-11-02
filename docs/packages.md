@@ -2,19 +2,22 @@
 
 An extension package is a distribution container, not a fourth extension
 API. It carries distribution, version, provenance, and contribution
-metadata for Widgets, declarative Data Sources, and isolated external Server
-behavior. Bundled Plugin API v1 remains a separate trusted release boundary. The contribution contracts themselves
-(`tilecast.widget.json`, `tilecast.datasource.json`,
-`tilecast.plugin.json`) do not change. See
+metadata for Widgets, declarative Data Sources, and external Player
+plugins. External Player plugins use the separate API 2 descriptor.
+See [External Player plugins](external-player-plugins.md).
+Each contribution manifest has its own versioned contract:
+`tilecast.widget.json`, `tilecast.datasource.json`, or
+`tilecast.plugin.json`. See
 [Content extension model](content-extension-model.md) for the architecture.
 
 ## Manifest
 
 `tilecast.package.json` is the manifest. Required fields:
 
-- `apiVersion`: `1` or `2`. Version 1 carries content contributions
-  only. Version 2 adds the external runtime module and capability
-  requests below.
+- `apiVersion`: `1`, `2`, `3`, or `4`. Version 1 carries content
+  contributions only. Version 2 adds the external runtime module and
+  capability requests below. Version 3 adds versioned Tilecast service
+  grants for the runtime module. Version 4 adds one realtime job.
 - `packageId`: qualified identity of two or more dot-separated segments,
   for example `acme.athletics`. The `tilecast` namespace is reserved for
   the release.
@@ -53,10 +56,24 @@ A version 2 manifest may add `runtime` and `capabilities`:
 - `capabilities.studioUI.entry`: `./relative` self-contained HTML page
   for the sandboxed Studio interface.
 
+A version 3 or 4 manifest may also add `capabilities.services`: one to
+sixteen grants of `{id, version}` naming a versioned Tilecast service,
+for example `{id: "screens.read", version: 1}`. Each grant names a
+service the registry knows; unknown services fail the install review.
+Grants are unique within the manifest. Service grants require a
+runtime module. See [Package services](#package-services).
+
+A version 4 manifest may add `capabilities.realtime.jobs`:
+exactly one job with a stable `id` and `intervalSeconds` (5 to 60).
+Its ID must differ from each ordinary job ID.
+The install review shows this request as high-frequency background activity.
+The request requires a runtime module with the `run_job` export.
+Versions 1 to 3 reject this field.
+
 Capabilities are requests, not grants. The install review shows every
-request before anything installs. Network, background, and storage
-requests require a runtime module. The Studio interface may stand
-alone. A version 1 manifest requests no capabilities.
+request before anything installs. Network, background, storage, and
+service and realtime requests require a runtime module. The Studio interface may
+stand alone. A version 1 manifest requests no capabilities.
 
 Two validators enforce the same rules: the TypeScript validator in
 `@tilecast/package-sdk` for authoring time, and the server-authoritative Go
@@ -162,6 +179,14 @@ joins the content catalog.
 
 ## Player bundle delivery
 
+Reviews of plugin contributions read their descriptors from the verified
+artifact. Studio shows the allowed Player surfaces and priority tier. The
+extracted descriptor must match its authenticated layer bytes. Custom package
+activation also checks the reviewed runtime, capability requests, and
+contribution list against the published manifest. A changed permission fails
+the cross-check. Marketplace listings provide identity only; their verified
+artifact supplies execution permissions before review.
+
 A Widget contribution may ship an execution bundle at the fixed path
 `runtime/index.js` inside the package. The pipeline records the bundle SHA-256
 and size in the contribution snapshot at install time; a Widget presentation
@@ -177,6 +202,16 @@ SHA-256 and size, so the Player verifies the download before activation.
 Bundle bytes are content-addressed and pinned like media; removal of the
 package invalidates the route.
 
+Frame-capable Players fetch the executable document from
+`GET /api/v1/player/packages/{packageId}/widgets/{widgetId}/frame`, with
+`HEAD` for inspection. The server assembles the document deterministically
+from the same retained verified bundle through the generated sandbox
+assembler, so manifest compilation and the endpoint agree on the exact
+bytes, SHA-256, and size. No second package copy is stored for the frame;
+the bundle stays the one authoritative artifact and the frame metadata is
+snapshotted beside it. The response carries the Player frame `sandbox`
+policy.
+
 Studio previews the same contribution through
 `GET /api/v1/packages/{packageId}/widgets/{widgetId}/frame`, readable by
 any signed-in account. The endpoint interpolates the verified bundle
@@ -188,13 +223,20 @@ player endpoint.
 
 ## External runtime
 
-A version 2 package runs server behavior in a capability-based
+A version 2, 3, or 4 package runs server behavior in a capability-based
 WebAssembly host (`internal/extensions/wasm`, engine wazero). The host
-imports one module, `tilecast`, with no WASI. The guest calls five host
-functions: key read, key write, approved HTTPS fetch, log line, and
-clock read. Nothing else is reachable. The call input window is 16 KiB. The
+imports one module, `tilecast`, with no WASI. The guest calls six host
+functions: key read, key write, approved HTTPS fetch, log line, clock
+read, and service call. Nothing else is reachable. The call input window is 16 KiB. The
 output window is 16 KiB. A job call times out after 30 seconds. A
 Studio interface call times out after 5 seconds.
+
+Package API 1 through 3 retain their input address of zero.
+Package API 4 places input at address 32768. Its input window ends at 49152.
+The output address stays 16384, with a 16384-byte capacity.
+Guests reserve these windows and use the addresses supplied to their exports.
+The non-null input address lets a Rust guest read a valid slice.
+The exports and host import signatures do not change.
 
 Install validation inspects the module bytes before anything is
 retained or executed. The module must carry the Wasm magic and
@@ -222,6 +264,29 @@ re-runs the job after the lease expires. A guest failure records
 `last_status = error` with the message and reschedules on the same
 interval. The first overdue pass runs at startup, then the scheduler
 polls every minute.
+
+The realtime scheduler uses a separate one-second due scan.
+It claims at most four jobs per pass and runs at most four guests at once.
+A realtime claim holds a fifteen-second lease.
+The host limits the complete invocation to four seconds.
+An approved fetch within this invocation has a three-second limit.
+The scheduler skips missed intervals after a delayed run.
+It does not run a queue of missed polls.
+The ordinary scheduler keeps its minute-based intervals and thirty-second
+invocation limit.
+
+Each claim carries an application-generated claim token and an activation
+epoch. Completion updates only that claim and epoch.
+Update, rollback, and reinstall create a new execution epoch.
+The host checks the epoch before execution.
+It checks running guests once per second and cancels a stale guest.
+Guest service calls and storage mutations check the epoch under the package
+lifecycle fence. A stale guest cannot publish data during cancellation delay.
+Package storage survives update and rollback.
+Reinstall creates a new storage epoch and starts with empty storage.
+A delayed cleanup cannot delete the storage of a new installation.
+The host caches at most eight verified module byte sets in memory.
+A cache miss reads the retained verified artifact again.
 
 The Studio interface serves the entry page from
 `GET /api/v1/packages/{packageId}/studio/frame`, readable by any
@@ -279,6 +344,70 @@ failing the API. The job sync is idempotent and reruns on every
 lifecycle mutation, and stale rows cannot execute, because the
 scheduler re-validates each job against the installed manifest before
 it invokes the guest.
+
+## Package services
+
+A version 3 package calls versioned Tilecast services through one
+host function, `tilecast.call_v1`. The service registry
+(`internal/extensions/services`) owns the service inventory: ten
+services at version 1, each with fixed operations, allowed contexts,
+and a category. The install review resolves every grant against the
+registry and shows the operations it unlocks. An unknown service fails
+the review, the install, and the activation. No other version exists:
+a grant for any version other than 1 fails closed.
+
+| Service                          | Category  | Operations                                                                                                                                                              |
+| -------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `organization.read@1`            | read      | `get`                                                                                                                                                                   |
+| `instance.read@1`                | read      | `get`                                                                                                                                                                   |
+| `screens.read@1`                 | read      | `list`, `get`                                                                                                                                                           |
+| `targets.resolve@1`              | read      | `resolve`                                                                                                                                                               |
+| `content.read@1`                 | read      | `playlists.list`, `playlists.get`, `layouts.list`, `layouts.get`, `datasources.list`, `datasources.get`, `schedules.list`, `schedules.get`, `groups.list`, `groups.get` |
+| `managed-presentations.manage@1` | manage    | `ensure`, `update-data`, `get`                                                                                                                                          |
+| `takeovers.manage@1`             | manage    | `activate`, `cancel`                                                                                                                                                    |
+| `users.read-basic@1`             | directory | `get`, `search`, `list-by-role`                                                                                                                                         |
+| `audit.write@1`                  | audit     | `write`                                                                                                                                                                 |
+| `players.display-control@1`      | manage    | `display.power`, `display.input`, `display.volume`, `display.mute`, `display.brightness`                                                                                |
+
+An operation token joins service and method:
+`capability@version/method`, for example
+`screens.read@1/list`. Tokens cap at 128 bytes. Inputs and answers are
+JSON: at most 32 KiB in, at most 64 KiB out. An executed call answers
+an envelope: `{ok: true, data}` or `{ok: false, error}` with a typed
+domain failure (`invalid_input`, `not_found`, `forbidden`,
+`conflict`, `too_large`, `unavailable`). A transport refusal never
+reaches the envelope: the import answers a stable negative code for an
+unknown operation (-7), a missing grant (-5), an oversized call (-3),
+or a host failure (-2).
+
+Two contexts bound every call. Background jobs run as the system with
+no user actor. Studio interface calls run as the signed-in account
+with the dashboard role and scope policy of the operation. A missing
+grant, a forbidden context, or an invalid actor denies the call. Reads
+reuse the domain and shared-host services with Studio scoping.
+Mutations run through the canonical domain services with
+same-transaction audit and after-commit fan-out, so package writes
+obey the same rules as dashboard writes.
+
+Four services carry extra rules. The managed service owns one data
+source, one widget, and one playlist per package; the guest never
+names another package's rows. The takeover service applies canonical
+takeover validation and refuses paths a package cannot confirm, such
+as re-authentication. The audit service accepts only actions under the
+`package.` namespace with bounded metadata, attributed to the package.
+The player service maps each operation through the Player Capability
+registry to one persistent command, and only for screens that report
+the matching capability. See [Player
+capabilities](player-capabilities.md).
+
+The reference guest SDK (`packages/package-guest-sdk`) owns the unsafe
+boundary, the envelope parsing, and the typed shapes for the small
+stable responses. Large domain documents cross as JSON values. The
+Hello Services sample (`packages/package-samples/hello-services`)
+shows the full path: a scheduled job that reads screens and writes one
+audit event. The server suite runs its committed module through the
+real host. The full contract lives in [External package service
+capabilities](package-services.md).
 
 ## Sources
 

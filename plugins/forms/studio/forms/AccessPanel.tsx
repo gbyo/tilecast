@@ -92,6 +92,20 @@ const CAPABILITIES: {
 // directory for granting access. Grants are replaced atomically; implied capabilities are shown as
 // included rather than as separate required grants. The creator and global Owners are always
 // Managers and cannot be edited.
+// Global role names come from this plugin's locale. An unknown role is shown
+// as the server sent it rather than dropped.
+const globalRoleKeys = {
+  owner: "access.roles.owner",
+  administrator: "access.roles.administrator",
+  editor: "access.roles.editor",
+  contributor: "access.roles.contributor",
+  viewer: "access.roles.viewer",
+} as const;
+
+function globalRoleKey(role: string) {
+  return globalRoleKeys[role as keyof typeof globalRoleKeys];
+}
+
 export function AccessPanel({
   form,
   csrf,
@@ -234,7 +248,11 @@ function AccessRow({
             </div>
           </div>
         </TableCell>
-        <TableCell className="px-3 py-2">{entry.role}</TableCell>
+        <TableCell className="px-3 py-2">
+          {globalRoleKey(entry.role)
+            ? t(globalRoleKey(entry.role))
+            : entry.role}
+        </TableCell>
         <TableCell className="px-3 py-2">
           {implicitManager ? (
             <Badge {...formToneBadgeProps("info")}>
@@ -382,7 +400,10 @@ function GrantAccess({
                   <ItemContent>
                     <ItemTitle>{user.name || user.username}</ItemTitle>
                     <ItemDescription>
-                      @{user.username} · {user.role}
+                      @{user.username} ·{" "}
+                      {globalRoleKey(user.role)
+                        ? t(globalRoleKey(user.role))
+                        : user.role}
                     </ItemDescription>
                   </ItemContent>
                 </Item>

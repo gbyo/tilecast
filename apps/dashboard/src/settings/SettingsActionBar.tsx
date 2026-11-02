@@ -22,7 +22,7 @@ export function SettingsActionBar({
   if (!dirty && !success && !error) return null;
   return (
     <div
-      className="sticky bottom-0 z-10 mt-5 flex min-h-[66px] flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-lg"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex min-h-[66px] w-[calc(100%-2rem)] max-w-[900px] -translate-x-1/2 flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-lg"
       aria-live="polite"
     >
       <div className="grid gap-1">

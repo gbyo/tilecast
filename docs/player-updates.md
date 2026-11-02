@@ -4,13 +4,19 @@ Tilecast distributes Android APK and Linux AppImage Player builds, Tilecast
 Edge release archives, and Windows Player MSIX packages, through signed
 published releases at `gbyo/tilecast`. No Google Play, Amazon Developer,
 or paid Android developer account is required. Unknown-app installation remains
-a one-time local commissioning permission. On Android 12 and newer, eligible
+an optional, one-time local Android permission. On Android 12 and newer, eligible
 signed self-updates request Android's supported unattended-update mode. Older
 Android and Fire OS installers may still require local confirmation.
 
 ## Release contract
 
-Every stable release, and every GitHub prerelease used as the beta channel, must contain exactly named assets:
+One coordinated GitHub release carries the Player platforms for a version. Android and Edge are required for every release. The Windows Player is required for Stable and optional for Beta.
+The release is `vX.Y.Z` (Stable) or `vX.Y.Z-beta.N` (Beta, a GitHub
+pre-release). [`release-process.md`](release-process.md) specifies the
+process. Tilecast Server imports each Player family in the release on its own.
+A release that carries only some of the families imports those families.
+
+Each family in a release must contain exactly named assets:
 
 Android:
 
@@ -18,7 +24,8 @@ Android:
 - `tilecast-player-update.json`
 - `tilecast-player-update.json.sig`
 
-Linux:
+Linux (the legacy Electron Player; not part of a coordinated release, and
+imported only from the existing `player-linux-v*` releases):
 
 - `tilecast-player.AppImage`
 - `tilecast-player-update-linux.json`
@@ -35,6 +42,11 @@ Windows Player (one set for each architecture, `x86_64` or `aarch64`):
 - `tilecast-windows-<version>-<arch>.msix`
 - `tilecast-windows-update-<arch>.json`
 - `tilecast-windows-update-<arch>.json.sig`
+
+A coordinated release also contains `SHA256SUMS`, the inventory
+`tilecast-release.json`, and for Edge the signed release manifest and the SBOM
+of each architecture. The server ignores these files. A GitHub release for the
+Server or for a WPE prebuild has no Player assets, and the server ignores it.
 
 A direct upload of an Edge release names the envelope `tilecast-edge-update.json`
 and its signature `tilecast-edge-update.json.sig`. A direct upload of a Windows
@@ -81,7 +93,31 @@ Every release belongs to one Player family:
 
 A manifest without `playerFamily` is `android`, `electron-linux` or `windows`
 by its platform. Version codes must increase within one family and
-architecture. A deployment reaches only screens of its release's family: a
+architecture.
+
+### Version ordering
+
+The version code of a coordinated release is `(MAJOR * 1000000 + MINOR * 1000 +
+PATCH) * 100 + slot`. The slot is the Beta number for a Beta and 99 for Stable.
+Beta 1, Beta 2, Stable, and the next version therefore have increasing codes,
+and a screen on a Beta can update to the next Beta or to Stable. A version below
+`0.26.0` keeps its legacy code, which ignores the suffix. The server, Edge, the
+Windows Player, and the Android build apply this rule to the version name, the
+version code, and the channel, and each refuses a signed manifest in which they
+disagree. See [`release-process.md`](release-process.md) for the rule and for
+the screens that need a bridge release.
+
+The record of a release is keyed by the GitHub release ID, the family, and the
+architecture. One GitHub release can therefore hold an Android release, two Edge
+releases, and two Windows releases. A GitHub release that is complete in the
+database is not downloaded again. The server reads up to five pages of 100
+releases, so a Server release or a WPE prebuild release cannot hide a Player
+release. A family that fails verification is recorded as the reason of the last
+check and in the server log. It does not stop the other families.
+
+Studio maps a GitHub pre-release to the `beta` channel and any other release to
+the `stable` channel. The server refuses a manifest whose signed channel is the
+other one. A deployment reaches only screens of its release's family: a
 screen reports its family (`playerFamily`) and, for Edge and Windows, its
 architecture (`playerArchitecture`) in the heartbeat. An Edge or Windows
 screen that has not reported them, or reports another architecture, is
@@ -108,101 +144,172 @@ Never rotate the Android signing key casually: Android accepts an APK update onl
 
 For a local signed build, set `TILECAST_ANDROID_KEYSTORE_PATH`, `TILECAST_ANDROID_KEYSTORE_PASSWORD`, `TILECAST_ANDROID_KEY_ALIAS`, `TILECAST_ANDROID_KEY_PASSWORD`, `TILECAST_UPDATE_MANIFEST_PRIVATE_KEY`, `TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_FILE`, `ANDROID_HOME`, and run `scripts/build-player-release.sh`. Outputs go to ignored `release-output/` unless overridden.
 
-## GitHub Actions secrets
+## Release builds
 
-The `Tilecast Player Release` workflow requires `TILECAST_ANDROID_KEYSTORE_BASE64`, both Android key passwords, `TILECAST_ANDROID_KEY_ALIAS`, `TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM`, and `TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM`. It refuses missing secrets and non-increasing version codes, builds and verifies the signed APK, extracts package and version metadata from the APK, signs and verifies the update manifest, verifies APK size/hash agreement, and publishes the three assets. Secret files exist only in the Actions runner temporary directory.
+The workflow `.github/workflows/release.yml` builds, signs, and publishes every
+platform. It reads the secrets below and fails closed when one is missing. The
+workflows `player-release.yml` (Android), `windows-player-release.yml`, and
+`edge-release.yml` build one platform and upload Actions artifacts. They never
+publish. A tag push does not start a release. The tags `player-v*` and `server-v*`
+no longer publish anything.
 
-Pushing a tag named `player-v<versionName>` publishes a release automatically. The tag version must exactly match Android `versionName`; tags containing `beta` publish as prereleases, while other tags publish to the stable channel. The workflow may also be run manually for an existing matching tag, with an explicit stable or beta channel. Release notes are generated by GitHub when a manual summary is not supplied.
+Android needs `TILECAST_ANDROID_KEYSTORE_BASE64`, the two Android key passwords,
+`TILECAST_ANDROID_KEY_ALIAS`, `TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM`, and
+`TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM`. The build checks that the public key
+equals the repository key, builds and verifies the signed APK, extracts package
+and version metadata from the APK, signs and verifies the update manifest, and
+verifies that the APK size and hash agree. The build checks the APK signing
+certificate against the pinned permanent certificate. Secret files exist only in
+the Actions runner temporary directory.
 
-## Windows release build
+Windows builds natively: x64 on `windows-latest` and ARM64 on `windows-11-arm`.
+Emulation is never ARM64 support. It needs the two update keys, the code-signing
+identity `TILECAST_MSIX_PFX_BASE64` with `TILECAST_MSIX_PFX_PASSWORD`, and the
+manifest publisher `TILECAST_MSIX_PUBLISHER`. The public key must match the
+repository key in `apps/edge/release/tilecast-update-key.pem`, and the PFX
+subject must equal the manifest publisher, or the build fails before it
+compiles. Each architecture builds the Player and the `tilecast-msix-version`
+helper, stages the executable with its Player Runtime artifact, renders the MSIX
+manifest from the template, packs and signs the package with the Windows SDK,
+writes the update envelope, and signs it with the Tilecast Ed25519 key. A build
+provenance attestation covers the package and the envelope.
 
-The `Tilecast Windows Player Release` workflow builds the Windows
-Player natively on Windows runners: x64 on `windows-latest`, ARM64 on
-`windows-11-arm`. Emulation is never ARM64 support. It runs only by
-manual dispatch with an explicit stable or beta channel and an
-optional release summary. Publishing a GitHub release stays a
-separate, human step.
-
-The workflow requires `TILECAST_UPDATE_MANIFEST_PRIVATE_KEY_PEM` and
-`TILECAST_UPDATE_MANIFEST_PUBLIC_KEY_PEM`, the code-signing identity
-`TILECAST_MSIX_PFX_BASE64` with `TILECAST_MSIX_PFX_PASSWORD`, and the
-manifest publisher `TILECAST_MSIX_PUBLISHER`. It refuses missing
-secrets. The public key must match the repository key in
-`apps/edge/release/tilecast-update-key.pem`, and the PFX subject must
-equal the manifest publisher, or the build fails before it compiles.
-
-Each architecture builds the Player and the `tilecast-msix-version`
-helper, stages the executable with its Player Runtime artifact,
-renders the MSIX manifest from the template, packs and signs the
-package with the Windows SDK, and writes the unsigned update envelope.
-It then signs the envelope with the Tilecast Ed25519 update key and
-verifies the signature before upload. Secret files exist only in the
-Actions runner temporary directory. The workflow uploads the package,
-the envelope, and its signature per architecture, with a build
-provenance attestation over all of them.
+The release workflow runs the server importer over the assets before it
+publishes. See [`release-process.md`](release-process.md).
 
 ## Studio and player flow
 
-Owners can either select **Upload release** or **Sync from GitHub** under
-**Settings → Player Updates**. Direct upload accepts the exact three-file set
-above for the release's family. The server applies the same manifest-signature, artifact
-hash/size, platform, and version checks to both sources, plus Android package,
-minimum-SDK, and signing-certificate checks for APKs. A verified direct upload
-is moved atomically into the same private update cache and creates the same
-Player release record used by deployments. GitHub availability is therefore
-optional.
+The full-width **Settings → Player Updates** workspace has a Player family
+filter and two views: **Deployments** and **Releases**. The URL stores the
+family in `platform` and the view in `view`. Studio preserves unrelated
+query parameters. A family change discards the deployment draft.
 
-Tilecast refreshes the GitHub release catalog automatically when the catalog is empty or the previous check is more than 15 minutes old. Studio keeps **Sync from GitHub** as an immediate retry and displays provider, signature, and release-verification failures instead of showing an unexplained empty table.
+Owners select **Sync releases** to refresh the fixed GitHub catalog.
+**More → Upload release** accepts the exact three-file set above.
+The upload dialog separates transfer progress from server verification.
+The server applies the same manifest-signature, artifact hash, size, platform,
+and version checks to both sources.
+Android releases also require valid package, minimum-SDK, and certificate metadata.
+A verified direct upload enters the private update cache atomically.
+GitHub availability is optional.
 
-When a release is being cached, the server records downloaded bytes while the
-artifact streams to disk. The Player Updates page polls that release every
-second during the download and shows the live megabytes downloaded against the
-signed artifact size; it returns to the normal slower refresh interval when no
-release is downloading.
+Tilecast refreshes an empty GitHub catalog or a catalog older than 15 minutes.
+Studio retains existing releases during refresh.
+The Releases view shows provider and verification errors with a retry action.
+GitHub variants with the same tag and release metadata share one library row.
+Direct uploads remain separate.
+Every Edge and Windows artifact shows its architecture.
+One deployment selects one concrete artifact.
 
-Authenticated GitHub requests receive a substantially higher API allowance than anonymous requests. To enable the Studio **Connect GitHub** device flow, create a GitHub OAuth App, enable **Device Flow**, and set its public client ID as `TILECAST_GITHUB_CLIENT_ID`. The OAuth App callback URL is required by GitHub but is not used by device flow; the Tilecast repository URL is an acceptable callback for this fixed public-release integration. No OAuth client secret belongs on Tilecast Server.
+Select **Prepare artifact** on a verified GitHub artifact to cache it.
+During caching, Studio polls every second and shows actual downloaded bytes
+against the signed artifact size.
+Studio uses a slower interval when no artifact is downloading.
+The release detail shows notes, verification state, cache state, and active use.
+Technical details include the artifact name, hash, and signature state.
+Cache removal requires confirmation.
+An active or paused deployment prevents cache removal.
+A purged direct upload must be uploaded again.
 
-The Owner starts sign-in in Studio, opens GitHub's device page, and enters the displayed one-time code. The private device code remains only in server memory. After approval, Tilecast validates the GitHub account and stores the access token in `/data/updates/github-oauth.json` with owner-only file permissions. The token is never returned through the API, audit metadata, diagnostics, or logs. Disconnecting removes the local credential; the GitHub account can separately revoke the OAuth App grant. `TILECAST_GITHUB_TOKEN` remains supported as an environment-managed override and cannot be disconnected from Studio.
+Authenticated GitHub requests receive a higher API allowance.
+The Owner opens **More → Configure source** to configure or connect GitHub.
+To enable the device flow, create a GitHub OAuth App and enable **Device Flow**.
+Set its public client ID in Studio or with `TILECAST_GITHUB_CLIENT_ID`.
+GitHub requires a callback URL but does not use it for device flow.
+The fixed Tilecast repository URL is a valid callback.
+Tilecast Server does not require an OAuth client secret.
 
-Owners and Administrators deploy a fully verified cached release to screens or
-sync groups. Studio and the server restrict each release to screens of its
-family (and architecture, for Edge and Windows). Studio shows Android, Linux,
-Tilecast Edge and Windows on separate tabs. Sync-group membership is resolved
-at deployment start and duplicates are removed. Modes are download only,
-install now, and maintenance window. Screen states distinguish downloading,
-verification, permission/user approval, installation, reconnecting, success,
-failure, cancellation, incompatibility, and already-current. Players always
-retrieve the verified artifact from their paired Tilecast server; the
-player never contacts GitHub.
+The Owner starts sign-in, opens GitHub's device page, and enters the displayed code.
+The private device code stays in server memory.
+After approval, Tilecast validates the account.
+Tilecast stores the token in `/data/updates/github-oauth.json` with owner-only permissions.
+The API, audit metadata, diagnostics, and logs never contain the token.
+Disconnect removes the local credential.
+The GitHub account can revoke the OAuth App grant separately.
+`TILECAST_GITHUB_TOKEN` is an environment-managed override.
+Studio cannot disconnect that override.
+
+## Deployment preflight and creation
+
+Owners and Administrators select **Deploy update** to open a three-stage workflow.
+Desktop uses a right-side Sheet.
+Narrow layouts use a Drawer with the same body and footer.
+
+1. **Release** selects a verified cached artifact.
+   Edge and Windows choices show the family and architecture.
+2. **Targets** searches screens and Display Groups.
+   Server preflight expands groups and removes duplicate screens.
+   Incompatible screen options show the server reason.
+   A selected group with an incompatible member blocks submission.
+   Offline and already-current screens have separate warnings.
+3. **Rollout** selects install now, download only, or maintenance window.
+   The maintenance time control appears only for that mode.
+   The optional canary switch shows the cohort-size control.
+   The final summary shows the artifact, resolved count, mode, and canary size.
+   **Deploy update** submits that review without a second confirmation.
+
+`POST /api/v1/update-deployments/preview` accepts `releaseId`,
+`screenIds`, and `groupIds`.
+The operation requires an Owner or Administrator session, CSRF, and write scope.
+It authorizes direct and expanded targets.
+It reads a consistent database snapshot without changing deployments,
+commands, audit records, release cache, or provider state.
+
+The response includes each screen and its exact incompatibility reason.
+Counts distinguish eligible, offline, already-current, and incompatible targets.
+Eligible count includes offline screens that can receive a queued command.
+Offline count describes the existing 15-minute update-contact criterion.
+It is not the computed fleet status.
+
+Preview and creation use one target-expansion and compatibility resolver.
+Creation evaluates the current metadata again inside its transaction.
+Preview does not reserve targets or grant authorization.
+Creation preserves family exclusion and deterministic canary selection.
+Preview includes wrong-family group members so Studio can show the conflict.
+Unknown Android SDK remains subject to verification on the Player.
+Known SDK below the release minimum is incompatible.
+Current-version rules remain unchanged.
+
+Offline commands wait for the Player to reconnect.
+The commands expire after seven days.
+Already-current screens receive no update command.
+Canary size is 1–50 and must leave targets for the next cohort.
+Studio disallows a canary selection that contains already-current screens.
+The server retains its existing canary rules.
+
+After creation, Studio closes the workflow and opens the new deployment.
+Players retrieve artifacts from their paired Tilecast Server.
+Players never contact GitHub for deployment.
 
 ## Reading a deployment in Studio
 
-The Android, Linux, Tilecast Edge or Windows choice is held in the URL
-(`?platform=linux`, `?platform=edge`, `?platform=windows`), so a reload, a
-bookmark, or the back button all return to the fleet the operator was reading
-rather than to Android.
+The default **Deployments** view shows active deployments and recent history.
+Attention states sort before normal progress.
+Deployment summaries include incompatible target counts.
+Those targets need attention and do not count as work in progress.
+Studio omits an empty active section.
+Each deployment has one responsive row with its artifact, architecture,
+status, family, mode, time, and target count.
+The segmented meter includes text counts.
+Its accompanying sentence describes the next operator action.
 
-**Settings → Player Updates → Deployment history** answers "did this land?"
-without arithmetic. Each row carries one meter divided into updated, waiting on
-someone, failed, and still in progress, and one sentence saying what the
-deployment needs — a retry, someone at a TV, or nothing. Every segment is
-repeated as a number and a word, so no state is carried by colour alone.
+**View rollout** reads `GET /api/v1/update-deployments/{id}`.
+The detail shows mode, phase, canary size, times, and any safe pause reason.
+Search and the **Needs attention**, **In progress**, **Finished**, and **All**
+filters select screen rows.
+Each row shows the current and expected version, canary status, report time,
+and a plain-language state.
+Failed and incompatible rows preserve the exact safe reason.
 
-Opening a row reads `GET /api/v1/update-deployments/{id}` and lists the screens
-the deployment reaches, one row each: the plain-language status, what a person
-has to do about it, the version the screen is coming from and going to, whether
-it is a canary, and when it last reported. States are grouped into needs
-attention, in progress, and finished; screens that need attention sort first and
-carry a marked edge, and the three groups are also filter tabs. Only a running
-download shows a percentage, computed from reported bytes against the release's
-artifact size; every other state shows its place in a Queued → Downloading →
-Installing → Updated trail, because a step is what the player actually reports.
-Failed and cancelled screens show no trail position at all.
-
-A failed screen offers **Retry**, and an active or paused deployment offers
-**Cancel deployment**; both are limited to Owners and Administrators and follow
-the same screen-scope rules as the rest of the update routes. A screen waiting
-for permission or for approval on the TV is never presented as a failure.
+Only a downloading target shows percentage progress.
+Studio computes that percentage from reported bytes and the signed artifact size.
+Other states show a status without invented progress.
+Owners and Administrators can retry failed targets.
+Permission and TV-approval states do not offer retry.
+**Cancel deployment** requires confirmation.
+Cancellation does not revert an installed release.
+Initial loading uses skeleton rows.
+Background refresh retains the current rows.
 
 ## CI publishing
 
@@ -255,4 +362,4 @@ expected version, meets the uptime condition, is not in safe mode, and reports
 no update error. The reconciliation also completes an active deployment when
 all targets are terminal. It runs before the canary pause check.
 
-An offline player cannot receive a new deployment. `WaitingForPermission` and `WaitingForUser` are expected operational states, not failures. Silent installation is not claimed. Physical Fire TV and Google TV validation remains required for each device/OS family.
+An offline Player receives a queued update command after it reconnects within the command expiry period. `WaitingForPermission` and `WaitingForUser` are expected operational states, not failures. Physical Fire TV and Google TV validation remains required for each device/OS family.

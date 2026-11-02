@@ -30,6 +30,10 @@ manifest contains these fields:
 - `id`: the stable provider ID. Keep a compatibility ID unchanged. Do
   not rename an existing provider.
 - `version`: the definition version.
+  A package update that changes this definition is refused while a
+  saved Data Source uses it. The refusal reports how many Data Sources
+  remain. Delete those sources, then update the package. A definition that did not
+  change does not block the update.
 - `name`, `description`, `category`, `icon`: catalog wording.
 - `configurationSchema`: the authoring fields. It uses the Studio
   control set.

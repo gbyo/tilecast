@@ -3,8 +3,10 @@
  *
  * Security model (docs/tilecast-edge.md §10.2–10.3, §17):
  *   - The view loads only tilecast://runtime/index.html, the shared Tilecast
- *     Player Runtime (packages/player-runtime) that Electron also hosts. Every other
- *     navigation, new window and permission request is refused.
+ *     Player Runtime (packages/player-runtime) that Electron also hosts.
+ *     Navigations are confined to the runtime tree plus exact daemon-minted
+ *     tcwidget://cap/ sandbox-frame URIs; every other navigation, new window
+ *     and permission request is refused.
  *   - The bridge script is injected only into the top frame of pages under
  *     tilecast://runtime/. Remote content never gets the bridge, and
  *     in this renderer version no remote content is loaded at all.
@@ -16,6 +18,7 @@
 #include "host.h"
 #include "validate.h"
 #include "remote-web.h"
+#include "frame-navigation.h"
 
 #include <glib/gstdio.h>
 #include <string.h>
@@ -126,8 +129,8 @@ copy_activation (JsonBuilder *builder, JsonObject *message)
 
 static const char *const EVIDENCE_KINDS[] = {
   "item_started", "item_transition", "video_progress", "image_shown", "widget_shown", "widget_empty",
-  "widget_alive", "layout_shown", "layout_alive", "layout_zone_rendered", "website_loaded", "website_alive",
-  "frame_changed", "surface_shown", NULL,
+  "widget_alive", "layout_shown", "layout_alive", "layout_zone_rendered", "layout_zone_declared",
+  "layout_zone_rotating", "website_loaded", "website_alive", "frame_changed", "surface_shown", NULL,
 };
 
 static gboolean
@@ -243,8 +246,9 @@ on_script_request (WebKitUserContentManager *manager, JSCValue *value, WebKitScr
   }
   /* A fixed set of requests, each with a fixed parameter shape. */
   gboolean setup = g_strcmp0 (type, "setup.submit_server_url") == 0;
+  gboolean resume = g_strcmp0 (type, "setup.resume_phone_setup") == 0;
   gboolean discovery = g_strcmp0 (type, "discovery.list") == 0;
-  if (!setup && !discovery) {
+  if (!setup && !resume && !discovery) {
     webkit_script_message_reply_return_error_message (reply, "unsupported request");
     return TRUE;
   }
@@ -267,13 +271,31 @@ static gboolean
 on_decide_policy (WebKitWebView *view, WebKitPolicyDecision *decision, WebKitPolicyDecisionType type, gpointer data)
 {
   (void) view;
-  (void) data;
+  TcHost *host = data;
   if (type == WEBKIT_POLICY_DECISION_TYPE_RESPONSE)
     return FALSE;
   WebKitNavigationAction *action =
     webkit_navigation_policy_decision_get_navigation_action (WEBKIT_NAVIGATION_POLICY_DECISION (decision));
   const char *uri = webkit_uri_request_get_uri (webkit_navigation_action_get_request (action));
-  if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION && g_str_has_prefix (uri, "tilecast://runtime/")) {
+  /* Sandbox frames are iframe navigations to exact daemon-minted capability
+   * URIs, each carrying the executor's `#hello` attach fragment (read back
+   * from location.hash inside the frame). The fragment never reaches the
+   * capability resolver — schemes.c strips it — so the policy judges the
+   * bare URI with the same exact matcher. The served document stays
+   * confined: an opaque origin under the response `sandbox allow-scripts`
+   * directive, no bridge injection outside the tilecast://runtime/ top
+   * frame, and no daemon access except through the runtime's relay.
+   * Top-level navigation still cannot leave the runtime tree or reach an
+   * unminted URI. */
+  g_autofree char *bare = g_strdup (uri);
+  if (bare != NULL) {
+    char *hash = strchr (bare, '#');
+    if (hash != NULL)
+      *hash = '\0';
+  }
+  gboolean trusted = g_str_has_prefix (uri, "tilecast://runtime/")
+                     || (tc_is_widget_capability_uri (bare) && tc_host_find_frame (host, bare) != NULL);
+  if (type == WEBKIT_POLICY_DECISION_TYPE_NAVIGATION_ACTION && trusted) {
     webkit_policy_decision_use (decision);
   } else {
     g_warning ("view: refused navigation away from the trusted runtime");
@@ -299,6 +321,8 @@ on_web_process_terminated (WebKitWebView *view, WebKitWebProcessTerminationReaso
   TcHost *host = user_data;
   host->web_process_terminations++;
   g_warning ("view: web process terminated (reason %d); reloading the runtime", (int) reason);
+  /* The dead process's last buffer is not what the display will show. */
+  tc_preview_clear_presented_buffer (host);
   tc_remote_web_reset (host);
   tc_protocol_send_health (host, "degraded", "web_process_terminated");
   tc_view_reload_runtime (host);
@@ -316,9 +340,9 @@ on_load_failed (WebKitWebView *view, WebKitLoadEvent event, char *uri, GError *e
 }
 
 static char *
-read_bridge_script (TcHost *host, GError **error)
+read_bridge_script (TcHost *host, const char *name, GError **error)
 {
-  g_autofree char *path = g_build_filename (host->runtime_dir, "tilecast-bridge.js", NULL);
+  g_autofree char *path = g_build_filename (host->runtime_dir, name, NULL);
   char *contents = NULL;
   if (!g_file_get_contents (path, &contents, NULL, error))
     return NULL;
@@ -373,8 +397,11 @@ tc_view_media_socket_stale (TcHost *host)
 gboolean
 tc_view_create (TcHost *host, GError **error)
 {
-  g_autofree char *bridge = read_bridge_script (host, error);
+  g_autofree char *bridge = read_bridge_script (host, "tilecast-bridge.js", error);
   if (bridge == NULL)
+    return FALSE;
+  g_autofree char *relay = read_bridge_script (host, "tilecast-native-relay.js", error);
+  if (relay == NULL)
     return FALSE;
 
   host->web_context = webkit_web_context_new ();
@@ -405,15 +432,28 @@ tc_view_create (TcHost *host, GError **error)
   webkit_settings_set_javascript_can_open_windows_automatically (settings, FALSE);
 
   WebKitUserContentManager *manager = webkit_user_content_manager_new ();
-  static const char *const allow[] = { "tilecast://runtime/*", NULL };
+  if (!tc_frame_navigation_install (manager, error)) {
+    g_object_unref (settings);
+    g_object_unref (manager);
+    return FALSE;
+  }
+  static const char *const allow[] = { "tilecast://runtime/index.html", NULL };
+  static const char *const world = "tilecast-native";
+  g_autoptr (WebKitUserScript) native_script = webkit_user_script_new_for_world (
+    relay, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, world, allow, NULL);
+  webkit_user_content_manager_add_script (manager, native_script);
   g_autoptr (WebKitUserScript) script = webkit_user_script_new (
     bridge, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME, WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, allow, NULL);
   webkit_user_content_manager_add_script (manager, script);
   g_signal_connect (manager, "script-message-received::tilecast", G_CALLBACK (on_script_message), host);
   g_signal_connect (manager, "script-message-with-reply-received::tilecastRequest", G_CALLBACK (on_script_request),
                     host);
-  webkit_user_content_manager_register_script_message_handler (manager, "tilecast", NULL);
-  webkit_user_content_manager_register_script_message_handler_with_reply (manager, "tilecastRequest", NULL);
+  if (!webkit_user_content_manager_register_script_message_handler (manager, "tilecast", world)
+      || !webkit_user_content_manager_register_script_message_handler_with_reply (manager, "tilecastRequest", world)) {
+    g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_FAILED, "native script world could not register");
+    g_object_unref (manager);
+    return FALSE;
+  }
 
   host->view = g_object_new (WEBKIT_TYPE_WEB_VIEW, "display", host->display, "web-context", host->web_context,
                              "network-session", host->network_session, "settings", settings,
@@ -430,6 +470,7 @@ tc_view_create (TcHost *host, GError **error)
   g_signal_connect (host->view, "load-failed", G_CALLBACK (on_load_failed), host);
 
   WPEView *wpe_view = webkit_web_view_get_wpe_view (host->view);
+  tc_preview_attach_view (host, wpe_view);
   WPEToplevel *toplevel = wpe_view_get_toplevel (wpe_view);
   if (toplevel == NULL) {
     toplevel = wpe_display_create_toplevel (host->display, 1);

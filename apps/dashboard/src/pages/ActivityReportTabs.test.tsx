@@ -293,6 +293,15 @@ function renderProofTab() {
 }
 
 describe("ProofTab summary", () => {
+  it("names the breakdown by its translated dimension, not the raw value", async () => {
+    renderProofTab();
+
+    expect(
+      await screen.findByText("View Screen breakdown"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/View screen breakdown/)).toBeNull();
+  });
+
   it("formats summary numbers in the Studio language, not the browser locale", async () => {
     await i18n.changeLanguage("ru");
     renderProofTab();

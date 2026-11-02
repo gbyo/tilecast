@@ -8,10 +8,11 @@
   Object.setPrototypeOf(WidgetElement, HTMLElement);
   WidgetElement.prototype.connectedCallback = function () {
     this.textContent = this.empty || "";
+    var revision = this[Symbol.for("tilecast.widget.inputRevision")];
     this.dispatchEvent(
       new CustomEvent("tilecast-widget-empty", {
         bubbles: true,
-        detail: { reason: this.empty },
+        detail: { reason: this.empty, revision: revision },
       }),
     );
   };

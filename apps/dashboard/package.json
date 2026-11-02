@@ -27,6 +27,7 @@
     "@tilecast/design-tokens": "*",
     "@tilecast/plugin-sdk": "*",
     "@tilecast/presentation-model": "*",
+    "@tilecast/player-runtime": "*",
     "@tilecast/widget-kit": "*",
     "@tilecast/widget-sdk": "*",
     "class-variance-authority": "^0.7.1",

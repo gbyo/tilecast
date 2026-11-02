@@ -3,6 +3,7 @@
 // protocol, one unsaved-changes rule, and an explicit Save.
 import "@testing-library/jest-dom/vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   screen,
@@ -365,6 +366,27 @@ describe("Widget editor route", () => {
           name: "Discard unsaved changes?",
         }),
       ).toBeTruthy();
+    });
+    it("keeps an edit made while the create request is pending", async () => {
+      mockEditorApi();
+      const created = textWidget({ id: "widget-9", name: "New Text" });
+      let finish!: (asset: Asset) => void;
+      const create = vi.spyOn(api, "createWidget").mockReturnValue(
+        new Promise<Asset>((resolve) => {
+          finish = resolve;
+        }),
+      );
+      vi.spyOn(api, "asset").mockResolvedValue(created);
+      renderEditorRoute("/widgets/new/text");
+      await userEvent.click(await editorReady(/Save Widget/));
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+      await editMessage("Tacos today");
+      act(() => finish(created));
+      await waitFor(() => expect(path()).toBe("/widgets/widget-9"));
+      expect(
+        await screen.findByRole("textbox", { name: /Message/ }),
+      ).toHaveValue("Tacos today");
+      expect(await editorReady()).toBeEnabled();
     });
   });
 

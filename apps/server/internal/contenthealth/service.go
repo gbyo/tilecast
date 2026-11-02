@@ -201,10 +201,14 @@ func (s *Service) sweepEmptyPlaylists(ctx context.Context) error {
 						END)
 				) ELSE (
 					SELECT count(*) FROM playlist_items i
-					JOIN assets s ON s.id=i.asset_id
-					WHERE i.playlist_id=a.id AND s.deleted_at IS NULL
-					  AND (s.available_from IS NULL OR s.available_from<=now())
-					  AND (s.expires_at IS NULL OR s.expires_at>now())
+					LEFT JOIN assets s ON s.id=i.asset_id
+					LEFT JOIN layouts l ON l.id=i.layout_id AND l.deleted_at IS NULL
+					WHERE i.playlist_id=a.id AND (
+						(i.layout_id IS NOT NULL AND l.published_revision_id IS NOT NULL)
+						OR (i.asset_id IS NOT NULL AND s.deleted_at IS NULL
+						    AND (s.available_from IS NULL OR s.available_from<=now())
+						    AND (s.expires_at IS NULL OR s.expires_at>now()))
+					)
 				) END AS playable
 			FROM assigned a
 		)
@@ -266,10 +270,14 @@ func (s *Service) sweepEmptyPlaylists(ctx context.Context) error {
 		                  END))
 		          ELSE (
 		              SELECT count(*) FROM playlist_items pi
-		              JOIN assets s ON s.id=pi.asset_id
-		              WHERE pi.playlist_id=a.id AND s.deleted_at IS NULL
-		                AND (s.available_from IS NULL OR s.available_from<=now())
-		                AND (s.expires_at IS NULL OR s.expires_at>now()))
+		              LEFT JOIN assets s ON s.id=pi.asset_id
+		              LEFT JOIN layouts l ON l.id=pi.layout_id AND l.deleted_at IS NULL
+		              WHERE pi.playlist_id=a.id AND (
+		                  (pi.layout_id IS NOT NULL AND l.published_revision_id IS NOT NULL)
+		                  OR (pi.asset_id IS NOT NULL AND s.deleted_at IS NULL
+		                      AND (s.available_from IS NULL OR s.available_from<=now())
+		                      AND (s.expires_at IS NULL OR s.expires_at>now())))
+		          )
 		          END) = 0)`)
 	return err
 }

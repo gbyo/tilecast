@@ -31,8 +31,10 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/installer"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/pipeline"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/registry"
+	"github.com/tilecast/tilecast/apps/server/internal/extensions/services"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/trust"
 	"github.com/tilecast/tilecast/apps/server/internal/extensions/wasm"
+	"github.com/tilecast/tilecast/apps/server/internal/externalplugins"
 	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 	"github.com/tilecast/tilecast/apps/server/internal/httpapi"
 	"github.com/tilecast/tilecast/apps/server/internal/integrations"
@@ -142,7 +144,7 @@ func serve() {
 	backupGuard := backup.NewGuard()
 	takeoverService := takeovers.NewService(db, playlistService, deviceService, time.Duration(cfg.Operations.MaxTakeoverDurationHours)*time.Hour)
 	managedPresentationService := managedpresentations.NewService(db)
-	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL), plugins.WithDataSourceInvalidator(playlistService), plugins.WithAttachments(mediaService))
+	pluginService := plugins.NewService(db, deviceService, plugins.WithLogger(logger), plugins.WithTakeovers(takeoverService), plugins.WithManagedPresentations(managedPresentationService), plugins.WithBackgroundJobsAllowed(backupGuard.BackgroundJobsAllowed), plugins.WithPublicURL(cfg.PublicURL), plugins.WithScreens(deviceService), plugins.WithDataSourceInvalidator(playlistService), plugins.WithAttachments(mediaService))
 	// The marketplace joins cached catalog listings into the plugin
 	// store. The server knows the official catalog address itself, so the
 	// marketplace is always on and needs no operator configuration.
@@ -156,15 +158,15 @@ func serve() {
 	})
 	// Extension packages install through the installer and pipeline
 	// services. Release identities are reserved so a package can never
-	// shadow bundled behavior, and unsigned packages stay disabled on
-	// stable releases even when the development flag is set. Reservation
+	// shadow bundled behavior, and unsigned packages stay disabled on release
+	// builds even when the development flag is set. Reservation
 	// checks the release catalog only: the effective catalog also holds
 	// installed packages' own contributions, which an update, rollback,
 	// or reinstall of the same package must not collide with.
 	reservedIdentities := releaseReservedIdentities(releaseDefinitions)
 	allowUnsigned := cfg.Packages.AllowUnsigned
-	if allowUnsigned && version.Channel == version.ChannelStable {
-		logger.Warn("unsigned extension packages are disabled on stable releases", "flag", "TILECAST_ALLOW_UNSIGNED_EXTENSIONS")
+	if allowUnsigned && version.IsRelease() {
+		logger.Warn("unsigned extension packages are disabled on release builds", "flag", "TILECAST_ALLOW_UNSIGNED_EXTENSIONS")
 		allowUnsigned = false
 	}
 	installerOptions := []installer.Option{installer.WithReserved(reservedIdentities)}
@@ -187,7 +189,10 @@ func serve() {
 	}
 	pipelineService := pipeline.NewService(db, installService, cfg.Packages.Root, version.Display(), pipelineOptions...)
 	wasmStore := wasm.NewPostgresKV(db)
-	wasmService, err := wasm.NewService(ctx, installService, pipelineService.ContentDir, wasmStore, logger)
+	wasmService, err := wasm.NewService(ctx, installService, pipelineService.ContentDir, wasmStore, logger,
+		wasm.WithVerifiedModuleReader(func(ctx context.Context, ref, digest, module string) ([]byte, error) {
+			return pipelineService.PluginFile(ctx, ref, digest, ".", module, wasm.MaxModuleBytes)
+		}))
 	if err != nil {
 		fail("wasm execution host failed", err)
 	}
@@ -196,8 +201,11 @@ func serve() {
 	contributionService := contributions.NewService(db, installService, releaseDefinitions, contentDefinitions,
 		pipelineService.ContentDir, media.RegisteredDataSourceAdapter, media.ValidateContentAdapters,
 		contributions.WithLogger(logger),
+		contributions.WithVerifiedPluginFiles(pipelineService.PluginFile),
 		contributions.WithLocalContentDir(pipelineService.LocalContentDir))
 	pipelineService.SetContributions(contributionService)
+	externalPluginService := externalplugins.NewService(db, contributionService, deviceService, deviceService)
+	playlistService.SetExternalPluginProjector(externalPluginService)
 	// Startup composes from retained bytes only. A package whose bytes are
 	// missing is skipped with a warning instead of pulling from the
 	// registry, so an unreachable network cannot block the server from
@@ -247,6 +255,7 @@ func serve() {
 	pluginService.SetContentDefinitions(contentDefinitions)
 	managedPresentationService.SetContentDefinitions(contentDefinitions)
 	layoutService := layouts.NewService(db)
+	layoutService.SetContentDefinitions(contentDefinitions)
 	layoutService.SetNotifier(deviceService)
 	layoutService.SetManifestInvalidator(playlistService)
 	mediaService.SetAssetInvalidator(playlistService)
@@ -257,6 +266,14 @@ func serve() {
 	playlistService.SetScheduling(schedulingService)
 	settingsService := settings.NewService(db, deviceService, settings.HardLimits{MaxUploadBytes: cfg.Media.MaxUploadBytes, MaxTakeoverMinutes: cfg.Operations.MaxTakeoverDurationHours * 60, MaxWebsiteTimeout: cfg.Website.MaxTimeoutSeconds, MaxPrefetchDays: cfg.Scheduling.PrefetchDays, PrivateHTTPAllowed: cfg.Website.AllowPrivateHTTP})
 	schedulingService.SetOrganizationSettingsProvider(settingsService)
+	wasmService.SetServiceCaller(services.NewDispatcher(services.Dependencies{
+		DB: db, Devices: deviceService, Playlists: playlistService,
+		Layouts: layoutService, Media: mediaService, Scheduling: schedulingService,
+		Takeovers: takeoverService, Managed: managedPresentationService,
+		Settings: settingsService, Shared: pluginService.Shared(),
+		ExternalPlugins: externalPluginService,
+		Limits:          services.Limits{MaxTakeoverTargets: cfg.Operations.MaxTakeoverTargets, MaxPendingCommands: cfg.Operations.MaxPendingCommands, DefaultCommandExpiryMinutes: cfg.Operations.DefaultCommandExpiryMinutes},
+	}))
 	// Presentation Networks seal Wi-Fi credentials with an environment-backed
 	// key. A missing key must not stop the server: signage, AirPlay without a
 	// Presentation Network, and every other feature keep working, and Studio
@@ -461,6 +478,7 @@ func serve() {
 	// External package background jobs run on their declared intervals;
 	// the first overdue pass runs at startup so a restart loses no jobs.
 	go wasm.NewScheduler(db, wasmService.InvokeJob, time.Minute, logger).Run(shutdownCtx)
+	go wasm.NewRealtimeScheduler(db, wasmService.InvokeJob, logger).Run(shutdownCtx)
 	// Refresh the marketplace in the background at startup so a fresh
 	// boot picks up the current catalog without delaying traffic. The
 	// bundled snapshot serves until the refresh lands.
@@ -490,6 +508,12 @@ func serve() {
 				}
 				deviceService.ExpireAirplaySessions(shutdownCtx)
 				handler.ReconcileAirplaySessions(shutdownCtx)
+				if err := authService.PurgeExpiredSessions(shutdownCtx); err != nil {
+					logger.Error("session purge failed", "error", err)
+				}
+				if err := authService.PurgeExpiredChallenges(shutdownCtx); err != nil {
+					logger.Error("challenge purge failed", "error", err)
+				}
 				updateService.Cleanup(shutdownCtx, cfg.Updates.RetentionDays)
 				// The catalog refreshes itself while stale; an
 				// operator's manual refresh stays available for

@@ -4,6 +4,7 @@
   "private": true,
   "license": "AGPL-3.0-only",
   "workspaces": [
+    "apps/browser-companion",
     "apps/dashboard",
     "apps/docs",
     "apps/player-linux",

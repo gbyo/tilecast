@@ -44,6 +44,11 @@ type Service struct {
 	definitions contentdefs.Catalogs
 	pluginGate  PluginSourceGate
 	hooks       FinalizationHooks
+	// uploadAuthorizer re-decides, inside the transaction that registers an
+	// uploaded asset, whether the upload's creator may still place content in
+	// its destination folder. It is nil only in tests that construct the
+	// service directly, where any existing folder (or the root) is accepted.
+	uploadAuthorizer UploadAuthorizer
 	// contributed are plugin-owned Data Source providers. They overlay the
 	// static registry for traits, configuration shape, field discovery,
 	// and authoring-surface metadata; core never names them.
@@ -105,6 +110,16 @@ func (s *Service) externallyManaged(id string) (plugin.DataSourceProvider, bool)
 	return provider, true
 }
 
+// UploadAuthorizer decides whether user may still upload into folder (nil is
+// the library root). It runs inside tx, so it can lock the account's content
+// policy against a concurrent change. Returning ErrOutOfScope refuses the
+// upload.
+type UploadAuthorizer func(ctx context.Context, tx pgx.Tx, user uuid.UUID, folder *uuid.UUID) error
+
+// SetUploadAuthorizer installs the live destination check used when an upload
+// is finalized, including by the background finalization reconciler.
+func (s *Service) SetUploadAuthorizer(authorizer UploadAuthorizer) { s.uploadAuthorizer = authorizer }
+
 // FinalizationHooks is intentionally empty in production. Tests use the
 // boundaries to inject failures at the exact hand-off points where a process
 // crash or an ambiguous storage/database result must remain recoverable.
@@ -134,7 +149,11 @@ func (s *Service) MaximumSourceBytes() int64                          { return s
 func (s *Service) SetContentDefinitions(catalog contentdefs.Catalogs) { s.definitions = catalog }
 func (s *Service) ContentDefinitions() contentdefs.Catalogs           { return s.definitions }
 
-func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, mimeType string, size int64) (Upload, error) {
+// CreateUpload opens a resumable upload session that will land in folder
+// (nil is the library root). The destination is authorized against access
+// now and again when the upload is finalized, so a grant revoked during a
+// long upload still stops it.
+func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, access Access, folder *uuid.UUID, filename, mimeType string, size int64) (Upload, error) {
 	filename = strings.TrimSpace(filename)
 	mimeType = strings.TrimSpace(mimeType)
 	if filename == "" || len(filename) > 255 {
@@ -146,30 +165,57 @@ func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, 
 	if size > s.cfg.MaxUploadBytes {
 		return Upload{}, ErrUploadTooLarge
 	}
+	// The check, the session row, and the commit happen under one lock, so a
+	// second creation waits and then sees this session in its pending total.
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return Upload{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('tilecast.media.upload-reserve'))`); err != nil {
+		return Upload{}, err
+	}
 	available, err := s.storage.AvailableBytes()
 	if err != nil {
 		return Upload{}, fmt.Errorf("check media storage: %w", err)
 	}
-	if uint64(size) > available || available-uint64(size) < s.cfg.ReservedFreeBytes {
-		return Upload{}, ErrInsufficientSpace
-	}
-	var organizationID uuid.UUID
-	if err := s.db.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton=TRUE`).Scan(&organizationID); err != nil {
+	// Accepted uploads that have not finished still need their remaining bytes.
+	// Count them against free space, or concurrent sessions can each pass the
+	// reserve check against the same snapshot.
+	var promised int64
+	if err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(GREATEST(expected_size-current_offset,0)),0)::bigint FROM upload_sessions WHERE status IN ('pending','uploading') AND expires_at>now()`).Scan(&promised); err != nil {
 		return Upload{}, err
 	}
-	upload := Upload{ID: uuid.New(), OriginalFilename: filename, DeclaredMIMEType: mimeType, ExpectedSize: size, Status: UploadPending, ExpiresAt: time.Now().UTC().Add(UploadLifetime), MaximumSize: s.cfg.MaxUploadBytes}
+	free := uint64(0)
+	if uint64(promised) < available {
+		free = available - uint64(promised)
+	}
+	if uint64(size) > free || free-uint64(size) < s.cfg.ReservedFreeBytes {
+		return Upload{}, ErrInsufficientSpace
+	}
+	if err := folderWritable(ctx, tx, access, folder); err != nil {
+		return Upload{}, err
+	}
+	var organizationID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT id FROM organization_settings WHERE singleton=TRUE`).Scan(&organizationID); err != nil {
+		return Upload{}, err
+	}
+	upload := Upload{ID: uuid.New(), OriginalFilename: filename, DeclaredMIMEType: mimeType, ExpectedSize: size, Status: UploadPending, ExpiresAt: time.Now().UTC().Add(UploadLifetime), MaximumSize: s.cfg.MaxUploadBytes, FolderID: folder}
 	key := UploadKey(upload.ID)
+	_, err = tx.Exec(ctx, `INSERT INTO upload_sessions (id,organization_id,created_by,original_filename,declared_mime_type,expected_size,temporary_storage_key,status,expires_at,destination_folder_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, upload.ID, organizationID, userID, filename, mimeType, size, key, upload.Status, upload.ExpiresAt, folder)
+	if err != nil {
+		return Upload{}, fmt.Errorf("create upload session: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return Upload{}, err
+	}
 	file, err := s.storage.CreateUpload(key)
 	if err != nil {
+		_, _ = s.db.Exec(ctx, `DELETE FROM upload_sessions WHERE id=$1`, upload.ID)
 		return Upload{}, err
 	}
 	if err := file.Close(); err != nil {
 		return Upload{}, err
-	}
-	_, err = s.db.Exec(ctx, `INSERT INTO upload_sessions (id,organization_id,created_by,original_filename,declared_mime_type,expected_size,temporary_storage_key,status,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, upload.ID, organizationID, userID, filename, mimeType, size, key, upload.Status, upload.ExpiresAt)
-	if err != nil {
-		_ = s.storage.Delete(key)
-		return Upload{}, fmt.Errorf("create upload session: %w", err)
 	}
 	upload.UploadEndpoint = "/api/v1/uploads/" + upload.ID.String()
 	return upload, nil
@@ -178,7 +224,7 @@ func (s *Service) CreateUpload(ctx context.Context, userID uuid.UUID, filename, 
 func (s *Service) GetUpload(ctx context.Context, id, userID uuid.UUID) (Upload, error) {
 	var u Upload
 	u.ID = id
-	err := s.db.QueryRow(ctx, `SELECT original_filename,declared_mime_type,expected_size,current_offset,status,expires_at,resulting_asset_id FROM upload_sessions WHERE id=$1 AND created_by=$2`, id, userID).Scan(&u.OriginalFilename, &u.DeclaredMIMEType, &u.ExpectedSize, &u.CurrentOffset, &u.Status, &u.ExpiresAt, &u.ResultingAssetID)
+	err := s.db.QueryRow(ctx, `SELECT original_filename,declared_mime_type,expected_size,current_offset,status,expires_at,resulting_asset_id,destination_folder_id FROM upload_sessions WHERE id=$1 AND created_by=$2`, id, userID).Scan(&u.OriginalFilename, &u.DeclaredMIMEType, &u.ExpectedSize, &u.CurrentOffset, &u.Status, &u.ExpiresAt, &u.ResultingAssetID, &u.FolderID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Upload{}, ErrNotFound
 	}
@@ -313,6 +359,15 @@ func (s *Service) FinalizeUpload(ctx context.Context, id, userID uuid.UUID) (Ass
 	}
 	if status != UploadFinalizing && offset != expected {
 		return Asset{}, ErrUploadIncomplete
+	}
+	// Refuse before any state changes when the destination is no longer
+	// allowed, so the session stays pending and its creator can cancel it. A
+	// session already finalizing is decided by the registration check below,
+	// which fails it cleanly instead of leaving it for the reconciler.
+	if status != UploadFinalizing {
+		if err := s.authorizeUploadDestination(ctx, tx, id, userID); err != nil {
+			return Asset{}, err
+		}
 	}
 	assetID, variantID := ids.New(ctx), uuid.New()
 	if preparedAssetID != nil {
@@ -450,7 +505,21 @@ func (s *Service) FinalizeUpload(ctx context.Context, id, userID uuid.UUID) (Ass
 		return Asset{}, err
 	}
 	defer finalizationTx.Rollback(ctx) //nolint:errcheck
-	_, err = finalizationTx.Exec(ctx, `INSERT INTO assets (id,organization_id,name,type,original_filename,declared_mime_type,detected_mime_type,sha256,original_size,processing_status,created_by,created_at,updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'queued',$10,$11,$11) ON CONFLICT(id) DO NOTHING`, assetID, organizationID, name, detectedType, filename, declared, detectedMIME, sum, expected, userID, now)
+	// The destination is decided again in the transaction that creates the
+	// asset. The folder comes from the session row, never from the request,
+	// and a grant revoked since the upload began refuses it here.
+	var destination *uuid.UUID
+	if err := finalizationTx.QueryRow(ctx, `SELECT destination_folder_id FROM upload_sessions WHERE id=$1 FOR UPDATE`, id).Scan(&destination); err != nil {
+		return Asset{}, err
+	}
+	if err := s.authorizeUploadDestination(ctx, finalizationTx, id, userID); err != nil {
+		_ = finalizationTx.Rollback(ctx)
+		if errors.Is(err, ErrOutOfScope) {
+			return Asset{}, s.failUploadOn(ctx, conn, id, "upload_destination_forbidden", err)
+		}
+		return Asset{}, err
+	}
+	_, err = finalizationTx.Exec(ctx, `INSERT INTO assets (id,organization_id,name,type,original_filename,declared_mime_type,detected_mime_type,sha256,original_size,processing_status,created_by,created_at,updated_at,folder_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'queued',$10,$11,$11,$12) ON CONFLICT(id) DO NOTHING`, assetID, organizationID, name, detectedType, filename, declared, detectedMIME, sum, expected, userID, now, destination)
 	if err != nil {
 		return Asset{}, err
 	}
@@ -481,6 +550,20 @@ func (s *Service) FinalizeUpload(ctx context.Context, id, userID uuid.UUID) (Ass
 	return s.GetAsset(ctx, assetID)
 }
 
+// authorizeUploadDestination applies the installed UploadAuthorizer to the
+// session's stored destination. Without one, the destination only has to
+// exist (or be the root).
+func (s *Service) authorizeUploadDestination(ctx context.Context, tx pgx.Tx, id, user uuid.UUID) error {
+	var destination *uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT destination_folder_id FROM upload_sessions WHERE id=$1`, id).Scan(&destination); err != nil {
+		return err
+	}
+	if s.uploadAuthorizer != nil {
+		return s.uploadAuthorizer(ctx, tx, user, destination)
+	}
+	return folderWritable(ctx, tx, FullAccess(user), destination)
+}
+
 func (s *Service) failUpload(ctx context.Context, id uuid.UUID, code string, cause error) error {
 	return s.failUploadOn(ctx, s.db, id, code, cause)
 }
@@ -508,6 +591,20 @@ func (s *Service) failUploadOn(ctx context.Context, db finalizationDB, id uuid.U
 }
 
 func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error {
+	conn, err := s.db.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+	// Finalization holds this advisory lock for its whole hand-off. Waiting for
+	// it means a cancellation cannot land between a finalizer's status check and
+	// its asset registration.
+	if _, err = conn.Exec(ctx, `SELECT pg_advisory_lock(hashtextextended($1,0))`, id.String()); err != nil {
+		return err
+	}
+	defer func() {
+		_, _ = conn.Exec(context.Background(), `SELECT pg_advisory_unlock(hashtextextended($1,0))`, id.String())
+	}()
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -515,7 +612,8 @@ func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error 
 	defer tx.Rollback(ctx) //nolint:errcheck
 	var key string
 	var status UploadStatus
-	err = tx.QueryRow(ctx, `SELECT temporary_storage_key,status FROM upload_sessions WHERE id=$1 AND created_by=$2 FOR UPDATE`, id, userID).Scan(&key, &status)
+	var marker *string
+	err = tx.QueryRow(ctx, `SELECT temporary_storage_key,status,failure_code FROM upload_sessions WHERE id=$1 AND created_by=$2 FOR UPDATE`, id, userID).Scan(&key, &status, &marker)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -526,9 +624,16 @@ func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error 
 		return ErrUploadUnavailable
 	}
 	if status == UploadCancelled {
+		if err = tx.Commit(ctx); err != nil {
+			return err
+		}
+		// A cancellation whose file delete failed stays marked until the file is gone.
+		if marker != nil && *marker == uploadCancelledCleanupPending {
+			return s.removeCancelledUpload(ctx, id, key)
+		}
 		return nil
 	}
-	if _, err = tx.Exec(ctx, `UPDATE upload_sessions SET status='cancelled',failure_code=NULL WHERE id=$1`, id); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE upload_sessions SET status='cancelled',failure_code=$2 WHERE id=$1`, id, uploadCancelledCleanupPending); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO audit_logs (id,user_id,action,resource_type,resource_id) VALUES ($1,$2,'media.upload_cancelled','upload',$3)`, uuid.New(), userID, id.String()); err != nil {
@@ -537,7 +642,55 @@ func (s *Service) CancelUpload(ctx context.Context, id, userID uuid.UUID) error 
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
-	return s.storage.Delete(key)
+	return s.removeCancelledUpload(ctx, id, key)
+}
+
+// uploadCancelledCleanupPending marks a cancelled session whose temporary file
+// has not been removed yet. The cleanup worker and a repeated cancellation both
+// retry the removal until it succeeds.
+const uploadCancelledCleanupPending = "upload_cancelled_cleanup_pending"
+
+// removeCancelledUpload deletes a cancelled session's temporary file, then clears
+// the marker. A failed delete leaves the marker in place for a later retry.
+func (s *Service) removeCancelledUpload(ctx context.Context, id uuid.UUID, key string) error {
+	if err := s.storage.Delete(key); err != nil {
+		return err
+	}
+	_, err := s.db.Exec(ctx, `UPDATE upload_sessions SET failure_code=NULL WHERE id=$1 AND status='cancelled' AND failure_code=$2`, id, uploadCancelledCleanupPending)
+	return err
+}
+
+// retryCancelledCleanup removes temporary files of cancelled uploads whose first
+// removal failed. Cleanup runs periodically so an orphan is not kept indefinitely.
+func (s *Service) retryCancelledCleanup(ctx context.Context) error {
+	rows, err := s.db.Query(ctx, `SELECT id,temporary_storage_key FROM upload_sessions WHERE status='cancelled' AND failure_code=$1 ORDER BY created_at LIMIT 32`, uploadCancelledCleanupPending)
+	if err != nil {
+		return err
+	}
+	type pending struct {
+		id  uuid.UUID
+		key string
+	}
+	var items []pending
+	for rows.Next() {
+		var item pending
+		if err := rows.Scan(&item.id, &item.key); err != nil {
+			rows.Close()
+			return err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, item := range items {
+		if err := s.removeCancelledUpload(ctx, item.id, item.key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // assetOrigin returns the origin ('library' or 'form_attachment') of a live asset, or ErrNotFound.
@@ -592,7 +745,7 @@ func (s *Service) getAsset(ctx context.Context, id uuid.UUID, allowFormAttachmen
 			}
 		}
 	}
-	_ = s.db.QueryRow(ctx, `SELECT count(DISTINCT playlist_id) FROM playlist_items WHERE asset_id=$1`, id).Scan(&asset.PlaylistUsage)
+	_ = s.db.QueryRow(ctx, `SELECT count(DISTINCT i.playlist_id) FROM playlist_items i JOIN playlists p ON p.id=i.playlist_id AND p.deleted_at IS NULL WHERE i.asset_id=$1`, id).Scan(&asset.PlaylistUsage)
 	asset.PlaylistsUsing, err = s.playlistUsage(ctx, id)
 	if err != nil {
 		return Asset{}, err
@@ -761,6 +914,11 @@ func (s *Service) ListAssets(ctx context.Context, o ListOptions) (ListResult, er
 	if o.TagID != nil {
 		add("EXISTS(SELECT 1 FROM content_asset_tags at WHERE at.asset_id=a.id AND at.tag_id=$%d)", *o.TagID)
 	}
+	if o.View != nil {
+		// The visibility predicate is ANDed with every filter, so a folder,
+		// collection, tag, archive, or search filter can only narrow it.
+		where = append(where, o.View.assetClause("a", &args))
+	}
 	clause := strings.Join(where, " AND ")
 	var total int
 	if err := s.db.QueryRow(ctx, "SELECT count(*) FROM assets a WHERE "+clause, args...).Scan(&total); err != nil {
@@ -793,7 +951,7 @@ func (s *Service) ListAssets(ctx context.Context, o ListOptions) (ListResult, er
 		if o.Archived && a.ArchivedAt == nil && a.ExpiresAt != nil {
 			a.ArchivedAt = a.ExpiresAt
 		}
-		_ = s.db.QueryRow(ctx, `SELECT count(DISTINCT playlist_id) FROM playlist_items WHERE asset_id=$1`, a.ID).Scan(&a.PlaylistUsage)
+		_ = s.db.QueryRow(ctx, `SELECT count(DISTINCT i.playlist_id) FROM playlist_items i JOIN playlists p ON p.id=i.playlist_id AND p.deleted_at IS NULL WHERE i.asset_id=$1`, a.ID).Scan(&a.PlaylistUsage)
 		a.LayoutUsage, err = s.layoutUsage(ctx, a.ID)
 		if err != nil {
 			return ListResult{}, err
@@ -943,7 +1101,7 @@ func (s *Service) ArchiveAssets(ctx context.Context, ids []uuid.UUID, userID uui
 	}
 	for _, id := range ids {
 		var inUse bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlist_items WHERE asset_id=$1) OR EXISTS(SELECT 1 FROM website_assets WHERE fallback_image_asset_id=$1) OR EXISTS(SELECT 1 FROM widgets JOIN assets widget_asset ON widget_asset.id=widgets.asset_id AND widget_asset.deleted_at IS NULL WHERE widgets.configuration->>'fallbackImageAssetId'=$1::text) OR EXISTS(SELECT 1 FROM organization_runtime_settings WHERE settings->>'branding.logo_asset_id'=$1::text OR settings->>'branding.icon_asset_id'=$1::text) OR EXISTS(SELECT 1 FROM layout_draft_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset')) OR EXISTS(SELECT 1 FROM layout_revision_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))`, id).Scan(&inUse); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlist_items i JOIN playlists p ON p.id=i.playlist_id AND p.deleted_at IS NULL WHERE i.asset_id=$1) OR EXISTS(SELECT 1 FROM playlist_tags pt JOIN playlists tp ON tp.id=pt.playlist_id AND tp.deleted_at IS NULL JOIN content_asset_tags ct ON ct.tag_id=pt.tag_id WHERE ct.asset_id=$1) OR EXISTS(SELECT 1 FROM website_assets WHERE fallback_image_asset_id=$1) OR EXISTS(SELECT 1 FROM widgets JOIN assets widget_asset ON widget_asset.id=widgets.asset_id AND widget_asset.deleted_at IS NULL WHERE widgets.configuration->>'fallbackImageAssetId'=$1::text) OR EXISTS(SELECT 1 FROM organization_runtime_settings WHERE settings->>'branding.logo_asset_id'=$1::text OR settings->>'branding.icon_asset_id'=$1::text) OR EXISTS(SELECT 1 FROM layout_draft_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset')) OR EXISTS(SELECT 1 FROM layout_revision_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))`, id).Scan(&inUse); err != nil {
 			return err
 		}
 		if inUse {
@@ -1046,8 +1204,13 @@ func (s *Service) DeleteAsset(ctx context.Context, id, userID uuid.UUID) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	// Playlist publication takes this same lock before it validates an asset, so
+	// a reference cannot be committed to an asset this deletion has already checked.
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('tilecast.media.asset.'||$1))`, id.String()); err != nil {
+		return err
+	}
 	var inUse bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlist_items WHERE asset_id=$1) OR EXISTS(SELECT 1 FROM website_assets WHERE fallback_image_asset_id=$1) OR EXISTS(SELECT 1 FROM widgets JOIN assets widget_asset ON widget_asset.id=widgets.asset_id AND widget_asset.deleted_at IS NULL WHERE widgets.configuration->>'fallbackImageAssetId'=$1::text) OR EXISTS(SELECT 1 FROM organization_runtime_settings WHERE settings->>'branding.logo_asset_id'=$1::text OR settings->>'branding.icon_asset_id'=$1::text) OR EXISTS(SELECT 1 FROM layout_draft_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset')) OR EXISTS(SELECT 1 FROM layout_revision_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))`, id).Scan(&inUse); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM playlist_items i JOIN playlists p ON p.id=i.playlist_id AND p.deleted_at IS NULL WHERE i.asset_id=$1) OR EXISTS(SELECT 1 FROM playlist_tags pt JOIN playlists tp ON tp.id=pt.playlist_id AND tp.deleted_at IS NULL JOIN content_asset_tags ct ON ct.tag_id=pt.tag_id WHERE ct.asset_id=$1) OR EXISTS(SELECT 1 FROM website_assets WHERE fallback_image_asset_id=$1) OR EXISTS(SELECT 1 FROM widgets JOIN assets widget_asset ON widget_asset.id=widgets.asset_id AND widget_asset.deleted_at IS NULL WHERE widgets.configuration->>'fallbackImageAssetId'=$1::text) OR EXISTS(SELECT 1 FROM organization_runtime_settings WHERE settings->>'branding.logo_asset_id'=$1::text OR settings->>'branding.icon_asset_id'=$1::text) OR EXISTS(SELECT 1 FROM layout_draft_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset')) OR EXISTS(SELECT 1 FROM layout_revision_dependencies WHERE dependency_id=$1 AND dependency_type IN('widget','asset'))`, id).Scan(&inUse); err != nil {
 		return err
 	}
 	if inUse {

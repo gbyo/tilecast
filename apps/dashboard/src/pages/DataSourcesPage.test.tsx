@@ -20,6 +20,7 @@ import {
 } from "../content/dataSourceProviderMeta";
 import { DataSourcesPage } from "./DataSourcesPage";
 import userEvent from "@testing-library/user-event";
+import { builtinCapabilities } from "../test/capabilities";
 
 // The page renders a card list for narrow screens and a table for wide ones,
 // and hides one with CSS. jsdom applies no CSS, so tests read the table.
@@ -30,6 +31,7 @@ vi.mock("../auth/AuthProvider", () => ({
     status: {
       csrfToken: "csrf-token",
       user: { id: "user-1", role: "administrator" },
+      capabilities: builtinCapabilities("administrator"),
     },
   }),
 }));

@@ -34,6 +34,8 @@ pub mod transaction;
 pub mod updater;
 
 #[cfg(test)]
+mod bridge_path_tests;
+#[cfg(test)]
 mod crash_tests;
 #[cfg(test)]
 mod fake;

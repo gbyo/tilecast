@@ -5,7 +5,14 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=18;
+pub const NATIVE_MANIFEST_SCHEMAS: std::ops::RangeInclusive<u32> = 11..=21;
+
+/// Route an already validated manifest member to the independently gated
+/// frame channel. External packages never become bundled feature IDs.
+pub fn is_external_runtime_plugin(plugin: &Value) -> bool {
+    plugin.get("type").and_then(Value::as_str) == Some("external_plugin")
+        && plugin.get("version").and_then(Value::as_u64) == Some(1)
+}
 const MAX_ASSETS: usize = 1024;
 const MAX_PLAYLISTS: usize = 128;
 const MAX_ITEMS: usize = 4096;
@@ -15,6 +22,9 @@ const MAX_DATA_SOURCES: usize = 256;
 const MAX_PLUGINS: usize = 64;
 /// Server bundle cap (`MaxWidgetPayloadBytes`); a larger claim is corrupt.
 const MAX_BUNDLE_BYTES: u64 = 1 << 20;
+/// Server frame cap (`sandbox.MaxFrameBytes`): a maximum-size bundle
+/// plus the bootstrap template with headroom. A larger claim is corrupt.
+const MAX_FRAME_BYTES: u64 = (1 << 20) + (1 << 16);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ManifestAsset {
     pub asset_id: uuid::Uuid,
@@ -23,6 +33,51 @@ pub struct ManifestAsset {
     pub size_bytes: u64,
     pub mime_type: String,
     pub download_path: String,
+    /// Resolved from every playlist item that plays this variant.
+    /// References outside playlists (layouts, branding, website
+    /// fallbacks, plugins) always demand a verified download.
+    pub policy: AssetPolicy,
+}
+
+/// A playlist item's delivery policy, merged across every item that plays
+/// one variant: `Download` anywhere wins, then `Stream`, else `Automatic`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AssetPolicy {
+    Download,
+    #[default]
+    Automatic,
+    Stream,
+}
+
+impl AssetPolicy {
+    fn merge(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::Download, _) | (_, Self::Download) => Self::Download,
+            (Self::Stream, _) | (_, Self::Stream) => Self::Stream,
+            _ => Self::Automatic,
+        }
+    }
+}
+
+/// Why a video is stream-backed rather than downloaded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamReason {
+    /// The manifest says `stream` and no use demands a download.
+    Explicit,
+    /// `automatic` and larger than half the cache limit.
+    Oversize,
+}
+
+/// One video the renderer reads through bounded authenticated range
+/// fetches instead of a verified local object. The digest, size, MIME
+/// type, and player download path are the manifest's immutable claims.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StreamClaim {
+    pub digest: Sha256Digest,
+    pub size_bytes: u64,
+    pub mime_type: String,
+    pub download_path: String,
+    pub reason: StreamReason,
 }
 
 /// One external Widget player bundle claim: the verified package digest
@@ -38,6 +93,20 @@ pub struct ManifestBundle {
     pub download_path: String,
 }
 
+/// One external Widget sandbox frame claim: the verified package digest
+/// it was assembled from plus the frame document hash, size, and
+/// download path the Player verifies before activation. The frame is a
+/// distinct CAS resource from the raw bundle, never the same bytes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ManifestFrame {
+    pub kind: player_types::frames::FrameKind,
+    pub package_id: String,
+    pub package_digest: Sha256Digest,
+    pub digest: Sha256Digest,
+    pub size_bytes: u64,
+    pub download_path: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct NativeManifest {
     /// SHA-256 of the manifest's stable encoding ([`crate::manifest_digest`]).
@@ -46,10 +115,15 @@ pub struct NativeManifest {
     pub version: i64,
     pub screen_id: ScreenId,
     pub assets: Vec<ManifestAsset>,
-    /// Every declared variant must be verified before this candidate is pending.
+    /// Every declared variant. Preparation partitions these by delivery
+    /// policy, media kind, and the store threshold: `download` assets and
+    /// non-video must be verified before the candidate is pending, while
+    /// eligible videos become stream claims instead of downloads.
     pub required_downloads: Vec<ManifestAsset>,
     /// Every claimed Widget bundle must be verified alongside the variants.
     pub required_bundles: Vec<ManifestBundle>,
+    /// Every claimed Widget frame must be verified alongside the variants.
+    pub required_frames: Vec<ManifestFrame>,
 }
 
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
@@ -72,6 +146,8 @@ pub enum NativeManifestError {
     Schedule,
     #[error("manifest contains an invalid Widget bundle claim")]
     Bundle,
+    #[error("manifest contains an invalid Widget frame claim")]
+    Frame,
 }
 
 impl NativeManifestError {
@@ -86,6 +162,7 @@ impl NativeManifestError {
             Self::DeliveryPolicy => "manifest_delivery_policy_invalid",
             Self::Schedule => "manifest_schedule_invalid",
             Self::Bundle => "manifest_bundle_invalid",
+            Self::Frame => "manifest_frame_invalid",
         }
     }
 }
@@ -142,6 +219,7 @@ fn exact_asset(
     asset_key: &str,
     variant_key: &str,
     catalog: &BTreeMap<(uuid::Uuid, uuid::Uuid), usize>,
+    forced_downloads: &mut BTreeSet<(uuid::Uuid, uuid::Uuid)>,
 ) -> Result<Option<usize>, NativeManifestError> {
     let Some(asset) = value.get(asset_key).filter(|value| !value.is_null()) else { return Ok(None) };
     let asset: uuid::Uuid =
@@ -152,6 +230,9 @@ fn exact_asset(
         .ok_or(NativeManifestError::Reference)?
         .parse()
         .map_err(|_| NativeManifestError::Reference)?;
+    // References outside playlists carry no delivery policy, so they always
+    // demand a verified download, even when a playlist would stream.
+    forced_downloads.insert((asset, variant));
     catalog.get(&(asset, variant)).copied().map(Some).ok_or(NativeManifestError::Reference)
 }
 
@@ -179,6 +260,11 @@ fn extract_bundle(widget: &Value) -> Result<Option<ManifestBundle>, NativeManife
         return Ok(None);
     };
     let object = package.as_object().ok_or(NativeManifestError::Bundle)?;
+    // A frame block is a v19 claim: the frame extractor owns it, and the
+    // bundle fields it omits must not fail bundle extraction.
+    if object.get("frame").is_some_and(|frame| !frame.is_null()) {
+        return Ok(None);
+    }
     let package_id = object.get("packageId").and_then(Value::as_str).ok_or(NativeManifestError::Bundle)?;
     if !valid_package_id(package_id) {
         return Err(NativeManifestError::Bundle);
@@ -212,14 +298,163 @@ fn extract_bundle(widget: &Value) -> Result<Option<ManifestBundle>, NativeManife
     }))
 }
 
+/// Extracts one Widget's external frame claim, if its package block
+/// carries a `frame` object. A malformed claim fails the manifest: a
+/// Player must never activate a component it cannot verify.
+fn extract_frame(widget: &Value) -> Result<Option<ManifestFrame>, NativeManifestError> {
+    let Some(package) = widget.pointer("/presentation/component/package").filter(|value| !value.is_null()) else {
+        return Ok(None);
+    };
+    let object = package.as_object().ok_or(NativeManifestError::Frame)?;
+    let Some(frame) = object.get("frame").filter(|value| !value.is_null()) else {
+        return Ok(None);
+    };
+    let frame = frame.as_object().ok_or(NativeManifestError::Frame)?;
+    let package_id = object.get("packageId").and_then(Value::as_str).ok_or(NativeManifestError::Frame)?;
+    if !valid_package_id(package_id) {
+        return Err(NativeManifestError::Frame);
+    }
+    let package_digest = object
+        .get("digest")
+        .and_then(Value::as_str)
+        .and_then(|value| value.strip_prefix("sha256:"))
+        .ok_or(NativeManifestError::Frame)
+        .and_then(|hex| Sha256Digest::parse(hex).map_err(|_| NativeManifestError::Frame))?;
+    let digest = frame
+        .get("sha256")
+        .and_then(Value::as_str)
+        .ok_or(NativeManifestError::Frame)
+        .and_then(|hex| Sha256Digest::parse(hex).map_err(|_| NativeManifestError::Frame))?;
+    let size_bytes = u64::try_from(frame.get("fileSize").and_then(Value::as_i64).ok_or(NativeManifestError::Frame)?)
+        .map_err(|_| NativeManifestError::Frame)?;
+    if size_bytes == 0 || size_bytes > MAX_FRAME_BYTES {
+        return Err(NativeManifestError::Frame);
+    }
+    let download_path = frame.get("downloadPath").and_then(Value::as_str).ok_or(NativeManifestError::Frame)?;
+    if crate::OriginBlobSource::validate_path(download_path).is_err() {
+        return Err(NativeManifestError::Frame);
+    }
+    Ok(Some(ManifestFrame {
+        kind: player_types::frames::FrameKind::Widget,
+        package_id: package_id.to_owned(),
+        package_digest,
+        digest,
+        size_bytes,
+        download_path: download_path.to_owned(),
+    }))
+}
+
+fn extract_plugin_frame(plugin: &Value) -> Result<ManifestFrame, NativeManifestError> {
+    use player_types::frames::FrameKind;
+    let invalid = || NativeManifestError::Frame;
+    let object = plugin.as_object().ok_or_else(invalid)?;
+    if object.get("version").and_then(Value::as_u64) != Some(1)
+        || !object
+            .get("definitionVersion")
+            .and_then(Value::as_u64)
+            .is_some_and(|version| (1..=1_000_000).contains(&version))
+    {
+        return Err(invalid());
+    }
+    let package = plugin.get("package").and_then(Value::as_object).ok_or_else(invalid)?;
+    let id = plugin.get("id").and_then(Value::as_str).ok_or_else(invalid)?;
+    let package_id = package.get("packageId").and_then(Value::as_str).ok_or_else(invalid)?;
+    let local_id = id.strip_prefix(package_id).and_then(|suffix| suffix.strip_prefix('.')).ok_or_else(invalid)?;
+    if !valid_package_id(package_id)
+        || id.len() > 128
+        || local_id.is_empty()
+        || local_id.len() > 80
+        || !local_id.as_bytes()[0].is_ascii_lowercase()
+        || !local_id.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
+        || package.get("contributionId").and_then(Value::as_str) != Some(id)
+    {
+        return Err(invalid());
+    }
+    let package_digest = package
+        .get("packageDigest")
+        .and_then(Value::as_str)
+        .and_then(|digest| digest.strip_prefix("sha256:"))
+        .ok_or_else(invalid)?;
+    let package_digest = Sha256Digest::parse(package_digest).map_err(|_| invalid())?;
+    let frame = package.get("frame").and_then(Value::as_object).ok_or_else(invalid)?;
+    let digest = frame.get("sha256").and_then(Value::as_str).ok_or_else(invalid)?;
+    let digest = Sha256Digest::parse(digest).map_err(|_| invalid())?;
+    let size_bytes = frame.get("fileSize").and_then(Value::as_u64).ok_or_else(invalid)?;
+    let download_path = frame.get("downloadPath").and_then(Value::as_str).ok_or_else(invalid)?;
+    if size_bytes == 0
+        || size_bytes > MAX_FRAME_BYTES
+        || download_path != format!("/api/v1/player/packages/{package_id}/plugins/{local_id}/frame")
+        || OriginBlobSource::validate_path(download_path).is_err()
+    {
+        return Err(invalid());
+    }
+    let runtime = plugin.get("runtime").and_then(Value::as_object).ok_or_else(invalid)?;
+    if !matches!(runtime.get("tier").and_then(Value::as_str), Some("emergency" | "live" | "scheduled" | "ambient")) {
+        return Err(invalid());
+    }
+    let surfaces = runtime.get("surfaces").and_then(Value::as_array).ok_or_else(invalid)?;
+    let mut unique = BTreeSet::new();
+    if surfaces.is_empty()
+        || surfaces.len() > 7
+        || !surfaces.iter().all(|slot| {
+            matches!(
+                slot.as_str(),
+                Some(
+                    "strip.top"
+                        | "strip.bottom"
+                        | "corner.top-left"
+                        | "corner.top-right"
+                        | "corner.bottom-left"
+                        | "corner.bottom-right"
+                        | "overlay"
+                )
+            ) && unique.insert(slot.as_str())
+        })
+    {
+        return Err(invalid());
+    }
+    let state = plugin.get("state").filter(|state| state.is_object()).ok_or_else(invalid)?;
+    let mut nodes = 0;
+    if serde_json::to_vec(state).map_err(|_| invalid())?.len() > 16 * 1024
+        || !bounded_plugin_state(state, 0, &mut nodes)
+        || plugin
+            .get("validUntil")
+            .and_then(Value::as_str)
+            .is_none_or(|deadline| deadline.len() > 64 || player_types::Timestamp::parse(deadline).is_err())
+    {
+        return Err(invalid());
+    }
+    Ok(ManifestFrame {
+        kind: FrameKind::ExternalPlugin,
+        package_id: package_id.to_owned(),
+        package_digest,
+        digest,
+        size_bytes,
+        download_path: download_path.to_owned(),
+    })
+}
+
+pub(crate) fn bounded_plugin_state(value: &Value, depth: usize, nodes: &mut usize) -> bool {
+    *nodes += 1;
+    if depth > 16 || *nodes > 2048 {
+        return false;
+    }
+    match value {
+        Value::Array(values) => values.iter().all(|value| bounded_plugin_state(value, depth + 1, nodes)),
+        Value::Object(values) => values.values().all(|value| bounded_plugin_state(value, depth + 1, nodes)),
+        _ => true,
+    }
+}
+
 fn check_layout(
     layout: &Value,
     catalog: &BTreeMap<(uuid::Uuid, uuid::Uuid), usize>,
+    forced_downloads: &mut BTreeSet<(uuid::Uuid, uuid::Uuid)>,
 ) -> Result<(), NativeManifestError> {
     let document = layout.get("document").ok_or(NativeManifestError::Structure)?;
     layout.get("id").and_then(Value::as_str).ok_or(NativeManifestError::Structure)?;
     if let Some(canvas) = document.get("canvas") {
-        exact_asset(canvas, "backgroundAssetId", "backgroundVariantId", catalog)?;
+        exact_asset(canvas, "backgroundAssetId", "backgroundVariantId", catalog, forced_downloads)?;
     }
     if let Some(placements) = document.get("placements") {
         let placements = placements.as_array().ok_or(NativeManifestError::Structure)?;
@@ -228,7 +463,7 @@ fn check_layout(
         }
         for placement in placements {
             if placement.get("type").and_then(Value::as_str) == Some("asset") {
-                exact_asset(placement, "assetId", "variantId", catalog)?;
+                exact_asset(placement, "assetId", "variantId", catalog, forced_downloads)?;
             }
         }
     }
@@ -247,7 +482,7 @@ impl NativeManifest {
         &self,
         store: &player_cas::ContentStore,
         plan: &P,
-    ) -> Result<Vec<Sha256Digest>, crate::ManifestPreparationError> {
+    ) -> Result<crate::PreparedContent, crate::ManifestPreparationError> {
         crate::manifest_content::prepare_content(store, plan, self).await
     }
     /// Re-validates a stored document (offline start, activation).
@@ -298,6 +533,9 @@ impl NativeManifest {
                 return Err(NativeManifestError::Asset);
             }
             assets.push(ManifestAsset {
+                // Resolved below, once every playlist item and every
+                // policy-less reference has been seen.
+                policy: AssetPolicy::Download,
                 asset_id: source.asset_id,
                 variant_id: source.variant_id,
                 digest,
@@ -320,6 +558,7 @@ impl NativeManifest {
             .filter_map(|layout| layout.get("id").and_then(Value::as_str).and_then(|id| id.parse().ok()))
             .collect();
         let mut item_count = 0;
+        let mut item_policies: BTreeMap<(uuid::Uuid, uuid::Uuid), AssetPolicy> = BTreeMap::new();
         for playlist in wire.playlist.into_iter().chain(wire.direct_fallback_playlist).chain(wire.playlists) {
             item_count += playlist.items.len();
             if item_count > MAX_ITEMS {
@@ -347,29 +586,61 @@ impl NativeManifest {
                 }
                 let Some(variant) = item.variant_id else { return Err(NativeManifestError::Reference) };
                 by_variant.get(&(item.asset_id, variant)).ok_or(NativeManifestError::Reference)?;
+                let policy = match item.delivery_policy.as_str() {
+                    "download" => AssetPolicy::Download,
+                    "stream" => AssetPolicy::Stream,
+                    _ => AssetPolicy::Automatic,
+                };
+                item_policies
+                    .entry((item.asset_id, variant))
+                    .and_modify(|merged| *merged = merged.merge(policy))
+                    .or_insert(policy);
             }
         }
+        let mut forced_downloads: BTreeSet<(uuid::Uuid, uuid::Uuid)> = BTreeSet::new();
         if let Some(branding) = document.get("branding").filter(|value| !value.is_null()) {
-            exact_asset(branding, "logoAssetId", "logoVariantId", &by_variant)?;
+            exact_asset(branding, "logoAssetId", "logoVariantId", &by_variant, &mut forced_downloads)?;
         }
         if let Some(websites) = document.get("websites") {
             for website in websites.as_array().ok_or(NativeManifestError::Structure)? {
-                exact_asset(website, "fallbackImageAssetId", "fallbackVariantId", &by_variant)?;
+                exact_asset(website, "fallbackImageAssetId", "fallbackVariantId", &by_variant, &mut forced_downloads)?;
             }
         }
         for key in ["layout", "directFallbackLayout"] {
             if let Some(layout) = document.get(key).filter(|value| !value.is_null()) {
-                check_layout(layout, &by_variant)?;
+                check_layout(layout, &by_variant, &mut forced_downloads)?;
             }
         }
         for layout in &wire.layouts {
-            check_layout(layout, &by_variant)?;
+            check_layout(layout, &by_variant, &mut forced_downloads)?;
         }
+        let mut state_entries = 0;
         for plugin in &wire.plugins {
             if plugin.get("type").and_then(Value::as_str) == Some("brand_bug")
                 && let Some(config) = plugin.get("config")
             {
-                exact_asset(config, "imageAssetId", "imageVariantId", &by_variant)?;
+                exact_asset(config, "imageAssetId", "imageVariantId", &by_variant, &mut forced_downloads)?;
+            }
+            if plugin.get("type").and_then(Value::as_str) == Some(crate::plugin_host::PLUGIN_STATE_TYPE) {
+                // Plugin API v2 state exists only from v21, and only in the
+                // shape and bounds the Server produces.
+                if wire.schema_version < 21 {
+                    return Err(NativeManifestError::Schema);
+                }
+                state_entries += 1;
+                if state_entries > crate::plugin_host::MAX_STATE_ENTRIES {
+                    return Err(NativeManifestError::Bound);
+                }
+                let media =
+                    crate::plugin_host::validate_plugin_state(plugin).map_err(|_| NativeManifestError::Structure)?;
+                for key in media {
+                    // Declared plugin media is a verified download like any
+                    // other reference outside a playlist.
+                    forced_downloads.insert(key);
+                    if !by_variant.contains_key(&key) {
+                        return Err(NativeManifestError::Reference);
+                    }
+                }
             }
         }
         crate::resolve(&document, 0).map_err(|_| NativeManifestError::Schedule)?;
@@ -381,9 +652,28 @@ impl NativeManifest {
         {
             return Err(NativeManifestError::Schema);
         }
+        // Frame blocks exist only from v19.
+        if wire.schema_version < 19
+            && wire.widgets.iter().any(|widget| {
+                widget.pointer("/presentation/component/package/frame").is_some_and(|frame| !frame.is_null())
+            })
+        {
+            return Err(NativeManifestError::Schema);
+        }
         let mut required_bundles = Vec::new();
         let mut seen_bundle = BTreeSet::new();
+        let mut required_frames = Vec::new();
+        let mut seen_frame = BTreeSet::new();
         for widget in &wire.widgets {
+            // A widget claims at most one artifact: a frame block takes
+            // the frame path, anything else takes the bundle path.
+            if let Some(frame) = extract_frame(widget)? {
+                // Keep every authorization identity even when the CAS bytes match.
+                if seen_frame.insert((frame.kind, frame.package_id.clone(), frame.package_digest, frame.digest)) {
+                    required_frames.push(frame);
+                }
+                continue;
+            }
             let Some(bundle) = extract_bundle(widget)? else { continue };
             // One CAS object per bundle digest; the package digest is
             // activation evidence, not a second fetch.
@@ -391,6 +681,39 @@ impl NativeManifest {
                 continue;
             }
             required_bundles.push(bundle);
+        }
+        let mut plugin_ids = BTreeSet::new();
+        for plugin in &wire.plugins {
+            if plugin.get("type").and_then(Value::as_str) != Some("external_plugin") {
+                continue;
+            }
+            if wire.schema_version < 20 {
+                return Err(NativeManifestError::Schema);
+            }
+            let frame = extract_plugin_frame(plugin)?;
+            if !plugin_ids.insert(plugin.get("id").and_then(Value::as_str))
+                || plugin_ids.len() > 32
+                || required_frames.iter().any(|existing| {
+                    existing.digest == frame.digest
+                        && (existing.size_bytes != frame.size_bytes || existing.kind != frame.kind)
+                })
+            {
+                return Err(NativeManifestError::Frame);
+            }
+            if seen_frame.insert((frame.kind, frame.package_id.clone(), frame.package_digest, frame.digest)) {
+                required_frames.push(frame);
+            }
+        }
+        // A variant streams only when every one of its uses allows it: any
+        // policy-less reference (layout, branding, fallback, plugin) or any
+        // `download` playlist item keeps it a verified download.
+        for asset in &mut assets {
+            let key = (asset.asset_id, asset.variant_id);
+            asset.policy = if forced_downloads.contains(&key) {
+                AssetPolicy::Download
+            } else {
+                item_policies.get(&key).copied().unwrap_or(AssetPolicy::Download)
+            };
         }
         let required_downloads = assets.clone();
         Ok(Self {
@@ -401,6 +724,7 @@ impl NativeManifest {
             assets,
             required_downloads,
             required_bundles,
+            required_frames,
         })
     }
 }
@@ -486,6 +810,225 @@ mod tests {
         assert_eq!(prepared.required_bundles.len(), 1);
     }
 
+    fn frame_document(screen: ScreenId, schema: u32) -> Value {
+        let widget = uuid::Uuid::from_u128(10);
+        let frame = Sha256Digest::of(b"frame document");
+        let package = Sha256Digest::of(b"package");
+        json!({
+            "schemaVersion":schema, "manifestVersion":3, "screenId":screen, "mode":"presentation",
+            "assets":[],
+            "playlist":{"id":uuid::Uuid::from_u128(5),"items":[{"id":uuid::Uuid::from_u128(6),
+                "assetId":widget,"assetType":"widget","deliveryPolicy":"download"}]},
+            "playlists":[],"schedules":[],"dataSources":[],"plugins":[],
+            "widgets":[{"assetId":widget,"name":"Scores","provider":"acme.athletics.scoreboard",
+                "presentation":{"schemaVersion":3,"kind":"component",
+                    "requiredCapabilities":{"widget.external-runtime":2},
+                    "component":{"type":"acme.athletics.scoreboard","version":2,
+                        "config":{},"dataSources":[],"media":[],"empty":"render",
+                        "package":{"packageId":"acme.athletics",
+                            "digest":format!("sha256:{}", package.to_hex()),
+                            "frame":{"sha256":frame.to_hex(),"fileSize":14,
+                                "downloadPath":"/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame"}}}}}],
+        })
+    }
+
+    fn plugin_entry(package: &str, local: &str) -> Value {
+        json!({
+            "id": format!("{package}.{local}"), "type":"external_plugin", "version":1,"definitionVersion":1,
+            "package":{"packageId":package,"packageDigest":format!("sha256:{}", Sha256Digest::of(b"package")),
+                "contributionId":format!("{package}.{local}"),
+                "frame":{"sha256":Sha256Digest::of(b"plugin frame").to_hex(),"fileSize":12,
+                    "downloadPath":format!("/api/v1/player/packages/{package}/plugins/{local}/frame")}},
+            "runtime":{"tier":"live","surfaces":["corner.bottom-left"]},"state":{"count":12},
+            "validUntil":"2026-10-13T12:01:15Z"
+        })
+    }
+
+    /// Plugin API v2 state is Runtime data: v21 only, bounded, and its media
+    /// is a forced verified download that must be in the asset catalog.
+    #[test]
+    fn plugin_state_requires_schema_21_and_declared_media_in_the_catalog() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let asset = uuid::Uuid::from_u128(2);
+        let variant = uuid::Uuid::from_u128(3);
+        let digest = Sha256Digest::of(b"verified bytes");
+        let state = json!({"id":"beacon-1","type":"plugin_state","version":1,"plugin":"sample_beacon",
+            "definitionVersion":1,"stateType":"sample_beacon","stateVersion":1,"state":{"label":"Lobby"},
+            "media":[{"assetId":asset,"variantId":variant}]});
+        let mut document = json!({
+            "schemaVersion":21, "manifestVersion":1, "screenId":screen, "mode":"presentation",
+            "assets":[{"assetId":asset,"variantId":variant,"sha256":digest,"fileSize":14,
+                "mimeType":"image/png","downloadPath":format!("/api/v1/player/assets/{asset}/variants/{variant}")}],
+            "playlists":[],"schedules":[],"widgets":[],"dataSources":[],"plugins":[state.clone()],
+        });
+        let prepared = NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)).unwrap();
+        assert_eq!(prepared.required_downloads.len(), 1);
+        assert_eq!(prepared.required_downloads[0].policy, AssetPolicy::Download);
+
+        document["schemaVersion"] = json!(20);
+        assert!(matches!(
+            NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)),
+            Err(NativeManifestError::Schema)
+        ));
+        document["schemaVersion"] = json!(21);
+        document["assets"] = json!([]);
+        assert!(matches!(
+            NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)),
+            Err(NativeManifestError::Reference)
+        ));
+        let mut unknown = state;
+        unknown["version"] = json!(2);
+        unknown["media"] = json!([]);
+        document["plugins"] = json!([unknown]);
+        assert!(matches!(
+            NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)),
+            Err(NativeManifestError::Structure)
+        ));
+    }
+
+    #[test]
+    fn plugin_frames_require_schema_20_and_keep_every_package_authorization_identity() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let mut document = frame_document(screen, 20);
+        document["plugins"] = json!([plugin_entry("acme.presence", "badge"), plugin_entry("other.presence", "badge")]);
+        let prepared = NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)).unwrap();
+        assert_eq!(prepared.document, document);
+        assert_eq!(prepared.required_frames.len(), 3);
+        assert_eq!(prepared.required_frames[0].kind, player_types::frames::FrameKind::Widget);
+        assert_eq!(prepared.required_frames[1].kind, player_types::frames::FrameKind::ExternalPlugin);
+        assert_eq!(prepared.required_frames[1].digest, prepared.required_frames[2].digest);
+        assert_ne!(prepared.required_frames[1].package_id, prepared.required_frames[2].package_id);
+        document["schemaVersion"] = json!(19);
+        assert!(matches!(
+            NativeManifest::parse(document.clone(), screen, crate::manifest_digest(&document)),
+            Err(NativeManifestError::Schema)
+        ));
+    }
+
+    #[test]
+    fn plugin_execution_claims_are_strict_and_state_is_bounded() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let document = frame_document(screen, 20);
+        for (pointer, value) in [
+            ("/version", json!(2)),
+            ("/definitionVersion", json!(0)),
+            ("/package/contributionId", json!("other.presence.badge")),
+            ("/package/packageDigest", json!("sha256:invalid")),
+            ("/package/frame/sha256", json!("invalid")),
+            ("/package/frame/fileSize", json!(0)),
+            ("/package/frame/fileSize", json!(MAX_FRAME_BYTES + 1)),
+            ("/package/frame/downloadPath", json!("/api/v1/player/packages/other.presence/plugins/badge/frame")),
+            ("/runtime/tier", json!("root")),
+            ("/runtime/surfaces", json!(["overlay", "overlay"])),
+            ("/state", json!([12])),
+            ("/state", json!({"text":"x".repeat(16 * 1024)})),
+            ("/validUntil", json!("tomorrow")),
+        ] {
+            let mut entry = plugin_entry("acme.presence", "badge");
+            *entry.pointer_mut(pointer).unwrap() = value;
+            let mut invalid = document.clone();
+            invalid["plugins"] = json!([entry]);
+            assert!(
+                matches!(
+                    NativeManifest::parse(invalid.clone(), screen, crate::manifest_digest(&invalid)),
+                    Err(NativeManifestError::Frame)
+                ),
+                "accepted {pointer}"
+            );
+        }
+        let mut deep = json!(null);
+        for _ in 0..20 {
+            deep = json!({"nested":deep});
+        }
+        let mut entry = plugin_entry("acme.presence", "badge");
+        entry["state"] = deep;
+        let mut invalid = document.clone();
+        invalid["plugins"] = json!([entry]);
+        assert!(matches!(
+            NativeManifest::parse(invalid.clone(), screen, crate::manifest_digest(&invalid)),
+            Err(NativeManifestError::Frame)
+        ));
+        let entry = plugin_entry("acme.presence", "badge");
+        invalid["plugins"] = json!([entry.clone(), entry]);
+        assert!(matches!(
+            NativeManifest::parse(invalid.clone(), screen, crate::manifest_digest(&invalid)),
+            Err(NativeManifestError::Frame)
+        ));
+    }
+
+    #[test]
+    fn external_frame_claims_are_extracted_while_presentations_stay_opaque() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let frame = Sha256Digest::of(b"frame document");
+        let package = Sha256Digest::of(b"package");
+        let document = frame_document(screen, 19);
+        let identity = crate::manifest_digest(&document);
+        let prepared = NativeManifest::parse(document.clone(), screen, identity).unwrap();
+        assert_eq!(prepared.document, document);
+        assert_eq!(prepared.required_bundles.len(), 0);
+        assert_eq!(prepared.required_frames.len(), 1);
+        let claim = &prepared.required_frames[0];
+        assert_eq!(claim.package_id, "acme.athletics");
+        assert_eq!(claim.package_digest, package);
+        assert_eq!(claim.digest, frame);
+        assert_eq!(claim.size_bytes, 14);
+        assert_eq!(claim.download_path, "/api/v1/player/packages/acme.athletics/widgets/scoreboard/frame");
+        // One object per frame digest no matter how many Widgets share it.
+        let mut shared = document.clone();
+        shared["widgets"] = json!([shared["widgets"][0].clone(), shared["widgets"][0].clone()]);
+        let identity = crate::manifest_digest(&shared);
+        let prepared = NativeManifest::parse(shared, screen, identity).unwrap();
+        assert_eq!(prepared.required_frames.len(), 1);
+    }
+
+    #[test]
+    fn malformed_frame_claims_fail_the_manifest() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let mutate_package = |key: &str, value: Value| {
+            let mut document = frame_document(screen, 19);
+            document["widgets"][0]["presentation"]["component"]["package"][key] = value;
+            let identity = crate::manifest_digest(&document);
+            NativeManifest::parse(document, screen, identity)
+        };
+        let mutate_frame = |key: &str, value: Value| {
+            let mut document = frame_document(screen, 19);
+            document["widgets"][0]["presentation"]["component"]["package"]["frame"][key] = value;
+            let identity = crate::manifest_digest(&document);
+            NativeManifest::parse(document, screen, identity)
+        };
+        for (key, value) in
+            [("packageId", json!("not a package")), ("digest", json!("deadbeef")), ("digest", json!("sha256:xyz"))]
+        {
+            assert!(
+                matches!(mutate_package(key, value), Err(NativeManifestError::Frame)),
+                "claim with bad {key} parsed"
+            );
+        }
+        for (key, value) in [
+            ("sha256", json!("xyz")),
+            ("sha256", json!("00")),
+            ("fileSize", json!(0)),
+            ("fileSize", json!(2 * 1024 * 1024)),
+            ("downloadPath", json!("/api/v1/system/identity")),
+            ("downloadPath", json!("/api/v1/player/../escape")),
+        ] {
+            assert!(matches!(mutate_frame(key, value), Err(NativeManifestError::Frame)), "frame with bad {key} parsed");
+        }
+        let mut missing = frame_document(screen, 19);
+        missing["widgets"][0]["presentation"]["component"]["package"]["frame"]
+            .as_object_mut()
+            .unwrap()
+            .remove("sha256");
+        let identity = crate::manifest_digest(&missing);
+        assert!(matches!(NativeManifest::parse(missing, screen, identity), Err(NativeManifestError::Frame)));
+        // A frame block below v19 is corrupt: no server emits it there.
+        for schema in [17, 18] {
+            let older = frame_document(screen, schema);
+            let identity = crate::manifest_digest(&older);
+            assert!(matches!(NativeManifest::parse(older, screen, identity), Err(NativeManifestError::Schema)));
+        }
+    }
+
     #[test]
     fn malformed_bundle_claims_fail_the_manifest() {
         let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
@@ -517,5 +1060,137 @@ mod tests {
         let older = bundle_document(screen, 17);
         let identity = crate::manifest_digest(&older);
         assert!(matches!(NativeManifest::parse(older, screen, identity), Err(NativeManifestError::Schema)));
+    }
+
+    fn policy_asset(asset: uuid::Uuid, variant: uuid::Uuid, mime: &str, size: u64) -> Value {
+        json!({
+            "assetId": asset, "variantId": variant,
+            "sha256": Sha256Digest::of(format!("{asset}{variant}").as_bytes()).to_hex(),
+            "fileSize": size, "mimeType": mime,
+            "downloadPath": format!("/api/v1/player/assets/{asset}/variants/{variant}"),
+        })
+    }
+
+    fn policy_item(asset: uuid::Uuid, variant: uuid::Uuid, policy: &str) -> Value {
+        json!({
+            "id": uuid::Uuid::new_v4(), "assetId": asset, "variantId": variant,
+            "assetType": "video", "deliveryPolicy": policy,
+        })
+    }
+
+    fn policy_document(screen: ScreenId, assets: Vec<Value>, items: Vec<Value>, extra: Value) -> Value {
+        let mut document = json!({
+            "schemaVersion": 11, "manifestVersion": 1, "screenId": screen, "mode": "presentation",
+            "assets": assets,
+            "playlist": {"id": uuid::Uuid::from_u128(5), "items": items},
+            "playlists": [], "schedules": [], "widgets": [], "dataSources": [], "plugins": [],
+        });
+        for (key, value) in extra.as_object().unwrap() {
+            document[key] = value.clone();
+        }
+        document
+    }
+
+    fn parse_policy(document: Value, screen: ScreenId) -> NativeManifest {
+        let identity = crate::manifest_digest(&document);
+        NativeManifest::parse(document, screen, identity).expect("policy manifest parses")
+    }
+
+    #[test]
+    fn delivery_policy_merges_across_items_with_download_winning() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let (a1, v1) = (uuid::Uuid::from_u128(21), uuid::Uuid::from_u128(22));
+        let (a2, v2) = (uuid::Uuid::from_u128(23), uuid::Uuid::from_u128(24));
+        let (a3, v3) = (uuid::Uuid::from_u128(25), uuid::Uuid::from_u128(26));
+        let document = policy_document(
+            screen,
+            vec![
+                policy_asset(a1, v1, "video/mp4", 100),
+                policy_asset(a2, v2, "video/mp4", 100),
+                policy_asset(a3, v3, "video/mp4", 100),
+            ],
+            vec![
+                policy_item(a1, v1, "automatic"),
+                policy_item(a1, v1, "stream"),
+                policy_item(a2, v2, "stream"),
+                policy_item(a2, v2, "download"),
+                policy_item(a3, v3, "automatic"),
+            ],
+            json!({}),
+        );
+        let manifest = parse_policy(document, screen);
+        let policy = |asset: uuid::Uuid| manifest.assets.iter().find(|a| a.asset_id == asset).expect("asset").policy;
+        assert_eq!(policy(a1), AssetPolicy::Stream);
+        assert_eq!(policy(a2), AssetPolicy::Download);
+        assert_eq!(policy(a3), AssetPolicy::Automatic);
+        // Small videos: only the explicit stream settles as a stream.
+        let claims = crate::stream_claims(&manifest, 1000);
+        assert_eq!(claims.len(), 1);
+        assert_eq!(claims[0].reason, StreamReason::Explicit);
+        assert_eq!(claims[0].mime_type, "video/mp4");
+    }
+
+    #[test]
+    fn policy_less_references_force_a_verified_download() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let (a1, v1) = (uuid::Uuid::from_u128(31), uuid::Uuid::from_u128(32));
+        let (a2, v2) = (uuid::Uuid::from_u128(33), uuid::Uuid::from_u128(34));
+        let document = policy_document(
+            screen,
+            vec![policy_asset(a1, v1, "video/mp4", 100), policy_asset(a2, v2, "video/mp4", 100)],
+            vec![policy_item(a1, v1, "stream"), policy_item(a2, v2, "stream")],
+            json!({
+                "layouts": [{"id": uuid::Uuid::from_u128(4), "document": {"placements": [
+                    {"type": "asset", "assetId": a1, "variantId": v1},
+                ]}}],
+                "websites": [{"fallbackImageAssetId": a2, "fallbackVariantId": v2}],
+            }),
+        );
+        let manifest = parse_policy(document, screen);
+        assert!(manifest.assets.iter().all(|asset| asset.policy == AssetPolicy::Download));
+        assert!(crate::stream_claims(&manifest, 1000).is_empty());
+    }
+
+    #[test]
+    fn oversize_automatic_videos_stream_while_images_download() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let (big, big_v) = (uuid::Uuid::from_u128(41), uuid::Uuid::from_u128(42));
+        let (small, small_v) = (uuid::Uuid::from_u128(43), uuid::Uuid::from_u128(44));
+        let (img, img_v) = (uuid::Uuid::from_u128(45), uuid::Uuid::from_u128(46));
+        let document = policy_document(
+            screen,
+            vec![
+                policy_asset(big, big_v, "video/mp4", 10_000),
+                policy_asset(small, small_v, "video/mp4", 100),
+                policy_asset(img, img_v, "image/png", 10_000),
+            ],
+            vec![
+                policy_item(big, big_v, "automatic"),
+                policy_item(small, small_v, "automatic"),
+                policy_item(img, img_v, "stream"),
+            ],
+            json!({}),
+        );
+        let manifest = parse_policy(document, screen);
+        let claims = crate::stream_claims(&manifest, 1000);
+        assert_eq!(claims.len(), 1);
+        assert_eq!(claims[0].reason, StreamReason::Oversize);
+        assert_eq!(claims[0].size_bytes, 10_000);
+        // The stream-policy image still downloads: the fallback is video-only.
+        assert!(manifest.assets.iter().find(|a| a.asset_id == img).is_some());
+    }
+
+    #[test]
+    fn unknown_delivery_policy_fails_the_manifest() {
+        let screen = ScreenId::from_uuid(uuid::Uuid::from_u128(1));
+        let (asset, variant) = (uuid::Uuid::from_u128(51), uuid::Uuid::from_u128(52));
+        let document = policy_document(
+            screen,
+            vec![policy_asset(asset, variant, "video/mp4", 100)],
+            vec![policy_item(asset, variant, "torrent")],
+            json!({}),
+        );
+        let identity = crate::manifest_digest(&document);
+        assert!(matches!(NativeManifest::parse(document, screen, identity), Err(NativeManifestError::DeliveryPolicy)));
     }
 }

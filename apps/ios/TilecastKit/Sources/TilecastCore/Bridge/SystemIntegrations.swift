@@ -117,16 +117,24 @@ public enum MediaIntakeKind: String, CaseIterable, Equatable, Sendable {
 }
 
 /// Studio's request for `system/media-intake`. It carries no file data, no
-/// path, and no credential: only an opaque id and what the picker should offer.
+/// path, and no credential: only an opaque id, what the picker should offer,
+/// and the Media folder the upload goes into.
+///
+/// `folderID` is the destination Studio chose for the person. An account with
+/// restricted content access must name one of its folders, so the files never
+/// exist outside it. The server checks the folder when the upload starts and
+/// again when it finishes; this app only carries the choice.
 public struct MediaIntakeRequest: Equatable, Sendable {
     public var requestID: String
     public var kinds: [MediaIntakeKind]
     public var allowsMultiple: Bool
+    public var folderID: UUID?
 
-    public init(requestID: String, kinds: [MediaIntakeKind] = MediaIntakeKind.allCases, allowsMultiple: Bool = true) {
+    public init(requestID: String, kinds: [MediaIntakeKind] = MediaIntakeKind.allCases, allowsMultiple: Bool = true, folderID: UUID? = nil) {
         self.requestID = requestID
         self.kinds = kinds
         self.allowsMultiple = allowsMultiple
+        self.folderID = folderID
     }
 }
 

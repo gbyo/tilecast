@@ -388,7 +388,7 @@ func bumpScreens(ctx context.Context, tx pgx.Tx, screens []uuid.UUID, reason str
 func targetScreens(ctx context.Context, tx pgx.Tx, org uuid.UUID, targetType string, targetID uuid.UUID) ([]uuid.UUID, string, error) {
 	if targetType == "screen" {
 		var name string
-		if err := tx.QueryRow(ctx, `SELECT name FROM screens WHERE id=$1 AND organization_id=$2 AND deleted_at IS NULL`, targetID, org).Scan(&name); err == pgx.ErrNoRows {
+		if err := tx.QueryRow(ctx, `SELECT name FROM screens WHERE id=$1 AND organization_id=$2 AND deleted_at IS NULL AND archived_at IS NULL`, targetID, org).Scan(&name); err == pgx.ErrNoRows {
 			return nil, "", fmt.Errorf("%w: screen was not found", ErrNotFound)
 		} else if err != nil {
 			return nil, "", err

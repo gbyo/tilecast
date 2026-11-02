@@ -30,6 +30,7 @@ struct Running {
 
 fn config(dir: &std::path::Path) -> EdgeConfig {
     let mut config = EdgeConfig::default();
+    config.pairing.phone_setup = false;
     config.paths.state_dir = Some(dir.join("state"));
     config.paths.runtime_dir = Some(dir.join("run"));
     config.renderer.binary = dir.join("no-renderer");
@@ -58,6 +59,17 @@ fn next_notify(running: &Running) -> String {
     let mut buffer = [0u8; 512];
     let n = running.notify.recv(&mut buffer).unwrap();
     String::from_utf8_lossy(&buffer[..n]).into_owned()
+}
+
+/// The first notification other than `WATCHDOG=1`. The watchdog task starts
+/// before readiness is reported, so a ping may arrive ahead of `READY=1`.
+fn next_readiness_notify(running: &Running) -> String {
+    loop {
+        let message = next_notify(running);
+        if message != "WATCHDOG=1" {
+            return message;
+        }
+    }
 }
 
 fn ready_event(features: &[&str]) -> Event {
@@ -103,7 +115,7 @@ async fn status(client: &IpcClient) -> DaemonStatus {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn presentation_lifecycle_readiness_watchdog_and_clean_shutdown() {
     let running = start_in(tempfile::tempdir().unwrap()).await;
-    assert!(next_notify(&running).starts_with("READY=1\nSTATUS="));
+    assert!(next_readiness_notify(&running).starts_with("READY=1\nSTATUS="));
 
     // Renderer lifecycle: configure → ready → activate → accepted → progress.
     let client = renderer(&running.socket).await;
@@ -112,7 +124,7 @@ async fn presentation_lifecycle_readiness_watchdog_and_clean_shutdown() {
     assert!(configure.media_channel.socket.as_str().ends_with("/run/media.sock"));
     client.send_event(ready_event(&["status-surfaces-v1"])).await.unwrap();
     let Event::PresentationActivate(activation) = expect_event(&client).await else { panic!("activation") };
-    assert_eq!(activation.presentation, PresentationDocument::Setup {}, "unbound node shows setup");
+    assert_eq!(activation.presentation, PresentationDocument::Setup { phone_setup: None }, "unbound node shows setup");
     let reference = ActivationRef { activation_id: activation.activation_id, generation: activation.generation };
     client.send_event(Event::PresentationAccepted(PresentationAccepted { activation: reference })).await.unwrap();
     client
@@ -211,7 +223,7 @@ async fn corrupt_state_enters_recovery_mode_without_recreating_it() {
     std::fs::create_dir_all(dir.path().join("state")).unwrap();
     std::fs::write(dir.path().join("state/state.db"), vec![0x42u8; 4096]).unwrap();
     let running = start_in(dir).await;
-    assert!(next_notify(&running).contains("Recovery mode"), "READY is still sent in recovery");
+    assert!(next_readiness_notify(&running).contains("Recovery mode"), "READY is still sent in recovery");
     let admin = ctl(&running.admin).await;
     let observed = status(&admin).await;
     assert_eq!(observed.mode, DaemonMode::Recovery);

@@ -23,10 +23,10 @@ use std::sync::Arc;
 
 use edge_protocol::PlayerId;
 use edge_protocol::bounded::SafeText;
-use edge_protocol::ipc::presentation::PresentationDocument;
+use edge_protocol::ipc::presentation::{PhoneSetupDocument, PresentationDocument};
 use edge_server::client::ServerError;
 use edge_server::pairing::DeviceMetadata;
-use player_core::{PairingCoordinator, PairingError, PairingStatus};
+use player_core::{PairingCoordinator, PairingError, PairingStatus, PhoneSetupView};
 
 use crate::daemon::{DaemonContext, VERSION};
 use crate::presentation::ActivationSource;
@@ -100,6 +100,8 @@ pub async fn begin(context: &DaemonContext, url: &str) -> Result<(), &'static st
         .begin(url, &user_agent(), &Metadata(context))
         .await
         .map_err(|error| pairing_message(&error))?;
+    // A re-pair supersedes any recorded mismatch for the old relationship.
+    crate::mismatch::clear_mismatch(context).await;
     context.pairing_wake.notify_one();
     Ok(())
 }
@@ -140,15 +142,17 @@ impl player_core::PairingHost for Metadata<'_> {
                 context.server_wake.notify_one();
                 context.manifest_wake.notify_one();
             }
-            PairingStatus::Setup => {
+            PairingStatus::Setup { phone } => {
                 set_view(context, "unpaired", None, None);
-                activate(context, PresentationDocument::Setup {}).await;
+                activate(context, PresentationDocument::Setup { phone_setup: phone.map(phone_document) }).await;
             }
             PairingStatus::Reset => {
                 set_view(context, "unpaired", None, Some("reset".to_owned()));
-                activate(context, PresentationDocument::Setup {}).await;
+                activate(context, PresentationDocument::Setup { phone_setup: None }).await;
             }
-            PairingStatus::AddressRejected => activate(context, PresentationDocument::Setup {}).await,
+            PairingStatus::AddressRejected => {
+                activate(context, PresentationDocument::Setup { phone_setup: None }).await
+            }
             PairingStatus::Waiting { code, approval_url, organization_name, .. } => {
                 set_view(context, "waiting", Some(code.clone()), None);
                 activate(
@@ -163,6 +167,34 @@ impl player_core::PairingHost for Metadata<'_> {
             }
             PairingStatus::Renewing { reason } => set_view(context, "renewing", None, Some(reason)),
         }
+    }
+}
+
+fn phone_document(view: PhoneSetupView) -> PhoneSetupDocument {
+    match view {
+        PhoneSetupView::Ready { url, rejected } => PhoneSetupDocument::Ready { url: SafeText::lossy(&url), rejected },
+        PhoneSetupView::Paused => PhoneSetupDocument::Paused {},
+        PhoneSetupView::Unavailable => PhoneSetupDocument::Unavailable {},
+    }
+}
+
+/// The setup relay from operator configuration, or none when phone setup
+/// is off. An invalid relay address turns phone setup off with a warning.
+pub fn setup_relay(config: &crate::config::PairingConfig) -> Option<Arc<dyn player_core::PhoneRelay>> {
+    if !config.phone_setup {
+        return None;
+    }
+    let Some(relay) = player_core::SetupRelay::at(config.setup_relay_url.as_deref()) else {
+        tracing::warn!(component = "pairing", event = "setup_relay_rejected");
+        return None;
+    };
+    Some(Arc::new(relay))
+}
+
+/// Starts a paused phone setup session again (`setup.resume_phone_setup`).
+pub fn resume_phone_setup(context: &DaemonContext) {
+    if let Ok(core) = coordinator(context) {
+        core.resume_phone_setup();
     }
 }
 

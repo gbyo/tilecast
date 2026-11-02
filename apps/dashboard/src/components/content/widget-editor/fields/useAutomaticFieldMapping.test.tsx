@@ -299,4 +299,48 @@ describe("repeating groups", () => {
       ]),
     );
   });
+
+  it("maps a source nested inside a group within a group", async () => {
+    const nested: ContentDefinitionField[] = [
+      {
+        key: "sections",
+        label: "Sections",
+        control: "repeating_group",
+        itemFields: [
+          {
+            key: "cards",
+            label: "Cards",
+            control: "repeating_group",
+            itemFields: [
+              { key: "dataSourceId", label: "Data", control: "data_source" },
+              slot("titleField", "title"),
+            ],
+          },
+        ],
+      },
+    ];
+    const { view, edit, settle } = harness(nested, {
+      sections: [
+        { cards: [{ dataSourceId: "s-a", titleField: "dish" }] },
+        { cards: [{ dataSourceId: "s-a", titleField: "dish" }] },
+      ],
+    });
+    await settle(1);
+    edit((current) => {
+      const sections = current.sections as WidgetConfiguration[];
+      const cards = sections[1]!.cards as WidgetConfiguration[];
+      return {
+        sections: [
+          sections[0]!,
+          { cards: [{ ...cards[0]!, dataSourceId: "s-b" }] },
+        ],
+      };
+    });
+    await waitFor(() =>
+      expect(view.result.current.configuration.sections).toEqual([
+        { cards: [{ dataSourceId: "s-a", titleField: "dish" }] },
+        { cards: [{ dataSourceId: "s-b", titleField: "name" }] },
+      ]),
+    );
+  });
 });

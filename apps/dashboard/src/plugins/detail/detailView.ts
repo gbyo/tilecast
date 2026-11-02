@@ -1,5 +1,6 @@
 import type {
   PackageCapabilities,
+  PackageServiceGrant,
   PluginStoreEntry,
   PluginStoreScreenshot,
   PluginStoreSource,
@@ -234,7 +235,9 @@ export type CapabilityRow =
   | { kind: "network"; hosts: string[] }
   | { kind: "storage" }
   | { kind: "background"; jobs: { id: string; intervalMinutes: number }[] }
-  | { kind: "studioUI" };
+  | { kind: "realtime"; jobs: { id: string; intervalSeconds: number }[] }
+  | { kind: "studioUI" }
+  | { kind: "service"; grant: PackageServiceGrant };
 
 export function capabilityRows(
   capabilities: PackageCapabilities | undefined,
@@ -247,8 +250,20 @@ export function capabilityRows(
   if (capabilities?.background) {
     rows.push({ kind: "background", jobs: capabilities.background.jobs });
   }
+  if (capabilities?.realtime) {
+    rows.push({ kind: "realtime", jobs: capabilities.realtime.jobs });
+  }
   if (capabilities?.studioUI) rows.push({ kind: "studioUI" });
+  for (const grant of capabilities?.services ?? []) {
+    rows.push({ kind: "service", grant });
+  }
   return rows;
+}
+
+export function capabilityRowKey(row: CapabilityRow): string {
+  if (row.kind === "service")
+    return `service:${row.grant.id}@${row.grant.version}`;
+  return row.kind;
 }
 
 export type CapabilityChange = {
@@ -270,26 +285,32 @@ export function diffCapabilities(
   changed: CapabilityChange[];
 } {
   const previous = new Map(
-    capabilityRows(before).map((row) => [row.kind, row] as const),
+    capabilityRows(before).map((row) => [capabilityRowKey(row), row] as const),
   );
   const next = new Map(
-    capabilityRows(after).map((row) => [row.kind, row] as const),
+    capabilityRows(after).map((row) => [capabilityRowKey(row), row] as const),
   );
   const added: CapabilityRow[] = [];
   const changed: CapabilityChange[] = [];
-  for (const [kind, row] of next) {
-    const old = previous.get(kind);
+  for (const [key, row] of next) {
+    const old = previous.get(key);
     if (!old) added.push(row);
     else if (JSON.stringify(canonical(old)) !== JSON.stringify(canonical(row)))
       changed.push({ before: old, after: row });
   }
   const removed = [...previous]
-    .filter(([kind]) => !next.has(kind))
+    .filter(([key]) => !next.has(key))
     .map(([, row]) => row);
   return { added, removed, changed };
 }
 
 function canonical(row: CapabilityRow): CapabilityRow {
+  if (row.kind === "realtime") {
+    return {
+      kind: "realtime",
+      jobs: [...row.jobs].sort((a, b) => a.id.localeCompare(b.id)),
+    };
+  }
   if (row.kind === "network") {
     return { kind: "network", hosts: [...row.hosts].sort() };
   }
@@ -297,6 +318,17 @@ function canonical(row: CapabilityRow): CapabilityRow {
     return {
       kind: "background",
       jobs: [...row.jobs].sort((a, b) => a.id.localeCompare(b.id)),
+    };
+  }
+  if (row.kind === "service") {
+    return {
+      kind: "service",
+      grant: {
+        ...row.grant,
+        operations: [...row.grant.operations].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        ),
+      },
     };
   }
   return row;

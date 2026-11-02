@@ -168,10 +168,37 @@ func (p webDefinitionWidgetProvider) Normalize(ctx context.Context, raw json.Raw
 		return nil, err
 	}
 	configuration := normalized.(map[string]any)
+	if spec := p.definition.WebIntegration; spec != nil && spec.Transform == "canva_embed" {
+		u, parseErr := contentdefs.CanvaURL(stringConfigValue(configuration[spec.URLField]))
+		if parseErr != nil {
+			return nil, parseErr
+		}
+		canonical := u.String()
+		if u.Host == "canva.link" {
+			client := canvaLinkClient()
+			defer client.CloseIdleConnections()
+			resolved, resolveErr := resolveCanvaShortLink(ctx, u.String(), client)
+			if resolveErr != nil {
+				return nil, resolveErr
+			}
+			canonical = resolved
+		}
+		slideshow, _ := configuration["slideshow"].(bool)
+		playbackURL, playbackErr := contentdefs.CanvaPlaybackURL(canonical, slideshow)
+		if playbackErr != nil {
+			return nil, playbackErr
+		}
+		configuration[spec.URLField] = playbackURL.String()
+	}
 	if _, _, err = contentdefs.WebPresentationURL(p.definition, configuration); err != nil {
 		return nil, err
 	}
 	return configuration, nil
+}
+
+func stringConfigValue(value any) string {
+	text, _ := value.(string)
+	return text
 }
 
 func (s *Service) widgetProvider(name string) (configNormalizer, error) {

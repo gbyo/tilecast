@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { i18n } from "../i18n";
 import { SidebarProvider, useSidebar } from "../components/ui/sidebar";
 import { SettingsShell } from "./SettingsShell";
@@ -11,6 +11,11 @@ import {
   settingsNavigation,
   type SettingsSectionId,
 } from "./settingsNavigation";
+import { mockAuthAs } from "../test/capabilities";
+
+beforeEach(() => {
+  mockAuthAs("owner");
+});
 
 afterEach(async () => {
   cleanup();

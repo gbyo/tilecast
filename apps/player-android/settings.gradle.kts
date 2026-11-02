@@ -13,11 +13,10 @@ dependencyResolutionManagement {
         // Kotlin component of rustls-platform-verifier (Android platform TLS
         // trust for Rust networking). Content-filtered to that group only.
         maven {
-            url = uri("https://github.com/rustls/rustls-platform-verifier/raw/maven-archive/android-release-support/maven/")
+            url = uri("https://raw.githubusercontent.com/rustls/rustls-platform-verifier/maven-archive/android-release-support/maven/")
             content { includeGroup("org.rustls") }
         }
     }
 }
 rootProject.name = "TilecastPlayer"
 include(":app")
-

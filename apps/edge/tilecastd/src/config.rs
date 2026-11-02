@@ -21,7 +21,25 @@ pub struct EdgeConfig {
     pub display: DisplayConfig,
     pub log: LogConfig,
     pub legacy: LegacyConfig,
+    pub pairing: PairingConfig,
     pub dev: DevConfig,
+}
+
+/// Phone setup (docs/phone-setup.md): while the node has no server, the setup
+/// surface shows a QR code a phone can use to send the server address.
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, default)]
+pub struct PairingConfig {
+    /// `false` shows discovery and manual entry only.
+    pub phone_setup: bool,
+    /// The setup relay. Default: the public Tilecast relay.
+    pub setup_relay_url: Option<String>,
+}
+
+impl Default for PairingConfig {
+    fn default() -> Self {
+        Self { phone_setup: true, setup_relay_url: None }
+    }
 }
 
 #[derive(Debug, Clone, Default, Deserialize, PartialEq)]

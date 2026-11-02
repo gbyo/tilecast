@@ -11,7 +11,7 @@
 //! stale data is never intentionally emitted. An inactive, expired,
 //! malformed, or incomplete session fails closed to no streaming.
 //!
-//! Bounds mirrored from the server contract: 640x360, 100 KiB, 125 ms target
+//! Bounds mirror the server maximum: 960x540, 100 KiB, 100 ms target
 //! interval (about 8 FPS). Server numbers are never trusted for allocations
 //! or timing: dimensions and byte limits are clamped to the local maximums,
 //! and the capture cadence has a local lower bound.
@@ -19,14 +19,18 @@
 use serde_json::Value;
 
 /// Local maximum frame dimensions (the server's `MaxWidth`/`MaxHeight`).
-pub const MAX_WIDTH: u32 = 640;
+pub const MAX_WIDTH: u32 = 960;
 /// Local maximum frame dimensions (the server's `MaxWidth`/`MaxHeight`).
-pub const MAX_HEIGHT: u32 = 360;
+pub const MAX_HEIGHT: u32 = 540;
 /// Local maximum encoded frame bytes (the server's `MaxFrameBytes`).
 pub const MAX_FRAME_BYTES: usize = 100 * 1024;
 /// Lower bound for the capture cadence: a faster server interval never speeds
-/// captures up past the protocol's 125 ms target.
-pub const MIN_FRAME_INTERVAL_MILLIS: u64 = 125;
+/// captures beyond the protocol's 100 ms minimum.
+pub const MIN_FRAME_INTERVAL_MILLIS: u64 = 100;
+/// Safe defaults for older servers and missing capability fields.
+pub const DEFAULT_FRAME_INTERVAL_MILLIS: u64 = 125;
+pub const DEFAULT_WIDTH: u32 = 640;
+pub const DEFAULT_HEIGHT: u32 = 360;
 /// Minimum pause between captures so a zero elapsed time cannot busy-loop.
 pub const MIN_CAPTURE_PAUSE_MILLIS: u64 = 25;
 
@@ -66,9 +70,9 @@ impl Default for LiveStreamSession {
             id: None,
             active: false,
             expires_at: None,
-            frame_interval_millis: MIN_FRAME_INTERVAL_MILLIS,
-            max_width: MAX_WIDTH,
-            max_height: MAX_HEIGHT,
+            frame_interval_millis: DEFAULT_FRAME_INTERVAL_MILLIS,
+            max_width: DEFAULT_WIDTH,
+            max_height: DEFAULT_HEIGHT,
             max_frame_bytes: MAX_FRAME_BYTES,
         }
     }
@@ -103,15 +107,15 @@ pub(crate) fn live_stream_session(data: &Value) -> LiveStreamSession {
     let frame_interval_millis = data
         .get("frameIntervalMillis")
         .and_then(Value::as_u64)
-        .map_or(MIN_FRAME_INTERVAL_MILLIS, |millis| millis.max(MIN_FRAME_INTERVAL_MILLIS));
+        .map_or(DEFAULT_FRAME_INTERVAL_MILLIS, |millis| millis.max(MIN_FRAME_INTERVAL_MILLIS));
     let max_width = data
         .get("maxWidth")
         .and_then(Value::as_u64)
-        .map_or(MAX_WIDTH, |width| (width.min(u64::from(MAX_WIDTH)) as u32).max(1));
+        .map_or(DEFAULT_WIDTH, |width| (width.min(u64::from(MAX_WIDTH)) as u32).max(1));
     let max_height = data
         .get("maxHeight")
         .and_then(Value::as_u64)
-        .map_or(MAX_HEIGHT, |height| (height.min(u64::from(MAX_HEIGHT)) as u32).max(1));
+        .map_or(DEFAULT_HEIGHT, |height| (height.min(u64::from(MAX_HEIGHT)) as u32).max(1));
     let max_frame_bytes = data
         .get("maxFrameBytes")
         .and_then(Value::as_u64)
@@ -190,8 +194,8 @@ mod tests {
         let session_id = SESSION_ID.parse::<uuid::Uuid>().unwrap();
         let jpeg = [0xFF, 0xD8, 0x01, 0xFF, 0xD9];
         assert!(encode_live_stream_frame(&session_id, 1, 0, 360, &jpeg).is_none());
-        assert!(encode_live_stream_frame(&session_id, 1, 641, 360, &jpeg).is_none());
-        assert!(encode_live_stream_frame(&session_id, 1, 640, 361, &jpeg).is_none());
+        assert!(encode_live_stream_frame(&session_id, 1, 961, 360, &jpeg).is_none());
+        assert!(encode_live_stream_frame(&session_id, 1, 640, 541, &jpeg).is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, b"GIF89a").is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, &[0xFF, 0xD8, 0xFF]).is_none());
         assert!(encode_live_stream_frame(&session_id, 1, 640, 360, &[0xFF, 0xD8, 0x01, 0x02]).is_none());
@@ -263,6 +267,6 @@ mod tests {
         assert!(!malformed_expiry.is_active_at(1_783_000_000_000));
         let empty = live_stream_session(&serde_json::json!({}));
         assert!(!empty.active && empty.id.is_none());
-        assert_eq!(empty.frame_interval_millis, MIN_FRAME_INTERVAL_MILLIS);
+        assert_eq!(empty.frame_interval_millis, DEFAULT_FRAME_INTERVAL_MILLIS);
     }
 }

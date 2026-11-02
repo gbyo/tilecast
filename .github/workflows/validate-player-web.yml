@@ -54,6 +54,14 @@ jobs:
         run: |
           npm test --workspace @tilecast/player-activity
           npm test --workspace @tilecast/player-active-hours
+      # The optional Companion extension and its page protocol.
+      - name: Browser Companion extension
+        run: |
+          npm run typecheck --workspace @tilecast/companion-protocol
+          npm test --workspace @tilecast/companion-protocol
+          npm run typecheck --workspace @tilecast/browser-companion
+          npm test --workspace @tilecast/browser-companion
+          npm run build --workspace @tilecast/browser-companion
       - name: Generated Browser Player contracts are current
         run: node scripts/generate-browser-capabilities.mjs --check
       - name: Build the exact production Runtime and the Browser Player

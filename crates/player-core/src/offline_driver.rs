@@ -76,7 +76,7 @@ pub struct OfflineRendererHealth {
 #[async_trait::async_trait]
 pub trait OfflineActivationHost: Send + Sync {
     type Configuration: Send + Sync;
-    type Projection: Send;
+    type Projection: Send + Sync;
     type Key: PartialEq + Send;
     fn configuration(&self) -> Self::Configuration;
     fn native_configuration<'a>(&self, configuration: &'a Self::Configuration) -> &'a NativeConfiguration;
@@ -87,6 +87,15 @@ pub trait OfflineActivationHost: Send + Sync {
         time: ActivationTime,
     ) -> Result<OfflineProjection<Self::Projection, Self::Key>, &'static str>;
     async fn current(&self) -> Option<OfflineCurrent<Self::Key>>;
+    /// For the same manifest or a proven plugin-only change, retain the
+    /// host's revision-derived presentation generation in the projection.
+    /// No visual, content, timing, or selection field may be changed here.
+    fn preserve_plugin_generation(
+        &self,
+        candidate: &NativeManifest,
+        current: &Self::Key,
+        projection: &mut OfflineProjection<Self::Projection, Self::Key>,
+    );
     async fn health(&self) -> OfflineRendererHealth;
     async fn set_clock_offset(&self, offset_ms: i64);
     async fn supports(&self, requirements: &[RendererRequirement]) -> bool;
@@ -104,6 +113,16 @@ pub trait OfflineActivationHost: Send + Sync {
         projection: Self::Projection,
         time: ActivationTime,
     ) -> Result<RendererActivationRef, &'static str>;
+    /// The host must prove its complete projected presentation is unchanged
+    /// under its engine lock, then deliver only plugin state. False means the
+    /// projection changed; an error means retry delivery without activation.
+    async fn refresh_plugins(
+        &self,
+        previous: Sha256Digest,
+        candidate: &NativeManifest,
+        projection: &Self::Projection,
+        time: ActivationTime,
+    ) -> Result<bool, &'static str>;
     fn promoted(&self);
 }
 
@@ -149,13 +168,18 @@ async fn show<H: OfflineActivationHost>(
     configuration: &H::Configuration,
     time: ActivationTime,
 ) -> Option<i64> {
-    let resolved = match host.project(candidate, configuration, time) {
+    let mut resolved = match host.project(candidate, configuration, time) {
         Ok(resolved) => resolved,
         Err(reason) => {
             tracing::warn!(component = "activation", event = "selection_failed", reason);
             return None;
         }
     };
+    if let Some(current) = current.filter(|current| {
+        current.source == ActivationSource::ServerManifest && current.manifest == Some(candidate.digest)
+    }) {
+        host.preserve_plugin_generation(candidate, &current.key, &mut resolved);
+    }
     let same = current.is_some_and(|current| {
         current.source == ActivationSource::ServerManifest
             && current.manifest == Some(candidate.digest)
@@ -253,7 +277,7 @@ async fn tick<H: OfflineActivationHost>(
                     TrialDecision::NotCurrent => return None,
                 }
             }
-            let resolved = match host.project(&candidate, &configuration, time) {
+            let mut resolved = match host.project(&candidate, &configuration, time) {
                 Ok(resolved) => resolved,
                 Err(reason) => {
                     if state.note_invalid(stored.digest) {
@@ -262,8 +286,60 @@ async fn tick<H: OfflineActivationHost>(
                     break 'pending;
                 }
             };
+            let plugin_only = active_candidate.as_ref().zip(current.as_ref()).is_some_and(|(active, current)| {
+                current.source == ActivationSource::ServerManifest
+                    && (current.manifest == Some(active.digest)
+                        || state.plugin_refresh_matches(active.digest, current.manifest))
+                    && crate::is_plugin_only_revision(&active.document, &candidate.document)
+            });
+            if plugin_only {
+                host.preserve_plugin_generation(
+                    &candidate,
+                    &current.as_ref().expect("proven current").key,
+                    &mut resolved,
+                );
+            }
             if !host.supports(&resolved.requirements).await {
                 return retry_at;
+            }
+            if let Some(active) = active_candidate.as_ref()
+                && let Some(current) = current.as_ref()
+                && current.source == ActivationSource::ServerManifest
+                && (current.manifest == Some(active.digest)
+                    || state.plugin_refresh_matches(active.digest, current.manifest))
+                && current.accepted
+                && current.evidence
+                && current.key == resolved.key
+                && !host.health().await.current_error
+                && plugin_only
+            {
+                if state.pin(PinReason::ActivePresentation, &candidate).await.is_err() {
+                    return retry_at;
+                }
+                // Recheck the durable target after resource verification.
+                if !state
+                    .load()
+                    .await
+                    .is_some_and(|latest| latest.binding == binding && latest.target == Some(candidate.digest))
+                {
+                    return Some(time.local_ms.saturating_add(50));
+                }
+                let previous = current.manifest.expect("proven current manifest");
+                match host.refresh_plugins(previous, &candidate, &resolved.projection, time).await {
+                    Ok(true) => {
+                        // Reuse generation-bound evidence without resetting the
+                        // renderer tracker. The next tick fences promotion to
+                        // the still-current target through the ordinary commit.
+                        state.start_trial(candidate.digest, time.local_ms);
+                        state.note_plugin_refresh(active.digest, candidate.digest);
+                        return Some(time.local_ms.saturating_add(50));
+                    }
+                    Err(reason) => {
+                        tracing::warn!(component = "activation", event = "plugin_refresh_retry", reason);
+                        return Some(time.local_ms.saturating_add(1_000));
+                    }
+                    Ok(false) => {}
+                }
             }
             let takeover = overrides_activation_gate(resolved.source);
             let playing = current
@@ -375,6 +451,8 @@ mod tests {
         evidence: AtomicBool,
         activations: AtomicUsize,
         promotions: AtomicUsize,
+        plugin_updates: AtomicUsize,
+        fail_plugin_update: AtomicBool,
     }
     #[async_trait::async_trait]
     impl OfflineActivationHost for Host {
@@ -412,6 +490,7 @@ mod tests {
                 playing: true,
             })
         }
+        fn preserve_plugin_generation(&self, _: &NativeManifest, _: &Value, _: &mut OfflineProjection<Value, Value>) {}
         async fn health(&self) -> OfflineRendererHealth {
             OfflineRendererHealth { safe_mode: false, current_error: false }
         }
@@ -440,6 +519,25 @@ mod tests {
                 activation_id: player_types::ActivationId::from_uuid(uuid::Uuid::from_u128(3)),
                 generation: 1,
             })
+        }
+        async fn refresh_plugins(
+            &self,
+            previous: Sha256Digest,
+            candidate: &NativeManifest,
+            payload: &Value,
+            _: ActivationTime,
+        ) -> Result<bool, &'static str> {
+            if self.fail_plugin_update.load(Ordering::Relaxed) {
+                return Err("delivery_failed");
+            }
+            let mut current = self.current.lock().unwrap();
+            let Some((digest, key)) = current.as_mut() else { return Ok(false) };
+            if *digest != previous || key != payload {
+                return Ok(false);
+            }
+            self.plugin_updates.fetch_add(1, Ordering::Relaxed);
+            *digest = candidate.digest;
+            Ok(true)
         }
         fn promoted(&self) {
             self.promotions.fetch_add(1, Ordering::Relaxed);
@@ -518,6 +616,8 @@ mod tests {
             evidence: AtomicBool::new(false),
             activations: AtomicUsize::new(0),
             promotions: AtomicUsize::new(0),
+            plugin_updates: AtomicUsize::new(0),
+            fail_plugin_update: AtomicBool::new(false),
         };
         tick(&mut state, &host, false).await;
         assert_eq!(host.activations.load(Ordering::Relaxed), 0, "absent connected support blocks activation");
@@ -531,6 +631,112 @@ mod tests {
         tick(&mut state, &host, false).await;
         assert_eq!(host.promotions.load(Ordering::Relaxed), 1);
         assert!(state.load().await.unwrap().pending.is_none());
+        let mut revised = state.load().await.unwrap().active.unwrap().document;
+        revised["manifestVersion"] = json!(2);
+        revised["plugins"] = json!([{"type": "countdown_bar", "version": 1, "config": {"count": 12}}]);
+        let next_digest = crate::manifest_digest(&revised);
+        let write_binding = binding.clone();
+        let target = Target {
+            binding: write_binding.clone(),
+            digest: next_digest,
+            version: 2,
+            document: revised.clone(),
+            fetched_at: now,
+            etag: "2".into(),
+        };
+        let pending = StoredManifest {
+            binding: write_binding,
+            digest: next_digest,
+            version: 2,
+            document: revised,
+            stored_at: now,
+        };
+        db.run(move |connection| {
+            assert!(manifests::put_target(connection, &target)?);
+            assert!(manifests::put_pending_for_target(connection, &pending)?);
+            Ok(())
+        })
+        .await
+        .unwrap();
+        host.fail_plugin_update.store(true, Ordering::Relaxed);
+        tick(&mut state, &host, true).await;
+        assert_eq!(host.activations.load(Ordering::Relaxed), 1, "delivery failure cannot reactivate playback");
+        assert_eq!(state.load().await.unwrap().active.unwrap().version, 1, "failed delivery never promotes");
+        host.fail_plugin_update.store(false, Ordering::Relaxed);
+        tick(&mut state, &host, false).await;
+        assert_eq!(host.plugin_updates.load(Ordering::Relaxed), 1);
+        assert_eq!(
+            host.activations.load(Ordering::Relaxed),
+            1,
+            "plugin revision dispatches no presentation activation"
+        );
+        // A newer plugin target can supersede delivered state before its
+        // promotion. The proof remains bound to the committed base and the
+        // exact digest on screen, so this must not activate playback either.
+        let mut superseding = state.load().await.unwrap().pending.unwrap().document;
+        superseding["manifestVersion"] = json!(3);
+        superseding["plugins"][0]["config"]["count"] = json!(13);
+        let superseding_digest = crate::manifest_digest(&superseding);
+        let target = Target {
+            binding: binding.clone(),
+            digest: superseding_digest,
+            version: 3,
+            document: superseding.clone(),
+            fetched_at: now,
+            etag: "3".into(),
+        };
+        let pending = StoredManifest {
+            binding: binding.clone(),
+            digest: superseding_digest,
+            version: 3,
+            document: superseding,
+            stored_at: now,
+        };
+        db.run(move |connection| {
+            assert!(manifests::put_target(connection, &target)?);
+            assert!(manifests::put_pending_for_target(connection, &pending)?);
+            Ok(())
+        })
+        .await
+        .unwrap();
+        tick(&mut state, &host, false).await;
+        assert_eq!(host.plugin_updates.load(Ordering::Relaxed), 2);
+        assert_eq!(host.activations.load(Ordering::Relaxed), 1);
+        tick(&mut state, &host, false).await;
+        assert_eq!(state.load().await.unwrap().active.unwrap().version, 3);
+        assert_eq!(host.promotions.load(Ordering::Relaxed), 2);
+        // An unknown Runtime visual change still takes normal activation,
+        // even though the intentionally incomplete host key is unchanged.
+        let mut changed = state.load().await.unwrap().active.unwrap().document;
+        changed["manifestVersion"] = json!(4);
+        changed["plugins"] = json!([]);
+        changed["futureRuntimeField"] = json!({"visual": "different"});
+        let changed_digest = crate::manifest_digest(&changed);
+        let write_binding = binding.clone();
+        let target = Target {
+            binding: write_binding.clone(),
+            digest: changed_digest,
+            version: 4,
+            document: changed.clone(),
+            fetched_at: now,
+            etag: "4".into(),
+        };
+        let pending = StoredManifest {
+            binding: write_binding,
+            digest: changed_digest,
+            version: 4,
+            document: changed,
+            stored_at: now,
+        };
+        db.run(move |connection| {
+            assert!(manifests::put_target(connection, &target)?);
+            assert!(manifests::put_pending_for_target(connection, &pending)?);
+            Ok(())
+        })
+        .await
+        .unwrap();
+        tick(&mut state, &host, true).await;
+        assert_eq!(host.activations.load(Ordering::Relaxed), 2, "unknown changed fields cannot use the fast path");
         let mut restarted =
             OfflineActivationCoordinator::new(crate::Dependencies { state: db, clock: ManualClock::new(now) }, None);
         assert_eq!(restarted.load().await.unwrap().active.unwrap().document["playlist"], expected);

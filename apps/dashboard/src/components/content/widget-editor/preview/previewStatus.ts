@@ -9,6 +9,7 @@ export type PreviewStatus =
   | { readonly kind: "ready" }
   | { readonly kind: "loading" }
   | { readonly kind: "waiting" }
+  | { readonly kind: "unverified"; readonly message: string }
   | { readonly kind: "empty"; readonly message: string }
   | {
       readonly kind: "error";

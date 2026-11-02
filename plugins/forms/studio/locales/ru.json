@@ -1,5 +1,12 @@
 {
   "access": {
+    "roles": {
+      "owner": "Владелец",
+      "administrator": "Администратор",
+      "editor": "Редактор",
+      "contributor": "Участник",
+      "viewer": "Наблюдатель"
+    },
     "capabilities": {
       "manage": {
         "label": "Управлять",
@@ -639,6 +646,7 @@
       "submissionsTitle": "Ваши отправки",
       "submissionsLoading": "Загрузка отправок…",
       "submissionsEmpty": "Отправок пока нет",
+      "submissionsError": "Не удалось загрузить ваши отправки. Попробуйте позже.",
       "submissionsEmptySubmit": "Начните отправку, чтобы увидеть её здесь.",
       "submissionsEmptyNone": "Вы ещё не отправляли в эту форму.",
       "submissionsPages": "Страницы ваших отправок",

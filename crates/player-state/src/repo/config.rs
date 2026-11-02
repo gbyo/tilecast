@@ -183,3 +183,10 @@ pub fn record_outcome(connection: &Connection, error: Option<&str>, now: Timesta
     )?;
     Ok(())
 }
+
+/// Forgets every staged and current configuration. Unpair only: the
+/// documents belong to a server relationship that no longer exists.
+pub fn clear_all(connection: &Connection) -> Result<()> {
+    connection.execute("DELETE FROM player_config", [])?;
+    Ok(())
+}

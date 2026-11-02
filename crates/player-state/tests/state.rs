@@ -1,7 +1,7 @@
 //! Migration, restart-safety and repository tests against real SQLite files.
 
 use player_state::repo::manifests::{self, Binding, Stage, StoredManifest, Target};
-use player_state::repo::{self, cas, daemon};
+use player_state::repo::{self, cas, daemon, installation_mismatch, playback_checkpoint, renderer};
 use player_state::{Migration, OpenOptions, StateDb, StateError, latest_schema_version, migrate_with, open_connection};
 use player_types::capability::{Capability, CapabilityId, CapabilityState};
 use player_types::{InstallationId, PlayerId, ScreenId, Sha256Digest, Timestamp};
@@ -371,7 +371,7 @@ fn migration_7_drops_noise_history_and_keeps_presentation_network_state() {
     let owned: Vec<Migration> =
         player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to latest");
-    assert_eq!(player_state::schema_version(&connection).expect("version"), 8);
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
     let noise: i64 = connection
         .query_row("SELECT COUNT(*) FROM sqlite_master WHERE name = 'noise_history'", [], |r| r.get(0))
         .expect("query");
@@ -412,7 +412,7 @@ fn migration_8_keeps_cas_rows_and_admits_widget_bundles() {
     let owned: Vec<Migration> =
         player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
     migrate_with(&connection, &owned).expect("migrate to latest");
-    assert_eq!(player_state::schema_version(&connection).expect("version"), 8);
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
     let domain: String = connection
         .query_row("SELECT domain FROM cas_objects WHERE sha256 = ?1", [&media], |r| r.get(0))
         .expect("cached object survives");
@@ -423,4 +423,196 @@ fn migration_8_keeps_cas_rows_and_admits_widget_bundles() {
             ["cd".repeat(32)],
         )
         .expect("v8 admits widget bundles");
+}
+
+#[test]
+fn migration_10_adds_playback_checkpoint_and_round_trips() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    // Simulate a device last migrated at version 9.
+    let v9: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 9)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v9).expect("migrate to v9");
+    assert!(playback_checkpoint::get(&connection).is_err(), "no checkpoint table at v9");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
+    assert_eq!(playback_checkpoint::get(&connection).expect("read"), None);
+    let checkpoint = playback_checkpoint::PlaybackCheckpoint {
+        installation_id: "installation".into(),
+        screen_id: "screen".into(),
+        server_url: "https://tilecast.example".into(),
+        manifest_version: 3,
+        manifest_digest: "ab".repeat(32),
+        playlist_id: "playlist".into(),
+        item_id: "item-2".into(),
+        presented_at: now(),
+        updated_at: now(),
+    };
+    playback_checkpoint::put(&connection, &checkpoint).expect("store");
+    assert_eq!(playback_checkpoint::get(&connection).expect("reread"), Some(checkpoint));
+    playback_checkpoint::clear(&connection).expect("clear");
+    assert_eq!(playback_checkpoint::get(&connection).expect("read cleared"), None);
+}
+
+#[test]
+fn migration_9_keeps_renderer_state_and_records_last_restart() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    // Simulate a device last migrated at version 8 with supervision state.
+    let v8: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 8)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v8).expect("migrate to v8");
+    connection
+        .execute("INSERT INTO renderer_state (id, restart_count, safe_mode, updated_at_ms) VALUES (1, 7, 0, 1)", [])
+        .expect("seed supervision state");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
+    let record = renderer::get(&connection).expect("read record");
+    assert_eq!(record.restart_count, 7);
+    assert_eq!(record.last_restart_at, None);
+    assert_eq!(record.last_restart_reason, None);
+    let restarted = renderer::RendererRecord {
+        restart_count: 8,
+        last_restart_at: Timestamp::from_unix_millis(1_700_000_000_000),
+        last_restart_reason: Some("recovery".into()),
+        ..record
+    };
+    renderer::put(&connection, &restarted, now()).expect("store restart");
+    let round_tripped = renderer::get(&connection).expect("reread record");
+    assert_eq!(round_tripped, restarted);
+}
+
+#[test]
+fn migration_11_adds_installation_mismatch_and_round_trips() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    let v10: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 10)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v10).expect("migrate to v10");
+    assert!(installation_mismatch::get(&connection).is_err(), "no mismatch table at v10");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
+    let mismatch = installation_mismatch::InstallationMismatch {
+        server_url: "https://tilecast.example".into(),
+        expected_installation_id: "expected".into(),
+        actual_installation_id: "actual".into(),
+        detected_at: now(),
+        last_contact_at: Some(now()),
+        quarantined_cas_dir: Some("cas-quarantined-1".into()),
+        quarantined_partial_dir: None,
+        quarantine_complete: false,
+    };
+    installation_mismatch::put(&connection, &mismatch).expect("store");
+    assert_eq!(installation_mismatch::get(&connection).expect("reread"), Some(mismatch.clone()));
+    // Completing the quarantine rewrites the same row with the flag set.
+    let complete = installation_mismatch::InstallationMismatch { quarantine_complete: true, ..mismatch };
+    installation_mismatch::put(&connection, &complete).expect("complete");
+    assert_eq!(installation_mismatch::get(&connection).expect("reread complete"), Some(complete));
+    installation_mismatch::clear(&connection).expect("clear");
+    assert_eq!(installation_mismatch::get(&connection).expect("read cleared"), None);
+}
+
+#[test]
+fn unpair_clear_forgets_binding_outbox_and_config() {
+    use player_state::repo::{binding, config, outbox};
+    let (_dir, path) = temp_db();
+    let mut connection = rusqlite::Connection::open(&path).expect("raw open");
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    let bound = player_state::repo::manifests::Binding {
+        installation_id: player_types::InstallationId::from_uuid(uuid::Uuid::from_u128(1)),
+        screen_id: player_types::ScreenId::from_uuid(uuid::Uuid::from_u128(2)),
+        server_url: "https://tilecast.example".into(),
+    };
+    binding::put(&connection, &edge_state_binding(&bound), now()).expect("bind");
+    outbox::enqueue_telemetry(&mut connection, "12345678-1234-1234-1234-1234567890ab", "{}", now()).expect("queue");
+    outbox::set_open_sessions(&connection, Some("[]")).expect("sessions");
+    binding::clear(&connection).expect("clear binding");
+    outbox::clear_all(&connection).expect("clear outbox");
+    config::clear_all(&connection).expect("clear config");
+    assert!(binding::get(&connection).expect("read binding").is_none());
+    let stats = outbox::stats(&connection).expect("stats");
+    assert_eq!((stats.queued_activity, stats.queued_telemetry), (0, 0));
+    assert_eq!(outbox::open_sessions(&connection).expect("sessions"), None);
+}
+
+fn edge_state_binding(bound: &player_state::repo::manifests::Binding) -> player_state::repo::binding::ServerBinding {
+    player_state::repo::binding::ServerBinding {
+        installation_id: bound.installation_id,
+        screen_id: Some(bound.screen_id),
+        server_url: bound.server_url.clone(),
+        organization_name: None,
+        screen_name: None,
+        credential_state: player_state::repo::binding::CredentialState::Stored,
+        identity_verified_at: None,
+        bound_at: now(),
+    }
+}
+
+#[test]
+fn migration_12_keeps_cas_rows_and_admits_widget_frames() {
+    let (_dir, path) = temp_db();
+    let connection = rusqlite::Connection::open(&path).expect("raw open");
+    // Simulate a device last migrated at version 11 with cached objects.
+    let v11: Vec<Migration> = player_state::MIGRATIONS
+        .iter()
+        .take_while(|m| m.version <= 11)
+        .map(|m| Migration { version: m.version, name: m.name, sql: m.sql })
+        .collect();
+    migrate_with(&connection, &v11).expect("migrate to v11");
+    let media = "ab".repeat(32);
+    let bundle = "cd".repeat(32);
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 12, 'media', 'image/png', 'origin', 'verified', 1, 1, 1)",
+            [&media],
+        )
+        .expect("seed cached object");
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_bundle', 'text/javascript', 'origin', 'verified', 1, 1, 1)",
+            [&bundle],
+        )
+        .expect("seed cached bundle");
+    assert!(
+        connection
+            .execute(
+                "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_frame', 'text/html', 'origin', 'verified', 1, 1, 1)",
+                ["ef".repeat(32)],
+            )
+            .is_err(),
+        "v11 rejects the new domain"
+    );
+    let owned: Vec<Migration> =
+        player_state::MIGRATIONS.iter().map(|m| Migration { version: m.version, name: m.name, sql: m.sql }).collect();
+    migrate_with(&connection, &owned).expect("migrate to latest");
+    assert_eq!(player_state::schema_version(&connection).expect("version"), latest_schema_version());
+    for (sha, domain) in [(&media, "media"), (&bundle, "widget_bundle")] {
+        let kept: String = connection
+            .query_row("SELECT domain FROM cas_objects WHERE sha256 = ?1", [sha], |r| r.get(0))
+            .expect("cached object survives");
+        assert_eq!(kept, domain);
+    }
+    connection
+        .execute(
+            "INSERT INTO cas_objects (sha256, size_bytes, domain, content_type, source_kind, verify_state, verified_at_ms, created_at_ms, last_accessed_at_ms) VALUES (?1, 4, 'widget_frame', 'text/html', 'origin', 'verified', 1, 1, 1)",
+            ["ef".repeat(32)],
+        )
+        .expect("v12 admits widget frames");
 }

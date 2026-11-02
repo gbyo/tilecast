@@ -7,6 +7,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 
 /** Typed subset of `TilecastRuntimeHostV1` messages crossing the Android bridge.
  *
@@ -42,7 +43,7 @@ object RuntimeBridgeProtocol {
                 HostMessage.Presentation(
                     body = obj,
                     activationId = activation?.get("activationId")?.jsonPrimitive?.contentOrNull?.take(64),
-                    generation = activation?.get("generation")?.jsonPrimitive?.intOrNull?.toLong(),
+                    generation = activation?.get("generation")?.jsonPrimitive?.longOrNull,
                 )
             }
             "plugins" -> HostMessage.Plugins(obj)
@@ -60,6 +61,7 @@ object RuntimeBridgeProtocol {
         "item-started", "item-transition", "image-shown", "video-progress",
         "widget-shown", "widget-alive", "widget-empty",
         "layout-shown", "layout-alive", "layout-zone-rendered",
+        "layout-zone-declared", "layout-zone-rotating",
         "website-loaded", "website-alive", "surface-shown",
     )
 
@@ -150,7 +152,11 @@ object RuntimeBridgeProtocol {
           var host={
             contractVersion:$CONTRACT_VERSION,
             info:{host:"android",hostVersion:"unknown",engine:"android-webview",engineVersion:"unknown"},
-            capabilities:{remoteWeb:null,synchronizedPlayback:false,setup:false,discovery:false},
+            capabilities:{remoteWeb:null,synchronizedPlayback:false,setup:false,discovery:false,
+              // Verified sandbox frames are intercepted from the
+              // activation's frame grants; the runtime keeps its default
+              // iframe-sandbox attribute on top of the served headers.
+              externalFrames:true},
             subscribe:function(listener){
               if(typeof listener!=="function")throw new TypeError("listener must be a function");
               return function(){};
@@ -189,5 +195,8 @@ object RuntimeBridgeProtocol {
         "synchronizedPlayback" to false,
         "setup" to false,
         "discovery" to false,
+        // Mirrors the bootstrap: verified sandbox frames are intercepted
+        // from the activation's frame grants.
+        "externalFrames" to true,
     )
 }

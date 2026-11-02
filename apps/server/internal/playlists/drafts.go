@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -235,6 +236,19 @@ func (s *Service) SnapshotTx(ctx context.Context, tx pgx.Tx, id uuid.UUID) (edit
 	return snapshotDraftTx(ctx, tx, id)
 }
 
+// lockAssetReferences serializes new playlist references with asset deletion.
+// Deletion takes the same lock before it checks for references, so either the
+// deletion sees the new item, or this validation sees the asset as deleted.
+func lockAssetReferences(ctx context.Context, tx pgx.Tx, assets []uuid.UUID) error {
+	sort.Slice(assets, func(i, j int) bool { return assets[i].String() < assets[j].String() })
+	for _, id := range assets {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('tilecast.media.asset.'||$1))`, id.String()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Service) ValidateSnapshotTx(ctx context.Context, tx pgx.Tx, id uuid.UUID, raw json.RawMessage) error {
 	var document playlistSnapshot
 	if err := json.Unmarshal(raw, &document); err != nil {
@@ -265,6 +279,15 @@ func (s *Service) ValidateSnapshotTx(ctx context.Context, tx pgx.Tx, id uuid.UUI
 		}
 	}
 	seen := map[uuid.UUID]bool{}
+	var assets []uuid.UUID
+	for _, item := range document.Items {
+		if item.AssetID != nil {
+			assets = append(assets, *item.AssetID)
+		}
+	}
+	if err := lockAssetReferences(ctx, tx, assets); err != nil {
+		return err
+	}
 	for _, item := range document.Items {
 		if item.ID == uuid.Nil || seen[item.ID] {
 			return errors.New("playlist snapshot contains duplicate item ids")

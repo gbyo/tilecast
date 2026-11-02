@@ -23,6 +23,7 @@ import type {
   BulkOperation,
   BulkOperationRequest,
   BulkPreview,
+  ContentAccessInput,
   ContentHealthReport,
   IntegrationScope,
   IntegrationToken,
@@ -44,6 +45,7 @@ import type {
   UpdateDeployment,
   UpdateDeploymentDetail,
   UpdateDeploymentMode,
+  UpdateDeploymentSelection,
   UptimeReport,
   UptimeWindow,
   User,
@@ -218,6 +220,16 @@ export function createUpdateDeployment(
   return apiPost("/api/v1/update-deployments", { body: input, csrfToken });
 }
 
+export function previewUpdateDeployment(
+  input: UpdateDeploymentSelection,
+  csrfToken: string,
+) {
+  return apiPost("/api/v1/update-deployments/preview", {
+    body: input,
+    csrfToken,
+  });
+}
+
 export function cancelUpdateDeployment(
   id: string,
   csrfToken: string,
@@ -342,6 +354,7 @@ export function createUser(
     password: string;
     role: User["role"];
     active?: boolean;
+    contentAccess?: ContentAccessInput;
   },
   csrfToken: string,
 ) {

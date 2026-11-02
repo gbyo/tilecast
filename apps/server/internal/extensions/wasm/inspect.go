@@ -57,6 +57,11 @@ type hostFunction struct {
 //     timeout, oversized body).
 //   - log(level, msg_ptr, msg_len): bounded host log line, always on.
 //   - now_ms() -> i64: host wall clock, always on.
+//   - call_v1(op_ptr, op_len, in_ptr, in_len, out_ptr, out_cap) -> i32:
+//     bytes written, or a negative error (unknown operation, absent
+//     grant, wrong context, clipped buffer). Executed calls answer a
+//     JSON envelope: {"ok":true,"data":...} or
+//     {"ok":false,"error":{"code","message"}}.
 //
 // Pointers address the module's own linear memory; the host verifies
 // every range before reading or writing.
@@ -66,6 +71,7 @@ var HostABI = map[string]hostFunction{
 	"http_fetch": {params: []byte{valI32, valI32, valI32, valI32}, results: []byte{valI32}},
 	"log":        {params: []byte{valI32, valI32, valI32}, results: nil},
 	"now_ms":     {results: []byte{valI64}},
+	"call_v1":    {params: []byte{valI32, valI32, valI32, valI32, valI32, valI32}, results: []byte{valI32}},
 }
 
 // Guest entry points the host calls. run_job carries one background job
@@ -132,10 +138,16 @@ func Parse(raw []byte) (Module, error) {
 		if reader.err != nil {
 			return Module{}, reader.err
 		}
-		if seen[id] {
-			return Module{}, fmt.Errorf("wasm: duplicate section %d", id)
+		// Custom sections (id 0) carry names, producers, and
+		// toolchain metadata; toolchains emit several and the
+		// WebAssembly standard allows repeats. Every other section
+		// must appear at most once.
+		if id != 0 {
+			if seen[id] {
+				return Module{}, fmt.Errorf("wasm: duplicate section %d", id)
+			}
+			seen[id] = true
 		}
-		seen[id] = true
 		section := &cursor{data: body}
 		switch id {
 		case 1:

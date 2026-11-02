@@ -1,11 +1,12 @@
 //! Pairing a fresh installation (M5): a real `tilecastd` with no legacy state
 //! against an in-process fake Tilecast Server that speaks the ordinary
 //! pairing protocol, and a scripted renderer on the real IPC socket.
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::result_large_err)]
 
 use edge_server::{FileCredentialStore, FilePairingStore};
 use std::convert::Infallible;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -43,7 +44,7 @@ struct Pairing {
 }
 
 struct FakeServer {
-    installation: InstallationId,
+    installation: Mutex<InstallationId>,
     screen: ScreenId,
     pairing_enabled: AtomicBool,
     pairing: Mutex<Pairing>,
@@ -74,14 +75,14 @@ async fn handle(fake: Arc<FakeServer>, request: Request<Body>) -> Result<Respons
     if path == "/api/v1/system/identity" {
         return Ok(data(
             StatusCode::OK,
-            json!({"product": "tilecast", "installationId": fake.installation.to_string(),
+            json!({"product": "tilecast", "installationId": fake.installation.lock().unwrap().to_string(),
             "organizationName": "Greenwood Library", "apiVersion": "v1",
             "pairingEnabled": fake.pairing_enabled.load(Ordering::SeqCst)}),
         ));
     }
     if path == "/api/v1/player/pairing-sessions" && request.method() == hyper::Method::POST {
         let body: Value = serde_json::from_slice(&request.into_body().collect().await.unwrap().to_bytes()).unwrap();
-        assert_eq!(body["installationId"], fake.installation.to_string());
+        assert_eq!(body["installationId"], fake.installation.lock().unwrap().to_string());
         let mut pairing = fake.pairing.lock().unwrap();
         pairing.sessions += 1;
         pairing.status = "pending".to_owned();
@@ -235,7 +236,7 @@ struct Player {
 impl Harness {
     async fn new() -> Self {
         let fake = Arc::new(FakeServer {
-            installation: InstallationId::from_uuid(uuid::Uuid::new_v4()),
+            installation: Mutex::new(InstallationId::from_uuid(uuid::Uuid::new_v4())),
             screen: ScreenId::from_uuid(uuid::Uuid::new_v4()),
             pairing_enabled: AtomicBool::new(true),
             pairing: Mutex::new(Pairing::default()),
@@ -253,7 +254,14 @@ impl Harness {
     }
 
     async fn start(&self) -> Player {
+        self.start_with_relay(None).await
+    }
+
+    /// `relay` turns phone setup on against that relay.
+    async fn start_with_relay(&self, relay: Option<&str>) -> Player {
         let mut config = EdgeConfig::default();
+        config.pairing.phone_setup = relay.is_some();
+        config.pairing.setup_relay_url = relay.map(str::to_owned);
         config.paths.state_dir = Some(self.dir.path().join("state"));
         config.paths.runtime_dir = Some(self.dir.path().join("run"));
         config.renderer.binary = self.dir.path().join("no-renderer");
@@ -322,7 +330,7 @@ async fn a_clean_machine_pairs_is_approved_and_connects_without_legacy_state() {
     let harness = Harness::new().await;
     let player = harness.start().await;
     let renderer = Renderer::connect(&player.socket).await;
-    wait_for("the setup surface", || renderer.last().filter(|d| matches!(d, PresentationDocument::Setup {}))).await;
+    wait_for("the setup surface", || renderer.last().filter(|d| matches!(d, PresentationDocument::Setup { .. }))).await;
 
     // A public host over plain HTTP is refused before anything is sent.
     let refused = renderer.submit("http://signs.example.org").await;
@@ -356,7 +364,10 @@ async fn a_clean_machine_pairs_is_approved_and_connects_without_legacy_state() {
     wait_for("enrollment", || (harness.fake.pairing.lock().unwrap().enrolled == 1).then_some(())).await;
     wait_for("the paired surface", || renderer.last().filter(|d| matches!(d, PresentationDocument::Idle(_)))).await;
     let bound = db.run(|c| binding::get(c)).await.unwrap().expect("binding");
-    assert_eq!((bound.installation_id, bound.screen_id), (harness.fake.installation, Some(harness.fake.screen)));
+    assert_eq!(
+        (bound.installation_id, bound.screen_id),
+        (*harness.fake.installation.lock().unwrap(), Some(harness.fake.screen))
+    );
     assert_eq!(bound.credential_state, CredentialState::Stored);
     assert!(FileCredentialStore::read_at(&harness.identity()).unwrap().is_some());
     assert!(!harness.identity().join("pairing-session").exists(), "temporary secrets are cleared");
@@ -423,7 +434,7 @@ async fn expiry_and_rejection_start_a_fresh_session_and_reset_clears_it() {
         .await
         .unwrap();
     assert!(reset.is_ok());
-    wait_for("the setup surface", || renderer.last().filter(|d| matches!(d, PresentationDocument::Setup {}))).await;
+    wait_for("the setup surface", || renderer.last().filter(|d| matches!(d, PresentationDocument::Setup { .. }))).await;
     assert!(!harness.identity().join("pairing-session").exists());
     renderer.task.abort();
     player.stop().await;
@@ -439,6 +450,259 @@ async fn a_server_with_pairing_disabled_is_refused_with_a_reason() {
     assert_eq!(answer["ok"], false);
     assert!(answer["error"].as_str().unwrap().contains("turned off"), "{answer}");
     assert_eq!(harness.fake.pairing.lock().unwrap().sessions, 0);
+    renderer.task.abort();
+    player.stop().await;
+}
+
+async fn pair_and_approve(harness: &Harness, renderer: &Renderer) {
+    assert_eq!(renderer.submit(&harness.url).await["ok"], true);
+    wait_for("the pairing code", || pairing_code(renderer.last())).await;
+    harness.set_status("approved");
+    wait_for("enrollment", || (harness.fake.pairing.lock().unwrap().enrolled == 1).then_some(())).await;
+    wait_for("authenticated contact", || (harness.fake.authenticated.load(Ordering::SeqCst) > 0).then_some(())).await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn installation_mismatch_records_evidence_quarantines_and_stops_content() {
+    let harness = Harness::new().await;
+    let player = harness.start().await;
+    let renderer = Renderer::connect(&player.socket).await;
+    pair_and_approve(&harness, &renderer).await;
+    let expected = harness.fake.installation.lock().unwrap().to_string();
+    // Seed the caches so quarantine has something to move aside.
+    let state = harness.dir.path().join("state");
+    std::fs::write(state.join("cas/sha256/sentinel"), b"cached").unwrap();
+    std::fs::write(state.join("partial/sentinel"), b"partial").unwrap();
+
+    // The server's installation changes out from under the binding.
+    let rotated = InstallationId::from_uuid(uuid::Uuid::new_v4()).to_string();
+    *harness.fake.installation.lock().unwrap() = InstallationId::from_str(&rotated).unwrap();
+    player.context.server_wake.notify_one();
+    let db = player.context.db().unwrap().clone();
+    // The record is stored with its planned moves before the caches move, so
+    // wait for the completed quarantine rather than the first write.
+    wait_for("the completed quarantine", || {
+        db.run_blocking(|c| edge_state::repo::installation_mismatch::get(c)).ok()?.filter(|r| r.quarantine_complete)
+    })
+    .await;
+    let record = db.run(|c| edge_state::repo::installation_mismatch::get(c)).await.unwrap().expect("mismatch evidence");
+    assert_eq!(record.expected_installation_id, expected);
+    assert_eq!(record.actual_installation_id, rotated);
+    assert!(record.last_contact_at.is_some(), "last successful contact is kept");
+    let cas_dir = record.quarantined_cas_dir.expect("cas quarantined");
+    let partial_dir = record.quarantined_partial_dir.expect("partial quarantined");
+    assert!(state.join(&cas_dir).join("sha256/sentinel").exists(), "cached evidence preserved");
+    assert!(state.join(&partial_dir).join("sentinel").exists(), "partial evidence preserved");
+    assert!(state.join("cas").is_dir() && state.join("partial").is_dir(), "fresh caches recreated");
+    // Server content stops: the screen names both installations.
+    wait_for("the mismatch surface", || {
+        renderer.last().filter(|d| matches!(d, PresentationDocument::Unavailable(surface) if surface.status.as_ref().is_some_and(|s| s.as_str() == "installation-mismatch")))
+    })
+    .await;
+    // A second pass with the same pair records nothing new.
+    player.context.server_wake.notify_one();
+    tokio::time::sleep(Duration::from_secs(2)).await;
+    let again = db.run(|c| edge_state::repo::installation_mismatch::get(c)).await.unwrap().expect("mismatch evidence");
+    assert_eq!(again.detected_at, record.detected_at, "one record per pair");
+    renderer.task.abort();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn recovered_server_clears_the_mismatch_and_replaces_its_surface() {
+    let harness = Harness::new().await;
+    let player = harness.start().await;
+    let renderer = Renderer::connect(&player.socket).await;
+    pair_and_approve(&harness, &renderer).await;
+    let expected = harness.fake.installation.lock().unwrap().to_string();
+    let rotated = InstallationId::from_uuid(uuid::Uuid::new_v4()).to_string();
+    *harness.fake.installation.lock().unwrap() = InstallationId::from_str(&rotated).unwrap();
+    player.context.server_wake.notify_one();
+    let db = player.context.db().unwrap().clone();
+    wait_for("the mismatch record", || db.run_blocking(|c| edge_state::repo::installation_mismatch::get(c)).ok()?)
+        .await;
+    wait_for("the mismatch surface", || {
+        renderer.last().filter(|d| matches!(d, PresentationDocument::Unavailable(surface) if surface.status.as_ref().is_some_and(|s| s.as_str() == "installation-mismatch")))
+    })
+    .await;
+    // The original server comes back. A verified heartbeat proves the
+    // mismatch stale: the record clears and the mismatch screen is replaced
+    // at once, not on some later activation.
+    *harness.fake.installation.lock().unwrap() = InstallationId::from_str(&expected).unwrap();
+    player.context.server_wake.notify_one();
+    wait_for("the record cleared", || {
+        db.run_blocking(|c| edge_state::repo::installation_mismatch::get(c)).ok()?.is_none().then_some(())
+    })
+    .await;
+    wait_for("the mismatch surface replaced", || {
+        renderer.last().filter(|d| !matches!(d, PresentationDocument::Unavailable(surface) if surface.status.as_ref().is_some_and(|s| s.as_str() == "installation-mismatch")))
+    })
+    .await;
+    renderer.task.abort();
+    player.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn unpair_forgets_the_relationship_and_allows_a_repair() {
+    let harness = Harness::new().await;
+    let player = harness.start().await;
+    let renderer = Renderer::connect(&player.socket).await;
+    pair_and_approve(&harness, &renderer).await;
+    let db = player.context.db().unwrap().clone();
+    assert!(db.run(|c| binding::get(c)).await.unwrap().is_some());
+
+    let ctl = IpcClient::connect(&player.socket, ClientOptions::new(Role::Tilecastctl, "test", "0.1.0")).await.unwrap();
+    let answer = ctl
+        .request(Method::UnpairDevice(edge_protocol::ipc::method::Empty {}))
+        .await
+        .unwrap()
+        .expect("unpair succeeds");
+    assert_eq!(answer["alreadyUnpaired"], false);
+    assert!(db.run(|c| binding::get(c)).await.unwrap().is_none(), "binding forgotten");
+    assert!(FileCredentialStore::read_at(&harness.identity()).unwrap().is_none(), "credential removed");
+    let stats = db.run(|c| edge_state::repo::outbox::stats(c)).await.unwrap();
+    assert_eq!((stats.queued_activity, stats.queued_telemetry), (0, 0));
+    wait_for("the setup surface", || renderer.last().filter(|d| matches!(d, PresentationDocument::Setup { .. }))).await;
+    // Unpair is idempotent: a second run reports the device already unpaired.
+    let again = ctl
+        .request(Method::UnpairDevice(edge_protocol::ipc::method::Empty {}))
+        .await
+        .unwrap()
+        .expect("second unpair succeeds");
+    assert_eq!(again["alreadyUnpaired"], true);
+    // A run that was interrupted after the binding and credential went away
+    // leaves a pairing file behind. The retry must still remove it.
+    let stray = harness.identity().join("pairing-session");
+    std::fs::create_dir_all(harness.identity()).unwrap();
+    std::fs::write(&stray, b"{}").unwrap();
+    let retried = ctl
+        .request(Method::UnpairDevice(edge_protocol::ipc::method::Empty {}))
+        .await
+        .unwrap()
+        .expect("retried unpair succeeds");
+    assert_eq!(retried["alreadyUnpaired"], true);
+    assert!(!stray.exists(), "the retry finishes the pairing cleanup");
+    assert!(FilePairingStore::read_at(&harness.identity()).unwrap().is_none());
+    // And the screen can pair again from the clean state.
+    assert_eq!(renderer.submit(&harness.url).await["ok"], true);
+    wait_for("the pairing code", || pairing_code(renderer.last())).await;
+    renderer.task.abort();
+    player.stop().await;
+}
+
+/// A setup relay (apps/setup-relay) in miniature: one waiting Player socket
+/// per setup code, and the test hands it the envelope Studio would send.
+#[derive(Default)]
+struct FakeRelay {
+    waiting: Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<String>>>,
+}
+
+async fn serve_relay(relay: Arc<FakeRelay>) -> String {
+    use tokio_tungstenite::tungstenite::Message;
+    use tokio_tungstenite::tungstenite::handshake::server::{
+        ErrorResponse, Request as WsRequest, Response as WsResponse,
+    };
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        loop {
+            let Ok((stream, _)) = listener.accept().await else { return };
+            let relay = Arc::clone(&relay);
+            tokio::spawn(async move {
+                let code = Arc::new(Mutex::new(String::new()));
+                let seen = Arc::clone(&code);
+                let callback = move |request: &WsRequest, response: WsResponse| -> Result<WsResponse, ErrorResponse> {
+                    let header = request.headers().get("authorization").and_then(|v| v.to_str().ok()).unwrap_or("");
+                    *seen.lock().unwrap() = header.strip_prefix("Rendezvous ").unwrap_or("").to_owned();
+                    Ok(response)
+                };
+                let Ok(mut socket) = tokio_tungstenite::accept_hdr_async(stream, callback).await else { return };
+                let (sender, receiver) = tokio::sync::oneshot::channel();
+                let code = code.lock().unwrap().clone();
+                relay.waiting.lock().unwrap().insert(code, sender);
+                use futures_util::{SinkExt as _, StreamExt as _};
+                tokio::select! {
+                    envelope = receiver => {
+                        if let Ok(envelope) = envelope {
+                            let _ = socket.send(Message::Text(envelope.into())).await;
+                            let _ = socket.close(None).await;
+                        }
+                    }
+                    () = async { while let Some(Ok(_)) = socket.next().await {} } => {}
+                }
+            });
+        }
+    });
+    format!("http://{address}")
+}
+
+/// Studio's half of docs/phone-setup.md: seal `payload` for the QR code.
+fn seal(qr_url: &str, payload: &Value) -> (String, String) {
+    use base64::Engine as _;
+    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+    use ring::rand::SecureRandom as _;
+    use ring::{aead, agreement, hkdf};
+    let fragment = qr_url.split_once('#').unwrap().1;
+    let params: std::collections::HashMap<&str, &str> =
+        fragment.split('&').map(|pair| pair.split_once('=').unwrap()).collect();
+    let (code, player) = (params["r"], URL_SAFE_NO_PAD.decode(params["k"]).unwrap());
+    let rng = ring::rand::SystemRandom::new();
+    let ephemeral = agreement::EphemeralPrivateKey::generate(&agreement::ECDH_P256, &rng).unwrap();
+    let epk = ephemeral.compute_public_key().unwrap().as_ref().to_vec();
+    let mut salt = epk.clone();
+    salt.extend_from_slice(&player);
+    let key: aead::UnboundKey = agreement::agree_ephemeral(
+        ephemeral,
+        &agreement::UnparsedPublicKey::new(&agreement::ECDH_P256, &player),
+        |shared| {
+            hkdf::Salt::new(hkdf::HKDF_SHA256, &salt)
+                .extract(shared)
+                .expand(&[b"tilecast-setup-v1".as_slice()], &aead::AES_256_GCM)
+                .unwrap()
+                .into()
+        },
+    )
+    .unwrap();
+    let mut iv = [0u8; 12];
+    rng.fill(&mut iv).unwrap();
+    let mut ct = payload.to_string().into_bytes();
+    aead::LessSafeKey::new(key)
+        .seal_in_place_append_tag(aead::Nonce::assume_unique_for_key(iv), aead::Aad::from(code.as_bytes()), &mut ct)
+        .unwrap();
+    let envelope = json!({"v": 1, "epk": URL_SAFE_NO_PAD.encode(epk), "iv": URL_SAFE_NO_PAD.encode(iv),
+        "ct": URL_SAFE_NO_PAD.encode(ct)});
+    (code.to_owned(), envelope.to_string())
+}
+
+fn phone_setup_url(document: Option<PresentationDocument>) -> Option<String> {
+    use edge_protocol::ipc::presentation::PhoneSetupDocument;
+    match document? {
+        PresentationDocument::Setup { phone_setup: Some(PhoneSetupDocument::Ready { url, .. }) } => {
+            Some(url.as_str().to_owned())
+        }
+        _ => None,
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_phone_sends_the_server_address_through_the_setup_relay() {
+    let harness = Harness::new().await;
+    let relay = Arc::new(FakeRelay::default());
+    let relay_url = serve_relay(Arc::clone(&relay)).await;
+    let player = harness.start_with_relay(Some(&relay_url)).await;
+    let renderer = Renderer::connect(&player.socket).await;
+
+    let qr = wait_for("the setup QR code", || phone_setup_url(renderer.last())).await;
+    assert!(qr.starts_with(&format!("{relay_url}/#v=1&r=")), "{qr}");
+    let installation = harness.fake.installation.lock().unwrap().to_string();
+    let (code, envelope) = seal(&qr, &json!({"serverUrl": harness.url, "installationId": installation}));
+    let waiting = wait_for("the Player on the relay", || relay.waiting.lock().unwrap().remove(&code)).await;
+    waiting.send(envelope).unwrap();
+
+    let code = wait_for("the pairing code", || pairing_code(renderer.last())).await;
+    assert_eq!(code, "ABC001");
+    assert_eq!(harness.fake.pairing.lock().unwrap().sessions, 1);
+    assert!(!state_dump(harness.dir.path()).contains(&qr), "the setup key is never stored");
     renderer.task.abort();
     player.stop().await;
 }

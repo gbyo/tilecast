@@ -21,8 +21,26 @@ func cleanOrganizationName(name string, max int) (string, error) {
 	return name, nil
 }
 
-func (s *Service) ListFolders(ctx context.Context) ([]ContentFolder, error) {
-	rows, err := s.db.Query(ctx, `SELECT f.id,f.parent_id,f.name,f.description,count(a.id),f.created_at,f.updated_at FROM content_folders f LEFT JOIN assets a ON a.folder_id=f.id AND a.deleted_at IS NULL AND a.archived_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now()) GROUP BY f.id ORDER BY lower(f.name),f.id`)
+// liveAssetSQL is the "counts toward the library" predicate shared by the
+// organization counts.
+const liveAssetSQL = `a.deleted_at IS NULL AND a.archived_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now()) AND a.origin='library' AND a.system_managed=FALSE`
+
+// ListFolders lists the folders view reaches, with counts of the assets it
+// may read. A restricted account sees only its accessible folders; a folder
+// whose parent is outside its access is reported as a top-level folder, so
+// the names of folders it cannot reach are never disclosed.
+func (s *Service) ListFolders(ctx context.Context, view View) ([]ContentFolder, error) {
+	args := []any{}
+	assetClause := view.assetClause("a", &args)
+	folderFilter := "TRUE"
+	parentExpr := "f.parent_id"
+	if !view.Access.LibraryAll {
+		args = append(args, view.Access.UserID)
+		accessible := "(" + AccessibleFoldersSQL(fmt.Sprintf("$%d", len(args))) + ")"
+		folderFilter = "f.id IN " + accessible
+		parentExpr = "CASE WHEN f.parent_id IN " + accessible + " THEN f.parent_id END"
+	}
+	rows, err := s.db.Query(ctx, `SELECT f.id,`+parentExpr+`,f.name,f.description,count(a.id),f.created_at,f.updated_at FROM content_folders f LEFT JOIN assets a ON a.folder_id=f.id AND `+liveAssetSQL+` AND `+assetClause+` WHERE `+folderFilter+` GROUP BY f.id ORDER BY lower(f.name),f.id`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +122,17 @@ func (s *Service) DeleteFolder(ctx context.Context, id, userID uuid.UUID) error 
 	return nil
 }
 
-func (s *Service) ListCollections(ctx context.Context) ([]ContentCollection, error) {
-	rows, err := s.db.Query(ctx, `SELECT c.id,c.name,c.description,count(a.id),c.created_at,c.updated_at FROM content_collections c LEFT JOIN content_collection_assets ca ON ca.collection_id=c.id LEFT JOIN assets a ON a.id=ca.asset_id AND a.deleted_at IS NULL AND a.archived_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now()) GROUP BY c.id ORDER BY lower(c.name),c.id`)
+// ListCollections lists collections with counts of the assets view may read.
+// A restricted account sees only collections holding at least one asset it
+// can reach, so a collection's name is not disclosed by its existence alone.
+func (s *Service) ListCollections(ctx context.Context, view View) ([]ContentCollection, error) {
+	args := []any{}
+	assetClause := view.assetClause("a", &args)
+	having := ""
+	if !view.Access.LibraryAll {
+		having = " HAVING count(a.id)>0"
+	}
+	rows, err := s.db.Query(ctx, `SELECT c.id,c.name,c.description,count(a.id),c.created_at,c.updated_at FROM content_collections c LEFT JOIN content_collection_assets ca ON ca.collection_id=c.id LEFT JOIN assets a ON a.id=ca.asset_id AND `+liveAssetSQL+` AND `+assetClause+` GROUP BY c.id`+having+` ORDER BY lower(c.name),c.id`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -159,8 +186,23 @@ func (s *Service) DeleteCollection(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-func (s *Service) ListTags(ctx context.Context) ([]ContentTag, error) {
-	rows, err := s.db.Query(ctx, `SELECT t.id,t.name,t.color,count(a.id) FROM content_tags t LEFT JOIN content_asset_tags at ON at.tag_id=t.id LEFT JOIN assets a ON a.id=at.asset_id AND a.deleted_at IS NULL AND a.archived_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now()) GROUP BY t.id ORDER BY lower(t.name),t.id`)
+// ListTags lists tags with counts of the assets view may read, and whether
+// view may apply each one. A restricted library sees the tags it may apply
+// and the tags already on assets it can reach, never the rest of the
+// organization's vocabulary.
+func (s *Service) ListTags(ctx context.Context, view View) ([]ContentTag, error) {
+	args := []any{}
+	assetClause := view.assetClause("a", &args)
+	assignable := "TRUE"
+	if !view.Access.TagsAll {
+		args = append(args, view.Access.UserID)
+		assignable = fmt.Sprintf("EXISTS(SELECT 1 FROM user_content_tag_grants g WHERE g.tag_id=t.id AND g.user_id=$%d)", len(args))
+	}
+	having := ""
+	if !view.Access.LibraryAll {
+		having = " HAVING count(a.id)>0 OR bool_or(" + assignable + ")"
+	}
+	rows, err := s.db.Query(ctx, `SELECT t.id,t.name,t.color,count(a.id),bool_or(`+assignable+`) FROM content_tags t LEFT JOIN content_asset_tags at ON at.tag_id=t.id LEFT JOIN assets a ON a.id=at.asset_id AND `+liveAssetSQL+` AND `+assetClause+` GROUP BY t.id`+having+` ORDER BY lower(t.name),t.id`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -168,9 +210,11 @@ func (s *Service) ListTags(ctx context.Context) ([]ContentTag, error) {
 	items := []ContentTag{}
 	for rows.Next() {
 		var v ContentTag
-		if err := rows.Scan(&v.ID, &v.Name, &v.Color, &v.AssetCount); err != nil {
+		var canAssign bool
+		if err := rows.Scan(&v.ID, &v.Name, &v.Color, &v.AssetCount, &canAssign); err != nil {
 			return nil, err
 		}
+		v.Assignable = &canAssign
 		items = append(items, v)
 	}
 	return items, rows.Err()
@@ -237,6 +281,12 @@ func (s *Service) DeleteTag(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// BulkOrganize applies one organization change to a set of assets, all or
+// nothing. Authorization runs inside the same transaction as the change:
+// every asset must be within in.Access and accepted by in.Authorize, the
+// destination folder must be writable, every added or removed tag must be
+// assignable, and collection membership needs the whole library. Any
+// failure leaves every asset untouched.
 func (s *Service) BulkOrganize(ctx context.Context, userID uuid.UUID, in BulkOrganizeInput) error {
 	if len(in.AssetIDs) == 0 || len(in.AssetIDs) > 250 {
 		return errors.New("assetIds must contain between 1 and 250 unique assets")
@@ -253,20 +303,28 @@ func (s *Service) BulkOrganize(ctx context.Context, userID uuid.UUID, in BulkOrg
 		return err
 	}
 	defer tx.Rollback(ctx)
-	var count int
-	if err = tx.QueryRow(ctx, `SELECT count(*) FROM assets WHERE id=ANY($1) AND deleted_at IS NULL AND archived_at IS NULL AND (expires_at IS NULL OR expires_at>now())`, in.AssetIDs).Scan(&count); err != nil {
+	refs, err := authorizeAssets(ctx, tx, in.Access, in.AssetIDs, false)
+	if err != nil {
 		return err
 	}
-	if count != len(in.AssetIDs) {
-		return ErrNotFound
+	if in.Authorize != nil {
+		if err = in.Authorize(refs); err != nil {
+			return err
+		}
 	}
 	allTagIDs := append(append([]uuid.UUID{}, in.AddTagIDs...), in.RemoveTagIDs...)
 	allCollectionIDs := append(append([]uuid.UUID{}, in.AddCollectionIDs...), in.RemoveCollectionIDs...)
 	if err = validateOrganizationIDs(ctx, tx, "content_tags", allTagIDs); err != nil {
 		return err
 	}
+	if err = tagsAssignable(ctx, tx, in.Access, allTagIDs); err != nil {
+		return err
+	}
 	if err = validateOrganizationIDs(ctx, tx, "content_collections", allCollectionIDs); err != nil {
 		return err
+	}
+	if len(allCollectionIDs) > 0 && !in.Access.LibraryAll {
+		return ErrScopeRestricted
 	}
 	if in.SetFolder {
 		if in.FolderID != nil {
@@ -277,6 +335,9 @@ func (s *Service) BulkOrganize(ctx context.Context, userID uuid.UUID, in BulkOrg
 				}
 				return err
 			}
+		}
+		if err = folderWritable(ctx, tx, in.Access, in.FolderID); err != nil {
+			return err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE assets SET folder_id=$2,updated_at=now() WHERE id=ANY($1)`, in.AssetIDs, in.FolderID); err != nil {
 			return err

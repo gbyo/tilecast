@@ -28,6 +28,9 @@ import shutil
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../scripts/release"))
+import release_version  # noqa: E402
+
 import runtime_closure
 
 EDGE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -56,9 +59,13 @@ SYSTEM_FILES = [
 
 
 def version_code(version):
-    core = version.split("-", 1)[0]
-    major, minor, patch = (int(part) for part in core.split("."))
-    return major * 1_000_000 + minor * 1_000 + patch
+    """The update version code: the one ordering the server, Edge, Windows and
+    Android share (scripts/release/release_version.py). A name from 0.26.0 on
+    must be X.Y.Z or X.Y.Z-beta.N; anything else fails the release build."""
+    code = release_version.version_code(version)
+    if code is None:
+        sys.exit(f"stage-release: {version} is not a valid release version")
+    return code
 
 
 def copy(source, out, relative, mode):
@@ -119,6 +126,17 @@ def self_test_fixture(out):
                              os.path.join(media, "clip.mp4")], check=True)
 
 
+def require_plugin_bridge(tree):
+    """The heartbeat reports plugin.external-runtime@1, so the packaged WPE
+    bridge must enable the Runtime path that serves it. A tree whose bridge
+    lacks the flag would make the Server send surfaces the Runtime ignores."""
+    path = os.path.join(tree, "share/tilecast/renderer-web/tilecast-bridge.js")
+    with open(path, encoding="utf-8") as handle:
+        bridge = handle.read()
+    if not re.search(r"^\s*externalPluginFrames: true,$", bridge, re.MULTILINE):
+        sys.exit("stage-release: the packaged WPE bridge does not enable external plugin frames")
+
+
 def main():
     parser = argparse.ArgumentParser()
     for name in ("--out", "--version", "--bin-dir", "--renderer", "--web-renderer", "--session-bridge",
@@ -143,6 +161,7 @@ def main():
             source = os.path.join(root, name)
             relative = os.path.relpath(source, args.runtime_dir)
             copy(source, out, f"share/tilecast/renderer-web/{relative}", 0o644)
+    require_plugin_bridge(out)
     if args.wpe_lib_dir:
         copy_wpe(args.wpe_lib_dir, out)
         # The renderer binaries are already staged: their NEEDED libraries

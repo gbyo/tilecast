@@ -13,6 +13,13 @@ test_sha256 (void)
   g_assert_true (tc_is_media_capability_uri ("tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
   g_assert_false (tc_is_media_capability_uri ("tcmedia://sha256/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
   g_assert_false (tc_is_media_capability_uri ("tcmedia://cap/../../etc/passwd"));
+  g_assert_true (tc_is_widget_capability_uri ("tcwidget://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_widget_capability_uri ("tcmedia://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_widget_capability_uri ("tcwidget://cap/short"));
+  g_assert_false (tc_is_widget_capability_uri ("tcwidget://cap/0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef"));
+  g_assert_false (tc_is_widget_capability_uri ("tcwidget://cap/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef#frag"));
+  g_assert_false (tc_is_widget_capability_uri ("tcwidget://cap/../../etc/passwd"));
+  g_assert_false (tc_is_widget_capability_uri (NULL));
 }
 
 static void
@@ -135,6 +142,21 @@ test_runtime_support (void)
   g_assert_false (tc_runtime_support_valid (root));
 }
 
+static void
+test_plugin_frame_fixtures (void)
+{
+  const char *paths[] = { "valid/event-plugin-frames.json", "invalid/event-plugin-frames-unknown-kind.json" };
+  for (guint i = 0; i < G_N_ELEMENTS (paths); i++) {
+    g_autofree char *path = g_build_filename (TC_IPC_FIXTURE_DIR, paths[i], NULL);
+    g_autoptr (JsonParser) parser = json_parser_new ();
+    g_assert_true (json_parser_load_from_file (parser, path, NULL));
+    JsonObject *root = json_node_get_object (json_parser_get_root (parser));
+    JsonObject *frame = json_object_get_object_member (root, "frame");
+    JsonObject *data = json_object_get_object_member (frame, "data");
+    g_assert_cmpint (tc_frame_refs_valid (json_object_get_member (data, "pluginFrames"), TRUE), ==, i == 0);
+  }
+}
+
 int
 main (int argc, char **argv)
 {
@@ -146,5 +168,6 @@ main (int argc, char **argv)
   g_test_add_func ("/validate/clean-paths", test_clean_paths);
   g_test_add_func ("/validate/web-capabilities", test_web_capabilities);
   g_test_add_func ("/validate/runtime-support", test_runtime_support);
+  g_test_add_func ("/validate/plugin-frame-fixtures", test_plugin_frame_fixtures);
   return g_test_run ();
 }

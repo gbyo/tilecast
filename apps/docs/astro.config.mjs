@@ -177,6 +177,7 @@ export default defineConfig({
             { label: "Schedules", slug: "schedules" },
             { label: "Campaigns", slug: "campaigns" },
             { label: "Review & forms", slug: "studio/review-and-forms" },
+            { label: "iPhone & iPad app", slug: "studio/ios-app" },
           ],
         },
         {
@@ -193,6 +194,10 @@ export default defineConfig({
             },
             { label: "Display control", slug: "screens/display-control" },
             { label: "Player updates", slug: "players/update-a-player" },
+            {
+              label: "Browser Companion",
+              slug: "players/browser-companion",
+            },
             {
               label: "Tilecast Edge",
               slug: "edge",
@@ -262,7 +267,12 @@ export default defineConfig({
               slug: "developers/player-development",
             },
             { label: "Plugin development", slug: "developers/plugins" },
+            {
+              label: "External packages",
+              slug: "developers/external-packages",
+            },
             { label: "iOS development", slug: "developers/ios-app" },
+            { label: "Releasing Tilecast", slug: "developers/releasing" },
           ],
         },
         {
@@ -280,6 +290,7 @@ export default defineConfig({
               slug: "reference/content-definitions",
             },
             { label: "Capability reference", slug: "players/capabilities" },
+            { label: "Releases and downloads", slug: "reference/releases" },
           ],
         },
         { slug: "privacy" },

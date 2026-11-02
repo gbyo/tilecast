@@ -22,8 +22,8 @@ import { WidgetProviderGallery } from "@/content/SourceEditors";
 import { contentQueries } from "@/data/content";
 import { apiErrorMessage } from "@/i18n";
 import { inAppPath } from "@/navigation/returnPaths";
-import { canManageContent } from "./ContentPage";
 import { resolveWidgetEditorRoute } from "./widgetEditorRoute";
+import { hasCapability } from "../auth/capabilities";
 
 export function WidgetEditorPage() {
   const { t } = useTranslation(["content", "common"]);
@@ -32,7 +32,7 @@ export function WidgetEditorPage() {
   const location = useLocation();
   const { id, provider: providerParam } = useParams();
   const csrf = auth.status?.csrfToken ?? "";
-  const canManage = canManageContent(auth.status?.user);
+  const canManage = hasCapability(auth.status, "widget.edit");
   const search = new URLSearchParams(location.search);
   // Return paths come from the URL, so only an in-app route is honored.
   const returnTo = inAppPath(search.get("returnTo"));
