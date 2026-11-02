@@ -1255,6 +1255,14 @@ export function AssetCollection({
         icon: "restore",
         onSelect: () => onRestore(asset),
       });
+    if (!archived && onToggle)
+      primary.push({
+        id: "select",
+        label: t("media.card.selectItem"),
+        icon: "select",
+        surface: "context",
+        onSelect: () => onToggle(asset.id),
+      });
     const groups: StudioActionGroup[] = [{ actions: primary }];
     if (!archived && onArchive)
       groups.push({

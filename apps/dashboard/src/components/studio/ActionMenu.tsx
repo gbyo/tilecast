@@ -62,17 +62,23 @@ export function actionsForSurface(
   groups: StudioActionGroup[],
   surface: MenuSurface,
 ): StudioActionGroup[] {
-  const applies = (entry: StudioMenuEntry) =>
+  const applies = (entry: StudioMenuEntry): boolean =>
     (!entry.surface || entry.surface === surface) &&
     (surface !== "context" || !entry.disabled);
   return groups
-    .map(({ actions }) => ({
-      actions: actions.filter(applies).flatMap((entry) => {
-        if (!("items" in entry)) return [entry];
-        const items = entry.items.filter(applies);
-        return items.length ? [{ ...entry, items }] : [];
-      }),
-    }))
+    .map(({ actions }) => {
+      const visible: StudioMenuEntry[] = [];
+      for (const entry of actions) {
+        if (!applies(entry)) continue;
+        if ("items" in entry) {
+          const items = entry.items.filter(applies);
+          if (items.length > 0) visible.push({ ...entry, items });
+        } else {
+          visible.push(entry);
+        }
+      }
+      return { actions: visible };
+    })
     .filter(({ actions }) => actions.length > 0);
 }
 

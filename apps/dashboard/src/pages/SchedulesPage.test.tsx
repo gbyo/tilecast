@@ -689,7 +689,7 @@ describe("Schedules library", () => {
         within(menu)
           .getAllByRole("menuitem")
           .map((item) => item.textContent),
-      ).toEqual(["Edit schedule", "Delete schedule"]);
+      ).toEqual(["Edit schedule", "Disable schedule", "Delete schedule"]);
     });
 
     it("opens the editor from Edit", async () => {

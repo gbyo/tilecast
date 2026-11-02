@@ -139,7 +139,6 @@ import {
   AlignHorizontalDistributeCenter,
   AlignStartHorizontal,
   AlignStartVertical,
-  AlignVerticalDistributeCenter,
   AppWindow,
   Blocks,
   ChevronDown,
