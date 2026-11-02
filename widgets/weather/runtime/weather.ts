@@ -105,10 +105,7 @@ export function parseWeatherConfig(
     raw["showForecastCondition"],
     false,
   );
-  const showForecastHighLow = optionalBoolean(
-    raw["showForecastHighLow"],
-    true,
-  );
+  const showForecastHighLow = optionalBoolean(raw["showForecastHighLow"], true);
   const showHumidity = optionalBoolean(raw["showHumidity"], true);
   const showWind = optionalBoolean(raw["showWind"], true);
   const showPrecipitation = optionalBoolean(raw["showPrecipitation"], true);
@@ -565,11 +562,7 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
           {
             key: "precipitation",
             value: this.config.showPrecipitation
-              ? withUnit(
-                  data.current,
-                  "precipitation",
-                  "precipitationUnit",
-                )
+              ? withUnit(data.current, "precipitation", "precipitationUnit")
               : "",
           },
         ].filter((detail) => detail.value !== "")
@@ -638,13 +631,15 @@ export class TilecastWeatherWidget extends TilecastWidgetElement<
                   ${
                     this.config.showForecastDay
                       ? html`<div class="day-name">
-                          ${Number.isNaN(dayMs)
-                            ? ""
-                            : formatDate(dayMs, {
-                                locale,
-                                timeZone,
-                                style: "weekday",
-                              })}
+                          ${
+                            Number.isNaN(dayMs)
+                              ? ""
+                              : formatDate(dayMs, {
+                                  locale,
+                                  timeZone,
+                                  style: "weekday",
+                                })
+                          }
                         </div>`
                       : nothing
                   }
