@@ -48,6 +48,8 @@ export const incidentTypeOptions = [
   "storage",
   "safe_mode",
   "update",
+  "data_source",
+  "content",
 ];
 /**
  * Which timestamp a date range filters on. An incident opened last week and
