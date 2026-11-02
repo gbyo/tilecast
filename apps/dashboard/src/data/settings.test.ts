@@ -6,7 +6,7 @@ import { accountKeys, accountQueries } from "./account";
 import { settingsKeys, settingsQueries } from "./settings";
 
 const server = setupServer();
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
