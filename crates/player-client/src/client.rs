@@ -230,7 +230,13 @@ impl ServerClient {
         if identity.installation_id != expected {
             return Err(ServerError::IdentityMismatch { expected, actual: identity.installation_id });
         }
-        Ok(AuthenticatedServer { client: self.clone(), credential, installation_id: expected, identity })
+        Ok(AuthenticatedServer {
+            client: self.clone(),
+            credential,
+            installation_id: expected,
+            identity,
+            gate: Arc::new(IdentityGate::new(IDENTITY_FRESHNESS)),
+        })
     }
 }
 
@@ -293,6 +299,45 @@ pub struct AuthenticatedServer {
     credential: DeviceCredential,
     installation_id: InstallationId,
     identity: ServerIdentity,
+    /// Shared by every clone: all consumers of one verified server see the
+    /// same identity checks.
+    gate: Arc<IdentityGate>,
+}
+
+/// How long one successful identity check authorizes credentialed requests.
+/// Requests inside a burst share a check; a request after a quiet interval,
+/// such as the seven-second command poll, makes its own.
+pub const IDENTITY_FRESHNESS: Duration = Duration::from_secs(5);
+
+/// Tracks when the installation behind the address last proved its identity.
+/// The server at an address can change after [`ServerClient::verify_installation`]
+/// returned (a reset database, a replaced host, a reused address), so the
+/// proof is time-bounded and dropped by any sign of trouble.
+#[derive(Debug)]
+struct IdentityGate {
+    freshness: Duration,
+    verified_at: std::sync::Mutex<Option<Instant>>,
+    /// Serializes identity reads so concurrent requests share one check.
+    checking: tokio::sync::Mutex<()>,
+}
+
+impl IdentityGate {
+    fn new(freshness: Duration) -> Self {
+        Self {
+            freshness,
+            verified_at: std::sync::Mutex::new(Some(Instant::now())),
+            checking: tokio::sync::Mutex::new(()),
+        }
+    }
+
+    fn is_fresh(&self) -> bool {
+        let verified = self.verified_at.lock().unwrap_or_else(|error| error.into_inner());
+        verified.is_some_and(|at| at.elapsed() < self.freshness)
+    }
+
+    fn set(&self, at: Option<Instant>) {
+        *self.verified_at.lock().unwrap_or_else(|error| error.into_inner()) = at;
+    }
 }
 
 impl std::fmt::Debug for AuthenticatedServer {
@@ -442,6 +487,7 @@ impl AuthenticatedServer {
         request
             .headers_mut()
             .insert("authorization", self.credential.authorization_header().parse().map_err(|_| ServerError::Decode)?);
+        self.confirm_identity(false).await?;
         let tls = Connector::Rustls(Arc::new(tls_config(&self.client.tls_roots)?));
         let config = WebSocketConfig::default().max_message_size(Some(64 * 1024)).max_frame_size(Some(64 * 1024));
         let (stream, _) = tokio::time::timeout(
@@ -450,12 +496,71 @@ impl AuthenticatedServer {
         )
         .await
         .map_err(|_| ServerError::Network)?
-        .map_err(|_| ServerError::Network)?;
+        .map_err(|_| {
+            self.gate.set(None);
+            ServerError::Network
+        })?;
         let mut socket = PlayerSocket { stream, last_activity: Instant::now() };
         socket
             .send_json(serde_json::json!({"type": "player.hello", "protocolVersion": 1, "playerVersion": version}))
             .await?;
         Ok(socket)
+    }
+
+    /// Replaces the identity freshness window for this server and its clones
+    /// made afterwards. A zero window checks identity before every request.
+    #[must_use]
+    pub fn with_identity_freshness(mut self, freshness: Duration) -> Self {
+        self.gate = Arc::new(IdentityGate::new(freshness));
+        self
+    }
+
+    /// Reads the public identity and compares it with the bound installation,
+    /// unless a check inside the freshness window already did. Sends no
+    /// credential. A failed read is an error too: the credential then stays
+    /// unsent, which the failed request would have meant anyway.
+    async fn confirm_identity(&self, force: bool) -> Result<(), ServerError> {
+        if !force && self.gate.is_fresh() {
+            return Ok(());
+        }
+        let _checking = self.gate.checking.lock().await;
+        if !force && self.gate.is_fresh() {
+            return Ok(());
+        }
+        self.gate.set(None);
+        let identity = self.client.identity().await?;
+        if identity.installation_id != self.installation_id {
+            tracing::error!(component = "server", event = "identity_changed_in_session");
+            return Err(ServerError::IdentityMismatch {
+                expected: self.installation_id,
+                actual: identity.installation_id,
+            });
+        }
+        self.gate.set(Some(Instant::now()));
+        Ok(())
+    }
+
+    /// The only place a credentialed HTTP request leaves this client.
+    ///
+    /// Identity is confirmed before the credential is attached to a
+    /// connection. A transport failure drops the proof, so the next request
+    /// reads identity again. A 401 or 403 is confirmed against a fresh
+    /// identity read before the caller sees it: a different installation that
+    /// took over the address would answer `device_credential_invalid`, and the
+    /// caller must not delete the credential because of another server's answer.
+    async fn send(&self, request: reqwest::RequestBuilder) -> Result<reqwest::Response, ServerError> {
+        self.confirm_identity(false).await?;
+        let response = match request.send().await {
+            Ok(response) => response,
+            Err(_) => {
+                self.gate.set(None);
+                return Err(ServerError::Network);
+            }
+        };
+        if matches!(response.status(), reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN) {
+            self.confirm_identity(true).await?;
+        }
+        Ok(response)
     }
 
     fn raw_request(&self, method: reqwest::Method, path: &str) -> reqwest::RequestBuilder {
@@ -474,12 +579,8 @@ impl AuthenticatedServer {
     /// bounds and then ignored: the retired Noise Meter history is gone, so
     /// there is nothing to acknowledge.
     pub async fn player_heartbeat(&self, heartbeat: &serde_json::Value) -> Result<(), ServerError> {
-        let response = self
-            .request(reqwest::Method::POST, "/api/v1/player/heartbeat")
-            .json(heartbeat)
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+        let response =
+            self.send(self.request(reqwest::Method::POST, "/api/v1/player/heartbeat").json(heartbeat)).await?;
         let _data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
         Ok(())
     }
@@ -489,11 +590,8 @@ impl AuthenticatedServer {
     /// player UI is dead; a rejection means the credential must go.
     pub async fn player_liveness(&self) -> Result<(), ServerError> {
         let response = self
-            .request(reqwest::Method::POST, "/api/v1/player/liveness")
-            .json(&serde_json::json!({}))
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+            .send(self.request(reqwest::Method::POST, "/api/v1/player/liveness").json(&serde_json::json!({})))
+            .await?;
         let _data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
         Ok(())
     }
@@ -504,11 +602,7 @@ impl AuthenticatedServer {
     pub async fn presentation_network_provisioning(
         &self,
     ) -> Result<crate::player_api::NetworkProvisioning, ServerError> {
-        let response = self
-            .request(reqwest::Method::GET, "/api/v1/player/presentation-network")
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+        let response = self.send(self.request(reqwest::Method::GET, "/api/v1/player/presentation-network")).await?;
         let data: serde_json::Value = decode(response, crate::player_api::MAX_PROVISIONING_BYTES).await?;
         crate::player_api::network_provisioning(&data).ok_or(ServerError::Decode)
     }
@@ -523,7 +617,7 @@ impl AuthenticatedServer {
             let header = reqwest::header::HeaderValue::from_str(etag).map_err(|_| ServerError::Decode)?;
             request = request.header(reqwest::header::IF_NONE_MATCH, header);
         }
-        let response = request.send().await.map_err(|_| ServerError::Network)?;
+        let response = self.send(request).await?;
         if response.status() == reqwest::StatusCode::NOT_MODIFIED {
             return Ok(ManifestFetch::NotModified);
         }
@@ -556,7 +650,7 @@ impl AuthenticatedServer {
             let header = reqwest::header::HeaderValue::from_str(etag).map_err(|_| ServerError::Decode)?;
             request = request.header(reqwest::header::IF_NONE_MATCH, header);
         }
-        let response = request.send().await.map_err(|_| ServerError::Network)?;
+        let response = self.send(request).await?;
         if response.status() == reqwest::StatusCode::NOT_MODIFIED {
             return Ok(crate::player_api::ConfigFetch::NotModified);
         }
@@ -580,11 +674,7 @@ impl AuthenticatedServer {
     /// Pending commands (`GET /player/commands`). Each item is validated on
     /// its own: a malformed item is returned as rejected, never as runnable.
     pub async fn player_commands(&self) -> Result<crate::player_api::CommandBatch, ServerError> {
-        let response = self
-            .request(reqwest::Method::GET, "/api/v1/player/commands")
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+        let response = self.send(self.request(reqwest::Method::GET, "/api/v1/player/commands")).await?;
         let data: serde_json::Value = decode(response, MAX_COMMANDS_BYTES).await?;
         crate::player_api::parse_command_batch(&data).ok_or(ServerError::Decode)
     }
@@ -595,7 +685,7 @@ impl AuthenticatedServer {
         command_id: uuid::Uuid,
     ) -> Result<crate::player_api::AcknowledgeOutcome, ServerError> {
         let path = format!("/api/v1/player/commands/{command_id}/acknowledge");
-        let response = self.request(reqwest::Method::POST, &path).send().await.map_err(|_| ServerError::Network)?;
+        let response = self.send(self.request(reqwest::Method::POST, &path)).await?;
         if response.status() == reqwest::StatusCode::CONFLICT {
             let _ = error_from(response).await;
             return Ok(crate::player_api::AcknowledgeOutcome::NotActionable);
@@ -615,8 +705,7 @@ impl AuthenticatedServer {
     ) -> Result<crate::player_api::ReportOutcome, ServerError> {
         let path = format!("/api/v1/player/commands/{command_id}/result");
         let body = serde_json::json!({ "success": success, "code": code, "message": message });
-        let response =
-            self.request(reqwest::Method::POST, &path).json(&body).send().await.map_err(|_| ServerError::Network)?;
+        let response = self.send(self.request(reqwest::Method::POST, &path).json(&body)).await?;
         match response.status() {
             reqwest::StatusCode::CONFLICT
             | reqwest::StatusCode::UNPROCESSABLE_ENTITY
@@ -638,7 +727,7 @@ impl AuthenticatedServer {
         release: uuid::Uuid,
     ) -> Result<crate::updates::UpdateMetadata, ServerError> {
         let path = format!("/api/v1/player/updates/{release}");
-        let response = self.request(reqwest::Method::GET, &path).send().await.map_err(|_| ServerError::Network)?;
+        let response = self.send(self.request(reqwest::Method::GET, &path)).await?;
         let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
         crate::updates::update_metadata(&data).ok_or(ServerError::Decode)
     }
@@ -650,12 +739,7 @@ impl AuthenticatedServer {
         report: &crate::updates::UpdateReport,
     ) -> Result<crate::updates::UpdateReportOutcome, ServerError> {
         let path = format!("/api/v1/player/update-deployments/{deployment}/status");
-        let response = self
-            .request(reqwest::Method::POST, &path)
-            .json(&report.body())
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+        let response = self.send(self.request(reqwest::Method::POST, &path).json(&report.body())).await?;
         if response.status() == reqwest::StatusCode::CONFLICT {
             let _ = error_from(response).await;
             return Ok(crate::updates::UpdateReportOutcome::Closed);
@@ -676,12 +760,12 @@ impl AuthenticatedServer {
         }
         let body = format!("{{\"events\":[{}]}}", events.join(","));
         let response = self
-            .request(reqwest::Method::POST, "/api/v1/player/activity-events")
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .body(body)
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+            .send(
+                self.request(reqwest::Method::POST, "/api/v1/player/activity-events")
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .body(body),
+            )
+            .await?;
         let status = response.status();
         if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY || status == reqwest::StatusCode::BAD_REQUEST {
             return Ok(crate::player_api::activity_refusal(&error_from(response).await));
@@ -693,12 +777,12 @@ impl AuthenticatedServer {
     /// `POST /player/telemetry` with one serialized sample.
     pub async fn post_telemetry(&self, sample: &str) -> Result<crate::player_api::TelemetryOutcome, ServerError> {
         let response = self
-            .request(reqwest::Method::POST, "/api/v1/player/telemetry")
-            .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .body(sample.to_owned())
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+            .send(
+                self.request(reqwest::Method::POST, "/api/v1/player/telemetry")
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .body(sample.to_owned()),
+            )
+            .await?;
         let status = response.status();
         if status == reqwest::StatusCode::UNPROCESSABLE_ENTITY || status == reqwest::StatusCode::BAD_REQUEST {
             let _ = error_from(response).await;
@@ -724,18 +808,14 @@ impl AuthenticatedServer {
         } else {
             "/api/v1/player/live-stream-session"
         };
-        let response = self.request(reqwest::Method::GET, path).send().await.map_err(|_| ServerError::Network)?;
+        let response = self.send(self.request(reqwest::Method::GET, path)).await?;
         let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
         Ok(crate::live_stream::live_stream_session(&data))
     }
 
     /// `GET /player/preview-session`: whether Studio holds a preview lease.
     pub async fn preview_session(&self) -> Result<crate::player_api::PreviewSession, ServerError> {
-        let response = self
-            .request(reqwest::Method::GET, "/api/v1/player/preview-session")
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+        let response = self.send(self.request(reqwest::Method::GET, "/api/v1/player/preview-session")).await?;
         let data: serde_json::Value = decode(response, MAX_SMALL_JSON_BYTES).await?;
         Ok(crate::player_api::preview_session(&data))
     }
@@ -745,13 +825,11 @@ impl AuthenticatedServer {
     pub async fn post_preview(&self, upload: &crate::player_api::PreviewUpload<'_>) -> Result<(), ServerError> {
         let boundary = format!("tilecast-{}", uuid::Uuid::new_v4().simple());
         let body = crate::player_api::preview_form(&boundary, upload).ok_or(ServerError::Decode)?;
-        let response = self
+        let request = self
             .request(reqwest::Method::POST, "/api/v1/player/preview")
             .header(reqwest::header::CONTENT_TYPE, format!("multipart/form-data; boundary={boundary}"))
-            .body(body)
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)?;
+            .body(body);
+        let response = self.send(request).await?;
         if response.status().is_success() {
             return Ok(());
         }
@@ -772,7 +850,7 @@ impl AuthenticatedServer {
                 request = request.header(reqwest::header::IF_RANGE, validator);
             }
         }
-        request.send().await.map_err(|_| ServerError::Network)
+        self.send(request).await
     }
 
     /// Fetches exactly `bytes=offset..=end` of an authenticated download,
@@ -786,12 +864,12 @@ impl AuthenticatedServer {
         end: u64,
         validator: &str,
     ) -> Result<reqwest::Response, ServerError> {
-        self.raw_request(reqwest::Method::GET, path.as_str())
-            .header(reqwest::header::RANGE, format!("bytes={offset}-{end}"))
-            .header(reqwest::header::IF_RANGE, validator)
-            .send()
-            .await
-            .map_err(|_| ServerError::Network)
+        self.send(
+            self.raw_request(reqwest::Method::GET, path.as_str())
+                .header(reqwest::header::RANGE, format!("bytes={offset}-{end}"))
+                .header(reqwest::header::IF_RANGE, validator),
+        )
+        .await
     }
 }
 
