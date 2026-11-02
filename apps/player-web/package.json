@@ -26,7 +26,7 @@
     "@tilecast/api-schema": "*",
     "@types/node": "^26.6.3",
     "fake-indexeddb": "^6.2.4",
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "typescript": "~6.0.3",
     "vite": "^8.3.2",
     "vitest": "^5.0.2"
