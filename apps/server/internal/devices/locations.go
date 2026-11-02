@@ -135,7 +135,18 @@ func (s *Service) UpdateLocation(ctx context.Context, id, userID uuid.UUID, inpu
 	if err != nil {
 		return Location{}, err
 	}
-	result, err := s.db.Exec(ctx, `UPDATE locations SET name=$2,address_line_1=$3,address_line_2=$4,city=$5,state=$6,postal_code=$7,country=$8,latitude=$9,longitude=$10,updated_at=now() WHERE id=$1`,
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return Location{}, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	var previousName string
+	if err := tx.QueryRow(ctx, `SELECT name FROM locations WHERE id=$1 FOR UPDATE`, id).Scan(&previousName); errors.Is(err, pgx.ErrNoRows) {
+		return Location{}, ErrNotFound
+	} else if err != nil {
+		return Location{}, fmt.Errorf("read location: %w", err)
+	}
+	_, err = tx.Exec(ctx, `UPDATE locations SET name=$2,address_line_1=$3,address_line_2=$4,city=$5,state=$6,postal_code=$7,country=$8,latitude=$9,longitude=$10,updated_at=now() WHERE id=$1`,
 		id, input.Name, input.AddressLine1, input.AddressLine2, input.City, input.State, input.PostalCode, input.Country, input.Latitude, input.Longitude)
 	if err != nil {
 		var postgresError *pgconn.PgError
@@ -144,8 +155,36 @@ func (s *Service) UpdateLocation(ctx context.Context, id, userID uuid.UUID, inpu
 		}
 		return Location{}, fmt.Errorf("update location: %w", err)
 	}
-	if result.RowsAffected() != 1 {
-		return Location{}, ErrNotFound
+	// Player configuration carries the location name, so a rename needs a
+	// newer configuration revision on every screen at this location.
+	type revision struct {
+		screen uuid.UUID
+		value  int64
+	}
+	var revisions []revision
+	if previousName != input.Name {
+		rows, err := tx.Query(ctx, `UPDATE screen_config_state SET config_revision=config_revision+1,changed_at=now(),change_reason='location.renamed' WHERE screen_id IN (SELECT id FROM screens WHERE location_id=$1 AND archived_at IS NULL) RETURNING screen_id,config_revision`, id)
+		if err != nil {
+			return Location{}, fmt.Errorf("advance location screen configuration: %w", err)
+		}
+		for rows.Next() {
+			var r revision
+			if err := rows.Scan(&r.screen, &r.value); err != nil {
+				rows.Close()
+				return Location{}, err
+			}
+			revisions = append(revisions, r)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return Location{}, err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Location{}, err
+	}
+	for _, r := range revisions {
+		s.ConfigChanged(r.screen, r.value)
 	}
 	_, _ = s.db.Exec(ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id) VALUES($1,$2,'location.updated','location',$3)`, uuid.New(), userID, id.String())
 	return s.GetLocation(ctx, id)
