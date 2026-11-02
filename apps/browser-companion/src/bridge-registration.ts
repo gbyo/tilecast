@@ -38,13 +38,15 @@ export async function syncBridgeRegistration(
   origins: readonly string[],
 ): Promise<void> {
   const registration = bridgeRegistration(origins);
-  if (registration === null) {
-    await scripting.unregisterContentScripts({ ids: [BRIDGE_SCRIPT_ID] });
-    return;
-  }
   const existing = await scripting.getRegisteredContentScripts({
     ids: [BRIDGE_SCRIPT_ID],
   });
+  if (registration === null) {
+    if (existing.length > 0) {
+      await scripting.unregisterContentScripts({ ids: [BRIDGE_SCRIPT_ID] });
+    }
+    return;
+  }
   if (existing.length > 0) {
     await scripting.updateContentScripts([registration]);
   } else {
