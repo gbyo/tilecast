@@ -233,6 +233,9 @@ class PlayerCoreHostTest {
         )
         assertTrue(status.cachedFallbackAvailable)
         assertEquals("2026-10-05T01:00:00Z", status.nextTransitionAt)
+        val revoked = CoreHostStatus.parse("""{"ok":true,"bridge":3,"paired":false,"serverUrl":null,"retainedServerUrl":"https://signs.example"}""")
+        assertEquals(null, revoked.serverUrl)
+        assertEquals("https://signs.example", revoked.retainedServerUrl)
     }
 
     @Test fun resetPairingClearsProjectedState() = runTest {

@@ -128,8 +128,8 @@ toolchain flags first.
 Core owns pairing, configuration, manifest preparation, the server link,
 presence, commands, activity, renderer recovery, and capture policy.
 Kotlin owns server discovery, manual address entry, window, kiosk, and
-power effects, renderer hosting, frame capture, commissioning, and
-self-update installation. `PlayerViewModel` projects Core state onto the
+power effects, renderer hosting, frame capture, readiness reporting,
+and self-update installation. `PlayerViewModel` projects Core state onto the
 setup and status screens. It makes no content decisions.
 
 The cutover deleted the legacy Kotlin brains: the player state machine,
@@ -149,10 +149,10 @@ paired playback. A native status surface covers the view until the
 runtime owns the screen. [Renderer ownership](#renderer-ownership-and-the-core-handshake)
 defines when that is. Idle, disabled, unavailable, safe-mode, and off-hours
 states render inside the runtime page. Capture refuses admin, maintenance,
-commissioning, update, and pairing screens with a named reason. Each
+update, and pairing screens with a named reason. Each
 capture request carries its own byte budget. The background worker proves
-liveness through Core. A revoked credential drops at once, so the next
-launch re-pairs against the retained server URL.
+liveness through Core. A revoked credential drops at once. The Player then
+requests a new pairing code from the retained server URL.
 
 ## Renderer ownership and the Core handshake
 
@@ -169,7 +169,7 @@ Player Core (Rust, process-level host)
     -> image, video, Layout, Widget, and website surfaces
 
 Compose (MainActivity)
-    -> setup, pairing, maintenance, commissioning, update, recovery,
+    -> setup, pairing, maintenance, update, recovery,
        and the status surface over the WebView
 ```
 
@@ -461,11 +461,84 @@ To inspect the artwork under circle, squircle, and rounded-square masks, run
 `LauncherBrandingContractTest` fails if the manifest stops using the adaptive
 `@mipmap/ic_launcher` icon or if a required resource is missing.
 
-## Commissioning and unattended-recovery checks
+## Setup flow
 
-Pairing a fresh installation enters the required commissioning wizard before playback. Emulator tests can exercise PIN storage, permission-state verification, unattended self-update policy selection, boot receiver registration, immersive/keep-awake reporting, cached-manifest checks, recovery escalation, and safe mode. They cannot prove firmware foreground-launch behavior, physical-TV wake/standby, or whether a vendor installer honors Android's unattended-update request.
+Setup is unattended. `PlayerViewModel` drives it, and `mapPlayerState`
+projects it onto `PlayerState`. Setup does these steps:
 
-Do not bypass commissioning in debug builds. For repeat testing, use **Run setup again** from the local maintenance menu. `BOOT_COMPLETED` and `LOCKED_BOOT_COMPLETED` recovery state is stored in device-protected preferences. Watchdog crash history is stored independently of the activity so process recreation does not reset escalation.
+1. Setup starts when the Player has no stored credential. Core may already
+   show a pairing code. Setup then does nothing.
+2. If Core reports `retainedServerUrl`, setup uses that server. Core
+   reports it only after the server rejected the credential.
+3. Otherwise, setup browses `_tilecast._tcp` for 5 seconds. If exactly one
+   server answers, setup uses that server. If two or more answer, the
+   screen lists them. If none answers, setup searches again after
+   10 seconds.
+4. Setup reads the public identity of the server without a credential. It
+   checks the product, the API version, and that pairing is enabled.
+5. Setup asks Core for a pairing code. The pairing screen shows the code,
+   the QR code, the server, and an HTTP warning for a local HTTP address.
+   No separate confirmation screen is shown.
+6. After approval, Core enrolls and playback starts. No local step follows.
+
+A failure from a typed address stays on the address screen with a message.
+Any other failure retries with `ReconnectBackoff`. The error screen shows
+the countdown. The identity-mismatch screen is the only screen that waits
+for a person. It needs an explicit reset.
+
+Manual entry calls `ServerUrlPolicy.withDefaultScheme` before
+`ServerUrlPolicy.normalize`. A bare private-network or `.local` address gets
+`http://`. Any other bare address gets `https://`. An address with a scheme
+is not changed, so HTTPS is never downgraded. The shared fixture in
+`packages/player-contracts` still defines `normalize`.
+
+### Remote control rules
+
+- Each screen requests initial focus on its primary control with
+  `rememberInitialFocus`. The pairing screen requests no focus, so a stray
+  OK press does not discard the code.
+- Text input uses `TvTextField`. Up and Down leave the field, OK opens the
+  on-screen keyboard, and the keyboard action key submits. A plain
+  `OutlinedTextField` keeps D-pad focus on a TV, and a remote cannot reach
+  the next control.
+- Every setup screen uses `SetupScaffold`. It shows the setup step, and
+  a footer with the Player version, the device model, and the display
+  IPv4 address.
+- Native icons come from Lucide, the icon set that Studio uses, through
+  `com.composables:icons-lucide-android`. Add an icon to `TvIcons`. An
+  icon never replaces the text of a status.
+- `MainActivity.dispatchKeyEvent` watches the maintenance sequence (Back,
+  Back, Up, Down, OK) before any view gets the key. The playback WebView
+  consumes D-pad and Back keys, so `onKeyDown` cannot see the sequence.
+
+### Readiness reporting
+
+`CommissioningController` reports readiness facts and blocks nothing. The
+heartbeat sends `commissioningState` `complete` after the first enrollment
+of the screen, `commissioningStep` `automatic`, and a `selfTestResult` that
+the current facts give. Accessibility Control and the install permission
+are optional. The maintenance menu opens their Android settings. See
+[Reliability and power](reliability-and-power.md#unattended-setup-and-readiness).
+
+### Emulator verification
+
+Use a Google TV or Android TV system image. The emulator reaches the host
+at `10.0.2.2`. Multicast does not cross the emulator network, so enter
+`10.0.2.2:<port>` on the address screen. Verify these items with remote
+keys only (`adb shell input keyevent`):
+
+- first launch, manual address entry, pairing, approval, and playback
+- a restart that returns to playback without setup
+- a server restart that reconnects
+- a revocation that shows a new code without input, and re-approval
+- a server with a different installation ID at the same address, which
+  shows the identity-mismatch screen and does not show a code
+
+Emulator tests cannot prove firmware foreground launch after boot,
+physical-TV wake and standby, or vendor installer behavior.
+`BOOT_COMPLETED` and `LOCKED_BOOT_COMPLETED` recovery state is stored in
+device-protected preferences. Watchdog crash history is stored separately
+from the activity, so process recreation does not reset escalation.
 
 ```sh
 cd apps/player-android

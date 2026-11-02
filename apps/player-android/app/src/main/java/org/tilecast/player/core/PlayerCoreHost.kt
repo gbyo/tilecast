@@ -87,6 +87,8 @@ data class CoreHostStatus(
     val lastServerContactAt: String? = null,
     val renderer: CoreRendererStatus? = null,
     val serverUrl: String? = null,
+    /** The server that revoked this Player's credential, for a new pairing code. */
+    val retainedServerUrl: String? = null,
     val installationId: String? = null,
     val organizationName: String? = null,
     val screenId: String? = null,
@@ -115,6 +117,7 @@ data class CoreHostStatus(
                     linkActual = root.stringOrNull("linkActual"),
                     lastServerContactAt = root.stringOrNull("lastServerContactAt"),
                     serverUrl = root.stringOrNull("serverUrl"),
+                    retainedServerUrl = root.stringOrNull("retainedServerUrl"),
                     installationId = root.stringOrNull("installationId"),
                     organizationName = root.stringOrNull("organizationName"),
                     screenId = root.stringOrNull("screenId"),

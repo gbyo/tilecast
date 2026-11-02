@@ -509,7 +509,9 @@ Server reconciliation, manifests, offline activation, commands, and recovery;
 see [Android development](android-development.md) for the completed cutover.
 Kotlin supplies private stores and device facts and keeps the credential
 in the Keystore. A pairing reset clears the session and preserves an enrolled
-credential; Core reserves credential removal for revocation.
+credential; Core reserves credential removal for revocation. A session that
+Core begins by itself, for a rejected binding or a renewal retry, is polled at
+once, the same as a session that the host requests.
 
 Independent Players share fixtures at the rule's natural
 owner. `packages/player-contracts` contains only ownerless cross-player fixtures.

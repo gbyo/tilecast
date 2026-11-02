@@ -109,6 +109,9 @@ dependencies {
     implementation("org.rustls:rustls-platform-verifier")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("com.google.zxing:core:3.5.4")
+    // Lucide, the icon set Studio uses, as Android vector drawables
+    // (lucide_ic_*). Release resource shrinking keeps only the icons in use.
+    implementation("com.composables:icons-lucide-android:2.2.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
