@@ -487,6 +487,9 @@ func TestPlayerCommandStudioScope(t *testing.T) {
 	if _, err := f.pool.Exec(ctx, `INSERT INTO users(id,name,username,password_hash,role,active) VALUES($1,'Scoped Admin','service-scoped-admin','unused','administrator',TRUE)`, adminID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := f.pool.Exec(ctx, `INSERT INTO user_screen_access(user_id,mode) VALUES($1,'restricted')`, adminID); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := f.pool.Exec(ctx, `INSERT INTO user_screen_scopes(user_id,scope_type,scope_id) VALUES($1,'location',$2)`, adminID, locationID); err != nil {
 		t.Fatal(err)
 	}

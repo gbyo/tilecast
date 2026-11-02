@@ -5,11 +5,17 @@ Tilecast decides what an account may do with three separate things:
 - A **capability** names one kind of work, for example `media.upload`.
 - A **role** is a named set of capabilities. Each account has one role.
 - A **scope** narrows where an account may use its capabilities. Tilecast has
-  two scopes: [screen scopes](screen-scopes.md) and content access (this
+  two scopes: [screen access](screen-scopes.md) and content access (this
   document).
 
 A role says what an account may do. A scope says where. An action succeeds
 only when the role grants the capability and the scope covers the resource.
+
+The Server makes the screen decision in one place,
+`apps/server/internal/authz`. Each decision takes the actor, the capability,
+and the object, so a caller cannot check the capability and forget the object.
+Dashboard routes, Studio package-service calls, and plugin routes use the same
+decisions.
 
 Studio shows and hides controls from the same data. The Server decides every
 request again. Hiding a control is a convenience and never a security boundary.
@@ -68,6 +74,8 @@ roles in a predictable way. No account can edit a built-in role.
 | `screen.manage`            | yes   | yes           | -      | -           | -      |
 | `screen.pair`              | yes   | yes           | -      | -           | -      |
 | `screen.assign`            | yes   | yes           | -      | -           | -      |
+| `screen.locations.manage`  | yes   | yes           | -      | -           | -      |
+| `screen.networks.manage`   | yes   | yes           | -      | -           | -      |
 | `schedule.read`            | yes   | yes           | yes    | yes         | yes    |
 | `schedule.edit`            | yes   | yes           | -      | -           | -      |
 | `activity.read`            | yes   | yes           | yes    | yes         | yes    |
@@ -90,6 +98,12 @@ Each built-in role keeps the authority it had before capabilities existed. One
 authority change is deliberate: before capabilities, the audit API returned the
 whole audit log to a Contributor, although Studio hid it. A Contributor now has
 no `activity.audit`, so the audit API refuses the request.
+
+`screen.locations.manage` and `screen.networks.manage` are organization
+structure. They need `screen.manage`, and they also need access to every
+screen when they are used. A custom role that had `screen.manage` before these
+capabilities existed does not receive them. An Owner or an account with
+`roles.manage` adds them to a custom role.
 
 Three capabilities are Owner-reserved: `system.backups`, `integrations.manage`,
 and `player.releases`. Only the built-in Owner role holds them. A custom role
@@ -128,7 +142,7 @@ An account must not give another account more authority than it holds.
 - An account may assign a role only when the role is within what the account
   may grant. The refusal code is `role_delegation`.
 - No account may change its own role (`cannot_change_own_role`), its own
-  content access, or its own screen scope (`cannot_scope_self`).
+  content access, or its own screen access (`cannot_scope_self`).
 - The last active Owner cannot be removed, deactivated, or demoted
   (`last_owner_required`).
 
@@ -193,7 +207,9 @@ includes `configured`, which is false when the account has no policy.
 ### Effective access of the signed-in account
 
 `GET /api/v1/me/access` returns the role, the effective capabilities, the
-content modes, and `writableFolderIds` for a restricted account. Studio reads
+content modes, `writableFolderIds` for a restricted account, and `screens`:
+the screen access mode and the locations and Display Groups granted
+directly. Studio reads
 it to choose navigation, controls, and upload destinations. The auth status
 (`GET /api/v1/auth/status`) also lists the effective capabilities.
 
@@ -226,14 +242,23 @@ none. The iOS app sends `folderId` in the `system/media-intake` request
 
 ## Screen access
 
-Screen scopes are unchanged. See [screen-scopes.md](screen-scopes.md). A role
-grants the screen capability. A screen scope narrows the screens.
+Each non-Owner account has an explicit screen access policy: `all`, or
+`restricted` to granted locations and Display Groups. A missing policy and a
+restricted policy without grants reach no screen. Containers such as Display
+Groups and schedules need a concrete anchor; an empty container is refused.
+See [Screen access](screen-scopes.md) for the full rules, the pairing rules,
+and the organization structure rules.
+
+`POST /api/v1/users` writes the account, its role, its content access, its
+screen access, its grants, and the audit rows in one transaction.
+`screenAccess` is optional in the request. When a client omits it, the account
+is `restricted` with no grants. Studio always sends it.
 
 ## Bearer credentials
 
 A personal access token and an OAuth grant act as the live user. The Server
-resolves the user, the role, the capabilities, and the content access on every
-request. The credential scopes `read`, `write`, and `admin` are an additional
+resolves the user, the role, the capabilities, the content access, and the
+screen access on every request. The credential scopes `read`, `write`, and `admin` are an additional
 ceiling. A credential never grants a capability the user lacks. A credential
 scope never grants more than the role.
 
@@ -247,6 +272,11 @@ custom role gets plugin pages only when its capability list includes
 
 `Principal.CanManage()` reports `plugins.manage`. Do not compare `Principal.Role`
 to a role name.
+
+A plugin route that stores screen targets calls `Host.ScreenAccess` inside its
+write transaction, for the stored target and for the new target. The decision
+needs `screen.assign` and follows the stored-target rule of
+[Screen access](screen-scopes.md).
 
 The Forms plugin keeps its own per-form grant lattice. Core capabilities decide
 whether an account reaches the Forms area. Forms then enforces its form-level
@@ -269,6 +299,11 @@ exception.
 
 ## Compatibility and migration
 
+Migration `00131_screen_access_policy.sql` creates `user_screen_access` and
+writes `all` for every account without grants and `restricted` for every
+account with grants, so an upgrade changes nobody's access. After it, a missing
+row reaches no screen. `PUT /api/v1/users/{id}/screen-scopes` requires `mode`.
+
 Migration `00129_rbac_roles_and_content_access.sql`:
 
 - creates the `roles` and `role_capabilities` tables and inserts the five
@@ -288,8 +323,8 @@ The migration `Down` section moves accounts on a custom role to Viewer.
 
 ## Known limitations
 
-- Activity reporting is not scoped by content access or screen access. See
-  [screen-scopes.md](screen-scopes.md).
+- Historical Activity reporting is not scoped by content access or screen
+  access. See [Screen access](screen-scopes.md).
 - Content access does not scope Widgets, Data Sources, playlists, or Layouts.
   It scopes the Media library. A role without the related capability has no
   access to those areas.

@@ -6,23 +6,24 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 
 	plugin "github.com/tilecast/tilecast/packages/plugin-sdk/go/plugin"
 )
 
 // PluginScreens projects live screens to the shared non-secret facts the
 // bundled Plugin Host and external Tilecast services both serve. A nil
-// user lists the whole fleet for system callers; a Studio caller passes
-// its account so scoping narrows the list exactly like the dashboard.
+// access lists the whole fleet for system callers; a Studio caller passes
+// its account's access so the list narrows exactly like the dashboard.
 // Archived screens never appear. The projection carries facts only:
 // no credentials, tokens, or network addresses.
-func (s *Service) PluginScreens(ctx context.Context, user *uuid.UUID, role string, query plugin.ScreenListQuery) (plugin.ScreenListResult, error) {
+func (s *Service) PluginScreens(ctx context.Context, access *authz.ScreenAccess, query plugin.ScreenListQuery) (plugin.ScreenListResult, error) {
 	var screens []Screen
 	var err error
-	if user == nil {
+	if access == nil {
 		screens, err = s.ListScreens(ctx)
 	} else {
-		screens, err = s.ListScreensForUser(ctx, *user, role)
+		screens, err = s.ListScreensForAccess(ctx, *access)
 	}
 	if err != nil {
 		return plugin.ScreenListResult{}, err

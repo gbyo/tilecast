@@ -40,6 +40,7 @@ function teacherAccess(writable: string[]): MyAccess {
       tagMode: "restricted",
       writableFolderIds: writable,
     },
+    screens: { mode: "restricted", locationIds: [], groupIds: [] },
   };
 }
 

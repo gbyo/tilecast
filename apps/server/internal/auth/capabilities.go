@@ -56,6 +56,11 @@ const (
 	CapScreenManage Capability = "screen.manage"
 	CapScreenPair   Capability = "screen.pair"
 	CapScreenAssign Capability = "screen.assign"
+	// Organization structure. Changing a Location or a Presentation Network
+	// definition can change what other accounts reach, so these are separate
+	// from operating screens and also need access to the whole fleet.
+	CapScreenLocationsManage Capability = "screen.locations.manage"
+	CapScreenNetworksManage  Capability = "screen.networks.manage"
 
 	CapScheduleRead Capability = "schedule.read"
 	CapScheduleEdit Capability = "schedule.edit"
@@ -172,6 +177,8 @@ var capabilityCatalog = []CapabilityDefinition{
 	capability(CapScreenManage, GroupScreens, CapScreenRead),
 	capability(CapScreenPair, GroupScreens, CapScreenRead),
 	capability(CapScreenAssign, GroupScreens, CapScreenRead),
+	capability(CapScreenLocationsManage, GroupScreens, CapScreenManage),
+	capability(CapScreenNetworksManage, GroupScreens, CapScreenManage),
 
 	capability(CapScheduleRead, GroupSchedules),
 	capability(CapScheduleEdit, GroupSchedules, CapScheduleRead),

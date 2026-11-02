@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 )
 
@@ -127,7 +128,7 @@ func TestRevokedScreenArchiveDoesNotAffectLiveConfiguration(t *testing.T) {
 	if archived[0].LocationID != nil {
 		t.Fatalf("archived screen retained location: %#v", archived[0].LocationID)
 	}
-	locations, err := service.ListLocations(ctx)
+	locations, err := service.ListLocations(ctx, authz.ScreenAccess{All: true, Configured: true})
 	if err != nil {
 		t.Fatal(err)
 	}
