@@ -2,6 +2,12 @@
 
 The bootstrap identity endpoint is public and returns only the product identifier, permanent installation ID, organization name, API version, and whether pairing is enabled. A configured player verifies the installation ID before sending any stored device credential.
 
+## Presentation capability reports
+
+A heartbeat that omits all presentation capability fields keeps the last report.
+An explicit empty schema list or capability map clears that part of the report.
+A reduced WebSocket status must not clear the stored presentation capabilities.
+
 ## Pairing
 
 1. The player reads `GET /api/v1/system/identity`.
@@ -33,7 +39,15 @@ Hardware replacement is a separate approval mode from pairing recovery. Studio c
 
 The new credential is inserted before the old credential is retired. The hardware update, history transition, old-credential revocation, and enrollment-token consumption commit together; any failure rolls back the whole replacement and leaves the old player usable. `screen_player_history` stores the installation ID, platform, version, hardware metadata, pairing time, retirement time, and reason. Credential repair continues to use the stable player installation UUID and does not create a hardware-replacement history row.
 
-Only the latest pending or approved pairing session for a player installation is actionable. Tilecast Player stores its session ID, private poll secret, visible code, expiry, and polling interval in Room, resumes that session after activity or process recreation, and clears it after enrollment or expiry. A stored device credential is attempted first and is cleared only after an authenticated endpoint confirms that it is invalid or revoked.
+Only the latest pending or approved pairing session for a player installation is actionable. Player Core stores its session ID, private poll secret, visible code, expiry, and polling interval in its private pairing file. Core resumes that session after activity or process recreation and clears it after enrollment or expiry. A stored device credential is attempted first and is cleared only after an authenticated endpoint confirms that it is invalid or revoked.
+
+### Revocation recovery
+
+After the server rejects a device credential, the binding keeps the server URL. The credential state becomes `rejected`. The Android host reports that URL as `retainedServerUrl` in its status. It never reports the credential.
+
+The Player then creates a new pairing session against the same server and shows the new code. It does not search the network again. An Owner or Administrator approves the code to restore the screen. When Core creates a session by itself, it polls that session at once, as it does after an explicit request.
+
+An explicit reset sets the credential state to `none`. The Player then searches for a server again.
 
 ## Authenticated connection
 
@@ -60,6 +74,12 @@ See [Ephemeral live streaming](live-streaming.md).
 Authenticated `player.status` messages and HTTP heartbeats share the same contact and Activity derivation path. The server records socket contact even when optional status metadata cannot be decoded or validated, while rejecting that metadata and logging only the error, screen ID, and invalid field names. A bad optional field therefore cannot leave an active Player with a stale `lastContactAt`, and it cannot silently bypass uptime measurement. Replacing a socket also uses connection-scoped cleanup, so the old socket cannot mark the replacement as disconnected.
 
 ### Heartbeat identifier contract
+
+Presentation capability fields are optional in reduced status reports.
+An omitted capability array or map keeps its previous value.
+An explicit empty array or map clears that value.
+Omitting the full presentation capability block also keeps the stored
+Runtime version and bundle limit.
 
 Every identifier field in a heartbeat (`currentItemId`, `currentAssetId`, `currentPlaylistId`, `currentScheduleId`, `currentWebsiteAssetId`, `currentWidgetId`, `activeTakeoverId`, `assignedPlaylistId`, `lastCommandId`, `currentUpdateDeploymentId`) is a UUID. A player that has no valid UUID for one of them omits the field; it must never send a synthetic renderer key such as `layout-<uuid>`, and the server never accepts a non-UUID string in a UUID field. Renderer-local keys belong in bounded string telemetry (`POST /api/v1/player/telemetry` carries `currentItemId` as free text), not in the heartbeat contract. Tilecast Player for Linux validates each identifier before assigning it, logs the omission at debug level, and translates the synthetic key of a directly assigned Layout back to that Layout's UUID.
 
@@ -156,6 +176,11 @@ Every host runs the same frame lifecycle. The manifest claim joins verified byte
 Manifest schema 20 carries executable external Plugin surfaces for Players reporting `plugin.external-runtime@1`. This capability is separate from `widget.external-runtime@2`. A Player that reports only the Widget capability receives no external Plugin entry. A capable Player receives schema 20 even when the plugin array is empty, so the first surface can use the plugin-only refresh. Each entry names its verified package, a frame claim, its surfaces, bounded state, and a deadline at most five minutes ahead. The Player fetches the frame from `GET /api/v1/player/packages/{packageId}/plugins/{pluginId}/frame`, verifies it, and serves it under a stricter response policy than a Widget frame. Plugin frame grants are independent of presentation media grants and Widget grants. A plugin-only change does not activate a presentation. See [External Player plugins](external-player-plugins.md) for the contract and the support matrix.
 
 ## Scheduled playback and offline limits
+
+Server schedule previews check every day in the next seven days for a
+weekly transition.
+Calendar arithmetic uses local noon to avoid daylight-saving gaps.
+The schedule's start and end times keep their existing daylight-saving rules.
 
 Manifest schema v2 is activated atomically only after all Download-policy content for the direct fallback and included schedules is verified. Selection uses `[start, end)` intervals. The player evaluates with one server-corrected clock shared by schedules, availability windows, takeovers, Presentation Overrides, transitions, plugins, and cached playback. The measured offset is persisted/reconstructed before cached selection after restart. Weekly schedules continue offline indefinitely while their definitions and assets remain cached. A future one-time schedule that was not received before disconnection cannot activate. Stream-policy media still requires connectivity and is not guaranteed offline.
 

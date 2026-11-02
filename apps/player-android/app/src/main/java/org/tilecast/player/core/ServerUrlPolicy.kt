@@ -21,6 +21,20 @@ object ServerUrlPolicy {
         NormalizedServerUrl("$scheme://$displayHost$port", localHttp)
     }
 
+    /**
+     * Completes an address typed with a remote. A bare private-network or
+     * `.local` host means the installer's own LAN server, so it gets HTTP;
+     * anything else is left for [normalize], which defaults to HTTPS. An
+     * address that names a scheme is returned unchanged, so this never
+     * turns HTTPS into HTTP.
+     */
+    fun withDefaultScheme(input: String): String {
+        val trimmed = input.trim()
+        if (trimmed.isEmpty() || trimmed.contains("://")) return trimmed
+        val host = runCatching { URI("http://$trimmed").host }.getOrNull()?.lowercase() ?: return trimmed
+        return if (isLocalHost(host)) "http://$trimmed" else trimmed
+    }
+
     private fun isLocalHost(host: String): Boolean {
         if (host == "localhost" || host.endsWith(".local")) return true
         val parts = host.split('.').mapNotNull { it.toIntOrNull() }

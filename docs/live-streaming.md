@@ -63,7 +63,7 @@ device credential and its already-authenticated WebSocket.
 
 Android captures only Tilecast's activity window and its visible video
 surfaces. Linux uses the same bounded framebuffer/window capture policy as live
-preview. Pairing, local administration, commissioning, maintenance, update
+preview. Pairing, local administration, maintenance, update
 approval, identify, safe mode, and other protected states do not produce live
 frames.
 

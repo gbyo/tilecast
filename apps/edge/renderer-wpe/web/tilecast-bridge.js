@@ -250,6 +250,9 @@
       // the shared timeline.
       synchronizedPlayback: true,
       setup: !!handlers.tilecastRequest,
+      // tilecastd adds `phoneSetup` to the setup presentation and accepts
+      // setup.resume_phone_setup.
+      phoneSetup: !!handlers.tilecastRequest,
       // tilecastd browses Avahi; an empty list is a valid answer.
       discovery: !!handlers.tilecastRequest,
       // Verified sandbox frames arrive over the daemon's tcwidget scheme
@@ -410,6 +413,12 @@
             }),
             () => ({ ok: false, error: "tilecastd is not reachable." }),
           );
+      },
+      resumePhoneSetup() {
+        if (!handlers.tilecastRequest) return;
+        handlers.tilecastRequest
+          .postMessage({ type: "setup.resume_phone_setup" })
+          .catch(() => {});
       },
     }),
     discovery: Object.freeze({

@@ -264,7 +264,7 @@ pub fn status_surface(context: &DaemonContext, bound: bool) -> PresentationDocum
             "This screen's local state could not be opened. Run tilecastctl status on the device.",
             Some(reason),
         )),
-        StateMode::Normal(_) if !bound => PresentationDocument::Setup {},
+        StateMode::Normal(_) if !bound => PresentationDocument::Setup { phone_setup: None },
         StateMode::Normal(_) => PresentationDocument::Idle(surface("Tilecast", "No content assigned.", None)),
     }
 }
@@ -411,11 +411,16 @@ impl Daemon {
         let core = network_db.as_ref().map(|db| {
             player_core::PlayerCore::new(player_core::Dependencies { state: db.clone(), clock: clock.clone() })
         });
+        let setup_relay = crate::pairing::setup_relay(&config.pairing);
         let pairing_coordinator = core.as_ref().map(|core| {
-            core.pairing(
+            let coordinator = core.pairing(
                 Arc::new(edge_server::FileCredentialStore::new(paths.identity_dir())),
                 Arc::new(edge_server::FilePairingStore::new(paths.identity_dir())),
-            )
+            );
+            match setup_relay.clone() {
+                Some(relay) => coordinator.with_phone_setup(relay),
+                None => coordinator,
+            }
         });
         let server_relationship = core.as_ref().map(|core| {
             core.server_relationship(Arc::new(edge_server::FileCredentialStore::new(paths.identity_dir())))

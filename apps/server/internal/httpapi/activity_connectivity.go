@@ -95,9 +95,16 @@ func (s *server) recordHeartbeatActivity(r *http.Request, screenID uuid.UUID, sn
 	// request's transition a second time.
 	after, _ := readHeartbeatActivityStateTx(ctx, tx, screenID)
 
-	if snapshot.previousHeartbeat == nil {
-		var openUpInterval bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screen_state_intervals WHERE screen_id=$1 AND ended_at IS NULL AND state IN('online','healthy'))`, screenID).Scan(&openUpInterval); err == nil && !openUpInterval {
+	// Another transport can record contact before either request derives its
+	// activity. A non-nil heartbeat alone does not prove the first connection
+	// event was recorded. Inspect the timeline under the same screen lock.
+	var hasTimeline, openUpInterval bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screen_state_intervals WHERE screen_id=$1),EXISTS(SELECT 1 FROM screen_state_intervals WHERE screen_id=$1 AND ended_at IS NULL AND state IN('online','healthy'))`, screenID).Scan(&hasTimeline, &openUpInterval); err != nil {
+		s.logger.Error("activity timeline read failed", "screen_id", screenID, "error", err)
+		return
+	}
+	if snapshot.previousHeartbeat == nil || !hasTimeline {
+		if !openUpInterval {
 			s.recordServerTransition(r, tx, screenID, playerActivityEventInput{
 				ID: uuid.New(), EventType: "player.connected", Category: "connectivity", Severity: "info",
 				OccurredAt: now, PlayerTimezone: "UTC", Result: "success", Priority: 8,

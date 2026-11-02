@@ -246,8 +246,9 @@ on_script_request (WebKitUserContentManager *manager, JSCValue *value, WebKitScr
   }
   /* A fixed set of requests, each with a fixed parameter shape. */
   gboolean setup = g_strcmp0 (type, "setup.submit_server_url") == 0;
+  gboolean resume = g_strcmp0 (type, "setup.resume_phone_setup") == 0;
   gboolean discovery = g_strcmp0 (type, "discovery.list") == 0;
-  if (!setup && !discovery) {
+  if (!setup && !resume && !discovery) {
     webkit_script_message_reply_return_error_message (reply, "unsupported request");
     return TRUE;
   }

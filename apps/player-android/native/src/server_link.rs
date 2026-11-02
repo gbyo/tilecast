@@ -141,6 +141,7 @@ pub struct AndroidServerLinkHost {
     observations: crate::observations::PlatformObservations,
     manifest_facts: crate::manifest_host::SharedManifestFacts,
     clock: player_types::time::SharedClock,
+    manifest_wake: Arc<Notify>,
     state_dir: PathBuf,
     started_at: std::time::Instant,
 }
@@ -212,6 +213,7 @@ impl AndroidServerLinkHost {
         observations: crate::observations::PlatformObservations,
         manifest_facts: crate::manifest_host::SharedManifestFacts,
         clock: player_types::time::SharedClock,
+        manifest_wake: Arc<Notify>,
         state_dir: PathBuf,
     ) -> Self {
         Self {
@@ -230,6 +232,7 @@ impl AndroidServerLinkHost {
             observations,
             manifest_facts,
             clock,
+            manifest_wake,
             state_dir,
             started_at: std::time::Instant::now(),
         }
@@ -483,6 +486,7 @@ impl player_core::ServerLinkHost for AndroidServerLinkHost {
             self.engine.clone(),
             self.clock.clone(),
             self.manifest_facts.clone(),
+            self.manifest_wake.clone(),
         ))
     }
 
@@ -594,6 +598,7 @@ mod tests {
             signals.observations.clone(),
             signals.manifest_facts.clone(),
             clock,
+            signals.manifest_wake.clone(),
             dir.to_path_buf(),
         );
         (host, signals, commands, renderer, engine, store)

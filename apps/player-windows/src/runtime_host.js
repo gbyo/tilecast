@@ -145,6 +145,11 @@
         return request("setup.submitServerUrl", { url: text(url, 512) });
       },
     };
+    if (capabilities.phoneSetup) {
+      host.setup.resumePhoneSetup = function () {
+        request("setup.resumePhoneSetup", {}).catch(function () {});
+      };
+    }
   }
   if (capabilities && capabilities.discovery) {
     host.discovery = {

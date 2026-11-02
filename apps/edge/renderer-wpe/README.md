@@ -26,7 +26,7 @@ WebKit 2.54 inverts `WPE_SETTING_REDUCED_MOTION`: with the default (`FALSE`) pag
 `web/tilecast-bridge.js` implements the runtime's host contract, `TilecastRuntimeHostV1`, on two script message handlers. It only translates: projection, timing, transitions and evidence belong to the runtime. It advertises capabilities (no remote web, no synchronized timing, no discovery and no microphone yet), and the runtime decides from them.
 
 - `tilecast` carries events: `runtime.ready`, `presentation.accepted`, `presentation.rejected`, `renderer.progress`, `renderer.item_error`.
-- `tilecastRequest` carries `setup.submit_server_url`.
+- `tilecastRequest` carries `setup.submit_server_url` and `setup.resume_phone_setup`.
 
 Layout and Widget items arrive as references (`{"layoutId"}`, `{"widgetAssetId"}`) with a projection context: the needed manifest subset, the corrected clock offset and a media alias table. The adapter passes the context to the Player Runtime, which projects the items with its projection compatibility code (the same code the Electron player runs) before it accepts the activation, and re-projects them every 30 seconds. `tcmedia://variant/<asset>/<variant>` addresses in a projected tree, and the Brand Bug plugin's logo, resolve only through the alias table, and only to capabilities granted for the activation.
 

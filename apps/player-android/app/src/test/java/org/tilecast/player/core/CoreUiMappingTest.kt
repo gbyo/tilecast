@@ -3,7 +3,6 @@ package org.tilecast.player.core
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.tilecast.player.network.ServerIdentity
 
 /** Every [mapPlayerState] branch: Core owns the screen, setup only fills silence. */
 class CoreUiMappingTest {
@@ -14,6 +13,17 @@ class CoreUiMappingTest {
 
     private fun waiting(): CorePairingState.Waiting =
         CorePairingState.Waiting("ABC123", "https://signs.example/approve", "Org", "2026-10-05T01:00:00Z", "2026-10-05T00:50:00Z")
+
+    @Test fun aSessionCoreStartedNamesItsServer() {
+        // Phone setup starts pairing without a Kotlin target or a binding:
+        // the session's own server address fills the screen and its
+        // local-HTTP warning.
+        val host = ready("""{"ok":true,"paired":false}""")
+        val pairing = waiting().copy(serverUrl = "http://192.168.1.50:8080")
+        val state = mapPlayerState(host, pairing, SetupPhase.Discovering) as PlayerState.WaitingForApproval
+        assertEquals("http://192.168.1.50:8080", state.serverUrl)
+        assertTrue(state.localInsecure)
+    }
 
     @Test fun hostFailureOwnsTheScreen() {
         val state = mapPlayerState(CoreHostState.Failed("open_failed"), CorePairingState.Unknown, SetupPhase.Boot)
@@ -26,7 +36,28 @@ class CoreUiMappingTest {
         val revoked = mapPlayerState(host, CorePairingState.Paired, SetupPhase.Boot)
         assertEquals(PlayerState.CredentialRevoked("Lobby"), revoked)
         val missing = ready("""{"ok":true,"paired":false,"linkState":"stopped","linkReason":"device_credential_missing"}""")
-        assertEquals(PlayerState.CredentialRevoked(null), mapPlayerState(missing, CorePairingState.Setup, SetupPhase.Boot))
+        assertEquals(PlayerState.CredentialRevoked(null), mapPlayerState(missing, CorePairingState.Setup(), SetupPhase.Boot))
+    }
+
+    @Test fun aNewPairingSessionRecoversFromRevocation() {
+        // After revocation the Player asks for a new code against the
+        // retained server; the code must show even though the link still
+        // reports the rejected credential.
+        val host = ready("""{"ok":true,"paired":false,"serverUrl":"https://signs.example","organizationName":"Org","linkState":"stopped","linkReason":"device_credential_rejected"}""")
+        val state = mapPlayerState(host, waiting(), SetupPhase.Requesting)
+        assertTrue(state is PlayerState.WaitingForApproval)
+        assertEquals("https://signs.example", (state as PlayerState.WaitingForApproval).serverUrl)
+        val resumed = ready("""{"ok":true,"paired":false,"retainedServerUrl":"http://192.168.1.5:8080"}""")
+        val shown = mapPlayerState(resumed, waiting(), SetupPhase.Boot) as PlayerState.WaitingForApproval
+        assertEquals("http://192.168.1.5:8080", shown.serverUrl)
+        assertTrue(shown.localInsecure)
+        assertEquals(PlayerState.PairingRequest, mapPlayerState(host, CorePairingState.Renewing("expired"), SetupPhase.Requesting))
+        assertEquals(PlayerState.CredentialRevoked(null), mapPlayerState(host, CorePairingState.Unknown, SetupPhase.Requesting))
+    }
+
+    @Test fun identityMismatchBeatsPairing() {
+        val host = ready("""{"ok":true,"paired":false,"linkState":"stopped","linkReason":"installation_identity_mismatch","linkExpected":"old","linkActual":"new"}""")
+        assertEquals(PlayerState.ServerIdentityMismatch("old", "new"), mapPlayerState(host, waiting(), SetupPhase.Requesting))
     }
 
     @Test fun identityMismatchShowsBothInstallations() {
@@ -56,11 +87,12 @@ class CoreUiMappingTest {
             ready("""{"ok":true,"paired":false,"linkState":"unbound"}"""),
             waiting(),
             SetupPhase.Requesting,
-            beginUrl = "https://signs.example",
+            target = PairingTarget("http://192.168.1.5:8080", localInsecure = true),
         )
         assertTrue(state is PlayerState.WaitingForApproval)
         state as PlayerState.WaitingForApproval
-        assertEquals("https://signs.example", state.serverUrl)
+        assertEquals("http://192.168.1.5:8080", state.serverUrl)
+        assertTrue(state.localInsecure)
         assertEquals("Org", state.organizationName)
         assertEquals("ABC123", state.pairing.code)
         assertEquals("2026-10-05T01:00:00Z", state.pairing.expiresAt)
@@ -82,29 +114,23 @@ class CoreUiMappingTest {
 
     @Test fun setupPhaseShowsWhileCoreIsSilent() {
         val host = ready("""{"ok":true,"paired":false,"linkState":"unbound"}""")
-        assertEquals(PlayerState.Unconfigured, mapPlayerState(host, CorePairingState.Setup, SetupPhase.Boot))
-        assertEquals(PlayerState.Discovering, mapPlayerState(host, CorePairingState.Setup, SetupPhase.Discovering))
+        assertEquals(PlayerState.Unconfigured, mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Boot))
+        assertEquals(PlayerState.Discovering, mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Discovering))
         val servers = listOf(DiscoveredServer("Library", "http://lib.local:8080", null))
         assertEquals(
             PlayerState.ServerSelection(servers),
-            mapPlayerState(host, CorePairingState.Setup, SetupPhase.Browsing(servers)),
+            mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Browsing(servers)),
         )
         assertEquals(
             PlayerState.ManualServerEntry("bad"),
-            mapPlayerState(host, CorePairingState.Setup, SetupPhase.Manual("bad")),
+            mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Manual("bad")),
         )
         assertEquals(
             PlayerState.ValidatingServer("http://x"),
-            mapPlayerState(host, CorePairingState.Setup, SetupPhase.Validating("http://x")),
+            mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Validating("http://x")),
         )
-        val url = NormalizedServerUrl("https://signs.example", false)
-        val identity = ServerIdentity("tilecast", "i1", "Org", "v1", true)
-        assertEquals(
-            PlayerState.ServerConfirmation(url, identity),
-            mapPlayerState(host, CorePairingState.Setup, SetupPhase.Confirm(url, identity)),
-        )
-        assertEquals(PlayerState.PairingRequest, mapPlayerState(host, CorePairingState.Setup, SetupPhase.Requesting))
-        val failed = mapPlayerState(host, CorePairingState.Setup, SetupPhase.Failed("nope"))
+        assertEquals(PlayerState.PairingRequest, mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Requesting))
+        val failed = mapPlayerState(host, CorePairingState.Setup(), SetupPhase.Failed("nope"))
         assertEquals(PlayerState.ConnectionError("nope"), failed)
     }
 }
