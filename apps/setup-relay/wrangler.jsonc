@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tilecast-setup-relay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  // The phone setup page, assembled by scripts/build.mjs. Asset requests
+  // never reach the Worker.
+  "assets": {
+    "directory": "./build",
+    "not_found_handling": "none",
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "RENDEZVOUS", "class_name": "Rendezvous" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Rendezvous"] }],
+  // Keyed by client address. A school can set up many screens at once behind
+  // one address, so the Player limit leaves room for that.
+  "ratelimits": [
+    {
+      "name": "CONNECT_LIMITER",
+      "namespace_id": "1001",
+      "simple": { "limit": 60, "period": 60 },
+    },
+    {
+      "name": "DELIVER_LIMITER",
+      "namespace_id": "1002",
+      "simple": { "limit": 20, "period": 60 },
+    },
+  ],
+  // No observability block: invocation logs would record request headers,
+  // and the setup code is in the Authorization header.
+}

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Set up a Tilecast screen</title>
+    <link rel="icon" href="/favicon.png" />
+    <link rel="stylesheet" href="/fonts/geist.css" />
+    <link rel="stylesheet" href="/setup.css" />
+    <script type="module" src="/setup.js"></script>
+  </head>
+  <body>
+    <main>
+      <div class="column">
+        <!-- tilecast-logo -->
+
+        <form id="setup" class="card" hidden novalidate>
+          <div class="card-header">
+            <h1 data-text="title">Set up a Tilecast screen</h1>
+            <p class="description" data-text="lead">
+              Enter the address you use to open Tilecast Studio. Studio sends it
+              to the screen, and you approve the screen there.
+            </p>
+          </div>
+          <div class="card-content field-group">
+            <div class="field">
+              <label for="server" data-text="label">
+                Tilecast Studio address
+              </label>
+              <input
+                id="server"
+                name="server"
+                type="text"
+                inputmode="url"
+                autocomplete="url"
+                autocapitalize="none"
+                autocorrect="off"
+                spellcheck="false"
+                placeholder="signage.example.org"
+                aria-describedby="error"
+              />
+              <p id="error" class="field-error" role="alert"></p>
+            </div>
+            <button type="submit" data-text="submit">Continue in Studio</button>
+          </div>
+        </form>
+
+        <section id="missing" class="card" hidden>
+          <div class="card-header">
+            <h1 data-text="missingTitle">Scan the code on your screen</h1>
+            <p class="description" data-text="missingLead">
+              Open this page from the QR code that a Tilecast screen shows
+              during setup. You can also type the server address on the screen
+              with the remote.
+            </p>
+          </div>
+        </section>
+
+        <noscript>
+          <section class="card">
+            <div class="card-header">
+              <h1>Set up a Tilecast screen</h1>
+              <p class="description">
+                This page needs JavaScript. You can also type the server address
+                on the screen with the remote.
+              </p>
+            </div>
+          </section>
+        </noscript>
+
+        <p id="privacy" class="footnote" data-text="privacy" hidden>
+          This page does not send your address anywhere. It stays on this phone.
+        </p>
+      </div>
+    </main>
+  </body>
+</html>
