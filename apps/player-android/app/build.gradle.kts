@@ -36,6 +36,9 @@ android {
         buildConfigField("long", "MEDIA_CACHE_BYTES", "${providers.gradleProperty("TILECAST_PLAYER_CACHE_BYTES").orElse("8589934592").get()}L")
         buildConfigField("long", "MINIMUM_FREE_BYTES", "${providers.gradleProperty("TILECAST_PLAYER_MINIMUM_FREE_BYTES").orElse("1073741824").get()}L")
         buildConfigField("long", "AUTOMATIC_VIDEO_THRESHOLD_BYTES", "${providers.gradleProperty("TILECAST_PLAYER_AUTOMATIC_VIDEO_THRESHOLD_BYTES").orElse("268435456").get()}L")
+        // Phone setup (docs/phone-setup.md). Empty turns it off; a debug
+        // build can point at a local relay with -PTILECAST_PLAYER_SETUP_RELAY_URL.
+        buildConfigField("String", "SETUP_RELAY_URL", "\"${providers.gradleProperty("TILECAST_PLAYER_SETUP_RELAY_URL").orElse("https://setup.tilecast.org").get()}\"")
         buildConfigField("int", "CONCURRENT_DOWNLOADS", providers.gradleProperty("TILECAST_PLAYER_CONCURRENT_DOWNLOADS").orElse("2").get())
     }
 
@@ -109,11 +112,15 @@ dependencies {
     implementation("org.rustls:rustls-platform-verifier")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("com.google.zxing:core:3.5.4")
+    // Lucide, the icon set Studio uses, as Android vector drawables
+    // (lucide_ic_*). Release resource shrinking keeps only the icons in use.
+    implementation("com.composables:icons-lucide-android:2.2.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:5.5.0")
     testImplementation("androidx.room:room-testing:2.8.5")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")

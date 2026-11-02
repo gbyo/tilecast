@@ -39,6 +39,7 @@ import { PlayerRoot } from "./views/player-root";
 import { RuntimeWidgetHost, widgetDiscovery } from "./widgets/host";
 import { runtimeSupport } from "./host/support";
 import { AuthorizedMedia } from "./host/media";
+import { startupFor, type StartupSequence } from "./startup/sequence";
 
 declare const __RUNTIME_VERSION__: string;
 const RUNTIME_VERSION =
@@ -52,11 +53,20 @@ function root(): PlayerRoot {
   return created;
 }
 
+const prefersReducedMotion = () =>
+  matchMedia("(prefers-reduced-motion: reduce)").matches;
+
 function start(): void {
   const view = root();
   const host = (globalThis as Record<string, unknown>)[RUNTIME_HOST_GLOBAL];
   const problem = hostContractProblem(host);
   if (problem) {
+    // The problem surface is what this display has to show: reveal it.
+    startupFor(document, {
+      clock: browserClock(),
+      conformance: false,
+      reducedMotion: prefersReducedMotion,
+    }).presentationShown();
     view.showProblem(problem);
     console.error(`tilecast runtime: ${problem}`);
     return;
@@ -182,6 +192,18 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
       ? new RemoteWebPort(host.remoteWeb, clock)
       : null;
 
+  // The startup layer is markup in index.html, already pulsing. It hides the
+  // first presentation while that prepares, and is skipped for conformance.
+  const startup: StartupSequence = startupFor(document, {
+    clock,
+    conformance: conformance !== null,
+    reducedMotion,
+  });
+  if (remoteWeb && startup.covering) {
+    remoteWeb.holdHostLayers(true);
+    startup.onUncovered(() => remoteWeb.holdHostLayers(false));
+  }
+
   view.bind({
     controller,
     surfaces,
@@ -191,12 +213,17 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     remoteWeb,
     widgets,
     providers,
+    startup,
     setup: {
       available: capabilities.setup && !!host.setup,
       submit: (url) =>
         host.setup
           ? host.setup.submitServerUrl(String(url).slice(0, 512))
           : Promise.resolve({ ok: false, error: "Setup is not available." }),
+      resumePhoneSetup:
+        capabilities.phoneSetup && host.setup?.resumePhoneSetup
+          ? () => host.setup?.resumePhoneSetup?.()
+          : undefined,
     },
   });
 
@@ -210,6 +237,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     view,
     manual,
     widgets,
+    startup,
   });
 
   const receive = (message: HostMessageV1) => {
@@ -270,6 +298,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
   }
   // A reload replaces this document; surface timers go with it.
   addEventListener("pagehide", () => {
+    startup.skip();
     playerPlugins.stop();
     surfaces.stop();
   });

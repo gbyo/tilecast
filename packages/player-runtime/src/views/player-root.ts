@@ -22,6 +22,7 @@ import type {
 import type { RuntimeSurfaceHost } from "../plugins/host";
 import type { PresentationProviders } from "../plugins/presentation-providers";
 import type { RuntimeWidgetHost } from "../widgets/host";
+import type { StartupSignals } from "../startup/sequence";
 import { Stage } from "../surfaces/stage";
 import type { SetupBridge, StatusSurface } from "./status-surface";
 import "./outside-hours";
@@ -40,6 +41,8 @@ export interface PlayerRootBindings {
   widgets: RuntimeWidgetHost;
   /** Plugin API v2 presentation providers, when the plugin host runs. */
   providers?: PresentationProviders;
+  /** Receives the first painted presentation for the document startup layer. */
+  startup?: StartupSignals;
 }
 
 type Sleep = Extract<RuntimePresentation, { state: "sleep" }>;
@@ -176,6 +179,8 @@ export class PlayerRoot extends LitElement {
 
   private onView(view: RuntimeViewState): void {
     const controller = this.bindings!.controller;
+    const startup = this.bindings!.startup;
+    if (view.mode !== "waiting") startup?.presentationAccepted();
     switch (view.mode) {
       case "waiting":
         return;
@@ -189,7 +194,10 @@ export class PlayerRoot extends LitElement {
         const key = view.key;
         const painted = () =>
           void this.updateComplete.then(() =>
-            afterPaint(() => controller.statusPainted(key)),
+            afterPaint(() => {
+              controller.statusPainted(key);
+              startup?.presentationShown();
+            }),
           );
         const providers = this.bindings!.providers;
         const stage = this.querySelector<HTMLElement>("#provider-stage");
@@ -220,6 +228,12 @@ export class PlayerRoot extends LitElement {
         }
         this.sleep = null;
         this.stage?.update(view.stage);
+        // The stage shows an occurrence once it is ready to be seen.
+        if (view.stage?.phase === "shown" && startup) {
+          void this.updateComplete.then(() =>
+            afterPaint(() => startup.presentationShown()),
+          );
+        }
         return;
     }
   }

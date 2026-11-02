@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -115,8 +116,11 @@ func conflict(message string) *CallError {
 	return &CallError{Code: ErrCodeConflict, Message: message}
 }
 
+// unavailable answers an internal failure. The guest is third-party code,
+// so the cause stays in the server log and never reaches the envelope.
 func unavailable(err error) *CallError {
-	return &CallError{Code: ErrCodeUnavailable, Message: "The service is temporarily unavailable: " + err.Error()}
+	slog.Warn("package service call failed", "error", err)
+	return &CallError{Code: ErrCodeUnavailable, Message: "The service is temporarily unavailable."}
 }
 
 // Envelope is the wire shape every executed call answers: ok with data,

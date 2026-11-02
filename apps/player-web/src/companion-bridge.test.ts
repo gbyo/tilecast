@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CapabilityProviderRegistry } from "./capability-providers";
-import { CompanionBridge } from "./companion-bridge";
+import { CompanionBridge, REFRESH_TIMEOUT_MS } from "./companion-bridge";
 
 const ORIGIN = "https://signage.example.org";
 
@@ -267,5 +267,53 @@ describe("CompanionBridge", () => {
       kind: "companion-describe",
       connectionId: "conn-1",
     });
+  });
+
+  it("drops a companion that stops answering refreshes", async () => {
+    vi.useFakeTimers();
+    const registry = new CapabilityProviderRegistry();
+    const companion = bridge(registry);
+    companion.attach();
+    const described = {
+      source: "tilecast-companion",
+      kind: "companion-described",
+      protocol: 1,
+      connectionId: "conn-1",
+      id: "handshake",
+      capabilities: {
+        "display.power": { version: 1, provider: "fake" },
+      },
+    };
+    emit(stub, {
+      source: "tilecast-companion",
+      kind: "companion-hello",
+      protocol: 1,
+      connectionId: "conn-1",
+    });
+    emit(stub, described);
+
+    // An answered refresh keeps the provider.
+    companion.refresh();
+    const asked = posted[1]?.message as { id: string };
+    emit(stub, { ...described, id: asked.id });
+    await vi.advanceTimersByTimeAsync(REFRESH_TIMEOUT_MS + 1);
+    expect(companion.connected).toBe(true);
+    expect(registry.describe()).not.toEqual({});
+
+    // A revoked grant answers nothing: the provider leaves, and a later
+    // hello can connect again.
+    companion.refresh();
+    companion.refresh();
+    expect(posted).toHaveLength(3);
+    await vi.advanceTimersByTimeAsync(REFRESH_TIMEOUT_MS + 1);
+    expect(companion.connected).toBe(false);
+    expect(registry.describe()).toEqual({});
+    emit(stub, {
+      source: "tilecast-companion",
+      kind: "companion-hello",
+      protocol: 1,
+      connectionId: "conn-2",
+    });
+    expect(companion.connected).toBe(true);
   });
 });
