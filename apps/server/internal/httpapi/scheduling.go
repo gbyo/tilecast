@@ -3,18 +3,35 @@ package httpapi
 import (
 	"context"
 	"errors"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
+	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
 )
 
 type groupBody struct {
 	Name                        string     `json:"name"`
 	Description                 string     `json:"description"`
+	PresentationGatewayScreenID *uuid.UUID `json:"presentationGatewayScreenId"`
+	ClearPresentationGateway    bool       `json:"clearPresentationGateway"`
+}
+
+// createGroupBody is groupBody plus the first members. A restricted
+// operator must name at least one reachable screen: an empty group has no
+// anchor and would be unreachable the moment it existed.
+type createGroupBody struct {
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	ScreenIDs   []uuid.UUID `json:"screenIds"`
+	// The gateway fields were always accepted and ignored on creation;
+	// they stay accepted so older clients keep working.
 	PresentationGatewayScreenID *uuid.UUID `json:"presentationGatewayScreenId"`
 	ClearPresentationGateway    bool       `json:"clearPresentationGateway"`
 }
@@ -28,12 +45,13 @@ func (s *server) listScreenGroups(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	scoped, err := s.devices.Scoped(r.Context(), principal.User.ID, principal.User.Role)
+	actor := authz.ActorFor(principal)
+	access, err := s.authorizer().Access(r.Context(), actor)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
-	if !scoped {
+	if access.All {
 		x, e := s.scheduling.ListGroups(r.Context(), search, p, z)
 		s.scheduleResponse(w, r, x, e, http.StatusOK)
 		return
@@ -44,6 +62,7 @@ func (s *server) listScreenGroups(w http.ResponseWriter, r *http.Request) {
 	if z < 1 || z > 100 {
 		z = 50
 	}
+	// The list keeps the groups the single-group decision would allow.
 	visible := []scheduling.Group{}
 	for scanPage := 1; ; scanPage++ {
 		batch, e := s.scheduling.ListGroups(r.Context(), search, scanPage, 100)
@@ -51,17 +70,17 @@ func (s *server) listScreenGroups(w http.ResponseWriter, r *http.Request) {
 			s.scheduleResponse(w, r, batch, e, http.StatusOK)
 			return
 		}
+		ids := make([]uuid.UUID, 0, len(batch.Items))
 		for _, group := range batch.Items {
-			screens := make([]uuid.UUID, 0, len(group.Screens))
-			for _, screen := range group.Screens {
-				screens = append(screens, screen.ID)
-			}
-			allowed, scopeErr := s.screenTargetsWithinScope(r.Context(), principal.User.ID, principal.User.Role, screens, nil)
-			if scopeErr != nil {
-				s.internalError(w, r, scopeErr)
-				return
-			}
-			if allowed {
+			ids = append(ids, group.ID)
+		}
+		reached, scopeErr := s.authorizer().Reachable(r.Context(), actor, auth.CapScreenRead, authz.KindGroup, ids)
+		if scopeErr != nil {
+			s.writeAuthzError(w, r, scopeErr, notFoundFor(objectGroup))
+			return
+		}
+		for _, group := range batch.Items {
+			if reached[group.ID] {
 				visible = append(visible, group)
 			}
 		}
@@ -90,18 +109,28 @@ func (s *server) getScreenGroup(w http.ResponseWriter, r *http.Request) {
 	s.scheduleResponse(w, r, x, e, http.StatusOK)
 }
 func (s *server) createScreenGroup(w http.ResponseWriter, r *http.Request) {
-	var b groupBody
+	var b createGroupBody
 	if e := decodeJSON(w, r, &b); e != nil {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
 		return
 	}
-	principal, ok := principalOf(r)
+	actor, ok := s.actor(w, r)
 	if !ok {
-		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	u := principal.User
-	x, e := s.scheduling.CreateGroup(r.Context(), u.ID, b.Name, b.Description)
+	x, e := s.scheduling.CreateGroupWithScreens(r.Context(), actor.UserID, b.Name, b.Description, b.ScreenIDs, func(ctx context.Context, tx pgx.Tx) error {
+		access, err := s.authorizer().Tx(tx).Access(ctx, actor)
+		if err != nil || access.All {
+			return err
+		}
+		// Every first member must be reachable, and so must its current
+		// group peers, because joining moves it out of its old group.
+		return s.authorizer().Tx(tx).Selection(ctx, actor, auth.CapScreenManage, authz.Selection{ScreenIDs: b.ScreenIDs, Peers: true})
+	})
+	if isAuthzError(e) {
+		s.writeAuthzError(w, r, e, notFoundFor(objectScreen))
+		return
+	}
 	s.scheduleResponse(w, r, x, e, http.StatusCreated)
 }
 func (s *server) updateScreenGroup(w http.ResponseWriter, r *http.Request) {
@@ -120,6 +149,11 @@ func (s *server) updateScreenGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := principal.User
+	if b.PresentationGatewayScreenID != nil && !s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Screen(r.Context(), actor, auth.CapScreenManage, *b.PresentationGatewayScreenID)
+	}) {
+		return
+	}
 	x, e := s.scheduling.UpdateGroup(r.Context(), id, u.ID, b.Name, b.Description, b.PresentationGatewayScreenID, b.ClearPresentationGateway)
 	s.scheduleResponse(w, r, x, e, http.StatusOK)
 }
@@ -153,7 +187,12 @@ func (s *server) addScreenGroupMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
 		return
 	}
-	if !s.authorizeScreenList(w, r, []uuid.UUID{b.ScreenID}, nil) {
+	// Membership must never make a screen reachable to the group's
+	// grantees unless the operator reaches it, and joining moves the screen
+	// out of its old group, whose peers must be reachable too.
+	if !s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Selection(r.Context(), actor, auth.CapScreenManage, authz.Selection{ScreenIDs: []uuid.UUID{b.ScreenID}, Peers: true})
+	}) {
 		return
 	}
 	principal, ok := principalOf(r)
@@ -262,12 +301,13 @@ func (s *server) listSchedules(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	scoped, err := s.devices.Scoped(r.Context(), principal.User.ID, principal.User.Role)
+	actor := authz.ActorFor(principal)
+	access, err := s.authorizer().Access(r.Context(), actor)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
 	}
-	if !scoped {
+	if access.All {
 		x, e := s.scheduling.List(r.Context(), filter, p, z)
 		s.scheduleResponse(w, r, x, e, http.StatusOK)
 		return
@@ -278,6 +318,7 @@ func (s *server) listSchedules(w http.ResponseWriter, r *http.Request) {
 	if z < 1 || z > 100 {
 		z = 50
 	}
+	// The list keeps the schedules the single-schedule decision would allow.
 	visible := []scheduling.Record{}
 	defaultTimezone := ""
 	for scanPage := 1; ; scanPage++ {
@@ -287,14 +328,17 @@ func (s *server) listSchedules(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defaultTimezone = batch.DefaultTimezone
+		ids := make([]uuid.UUID, 0, len(batch.Items))
 		for _, record := range batch.Items {
-			screens, groups := scheduleTargetIDs(record.Targets)
-			allowed, scopeErr := s.screenTargetsWithinScope(r.Context(), principal.User.ID, principal.User.Role, screens, groups)
-			if scopeErr != nil {
-				s.internalError(w, r, scopeErr)
-				return
-			}
-			if allowed {
+			ids = append(ids, record.ID)
+		}
+		reached, scopeErr := s.authorizer().Reachable(r.Context(), actor, auth.CapScheduleRead, authz.KindSchedule, ids)
+		if scopeErr != nil {
+			s.writeAuthzError(w, r, scopeErr, notFoundFor(objectSchedule))
+			return
+		}
+		for _, record := range batch.Items {
+			if reached[record.ID] {
 				visible = append(visible, record)
 			}
 		}
@@ -363,8 +407,7 @@ func (s *server) createSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
 		return
 	}
-	screens, groups := scheduleTargetIDs(b.Targets)
-	if !s.authorizeScreenList(w, r, screens, groups) {
+	if !s.authorizeScheduleTargets(w, r, auth.CapScheduleEdit, b.Targets) {
 		return
 	}
 	if err := s.validateSchedulePresentation(r, b); err != nil {
@@ -390,8 +433,7 @@ func (s *server) updateSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
 		return
 	}
-	screens, groups := scheduleTargetIDs(b.Targets)
-	if !s.authorizeScreenList(w, r, screens, groups) {
+	if !s.authorizeScheduleTargets(w, r, auth.CapScheduleEdit, b.Targets) {
 		return
 	}
 	if err := s.validateSchedulePresentation(r, b); err != nil {
@@ -475,14 +517,13 @@ func (s *server) previewSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
 		return
 	}
-	if !s.authorizeScreen(w, r, b.ScreenID) {
+	if !s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Screen(r.Context(), actor, auth.CapScheduleEdit, b.ScreenID)
+	}) {
 		return
 	}
-	if b.Proposed != nil {
-		screens, groups := scheduleTargetIDs(b.Proposed.Targets)
-		if !s.authorizeScreenList(w, r, screens, groups) {
-			return
-		}
+	if b.Proposed != nil && !s.authorizeScheduleTargets(w, r, auth.CapScheduleEdit, b.Proposed.Targets) {
+		return
 	}
 	at := time.Now()
 	if b.Timestamp != nil {
@@ -504,8 +545,7 @@ func (s *server) preflightSchedule(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_request", e.Error())
 		return
 	}
-	screens, groups := scheduleTargetIDs(b.Proposed.Targets)
-	if !s.authorizeScreenList(w, r, screens, groups) {
+	if !s.authorizeScheduleTargets(w, r, auth.CapScheduleRead, b.Proposed.Targets) {
 		return
 	}
 	if err := s.validateSchedulePresentation(r, b.Proposed); err != nil {
@@ -519,7 +559,7 @@ func (s *server) preflightSchedule(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 			return
 		}
-		if e = s.redactHiddenSchedules(r.Context(), principal.User.ID, principal.User.Role, &x); e != nil {
+		if e = s.redactHiddenSchedules(r.Context(), authz.ActorFor(principal), &x); e != nil {
 			s.internalError(w, r, e)
 			return
 		}
@@ -532,61 +572,55 @@ func (s *server) preflightSchedule(w http.ResponseWriter, r *http.Request) {
 // every one of its targets is inside that scope. A schedule it may not see
 // keeps its counts and reasons but loses its name and ID, so the check cannot
 // reveal what runs on screens the account cannot reach.
-func (s *server) redactHiddenSchedules(ctx context.Context, user uuid.UUID, role string, result *scheduling.PreflightResult) error {
-	scoped, err := s.devices.Scoped(ctx, user, role)
-	if err != nil || !scoped {
+func (s *server) redactHiddenSchedules(ctx context.Context, actor authz.Actor, result *scheduling.PreflightResult) error {
+	ids := []uuid.UUID{}
+	for _, competitor := range result.Competitors {
+		ids = append(ids, competitor.ScheduleID)
+	}
+	for _, screen := range result.Screens {
+		if screen.WinnerScheduleID != nil {
+			ids = append(ids, *screen.WinnerScheduleID)
+		}
+	}
+	reached, err := s.authorizer().Reachable(ctx, actor, auth.CapScheduleRead, authz.KindSchedule, ids)
+	if err != nil {
 		return err
 	}
-	type verdict struct {
-		hidden bool
-		alias  uuid.UUID
-	}
-	known := map[uuid.UUID]verdict{}
-	check := func(id uuid.UUID) (verdict, error) {
-		if v, ok := known[id]; ok {
-			return v, nil
+	aliases := map[uuid.UUID]uuid.UUID{}
+	alias := func(id uuid.UUID) uuid.UUID {
+		if existing, ok := aliases[id]; ok {
+			return existing
 		}
-		record, err := s.scheduling.Get(ctx, id)
-		if errors.Is(err, scheduling.ErrNotFound) {
-			// Removed since the check read it; nothing left to reveal.
-			known[id] = verdict{hidden: true, alias: uuid.New()}
-			return known[id], nil
-		}
-		if err != nil {
-			return verdict{}, err
-		}
-		screens, groups := scheduleTargetIDs(record.Targets)
-		allowed, err := s.screenTargetsWithinScope(ctx, user, role, screens, groups)
-		if err != nil {
-			return verdict{}, err
-		}
-		known[id] = verdict{hidden: !allowed, alias: uuid.New()}
-		return known[id], nil
+		aliases[id] = uuid.New()
+		return aliases[id]
 	}
 	for i := range result.Competitors {
-		v, err := check(result.Competitors[i].ScheduleID)
-		if err != nil {
-			return err
-		}
-		if v.hidden {
-			result.Competitors[i].ScheduleID, result.Competitors[i].Name = v.alias, ""
+		if id := result.Competitors[i].ScheduleID; !reached[id] {
+			result.Competitors[i].ScheduleID, result.Competitors[i].Name = alias(id), ""
 		}
 	}
 	for i := range result.Screens {
-		if result.Screens[i].WinnerScheduleID == nil {
+		winner := result.Screens[i].WinnerScheduleID
+		if winner == nil || reached[*winner] {
 			continue
 		}
-		v, err := check(*result.Screens[i].WinnerScheduleID)
-		if err != nil {
-			return err
-		}
-		if v.hidden {
-			alias := v.alias
-			result.Screens[i].WinnerScheduleID, result.Screens[i].WinnerName = &alias, ""
-		}
+		hidden := alias(*winner)
+		result.Screens[i].WinnerScheduleID, result.Screens[i].WinnerName = &hidden, ""
 	}
 	return nil
 }
+
+// authorizeScheduleTargets decides a schedule's targets as one selection.
+// A schedule plays on every member of a targeted screen's Display Group,
+// so a screen's group peers must be reachable too, and a restricted
+// operator must name at least one target.
+func (s *server) authorizeScheduleTargets(w http.ResponseWriter, r *http.Request, capability auth.Capability, targets []scheduling.Target) bool {
+	screens, groups := scheduleTargetIDs(targets)
+	return s.decide(w, r, notFoundFor(objectScreen), func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.Selection(r.Context(), actor, capability, authz.Selection{ScreenIDs: screens, GroupIDs: groups, Peers: true})
+	})
+}
+
 func (s *server) scheduleResponse(w http.ResponseWriter, r *http.Request, x any, e error, status int) {
 	if e != nil {
 		s.writeScheduleError(w, r, e)

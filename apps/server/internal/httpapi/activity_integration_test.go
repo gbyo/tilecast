@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 )
@@ -640,7 +641,7 @@ func TestOverlappingZonesDoNotInflateScreenPlaybackTime(t *testing.T) {
 		// a replacement starts before the outgoing session is closed.
 		insertSession("presentation", "root-b", 5*time.Minute, 10*time.Minute, "")
 
-		durations, err := env.server.playbackDurations(ctx, start.Add(-time.Minute), start.Add(time.Hour), uuid.Nil, false)
+		durations, err := env.server.playbackDurations(ctx, start.Add(-time.Minute), start.Add(time.Hour), authz.ScreenAccess{All: true})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -652,7 +653,7 @@ func TestOverlappingZonesDoNotInflateScreenPlaybackTime(t *testing.T) {
 		}
 
 		// Clipping: a window covering only the first five minutes sees only that.
-		clipped, err := env.server.playbackDurations(ctx, start, start.Add(5*time.Minute), uuid.Nil, false)
+		clipped, err := env.server.playbackDurations(ctx, start, start.Add(5*time.Minute), authz.ScreenAccess{All: true})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -774,7 +775,7 @@ func TestFleetHealthMeasuresOnlyTheOperationalFleet(t *testing.T) {
 			}
 		}
 
-		health, err := env.server.fleetHealth(ctx, now, uuid.Nil, false)
+		health, err := env.server.fleetHealth(ctx, now, authz.ScreenAccess{All: true})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -790,7 +791,7 @@ func TestFleetHealthMeasuresOnlyTheOperationalFleet(t *testing.T) {
 		if _, err := env.pool.Exec(ctx, `UPDATE screen_player_status SET safe_mode=TRUE WHERE screen_id=$1`, env.screenID); err != nil {
 			t.Fatal(err)
 		}
-		health, err = env.server.fleetHealth(ctx, now, uuid.Nil, false)
+		health, err = env.server.fleetHealth(ctx, now, authz.ScreenAccess{All: true})
 		if err != nil {
 			t.Fatal(err)
 		}

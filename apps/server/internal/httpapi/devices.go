@@ -11,6 +11,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 )
@@ -196,11 +199,24 @@ func (s *server) resolvePairing(w http.ResponseWriter, r *http.Request) {
 		s.writeDeviceError(w, r, err)
 		return
 	}
+	// Holding the code anchors new hardware. A session from hardware that is
+	// already paired names an existing screen, which must be reachable.
+	if !s.decide(w, r, notFoundAnswer{"not_found", "The requested pairing or screen was not found."}, func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.PairingSession(r.Context(), actor, auth.CapScreenRead, request.ID, false)
+	}) {
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"data": request})
 }
 
 func (s *server) listPendingPairings(w http.ResponseWriter, r *http.Request) {
-	requests, err := s.devices.ListPendingPairings(r.Context())
+	// A restricted pairer sees only sessions from hardware already paired to
+	// one of its screens. New hardware is reached through its pairing code.
+	access, ok := s.callerAccess(w, r)
+	if !ok {
+		return
+	}
+	requests, err := s.devices.ListPendingPairings(r.Context(), access)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -260,11 +276,17 @@ func (s *server) approvePairing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
+	actor := authz.ActorFor(principal)
 	screen, err := s.devices.ApprovePairingWithOptions(r.Context(), id, user.ID, devices.PairingApproval{
 		Name: body.Name, LocationID: body.LocationID, RoomName: body.RoomName, RoomNumber: body.RoomNumber,
 		Description: body.Description, ReplaceExistingCredential: body.ReplaceExistingCredential,
 		ReplaceHardware: body.ReplaceHardware, ReplacementScreenID: body.ReplacementScreenID,
+		Authorize: s.pairingDecision(actor),
 	})
+	if isAuthzError(err) {
+		s.writeAuthzError(w, r, err, notFoundAnswer{"not_found", "The requested pairing or screen was not found."})
+		return
+	}
 	if err != nil {
 		s.writeDeviceError(w, r, err)
 		return
@@ -305,7 +327,12 @@ func (s *server) listScreens(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Authentication is required.")
 		return
 	}
-	screens, err := s.devices.ListScreensForUser(r.Context(), principal.User.ID, principal.User.Role)
+	access, err := s.authorizer().Access(r.Context(), authz.ActorFor(principal))
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	screens, err := s.devices.ListScreensForAccess(r.Context(), access)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -355,6 +382,20 @@ func (s *server) updateScreen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
+	// A location is other accounts' scope anchor. Moving a screen to another
+	// location needs that location in the caller's own grants, so a
+	// restricted operator can neither hand a screen to another building nor
+	// strand it without a location.
+	current, err := s.devices.GetScreen(r.Context(), id)
+	if err != nil {
+		s.writeDeviceError(w, r, err)
+		return
+	}
+	if !sameLocation(current.LocationID, body.LocationID) && !s.decide(w, r, notFoundAnswer{"not_found", "The requested location was not found."}, func(z *authz.Authorizer, actor authz.Actor) error {
+		return z.AssignLocation(r.Context(), actor, auth.CapScreenManage, body.LocationID)
+	}) {
+		return
+	}
 	screen, err := s.devices.UpdateScreen(r.Context(), id, user.ID, body.Name, body.LocationID, body.RoomName, body.RoomNumber, body.MapPositionOverride.Value, body.MapPositionOverride.Set, body.Description)
 	if err != nil {
 		s.writeDeviceError(w, r, err)
@@ -466,4 +507,18 @@ func remoteIP(remoteAddr string) string {
 
 func withContext[T any](ctx context.Context, key contextKey, value T) context.Context {
 	return context.WithValue(ctx, key, value)
+}
+
+// pairingDecision returns the in-transaction authorization of one approval.
+func (s *server) pairingDecision(actor authz.Actor) func(context.Context, pgx.Tx, authz.PairingTarget) error {
+	return func(ctx context.Context, tx pgx.Tx, target authz.PairingTarget) error {
+		return s.authorizer().Tx(tx).Pairing(ctx, actor, target)
+	}
+}
+
+func sameLocation(current, next *uuid.UUID) bool {
+	if current == nil || next == nil {
+		return current == nil && next == nil
+	}
+	return *current == *next
 }

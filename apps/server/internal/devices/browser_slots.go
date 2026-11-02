@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 
 	"github.com/tilecast/tilecast/apps/server/internal/audit"
 )
@@ -57,6 +58,14 @@ func (s *Service) CreateBrowserSlot(ctx context.Context, userID uuid.UUID, input
 		return BrowserLaunch{}, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	if input.Authorize == nil {
+		return BrowserLaunch{}, errors.New("browser screen creation needs an authorization decision")
+	}
+	// A Browser Player screen is a new screen: its location is the scope
+	// anchor, decided inside the transaction that creates it.
+	if err := input.Authorize(ctx, tx, authz.PairingTarget{Kind: authz.PairingNew, LocationID: input.LocationID}); err != nil {
+		return BrowserLaunch{}, err
+	}
 	screenID, slotID := uuid.New(), uuid.New()
 	// The schema requires initial dimensions and installation metadata. These
 	// provisional values are replaced by observed metadata during binding.
