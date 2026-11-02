@@ -389,28 +389,6 @@ class WebViewCoreRenderer(
         return CoreRendererRequestCode.QUEUED
     }
 
-    private fun handlePlugins(root: JsonObject): Int {
-        val plugins = root["plugins"] as? JsonArray ?: return CoreRendererRequestCode.INVALID_ACTIVATION
-        val activationId = root.stringOrNull("activationId") ?: return CoreRendererRequestCode.INVALID_ACTIVATION
-        val generation = root["generation"]?.jsonPrimitive?.longOrNull ?: return CoreRendererRequestCode.INVALID_ACTIVATION
-        val message = buildJsonObject {
-            put("type", "plugins")
-            put("plugins", plugins)
-            put("clockOffsetMs", root["clockOffsetMs"]?.jsonPrimitive?.longOrNull ?: 0L)
-        }
-        val parsed = RuntimeBridgeProtocol.parseHostMessage(message.toString()).getOrNull()
-            ?: return CoreRendererRequestCode.INVALID_ACTIVATION
-        val (view, stateGeneration) = synchronized(lock) {
-            val current = session ?: return CoreRendererRequestCode.NOT_READY
-            val view = webView ?: return CoreRendererRequestCode.NOT_READY
-            if (!current.matchesActivation(activationId, generation)) return CoreRendererRequestCode.INVALID_ACTIVATION
-            current.offer(parsed)
-            view to current.currentStateGeneration()
-        }
-        owner?.nudge(view, stateGeneration)
-        return CoreRendererRequestCode.QUEUED
-    }
-
     private fun handleClear(): Int {
         val pair = synchronized(lock) { session to webView }
         val current = pair.first ?: return CoreRendererRequestCode.NOT_READY
