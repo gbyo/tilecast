@@ -1051,6 +1051,10 @@
   },
   "dataSources": {
     "deleteSuccess": "Data Source deleted.",
+    "saved": {
+      "created": "Data Source created.",
+      "updated": "Data Source updated."
+    },
     "duplicated": "Data Source duplicated.",
     "calendar": {
       "addCalendar": "Add calendar",
