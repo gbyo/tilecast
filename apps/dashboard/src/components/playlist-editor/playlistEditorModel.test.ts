@@ -3,6 +3,7 @@ import type { PlaylistItem } from "../../api/types";
 import { i18n } from "../../i18n";
 import {
   formatDuration,
+  mergeItemEdit,
   movePlaylistItem,
   movePlaylistItemToEdge,
   playlistItemsWithOrder,
@@ -127,5 +128,18 @@ describe("playlist reorder actions", () => {
       "a",
       "b",
     ]);
+  });
+});
+
+describe("mergeItemEdit", () => {
+  it("keeps an unsaved edit when a later gesture starts from the stale item", () => {
+    const rendered = { audioEnabled: true, volume: 100 };
+    const first = mergeItemEdit(
+      rendered,
+      { ...rendered, audioEnabled: false },
+      undefined,
+    );
+    const second = mergeItemEdit(rendered, { ...rendered, volume: 40 }, first);
+    expect(second).toEqual({ audioEnabled: false, volume: 40 });
   });
 });
