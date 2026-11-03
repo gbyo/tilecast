@@ -342,10 +342,13 @@ export function formatWidgetValue(
         : null;
   if (numeric !== null) {
     const currency = field?.type === "currency" ? field.currency : undefined;
-    return formatNumber(numeric, {
+    // Typed percent fields carry ratios (0.75 is 75%); formatNumber takes
+    // whole units, so convert here.
+    const isPercent = field?.type === "percent";
+    return formatNumber(isPercent ? numeric * 100 : numeric, {
       locale: options.locale,
       style:
-        field?.type === "percent"
+        isPercent
           ? "percent"
           : currency
             ? "currency"
