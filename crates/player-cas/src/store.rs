@@ -66,6 +66,12 @@ struct Inner {
     eviction: Arc<dyn EvictionPolicy>,
     writers: Mutex<HashMap<Sha256Digest, Weak<tokio::sync::Mutex<()>>>>,
     touches: Mutex<HashMap<Sha256Digest, Timestamp>>,
+    /// Expected sizes of open write sessions. Space checks count the bytes
+    /// these sessions have not written yet, so concurrent writers for
+    /// different digests cannot all fit into the same free space.
+    reservations: Mutex<HashMap<Sha256Digest, u64>>,
+    /// Serializes space checks with the reservation each one records.
+    room: tokio::sync::Mutex<()>,
 }
 
 #[derive(Clone)]
@@ -139,6 +145,8 @@ impl ContentStore {
                 eviction,
                 writers: Mutex::new(HashMap::new()),
                 touches: Mutex::new(HashMap::new()),
+                reservations: Mutex::new(HashMap::new()),
+                room: tokio::sync::Mutex::new(()),
             }),
         };
         store.reconcile().await?;
@@ -441,21 +449,41 @@ impl ContentStore {
         Ok(freed)
     }
 
-    /// Ensures `needed` more bytes fit under the limit and above the free
-    /// space reserve, evicting unpinned objects if necessary.
-    async fn make_room(&self, needed: u64) -> Result<(), CasError> {
+    /// Ensures the rest of `digest` (`expected_size` less `offset` already
+    /// present) fits under the limit and above the free space reserve,
+    /// counting bytes other open writers still expect, evicting unpinned
+    /// objects if necessary. Returns the reservation for the new writer.
+    async fn make_room(&self, digest: Sha256Digest, expected_size: u64, offset: u64) -> Result<Reservation, CasError> {
+        let _room = self.inner.room.lock().await;
+        let needed = expected_size - offset;
+        let others: Vec<(Sha256Digest, u64)> = self
+            .inner
+            .reservations
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .iter()
+            .filter(|(reserved, _)| **reserved != digest)
+            .map(|(reserved, expected)| (*reserved, *expected))
+            .collect();
+        let mut pending = 0u64;
+        for (reserved, expected) in others {
+            let present =
+                self.inner.db.run(move |c| repo::get_partial(c, &reserved)).await?.map_or(0, |row| row.bytes_present);
+            pending += expected.saturating_sub(present);
+        }
         let policy = self.policy();
         let usage = self.usage().await?;
-        let over_limit = (usage.used_bytes + usage.partial_bytes + needed).saturating_sub(policy.limit_bytes);
+        let over_limit = (usage.used_bytes + usage.partial_bytes + pending + needed).saturating_sub(policy.limit_bytes);
         if over_limit > 0 && self.evict(over_limit).await? < over_limit {
             return Err(CasError::OverLimit);
         }
         let available = self.inner.space.available_bytes(&self.inner.partial_dir)?;
-        let shortfall = (needed + policy.reserved_free_bytes).saturating_sub(available);
+        let shortfall = (needed + pending + policy.reserved_free_bytes).saturating_sub(available);
         if shortfall > 0 && self.evict(shortfall).await? < shortfall {
             return Err(CasError::InsufficientSpace { needed });
         }
-        Ok(())
+        self.inner.reservations.lock().unwrap_or_else(|p| p.into_inner()).insert(digest, expected_size);
+        Ok(Reservation { store: self.clone(), digest })
     }
 
     async fn writer_lock(&self, digest: &Sha256Digest) -> OwnedMutexGuard<()> {
@@ -493,7 +521,7 @@ impl ContentStore {
             Some(row) if row.expected_size == expected_size && on_disk <= expected_size => on_disk,
             _ => 0,
         };
-        self.make_room(expected_size - offset).await?;
+        let reservation = self.make_room(digest, expected_size, offset).await?;
         let file = tokio::fs::OpenOptions::new()
             .create(true)
             .truncate(offset == 0)
@@ -506,6 +534,7 @@ impl ContentStore {
         let session = WriteSession {
             store: self.clone(),
             _guard: guard,
+            _reservation: reservation,
             digest,
             expected_size,
             meta,
@@ -571,10 +600,23 @@ pub enum VerifyOutcome {
     Corrupt,
 }
 
+/// The space a write session holds until it ends.
+struct Reservation {
+    store: ContentStore,
+    digest: Sha256Digest,
+}
+
+impl Drop for Reservation {
+    fn drop(&mut self) {
+        self.store.inner.reservations.lock().unwrap_or_else(|p| p.into_inner()).remove(&self.digest);
+    }
+}
+
 /// Exclusive write access to one digest's partial file.
 pub struct WriteSession {
     store: ContentStore,
     _guard: OwnedMutexGuard<()>,
+    _reservation: Reservation,
     digest: Sha256Digest,
     expected_size: u64,
     meta: IngestMeta,
