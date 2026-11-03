@@ -1,5 +1,6 @@
 //! Verified manifest content preparation and pin identities.
 use crate::{AssetPolicy, ManifestAsset, NativeManifest, OriginBlobSource, StreamClaim, StreamReason};
+use futures_util::stream::{self, StreamExt, TryStreamExt};
 use player_cas::{BlobSource, CasError, ContentStore, FetchError, FetchObserver, FetchRequest, Fetcher, IngestMeta};
 use player_client::AuthenticatedServer;
 use player_state::repo::cas::{Domain, SourceKind};
@@ -63,27 +64,58 @@ pub(crate) async fn verify_content(
 ) -> Result<Vec<Sha256Digest>, ManifestPreparationError> {
     let threshold = store.download_threshold_bytes();
     let mut digests = BTreeSet::new();
+    let mut downloads = Vec::new();
     for asset in &candidate.required_downloads {
-        if stream_claim(asset, threshold).is_some() {
+        if let Some(claim) = stream_claim(asset, threshold) {
+            if seen_stream.insert(claim.digest) {
+                streams.push(claim);
+            }
             continue;
         }
-        let Some((_, record)) = store.open_verified(&asset.digest).await? else {
-            return Err(ManifestPreparationError::Missing);
-        };
-        if record.size_bytes != asset.size_bytes {
-            return Err(ManifestPreparationError::SizeMismatch);
+        if digests.insert(asset.digest) {
+            downloads.push(asset);
         }
-        digests.insert(asset.digest);
     }
-    for bundle in &candidate.required_bundles {
-        let Some((_, record)) = store.open_verified(&bundle.digest).await? else {
-            return Err(ManifestPreparationError::Missing);
-        };
-        if record.size_bytes != bundle.size_bytes {
-            return Err(ManifestPreparationError::SizeMismatch);
-        }
-        digests.insert(bundle.digest);
-    }
+    // Required media and bundles download up to the configured number at a
+    // time; the content store reserves space across concurrent writers.
+    let limit = store.download_concurrency();
+    stream::iter(downloads)
+        .map(|asset| async move {
+            let meta = IngestMeta {
+                domain: Domain::Media,
+                content_type: Some(asset.mime_type.clone()),
+                source: SourceKind::Origin,
+            };
+            fetch_object(store, plan, asset.digest, asset.size_bytes, &asset.download_path, meta).await.map_err(
+                |error| match &error {
+                    // The partition requires this download and the store
+                    // cannot fit it: fail visibly, never stream silently.
+                    ManifestPreparationError::Fetch(FetchError::Store(
+                        CasError::OverLimit | CasError::InsufficientSpace { .. },
+                    ))
+                    | ManifestPreparationError::Store(CasError::OverLimit | CasError::InsufficientSpace { .. }) => {
+                        ManifestPreparationError::CacheTooSmall
+                    }
+                    _ => error,
+                },
+            )
+        })
+        .buffer_unordered(limit)
+        .try_collect::<Vec<()>>()
+        .await?;
+    let bundles: Vec<_> = candidate.required_bundles.iter().filter(|bundle| digests.insert(bundle.digest)).collect();
+    stream::iter(bundles)
+        .map(|bundle| async move {
+            let meta = IngestMeta {
+                domain: Domain::WidgetBundle,
+                content_type: Some("text/javascript".to_owned()),
+                source: SourceKind::Origin,
+            };
+            fetch_object(store, plan, bundle.digest, bundle.size_bytes, &bundle.download_path, meta).await
+        })
+        .buffer_unordered(limit)
+        .try_collect::<Vec<()>>()
+        .await?;
     for frame in &candidate.required_frames {
         let Some((_, record)) = store.open_verified(&frame.digest).await? else {
             return Err(ManifestPreparationError::Missing);
