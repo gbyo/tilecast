@@ -1703,7 +1703,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Public. Serve the configured login background image, redirecting to the default artwork when none is configured. */
+    /** @description Public. Serve the configured login background image, or the built-in default artwork when none is configured. */
     get: operations["getLoginBackgroundImage"];
     put?: never;
     post?: never;
@@ -16836,13 +16836,6 @@ export interface operations {
           "application/octet-stream": string;
         };
       };
-      /** @description Redirect to default artwork */
-      307: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
     };
   };
   headLoginBackgroundImage: {
@@ -16856,13 +16849,6 @@ export interface operations {
     responses: {
       /** @description Login background image metadata */
       200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Redirect to default artwork */
-      307: {
         headers: {
           [name: string]: unknown;
         };
