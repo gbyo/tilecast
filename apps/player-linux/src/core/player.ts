@@ -1473,11 +1473,27 @@ export class PlayerRuntime {
         renderProgressConfigFor(this.config?.reliability),
       ).progressing
     ) {
-      this.supervisorState = onProgress(
-        this.supervisorState,
-        now,
-        this.supervisorConfig(),
-      );
+      const previous = this.supervisorState;
+      this.supervisorState = onProgress(previous, now, this.supervisorConfig());
+      // A healthy period that clears recovery history must survive a
+      // restart, or the next stall resumes at an obsolete rung. This is rare,
+      // so it is written when it happens rather than on every progress event.
+      if (
+        previous.escalationStep !== 0 ||
+        previous.lastActionAtMs !== null ||
+        previous.ladderRunsAtMs.length > 0
+      ) {
+        const cleared = this.supervisorState;
+        if (
+          cleared.escalationStep === 0 &&
+          cleared.lastActionAtMs === null &&
+          cleared.ladderRunsAtMs.length === 0
+        ) {
+          void this.store
+            .writeJson(SUPERVISOR_FILE, cleared)
+            .catch(() => undefined);
+        }
+      }
     }
     if (kind === "item-started") {
       // The first item on screen is the milestone an operator watching a screen
