@@ -176,15 +176,22 @@ public final class ServerDirectory {
 
     /// Removes a profile and returns it so the caller can delete its data
     /// store. If it was active, the most recently opened remaining server
-    /// becomes active.
+    /// becomes active. Returns nil, leaving the profile in place, when the
+    /// removal cannot be saved, so the caller keeps its credentials and data.
     @discardableResult
     public func remove(_ id: UUID) -> ServerProfile? {
         guard let index = servers.firstIndex(where: { $0.id == id }) else { return nil }
+        let previousServers = servers
+        let previousActive = activeServerID
         let removed = servers.remove(at: index)
         if activeServerID == id {
             activeServerID = servers.max { ($0.lastOpenedAt ?? $0.createdAt) < ($1.lastOpenedAt ?? $1.createdAt) }?.id
         }
-        save()
+        guard save() else {
+            servers = previousServers
+            activeServerID = previousActive
+            return nil
+        }
         return removed
     }
 
@@ -239,12 +246,15 @@ public final class ServerDirectory {
         save()
     }
 
-    private func save() {
+    @discardableResult
+    private func save() -> Bool {
         do {
             try storage.save(ServerDirectorySnapshot(servers: servers, activeServerID: activeServerID))
             lastSaveError = nil
+            return true
         } catch {
             lastSaveError = String(describing: error)
+            return false
         }
     }
 
