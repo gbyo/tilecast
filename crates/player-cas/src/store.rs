@@ -63,6 +63,7 @@ struct Inner {
     space: Arc<dyn SpaceProbe>,
     opener: Arc<dyn SecureOpener>,
     policy: Mutex<StorePolicy>,
+    automatic_threshold: Mutex<Option<u64>>,
     eviction: Arc<dyn EvictionPolicy>,
     writers: Mutex<HashMap<Sha256Digest, Weak<tokio::sync::Mutex<()>>>>,
     touches: Mutex<HashMap<Sha256Digest, Timestamp>>,
@@ -142,6 +143,7 @@ impl ContentStore {
                 space,
                 opener,
                 policy: Mutex::new(policy),
+                automatic_threshold: Mutex::new(None),
                 eviction,
                 writers: Mutex::new(HashMap::new()),
                 touches: Mutex::new(HashMap::new()),
@@ -161,12 +163,21 @@ impl ContentStore {
         *self.inner.policy.lock().unwrap_or_else(|p| p.into_inner())
     }
 
-    /// Half the cache limit: `automatic` videos larger than this become
-    /// stream claims instead of downloads, so one object can never consume
-    /// the whole store. Explicit `download` still fails rather than
-    /// streaming. The one-byte floor keeps the comparison total.
+    /// Sets the configured Automatic delivery threshold; `None` leaves only
+    /// the cache-limit bound.
+    pub fn set_automatic_threshold(&self, threshold: Option<u64>) {
+        *self.inner.automatic_threshold.lock().unwrap_or_else(|p| p.into_inner()) = threshold;
+    }
+
+    /// The configured Automatic delivery threshold, capped at half the cache
+    /// limit: `automatic` videos larger than this become stream claims
+    /// instead of downloads, so one object can never consume the whole
+    /// store. Explicit `download` still fails rather than streaming. The
+    /// one-byte floor keeps the comparison total.
     pub fn download_threshold_bytes(&self) -> u64 {
-        (self.policy().limit_bytes / 2).max(1)
+        let configured = *self.inner.automatic_threshold.lock().unwrap_or_else(|p| p.into_inner());
+        let half = self.policy().limit_bytes / 2;
+        configured.map_or(half, |value| value.min(half)).max(1)
     }
 
     pub fn cas_dir(&self) -> &Path {
