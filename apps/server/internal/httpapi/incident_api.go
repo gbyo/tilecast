@@ -142,7 +142,7 @@ func (s *server) listIncidents(w http.ResponseWriter, r *http.Request) {
 		allowed    []string
 	}{
 		{"severity", "i.severity = $%d", []string{"info", "warning", "error", "critical"}},
-		{"type", "i.incident_type = $%d", []string{incidentConnectivity, incidentPlayback, incidentStorage, incidentSafeMode, incidentUpdate}},
+		{"type", "i.incident_type = $%d", []string{incidentConnectivity, incidentPlayback, incidentStorage, incidentSafeMode, incidentUpdate, incidentDataSource, incidentContent}},
 	} {
 		value := queryValue(r, filter.key)
 		if value == "" {

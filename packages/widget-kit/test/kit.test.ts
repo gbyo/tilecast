@@ -270,11 +270,11 @@ describe("format", () => {
   const at = Date.parse("2026-09-28T14:05:09Z");
 
   it("formats percent values as whole units, like the legacy renderer", () => {
-    // Records carry 62 for 62%; formatting must not print 6,200%.
+    // Plain numbers carry 62 for 62%; typed percent fields carry the ratio 0.62.
     expect(formatNumber(62, { locale: "en-US", style: "percent" })).toBe("62%");
     expect(
       formatWidgetValue(
-        { kind: "percent", number: 62 },
+        { kind: "percent", number: 0.62 },
         { type: "percent" },
         { locale: "en-US" },
       ),

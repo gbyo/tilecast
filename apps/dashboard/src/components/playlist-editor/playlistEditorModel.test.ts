@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { PlaylistItem } from "../../api/types";
+import type { PlaylistItem, PlaylistItemInput } from "../../api/types";
 import { i18n } from "../../i18n";
 import {
   formatDuration,
+  mergeItemEdit,
   movePlaylistItem,
   movePlaylistItemToEdge,
   playlistItemsWithOrder,
@@ -127,5 +128,26 @@ describe("playlist reorder actions", () => {
       "a",
       "b",
     ]);
+  });
+});
+
+describe("mergeItemEdit", () => {
+  it("keeps an unsaved edit when a later gesture starts from the stale item", () => {
+    const rendered: PlaylistItemInput = {
+      assetId: "asset-1",
+      fitMode: "contain",
+      transition: "none",
+      audioEnabled: true,
+      volume: 100,
+      deliveryPolicy: "automatic",
+      usePlayerDefaults: false,
+    };
+    const first = mergeItemEdit(
+      rendered,
+      { ...rendered, audioEnabled: false },
+      undefined,
+    );
+    const second = mergeItemEdit(rendered, { ...rendered, volume: 40 }, first);
+    expect(second).toEqual({ ...rendered, audioEnabled: false, volume: 40 });
   });
 });

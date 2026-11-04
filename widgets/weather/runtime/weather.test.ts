@@ -76,7 +76,7 @@ const current = {
     condition: { kind: "text", text: "Partly Cloudy" },
     temperature: { kind: "number", number: 21.5 },
     temperatureUnit: { kind: "text", text: "°C" },
-    humidity: { kind: "percent", number: 62 },
+    humidity: { kind: "percent", number: 0.62 },
     windSpeed: { kind: "number", number: 3.2 },
     windUnit: { kind: "text", text: "m/s" },
     precipitation: { kind: "number", number: 0 },
@@ -263,9 +263,9 @@ describe("Weather element", () => {
     }
     const days = [...root.querySelectorAll(".forecast .day")];
     expect(days).toHaveLength(1);
-    // The bare forecast date is midnight UTC, still Sunday in the Widget
-    // zone (America/Chicago in tests).
-    expect(text(".forecast .day-name")).toBe("Sunday");
+    // 2026-09-28 is a Monday. A bare calendar date is named in UTC, so the
+    // label stays Monday in the Widget zone (America/Chicago in tests).
+    expect(text(".forecast .day-name")).toBe("Monday");
     expect(text(".forecast .high-low")).toBe("24 °C 15 °C");
     expect(test.states).toEqual([{ state: "ready" }]);
     test.dispose();

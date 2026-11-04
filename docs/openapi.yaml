@@ -2715,21 +2715,19 @@ paths:
     get:
       operationId: getLoginBackgroundImage
       description: >-
-        Public. Serve the configured login background image, redirecting to the default artwork when none is configured.
+        Public. Serve the configured login background image, or the built-in default artwork when none is configured.
       responses:
         "200":
           description: Login background image
           content:
             application/octet-stream:
               schema: { type: string, format: binary }
-        "307": { description: Redirect to default artwork }
     head:
       operationId: headLoginBackgroundImage
       description: >-
         Public. Inspect the configured login background image without downloading it.
       responses:
         "200": { description: Login background image metadata }
-        "307": { description: Redirect to default artwork }
   /api/v1/settings/login-background:
     get:
       operationId: getLoginBackground
