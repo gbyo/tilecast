@@ -62,6 +62,8 @@ typedef struct {
   guint max_bytes;
   gint64 deadline;
   guint timeout_source;
+  /* Cancels a WebKit snapshot that missed its timeout. */
+  GCancellable *cancellable;
   /* The daemon already has its answer (a timeout); later results are dropped. */
   gboolean answered;
 
@@ -171,6 +173,7 @@ request_free (PreviewRequest *request)
   if (request->timeout_source != 0)
     g_source_remove (request->timeout_source);
   g_clear_pointer (&request->pixels, g_bytes_unref);
+  g_clear_object (&request->cancellable);
   g_free (request->jpeg_base64);
   g_free (request->request_id);
   g_free (request);
@@ -323,12 +326,13 @@ answer (PreviewRequest *request, const char *jpeg_base64, const char *unavailabl
                unavailable_code);
 }
 
-/* The capture is over: the next request may start. */
+/* The capture is over: the next request may start. A request whose snapshot
+ * timed out already gave up the slot, which a later capture may now hold. */
 static void
 finish (PreviewRequest *request)
 {
-  g_assert (in_flight == request);
-  in_flight = NULL;
+  if (in_flight == request)
+    in_flight = NULL;
   request_free (request);
 }
 
@@ -486,6 +490,11 @@ on_snapshot_timeout (gpointer user_data)
   request->timeout_source = 0;
   g_message ("preview: WebKit did not deliver the snapshot within %d ms", TC_PREVIEW_SNAPSHOT_TIMEOUT_MS);
   answer (request, NULL, "snapshot_timeout");
+  /* Free the slot now: WebKit may never call back. The request stays alive
+   * until on_snapshot runs, which the cancellation asks WebKit to do. */
+  if (in_flight == request)
+    in_flight = NULL;
+  g_cancellable_cancel (request->cancellable);
   return G_SOURCE_REMOVE;
 }
 
@@ -585,7 +594,8 @@ tc_preview_capture (TcHost *host, JsonObject *data)
   }
   report_backend (BACKEND_WEBKIT_SNAPSHOT, reason, NULL);
   g_debug ("preview: snapshot requested");
+  request->cancellable = g_cancellable_new ();
   request->timeout_source = g_timeout_add (TC_PREVIEW_SNAPSHOT_TIMEOUT_MS, on_snapshot_timeout, request);
-  webkit_web_view_get_snapshot (host->view, WEBKIT_SNAPSHOT_REGION_VISIBLE, WEBKIT_SNAPSHOT_OPTIONS_NONE, NULL,
-                                on_snapshot, request);
+  webkit_web_view_get_snapshot (host->view, WEBKIT_SNAPSHOT_REGION_VISIBLE, WEBKIT_SNAPSHOT_OPTIONS_NONE,
+                                request->cancellable, on_snapshot, request);
 }
