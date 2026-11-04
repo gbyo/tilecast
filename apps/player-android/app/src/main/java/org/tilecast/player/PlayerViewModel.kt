@@ -460,6 +460,7 @@ class PlayerViewModel internal constructor(
     /** Writes the policy prefs the OS integration reads: boot, kiosk return, and foreground reporting. */
     private fun applyPlatformPolicy(config: CorePlayerConfig) {
         val platform = config.platform
+        BootRecovery.setLaunchAfterBoot(getApplication<Application>(), platform.reliability.launchAfterBoot)
         prefs.edit()
             .putBoolean("launch-after-boot", platform.reliability.launchAfterBoot)
             .putBoolean("accessibility-enabled-by-policy", platform.accessibility.controlAssistEnabled)
