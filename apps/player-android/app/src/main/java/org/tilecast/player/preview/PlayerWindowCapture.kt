@@ -63,12 +63,21 @@ internal class PlayerWindowCapture(private val activity: Activity) {
         }
 
         val surfaces = visibleSurfaceViews(root)
-        overlaySurfaceViews(root, surfaces, bitmap)
-        if (surfaces.isNotEmpty() && isNearlyBlack(bitmap)) {
+        var surfaceFailure = overlaySurfaceViews(root, surfaces, bitmap)
+        if (surfaces.isNotEmpty() && (surfaceFailure != null || isNearlyBlack(bitmap))) {
             delay(250)
-            if (copyWindow(bitmap) == PixelCopy.SUCCESS) {
+            val retry = copyWindow(bitmap)
+            surfaceFailure = if (retry == PixelCopy.SUCCESS) {
                 overlaySurfaceViews(root, surfaces, bitmap)
+            } else {
+                "pixel_copy_$retry"
             }
+        }
+        // A frame missing a visible video surface is not a screenshot of the
+        // screen, even when the rest of it has content.
+        if (surfaceFailure != null) {
+            bitmap.recycle()
+            return WindowCapture.Failure(surfaceFailure)
         }
         if (surfaces.isNotEmpty() && isNearlyBlack(bitmap)) {
             bitmap.recycle()
@@ -100,8 +109,9 @@ internal class PlayerWindowCapture(private val activity: Activity) {
         }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    private suspend fun overlaySurfaceViews(root: View, surfaces: List<SurfaceView>, destination: Bitmap) {
-        if (surfaces.isEmpty()) return
+    /** Draws each visible surface over the window copy. Returns a failure status if any surface could not be copied. */
+    private suspend fun overlaySurfaceViews(root: View, surfaces: List<SurfaceView>, destination: Bitmap): String? {
+        if (surfaces.isEmpty()) return null
         val rootLocation = IntArray(2).also(root::getLocationInWindow)
         val scaleX = destination.width.toFloat() / root.width
         val scaleY = destination.height.toFloat() / root.height
@@ -112,9 +122,10 @@ internal class PlayerWindowCapture(private val activity: Activity) {
             val height = (surface.height * scaleY).roundToInt().coerceAtLeast(1)
             val layer = runCatching {
                 Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            }.getOrNull() ?: continue
+            }.getOrNull() ?: return "surface_allocation_failed"
             try {
-                if (copySurface(surface, layer) != PixelCopy.SUCCESS) continue
+                val result = copySurface(surface, layer)
+                if (result != PixelCopy.SUCCESS) return "surface_copy_$result"
                 val left = (location[0] - rootLocation[0]) * scaleX
                 val top = (location[1] - rootLocation[1]) * scaleY
                 canvas.drawBitmap(layer, left, top, null)
@@ -122,6 +133,7 @@ internal class PlayerWindowCapture(private val activity: Activity) {
                 layer.recycle()
             }
         }
+        return null
     }
 
     private fun captureWithCanvas(view: View, bitmap: Bitmap): WindowCapture = runCatching {

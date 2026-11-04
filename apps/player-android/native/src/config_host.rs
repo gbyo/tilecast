@@ -668,6 +668,7 @@ impl AndroidConfigHost {
         match config {
             Some(config) => {
                 self.cas.set_policy(Self::store_policy(&config));
+                self.cas.set_automatic_threshold(config.native.cache.automatic_threshold_bytes);
                 let tmp = self.installed_path.with_extension("json.tmp");
                 let written = serde_json::to_vec_pretty(&config.installed_json())
                     .map_err(|_| ())
@@ -682,6 +683,7 @@ impl AndroidConfigHost {
                     limit_bytes: CAS_LIMIT_BYTES,
                     reserved_free_bytes: CAS_RESERVED_FREE_BYTES,
                 });
+                self.cas.set_automatic_threshold(None);
                 let _ = std::fs::remove_file(&self.installed_path);
             }
         }

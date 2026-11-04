@@ -146,6 +146,21 @@ pub struct AndroidServerLinkHost {
     started_at: std::time::Instant,
 }
 
+/// Whether an active window closes within `prepare_seconds`. Zero
+/// disables the preparation status.
+pub fn shutdown_preparing_at(
+    hours: Option<&player_core::ActiveHours>,
+    prepare_seconds: u64,
+    now_ms: i64,
+) -> bool {
+    if prepare_seconds == 0 {
+        return false;
+    }
+    let result = player_core::evaluate_active_hours(hours, now_ms);
+    let window_ms = i64::try_from(prepare_seconds).unwrap_or(i64::MAX).saturating_mul(1_000);
+    result.active && result.ms_until_transition.is_some_and(|remaining| remaining <= window_ms)
+}
+
 fn renderer_snapshot(
     renderer: &Arc<std::sync::Mutex<crate::renderer::RendererSnapshot>>,
 ) -> crate::renderer::RendererSnapshot {
@@ -196,6 +211,15 @@ fn playback_state(renderer: &crate::renderer::RendererSnapshot, presentation_sta
 }
 
 impl AndroidServerLinkHost {
+    fn shutdown_preparing(&self) -> bool {
+        let Some(config) = self.config.effective() else { return false };
+        shutdown_preparing_at(
+            config.native.active_hours.as_ref(),
+            config.platform.power.shutdown_prepare_seconds,
+            self.clock.now().unix_millis(),
+        )
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         core: player_core::PlayerCore,
@@ -360,13 +384,21 @@ impl AndroidServerLinkHost {
             heartbeat["lastSuccessfulSyncAt"] = serde_json::json!(synced.to_string());
         }
         // The rest gate is off-hours; anything else (including the
-        // disabled gate, which has its own playback signal) is active.
+        // disabled gate, which has its own playback signal) is active,
+        // or preparing when the window closes within the configured
+        // `power.shutdown_prepare_seconds`.
         let gated_rest = self
             .gate
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .is_some_and(|state| state.gate == ActivationGateName::Rest);
-        heartbeat["activeHoursState"] = serde_json::json!(if gated_rest { "off_hours" } else { "active" });
+        heartbeat["activeHoursState"] = serde_json::json!(if gated_rest {
+            "off_hours"
+        } else if self.shutdown_preparing() {
+            "shutdown_preparing"
+        } else {
+            "active"
+        });
         // Platform observations fill only what Core did not set.
         crate::observations::merge_observations(&mut heartbeat, &self.observations);
         if let Some(sdk) = number("androidSdk") {
@@ -501,6 +533,24 @@ mod tests {
     use player_state::repo::cas::{Domain, SourceKind};
     use player_state::{OpenOptions, StateDb};
     use player_types::Sha256Digest;
+
+    #[test]
+    fn shutdown_preparing_covers_only_the_configured_window_before_rest() {
+        // Every day 08:00-17:00 UTC.
+        let hours = player_core::ActiveHours {
+            timezone: "UTC".into(),
+            days: (1..=7).collect(),
+            start_minutes: Some(8 * 60),
+            end_minutes: Some(17 * 60),
+        };
+        let at = |time: &str| Timestamp::parse(&format!("2026-09-24T{time}Z")).unwrap().unix_millis();
+        assert!(shutdown_preparing_at(Some(&hours), 60, at("16:59:30")));
+        assert!(!shutdown_preparing_at(Some(&hours), 60, at("16:58:00")));
+        assert!(!shutdown_preparing_at(Some(&hours), 0, at("16:59:30")));
+        // Off-hours approaching the start is not a preparation window.
+        assert!(!shutdown_preparing_at(Some(&hours), 60, at("07:59:30")));
+        assert!(!shutdown_preparing_at(None, 60, at("16:59:30")));
+    }
 
     const FACTS: &str = r#"{
         "platform": "android-tv", "manufacturer": "test", "model": "test",
