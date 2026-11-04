@@ -1,8 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
+	_ "embed"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -10,7 +13,17 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 )
 
-const defaultLoginBackgroundURL = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&fm=jpg&q=82&w=2400"
+// defaultLoginBackground is built-in artwork, so the sign-in page needs no
+// external host when no background is configured.
+//
+//go:embed assets/login-background.webp
+var defaultLoginBackground []byte
+
+func serveDefaultLoginBackground(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "image/webp")
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	http.ServeContent(w, r, "login-background.webp", time.Time{}, bytes.NewReader(defaultLoginBackground))
+}
 
 func (s *server) loginBackgroundRoutes(next http.Handler) http.Handler {
 	router := chi.NewRouter()
@@ -28,7 +41,7 @@ func (s *server) loginBackgroundImage(w http.ResponseWriter, r *http.Request) {
 	var assetID uuid.UUID
 	err := s.db.QueryRow(r.Context(), `SELECT background_asset_id FROM organization_login_branding WHERE background_asset_id IS NOT NULL LIMIT 1`).Scan(&assetID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		http.Redirect(w, r, defaultLoginBackgroundURL, http.StatusTemporaryRedirect)
+		serveDefaultLoginBackground(w, r)
 		return
 	}
 	if err != nil {
@@ -37,7 +50,7 @@ func (s *server) loginBackgroundImage(w http.ResponseWriter, r *http.Request) {
 	}
 	delivery, err := s.media.Preview(r.Context(), assetID)
 	if err != nil {
-		http.Redirect(w, r, defaultLoginBackgroundURL, http.StatusTemporaryRedirect)
+		serveDefaultLoginBackground(w, r)
 		return
 	}
 	w.Header().Set("Cache-Control", "public, max-age=300")
