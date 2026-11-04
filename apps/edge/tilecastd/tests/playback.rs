@@ -2259,10 +2259,13 @@ async fn outside_active_hours_the_screen_rests_until_a_takeover_outranks_it() {
         renderer.last().filter(|a| matches!(a.presentation, PresentationDocument::Sleep { .. }))
     })
     .await;
-    let PresentationDocument::Sleep { display, text, text_color } = &sleeping.presentation else { unreachable!() };
+    let PresentationDocument::Sleep { display, text, text_color, wake_animation } = &sleeping.presentation else {
+        unreachable!()
+    };
     assert_eq!(display.as_ref().map(|d| d.as_str()), Some("custom_text"));
     assert_eq!(text.as_ref().map(|t| t.as_str()), Some("Closed for the night"));
     assert_eq!(text_color.as_ref().map(|t| t.as_str()), Some("#AABBCC"));
+    assert_eq!(*wake_animation, Some(true), "the wake animation is on unless the policy turns it off");
     assert_eq!(heartbeat(&player.context).await["playbackState"], "sleep");
     // Content never reached the screen, so nothing was promoted on evidence.
     let binding = harness.binding();

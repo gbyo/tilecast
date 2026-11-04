@@ -118,7 +118,7 @@ func TestSettingsPolicyInheritanceAndRevision(t *testing.T) {
 	if err != nil || groupPolicy.Revision != 1 {
 		t.Fatalf("group policy: %#v %v", groupPolicy, err)
 	}
-	_, err = service.PutScreenPolicy(ctx, owner.User.ID, screen, 0, map[string]any{"player.playback.default_volume": 0.25, "power.keep_screen_on": false, "power.outside_active_hours_display": "custom_text", "power.outside_active_hours_text": "School is closed"})
+	_, err = service.PutScreenPolicy(ctx, owner.User.ID, screen, 0, map[string]any{"player.playback.default_volume": 0.25, "power.keep_screen_on": false, "power.outside_active_hours_display": "custom_text", "power.outside_active_hours_text": "School is closed", "power.outside_active_hours_wake_animation": false})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestSettingsPolicyInheritanceAndRevision(t *testing.T) {
 	}
 	config, etag, err := service.PlayerConfiguration(ctx, screen)
 	regionalProfile, _ := config.Playback["regionalFormat"].(RegionalFormatting)
-	if err != nil || config.Playback["defaultVolume"] != 0.25 || config.Reliability["mode"] != "managed_kiosk" || config.Power["keepScreenOn"] != false || config.Power["outsideActiveHoursDisplay"] != "custom_text" || config.Power["outsideActiveHoursText"] != "School is closed" || config.Power["blackScreenFallback"] != false || config.LinuxKiosk["fullscreenEnabled"] != true || config.LinuxKiosk["preventDisplaySleep"] != true || etag == "" || regionalProfile.Locale != "en-US" || regionalProfile.Timezone != "America/New_York" || regionalProfile.FirstDayOfWeek != "sunday" {
+	if err != nil || config.Playback["defaultVolume"] != 0.25 || config.Reliability["mode"] != "managed_kiosk" || config.Power["keepScreenOn"] != false || config.Power["outsideActiveHoursDisplay"] != "custom_text" || config.Power["outsideActiveHoursText"] != "School is closed" || config.Power["outsideActiveHoursWakeAnimation"] != false || config.Power["blackScreenFallback"] != false || config.LinuxKiosk["fullscreenEnabled"] != true || config.LinuxKiosk["preventDisplaySleep"] != true || etag == "" || regionalProfile.Locale != "en-US" || regionalProfile.Timezone != "America/New_York" || regionalProfile.FirstDayOfWeek != "sunday" {
 		t.Fatalf("config=%#v etag=%q err=%v", config, etag, err)
 	}
 	if notifier.notes < 3 {

@@ -61,6 +61,7 @@ pub fn gate_document(
                 display: ShortToken::new(config.runtime.power.outside_display.as_str()).ok(),
                 text: Some(SafeText::lossy(&config.runtime.power.outside_text)),
                 text_color: Some(SafeText::lossy(config.runtime.branding.text())),
+                wake_animation: Some(config.runtime.power.wake_animation),
             },
             Vec::new(),
         ),

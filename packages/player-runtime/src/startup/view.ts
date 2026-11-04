@@ -35,6 +35,9 @@ const PUSH_MS = 900;
 const WHITE_HOLD_MS = 60;
 const RESOLVE_MS = 380;
 const REDUCED_MS = 320;
+/** The glide from another logo's position to the centre, before the pulse. */
+export const GLIDE_MS = 800;
+const GLIDE_CROSSFADE_MS = 300;
 
 /** The colour of the card, and of the sheet it becomes. */
 export const CANVAS_COLOR = "#ffffff";
@@ -44,6 +47,14 @@ export interface RevealHandle {
   readonly covered: Promise<void>;
   /** The sheet has faded; the layer can go. */
   readonly finished: Promise<void>;
+}
+
+/** A logo already on screen that the startup logo takes over from. */
+export interface GlideOrigin {
+  /** Its box, in viewport pixels. */
+  rect: { left: number; top: number; width: number; height: number };
+  /** Image address of that logo, shown fading out while the pulse fades in. */
+  src: string | null;
 }
 
 export interface RevealOptions {
@@ -115,6 +126,51 @@ export class StartupView {
       () => (typeof pulse.startTime === "number" ? pulse.startTime : null),
       () => null,
     );
+  }
+
+  /**
+   * Begin where `origin` is and glide to the centre, where the pulse
+   * plays. Returns the glide's length in milliseconds (0 when nothing moves).
+   * The old logo fades out and the pulse fades in while it travels.
+   */
+  glideFrom(origin: GlideOrigin): number {
+    if (
+      typeof this.logo.animate !== "function" ||
+      origin.rect.width <= 0 ||
+      origin.rect.height <= 0
+    ) {
+      return 0;
+    }
+    const rest = this.logo.getBoundingClientRect();
+    if (rest.width <= 0 || rest.height <= 0) return 0;
+    const dx =
+      origin.rect.left + origin.rect.width / 2 - (rest.left + rest.width / 2);
+    const dy =
+      origin.rect.top + origin.rect.height / 2 - (rest.top + rest.height / 2);
+    const scale = origin.rect.width / rest.width;
+    this.logo.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
+        { transform: "translate(0px, 0px) scale(1)" },
+      ],
+      { duration: GLIDE_MS, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+    );
+    const crossfade: KeyframeAnimationOptions = {
+      duration: GLIDE_CROSSFADE_MS,
+      easing: "ease-in-out",
+      fill: "both",
+    };
+    this.mark.animate([{ opacity: 0 }, { opacity: 1 }], crossfade);
+    if (origin.src) {
+      const ghost = this.root.ownerDocument.createElement("img");
+      ghost.src = origin.src;
+      ghost.alt = "";
+      ghost.setAttribute("aria-hidden", "true");
+      ghost.className = "tc-startup__ghost";
+      this.logo.appendChild(ghost);
+      ghost.animate([{ opacity: 1 }, { opacity: 0 }], crossfade);
+    }
+    return GLIDE_MS;
   }
 
   setPhase(phase: string): void {

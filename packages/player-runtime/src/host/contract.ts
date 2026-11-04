@@ -483,6 +483,12 @@ export type RuntimePresentation =
       display?: "bouncing_logo" | "custom_text" | "black";
       text?: string;
       textColor?: string;
+      /**
+       * Play the startup animation when this screen ends. Absent means
+       * true; a Player sends false only when the organization turned the
+       * animation off.
+       */
+      wakeAnimation?: boolean;
     }
   | {
       state: "playing";

@@ -79,10 +79,18 @@ pub struct Website {
     pub clear_on_restart: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Power {
     pub outside_display: String,
     pub outside_text: String,
+    /// Play the startup animation when active hours begin. Only `false` turns it off.
+    pub wake_animation: bool,
+}
+
+impl Default for Power {
+    fn default() -> Self {
+        Self { outside_display: String::new(), outside_text: String::new(), wake_animation: true }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -184,7 +192,10 @@ impl WindowsPlayerConfig {
         let outside_text = text(power_values, "outsideActiveHoursText", 240)
             .or_else(|| branding.footer_text.clone())
             .unwrap_or_else(|| "Powered by Tilecast".to_owned());
-        let power = Power { outside_display, outside_text };
+        let wake_animation = power_values
+            .and_then(|values| values.get("outsideActiveHoursWakeAnimation"))
+            .is_none_or(|value| value.as_bool() != Some(false));
+        let power = Power { outside_display, outside_text, wake_animation };
 
         let website_section = section(object, "website");
         let token = |key: &str, allowed: &[&str]| {
@@ -340,6 +351,29 @@ mod tests {
         assert_eq!(config.runtime.power.outside_display, "bouncing_logo");
         assert_eq!(config.runtime.website.cookie_policy.as_deref(), Some("disabled"));
         assert!(config.runtime.website.clear_on_restart);
+    }
+
+    #[test]
+    fn wake_animation_defaults_true_and_only_false_disables() {
+        let wake = |power: serde_json::Value| {
+            let native = NativeConfiguration::parse(&serde_json::json!({
+                "schemaVersion": 1, "configRevision": 1, "cache": {}, "sync": {},
+            }))
+            .expect("native parses");
+            WindowsPlayerConfig::project(
+                &serde_json::json!({"schemaVersion": 1, "configRevision": 1, "power": power}),
+                native,
+            )
+            .expect("projects")
+            .runtime
+            .power
+            .wake_animation
+        };
+        assert!(wake(serde_json::json!({})));
+        assert!(!wake(serde_json::json!({"outsideActiveHoursWakeAnimation": false})));
+        assert!(wake(serde_json::json!({"outsideActiveHoursWakeAnimation": true})));
+        assert!(wake(serde_json::json!({"outsideActiveHoursWakeAnimation": "no"})));
+        assert!(RuntimeConfiguration::default().power.wake_animation);
     }
 
     #[test]

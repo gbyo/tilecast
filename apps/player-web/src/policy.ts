@@ -28,6 +28,7 @@ const POWER_KEYS = [
   "activeHoursEnd",
   "outsideActiveHoursDisplay",
   "outsideActiveHoursText",
+  "outsideActiveHoursWakeAnimation",
 ];
 const BRANDING_KEYS = ["footerText", "textColor"];
 

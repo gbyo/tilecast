@@ -40,6 +40,7 @@ import { RuntimeWidgetHost, widgetDiscovery } from "./widgets/host";
 import { runtimeSupport } from "./host/support";
 import { AuthorizedMedia } from "./host/media";
 import { startupFor, type StartupSequence } from "./startup/sequence";
+import { captureStartupLayer, WakeAnimation } from "./startup/wake";
 
 declare const __RUNTIME_VERSION__: string;
 const RUNTIME_VERSION =
@@ -57,6 +58,9 @@ const prefersReducedMotion = () =>
   matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function start(): void {
+  // The startup layer plays once and is removed; the wake animation needs a
+  // copy of it from before that.
+  const startupLayer = captureStartupLayer(document);
   const view = root();
   const host = (globalThis as Record<string, unknown>)[RUNTIME_HOST_GLOBAL];
   const problem = hostContractProblem(host);
@@ -71,10 +75,14 @@ function start(): void {
     console.error(`tilecast runtime: ${problem}`);
     return;
   }
-  run(view, host as TilecastRuntimeHostV1);
+  run(view, host as TilecastRuntimeHostV1, startupLayer);
 }
 
-function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
+function run(
+  view: PlayerRoot,
+  host: TilecastRuntimeHostV1,
+  startupLayer: HTMLElement | null,
+): void {
   const conformance = host.conformance ?? null;
   const manual = conformance
     ? new ManualClock({ wallMs: conformance.wallClockMs })
@@ -203,6 +211,15 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     remoteWeb.holdHostLayers(true);
     startup.onUncovered(() => remoteWeb.holdHostLayers(false));
   }
+  // Leaving the outside-hours screen plays the startup animation again. Host
+  // layers that draw above the document are held back while it covers.
+  const wake = new WakeAnimation({
+    clock,
+    template: conformance === null ? startupLayer : null,
+    reducedMotion,
+    startupCovering: () => startup.covering,
+    covering: (held) => remoteWeb?.holdHostLayers(held),
+  });
 
   view.bind({
     controller,
@@ -214,6 +231,7 @@ function run(view: PlayerRoot, host: TilecastRuntimeHostV1): void {
     widgets,
     providers,
     startup,
+    wake,
     setup: {
       available: capabilities.setup && !!host.setup,
       submit: (url) =>
