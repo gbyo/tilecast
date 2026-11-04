@@ -148,11 +148,7 @@ pub struct AndroidServerLinkHost {
 
 /// Whether an active window closes within `prepare_seconds`. Zero
 /// disables the preparation status.
-pub fn shutdown_preparing_at(
-    hours: Option<&player_core::ActiveHours>,
-    prepare_seconds: u64,
-    now_ms: i64,
-) -> bool {
+pub fn shutdown_preparing_at(hours: Option<&player_core::ActiveHours>, prepare_seconds: u64, now_ms: i64) -> bool {
     if prepare_seconds == 0 {
         return false;
     }

@@ -258,6 +258,26 @@ export function itemInput(item: PlaylistItem): PlaylistItemInput {
   };
 }
 
+/**
+ * Applies the fields one inspector gesture changed (relative to the item it
+ * was rendered from) onto the latest input still waiting to be saved, so a
+ * quick second edit cannot restore a stale value from the first.
+ */
+export function mergeItemEdit(
+  rendered: PlaylistItemInput,
+  edited: PlaylistItemInput,
+  latest: PlaylistItemInput | undefined,
+): PlaylistItemInput {
+  if (!latest) return edited;
+  const merged: PlaylistItemInput = { ...latest };
+  for (const key of Object.keys(edited) as (keyof PlaylistItemInput)[]) {
+    if (edited[key] !== rendered[key]) {
+      (merged as Record<string, unknown>)[key] = edited[key];
+    }
+  }
+  return merged;
+}
+
 export function movePlaylistItem(
   items: PlaylistItem[],
   itemId: string,

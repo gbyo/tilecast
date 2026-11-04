@@ -641,10 +641,17 @@ def main():
         screen = wait_for(heartbeat_seen, "player heartbeat from tilecastd")
         print("dashboard sees screen:", screen["status"], screen["lastHeartbeatAt"])
         socket = os.path.join(runtime, "edge.sock")
-        status = subprocess.run([tilecastctl, "--socket", socket, "--json", "status"], check=True,
-                                capture_output=True, text=True)
+
+        def connected_status():
+            # The daemon publishes its link state only when a sync pass ends,
+            # and the first heartbeat lands during that pass. Wait for the
+            # state instead of reading it at the first heartbeat.
+            result = subprocess.run([tilecastctl, "--socket", socket, "--json", "status"], check=True,
+                                    capture_output=True, text=True)
+            return result if json.loads(result.stdout)["link"]["state"] == "connected" else None
+
+        status = wait_for(connected_status, "the daemon link to report connected")
         daemon_status = json.loads(status.stdout)
-        assert daemon_status["link"]["state"] == "connected", status.stdout
         assert daemon_status["server"]["identityVerifiedAt"], status.stdout
         assert daemon_status["playerId"] == player_id, status.stdout
 

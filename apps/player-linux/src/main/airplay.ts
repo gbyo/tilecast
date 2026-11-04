@@ -249,17 +249,20 @@ export function describeLimitation(probe: {
   if (!probe.gstreamerInstalled) {
     return `GStreamer is not installed; AirPlay needs the GStreamer tools and plugins. ${AIRPLAY_INSTALLER_HINT}`;
   }
+  if (probe.decoder === null && probe.hardwarePlugin) {
+    return `A VA-API decoder plugin is installed but vainfo could not validate the driver, and the avdec_h264 software decoder is not installed. ${AIRPLAY_INSTALLER_HINT}`;
+  }
   if (probe.decoder === null) {
     return `No supported H.264 decoder was found; AirPlay needs vah264dec, vaapih264dec, or avdec_h264. ${AIRPLAY_INSTALLER_HINT}`;
   }
   if (!probe.avahiAvailable) {
     return "Avahi/Bonjour support is unavailable; AirPlay cannot be advertised.";
   }
-  if (!probe.hardware && probe.decoder === "avdec_h264") {
-    return "Intel VA-API H.264 decoding is unavailable; use 720p30 to limit CPU load.";
-  }
   if (probe.hardwarePlugin && !probe.hardware) {
     return "A VA-API decoder plugin is installed but vainfo could not validate the driver; use 720p30 until the driver is fixed.";
+  }
+  if (!probe.hardware && probe.decoder === "avdec_h264") {
+    return "Intel VA-API H.264 decoding is unavailable; use 720p30 to limit CPU load.";
   }
   if (!probe.vainfoAvailable && probe.supported) {
     return "vainfo is unavailable; hardware decode was inferred from GStreamer plugins only.";
@@ -466,7 +469,7 @@ export class AirplayManager {
       SupportedDecoder,
       boolean
     >;
-    const decoder = selectDecoder(decoderAvailability);
+    const installedDecoder = selectDecoder(decoderAvailability);
     const [vainfo, avahi, receiverSink, audioSink, fullscreenSink] =
       await Promise.all([
         this.probeCommand("vainfo", []),
@@ -480,14 +483,22 @@ export class AirplayManager {
         this.probeCommand("gst-inspect-1.0", ["vaapisink"]),
       ]);
     this.receiverVideoSink = fullscreenSink.ok ? "vaapisink" : "autovideosink";
-    const gstreamerReady = gstreamer.ok && decoder !== null;
     const hardwarePlugin =
-      decoder === "vah264dec" || decoder === "vaapih264dec";
+      installedDecoder === "vah264dec" || installedDecoder === "vaapih264dec";
     // A missing vainfo binary should not hide a hardware decoder plugin, but a
     // present binary that cannot initialize VA-API means the old box should be
     // treated as software-only until provisioning fixes its driver.
     const hardware =
       hardwarePlugin && (vainfo.ok || vainfo.output.trim().length === 0);
+    // Sessions start with this decoder, so an unusable VA-API driver must not
+    // leave the hardware element selected.
+    const decoder: SupportedDecoder | null =
+      hardwarePlugin && !hardware
+        ? decoderAvailability.avdec_h264
+          ? "avdec_h264"
+          : null
+        : installedDecoder;
+    const gstreamerReady = gstreamer.ok && decoder !== null;
     const supported =
       uxplay.ok &&
       versionAtLeast(uxplayVersion, UXPLAY_BASELINE) &&

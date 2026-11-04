@@ -382,6 +382,7 @@ function WeekdayPicker({
           key={day}
           value={String(day)}
           aria-label={t(`controls.weekdays.${dayKey}`)}
+          className="aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary/90 aria-pressed:hover:text-primary-foreground"
         >
           {t(`controls.weekdays.${dayKey}`)}
         </ToggleGroupItem>

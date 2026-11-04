@@ -16100,7 +16100,7 @@ type ClientInterface interface {
 
 	// GetLoginBackgroundImage performs a GET /api/v1/auth/background (the `GetLoginBackgroundImage` operationId) request.
 	//
-	// Public. Serve the configured login background image, redirecting to the default artwork when none is configured.
+	// Public. Serve the configured login background image, or the built-in default artwork when none is configured.
 	GetLoginBackgroundImage(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// HeadLoginBackgroundImage performs a HEAD /api/v1/auth/background (the `HeadLoginBackgroundImage` operationId) request.
@@ -19968,7 +19968,7 @@ func (c *Client) WebsiteDiagnostics(ctx context.Context, id ResourceID, reqEdito
 
 // GetLoginBackgroundImage performs a GET /api/v1/auth/background (the `GetLoginBackgroundImage` operationId) request.
 //
-// Public. Serve the configured login background image, redirecting to the default artwork when none is configured.
+// Public. Serve the configured login background image, or the built-in default artwork when none is configured.
 func (c *Client) GetLoginBackgroundImage(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetLoginBackgroundImageRequest(c.Server)
 	if err != nil {
@@ -48728,7 +48728,7 @@ type ClientWithResponsesInterface interface {
 
 	// GetLoginBackgroundImageWithResponse performs a GET /api/v1/auth/background (the `GetLoginBackgroundImage` operationId) request.
 	//
-	// Public. Serve the configured login background image, redirecting to the default artwork when none is configured.
+	// Public. Serve the configured login background image, or the built-in default artwork when none is configured.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	GetLoginBackgroundImageWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLoginBackgroundImageResponse, error)
@@ -71375,7 +71375,7 @@ func (c *ClientWithResponses) WebsiteDiagnosticsWithResponse(ctx context.Context
 
 // GetLoginBackgroundImageWithResponse performs a GET /api/v1/auth/background (the `GetLoginBackgroundImage` operationId) request.
 //
-// Public. Serve the configured login background image, redirecting to the default artwork when none is configured.
+// Public. Serve the configured login background image, or the built-in default artwork when none is configured.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) GetLoginBackgroundImageWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLoginBackgroundImageResponse, error) {
