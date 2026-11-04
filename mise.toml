@@ -1,5 +1,5 @@
 # Tilecast contributor tooling. Runtime selection only: mise picks the
-# versions contributors run and primary CI runs (Node 22, Go 1.26 to match
+# versions contributors run and primary CI runs (Node 22, Go 1.27 to match
 # go.work and every go.mod, Java 17 for the Android build). Rust is pinned
 # by apps/edge/rust-toolchain.toml, so it is not repeated here.
 #
@@ -10,5 +10,5 @@
 # reports the versions installed here.
 [tools]
 node = "22"
-go = "1.26"
+go = "1.27"
 java = "17"

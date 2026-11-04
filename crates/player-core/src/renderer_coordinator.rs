@@ -304,7 +304,20 @@ impl RendererCoordinator {
         }
     }
 
+    /// The operator's manual retry. Outside safe mode it runs the next due
+    /// ladder rung without the cooldown. In safe mode it leaves safe mode
+    /// and reactivates, keeping the ladder history so a renderer that is
+    /// still failing returns to safe mode after one more exhausted ladder.
     pub fn retry_recovery(&mut self, now: Timestamp) -> HealAction {
+        if self.supervisor.safe_mode {
+            let now_ms = now.unix_millis();
+            let history = std::mem::take(&mut self.supervisor.ladder_runs_at_ms);
+            self.supervisor.clear_safe_mode(now_ms);
+            self.supervisor.ladder_runs_at_ms = history;
+            self.supervisor.escalation_step = 1;
+            self.supervisor.last_action_at_ms = Some(now_ms);
+            return HealAction::Reactivate;
+        }
         self.supervisor.last_action_at_ms = None;
         self.evaluate_recovery(now)
     }
@@ -612,6 +625,18 @@ mod tests {
         core.clear();
         assert_eq!(core.retry_recovery(now(2_000_000)), HealAction::None);
         assert!(!core.clear_safe_mode(now(2_000_000)));
+    }
+
+    #[test]
+    fn retry_recovery_leaves_safe_mode_and_reactivates() {
+        let mut core = coordinator();
+        core.restore_safe_mode("renderer recovery exhausted repeatedly", now(0));
+        core.supervisor.ladder_runs_at_ms = vec![0, 1];
+        assert_eq!(core.retry_recovery(now(1_000)), HealAction::Reactivate);
+        assert!(!core.is_safe_mode());
+        assert_eq!(core.supervisor.escalation_step, 1);
+        assert_eq!(core.supervisor.ladder_runs_at_ms, vec![0, 1]);
+        assert_eq!(core.supervisor.last_action_at_ms, Some(1_000));
     }
 
     #[test]
