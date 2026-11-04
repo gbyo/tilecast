@@ -1,7 +1,7 @@
 //! Native pairing policy. Hosts own private stores, device facts, and surfaces.
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
 use std::time::Duration;
 
@@ -84,6 +84,9 @@ pub trait PairingHost: PairingMetadataProvider {
 #[derive(Debug)]
 struct Control {
     suppressed: AtomicBool,
+    /// Advanced by every reset. Work that began under an older value belongs
+    /// to a cancelled session and must not save, enroll, or bind.
+    epoch: AtomicU64,
     renewal: Mutex<Option<String>>,
     /// True while the screen shows the setup surface for a Player without a
     /// server. Phone setup runs only then.
@@ -96,6 +99,7 @@ impl Default for Control {
     fn default() -> Self {
         Self {
             suppressed: AtomicBool::default(),
+            epoch: AtomicU64::default(),
             renewal: Mutex::default(),
             phone_active: tokio::sync::watch::Sender::new(false),
             phone_view: Mutex::default(),
@@ -135,6 +139,7 @@ impl PairingCoordinator {
 
     pub async fn reset(&self, host: &impl PairingHost) {
         self.control.suppressed.store(true, Ordering::Release);
+        self.control.epoch.fetch_add(1, Ordering::AcqRel);
         self.take_renewal();
         let _ = self.sessions.remove();
         host.show_pairing(PairingStatus::Reset).await;
@@ -326,7 +331,16 @@ impl PairingCoordinator {
         self.step_with(client, session).await
     }
 
+    fn cancelled_since(&self, epoch: u64) -> bool {
+        let cancelled = self.control.epoch.load(Ordering::Acquire) != epoch;
+        if cancelled {
+            tracing::info!(component = "pairing", event = "cancelled_work_discarded");
+        }
+        cancelled
+    }
+
     async fn step_with(&self, client: &impl PairingApi, session: PairingSession) -> PairingOutcome {
+        let epoch = self.control.epoch.load(Ordering::Acquire);
         let session = if session.has_enrollment_token() {
             session
         } else {
@@ -335,6 +349,7 @@ impl PairingCoordinator {
             }
             match client.poll(&session).await {
                 Ok(PollStatus::Waiting) => return PairingOutcome::Retry,
+                Ok(PollStatus::Claimed(_)) if self.cancelled_since(epoch) => return PairingOutcome::Retry,
                 Ok(PollStatus::Claimed(token)) => {
                     let claimed = session.with_enrollment_token(token);
                     // Preserve the existing enrollment policy, including logging
@@ -353,7 +368,11 @@ impl PairingCoordinator {
             }
         };
         for attempt in 0..ENROLL_ATTEMPTS {
+            if self.cancelled_since(epoch) {
+                return PairingOutcome::Retry;
+            }
             match client.enroll(&session).await {
+                Ok(_) if self.cancelled_since(epoch) => return PairingOutcome::Retry,
                 Ok(enrolled) => {
                     if self.credentials.save(&enrolled.credential).is_err() {
                         tracing::error!(component = "pairing", event = "credential_not_stored");

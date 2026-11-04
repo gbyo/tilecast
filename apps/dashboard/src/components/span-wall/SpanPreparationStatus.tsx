@@ -21,7 +21,11 @@ export function SpanPreparationStatus({
   screenNames: ReadonlyMap<string, string>;
 }) {
   const { t } = useTranslation("layouts");
-  const byScreen = new Map(preparations.map((item) => [item.screenId, item]));
+  // Preparations arrive newest first; the first row for a screen is current.
+  const byScreen = new Map<string, SpanStatus["preparations"][number]>();
+  for (const item of preparations) {
+    if (!byScreen.has(item.screenId)) byScreen.set(item.screenId, item);
+  }
   return (
     <section className="grid gap-2" aria-live="polite">
       <h3 className="text-sm font-semibold">

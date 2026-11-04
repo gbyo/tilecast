@@ -38,6 +38,8 @@ impl ConfigError {
 pub struct Cache {
     pub maximum_bytes: Option<u64>,
     pub minimum_free_bytes: Option<u64>,
+    /// `automatic` videos above this size stream instead of downloading.
+    pub automatic_threshold_bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -142,6 +144,7 @@ impl NativeConfiguration {
         let cache = Cache {
             maximum_bytes: bytes(cache_values, "maximumBytes"),
             minimum_free_bytes: bytes(cache_values, "minimumFreeBytes"),
+            automatic_threshold_bytes: bytes(cache_values, "automaticThresholdBytes"),
         };
 
         let sync_values = section(object, "sync");
@@ -264,7 +267,10 @@ mod tests {
             "futurePlatform":{"policy":"host-owned"}});
         let parsed = NativeConfiguration::parse(&document).unwrap();
         assert_eq!(parsed.revision, 7);
-        assert_eq!(parsed.cache, Cache { maximum_bytes: Some(123), minimum_free_bytes: None });
+        assert_eq!(
+            parsed.cache,
+            Cache { maximum_bytes: Some(123), minimum_free_bytes: None, automatic_threshold_bytes: None }
+        );
         assert_eq!(
             parsed.sync,
             Sync { status_report: Duration::from_secs(60), manifest_reconciliation: Duration::from_secs(120) }

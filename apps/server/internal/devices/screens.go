@@ -151,7 +151,8 @@ func (s *Service) UpdateScreen(ctx context.Context, id, userID uuid.UUID, name s
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 	var previousLocation *uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT location_id FROM screens WHERE id=$1 AND archived_at IS NULL FOR UPDATE`, id).Scan(&previousLocation); errors.Is(err, pgx.ErrNoRows) {
+	var previousRoomName, previousRoomNumber string
+	if err := tx.QueryRow(ctx, `SELECT location_id,room_name,room_number FROM screens WHERE id=$1 AND archived_at IS NULL FOR UPDATE`, id).Scan(&previousLocation, &previousRoomName, &previousRoomNumber); errors.Is(err, pgx.ErrNoRows) {
 		return Screen{}, ErrNotFound
 	} else if err != nil {
 		return Screen{}, err
@@ -187,11 +188,22 @@ func (s *Service) UpdateScreen(ctx context.Context, id, userID uuid.UUID, name s
 			return Screen{}, err
 		}
 	}
+	// Player configuration carries the derived screen location, so a new
+	// location or room needs a newer configuration revision.
+	var configRevision int64
+	if locationChanged || previousRoomName != roomName || previousRoomNumber != roomNumber {
+		if err := tx.QueryRow(ctx, `UPDATE screen_config_state SET config_revision=config_revision+1,changed_at=now(),change_reason='screen.location_changed' WHERE screen_id=$1 RETURNING config_revision`, id).Scan(&configRevision); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return Screen{}, fmt.Errorf("advance screen configuration: %w", err)
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return Screen{}, err
 	}
 	for _, change := range changes {
 		s.ManifestChanged(change.ScreenID, change.Version)
+	}
+	if configRevision > 0 {
+		s.ConfigChanged(id, configRevision)
 	}
 	return s.GetScreen(ctx, id)
 }

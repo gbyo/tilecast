@@ -185,11 +185,11 @@ function MarketplaceStatusNotice({
   onRefresh: () => void;
 }) {
   const { t } = useTranslation("plugins");
-  if (!marketplace?.error && !marketplace?.stale) {
+  if (!marketplace?.error && !marketplace?.stale && !refreshError) {
     return null;
   }
 
-  const failed = Boolean(marketplace.error);
+  const failed = Boolean(marketplace?.error) || Boolean(refreshError);
   return (
     <Alert variant={failed ? "destructive" : "default"}>
       <CircleAlert aria-hidden="true" />
@@ -199,8 +199,13 @@ function MarketplaceStatusNotice({
           : t("store.marketplace.staleTitle")}
       </AlertTitle>
       <AlertDescription>
-        {marketplace.error ?? t("store.marketplace.staleDescription")}
-        {refreshError ? ` ${apiErrorMessage(refreshError)}` : ""}
+        {marketplace?.error ??
+          (marketplace?.stale
+            ? t("store.marketplace.staleDescription")
+            : undefined)}
+        {refreshError
+          ? `${marketplace?.error || marketplace?.stale ? " " : ""}${apiErrorMessage(refreshError)}`
+          : ""}
       </AlertDescription>
       {canRefresh && (
         <AlertAction>
