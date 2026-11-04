@@ -357,6 +357,7 @@ impl Drivers {
         if !self.renderer.started.swap(true, Ordering::AcqRel) {
             let engine = self.renderer.engine.clone();
             let clock = self.renderer.clock.clone();
+            let config = self.renderer.config.clone();
             let shutdown = self.renderer.shutdown.clone();
             let supervision = runtime.spawn(async move {
                 let mut ticker = tokio::time::interval(SUPERVISION_INTERVAL);
@@ -365,6 +366,11 @@ impl Drivers {
                     tokio::select! {
                         () = shutdown.cancelled() => return,
                         _ = ticker.tick() => {}
+                    }
+                    // `reliability.foreground_watchdog_enabled` off stops
+                    // automatic stall recovery; manual retry still works.
+                    if !watchdog_enabled(&config) {
+                        continue;
                     }
                     engine.lock().await.tick(clock.now()).await;
                 }
@@ -447,4 +453,8 @@ impl Drivers {
             let _ = handle.await;
         }
     }
+}
+
+fn watchdog_enabled(config: &AndroidConfigHost) -> bool {
+    config.effective().is_none_or(|config| config.platform.reliability.foreground_watchdog_enabled)
 }

@@ -98,6 +98,8 @@ class ReliabilityController(private val context: Context) {
                 android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or
                 android.view.View.SYSTEM_UI_FLAG_FULLSCREEN or
                 android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+        } else {
+            activity.window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_VISIBLE
         }
         val capability = kioskCapability(activity)
         var effective = "standard"
@@ -109,6 +111,8 @@ class ReliabilityController(private val context: Context) {
         ) {
             runCatching { activity.startLockTask() }
             effective = if (activity.isInLockTask()) "managed_kiosk" else "standard"
+        } else if (activity.isInLockTask()) {
+            runCatching { activity.stopLockTask() }
         }
         store.edit()
             .putString("configured-mode", platform.reliability.mode)

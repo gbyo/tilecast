@@ -69,6 +69,9 @@ impl RendererTracker {
         self.current_item = None;
         self.meaningful = false;
         self.content_progress = false;
+        // Fixture checks count items per renderer connection, so proof from
+        // the previous connection does not carry over.
+        self.content_items.clear();
         // A replacement renderer must prove the activation again, so its
         // first evidence is logged even when the previous one logged it.
         self.logged.clear();
@@ -239,6 +242,7 @@ mod tests {
         assert!(tracker.content_progress());
         tracker.connected(two);
         assert!(!tracker.content_progress());
+        assert!(tracker.content_items().is_empty());
         tracker.accept(one, reference(2));
         assert!(!tracker.accepted_current());
         tracker.disconnected(one);
