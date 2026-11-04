@@ -347,12 +347,7 @@ export function formatWidgetValue(
     const isPercent = field?.type === "percent";
     return formatNumber(isPercent ? numeric * 100 : numeric, {
       locale: options.locale,
-      style:
-        isPercent
-          ? "percent"
-          : currency
-            ? "currency"
-            : "decimal",
+      style: isPercent ? "percent" : currency ? "currency" : "decimal",
       currency,
     });
   }
