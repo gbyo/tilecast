@@ -109,6 +109,8 @@ class ReliabilityController(private val context: Context) {
         ) {
             runCatching { activity.startLockTask() }
             effective = if (activity.isInLockTask()) "managed_kiosk" else "standard"
+        } else if (activity.isInLockTask()) {
+            runCatching { activity.stopLockTask() }
         }
         store.edit()
             .putString("configured-mode", platform.reliability.mode)
