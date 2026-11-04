@@ -282,6 +282,7 @@ func (s *Service) Undo(ctx context.Context, actor authz.Actor, id uuid.UUID) (Op
 
 	restored, failed := 0, 0
 	results := make([]ScreenChange, 0, len(entries))
+	var remaining []undoEntry
 	for _, entry := range entries {
 		change := ScreenChange{ScreenID: entry.ScreenID, Selected: true}
 		var restoreErr error
@@ -296,6 +297,7 @@ func (s *Service) Undo(ctx context.Context, actor authz.Actor, id uuid.UUID) (Op
 		if restoreErr != nil {
 			failed++
 			change.Error = restoreErr.Error()
+			remaining = append(remaining, entry)
 		} else {
 			restored++
 			change.Applied = true
@@ -310,9 +312,25 @@ func (s *Service) Undo(ctx context.Context, actor authz.Actor, id uuid.UUID) (Op
 		fmt.Sprintf("restored %d screens", restored))
 
 	now := time.Now().UTC()
+	undone := &now
+	// A partial undo stays open for the screens that failed: keep only their
+	// entries and release the claim, so a retry inside the window restores
+	// those screens and never re-applies the ones already restored.
+	if len(remaining) > 0 {
+		encoded, err := json.Marshal(remaining)
+		if err != nil {
+			return Operation{}, err
+		}
+		if _, err := s.db.Exec(ctx, `
+			UPDATE bulk_operations SET undone_at=NULL,undone_by=NULL,undo_state=$2
+			WHERE id=$1`, id, encoded); err != nil {
+			return Operation{}, err
+		}
+		undone = nil
+	}
 	return Operation{
 		ID: id, Action: action, ScreenCount: len(entries), AppliedCount: restored,
-		FailedCount: failed, Results: results, UndoneAt: &now, CreatedAt: now,
+		FailedCount: failed, Results: results, UndoneAt: undone, CreatedAt: now,
 	}, nil
 }
 

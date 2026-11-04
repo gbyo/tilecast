@@ -778,7 +778,27 @@ func (s *server) retryUpdateScreen(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	_, _ = s.db.Exec(r.Context(), `UPDATE screen_update_states SET state='pending',safe_error=NULL,downloaded_bytes=0,updated_at=now() WHERE deployment_id=$1 AND screen_id=$2`, deployment, screen)
+	// Reconciliation completes a deployment once every target is terminal,
+	// failures included, and players fetch metadata only for active
+	// deployments, so a retry reopens a completed deployment for its target.
+	tx, err := s.db.Begin(r.Context())
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	if _, err := tx.Exec(r.Context(), `UPDATE screen_update_states SET state='pending',safe_error=NULL,downloaded_bytes=0,completed_at=NULL,updated_at=now() WHERE deployment_id=$1 AND screen_id=$2`, deployment, screen); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if _, err := tx.Exec(r.Context(), `UPDATE update_deployments SET status='active',rollout_phase='full',completed_at=NULL WHERE id=$1 AND status='completed'`, deployment); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
 	s.devices.Notify(screen, map[string]any{"type": "commands.available"})
 	writeJSON(w, 202, map[string]any{"data": map[string]any{"state": "pending"}})
 }

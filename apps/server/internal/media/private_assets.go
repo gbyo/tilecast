@@ -98,7 +98,16 @@ func (s *Service) IngestPrivateAsset(ctx context.Context, pluginID string, userI
 		return cleanup(err)
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return cleanup(err)
+		// A commit error is ambiguous: the server may have committed before
+		// the connection failed. Delete the blob only once the asset row is
+		// known to be absent; a committed asset keeps its only original.
+		var committed bool
+		if checkErr := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM assets WHERE id=$1)`, assetID).Scan(&committed); checkErr != nil {
+			return Asset{}, err
+		}
+		if !committed {
+			return cleanup(err)
+		}
 	}
 	// Internal read: this is the one place that legitimately returns a private plugin asset.
 	return s.getAsset(ctx, assetID, true)

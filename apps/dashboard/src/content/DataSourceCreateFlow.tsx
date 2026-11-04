@@ -98,8 +98,8 @@ export function DataSourceProviderGallery({
   // created. An uninstalled plugin's provider stays visible but disabled
   // with its owning plugin named, so the definition never looks
   // silently broken. The Server enforces the same decision
-  // authoritatively; when the plugin catalog cannot be read the gallery
-  // degrades to the static catalog alone.
+  // authoritatively; while the plugin catalog is loading or unreadable,
+  // plugin-owned providers stay listed but disabled.
   const installedPlugins = new Map(
     (pluginCatalog.data?.items ?? []).map((plugin) => [plugin.id, plugin]),
   );
@@ -122,6 +122,16 @@ export function DataSourceProviderGallery({
     if (source.kind !== "plugin") return null;
     const plugin = installedPlugins.get(source.pluginId);
     const name = plugin?.name ?? source.pluginId;
+    // Until installation state is known the provider cannot be created,
+    // because the Server rejects a plugin that is not installed.
+    if (!pluginCatalog.isSuccess) {
+      return {
+        badge: t("dataSources.createFlow.sourcePlugin", { name }),
+        unavailable: pluginCatalog.isError
+          ? t("dataSources.createFlow.pluginUnknown", { name })
+          : t("dataSources.createFlow.pluginChecking", { name }),
+      };
+    }
     if (plugin && !plugin.installed) {
       return {
         badge: t("dataSources.createFlow.sourcePlugin", { name }),

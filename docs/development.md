@@ -1,6 +1,6 @@
 # Development
 
-Install the tool versions in `mise.toml`: Node.js 22, Go 1.26, and Java 17 (for the Android Player only). Install npm and Docker. Then, run `make bootstrap`. Run `make doctor` to see which tools are missing. Use `make doctor AREA=server|dashboard|edge|android|media|docs` to check only the tools that one area needs. Android tools are not required for other areas.
+Install the tool versions in `mise.toml`: Node.js 22, Go 1.27, and Java 17 (for the Android Player only). Install npm and Docker. Then, run `make bootstrap`. Run `make doctor` to see which tools are missing. Use `make doctor AREA=server|dashboard|edge|android|media|docs` to check only the tools that one area needs. Android tools are not required for other areas.
 
 ## Toolchain versions
 
