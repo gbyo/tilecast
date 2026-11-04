@@ -75,6 +75,9 @@ struct Inner {
     room: tokio::sync::Mutex<()>,
 }
 
+/// Eviction candidates read from the index per round.
+const EVICTION_BATCH: usize = 10_000;
+
 #[derive(Clone)]
 pub struct ContentStore {
     inner: Arc<Inner>,
@@ -438,22 +441,33 @@ impl ContentStore {
     }
 
     /// Frees at least `bytes` by evicting unpinned objects. Returns bytes freed.
+    /// Candidates are read in batches, so `u64::MAX` clears every eligible
+    /// object rather than only the first batch.
     pub async fn evict(&self, bytes: u64) -> Result<u64, CasError> {
-        let candidates = self.inner.db.run(|c| repo::eviction_candidates(c, 10_000)).await?;
-        let selected = self.inner.eviction.select(&candidates, bytes);
         let mut freed = 0u64;
-        for digest in selected {
-            let size = candidates.iter().find(|c| c.sha256 == digest).map_or(0, |c| c.size_bytes);
-            // Re-checked inside remove(): a pin taken since selection wins.
-            match self.remove(&digest).await {
-                Ok(()) => {
-                    freed += size;
-                    tracing::info!(component = "cas", event = "evicted", sha256 = %digest.short(), bytes = size);
+        while freed < bytes {
+            let candidates = self.inner.db.run(|c| repo::eviction_candidates(c, EVICTION_BATCH)).await?;
+            let last_batch = candidates.len() < EVICTION_BATCH;
+            let selected = self.inner.eviction.select(&candidates, bytes - freed);
+            let mut removed = 0usize;
+            for digest in selected {
+                let size = candidates.iter().find(|c| c.sha256 == digest).map_or(0, |c| c.size_bytes);
+                // Re-checked inside remove(): a pin taken since selection wins.
+                match self.remove(&digest).await {
+                    Ok(()) => {
+                        freed += size;
+                        removed += 1;
+                        tracing::info!(component = "cas", event = "evicted", sha256 = %digest.short(), bytes = size);
+                    }
+                    Err(CasError::Pinned(_)) => {}
+                    Err(error) => return Err(error),
                 }
-                Err(CasError::Pinned(_)) => {}
-                Err(error) => return Err(error),
+                if freed >= bytes {
+                    break;
+                }
             }
-            if freed >= bytes {
+            // A batch that freed nothing would return the same rows again.
+            if last_batch || removed == 0 {
                 break;
             }
         }
