@@ -344,8 +344,9 @@ func (p *WorkerPool) preview(ctx context.Context, assetID uuid.UUID, poster bool
 	}
 	var oldKey string
 	_ = p.service.db.QueryRow(ctx, `SELECT storage_key FROM asset_variants WHERE asset_id=$1 AND kind=$2`, assetID, kind).Scan(&oldKey)
-	_, err = p.service.db.Exec(ctx, `INSERT INTO asset_variants(id,asset_id,kind,storage_provider,storage_key,mime_type,file_size,sha256,created_at)VALUES($1,$2,$3,'local',$4,'image/jpeg',$5,$6,now()) ON CONFLICT(asset_id,kind) DO UPDATE SET storage_key=EXCLUDED.storage_key,file_size=EXCLUDED.file_size,sha256=EXCLUDED.sha256,deleted_at=NULL,created_at=now()`, variantID, assetID, kind, key, size, sum)
-	if err != nil {
+	live, err := p.upsertLiveVariant(ctx, assetID, `INSERT INTO asset_variants(id,asset_id,kind,storage_provider,storage_key,mime_type,file_size,sha256,created_at)VALUES($1,$2,$3,'local',$4,'image/jpeg',$5,$6,now()) ON CONFLICT(asset_id,kind) DO UPDATE SET storage_key=EXCLUDED.storage_key,file_size=EXCLUDED.file_size,sha256=EXCLUDED.sha256,deleted_at=NULL,created_at=now()`, variantID, assetID, kind, key, size, sum)
+	if err != nil || !live {
+		// A deleted asset keeps no new output; the deferred cleanup removes it.
 		return err
 	}
 	committed = true
@@ -422,8 +423,9 @@ func (p *WorkerPool) optimize(ctx context.Context, assetID uuid.UUID) error {
 	}
 	var oldKey string
 	_ = p.service.db.QueryRow(ctx, `SELECT storage_key FROM asset_variants WHERE asset_id=$1 AND kind='playback'`, assetID).Scan(&oldKey)
-	_, err = p.service.db.Exec(ctx, `INSERT INTO asset_variants(id,asset_id,kind,storage_provider,storage_key,mime_type,file_size,sha256,width,height,duration_seconds,frame_rate,video_codec,audio_codec,player_compatible)VALUES($1,$2,'playback','local',$3,'video/mp4',$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''),TRUE) ON CONFLICT(asset_id,kind)DO UPDATE SET storage_key=EXCLUDED.storage_key,file_size=EXCLUDED.file_size,sha256=EXCLUDED.sha256,width=EXCLUDED.width,height=EXCLUDED.height,duration_seconds=EXCLUDED.duration_seconds,frame_rate=EXCLUDED.frame_rate,video_codec=EXCLUDED.video_codec,audio_codec=EXCLUDED.audio_codec,player_compatible=TRUE,deleted_at=NULL`, variantID, assetID, key, size, sum, processed.Width, processed.Height, processed.Duration, processed.FrameRate, processed.VideoCodec, processed.AudioCodec)
-	if err != nil {
+	live, err := p.upsertLiveVariant(ctx, assetID, `INSERT INTO asset_variants(id,asset_id,kind,storage_provider,storage_key,mime_type,file_size,sha256,width,height,duration_seconds,frame_rate,video_codec,audio_codec,player_compatible)VALUES($1,$2,'playback','local',$3,'video/mp4',$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''),TRUE) ON CONFLICT(asset_id,kind)DO UPDATE SET storage_key=EXCLUDED.storage_key,file_size=EXCLUDED.file_size,sha256=EXCLUDED.sha256,width=EXCLUDED.width,height=EXCLUDED.height,duration_seconds=EXCLUDED.duration_seconds,frame_rate=EXCLUDED.frame_rate,video_codec=EXCLUDED.video_codec,audio_codec=EXCLUDED.audio_codec,player_compatible=TRUE,deleted_at=NULL`, variantID, assetID, key, size, sum, processed.Width, processed.Height, processed.Duration, processed.FrameRate, processed.VideoCodec, processed.AudioCodec)
+	if err != nil || !live {
+		// A deleted asset keeps no new output; the deferred cleanup removes it.
 		return err
 	}
 	committed = true
@@ -435,6 +437,30 @@ func (p *WorkerPool) optimize(ctx context.Context, assetID uuid.UUID) error {
 		_, _ = p.service.db.Exec(ctx, `UPDATE asset_variants SET deleted_at=now(),player_compatible=FALSE WHERE asset_id=$1 AND kind='original'`, assetID)
 	}
 	return p.markReadyIfComplete(ctx, assetID)
+}
+
+// upsertLiveVariant runs a variant upsert only while the asset is not
+// deleted. The share lock orders it against DeleteAsset: a delete that
+// commits first stops the upsert, and one that commits later queues file
+// cleanup that sees the new variant.
+func (p *WorkerPool) upsertLiveVariant(ctx context.Context, assetID uuid.UUID, statement string, args ...any) (bool, error) {
+	tx, err := p.service.db.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	var locked uuid.UUID
+	err = tx.QueryRow(ctx, `SELECT id FROM assets WHERE id=$1 AND deleted_at IS NULL FOR SHARE`, assetID).Scan(&locked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if _, err = tx.Exec(ctx, statement, args...); err != nil {
+		return false, err
+	}
+	return true, tx.Commit(ctx)
 }
 
 func (p *WorkerPool) markReadyIfComplete(ctx context.Context, assetID uuid.UUID) error {

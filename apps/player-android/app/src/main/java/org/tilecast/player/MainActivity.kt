@@ -289,7 +289,7 @@ class MainActivity : ComponentActivity() {
             val submit = {
                 if (pin.length >= 4) {
                     val valid = if (reliability.hasAdminPin()) reliability.verifyAdminPin(pin.toCharArray()) else runCatching { reliability.setAdminPin(pin.toCharArray()); true }.getOrDefault(false)
-                    if (valid) { reliability.beginMaintenance(15); unlocked = true; pin = "" } else error = "PIN was incorrect or is temporarily locked"
+                    if (valid) { reliability.beginMaintenance((model.playerConfig.value?.managedKiosk?.adminSessionMinutes ?: 15L).toInt()); unlocked = true; pin = "" } else error = "PIN was incorrect or is temporarily locked"
                 }
             }
             Column(Modifier.fillMaxWidth(.6f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
