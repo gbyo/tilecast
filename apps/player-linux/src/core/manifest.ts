@@ -440,23 +440,33 @@ export class ManifestSync {
           fs.rm(path.join(this.store.mediaDir(), entry), { force: true }),
         ),
     );
-    const files = await Promise.all(
-      (await fs.readdir(this.store.mediaDir())).map(async (entry) => {
-        try {
-          return (await fs.stat(path.join(this.store.mediaDir(), entry))).size;
-        } catch {
-          return 0;
-        }
-      }),
+    const sizes = new Map(
+      await Promise.all(
+        (await fs.readdir(this.store.mediaDir())).map(
+          async (entry): Promise<[string, number]> => {
+            try {
+              const stat = await fs.stat(
+                path.join(this.store.mediaDir(), entry),
+              );
+              return [entry, stat.size];
+            } catch {
+              return [entry, 0];
+            }
+          },
+        ),
+      ),
     );
-    const used = files.reduce((sum, size) => sum + size, 0);
+    const used = [...sizes.values()].reduce((sum, size) => sum + size, 0);
     const missingBytes = (
       await Promise.all(
         required.map(async (asset) => {
           const file = path.join(this.store.mediaDir(), mediaFileName(asset));
-          return (await verifyFileIntegrity(file, asset.sha256, asset.fileSize))
-            ? 0
-            : asset.fileSize;
+          if (await verifyFileIntegrity(file, asset.sha256, asset.fileSize))
+            return 0;
+          // A resumable partial is already counted in `used`; only the rest
+          // of the asset is new.
+          const partial = sizes.get(`${mediaFileName(asset)}.part`) ?? 0;
+          return asset.fileSize - Math.min(partial, asset.fileSize);
         }),
       )
     ).reduce((sum, size) => sum + size, 0);

@@ -26,9 +26,11 @@ export async function start(recovery: string | null): Promise<void> {
     "tilecast-player-identity",
     () => loadIdentity(database, identitySlot),
   );
+  // Lock the identity record, not its enrolled slot: enrollment assigns the
+  // unmanaged record a slot ID after this lock is already held.
   await runExclusive(
     navigator.locks,
-    identity.slotId ?? identitySlot,
+    identitySlot,
     () =>
       new BrowserPlayer({ database, identity, identitySlot, recovery }).run(),
     () =>
