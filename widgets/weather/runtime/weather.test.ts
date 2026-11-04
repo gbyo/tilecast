@@ -76,7 +76,7 @@ const current = {
     condition: { kind: "text", text: "Partly Cloudy" },
     temperature: { kind: "number", number: 21.5 },
     temperatureUnit: { kind: "text", text: "°C" },
-    humidity: { kind: "percent", number: 62 },
+    humidity: { kind: "percent", number: 0.62 },
     windSpeed: { kind: "number", number: 3.2 },
     windUnit: { kind: "text", text: "m/s" },
     precipitation: { kind: "number", number: 0 },
