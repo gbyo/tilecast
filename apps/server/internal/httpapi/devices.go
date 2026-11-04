@@ -445,9 +445,21 @@ func (s *server) revokeScreen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := principal.User
+	// Revocation detaches the screen from its group. A Span group's panels
+	// must then be recalculated for the members that remain.
+	var group *uuid.UUID
+	if screen, err := s.devices.GetScreen(r.Context(), id); err == nil {
+		group = screen.SyncGroupID
+	}
 	if err := s.devices.Revoke(r.Context(), id, user.ID, body.Reason); err != nil {
 		s.writeDeviceError(w, r, err)
 		return
+	}
+	if s.span != nil && group != nil {
+		if err := s.span.SyncMembershipGeometry(r.Context(), *group, user.ID); err != nil {
+			s.writeSpanError(w, r, err)
+			return
+		}
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

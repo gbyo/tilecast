@@ -18,6 +18,9 @@ import {
   studioFrameHeight,
 } from "./studioBridge";
 
+/** How long a loaded package UI has to send its hello. */
+const studioHandshakeTimeoutMs = 10_000;
+
 /**
  * The sandboxed Studio UI host: the package entry page in an
  * opaque-origin allow-scripts iframe, plus the bridge relay. The frame
@@ -116,18 +119,28 @@ export function PackageStudioUI({
         [channel.port2],
       );
     };
+    let helloTimer: number | undefined;
     const onLoad = () => {
       // The initial navigation fires exactly one load. A second load
       // means the original document went away, so the connection dies
       // with it instead of binding a stranger.
       loadCount += 1;
-      if (loadCount > 1) die();
+      if (loadCount > 1) {
+        die();
+        return;
+      }
+      // A loaded entry that never says hello (for example, its script
+      // threw) would otherwise stay a blank frame forever.
+      helloTimer = window.setTimeout(() => {
+        if (!handshake) die();
+      }, studioHandshakeTimeoutMs);
     };
     const frame = frameRef.current;
     frame?.addEventListener("load", onLoad);
     window.addEventListener("message", onMessage);
     return () => {
       alive = false;
+      window.clearTimeout(helloTimer);
       channel.port1.onmessage = null;
       channel.port1.close();
       frame?.removeEventListener("load", onLoad);
