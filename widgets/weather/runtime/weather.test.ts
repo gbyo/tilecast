@@ -263,9 +263,9 @@ describe("Weather element", () => {
     }
     const days = [...root.querySelectorAll(".forecast .day")];
     expect(days).toHaveLength(1);
-    // The bare forecast date is midnight UTC, still Sunday in the Widget
-    // zone (America/Chicago in tests).
-    expect(text(".forecast .day-name")).toBe("Sunday");
+    // 2026-09-28 is a Monday. A bare calendar date is named in UTC, so the
+    // label stays Monday in the Widget zone (America/Chicago in tests).
+    expect(text(".forecast .day-name")).toBe("Monday");
     expect(text(".forecast .high-low")).toBe("24 °C 15 °C");
     expect(test.states).toEqual([{ state: "ready" }]);
     test.dispose();
