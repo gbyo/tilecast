@@ -31,6 +31,10 @@ object BootRecovery {
     fun receive(context: Context, action: String?) {
         val preferences = preferences(context)
         if (action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
+            if (!preferences.getBoolean("launch-after-boot", true)) {
+                preferences.edit().putBoolean("pending", false).putString("result", "launch_after_boot_disabled").commit()
+                return
+            }
             preferences.edit().putInt("attempt-count", 0).putBoolean("launch-verified", false).putString("result", "boot_received").putBoolean("pending", true).commit()
         } else if (action != ACTION_RETRY || !preferences.getBoolean("pending", false)) {
             return
@@ -44,6 +48,14 @@ object BootRecovery {
             }.getOrDefault(false)
         preferences.edit().putInt("attempt-count", attempt).putLong("last-attempt-at", System.currentTimeMillis()).putString("result", if (launched) "launch_requested" else "foreground_launch_blocked").commit()
         if (attempt <= delays.size) schedule(context, attempt, delays[attempt - 1]) else preferences.edit().putBoolean("pending", false).putString("result", "retry_limit_reached").commit()
+    }
+
+    /**
+     * Mirrors the effective launch-after-boot policy into device-protected
+     * storage, which the boot receiver can read before the user unlocks.
+     */
+    fun setLaunchAfterBoot(context: Context, enabled: Boolean) {
+        preferences(context).edit().putBoolean("launch-after-boot", enabled).apply()
     }
 
     private fun schedule(context: Context, attempt: Int, delay: Long) {

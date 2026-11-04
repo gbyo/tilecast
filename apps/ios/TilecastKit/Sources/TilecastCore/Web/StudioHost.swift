@@ -192,12 +192,14 @@ public final class StudioHost {
     /// installation a profile was rebound away from, or a Keychain item
     /// that outlived an earlier installation of the app.
     public func sweepOrphanedCredentials() {
+        guard !directory.loadFailed else { return }
         credentials.deleteRefreshTokens(except: directory.knownCredentialKeys)
     }
 
     /// Deletes data stores no profile references, for example after the app
     /// ended between removing a profile and deleting its store.
     public func sweepOrphanedDataStores() async {
+        guard !directory.loadFailed else { return }
         let known = directory.knownDataStoreIDs
         for identifier in await dataStores.existingDataStoreIdentifiers() where !known.contains(identifier) {
             try? await dataStores.removeDataStore(for: identifier)
@@ -436,7 +438,13 @@ public final class StudioHost {
             }
             guard let self else { return }
             isDeliveringDeepLink = false
-            if accepted, pendingDeepLink?.id == pending.id { pendingDeepLink = nil }
+            if pendingDeepLink?.id == pending.id {
+                if accepted { pendingDeepLink = nil }
+            } else {
+                // A newer link arrived while this one was retrying; the guard
+                // above kept it from starting its own delivery.
+                deliverPendingDeepLink()
+            }
         }
     }
 

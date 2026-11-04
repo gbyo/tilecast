@@ -360,6 +360,9 @@ func (s *Service) ApprovePairingWithOptions(ctx context.Context, id, userID uuid
 		if err := input.Authorize(ctx, tx, authz.PairingTarget{Kind: authz.PairingReplacement, ScreenID: *input.ReplacementScreenID}); err != nil {
 			return Screen{}, err
 		}
+		if err := checkReplacementDisplayControl(ctx, tx, *input.ReplacementScreenID, metadata.Platform); err != nil {
+			return Screen{}, err
+		}
 		screenID = *input.ReplacementScreenID
 		pairingMode = "hardware_replacement"
 	} else {
