@@ -57,6 +57,7 @@ import { Skeleton } from "../ui/skeleton";
 import type {
   Asset,
   Playlist,
+  PlaylistItem,
   PlaylistItemInput,
   PlaylistBulkItemUpdateInput,
 } from "../../api/types";
@@ -84,6 +85,8 @@ import {
 import { PlaylistTimeline } from "./PlaylistTimeline";
 import {
   canManagePlaylists,
+  itemInput,
+  mergeItemEdit,
   movePlaylistItem,
   movePlaylistItemToEdge,
   playlistAuthoringDefaults,
@@ -256,6 +259,32 @@ export function PlaylistEditorPage() {
       void navigate("/playlists");
     },
   });
+
+  // Item edits are saved one at a time. Each gesture is merged onto the
+  // latest unsaved input for its item, because the inspector builds it from
+  // the item as last rendered, which may predate an edit still in flight.
+  const itemDrafts = useRef(new Map<string, PlaylistItemInput>());
+  const itemQueue = useRef<Promise<unknown>>(Promise.resolve());
+  const editItem = (item: PlaylistItem, edited: PlaylistItemInput) => {
+    const input = mergeItemEdit(
+      itemInput(item),
+      edited,
+      itemDrafts.current.get(item.id),
+    );
+    itemDrafts.current.set(item.id, input);
+    itemQueue.current = itemQueue.current.then(async () => {
+      const latest = itemDrafts.current.get(item.id);
+      if (latest !== input) return;
+      try {
+        await updateItem.mutateAsync({ itemId: item.id, input });
+      } catch {
+        // onError reports it; later edits still run.
+      } finally {
+        if (itemDrafts.current.get(item.id) === input)
+          itemDrafts.current.delete(item.id);
+      }
+    });
+  };
 
   const updateItem = useMutation({
     mutationFn: ({
@@ -569,7 +598,7 @@ export function PlaylistEditorPage() {
     error: updateItem.error?.message || deleteItem.error?.message,
     onChange: (input: PlaylistItemInput) => {
       setEditorError("");
-      updateItem.mutate({ itemId: selectedItem.id, input });
+      editItem(selectedItem, input);
     },
     onDelete: () => deleteItem.mutate(selectedItem.id),
   };
