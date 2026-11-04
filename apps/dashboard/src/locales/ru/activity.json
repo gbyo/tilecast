@@ -124,7 +124,9 @@
         "playback": "Воспроизведение",
         "storage": "Хранилище",
         "safe_mode": "Безопасный режим",
-        "update": "Обновление"
+        "update": "Обновление",
+        "data_source": "Источник данных",
+        "content": "Контент"
       },
       "categories": {
         "connectivity": "Подключение",
