@@ -74,6 +74,8 @@ import org.tilecast.player.preview.PlayerWindowCapture
 import org.tilecast.player.preview.WindowCapture
 import org.tilecast.player.preview.encodeCaptureFrame
 import org.tilecast.player.reliability.ReliabilityController
+import org.tilecast.player.reliability.isMaintenanceSettingsLaunchAllowed
+import org.tilecast.player.reliability.permittedMaintenanceSettings
 import org.tilecast.player.ui.theme.SignalBackground
 import org.tilecast.player.ui.theme.SignalBlue
 import org.tilecast.player.ui.theme.SignalDanger
@@ -227,7 +229,7 @@ class MainActivity : ComponentActivity() {
         adminPrompt = value
     }
 
-    fun openSystemSettings(action: String) { val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); if (action == Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES) intent.data = Uri.parse("package:$packageName"); runCatching { startActivity(intent) } }
+    fun openSystemSettings(action: String) { if (!isMaintenanceSettingsLaunchAllowed(action, model.playerConfig.value?.managedKiosk?.allowSettingsDuringAdmin ?: true)) return; val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); if (action == Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES) intent.data = Uri.parse("package:$packageName"); runCatching { startActivity(intent) } }
     fun restartPlayer() { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)); finish() }
     fun installPlayerUpdate() { if (!model.takeoverActive.value) { runCatching { stopLockTask() }; getSharedPreferences("tilecast-reliability", MODE_PRIVATE).edit().putBoolean("update-active", true).apply() }; model.installUpdate() }
     fun applyReliability(config: org.tilecast.player.core.CorePlatformConfig, activeHours: Boolean) { reliability.applyWindow(this, config, activeHours); restoreKiosk?.let(reliabilityHandler::removeCallbacks); reliability.maintenanceUntil()?.let { until -> Runnable { reliability.applyWindow(this, config, activeHours) }.also { restoreKiosk = it; reliabilityHandler.postDelayed(it, Duration.between(Instant.now(), until).toMillis().coerceAtLeast(0) + 100) } } }
@@ -344,11 +346,16 @@ class MainActivity : ComponentActivity() {
                 SignalOutlinedButton(onClick = { activity.restartPlayer() }) { Text("Restart Tilecast") }
                 SignalOutlinedButton(onClick = { model.clearSafeMode() }) { Text("Clear safe mode") }
             }
-            Text("Optional: Accessibility Control returns to playback when another app opens, and the install permission lets signed Player updates install by themselves. Studio shows which ones this display has.", color = SignalMuted, style = MaterialTheme.typography.bodyMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SignalOutlinedButton(onClick = { activity.openSystemSettings(Settings.ACTION_ACCESSIBILITY_SETTINGS) }) { Text("Accessibility Settings") }
-                SignalOutlinedButton(onClick = { activity.openSystemSettings(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES) }) { Text("Install permission") }
-                SignalOutlinedButton(onClick = { activity.openSystemSettings(Settings.ACTION_SETTINGS) }) { Text("Android Settings") }
+            val settingsActions = permittedMaintenanceSettings(model.playerConfig.collectAsStateWithLifecycle().value?.managedKiosk?.allowSettingsDuringAdmin ?: true)
+            if (settingsActions.isNotEmpty()) {
+                Text("Optional: Accessibility Control returns to playback when another app opens, and the install permission lets signed Player updates install by themselves. Studio shows which ones this display has.", color = SignalMuted, style = MaterialTheme.typography.bodyMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SignalOutlinedButton(onClick = { activity.openSystemSettings(Settings.ACTION_ACCESSIBILITY_SETTINGS) }) { Text("Accessibility Settings") }
+                    SignalOutlinedButton(onClick = { activity.openSystemSettings(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES) }) { Text("Install permission") }
+                    SignalOutlinedButton(onClick = { activity.openSystemSettings(Settings.ACTION_SETTINGS) }) { Text("Android Settings") }
+                }
+            } else {
+                Text("Android Settings are disabled during maintenance by this display's policy.", color = SignalMuted, style = MaterialTheme.typography.bodyMedium)
             }
             SignalOutlinedButton(onClick = { model.resetServer(); dismiss() }) { Text("Forget server and pair again") }
         }

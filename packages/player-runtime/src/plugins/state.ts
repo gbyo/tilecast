@@ -20,6 +20,8 @@ export interface RoutedState {
   plugin: string;
   definitionVersion: number;
   validUntilMs: number | null;
+  /** A Plugin API v1 entry a v2 plugin declares in v1ManifestTypes. */
+  v1: boolean;
   entry: PlayerStateEntry;
 }
 
@@ -89,6 +91,7 @@ export function parseStateEntry(
     plugin,
     definitionVersion: definitionVersion as number,
     validUntilMs,
+    v1: false,
     entry: Object.freeze({
       id,
       type: stateType,
@@ -96,6 +99,45 @@ export function parseStateEntry(
       state: JSON.parse(encoded) as Record<string, unknown>,
       media: Object.freeze(media),
       validUntil: typeof validUntil === "string" ? validUntil : null,
+    }),
+  };
+}
+
+/**
+ * A Plugin API v1 entry for a v2 plugin that still accepts it. The entry's
+ * `config` becomes the state; v1 entries declare no media and no expiry.
+ */
+export function parseV1Entry(
+  value: unknown,
+  plugin: string,
+  definitionVersion: number,
+): RoutedState | string {
+  if (!isObject(value)) return "not an object";
+  const { id, type, version, config } = value;
+  if (typeof id !== "string" || !ID.test(id)) return "invalid id";
+  if (typeof type !== "string" || !TYPE.test(type)) return "invalid type";
+  if (!Number.isInteger(version) || (version as number) < 1)
+    return "invalid version";
+  if (!isObject(config)) return "config is not an object";
+  let encoded: string;
+  try {
+    encoded = JSON.stringify(config);
+  } catch {
+    return "config is not JSON";
+  }
+  if (encoded.length > MAX_STATE_BYTES) return "config is too large";
+  return {
+    plugin,
+    definitionVersion,
+    validUntilMs: null,
+    v1: true,
+    entry: Object.freeze({
+      id,
+      type,
+      version: version as number,
+      state: JSON.parse(encoded) as Record<string, unknown>,
+      media: Object.freeze([]),
+      validUntil: null,
     }),
   };
 }
