@@ -3728,6 +3728,28 @@ paths:
         "403": { description: Same-origin HTTPS required }
         "409": { description: Token already consumed }
         "429": { description: Rate limited }
+  /api/v1/player/browser/binding:
+    post:
+      operationId: lookupBrowserPlayerBinding
+      description: Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserBindingLookupRequest" }
+      responses:
+        "200":
+          description: Active slot and binding for this device key
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BrowserBindingRequest" }
+        "401": { description: No active binding for this device key }
+        "403": { description: Same-origin HTTPS required }
+        "429": { description: Rate limited }
   /api/v1/player/browser/challenge:
     post:
       operationId: challengeBrowserPlayer
@@ -10106,6 +10128,12 @@ components:
       properties:
         pairingSessionId: { type: string, format: uuid }
         enrollmentToken: { type: string, writeOnly: true }
+        registration: { $ref: "#/components/schemas/BrowserRegistration" }
+    BrowserBindingLookupRequest:
+      type: object
+      additionalProperties: false
+      required: [registration]
+      properties:
         registration: { $ref: "#/components/schemas/BrowserRegistration" }
     BrowserBindingRequest:
       type: object

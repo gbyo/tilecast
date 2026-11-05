@@ -6717,6 +6717,11 @@ type BackupWorkerStatus struct {
 	Status          string             `json:"status"`
 }
 
+// BrowserBindingLookupRequest defines model for BrowserBindingLookupRequest.
+type BrowserBindingLookupRequest struct {
+	Registration BrowserRegistration `json:"registration"`
+}
+
 // BrowserBindingRequest defines model for BrowserBindingRequest.
 type BrowserBindingRequest struct {
 	BindingId openapi_types.UUID `json:"bindingId"`
@@ -14613,6 +14618,9 @@ type UploadPlayerReleaseMultipartRequestBody UploadPlayerReleaseMultipartBody
 // IngestPlayerActivityEventsJSONRequestBody defines body for IngestPlayerActivityEvents for application/json ContentType.
 type IngestPlayerActivityEventsJSONRequestBody IngestPlayerActivityEventsJSONBody
 
+// LookupBrowserPlayerBindingJSONRequestBody defines body for LookupBrowserPlayerBinding for application/json ContentType.
+type LookupBrowserPlayerBindingJSONRequestBody = BrowserBindingLookupRequest
+
 // ChallengeBrowserPlayerJSONRequestBody defines body for ChallengeBrowserPlayer for application/json ContentType.
 type ChallengeBrowserPlayerJSONRequestBody = BrowserBindingRequest
 
@@ -17397,6 +17405,18 @@ type ClientInterface interface {
 	//
 	// Inspect player variant. Requires an authenticated player credential.
 	InspectPlayerVariant(ctx context.Context, assetId openapi_types.UUID, variantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupBrowserPlayerBindingWithBody performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	LookupBrowserPlayerBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupBrowserPlayerBinding performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	LookupBrowserPlayerBinding(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ChallengeBrowserPlayerWithBody performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
 	// with any type of body and a specified content type.
@@ -23576,6 +23596,38 @@ func (c *Client) DownloadPlayerVariant(ctx context.Context, assetId openapi_type
 // Inspect player variant. Requires an authenticated player credential.
 func (c *Client) InspectPlayerVariant(ctx context.Context, assetId openapi_types.UUID, variantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewInspectPlayerVariantRequest(c.Server, assetId, variantId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupBrowserPlayerBindingWithBody performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+// with any type of body and a specified content type.
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+func (c *Client) LookupBrowserPlayerBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupBrowserPlayerBindingRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupBrowserPlayerBinding performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+func (c *Client) LookupBrowserPlayerBinding(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupBrowserPlayerBindingRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -39003,6 +39055,46 @@ func NewInspectPlayerVariantRequest(server string, assetId openapi_types.UUID, v
 	return req, nil
 }
 
+// NewLookupBrowserPlayerBindingRequest calls the generic LookupBrowserPlayerBinding builder with application/json body
+func NewLookupBrowserPlayerBindingRequest(server string, body LookupBrowserPlayerBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLookupBrowserPlayerBindingRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLookupBrowserPlayerBindingRequestWithBody constructs an http.Request for the LookupBrowserPlayerBinding method, with any body, and a specified content type
+func NewLookupBrowserPlayerBindingRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/browser/binding")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewChallengeBrowserPlayerRequest calls the generic ChallengeBrowserPlayer builder with application/json body
 func NewChallengeBrowserPlayerRequest(server string, body ChallengeBrowserPlayerJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -50366,6 +50458,20 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	InspectPlayerVariantWithResponse(ctx context.Context, assetId openapi_types.UUID, variantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*InspectPlayerVariantResponse, error)
 
+	// LookupBrowserPlayerBindingWithBodyWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	LookupBrowserPlayerBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error)
+
+	// LookupBrowserPlayerBindingWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	LookupBrowserPlayerBindingWithResponse(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error)
+
 	// ChallengeBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -61528,6 +61634,51 @@ func (r InspectPlayerVariantResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r InspectPlayerVariantResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type LookupBrowserPlayerBindingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BrowserBindingRequest `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LookupBrowserPlayerBindingResponse) GetJSON200() *struct {
+	Data BrowserBindingRequest `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r LookupBrowserPlayerBindingResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LookupBrowserPlayerBindingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LookupBrowserPlayerBindingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LookupBrowserPlayerBindingResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -74405,6 +74556,32 @@ func (c *ClientWithResponses) InspectPlayerVariantWithResponse(ctx context.Conte
 	return ParseInspectPlayerVariantResponse(rsp)
 }
 
+// LookupBrowserPlayerBindingWithBodyWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+// with any type of body and a specified content type.
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) LookupBrowserPlayerBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error) {
+	rsp, err := c.LookupBrowserPlayerBindingWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupBrowserPlayerBindingResponse(rsp)
+}
+
+// LookupBrowserPlayerBindingWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+func (c *ClientWithResponses) LookupBrowserPlayerBindingWithResponse(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error) {
+	rsp, err := c.LookupBrowserPlayerBinding(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupBrowserPlayerBindingResponse(rsp)
+}
+
 // ChallengeBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -84227,6 +84404,43 @@ func ParseInspectPlayerVariantResponse(rsp *http.Response) (*InspectPlayerVarian
 	response := &InspectPlayerVariantResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseLookupBrowserPlayerBindingResponse parses an HTTP response from a LookupBrowserPlayerBindingWithResponse call
+func ParseLookupBrowserPlayerBindingResponse(rsp *http.Response) (*LookupBrowserPlayerBindingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LookupBrowserPlayerBindingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BrowserBindingRequest `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
 	}
 
 	return response, nil
