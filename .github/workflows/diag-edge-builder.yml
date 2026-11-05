@@ -1,8 +1,8 @@
 name: Diagnose Edge builder image (temporary)
 
-# Temporary. Probes the Debian snapshot hosts from each runner and builds the
-# Edge release builder image against the alternate host from a temporary copy
-# of the Dockerfile. Reports as annotations. Remove before merging.
+# Temporary. Measures real package download speed from the Debian snapshot
+# archive on each runner architecture and reports it as annotations. Remove
+# before merging.
 on:
   workflow_dispatch:
   push:
@@ -13,51 +13,20 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  probe:
     strategy:
       fail-fast: false
       matrix:
         arch: [x86_64, aarch64]
     runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: 60
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
-      - name: Probe the snapshot hosts
+      - name: Download real packages from the pinned snapshot
         run: |
           set -u
-          for host in snapshot.debian.org snapshot-cloudflare.debian.org; do
-            codes=""
-            for i in 1 2 3 4 5; do
-              r=$(curl -sS -m 30 -o /dev/null -w '%{http_code}/%{time_total}s' \
-                "http://$host/archive/debian/20260920T000000Z/dists/trixie/InRelease" 2>&1 | tail -n 1)
-              codes="$codes $r"
-            done
-            echo "::notice title=probe $host::$codes"
+          dpkg_arch="$(dpkg --print-architecture)"
+          base="http://snapshot.debian.org/archive/debian/20260920T000000Z/pool/main"
+          for pkg in "z/z3/libz3-4_4.13.3-1_${dpkg_arch}.deb" "c/curl/curl_8.14.1-2+deb13u5_${dpkg_arch}.deb"; do
+            r=$(curl -sS -L -m 120 -o /dev/null -w '%{http_code} %{size_download}B %{time_total}s %{speed_download}B/s' "$base/$pkg" 2>&1 | tail -n 1)
+            echo "::notice title=${pkg##*/}::$r"
           done
-      - name: Build the builder image against the alternate host
-        run: |
-          set -u
-          ctx="$RUNNER_TEMP/builder-ctx"
-          mkdir -p "$ctx"
-          cp -r apps/edge/release/. "$ctx/"
-          sed -i 's#http://snapshot.debian.org#http://snapshot-cloudflare.debian.org#g' "$ctx/Dockerfile.builder"
-          grep -c snapshot-cloudflare "$ctx/Dockerfile.builder" | sed 's/^/::notice title=hosts replaced::/'
-          log="$RUNNER_TEMP/builder.log"
-          : > "$log"
-          (
-            while true; do
-              sleep 60
-              echo "::notice title=progress::$(date +%H:%M:%S) $(free -m | awk '/Mem:/{print "avail_mb="$7}') :: $(tail -n 1 "$log" | cut -c1-160)"
-            done
-          ) &
-          monitor=$!
-          start=$(date +%s)
-          timeout 40m docker build --progress=plain -t tilecast-edge-release-builder \
-            -f "$ctx/Dockerfile.builder" "$ctx" >> "$log" 2>&1
-          status=$?
-          kill "$monitor" 2>/dev/null || true
-          echo "::notice title=result::exit=$status seconds=$(( $(date +%s) - start ))"
-          if [ "$status" -ne 0 ]; then
-            echo "::error title=build failed::$(tail -n 25 "$log" | tr '\n' '|' | cut -c1-1500)"
-          fi
-          exit "$status"
