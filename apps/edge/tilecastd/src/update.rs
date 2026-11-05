@@ -535,11 +535,24 @@ impl Coordinator {
                 installer_status: None,
                 error: None,
             };
-            if let Ok(Ok(UpdateReportOutcome::Accepted)) =
-                tokio::time::timeout(Duration::from_secs(10), api.report(job.deployment_id, &report)).await
-            {
-                job.reported_state = Some(JobState::Activating.as_str().to_owned());
-                let _ = self.save(job, now).await;
+            match tokio::time::timeout(Duration::from_secs(10), api.report(job.deployment_id, &report)).await {
+                Ok(Ok(UpdateReportOutcome::Accepted)) => {
+                    job.reported_state = Some(JobState::Activating.as_str().to_owned());
+                    let _ = self.save(job, now).await;
+                }
+                // Cancelled while the job waited for its gate: the helper is
+                // never asked, and the staged archive is released.
+                Ok(Ok(UpdateReportOutcome::Closed)) => {
+                    job.report_closed = true;
+                    return self.transition(job, JobState::Cancelled, Some("deployment_closed"), now).await;
+                }
+                // A server that cannot answer cannot say the deployment is
+                // still wanted, and a candidate could not confirm to it
+                // anyway. Stay staged and ask again on a later pass.
+                _ => {
+                    self.transition(job, JobState::Staged, Some("update_report_unavailable"), now).await;
+                    return Pass::Waiting("server_not_connected");
+                }
             }
         }
         match helper.call(HelperRequest::Activate { version_name: version }, HELPER_TIMEOUT).await {
