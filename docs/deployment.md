@@ -45,7 +45,7 @@ bundled catalog snapshot until the first refresh succeeds. See
 
 ## Server releases
 
-Tilecast Server ships three channels. Stable is the recommended channel for normal self-hosted installs. Beta gives early access to the next Stable release. Development tracks `main` and may change frequently or break. Tilecast as a whole is still pre-1.0, so Stable means stable relative to Development, not a maturity claim. There are no other channels.
+Tilecast Server ships three channels. Stable is the recommended channel for normal self-hosted installs. Beta gives early access to the next Stable release. Development tracks `main` and may change frequently or break. There are no other channels.
 
 Server releases are part of one coordinated Tilecast release. The workflow `.github/workflows/release.yml` publishes the Server image, Tilecast Edge, the Windows Player, and the Android Player from one commit under one version. [`release-process.md`](release-process.md) is the full specification.
 
