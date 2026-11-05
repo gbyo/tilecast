@@ -134,7 +134,8 @@ func (p *WorkerPool) claim(ctx context.Context) (*job, error) {
 	var j job
 	err = tx.QueryRow(ctx, `SELECT id,asset_id,kind,payload,attempts,max_attempts FROM media_jobs WHERE (status='queued' AND run_after<=now()) OR (status='running' AND locked_at<now()-interval '10 minutes' AND attempts<max_attempts) ORDER BY run_after,created_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&j.ID, &j.AssetID, &j.Kind, &j.Payload, &j.Attempts, &j.MaxAttempts)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		// Nothing to run, but any exhausted jobs failed above must persist.
+		return nil, tx.Commit(ctx)
 	}
 	if err != nil {
 		return nil, err

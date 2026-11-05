@@ -121,6 +121,31 @@ func TestExhaustedStaleJobFailsInsteadOfRunningAgain(t *testing.T) {
 	if jobStatus != "failed" || assetStatus != "failed" {
 		t.Fatalf("exhausted job=%s asset=%s, want both failed", jobStatus, assetStatus)
 	}
+
+	// With nothing left to claim, the failure must still be committed.
+	if _, err = pool.Exec(ctx, `DELETE FROM media_jobs`); err != nil {
+		t.Fatal(err)
+	}
+	asset = uuid.New()
+	if _, err = pool.Exec(ctx, `INSERT INTO assets(id,organization_id,name,type,original_filename,detected_mime_type,sha256,original_size,processing_status,created_by) SELECT $1,id,'Clip 2','video','clip2.mp4','video/mp4',$2,100,'processing',$3 FROM organization_settings`, asset, make([]byte, 32), owner.User.ID); err != nil {
+		t.Fatal(err)
+	}
+	only := uuid.New()
+	if _, err = pool.Exec(ctx, `INSERT INTO media_jobs(id,asset_id,kind,status,attempts,max_attempts,locked_by,locked_at) VALUES($1,$2,'optimize_video','running',5,5,'dead-worker',now()-interval '11 minutes')`, only, asset); err != nil {
+		t.Fatal(err)
+	}
+	if claimed, err = worker.claim(ctx); err != nil || claimed != nil {
+		t.Fatalf("claim with only exhausted work = %#v, %v", claimed, err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT status FROM media_jobs WHERE id=$1`, only).Scan(&jobStatus); err != nil {
+		t.Fatal(err)
+	}
+	if err = pool.QueryRow(ctx, `SELECT processing_status FROM assets WHERE id=$1`, asset).Scan(&assetStatus); err != nil {
+		t.Fatal(err)
+	}
+	if jobStatus != "failed" || assetStatus != "failed" {
+		t.Fatalf("exhausted-only claim rolled back: job=%s asset=%s", jobStatus, assetStatus)
+	}
 }
 
 // With originals discarded, a poster job that runs after optimize_video still

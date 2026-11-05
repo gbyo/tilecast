@@ -1419,8 +1419,9 @@ export function LayoutEditorPage() {
       setFuture([]);
       setSaveState("saved");
       setHistoryOpen(false);
-      // The cached Layout still holds the pre-restore draft. Reopening the
-      // editor would initialize from it and autosave over the restore.
+      // The cached Layout still holds the pre-restore draft. Replace it
+      // before refetching so a remounted editor cannot initialize from it.
+      queryClient.setQueryData(layoutKeys.detail(id), saved);
       void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
     },
     onError: (error) => {

@@ -150,6 +150,20 @@ describe("presentation machine", () => {
     );
   });
 
+  it("holds every lap of a single video for the dwell floor", () => {
+    const h = harness([item("v", { kind: "video", durationMs: 100 })]);
+    const mount = h.mount();
+    h.ready();
+    h.clock.advance(1_000);
+    expect(h.stage()!.restarts).toBe(1);
+    h.actor.send({ type: "SURFACE_RESUMED", mount });
+    // A 100 ms duration must not restart the lap at timer speed.
+    h.clock.advance(999);
+    expect(h.stage()!.restarts).toBe(1);
+    h.clock.advance(1);
+    expect(h.stage()!.restarts).toBe(2);
+  });
+
   it("bounds every lap of a single looping video by its duration", () => {
     const h = harness([item("v", { kind: "video", durationMs: 2_000 })]);
     const mount = h.mount();

@@ -263,7 +263,10 @@ export const presentationMachine = setup({
       const authored = positiveDurationMs(stage.item.durationMs);
       if (!authored) return;
       context.timers.cancelAll();
-      context.timers.after(authored, () =>
+      // The dwell floor in finish is measured from the mount, which an
+      // in-place restart keeps. Apply it per lap here, or a sub-second
+      // duration would restart the video as fast as timers fire.
+      context.timers.after(Math.max(authored, MIN_ITEM_DWELL_MS), () =>
         self.send({ type: "DURATION_DUE", mount: stage.mount }),
       );
     },

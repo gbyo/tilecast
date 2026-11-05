@@ -6171,7 +6171,7 @@ paths:
           "204": { description: Playlist soft-deleted },
           "409":
             {
-              description: "Playlist is in use by a screen or Display Group assignment, a schedule, a Layout, a live takeover, or a running Quick Present",
+              description: "Playlist is in use by a screen or Display Group assignment, a schedule, a Layout, a draft, active, or cancelling takeover, or a running Quick Present",
             },
         }
   /api/v1/playlists/{id}/publish:
