@@ -477,7 +477,7 @@ export type LayoutPrimitive = {
   text?: string;
   fontFamily?: "Inter" | "Roboto" | "Source Sans 3" | "Noto Sans";
   /** Organization font library family; fontFamily stays the bundled fallback. */
-  fontId?: string | null;
+  fontId?: string;
   fontSize?: number;
   fontWeight?: 400 | 500 | 600 | 700 | 800;
   textAlign?: "left" | "center" | "right";
