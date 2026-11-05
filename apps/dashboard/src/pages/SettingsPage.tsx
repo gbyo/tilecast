@@ -105,6 +105,8 @@ export function SettingsPage() {
   });
   const navigate = useNavigate();
   const { confirm, dialog: confirmDialog } = useConfirm();
+  // The saved document is written to the cache in the call's onSuccess.
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
   const saveOrganization = useMutation({
     mutationFn: (values: Record<string, unknown>) =>
       api.updateSettings(revision, values, auth.status?.csrfToken ?? ""),
