@@ -219,7 +219,7 @@ import type {
 } from "../api/types";
 import { useAuth } from "../auth/AuthProvider";
 import { UsedByPanel } from "../content/UsedByPanel";
-import { useFormatLocale } from "../i18n";
+import { apiErrorMessage, useFormatLocale } from "../i18n";
 import { captureLayoutPreview } from "../content/widgetPreviewCapture";
 import { hasCapability } from "../auth/capabilities";
 
@@ -1391,6 +1391,15 @@ export function LayoutEditorPage() {
         queryKey: ["content-history", "layout", id],
       });
     },
+    onError: (error) => {
+      toast.add({
+        title: canPublish
+          ? t("editor.toastPublishFailed")
+          : t("editor.toastSubmitFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
+    },
   });
   const rename = useMutation({
     mutationFn: (name: string) =>
@@ -1402,6 +1411,13 @@ export function LayoutEditorPage() {
     onSuccess: () => {
       toast.add({ title: t("editor.toastRenamed"), type: "success" });
       void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
+    },
+    onError: (error) => {
+      toast.add({
+        title: t("editor.toastRenameFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
     },
   });
   const restore = useMutation({
@@ -1423,6 +1439,17 @@ export function LayoutEditorPage() {
       void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
       setSaveState("saved");
       setHistoryOpen(false);
+      // The cached Layout still holds the pre-restore draft. Replace it
+      // before refetching so a remounted editor cannot initialize from it.
+      queryClient.setQueryData(layoutKeys.detail(id), saved);
+      void queryClient.invalidateQueries({ queryKey: layoutKeys.all });
+    },
+    onError: (error) => {
+      toast.add({
+        title: t("editor.toastRestoreFailed"),
+        description: apiErrorMessage(error),
+        type: "error",
+      });
     },
   });
   const selected = useMemo(

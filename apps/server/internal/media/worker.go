@@ -102,10 +102,40 @@ func (p *WorkerPool) claim(ctx context.Context) (*job, error) {
 		return nil, err
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	// A stale lease on the final attempt means the worker died while running
+	// it, often because the input itself takes the process down. fail() never
+	// ran for that attempt, so enforce the attempt cap here; reclaiming it
+	// would retry a poison file after every restart, forever.
+	rows, err := tx.Query(ctx, `UPDATE media_jobs SET status='failed',error_code='media_processing_failed',error_message='Tilecast could not process this media file.',locked_at=NULL,locked_by=NULL,updated_at=now() WHERE id IN (SELECT id FROM media_jobs WHERE status='running' AND locked_at<now()-interval '10 minutes' AND attempts>=max_attempts FOR UPDATE SKIP LOCKED) RETURNING asset_id`)
+	if err != nil {
+		return nil, err
+	}
+	exhausted := []uuid.UUID{}
+	for rows.Next() {
+		var assetID *uuid.UUID
+		if err = rows.Scan(&assetID); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if assetID != nil {
+			exhausted = append(exhausted, *assetID)
+		}
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(exhausted) > 0 {
+		if _, err = tx.Exec(ctx, `UPDATE assets SET processing_status='failed',processing_progress=NULL,error_code='media_processing_failed',error_message='Tilecast could not process this media file.',updated_at=now() WHERE id=ANY($1) AND deleted_at IS NULL`, exhausted); err != nil {
+			return nil, err
+		}
+		p.logger.Error("media jobs exhausted their attempts under a lost worker", "assets", len(exhausted))
+	}
 	var j job
-	err = tx.QueryRow(ctx, `SELECT id,asset_id,kind,payload,attempts,max_attempts FROM media_jobs WHERE (status='queued' AND run_after<=now()) OR (status='running' AND locked_at<now()-interval '10 minutes') ORDER BY run_after,created_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&j.ID, &j.AssetID, &j.Kind, &j.Payload, &j.Attempts, &j.MaxAttempts)
+	err = tx.QueryRow(ctx, `SELECT id,asset_id,kind,payload,attempts,max_attempts FROM media_jobs WHERE (status='queued' AND run_after<=now()) OR (status='running' AND locked_at<now()-interval '10 minutes' AND attempts<max_attempts) ORDER BY run_after,created_at FOR UPDATE SKIP LOCKED LIMIT 1`).Scan(&j.ID, &j.AssetID, &j.Kind, &j.Payload, &j.Attempts, &j.MaxAttempts)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		// Nothing to run, but any exhausted jobs failed above must persist.
+		return nil, tx.Commit(ctx)
 	}
 	if err != nil {
 		return nil, err
@@ -212,6 +242,21 @@ func (p *WorkerPool) source(ctx context.Context, assetID uuid.UUID) (assetType, 
 	err = p.service.db.QueryRow(ctx, `SELECT a.type,v.storage_key FROM assets a JOIN asset_variants v ON v.asset_id=a.id AND v.kind='original' AND v.deleted_at IS NULL WHERE a.id=$1`, assetID).Scan(&assetType, &key)
 	return
 }
+
+// previewSource is the file a thumbnail or poster is extracted from. A video
+// poster may run after optimize_video has discarded the original (with
+// TILECAST_KEEP_ORIGINALS=false the two jobs are queued together and claim in
+// either order), so a poster falls back to the playback variant, which holds
+// the same frames. Without it the poster fails every attempt and the asset is
+// marked failed although it is playable.
+func (p *WorkerPool) previewSource(ctx context.Context, assetID uuid.UUID, poster bool) (string, error) {
+	_, key, err := p.source(ctx, assetID)
+	if poster && errors.Is(err, pgx.ErrNoRows) {
+		err = p.service.db.QueryRow(ctx, `SELECT v.storage_key FROM asset_variants v WHERE v.asset_id=$1 AND v.kind='playback' AND v.deleted_at IS NULL`, assetID).Scan(&key)
+	}
+	return key, err
+}
+
 func (p *WorkerPool) inspect(ctx context.Context, assetID uuid.UUID) error {
 	assetType, key, err := p.source(ctx, assetID)
 	if err != nil {
@@ -289,7 +334,7 @@ func (p *WorkerPool) inspect(ctx context.Context, assetID uuid.UUID) error {
 }
 
 func (p *WorkerPool) preview(ctx context.Context, assetID uuid.UUID, poster bool) error {
-	_, sourceKey, err := p.source(ctx, assetID)
+	sourceKey, err := p.previewSource(ctx, assetID, poster)
 	if err != nil {
 		return err
 	}

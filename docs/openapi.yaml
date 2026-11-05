@@ -6043,7 +6043,10 @@ paths:
       responses:
         {
           "204": { description: Playlist soft-deleted },
-          "409": { description: Playlist is assigned },
+          "409":
+            {
+              description: "Playlist is in use by a screen or Display Group assignment, a schedule, a Layout, a draft, active, or cancelling takeover, or a running Quick Present",
+            },
         }
   /api/v1/playlists/{id}/publish:
     post:
@@ -7467,7 +7470,10 @@ paths:
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
         "204": { description: Unused Layout deleted }
-        "409": { description: Layout is assigned or scheduled }
+        "409":
+          {
+            description: "Layout is assigned, scheduled, used by a playlist, or shown by a running Quick Present",
+          }
   /api/v1/layouts/{id}/draft:
     put:
       operationId: saveLayoutDraft

@@ -492,9 +492,11 @@ func addScreenInTx(ctx context.Context, tx pgx.Tx, group, screen, user uuid.UUID
 // restoreScreenSnapshot reinstates the playlist assignment and screen-targeted
 // schedules a screen had before it joined a sync group, then discards the
 // snapshot. Memberships created before snapshots existed have no snapshot row
-// and fall back to inheriting the group's playlist.
+// and fall back to inheriting the group's playlist. A snapshotted playlist or
+// Layout deleted while the screen was a member is not restored: the screen's
+// own assignment no longer exists, and restoring it would break its manifest.
 func restoreScreenSnapshot(ctx context.Context, tx pgx.Tx, group, screen, user uuid.UUID) error {
-	if _, err := tx.Exec(ctx, `INSERT INTO screen_playlist_assignments(id,screen_id,playlist_id,layout_id,assigned_by,assigned_at,updated_at) SELECT gen_random_uuid(),snap.screen_id,snap.playlist_id,snap.layout_id,COALESCE(snap.assigned_by,$2),COALESCE(snap.assigned_at,now()),now() FROM screen_group_membership_snapshots snap WHERE snap.screen_id=$1 AND (snap.playlist_id IS NULL) <> (snap.layout_id IS NULL) ON CONFLICT(screen_id)DO UPDATE SET playlist_id=EXCLUDED.playlist_id,layout_id=EXCLUDED.layout_id,assigned_by=EXCLUDED.assigned_by,updated_at=now()`, screen, user); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO screen_playlist_assignments(id,screen_id,playlist_id,layout_id,assigned_by,assigned_at,updated_at) SELECT gen_random_uuid(),snap.screen_id,snap.playlist_id,snap.layout_id,COALESCE(snap.assigned_by,$2),COALESCE(snap.assigned_at,now()),now() FROM screen_group_membership_snapshots snap LEFT JOIN playlists p ON p.id=snap.playlist_id AND p.deleted_at IS NULL LEFT JOIN layouts l ON l.id=snap.layout_id AND l.deleted_at IS NULL WHERE snap.screen_id=$1 AND (snap.playlist_id IS NULL) <> (snap.layout_id IS NULL) AND (p.id IS NOT NULL OR l.id IS NOT NULL) ON CONFLICT(screen_id)DO UPDATE SET playlist_id=EXCLUDED.playlist_id,layout_id=EXCLUDED.layout_id,assigned_by=EXCLUDED.assigned_by,updated_at=now()`, screen, user); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `INSERT INTO screen_playlist_assignments(id,screen_id,playlist_id,layout_id,assigned_by,assigned_at,updated_at) SELECT gen_random_uuid(),$2,a.playlist_id,a.layout_id,$3,now(),now() FROM screen_group_playlist_assignments a WHERE a.screen_group_id=$1 AND NOT EXISTS(SELECT 1 FROM screen_group_membership_snapshots WHERE screen_id=$2) ON CONFLICT(screen_id)DO UPDATE SET playlist_id=EXCLUDED.playlist_id,layout_id=EXCLUDED.layout_id,assigned_by=EXCLUDED.assigned_by,updated_at=now()`, group, screen, user); err != nil {

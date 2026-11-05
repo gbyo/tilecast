@@ -175,7 +175,10 @@ func (s *Service) enroll(ctx context.Context, sessionID uuid.UUID, enrollmentTok
 	if err := tx.Commit(ctx); err != nil {
 		return EnrollmentResult{}, fmt.Errorf("commit enrollment: %w", err)
 	}
-	if pairingMode == "hardware_replacement" || browser != nil {
+	// Any enrollment that revoked a previous credential disconnects its
+	// socket (pairing invariant 8). The new Player has not received its
+	// credential yet, so it cannot be the socket being closed.
+	if replaceExisting || pairingMode == "hardware_replacement" || browser != nil {
 		s.presence.Disconnect(screenID)
 	}
 	return EnrollmentResult{ScreenID: screenID, ScreenName: screenName, DeviceCredential: credential, BrowserSession: browserSession}, nil

@@ -22817,7 +22817,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Playlist is assigned */
+      /** @description Playlist is in use by a screen or Display Group assignment, a schedule, a Layout, a draft, active, or cancelling takeover, or a running Quick Present */
       409: {
         headers: {
           [name: string]: unknown;
@@ -25010,7 +25010,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Layout is assigned or scheduled */
+      /** @description Layout is assigned, scheduled, used by a playlist, or shown by a running Quick Present */
       409: {
         headers: {
           [name: string]: unknown;
