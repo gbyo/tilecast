@@ -233,7 +233,8 @@ connection and the envelope in `crates/player-client/src/phone_setup.rs`.
 - An unreachable relay shows `Unavailable` and retries after 15 seconds. The
   retry interval doubles to at most 5 minutes, inside the 30-minute session.
 - `PairingCoordinator::resume_phone_setup` starts a new session after
-  `Paused`.
+  `Paused`. Core accepts the resume request while the host displays the
+  paused state.
 - `PairingStatus::Waiting` carries the session server address, so a host that
   did not start the session can show it.
 - `packages/player-contracts/fixtures/phone-setup-envelope.json` pins the
