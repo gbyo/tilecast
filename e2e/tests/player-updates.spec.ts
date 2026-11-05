@@ -59,7 +59,7 @@ for (const viewport of [
       exact: true,
     });
     await expect(dialog).toBeVisible();
-    await expect(dialog).toContainText("1 of 3 — Release");
+    await expect(dialog).toContainText("1 of 3 — Version & build");
     await expect(
       dialog.getByRole("button", { name: "Continue", exact: true }),
     ).toBeDisabled();
