@@ -12,21 +12,25 @@ import (
 // Input is the authored configuration of one Countdown Bar instance: the API
 // request body and the stored row.
 type Input struct {
-	Name                string      `json:"name"`
-	Message             string      `json:"message"`
-	ScheduleType        string      `json:"scheduleType"`
-	TargetTime          *string     `json:"targetTime,omitempty"`
-	DaysOfWeek          []int       `json:"daysOfWeek"`
-	OneTimeAt           *time.Time  `json:"oneTimeAt,omitempty"`
-	Timezone            string      `json:"timezone"`
-	LeadTimeSeconds     int         `json:"leadTimeSeconds"`
-	CompletionText      string      `json:"completionText"`
-	ShowConfetti        bool        `json:"showConfetti"`
-	DisplayMode         string      `json:"displayMode"`
-	HeightPX            int         `json:"heightPx"`
-	ProgressFill        string      `json:"progressFill"`
-	ContentPadding      *int        `json:"contentPadding"`
-	TextScale           int         `json:"textScale"`
+	Name            string     `json:"name"`
+	Message         string     `json:"message"`
+	ScheduleType    string     `json:"scheduleType"`
+	TargetTime      *string    `json:"targetTime,omitempty"`
+	DaysOfWeek      []int      `json:"daysOfWeek"`
+	OneTimeAt       *time.Time `json:"oneTimeAt,omitempty"`
+	Timezone        string     `json:"timezone"`
+	LeadTimeSeconds int        `json:"leadTimeSeconds"`
+	CompletionText  string     `json:"completionText"`
+	ShowConfetti    bool       `json:"showConfetti"`
+	DisplayMode     string     `json:"displayMode"`
+	HeightPX        int        `json:"heightPx"`
+	ProgressFill    string     `json:"progressFill"`
+	ContentPadding  *int       `json:"contentPadding"`
+	TextScale       int        `json:"textScale"`
+	// FontID is an organization font library family. Null keeps the
+	// Player's own face. Studio picks it; the Server resolves it to
+	// verified font files when it projects Player state.
+	FontID              *uuid.UUID  `json:"fontId"`
 	UrgencyEnabled      bool        `json:"urgencyEnabled"`
 	StartingSoonSeconds int         `json:"startingSoonSeconds"`
 	UrgentSeconds       int         `json:"urgentSeconds"`
@@ -69,6 +73,14 @@ type ManifestConfig struct {
 	UrgentSeconds       int        `json:"urgentSeconds"`
 	PulseSeconds        int        `json:"pulseSeconds"`
 	Priority            int        `json:"priority"`
+}
+
+// StateConfig is the Plugin API v2 state: the Player-facing projection plus
+// the library font. Players without Plugin API v2 receive ManifestConfig
+// alone, so they keep their own face.
+type StateConfig struct {
+	ManifestConfig
+	FontID *uuid.UUID `json:"fontId,omitempty"`
 }
 
 // Normalize fills the documented defaults. Omitted values keep the original

@@ -2092,6 +2092,14 @@
       "uploading": "Subiendo…",
       "stored": "Se agregó a {{family}}.",
       "restricted": "Se agregó a {{family}}. Los indicadores de licencia de la fuente dicen que no se puede incrustar; confirme que su licencia permite mostrarla en pantallas."
+    },
+    "picker": {
+      "libraryGroup": "Fuentes de la organización",
+      "builtInGroup": "Fuentes integradas",
+      "add": "Agregar fuentes",
+      "manage": "Agregar o quitar fuentes de la organización",
+      "missing": "Fuente eliminada (usa la alternativa)",
+      "loadingFont": "Cargando fuente…"
     }
   }
 }

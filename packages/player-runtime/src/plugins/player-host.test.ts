@@ -14,6 +14,7 @@ import {
 } from "@tilecast/plugin-sdk/player";
 import type { RuntimeManifestEntry } from "@tilecast/plugin-sdk/runtime";
 import { ManualClock } from "../clock/scheduler";
+import type { ProjectedFontFace } from "../compat/font-faces";
 import {
   discoverRuntimePlugins,
   playerDiscovery,
@@ -25,6 +26,7 @@ import { PlayerPluginHost } from "./player-host";
 import { discoverPlayerPlugins } from "./player-discovery";
 import {
   clockService,
+  fontsService,
   mediaService,
   PresentationObserver,
   surfaceService,
@@ -125,8 +127,16 @@ function player(
   document.body.replaceChildren(surfaces.element);
   const observer = new PresentationObserver();
   const offset = { value: 0 };
+  const registered: ProjectedFontFace[][] = [];
   const providers: PlayerServiceProvider[] = [
     clockService({ clock, clockOffsetMs: () => offset.value }),
+    fontsService({
+      resolve: (asset, variant) => `tcmedia://variant/${asset}/${variant}`,
+      register: (faces) => {
+        registered.push([...faces]);
+        return Promise.resolve();
+      },
+    }),
     mediaService({
       resolve: (asset, variant) => `tcmedia://variant/${asset}/${variant}`,
     }),
@@ -166,6 +176,7 @@ function player(
     observer,
     services,
     diagnostics,
+    registered,
     send,
   };
 }
@@ -234,6 +245,82 @@ describe("Plugin API v2 discovery", () => {
     expect(
       discoverPlayerPlugins(manifests, modules, ["countdown_bar"]).problems[0],
     ).toMatch(/also owned by a Plugin API 1 plugin/);
+  });
+});
+
+describe("player.fonts@1", () => {
+  const FONT = "5c0a2f8e-3c1b-4d2a-9e7f-0a1b2c3d4e5f";
+  const face = {
+    assetId: ASSET,
+    variantId: VARIANT,
+    style: "italic",
+    weightMin: 100,
+    weightMax: 900,
+    unicodeRange: "U+0000-00FF",
+  };
+
+  function run(fonts: unknown[]) {
+    const result: Record<string, unknown> = {};
+    const plugin = definePlayerPlugin({
+      id: "typeset",
+      services: { required: [], optional: ["player.fonts@1"] },
+      activate(context) {
+        const service = context.services["player.fonts@1"];
+        return {
+          stateChanged() {
+            result["declared"] = service?.use(FONT.toUpperCase())?.family;
+            result["other"] = service?.use(ASSET);
+            result["bad"] = service?.use(undefined as never);
+          },
+        };
+      },
+    });
+    const p = player([
+      {
+        manifest: manifestV2("typeset", { optional: ["player.fonts@1"] }),
+        definition: plugin,
+      },
+    ]);
+    p.send([stateEntry("typeset", "t", {}, { fonts })]);
+    return { result, registered: p.registered };
+  }
+
+  it("registers a declared family under its generated name", () => {
+    const { result, registered } = run([
+      { id: FONT, family: "Lobster", faces: [face] },
+    ]);
+    expect(result["declared"]).toBe(`tcf-${FONT}`);
+    expect(registered).toEqual([
+      [
+        {
+          family: `tcf-${FONT}`,
+          src: `tcmedia://variant/${ASSET}/${VARIANT}`,
+          weight: "100 900",
+          style: "italic",
+          unicodeRange: "U+0000-00FF",
+        },
+      ],
+    ]);
+  });
+
+  it("answers null for a family the state does not declare", () => {
+    const { result, registered } = run([]);
+    expect(result["declared"]).toBeUndefined();
+    expect(result["other"]).toBeNull();
+    expect(result["bad"]).toBeNull();
+    expect(registered).toEqual([]);
+  });
+
+  it("answers null for a declared family with no usable face", () => {
+    const { result, registered } = run([
+      {
+        id: FONT,
+        family: "Lobster",
+        faces: [{ ...face, weightMin: 900, weightMax: 100 }],
+      },
+    ]);
+    expect(result["declared"]).toBeUndefined();
+    expect(registered).toEqual([]);
   });
 });
 

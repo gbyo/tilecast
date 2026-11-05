@@ -72,6 +72,9 @@ type Family struct {
 // remove.
 type InUse struct {
 	Layouts []LayoutRef
+	// Plugins names the plugin instances that use the family, by the label
+	// the plugin recorded through Host.Fonts.
+	Plugins []string
 }
 
 type LayoutRef struct {

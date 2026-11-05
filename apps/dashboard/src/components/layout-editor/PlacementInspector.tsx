@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useId, useState, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlignCenter,
@@ -55,15 +55,11 @@ import {
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { useLibraryFonts } from "../../fonts/libraryFonts";
-import { GoogleFontDialog } from "../../settings/fonts/GoogleFontDialog";
-import { hasCapability } from "../../auth/capabilities";
+import { FontPicker, type FontChoice } from "../../fonts/FontPicker";
 import { Slider } from "../ui/slider";
 import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
@@ -291,8 +287,6 @@ function InspectorSelect({
   );
 }
 
-const LIBRARY_PREFIX = "library:";
-
 /**
  * Text font: the organization's library families first, then the bundled
  * fonts. A library choice keeps the bundled family as its fallback.
@@ -302,90 +296,21 @@ function FontSelect({
   onChange,
 }: {
   primitive: LayoutPrimitive;
-  onChange: (next: string) => void;
+  onChange: (next: FontChoice) => void;
 }) {
   const { t } = useTranslation("layouts");
-  const auth = useAuth();
-  const library = useLibraryFonts();
-  const [adding, setAdding] = useState(false);
-  const value = primitive.fontId
-    ? LIBRARY_PREFIX + primitive.fontId
-    : (primitive.fontFamily ?? "Inter");
-  const libraryOptions = library.families.map((family) => ({
-    value: LIBRARY_PREFIX + family.id,
-    label: family.family,
-  }));
-  if (
-    primitive.fontId &&
-    !libraryOptions.some((option) => option.value === value)
-  ) {
-    libraryOptions.push({
-      value,
-      label: library.isLoading
-        ? t("inspector.fontLoading")
-        : t("inspector.fontMissing"),
-    });
-  }
-  const items = [...libraryOptions, ...fontOptions];
-  const canManage = hasCapability(auth.status, "settings.manage");
   return (
-    <Field>
-      <FieldLabel htmlFor="text-font">{t("inspector.fontLabel")}</FieldLabel>
-      <Select
-        value={value}
-        onValueChange={(next) => onChange(next ?? value)}
-        items={items}
-      >
-        <SelectTrigger id="text-font" aria-label={t("inspector.fontLabel")}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {libraryOptions.length > 0 && (
-            <SelectGroup>
-              <SelectLabel>{t("inspector.fontLibraryGroup")}</SelectLabel>
-              {libraryOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          )}
-          <SelectGroup>
-            <SelectLabel>{t("inspector.fontBuiltInGroup")}</SelectLabel>
-            {fontOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      {canManage ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setAdding(true)}
-          >
-            {t("inspector.fontAdd")}
-          </Button>
-          <FieldDescription>
-            <Link to="/settings/fonts">{t("inspector.fontManage")}</Link>
-          </FieldDescription>
-        </div>
-      ) : null}
-      {adding ? (
-        <GoogleFontDialog
-          onClose={() => setAdding(false)}
-          onAdded={(family) => {
-            setAdding(false);
-            // The new family is the text's font right away.
-            onChange(LIBRARY_PREFIX + family.id);
-          }}
-        />
-      ) : null}
-    </Field>
+    <FontPicker
+      id="text-font"
+      label={t("inspector.fontLabel")}
+      value={
+        primitive.fontId
+          ? { kind: "library", id: primitive.fontId }
+          : { kind: "builtIn", value: primitive.fontFamily ?? "Inter" }
+      }
+      onChange={onChange}
+      builtIn={fontOptions}
+    />
   );
 }
 
@@ -1080,16 +1005,14 @@ export function PlacementInspector({
               primitive={primitive}
               onChange={(next) =>
                 update((target) => {
-                  if (next.startsWith(LIBRARY_PREFIX)) {
-                    target.primitive!.fontId = next.slice(
-                      LIBRARY_PREFIX.length,
-                    );
+                  if (next.kind === "library") {
+                    target.primitive!.fontId = next.id;
                     // The bundled family stays as the fallback.
                     target.primitive!.fontFamily ??= "Inter";
                   } else {
                     delete target.primitive!.fontId;
                     target.primitive!.fontFamily =
-                      next as LayoutPrimitive["fontFamily"];
+                      next.value as LayoutPrimitive["fontFamily"];
                   }
                 })
               }

@@ -511,7 +511,24 @@ func (s *Service) Delete(ctx context.Context, userID, id uuid.UUID) error {
 	if err = rows.Err(); err != nil {
 		return err
 	}
-	if len(inUse.Layouts) > 0 {
+	// Plugin instances record their use through Host.Fonts.
+	refs, err := tx.Query(ctx, `SELECT label FROM font_references WHERE font_id=$1 ORDER BY lower(label),owner_id LIMIT 20`, id)
+	if err != nil {
+		return err
+	}
+	for refs.Next() {
+		var label string
+		if err = refs.Scan(&label); err != nil {
+			refs.Close()
+			return err
+		}
+		inUse.Plugins = append(inUse.Plugins, label)
+	}
+	refs.Close()
+	if err = refs.Err(); err != nil {
+		return err
+	}
+	if len(inUse.Layouts) > 0 || len(inUse.Plugins) > 0 {
 		return inUse
 	}
 	if _, err = tx.Exec(ctx, `UPDATE font_families SET deleted_at=now(),updated_at=now() WHERE id=$1`, id); err != nil {

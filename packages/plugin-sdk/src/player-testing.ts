@@ -98,6 +98,17 @@ export function createTestPlayer(
       every: (interval: number, callback: () => void) =>
         own(runtime.context.clock.every(interval, callback)),
     }),
+    "player.fonts@1": () => ({
+      use: (fontId: string) =>
+        entries.some((entry) =>
+          entry.fonts.some((font) => font.id === fontId.toLowerCase()),
+        )
+          ? {
+              family: `tcf-${fontId.toLowerCase()}`,
+              ready: Promise.resolve(),
+            }
+          : null,
+    }),
     "player.media@1": () => ({
       url: (ref: { assetId: string; variantId: string }) =>
         entries.some((entry) =>

@@ -2071,6 +2071,14 @@
       "uploading": "Uploading…",
       "stored": "Added to {{family}}.",
       "restricted": "Added to {{family}}. The font's own license flags say it may not be embedded; confirm your license allows display use."
+    },
+    "picker": {
+      "libraryGroup": "Organization fonts",
+      "builtInGroup": "Built-in fonts",
+      "add": "Add fonts",
+      "manage": "Add or remove organization fonts",
+      "missing": "Removed font (uses the fallback)",
+      "loadingFont": "Loading font…"
     }
   }
 }

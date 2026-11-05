@@ -19,7 +19,11 @@
       "description": "Target screens need a Player build that renders plugin bars."
     }
   ],
-  "uses": ["Player manifest plugin state", "Scheduled overlay bar"],
+  "uses": [
+    "Player manifest plugin state",
+    "Scheduled overlay bar",
+    "Organization font library"
+  ],
   "server": {
     "entrypoint": "./plugin.go"
   },
@@ -44,7 +48,7 @@
       "entrypoint": "./runtime/index.ts",
       "services": {
         "required": ["player.clock@1", "player.surface@1"],
-        "optional": []
+        "optional": ["player.fonts@1"]
       },
       "surfaces": [
         {

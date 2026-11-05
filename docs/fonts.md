@@ -1,12 +1,12 @@
 # Organization font library
 
-The organization font library holds the typefaces that Layout text can use.
-An administrator adds a family from the Google Fonts catalog or uploads font
-files. The Tilecast Server stores each font file. Tilecast Player downloads a
-font file with the published content that uses it.
+The organization font library holds the typefaces that Layout text and plugins
+can use. An administrator adds a family from the Google Fonts catalog or uploads
+font files. The Tilecast Server stores each font file. Tilecast Player
+downloads a font file with the published content that uses it.
 
-The font library is phase 1 of custom fonts. It covers Layout text. Widgets,
-plugins, and organization default fonts are later work.
+The font library covers Layout text and Plugin API v2 plugins (Countdown Bar
+first). Widgets and organization default fonts are later work.
 
 ## Ownership
 
@@ -14,8 +14,10 @@ plugins, and organization default fonts are later work.
   validation, and deletion.
 - The `internal/layouts` package validates a text primitive `fontId` and
   records a `font` dependency.
-- The `internal/playlists` package puts the font faces of each Layout into
-  the Player manifest.
+- The `internal/playlists` package puts the font faces of each Layout and of
+  each Plugin API v2 state entry into the Player manifest.
+- The `internal/plugins` package implements `Host.Fonts`, which records the
+  families that plugin instances use.
 - The Player Runtime registers each face and draws Layout text with it.
 - Each Player host serves the face bytes through its `tcmedia:` handler.
 
@@ -23,10 +25,11 @@ plugins, and organization default fonts are later work.
 
 Migration `00132_font_library.sql` adds these tables:
 
-| Table           | Contents                                                                                                                                                            |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `font_families` | One row for each family name. The row records the source (`google` or `upload`), the catalog ID and version, the category, the license, and the subsets.            |
-| `font_faces`    | One row for each stored file. The row records the style (`normal` or `italic`), the weight range, the subset, and the CSS `unicode-range`. It references one asset. |
+| Table             | Contents                                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `font_families`   | One row for each family name. The row records the source (`google` or `upload`), the catalog ID and version, the category, the license, and the subsets.            |
+| `font_faces`      | One row for each stored file. The row records the style (`normal` or `italic`), the weight range, the subset, and the CSS `unicode-range`. It references one asset. |
+| `font_references` | One row for each family that a plugin instance uses (migration `00133`). The row records the plugin ID, the instance ID, and the instance name.                     |
 
 Each face file is an asset with `type='font'` and `system_managed=TRUE`. The
 asset has one `original` variant with `player_compatible=TRUE`. This design
@@ -131,14 +134,15 @@ is refused.
 
 ## Deletion
 
-A person with `settings.manage` can remove a family when no Layout uses it.
-A Layout uses a family when its current draft or its published revision has a
-`font` dependency on the family. The Server returns `font_in_use` with the
-Layout names.
+A person with `settings.manage` can remove a family when no Layout and no
+plugin instance uses it. A Layout uses a family when its current draft or its
+published revision has a `font` dependency on the family. A plugin instance
+uses a family when it has a `font_references` row. The Server returns
+`font_in_use` with the Layout names and the plugin instance names.
 
-The deletion locks the family row `FOR UPDATE`. A Layout save reads the family
-row `FOR SHARE` before it records the dependency. This order prevents a save
-and a deletion from passing each other.
+The deletion locks the family row `FOR UPDATE`. A Layout save and
+`Host.Fonts.UseInTx` read the family row `FOR SHARE` before they record the
+dependency. This order prevents a save and a deletion from passing each other.
 
 The deletion marks the family deleted and marks each face asset `deleting`.
 The media worker removes the files with the ordinary `delete_asset_files` job.
@@ -181,6 +185,42 @@ face is a verified offline resource.
 
 If a family was removed after publication, the Server omits it from the
 manifest. The text then uses `fontFamily`. The manifest remains valid.
+
+## Plugins
+
+A Plugin API v2 plugin can let a person choose a library family. The plugin
+owns the setting. The library owns the families and the files.
+
+1. The plugin stores the family ID in its own table. Countdown Bar adds the
+   nullable `font_id` column to its instances. The Studio form uses the shared
+   `FontPicker` component (`@tilecast/studio`), which lists the library and
+   offers the same **Add fonts** shortcut as the Layout editor.
+2. When the plugin saves an instance, it calls `Host.Fonts.UseInTx` in the
+   same transaction. The call locks the family row `FOR SHARE`, refuses a
+   family that does not exist with `ErrInvalid`, and replaces the
+   `font_references` rows of the instance. The plugin calls `ReleaseInTx` when
+   it deletes the instance. A plugin can touch only its own rows.
+3. `ProjectPlayerState` returns the family IDs in `PlayerState.Fonts`. A state
+   entry has at most four families.
+4. The Server resolves each ID like a Layout font. It adds the family name and
+   the faces to the `fonts` array of the `plugin_state` entry, and it adds each
+   face file to the manifest `assets` array once, however many consumers use
+   it. A family that was removed, or has no ready face, is dropped from the
+   entry.
+5. A plugin that requests `player.fonts@1` calls `use(fontId)`. The Runtime
+   finds the family in the plugin's current entries, registers its faces under
+   `tcf-<fontId>`, and returns the family name and a `ready` promise. For a
+   family that the entry does not declare, `use` returns `null`.
+
+Plugin API v1 entries and Players without `player.fonts@1` do not receive the
+family. The plugin keeps its own face. A plugin that must work on these Players
+requests the service as optional.
+
+Player Core accepts the `fonts` key of a `plugin_state` entry with the bounds of
+the manifest schema. It treats each face file like a plugin media variant: the
+manifest must list the file in `assets`, the file is a verified download, and
+the host grants it to the Runtime. A native contribution receives the entry
+media only, not the font faces.
 
 ## Player Runtime
 
@@ -240,7 +280,9 @@ family from the catalog, upload files, and remove a family.
 Studio loads each face from `GET /api/v1/fonts/{id}/faces/{faceId}/file`. It
 registers the face under the same `tcf-<fontId>` name as the Player Runtime.
 The Layout editor font picker lists organization fonts first, then the
-bundled fonts.
+bundled fonts. It is the shared `FontPicker` component. Plugin pages use the
+same component through `@tilecast/studio`. A plugin supplies its own built-in
+choices after the library, for example "Player default".
 
 ## API
 

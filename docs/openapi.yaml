@@ -4436,7 +4436,7 @@ paths:
     delete:
       operationId: deleteFont
       description: >-
-        Remove a font family that no current Layout draft or published revision uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+        Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
       parameters:
         - in: header
           name: X-CSRF-Token
@@ -4453,7 +4453,10 @@ paths:
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient capability }
         "404": { description: Font family not found }
-        "409": { description: A Layout still uses the font family }
+        "409":
+          {
+            description: A Layout or a plugin instance still uses the font family,
+          }
   /api/v1/fonts/{id}/faces/{faceId}/file:
     get:
       operationId: getFontFaceFile
@@ -19021,6 +19024,11 @@ components:
           default: 100
           description: >-
             Percentage applied to the height-derived type size, so a bar can carry larger text without changing its height. 100 is the original appearance.
+        fontId:
+          type: string
+          format: uuid
+          description: >-
+            An organization font library family the bar draws with, from `GET /api/v1/fonts`. Omit it, or send null, to keep the Player's own face. A Player draws the library family only when it hosts Plugin API 2 and the font service; every other Player keeps its own face. A family that is not in the library is rejected, and the library refuses to remove a family a bar uses.
         urgencyEnabled:
           type: boolean
           default: false

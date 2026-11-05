@@ -160,11 +160,18 @@ func (s *server) writeFontError(w http.ResponseWriter, r *http.Request, err erro
 	var inUse *fonts.InUse
 	switch {
 	case errors.As(err, &inUse):
-		names := make([]string, 0, len(inUse.Layouts))
-		for _, layout := range inUse.Layouts {
-			names = append(names, layout.Name)
+		message := "Choose another font where this one is used first:"
+		if len(inUse.Layouts) > 0 {
+			names := make([]string, 0, len(inUse.Layouts))
+			for _, layout := range inUse.Layouts {
+				names = append(names, layout.Name)
+			}
+			message += " Layouts " + strings.Join(names, ", ") + "."
 		}
-		writeError(w, http.StatusConflict, "font_in_use", "Choose another font in these Layouts first: "+strings.Join(names, ", ")+".")
+		if len(inUse.Plugins) > 0 {
+			message += " Plugins " + strings.Join(inUse.Plugins, ", ") + "."
+		}
+		writeError(w, http.StatusConflict, "font_in_use", message)
 	case errors.Is(err, fonts.ErrNotFound):
 		writeError(w, http.StatusNotFound, "font_not_found", "The font was not found.")
 	case errors.Is(err, fonts.ErrExists):

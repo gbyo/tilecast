@@ -33,6 +33,7 @@ const entry = (
     ...config,
   },
   media: [],
+  fonts: [],
   validUntil: null,
 });
 
@@ -95,6 +96,58 @@ describe("Countdown Bar runtime", () => {
     expect(element.classList.contains("tc-countdown-bar--visible")).toBe(false);
     expect(element.textContent).toBe("");
     expect(bar()).toBe(element);
+  });
+
+  describe("organization fonts", () => {
+    const FONT = "5c0a2f8e-3c1b-4d2a-9e7f-0a1b2c3d4e5f";
+    const declared = {
+      ...entry({ fontId: FONT }),
+      fonts: [{ id: FONT, family: "Lobster", faces: [] }],
+    };
+    const family = () => player({ now: TARGET - 10 * 60_000 });
+
+    it("draws with the library family the Player registered", () => {
+      const { test, bar } = family();
+      test.setState([declared]);
+      test.grant("bar", ["strip.bottom"]);
+      expect(
+        bar().style.getPropertyValue("--tc-countdown-bar-font-family"),
+      ).toBe(`tcf-${FONT}, var(--tc-font-ui, sans-serif)`);
+    });
+
+    it("keeps the Player's face when the family is not delivered", () => {
+      const { test, bar } = family();
+      test.setState([entry({ fontId: FONT })]);
+      test.grant("bar", ["strip.bottom"]);
+      expect(
+        bar().style.getPropertyValue("--tc-countdown-bar-font-family"),
+      ).toBe("");
+      expect(test.describe("bar", "strip.bottom")).toBe(
+        "Lunch starts in 10m 0s",
+      );
+    });
+
+    it("works on a Player that does not offer the font service", () => {
+      const { test, bar } = player({
+        now: TARGET - 10 * 60_000,
+        services: ["player.clock@1", "player.surface@1"],
+      });
+      test.setState([declared]);
+      test.grant("bar", ["strip.bottom"]);
+      expect(
+        bar().style.getPropertyValue("--tc-countdown-bar-font-family"),
+      ).toBe("");
+      expect(bar().classList.contains("tc-countdown-bar--visible")).toBe(true);
+    });
+
+    it("ignores a font ID that is not a UUID", () => {
+      const { test, bar } = family();
+      test.setState([entry({ fontId: "Comic Sans" })]);
+      test.grant("bar", ["strip.bottom"]);
+      expect(
+        bar().style.getPropertyValue("--tc-countdown-bar-font-family"),
+      ).toBe("");
+    });
   });
 
   it("marks urgency stages and pulses in the final stage", () => {

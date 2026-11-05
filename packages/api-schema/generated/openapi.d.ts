@@ -2628,7 +2628,7 @@ export interface paths {
     get?: never;
     put?: never;
     post?: never;
-    /** @description Remove a font family that no current Layout draft or published revision uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token. */
+    /** @description Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token. */
     delete: operations["deleteFont"];
     options?: never;
     head?: never;
@@ -12339,6 +12339,11 @@ export interface components {
        */
       textScale: number;
       /**
+       * Format: uuid
+       * @description An organization font library family the bar draws with, from `GET /api/v1/fonts`. Omit it, or send null, to keep the Player's own face. A Player draws the library family only when it hosts Plugin API 2 and the font service; every other Player keeps its own face. A family that is not in the library is rejected, and the library refuses to remove a family a bar uses.
+       */
+      fontId?: string;
+      /**
        * @description Enable automatic starting-soon, urgent, and final pulse stages.
        * @default false
        */
@@ -19955,7 +19960,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description A Layout still uses the font family */
+      /** @description A Layout or a plugin instance still uses the font family */
       409: {
         headers: {
           [name: string]: unknown;

@@ -4723,7 +4723,8 @@ paths:
       operationId: deleteFont
       description: >-
         Remove a font family that no current Layout draft or published
-        revision uses. Requires the settings.manage capability.
+        revision, and no plugin instance, uses. Requires the
+        settings.manage capability.
         Cookie-authenticated unsafe requests require X-CSRF-Token.
       parameters:
         - in: header
@@ -4741,7 +4742,10 @@ paths:
         "401": { description: Dashboard authentication required }
         "403": { description: Insufficient capability }
         "404": { description: Font family not found }
-        "409": { description: A Layout still uses the font family }
+        "409":
+          {
+            description: A Layout or a plugin instance still uses the font family,
+          }
   /api/v1/fonts/{id}/faces/{faceId}/file:
     get:
       operationId: getFontFaceFile

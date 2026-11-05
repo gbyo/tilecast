@@ -7910,16 +7910,19 @@ type CountdownBarInput struct {
 	CompletionText string `json:"completionText"`
 
 	// ContentPadding Share of each side left as a gutter, as a percentage of the bar width. Lowering it gives a long message or a larger type size more room. The default 4 matches the bar's original gutters.
-	ContentPadding  *int        `json:"contentPadding,omitempty"`
-	DaysOfWeek      []int       `json:"daysOfWeek"`
-	DisplayMode     interface{} `json:"displayMode"`
-	Enabled         bool        `json:"enabled"`
-	HeightPx        int         `json:"heightPx"`
-	LeadTimeSeconds int         `json:"leadTimeSeconds"`
-	Message         string      `json:"message"`
-	Name            string      `json:"name"`
-	OneTimeAt       *time.Time  `json:"oneTimeAt,omitempty"`
-	Priority        int         `json:"priority"`
+	ContentPadding *int        `json:"contentPadding,omitempty"`
+	DaysOfWeek     []int       `json:"daysOfWeek"`
+	DisplayMode    interface{} `json:"displayMode"`
+	Enabled        bool        `json:"enabled"`
+
+	// FontId An organization font library family the bar draws with, from `GET /api/v1/fonts`. Omit it, or send null, to keep the Player's own face. A Player draws the library family only when it hosts Plugin API 2 and the font service; every other Player keeps its own face. A family that is not in the library is rejected, and the library refuses to remove a family a bar uses.
+	FontId          *openapi_types.UUID `json:"fontId,omitempty"`
+	HeightPx        int                 `json:"heightPx"`
+	LeadTimeSeconds int                 `json:"leadTimeSeconds"`
+	Message         string              `json:"message"`
+	Name            string              `json:"name"`
+	OneTimeAt       *time.Time          `json:"oneTimeAt,omitempty"`
+	Priority        int                 `json:"priority"`
 
 	// ProgressFill Background treatment behind the bar text. "drain" starts the bar fully tinted when the lead window opens and retreats the tint leftward as the target approaches, leaving only the bar background at zero. Omitted means "none".
 	ProgressFill interface{} `json:"progressFill,omitempty"`
@@ -17026,7 +17029,7 @@ type ClientInterface interface {
 
 	// DeleteFont performs a DELETE /api/v1/fonts/{id} (the `DeleteFont` operationId) request.
 	//
-	// Remove a font family that no current Layout draft or published revision uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	DeleteFont(ctx context.Context, id openapi_types.UUID, params *DeleteFontParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetFontFaceFile performs a GET /api/v1/fonts/{id}/faces/{faceId}/file (the `GetFontFaceFile` operationId) request.
@@ -22182,7 +22185,7 @@ func (c *Client) UploadFontWithBody(ctx context.Context, params *UploadFontParam
 
 // DeleteFont performs a DELETE /api/v1/fonts/{id} (the `DeleteFont` operationId) request.
 //
-// Remove a font family that no current Layout draft or published revision uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
 func (c *Client) DeleteFont(ctx context.Context, id openapi_types.UUID, params *DeleteFontParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteFontRequest(c.Server, id, params)
 	if err != nil {
@@ -50394,7 +50397,7 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteFontWithResponse performs a DELETE /api/v1/fonts/{id} (the `DeleteFont` operationId) request.
 	//
-	// Remove a font family that no current Layout draft or published revision uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+	// Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	//
 	// Returns a wrapper object for the known response body format(s).
 	DeleteFontWithResponse(ctx context.Context, id openapi_types.UUID, params *DeleteFontParams, reqEditors ...RequestEditorFn) (*DeleteFontResponse, error)
@@ -74176,7 +74179,7 @@ func (c *ClientWithResponses) UploadFontWithBodyWithResponse(ctx context.Context
 
 // DeleteFontWithResponse performs a DELETE /api/v1/fonts/{id} (the `DeleteFont` operationId) request.
 //
-// Remove a font family that no current Layout draft or published revision uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+// Remove a font family that no current Layout draft or published revision, and no plugin instance, uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
 //
 // Returns a wrapper object for the known response body format(s).
 func (c *ClientWithResponses) DeleteFontWithResponse(ctx context.Context, id openapi_types.UUID, params *DeleteFontParams, reqEditors ...RequestEditorFn) (*DeleteFontResponse, error) {

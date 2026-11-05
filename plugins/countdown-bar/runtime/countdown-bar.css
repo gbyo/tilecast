@@ -16,6 +16,7 @@
   background: rgba(13, 20, 27, 0.96);
   color: #fff;
   border-top: 1px solid rgba(255, 255, 255, 0.24);
+  font-family: var(--tc-countdown-bar-font-family, inherit);
   font-size: var(--tc-countdown-bar-font-size, 30px);
   font-weight: 600;
   line-height: 1;
