@@ -83,7 +83,8 @@ var (
 	// installation.
 	ErrNotInstalled = errors.New("package is not installed")
 	// ErrDigestMismatch answers an update confirmation for a digest
-	// that no longer matches a fresh resolution.
+	// that no longer matches a fresh resolution, or for an installation
+	// that was removed or replaced while the update was prepared.
 	ErrDigestMismatch = errors.New("update check expired")
 	// ErrSourceConflict answers a repository already bound to another
 	// package.
@@ -845,8 +846,16 @@ func (s *Service) ApplyUpdate(ctx context.Context, packageID, digest string, use
 	if err != nil {
 		return UpdateResult{}, err
 	}
-	installed, err := s.installer.Activate(ctx, Activation(check.Resolution, ociManifest, contributions, userID))
+	activation := Activation(check.Resolution, ociManifest, contributions, userID)
+	// The check observed this installation. A removal or another update
+	// that ran during materialization makes the activation stale, so it
+	// must not reinstall the package or overwrite the newer activation.
+	activation.Replaces = check.Installed.Digest
+	installed, err := s.installer.Activate(ctx, activation)
 	if err != nil {
+		if errors.Is(err, installer.ErrStale) {
+			return UpdateResult{}, ErrDigestMismatch
+		}
 		return UpdateResult{}, mapActivationError(err)
 	}
 	if s.wasm != nil {

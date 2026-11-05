@@ -54,6 +54,10 @@ var (
 	// ErrServiceUnknown answers a manifest requesting a service the
 	// registry does not know.
 	ErrServiceUnknown = errors.New("package requests an unknown service")
+	// ErrStale answers an update whose observed installation no longer
+	// exists: the package was removed, or moved to another activation,
+	// after the update was checked.
+	ErrStale = errors.New("installed package changed since the update was checked")
 )
 
 var digestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
@@ -136,6 +140,12 @@ type Activation struct {
 	Trust             TrustState
 	InstalledBy       uuid.UUID
 	Contributions     []Contribution
+	// Replaces is the digest of the installation an update observed. When
+	// set, Activate updates only that activation and answers ErrStale if
+	// the package is gone or now holds another digest, so an update never
+	// reinstalls a package removed in the meantime. Empty means a fresh
+	// install or an unconditional activation.
+	Replaces string
 }
 
 // Service activates external packages.
@@ -344,6 +354,9 @@ func (s *Service) Activate(ctx context.Context, activation Activation) (Installe
 	}
 	if err == nil {
 		current = row
+	}
+	if activation.Replaces != "" && (current == nil || current.digest != activation.Replaces) {
+		return InstalledPackage{}, ErrStale
 	}
 	var previous []byte
 	if current != nil {
