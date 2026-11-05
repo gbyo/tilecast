@@ -82,13 +82,13 @@ Progress is recognised from real signals: video position advancing, an item tran
 
 Silence means different things depending on what is on screen, so each kind of content is judged on its own terms. Getting this wrong in either direction is costly: too strict calls a valid still image frozen, too loose lets a genuinely frozen video pass.
 
-| Content           | Progress is                                              | Silence is                                        | Tolerance                                            |
-| ----------------- | -------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------- |
-| Still image       | Displayed successfully                                   | Correct, until it outstays its duration           | Its own duration + 60s, or 30 minutes when unbounded |
-| Video             | The position advancing                                   | A stall                                           | 20 seconds                                           |
-| Website or widget | A first meaningful render                                | Correct once rendered; frame changes are optional | 90 seconds to first render                           |
-| Layout            | Every zone rendering, then every rotating zone advancing | A blank zone, or a rotation that stopped          | 5 minutes per zone                                   |
-| Indefinite        | A periodic renderer health confirmation                  | A stall                                           | 10 minutes                                           |
+| Content           | Progress is                                              | Silence is                                        | Tolerance                                                                   |
+| ----------------- | -------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------- |
+| Still image       | Displayed successfully                                   | Correct, until it outstays its duration           | Its own duration + 60s, or 30 minutes when unbounded                        |
+| Video             | The position advancing                                   | A stall                                           | 20 seconds                                                                  |
+| Website or widget | A first meaningful render                                | Correct once rendered; frame changes are optional | 90 seconds to first render, or `reliability.webview_stall_seconds` when set |
+| Layout            | Every zone rendering, then every rotating zone advancing | A blank zone, or a rotation that stopped          | 5 minutes per zone                                                          |
+| Indefinite        | A periodic renderer health confirmation                  | A stall                                           | 10 minutes                                                                  |
 
 **A valid long-lived still image is never called frozen for having identical pixels.** That is the case this design exists to protect. For the same reason a fingerprint change _under_ a still image is treated as noise rather than evidence — accepting it would let compression artefacts mask a real overrun.
 

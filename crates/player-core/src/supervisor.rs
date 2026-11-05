@@ -43,6 +43,9 @@ pub struct SupervisorConfig {
     pub max_ladder_runs_before_safe_mode: usize,
     pub ladder_run_window_ms: i64,
     pub safe_mode_enabled: bool,
+    /// How long a Website or Widget may take to produce its first render.
+    /// `None` keeps the built-in tolerance.
+    pub website_first_render_ms: Option<i64>,
 }
 
 impl Default for SupervisorConfig {
@@ -55,6 +58,7 @@ impl Default for SupervisorConfig {
             max_ladder_runs_before_safe_mode: 3,
             ladder_run_window_ms: 60 * 60_000,
             safe_mode_enabled: true,
+            website_first_render_ms: None,
         }
     }
 }
