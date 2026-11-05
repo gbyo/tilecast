@@ -473,6 +473,9 @@ impl ConfigurationHost for AndroidServerLinkHost {
 
     async fn install_configuration(&self, projection: Option<Self::Projection>) {
         ConfigurationHost::install_configuration(&*self.config, projection).await;
+        if let Some(config) = self.config.effective() {
+            self.engine.lock().await.set_clear_website_data_on_start(config.runtime.website.clear_on_restart);
+        }
     }
 }
 

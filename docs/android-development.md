@@ -584,7 +584,10 @@ thresholds, manifest/status intervals, website timeout/cookie/reload policy,
 reliability limits, safe mode, playback defaults, branding, power/display
 policy, and screen-location reporting are validated before application. A
 configuration revision reschedules affected timers and updates supervisors;
-`clearOnRestart` is evaluated only at process startup. Display-control-only
+`clearOnRestart` is evaluated only at process startup: the first installed
+configuration decides it, and the clear is sent to the first ready renderer
+before the first activation. A failed delivery retries on the next ready
+renderer, and a later revision never starts a clear. Display-control-only
 schedules are not assignable to Android screens until Android reports the
 required display capability.
 
