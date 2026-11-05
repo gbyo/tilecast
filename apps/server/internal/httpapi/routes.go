@@ -423,6 +423,7 @@ func (s *server) routes() chi.Router {
 			}
 			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireScope("read")).Get("/screens/{id}/playlist-assignment", s.getPlaylistAssignment)
 			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireScope("read")).Get("/screens/{id}/playback-plan", s.getPlaybackPlan)
+			dashboard.With(s.requireCapability(auth.CapScreenRead), s.requireScope("read")).Get("/screens/{id}/playback-agenda", s.getPlaybackAgenda)
 			dashboard.With(s.requireCapability(auth.CapScreenAssign), s.requireCSRF, s.requireScope("write")).Put("/screens/{id}/playlist-assignment", s.assignPlaylist)
 			dashboard.With(s.requireCapability(auth.CapScreenAssign), s.requireCSRF, s.requireScope("write")).Delete("/screens/{id}/playlist-assignment", s.unassignPlaylist)
 			dashboard.With(s.requireAnyCapability(auth.CapMediaEdit, auth.CapWidgetEdit), s.requireCSRF, s.requireScope("write")).Patch("/assets/{id}", s.updateAsset)

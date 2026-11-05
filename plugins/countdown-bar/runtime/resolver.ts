@@ -49,7 +49,6 @@ export interface TilecastActiveCountdownBar {
   showBar: boolean;
   showConfetti: boolean;
   urgencyStage: "normal" | "starting_soon" | "urgent" | "final";
-  urgencyLabel: string;
   pulse: boolean;
   /**
    * Share of the lead window still to run, 1 when the bar first appears and 0 at
@@ -292,12 +291,6 @@ export const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
             showBar: remaining > 0 || completionVisible,
             showConfetti: confettiVisible,
             urgencyStage,
-            urgencyLabel:
-              urgencyStage === "starting_soon"
-                ? "Starting soon"
-                : urgencyStage === "urgent" || urgencyStage === "final"
-                  ? "Urgent"
-                  : "",
             pulse: urgencyStage === "final",
             remainingFraction:
               plugin.config.progressFill === "drain" ? fraction : null,

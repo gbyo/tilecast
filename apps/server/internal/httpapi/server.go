@@ -108,6 +108,7 @@ type server struct {
 	fonts                         *fonts.Service
 	playlists                     *playlists.Service
 	playbackPlan                  *playbackplan.Inspector
+	playbackAgenda                *playbackplan.SnapshotCurrent
 	campaigns                     *campaigns.Service
 	presentations                 *presentations.Service
 	plugins                       *plugins.Service
@@ -253,7 +254,8 @@ func New(deps Dependencies) *API {
 		s.takeovers = takeovers.NewService(s.db, s.playlists, notifier, time.Duration(s.operations.MaxTakeoverDurationHours)*time.Hour)
 	}
 	if s.db != nil && s.playlists != nil && s.scheduling != nil && s.presentations != nil {
-		s.playbackPlan = playbackplan.NewInspector(playbackplan.NewSnapshotCurrent(s.db, s.playlists, s.scheduling, s.presentations), playbackplan.NewHistory(s.db))
+		s.playbackAgenda = playbackplan.NewSnapshotCurrent(s.db, s.playlists, s.scheduling, s.presentations)
+		s.playbackPlan = playbackplan.NewInspector(s.playbackAgenda, playbackplan.NewHistory(s.db))
 	}
 	return &API{Handler: s.routes(), server: s}
 }

@@ -6822,6 +6822,11 @@ type BackupWorkerStatus struct {
 	Status          string             `json:"status"`
 }
 
+// BrowserBindingLookupRequest defines model for BrowserBindingLookupRequest.
+type BrowserBindingLookupRequest struct {
+	Registration BrowserRegistration `json:"registration"`
+}
+
 // BrowserBindingRequest defines model for BrowserBindingRequest.
 type BrowserBindingRequest struct {
 	BindingId openapi_types.UUID `json:"bindingId"`
@@ -9718,6 +9723,22 @@ type PersonalAccessTokenCreated struct {
 // PersonalAccessTokenList defines model for PersonalAccessTokenList.
 type PersonalAccessTokenList struct {
 	Pats []PersonalAccessToken `json:"pats"`
+}
+
+// PlaybackAgenda defines model for PlaybackAgenda.
+type PlaybackAgenda struct {
+	EvaluatedAt time.Time               `json:"evaluatedAt"`
+	Segments    []PlaybackAgendaSegment `json:"segments"`
+}
+
+// PlaybackAgendaSegment defines model for PlaybackAgendaSegment.
+type PlaybackAgendaSegment struct {
+	End      time.Time              `json:"end"`
+	Selected *PlaybackPlanSelection `json:"selected,omitempty"`
+	Start    time.Time              `json:"start"`
+
+	// Superseded Active schedules that did not select playback during this segment.
+	Superseded []PlaybackPlanCandidate `json:"superseded"`
 }
 
 // PlaybackPlan Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
@@ -14363,6 +14384,12 @@ type RenewLiveStreamParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// GetScreenPlaybackAgendaParams defines parameters for GetScreenPlaybackAgenda.
+type GetScreenPlaybackAgendaParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+}
+
 // GetScreenPlaybackPlanParams defines parameters for GetScreenPlaybackPlan.
 type GetScreenPlaybackPlanParams struct {
 	// At One RFC 3339 instant with a time zone. Duplicate, empty, invalid, and unknown query parameters are rejected.
@@ -14858,6 +14885,9 @@ type UploadPlayerReleaseMultipartRequestBody UploadPlayerReleaseMultipartBody
 
 // IngestPlayerActivityEventsJSONRequestBody defines body for IngestPlayerActivityEvents for application/json ContentType.
 type IngestPlayerActivityEventsJSONRequestBody IngestPlayerActivityEventsJSONBody
+
+// LookupBrowserPlayerBindingJSONRequestBody defines body for LookupBrowserPlayerBinding for application/json ContentType.
+type LookupBrowserPlayerBindingJSONRequestBody = BrowserBindingLookupRequest
 
 // ChallengeBrowserPlayerJSONRequestBody defines body for ChallengeBrowserPlayer for application/json ContentType.
 type ChallengeBrowserPlayerJSONRequestBody = BrowserBindingRequest
@@ -17692,6 +17722,18 @@ type ClientInterface interface {
 	// Inspect player variant. Requires an authenticated player credential.
 	InspectPlayerVariant(ctx context.Context, assetId openapi_types.UUID, variantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// LookupBrowserPlayerBindingWithBody performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	LookupBrowserPlayerBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LookupBrowserPlayerBinding performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+	// Takes a body of the `application/json` content type.
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	LookupBrowserPlayerBinding(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ChallengeBrowserPlayerWithBody performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -18815,6 +18857,11 @@ type ClientInterface interface {
 	//
 	// Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	RenewLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetScreenPlaybackAgenda performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+	//
+	// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+	GetScreenPlaybackAgenda(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetScreenPlaybackPlan performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
 	//
@@ -24018,6 +24065,38 @@ func (c *Client) InspectPlayerVariant(ctx context.Context, assetId openapi_types
 	return c.Client.Do(req)
 }
 
+// LookupBrowserPlayerBindingWithBody performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+// with any type of body and a specified content type.
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+func (c *Client) LookupBrowserPlayerBindingWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupBrowserPlayerBindingRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// LookupBrowserPlayerBinding performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+// Takes a body of the `application/json` content type.
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+func (c *Client) LookupBrowserPlayerBinding(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLookupBrowserPlayerBindingRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 // ChallengeBrowserPlayerWithBody performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -27002,6 +27081,21 @@ func (c *Client) WatchLiveStream(ctx context.Context, id ResourceID, sessionId o
 // Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 func (c *Client) RenewLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRenewLiveStreamRequest(c.Server, id, sessionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetScreenPlaybackAgenda performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+//
+// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+func (c *Client) GetScreenPlaybackAgenda(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetScreenPlaybackAgendaRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -39803,6 +39897,46 @@ func NewInspectPlayerVariantRequest(server string, assetId openapi_types.UUID, v
 	return req, nil
 }
 
+// NewLookupBrowserPlayerBindingRequest calls the generic LookupBrowserPlayerBinding builder with application/json body
+func NewLookupBrowserPlayerBindingRequest(server string, body LookupBrowserPlayerBindingJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLookupBrowserPlayerBindingRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLookupBrowserPlayerBindingRequestWithBody constructs an http.Request for the LookupBrowserPlayerBinding method, with any body, and a specified content type
+func NewLookupBrowserPlayerBindingRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/player/browser/binding")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewChallengeBrowserPlayerRequest calls the generic ChallengeBrowserPlayer builder with application/json body
 func NewChallengeBrowserPlayerRequest(server string, body ChallengeBrowserPlayerJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -45863,6 +45997,71 @@ func NewRenewLiveStreamRequest(server string, id ResourceID, sessionId openapi_t
 	return req, nil
 }
 
+// NewGetScreenPlaybackAgendaRequest constructs an http.Request for the GetScreenPlaybackAgenda method
+func NewGetScreenPlaybackAgendaRequest(server string, id ResourceID, params *GetScreenPlaybackAgendaParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/screens/%s/playback-agenda", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetScreenPlaybackPlanRequest constructs an http.Request for the GetScreenPlaybackPlan method
 func NewGetScreenPlaybackPlanRequest(server string, id ResourceID, params *GetScreenPlaybackPlanParams) (*http.Request, error) {
 	var err error
@@ -51230,6 +51429,20 @@ type ClientWithResponsesInterface interface {
 	// Returns a wrapper object for the known response body format(s).
 	InspectPlayerVariantWithResponse(ctx context.Context, assetId openapi_types.UUID, variantId openapi_types.UUID, reqEditors ...RequestEditorFn) (*InspectPlayerVariantResponse, error)
 
+	// LookupBrowserPlayerBindingWithBodyWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+	// with any type of body and a specified content type.
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	LookupBrowserPlayerBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error)
+
+	// LookupBrowserPlayerBindingWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+	// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+	//
+	// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+	LookupBrowserPlayerBindingWithResponse(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error)
+
 	// ChallengeBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
 	// with any type of body and a specified content type.
 	//
@@ -52605,6 +52818,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	RenewLiveStreamWithResponse(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*RenewLiveStreamResponse, error)
+
+	// GetScreenPlaybackAgendaWithResponse performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+	//
+	// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetScreenPlaybackAgendaWithResponse(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*GetScreenPlaybackAgendaResponse, error)
 
 	// GetScreenPlaybackPlanWithResponse performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
 	//
@@ -62725,6 +62945,51 @@ func (r InspectPlayerVariantResponse) ContentType() string {
 	return ""
 }
 
+type LookupBrowserPlayerBindingResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data BrowserBindingRequest `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r LookupBrowserPlayerBindingResponse) GetJSON200() *struct {
+	Data BrowserBindingRequest `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r LookupBrowserPlayerBindingResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r LookupBrowserPlayerBindingResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LookupBrowserPlayerBindingResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r LookupBrowserPlayerBindingResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type ChallengeBrowserPlayerResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -68495,6 +68760,51 @@ func (r RenewLiveStreamResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r RenewLiveStreamResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type GetScreenPlaybackAgendaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlaybackAgenda `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenPlaybackAgendaResponse) GetJSON200() *struct {
+	Data PlaybackAgenda `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetScreenPlaybackAgendaResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetScreenPlaybackAgendaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetScreenPlaybackAgendaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetScreenPlaybackAgendaResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -75714,6 +76024,32 @@ func (c *ClientWithResponses) InspectPlayerVariantWithResponse(ctx context.Conte
 	return ParseInspectPlayerVariantResponse(rsp)
 }
 
+// LookupBrowserPlayerBindingWithBodyWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request,
+// with any type of body and a specified content type.
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) LookupBrowserPlayerBindingWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error) {
+	rsp, err := c.LookupBrowserPlayerBindingWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupBrowserPlayerBindingResponse(rsp)
+}
+
+// LookupBrowserPlayerBindingWithResponse performs a POST /api/v1/player/browser/binding (the `LookupBrowserPlayerBinding` operationId) request.
+// Takes a body of the `application/json` content type, and returns a wrapper object for the known response body format(s).
+//
+// Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+func (c *ClientWithResponses) LookupBrowserPlayerBindingWithResponse(ctx context.Context, body LookupBrowserPlayerBindingJSONRequestBody, reqEditors ...RequestEditorFn) (*LookupBrowserPlayerBindingResponse, error) {
+	rsp, err := c.LookupBrowserPlayerBinding(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLookupBrowserPlayerBindingResponse(rsp)
+}
+
 // ChallengeBrowserPlayerWithBodyWithResponse performs a POST /api/v1/player/browser/challenge (the `ChallengeBrowserPlayer` operationId) request,
 // with any type of body and a specified content type.
 //
@@ -78210,6 +78546,19 @@ func (c *ClientWithResponses) RenewLiveStreamWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseRenewLiveStreamResponse(rsp)
+}
+
+// GetScreenPlaybackAgendaWithResponse performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+//
+// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetScreenPlaybackAgendaWithResponse(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*GetScreenPlaybackAgendaResponse, error) {
+	rsp, err := c.GetScreenPlaybackAgenda(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetScreenPlaybackAgendaResponse(rsp)
 }
 
 // GetScreenPlaybackPlanWithResponse performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
@@ -85801,6 +86150,43 @@ func ParseInspectPlayerVariantResponse(rsp *http.Response) (*InspectPlayerVarian
 	return response, nil
 }
 
+// ParseLookupBrowserPlayerBindingResponse parses an HTTP response from a LookupBrowserPlayerBindingWithResponse call
+func ParseLookupBrowserPlayerBindingResponse(rsp *http.Response) (*LookupBrowserPlayerBindingResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LookupBrowserPlayerBindingResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data BrowserBindingRequest `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 429:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
 // ParseChallengeBrowserPlayerResponse parses an HTTP response from a ChallengeBrowserPlayerWithResponse call
 func ParseChallengeBrowserPlayerResponse(rsp *http.Response) (*ChallengeBrowserPlayerResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -89836,6 +90222,49 @@ func ParseRenewLiveStreamResponse(rsp *http.Response) (*RenewLiveStreamResponse,
 		break // No content-type
 
 	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseGetScreenPlaybackAgendaResponse parses an HTTP response from a GetScreenPlaybackAgendaWithResponse call
+func ParseGetScreenPlaybackAgendaResponse(rsp *http.Response) (*GetScreenPlaybackAgendaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetScreenPlaybackAgendaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlaybackAgenda `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
 		break // No content-type
 
 	}

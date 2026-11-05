@@ -110,12 +110,12 @@ capability plus its active-trusted state authorize the navigation;
   frame's hello now drives the single-shot transfer instead: the
   bootstrap announces whenever its document runs, however late the
   navigation lands.
-- The frame reports the resolution outcome after an `update`. The
-  element reports its own boot, but a synchronous fixture cannot
-  re-fire lifecycle events on new inputs. Input revisions are now
-  tracked on both sides (see the design above), so the outcome
-  report and any racing element event are attributable to exactly one
-  input.
+- The frame never reports the resolution outcome after an `update`.
+  Resolved data is not rendered output, so the placement stays pending
+  until the element announces for the new input revision, as
+  `WidgetMount` does. Input revisions are tracked on both sides (see
+  the design above), so a slow element's announcement for an earlier
+  input is dropped. The parent ready timeout bounds the wait.
 - A sandboxed frame without `allow-same-origin` has an opaque origin
   and posts its hello with origin `"null"` — including hosted frames
   served from a second origin. The parent therefore authenticates the

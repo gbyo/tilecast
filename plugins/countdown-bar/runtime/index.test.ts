@@ -156,9 +156,7 @@ describe("Countdown Bar runtime", () => {
     test.grant("bar", ["strip.bottom"]);
     expect(bar().dataset["urgency"]).toBe("final");
     expect(bar().classList.contains("tc-countdown-bar--pulse")).toBe(true);
-    expect(test.describe("bar", "strip.bottom")).toBe(
-      "Urgent Lunch starts in 5s",
-    );
+    expect(test.describe("bar", "strip.bottom")).toBe("Lunch starts in 5s");
   });
 
   it("claims the overlay for one confetti burst and releases it", () => {

@@ -259,6 +259,11 @@ func (s *Service) syncConfiguration(ctx context.Context, tx pgx.Tx, id uuid.UUID
 	return s.host.DataSources.SetConfigurationInTx(ctx, tx, id, encoded)
 }
 
+// maxViewOutputFields is the most fields one view dataset can carry. It mirrors the Player Data
+// Document bound of 16 fields per dataset; a larger dataset cannot be projected into a Player
+// manifest.
+const maxViewOutputFields = 16
+
 // outputFieldSpecs derives the selectable Widget fields for a published schema: one per
 // output-producing form field, plus the synthetic record fields every form exposes.
 func outputFieldSpecs(schema FormSchema) []FormFieldSpec {

@@ -201,6 +201,7 @@ func serve() {
 	}
 	defer wasmService.Close(ctx) //nolint:errcheck
 	pipelineService.SetWASM(wasmService, wasmStore)
+	defer pipelineService.Close()
 	contributionService := contributions.NewService(db, installService, releaseDefinitions, contentDefinitions,
 		pipelineService.ContentDir, media.RegisteredDataSourceAdapter, media.ValidateContentAdapters,
 		contributions.WithLogger(logger),

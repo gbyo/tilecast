@@ -3728,6 +3728,28 @@ paths:
         "403": { description: Same-origin HTTPS required }
         "409": { description: Token already consumed }
         "429": { description: Rate limited }
+  /api/v1/player/browser/binding:
+    post:
+      operationId: lookupBrowserPlayerBinding
+      description: Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BrowserBindingLookupRequest" }
+      responses:
+        "200":
+          description: Active slot and binding for this device key
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/BrowserBindingRequest" }
+        "401": { description: No active binding for this device key }
+        "403": { description: Same-origin HTTPS required }
+        "429": { description: Rate limited }
   /api/v1/player/browser/challenge:
     post:
       operationId: challengeBrowserPlayer
@@ -6210,6 +6232,40 @@ paths:
                 required: [data]
                 properties:
                   data: { $ref: "#/components/schemas/Playlist" }
+  /api/v1/screens/{id}/playback-agenda:
+    parameters: [{ $ref: "#/components/parameters/ResourceID" }]
+    get:
+      operationId: getScreenPlaybackAgenda
+      security: [{ sessionCookie: [] }, { userBearer: [] }]
+      description: >-
+        Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Expected playback segments, empty when the range has elapsed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/PlaybackAgenda" }
+        "400":
+          {
+            description: Invalid or duplicate parameters or range longer than eight days,
+          }
+        "401": { description: Management authentication required }
+        "403": { description: Grant lacks the read scope }
+        "404": { description: Screen unavailable or outside account scope }
+        "422": { description: Range contains too many schedule boundaries }
   /api/v1/screens/{id}/playback-plan:
     parameters: [{ $ref: "#/components/parameters/ResourceID" }]
     get:
@@ -10328,6 +10384,12 @@ components:
       properties:
         pairingSessionId: { type: string, format: uuid }
         enrollmentToken: { type: string, writeOnly: true }
+        registration: { $ref: "#/components/schemas/BrowserRegistration" }
+    BrowserBindingLookupRequest:
+      type: object
+      additionalProperties: false
+      required: [registration]
+      properties:
         registration: { $ref: "#/components/schemas/BrowserRegistration" }
     BrowserBindingRequest:
       type: object
@@ -15052,6 +15114,27 @@ components:
           properties:
             code: { type: string }
             message: { type: string }
+    PlaybackAgenda:
+      type: object
+      additionalProperties: false
+      required: [evaluatedAt, segments]
+      properties:
+        evaluatedAt: { type: string, format: date-time }
+        segments:
+          type: array
+          items: { $ref: "#/components/schemas/PlaybackAgendaSegment" }
+    PlaybackAgendaSegment:
+      type: object
+      additionalProperties: false
+      required: [start, end, superseded]
+      properties:
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        selected: { $ref: "#/components/schemas/PlaybackPlanSelection" }
+        superseded:
+          description: Active schedules that did not select playback during this segment.
+          type: array
+          items: { $ref: "#/components/schemas/PlaybackPlanCandidate" }
     PlaybackPlan:
       type: object
       additionalProperties: false
