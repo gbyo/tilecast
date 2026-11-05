@@ -1798,6 +1798,9 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 		}
 		horizon := now.AddDate(0, 0, prefetch)
 		for _, record := range records {
+			if !scheduling.CanActivate(record.Schedule) {
+				continue
+			}
 			if record.Type == scheduling.OneTime {
 				if record.OneTimeEnd != nil && !record.OneTimeEnd.After(now) {
 					continue
