@@ -39,7 +39,9 @@ manifest contains these fields:
   control set.
 - `defaultConfiguration`: the defaults for the schema.
 - `outputSchema`: the typed output fields. It uses the Tilecast Data
-  Types in §3.
+  Types in §3. It declares at most 16 fields, the most a Player Data
+  Document dataset can carry. The Server and `data-sources:check` reject
+  a larger schema.
 - `adapterId`: one exact Server adapter ID from §4.
 - `fetch`: the bounded fetch input. It is required for `http_records`
   and forbidden for other adapters.

@@ -879,8 +879,16 @@ func walkRecipeTemplate(value any, fields map[string]FieldDefinition) error {
 	return nil
 }
 
-// validateOutputSchema rejects duplicate output field keys and unsupported field types.
+// maxOutputFields is the most fields one dataset can carry. It mirrors the Player Data
+// Document bound; a larger output schema cannot be projected into a Player manifest.
+const maxOutputFields = 16
+
+// validateOutputSchema rejects too many output fields, duplicate output field keys, and
+// unsupported field types.
 func validateOutputSchema(schema OutputSchema) error {
+	if len(schema.Fields) > maxOutputFields {
+		return fmt.Errorf("output schema declares %d fields but a Player dataset allows at most %d", len(schema.Fields), maxOutputFields)
+	}
 	seen := map[string]bool{}
 	for _, field := range schema.Fields {
 		if field.Key == "" || seen[field.Key] {
