@@ -74,6 +74,8 @@ import org.tilecast.player.preview.PlayerWindowCapture
 import org.tilecast.player.preview.WindowCapture
 import org.tilecast.player.preview.encodeCaptureFrame
 import org.tilecast.player.reliability.ReliabilityController
+import org.tilecast.player.runtime.RemoteWebHostManager
+import org.tilecast.player.runtime.RemoteWebLayer
 import org.tilecast.player.ui.theme.SignalBackground
 import org.tilecast.player.ui.theme.SignalBlue
 import org.tilecast.player.ui.theme.SignalDanger
@@ -253,6 +255,8 @@ class MainActivity : ComponentActivity() {
     val rendererLifecycle by (renderer?.lifecycle ?: remember { MutableStateFlow(RendererLifecycle(RendererPhase.STOPPED)) })
         .collectAsStateWithLifecycle()
     val rendererView by (renderer?.viewFlow ?: remember { MutableStateFlow<WebView?>(null) }).collectAsStateWithLifecycle()
+    val remoteSurfaces by (renderer?.remoteSurfaces ?: remember { MutableStateFlow(emptyList<RemoteWebHostManager.Surface>()) })
+        .collectAsStateWithLifecycle()
     val activity = LocalActivity.current as? MainActivity
     LaunchedEffect(config, activeHours) { config?.let { activity?.applyReliability(it, activeHours) } }
     if (adminPrompt && reliability != null) { AdministratorMaintenance(reliability, dismissAdmin); return }
@@ -273,6 +277,8 @@ class MainActivity : ComponentActivity() {
         // shows recovery instead of an unexplained black screen.
         Box(Modifier.fillMaxSize().background(SignalBackground)) {
             rendererView?.let { view -> key(view) { AndroidView(factory = { ProcessRenderer.releaseView(view); view }, modifier = Modifier.fillMaxSize()) } }
+            // Host-owned Website and YouTube views draw above the runtime at the viewports it requested.
+            RemoteWebLayer(remoteSurfaces) { generation, surfaceId, kind, code -> renderer?.postRemoteEvent(generation, surfaceId, kind, code) }
             if (!rendererLifecycle.runtimeOwnsScreen) {
                 val scope = rememberCoroutineScope()
                 RendererStatusSurface(rendererLifecycle, restart = { scope.launch { renderer?.restart() } })
