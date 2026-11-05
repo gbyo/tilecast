@@ -7248,7 +7248,10 @@ paths:
         - { $ref: "#/components/parameters/CSRFToken" }
       responses:
         "204": { description: Unused Layout deleted }
-        "409": { description: Layout is assigned or scheduled }
+        "409":
+          {
+            description: "Layout is assigned, scheduled, used by a playlist, or shown by a running Quick Present",
+          }
   /api/v1/layouts/{id}/draft:
     put:
       operationId: saveLayoutDraft

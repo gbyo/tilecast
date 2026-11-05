@@ -24333,7 +24333,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Layout is assigned or scheduled */
+      /** @description Layout is assigned, scheduled, used by a playlist, or shown by a running Quick Present */
       409: {
         headers: {
           [name: string]: unknown;
