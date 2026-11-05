@@ -303,12 +303,28 @@ impl AndroidHost {
         let last_contact = *signals.last_server_contact.lock().unwrap_or_else(|error| error.into_inner());
         let renderer = self.renderer_snapshot.lock().unwrap_or_else(|error| error.into_inner()).clone();
         let activation = self.runtime.block_on(self.renderer.lock()).current_activation();
-        let next_transition = activation
-            .as_ref()
-            .and_then(|active| active.identity.as_ref())
-            .and_then(|identity| identity.next_transition_ms)
-            .and_then(player_types::Timestamp::from_unix_millis)
-            .map(|at| at.to_string());
+        let rest_gate = signals
+            .gate
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .is_some_and(|state| state.gate == crate::server_link::ActivationGateName::Rest);
+        // The Rest surface is shown without a content identity, so while it
+        // is up the wake scheduler needs the next active window instead.
+        let next_transition_ms = if rest_gate {
+            self.config.effective().and_then(|config| {
+                crate::server_link::next_active_start_ms(
+                    config.native.active_hours.as_ref(),
+                    self.clock.now().unix_millis(),
+                )
+            })
+        } else {
+            activation
+                .as_ref()
+                .and_then(|active| active.identity.as_ref())
+                .and_then(|identity| identity.next_transition_ms)
+        };
+        let next_transition =
+            next_transition_ms.and_then(player_types::Timestamp::from_unix_millis).map(|at| at.to_string());
         serde_json::json!({
             "bridge": 3,
             "ok": true,
@@ -324,22 +340,14 @@ impl AndroidHost {
             "organizationName": bound.as_ref().and_then(|bound| bound.organization_name.clone()),
             "screenId": bound.as_ref().and_then(|bound| bound.screen_id.map(|id| id.to_string())),
             "screenName": bound.as_ref().and_then(|bound| bound.screen_name.clone()),
-            "activeHoursState": if signals
-                .gate
-                .lock()
-                .unwrap_or_else(|error| error.into_inner())
-                .is_some_and(|state| state.gate == crate::server_link::ActivationGateName::Rest)
-            {
-                "off_hours"
-            } else {
-                "active"
-            },
+            "activeHoursState": if rest_gate { "off_hours" } else { "active" },
             "takeoverActive": activation
                 .as_ref()
                 .and_then(|active| active.identity.as_ref())
                 .is_some_and(|identity| identity.takeover_id.is_some()),
-            // The committed selection's next transition, for the
-            // platform wake scheduler. Absent when nothing is committed.
+            // The committed selection's next transition, or the next active
+            // window while the Rest gate shows, for the platform wake
+            // scheduler. Absent when nothing is committed.
             "nextTransitionAt": next_transition,
             "configRevision": self.config.accepted_revision(),
             "cachedFallbackAvailable": signals

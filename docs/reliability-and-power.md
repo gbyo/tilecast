@@ -45,6 +45,8 @@ Active hours use explicit IANA timezones, ISO weekdays (Monday 1 through Sunday 
 
 Outside active hours the player saves state, stops media decoding, releases keep-screen-on, pauses ordinary presentation, and uses a true-black fallback when Android sleep is unavailable. Cached configuration and manifests are used immediately after boot without waiting for the network.
 
+On Android, the status the Kotlin host reads reports `nextTransitionAt` as the start of the next active window while the Rest surface is showing, and Power Assist uses that time to arm the wake alarm. While content plays, it is the committed selection's next transition.
+
 When active hours begin, the Player Runtime plays the Tilecast startup animation before it shows content. The bouncing logo first moves to the center of the screen. The policy key `power.outside_active_hours_wake_animation` controls this behavior. The default value is `true`. The Player configuration carries the value as `power.outsideActiveHoursWakeAnimation`.
 
 ## Power Assist and Display Control
