@@ -60,10 +60,9 @@ export default definePlayerPlugin({
     bar.dataset["urgency"] = "normal";
     const fill = element("span", "tc-countdown-bar__fill");
     fill.setAttribute("aria-hidden", "true");
-    const urgency = element("span", "tc-countdown-bar__urgency");
     const message = element("span", "tc-countdown-bar__message");
     const value = element("span", "tc-countdown-bar__value");
-    bar.append(fill, urgency, message, value);
+    bar.append(fill, message, value);
     const confetti = element("div", "tc-countdown-bar__confetti");
     confetti.setAttribute("aria-hidden", "true");
 
@@ -79,7 +78,6 @@ export default definePlayerPlugin({
             ? `${countdown.remainingFraction * 100}%`
             : "0",
       });
-      urgency.textContent = countdown?.urgencyLabel ?? "";
       message.textContent = countdown?.message ?? "";
       value.textContent = countdown?.value ?? "";
       if (countdown) {
@@ -116,7 +114,7 @@ export default definePlayerPlugin({
     };
 
     const barSurface = surface.open("bar", drawBar, (slot) =>
-      slot === "strip.bottom" && barShown ? words(urgency, message, value) : "",
+      slot === "strip.bottom" && barShown ? words(message, value) : "",
     );
     const confettiSurface = surface.open("confetti", drawConfetti);
     barSurface?.container("strip.bottom").appendChild(bar);
@@ -169,7 +167,7 @@ export default definePlayerPlugin({
         }));
         evaluate();
       },
-      describe: () => words(urgency, message, value),
+      describe: () => words(message, value),
       dispose() {
         confetti.replaceChildren();
       },
