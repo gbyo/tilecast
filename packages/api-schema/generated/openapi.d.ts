@@ -3504,6 +3504,25 @@ export interface paths {
     patch: operations["updatePlaylistItem"];
     trace?: never;
   };
+  "/api/v1/screens/{id}/playback-agenda": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    /** @description Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback. */
+    get: operations["getScreenPlaybackAgenda"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/screens/{id}/playback-plan": {
     parameters: {
       query?: never;
@@ -9399,6 +9418,20 @@ export interface components {
         code: string;
         message: string;
       };
+    };
+    PlaybackAgenda: {
+      /** Format: date-time */
+      evaluatedAt: string;
+      segments: components["schemas"]["PlaybackAgendaSegment"][];
+    };
+    PlaybackAgendaSegment: {
+      /** Format: date-time */
+      start: string;
+      /** Format: date-time */
+      end: string;
+      selected?: components["schemas"]["PlaybackPlanSelection"];
+      /** @description Active schedules that did not select playback during this segment. */
+      superseded: components["schemas"]["PlaybackPlanCandidate"][];
     };
     /** @description Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state. */
     PlaybackPlan: {
@@ -22351,6 +22384,68 @@ export interface operations {
             data: components["schemas"]["Playlist"];
           };
         };
+      };
+    };
+  };
+  getScreenPlaybackAgenda: {
+    parameters: {
+      query: {
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path: {
+        id: components["parameters"]["ResourceID"];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Expected playback segments, empty when the range has elapsed */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["PlaybackAgenda"];
+          };
+        };
+      };
+      /** @description Invalid or duplicate parameters or range longer than eight days */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Management authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Grant lacks the read scope */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Screen unavailable or outside account scope */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Range contains too many schedule boundaries */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

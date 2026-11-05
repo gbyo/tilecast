@@ -9512,6 +9512,22 @@ type PersonalAccessTokenList struct {
 	Pats []PersonalAccessToken `json:"pats"`
 }
 
+// PlaybackAgenda defines model for PlaybackAgenda.
+type PlaybackAgenda struct {
+	EvaluatedAt time.Time               `json:"evaluatedAt"`
+	Segments    []PlaybackAgendaSegment `json:"segments"`
+}
+
+// PlaybackAgendaSegment defines model for PlaybackAgendaSegment.
+type PlaybackAgendaSegment struct {
+	End      time.Time              `json:"end"`
+	Selected *PlaybackPlanSelection `json:"selected,omitempty"`
+	Start    time.Time              `json:"start"`
+
+	// Superseded Active schedules that did not select playback during this segment.
+	Superseded []PlaybackPlanCandidate `json:"superseded"`
+}
+
 // PlaybackPlan Exactly one of current and historical is present. Historical evidence never includes current resource names, capability profiles, or synchronization state.
 type PlaybackPlan struct {
 	At          time.Time               `json:"at"`
@@ -14123,6 +14139,12 @@ type RenewLiveStreamParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// GetScreenPlaybackAgendaParams defines parameters for GetScreenPlaybackAgenda.
+type GetScreenPlaybackAgendaParams struct {
+	From time.Time `form:"from" json:"from"`
+	To   time.Time `form:"to" json:"to"`
+}
+
 // GetScreenPlaybackPlanParams defines parameters for GetScreenPlaybackPlan.
 type GetScreenPlaybackPlanParams struct {
 	// At One RFC 3339 instant with a time zone. Duplicate, empty, invalid, and unknown query parameters are rejected.
@@ -18521,6 +18543,11 @@ type ClientInterface interface {
 	//
 	// Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 	RenewLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetScreenPlaybackAgenda performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+	//
+	// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+	GetScreenPlaybackAgenda(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetScreenPlaybackPlan performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
 	//
@@ -26570,6 +26597,21 @@ func (c *Client) WatchLiveStream(ctx context.Context, id ResourceID, sessionId o
 // Renew a live MJPEG relay session. Requires an authenticated dashboard user with the write scope. Cookie-authenticated unsafe requests require X-CSRF-Token.
 func (c *Client) RenewLiveStream(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRenewLiveStreamRequest(c.Server, id, sessionId, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// GetScreenPlaybackAgenda performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+//
+// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+func (c *Client) GetScreenPlaybackAgenda(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetScreenPlaybackAgendaRequest(c.Server, id, params)
 	if err != nil {
 		return nil, err
 	}
@@ -45063,6 +45105,71 @@ func NewRenewLiveStreamRequest(server string, id ResourceID, sessionId openapi_t
 	return req, nil
 }
 
+// NewGetScreenPlaybackAgendaRequest constructs an http.Request for the GetScreenPlaybackAgenda method
+func NewGetScreenPlaybackAgendaRequest(server string, id ResourceID, params *GetScreenPlaybackAgendaParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: "uuid"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/screens/%s/playback-agenda", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "from", params.From, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "to", params.To, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: "date-time"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetScreenPlaybackPlanRequest constructs an http.Request for the GetScreenPlaybackPlan method
 func NewGetScreenPlaybackPlanRequest(server string, id ResourceID, params *GetScreenPlaybackPlanParams) (*http.Request, error) {
 	var err error
@@ -51741,6 +51848,13 @@ type ClientWithResponsesInterface interface {
 	//
 	// Returns a wrapper object for the known response body format(s).
 	RenewLiveStreamWithResponse(ctx context.Context, id ResourceID, sessionId openapi_types.UUID, params *RenewLiveStreamParams, reqEditors ...RequestEditorFn) (*RenewLiveStreamResponse, error)
+
+	// GetScreenPlaybackAgendaWithResponse performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+	//
+	// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+	//
+	// Returns a wrapper object for the known response body format(s).
+	GetScreenPlaybackAgendaWithResponse(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*GetScreenPlaybackAgendaResponse, error)
 
 	// GetScreenPlaybackPlanWithResponse performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
 	//
@@ -67310,6 +67424,51 @@ func (r RenewLiveStreamResponse) ContentType() string {
 	return ""
 }
 
+type GetScreenPlaybackAgendaResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	// JSON200 the response for an HTTP 200 `application/json` response
+	JSON200 *struct {
+		Data PlaybackAgenda `json:"data"`
+	}
+}
+
+// GetJSON200 returns the response for an HTTP 200 `application/json` response
+func (r GetScreenPlaybackAgendaResponse) GetJSON200() *struct {
+	Data PlaybackAgenda `json:"data"`
+} {
+	return r.JSON200
+}
+
+// GetBody returns the raw response body bytes
+func (r GetScreenPlaybackAgendaResponse) GetBody() []byte {
+	return r.Body
+}
+
+// Status returns HTTPResponse.Status
+func (r GetScreenPlaybackAgendaResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetScreenPlaybackAgendaResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r GetScreenPlaybackAgendaResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetScreenPlaybackPlanResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -76901,6 +77060,19 @@ func (c *ClientWithResponses) RenewLiveStreamWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseRenewLiveStreamResponse(rsp)
+}
+
+// GetScreenPlaybackAgendaWithResponse performs a GET /api/v1/screens/{id}/playback-agenda (the `GetScreenPlaybackAgenda` operationId) request.
+//
+// Forecast expected presentation selection for a Screen. Requires the read scope and access to the Screen. Uses one current-configuration snapshot. Clips elapsed time to server time. Each segment includes its start and excludes its end. It does not report readiness or observed playback.
+//
+// Returns a wrapper object for the known response body format(s).
+func (c *ClientWithResponses) GetScreenPlaybackAgendaWithResponse(ctx context.Context, id ResourceID, params *GetScreenPlaybackAgendaParams, reqEditors ...RequestEditorFn) (*GetScreenPlaybackAgendaResponse, error) {
+	rsp, err := c.GetScreenPlaybackAgenda(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetScreenPlaybackAgendaResponse(rsp)
 }
 
 // GetScreenPlaybackPlanWithResponse performs a GET /api/v1/screens/{id}/playback-plan (the `GetScreenPlaybackPlan` operationId) request.
@@ -88267,6 +88439,49 @@ func ParseRenewLiveStreamResponse(rsp *http.Response) (*RenewLiveStreamResponse,
 		break // No content-type
 
 	case rsp.StatusCode == 404:
+		break // No content-type
+
+	}
+
+	return response, nil
+}
+
+// ParseGetScreenPlaybackAgendaResponse parses an HTTP response from a GetScreenPlaybackAgendaWithResponse call
+func ParseGetScreenPlaybackAgendaResponse(rsp *http.Response) (*GetScreenPlaybackAgendaResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetScreenPlaybackAgendaResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest struct {
+			Data PlaybackAgenda `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case rsp.StatusCode == 400:
+		break // No content-type
+
+	case rsp.StatusCode == 401:
+		break // No content-type
+
+	case rsp.StatusCode == 403:
+		break // No content-type
+
+	case rsp.StatusCode == 404:
+		break // No content-type
+
+	case rsp.StatusCode == 422:
 		break // No content-type
 
 	}
