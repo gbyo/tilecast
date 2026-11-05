@@ -7,6 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.tilecast.player.network.PlayerUpdateMetadata
 import java.io.File
+import java.time.Instant
 import java.nio.file.Files
 
 class PlayerUpdateManagerTest {
@@ -26,5 +27,16 @@ class PlayerUpdateManagerTest {
         assertEquals(requested.canonicalFile,selectExactStagedArtifact(directory,"release-new","android-tv")?.canonicalFile)
         assertEquals(null,selectExactStagedArtifact(directory,"missing","android-tv"))
         directory.deleteRecursively()
+    }
+    @Test fun takeoverDelayKeepsTheVerifiedUpdateAndMakesItSchedulableAgain(){
+        val waiting=UpdateUiState("deployment","0.8.0","0.9.0","waiting_for_user",100,100,"approval",permissionRequired=true,installReady=true,releaseId="release",artifactId="artifact",expectedSha256="a".repeat(64),expectedVersionCode=9,exactPath="/updates/release-artifact.apk")
+        val now=Instant.parse("2026-11-04T10:00:00Z")
+        val delayed=takeoverDelayedState(waiting,now)
+        assertEquals("ready",delayed.state)
+        assertEquals("2026-11-04T10:00:00Z",delayed.maintenanceAt)
+        assertTrue(delayed.installReady)
+        assertFalse(delayed.permissionRequired)
+        assertEquals(waiting.exactPath,delayed.exactPath)
+        assertEquals(waiting.expectedSha256,delayed.expectedSha256)
     }
 }
