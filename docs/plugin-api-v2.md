@@ -1,8 +1,8 @@
 # Tilecast Plugin API v2
 
-Status: accepted. The foundation is implemented. No bundled plugin uses
-Plugin API v2 yet. Countdown Bar, Emergency Alerts, and Forms stay on
-[Plugin API v1](plugin-api.md). A later change can move each one.
+Status: accepted. The foundation is implemented. Countdown Bar uses Plugin
+API v2. Emergency Alerts and Forms stay on [Plugin API v1](plugin-api.md). A
+later change can move each one.
 
 The decision record is
 [ADR: Plugin Model V2](adr/plugin-model-v2.md).
@@ -38,8 +38,8 @@ Player. An event never replaces state, and state never carries an event.
 
 | Generation    | Used by                    | Player behavior                                                                        |
 | ------------- | -------------------------- | -------------------------------------------------------------------------------------- |
-| Plugin API v1 | Every bundled plugin today | Surface-only. The surface host polls `update` about once a second.                     |
-| Plugin API v2 | New plugins                | Event-driven. A plugin asks for versioned services. A surface is one optional service. |
+| Plugin API v1 | Emergency Alerts, Forms    | Surface-only. The surface host polls `update` about once a second.                     |
+| Plugin API v2 | Countdown Bar, new plugins | Event-driven. A plugin asks for versioned services. A surface is one optional service. |
 
 Both generations load from `plugins/<name>/`. Both use the same Server
 contribution interfaces, the same Studio host, the same migrations, and the
@@ -121,15 +121,16 @@ It has these differences:
 
 The identity and catalog members are left out of this example.
 
-| Member                      | Rule                                                                                    |
-| --------------------------- | --------------------------------------------------------------------------------------- |
-| `player.state`              | 1 to 16 `{type, version}` pairs. A type uses the plugin ID pattern. The pair is unique. |
-| `player.runtime.entrypoint` | Always `./runtime/index.ts`.                                                            |
-| `player.runtime.services`   | `name@version` references. A name is requested once. Each must be a `runtime` service.  |
-| `player.runtime.surfaces`   | Visual contributions: `id`, 1 to 7 unique `slots`, and one `tier`.                      |
-| `player.native`             | Up to 8 contributions: `id` and `services`. Each service must be a `native` service.    |
-| `player.events`             | Up to 16 events: `name`, `version`, and `source` (`native` or `runtime`).               |
-| `player.runtime.providers`  | Up to 4 presentation providers: `id`. Unique inside the plugin.                         |
+| Member                      | Rule                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `player.state`              | 1 to 16 `{type, version}` pairs. A type uses the plugin ID pattern. The pair is unique.                 |
+| `player.runtime.entrypoint` | Always `./runtime/index.ts`.                                                                            |
+| `player.runtime.services`   | `name@version` references. A name is requested once. Each must be a `runtime` service.                  |
+| `player.runtime.surfaces`   | Visual contributions: `id`, 1 to 7 unique `slots`, and one `tier`.                                      |
+| `player.native`             | Up to 8 contributions: `id` and `services`. Each service must be a `native` service.                    |
+| `player.v1ManifestTypes`    | Up to 8 Plugin API v1 entry types. See [Players without Plugin API v2](#players-without-plugin-api-v2). |
+| `player.events`             | Up to 16 events: `name`, `version`, and `source` (`native` or `runtime`).                               |
+| `player.runtime.providers`  | Up to 4 presentation providers: `id`. Unique inside the plugin.                                         |
 
 More rules:
 
@@ -164,7 +165,8 @@ ProjectPlayerState(ctx context.Context, screenID uuid.UUID) ([]plugin.PlayerStat
 
 - A v2 plugin with a `player` member must implement `PlayerStateProjector`.
   Without state, no Player activates the contribution.
-- A v2 plugin must not implement the v1 `ManifestProjector`.
+- A v2 plugin implements the v1 `ManifestProjector` only when it declares
+  `player.v1ManifestTypes`.
 - A v1 plugin must not implement `PlayerStateProjector`.
 
 `plugin.EncodePlayerState` validates each value and wraps it in a
@@ -172,7 +174,7 @@ ProjectPlayerState(ctx context.Context, screenID uuid.UUID) ([]plugin.PlayerStat
 
 | Bound            | Value                                                         |
 | ---------------- | ------------------------------------------------------------- |
-| Entries          | 32 for each plugin. The whole `plugins` array has at most 64. |
+| Entries          | 64 for each plugin. The whole `plugins` array has at most 64. |
 | State            | JSON object, 16 KiB, 16 levels, 2048 values                   |
 | Media references | 16 for each entry                                             |
 | `validUntil`     | Optional. At most 366 days ahead.                             |
@@ -211,6 +213,27 @@ it.
 - The Server keeps only media references that resolve to an available,
   Player-compatible library variant. It adds each variant to `assets`.
 - A plugin revises manifests through `Host.Manifests`, as in v1.
+
+### Players without Plugin API v2
+
+A Player that does not report `plugin.host@2` receives no `plugin_state`.
+This includes older Player builds and Players whose v2 reporting is gated. A
+plugin that moves from v1 to v2 can keep those Players working:
+
+- The manifest lists the v1 entry types in `player.v1ManifestTypes`.
+- The plugin implements the v1 `ManifestProjector` for those types, in
+  addition to `PlayerStateProjector`. `plugin.CheckDeclarations` requires
+  both, and allows `ManifestProjector` on a v2 plugin only in this case.
+- The Server sends the v1 entries only to a Player without `plugin.host@2`
+  (`ManifestForScreen`). A Player with it receives `plugin_state` and no v1
+  entries (`ManifestForPluginHost`).
+- The Player Plugin Host routes a declared v1 entry to the v2 plugin as one
+  state entry: the entry `config` is the state. This works on every host,
+  also when the host does not set `pluginState`. The plugin has one
+  implementation for every Player.
+
+A Player that predates the plugin's move keeps its own v1 renderer for the
+same entries.
 
 There is no second realtime protocol. Plugin state travels in the existing
 `plugins` array. Player Core treats a change that is only in `plugins` as a

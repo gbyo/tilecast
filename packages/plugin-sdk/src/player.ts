@@ -111,7 +111,11 @@ export interface PlayerSurfaceHandle {
   claim(claims: readonly PlayerSurfaceClaim[]): void;
   /** Release every claim. The containers stay mounted. */
   release(): void;
-  /** Remove the containers. The host also closes handles at disposal. */
+  /**
+   * Leave arbitration and remove the containers after a short exit, so a
+   * strip that loses its slot can still slide away. The host also closes
+   * handles at disposal.
+   */
   close(): void;
 }
 
@@ -120,11 +124,14 @@ export interface PlayerSurfaceService {
   /**
    * Open a visual contribution declared in the manifest's
    * `player.runtime.surfaces`. `render` receives every grant decision.
-   * Returns null for an undeclared or already open contribution.
+   * `describe`, when given, is the text a diagnostics or conformance probe
+   * reports for a slot the contribution holds. Returns null for an
+   * undeclared or already open contribution.
    */
   open(
     contributionId: string,
     render: (grant: PlayerSurfaceGrant) => void,
+    describe?: (slot: SurfaceSlot) => string,
   ): PlayerSurfaceHandle | null;
   /** True when motion should be avoided. */
   reducedMotion(): boolean;
