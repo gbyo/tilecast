@@ -55,6 +55,7 @@ import {
   markReconciled,
   meaningfulEvidence,
   proofEligible,
+  reloadWhenRestored,
   requireReconfirmation,
   revokeLocalAuthority,
   type HostState,
@@ -328,6 +329,8 @@ export class BrowserPlayer {
     this.index = new IndexedObjects(this.database);
     this.mountStartControl();
     addEventListener("pagehide", () => this.onPageHide(), { once: true });
+    // Not tied to the host's abort signal: it must outlive the pagehide above.
+    reloadWhenRestored(window, () => location.reload());
     try {
       const [shell] = await Promise.all([
         registerShell().then((value) => {
@@ -508,17 +511,6 @@ export class BrowserPlayer {
         markClockDiscontinuity(this.state);
         this.activity?.proof.sync();
         wakeNow();
-      },
-      { signal },
-    );
-    window.addEventListener(
-      "pageshow",
-      (event: PageTransitionEvent) => {
-        if (event.persisted) {
-          markClockDiscontinuity(this.state);
-          this.activity?.proof.sync();
-          wakeNow();
-        }
       },
       { signal },
     );
