@@ -1,7 +1,8 @@
 name: Diagnose Edge builder image (temporary)
 
-# Temporary. Runs the Edge release builder image build on each architecture and
-# reports progress as annotations. Remove before merging.
+# Temporary. Probes the Debian snapshot hosts from each runner and builds the
+# Edge release builder image against the alternate host from a temporary copy
+# of the Dockerfile. Reports as annotations. Remove before merging.
 on:
   workflow_dispatch:
   push:
@@ -18,25 +19,41 @@ jobs:
       matrix:
         arch: [x86_64, aarch64]
     runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
-      - name: Build the builder image with a monitor
+      - name: Probe the snapshot hosts
         run: |
           set -u
+          for host in snapshot.debian.org snapshot-cloudflare.debian.org; do
+            codes=""
+            for i in 1 2 3 4 5; do
+              r=$(curl -sS -m 30 -o /dev/null -w '%{http_code}/%{time_total}s' \
+                "http://$host/archive/debian/20260920T000000Z/dists/trixie/InRelease" 2>&1 | tail -n 1)
+              codes="$codes $r"
+            done
+            echo "::notice title=probe $host::$codes"
+          done
+      - name: Build the builder image against the alternate host
+        run: |
+          set -u
+          ctx="$RUNNER_TEMP/builder-ctx"
+          mkdir -p "$ctx"
+          cp -r apps/edge/release/. "$ctx/"
+          sed -i 's#http://snapshot.debian.org#http://snapshot-cloudflare.debian.org#g' "$ctx/Dockerfile.builder"
+          grep -c snapshot-cloudflare "$ctx/Dockerfile.builder" | sed 's/^/::notice title=hosts replaced::/'
           log="$RUNNER_TEMP/builder.log"
           : > "$log"
-          echo "::notice title=env::$(uname -m) cpus=$(nproc) $(free -m | awk '/Mem:/{print "mem_mb="$2" avail_mb="$7}') $(df -m / | awk 'NR==2{print "disk_free_mb="$4}')"
           (
             while true; do
-              sleep 45
-              echo "::notice title=progress::$(date +%H:%M:%S) $(free -m | awk '/Mem:/{print "avail_mb="$7}') $(df -m / | awk 'NR==2{print "disk_free_mb="$4}') load=$(cut -d' ' -f1 /proc/loadavg) :: $(tail -n 1 "$log" | cut -c1-160)"
+              sleep 60
+              echo "::notice title=progress::$(date +%H:%M:%S) $(free -m | awk '/Mem:/{print "avail_mb="$7}') :: $(tail -n 1 "$log" | cut -c1-160)"
             done
           ) &
           monitor=$!
           start=$(date +%s)
-          docker build --progress=plain -t tilecast-edge-release-builder \
-            -f apps/edge/release/Dockerfile.builder apps/edge/release >> "$log" 2>&1
+          timeout 40m docker build --progress=plain -t tilecast-edge-release-builder \
+            -f "$ctx/Dockerfile.builder" "$ctx" >> "$log" 2>&1
           status=$?
           kill "$monitor" 2>/dev/null || true
           echo "::notice title=result::exit=$status seconds=$(( $(date +%s) - start ))"
