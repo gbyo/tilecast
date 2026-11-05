@@ -167,6 +167,14 @@ package whose contribution fails to decode is skipped and logged; the
 remaining packages still compose. Boot warns on skips and fails fast on a
 rebuild that is not skip-only.
 
+A rebuild after a lifecycle mutation runs after the activation commits, so a
+failure cannot undo the mutation. If that rebuild fails and is not skip-only
+(for example, the Server cannot read the installed packages), the Server logs
+the error and retries the rebuild in the background. The first retry runs
+after one second. The delay doubles up to one minute. The retry stops after
+the first rebuild that is skip-only, or after a later lifecycle rebuild
+succeeds. Until then, the previous snapshot stays active.
+
 Each nested definition ID is qualified under its package ID, so a Data
 Source provider reads `<package-id>.<nested-id>` (migration `00121` widens
 the provider checks to accept dots). Qualification keeps provenance inside

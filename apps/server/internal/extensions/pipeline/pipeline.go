@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -209,6 +210,10 @@ type Service struct {
 	tilecastVersion string
 	allowUnsigned   bool
 	logger          *slog.Logger
+	retryMu         sync.Mutex
+	retry           catalogRetry
+	// retryInitialDelay overrides the first catalog retry delay in tests.
+	retryInitialDelay time.Duration
 	// Failure-injection seams for post-commit reconciliation. A nil
 	// syncJobs runs wasm.SyncJobs; a nil removeExec runs the wasm
 	// service's Remove.
@@ -645,13 +650,16 @@ func (s *Service) LocalContentDir(_ context.Context, _, digest string) (string, 
 }
 
 // resync recomposes the effective catalog after a mutation. The
-// contributions service logs what it skips; a failure here cannot undo
-// the committed activation, so the caller reports it alongside success.
+// contributions service logs what it skips. A hard rebuild failure cannot
+// undo the committed activation, so it is retried in the background until
+// the in-memory catalog matches the committed package state.
 func (s *Service) resync(ctx context.Context) error {
 	if s.contributions == nil {
 		return nil
 	}
-	return s.contributions.Rebuild(ctx)
+	err := s.contributions.Rebuild(ctx)
+	s.afterCatalogRebuild(ctx, err)
+	return err
 }
 
 // ensureContent returns the verified layout and extracted content
