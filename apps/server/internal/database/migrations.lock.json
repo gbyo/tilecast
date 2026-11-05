@@ -778,5 +778,11 @@
     "file": "00131_screen_access_policy.sql",
     "owner": "core",
     "sha256": "0b9aac89c13e1a32d08b8531a36c539921b45ba5e7cc61f7e591ae5463b9fe0f"
+  },
+  {
+    "version": 132,
+    "file": "00132_font_library.sql",
+    "owner": "core",
+    "sha256": "07d54d0ed20bee130d4243195ad06653f14ff5b50df555c998a041b4e7848f57"
   }
 ]

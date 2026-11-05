@@ -818,6 +818,13 @@ func (s *Service) validateDependencyQuery(ctx context.Context, q queryer, deps [
 			if err != nil {
 				return err
 			}
+		case "font":
+			// FOR SHARE serializes with a font library deletion, which locks
+			// the family row FOR UPDATE before it checks Layout references.
+			err := q.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM font_families WHERE id=$1 AND deleted_at IS NULL FOR SHARE)`, dep.ID).Scan(&valid)
+			if err != nil {
+				return err
+			}
 		default:
 			return errors.New("layout dependency type is invalid")
 		}

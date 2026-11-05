@@ -4416,6 +4416,225 @@ paths:
           {
             description: "Pairing recovery confirmation required, hardware replacement conflict, or pairing state conflict",
           }
+  /api/v1/fonts:
+    get:
+      operationId: listFonts
+      description: >-
+        List the organization font library: every family with its stored faces. Requires an authenticated dashboard user.
+      responses:
+        "200":
+          description: Font families in name order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/FontFamilyList" }
+        "401": { description: Dashboard authentication required }
+  /api/v1/fonts/{id}:
+    delete:
+      operationId: deleteFont
+      description: >-
+        Remove a font family that no current Layout draft or published revision uses. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+        - {
+            in: path,
+            name: id,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+      responses:
+        "204": { description: Font family removed }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient capability }
+        "404": { description: Font family not found }
+        "409": { description: A Layout still uses the font family }
+  /api/v1/fonts/{id}/faces/{faceId}/file:
+    get:
+      operationId: getFontFaceFile
+      description: >-
+        Serve one stored font face file to Studio. Players read the same bytes through the device-authenticated asset route. Requires an authenticated dashboard user.
+      parameters:
+        - {
+            in: path,
+            name: id,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+        - {
+            in: path,
+            name: faceId,
+            required: true,
+            schema: { type: string, format: uuid },
+          }
+      responses:
+        "200":
+          description: Font file
+          content:
+            font/woff2:
+              schema: { type: string, format: binary }
+            font/ttf:
+              schema: { type: string, format: binary }
+            font/otf:
+              schema: { type: string, format: binary }
+        "401": { description: Dashboard authentication required }
+        "404": { description: Font face not found }
+  /api/v1/fonts/catalog:
+    get:
+      operationId: searchFontCatalog
+      description: >-
+        Search the Google Fonts catalog through the server. The server reads the Fontsource catalog and caches it. Requires the settings.manage capability.
+      parameters:
+        - { in: query, name: q, schema: { type: string, maxLength: 100 } }
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum: [sans-serif, serif, display, handwriting, monospace, icons]
+        - {
+            in: query,
+            name: limit,
+            schema: { type: integer, minimum: 1, maximum: 100 },
+          }
+        - { in: query, name: offset, schema: { type: integer, minimum: 0 } }
+      responses:
+        "200":
+          description: One page of catalog families
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/FontCatalogPage" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient capability }
+        "502": { description: The catalog could not be reached }
+        "503": { description: The catalog is disabled on this server }
+  /api/v1/fonts/catalog/{sourceId}:
+    get:
+      operationId: getFontCatalogFamily
+      description: >-
+        Read one catalog family with its subsets, styles, weights, and variable weight range. Requires the settings.manage capability.
+      parameters:
+        - in: path
+          name: sourceId
+          required: true
+          schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,99}$" }
+      responses:
+        "200":
+          description: Catalog family
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/FontCatalogFamily" }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient capability }
+        "404": { description: Catalog family not found }
+        "502": { description: The catalog could not be reached }
+        "503": { description: The catalog is disabled on this server }
+  /api/v1/fonts/catalog/{sourceId}/preview:
+    get:
+      operationId: getFontCatalogPreview
+      description: >-
+        Serve a small regular face of one catalog family so Studio can show the family name in its own type. Requires the settings.manage capability.
+      parameters:
+        - in: path
+          name: sourceId
+          required: true
+          schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,99}$" }
+      responses:
+        "200":
+          description: WOFF2 preview face
+          content:
+            font/woff2:
+              schema: { type: string, format: binary }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient capability }
+        "404": { description: Catalog family not found }
+        "502": { description: The catalog could not be reached }
+        "503": { description: The catalog is disabled on this server }
+  /api/v1/fonts/google:
+    post:
+      operationId: importGoogleFont
+      description: >-
+        Copy the chosen files of one Google Fonts family into the font library. The server downloads the files once; Players and Studio never contact the catalog. Requires the settings.manage capability. Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GoogleFontImport" }
+      responses:
+        "201":
+          description: Font family added
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/FontFamily" }
+        "400": { description: Invalid request body }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient capability }
+        "409":
+          { description: A family with this name is already in the library }
+        "413": { description: The selection exceeds the import size limit }
+        "422": { description: The selection is not available for this family }
+        "502": { description: The catalog could not be reached }
+        "503": { description: The catalog is disabled on this server }
+  /api/v1/fonts/uploads:
+    post:
+      operationId: uploadFont
+      description: >-
+        Upload one TrueType or OpenType face. The server reads the family name, weight, and style from the file. A face whose family matches an uploaded family joins it. Requires the settings.manage capability and a confirmation that the organization may use the font on its displays. Cookie-authenticated unsafe requests require X-CSRF-Token.
+      parameters:
+        - in: header
+          name: X-CSRF-Token
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, rightsConfirmed]
+              properties:
+                file: { type: string, format: binary }
+                rightsConfirmed: { type: boolean }
+      responses:
+        "201":
+          description: Font face stored
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: "#/components/schemas/FontUploadResult" }
+        "400": { description: Malformed upload }
+        "401": { description: Dashboard authentication required }
+        "403": { description: Insufficient capability }
+        "409": { description: The face or family name already exists }
+        "413": { description: The file exceeds 15 MB }
+        "422":
+          {
+            description: The file is not a supported font or rights were not confirmed,
+          }
   /api/v1/locations:
     get:
       operationId: listLocations
@@ -15253,6 +15472,12 @@ components:
             enum: [Inter, Roboto, Source Sans 3, Noto Sans],
             description: Only bundled fonts are accepted for text primitives,
           }
+        fontId:
+          {
+            type: string,
+            format: uuid,
+            description: A family from the organization font library. fontFamily stays the bundled fallback,
+          }
         fontSize: { type: number, minimum: 8, maximum: 600 }
         fontWeight: { type: integer, enum: [400, 500, 600, 700, 800] }
         textAlign: { type: string, enum: [left, center, right] }
@@ -18147,6 +18372,145 @@ components:
         screenCount: { type: integer }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    FontFace:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          assetId,
+          variantId,
+          style,
+          weightMin,
+          weightMax,
+          subset,
+          unicodeRange,
+          mimeType,
+          fileSize,
+          fileUrl,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        assetId: { type: string, format: uuid }
+        variantId: { type: string, format: uuid }
+        style: { type: string, enum: [normal, italic] }
+        weightMin: { type: integer, minimum: 1, maximum: 1000 }
+        weightMax: { type: integer, minimum: 1, maximum: 1000 }
+        subset: { type: string }
+        unicodeRange: { type: string }
+        mimeType: { type: string, enum: [font/woff2, font/ttf, font/otf] }
+        fileSize: { type: integer, minimum: 0 }
+        fileUrl: { type: string }
+    FontFamily:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          family,
+          source,
+          sourceId,
+          sourceVersion,
+          category,
+          license,
+          subsets,
+          faces,
+          totalBytes,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        family: { type: string, minLength: 1, maxLength: 100 }
+        source: { type: string, enum: [google, upload] }
+        sourceId: { type: string }
+        sourceVersion: { type: string }
+        category: { type: string }
+        license: { type: string }
+        subsets: { type: array, items: { type: string } }
+        faces: { type: array, items: { $ref: "#/components/schemas/FontFace" } }
+        totalBytes: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    FontFamilyList:
+      type: object
+      additionalProperties: false
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/FontFamily" }
+        total: { type: integer, minimum: 0 }
+    FontCatalogEntry:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          family,
+          category,
+          license,
+          subsets,
+          weights,
+          styles,
+          defaultSubset,
+          variable,
+        ]
+      properties:
+        id: { type: string }
+        family: { type: string }
+        category: { type: string }
+        license: { type: string }
+        subsets: { type: array, items: { type: string } }
+        weights: { type: array, items: { type: integer } }
+        styles: { type: array, items: { type: string } }
+        defaultSubset: { type: string }
+        variable: { type: boolean }
+    FontCatalogFamily:
+      allOf:
+        - $ref: "#/components/schemas/FontCatalogEntry"
+        - type: object
+          required: [version, weightRange]
+          properties:
+            version: { type: string }
+            weightRange:
+              oneOf:
+                - { type: "null" }
+                - type: array
+                  minItems: 2
+                  maxItems: 2
+                  items: { type: integer, minimum: 1, maximum: 1000 }
+    FontCatalogPage:
+      type: object
+      additionalProperties: false
+      required: [families, total]
+      properties:
+        families:
+          type: array
+          items: { $ref: "#/components/schemas/FontCatalogEntry" }
+        total: { type: integer, minimum: 0 }
+    GoogleFontImport:
+      type: object
+      additionalProperties: false
+      required: [sourceId]
+      properties:
+        sourceId: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,99}$" }
+        subsets: { type: array, maxItems: 32, items: { type: string } }
+        styles:
+          type: array
+          maxItems: 2
+          items: { type: string, enum: [normal, italic] }
+        weights:
+          type: array
+          maxItems: 9
+          items: { type: integer, minimum: 1, maximum: 1000 }
+    FontUploadResult:
+      type: object
+      additionalProperties: false
+      required: [family, embeddingRestricted]
+      properties:
+        family: { $ref: "#/components/schemas/FontFamily" }
+        embeddingRestricted: { type: boolean }
     LocationList:
       type: object
       additionalProperties: false

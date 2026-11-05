@@ -10,25 +10,29 @@ import (
 )
 
 type Config struct {
-	Environment   string
-	HTTPAddr      string
-	DatabaseURL   string
-	PublicURL     string
-	CookieName    string
-	CookieSecure  bool
-	SessionTTL    time.Duration
-	LogLevel      string
-	MDNSEnabled   bool
-	Media         MediaConfig
-	Scheduling    SchedulingConfig
-	Website       WebsiteConfig
-	Sources       SourcesConfig
-	Operations    OperationsConfig
-	Updates       UpdatesConfig
-	Backup        BackupConfig
-	WebAuthn      WebAuthnConfig
-	Notifications NotificationsConfig
-	Demo          DemoConfig
+	Environment  string
+	HTTPAddr     string
+	DatabaseURL  string
+	PublicURL    string
+	CookieName   string
+	CookieSecure bool
+	SessionTTL   time.Duration
+	LogLevel     string
+	MDNSEnabled  bool
+	// FontCatalogEnabled lets administrators browse and copy Google Fonts
+	// families through the Fontsource catalog. Disabled installations make no
+	// catalog requests; uploads still work.
+	FontCatalogEnabled bool
+	Media              MediaConfig
+	Scheduling         SchedulingConfig
+	Website            WebsiteConfig
+	Sources            SourcesConfig
+	Operations         OperationsConfig
+	Updates            UpdatesConfig
+	Backup             BackupConfig
+	WebAuthn           WebAuthnConfig
+	Notifications      NotificationsConfig
+	Demo               DemoConfig
 	// PresentationNetworkKey seals Wi-Fi credentials for Presentation Networks.
 	// Empty is a supported state: the server starts normally and every other
 	// feature works, but creating or provisioning a Presentation Network
@@ -170,6 +174,11 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("parse TILECAST_MDNS_ENABLED: %w", err)
 	}
 	cfg.MDNSEnabled = mdnsEnabled
+	fontCatalog, err := strconv.ParseBool(get("TILECAST_FONT_CATALOG_ENABLED", "true"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse TILECAST_FONT_CATALOG_ENABLED: %w", err)
+	}
+	cfg.FontCatalogEnabled = fontCatalog
 	values := []struct {
 		name, fallback string
 		max            int

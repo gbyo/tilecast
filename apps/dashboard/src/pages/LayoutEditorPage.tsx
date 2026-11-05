@@ -202,6 +202,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+import { useLibraryFonts } from "../fonts/libraryFonts";
 import {
   presentationPath,
   useNativePresentationAvailable,
@@ -637,6 +638,8 @@ export function LayoutEditorPage() {
   const navigate = useNavigate();
   const { t } = useTranslation(["layouts", "common"]);
   const nativePresentations = useNativePresentationAvailable();
+  // Library faces must be registered before Layout text can draw in them.
+  useLibraryFonts();
   const openNativePresentation = useOpenNativePresentation();
   const { t: tContent } = useTranslation("content");
   const formatLocale = useFormatLocale();

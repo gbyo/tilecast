@@ -15,6 +15,7 @@ import { SettingsShell } from "../settings/SettingsShell";
 import { SettingsSection } from "../settings/SettingsSection";
 import { SettingsActionBar } from "../settings/SettingsActionBar";
 import { BrandingAssets } from "../settings/BrandingAssets";
+import { FontLibraryPanel } from "../settings/fonts/FontLibraryPanel";
 import { normalizeSettingValues } from "../settings/settingValues";
 import {
   sectionFromPath,
@@ -259,6 +260,8 @@ function Destination({
     );
   if (active === "system")
     return <SystemPanel canManage={can("system.manage")} />;
+  if (active === "fonts")
+    return <FontLibraryPanel canManage={can("settings.manage")} />;
   if (active === "backups")
     return (
       <>

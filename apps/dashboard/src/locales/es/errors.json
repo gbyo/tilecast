@@ -28,6 +28,15 @@
     "content_access_delegation": "Solo puedes conceder carpetas y etiquetas a las que tu propia cuenta tiene acceso.",
     "cannot_change_own_role": "No puedes cambiar tu propio rol.",
     "cannot_scope_self": "No puedes cambiar tu propio acceso a contenido ni a pantallas.",
-    "last_owner_required": "Tilecast necesita al menos un propietario activo."
+    "last_owner_required": "Tilecast necesita al menos un propietario activo.",
+    "font_not_found": "No se encontró la fuente.",
+    "font_exists": "Ya hay una familia de fuentes con este nombre en la biblioteca.",
+    "font_in_use": "Primero elija otra fuente en los diseños que usan esta.",
+    "font_rights_required": "Confirme que su organización puede usar esta fuente en sus pantallas.",
+    "font_too_large": "Los archivos de fuente superan el límite de tamaño.",
+    "font_unsupported": "El archivo no es una fuente compatible. Suba un archivo TTF u OTF.",
+    "font_invalid": "Esa selección no está disponible para esta familia de fuentes.",
+    "font_catalog_disabled": "El catálogo de Google Fonts está desactivado en este servidor. Suba archivos de fuente en su lugar.",
+    "font_catalog_unavailable": "Tilecast no pudo conectarse con el catálogo de Google Fonts. Revise el acceso a internet del servidor o suba archivos de fuente."
   }
 }

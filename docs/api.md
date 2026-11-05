@@ -450,6 +450,10 @@ Content responses include `layoutUsage` with stable Layout IDs, names, and publi
 
 Manifest v10 adds root and scheduled Layout presentations. A Layout entry includes its published revision, document SHA-256, validated document, and materialized dependencies. Layout deletion is blocked while assigned or scheduled; dependency deletion is blocked while referenced by a draft or published revision.
 
+## Font library
+
+`GET /api/v1/fonts` lists the organization font library for every signed-in dashboard user. `GET /api/v1/fonts/{id}/faces/{faceId}/file` serves one stored face to Studio. A person with `settings.manage` searches the Google Fonts catalog with `GET /api/v1/fonts/catalog`, reads one family with `GET /api/v1/fonts/catalog/{sourceId}`, and adds it with `POST /api/v1/fonts/google`. `POST /api/v1/fonts/uploads` accepts one TTF or OTF face as multipart form data with `rightsConfirmed=true`. `DELETE /api/v1/fonts/{id}` removes a family that no current Layout draft or published revision uses; otherwise it returns `font_in_use`. A Layout text primitive refers to a family with `fontId`, and each manifest Layout entry lists the faces it needs in `fonts`. See [Organization font library](fonts.md).
+
 ## Takeover, NWS alerts, and commands
 
 Dashboard routes include `GET/POST /takeovers`, `GET /takeovers/{id}`, `POST /takeovers/{id}/cancel`, `GET/POST /screens/{id}/commands`, and command cancellation. Device-authenticated players use `GET /player/commands`, `POST /player/commands/{id}/acknowledge`, and `POST /player/commands/{id}/result`. Commands are typed, bounded, expiring, and scoped to the authenticated screen. The former one-off website clearing route is replaced by `clear_website_data`.

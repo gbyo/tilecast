@@ -30,6 +30,8 @@ Manifests v11-v19 may also carry the optional typed `plugins` projection. Built-
 
 `alert_ticker@1` is the second discriminator: one live Emergency Alerts message delivered as a bar rather than as a Takeover, with the same `overlay`/`push` geometry, a named scroll speed, and an `expiresAt` the Player enforces against its own corrected clock so a cached manifest cannot keep an alert on screen indefinitely. Adding a discriminator is additive in the same way: a Player that predates a type ignores that entry and renders the rest of the array.
 
+Manifests v11-v21 may carry an optional `fonts` array on each Layout entry. Each entry names an organization library family and its faces: asset and variant identity, style, weight range, and optional `unicode-range`. Every face file is also in `assets`, so it is a verified download. The key is additive: a Player that predates it ignores the key and draws Layout text with the bundled `fontFamily`. See `docs/fonts.md`.
+
 Historical manifests may contain `brand_bug@1` and `noise_meter@1` entries. Both plugins are retired and are no longer projected by the server. Current Players ignore these entries in cached manifests while preserving playback of supported entries. Their old wire shapes remain readable for compatibility.
 
 Time-series points may carry one `value` or a bounded `values` object for multi-series charts. Capability revision 2 covers native charts, asset images, target progress, repeat indexes, and richer conditions without changing the presentation schema version.

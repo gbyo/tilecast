@@ -284,9 +284,10 @@ RenderNode is not the Player Runtime's permanent widget API. Widgets V2 ([widget
 
 ## 7. Security and appearance
 
-- The document's CSP is `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' tcmedia: data:; media-src tcmedia: tcweb:; frame-src https: http: tcwidget:`. It has no `unsafe-inline` and no CSP bypass privileges. The `tcwidget:` frame source covers daemon-granted sandbox frames on native hosts; the iframe sandbox attribute and the frame's own policy still confine them.
+- The document's CSP is `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self' tcmedia:; img-src 'self' tcmedia: data:; media-src tcmedia: tcweb:; frame-src https: http: tcwidget:`. It has no `unsafe-inline` and no CSP bypass privileges. The `tcwidget:` frame source covers daemon-granted sandbox frames on native hosts; the iframe sandbox attribute and the frame's own policy still confine them.
 - `tilecast://runtime/` serves only files listed in the artifact's `runtime-manifest.json` (Electron) or allowed by `tc_runtime_path_is_allowed` (WPE). The names are top-level files and `fonts/<name>`, and anything a URL parser would rewrite is refused.
 - The Electron renderer runs with `sandbox: true`, `contextIsolation: true` and `nodeIntegration: false`. The preload is a thin adapter that requires only `electron`. The synchronized-timeline enrichment that forced `sandbox: false` moved to the main process.
+- Layout text may use an organization library font. The projection lists its faces as host-authorized `tcmedia:` URIs, and the runtime registers each face through the CSS Font Loading API under the generated family `tcf-<fontId>`. Each host answers media requests from the runtime origin with `Access-Control-Allow-Origin`, because browsers fetch fonts in CORS mode. See [Organization font library](fonts.md).
 - Tilecast-owned surfaces use the bundled Tilecast UI face (Geist, SIL Open Font License 1.1, `static/fonts/OFL.txt`) rather than the distribution's `system-ui`. The display ignores host dark-mode and forced-colour preferences.
 
 ## 8. Conformance suite
