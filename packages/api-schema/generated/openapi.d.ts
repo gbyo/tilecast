@@ -22140,7 +22140,7 @@ export interface operations {
         };
         content?: never;
       };
-      /** @description Playlist is assigned */
+      /** @description Playlist is in use by a screen or Display Group assignment, a schedule, a Layout, a live takeover, or a running Quick Present */
       409: {
         headers: {
           [name: string]: unknown;
