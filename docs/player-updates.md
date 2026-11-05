@@ -127,6 +127,14 @@ Electron Player also refuses an `install_player_update` command whose
 carries `playerFamily` and `expectedArtifactSha256` beside the existing
 fields.
 
+The Electron Player keeps an update that waits for a maintenance window in
+`staged-update.json` in its data directory. The record holds the deployment ID,
+the window start, and the SHA-256 and size of the verified AppImage. After a
+restart, the Player checks the staged file again, waits for the rest of the
+window, and installs. It deletes the record before it replaces the AppImage.
+If the staged file is missing or does not match, the Player reports the
+deployment as `failed` so that the operator can retry it.
+
 Drafts, arbitrary repositories, arbitrary asset names/URLs, invalid signatures, downgrades, incompatible SDK declarations, checksum mismatches, invalid APK signatures, and signing-certificate mismatches are rejected. A verified APK is streamed to a temporary file beneath `/data/updates`, checked, and atomically renamed. Players download only from their paired Tilecast server using authenticated range requests.
 
 ## Permanent signing keys
