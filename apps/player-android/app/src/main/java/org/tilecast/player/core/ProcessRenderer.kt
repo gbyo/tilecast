@@ -79,7 +79,7 @@ object ProcessRenderer {
             WebViewCompat.getCurrentWebViewPackage(app)?.versionName ?: "unknown",
             report = { json -> host.rendererReport(json) },
             captureFrame = { maxWidth, maxHeight, maxBytes ->
-                presentation?.capture(maxWidth, maxHeight, maxBytes)
+                captureFromCurrentPresentation({ presentation }, maxWidth, maxHeight, maxBytes)
             },
             captureBlockReason = { presentation?.captureBlockReason() ?: "display_host_detached" },
             onCapabilitiesChanged = {
@@ -94,4 +94,16 @@ object ProcessRenderer {
         AndroidRendererLog.event("renderer_owner_created", emptyMap())
         return renderer
     }
+}
+
+internal suspend fun captureFromCurrentPresentation(
+    current: () -> RendererPresentation?,
+    maxWidth: Int,
+    maxHeight: Int,
+    maxBytes: Int,
+): WebViewCoreRenderer.CapturedImage? {
+    val source = current() ?: return null
+    if (source.captureBlockReason() != null) return null
+    val image = source.capture(maxWidth, maxHeight, maxBytes)
+    return image?.takeIf { current() === source && source.captureBlockReason() == null }
 }

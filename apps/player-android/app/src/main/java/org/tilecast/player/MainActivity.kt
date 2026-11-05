@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -110,17 +111,42 @@ class MainActivity : ComponentActivity() {
         override fun captureBlockReason(): String? = previewCaptureBlockReason()
 
         override suspend fun capture(maxWidth: Int, maxHeight: Int, maxBytes: Int): WebViewCoreRenderer.CapturedImage? =
-            when (val captured = captureSource.capture(maxWidth, maxHeight)) {
-                is WindowCapture.Success -> withContext(Dispatchers.Default) {
-                    encodeCaptureFrame(captured.bitmap, maxBytes)?.let {
-                        WebViewCoreRenderer.CapturedImage(it.bytes, it.width, it.height)
-                    }
+            withContext(Dispatchers.Main.immediate) {
+                val view = renderer.view ?: return@withContext null
+                val epoch = captureEpoch
+                var detached = false
+                val listener = object : android.view.View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(view: android.view.View) = Unit
+                    override fun onViewDetachedFromWindow(view: android.view.View) { detached = true }
                 }
-                is WindowCapture.Failure -> null
+                fun allowed() = !detached && captureEpoch == epoch &&
+                    lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) &&
+                    previewCaptureBlockReason() == null && renderer.view === view &&
+                    view.isShown && view.rootView === window.decorView
+
+                if (!allowed()) return@withContext null
+                view.addOnAttachStateChangeListener(listener)
+                try {
+                    val captured = captureSource.capture(maxWidth, maxHeight, ::allowed) as? WindowCapture.Success
+                        ?: return@withContext null
+                    try {
+                        if (!allowed()) return@withContext null
+                        val encoded = withContext(Dispatchers.Default) {
+                            encodeCaptureFrame(captured.bitmap, maxBytes)
+                        } ?: return@withContext null
+                        if (!allowed()) return@withContext null
+                        WebViewCoreRenderer.CapturedImage(encoded.bytes, encoded.width, encoded.height)
+                    } finally {
+                        captured.bitmap.recycle()
+                    }
+                } finally {
+                    view.removeOnAttachStateChangeListener(listener)
+                }
             }
     }
     private var adminPrompt by mutableStateOf(false)
     @Volatile private var adminVisible = false
+    private var captureEpoch = 0L
     private val escapeKeys = ArrayDeque<Int>()
     private val reliabilityHandler = Handler(Looper.getMainLooper())
     private var restoreKiosk: Runnable? = null
@@ -161,6 +187,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() { super.onResume(); model.refreshCommissioning() }
 
     override fun onStop() {
+        captureEpoch++
         model.onForegroundChanged(false)
         unregisterReceiver(clockReceiver)
         super.onStop()
@@ -194,7 +221,11 @@ class MainActivity : ComponentActivity() {
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean =
         if (keyCode == KeyEvent.KEYCODE_BACK) true else super.onKeyDown(keyCode, event)
 
-    private fun showAdminPrompt(value: Boolean) { adminVisible = value; adminPrompt = value }
+    private fun showAdminPrompt(value: Boolean) {
+        if (adminVisible != value) captureEpoch++
+        adminVisible = value
+        adminPrompt = value
+    }
 
     fun openSystemSettings(action: String) { val intent = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); if (action == Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES) intent.data = Uri.parse("package:$packageName"); runCatching { startActivity(intent) } }
     fun restartPlayer() { startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)); finish() }
