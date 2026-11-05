@@ -526,7 +526,13 @@ impl Coordinator {
         // Durable before the request: after a restart the job follows the
         // helper's transaction instead of asking again.
         job.activation_requested_at_ms = Some(now);
-        self.transition(job, JobState::Activating, None, now).await;
+        // Without the saved state a restarted candidate would see a staged job
+        // and treat the helper's open transaction as someone else's, so the
+        // helper is not asked at all.
+        let saved = self.transition(job, JobState::Activating, None, now).await;
+        if saved != Pass::Progressed {
+            return saved;
+        }
         if let Some(api) = api {
             // The daemon stops during activation: tell the server first.
             let report = UpdateReport {
