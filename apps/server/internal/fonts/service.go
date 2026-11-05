@@ -238,9 +238,19 @@ func (s *Service) download(ctx context.Context, planned []plannedFile) ([]stored
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	stored := make([]storedFile, len(planned))
-	errs := make([]error, len(planned))
 	var total int64
 	var mu sync.Mutex
+	// The first failure is the root cause: it cancels the siblings, whose own
+	// errors are only the cancellation.
+	var firstErr error
+	fail := func(err error) {
+		mu.Lock()
+		if firstErr == nil {
+			firstErr = err
+		}
+		mu.Unlock()
+		cancel()
+	}
 	limit := make(chan struct{}, importConcurrency)
 	var wait sync.WaitGroup
 	for index, file := range planned {
@@ -250,13 +260,12 @@ func (s *Service) download(ctx context.Context, planned []plannedFile) ([]stored
 			limit <- struct{}{}
 			defer func() { <-limit }()
 			if ctx.Err() != nil {
-				errs[index] = ctx.Err()
+				fail(ctx.Err())
 				return
 			}
 			data, err := s.catalog.download(ctx, file.URL, MaxImportFileBytes)
 			if err != nil {
-				errs[index] = err
-				cancel()
+				fail(err)
 				return
 			}
 			mu.Lock()
@@ -264,15 +273,13 @@ func (s *Service) download(ctx context.Context, planned []plannedFile) ([]stored
 			over := total > MaxImportTotalBytes
 			mu.Unlock()
 			if over {
-				errs[index] = fmt.Errorf("%w: choose fewer subsets, styles, or weights", ErrTooLarge)
-				cancel()
+				fail(fmt.Errorf("%w: choose fewer subsets, styles, or weights", ErrTooLarge))
 				return
 			}
 			assetID := uuid.New()
 			key, err := s.store(assetID, ".woff2", data)
 			if err != nil {
-				errs[index] = err
-				cancel()
+				fail(err)
 				return
 			}
 			stored[index] = storedFile{
@@ -289,17 +296,9 @@ func (s *Service) download(ctx context.Context, planned []plannedFile) ([]stored
 			written = append(written, file)
 		}
 	}
-	for _, err := range errs {
-		if err != nil && !errors.Is(err, context.Canceled) {
-			s.discard(written)
-			return nil, err
-		}
-	}
-	for _, err := range errs {
-		if err != nil {
-			s.discard(written)
-			return nil, err
-		}
+	if firstErr != nil {
+		s.discard(written)
+		return nil, firstErr
 	}
 	return stored, nil
 }

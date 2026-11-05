@@ -220,9 +220,9 @@ func (s *server) routes() chi.Router {
 				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireScope("read")).Get("/fonts/catalog", s.searchFontCatalog)
 				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireScope("read")).Get("/fonts/catalog/{sourceId}", s.getFontCatalogFamily)
 				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireScope("read")).Get("/fonts/catalog/{sourceId}/preview", s.fontCatalogPreview)
-				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireCSRF, s.requireScope("write")).Post("/fonts/google", s.importGoogleFont)
-				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireCSRF, s.requireScope("write")).Post("/fonts/uploads", s.uploadFont)
-				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireCSRF, s.requireScope("write")).Delete("/fonts/{id}", s.deleteFont)
+				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireCSRF, s.blockDuringBackup, s.requireScope("write")).Post("/fonts/google", s.importGoogleFont)
+				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireCSRF, s.blockDuringBackup, s.requireScope("write")).Post("/fonts/uploads", s.uploadFont)
+				dashboard.With(s.requireCapability(auth.CapSettingsManage), s.requireCSRF, s.blockDuringBackup, s.requireScope("write")).Delete("/fonts/{id}", s.deleteFont)
 			}
 			dashboard.With(s.requireCapability(auth.CapUsersManage), s.requireScope("admin")).Get("/users", s.listUsers)
 			dashboard.With(s.requireCapability(auth.CapUsersManage), s.requireCSRF, s.requireScope("admin")).Post("/users", s.createUser)

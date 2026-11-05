@@ -41,12 +41,16 @@ export function UploadFontDialog({
   const [files, setFiles] = useState<File[]>([]);
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The file input is uncontrolled; a new key clears what it displays.
+  const [inputKey, setInputKey] = useState(0);
   const [outcomes, setOutcomes] = useState<UploadOutcome[]>([]);
   const upload = async () => {
     setBusy(true);
     const results: UploadOutcome[] = [];
     for (const file of files) {
       try {
+        // One at a time: faces of a new family must not race to create it.
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop
         const result = await uploadFont(
           file,
           confirmed,
@@ -72,6 +76,7 @@ export function UploadFontDialog({
     }
     setBusy(false);
     setFiles([]);
+    setInputKey((key) => key + 1);
     if (results.some((result) => result.ok)) await onUploaded();
   };
   return (
@@ -100,6 +105,7 @@ export function UploadFontDialog({
               {t("fonts.uploadDialog.filesLabel")}
             </FieldLabel>
             <Input
+              key={inputKey}
               id="font-upload-files"
               type="file"
               multiple

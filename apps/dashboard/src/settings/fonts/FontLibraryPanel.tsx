@@ -36,8 +36,8 @@ import { UploadFontDialog } from "./UploadFontDialog";
 
 /**
  * The organization font library: families copied from Google Fonts or
- * uploaded. Every signed-in person can see it; settings.manage can change
- * it. Players receive a family only when a published Layout uses it.
+ * uploaded. A role that can read screens or manage settings can see it;
+ * settings.manage can change it. Players receive a family only when a published Layout uses it.
  */
 export function FontLibraryPanel({ canManage }: { canManage: boolean }) {
   const { t } = useTranslation(["settings", "common"]);
@@ -61,13 +61,12 @@ export function FontLibraryPanel({ canManage }: { canManage: boolean }) {
     },
     onError: (error) => setNotice(apiErrorMessage(error)),
   });
-  const added = async (family: FontFamily) => {
+  const added = (family: FontFamily) => {
     setDialog(undefined);
     toast.add({
       title: t("fonts.added", { family: family.family }),
       type: "success",
     });
-    await client.invalidateQueries({ queryKey: fontKeys.library });
   };
   return (
     <>
@@ -195,7 +194,7 @@ export function FontLibraryPanel({ canManage }: { canManage: boolean }) {
       {dialog === "google" && (
         <GoogleFontDialog
           onClose={() => setDialog(undefined)}
-          onAdded={(family) => void added(family)}
+          onAdded={added}
         />
       )}
       {dialog === "upload" && (

@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
 import {
@@ -306,6 +311,7 @@ function FamilySelection({
 }) {
   const { t } = useTranslation(["settings", "common"]);
   const auth = useAuth();
+  const queryClient = useQueryClient();
   const [subsets, setSubsets] = useState<string[]>([family.defaultSubset]);
   const [styles, setStyles] = useState<("normal" | "italic")[]>(
     family.styles.includes("normal") ? ["normal"] : ["italic"],
@@ -325,10 +331,17 @@ function FamilySelection({
         },
         auth.status?.csrfToken ?? "",
       ),
-    onSuccess: onAdded,
+    onSuccess: async (added) => {
+      await queryClient.invalidateQueries({ queryKey: fontKeys.library });
+      onAdded(added);
+    },
   });
   const toggle = <T,>(list: T[], value: T, on: boolean) =>
     on ? [...list, value] : list.filter((entry) => entry !== value);
+  const availableStyles = new Set<string>(family.styles);
+  const chosenSubsets = new Set(subsets);
+  const chosenStyles = new Set(styles);
+  const chosenWeights = new Set(weights);
   const ready =
     subsets.length > 0 &&
     styles.length > 0 &&
@@ -365,7 +378,7 @@ function FamilySelection({
             >
               <Checkbox
                 id={"font-subset-" + subset}
-                checked={subsets.includes(subset)}
+                checked={chosenSubsets.has(subset)}
                 onCheckedChange={(checked) =>
                   setSubsets(toggle(subsets, subset, checked === true))
                 }
@@ -386,7 +399,7 @@ function FamilySelection({
         </FieldLegend>
         <div className="flex flex-wrap gap-4">
           {(["normal", "italic"] as const)
-            .filter((style) => family.styles.includes(style))
+            .filter((style) => availableStyles.has(style))
             .map((style) => (
               <Field
                 key={style}
@@ -395,7 +408,7 @@ function FamilySelection({
               >
                 <Checkbox
                   id={"font-style-" + style}
-                  checked={styles.includes(style)}
+                  checked={chosenStyles.has(style)}
                   onCheckedChange={(checked) =>
                     setStyles(toggle(styles, style, checked === true))
                   }
@@ -422,7 +435,7 @@ function FamilySelection({
               >
                 <Checkbox
                   id={"font-weight-" + weight}
-                  checked={weights.includes(weight)}
+                  checked={chosenWeights.has(weight)}
                   onCheckedChange={(checked) =>
                     setWeights(toggle(weights, weight, checked === true))
                   }

@@ -11999,7 +11999,16 @@ export interface components {
       defaultSubset: string;
       variable: boolean;
     };
-    FontCatalogFamily: components["schemas"]["FontCatalogEntry"] & {
+    FontCatalogFamily: {
+      id: string;
+      family: string;
+      category: string;
+      license: string;
+      subsets: string[];
+      weights: number[];
+      styles: string[];
+      defaultSubset: string;
+      variable: boolean;
       version: string;
       weightRange: null | number[];
     };

@@ -378,6 +378,19 @@ func (c *Catalog) download(ctx context.Context, url string, limit int64) ([]byte
 	return data, nil
 }
 
+// checkRedirect holds every redirect hop to the same origins as the first
+// request, so a response can never send the server to another host.
+func (c *Catalog) checkRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 3 {
+		return errors.New("too many redirects")
+	}
+	target := req.URL.String()
+	if strings.HasPrefix(target, c.CDNBase) || strings.HasPrefix(target, strings.TrimRight(c.APIBase, "/")+"/") {
+		return nil
+	}
+	return errors.New("redirect to an unexpected location")
+}
+
 func (c *Catalog) get(ctx context.Context, url string, limit int64) ([]byte, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -385,10 +398,13 @@ func (c *Catalog) get(ctx context.Context, url string, limit int64) ([]byte, err
 	}
 	request.Header.Set("User-Agent", "Tilecast-Server")
 	request.Header.Set("Accept", "application/json, font/woff2")
-	client := c.Client
-	if client == nil {
-		client = http.DefaultClient
+	base := http.DefaultClient
+	if c.Client != nil {
+		base = c.Client
 	}
+	// A copy, so a caller-supplied client is not changed.
+	client := *base
+	client.CheckRedirect = c.checkRedirect
 	response, err := client.Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrCatalogUnavailable, err)

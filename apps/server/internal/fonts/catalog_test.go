@@ -198,3 +198,41 @@ func TestPreviewUsesRegularDefaultSubset(t *testing.T) {
 		t.Fatalf("invalid IDs must not reach the network, got %v", err)
 	}
 }
+
+func TestDownloadFollowsOnlyRedirectsInsideTheCDN(t *testing.T) {
+	var outsideHits int32
+	outside := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&outsideHits, 1)
+		_, _ = w.Write([]byte("wOF2" + strings.Repeat("x", 32)))
+	}))
+	t.Cleanup(outside.Close)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/cdn/inside.woff2", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/cdn/ok.woff2", http.StatusFound)
+	})
+	mux.HandleFunc("/cdn/away.woff2", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, outside.URL+"/steal.woff2", http.StatusFound)
+	})
+	mux.HandleFunc("/cdn/ok.woff2", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("wOF2" + strings.Repeat("x", 32)))
+	})
+	cdn := httptest.NewServer(mux)
+	t.Cleanup(cdn.Close)
+	catalog := NewCatalog(false)
+	catalog.APIBase = cdn.URL
+	catalog.CDNBase = cdn.URL + "/cdn/"
+	catalog.Client = cdn.Client()
+
+	if _, err := catalog.download(context.Background(), cdn.URL+"/cdn/inside.woff2", 1<<20); err != nil {
+		t.Fatalf("a redirect inside the CDN must work: %v", err)
+	}
+	if _, err := catalog.download(context.Background(), cdn.URL+"/cdn/away.woff2", 1<<20); !errors.Is(err, ErrCatalogUnavailable) {
+		t.Fatalf("a redirect to another host must be refused, got %v", err)
+	}
+	if hits := atomic.LoadInt32(&outsideHits); hits != 0 {
+		t.Fatalf("the other host was contacted %d times", hits)
+	}
+	if catalog.Client.CheckRedirect != nil {
+		t.Fatal("the supplied client must not be changed")
+	}
+}

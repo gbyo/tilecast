@@ -18467,19 +18467,40 @@ components:
         defaultSubset: { type: string }
         variable: { type: boolean }
     FontCatalogFamily:
-      allOf:
-        - $ref: "#/components/schemas/FontCatalogEntry"
-        - type: object
-          required: [version, weightRange]
-          properties:
-            version: { type: string }
-            weightRange:
-              oneOf:
-                - { type: "null" }
-                - type: array
-                  minItems: 2
-                  maxItems: 2
-                  items: { type: integer, minimum: 1, maximum: 1000 }
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          family,
+          category,
+          license,
+          subsets,
+          weights,
+          styles,
+          defaultSubset,
+          variable,
+          version,
+          weightRange,
+        ]
+      properties:
+        id: { type: string }
+        family: { type: string }
+        category: { type: string }
+        license: { type: string }
+        subsets: { type: array, items: { type: string } }
+        weights: { type: array, items: { type: integer } }
+        styles: { type: array, items: { type: string } }
+        defaultSubset: { type: string }
+        variable: { type: boolean }
+        version: { type: string }
+        weightRange:
+          oneOf:
+            - { type: "null" }
+            - type: array
+              minItems: 2
+              maxItems: 2
+              items: { type: integer, minimum: 1, maximum: 1000 }
     FontCatalogPage:
       type: object
       additionalProperties: false

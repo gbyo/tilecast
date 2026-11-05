@@ -62,7 +62,6 @@ import {
   SelectValue,
 } from "../ui/select";
 import { useLibraryFonts } from "../../fonts/libraryFonts";
-import { fontKeys } from "../../data/fonts";
 import { GoogleFontDialog } from "../../settings/fonts/GoogleFontDialog";
 import { hasCapability } from "../../auth/capabilities";
 import { Slider } from "../ui/slider";
@@ -308,7 +307,6 @@ function FontSelect({
   const { t } = useTranslation("layouts");
   const auth = useAuth();
   const library = useLibraryFonts();
-  const queryClient = useQueryClient();
   const [adding, setAdding] = useState(false);
   const value = primitive.fontId
     ? LIBRARY_PREFIX + primitive.fontId
@@ -384,7 +382,6 @@ function FontSelect({
             setAdding(false);
             // The new family is the text's font right away.
             onChange(LIBRARY_PREFIX + family.id);
-            void queryClient.invalidateQueries({ queryKey: fontKeys.library });
           }}
         />
       ) : null}
