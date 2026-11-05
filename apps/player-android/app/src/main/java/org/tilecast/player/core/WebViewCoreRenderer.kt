@@ -492,8 +492,9 @@ class WebViewCoreRenderer(
             return CoreRendererRequestCode.INVALID_ACTIVATION
         }
         val capture = captureFrame
-        val blockReason = runCatching { captureBlockReason?.invoke() }.getOrNull()
         scope.launch {
+            val blockReason = runCatching { captureBlockReason?.invoke() }
+                .getOrElse { "capture_policy_unavailable" }
             if (blockReason != null) {
                 report(unavailableCapture(requestId, blockReason.take(64)))
                 return@launch
