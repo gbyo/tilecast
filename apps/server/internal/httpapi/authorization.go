@@ -114,6 +114,7 @@ var objectRules = map[string]objectRule{
 	"GET /api/v1/screens/{id}/snapshots/{snapshotId}/image":         screenObject(auth.CapScreenRead),
 	"GET /api/v1/screens/{id}/playlist-assignment":                  screenObject(auth.CapScreenRead),
 	"GET /api/v1/screens/{id}/playback-plan":                        screenObject(auth.CapScreenRead),
+	"GET /api/v1/screens/{id}/playback-agenda":                      screenObject(auth.CapScreenRead),
 	"PUT /api/v1/screens/{id}/playlist-assignment":                  {kind: objectScreenAssignment, capability: auth.CapScreenAssign},
 	"DELETE /api/v1/screens/{id}/playlist-assignment":               {kind: objectScreenAssignment, capability: auth.CapScreenAssign},
 	"POST /api/v1/screens/bulk/preview":                             handlerObject(auth.CapScreenManage, "authorizes every named screen, all or nothing"),

@@ -126,6 +126,34 @@ errors. Inspection does not select alternative content to hide these limits.
 This API does not establish content health, a dependency inventory, device
 decoder behavior, content readiness, or observed playback.
 
+## Playback agenda
+
+Studio opens the agenda from Schedules. It shows a calendar week in the
+browser's time zone. A narrow viewport shows one date at a time. A group
+selector can open the forecast for any accessible member screen.
+Studio joins adjacent blocks with the same selection for display. The
+details keep the separate intervals and precedence reasons for competing
+schedules.
+
+`GET /api/v1/screens/{id}/playback-agenda` requires management authentication,
+the `read` scope, and access to the screen. Send one `from` and one `to` RFC 3339
+instant with a time zone. The range must have a positive duration of at most
+eight days. The server clips elapsed time to its evaluation instant and returns
+an empty list when the full range has elapsed.
+
+For one screen, all segments use one read-only, repeatable-read transaction.
+The service uses the same selection code as point inspection. It reevaluates
+at schedule boundaries, temporary presentation expirations, and at least
+once every 24 hours of the forecast range. Each segment includes its start
+and excludes its end. Consecutive segments with the same selected presentation
+and superseded schedules join into one segment. A segment without a selection
+represents a time with no expected presentation.
+
+The response includes the active schedules that lost at each segment. It
+does not include readiness, capability evidence, or proof of play. When the
+range exceeds the evaluation limit, the API returns HTTP 422 with
+`playback_agenda_too_many_changes` and no partial forecast.
+
 ## Historical expectations
 
 `History.RecordedAt` reads the expected playback window that contains an
