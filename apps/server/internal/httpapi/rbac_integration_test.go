@@ -24,13 +24,18 @@ import (
 	"github.com/tilecast/tilecast/apps/server/internal/approvals"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
 	"github.com/tilecast/tilecast/apps/server/internal/campaigns"
+	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
 	"github.com/tilecast/tilecast/apps/server/internal/database"
 	"github.com/tilecast/tilecast/apps/server/internal/devices"
+	"github.com/tilecast/tilecast/apps/server/internal/fleetops"
 	"github.com/tilecast/tilecast/apps/server/internal/media"
 	"github.com/tilecast/tilecast/apps/server/internal/oauth"
 	"github.com/tilecast/tilecast/apps/server/internal/playlists"
 	"github.com/tilecast/tilecast/apps/server/internal/plugins"
+	"github.com/tilecast/tilecast/apps/server/internal/presentations"
+	"github.com/tilecast/tilecast/apps/server/internal/scheduling"
 	"github.com/tilecast/tilecast/apps/server/internal/settings"
+	"github.com/tilecast/tilecast/apps/server/internal/takeovers"
 )
 
 // rbacEnvironment is a real router over a real database: sessions, bearer
@@ -43,6 +48,7 @@ type rbacEnvironment struct {
 	router   *httptest.Server
 	auth     *auth.Service
 	media    *media.Service
+	devices  *devices.Service
 	ownerID  uuid.UUID
 	owner    *rbacClient
 	password string
@@ -130,6 +136,12 @@ func withRBACEnvironment(t *testing.T, run func(*rbacEnvironment)) {
 		operationsLimiter: newRateLimiter(1000, time.Minute),
 		installLimiter:    newRateLimiter(1000, time.Minute),
 	}
+	s.scheduling = scheduling.NewService(pool, deviceService, scheduling.Limits{MaxSchedules: 100, MaxTargetsPerSchedule: 100, MaxGroupsPerScreen: 10, PrefetchDays: 7, ActivationGraceSeconds: 60, ClockSkewWarningSeconds: 300})
+	s.presentations = presentations.NewService(pool, deviceService)
+	s.takeovers = takeovers.NewService(pool, playlistService, deviceService, 24*time.Hour)
+	s.fleet = fleetops.NewService(pool, playlistService, deviceService, s.logger)
+	s.fleet.SetScopeAuthorizer(s.authorizer())
+	s.contentHealthService = contenthealth.NewService(pool, s.settings)
 	s.approvals = approvals.NewService(pool, s.settings)
 	s.approvals.SetProvider(approvals.TypePlaylist, playlistService)
 	mediaService.SetUploadAuthorizer(s.authorizeUploadDestination)
@@ -141,7 +153,7 @@ func withRBACEnvironment(t *testing.T, run func(*rbacEnvironment)) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	env := &rbacEnvironment{t: t, pool: pool, server: s, router: router, auth: authService, media: mediaService, ownerID: session.User.ID, password: password}
+	env := &rbacEnvironment{t: t, pool: pool, server: s, router: router, auth: authService, media: mediaService, devices: deviceService, ownerID: session.User.ID, password: password}
 	env.owner = &rbacClient{env: env, token: session.Token, csrf: session.CSRFToken}
 	run(env)
 }

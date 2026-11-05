@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
@@ -15,10 +15,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
-import { Field, FieldDescription, FieldLabel } from "../../components/ui/field";
+import { Checkbox } from "../../components/ui/checkbox";
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "../../components/ui/field";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 import { toast } from "../../components/ui/toast";
+import { useMyAccess } from "../../content/mediaPermissions";
+import { screenQueries } from "../../data/screens";
 
 /**
  * Create or edit a Display Group. The dialog owns its mutation so a failed
@@ -43,12 +52,25 @@ export function DisplayGroupDialog({
   const editing = Boolean(group);
   const [name, setName] = useState(group?.name ?? "");
   const [description, setDescription] = useState(group?.description ?? "");
+  const [screenIds, setScreenIds] = useState<string[]>([]);
+  // An empty group has no anchor in restricted screen access, so a
+  // restricted operator names the first screens with the group. The server
+  // creates both in one transaction and refuses an empty group.
+  const myAccess = useMyAccess();
+  const needsMembers = !editing && myAccess.data?.screens.mode === "restricted";
+  const screens = useQuery({
+    ...screenQueries.list(),
+    enabled: needsMembers && open,
+  });
 
   const save = useMutation({
     mutationFn: (value: { name: string; description: string }) =>
       group
         ? api.updateScreenGroup(group.id, value, csrf)
-        : api.createScreenGroup(value, csrf),
+        : api.createScreenGroup(
+            needsMembers ? { ...value, screenIds } : value,
+            csrf,
+          ),
     onSuccess: async (saved) => {
       toast.add({
         title: t(editing ? "groups.updated" : "groups.created"),
@@ -127,6 +149,51 @@ export function DisplayGroupDialog({
                 {t("groups.dialog.descriptionHint")}
               </FieldDescription>
             </Field>
+            {needsMembers && (
+              <FieldSet className="grid gap-2">
+                <FieldLegend variant="label">
+                  {t("groups.dialog.firstScreensLabel")}
+                </FieldLegend>
+                <FieldDescription>
+                  {t("groups.dialog.firstScreensHint")}
+                </FieldDescription>
+                {screens.error ? (
+                  <Alert variant="destructive">
+                    <AlertDescription>
+                      {apiErrorMessage(screens.error)}
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="grid max-h-48 gap-2 overflow-y-auto">
+                    {(screens.data?.items ?? []).map((screen) => {
+                      const id = `group-first-screen-${screen.id}`;
+                      return (
+                        <Field
+                          key={screen.id}
+                          orientation="horizontal"
+                          className="items-center"
+                        >
+                          <Checkbox
+                            id={id}
+                            checked={screenIds.includes(screen.id)}
+                            onCheckedChange={(checked) =>
+                              setScreenIds((current) =>
+                                checked === true
+                                  ? [...current, screen.id]
+                                  : current.filter(
+                                      (item) => item !== screen.id,
+                                    ),
+                              )
+                            }
+                          />
+                          <FieldLabel htmlFor={id}>{screen.name}</FieldLabel>
+                        </Field>
+                      );
+                    })}
+                  </div>
+                )}
+              </FieldSet>
+            )}
           </div>
           {save.error && (
             <Alert variant="destructive">
@@ -142,7 +209,14 @@ export function DisplayGroupDialog({
             >
               {t("common:actions.cancel")}
             </Button>
-            <Button type="submit" disabled={!name.trim() || save.isPending}>
+            <Button
+              type="submit"
+              disabled={
+                !name.trim() ||
+                save.isPending ||
+                (needsMembers && screenIds.length === 0)
+              }
+            >
               {save.isPending
                 ? t("common:actions.saving")
                 : t(

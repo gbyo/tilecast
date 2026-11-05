@@ -19,7 +19,9 @@ import { Steps } from "@astrojs/starlight/components";
 
 1. Open **Settings** > **Users**.
 2. Enter the person's **Name**, **Username**, and a **Temporary password**. The password must contain at least 12 characters.
-3. Choose a **Role**, then select **Add user**.
+3. Choose a **Role**.
+4. If the role can see screens, choose their **Screen access**: **All screens**, or **Only selected locations and Display Groups** and tick the places they work in.
+5. Select **Add user**.
 
 </Steps>
 
@@ -63,7 +65,25 @@ A new account starts with the same media reach as the person who creates it. If 
 
 ## Limit screen access
 
-In the user's editor, open the **Screen access** tab and select **Locations** and/or **Display Groups**. With no scope selected, the account can operate every screen. A selected scope limits which screens the account can see and operate, but screen access doesn't change which media the account can reach. Owner access always covers the entire fleet.
+Screen access is always an explicit choice. In the user's editor, open the **Screen access** tab and choose one of these:
+
+- **All screens** reaches every screen, including screens added later.
+- **Only selected locations and Display Groups** reaches the screens in the locations you tick, and the screens in the Display Groups you tick.
+
+If you choose **Only selected locations and Display Groups** and tick nothing, the account reaches no screens. That never falls back to the whole fleet. An account created through the API without a screen access choice also starts with no screens.
+
+Screen access doesn't change which media the account can reach. Owner access always covers every screen.
+
+If your own screen access is limited, you can only give other people the locations and Display Groups that were given to you directly, and you can't give anyone **All screens**.
+
+A person with limited screen access works only with what they can reach:
+
+- They pair a new display into one of their own locations, and they can't reject a pairing request from hardware Tilecast hasn't seen.
+- They create a Display Group by choosing at least one of their screens for it.
+- A Display Group, schedule, takeover, or update that also reaches screens outside their access doesn't appear for them, or can't be changed by them.
+- They can't create, rename, or delete Locations or Presentation Networks. Those settings change what other people reach, so they need the **Manage locations** or **Manage Presentation Networks** permission and access to all screens.
+
+The full rules are in [Screen access](https://github.com/gbyo/tilecast/blob/main/docs/screen-scopes.md).
 
 ## Suspend or remove an account
 

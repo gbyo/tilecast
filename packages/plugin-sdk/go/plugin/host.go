@@ -35,6 +35,10 @@ type Host struct {
 	DataSources          DataSources
 	Users                Users
 	PluginAssets         PluginAssets
+	// ScreenAccess decides a Studio operator's screen access for plugin
+	// routes that store or act on screen targets. It is the host's
+	// decision, the same one the dashboard routes use.
+	ScreenAccess ScreenAccess
 }
 
 // DB is the Tilecast PostgreSQL database. Plugins own their tables and query
@@ -100,6 +104,21 @@ type ScreenTargets struct {
 
 // Targets checks screen targeting against the organization's screens, sync
 // groups, and locations. See Target for the shape and the pure validation.
+// ScreenAccess decides what a Studio operator may target. A plugin route
+// that stores screen targets, or changes a stored target, calls it inside
+// the same transaction as the write, for the old and the new targets.
+// Background work that acts for the installation does not call it.
+//
+// Groups and locations in a stored target can gain members later, so a
+// restricted operator may name them only when they are granted to it
+// directly. "All screens" needs access to every screen. An empty target is
+// refused for a restricted operator, because it has nothing to anchor the
+// decision. A refusal wraps ErrOutOfScope.
+type ScreenAccess interface {
+	AuthorizeTargetInTx(ctx context.Context, tx pgx.Tx, principal Principal, target Target) error
+	AuthorizeScreenTargetsInTx(ctx context.Context, tx pgx.Tx, principal Principal, targets ScreenTargets) error
+}
+
 type Targets interface {
 	// ValidateInTx reports ErrInvalid when a target does not exist, is an
 	// archived screen, or is a deleted group.

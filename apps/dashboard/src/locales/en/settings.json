@@ -321,6 +321,10 @@
       "outside_active_hours_text": {
         "title": "Custom text",
         "description": "Centered text shown outside active hours. When empty, Tilecast uses the branding footer text."
+      },
+      "outside_active_hours_wake_animation": {
+        "title": "Play the startup animation when active hours begin",
+        "description": "When the player returns from the outside-hours screen, play the Tilecast startup animation before showing content. Applies to the bouncing logo, custom text and black screen."
       }
     },
     "managed_kiosk": {
@@ -1802,7 +1806,7 @@
     "saved": "Presentation Network saved.",
     "deleted": "Presentation Network deleted.",
     "saveError": "The Presentation Network could not be saved.",
-    "manageOnly": "Only Owners and Administrators may manage Presentation Networks.",
+    "manageOnly": "Managing Presentation Networks needs the Manage Presentation Networks capability and access to every screen.",
     "title": "Temporary Wi-Fi for local presentation",
     "description": "Presentation Networks let supported Linux players join Wi-Fi only while an AirPlay session needs it. Ethernet remains the normal path for Tilecast traffic, downloads, and group video fan-out.",
     "credentialsUnavailable": "Credentials are unavailable on this server.",

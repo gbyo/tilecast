@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/ids"
 )
 
@@ -186,9 +187,12 @@ const pairingRequestQuery = `SELECT p.id,p.status,p.requested_metadata,p.created
 EXISTS(SELECT 1 FROM device_credentials c WHERE c.screen_id=s.id AND c.revoked_at IS NULL),p.replace_existing_credential,p.pairing_mode
 FROM device_pairing_sessions p LEFT JOIN screens s ON s.player_installation_id=p.player_installation_id`
 
-func (s *Service) ListPendingPairings(ctx context.Context) ([]PairingRequest, error) {
+// ListPendingPairings lists open pairing sessions visible to access: every
+// session for the whole fleet, and for a restricted account only sessions
+// from hardware already paired to a screen it reaches.
+func (s *Service) ListPendingPairings(ctx context.Context, access authz.ScreenAccess) ([]PairingRequest, error) {
 	_, _ = s.db.Exec(ctx, `UPDATE device_pairing_sessions SET status='expired' WHERE status IN ('pending','approved') AND expires_at<=now()`)
-	rows, err := s.db.Query(ctx, pairingRequestQuery+` WHERE p.status IN ('pending','approved') AND p.expires_at>now() ORDER BY p.created_at DESC LIMIT 100`)
+	rows, err := s.db.Query(ctx, pairingRequestQuery+` WHERE p.status IN ('pending','approved') AND p.expires_at>now() AND `+access.PairingSessionSQL("p", "$1")+` ORDER BY p.created_at DESC LIMIT 100`, access.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("list pending pairing requests: %w", err)
 	}
@@ -256,11 +260,15 @@ func (s *Service) ApprovePairing(ctx context.Context, id, userID uuid.UUID, name
 	return s.ApprovePairingWithOptions(ctx, id, userID, PairingApproval{
 		Name: name, LocationID: locationID, RoomName: roomName, RoomNumber: roomNumber,
 		Description: description, ReplaceExistingCredential: replaceExistingCredential,
+		Authorize: SystemApproval,
 	})
 }
 
 func (s *Service) ApprovePairingWithOptions(ctx context.Context, id, userID uuid.UUID, input PairingApproval) (Screen, error) {
 	input.Name, input.RoomName, input.RoomNumber, input.Description = strings.TrimSpace(input.Name), strings.TrimSpace(input.RoomName), strings.TrimSpace(input.RoomNumber), strings.TrimSpace(input.Description)
+	if input.Authorize == nil {
+		return Screen{}, errors.New("pairing approval needs an authorization decision")
+	}
 	if input.ReplaceHardware && input.ReplaceExistingCredential {
 		return Screen{}, fmt.Errorf("hardware replacement and credential repair are mutually exclusive: %w", ErrConflict)
 	}
@@ -301,6 +309,11 @@ func (s *Service) ApprovePairingWithOptions(ctx context.Context, id, userID uuid
 	if status == "approved" {
 		var existing uuid.UUID
 		if err := tx.QueryRow(ctx, `SELECT resulting_screen_id FROM device_pairing_sessions WHERE id=$1`, id).Scan(&existing); err == nil {
+			// A repeated approval reports the screen it produced, which
+			// the approver must be able to reach.
+			if err := input.Authorize(ctx, tx, authz.PairingTarget{Kind: authz.PairingRepair, ScreenID: existing}); err != nil {
+				return Screen{}, err
+			}
 			return s.GetScreen(ctx, existing)
 		}
 	}
@@ -344,12 +357,25 @@ func (s *Service) ApprovePairingWithOptions(ctx context.Context, id, userID uuid
 		if installationInUse {
 			return Screen{}, fmt.Errorf("player installation is already assigned to another screen: %w", ErrConflict)
 		}
+		if err := input.Authorize(ctx, tx, authz.PairingTarget{Kind: authz.PairingReplacement, ScreenID: *input.ReplacementScreenID}); err != nil {
+			return Screen{}, err
+		}
+		if err := checkReplacementDisplayControl(ctx, tx, *input.ReplacementScreenID, metadata.Platform); err != nil {
+			return Screen{}, err
+		}
 		screenID = *input.ReplacementScreenID
 		pairingMode = "hardware_replacement"
 	} else {
 		var archivedAt *time.Time
 		err = tx.QueryRow(ctx, `SELECT s.id,EXISTS(SELECT 1 FROM device_credentials c WHERE c.screen_id=s.id AND c.revoked_at IS NULL),s.archived_at FROM screens s WHERE s.organization_id=$1 AND s.player_installation_id=$2`, organizationID, metadata.PlayerInstallationID).Scan(&existingID, &activeCredential, &archivedAt)
 		if err == nil {
+			target := authz.PairingTarget{Kind: authz.PairingRepair, ScreenID: existingID}
+			if archivedAt != nil {
+				target = authz.PairingTarget{Kind: authz.PairingRestore, LocationID: input.LocationID}
+			}
+			if err := input.Authorize(ctx, tx, target); err != nil {
+				return Screen{}, err
+			}
 			if activeCredential && !input.ReplaceExistingCredential {
 				return Screen{}, ErrPairingRecovery
 			}
@@ -369,6 +395,9 @@ func (s *Service) ApprovePairingWithOptions(ctx context.Context, id, userID uuid
 				_, err = tx.Exec(ctx, `UPDATE screens SET platform=$2,device_manufacturer=$3,device_model=$4,android_version=$5,player_version=$6,screen_width=$7,screen_height=$8,density=$9,locale=$10,timezone=$11,enabled=TRUE,paired_at=now(),updated_at=now() WHERE id=$1`, screenID, metadata.Platform, metadata.Manufacturer, metadata.Model, metadata.AndroidVersion, metadata.PlayerVersion, metadata.ScreenWidth, metadata.ScreenHeight, metadata.Density, metadata.Locale, metadata.Timezone)
 			}
 		} else if errors.Is(err, pgx.ErrNoRows) {
+			if err := input.Authorize(ctx, tx, authz.PairingTarget{Kind: authz.PairingNew, LocationID: input.LocationID}); err != nil {
+				return Screen{}, err
+			}
 			_, err = tx.Exec(ctx, `INSERT INTO screens (id,organization_id,player_installation_id,name,description,location_id,room_name,room_number,platform,device_manufacturer,device_model,android_version,player_version,screen_width,screen_height,density,locale,timezone) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`, screenID, organizationID, metadata.PlayerInstallationID, input.Name, input.Description, input.LocationID, input.RoomName, input.RoomNumber, metadata.Platform, metadata.Manufacturer, metadata.Model, metadata.AndroidVersion, metadata.PlayerVersion, metadata.ScreenWidth, metadata.ScreenHeight, metadata.Density, metadata.Locale, metadata.Timezone)
 		}
 	}

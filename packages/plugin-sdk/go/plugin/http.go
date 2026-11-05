@@ -113,6 +113,9 @@ var (
 	ErrInvalid = errors.New("invalid plugin configuration")
 	// ErrNotInstalled: the plugin is not installed (409).
 	ErrNotInstalled = errors.New("plugin is not installed")
+	// ErrOutOfScope: the operator may not target those screens (403
+	// out_of_scope). ScreenAccess returns it; a plugin passes it through.
+	ErrOutOfScope = errors.New("some of the selected screens are outside your screen access")
 )
 
 // APIError is an explicit HTTP error response.

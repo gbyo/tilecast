@@ -200,6 +200,10 @@ pub enum PresentationDocument {
         text: Option<SafeText<240>>,
         #[serde(rename = "textColor", default, skip_serializing_if = "Option::is_none")]
         text_color: Option<SafeText<32>>,
+        /// Play the startup animation when the screen wakes. Absent means the
+        /// Runtime default (on).
+        #[serde(rename = "wakeAnimation", default, skip_serializing_if = "Option::is_none")]
+        wake_animation: Option<bool>,
     },
     Playing {
         items: Vec<PresentationItem>,

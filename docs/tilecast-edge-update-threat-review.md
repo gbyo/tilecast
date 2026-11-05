@@ -1,6 +1,6 @@
 # Tilecast Edge updater: threat-boundary review
 
-This is the written threat-boundary review that the Edge security invariants require for a new root operation ([`tilecast-edge-next.md`](tilecast-edge-next.md), invariant 16; [`tilecast-edge.md`](tilecast-edge.md) §4.3). It covers the M10 update path: the root helper `tilecast-edge-update`, its socket and its guard units, the update coordinator in `tilecastd`, and the server's part in a Tilecast Edge deployment. Read it before you change `apps/edge/tilecast-edge-update`, `apps/edge/crates/edge-release`, `apps/edge/tilecastd/src/update.rs`, the helper's units in `apps/edge/packaging/systemd`, or the `edge` family code in `apps/server/internal/updates`.
+The [Edge privilege contract](tilecast-edge.md#43-privileged-helpers) requires this review for a new root operation. This review covers the root helper `tilecast-edge-update`, its socket and guard units, the update coordinator in `tilecastd`, and the Server's part in an Edge deployment. Read it before you change `apps/edge/tilecast-edge-update`, `apps/edge/crates/edge-release`, `apps/edge/tilecastd/src/update.rs`, the helper's units in `apps/edge/packaging/systemd`, or the `edge` family code in `apps/server/internal/updates`.
 
 The migrator has its own review, [`tilecast-edge-migration-threat-review.md`](tilecast-edge-migration-threat-review.md). The two share the release installer (`edge-release`) and the release signing key.
 

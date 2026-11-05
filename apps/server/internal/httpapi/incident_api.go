@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type incidentRecord struct {
@@ -141,7 +142,7 @@ func (s *server) listIncidents(w http.ResponseWriter, r *http.Request) {
 		allowed    []string
 	}{
 		{"severity", "i.severity = $%d", []string{"info", "warning", "error", "critical"}},
-		{"type", "i.incident_type = $%d", []string{incidentConnectivity, incidentPlayback, incidentStorage, incidentSafeMode, incidentUpdate}},
+		{"type", "i.incident_type = $%d", []string{incidentConnectivity, incidentPlayback, incidentStorage, incidentSafeMode, incidentUpdate, incidentDataSource, incidentContent}},
 	} {
 		value := queryValue(r, filter.key)
 		if value == "" {
@@ -240,39 +241,66 @@ func (s *server) getIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	record, err := scanIncident(s.db.QueryRow(r.Context(), incidentSelectSQL+` WHERE i.id=$1`, id).Scan)
-	if err != nil {
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "incident_not_found", "Incident was not found.")
 		return
 	}
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	// Evidence that cannot be read is an error, never an empty section: an
+	// operator must not mistake unavailable history for no history.
 	detail := incidentDetail{incidentRecord: record, Timeline: []incidentTimelineEntry{}, Screens: []incidentScreenRef{}}
+	if err := s.readIncidentTimeline(r, &detail); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if err := s.attachIncidentEvidence(r, &detail, visibility); err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	detail.RecoveryPath = incidentRecoveryPath(record)
+	writeJSON(w, http.StatusOK, map[string]any{"data": detail})
+}
+
+func (s *server) readIncidentTimeline(r *http.Request, detail *incidentDetail) error {
 	timelineRows, err := s.db.Query(r.Context(), `
 		SELECT e.id,e.role,e.occurred_at,COALESCE(u.name,''),e.summary
 		FROM incident_events e LEFT JOIN users u ON u.id=e.actor_id
-		WHERE e.incident_id=$1 ORDER BY e.occurred_at DESC,e.id DESC LIMIT 100`, id)
-	if err == nil {
-		defer timelineRows.Close()
-		for timelineRows.Next() {
-			var entry incidentTimelineEntry
-			if timelineRows.Scan(&entry.ID, &entry.Role, &entry.OccurredAt, &entry.ActorName, &entry.Summary) == nil {
-				detail.Timeline = append(detail.Timeline, entry)
-			}
+		WHERE e.incident_id=$1 ORDER BY e.occurred_at DESC,e.id DESC LIMIT 100`, detail.ID)
+	if err != nil {
+		return fmt.Errorf("read incident timeline: %w", err)
+	}
+	defer timelineRows.Close()
+	for timelineRows.Next() {
+		var entry incidentTimelineEntry
+		if err := timelineRows.Scan(&entry.ID, &entry.Role, &entry.OccurredAt, &entry.ActorName, &entry.Summary); err != nil {
+			return fmt.Errorf("scan incident timeline: %w", err)
 		}
+		detail.Timeline = append(detail.Timeline, entry)
+	}
+	if err := timelineRows.Err(); err != nil {
+		return fmt.Errorf("read incident timeline: %w", err)
 	}
 	screenRows, err := s.db.Query(r.Context(), `
 		SELECT x.screen_id,COALESCE(s.name,'') FROM incident_screens x
-		JOIN screens s ON s.id=x.screen_id WHERE x.incident_id=$1 ORDER BY s.name LIMIT 200`, id)
-	if err == nil {
-		defer screenRows.Close()
-		for screenRows.Next() {
-			var ref incidentScreenRef
-			if screenRows.Scan(&ref.ScreenID, &ref.ScreenName) == nil {
-				detail.Screens = append(detail.Screens, ref)
-			}
-		}
+		JOIN screens s ON s.id=x.screen_id WHERE x.incident_id=$1 ORDER BY s.name LIMIT 200`, detail.ID)
+	if err != nil {
+		return fmt.Errorf("read incident screens: %w", err)
 	}
-	s.attachIncidentEvidence(r, &detail, visibility)
-	detail.RecoveryPath = incidentRecoveryPath(record)
-	writeJSON(w, http.StatusOK, map[string]any{"data": detail})
+	defer screenRows.Close()
+	for screenRows.Next() {
+		var ref incidentScreenRef
+		if err := screenRows.Scan(&ref.ScreenID, &ref.ScreenName); err != nil {
+			return fmt.Errorf("scan incident screens: %w", err)
+		}
+		detail.Screens = append(detail.Screens, ref)
+	}
+	if err := screenRows.Err(); err != nil {
+		return fmt.Errorf("read incident screens: %w", err)
+	}
+	return nil
 }
 
 type incidentActionInput struct {
@@ -445,12 +473,12 @@ func incidentWindow(record incidentRecord) (time.Time, time.Time) {
 // incident was live. Commands and updates are activity events with their own
 // categories, so they arrive through the same stream rather than needing
 // separate joins.
-func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail, visibility activityVisibility) {
+func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail, visibility activityVisibility) error {
 	detail.RelatedEvents = []screenEventRecord{}
 	detail.ProofSessions = []proofOfPlayRecord{}
 	detail.AuditChanges = []auditActivityRecord{}
 	if detail.PrimaryScreenID == nil {
-		return
+		return nil
 	}
 	screenID := *detail.PrimaryScreenID
 	from, to := incidentWindow(detail.incidentRecord)
@@ -463,32 +491,43 @@ func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail,
 			FROM player_activity_events e JOIN screens s ON s.id=e.screen_id
 			WHERE e.screen_id=$1 AND e.occurred_at>=$2 AND e.occurred_at<$3
 			ORDER BY e.occurred_at DESC,e.sequence DESC LIMIT 100`, screenID, from, to)
-		if err == nil {
-			defer eventRows.Close()
-			for eventRows.Next() {
-				var item screenEventRecord
-				var presentationType, presentationID, contentType, contentID string
-				var raw []byte
-				if eventRows.Scan(&item.ID, &item.Timestamp, &item.ReceivedAt, &item.ScreenID, &item.ScreenName, &item.GroupID, &item.GroupName, &item.Sequence, &item.EventType, &item.Category, &item.Severity, &item.Result, &item.ManifestVersion, &presentationType, &presentationID, &contentType, &contentID, &item.FailureCode, &item.FailureMessage, &raw) == nil {
-					item.RelatedType, item.RelatedID = activityRelatedResource(presentationType, presentationID, contentType, contentID)
-					item.Description = screenEventDescription(item.EventType, item.ScreenName, item.RelatedType)
-					item.Details = activityMetadata(raw, item.Severity == "error", visibility)
-					detail.RelatedEvents = append(detail.RelatedEvents, item)
-				}
+		if err != nil {
+			return fmt.Errorf("read incident activity: %w", err)
+		}
+		defer eventRows.Close()
+		for eventRows.Next() {
+			var item screenEventRecord
+			var presentationType, presentationID, contentType, contentID string
+			var raw []byte
+			if err := eventRows.Scan(&item.ID, &item.Timestamp, &item.ReceivedAt, &item.ScreenID, &item.ScreenName, &item.GroupID, &item.GroupName, &item.Sequence, &item.EventType, &item.Category, &item.Severity, &item.Result, &item.ManifestVersion, &presentationType, &presentationID, &contentType, &contentID, &item.FailureCode, &item.FailureMessage, &raw); err != nil {
+				return fmt.Errorf("scan incident activity: %w", err)
 			}
+			item.RelatedType, item.RelatedID = activityRelatedResource(presentationType, presentationID, contentType, contentID)
+			item.Description = screenEventDescription(item.EventType, item.ScreenName, item.RelatedType)
+			item.Details = activityMetadata(raw, item.Severity == "error", visibility)
+			detail.RelatedEvents = append(detail.RelatedEvents, item)
+		}
+		if err := eventRows.Err(); err != nil {
+			return fmt.Errorf("read incident activity: %w", err)
 		}
 	}
 
 	proofRows, err := s.db.Query(r.Context(), proofSelectSQL+`
 		WHERE p.screen_id=$1 AND p.started_at<$3 AND COALESCE(p.ended_at,$3)>$2
 		ORDER BY p.started_at DESC LIMIT 50`, screenID, from, to)
-	if err == nil {
-		defer proofRows.Close()
-		for proofRows.Next() {
-			if item, err := scanProof(proofRows.Scan, visibility); err == nil {
-				detail.ProofSessions = append(detail.ProofSessions, item)
-			}
+	if err != nil {
+		return fmt.Errorf("read incident proof of play: %w", err)
+	}
+	defer proofRows.Close()
+	for proofRows.Next() {
+		item, err := scanProof(proofRows.Scan, visibility)
+		if err != nil {
+			return fmt.Errorf("scan incident proof of play: %w", err)
 		}
+		detail.ProofSessions = append(detail.ProofSessions, item)
+	}
+	if err := proofRows.Err(); err != nil {
+		return fmt.Errorf("read incident proof of play: %w", err)
 	}
 
 	auditRows, err := s.db.Query(r.Context(), `
@@ -500,23 +539,26 @@ func (s *server) attachIncidentEvidence(r *http.Request, detail *incidentDetail,
 		WHERE a.created_at>=$2 AND a.created_at<$3
 		  AND (a.resource_id=$1::text OR (a.resource_type='incident' AND a.resource_id=$4::text))
 		ORDER BY a.created_at DESC LIMIT 50`, screenID, from, to, detail.ID)
-	if err == nil {
-		defer auditRows.Close()
-		for auditRows.Next() {
-			var item auditActivityRecord
-			var raw []byte
-			var sensitive bool
-			if auditRows.Scan(&item.ID, &item.Timestamp, &item.ActorID, &item.ActorName, &item.ActorUsername,
-				&item.Action, &item.ResourceType, &item.ResourceID, &item.ResourceName, &item.Result,
-				&item.IPAddress, &item.RequestID, &item.Summary, &raw, &sensitive) == nil {
-				item.Metadata = activityMetadata(raw, sensitive, visibility)
-				if !activityCanSeeSensitive(visibility) {
-					item.IPAddress, item.RequestID = "", ""
-				}
-				detail.AuditChanges = append(detail.AuditChanges, item)
-			}
-		}
+	if err != nil {
+		return fmt.Errorf("read incident audit changes: %w", err)
 	}
+	defer auditRows.Close()
+	for auditRows.Next() {
+		var item auditActivityRecord
+		var raw []byte
+		var sensitive bool
+		if err := auditRows.Scan(&item.ID, &item.Timestamp, &item.ActorID, &item.ActorName, &item.ActorUsername,
+			&item.Action, &item.ResourceType, &item.ResourceID, &item.ResourceName, &item.Result,
+			&item.IPAddress, &item.RequestID, &item.Summary, &raw, &sensitive); err != nil {
+			return fmt.Errorf("scan incident audit changes: %w", err)
+		}
+		item.Metadata = activityMetadata(raw, sensitive, visibility)
+		if !activityCanSeeSensitive(visibility) {
+			item.IPAddress, item.RequestID = "", ""
+		}
+		detail.AuditChanges = append(detail.AuditChanges, item)
+	}
+	return auditRows.Err()
 }
 
 // incidentRecoveryPath states how the incident ended, using only what was

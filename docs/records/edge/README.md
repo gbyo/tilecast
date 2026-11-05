@@ -9,6 +9,7 @@ privilege, lifecycle, and update rules. Use
 [Edge state and next work](../../tilecast-edge-next.md) for the current
 qualification ledger.
 
+- [Edge 1 milestone sequence](edge-1-milestones.md)
 - [M9 reuse review](m9-reuse-review.md)
 - [M10 systemd-sysupdate evaluation](m10-sysupdate-evaluation.md)
 - [M11 remote-web transport spike](m11-remote-web-spike.md)

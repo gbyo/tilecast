@@ -9,7 +9,7 @@ import {
 
 export default defineWidget<WeatherConfig, WeatherData>({
   type: "tilecast.weather",
-  version: 1,
+  version: 2,
   tagName: "tc-widget-weather",
   parseConfig: parseWeatherConfig,
   // Weather reads the normalized Weather source the author connected. No

@@ -61,6 +61,7 @@ pub fn gate_document(
                 display: ShortToken::new(config.runtime.power.outside_display.as_str()).ok(),
                 text: Some(SafeText::lossy(&config.runtime.power.outside_text)),
                 text_color: Some(SafeText::lossy(config.runtime.branding.text())),
+                wake_animation: Some(config.runtime.power.wake_animation),
             },
             Vec::new(),
         ),
@@ -298,7 +299,7 @@ impl player_core::OfflineActivationHost for Host {
         let engine = self.0.presentation.lock().await;
         player_core::OfflineRendererHealth {
             safe_mode: engine.is_safe_mode(),
-            current_error: engine.current_has_renderer_error(),
+            current_refused: engine.current_refused(),
         }
     }
     async fn set_clock_offset(&self, offset_ms: i64) {

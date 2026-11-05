@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/tilecast/tilecast/apps/server/internal/auth"
+	"github.com/tilecast/tilecast/apps/server/internal/authz"
 	"github.com/tilecast/tilecast/apps/server/internal/contenthealth"
 )
 
@@ -32,6 +33,25 @@ func (s *server) contentHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	if !principal.Can(auth.CapScreenRead) {
 		report.UnassignedScreens = []contenthealth.UnassignedScreen{}
+	} else {
+		// Unassigned screens are live screen facts: a restricted account sees
+		// only the screens it reaches, by the same rule as the screen list.
+		ids := make([]uuid.UUID, 0, len(report.UnassignedScreens))
+		for _, screen := range report.UnassignedScreens {
+			ids = append(ids, screen.ID)
+		}
+		reached, err := s.authorizer().Reachable(r.Context(), authz.ActorFor(principal), auth.CapScreenRead, authz.KindScreen, ids)
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
+		visible := []contenthealth.UnassignedScreen{}
+		for _, screen := range report.UnassignedScreens {
+			if reached[screen.ID] {
+				visible = append(visible, screen)
+			}
+		}
+		report.UnassignedScreens = visible
 	}
 	if !principal.Can(auth.CapMediaRead) {
 		report.ExpiringAssets = []contenthealth.ExpiringAsset{}

@@ -200,13 +200,15 @@ export class BrowserPlayer {
   private onEvidence(value: EvidenceReportV1): void {
     if (value.activation?.activationId !== this.active?.activationId) return;
     this.activity?.proof.evidence(value.kind, value.itemId);
-    if (!meaningfulEvidence(this.state)) return;
-    this.lastHealthyAtMs = this.correctedNow();
+    // The current item is what is on screen, online or not, so the first
+    // heartbeat after a reconnect reports an item that started offline.
     if (value.kind === "item-started" && value.itemId) {
       this.currentItemId = value.itemId.startsWith("layout-")
         ? value.itemId.slice("layout-".length)
         : value.itemId;
     }
+    if (!meaningfulEvidence(this.state)) return;
+    this.lastHealthyAtMs = this.correctedNow();
   }
 
   private onPlaybackError(value: PlaybackErrorReportV1): void {

@@ -36,12 +36,11 @@ service, and neither can read the device credential:
 The Tilecast Server is the only authority. `tilecastd` reconciles directly
 from it and keeps playing from local state when it is unreachable.
 
-Edge preview releases are published for x86_64 and aarch64. The software path,
-including remote-web isolation and signed updates, is implemented. Hardware
-qualification is release- and device-class-specific: a published preview or a
-passing result on one Intel screen does not qualify another graphics stack,
-display, or architecture. Check the current qualification ledger before
-migrating a production screen.
+The [coordinated release process](../../docs/release-process.md) includes signed
+Edge assets for x86_64 and aarch64. Check the
+[qualification ledger](../../docs/tilecast-edge-next.md#3-current-readiness-sources)
+for evidence for the release and hardware class before migrating a production
+screen.
 
 The design is [`docs/tilecast-edge.md`](../../docs/tilecast-edge.md). The
 current state and the next work are in

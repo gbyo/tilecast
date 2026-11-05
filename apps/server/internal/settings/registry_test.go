@@ -154,16 +154,24 @@ func TestDefinitionJSONUsesPublicContractFieldNames(t *testing.T) {
 	}
 }
 
+func TestWakeAnimationDefaultsOnAndProjects(t *testing.T) {
+	definition, ok := byKey["power.outside_active_hours_wake_animation"]
+	if !ok || definition.Default != true || definition.Scope != ScopePolicy || definition.Type != "bool" {
+		t.Fatalf("wake animation definition=%#v ok=%v", definition, ok)
+	}
+}
+
 func TestReliabilityPoliciesAreTypedAndBounded(t *testing.T) {
 	valid := map[string]any{
-		"reliability.mode":                   "managed_kiosk",
-		"power.outside_active_hours_display": "bouncing_logo",
-		"power.outside_active_hours_text":    "Powered by Weekly Wildcat",
-		"power.active_hours_timezone":        "America/New_York",
-		"power.active_hours_days":            []any{1.0, 2.0, 5.0},
-		"power.active_hours_start":           "22:00",
-		"power.active_hours_end":             "02:00",
-		"accessibility.allowed_packages":     []any{"com.example.maintenance"},
+		"reliability.mode":                          "managed_kiosk",
+		"power.outside_active_hours_display":        "bouncing_logo",
+		"power.outside_active_hours_text":           "Powered by Weekly Wildcat",
+		"power.outside_active_hours_wake_animation": false,
+		"power.active_hours_timezone":               "America/New_York",
+		"power.active_hours_days":                   []any{1.0, 2.0, 5.0},
+		"power.active_hours_start":                  "22:00",
+		"power.active_hours_end":                    "02:00",
+		"accessibility.allowed_packages":            []any{"com.example.maintenance"},
 	}
 	if _, err := Validate(valid, ScopePolicy); err != nil {
 		t.Fatal(err)
@@ -175,6 +183,7 @@ func TestReliabilityPoliciesAreTypedAndBounded(t *testing.T) {
 		"unsafe package":     {"accessibility.allowed_packages": []any{"../settings"}},
 		"restart loop":       {"reliability.maximum_process_restarts": 99.0},
 		"bad off-hours mode": {"power.outside_active_hours_display": "dvd"},
+		"bad wake animation": {"power.outside_active_hours_wake_animation": "yes"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if _, err := Validate(values, ScopePolicy); err == nil {

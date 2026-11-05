@@ -291,8 +291,20 @@ func (s *Service) AppendUpload(ctx context.Context, id, userID uuid.UUID, expect
 		return Upload{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		_ = file.Truncate(expectedOffset)
-		return Upload{}, err
+		// A commit error is ambiguous: PostgreSQL may have recorded the new
+		// offset. Truncate only when the old offset is confirmed. Otherwise
+		// the written bytes stay; a retry from the old offset overwrites
+		// them, and a committed offset still has its bytes on disk.
+		var stored int64
+		if checkErr := s.db.QueryRow(ctx, `SELECT current_offset FROM upload_sessions WHERE id=$1`, id).Scan(&stored); checkErr != nil {
+			return Upload{}, err
+		}
+		if stored != u.CurrentOffset {
+			if stored == expectedOffset {
+				_ = file.Truncate(expectedOffset)
+			}
+			return Upload{}, err
+		}
 	}
 	u.UploadEndpoint = "/api/v1/uploads/" + id.String()
 	u.MaximumSize = s.cfg.MaxUploadBytes

@@ -23,6 +23,7 @@ import type { RuntimeSurfaceHost } from "../plugins/host";
 import type { PresentationProviders } from "../plugins/presentation-providers";
 import type { RuntimeWidgetHost } from "../widgets/host";
 import type { StartupSignals } from "../startup/sequence";
+import type { WakeAnimation } from "../startup/wake";
 import { Stage } from "../surfaces/stage";
 import type { SetupBridge, StatusSurface } from "./status-surface";
 import "./outside-hours";
@@ -43,6 +44,8 @@ export interface PlayerRootBindings {
   providers?: PresentationProviders;
   /** Receives the first painted presentation for the document startup layer. */
   startup?: StartupSignals;
+  /** Plays the startup animation when outside-hours ends. */
+  wake?: WakeAnimation;
 }
 
 type Sleep = Extract<RuntimePresentation, { state: "sleep" }>;
@@ -71,6 +74,8 @@ export class PlayerRoot extends LitElement {
   private bindings: PlayerRootBindings | null = null;
   private stage: Stage | null = null;
   private identifyTimer: { cancel(): void } | null = null;
+  /** The signals of a wake animation that is playing, if one is. */
+  private wakeSignals: StartupSignals | null = null;
   private unsubscribers: (() => void)[] = [];
 
   constructor() {
@@ -177,10 +182,50 @@ export class PlayerRoot extends LitElement {
     `;
   }
 
+  /**
+   * Leaving the outside-hours screen starts the wake animation, from the
+   * bouncing logo's place when that is what was showing. Going back to
+   * outside hours drops one still playing. The outside-hours screen is still
+   * in the document here, so the logo can be measured.
+   */
+  private updateWake(view: RuntimeViewState): void {
+    const wake = this.bindings?.wake;
+    if (!wake) return;
+    if (view.mode === "sleep") {
+      wake.abort();
+      this.wakeSignals = null;
+      return;
+    }
+    const leaving = this.sleep;
+    if (!leaving || leaving.wakeAnimation === false) return;
+    const logo =
+      leaving.display === "bouncing_logo"
+        ? this.querySelector<HTMLImageElement>(".outside-hours-logo-y")
+        : null;
+    const box = logo?.getBoundingClientRect();
+    this.wakeSignals = wake.begin(
+      logo && box
+        ? {
+            rect: {
+              left: box.left,
+              top: box.top,
+              width: box.width,
+              height: box.height,
+            },
+            src: logo.getAttribute("src"),
+          }
+        : null,
+    );
+  }
+
   private onView(view: RuntimeViewState): void {
     const controller = this.bindings!.controller;
     const startup = this.bindings!.startup;
-    if (view.mode !== "waiting") startup?.presentationAccepted();
+    if (view.mode !== "waiting") {
+      this.updateWake(view);
+      startup?.presentationAccepted();
+      this.wakeSignals?.presentationAccepted();
+    }
     switch (view.mode) {
       case "waiting":
         return;
@@ -197,6 +242,7 @@ export class PlayerRoot extends LitElement {
             afterPaint(() => {
               controller.statusPainted(key);
               startup?.presentationShown();
+              this.wakeSignals?.presentationShown();
             }),
           );
         const providers = this.bindings!.providers;
@@ -231,7 +277,10 @@ export class PlayerRoot extends LitElement {
         // The stage shows an occurrence once it is ready to be seen.
         if (view.stage?.phase === "shown" && startup) {
           void this.updateComplete.then(() =>
-            afterPaint(() => startup.presentationShown()),
+            afterPaint(() => {
+              startup.presentationShown();
+              this.wakeSignals?.presentationShown();
+            }),
           );
         }
         return;

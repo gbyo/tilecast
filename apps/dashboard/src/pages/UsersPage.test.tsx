@@ -262,7 +262,9 @@ describe("user editor screen scope disclosure", () => {
       },
     ]);
     vi.spyOn(api, "userScreenScopes").mockResolvedValue({
+      mode: "all",
       scopes: [],
+      configured: true,
       wholeFleet: true,
     });
     vi.spyOn(api, "locations").mockResolvedValue({
@@ -285,20 +287,26 @@ describe("user editor screen scope disclosure", () => {
     // The editor groups what a person can do (Role), which media they reach
     // (Content access), and which screens they reach (Screen access). Screen
     // access stays out of the way until its tab is opened.
-    expect(screen.queryByRole("radio", { name: "Limit access" })).toBeNull();
+    expect(
+      screen.queryByRole("radio", {
+        name: "Only selected locations and Display Groups",
+      }),
+    ).toBeNull();
     await userEvent.click(
       await screen.findByRole("tab", { name: "Screen access" }),
     );
     // The tab opens on the explicit access choice; location
-    // checkboxes appear once limited access is selected.
+    // checkboxes appear once restricted access is selected.
     await userEvent.click(
-      await screen.findByRole("radio", { name: "Limit access" }),
+      await screen.findByRole("radio", {
+        name: "Only selected locations and Display Groups",
+      }),
     );
     expect(
       await screen.findByRole("checkbox", { name: "Library" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Save screen scope" }),
+      screen.getByRole("button", { name: "Save screen access" }),
     ).toBeInTheDocument();
   });
 });
@@ -372,10 +380,13 @@ describe("user creation dialog", () => {
           init?.method === "POST",
       );
       expect(creation).toBeDefined();
+      // Screen access is always sent, so the account never exists with a
+      // policy nobody chose. An Owner creator starts from all screens.
       expect(JSON.parse(creation?.[1]?.body as string)).toMatchObject({
         name: "New Editor",
         username: "new-editor",
         role: "viewer",
+        screenAccess: { mode: "all", scopes: [] },
       });
     });
     await waitFor(() =>

@@ -35,6 +35,8 @@ Reliability, power, and accessibility keys are policy-scoped and follow the same
 
 The power-assist fields `power.startup_grace_seconds`, `power.shutdown_prepare_seconds`, `power.keep_screen_on`, and `power.sleep_outside_active_hours` are Android-only. Linux reports its host display-control capability and uses `linux_kiosk.prevent_display_sleep`, systemd, and its branded off-hours presentation instead; it does not silently reinterpret those Android power-assist values as operating-system sleep commands.
 
+The policy key `power.outside_active_hours_wake_animation` is a boolean and defaults to `true`. The server sends it in the `power` map of the Player configuration as `outsideActiveHoursWakeAnimation`. When the value is `true`, a Player that leaves the outside-active-hours surface plays the Tilecast startup animation before it shows content. The key applies to the black screen, the custom-text surface, and the bouncing logo. Studio disables the control when active hours are off.
+
 Players preserve the current and previous valid configuration in Room, validate before activation, reconcile periodically, and react to lightweight `config.changed` notifications. Item-specific playlist settings continue to win over player defaults. Invalid configuration preserves the previous valid revision and reports a safe error.
 
 ### Playback defaults and item delegation

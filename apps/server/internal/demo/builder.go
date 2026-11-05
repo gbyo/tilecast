@@ -154,6 +154,9 @@ func (b *builder) user(id uuid.UUID, name, username, role string) error {
 	if _, err = b.svc.DB.Exec(b.ctx, `INSERT INTO user_content_access(user_id,library_mode,tag_mode) VALUES($1,'all','all')`, id); err != nil {
 		return fmt.Errorf("create content access for %q: %w", username, err)
 	}
+	if _, err = b.svc.DB.Exec(b.ctx, `INSERT INTO user_screen_access(user_id,mode) VALUES($1,'all')`, id); err != nil {
+		return fmt.Errorf("create screen access for %q: %w", username, err)
+	}
 	_, err = b.svc.DB.Exec(b.ctx, `INSERT INTO audit_logs(id,user_id,action,resource_type,resource_id,metadata) VALUES($1,$2,'user.created','user',$3,jsonb_build_object('role',$4::text))`, uuid.New(), b.owner, id.String(), role)
 	return err
 }
@@ -219,7 +222,7 @@ func (b *builder) enroll(spec ScreenSpec, replace bool) (string, error) {
 	}
 	approved, err := b.svc.Devices.ApprovePairingWithOptions(b.with(spec.ID), pairing.ID, b.owner, devices.PairingApproval{
 		Name: spec.Name, LocationID: spec.LocationID, RoomName: spec.RoomName, RoomNumber: spec.RoomNumber, Description: spec.Description,
-		ReplaceExistingCredential: replace,
+		ReplaceExistingCredential: replace, Authorize: devices.SystemApproval,
 	})
 	if err != nil {
 		return "", fmt.Errorf("approve pairing for %q: %w", spec.Name, err)

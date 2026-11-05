@@ -12,6 +12,12 @@ through the application-scoped `PlayerCoreHost`. Production runs Core.
 Kotlin keeps setup discovery, server-address entry, OS effects, the
 trusted WebView renderer, capture, and self-update installation.
 
+Preview and Watch Live capture use the same Android window. The Player discards
+a capture if the window detaches or the capture policy changes to a protected
+state. On Android 10 and later, window PixelCopy waits for a new committed
+frame. Older releases draw the current view tree and copy visible video surfaces
+where the platform supports it.
+
 Kotlin calls `PlayerCoreHost.startDrivers` to open the host and start the
 Core drivers. Core keeps the pairing session and enrollment. The Keystore
 keeps the device credential. The file `player-core/pairing.json` keeps the

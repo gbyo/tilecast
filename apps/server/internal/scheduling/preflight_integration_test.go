@@ -2,6 +2,7 @@ package scheduling
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -306,5 +307,53 @@ func TestDisplayControlScheduleSkipsPresentationReadiness(t *testing.T) {
 	// Content schedules are still checked.
 	if _, err = f.service.Create(f.ctx, f.user, f.weekdayInput("Content", 0, group(f.lobby))); err != nil || readiness.calls != 1 {
 		t.Fatalf("content create err=%v readiness calls=%d", err, readiness.calls)
+	}
+}
+
+func TestDisplayControlGroupAdmissionRechecksCommittedState(t *testing.T) {
+	t.Run("membership commits first", func(t *testing.T) {
+		f := newPreflightFixture(t)
+		in := f.weekdayInput("Power on", 0, group(f.lobby))
+		in.PlaylistID = uuid.Nil
+		in.DisplayAction = &displaycontrol.Action{Type: displaycontrol.CommandPowerOn}
+		if err := f.service.validateInput(f.ctx, in); err != nil {
+			t.Fatal(err)
+		}
+		// Membership commits between the schedule preflight and its write.
+		if err := f.service.AddScreen(f.ctx, f.lobby, f.phone, f.user); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.service.write(f.ctx, uuid.New(), f.user, in, true); !errors.Is(err, ErrDisplayControlUnsupported) {
+			t.Fatalf("schedule write = %v, want unsupported platform", err)
+		}
+	})
+
+	t.Run("schedule commits first", func(t *testing.T) {
+		f := newPreflightFixture(t)
+		in := f.weekdayInput("Power on", 0, group(f.lobby))
+		in.PlaylistID = uuid.Nil
+		in.DisplayAction = &displaycontrol.Action{Type: displaycontrol.CommandPowerOn}
+		if _, err := f.service.Create(f.ctx, f.user, in); err != nil {
+			t.Fatal(err)
+		}
+		if err := f.service.AddScreen(f.ctx, f.lobby, f.phone, f.user); !errors.Is(err, ErrDisplayControlUnsupported) {
+			t.Fatalf("add screen = %v, want unsupported platform", err)
+		}
+	})
+}
+
+func TestGroupAdmissionDoesNotPromoteDisplayControlToUnsupportedMembers(t *testing.T) {
+	f := newPreflightFixture(t)
+	in := f.weekdayInput("Power on", 0, screen(f.annex))
+	in.PlaylistID = uuid.Nil
+	in.DisplayAction = &displaycontrol.Action{Type: displaycontrol.CommandPowerOn}
+	if _, err := f.service.Create(f.ctx, f.user, in); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.AddScreen(f.ctx, f.lobby, f.phone, f.user); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.AddScreen(f.ctx, f.lobby, f.annex, f.user); !errors.Is(err, ErrDisplayControlUnsupported) {
+		t.Fatalf("add scheduled Linux screen = %v, want unsupported platform", err)
 	}
 }

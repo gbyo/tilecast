@@ -2,7 +2,7 @@
 title: Tilecast Edge
 description: Tilecast Edge is the service-based Linux Player with a WPE WebKit renderer. See what the Edge software does today, what still needs hardware qualification, and which guide to read next.
 hero:
-  tagline: The service-based Linux Player for Tilecast. Signed preview releases are available, with production support determined per release and hardware class.
+  tagline: The service-based Linux Player for Tilecast. Check hardware qualification before deploying a release to production.
   actions:
     - text: Check requirements
       link: requirements/
@@ -14,7 +14,7 @@ hero:
 
 import { Aside, Card, CardGrid, LinkCard } from "@astrojs/starlight/components";
 
-Tilecast Edge replaces the Electron-based Linux AppImage Player with a Linux system service and a WPE WebKit renderer. Signed preview releases are available for x86_64 and aarch64. Tilecast qualifies Edge by signed release and hardware class rather than by the old implementation milestone numbers.
+Tilecast Edge uses a Linux system service and a WPE WebKit renderer. The [coordinated Tilecast release](../reference/releases/) includes signed Edge builds for x86_64 and aarch64. Check qualification for the exact release and hardware class you plan to deploy.
 
 Before migrating a production screen, verify that the current signed Edge release has qualification evidence for that hardware class. Keep the [stable Linux Player](../players/install-linux/) where that evidence is absent.
 
@@ -71,10 +71,9 @@ rollback, and remote-web isolation. A field record also proves DRM/KMS
 playback and reboot recovery on one Debian 13 Intel i915 screen running Edge
 0.2.0 with a temporary workaround.
 
-That evidence does not qualify stock 0.2.1, another GPU, CEC/DDC hardware,
-Wi-Fi hardware, ARM64 hardware, or every Website/YouTube media path. Check the
-[current qualification ledger](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-next.md)
-for the signed release and hardware class you intend to deploy.
+The [qualification ledger](https://github.com/gbyo/tilecast/blob/main/docs/tilecast-edge-next.md)
+lists the evidence to check for your release, including graphics, Display Control,
+Wi-Fi, and remote media.
 
 </Aside>
 

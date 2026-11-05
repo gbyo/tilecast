@@ -74,6 +74,10 @@ export interface AgendaEvent {
   readonly startMs: number;
   /** End instant, or null when the source gives none. */
   readonly endMs: number | null;
+  /** The start is a calendar date, not an instant; it has no time of day. */
+  readonly allDay?: boolean;
+  /** The end is a calendar date, not an instant. */
+  readonly endAllDay?: boolean;
 }
 
 export interface AgendaData {
@@ -111,6 +115,71 @@ export function eventInstant(
   if (raw === null) return null;
   const at = Date.parse(raw);
   return Number.isNaN(at) ? null : at;
+}
+
+/** A bare calendar date, which names a local day rather than an instant. */
+export function isDateOnly(value: WidgetValue | null | undefined): boolean {
+  return (
+    !!value &&
+    typeof value.datetime !== "string" &&
+    typeof value.date === "string"
+  );
+}
+
+/** Milliseconds `timeZone` is ahead of UTC at `epochMs`. */
+function zoneOffset(epochMs: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+  }).formatToParts(epochMs);
+  const part = (type: string) =>
+    Number(parts.find((entry) => entry.type === type)?.value ?? 0);
+  const local = Date.UTC(
+    part("year"),
+    part("month") - 1,
+    part("day"),
+    part("hour"),
+    part("minute"),
+    part("second"),
+  );
+  return local - Math.floor(epochMs / 1000) * 1000;
+}
+
+/** Local midnight in `timeZone` of the UTC calendar day holding `utcMidnight`. */
+export function zonedMidnight(utcMidnight: number, timeZone: string): number {
+  const guess = utcMidnight - zoneOffset(utcMidnight, timeZone);
+  return utcMidnight - zoneOffset(guess, timeZone);
+}
+
+/**
+ * Move date-only starts and ends from UTC midnight, as `Date.parse` reads
+ * them, to midnight of the same calendar day in the screen time zone.
+ */
+export function zonedAgendaEvents(
+  events: readonly AgendaEvent[],
+  timeZone: string,
+): readonly AgendaEvent[] {
+  if (!events.some((event) => event.allDay || event.endAllDay)) return events;
+  return events.map((event) =>
+    event.allDay || event.endAllDay
+      ? {
+          ...event,
+          startMs: event.allDay
+            ? zonedMidnight(event.startMs, timeZone)
+            : event.startMs,
+          endMs:
+            event.endAllDay && event.endMs !== null
+              ? zonedMidnight(event.endMs, timeZone)
+              : event.endMs,
+        }
+      : event,
+  );
 }
 
 export function parseAgendaConfig(value: unknown): ConfigResult<AgendaConfig> {
@@ -254,6 +323,10 @@ export function resolveAgendaData(
         config.endField === ""
           ? null
           : eventInstant(entry.record.values[config.endField]),
+      allDay: isDateOnly(entry.record.values[config.startField]),
+      endAllDay:
+        config.endField !== "" &&
+        isDateOnly(entry.record.values[config.endField]),
     }));
   const sourceOrderFallback =
     config.style === "now-next" && sorted.length === 0;
@@ -717,7 +790,10 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
       this.config.style === "schedule-board" && this.config.showCountdown
         ? null
         : this.data
-          ? nextAgendaBoundary(this.data.events, now)
+          ? nextAgendaBoundary(
+              zonedAgendaEvents(this.data.events, this.context.timeZone),
+              now,
+            )
           : null,
   });
 
@@ -741,13 +817,10 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
         : { state: "empty", reason: "no_records" };
     }
     const now = this.context.clock.now();
-    const available = this.data.sourceOrderFallback
-      ? this.data.events
-      : this.config.hideEnded
-        ? this.data.events.filter(
-            (event) => !isEnded(event, now, this.context.timeZone),
-          )
-        : this.data.events;
+    const events = zonedAgendaEvents(this.data.events, this.context.timeZone);
+    const available = this.config.hideEnded
+      ? events.filter((event) => !isEnded(event, now, this.context.timeZone))
+      : events;
     return available.length > 0
       ? { state: "ready" }
       : { state: "empty", reason: "no_records" };
@@ -769,11 +842,13 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
         ? this.context.hourCycle
         : "locale";
     const nowMs = this.context.clock.now();
-    const visible = data.sourceOrderFallback
+    const events = data.sourceOrderFallback
       ? data.events
-      : this.config.hideEnded
-        ? data.events.filter((event) => !isEnded(event, nowMs, timeZone))
-        : data.events;
+      : zonedAgendaEvents(data.events, timeZone);
+    const visible =
+      !data.sourceOrderFallback && this.config.hideEnded
+        ? events.filter((event) => !isEnded(event, nowMs, timeZone))
+        : events;
     if (visible.length === 0) return this.renderEmpty("no_records");
     if (this.config.style === "now-next") {
       return this.renderNowNext(data, visible, nowMs, timeZone, hourCycle);
@@ -828,11 +903,15 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
                 if (!title && !meta) return nothing;
                 return html`<div class="event" ?data-now=${now}>
                   <div class="time">
-                    ${formatTime(event.startMs, {
-                      locale,
-                      timeZone,
-                      hourCycle,
-                    })}
+                    ${
+                      event.allDay
+                        ? nothing
+                        : formatTime(event.startMs, {
+                            locale,
+                            timeZone,
+                            hourCycle,
+                          })
+                    }
                   </div>
                   <div class="body">
                     ${title ? html`<div class="title">${title}</div>` : nothing}
@@ -922,7 +1001,7 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
                 ${following.map(
                   (event) =>
                     html`<article class="schedule-following-row">
-                      ${!data.sourceOrderFallback ? html`<div class="schedule-following-time">${formatTime(event.startMs, { locale: this.context.locale, timeZone, hourCycle })}</div>` : nothing}
+                      ${!data.sourceOrderFallback && !event.allDay ? html`<div class="schedule-following-time">${formatTime(event.startMs, { locale: this.context.locale, timeZone, hourCycle })}</div>` : nothing}
                       <div class="schedule-following-title">
                         ${this.titleFor(event, data)}
                       </div>
@@ -982,7 +1061,7 @@ export class TilecastAgendaWidget extends TilecastWidgetElement<
                       ${this.titleFor(event, data)}
                     </div>
                     <div class="schedule-card-time">
-                      ${formatTime(event.startMs, { locale, timeZone, hourCycle })}
+                      ${event.allDay ? nothing : formatTime(event.startMs, { locale, timeZone, hourCycle })}
                     </div>
                     ${this.detailFor(event, data) ? html`<div class="schedule-card-detail">${this.detailFor(event, data)}</div>` : nothing}
                   </article>`,

@@ -68,7 +68,9 @@ class KeystoreCredentialStore(
 /**
  * Production Core credential storage. Reads and writes the Core slot,
  * copying the legacy slot forward once on first read so enrolled players
- * keep their credential across the cutover. Never writes the legacy slot.
+ * keep their credential across the cutover. Never saves to the legacy slot,
+ * but clears it with the Core slot so a cleared credential is not copied
+ * forward again.
  */
 class MigratingCredentialStore(
     private val core: CredentialStore,
@@ -90,5 +92,8 @@ class MigratingCredentialStore(
 
     override fun read(): String? = core.read() ?: legacy.read()?.also { core.save(it) }
 
-    override fun clear() = core.clear()
+    override fun clear() {
+        core.clear()
+        legacy.clear()
+    }
 }

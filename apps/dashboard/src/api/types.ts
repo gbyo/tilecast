@@ -3177,8 +3177,20 @@ export type ScreenScope = {
   name?: string;
 };
 
+/** all reaches every screen; restricted reaches only the granted ones. */
+export type ScreenAccessMode = "all" | "restricted";
+
+export type ScreenAccessInput = {
+  mode: ScreenAccessMode;
+  scopes?: ScreenScope[];
+};
+
 export type ScreenScopes = {
+  mode: ScreenAccessMode;
   scopes: ScreenScope[];
+  /** False when the account has no policy yet and reaches no screen. */
+  configured: boolean;
+  /** Deprecated: read mode. */
   wholeFleet: boolean;
 };
 
@@ -3263,6 +3275,12 @@ export type MyAccess = {
     tagMode: ContentAccessMode;
     /** Folders the account may upload into; absent for the whole library. */
     writableFolderIds?: string[];
+  };
+  /** Screen access. A missing policy reads as restricted with no grants. */
+  screens: {
+    mode: ScreenAccessMode;
+    locationIds: string[];
+    groupIds: string[];
   };
 };
 

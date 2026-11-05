@@ -36,7 +36,7 @@ If a future capability never appears, check that the extension is installed, the
 
 ## Disconnect
 
-Open the Companion popup and select **Disconnect**. The browser forgets the address grant, the bridge stops for that address, and the contributed capabilities disappear from the next status report. Other connected Tilecast addresses keep their connection. Playback continues unchanged.
+Open the Companion popup and select **Disconnect**. The browser forgets the address grant and the bridge stops for that address. The next heartbeat may still report the existing capabilities. After an unanswered refresh times out and the Companion provider is removed, a later successful heartbeat reports an empty capability set. Other connected Tilecast addresses keep their connection. Playback continues unchanged.
 
 If you disable or remove the extension instead, an open player notices within about half a minute that the Companion stopped answering and drops its capabilities the same way.
 

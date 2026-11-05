@@ -54,13 +54,15 @@ export function mockAuthAs(role: string, capabilities?: readonly string[]) {
 
 /**
  * Test-only: the access summary the server reports for a built-in role.
- * Every built-in role reaches the whole library and every tag.
+ * Every built-in role here reaches the whole library, every tag, and every
+ * screen.
  */
 export function builtinMyAccess(role: string): MyAccess {
   return {
     role: { key: role, name: role, builtin: true },
     capabilities: builtinCapabilities(role),
     content: { libraryMode: "all", tagMode: "all" },
+    screens: { mode: "all", locationIds: [], groupIds: [] },
   };
 }
 

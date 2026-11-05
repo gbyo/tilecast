@@ -551,7 +551,7 @@ export async function updateSpanGeometry(
 }
 
 export async function createScreenGroup(
-  input: { name: string; description: string },
+  input: { name: string; description: string; screenIds?: string[] },
   csrfToken: string,
 ): Promise<ScreenGroup> {
   return normalizeScreenGroup(

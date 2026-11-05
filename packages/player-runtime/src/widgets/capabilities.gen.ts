@@ -29,7 +29,7 @@ export const WIDGET_COMPONENT_CAPABILITIES: Readonly<Record<string, number>> =
     "widget.tilecast.text": 1,
     "widget.tilecast.ticker": 1,
     "widget.tilecast.timeline": 1,
-    "widget.tilecast.weather": 1,
+    "widget.tilecast.weather": 2,
   });
 
 /** Latest component presentation schema supported by this runtime. */
