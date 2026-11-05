@@ -129,6 +129,11 @@ declarative binding:
 | `manual_records` | Author-maintained rows. The manifest carries no fetch.                                           |
 | `http_records`   | One release-pinned HTTPS endpoint with a bounded field mapping. The manifest must carry `fetch`. |
 
+Each declarative adapter produces one dataset kind. `manual_object`
+produces `object`. `manual_records` and `http_records` produce `records`.
+The `outputSchema.kind` must match. Widget compatibility reads the
+declared kind, so the Server rejects a mismatch at composition.
+
 Every other adapter reads an adapter-specific configuration shape or
 runs executable code. A module that names one is rejected at
 composition. Executable Data Sources stay on
