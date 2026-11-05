@@ -335,7 +335,10 @@ Only `stable`, `latest`, and `beta` can move, and only a Stable release can move
 `stable` and `latest`. A failed or incomplete release never moves an alias.
 
 `latest` currently names a build from before this process and `stable` does not
-exist. The first Stable release creates `stable` and moves `latest`.
+exist. The first Stable release creates `stable` and moves `latest`. That build
+has the version `main`, which is not a release version. No release is older than
+it, so the promotion replaces it. The promotion refuses an image whose own
+version is not a release version, so a Development build cannot own an alias.
 
 ## Player update discovery
 

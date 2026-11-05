@@ -180,6 +180,27 @@ class PromoteAliases(unittest.TestCase):
         self.assertIn("no version annotation", result.stderr)
         self.assertEqual(self.tags(), {"stable": OLD, "latest": OLD, "beta": OLD})
 
+    def test_a_release_replaces_an_alias_that_names_a_development_build(self):
+        # The first Stable release: latest names a build from before the release
+        # process, whose version annotation is "main", and stable does not exist.
+        dev = "sha256:" + "d" * 64
+        self.set_state(digests=[NEW, OLD, NEWER, dev], versions={dev: "main"})
+        self.set_state(tags={"latest": dev, "beta": dev})
+        state = json.loads(self.registry.read_text())
+        del state["tags"]["stable"]
+        self.registry.write_text(json.dumps(state))
+        result = self.promote(digest=NEW)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.tags(), {"stable": NEW, "latest": NEW, "beta": NEW})
+
+    def test_a_development_build_can_never_own_an_alias(self):
+        dev = "sha256:" + "d" * 64
+        self.set_state(digests=[NEW, OLD, NEWER, dev], versions={dev: "main"})
+        result = self.promote(digest=dev)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("not a release version", result.stderr)
+        self.assertEqual(self.tags(), {"stable": OLD, "latest": OLD, "beta": OLD})
+
     def test_a_failed_registry_operation_fails_the_promotion(self):
         result = self.promote(FAKE_CREATE_FAILS="1")
         self.assertNotEqual(result.returncode, 0)
