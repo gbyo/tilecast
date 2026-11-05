@@ -4,6 +4,9 @@ name: Diagnose Edge builder image (temporary)
 # reports progress as annotations. Remove before merging.
 on:
   workflow_dispatch:
+  push:
+    branches: [gibby/fervent-curie-bgfpmu]
+    paths: [.github/workflows/diag-edge-builder.yml]
 
 permissions:
   contents: read
