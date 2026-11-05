@@ -32,7 +32,7 @@ use player_core::{
     HealAction, ObjectBinding, ProgressEvidence, RendererActivation, RendererActivationRef, RendererCaptureRequest,
     RendererCoordinator, RendererMetadata, RendererPort, RendererPortError, RendererProfileMismatch,
     RendererRequirement, RendererSupport, RuntimePayload, SemanticRendererCommand, SemanticRendererProgress,
-    SupervisorConfig, VerifiedContentRef, VerifiedFrameRef,
+    StartupWebsiteClear, SupervisorConfig, VerifiedContentRef, VerifiedFrameRef,
 };
 use player_types::ActivationId;
 use player_types::bounded::{SafeText, ShortToken};
@@ -1081,6 +1081,10 @@ pub struct PresentationEngine {
     /// reads what the renderer receives, so a native part and its Shared
     /// Runtime part see one plugin state.
     native_plugins: player_core::NativePluginFeed,
+    /// `website.clearOnRestart` once per process. The clear is sent when a
+    /// renderer is ready and before the first activation is pushed to it.
+    startup_clear: StartupWebsiteClear,
+    clear_website_data_on_start: Option<bool>,
 }
 
 impl std::fmt::Debug for PresentationEngine {
@@ -1157,6 +1161,8 @@ impl PresentationEngine {
                 player_core::NativeServices::new(),
                 plugin_native_registry::contributions(),
             ),
+            startup_clear: StartupWebsiteClear::default(),
+            clear_website_data_on_start: None,
         };
         engine.refresh_snapshot();
         engine
@@ -1615,6 +1621,7 @@ impl PresentationEngine {
         }
         self.host_fault = None;
         self.native.ready(connection, profile);
+        self.clear_website_data_at_start();
         self.push_current().await;
         self.refresh_snapshot();
         true
@@ -1862,6 +1869,27 @@ impl PresentationEngine {
 
     fn is_ready(&self) -> bool {
         self.link.as_ref().is_some_and(|link| link.ready.is_some())
+    }
+
+    /// Takes `website.clearOnRestart` from the first configuration this
+    /// process installs; a later revision never starts a clear. A renderer
+    /// that is already ready clears at once, otherwise the clear waits for
+    /// ready.
+    pub fn set_clear_website_data_on_start(&mut self, enabled: bool) {
+        if self.clear_website_data_on_start.is_none() {
+            self.clear_website_data_on_start = Some(enabled);
+        }
+        self.clear_website_data_at_start();
+    }
+
+    /// Core's once-per-process policy: only a delivered clear completes it,
+    /// so a failed delivery retries on the next ready renderer.
+    fn clear_website_data_at_start(&mut self) {
+        if !self.startup_clear.begin(self.is_ready(), self.clear_website_data_on_start == Some(true)) {
+            return;
+        }
+        let sent = self.port.send_command(uuid::Uuid::new_v4(), &SemanticRendererCommand::ClearWebsiteData).is_ok();
+        self.startup_clear.finish(sent);
     }
 
     /// Whether a renderer is connected and has reported ready.
@@ -2525,6 +2553,39 @@ mod tests {
             request["frames"] = bad;
             assert!(matches!(parse_activate_request(&request.to_string()), Err(ActivateError::Malformed)));
         }
+    }
+
+    #[tokio::test]
+    async fn startup_website_clear_runs_once_when_ready_and_retries_failed_delivery() {
+        fn clears(test: &Scratch) -> usize {
+            test.platform.requests().iter().filter(|request| request.contains("clear_website_data")).count()
+        }
+        let mut test = scratch().await;
+        // A policy that is off never clears; the first configuration wins.
+        test.engine.set_clear_website_data_on_start(true);
+        test.engine.set_clear_website_data_on_start(false);
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert_eq!(clears(&test), 0, "nothing is sent before the renderer is ready");
+        test.platform.answer(-4);
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        assert_eq!(clears(&test), 1);
+        // The failed delivery did not complete the policy: the next ready retries.
+        test.platform.answer(0);
+        test.engine.renderer_connected(2, now(BASE_MS + 1));
+        assert!(test.engine.renderer_ready(2, &ready_report(FULL_FEATURES)).await);
+        assert_eq!(clears(&test), 2);
+        // A delivered clear completes it for the process.
+        test.engine.renderer_connected(3, now(BASE_MS + 2));
+        assert!(test.engine.renderer_ready(3, &ready_report(FULL_FEATURES)).await);
+        test.engine.set_clear_website_data_on_start(true);
+        assert_eq!(clears(&test), 2);
+
+        let mut disabled = scratch().await;
+        disabled.engine.set_clear_website_data_on_start(false);
+        disabled.engine.renderer_connected(1, now(BASE_MS));
+        assert!(disabled.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        disabled.engine.set_clear_website_data_on_start(true);
+        assert_eq!(clears(&disabled), 0, "a later revision never starts a clear");
     }
 
     #[tokio::test]
