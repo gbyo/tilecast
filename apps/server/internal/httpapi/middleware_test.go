@@ -35,6 +35,12 @@ func TestSecurityHeadersContentSecurityPolicy(t *testing.T) {
 	if !strings.Contains(policy, "worker-src 'self'") {
 		t.Fatal("worker-src must allow the same-origin bundled MapLibre worker")
 	}
+	if !strings.Contains(policy, "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com") {
+		t.Fatal("frame-src must allow the built-in YouTube preview origins")
+	}
+	if strings.Contains(policy, "frame-src *") || strings.Contains(policy, "frame-src 'self' https:") {
+		t.Fatal("frame-src must not allow arbitrary cross-origin frames")
+	}
 	if strings.Contains(policy, "connect-src *") || strings.Contains(policy, "connect-src 'self' https:") {
 		t.Fatal("connect-src must remain scoped to explicit trusted origins")
 	}
