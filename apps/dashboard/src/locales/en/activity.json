@@ -124,7 +124,9 @@
         "playback": "Playback",
         "storage": "Storage",
         "safe_mode": "Safe mode",
-        "update": "Update"
+        "update": "Update",
+        "data_source": "Data Source",
+        "content": "Content"
       },
       "categories": {
         "connectivity": "Connectivity",

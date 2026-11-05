@@ -31,6 +31,25 @@ The reveal has a separate four-second limit.
 These limits remove the layer if animation readiness or completion stalls.
 Without an accepted presentation, the logo stays visible.
 The sequence runs once per document and uses no persistent state.
+
+### Wake animation
+
+The Runtime keeps an unused copy of the startup layer from before startup removes it.
+When the `sleep` presentation ends and another presentation starts, the Runtime mounts a new layer from that copy and plays the same sequence.
+The Runtime prepares the new presentation beneath the layer.
+The wake animation does not play while the document's first startup still covers the screen.
+The wake animation does not change what the host sends or reports.
+
+If the `sleep` presentation showed the bouncing logo, the layer starts at the position and size of that logo.
+It then moves to the center in 0.8 seconds.
+The old logo fades out and the pulse fades in during this movement.
+The one-cycle minimum for the pulse starts when the logo arrives at the center.
+Reduced motion skips the movement.
+
+The `sleep` presentation can set `wakeAnimation` to `false`.
+An absent field means `true`.
+If the screen returns to `sleep` while the animation plays, the Runtime removes the layer.
+Conformance runs, and documents without the startup layer, play no wake animation.
 Host-layer Website surfaces stay hidden until the reveal uncovers playback.
 Media URI surfaces stay inside the Runtime document.
 

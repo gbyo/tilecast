@@ -318,7 +318,7 @@ func TestLegacyDomainProvidersProjectIntoV2(t *testing.T) {
 	if component.Component.Type != "tilecast.weather" || component.Component.Config["showLocation"] != false || component.Component.Config["forecastDays"] != float64(3) {
 		t.Fatalf("legacy weather config did not project: %+v", component.Component)
 	}
-	if component.RequiredCapabilities["widget.tilecast.weather"] != 1 {
+	if component.RequiredCapabilities["widget.tilecast.weather"] != 2 {
 		t.Fatalf("weather capability missing: %+v", component.RequiredCapabilities)
 	}
 }

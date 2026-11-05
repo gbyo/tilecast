@@ -1226,8 +1226,9 @@ impl PresentationEngine {
         self.native.has_activation_evidence()
     }
 
-    pub(crate) fn current_has_renderer_error(&self) -> bool {
-        self.native.tracker().has_error()
+    /// The renderer refused the current activation as a whole.
+    pub(crate) fn current_refused(&self) -> bool {
+        self.native.tracker().refused()
     }
 
     pub fn port(&self) -> &AndroidRendererPort {
@@ -1389,7 +1390,7 @@ impl PresentationEngine {
         }
         if !self.current_is_accepted()
             || !self.current_has_activation_evidence()
-            || self.current_has_renderer_error()
+            || self.current_refused()
             || self.link.as_ref().is_none_or(|link| link.ready.is_none())
         {
             return Err("plugin_refresh_renderer_unready");
@@ -1690,8 +1691,9 @@ impl PresentationEngine {
         (decision.current, decision.meaningful)
     }
 
-    /// A playback error for the live connection. The first error for an
-    /// activation also becomes an Activity playback-error signal.
+    /// An item failure for the live connection. The Runtime isolates the
+    /// item and keeps rotating, so this is a diagnostic and an Activity
+    /// playback-error signal, never a refusal of the activation.
     pub fn item_error(
         &mut self,
         generation: i64,
@@ -1701,9 +1703,15 @@ impl PresentationEngine {
         item_id: Option<&str>,
         message: &str,
     ) -> bool {
-        if !self.rejected(generation, activation_id, activation_generation, Some(code)) {
+        let (Some(connection), Some(reference)) =
+            (self.live_connection(generation), activation_ref(activation_id, activation_generation))
+        else {
+            return false;
+        };
+        if !self.native.item_failed(connection, reference, ShortToken::new(code).ok()) {
             return false;
         }
+        self.refresh_snapshot();
         self.signal(player_core::ActivitySignal::PlaybackError {
             item_id: item_id.map(str::to_owned),
             message: message.chars().take(240).collect(),
@@ -2991,6 +2999,11 @@ mod tests {
             other => panic!("expected PlaybackError, got {other:?}"),
         }
         assert_eq!(test.snapshot.lock().expect("lock").last_error.as_deref(), Some("decode_failed"));
+        // Item failures are diagnostics. They never refuse the activation, so
+        // a trial still promotes on the next item's content evidence.
+        assert!(!test.engine.current_refused());
+        assert!(test.engine.rejected(1, &outcome.activation_id, outcome.generation, Some("invalid_document")));
+        assert!(test.engine.current_refused(), "a refusal of the whole activation is recorded");
     }
 
     #[tokio::test]

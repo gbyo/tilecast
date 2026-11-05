@@ -141,7 +141,7 @@ func TestNormalizeWeatherForecastProducesCurrentAndDailyRecords(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(data.Records) != 3 || data.Records[0].Values["condition"] != "Partlycloudy" || data.Records[1].Values["high"] != "20" {
+	if len(data.Records) != 3 || data.Records[0].Values["condition"] != "Partlycloudy" || data.Records[1].Values["high"] != "20" || data.Records[0].Values["humidity"] != "0.55" {
 		t.Fatalf("unexpected weather records: %#v", data.Records)
 	}
 }

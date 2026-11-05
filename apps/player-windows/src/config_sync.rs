@@ -69,6 +69,7 @@ pub async fn install(context: &DaemonContext, config: Option<WindowsPlayerConfig
     let effective = config.unwrap_or_else(|| Arc::new(WindowsPlayerConfig::default()));
     if let Some(cas) = &context.cas {
         cas.set_policy(store_policy(context, &effective));
+        cas.set_automatic_threshold(effective.native.cache.automatic_threshold_bytes);
     }
     context.manifest_wake.notify_one();
 }

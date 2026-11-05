@@ -321,6 +321,10 @@
       "outside_active_hours_text": {
         "title": "Texto personalizado",
         "description": "Texto centrado mostrado fuera del horario activo. Si está vacío, Tilecast usa el texto del pie de marca."
+      },
+      "outside_active_hours_wake_animation": {
+        "title": "Reproducir la animación de inicio cuando empieza el horario activo",
+        "description": "Cuando el reproductor vuelve de la pantalla de fuera de horario, reproduce la animación de inicio de Tilecast antes de mostrar el contenido. Se aplica al logotipo animado, al texto personalizado y a la pantalla negra."
       }
     },
     "managed_kiosk": {

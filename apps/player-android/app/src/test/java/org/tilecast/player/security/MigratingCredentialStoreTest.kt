@@ -46,16 +46,25 @@ class MigratingCredentialStoreTest {
         assertNull(MigratingCredentialStore(FakeStore(), FakeStore()).read())
     }
 
-    @Test fun saveAndClearAffectCoreOnly() {
+    @Test fun saveWritesCoreOnly() {
         val core = FakeStore()
         val legacy = FakeStore("legacy-secret")
         val store = MigratingCredentialStore(core, legacy)
         store.save("core-secret")
         assertEquals("core-secret", core.value)
         assertEquals("legacy-secret", legacy.value)
+        assertEquals(0, legacy.saves)
+    }
+
+    @Test fun clearRemovesBothSlotsSoLegacyIsNotCopiedForwardAgain() {
+        val core = FakeStore()
+        val legacy = FakeStore("legacy-secret")
+        val store = MigratingCredentialStore(core, legacy)
+        assertEquals("legacy-secret", store.read())
         store.clear()
         assertNull(core.value)
-        assertEquals("legacy-secret", legacy.value)
-        assertEquals(0, legacy.clears)
+        assertNull(legacy.value)
+        assertNull(store.read())
+        assertEquals(1, core.saves)
     }
 }

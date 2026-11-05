@@ -636,7 +636,9 @@
       "noResults": "Ningún widget coincide con esta búsqueda.",
       "noMatch": "Ninguna app o widget coincide con “{{search}}”.",
       "sourcePlugin": "Plugin · {{name}}",
-      "requiresPlugin": "Requiere {{name}}"
+      "requiresPlugin": "Requiere {{name}}",
+      "pluginChecking": "Comprobando si {{name}} está instalado",
+      "pluginUnknown": "No se puede confirmar que {{name}} esté instalado"
     },
     "preview": {
       "webUnavailable": "URL de presentación web no disponible.",
@@ -1086,6 +1088,10 @@
   },
   "dataSources": {
     "deleteSuccess": "Fuente de datos eliminada.",
+    "saved": {
+      "created": "Fuente de datos creada.",
+      "updated": "Fuente de datos actualizada."
+    },
     "duplicated": "Fuente de datos duplicada.",
     "calendar": {
       "addCalendar": "Agregar calendario",
@@ -1139,6 +1145,8 @@
       "setupGuidance": "Guía de configuración de la fuente de datos",
       "sourcePlugin": "Plugin · {{name}}",
       "requiresPlugin": "Requiere {{name}}",
+      "pluginChecking": "Comprobando si {{name}} está instalado",
+      "pluginUnknown": "No se puede confirmar que {{name}} esté instalado",
       "sourcePackage": "Paquete · {{name}}"
     },
     "detail": {

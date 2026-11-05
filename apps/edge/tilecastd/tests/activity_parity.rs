@@ -200,7 +200,7 @@ fn activation(present: &Present) -> (ActivationSource, Option<PlaybackIdentity>,
         "rest" => (
             ActivationSource::Policy,
             None,
-            PresentationDocument::Sleep { display: None, text: None, text_color: None },
+            PresentationDocument::Sleep { display: None, text: None, text_color: None, wake_animation: None },
         ),
         "disabled" => (ActivationSource::Policy, None, PresentationDocument::Disabled(surface())),
         "idle" => (ActivationSource::StatusSurface, None, PresentationDocument::Idle(surface())),

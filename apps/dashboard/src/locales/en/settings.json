@@ -321,6 +321,10 @@
       "outside_active_hours_text": {
         "title": "Custom text",
         "description": "Centered text shown outside active hours. When empty, Tilecast uses the branding footer text."
+      },
+      "outside_active_hours_wake_animation": {
+        "title": "Play the startup animation when active hours begin",
+        "description": "When the player returns from the outside-hours screen, play the Tilecast startup animation before showing content. Applies to the bouncing logo, custom text and black screen."
       }
     },
     "managed_kiosk": {

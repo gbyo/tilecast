@@ -20,6 +20,7 @@ import { Link, useLocation } from "react-router";
 import type {
   Asset,
   DataSource,
+  DataSourceProvider,
   LayoutPlacement,
   LayoutPrimitive,
   Playlist,
@@ -734,6 +735,7 @@ export function PlacementInspector({
           {!primitive.binding && dataSources.length === 0 ? (
             <ConnectDataNotice
               message={t("inspector.groupConnectHint")}
+              createProviders={BINDABLE_PROVIDERS}
               csrf={csrf}
               onCreated={(dataSourceId) =>
                 void bindNewDataSource(dataSourceId, (binding) =>
@@ -804,6 +806,7 @@ export function PlacementInspector({
           {!primitive.binding && dataSources.length === 0 ? (
             <ConnectDataNotice
               message={t("inspector.textConnectHint")}
+              createProviders={BINDABLE_PROVIDERS}
               csrf={csrf}
               onCreated={(dataSourceId) =>
                 void bindNewDataSource(dataSourceId, (binding) =>
@@ -1185,8 +1188,11 @@ function BindingFieldSelect({
   );
 }
 
+/** Layout bindings accept only structured Data Sources (server-enforced). */
+const BINDABLE_PROVIDERS: DataSourceProvider[] = ["csv", "json"];
+
 export function structuredFields(source?: DataSource): string[] {
-  if (!source || !["csv", "json"].includes(source.provider)) return [];
+  if (!source || !BINDABLE_PROVIDERS.includes(source.provider)) return [];
   const config = source.configuration as {
     mapping?: { valueFields?: Record<string, string> };
   };

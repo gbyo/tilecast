@@ -20,6 +20,9 @@ const (
 	incidentStorage      = "storage"
 	incidentSafeMode     = "safe_mode"
 	incidentUpdate       = "update"
+	// Content Health opens these; activity events never derive them.
+	incidentDataSource = "data_source"
+	incidentContent    = "content"
 )
 
 // incidentSignal is what one activity event says about an incident: whether it

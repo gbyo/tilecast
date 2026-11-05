@@ -38,17 +38,22 @@ export function AddCustomRepositoryDialog({
   const navigate = useNavigate();
   const { resolve, install } = usePackageLifecycle(csrfToken);
   const [repository, setRepository] = useState("");
-  const review = resolve.data;
+  // A review belongs to the URL it resolved; editing the field retires it
+  // so Install never submits a repository other than the one shown.
+  const [resolvedFor, setResolvedFor] = useState<string | null>(null);
+  const review = resolvedFor === repository.trim() ? resolve.data : undefined;
 
   const close = () => {
     resolve.reset();
     install.reset();
     setRepository("");
+    setResolvedFor(null);
     onClose();
   };
 
   const lookUp = () => {
     install.reset();
+    setResolvedFor(repository.trim());
     resolve.mutate(repository.trim());
   };
 

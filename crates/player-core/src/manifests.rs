@@ -16,8 +16,6 @@ pub enum ManifestSyncError {
     Server(#[from] ServerError),
     #[error("the server manifest is invalid: {0}")]
     Invalid(NativeManifestError),
-    #[error("the server manifest version is older than the committed presentation")]
-    Regressed,
     #[error("local state failed")]
     State,
     #[error("the server manifest exceeds its size bound")]
@@ -29,7 +27,6 @@ impl ManifestSyncError {
         match self {
             Self::Server(error) => error.reason_code(),
             Self::Invalid(error) => error.reason_code(),
-            Self::Regressed => "manifest_version_regressed",
             Self::State => "state_error",
             Self::Bound => "manifest_bound_exceeded",
         }
@@ -95,15 +92,15 @@ impl ManifestCoordinator {
             fetched_at: self.dependencies.clock.now(),
         };
         let stored = target.clone();
-        let accepted = self
-            .dependencies
+        // The digest identifies the server's answer. A lower version than
+        // the committed one (a restored server database) is still the
+        // server's current manifest; refusing it would strand the screen on
+        // superseded content until the server's counter caught up.
+        self.dependencies
             .state
             .run(move |connection| manifests::put_target(connection, &stored))
             .await
             .map_err(|_| ManifestSyncError::State)?;
-        if !accepted {
-            return Err(ManifestSyncError::Regressed);
-        }
         tracing::info!(component = "manifest", event = "target", manifest = %digest.short(), version);
         Ok(Some(target))
     }
@@ -605,7 +602,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invalid_bounded_and_regressed_answers_keep_the_last_target() {
+    async fn invalid_and_bounded_answers_keep_the_last_target_but_a_restored_server_is_followed() {
         let (_dir, core, binding) = fixture();
         let first = document(&binding, 10);
         let target = core.reconcile_with(&Api::modified(first.clone(), "ten"), &binding).await.unwrap().unwrap();
@@ -629,20 +626,23 @@ mod tests {
             core.reconcile_with(&Api::modified(json!({"manifestVersion":11}), "invalid"), &binding).await,
             Err(ManifestSyncError::Invalid(_))
         ));
-        assert!(matches!(
-            core.reconcile_with(&Api::modified(document(&binding, 9), "old"), &binding).await,
-            Err(ManifestSyncError::Regressed)
-        ));
         let oversized = json!({"unknown":"x".repeat(MAX_MANIFEST_BYTES)});
         assert!(matches!(
             core.reconcile_with(&Api::modified(oversized, "large"), &binding).await,
             Err(ManifestSyncError::Bound)
         ));
         assert_eq!(core.persisted_target(&binding).await.unwrap().digest, target.digest);
+        // The server's database was restored from a backup taken at version 9.
+        // That answer is the server's current manifest: the player converges
+        // to it without waiting for the counter to pass 10 again.
+        let restored =
+            core.reconcile_with(&Api::modified(document(&binding, 9), "old"), &binding).await.unwrap().unwrap();
+        assert_eq!(restored.version, 9);
+        assert_eq!(core.persisted_target(&binding).await.unwrap().digest, restored.digest);
     }
 
     #[tokio::test]
-    async fn storage_failures_are_state_errors_not_version_regressions() {
+    async fn storage_failures_are_state_errors() {
         let (_dir, core, binding) = fixture();
         let oversized_etag = "e".repeat(201);
         assert!(matches!(

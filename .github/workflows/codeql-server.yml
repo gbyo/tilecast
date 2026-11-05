@@ -72,7 +72,7 @@ jobs:
           cache-dependency-path: apps/server/go.sum
       - name: Initialize CodeQL
         if: steps.changes.outputs.changed == 'true'
-        uses: github/codeql-action/init@v4.38.2
+        uses: github/codeql-action/init@v4.38.3
         with:
           languages: go
           build-mode: manual
@@ -82,7 +82,7 @@ jobs:
         run: go build ./apps/server/... ./plugins/... ./packages/plugin-sdk/go/... ./packages/package-sdk/go/... ./widgets/...
       - name: Analyze
         if: steps.changes.outputs.changed == 'true'
-        uses: github/codeql-action/analyze@v4.38.2
+        uses: github/codeql-action/analyze@v4.38.3
         with:
           category: "/language:go"
       - name: Create unaffected result
@@ -100,7 +100,7 @@ jobs:
           EOF
       - name: Upload unaffected result
         if: steps.changes.outputs.changed == 'false'
-        uses: github/codeql-action/upload-sarif@v4.38.2
+        uses: github/codeql-action/upload-sarif@v4.38.3
         with:
           sarif_file: unaffected.sarif
           category: "/language:go"
