@@ -3,6 +3,7 @@ package org.tilecast.player.core
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Test
@@ -16,6 +17,15 @@ class CapturePresentationTest {
         var blockReason: String? = null
         override fun captureBlockReason(): String? = blockReason
         override suspend fun capture(maxWidth: Int, maxHeight: Int, maxBytes: Int) = frame()
+    }
+
+    @Test
+    fun attachedCapturePolicyDistinguishesAllowedProtectedAndDetached() {
+        val presentation = Presentation { image }
+        assertNull(presentationCaptureBlockReason(presentation))
+        presentation.blockReason = "sensitive_admin"
+        assertEquals("sensitive_admin", presentationCaptureBlockReason(presentation))
+        assertEquals("display_host_detached", presentationCaptureBlockReason(null))
     }
 
     @Test

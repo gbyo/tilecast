@@ -81,7 +81,7 @@ object ProcessRenderer {
             captureFrame = { maxWidth, maxHeight, maxBytes ->
                 captureFromCurrentPresentation({ presentation }, maxWidth, maxHeight, maxBytes)
             },
-            captureBlockReason = { presentation?.captureBlockReason() ?: "display_host_detached" },
+            captureBlockReason = { presentationCaptureBlockReason(presentation) },
             onCapabilitiesChanged = {
                 scope.launch {
                     runCatching { host.syncManifest() }
@@ -94,6 +94,11 @@ object ProcessRenderer {
         AndroidRendererLog.event("renderer_owner_created", emptyMap())
         return renderer
     }
+}
+
+internal fun presentationCaptureBlockReason(presentation: RendererPresentation?): String? {
+    if (presentation == null) return "display_host_detached"
+    return presentation.captureBlockReason()
 }
 
 internal suspend fun captureFromCurrentPresentation(
