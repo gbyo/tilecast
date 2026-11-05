@@ -502,7 +502,7 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 	}
 	defer tx.Rollback(ctx)
 	var inUse bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screen_playlist_assignments WHERE layout_id=$1) OR EXISTS(SELECT 1 FROM screen_group_playlist_assignments WHERE layout_id=$1) OR EXISTS(SELECT 1 FROM schedules WHERE layout_id=$1 AND deleted_at IS NULL) OR EXISTS(SELECT 1 FROM playlist_items WHERE layout_id=$1)`, id).Scan(&inUse); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM screen_playlist_assignments WHERE layout_id=$1) OR EXISTS(SELECT 1 FROM screen_group_playlist_assignments WHERE layout_id=$1) OR EXISTS(SELECT 1 FROM schedules WHERE layout_id=$1 AND deleted_at IS NULL) OR EXISTS(SELECT 1 FROM playlist_items WHERE layout_id=$1) OR EXISTS(SELECT 1 FROM presentation_overrides WHERE content_type='layout' AND content_id=$1 AND stopped_at IS NULL AND (expires_at IS NULL OR expires_at>now()))`, id).Scan(&inUse); err != nil {
 		return err
 	}
 	if inUse {

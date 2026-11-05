@@ -590,10 +590,21 @@ func (s *Service) Delete(ctx context.Context, id, userID uuid.UUID) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
+	// Lock the row first so the in-use check and the delete see one state.
+	if _, err = tx.Exec(ctx, `SELECT 1 FROM playlists WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, id); err != nil {
+		return err
+	}
+	// Every path that projects a playlist into a manifest counts as a use:
+	// a screen or Display Group assignment, a schedule, a Layout, a takeover
+	// that can still play, and a running Quick Present override. Deleting
+	// any of them would make every receiving screen's manifest unbuildable.
 	var assigned int
 	if err = tx.QueryRow(ctx, `SELECT
 		(SELECT count(*) FROM screen_playlist_assignments WHERE playlist_id=$1)+
+		(SELECT count(*) FROM screen_group_playlist_assignments WHERE playlist_id=$1)+
 		(SELECT count(*) FROM schedules WHERE playlist_id=$1 AND deleted_at IS NULL)+
+		(SELECT count(*) FROM takeovers WHERE playlist_id=$1 AND status IN ('draft','active','cancelling'))+
+		(SELECT count(*) FROM presentation_overrides WHERE content_type='playlist' AND content_id=$1 AND stopped_at IS NULL AND (expires_at IS NULL OR expires_at>now()))+
 		(SELECT count(*) FROM layout_draft_dependencies WHERE dependency_type='playlist' AND dependency_id=$1)+
 		(SELECT count(*) FROM layout_revision_dependencies WHERE dependency_type='playlist' AND dependency_id=$1)`, id).Scan(&assigned); err != nil {
 		return err
