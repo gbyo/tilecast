@@ -851,6 +851,10 @@ impl RendererPort for AndroidRendererPort {
             "presentation": presentation,
             "content": content,
             "frames": frames.iter().filter(|frame| frame["kind"] == "widget").cloned().collect::<Vec<_>>(),
+            // Every activation carries a plugin list. Runtime removes plugin
+            // surfaces only when it receives an empty one, so status and
+            // gate activations must not leave the previous surfaces mounted.
+            "plugins": [],
         });
         if let Some(context) = context.as_ref().and_then(|context| context.as_object()) {
             if let Some(timing) = context.get("timing") {
@@ -2542,6 +2546,32 @@ mod tests {
         assert_eq!(envelope["plugins"][0]["type"], "countdown_bar");
         assert_eq!(envelope["pluginAliases"], serde_json::json!([]));
         assert_eq!(envelope["clockOffsetMs"], 1500);
+    }
+
+    #[tokio::test]
+    async fn status_activation_clears_plugin_surfaces_from_the_previous_activation() {
+        let mut test = scratch().await;
+        let bytes = b"fake-image-bytes";
+        let digest = seed(&test.engine.port.cas, bytes).await;
+        test.engine.renderer_connected(1, now(BASE_MS));
+        assert!(test.engine.renderer_ready(1, &ready_report(FULL_FEATURES)).await);
+        let mut request: serde_json::Value =
+            serde_json::from_str(&playing_request(&digest, bytes.len() as u64, "image")).expect("parses");
+        request["envelope"]["plugins"] =
+            serde_json::json!([{"id": "p1", "type": "countdown_bar", "version": 1, "config": {}}]);
+        test.engine.activate(&request.to_string(), now(BASE_MS)).await.expect("activate");
+        let status = serde_json::json!({
+            "envelope": {"presentation": {"state": "idle", "status": "no_content", "title": "No content assigned"}},
+            "content": [],
+            "source": "status_surface",
+        });
+        test.engine.activate(&status.to_string(), now(BASE_MS + 1)).await.expect("status activation");
+        let requests = test.platform.requests();
+        assert_eq!(requests.len(), 2);
+        let first: serde_json::Value = serde_json::from_str(&requests[0]).expect("parses");
+        let second: serde_json::Value = serde_json::from_str(&requests[1]).expect("parses");
+        assert_eq!(first["plugins"].as_array().map(Vec::len), Some(1));
+        assert_eq!(second["plugins"], serde_json::json!([]));
     }
 
     /// Plugin API v2 on Android: state rides the plugins member of the
