@@ -8,6 +8,8 @@
 pub const RUNTIME_SCHEME: &str = "tilecast";
 pub const RUNTIME_HOST: &str = "runtime";
 pub const RUNTIME_ENTRY_URL: &str = "tilecast://runtime/index.html";
+/// The Runtime document's origin, the only one granted CORS reads of media.
+pub const RUNTIME_ORIGIN: &str = "tilecast://runtime";
 pub const MEDIA_SCHEME: &str = "tcmedia";
 pub const WIDGET_SCHEME: &str = "tcwidget";
 pub const MEDIA_HOST: &str = "cap";

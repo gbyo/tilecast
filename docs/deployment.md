@@ -6,6 +6,10 @@ Copy `deploy/docker/.env.example` to `deploy/docker/.env`, set a strong PostgreS
 
 Docker bridge networking does not reliably publish multicast DNS on every Linux distribution, so `TILECAST_MDNS_ENABLED` is disabled in the Compose example. Players can always use the server's LAN address manually. Advanced Linux installations may enable mDNS when the container has appropriate host-network multicast access.
 
+## Font catalog
+
+The organization font library can copy families from the Google Fonts catalog. The Server contacts `api.fontsource.org` and `cdn.jsdelivr.net` only when an administrator browses or adds a family. Players and Studio never contact the catalog. To stop all catalog requests, set `TILECAST_FONT_CATALOG_ENABLED=false`. Uploads of TTF and OTF files continue to operate. See [Organization font library](fonts.md).
+
 ## HTTPS reverse proxy
 
 Set `TILECAST_PUBLIC_URL` to the external URL and `TILECAST_COOKIE_SECURE=true`. Forward HTTP to `server:8080` on a private Docker network. Preserve WebSocket upgrade headers for the existing Player and Studio realtime connections.

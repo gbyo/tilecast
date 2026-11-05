@@ -651,6 +651,7 @@
     "items": {
       "general": "General",
       "branding": "Marca",
+      "fonts": "Fuentes",
       "users": "Usuarios",
       "security": "Seguridad de inicio de sesión",
       "locations": "Ubicaciones",
@@ -684,6 +685,10 @@
       "branding": {
         "title": "Marca",
         "description": "Identidad de la organización y la apariencia alternativa que muestran los reproductores."
+      },
+      "fonts": {
+        "title": "Fuentes",
+        "description": "Tipografías que su organización puede elegir para el texto de los diseños. Los reproductores descargan una fuente solo cuando el contenido publicado la usa."
       },
       "users": {
         "title": "Usuarios",
@@ -2016,6 +2021,85 @@
       "imported": "Ajustes importados.",
       "noDocument": "Elija un archivo de ajustes antes de validar.",
       "invalidDocument": "Ese archivo no es una exportación de ajustes de Tilecast."
+    }
+  },
+  "fonts": {
+    "addGoogle": "Agregar desde Google Fonts",
+    "upload": "Subir archivos de fuente",
+    "loading": "Cargando fuentes…",
+    "empty": "Todavía no hay fuentes de la organización",
+    "emptyHint": "Agregue una familia desde Google Fonts o suba sus propios archivos TTF u OTF. Luego el texto de los diseños podrá usarla.",
+    "sourceGoogle": "Google Fonts",
+    "sourceUpload": "Subida",
+    "sample": "El veloz murciélago hindú comía feliz cardillo y kiwi 0123456789",
+    "licenseAttested": "Derechos confirmados al subir",
+    "files_one": "{{count}} archivo",
+    "files_many": "{{count}} archivos",
+    "files_other": "{{count}} archivos",
+    "deleteFamily": "Quitar {{family}}",
+    "deleteTitle": "¿Quitar {{family}}?",
+    "deleteDescription": "Los diseños que usan esta fuente deben elegir otra primero. Las pantallas conservan su copia hasta su próxima actualización.",
+    "deleted": "Se quitó {{family}}",
+    "added": "Se agregó {{family}}",
+    "offlineNote": "Tilecast guarda todas las fuentes en este servidor. Los reproductores descargan una fuente junto con el contenido que la usa y la conservan para reproducir sin conexión. Ni los reproductores ni Studio se conectan con Google.",
+    "categories": {
+      "all": "Todas las categorías",
+      "sans-serif": "Sans serif",
+      "serif": "Serif",
+      "display": "Decorativa",
+      "handwriting": "Manuscrita",
+      "monospace": "Monoespaciada",
+      "icons": "Iconos"
+    },
+    "google": {
+      "title": "Agregar desde Google Fonts",
+      "description": "Elija una familia. Este servidor copia los archivos una sola vez; después nada depende de Google.",
+      "searchLabel": "Buscar familias",
+      "searchPlaceholder": "Nombre de la familia",
+      "categoryLabel": "Categoría",
+      "loading": "Cargando el catálogo…",
+      "results_one": "{{count}} familia",
+      "results_many": "{{count}} familias",
+      "results_other": "{{count}} familias",
+      "more": "Mostrar más",
+      "variable": "Variable",
+      "styles_one": "{{count}} grosor",
+      "styles_many": "{{count}} grosores",
+      "styles_other": "{{count}} grosores",
+      "back": "Volver al catálogo",
+      "license": "Licencia: {{license}}",
+      "weightRange": "Grosores {{min}}–{{max}} en un solo archivo",
+      "subsets": "Conjuntos de caracteres",
+      "stylesLabel": "Estilos",
+      "style": {
+        "normal": "Normal",
+        "italic": "Cursiva"
+      },
+      "weights": "Grosores",
+      "copyNote": "Elija solo los conjuntos de caracteres que su contenido necesita. Cada uno agrega un archivo que descarga cada pantalla que usa esta fuente.",
+      "add": "Agregar a la organización",
+      "adding": "Agregando…"
+    },
+    "uploadDialog": {
+      "title": "Subir archivos de fuente",
+      "description": "Suba un archivo TrueType (.ttf) u OpenType (.otf) por cada estilo, como Normal, Negrita y Cursiva. Los archivos con el mismo nombre de familia se unen en una familia.",
+      "filesLabel": "Archivos de fuente",
+      "filesHint": "Hasta 15 MB cada uno. No se aceptan colecciones de fuentes ni fuentes web (WOFF, WOFF2).",
+      "rights": "Mi organización tiene derecho a mostrar estas fuentes en sus pantallas.",
+      "submit_one": "Subir {{count}} archivo",
+      "submit_many": "Subir {{count}} archivos",
+      "submit_other": "Subir {{count}} archivos",
+      "uploading": "Subiendo…",
+      "stored": "Se agregó a {{family}}.",
+      "restricted": "Se agregó a {{family}}. Los indicadores de licencia de la fuente dicen que no se puede incrustar; confirme que su licencia permite mostrarla en pantallas."
+    },
+    "picker": {
+      "libraryGroup": "Fuentes de la organización",
+      "builtInGroup": "Fuentes integradas",
+      "add": "Agregar fuentes",
+      "manage": "Agregar o quitar fuentes de la organización",
+      "missing": "Fuente eliminada (usa la alternativa)",
+      "loadingFont": "Cargando fuente…"
     }
   }
 }

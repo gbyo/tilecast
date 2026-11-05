@@ -40,11 +40,23 @@ export default definePlayerPlugin({
   id: "countdown_bar",
   services: {
     required: ["player.clock@1", "player.surface@1"],
-    optional: [],
+    optional: ["player.fonts@1"],
   },
   activate(context) {
     const clock = context.services["player.clock@1"];
     const surface = context.services["player.surface@1"];
+    const fonts = context.services["player.fonts@1"];
+
+    // The bar asks the Player for its library family once per state. A
+    // family the Player cannot deliver answers null and the bar keeps the
+    // Player's own face, so a missing font never hides the countdown.
+    let familyById = new Map<string, string | null>();
+    const familyFor = (fontId: string | null): string | null => {
+      if (!fontId || !fonts) return null;
+      if (!familyById.has(fontId))
+        familyById.set(fontId, fonts.use(fontId)?.family ?? null);
+      return familyById.get(fontId) ?? null;
+    };
 
     let entries: RuntimeManifestEntry[] = [];
     let selected: TilecastActiveCountdownBar | null = null;
@@ -83,9 +95,13 @@ export default definePlayerPlugin({
       if (countdown) {
         // Padding and type size are resolved centrally so every player
         // agrees on what a contentPadding and textScale mean.
+        const family = familyFor(countdown.fontId);
         setStyles(bar, {
           "--tc-countdown-bar-padding": `${countdown.contentPadding}%`,
           "--tc-countdown-bar-font-size": `${countdown.fontSizePx}px`,
+          "--tc-countdown-bar-font-family": family
+            ? `${family}, var(--tc-font-ui, sans-serif)`
+            : "",
         });
       }
     };
@@ -159,6 +175,7 @@ export default definePlayerPlugin({
 
     return {
       stateChanged(next) {
+        familyById = new Map();
         entries = next.map((entry) => ({
           id: entry.id,
           type: entry.type,

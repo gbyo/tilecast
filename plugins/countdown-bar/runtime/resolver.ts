@@ -27,6 +27,8 @@ export interface TilecastCountdownBarPlugin {
     progressFill?: "none" | "drain" | null;
     contentPadding?: number | null;
     textScale?: number | null;
+    /** Organization font library family; absent for the Player's own face. */
+    fontId?: string | null;
     urgencyEnabled?: boolean;
     startingSoonSeconds?: number | null;
     urgentSeconds?: number | null;
@@ -59,6 +61,8 @@ export interface TilecastActiveCountdownBar {
   contentPadding: number;
   /** Type size in pixels, already scaled. */
   fontSizePx: number;
+  /** Library family ID the bar asks for, or null for the Player's own face. */
+  fontId: string | null;
 }
 
 export interface TilecastCountdownBarResolver {
@@ -67,6 +71,15 @@ export interface TilecastCountdownBarResolver {
     localNow: Date,
     clockOffsetMs?: number,
   ): TilecastActiveCountdownBar | null;
+}
+
+const FONT_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function libraryFontId(value: unknown): string | null {
+  return typeof value === "string" && FONT_ID.test(value)
+    ? value.toLowerCase()
+    : null;
 }
 
 export const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
@@ -282,6 +295,7 @@ export const tilecastCountdownBar: TilecastCountdownBarResolver = (() => {
             remainingFraction:
               plugin.config.progressFill === "drain" ? fraction : null,
             contentPadding: clampNumber(plugin.config.contentPadding, 4, 0, 40),
+            fontId: libraryFontId(plugin.config.fontId),
             fontSizePx:
               countdownFontSizePx(
                 plugin.config.heightPx,

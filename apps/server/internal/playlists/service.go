@@ -1903,6 +1903,7 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 	}
 	layoutDependencies := []layoutManifestDependency{}
 	layoutAssetVariants := map[uuid.UUID][]*uuid.UUID{}
+	layoutFontIDs := []uuid.UUID{}
 	for _, layoutID := range uniqueUUIDs(layoutIDs) {
 		item := ManifestLayout{ID: layoutID}
 		var raw []byte
@@ -1951,8 +1952,15 @@ func (s *Service) BuildManifest(ctx context.Context, screenID uuid.UUID) (Manife
 			if dependency.Type == "playlist" {
 				playlistIDs = append(playlistIDs, dependency.ID)
 			}
+			if dependency.Type == "font" {
+				layoutFontIDs = append(layoutFontIDs, dependency.ID)
+			}
 		}
 		rows.Close()
+		if err = s.projectLayoutFonts(ctx, &manifest, &item, layoutFontIDs); err != nil {
+			return Manifest{}, "", err
+		}
+		layoutFontIDs = layoutFontIDs[:0]
 		manifest.Layouts = append(manifest.Layouts, item)
 		if assignment.LayoutID != nil && layoutID == *assignment.LayoutID {
 			fallback := item
@@ -2861,6 +2869,65 @@ func mediaTypesImageOnly(types []string) bool {
 		}
 	}
 	return true
+}
+
+// projectLayoutFonts adds the library families a Layout's text uses. A
+// family removed since publication is skipped, so the text uses its
+// bundled fallback instead of blocking the whole manifest.
+func (s *Service) projectLayoutFonts(ctx context.Context, manifest *Manifest, item *ManifestLayout, fontIDs []uuid.UUID) error {
+	for _, fontID := range uniqueUUIDs(fontIDs) {
+		font, err := s.projectFont(ctx, manifest, fontID)
+		if err != nil {
+			return err
+		}
+		if font != nil {
+			item.Fonts = append(item.Fonts, *font)
+		}
+	}
+	return nil
+}
+
+// projectFont returns one library family with its deliverable faces and
+// adds each face file to the manifest assets once. It returns nil for a family that was removed or has no
+// ready face. Layout text and Plugin API v2 state share it, so a face is
+// one verified download however many consumers use it.
+func (s *Service) projectFont(ctx context.Context, manifest *Manifest, fontID uuid.UUID) (*ManifestFont, error) {
+	rows, err := s.db.Query(ctx, `SELECT f.family,ff.style,ff.weight_min,ff.weight_max,ff.unicode_range,v.asset_id,v.id,v.mime_type,encode(v.sha256,'hex'),v.file_size
+		FROM font_families f
+		JOIN font_faces ff ON ff.family_id=f.id
+		JOIN assets a ON a.id=ff.asset_id AND a.deleted_at IS NULL AND a.type='font' AND a.processing_status='ready'
+		JOIN asset_variants v ON v.asset_id=a.id AND v.kind='original' AND v.deleted_at IS NULL AND v.player_compatible=TRUE
+		WHERE f.id=$1 AND f.deleted_at IS NULL
+		ORDER BY ff.style,ff.weight_min,ff.subset,ff.id`, fontID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	font := ManifestFont{ID: fontID, Faces: []ManifestFontFace{}}
+	var assets []ManifestAsset
+	for rows.Next() {
+		var face ManifestFontFace
+		var asset ManifestAsset
+		if err = rows.Scan(&font.Family, &face.Style, &face.WeightMin, &face.WeightMax, &face.UnicodeRange, &asset.AssetID, &asset.VariantID, &asset.MIMEType, &asset.SHA256, &asset.FileSize); err != nil {
+			return nil, err
+		}
+		face.AssetID, face.VariantID = asset.AssetID, asset.VariantID
+		font.Faces = append(font.Faces, face)
+		asset.DownloadPath = "/api/v1/player/assets/" + asset.AssetID.String() + "/variants/" + asset.VariantID.String()
+		assets = append(assets, asset)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(font.Faces) == 0 {
+		return nil, nil
+	}
+	for _, asset := range assets {
+		if !manifestHasVariant(manifest, asset.AssetID, asset.VariantID) {
+			manifest.Assets = append(manifest.Assets, asset)
+		}
+	}
+	return &font, nil
 }
 
 func (s *Service) resolveImageVariant(ctx context.Context, assetID uuid.UUID) (ManifestAsset, error) {

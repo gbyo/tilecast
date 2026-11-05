@@ -8,6 +8,7 @@ const state: PlayerStateEntry = {
   version: 1,
   state: {},
   media: [],
+  fonts: [],
   validUntil: null,
 };
 
