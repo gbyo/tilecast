@@ -352,6 +352,10 @@ impl WebViewPort {
         self.ui.post(message).map_err(|_| RendererPortError::QueueUnavailable)
     }
 
+    fn post_all(&self, messages: Vec<Value>) -> Result<(), RendererPortError> {
+        self.ui.post_all(messages).map_err(|_| RendererPortError::QueueUnavailable)
+    }
+
     /// Posts a status surface outside any activation: the incompatible
     /// fallback. Surfaces carry no grants and expect no evidence.
     pub fn post_surface(&self, document: &Value) -> Result<(), RendererPortError> {
@@ -471,13 +475,18 @@ impl RendererPort for WebViewPort {
         if let Some(projection) = projection {
             message["projection"] = projection.clone();
         }
-        self.post(message)?;
-        self.post(serde_json::json!({
-            "type": "plugins",
-            "plugins": plugins,
-            "clockOffsetMs": clock_offset_ms,
-            "pluginFrames": plugin_table,
-        }))
+        // One queue reservation covers both messages. A full queue must not
+        // accept the presentation and drop the plugin state: the Runtime
+        // would keep mounting the previous plugin entries.
+        self.post_all(vec![
+            message,
+            serde_json::json!({
+                "type": "plugins",
+                "plugins": plugins,
+                "clockOffsetMs": clock_offset_ms,
+                "pluginFrames": plugin_table,
+            }),
+        ])
     }
 
     fn update_plugins(
