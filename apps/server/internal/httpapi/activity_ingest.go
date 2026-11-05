@@ -299,7 +299,7 @@ func (s *server) derivePlayerActivity(r *http.Request, tx pgx.Tx, screenID uuid.
 			UPDATE playback_sessions SET ended_at=$2,result='unknown',terminal_reason='heartbeat_gap',
 				actual_duration_ms=GREATEST(0,EXTRACT(EPOCH FROM ($2-started_at))*1000)::bigint,
 				metadata=metadata||'{"closedReason":"heartbeat_gap"}'::jsonb,updated_at=now()
-			WHERE screen_id=$1 AND ended_at IS NULL`, screenID, event.OccurredAt); err != nil {
+			WHERE screen_id=$1 AND ended_at IS NULL AND started_at<=$2`, screenID, event.OccurredAt); err != nil {
 			return err
 		}
 	}
