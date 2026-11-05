@@ -7218,6 +7218,11 @@ paths:
       operationId: updateWidgetPreviewImage
       parameters:
         - { $ref: "#/components/parameters/ResourceID" }
+        - in: query
+          name: renderedUpdatedAt
+          required: false
+          description: The Widget asset `updatedAt` the image was rendered from. When present and the Widget has changed since, the server refuses the image with 409 `widget_preview_stale`. Omit it to store unconditionally.
+          schema: { type: string, format: date-time }
       description: Stores the frozen image captured from the actual Widget editor render. Requires an editor-capable dashboard session and CSRF token. The server accepts only a 960 by 540 JPEG no larger than 500 KB; Widget configuration updates clear the prior snapshot so stale renders are never shown.
       requestBody:
         required: true
@@ -7227,6 +7232,10 @@ paths:
       responses:
         "204": { description: Widget preview image stored }
         "404": { description: Widget not found }
+        "409":
+          {
+            description: The Widget changed after the preview was rendered (`widget_preview_stale`),
+          }
         "413": { description: Preview image exceeds 500 KB }
         "422": { description: Preview is not a valid 960 by 540 JPEG }
   /api/v1/widgets/{id}/duplicate:
