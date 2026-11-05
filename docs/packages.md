@@ -488,6 +488,12 @@ delete the content, then remove the package. Update answers the same
 error when the new version drops a contribution that content still
 uses; rollback answers it when the restored version would.
 
+An update activates only the installation that its check observed.
+`Activate` receives that installation digest and compares it again after
+it locks the installation row. If a removal or another update ran while
+the update prepared its artifact, the update answers `update_check_expired`
+and changes nothing. A removed package stays removed.
+
 Reads (`GET /api/v1/packages`, `GET /api/v1/packages/{packageId}`)
 answer any signed-in role. Resolution, install, update, rollback, and
 removal require Owner or Administrator with a CSRF token. The store
