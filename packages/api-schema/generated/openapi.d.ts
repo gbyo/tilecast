@@ -2221,6 +2221,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/player/browser/binding": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Find the active slot and binding registered for a browser installation ID and device public key. A browser uses this after it loses an enrollment response. The response carries identifiers only and grants no session; a session still needs a device-key signature through challenge and renew. Rate limited; no-store. */
+    post: operations["lookupBrowserPlayerBinding"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/player/browser/challenge": {
     parameters: {
       query?: never;
@@ -6166,6 +6183,9 @@ export interface components {
       /** Format: uuid */
       pairingSessionId: string;
       enrollmentToken: string;
+      registration: components["schemas"]["BrowserRegistration"];
+    };
+    BrowserBindingLookupRequest: {
       registration: components["schemas"]["BrowserRegistration"];
     };
     BrowserBindingRequest: {
@@ -18705,6 +18725,53 @@ export interface operations {
       };
       /** @description Token already consumed */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Rate limited */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  lookupBrowserPlayerBinding: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BrowserBindingLookupRequest"];
+      };
+    };
+    responses: {
+      /** @description Active slot and binding for this device key */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            data: components["schemas"]["BrowserBindingRequest"];
+          };
+        };
+      };
+      /** @description No active binding for this device key */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Same-origin HTTPS required */
+      403: {
         headers: {
           [name: string]: unknown;
         };
