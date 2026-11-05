@@ -166,12 +166,16 @@ describe("PlaylistTimeline row actions", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "Move" }));
     fireEvent.click(await screen.findByRole("menuitem", { name: /Move up/ }));
     expect(handlers.onMove).toHaveBeenCalledWith("b", -1);
+    // Reopening while the first menu is still closing can hit a stale item.
+    await vi.waitFor(() =>
+      expect(screen.queryByRole("menuitem")).not.toBeInTheDocument(),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Actions for Beta" }));
     fireEvent.click(
       await screen.findByRole("menuitem", { name: /Remove from playlist/ }),
     );
-    expect(handlers.onRemove).toHaveBeenCalledWith("b");
+    await vi.waitFor(() => expect(handlers.onRemove).toHaveBeenCalledWith("b"));
   });
 
   it("only offers Inspect when the timeline cannot be edited", async () => {
