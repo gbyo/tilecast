@@ -116,6 +116,8 @@ The default hidden sequence is Back, Back, Up, Down, Select. The first use creat
 
 Device-owner provisioning can require a factory reset plus ADB, QR, or firmware-specific enrollment during initial setup. Tilecast never attempts to silently convert an existing consumer TV. Installer and Settings access remain allowed only during deliberate update or maintenance flows, and kiosk state is restored afterward when the platform supports it.
 
+When the reliability mode is Managed Kiosk and `managed_kiosk.block_overlays` is true, the Player calls `Window.setHideOverlayWindows(true)` so Android hides application overlay windows while Tilecast is visible. The call needs Android 12 (API 31) or later and the `HIDE_OVERLAY_WINDOWS` permission. On earlier Android versions the setting has no effect. It does not hide system dialogs or overlays from the system itself.
+
 ## Telemetry
 
 Players report bounded telemetry alongside heartbeats: latest gauge values and counter deltas since the previous sample, on a fixed cadence. Raw high-frequency samples are never uploaded.

@@ -28,6 +28,9 @@ data class ReliabilityStatus(
     val maintenanceUntil: Instant? = null,
 )
 
+internal fun shouldHideOverlayWindows(reliabilityMode: String, blockOverlays: Boolean): Boolean =
+    reliabilityMode == "managed_kiosk" && blockOverlays
+
 internal fun isFireTvDevice(
     manufacturer: String,
     brand: String,
@@ -101,6 +104,7 @@ class ReliabilityController(private val context: Context) {
         } else {
             activity.window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_VISIBLE
         }
+        val overlaysHidden = applyOverlayBlocking(activity, platform)
         val capability = kioskCapability(activity)
         var effective = "standard"
         if (
@@ -120,6 +124,7 @@ class ReliabilityController(private val context: Context) {
             .putBoolean("keep-screen-on", keep)
             .putBoolean("immersive", platform.reliability.immersiveMode && active)
             .putBoolean("fire-tv-sleep-blocked", fireTv)
+            .putBoolean("overlays-hidden", overlaysHidden)
             .apply()
         return ReliabilityStatus(
             platform.reliability.mode,
@@ -137,6 +142,17 @@ class ReliabilityController(private val context: Context) {
             store.getBoolean("safe-mode", false),
             maintenanceUntil(),
         )
+    }
+
+    // Window.setHideOverlayWindows needs Android 12 (API 31) and the normal
+    // HIDE_OVERLAY_WINDOWS permission; earlier releases keep overlays visible.
+    private fun applyOverlayBlocking(activity: Activity, platform: CorePlatformConfig): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+        val hide = shouldHideOverlayWindows(platform.reliability.mode, platform.managedKiosk.blockOverlays)
+        return runCatching {
+            activity.window.setHideOverlayWindows(hide)
+            hide
+        }.getOrDefault(false)
     }
 
     fun requestSleep(): String {
