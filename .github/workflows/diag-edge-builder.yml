@@ -1,0 +1,43 @@
+name: Diagnose Edge builder image (temporary)
+
+# Temporary. Runs the Edge release builder image build on each architecture and
+# reports progress as annotations. Remove before merging.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x86_64, aarch64]
+    runs-on: ${{ matrix.arch == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the builder image with a monitor
+        run: |
+          set -u
+          log="$RUNNER_TEMP/builder.log"
+          : > "$log"
+          echo "::notice title=env::$(uname -m) cpus=$(nproc) $(free -m | awk '/Mem:/{print "mem_mb="$2" avail_mb="$7}') $(df -m / | awk 'NR==2{print "disk_free_mb="$4}')"
+          (
+            while true; do
+              sleep 45
+              echo "::notice title=progress::$(date +%H:%M:%S) $(free -m | awk '/Mem:/{print "avail_mb="$7}') $(df -m / | awk 'NR==2{print "disk_free_mb="$4}') load=$(cut -d' ' -f1 /proc/loadavg) :: $(tail -n 1 "$log" | cut -c1-160)"
+            done
+          ) &
+          monitor=$!
+          start=$(date +%s)
+          docker build --progress=plain -t tilecast-edge-release-builder \
+            -f apps/edge/release/Dockerfile.builder apps/edge/release >> "$log" 2>&1
+          status=$?
+          kill "$monitor" 2>/dev/null || true
+          echo "::notice title=result::exit=$status seconds=$(( $(date +%s) - start ))"
+          if [ "$status" -ne 0 ]; then
+            echo "::error title=build failed::$(tail -n 25 "$log" | tr '\n' '|' | cut -c1-1500)"
+          fi
+          exit "$status"
