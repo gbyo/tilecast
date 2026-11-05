@@ -51,6 +51,8 @@ When active hours begin, the Player Runtime plays the Tilecast startup animation
 
 Android Power Assist uses the Android device’s sleep and wake behavior. Compatible devices may relay HDMI-CEC standby or One Touch Play commands to the connected TV, but Tilecast does **not** send raw HDMI-CEC commands from Android and cannot infer that the physical TV changed power or input merely because the Android process resumed.
 
+The Android Player reports a Power Assist command as succeeded only when Android took the action: a device-policy or Accessibility lock request, a queued Accessibility lock, or a launched wake. It reports failed, with the result code, when the action was unsupported (`sleep_unsupported`, `black_screen_only`, `fire_tv_sleep_blocked`), deferred (`maintenance_session_deferred`, `player_update_deferred`), or blocked (`wake_launch_blocked`).
+
 Linux Players have a separate optional [Display Control](display-control.md)
 provider system. When Linux detects `cec-ctl` or `ddcutil` and the Player has
 the required device permissions, Studio can expose only the capabilities that
