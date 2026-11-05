@@ -38,7 +38,10 @@ func staticHandler(static fs.FS) http.Handler {
 			http.ServeFileFS(w, r, static, name)
 			return
 		}
-		if strings.HasPrefix(name, "assets/") || name == "assets" {
+		// A missing build file must not fall back to the SPA document. The
+		// Studio Media page lives at /assets, so only paths that name a file
+		// (have an extension) are treated as missing build assets.
+		if strings.HasPrefix(name, "assets/") && path.Ext(name) != "" {
 			http.NotFound(w, r)
 			return
 		}
