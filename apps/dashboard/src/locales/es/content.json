@@ -1088,6 +1088,10 @@
   },
   "dataSources": {
     "deleteSuccess": "Fuente de datos eliminada.",
+    "saved": {
+      "created": "Fuente de datos creada.",
+      "updated": "Fuente de datos actualizada."
+    },
     "duplicated": "Fuente de datos duplicada.",
     "calendar": {
       "addCalendar": "Agregar calendario",
